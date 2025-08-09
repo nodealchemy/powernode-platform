@@ -5,7 +5,7 @@ import { store } from './store';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState, AppDispatch } from './store';
 import { getCurrentUser, refreshAccessToken, clearAuth, forceTokenClear } from './store/slices/authSlice';
-import { isTokenInvalidError, clearStoredTokens, hasStoredTokens, isValidJWTFormat } from './utils/tokenUtils';
+import { isTokenInvalidError, isValidJWTFormat } from './utils/tokenUtils';
 
 // Components
 import { ProtectedRoute } from './components/common/ProtectedRoute';

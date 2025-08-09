@@ -50,6 +50,15 @@ Rails.application.routes.draw do
         post :activate_account, on: :member
       end
 
+      # Payment Gateways management (admin only)
+      resources :payment_gateways, only: [ :index, :show, :update ] do
+        member do
+          post :test_connection
+          get :webhook_events
+          get :transactions
+        end
+      end
+
       # Payment-related endpoints
       resources :payment_methods, except: [ :show ]
       resources :subscriptions

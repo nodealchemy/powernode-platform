@@ -67,6 +67,10 @@ module Authentication
     render_forbidden("Insufficient role") unless current_user&.has_role?(role_name)
   end
 
+  def require_admin!
+    render_forbidden("Admin access required") unless current_user&.admin? || current_user&.owner?
+  end
+
   def render_unauthorized(message = "Unauthorized")
     render json: { success: false, error: message }, status: :unauthorized
   end

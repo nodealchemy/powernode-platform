@@ -12,6 +12,7 @@ import { PlansPage } from './PlansPage';
 import { BillingPage } from './BillingPage';
 import { SettingsPage } from './SettingsPage';
 import { AdminSettingsPage } from './AdminSettingsPage';
+import PaymentGatewaysPage from './PaymentGatewaysPage';
 
 // Dashboard overview page
 const DashboardOverview: React.FC = () => {
@@ -95,6 +96,7 @@ export const DashboardPage: React.FC = () => {
         <Route path="/billing" element={<BillingPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/admin-settings" element={<AdminSettingsPage />} />
+        <Route path="/payment-gateways" element={<PaymentGatewaysPage />} />
       </Routes>
     </DashboardLayout>
   );

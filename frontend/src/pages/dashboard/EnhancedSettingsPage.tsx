@@ -25,7 +25,7 @@ export const EnhancedSettingsPage: React.FC = () => {
     password_confirmation: ''
   });
 
-  const [accountForm, setAccountForm] = useState({
+  const [, setAccountForm] = useState({
     name: '',
     billing_email: '',
     company_size: '',

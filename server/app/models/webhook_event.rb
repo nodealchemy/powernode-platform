@@ -2,6 +2,7 @@ class WebhookEvent < ApplicationRecord
   include AASM
 
   belongs_to :account, optional: true
+  belongs_to :payment, optional: true
 
   validates :provider, presence: true, inclusion: { in: %w[stripe paypal] }
   validates :event_type, presence: true
