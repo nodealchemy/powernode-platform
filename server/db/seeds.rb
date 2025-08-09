@@ -205,4 +205,45 @@ puts "- Starter: $#{starter_plan.price_cents / 100.0}/month (#{starter_plan.tria
 puts "- Professional: $#{professional_plan.price_cents / 100.0}/month (#{professional_plan.trial_days} day trial)"
 puts "- Enterprise: $#{enterprise_plan.price_cents / 100.0}/month (#{enterprise_plan.trial_days} day trial)"
 
-puts "Seeding completed!"
+# Create Admin account and user with Administrator plan
+admin_account = Account.find_or_create_by!(name: 'Powernode Administration') do |account|
+  account.subdomain = 'admin'
+  account.status = 'active'
+end
+
+# Create subscription for admin account with Administrator plan
+admin_subscription = Subscription.find_or_create_by!(account: admin_account) do |subscription|
+  subscription.plan = administrator_plan
+  subscription.status = 'active'
+  subscription.current_period_start = Time.current
+  subscription.current_period_end = 1.year.from_now
+  subscription.trial_end = nil
+end
+
+# Create admin user
+admin_user = User.find_or_create_by!(email: 'admin@powernode.dev') do |user|
+  user.account = admin_account
+  user.first_name = 'System'
+  user.last_name = 'Administrator'
+  user.password = 'AdminStrong2024!@#$'
+  user.password_confirmation = 'AdminStrong2024!@#$'
+  user.status = 'active'
+  user.email_verified = true
+  user.email_verified_at = Time.current
+  user.last_login_at = Time.current
+end
+
+# Assign Owner role to admin user
+admin_user.assign_role(owner_role) unless admin_user.roles.include?(owner_role)
+
+puts ""
+puts 'Created Admin Account and User:'
+puts "- Account: #{admin_account.name}"
+puts "- Subdomain: #{admin_account.subdomain}"
+puts "- Subscription: #{admin_subscription.plan.name} plan"
+puts "- Admin User: #{admin_user.email}"
+puts '- Admin Password: AdminStrong2024!@#$'
+puts '- Admin Role: Owner'
+puts '- Status: Active'
+
+puts "\nSeeding completed!"

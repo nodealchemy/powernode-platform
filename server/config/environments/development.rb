@@ -60,7 +60,23 @@ Rails.application.configure do
   config.action_view.annotate_rendered_view_with_filenames = true
 
   # Uncomment if you wish to allow Action Cable access from any origin.
-  # config.action_cable.disable_request_forgery_protection = true
+  # Configure ActionCable to allow local network and development origins
+  config.action_cable.disable_request_forgery_protection = true
+  config.action_cable.allowed_request_origins = [
+    # Local development
+    "http://localhost:3001",
+    "http://127.0.0.1:3001",
+    "http://powernode.dev:3001",
+    # Local network patterns
+    /http:\/\/192\.168\.\d{1,3}\.\d{1,3}:300[0-9]/,
+    /http:\/\/10\.\d{1,3}\.\d{1,3}\.\d{1,3}:300[0-9]/,
+    /http:\/\/172\.(1[6-9]|2[0-9]|3[0-1])\.\d{1,3}\.\d{1,3}:300[0-9]/,
+    # Development domains
+    /http:\/\/[^\/]+\.local:300[0-9]/,
+    /http:\/\/[^\/]+\.dev:300[0-9]/,
+    /http:\/\/[^\/]+\.test:300[0-9]/,
+    /http:\/\/[^\/]+\.ipnode\.net:300[0-9]/
+  ]
 
   # Raise error when a before_action's only/except options reference missing actions.
   config.action_controller.raise_on_missing_callback_actions = true

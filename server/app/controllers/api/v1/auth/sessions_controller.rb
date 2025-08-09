@@ -178,13 +178,13 @@ class Api::V1::Auth::SessionsController < ApplicationController
     {
       id: user.id,
       email: user.email,
-      first_name: user.first_name,
-      last_name: user.last_name,
-      full_name: user.full_name,
+      firstName: user.first_name,
+      lastName: user.last_name,
+      fullName: user.full_name,
       role: user.roles.first&.name&.downcase || 'member',
       status: user.status,
-      email_verified: user.email_verified?,
-      last_login_at: user.last_login_at,
+      emailVerified: user.email_verified?,
+      lastLoginAt: user.last_login_at,
       account: account_data(user.account)
     }
   end

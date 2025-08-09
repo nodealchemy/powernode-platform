@@ -4,7 +4,14 @@ import { useSelector } from 'react-redux';
 import { RootState } from '../../store';
 import { DashboardLayout } from '../../components/dashboard/DashboardLayout';
 
-// Dashboard sub-pages
+// Import all dashboard pages
+import { AnalyticsPage } from './AnalyticsPage';
+import { SubscriptionsPage } from './SubscriptionsPage';
+import { CustomersPage } from './CustomersPage';
+import { BillingPage } from './BillingPage';
+import { SettingsPage } from './SettingsPage';
+
+// Dashboard overview page
 const DashboardOverview: React.FC = () => {
   const { user } = useSelector((state: RootState) => state.auth);
   
@@ -79,7 +86,11 @@ export const DashboardPage: React.FC = () => {
     <DashboardLayout>
       <Routes>
         <Route path="/" element={<DashboardOverview />} />
-        {/* Additional dashboard routes will be added here */}
+        <Route path="/analytics" element={<AnalyticsPage />} />
+        <Route path="/subscriptions" element={<SubscriptionsPage />} />
+        <Route path="/customers" element={<CustomersPage />} />
+        <Route path="/billing" element={<BillingPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
       </Routes>
     </DashboardLayout>
   );

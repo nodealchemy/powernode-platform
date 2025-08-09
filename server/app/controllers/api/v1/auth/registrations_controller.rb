@@ -72,12 +72,12 @@ class Api::V1::Auth::RegistrationsController < ApplicationController
     {
       id: user.id,
       email: user.email,
-      first_name: user.first_name,
-      last_name: user.last_name,
-      full_name: user.full_name,
+      firstName: user.first_name,
+      lastName: user.last_name,
+      fullName: user.full_name,
       role: user.roles.first&.name&.downcase || 'member',
       status: user.status,
-      email_verified: user.email_verified?
+      emailVerified: user.email_verified?
     }
   end
 
