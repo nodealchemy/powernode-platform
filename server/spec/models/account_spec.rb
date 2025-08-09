@@ -112,8 +112,7 @@ RSpec.describe Account, type: :model do
   describe "#owner" do
     it "returns the owner user" do
       account = create(:account)
-      owner = create(:user, account: account)
-      create(:user_role, user: owner, role: create(:role, name: "Owner"))
+      owner = create(:user, :owner, account: account)
 
       expect(account.owner).to eq(owner)
     end

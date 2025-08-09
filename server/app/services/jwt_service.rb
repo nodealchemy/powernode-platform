@@ -22,7 +22,7 @@ class JwtService
         user_id: user.id,
         account_id: user.account_id,
         email: user.email,
-        role: user.role,
+        role: user.roles.first&.name&.downcase || 'member',
         type: "access"
       }
 

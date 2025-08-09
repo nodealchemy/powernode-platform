@@ -75,7 +75,7 @@ class Api::V1::Auth::RegistrationsController < ApplicationController
       first_name: user.first_name,
       last_name: user.last_name,
       full_name: user.full_name,
-      role: user.role,
+      role: user.roles.first&.name&.downcase || 'member',
       status: user.status,
       email_verified: user.email_verified?
     }
