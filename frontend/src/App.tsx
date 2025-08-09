@@ -4,7 +4,8 @@ import { Provider } from 'react-redux';
 import { store } from './store';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState, AppDispatch } from './store';
-import { getCurrentUser } from './store/slices/authSlice';
+import { getCurrentUser, refreshAccessToken, clearAuth, forceTokenClear } from './store/slices/authSlice';
+import { isTokenInvalidError, clearStoredTokens, hasStoredTokens, isValidJWTFormat } from './utils/tokenUtils';
 
 // Components
 import { ProtectedRoute } from './components/common/ProtectedRoute';
@@ -25,27 +26,96 @@ import './App.css';
 
 const AppContent: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
-  const { isAuthenticated, accessToken, user } = useSelector((state: RootState) => state.auth);
+  const { isAuthenticated, accessToken, refreshToken, user } = useSelector((state: RootState) => state.auth);
   const [initializing, setInitializing] = React.useState(true);
+  const [showAuthFallback, setShowAuthFallback] = React.useState(false);
 
   useEffect(() => {
     // Try to restore user session if we have a token
     const initializeAuth = async () => {
-      if (accessToken && !user) {
-        try {
-          await dispatch(getCurrentUser()).unwrap();
-        } catch (error) {
-          console.error('Failed to restore user session:', error);
+      // Set a timeout to prevent infinite loading
+      const timeoutId = setTimeout(() => {
+        console.warn('Authentication initialization timed out');
+        setShowAuthFallback(true);
+      }, 5000); // 5 second timeout, then show fallback
+
+      try {
+        // First, validate token format before attempting API calls
+        if (accessToken && !isValidJWTFormat(accessToken)) {
+          console.warn('Invalid access token format detected, clearing tokens');
+          dispatch(forceTokenClear());
+          return;
         }
+        
+        if (refreshToken && !isValidJWTFormat(refreshToken)) {
+          console.warn('Invalid refresh token format detected, clearing tokens');
+          dispatch(forceTokenClear());
+          return;
+        }
+        
+        if (accessToken && !user) {
+          try {
+            // First try to get current user with existing token
+            await dispatch(getCurrentUser()).unwrap();
+          } catch (error) {
+            console.error('Failed to restore user session with access token:', error);
+            
+            // Check if this error indicates invalid tokens that should be cleared immediately
+            if (isTokenInvalidError(error)) {
+              console.log('Detected invalid token error, clearing all auth data');
+              dispatch(forceTokenClear());
+              return;
+            }
+            
+            // If that fails, try to refresh the access token
+            if (refreshToken) {
+              try {
+                await dispatch(refreshAccessToken()).unwrap();
+                // After successful refresh, try to get user again
+                await dispatch(getCurrentUser()).unwrap();
+              } catch (refreshError: any) {
+                console.error('Failed to refresh token and restore session:', refreshError);
+                
+                // Check if this is a token invalidity error
+                if (isTokenInvalidError(refreshError)) {
+                  console.log('Detected invalid token signatures during refresh, clearing all auth data');
+                  dispatch(forceTokenClear());
+                } else {
+                  // Clear all auth data if both attempts fail
+                  dispatch(clearAuth());
+                }
+              }
+            } else {
+              // No refresh token available, clear auth data
+              dispatch(clearAuth());
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Unexpected error during auth initialization:', error);
+        dispatch(clearAuth());
+      } finally {
+        clearTimeout(timeoutId);
+        setInitializing(false);
       }
-      setInitializing(false);
     };
 
     initializeAuth();
-  }, [dispatch, accessToken, user]);
+  }, [dispatch, accessToken, refreshToken, user]);
+
+  const handleAuthFallback = () => {
+    dispatch(clearAuth());
+    setInitializing(false);
+  };
 
   if (initializing) {
-    return <LoadingSpinner />;
+    return (
+      <LoadingSpinner 
+        message={showAuthFallback ? "Having trouble loading..." : "Restoring your session..."}
+        showAuthFallback={showAuthFallback}
+        onAuthFallback={handleAuthFallback}
+      />
+    );
   }
 
   return (

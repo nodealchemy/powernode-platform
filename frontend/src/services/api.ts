@@ -93,7 +93,6 @@ class APIClient {
             } else {
               // Refresh failed, logout user
               store.dispatch(clearAuth());
-              window.location.href = '/login';
               return Promise.reject(error);
             }
           } catch (refreshError) {
@@ -102,7 +101,6 @@ class APIClient {
             this.failedQueue = [];
             
             store.dispatch(clearAuth());
-            window.location.href = '/login';
             return Promise.reject(refreshError);
           } finally {
             this.isRefreshing = false;

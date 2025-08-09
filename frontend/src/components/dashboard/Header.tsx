@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { User } from '../../store/slices/authSlice';
+import { WebSocketStatusIndicator } from '../common/WebSocketStatusIndicator';
 
 interface HeaderProps {
   user: User | null;
@@ -27,12 +28,8 @@ export const Header: React.FC<HeaderProps> = ({ user, onLogout, onToggleSidebar 
 
         {/* Right side */}
         <div className="flex items-center space-x-4">
-          {/* Notifications */}
-          <button className="p-2 text-gray-400 hover:text-gray-500">
-            <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-5 5v-5zM10.5 3.5L6 12h4l.5 5.5L15 9h-4l-.5-5.5z" />
-            </svg>
-          </button>
+          {/* WebSocket Connection Status */}
+          <WebSocketStatusIndicator />
 
           {/* User menu */}
           <div className="relative">

@@ -88,7 +88,18 @@ export const refreshAccessToken = createAsyncThunk(
       const response = await authAPI.refreshToken(refreshToken);
       return response.data;
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.error || 'Token refresh failed');
+      const errorMessage = error.response?.data?.error || error.response?.data?.message || 'Token refresh failed';
+      
+      // Check for signature verification failure or other token invalidity issues
+      if (errorMessage.includes('Signature verification failed') || 
+          errorMessage.includes('Invalid token') ||
+          errorMessage.includes('Invalid refresh token')) {
+        // These errors indicate the token is fundamentally invalid (wrong secret, corrupted, etc.)
+        // Clear tokens immediately rather than retrying
+        return rejectWithValue({ clearTokens: true, message: errorMessage });
+      }
+      
+      return rejectWithValue({ clearTokens: false, message: errorMessage });
     }
   }
 );
@@ -100,7 +111,17 @@ export const getCurrentUser = createAsyncThunk(
       const response = await authAPI.getCurrentUser();
       return response.data;
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.error || 'Failed to get current user');
+      const errorMessage = error.response?.data?.error || error.response?.data?.message || 'Failed to get current user';
+      
+      // Check for token invalidity issues that require immediate token clearance
+      if (error.response?.status === 401 && 
+          (errorMessage.includes('Invalid token') || 
+           errorMessage.includes('Signature verification failed') ||
+           errorMessage.includes('Token has been blacklisted'))) {
+        return rejectWithValue({ clearTokens: true, message: errorMessage });
+      }
+      
+      return rejectWithValue({ clearTokens: false, message: errorMessage });
     }
   }
 );
@@ -133,6 +154,16 @@ const authSlice = createSlice({
       state.resendingVerification = false;
       state.resendVerificationSuccess = false;
       state.resendCooldown = 0;
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+    },
+    forceTokenClear: (state) => {
+      // Force clear tokens immediately, useful for handling invalid signatures
+      state.user = null;
+      state.accessToken = null;
+      state.refreshToken = null;
+      state.isAuthenticated = false;
+      state.error = 'Session expired. Please log in again.';
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
     },
@@ -204,11 +235,15 @@ const authSlice = createSlice({
         localStorage.setItem('accessToken', action.payload.access_token);
         localStorage.setItem('refreshToken', action.payload.refresh_token);
       })
-      .addCase(refreshAccessToken.rejected, (state) => {
+      .addCase(refreshAccessToken.rejected, (state, action) => {
+        const payload = action.payload as { clearTokens: boolean; message: string } | string;
+        
+        // Always clear tokens on refresh failure, but handle enhanced error info if available
         state.user = null;
         state.accessToken = null;
         state.refreshToken = null;
         state.isAuthenticated = false;
+        state.error = typeof payload === 'object' ? payload.message : (payload || 'Token refresh failed');
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
       })
@@ -218,9 +253,17 @@ const authSlice = createSlice({
         state.user = action.payload.user;
         state.isAuthenticated = true;
       })
-      .addCase(getCurrentUser.rejected, (state) => {
+      .addCase(getCurrentUser.rejected, (state, action) => {
+        const payload = action.payload as { clearTokens: boolean; message: string } | string;
+        
+        // Clear all authentication data when getCurrentUser fails
         state.user = null;
+        state.accessToken = null;
+        state.refreshToken = null;
         state.isAuthenticated = false;
+        state.error = typeof payload === 'object' ? payload.message : (payload || 'Failed to get current user');
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
       })
       
       // Resend verification email
@@ -241,5 +284,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { clearError, clearAuth, clearResendVerificationSuccess, decrementResendCooldown } = authSlice.actions;
+export const { clearError, clearAuth, forceTokenClear, clearResendVerificationSuccess, decrementResendCooldown } = authSlice.actions;
 export default authSlice.reducer;
