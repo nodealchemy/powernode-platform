@@ -50,6 +50,9 @@ Rails.application.routes.draw do
     post "paypal", to: "paypal#handle"
   end
 
+  # ActionCable WebSocket endpoint
+  mount ActionCable.server => '/cable'
+
   # Root route for API
   root to: proc { [ 200, {}, [ "Powernode API - Version 1.0" ] ] }
 end

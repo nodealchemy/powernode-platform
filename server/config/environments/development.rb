@@ -63,19 +63,29 @@ Rails.application.configure do
   # Configure ActionCable to allow local network and development origins
   config.action_cable.disable_request_forgery_protection = true
   config.action_cable.allowed_request_origins = [
-    # Local development
+    # Local development (http and ws/wss)
     "http://localhost:3001",
     "http://127.0.0.1:3001",
     "http://powernode.dev:3001",
+    "ws://localhost:3001",
+    "ws://127.0.0.1:3001",
+    "ws://powernode.dev:3001",
     # Local network patterns
     /http:\/\/192\.168\.\d{1,3}\.\d{1,3}:300[0-9]/,
     /http:\/\/10\.\d{1,3}\.\d{1,3}\.\d{1,3}:300[0-9]/,
     /http:\/\/172\.(1[6-9]|2[0-9]|3[0-1])\.\d{1,3}\.\d{1,3}:300[0-9]/,
+    /ws:\/\/192\.168\.\d{1,3}\.\d{1,3}:300[0-9]/,
+    /ws:\/\/10\.\d{1,3}\.\d{1,3}\.\d{1,3}:300[0-9]/,
+    /ws:\/\/172\.(1[6-9]|2[0-9]|3[0-1])\.\d{1,3}\.\d{1,3}:300[0-9]/,
     # Development domains
     /http:\/\/[^\/]+\.local:300[0-9]/,
     /http:\/\/[^\/]+\.dev:300[0-9]/,
     /http:\/\/[^\/]+\.test:300[0-9]/,
-    /http:\/\/[^\/]+\.ipnode\.net:300[0-9]/
+    /http:\/\/[^\/]+\.ipnode\.net:300[0-9]/,
+    /ws:\/\/[^\/]+\.local:300[0-9]/,
+    /ws:\/\/[^\/]+\.dev:300[0-9]/,
+    /ws:\/\/[^\/]+\.test:300[0-9]/,
+    /ws:\/\/[^\/]+\.ipnode\.net:300[0-9]/
   ]
 
   # Raise error when a before_action's only/except options reference missing actions.
