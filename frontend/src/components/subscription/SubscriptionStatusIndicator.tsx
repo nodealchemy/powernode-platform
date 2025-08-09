@@ -11,7 +11,8 @@ export const SubscriptionStatusIndicator: React.FC<SubscriptionStatusIndicatorPr
   subscription,
   showDetails = false,
 }) => {
-  const { checkSubscriptionStatus, getDaysUntilExpiry, isTrialEnding, isExpiringSoon } = useSubscriptionLifecycle();
+  const { checkSubscriptionStatus, getDaysUntilExpiry } = useSubscriptionLifecycle();
+  // TODO: Use isTrialEnding and isExpiringSoon for enhanced status indicators
   
   const status = checkSubscriptionStatus(subscription);
   const daysUntilExpiry = getDaysUntilExpiry(subscription);

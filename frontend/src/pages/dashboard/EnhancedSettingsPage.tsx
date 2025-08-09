@@ -93,11 +93,7 @@ export const EnhancedSettingsPage: React.FC = () => {
     enabled: true
   });
 
-  useEffect(() => {
-    loadSettings();
-  }, []);
-
-  const loadSettings = async () => {
+  const loadSettings = useCallback(async () => {
     try {
       setLoading(true);
       const settingsData = await settingsApi.getSettings();
@@ -126,7 +122,11 @@ export const EnhancedSettingsPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
+
+  useEffect(() => {
+    loadSettings();
+  }, [loadSettings]);
 
   const showSuccess = (message: string) => {
     setSuccessMessage(message);

@@ -56,7 +56,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  // const [lastUpdated, setLastUpdated] = useState<Date | null>(null); // TODO: Display last updated timestamp
   
   // Date range state
   const [dateRange, setDateRange] = useState<{
@@ -71,7 +71,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
   const [activeTab, setActiveTab] = useState<'overview' | 'revenue' | 'growth' | 'churn' | 'customers' | 'cohorts'>('overview');
 
   // Load analytics data
-  const loadAnalyticsData = async (showLoading = true) => {
+  const loadAnalyticsData = useCallback(async (showLoading = true) => {
     try {
       if (showLoading) {
         setLoading(true);
@@ -160,7 +160,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
       }
 
       setData(analyticsData);
-      setLastUpdated(new Date());
+      // setLastUpdated(new Date()); // TODO: Display last updated timestamp
       console.log('Analytics data loaded successfully:', analyticsData);
     } catch (err) {
       console.error('Failed to load analytics data:', err);
@@ -168,12 +168,12 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [dateRange]);
 
   // Initial data load
   useEffect(() => {
     loadAnalyticsData();
-  }, [dateRange]);
+  }, [dateRange, loadAnalyticsData]);
 
   // Auto-refresh data when connected via WebSocket
   useEffect(() => {
@@ -190,7 +190,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
 
       return () => clearInterval(interval);
     }
-  }, [isConnected, data, requestAnalyticsUpdate]);
+  }, [isConnected, data, requestAnalyticsUpdate, loadAnalyticsData]);
 
   const handleDateRangeChange = (newDateRange: { startDate: Date; endDate: Date }) => {
     setDateRange(newDateRange);

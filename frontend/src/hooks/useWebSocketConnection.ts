@@ -276,14 +276,14 @@ export const useWebSocketConnection = (): UseWebSocketConnectionReturn => {
     return () => {
       disconnect();
     };
-  }, [user?.account?.id, accessToken]); // Depend on account ID and token
+  }, [user?.account?.id, accessToken, connect, disconnect]); // Depend on account ID, token, and functions
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
       disconnect();
     };
-  }, []);
+  }, [disconnect]);
 
   return {
     ...state,

@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useSelector } from 'react-redux';
-import { RootState } from '../../store';
-import { adminSettingsApi, AdminOverviewData, SystemMetrics } from '../../services/adminSettingsApi';
+// import { useSelector } from 'react-redux';
+// import { RootState } from '../../store';
+// TODO: Use for user-specific admin checks
+import { adminSettingsApi, AdminOverviewData } from '../../services/adminSettingsApi';
+// TODO: Use SystemMetrics type for detailed metrics display
 
 export const AdminSettingsOverviewPage: React.FC = () => {
-  const { user } = useSelector((state: RootState) => state.auth);
+  // const { user } = useSelector((state: RootState) => state.auth); // TODO: Use for user-specific admin checks
   const [data, setData] = useState<AdminOverviewData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

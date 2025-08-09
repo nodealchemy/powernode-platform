@@ -26,7 +26,8 @@ interface CustomerUpdateMessage {
 
 export const useCustomerWebSocket = () => {
   const { user, accessToken } = useSelector((state: RootState) => state.auth);
-  const { isConnected, status, reconnectAttempts, connect: globalConnect, disconnect: globalDisconnect } = useWebSocketConnection();
+  const { isConnected, status, reconnectAttempts } = useWebSocketConnection();
+  // TODO: Use globalConnect and globalDisconnect for global connection management
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 

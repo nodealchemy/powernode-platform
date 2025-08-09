@@ -1,7 +1,8 @@
 import { useEffect, useCallback, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState, AppDispatch } from '../store';
-import { fetchSubscriptions, setCurrentSubscription } from '../store/slices/subscriptionSlice';
+import { fetchSubscriptions } from '../store/slices/subscriptionSlice';
+// TODO: Use setCurrentSubscription for real-time subscription updates
 import { useWebSocketConnection } from './useWebSocketConnection';
 import { safeWebSocketSend } from '../utils/websocketUtils';
 

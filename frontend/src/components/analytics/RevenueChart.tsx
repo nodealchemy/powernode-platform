@@ -8,7 +8,7 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
-  BarChart,
+  // BarChart, // TODO: Use for bar chart visualization
   Bar,
   ComposedChart
 } from 'recharts';

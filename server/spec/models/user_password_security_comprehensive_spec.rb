@@ -44,10 +44,10 @@ RSpec.describe User, 'Comprehensive Password Security', type: :model do
   end
 
   describe 'Password History Protection' do
-    let(:user) { create(:user, account: account, password: 'InitialPhrase123!@#', password_confirmation: 'InitialPhrase123!@#') }
+    let(:user) { create(:user, account: account, password: 'InitialPhrase2024!@#', password_confirmation: 'InitialPhrase2024!@#') }
 
     it 'prevents password reuse within history limit' do
-      original_password = 'OriginalPhrase456!@#'
+      original_password = 'OriginalPhrase2025!@#'
       user.update!(password: original_password, password_confirmation: original_password)
       
       # Change password a few times
@@ -80,7 +80,7 @@ RSpec.describe User, 'Comprehensive Password Security', type: :model do
   end
 
   describe 'Account Lockout Security' do
-    let(:user) { create(:user, account: account, password: 'RandomPhrase123!@#', password_confirmation: 'RandomPhrase123!@#') }
+    let(:user) { create(:user, account: account, password: 'RandomPhrase2024!@#', password_confirmation: 'RandomPhrase2024!@#') }
 
     it 'implements progressive lockout after failed attempts' do
       expect(user).not_to be_locked
@@ -113,7 +113,7 @@ RSpec.describe User, 'Comprehensive Password Security', type: :model do
   end
 
   describe 'Secure Password Reset' do
-    let(:user) { create(:user, account: account, password: 'OriginalPhrase456!@#', password_confirmation: 'OriginalPhrase456!@#') }
+    let(:user) { create(:user, account: account, password: 'OriginalPhrase2026!@#', password_confirmation: 'OriginalPhrase2026!@#') }
 
     it 'generates secure time-limited reset tokens' do
       token = user.generate_reset_token!
@@ -137,7 +137,7 @@ RSpec.describe User, 'Comprehensive Password Security', type: :model do
 
     it 'successfully resets password with valid token' do
       token = user.generate_reset_token!
-      new_password = 'NewCustomPhrase456!@#'
+      new_password = 'NewCustomPhrase2026!@#'
       
       result = user.reset_password!(new_password, token)
       
@@ -158,7 +158,7 @@ RSpec.describe User, 'Comprehensive Password Security', type: :model do
   end
 
   describe 'Password Aging and Metrics' do
-    let(:user) { create(:user, account: account, password: 'TestPhrase123!@#', password_confirmation: 'TestPhrase123!@#') }
+    let(:user) { create(:user, account: account, password: 'TestPhrase2024!@#', password_confirmation: 'TestPhrase2024!@#') }
 
     it 'tracks password age correctly' do
       user.update!(password_changed_at: 30.days.ago)

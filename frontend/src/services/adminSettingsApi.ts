@@ -271,7 +271,7 @@ class AdminSettingsApi {
     
     const k = 1024;
     const dm = decimals < 0 ? 0 : decimals;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+    // const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB']; // TODO: Use for dynamic size unit selection
     
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { billingApi, BillingOverview, Invoice, PaymentMethod } from '../../services/billingApi';
+import { billingApi, BillingOverview } from '../../services/billingApi';
+// TODO: Use Invoice and PaymentMethod types for detailed billing data
 import { DateRangePicker } from '../../components/common/DateRangePicker';
 import CreateInvoiceModal, { InvoiceFormData } from '../../components/billing/CreateInvoiceModal';
 
@@ -7,7 +8,7 @@ export const BillingPage: React.FC = () => {
   const [overview, setOverview] = useState<BillingOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [showCreateInvoice, setShowCreateInvoice] = useState(false);
-  const [showAddPaymentMethod, setShowAddPaymentMethod] = useState(false);
+  // const [showAddPaymentMethod, setShowAddPaymentMethod] = useState(false); // TODO: Implement payment method management
   const [showDateFilter, setShowDateFilter] = useState(false);
   const [dateRange, setDateRange] = useState({
     startDate: new Date(new Date().getFullYear(), new Date().getMonth() - 3, 1), // 3 months ago

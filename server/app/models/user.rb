@@ -193,6 +193,7 @@ class User < ApplicationRecord
     return false unless reset_token_valid?(token)
 
     self.password = new_password
+    self.password_confirmation = new_password
     self.reset_token_digest = nil
     self.reset_token_expires_at = nil
     save!

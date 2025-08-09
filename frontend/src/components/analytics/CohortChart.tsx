@@ -1,6 +1,6 @@
 import React from 'react';
 import { format, parseISO } from 'date-fns';
-import { useChartColors } from '../../hooks/useThemeColors';
+// import { useChartColors } from '../../hooks/useThemeColors'; // TODO: Use for chart theme integration
 
 interface CohortChartProps {
   data: Array<{
@@ -26,7 +26,7 @@ export const CohortChart: React.FC<CohortChartProps> = ({
   title
 }) => {
   // Use theme-aware colors that update automatically
-  const colors = useChartColors();
+  // const colors = useChartColors(); // TODO: Implement cohort chart theme integration
   const formatDate = (dateString: string) => {
     try {
       return format(parseISO(dateString + '-01'), 'MMM yyyy');
@@ -48,9 +48,9 @@ export const CohortChart: React.FC<CohortChartProps> = ({
     return 'bg-theme-background-secondary text-theme-secondary';
   };
 
-  const getIntensity = (rate: number) => {
-    return Math.min(rate / 100, 1);
-  };
+  // const getIntensity = (rate: number) => {
+  //   return Math.min(rate / 100, 1);
+  // }; // TODO: Use for color intensity calculation
 
   // Prepare data for the cohort table
   const maxMonths = Math.max(...data.map(cohort => cohort.retention_rates.length));
