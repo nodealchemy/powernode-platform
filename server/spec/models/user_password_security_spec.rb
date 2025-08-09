@@ -55,11 +55,11 @@ RSpec.describe User, 'Password Security', type: :model do
         allow(PasswordStrengthService).to receive(:validate_password)
           .and_return({
             valid: false,
-            errors: ['Password is not strong enough (minimum strength score: 60)'],
+            errors: [ 'Password is not strong enough (minimum strength score: 60)' ],
             score: 45,
             strength: 'weak'
           })
-        
+
         expect(user).not_to be_valid
         expect(user.errors[:password]).to include('Password is not strong enough (minimum strength score: 60)')
       end
@@ -70,7 +70,7 @@ RSpec.describe User, 'Password Security', type: :model do
     before do
       # Create user with initial password
       user.save!
-      
+
       # Simulate password history by creating entries
       3.times do |i|
         digest = BCrypt::Password.create("old_password_#{i}!")
@@ -101,7 +101,7 @@ RSpec.describe User, 'Password Security', type: :model do
   describe 'password history tracking' do
     it 'saves password to history after update' do
       user.save!
-      
+
       expect {
         user.update!(password: 'NewSecurePhrase789!')
       }.to change { user.password_histories.count }.by(1)
@@ -112,7 +112,7 @@ RSpec.describe User, 'Password Security', type: :model do
 
     it 'cleans up old password history entries' do
       user.save!
-      
+
       # Create 15 password history entries
       15.times do |i|
         create(:password_history, user: user, created_at: (i + 1).days.ago)
@@ -173,17 +173,17 @@ RSpec.describe User, 'Password Security', type: :model do
 
         travel_to Time.current do
           user.record_failed_login!
-          
+
           # First lockout should be base duration (30 minutes)
           expected_lockout = Time.current + User::LOCKOUT_DURATION
           expect(user.locked_until).to be_within(1.second).of(expected_lockout)
         end
 
         user.update!(failed_login_attempts: User::MAX_FAILED_ATTEMPTS)
-        
+
         travel_to 1.hour.from_now do
           user.record_failed_login!
-          
+
           # Second lockout should be doubled (60 minutes)
           expected_lockout = Time.current + (User::LOCKOUT_DURATION * 2)
           expect(user.locked_until).to be_within(1.second).of(expected_lockout)

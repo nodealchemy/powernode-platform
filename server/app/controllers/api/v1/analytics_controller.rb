@@ -1,10 +1,10 @@
-require 'csv'
+require "csv"
 
 class Api::V1::AnalyticsController < ApplicationController
   before_action :authenticate_user!
   before_action :check_analytics_permission
-  before_action :set_date_range, only: [:revenue, :growth, :churn, :cohorts, :customers]
-  before_action :set_account_scope, only: [:revenue, :growth, :churn, :cohorts, :customers]
+  before_action :set_date_range, only: [ :revenue, :growth, :churn, :cohorts, :customers ]
+  before_action :set_account_scope, only: [ :revenue, :growth, :churn, :cohorts, :customers ]
 
   # GET /api/v1/analytics/revenue
   # Returns MRR/ARR overview with historical data
@@ -17,12 +17,12 @@ class Api::V1::AnalyticsController < ApplicationController
 
     current_mrr = analytics_service.current_mrr
     mrr_trend = analytics_service.mrr_trend(months: params[:months]&.to_i || 12)
-    
+
     latest_snapshot = if @account_scope
-                       RevenueSnapshot.latest_for_account(@account_scope, 'monthly')
-                     else
-                       RevenueSnapshot.latest_global('monthly')
-                     end
+                       RevenueSnapshot.latest_for_account(@account_scope, "monthly")
+    else
+                       RevenueSnapshot.latest_global("monthly")
+    end
 
     data = {
       current_metrics: {
@@ -66,9 +66,9 @@ class Api::V1::AnalyticsController < ApplicationController
     # Get monthly snapshots for growth analysis
     monthly_snapshots = if @account_scope
                          RevenueSnapshot.for_account(@account_scope)
-                       else
+    else
                          RevenueSnapshot.global
-                       end.monthly
+    end.monthly
                           .in_date_range(@start_date, @end_date)
                           .order(:date)
 
@@ -101,7 +101,7 @@ class Api::V1::AnalyticsController < ApplicationController
       first_mrr = growth_data.first[:mrr]
       last_mrr = growth_data.last[:mrr]
       months = growth_data.length - 1
-      
+
       if first_mrr > 0 && months > 0
         cmgr = ((last_mrr / first_mrr) ** (1.0 / months) - 1) * 100
       else
@@ -116,7 +116,7 @@ class Api::V1::AnalyticsController < ApplicationController
       monthly_growth_data: growth_data,
       forecasting: {
         next_month_projection: growth_data.any? ? (growth_data.last[:mrr] * 1.1).round(2) : 0,
-        confidence_interval: '±15%'
+        confidence_interval: "±15%"
       },
       period: {
         start_date: @start_date,
@@ -141,9 +141,9 @@ class Api::V1::AnalyticsController < ApplicationController
     # Get churn data from snapshots
     churn_snapshots = if @account_scope
                        RevenueSnapshot.for_account(@account_scope)
-                     else
+    else
                        RevenueSnapshot.global
-                     end.monthly
+    end.monthly
                         .in_date_range(@start_date, @end_date)
                         .order(:date)
 
@@ -167,7 +167,7 @@ class Api::V1::AnalyticsController < ApplicationController
     end
 
     # Current month churn rate
-    current_churn_rate = analytics_service.calculate_churn_rate(Date.current, 'monthly')
+    current_churn_rate = analytics_service.calculate_churn_rate(Date.current, "monthly")
 
     data = {
       current_metrics: {
@@ -178,7 +178,7 @@ class Api::V1::AnalyticsController < ApplicationController
       },
       churn_trend: churn_trend,
       insights: {
-        churn_risk_level: current_churn_rate > 0.05 ? 'high' : (current_churn_rate > 0.02 ? 'medium' : 'low'),
+        churn_risk_level: current_churn_rate > 0.05 ? "high" : (current_churn_rate > 0.02 ? "medium" : "low"),
         recommended_actions: generate_churn_recommendations(current_churn_rate)
       },
       period: {
@@ -204,7 +204,7 @@ class Api::V1::AnalyticsController < ApplicationController
     # Transform cohort data for frontend consumption
     formatted_cohorts = cohort_data.map do |cohort|
       {
-        cohort_date: cohort[:cohort_date].strftime('%Y-%m'),
+        cohort_date: cohort[:cohort_date].strftime("%Y-%m"),
         cohort_size: cohort[:cohort_size],
         retention_rates: cohort[:retention_by_month].map do |retention|
           {
@@ -220,9 +220,9 @@ class Api::V1::AnalyticsController < ApplicationController
       cohorts: formatted_cohorts,
       summary: {
         total_cohorts: formatted_cohorts.length,
-        average_first_month_retention: formatted_cohorts.any? ? 
+        average_first_month_retention: formatted_cohorts.any? ?
           (formatted_cohorts.sum { |c| c[:retention_rates][0][:retention_rate] } / formatted_cohorts.length).round(2) : 0,
-        average_six_month_retention: formatted_cohorts.any? ? 
+        average_six_month_retention: formatted_cohorts.any? ?
           (formatted_cohorts.sum { |c| c[:retention_rates][5] ? c[:retention_rates][5][:retention_rate] : 0 } / formatted_cohorts.length).round(2) : 0
       }
     }
@@ -249,9 +249,9 @@ class Api::V1::AnalyticsController < ApplicationController
     # Customer growth trend
     customer_snapshots = if @account_scope
                           RevenueSnapshot.for_account(@account_scope)
-                        else
+    else
                           RevenueSnapshot.global
-                        end.monthly
+    end.monthly
                            .in_date_range(@start_date, @end_date)
                            .order(:date)
 
@@ -293,11 +293,11 @@ class Api::V1::AnalyticsController < ApplicationController
   # GET/POST /api/v1/analytics/export
   # Export analytics data in various formats
   def export
-    format = params[:format] || 'csv'
-    report_type = params[:report_type] || 'revenue'
-    
+    format = params[:format] || "csv"
+    report_type = params[:report_type] || "revenue"
+
     unless can_export_analytics?
-      render json: { success: false, error: 'Export permission required' }, status: 403
+      render json: { success: false, error: "Export permission required" }, status: 403
       return
     end
 
@@ -308,28 +308,28 @@ class Api::V1::AnalyticsController < ApplicationController
     )
 
     case format.downcase
-    when 'csv'
-      csv_data = analytics_service.export_revenue_data_csv('monthly')
-      
+    when "csv"
+      csv_data = analytics_service.export_revenue_data_csv("monthly")
+
       respond_to do |format|
-        format.csv { 
-          send_data csv_data, 
+        format.csv {
+          send_data csv_data,
           filename: "#{report_type}_analytics_#{Date.current.strftime('%Y%m%d')}.csv",
-          type: 'text/csv'
+          type: "text/csv"
         }
         format.json {
-          render json: { 
-            success: true, 
+          render json: {
+            success: true,
             data: csv_data,
             filename: "#{report_type}_analytics_#{Date.current.strftime('%Y%m%d')}.csv"
           }
         }
       end
-    when 'pdf'
+    when "pdf"
       # PDF generation would be implemented here
-      render json: { success: false, error: 'PDF export not yet implemented' }, status: 501
+      render json: { success: false, error: "PDF export not yet implemented" }, status: 501
     else
-      render json: { success: false, error: 'Unsupported export format' }, status: 400
+      render json: { success: false, error: "Unsupported export format" }, status: 400
     end
   rescue => e
     render json: { success: false, error: e.message }, status: 500
@@ -339,7 +339,7 @@ class Api::V1::AnalyticsController < ApplicationController
 
   def check_analytics_permission
     unless current_user.can?(:view_analytics) || current_user.can?(:view_global_analytics)
-      render json: { success: false, error: 'Analytics permission required' }, status: 403
+      render json: { success: false, error: "Analytics permission required" }, status: 403
     end
   end
 
@@ -350,17 +350,17 @@ class Api::V1::AnalyticsController < ApplicationController
   def set_date_range
     @start_date = params[:start_date]&.to_date || 12.months.ago.beginning_of_month
     @end_date = params[:end_date]&.to_date || Date.current.end_of_month
-    
+
     # Validate date range
     if @start_date > @end_date
-      render json: { success: false, error: 'Start date must be before end date' }, status: 400
+      render json: { success: false, error: "Start date must be before end date" }, status: 400
       return
     end
-    
+
     # Limit to reasonable range (2 years max)
     if @end_date - @start_date > 2.years
-      render json: { success: false, error: 'Date range too large (max 2 years)' }, status: 400
-      return
+      render json: { success: false, error: "Date range too large (max 2 years)" }, status: 400
+      nil
     end
   end
 
@@ -379,20 +379,20 @@ class Api::V1::AnalyticsController < ApplicationController
   def generate_churn_recommendations(churn_rate)
     case churn_rate
     when 0..0.02
-      ['Monitor customer satisfaction regularly', 'Continue current retention strategies']
+      [ "Monitor customer satisfaction regularly", "Continue current retention strategies" ]
     when 0.02..0.05
-      ['Implement proactive customer success outreach', 'Analyze churned customer feedback', 'Consider loyalty programs']
+      [ "Implement proactive customer success outreach", "Analyze churned customer feedback", "Consider loyalty programs" ]
     else
-      ['Urgent: Review product-market fit', 'Implement immediate retention campaigns', 'Conduct exit interviews', 'Review pricing strategy']
+      [ "Urgent: Review product-market fit", "Implement immediate retention campaigns", "Conduct exit interviews", "Review pricing strategy" ]
     end
   end
 
   def generate_customer_segmentation_by_plan
     # This would analyze subscription data by plan
     base_query = @account_scope ? @account_scope.subscriptions.active : Subscription.active
-    
+
     base_query.joins(:plan)
-              .group('plans.name')
+              .group("plans.name")
               .count
               .map { |plan_name, count| { plan: plan_name, customers: count } }
   end
@@ -400,23 +400,23 @@ class Api::V1::AnalyticsController < ApplicationController
   def generate_customer_segmentation_by_tenure
     # Segment customers by how long they've been subscribed
     base_query = @account_scope ? @account_scope.subscriptions.active : Subscription.active
-    
+
     segments = {
-      'New (0-3 months)' => 0,
-      'Growing (3-12 months)' => 0,
-      'Mature (12+ months)' => 0
+      "New (0-3 months)" => 0,
+      "Growing (3-12 months)" => 0,
+      "Mature (12+ months)" => 0
     }
 
     base_query.each do |subscription|
       tenure_months = ((Date.current - subscription.created_at.to_date) / 30.days).to_i
-      
+
       case tenure_months
       when 0..3
-        segments['New (0-3 months)'] += 1
+        segments["New (0-3 months)"] += 1
       when 3..12
-        segments['Growing (3-12 months)'] += 1
+        segments["Growing (3-12 months)"] += 1
       else
-        segments['Mature (12+ months)'] += 1
+        segments["Mature (12+ months)"] += 1
       end
     end
 

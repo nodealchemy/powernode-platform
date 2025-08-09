@@ -10,31 +10,34 @@ RSpec.describe User, type: :model do
 
   describe 'validations' do
     subject { build(:user) }
-    
+
     it { should validate_presence_of(:email) }
     it { should validate_uniqueness_of(:email).case_insensitive }
     it { should allow_value('user@example.com').for(:email) }
     it { should_not allow_value('invalid_email').for(:email) }
-    
+
     it { should validate_presence_of(:first_name) }
     it { should validate_length_of(:first_name).is_at_least(1).is_at_most(50) }
-    
+
     it { should validate_presence_of(:last_name) }
     it { should validate_length_of(:last_name).is_at_least(1).is_at_most(50) }
-    
+
     it { should validate_presence_of(:role) }
     it { should validate_inclusion_of(:role).in_array(%w[owner admin member]) }
-    
+
     it { should validate_presence_of(:status) }
     it { should validate_inclusion_of(:status).in_array(%w[active inactive suspended]) }
   end
 
   describe 'scopes' do
+    let!(:account) { create(:account) }
     let!(:active_user) { create(:user, status: 'active') }
     let!(:inactive_user) { create(:user, status: 'inactive') }
-    let!(:owner) { create(:user, role: 'owner') }
-    let!(:admin) { create(:user, role: 'admin') }
-    let!(:member) { create(:user, role: 'member') }
+    # Create owner first in the account
+    let!(:owner) { create(:user, account: account, role: 'owner') }
+    # Create other users in the same account, they won't become owners due to the callback logic
+    let!(:admin) { User.create!(account: account, email: 'admin@example.com', first_name: 'Admin', last_name: 'User', password: 'SecureFactoryCode$9!', role: 'admin', status: 'active', email_verified_at: 1.day.ago) }
+    let!(:member) { User.create!(account: account, email: 'member@example.com', first_name: 'Member', last_name: 'User', password: 'SecureFactoryCode$9!', role: 'member', status: 'active', email_verified_at: 1.day.ago) }
     let!(:verified_user) { create(:user, email_verified_at: 1.day.ago) }
     let!(:unverified_user) { create(:user, email_verified_at: nil) }
 
@@ -92,7 +95,7 @@ RSpec.describe User, type: :model do
 
     describe 'set_owner_if_first_user' do
       let(:account) { create(:account) }
-      
+
       it 'sets role to owner for first user in account' do
         user = build(:user, account: account, role: 'member')
         user.save
@@ -179,7 +182,7 @@ RSpec.describe User, type: :model do
 
     describe '#has_role?' do
       let(:role) { create(:role, name: 'Custom Role') }
-      
+
       before { user.roles << role }
 
       it 'returns true when user has the role' do
@@ -194,23 +197,25 @@ RSpec.describe User, type: :model do
     describe '#has_permission?' do
       let(:permission) { create(:permission, resource: 'accounts', action: 'read') }
       let(:role) { create(:role) }
-      
+
       before do
         role.permissions << permission
         user.roles << role
       end
 
       it 'returns true when user has permission through role' do
-        expect(user.has_permission?('accounts_read')).to be true
+        expect(user.has_permission?('accounts.read')).to be true
       end
 
       it 'returns false when user does not have permission' do
-        expect(user.has_permission?('accounts_delete')).to be false
+        expect(user.has_permission?('accounts.delete')).to be false
       end
     end
 
     describe '#can?' do
-      let(:user) { create(:user, :admin) }
+      let!(:admin_account) { create(:account) }
+      let!(:owner) { create(:user, account: admin_account, role: 'owner') }
+      let(:user) { create(:user, account: admin_account, role: 'admin', status: 'active') }
 
       describe 'analytics permissions' do
         it 'allows admins to view analytics' do
@@ -223,7 +228,7 @@ RSpec.describe User, type: :model do
 
         it 'only allows owners to view global analytics' do
           expect(user.can?(:view_global_analytics)).to be false
-          
+
           user.role = 'owner'
           expect(user.can?(:view_global_analytics)).to be true
         end
@@ -232,10 +237,10 @@ RSpec.describe User, type: :model do
   end
 
   describe 'password authentication' do
-    let(:user) { create(:user, password: 'password123') }
+    let(:user) { create(:user, password: 'UltraSecureP@ssw0rd9x2!') }
 
     it 'authenticates with correct password' do
-      expect(user.authenticate('password123')).to eq(user)
+      expect(user.authenticate('UltraSecureP@ssw0rd9x2!')).to eq(user)
     end
 
     it 'returns false with incorrect password' do

@@ -1,4 +1,4 @@
-import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
+import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { authAPI } from '../../services/authAPI';
 
 export interface User {
@@ -23,16 +23,29 @@ interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
+  resendingVerification: boolean;
+  resendVerificationSuccess: boolean;
+  resendCooldown: number;
 }
 
-const initialState: AuthState = {
-  user: null,
-  accessToken: localStorage.getItem('accessToken'),
-  refreshToken: localStorage.getItem('refreshToken'),
-  isAuthenticated: false,
-  isLoading: false,
-  error: null,
+const getInitialState = (): AuthState => {
+  const accessToken = localStorage.getItem('accessToken');
+  const refreshToken = localStorage.getItem('refreshToken');
+  
+  return {
+    user: null,
+    accessToken,
+    refreshToken,
+    isAuthenticated: !!accessToken,
+    isLoading: false,
+    error: null,
+    resendingVerification: false,
+    resendVerificationSuccess: false,
+    resendCooldown: 0,
+  };
 };
+
+const initialState: AuthState = getInitialState();
 
 // Async thunks
 export const login = createAsyncThunk(
@@ -92,6 +105,18 @@ export const getCurrentUser = createAsyncThunk(
   }
 );
 
+export const resendVerificationEmail = createAsyncThunk(
+  'auth/resendVerificationEmail',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await authAPI.resendVerification();
+      return response.data;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.error || 'Failed to resend verification email');
+    }
+  }
+);
+
 const authSlice = createSlice({
   name: 'auth',
   initialState,
@@ -105,8 +130,19 @@ const authSlice = createSlice({
       state.refreshToken = null;
       state.isAuthenticated = false;
       state.error = null;
+      state.resendingVerification = false;
+      state.resendVerificationSuccess = false;
+      state.resendCooldown = 0;
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
+    },
+    clearResendVerificationSuccess: (state) => {
+      state.resendVerificationSuccess = false;
+    },
+    decrementResendCooldown: (state) => {
+      if (state.resendCooldown > 0) {
+        state.resendCooldown -= 1;
+      }
     },
   },
   extraReducers: (builder) => {
@@ -185,9 +221,25 @@ const authSlice = createSlice({
       .addCase(getCurrentUser.rejected, (state) => {
         state.user = null;
         state.isAuthenticated = false;
+      })
+      
+      // Resend verification email
+      .addCase(resendVerificationEmail.pending, (state) => {
+        state.resendingVerification = true;
+        state.error = null;
+        state.resendVerificationSuccess = false;
+      })
+      .addCase(resendVerificationEmail.fulfilled, (state) => {
+        state.resendingVerification = false;
+        state.resendVerificationSuccess = true;
+        state.resendCooldown = 60; // 60 second cooldown
+      })
+      .addCase(resendVerificationEmail.rejected, (state, action) => {
+        state.resendingVerification = false;
+        state.error = action.payload as string;
       });
   },
 });
 
-export const { clearError, clearAuth } = authSlice.actions;
+export const { clearError, clearAuth, clearResendVerificationSuccess, decrementResendCooldown } = authSlice.actions;
 export default authSlice.reducer;

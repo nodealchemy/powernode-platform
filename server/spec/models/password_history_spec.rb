@@ -19,7 +19,7 @@ RSpec.describe PasswordHistory, type: :model do
 
     describe '.recent' do
       it 'orders by created_at descending' do
-        expect(described_class.recent).to eq([recent_entry, old_entry])
+        expect(described_class.recent).to eq([ recent_entry, old_entry ])
       end
     end
 
@@ -52,8 +52,8 @@ RSpec.describe PasswordHistory, type: :model do
   describe '.cleanup_old_entries' do
     let!(:entries) do
       15.times.map do |i|
-        create(:password_history, 
-               user: user, 
+        create(:password_history,
+               user: user,
                created_at: (i + 1).days.ago)
       end
     end
@@ -65,11 +65,11 @@ RSpec.describe PasswordHistory, type: :model do
 
       remaining_entries = user.password_histories.recent
       expect(remaining_entries.count).to eq(12)
-      
+
       # Should keep the 12 most recent entries
       expected_dates = entries.sort_by(&:created_at).reverse.first(12).map(&:created_at)
       actual_dates = remaining_entries.map(&:created_at)
-      
+
       expect(actual_dates).to match_array(expected_dates)
     end
 
@@ -100,16 +100,16 @@ RSpec.describe PasswordHistory, type: :model do
         # Create password history entries
         3.times do |i|
           digest = BCrypt::Password.create("old_password_#{i}!")
-          create(:password_history, 
-                 user: user, 
+          create(:password_history,
+                 user: user,
                  password_digest: digest,
                  created_at: (i + 1).days.ago)
         end
-        
+
         # Add the test password to history
         digest = BCrypt::Password.create(password)
-        create(:password_history, 
-               user: user, 
+        create(:password_history,
+               user: user,
                password_digest: digest,
                created_at: 2.days.ago)
       end
@@ -127,8 +127,8 @@ RSpec.describe PasswordHistory, type: :model do
         # This will push the test password (which was added 2 days ago) out of the 12 most recent
         12.times do |i|
           digest = BCrypt::Password.create("newer_password_#{i}!")
-          create(:password_history, 
-                 user: user, 
+          create(:password_history,
+                 user: user,
                  password_digest: digest,
                  created_at: 1.hour.ago + (i * 10.minutes))  # All more recent than the test password
         end

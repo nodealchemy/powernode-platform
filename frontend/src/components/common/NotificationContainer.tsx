@@ -13,11 +13,19 @@ export const NotificationContainer: React.FC = () => {
 
   // Auto-remove notifications after 5 seconds
   useEffect(() => {
+    const timeouts: NodeJS.Timeout[] = [];
+    
     notifications.forEach((notification) => {
-      setTimeout(() => {
+      const timeout = setTimeout(() => {
         dispatch(removeNotification(notification.id));
       }, 5000);
+      timeouts.push(timeout);
     });
+
+    // Cleanup function to clear timeouts if component unmounts or notifications change
+    return () => {
+      timeouts.forEach(timeout => clearTimeout(timeout));
+    };
   }, [notifications, dispatch]);
 
   if (notifications.length === 0) return null;

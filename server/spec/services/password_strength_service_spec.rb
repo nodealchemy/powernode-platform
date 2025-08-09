@@ -11,7 +11,7 @@ RSpec.describe PasswordStrengthService, type: :service do
         expect(subject[:valid]).to be true
         expect(subject[:errors]).to be_empty
         expect(subject[:score]).to be >= 60
-        expect(['strong', 'very_strong']).to include(subject[:strength])
+        expect([ 'strong', 'very_strong' ]).to include(subject[:strength])
       end
     end
 
@@ -152,7 +152,7 @@ RSpec.describe PasswordStrengthService, type: :service do
 
     context 'with very weak password' do
       let(:password) { 'abc' }
-      
+
       it 'returns very_weak' do
         expect(subject).to eq('very_weak')
       end
@@ -160,7 +160,7 @@ RSpec.describe PasswordStrengthService, type: :service do
 
     context 'with weak password' do
       let(:password) { 'password' }
-      
+
       it 'returns very_weak' do
         expect(subject).to eq('very_weak')
       end
@@ -168,7 +168,7 @@ RSpec.describe PasswordStrengthService, type: :service do
 
     context 'with moderate password' do
       let(:password) { 'MyPassword123!' }
-      
+
       it 'returns moderate' do
         expect(subject).to eq('moderate')
       end
@@ -176,7 +176,7 @@ RSpec.describe PasswordStrengthService, type: :service do
 
     context 'with strong password' do
       let(:password) { 'MyVerySecure$Password2024!' }
-      
+
       it 'returns very_strong' do
         expect(subject).to eq('very_strong')
       end
@@ -184,7 +184,7 @@ RSpec.describe PasswordStrengthService, type: :service do
 
     context 'with very strong password' do
       let(:password) { 'Th1s!s@V3ryC0mpl3x&S3cur3P@ssw0rd2024#' }
-      
+
       it 'returns very_strong' do
         expect(subject).to eq('very_strong')
       end

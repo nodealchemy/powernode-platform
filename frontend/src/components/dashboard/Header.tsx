@@ -63,18 +63,26 @@ export const Header: React.FC<HeaderProps> = ({ user, onLogout, onToggleSidebar 
                 />
                 <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg border border-gray-200 z-20">
                   <div className="py-1">
-                    <a
-                      href="#"
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    <button
+                      type="button"
+                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      onClick={() => {
+                        setShowUserMenu(false);
+                        // Navigate to profile page
+                      }}
                     >
                       Your Profile
-                    </a>
-                    <a
-                      href="#"
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    </button>
+                    <button
+                      type="button"
+                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      onClick={() => {
+                        setShowUserMenu(false);
+                        // Navigate to settings page
+                      }}
                     >
                       Settings
-                    </a>
+                    </button>
                     <div className="border-t border-gray-100" />
                     <button
                       onClick={() => {

@@ -263,6 +263,8 @@ GEM
     raabro (1.4.0)
     racc (1.8.1)
     rack (3.2.0)
+    rack-attack (6.7.0)
+      rack (>= 1.0, < 4)
     rack-cors (3.0.0)
       logger
       rack (>= 3.0.14)
@@ -360,6 +362,7 @@ GEM
       rubocop-performance (>= 1.24)
       rubocop-rails (>= 2.30)
     ruby-progressbar (1.13.0)
+    secure_headers (7.1.0)
     securerandom (0.4.1)
     shoulda-matchers (6.5.0)
       activesupport (>= 5.2.0)
@@ -457,11 +460,13 @@ DEPENDENCIES
   prawn
   prawn-table
   puma (>= 5.0)
+  rack-attack (~> 6.7)
   rack-cors
   rails (~> 8.0.2)
   rspec-json_expectations (~> 2.2)
   rspec-rails
   rubocop-rails-omakase
+  secure_headers (~> 7.1)
   shoulda-matchers (~> 6.5)
   sidekiq
   solid_cable

@@ -6,37 +6,29 @@ Rails.application.routes.draw do
   # API Routes
   namespace :api do
     namespace :v1 do
-      # Authentication endpoints
-      resources :sessions, only: [:create, :destroy] do
-        collection do
-          post :refresh
-          get :current
-        end
-      end
-
-      # Registration endpoint
-      resources :registrations, only: [:create]
-
-      # Password management
-      resources :passwords, only: [] do
-        collection do
-          post :forgot
-          post :reset
-          put :change
-        end
+      # Authentication and registration endpoints
+      namespace :auth do
+        post :register, to: "registrations#create"
+        post :login, to: "sessions#create"
+        post :logout, to: "sessions#destroy"
+        post :refresh, to: "sessions#refresh"
+        get :me, to: "sessions#current"
+        post "forgot-password", to: "passwords#forgot"
+        post "reset-password", to: "passwords#reset"
+        put "change-password", to: "passwords#change"
       end
 
       # Protected resources (will be added later)
-      resources :accounts, only: [:show, :update]
+      resources :accounts, only: [ :show, :update ]
       resources :users
       resources :roles
-      resources :permissions, only: [:index, :show]
+      resources :permissions, only: [ :index, :show ]
 
       # Payment-related endpoints
-      resources :payment_methods, except: [:show]
+      resources :payment_methods, except: [ :show ]
       resources :subscriptions
-      resources :invoices, only: [:index, :show]
-      resources :payments, only: [:index, :show]
+      resources :invoices, only: [ :index, :show ]
+      resources :payments, only: [ :index, :show ]
 
       # Analytics endpoints
       namespace :analytics do
@@ -45,17 +37,17 @@ Rails.application.routes.draw do
         get :churn
         get :cohorts
         get :customers
-        match :export, via: [:get, :post]
+        match :export, via: [ :get, :post ]
       end
     end
   end
 
   # Webhook endpoints (outside of API versioning and auth)
   namespace :webhooks do
-    post 'stripe', to: 'stripe#handle'
-    post 'paypal', to: 'paypal#handle'
+    post "stripe", to: "stripe#handle"
+    post "paypal", to: "paypal#handle"
   end
 
   # Root route for API
-  root to: proc { [200, {}, ['Powernode API - Version 1.0']] }
+  root to: proc { [ 200, {}, [ "Powernode API - Version 1.0" ] ] }
 end

@@ -10,22 +10,22 @@ class RevenueAnalyticsService
   end
 
   # Main method to calculate and store revenue snapshot
-  def calculate_revenue_snapshot(date = Date.current, period_type = 'daily')
+  def calculate_revenue_snapshot(date = Date.current, period_type = "daily")
     Rails.logger.info "Calculating revenue snapshot for #{account&.name || 'global'} on #{date} (#{period_type})"
-    
+
     # Calculate all metrics for the given date and period
     metrics = calculate_all_metrics(date, period_type)
-    
+
     # Create or update revenue snapshot
     snapshot = RevenueSnapshot.find_or_initialize_by(
       account: account,
       date: date,
       period_type: period_type
     )
-    
+
     snapshot.assign_attributes(metrics)
     snapshot.save!
-    
+
     Rails.logger.info "Revenue snapshot saved: MRR $#{snapshot.mrr.to_f}, Active Subscriptions: #{snapshot.active_subscriptions_count}"
     snapshot
   end
@@ -40,25 +40,25 @@ class RevenueAnalyticsService
   def mrr_trend(months: 12)
     end_date_local = @end_date
     start_date_local = end_date_local.beginning_of_month - (months - 1).months
-    
+
     snapshots = revenue_snapshots_query
                  .monthly
                  .in_date_range(start_date_local, end_date_local)
                  .order(:date)
-    
+
     # Fill in missing months with zero values
-    fill_missing_snapshots(snapshots, start_date_local, end_date_local, 'monthly')
+    fill_missing_snapshots(snapshots, start_date_local, end_date_local, "monthly")
   end
 
   # Calculate churn rate for a given period
-  def calculate_churn_rate(date = Date.current, period_type = 'monthly')
+  def calculate_churn_rate(date = Date.current, period_type = "monthly")
     case period_type
-    when 'monthly'
+    when "monthly"
       period_start = date.beginning_of_month
       period_end = date.end_of_month
       previous_period_start = (date - 1.month).beginning_of_month
       previous_period_end = (date - 1.month).end_of_month
-    when 'daily'
+    when "daily"
       period_start = date.beginning_of_day
       period_end = date.end_of_day
       previous_period_start = (date - 1.day).beginning_of_day
@@ -71,14 +71,14 @@ class RevenueAnalyticsService
                        .where(subscriptions: { created_at: ..previous_period_end })
                        .where.not(subscriptions: { ended_at: ..previous_period_start })
                        .distinct
-                       .count('accounts.id')
+                       .count("accounts.id")
 
     # Customers who churned during period
     churned_customers = base_subscription_query
                          .joins(:account)
                          .where(subscriptions: { ended_at: period_start..period_end })
                          .distinct
-                         .count('accounts.id')
+                         .count("accounts.id")
 
     return 0.0 if customers_start == 0
     churned_customers.to_f / customers_start
@@ -93,25 +93,25 @@ class RevenueAnalyticsService
   # Cohort analysis - retention by month
   def cohort_analysis(cohort_months: 12)
     results = []
-    
+
     (0..cohort_months).each do |month|
       cohort_date = Date.current.beginning_of_month - month.months
-      
+
       # Get customers who started in this cohort month
       cohort_customers = base_subscription_query
                           .joins(:account)
                           .where(subscriptions: { created_at: cohort_date..cohort_date.end_of_month })
                           .distinct
-                          .pluck('accounts.id')
-      
+                          .pluck("accounts.id")
+
       next if cohort_customers.empty?
-      
+
       retention_data = []
-      
+
       # Calculate retention for each subsequent month
       (0..12).each do |retention_month|
         check_date = cohort_date + retention_month.months
-        
+
         # Count how many of the cohort customers are still active
         active_customers = base_subscription_query
                             .joins(:account)
@@ -119,8 +119,8 @@ class RevenueAnalyticsService
                             .where(subscriptions: { created_at: ..check_date.end_of_month })
                             .where.not(subscriptions: { ended_at: ..check_date.beginning_of_month })
                             .distinct
-                            .count('accounts.id')
-        
+                            .count("accounts.id")
+
         retention_rate = active_customers.to_f / cohort_customers.count
         retention_data << {
           month: retention_month,
@@ -128,14 +128,14 @@ class RevenueAnalyticsService
           retention_rate: retention_rate
         }
       end
-      
+
       results << {
         cohort_date: cohort_date,
         cohort_size: cohort_customers.count,
         retention_by_month: retention_data
       }
     end
-    
+
     results
   end
 
@@ -143,10 +143,10 @@ class RevenueAnalyticsService
   def calculate_ltv
     churn_rate = calculate_churn_rate
     return 0.0 if churn_rate == 0
-    
+
     arpu = calculate_arpu
     average_customer_lifetime = 1.0 / churn_rate
-    
+
     (arpu * average_customer_lifetime).round(2)
   end
 
@@ -154,21 +154,21 @@ class RevenueAnalyticsService
   def calculate_arpu
     current_mrr_value = current_mrr
     active_customers = count_active_customers
-    
+
     return 0.0 if active_customers == 0
     current_mrr_value / active_customers
   end
 
   # Export data to CSV format
-  def export_revenue_data_csv(period_type = 'monthly')
+  def export_revenue_data_csv(period_type = "monthly")
     snapshots = revenue_snapshots_query.for_period(period_type).recent(24).reverse
-    
+
     CSV.generate(headers: true) do |csv|
       csv << %w[Date Period MRR ARR ActiveSubscriptions NewSubscriptions ChurnedSubscriptions CustomerChurnRate RevenueChurnRate GrowthRate ARPU LTV]
-      
+
       snapshots.each do |snapshot|
         csv << [
-          snapshot.date.strftime('%Y-%m-%d'),
+          snapshot.date.strftime("%Y-%m-%d"),
           snapshot.period_type,
           snapshot.mrr.to_f,
           snapshot.arr.to_f,
@@ -186,9 +186,9 @@ class RevenueAnalyticsService
   end
 
   # Batch update revenue snapshots for a date range
-  def batch_update_snapshots(start_date, end_date, period_type = 'daily')
+  def batch_update_snapshots(start_date, end_date, period_type = "daily")
     current_date = start_date
-    
+
     while current_date <= end_date
       calculate_revenue_snapshot(current_date, period_type)
       current_date += 1.day
@@ -201,17 +201,17 @@ class RevenueAnalyticsService
   def calculate_all_metrics(date, period_type)
     # Determine period boundaries
     case period_type
-    when 'daily'
+    when "daily"
       period_start = date.beginning_of_day
       period_end = date.end_of_day
       previous_period_start = (date - 1.day).beginning_of_day
       previous_period_end = (date - 1.day).end_of_day
-    when 'monthly'
+    when "monthly"
       period_start = date.beginning_of_month
       period_end = date.end_of_month
       previous_period_start = (date - 1.month).beginning_of_month
       previous_period_end = (date - 1.month).end_of_month
-    when 'yearly'
+    when "yearly"
       period_start = date.beginning_of_year
       period_end = date.end_of_year
       previous_period_start = (date - 1.year).beginning_of_year
@@ -227,7 +227,7 @@ class RevenueAnalyticsService
     active_subs = base_subscription_query
                    .where(created_at: ..period_end)
                    .where.not(ended_at: ..period_start)
-    
+
     active_subscriptions_count = active_subs.count
     mrr_cents = calculate_mrr_from_subscriptions(active_subs, cents: true)
 
@@ -272,22 +272,22 @@ class RevenueAnalyticsService
   # Calculate MRR from a collection of subscriptions
   def calculate_mrr_from_subscriptions(subscriptions, cents: false)
     total_mrr = 0
-    
+
     subscriptions.includes(:plan).find_each do |subscription|
       monthly_amount = case subscription.plan.billing_cycle
-                      when 'monthly'
+      when "monthly"
                         subscription.plan.price_cents * subscription.quantity
-                      when 'quarterly'
+      when "quarterly"
                         (subscription.plan.price_cents * subscription.quantity) / 3.0
-                      when 'yearly'
+      when "yearly"
                         (subscription.plan.price_cents * subscription.quantity) / 12.0
-                      else
+      else
                         subscription.plan.price_cents * subscription.quantity
-                      end
-      
+      end
+
       total_mrr += monthly_amount
     end
-    
+
     cents ? total_mrr.to_i : (total_mrr / 100.0)
   end
 
@@ -296,32 +296,32 @@ class RevenueAnalyticsService
     subscriptions = base_subscription_query
                      .where(created_at: ..date.end_of_day)
                      .where.not(ended_at: ..date.beginning_of_day)
-    
+
     calculate_mrr_from_subscriptions(subscriptions, cents: true)
   end
 
   # Calculate revenue churn rate
   def calculate_revenue_churn_rate(date, period_type)
     case period_type
-    when 'monthly'
+    when "monthly"
       period_start = date.beginning_of_month
       period_end = date.end_of_month
       previous_period_end = (date - 1.month).end_of_month
-    when 'daily'
+    when "daily"
       period_start = date.beginning_of_day
-      period_end = date.end_of_day  
+      period_end = date.end_of_day
       previous_period_end = (date - 1.day).end_of_day
     end
 
     # MRR at start of period
     start_mrr = calculate_historical_mrr(previous_period_end)
-    
+
     # MRR lost from churned subscriptions
     churned_subscriptions = base_subscription_query
                              .where(ended_at: period_start..period_end)
-                             
+
     churned_mrr = calculate_mrr_from_subscriptions(churned_subscriptions, cents: true)
-    
+
     return 0.0 if start_mrr == 0
     churned_mrr.to_f / start_mrr
   end
@@ -333,7 +333,7 @@ class RevenueAnalyticsService
       .where(created_at: ..date.end_of_day)
       .where.not(ended_at: ..date.beginning_of_day)
       .distinct
-      .count('accounts.id')
+      .count("accounts.id")
   end
 
   # Count new customers in period
@@ -342,7 +342,7 @@ class RevenueAnalyticsService
       .joins(:account)
       .where(created_at: start_date..end_date)
       .distinct
-      .count('accounts.id')
+      .count("accounts.id")
   end
 
   # Count churned customers in period
@@ -351,7 +351,7 @@ class RevenueAnalyticsService
       .joins(:account)
       .where(ended_at: start_date..end_date)
       .distinct
-      .count('accounts.id')
+      .count("accounts.id")
   end
 
   # Base query for subscriptions (scoped by account if provided)
@@ -376,7 +376,7 @@ class RevenueAnalyticsService
   def fill_missing_snapshots(snapshots, start_date, end_date, period_type)
     snapshot_hash = snapshots.index_by(&:date)
     results = []
-    
+
     current_date = start_date
     while current_date <= end_date
       if snapshot_hash[current_date]
@@ -399,17 +399,17 @@ class RevenueAnalyticsService
           ltv_cents: 0
         )
       end
-      
+
       current_date = case period_type
-                    when 'monthly'
+      when "monthly"
                       current_date + 1.month
-                    when 'yearly'
+      when "yearly"
                       current_date + 1.year
-                    else
+      else
                       current_date + 1.day
-                    end
+      end
     end
-    
+
     results
   end
 end

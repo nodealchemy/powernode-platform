@@ -10,7 +10,7 @@ class User < ApplicationRecord
   has_many :password_histories, dependent: :destroy
 
   # Validations
-  validates :email, presence: true, 
+  validates :email, presence: true,
                    format: { with: URI::MailTo::EMAIL_REGEXP },
                    uniqueness: { case_sensitive: false }
   validates :first_name, presence: true, length: { minimum: 1, maximum: 50 }
@@ -23,6 +23,7 @@ class User < ApplicationRecord
   # Callbacks
   before_validation :normalize_email
   before_create :set_owner_if_first_user
+  after_create :assign_owner_role_if_needed
   after_update :save_password_to_history, if: :saved_change_to_password_digest?
   before_save :set_password_changed_at, if: :password_digest_changed?
 
@@ -32,14 +33,19 @@ class User < ApplicationRecord
   PASSWORD_HISTORY_COUNT = 12
 
   # Scopes
-  scope :active, -> { where(status: 'active') }
-  scope :owners, -> { where(role: 'owner') }
-  scope :admins, -> { where(role: 'admin') }
-  scope :members, -> { where(role: 'member') }
+  scope :active, -> { where(status: "active") }
+  scope :owners, -> { where(role: "owner") }
+  scope :admins, -> { where(role: "admin") }
+  scope :members, -> { where(role: "member") }
   scope :verified, -> { where.not(email_verified_at: nil) }
   scope :unverified, -> { where(email_verified_at: nil) }
-  scope :locked, -> { where('locked_until > ?', Time.current) }
-  scope :unlocked, -> { where('locked_until IS NULL OR locked_until <= ?', Time.current) }
+  scope :locked, -> { where("locked_until > ?", Time.current) }
+  scope :unlocked, -> { where("locked_until IS NULL OR locked_until <= ?", Time.current) }
+
+  # JSON serialization - exclude sensitive fields
+  def as_json(options = {})
+    super(options.merge(except: [ :password_digest, :failed_login_attempts, :locked_until, :password_changed_at ]))
+  end
 
   # Instance methods
   def full_name
@@ -51,19 +57,19 @@ class User < ApplicationRecord
   end
 
   def active?
-    status == 'active'
+    status == "active"
   end
 
   def owner?
-    role == 'owner'
+    roles.exists?(name: 'Owner')
   end
 
   def admin?
-    role == 'admin'
+    roles.exists?(name: 'Admin')
   end
 
   def member?
-    role == 'member'
+    roles.exists?(name: 'Member')
   end
 
   def email_verified?
@@ -83,7 +89,7 @@ class User < ApplicationRecord
   end
 
   def has_permission?(permission_name)
-    roles.joins(:permissions).exists(permissions: { name: permission_name })
+    roles.joins(:permissions).exists?(permissions: { name: permission_name })
   end
 
   def assign_role(role)
@@ -112,7 +118,7 @@ class User < ApplicationRecord
 
   def record_failed_login!
     increment!(:failed_login_attempts)
-    
+
     if failed_login_attempts >= MAX_FAILED_ATTEMPTS
       lock_account!
     end
@@ -128,32 +134,72 @@ class User < ApplicationRecord
 
   def password_strength
     return nil unless password_digest.present?
-    
+
     # We can't get the original password from digest, so this is for new passwords only
-    @password_strength ||= PasswordStrengthService.score_password(@password || '')
+    @password_strength ||= PasswordStrengthService.score_password(@password || "")
   end
 
   def password_age_days
     return nil unless password_changed_at.present?
-    
+
     ((Time.current - password_changed_at) / 1.day).round
   end
 
   def password_expired?(max_age_days = 90)
     return false unless password_changed_at.present?
-    
+
     password_age_days > max_age_days
+  end
+
+  # Password reset methods
+  def generate_reset_token!
+    payload = {
+      user_id: id,
+      type: "password_reset",
+      exp: 1.hour.from_now.to_i
+    }
+    jwt_token = JWT.encode(payload, Rails.application.config.jwt_secret_key, "HS256")
+
+    self.reset_token = jwt_token
+    self.reset_expires_at = 1.hour.from_now
+    save!
+    reset_token
+  end
+
+  def reset_token_valid?(token = nil)
+    token_to_check = token || reset_token
+    return false unless token_to_check.present?
+
+    begin
+      payload = JWT.decode(token_to_check, Rails.application.config.jwt_secret_key, true, algorithm: "HS256").first
+      payload["user_id"] == id && payload["type"] == "password_reset" && Time.current < Time.at(payload["exp"])
+    rescue JWT::DecodeError, JWT::ExpiredSignature
+      false
+    end
+  end
+
+  def reset_password!(new_password, token)
+    return false unless reset_token_valid?(token)
+
+    self.password = new_password
+    self.reset_token = nil
+    self.reset_expires_at = nil
+    save!
+  end
+
+  def clear_reset_token!
+    update!(reset_token: nil, reset_expires_at: nil)
   end
 
   # Analytics permission helper methods
   def can?(permission_action)
     case permission_action.to_s
-    when 'view_analytics'
-      has_permission?('analytics_read') || owner? || admin?
-    when 'export_analytics'
-      has_permission?('analytics_export') || owner? || admin?
-    when 'view_global_analytics'
-      has_permission?('analytics_global') || owner?
+    when "view_analytics"
+      has_permission?("analytics.read") || owner? || admin?
+    when "export_analytics"
+      has_permission?("analytics.export") || owner? || admin?
+    when "view_global_analytics"
+      has_permission?("analytics.global") || owner?
     else
       false
     end
@@ -162,15 +208,15 @@ class User < ApplicationRecord
   # Override authenticate method to handle account lockout
   def authenticate(unencrypted_password)
     return false if locked?
-    
+
     result = super(unencrypted_password)
-    
+
     if result
       record_successful_login!
     else
       record_failed_login!
     end
-    
+
     result
   end
 
@@ -181,16 +227,28 @@ class User < ApplicationRecord
   end
 
   def set_owner_if_first_user
+    # Only assign Owner role if this is the first user in the account
     if account&.users&.count&.zero?
-      self.role = 'owner'
+      # This will be handled in after_create callback to assign Owner role
+      @should_be_owner = true
+    end
+  end
+
+  def assign_owner_role_if_needed
+    if @should_be_owner
+      owner_role = Role.find_or_create_by!(name: 'Owner') do |role|
+        role.description = 'Account owner with full administrative access'
+        role.system_role = true
+      end
+      roles << owner_role unless roles.exists?(name: 'Owner')
     end
   end
 
   def password_complexity
     return unless password.present?
-    
+
     result = PasswordStrengthService.validate_password(password)
-    
+
     unless result[:valid]
       result[:errors].each { |error| errors.add(:password, error) }
     end
@@ -198,7 +256,7 @@ class User < ApplicationRecord
 
   def password_not_recently_used
     return unless password.present? && persisted?
-    
+
     if PasswordHistory.password_recently_used?(self, password)
       errors.add(:password, "cannot be the same as any of your last #{PASSWORD_HISTORY_COUNT} passwords")
     end
@@ -215,9 +273,9 @@ class User < ApplicationRecord
 
   def lock_account!
     # Exponential backoff: base duration * (2 ^ (attempts - max_attempts))
-    multiplier = 2 ** [(failed_login_attempts - MAX_FAILED_ATTEMPTS), 5].min
+    multiplier = 2 ** [ (failed_login_attempts - MAX_FAILED_ATTEMPTS), 5 ].min
     lockout_duration = LOCKOUT_DURATION * multiplier
-    
+
     update!(
       locked_until: Time.current + lockout_duration
     )

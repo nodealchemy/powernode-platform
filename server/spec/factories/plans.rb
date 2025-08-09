@@ -1,13 +1,15 @@
 FactoryBot.define do
   factory :plan do
-    name { "MyString" }
-    description { "MyText" }
-    price_cents { 1 }
-    currency { "MyString" }
-    billing_cycle { "MyString" }
-    features { "MyText" }
-    limits { "MyText" }
-    status { "MyString" }
-    default_roles { "MyText" }
+    sequence(:name) { |n| "Plan #{n}" }
+    description { "A great subscription plan" }
+    price_cents { 2999 }
+    currency { "USD" }
+    billing_cycle { "monthly" }
+    features { {} }
+    limits { {} }
+    status { "active" }
+    default_roles { [] }
+    trial_days { 14 }
+    public { true }
   end
 end

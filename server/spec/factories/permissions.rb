@@ -1,8 +1,7 @@
 FactoryBot.define do
   factory :permission do
-    name { "MyString" }
-    resource { "MyString" }
-    action { "MyString" }
-    description { "MyString" }
+    sequence(:resource) { |n| "resource#{n}" }
+    sequence(:action) { |n| "action#{n}" }
+    description { Faker::Lorem.sentence }
   end
 end

@@ -9,7 +9,7 @@ class RevenueSnapshot < ApplicationRecord
   validates :revenue_churn_rate, numericality: { greater_than_or_equal_to: 0, less_than_or_equal_to: 1 }
 
   # Ensure uniqueness of snapshot per account/date/period
-  validates :date, uniqueness: { scope: [:account_id, :period_type] }
+  validates :date, uniqueness: { scope: [ :account_id, :period_type ] }
 
   # Money handling
   monetize :mrr_cents
@@ -26,20 +26,20 @@ class RevenueSnapshot < ApplicationRecord
   scope :for_period, ->(period_type) { where(period_type: period_type) }
   scope :in_date_range, ->(start_date, end_date) { where(date: start_date..end_date) }
   scope :recent, ->(limit = 12) { order(date: :desc).limit(limit) }
-  scope :daily, -> { where(period_type: 'daily') }
-  scope :monthly, -> { where(period_type: 'monthly') }
-  scope :yearly, -> { where(period_type: 'yearly') }
+  scope :daily, -> { where(period_type: "daily") }
+  scope :monthly, -> { where(period_type: "monthly") }
+  scope :yearly, -> { where(period_type: "yearly") }
 
   # Callbacks
   after_initialize :set_defaults
   before_save :calculate_derived_metrics
 
   # Class methods
-  def self.latest_for_account(account, period_type = 'monthly')
+  def self.latest_for_account(account, period_type = "monthly")
     for_account(account).for_period(period_type).order(date: :desc).first
   end
 
-  def self.latest_global(period_type = 'monthly')
+  def self.latest_global(period_type = "monthly")
     global.for_period(period_type).order(date: :desc).first
   end
 
@@ -65,19 +65,19 @@ class RevenueSnapshot < ApplicationRecord
   end
 
   def mrr
-    Money.new(mrr_cents, 'USD')
+    Money.new(mrr_cents, "USD")
   end
 
   def arr
-    Money.new(arr_cents, 'USD')
+    Money.new(arr_cents, "USD")
   end
 
   def arpu
-    Money.new(arpu_cents, 'USD')
+    Money.new(arpu_cents, "USD")
   end
 
   def ltv
-    Money.new(ltv_cents, 'USD')
+    Money.new(ltv_cents, "USD")
   end
 
   def growth_rate_percentage
@@ -142,7 +142,7 @@ class RevenueSnapshot < ApplicationRecord
     if customer_churn_rate > 0
       monthly_churn = customer_churn_rate
       estimated_lifetime_months = 1.0 / monthly_churn
-      estimated_lifetime_months = [estimated_lifetime_months, 60].min # Cap at 5 years
+      estimated_lifetime_months = [ estimated_lifetime_months, 60 ].min # Cap at 5 years
       self.ltv_cents = (arpu_cents * estimated_lifetime_months).to_i
     else
       # If no churn, estimate based on industry average or set high value

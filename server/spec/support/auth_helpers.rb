@@ -1,12 +1,18 @@
 module AuthHelpers
   def jwt_token_for(user)
+    # Get primary role name for backward compatibility
+    primary_role = user.roles.first&.name || 'Member'
+    
     payload = {
       user_id: user.id,
       account_id: user.account.id,
+      email: user.email,
+      role: primary_role.downcase,
+      type: 'access',
       exp: 1.hour.from_now.to_i
     }
-    
-    JWT.encode(payload, Rails.application.credentials.secret_key_base)
+
+    JWT.encode(payload, Rails.application.config.jwt_secret_key, 'HS256')
   end
 
   def auth_headers_for(user)
@@ -32,11 +38,11 @@ module AuthHelpers
     expect(response).to have_http_status(200)
     response_data = json_response
     expect(response_data['success']).to be true
-    
+
     if data
       expect(response_data['data']).to include(data)
     end
-    
+
     response_data
   end
 end

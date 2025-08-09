@@ -19,8 +19,11 @@ The platform handles subscription lifecycle management, automated billing, payme
 ### Backend Structure (Rails 8 API)
 - **Models**: Account, User, Role, Permission, Invitation, AccountDelegation, Subscription, Plan, Invoice, Payment, AuditLog with complex associations
   - Users are associated with an Account (accounts may have multiple users)
+  - **Account-Subscription Relationship**: Each Account `has_one :subscription` (one-to-one relationship)
+    - Enforced at application level with validation: `validates :account, uniqueness: { message: "can only have one subscription" }`
+    - Enforced at database level with unique constraint on `subscriptions.account_id`
   - Role-based access control with Users having Roles and Permissions
-  - Subscriptions are associated with a Plan
+  - Subscriptions `belongs_to` an Account and a Plan
   - Plans have configurable default roles
   - Plans include features and limits stored as hash
   - Default roles from plan are assigned to user on account creation
@@ -58,11 +61,9 @@ The platform handles subscription lifecycle management, automated billing, payme
 - Always update task status when working on related features
 
 ### Development Commands
-Since the project is in early stages with no existing Rails/React setup:
-- **Rails Setup**: `cd server && rails new . --api --database=postgresql` (when creating backend in ./server directory)
-- **React Setup**: `npx create-react-app frontend --template typescript` (when creating frontend in ./frontend directory)
 - **Database**: Standard Rails commands from server directory (`cd server && rails db:create`, `rails db:migrate`, `rails db:seed`)
-- **Testing**: `cd server && rspec` for backend, `cd frontend && npm test` for frontend when setup
+- **Testing**: `cd server && bundle exec rspec` for backend tests
+- **Money Gem**: Configured with USD default currency and proper localization (see `config/initializers/money.rb`)
 - **Background Jobs**: Standalone agent approach - see Background Jobs Architecture section below
 
 ### Multi-Agent Coordination
@@ -79,6 +80,10 @@ The project uses a sophisticated agent-based development approach defined in `cl
 - Implement comprehensive webhook handling for payment events
 - Store payment methods securely with PCI compliance considerations
 - Handle payment retries with exponential backoff
+- **Money Gem Configuration**: 
+  - Default currency set to USD (`Money.default_currency = "USD"`)
+  - Rounding mode configured (`Money.rounding_mode = BigDecimal::ROUND_HALF_UP`)
+  - I18n locale backend for proper formatting (`Money.locale_backend = :i18n`)
 
 ### Subscription Management
 - Model subscription states as state machines
@@ -88,6 +93,10 @@ The project uses a sophisticated agent-based development approach defined in `cl
 
 ### Security Considerations
 - JWT authentication for API access
+- **Email Verification Required**: Users must verify their email address before login is allowed
+  - Registration creates unverified accounts but login is blocked until email verification
+  - Email verification tokens must be time-limited and single-use
+  - Resend verification email functionality should be rate-limited
 - **Password Security**: Strong password complexity requirements enforced
   - Minimum 12 characters length
   - Must contain uppercase, lowercase, numbers, and special characters
@@ -109,7 +118,11 @@ The project uses a sophisticated agent-based development approach defined in `cl
 - **Scalability**: This architecture allows independent scaling of job processing and API backend
 
 ### Testing Strategy
-- Comprehensive model tests with FactoryBot
+- Comprehensive model tests with FactoryBot (all factories fixed and validated)
+- **Factory Validation**: All FactoryBot factories use valid data instead of placeholder "MyString" values
+- **Money Gem Integration**: Tests properly handle Money objects and currency validation
+- **Association Testing**: Proper shoulda-matchers usage with correct subject declarations for complex validations
+- **One-to-One Relationship Testing**: Account-Subscription uniqueness validation at both application and database levels
 - **Password Security Testing**: Comprehensive test coverage for password requirements
   - Password complexity validation tests
   - Password strength scoring tests
@@ -118,6 +131,7 @@ The project uses a sophisticated agent-based development approach defined in `cl
   - Password reset security flow tests
 - API endpoint testing with proper fixtures
 - Payment processing tests using VCR or stubs
+- **Test Status**: Major model tests now passing (AuditLog: 42/42, Plan: 38/38, Payment: 62/62, Account: 41/41)
 - Frontend component testing with Testing Library
 - E2E tests for critical user flows
 
@@ -142,10 +156,25 @@ The project follows a structured 6-phase approach:
 
 ## Current Project Status
 
-This is a greenfield subscription management platform with comprehensive planning completed:
-- Multi-agent development approach defined in `claude-swarm.yml` 
+**Phase 1 - Backend Foundation**: ✅ **COMPLETED**
+- Rails 8 API application fully set up in `./server` directory
+- Core models implemented: Account, User, Subscription, Plan, Invoice, Payment, AuditLog
+- **Account-Subscription One-to-One Relationship**: Implemented with validation and database constraints
+- Money gem properly configured with USD defaults and I18n localization
+- Authentication system with JWT tokens
+- Database schema with UUIDv7 primary keys
+- **Testing Suite**: Major model tests passing (203+ tests across key models)
+  - AuditLog: 42/42 tests ✅
+  - Plan: 38/38 tests ✅ 
+  - Payment: 62/62 tests ✅
+  - Account: 41/41 tests ✅
+  - Subscription: Uniqueness validation working ✅
+- **Factory Bot**: All factories validated and using proper test data
+- State machines implemented for subscriptions and payments
+- Multi-agent development approach defined in `claude-swarm.yml`
 - 17 specialized agents for different aspects of development
-- Structured 6-phase development approach planned
-- No code implementation has begun yet
+- Payment gateway initializers configured (Stripe, PayPal)
+
+**Next Phase**: Payment Integration - Gateway integrations, billing logic, webhooks
 
 - Always update TODO.md when tasks are completed or changes to CLAUDE.md are made.

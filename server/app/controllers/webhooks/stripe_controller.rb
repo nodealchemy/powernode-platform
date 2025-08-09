@@ -1,11 +1,10 @@
 class Webhooks::StripeController < ApplicationController
-  skip_before_action :verify_authenticity_token
-  skip_before_action :authenticate_user!
+  skip_before_action :authenticate_request
   before_action :verify_stripe_signature
 
   def handle
     webhook_event = WebhookEvent.create!(
-      provider: 'stripe',
+      provider: "stripe",
       event_type: @event.type,
       provider_event_id: @event.id,
       event_data: @event.to_json,
@@ -18,17 +17,17 @@ class Webhooks::StripeController < ApplicationController
     render json: { received: true }, status: 200
   rescue JSON::ParserError, Stripe::SignatureVerificationError => e
     Rails.logger.error "Stripe webhook signature verification failed: #{e.message}"
-    render json: { error: 'Invalid signature' }, status: 400
+    render json: { error: "Invalid signature" }, status: 400
   rescue => e
     Rails.logger.error "Stripe webhook processing error: #{e.message}"
-    render json: { error: 'Webhook processing failed' }, status: 500
+    render json: { error: "Webhook processing failed" }, status: 500
   end
 
   private
 
   def verify_stripe_signature
     payload = request.body.read
-    signature = request.env['HTTP_STRIPE_SIGNATURE']
+    signature = request.env["HTTP_STRIPE_SIGNATURE"]
     endpoint_secret = Rails.application.config.stripe[:endpoint_secret]
 
     @event = Stripe::Webhook.construct_event(

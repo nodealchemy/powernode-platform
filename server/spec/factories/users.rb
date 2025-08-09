@@ -4,21 +4,40 @@ FactoryBot.define do
     sequence(:email) { |n| "user#{n}@example.com" }
     first_name { Faker::Name.first_name }
     last_name { Faker::Name.last_name }
-    password { 'SecureFactoryCode$9!' }
-    role { 'member' }
+    password { 'UncommonStr0ngP@ssw0rd#99' }
     status { 'active' }
     email_verified_at { 1.day.ago }
 
+    after(:create) do |user|
+      # Assign default Member role if no roles assigned yet
+      if user.roles.empty?
+        member_role = Role.find_by(name: 'Member') || create(:role, :member)
+        user.roles << member_role
+      end
+    end
+
     trait :owner do
-      role { 'owner' }
+      after(:create) do |user|
+        user.roles.clear
+        owner_role = Role.find_by(name: 'Owner') || create(:role, :owner)
+        user.roles << owner_role
+      end
     end
 
     trait :admin do
-      role { 'admin' }
+      after(:create) do |user|
+        user.roles.clear
+        admin_role = Role.find_by(name: 'Admin') || create(:role, :admin)
+        user.roles << admin_role
+      end
     end
 
     trait :member do
-      role { 'member' }
+      after(:create) do |user|
+        user.roles.clear
+        member_role = Role.find_by(name: 'Member') || create(:role, :member)
+        user.roles << member_role
+      end
     end
 
     trait :inactive do
@@ -33,11 +52,9 @@ FactoryBot.define do
       email_verified_at { nil }
     end
 
-    trait :with_roles do
-      after(:create) do |user|
-        role = create(:role, name: user.role.capitalize)
-        user.roles << role
-      end
+    trait :skip_owner_callback do
+      # This trait can be used when creating multiple users for the same account
+      after(:create) { |user| }
     end
   end
 end

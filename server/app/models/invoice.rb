@@ -19,11 +19,11 @@ class Invoice < ApplicationRecord
   serialize :billing_address, coder: JSON
 
   # Scopes
-  scope :draft, -> { where(status: 'draft') }
-  scope :open, -> { where(status: 'open') }
-  scope :paid, -> { where(status: 'paid') }
-  scope :overdue, -> { where(status: 'open').where('due_date < ?', Time.current) }
-  scope :due_soon, -> { where(status: 'open').where(due_date: Time.current..7.days.from_now) }
+  scope :draft, -> { where(status: "draft") }
+  scope :open, -> { where(status: "open") }
+  scope :paid, -> { where(status: "paid") }
+  scope :overdue, -> { where(status: "open").where("due_date < ?", Time.current) }
+  scope :due_soon, -> { where(status: "open").where(due_date: Time.current..7.days.from_now) }
 
   # Callbacks
   before_validation :generate_invoice_number, on: :create
@@ -49,14 +49,14 @@ class Invoice < ApplicationRecord
     end
 
     event :mark_paid do
-      transitions from: [:open, :uncollectible], to: :paid
+      transitions from: [ :open, :uncollectible ], to: :paid
       after do
         self.paid_at = Time.current
       end
     end
 
     event :void do
-      transitions from: [:draft, :open], to: :void
+      transitions from: [ :draft, :open ], to: :void
     end
 
     event :mark_uncollectible do
@@ -66,11 +66,11 @@ class Invoice < ApplicationRecord
 
   # Instance methods
   def paid?
-    status == 'paid'
+    status == "paid"
   end
 
   def overdue?
-    status == 'open' && due_date.present? && due_date < Time.current
+    status == "open" && due_date.present? && due_date < Time.current
   end
 
   def days_overdue
@@ -79,7 +79,7 @@ class Invoice < ApplicationRecord
   end
 
   def days_until_due
-    return 0 unless due_date && status == 'open'
+    return 0 unless due_date && status == "open"
     (due_date.to_date - Time.current.to_date).to_i
   end
 
@@ -96,9 +96,9 @@ class Invoice < ApplicationRecord
   end
 
   def payment_provider
-    return 'stripe' if stripe_invoice_id.present?
-    return 'paypal' if paypal_invoice_id.present?
-    'none'
+    return "stripe" if stripe_invoice_id.present?
+    return "paypal" if paypal_invoice_id.present?
+    "none"
   end
 
   def add_line_item(description:, quantity: 1, unit_price_cents: 0, **options)
@@ -116,7 +116,7 @@ class Invoice < ApplicationRecord
       description: "#{plan.name} (#{plan.billing_cycle})",
       quantity: quantity,
       unit_price_cents: plan.price_cents,
-      line_type: 'subscription',
+      line_type: "subscription",
       period_start: period_start || subscription.current_period_start,
       period_end: period_end || subscription.current_period_end
     )
@@ -126,18 +126,18 @@ class Invoice < ApplicationRecord
 
   def generate_invoice_number
     return if invoice_number.present?
-    
+
     date_prefix = Time.current.strftime("%Y%m")
     last_invoice = Invoice.where("invoice_number LIKE ?", "INV-#{date_prefix}%")
                          .order(:invoice_number)
                          .last
-    
+
     if last_invoice
-      sequence = last_invoice.invoice_number.split('-').last.to_i + 1
+      sequence = last_invoice.invoice_number.split("-").last.to_i + 1
     else
       sequence = 1
     end
-    
+
     self.invoice_number = "INV-#{date_prefix}-#{sequence.to_s.rjust(4, '0')}"
   end
 
@@ -150,6 +150,6 @@ class Invoice < ApplicationRecord
   def set_defaults
     self.metadata ||= {}
     self.billing_address ||= {}
-    self.currency ||= subscription&.plan&.currency || 'USD'
+    self.currency ||= subscription&.plan&.currency || "USD"
   end
 end

@@ -9,23 +9,23 @@ class Payment < ApplicationRecord
   # Validations
   validates :amount_cents, presence: true, numericality: { greater_than: 0 }
   validates :currency, presence: true, inclusion: { in: %w[USD EUR GBP] }
-  validates :payment_method, presence: true, inclusion: { 
-    in: %w[stripe_card stripe_bank paypal bank_transfer check] 
+  validates :payment_method, presence: true, inclusion: {
+    in: %w[stripe_card stripe_bank paypal bank_transfer check]
   }
-  validates :status, presence: true, inclusion: { 
-    in: %w[pending processing succeeded failed canceled refunded partially_refunded] 
+  validates :status, presence: true, inclusion: {
+    in: %w[pending processing succeeded failed canceled refunded partially_refunded]
   }
 
   # Serialization
   serialize :metadata, coder: JSON
 
   # Scopes
-  scope :succeeded, -> { where(status: 'succeeded') }
-  scope :failed, -> { where(status: 'failed') }
-  scope :pending, -> { where(status: 'pending') }
+  scope :succeeded, -> { where(status: "succeeded") }
+  scope :failed, -> { where(status: "failed") }
+  scope :pending, -> { where(status: "pending") }
   scope :by_method, ->(method) { where(payment_method: method) }
-  scope :stripe_payments, -> { where(payment_method: ['stripe_card', 'stripe_bank']) }
-  scope :paypal_payments, -> { where(payment_method: 'paypal') }
+  scope :stripe_payments, -> { where(payment_method: [ "stripe_card", "stripe_bank" ]) }
+  scope :paypal_payments, -> { where(payment_method: "paypal") }
 
   # Callbacks
   before_save :calculate_net_amount
@@ -48,7 +48,7 @@ class Payment < ApplicationRecord
     end
 
     event :succeed do
-      transitions from: [:pending, :processing], to: :succeeded
+      transitions from: [ :pending, :processing ], to: :succeeded
       after do
         self.processed_at = Time.current
         invoice.mark_paid! if invoice.may_mark_paid?
@@ -56,14 +56,14 @@ class Payment < ApplicationRecord
     end
 
     event :fail do
-      transitions from: [:pending, :processing], to: :failed
+      transitions from: [ :pending, :processing ], to: :failed
       after do
         self.failed_at = Time.current
       end
     end
 
     event :cancel do
-      transitions from: [:pending, :processing], to: :canceled
+      transitions from: [ :pending, :processing ], to: :canceled
     end
 
     event :refund do
@@ -90,20 +90,20 @@ class Payment < ApplicationRecord
 
   def provider
     case payment_method
-    when 'stripe_card', 'stripe_bank'
-      'stripe'
-    when 'paypal'
-      'paypal'
+    when "stripe_card", "stripe_bank"
+      "stripe"
+    when "paypal"
+      "paypal"
     else
-      'manual'
+      "manual"
     end
   end
 
   def gateway_transaction_id
     case provider
-    when 'stripe'
+    when "stripe"
       stripe_payment_intent_id || stripe_charge_id
-    when 'paypal'
+    when "paypal"
       paypal_order_id || paypal_capture_id
     else
       nil
@@ -136,6 +136,11 @@ class Payment < ApplicationRecord
 
   def set_defaults
     self.metadata ||= {}
-    self.currency ||= invoice&.currency || 'USD'
+    # Always inherit currency from invoice if available
+    if invoice&.currency.present?
+      self.currency = invoice.currency
+    else
+      self.currency ||= "USD"
+    end
   end
 end

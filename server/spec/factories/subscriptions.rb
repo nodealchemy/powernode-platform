@@ -3,6 +3,7 @@ FactoryBot.define do
     association :account
     association :plan
     status { 'active' }
+    quantity { 1 }
     current_period_start { 1.month.ago }
     current_period_end { 1.month.from_now }
     metadata { {} }

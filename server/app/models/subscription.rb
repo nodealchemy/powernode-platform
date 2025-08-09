@@ -9,6 +9,7 @@ class Subscription < ApplicationRecord
 
   # Validations
   validates :quantity, presence: true, numericality: { greater_than: 0 }
+  validates :account, presence: true, uniqueness: { message: "can only have one subscription" }
   validates :stripe_subscription_id, uniqueness: { allow_nil: true }
   validates :paypal_subscription_id, uniqueness: { allow_nil: true }
 
@@ -16,10 +17,10 @@ class Subscription < ApplicationRecord
   serialize :metadata, coder: JSON
 
   # Scopes
-  scope :active, -> { where(status: ['trialing', 'active']) }
-  scope :inactive, -> { where(status: ['canceled', 'unpaid', 'incomplete_expired']) }
-  scope :past_due, -> { where(status: 'past_due') }
-  scope :trialing, -> { where(status: 'trialing') }
+  scope :active, -> { where(status: [ "trialing", "active" ]) }
+  scope :inactive, -> { where(status: [ "canceled", "unpaid", "incomplete_expired" ]) }
+  scope :past_due, -> { where(status: "past_due") }
+  scope :trialing, -> { where(status: "trialing") }
   scope :expiring_soon, -> { where(current_period_end: Time.current..7.days.from_now) }
   scope :trial_ending_soon, -> { where(trial_end: Time.current..3.days.from_now) }
 
@@ -39,18 +40,18 @@ class Subscription < ApplicationRecord
     state :paused
 
     event :activate do
-      transitions from: [:trialing, :past_due, :unpaid, :paused], to: :active
+      transitions from: [ :trialing, :past_due, :unpaid, :paused ], to: :active
       after do
         update_period_dates
       end
     end
 
     event :mark_past_due do
-      transitions from: [:active, :trialing], to: :past_due
+      transitions from: [ :active, :trialing ], to: :past_due
     end
 
     event :cancel do
-      transitions from: [:trialing, :active, :past_due, :unpaid, :paused], to: :canceled
+      transitions from: [ :trialing, :active, :past_due, :unpaid, :paused ], to: :canceled
       after do
         self.canceled_at = Time.current
         self.ended_at = Time.current unless ended_at.present?
@@ -58,11 +59,11 @@ class Subscription < ApplicationRecord
     end
 
     event :mark_unpaid do
-      transitions from: [:active, :past_due], to: :unpaid
+      transitions from: [ :active, :past_due ], to: :unpaid
     end
 
     event :pause do
-      transitions from: [:active, :trialing], to: :paused
+      transitions from: [ :active, :trialing ], to: :paused
     end
 
     event :resume do
@@ -70,7 +71,7 @@ class Subscription < ApplicationRecord
     end
 
     event :expire do
-      transitions from: [:incomplete, :past_due, :unpaid], to: :incomplete_expired
+      transitions from: [ :incomplete, :past_due, :unpaid ], to: :incomplete_expired
       after do
         self.ended_at = Time.current
       end
@@ -83,7 +84,7 @@ class Subscription < ApplicationRecord
   end
 
   def on_trial?
-    status == 'trialing' && trial_end.present? && trial_end > Time.current
+    status == "trialing" && trial_end.present? && trial_end > Time.current
   end
 
   def trial_ended?
@@ -122,9 +123,9 @@ class Subscription < ApplicationRecord
   end
 
   def payment_provider
-    return 'stripe' if using_stripe?
-    return 'paypal' if using_paypal?
-    'none'
+    return "stripe" if using_stripe?
+    return "paypal" if using_paypal?
+    "none"
   end
 
   private
@@ -144,13 +145,13 @@ class Subscription < ApplicationRecord
   def update_period_dates
     now = Time.current
     self.current_period_start = now
-    
+
     case plan.billing_cycle
-    when 'monthly'
+    when "monthly"
       self.current_period_end = now + 1.month
-    when 'quarterly'
+    when "quarterly"
       self.current_period_end = now + 3.months
-    when 'yearly'
+    when "yearly"
       self.current_period_end = now + 1.year
     end
   end

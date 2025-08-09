@@ -19,15 +19,15 @@ class BillingService
         trial_end: trial_end || (plan.trial_days.days.from_now if plan.trial_days > 0),
         current_period_start: Time.current,
         current_period_end: calculate_period_end(plan, trial_end),
-        status: trial_end || plan.trial_days > 0 ? 'trialing' : 'active',
+        status: trial_end || plan.trial_days > 0 ? "trialing" : "active",
         metadata: options
       )
 
       # Create subscription in payment gateway
       case payment_method.provider
-      when 'stripe'
+      when "stripe"
         create_stripe_subscription(subscription, payment_method, options)
-      when 'paypal'
+      when "paypal"
         create_paypal_subscription(subscription, payment_method, options)
       end
 
@@ -43,7 +43,7 @@ class BillingService
   # Generate subscription invoice
   def generate_subscription_invoice(custom_subscription = nil)
     sub = custom_subscription || subscription
-    
+
     invoice = sub.invoices.create!(
       subtotal_cents: calculate_subscription_amount(sub),
       tax_rate: account.tax_rate || 0.0,
@@ -97,9 +97,9 @@ class BillingService
 
       # Update in payment gateway
       case subscription.payment_provider
-      when 'stripe'
+      when "stripe"
         update_stripe_subscription(subscription, new_plan, quantity, prorate)
-      when 'paypal'
+      when "paypal"
         update_paypal_subscription(subscription, new_plan, quantity)
       end
 
@@ -127,9 +127,9 @@ class BillingService
     )
 
     case subscription.payment_provider
-    when 'stripe'
+    when "stripe"
       cancel_stripe_subscription(subscription, at_period_end)
-    when 'paypal'
+    when "paypal"
       cancel_paypal_subscription(subscription, reason)
     end
   end
@@ -137,8 +137,8 @@ class BillingService
   # Handle failed payment
   def handle_failed_payment(payment)
     # Schedule retry attempts with exponential backoff
-    retry_schedule = [1.day, 3.days, 5.days, 7.days]
-    
+    retry_schedule = [ 1.day, 3.days, 5.days, 7.days ]
+
     retry_schedule.each_with_index do |delay, index|
       # Schedule background job for payment retry
       PaymentRetryJob.set(wait: delay).perform_later(payment.id, index + 1)
@@ -148,7 +148,7 @@ class BillingService
     subscription.mark_past_due! if subscription.may_mark_past_due?
 
     # Send dunning emails
-    send_dunning_notification(payment, 'payment_failed')
+    send_dunning_notification(payment, "payment_failed")
   end
 
   # Process payment retry
@@ -164,17 +164,17 @@ class BillingService
 
     if result[:success]
       Rails.logger.info "Payment retry successful: #{payment.id} (attempt #{retry_attempt})"
-      return true
+      true
     else
       Rails.logger.warn "Payment retry failed: #{payment.id} (attempt #{retry_attempt})"
-      
+
       # Final retry attempt - suspend subscription
       if retry_attempt >= 4
         suspend_subscription_for_non_payment
-        send_dunning_notification(payment, 'final_payment_failure')
+        send_dunning_notification(payment, "final_payment_failure")
       end
-      
-      return false
+
+      false
     end
   end
 
@@ -182,13 +182,13 @@ class BillingService
 
   def calculate_period_end(plan, trial_end)
     start_date = trial_end || Time.current
-    
+
     case plan.billing_cycle
-    when 'monthly'
+    when "monthly"
       start_date + 1.month
-    when 'quarterly'
+    when "quarterly"
       start_date + 3.months
-    when 'yearly'
+    when "yearly"
       start_date + 1.year
     else
       start_date + 1.month
@@ -197,7 +197,7 @@ class BillingService
 
   def calculate_subscription_amount(sub)
     base_amount = sub.plan.price_cents * sub.quantity
-    
+
     # Add setup fees if first billing period
     if sub.invoices.count == 0 && sub.plan.setup_fee_cents > 0
       base_amount += sub.plan.setup_fee_cents
@@ -219,7 +219,7 @@ class BillingService
 
     remaining_days = ((sub.current_period_end - effective_date) / 1.day).ceil
     total_days = ((sub.current_period_end - sub.current_period_start) / 1.day).ceil
-    
+
     return 0 if remaining_days <= 0
 
     current_amount = sub.plan.price_cents * sub.quantity
@@ -231,7 +231,7 @@ class BillingService
 
     remaining_days = ((subscription.current_period_end - effective_date) / 1.day).ceil
     total_days = ((subscription.current_period_end - subscription.current_period_start) / 1.day).ceil
-    
+
     return 0 if remaining_days <= 0
 
     new_amount = new_plan.price_cents * quantity
@@ -247,7 +247,7 @@ class BillingService
       tax_rate: account.tax_rate || 0.0,
       currency: sub.plan.currency,
       due_date: 1.day.from_now,
-      invoice_type: 'proration'
+      invoice_type: "proration"
     )
 
     if credit > 0
@@ -272,11 +272,11 @@ class BillingService
 
   def suspend_subscription_for_non_payment
     subscription.mark_unpaid! if subscription.may_mark_unpaid?
-    
+
     account.update!(
-      status: 'suspended',
+      status: "suspended",
       suspended_at: Time.current,
-      suspension_reason: 'non_payment'
+      suspension_reason: "non_payment"
     )
   end
 
@@ -291,8 +291,8 @@ class BillingService
 
     stripe_sub = Stripe::Subscription.create({
       customer: customer.id,
-      items: [{ price: sub.plan.stripe_price_id, quantity: sub.quantity }],
-      payment_behavior: 'default_incomplete',
+      items: [ { price: sub.plan.stripe_price_id, quantity: sub.quantity } ],
+      payment_behavior: "default_incomplete",
       default_payment_method: payment_method.provider_payment_method_id,
       trial_end: sub.trial_end&.to_i,
       metadata: {
@@ -307,12 +307,12 @@ class BillingService
 
   def update_stripe_subscription(sub, new_plan, quantity, prorate)
     Stripe::Subscription.update(sub.stripe_subscription_id, {
-      items: [{ 
-        id: get_stripe_subscription_item_id(sub), 
-        price: new_plan.stripe_price_id, 
-        quantity: quantity 
-      }],
-      proration_behavior: prorate ? 'create_prorations' : 'none'
+      items: [ {
+        id: get_stripe_subscription_item_id(sub),
+        price: new_plan.stripe_price_id,
+        quantity: quantity
+      } ],
+      proration_behavior: prorate ? "create_prorations" : "none"
     })
   end
 
@@ -353,7 +353,7 @@ class BillingService
           user_id: user.id
         }
       })
-      
+
       account.update!(stripe_customer_id: @stripe_customer.id)
     end
 

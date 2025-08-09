@@ -2,15 +2,20 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Auth', type: :request do
   let(:account) { create(:account) }
-  let(:user) { create(:user, account: account, password: 'password123') }
-  let(:unverified_user) { create(:user, :unverified, account: account, password: 'password123') }
+  let(:user) { create(:user, account: account, password: 'StrongTestP@ssw0rd9!') }
+  let(:unverified_user) { create(:user, :unverified, account: account, password: 'StrongTestP@ssw0rd9!') }
+
+  before(:each) do
+    # Clear rate limiting cache to prevent interference between tests
+    Rails.cache.clear
+  end
 
   describe 'POST /api/v1/auth/register' do
     let(:valid_params) do
       {
         user: {
           email: 'newuser@example.com',
-          password: 'password123',
+          password: 'StrongTestP@ssw0rd9!',
           first_name: 'John',
           last_name: 'Doe'
         },
@@ -29,10 +34,10 @@ RSpec.describe 'Api::V1::Auth', type: :request do
 
       it 'returns success with user data and tokens' do
         post '/api/v1/auth/register', params: valid_params, as: :json
-        
+
         expect(response).to have_http_status(:created)
         response_data = json_response
-        
+
         expect(response_data).to include(
           'success' => true,
           'user' => hash_including(
@@ -48,7 +53,7 @@ RSpec.describe 'Api::V1::Auth', type: :request do
 
       it 'assigns owner role to first user' do
         post '/api/v1/auth/register', params: valid_params, as: :json
-        
+
         new_user = User.find_by(email: 'newuser@example.com')
         expect(new_user.role).to eq('owner')
       end
@@ -57,26 +62,26 @@ RSpec.describe 'Api::V1::Auth', type: :request do
     context 'with invalid parameters' do
       it 'returns error for missing email' do
         invalid_params = valid_params.deep_merge(user: { email: nil })
-        
+
         post '/api/v1/auth/register', params: invalid_params, as: :json
-        
+
         expect_error_response("Email can't be blank", 422)
       end
 
       it 'returns error for duplicate email' do
         create(:user, email: 'newuser@example.com')
-        
+
         post '/api/v1/auth/register', params: valid_params, as: :json
-        
+
         expect_error_response('Email has already been taken', 422)
       end
 
       it 'returns error for weak password' do
         weak_params = valid_params.deep_merge(user: { password: '123' })
-        
+
         post '/api/v1/auth/register', params: weak_params, as: :json
-        
-        expect_error_response('Password is too short (minimum is 6 characters)', 422)
+
+        expect_error_response('Password Password must be at least 12 characters long', 422)
       end
     end
   end
@@ -85,17 +90,17 @@ RSpec.describe 'Api::V1::Auth', type: :request do
     let(:valid_params) do
       {
         email: user.email,
-        password: 'password123'
+        password: 'StrongTestP@ssw0rd9!'
       }
     end
 
     context 'with valid credentials' do
       it 'returns success with user data and tokens' do
         post '/api/v1/auth/login', params: valid_params, as: :json
-        
+
         expect_success_response
         response_data = json_response
-        
+
         expect(response_data).to include(
           'user' => hash_including(
             'id' => user.id,
@@ -126,33 +131,33 @@ RSpec.describe 'Api::V1::Auth', type: :request do
     context 'with invalid credentials' do
       it 'returns error for wrong email' do
         invalid_params = valid_params.merge(email: 'wrong@example.com')
-        
+
         post '/api/v1/auth/login', params: invalid_params, as: :json
-        
+
         expect_error_response('Invalid email or password', 401)
       end
 
       it 'returns error for wrong password' do
-        invalid_params = valid_params.merge(password: 'wrongpassword')
-        
+        invalid_params = valid_params.merge(password: 'WrongStrongP@ssw0rd9!')
+
         post '/api/v1/auth/login', params: invalid_params, as: :json
-        
+
         expect_error_response('Invalid email or password', 401)
       end
 
       it 'returns error for inactive user' do
         user.update(status: 'inactive')
-        
+
         post '/api/v1/auth/login', params: valid_params, as: :json
-        
+
         expect_error_response('Account is inactive', 401)
       end
 
       it 'returns error for suspended user' do
         user.update(status: 'suspended')
-        
+
         post '/api/v1/auth/login', params: valid_params, as: :json
-        
+
         expect_error_response('Account is suspended', 401)
       end
     end
@@ -161,16 +166,16 @@ RSpec.describe 'Api::V1::Auth', type: :request do
       let(:valid_params) do
         {
           email: unverified_user.email,
-          password: 'password123'
+          password: 'StrongTestP@ssw0rd9!'
         }
       end
 
       it 'allows login but includes verification warning' do
         post '/api/v1/auth/login', params: valid_params, as: :json
-        
+
         expect_success_response
         response_data = json_response
-        
+
         expect(response_data['user']['email_verified']).to be false
         expect(response_data['warning']).to include('email verification')
       end
@@ -185,19 +190,19 @@ RSpec.describe 'Api::V1::Auth', type: :request do
         type: 'refresh',
         exp: 7.days.from_now.to_i
       }
-      JWT.encode(payload, Rails.application.credentials.secret_key_base)
+      JWT.encode(payload, Rails.application.config.jwt_secret_key, 'HS256')
     end
 
     context 'with valid refresh token' do
       it 'returns new access and refresh tokens' do
         post '/api/v1/auth/refresh', params: { refresh_token: refresh_token }, as: :json
-        
+
         expect_success_response
         response_data = json_response
-        
+
         expect(response_data).to have_key('access_token')
         expect(response_data).to have_key('refresh_token')
-        
+
         # Tokens should be different from the original
         expect(response_data['access_token']).not_to eq(refresh_token)
         expect(response_data['refresh_token']).not_to eq(refresh_token)
@@ -207,7 +212,7 @@ RSpec.describe 'Api::V1::Auth', type: :request do
     context 'with invalid refresh token' do
       it 'returns error for malformed token' do
         post '/api/v1/auth/refresh', params: { refresh_token: 'invalid_token' }, as: :json
-        
+
         expect_error_response('Invalid refresh token', 401)
       end
 
@@ -218,10 +223,10 @@ RSpec.describe 'Api::V1::Auth', type: :request do
           type: 'refresh',
           exp: 1.day.ago.to_i
         }
-        expired_token = JWT.encode(expired_payload, Rails.application.credentials.secret_key_base)
-        
+        expired_token = JWT.encode(expired_payload, Rails.application.config.jwt_secret_key, 'HS256')
+
         post '/api/v1/auth/refresh', params: { refresh_token: expired_token }, as: :json
-        
+
         expect_error_response('Refresh token has expired', 401)
       end
 
@@ -232,10 +237,10 @@ RSpec.describe 'Api::V1::Auth', type: :request do
           type: 'access',
           exp: 1.hour.from_now.to_i
         }
-        access_token = JWT.encode(access_payload, Rails.application.credentials.secret_key_base)
-        
+        access_token = JWT.encode(access_payload, Rails.application.config.jwt_secret_key, 'HS256')
+
         post '/api/v1/auth/refresh', params: { refresh_token: access_token }, as: :json
-        
+
         expect_error_response('Invalid token type', 401)
       end
     end
@@ -246,9 +251,9 @@ RSpec.describe 'Api::V1::Auth', type: :request do
 
     it 'successfully logs out authenticated user' do
       post '/api/v1/auth/logout', headers: headers, as: :json
-      
+
       expect_success_response
-      
+
       response_data = json_response
       expect(response_data['message']).to eq('Successfully logged out')
     end
@@ -265,7 +270,7 @@ RSpec.describe 'Api::V1::Auth', type: :request do
 
     it 'returns error without authentication' do
       post '/api/v1/auth/logout', as: :json
-      
+
       expect_error_response('Access token required', 401)
     end
   end
@@ -275,10 +280,10 @@ RSpec.describe 'Api::V1::Auth', type: :request do
 
     it 'returns current user data' do
       get '/api/v1/auth/me', headers: headers, as: :json
-      
+
       expect_success_response
       response_data = json_response
-      
+
       expect(response_data['user']).to include(
         'id' => user.id,
         'email' => user.email,
@@ -294,15 +299,15 @@ RSpec.describe 'Api::V1::Auth', type: :request do
 
     it 'returns error without authentication' do
       get '/api/v1/auth/me', as: :json
-      
+
       expect_error_response('Access token required', 401)
     end
 
     it 'returns error with invalid token' do
       invalid_headers = { 'Authorization' => 'Bearer invalid_token' }
-      
+
       get '/api/v1/auth/me', headers: invalid_headers, as: :json
-      
+
       expect_error_response('Invalid access token', 401)
     end
   end
@@ -312,7 +317,7 @@ RSpec.describe 'Api::V1::Auth', type: :request do
       expect {
         post '/api/v1/auth/forgot-password', params: { email: user.email }, as: :json
       }.to change { ActionMailer::Base.deliveries.count }.by(1)
-      
+
       expect_success_response
       response_data = json_response
       expect(response_data['message']).to include('password reset instructions')
@@ -320,7 +325,7 @@ RSpec.describe 'Api::V1::Auth', type: :request do
 
     it 'returns success even for non-existent email (security)' do
       post '/api/v1/auth/forgot-password', params: { email: 'nonexistent@example.com' }, as: :json
-      
+
       expect_success_response
       response_data = json_response
       expect(response_data['message']).to include('password reset instructions')
@@ -328,7 +333,7 @@ RSpec.describe 'Api::V1::Auth', type: :request do
 
     it 'returns error for missing email' do
       post '/api/v1/auth/forgot-password', params: {}, as: :json
-      
+
       expect_error_response('Email is required', 400)
     end
   end
@@ -340,31 +345,31 @@ RSpec.describe 'Api::V1::Auth', type: :request do
         type: 'password_reset',
         exp: 1.hour.from_now.to_i
       }
-      JWT.encode(payload, Rails.application.credentials.secret_key_base)
+      JWT.encode(payload, Rails.application.config.jwt_secret_key, 'HS256')
     end
 
     let(:valid_params) do
       {
         token: reset_token,
-        password: 'newpassword123'
+        password: 'NewComplexKey2024!@#'
       }
     end
 
     it 'successfully resets password with valid token' do
       post '/api/v1/auth/reset-password', params: valid_params, as: :json
-      
+
       expect_success_response
-      
+
       # Verify password was changed
-      expect(user.reload.authenticate('newpassword123')).to eq(user)
+      expect(user.reload.authenticate('NewComplexKey2024!@#')).to eq(user)
       expect(user.authenticate('password123')).to be false
     end
 
     it 'returns error for invalid token' do
       invalid_params = valid_params.merge(token: 'invalid_token')
-      
+
       post '/api/v1/auth/reset-password', params: invalid_params, as: :json
-      
+
       expect_error_response('Invalid reset token', 401)
     end
 
@@ -374,11 +379,11 @@ RSpec.describe 'Api::V1::Auth', type: :request do
         type: 'password_reset',
         exp: 1.hour.ago.to_i
       }
-      expired_token = JWT.encode(expired_payload, Rails.application.credentials.secret_key_base)
+      expired_token = JWT.encode(expired_payload, Rails.application.config.jwt_secret_key, 'HS256')
       expired_params = valid_params.merge(token: expired_token)
-      
+
       post '/api/v1/auth/reset-password', params: expired_params, as: :json
-      
+
       expect_error_response('Reset token has expired', 401)
     end
   end
@@ -394,12 +399,12 @@ RSpec.describe 'Api::V1::Auth', type: :request do
       6.times do
         post '/api/v1/auth/login', params: { email: user.email, password: 'wrong' }, as: :json
       end
-      
+
       # 7th attempt should be rate limited
       post '/api/v1/auth/login', params: { email: user.email, password: 'wrong' }, as: :json
-      
+
       expect(response).to have_http_status(429)
-      expect(json_response['error']).to include('rate limit')
+      expect(json_response['error']).to eq('Too many requests')
     end
   end
 end

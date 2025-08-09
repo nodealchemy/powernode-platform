@@ -3,9 +3,24 @@ import { screen } from '@testing-library/react';
 import { renderWithProviders, mockAuthenticatedState, mockUnauthenticatedState } from '../../utils/test-utils';
 import { ProtectedRoute } from './ProtectedRoute';
 
+// Mock react-router-dom Navigate component to prevent infinite loops
+const mockNavigate = jest.fn();
+jest.mock('react-router-dom', () => ({
+  ...jest.requireActual('react-router-dom'),
+  Navigate: ({ to }: { to: string }) => {
+    mockNavigate(to);
+    return <div data-testid="navigate" data-to={to}>Redirecting to {to}</div>;
+  },
+  useLocation: () => ({ pathname: '/dashboard', state: null }),
+}));
+
 const TestComponent = () => <div>Protected Content</div>;
 
 describe('ProtectedRoute', () => {
+  beforeEach(() => {
+    mockNavigate.mockClear();
+  });
+
   it('renders children when user is authenticated', () => {
     renderWithProviders(
       <ProtectedRoute>
@@ -13,11 +28,11 @@ describe('ProtectedRoute', () => {
       </ProtectedRoute>,
       {
         preloadedState: mockAuthenticatedState,
-        route: '/dashboard',
       }
     );
 
     expect(screen.getByText('Protected Content')).toBeInTheDocument();
+    expect(mockNavigate).not.toHaveBeenCalled();
   });
 
   it('redirects to login when user is not authenticated', () => {
@@ -27,15 +42,16 @@ describe('ProtectedRoute', () => {
       </ProtectedRoute>,
       {
         preloadedState: mockUnauthenticatedState,
-        route: '/dashboard',
       }
     );
 
     // Should redirect, so protected content should not be visible
     expect(screen.queryByText('Protected Content')).not.toBeInTheDocument();
     
-    // Check if we're on the login page (this would require mocking useNavigate)
-    expect(window.location.pathname).toBe('/login');
+    // Check if Navigate was called with the correct path
+    expect(screen.getByTestId('navigate')).toBeInTheDocument();
+    expect(screen.getByTestId('navigate')).toHaveAttribute('data-to', '/login');
+    expect(mockNavigate).toHaveBeenCalledWith('/login');
   });
 
   it('redirects to email verification when user is unverified and email verification is required', () => {
@@ -56,12 +72,12 @@ describe('ProtectedRoute', () => {
       </ProtectedRoute>,
       {
         preloadedState: unverifiedUserState,
-        route: '/dashboard',
       }
     );
 
     expect(screen.queryByText('Protected Content')).not.toBeInTheDocument();
-    expect(window.location.pathname).toBe('/verify-email');
+    expect(screen.getByTestId('navigate')).toHaveAttribute('data-to', '/verify-email');
+    expect(mockNavigate).toHaveBeenCalledWith('/verify-email');
   });
 
   it('allows access when user has required role', () => {
@@ -71,11 +87,11 @@ describe('ProtectedRoute', () => {
       </ProtectedRoute>,
       {
         preloadedState: mockAuthenticatedState, // User is admin
-        route: '/admin',
       }
     );
 
     expect(screen.getByText('Protected Content')).toBeInTheDocument();
+    expect(mockNavigate).not.toHaveBeenCalled();
   });
 
   it('redirects to unauthorized when user lacks required role', () => {
@@ -96,12 +112,12 @@ describe('ProtectedRoute', () => {
       </ProtectedRoute>,
       {
         preloadedState: memberUserState,
-        route: '/admin',
       }
     );
 
     expect(screen.queryByText('Protected Content')).not.toBeInTheDocument();
-    expect(window.location.pathname).toBe('/unauthorized');
+    expect(screen.getByTestId('navigate')).toHaveAttribute('data-to', '/unauthorized');
+    expect(mockNavigate).toHaveBeenCalledWith('/unauthorized');
   });
 
   it('allows access for multiple required roles', () => {
@@ -122,10 +138,10 @@ describe('ProtectedRoute', () => {
       </ProtectedRoute>,
       {
         preloadedState: ownerUserState,
-        route: '/admin',
       }
     );
 
     expect(screen.getByText('Protected Content')).toBeInTheDocument();
+    expect(mockNavigate).not.toHaveBeenCalled();
   });
 });

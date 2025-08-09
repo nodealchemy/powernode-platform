@@ -11,31 +11,37 @@ module Authentication
   private
 
   def authenticate_request
-    header = request.headers['Authorization']
-    header = header.split(' ').last if header
-    
-    return render_unauthorized('Missing authorization header') unless header
+    header = request.headers["Authorization"]
+    header = header.split(" ").last if header
+
+    return render_unauthorized("Access token required") unless header
 
     begin
       payload = JwtService.decode(header)
       @current_user = User.find(payload[:user_id])
       @current_account = @current_user.account
 
-      return render_unauthorized('User inactive') unless @current_user.active?
-      return render_unauthorized('Account suspended') unless @current_account.active?
+      return render_unauthorized("User inactive") unless @current_user.active?
+      return render_unauthorized("Account suspended") unless @current_account.active?
 
       @current_user.record_login! if should_record_login?
     rescue StandardError => e
-      render_unauthorized("Authentication failed: #{e.message}")
+      if e.message.include?("expired")
+        render_unauthorized("Access token expired")
+      elsif e.message.include?("Invalid token")
+        render_unauthorized("Invalid access token")
+      else
+        render_unauthorized("Invalid access token")
+      end
     end
   end
 
   def authenticate_optional
-    header = request.headers['Authorization']
+    header = request.headers["Authorization"]
     return unless header
 
-    header = header.split(' ').last
-    
+    header = header.split(" ").last
+
     begin
       payload = JwtService.decode(header)
       @current_user = User.find(payload[:user_id])
@@ -54,19 +60,19 @@ module Authentication
   end
 
   def require_permission(permission_name)
-    return render_forbidden('Permission denied') unless current_user&.has_permission?(permission_name)
+    render_forbidden("Permission denied") unless current_user&.has_permission?(permission_name)
   end
 
   def require_role(role_name)
-    return render_forbidden('Insufficient role') unless current_user&.has_role?(role_name)
+    render_forbidden("Insufficient role") unless current_user&.has_role?(role_name)
   end
 
-  def render_unauthorized(message = 'Unauthorized')
-    render json: { error: message }, status: :unauthorized
+  def render_unauthorized(message = "Unauthorized")
+    render json: { success: false, error: message }, status: :unauthorized
   end
 
-  def render_forbidden(message = 'Forbidden')
-    render json: { error: message }, status: :forbidden
+  def render_forbidden(message = "Forbidden")
+    render json: { success: false, error: message }, status: :forbidden
   end
 
   def should_record_login?

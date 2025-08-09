@@ -22,7 +22,7 @@ class PasswordHistory < ApplicationRecord
     old_entries = for_user(user)
                     .recent
                     .offset(keep_count)
-    
+
     old_entries.destroy_all
   end
 

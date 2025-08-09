@@ -1,9 +1,9 @@
 class RecalculateAnalyticsJob < ApplicationJob
   queue_as :analytics_recalc
 
-  def perform(start_date, end_date, account_id: nil, period_type: 'daily')
+  def perform(start_date, end_date, account_id: nil, period_type: "daily")
     Rails.logger.info "Starting analytics recalculation from #{start_date} to #{end_date}"
-    
+
     start_time = Time.current
     total_snapshots = 0
     errors = []
@@ -11,21 +11,21 @@ class RecalculateAnalyticsJob < ApplicationJob
     begin
       start_date = start_date.to_date if start_date.is_a?(String)
       end_date = end_date.to_date if end_date.is_a?(String)
-      
+
       # Validate date range
       raise "Start date must be before end date" if start_date > end_date
       raise "Date range too large" if (end_date - start_date) > 2.years
-      
+
       if account_id.present?
         # Recalculate for specific account
         account = Account.find(account_id)
         total_snapshots += recalculate_account_snapshots(account, start_date, end_date, period_type)
       else
         # Recalculate global and all account snapshots
-        
+
         # Global snapshots first
         total_snapshots += recalculate_global_snapshots(start_date, end_date, period_type)
-        
+
         # Then each account
         Account.active.find_each do |account|
           begin
@@ -47,7 +47,7 @@ class RecalculateAnalyticsJob < ApplicationJob
 
     duration = Time.current - start_time
     Rails.logger.info "Analytics recalculation completed: #{total_snapshots} snapshots processed in #{duration.round(2)}s"
-    
+
     if errors.any?
       Rails.logger.warn "Analytics recalculation had #{errors.count} errors: #{errors.join(', ')}"
     end
@@ -68,7 +68,7 @@ class RecalculateAnalyticsJob < ApplicationJob
   def recalculate_global_snapshots(start_date, end_date, period_type)
     service = RevenueAnalyticsService.new(account: nil)
     snapshots_count = 0
-    
+
     current_date = start_date
     while current_date <= end_date
       # Delete existing snapshot if it exists
@@ -82,18 +82,18 @@ class RecalculateAnalyticsJob < ApplicationJob
       # Recalculate
       service.calculate_revenue_snapshot(current_date, period_type)
       snapshots_count += 1
-      
+
       # Move to next period
       current_date = next_date(current_date, period_type)
     end
-    
+
     snapshots_count
   end
 
   def recalculate_account_snapshots(account, start_date, end_date, period_type)
     service = RevenueAnalyticsService.new(account: account)
     snapshots_count = 0
-    
+
     current_date = start_date
     while current_date <= end_date
       # Delete existing snapshot if it exists
@@ -107,25 +107,25 @@ class RecalculateAnalyticsJob < ApplicationJob
       # Recalculate
       service.calculate_revenue_snapshot(current_date, period_type)
       snapshots_count += 1
-      
+
       # Move to next period
       current_date = next_date(current_date, period_type)
     end
-    
+
     snapshots_count
   end
 
   def next_date(current_date, period_type)
     case period_type
-    when 'daily'
+    when "daily"
       current_date + 1.day
-    when 'weekly'
+    when "weekly"
       current_date + 1.week
-    when 'monthly'
+    when "monthly"
       current_date + 1.month
-    when 'quarterly'
+    when "quarterly"
       current_date + 3.months
-    when 'yearly'
+    when "yearly"
       current_date + 1.year
     else
       current_date + 1.day

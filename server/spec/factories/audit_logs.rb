@@ -1,14 +1,15 @@
 FactoryBot.define do
   factory :audit_log do
-    user { nil }
-    account { nil }
-    action { "MyString" }
-    resource_type { "MyString" }
-    resource_id { "MyString" }
-    old_values { "MyText" }
-    new_values { "MyText" }
-    metadata { "MyText" }
-    ip_address { "MyString" }
-    user_agent { "MyString" }
+    user { create(:user) }
+    account
+    action { "create" }
+    resource_type { "User" }
+    sequence(:resource_id) { |n| "resource_#{n}" }
+    old_values { {} }
+    new_values { {} }
+    metadata { {} }
+    ip_address { "192.168.1.1" }
+    user_agent { "Mozilla/5.0 (Test Browser)" }
+    source { "web" }
   end
 end

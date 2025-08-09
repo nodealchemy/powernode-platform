@@ -11,9 +11,9 @@ class PasswordStrengthService
 
   # Common weak patterns
   COMMON_PATTERNS = [
-    /(.)\1{2,}/, # Repeated characters (aaa, 111, etc.)
+    /(.)\1{2,}/, # Repeated characters (aaa, 111, etc.) - 3+ chars
     /123|abc|qwe|asd/i, # Sequential patterns
-    /password|admin|user|login/i # Common words
+    /password|admin|user|login/i # Common words (but allow as part of longer phrases)
   ].freeze
 
   # Most common passwords to reject
@@ -73,15 +73,31 @@ class PasswordStrengthService
        @password.match?(LOWERCASE_REGEX) &&
        @password.match?(DIGIT_REGEX) &&
        @password.match?(SPECIAL_CHAR_REGEX)
-      
+
+      # Check for obviously weak patterns (but allow common words in long complex passwords)
+      has_weak_patterns = false
       COMMON_PATTERNS.each do |pattern|
         if @password.match?(pattern)
-          errors << "Password contains common patterns that make it weak"
-          break
+          # Allow "password" in long complex passwords, but reject repeated chars and sequences
+          if pattern.source.include?("password|admin|user|login")
+            # Only reject if password is short or simple
+            if @password.length < 16 || score < 80
+              has_weak_patterns = true
+              break
+            end
+          else
+            # Always reject repeated chars and sequences
+            has_weak_patterns = true
+            break
+          end
         end
       end
-      
-      # Strength score check - only for passwords meeting basic requirements
+
+      if has_weak_patterns
+        errors << "Password contains common patterns that make it weak"
+      end
+
+      # Strength score check
       if score < MINIMUM_SCORE
         errors << "Password is not strong enough (minimum strength score: #{MINIMUM_SCORE})"
       end
@@ -101,7 +117,7 @@ class PasswordStrengthService
     score = 0
 
     # Base score from length
-    score += [@password.length * 2, 50].min
+    score += [ @password.length * 2, 50 ].min
 
     # Character set bonuses
     score += 10 if @password.match?(UPPERCASE_REGEX)
@@ -113,33 +129,36 @@ class PasswordStrengthService
     character_space = calculate_character_space
     if character_space > 0
       entropy = @password.length * Math.log2(character_space)
-      score += [entropy.to_i / 2, 30].min
+      score += [ entropy.to_i / 2, 30 ].min
     end
 
-    # Penalties for common patterns
+    # Penalties for common patterns - reduced penalty for longer passwords
     COMMON_PATTERNS.each do |pattern|
-      score -= 20 if @password.match?(pattern)
+      if @password.match?(pattern)
+        penalty = @password.length >= 16 ? 10 : 20  # Smaller penalty for long passwords
+        score -= penalty
+      end
     end
 
     # Penalty for common passwords
     score -= 50 if COMMON_PASSWORDS.include?(@password.downcase)
 
     # Ensure score is between 0 and 100
-    [[score, 0].max, 100].min
+    [ [ score, 0 ].max, 100 ].min
   end
 
   def strength_level
     case score
     when 0...30
-      'very_weak'
+      "very_weak"
     when 30...50
-      'weak'
+      "weak"
     when 50...70
-      'moderate'
+      "moderate"
     when 70...85
-      'strong'
+      "strong"
     else
-      'very_strong'
+      "very_strong"
     end
   end
 

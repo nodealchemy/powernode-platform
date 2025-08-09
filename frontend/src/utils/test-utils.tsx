@@ -5,7 +5,6 @@ import { BrowserRouter } from 'react-router-dom';
 import { configureStore } from '@reduxjs/toolkit';
 import authReducer from '../store/slices/authSlice';
 import uiReducer from '../store/slices/uiSlice';
-import { RootState } from '../store';
 
 // This type interface extends the default options for render from RTL, as well
 // as allows the user to specify other things such as initialState, store.
@@ -37,7 +36,14 @@ export function renderWithProviders(
   function Wrapper({ children }: { children?: React.ReactNode }): React.ReactElement {
     return (
       <Provider store={store}>
-        <BrowserRouter>{children}</BrowserRouter>
+        <BrowserRouter 
+          future={{
+            v7_startTransition: true,
+            v7_relativeSplatPath: true,
+          }}
+        >
+          {children}
+        </BrowserRouter>
       </Provider>
     );
   }

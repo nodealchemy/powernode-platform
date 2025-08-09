@@ -85,3 +85,8 @@ gem "rspec-json_expectations", "~> 2.2", group: :test
 gem "faker", "~> 3.5", group: :test
 
 gem "bundler-audit", "~> 0.9.2", group: :test
+
+gem "rack-attack", "~> 6.7"
+
+# Security headers
+gem "secure_headers", "~> 7.1"

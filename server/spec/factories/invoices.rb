@@ -1,17 +1,21 @@
 FactoryBot.define do
   factory :invoice do
-    subscription { nil }
-    invoice_number { "MyString" }
-    status { "MyString" }
-    subtotal_cents { 1 }
-    tax_cents { 1 }
-    total_cents { 1 }
-    currency { "MyString" }
-    due_date { "2025-08-08 06:16:27" }
-    paid_at { "2025-08-08 06:16:27" }
-    payment_attempted_at { "2025-08-08 06:16:27" }
-    stripe_invoice_id { "MyString" }
-    paypal_invoice_id { "MyString" }
-    metadata { "MyText" }
+    subscription
+    sequence(:invoice_number) { |n| "INV-#{Date.current.strftime('%Y%m')}-#{n.to_s.rjust(4, '0')}" }
+    status { "draft" }
+    subtotal_cents { 2999 }
+    tax_cents { 300 }
+    total_cents { 3299 }
+    currency { "USD" }
+    due_date { 30.days.from_now }
+    paid_at { nil }
+    payment_attempted_at { nil }
+    stripe_invoice_id { nil }
+    paypal_invoice_id { nil }
+    metadata { {} }
+
+    trait :with_account do
+      association :subscription, factory: [ :subscription, :with_account ]
+    end
   end
 end

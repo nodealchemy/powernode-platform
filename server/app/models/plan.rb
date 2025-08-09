@@ -16,7 +16,7 @@ class Plan < ApplicationRecord
   serialize :default_roles, coder: JSON
 
   # Scopes
-  scope :active, -> { where(status: 'active') }
+  scope :active, -> { where(status: "active") }
   scope :public_plans, -> { where(public: true) }
   scope :by_billing_cycle, ->(cycle) { where(billing_cycle: cycle) }
   scope :by_currency, ->(currency) { where(currency: currency) }
@@ -27,21 +27,21 @@ class Plan < ApplicationRecord
 
   # Instance methods
   def active?
-    status == 'active'
+    status == "active"
   end
 
   def inactive?
-    status == 'inactive'
+    status == "inactive"
   end
 
   def archived?
-    status == 'archived'
+    status == "archived"
   end
 
   def price
     Money.new(price_cents, currency)
   rescue ArgumentError
-    Money.new(price_cents, 'USD')
+    Money.new(price_cents, "USD")
   end
 
   def price=(amount)
@@ -55,11 +55,11 @@ class Plan < ApplicationRecord
 
   def monthly_price
     case billing_cycle
-    when 'monthly'
+    when "monthly"
       price
-    when 'quarterly'
+    when "quarterly"
       Money.new((price_cents / 3.0).round, currency)
-    when 'yearly'
+    when "yearly"
       Money.new((price_cents / 12.0).round, currency)
     end
   end

@@ -9,9 +9,9 @@ class WebhookEvent < ApplicationRecord
   validates :event_data, presence: true
   validates :retry_count, numericality: { greater_than_or_equal_to: 0, less_than_or_equal_to: 10 }
 
-  scope :pending, -> { where(status: 'pending') }
-  scope :failed, -> { where(status: 'failed') }
-  scope :processed, -> { where(status: 'processed') }
+  scope :pending, -> { where(status: "pending") }
+  scope :failed, -> { where(status: "failed") }
+  scope :processed, -> { where(status: "processed") }
   scope :for_provider, ->(provider) { where(provider: provider) }
   scope :recent, -> { order(created_at: :desc) }
 
@@ -23,7 +23,7 @@ class WebhookEvent < ApplicationRecord
     state :skipped
 
     event :start_processing do
-      transitions from: [:pending, :failed], to: :processing
+      transitions from: [ :pending, :failed ], to: :processing
     end
 
     event :mark_processed do
@@ -43,7 +43,7 @@ class WebhookEvent < ApplicationRecord
     end
 
     event :skip do
-      transitions from: [:pending, :failed], to: :skipped
+      transitions from: [ :pending, :failed ], to: :skipped
     end
   end
 
@@ -69,20 +69,20 @@ class WebhookEvent < ApplicationRecord
 
   def next_retry_at
     return nil unless should_retry?
-    
+
     # Exponential backoff: 1min, 5min, 15min, 1hr, 4hr, 12hr, 24hr
-    delays = [1.minute, 5.minutes, 15.minutes, 1.hour, 4.hours, 12.hours, 24.hours]
+    delays = [ 1.minute, 5.minutes, 15.minutes, 1.hour, 4.hours, 12.hours, 24.hours ]
     delay = delays[retry_count - 1] || 24.hours
-    
+
     updated_at + delay
   end
 
   def stripe?
-    provider == 'stripe'
+    provider == "stripe"
   end
 
   def paypal?
-    provider == 'paypal'
+    provider == "paypal"
   end
 
   def add_error(message)
@@ -100,14 +100,14 @@ class WebhookEvent < ApplicationRecord
   def permanent_failure?
     # Define conditions for permanent failures that shouldn't be retried
     return false if error_message.blank?
-    
+
     permanent_error_patterns = [
       /signature verification failed/i,
       /invalid webhook/i,
       /malformed/i,
       /authentication failed/i
     ]
-    
+
     permanent_error_patterns.any? { |pattern| error_message.match?(pattern) }
   end
 end

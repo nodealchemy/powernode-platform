@@ -4,8 +4,8 @@ class AuditLog < ApplicationRecord
   belongs_to :account
 
   # Validations
-  validates :action, presence: true, inclusion: { 
-    in: %w[create update delete login logout payment subscription_change role_change] 
+  validates :action, presence: true, inclusion: {
+    in: %w[create update delete login logout payment subscription_change role_change]
   }
   validates :resource_type, presence: true
   validates :resource_id, presence: true
@@ -39,14 +39,14 @@ class AuditLog < ApplicationRecord
       new_values: new_values,
       ip_address: options[:ip_address],
       user_agent: options[:user_agent],
-      source: options[:source] || 'web',
+      source: options[:source] || "web",
       metadata: options[:metadata] || {}
     )
   end
 
   def self.log_login(user, **options)
     log_action(
-      action: 'login',
+      action: "login",
       resource: user,
       user: user,
       account: user.account,
@@ -56,7 +56,7 @@ class AuditLog < ApplicationRecord
 
   def self.log_logout(user, **options)
     log_action(
-      action: 'logout',
+      action: "logout",
       resource: user,
       user: user,
       account: user.account,
@@ -66,7 +66,7 @@ class AuditLog < ApplicationRecord
 
   def self.log_payment(payment, **options)
     log_action(
-      action: 'payment',
+      action: "payment",
       resource: payment,
       account: payment.account,
       new_values: {
@@ -80,7 +80,7 @@ class AuditLog < ApplicationRecord
 
   def self.log_subscription_change(subscription, old_status, new_status, user: nil, **options)
     log_action(
-      action: 'subscription_change',
+      action: "subscription_change",
       resource: subscription,
       user: user,
       account: subscription.account,
@@ -99,29 +99,29 @@ class AuditLog < ApplicationRecord
   end
 
   def actor
-    user || 'System'
+    user || "System"
   end
 
   def summary
     case action
-    when 'login'
+    when "login"
       "#{actor} logged in"
-    when 'logout'
+    when "logout"
       "#{actor} logged out"
-    when 'create'
+    when "create"
       "#{actor} created #{resource_type}"
-    when 'update'
+    when "update"
       "#{actor} updated #{resource_type}"
-    when 'delete'
+    when "delete"
       "#{actor} deleted #{resource_type}"
-    when 'payment'
-      amount = new_values&.dig('amount_cents')
+    when "payment"
+      amount = new_values&.dig("amount_cents")
       "Payment of $#{amount / 100.0 if amount} #{new_values&.dig('status')}"
-    when 'subscription_change'
-      old_status = old_values&.dig('status')
-      new_status = new_values&.dig('status')
+    when "subscription_change"
+      old_status = old_values&.dig("status")
+      new_status = new_values&.dig("status")
       "Subscription changed from #{old_status} to #{new_status}"
-    when 'role_change'
+    when "role_change"
       "#{actor} changed roles for #{resource_type}"
     else
       "#{actor} performed #{action} on #{resource_type}"
@@ -130,7 +130,7 @@ class AuditLog < ApplicationRecord
 
   def changes_summary
     return nil unless old_values.present? && new_values.present?
-    
+
     changes = []
     new_values.each do |key, new_value|
       old_value = old_values[key]
@@ -138,8 +138,8 @@ class AuditLog < ApplicationRecord
         changes << "#{key}: #{old_value} → #{new_value}"
       end
     end
-    
-    changes.join(', ')
+
+    changes.join(", ")
   end
 
   private

@@ -17,17 +17,19 @@
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "react-redux": "^9.2.0",
-    "react-router-dom": "^7.8.0",
+    "react-router-dom": "^6.30.1",
     "react-scripts": "5.0.1",
     "recharts": "^3.1.2",
     "typescript": "^4.9.5",
     "web-vitals": "^2.1.4"
   },
   "scripts": {
-    "start": "react-scripts start",
-    "dev": "HOST=0.0.0.0 react-scripts start",
-    "build": "react-scripts build",
-    "test": "react-scripts test",
+    "start": "NODE_OPTIONS='--no-deprecation' react-scripts start",
+    "dev": "NODE_OPTIONS='--no-deprecation' HOST=0.0.0.0 react-scripts start",
+    "build": "NODE_OPTIONS='--no-deprecation' react-scripts build",
+    "build:verbose": "react-scripts build",
+    "test": "NODE_OPTIONS='--no-deprecation' react-scripts test",
+    "test:verbose": "react-scripts test",
     "eject": "react-scripts eject",
     "lint": "eslint src --ext .ts,.tsx",
     "lint:security": "eslint src --ext .ts,.tsx --config .eslintrc.security.js",
@@ -39,7 +41,9 @@
       "react-app",
       "react-app/jest"
     ],
-    "plugins": ["security"],
+    "plugins": [
+      "security"
+    ],
     "rules": {
       "security/detect-object-injection": "error",
       "security/detect-non-literal-regexp": "error",
@@ -71,5 +75,13 @@
     "postcss": "^8.5.6",
     "redux-mock-store": "^1.5.5",
     "tailwindcss": "^3.4.17"
+  },
+  "jest": {
+    "transformIgnorePatterns": [
+      "node_modules/(?!(axios|react-router|react-router-dom)/)"
+    ],
+    "moduleNameMapper": {
+      "^axios$": "axios/dist/node/axios.cjs"
+    }
   }
 }

@@ -2,6 +2,8 @@ class Role < ApplicationRecord
   # Associations
   has_many :role_permissions, dependent: :destroy
   has_many :permissions, through: :role_permissions
+  has_many :user_roles, dependent: :destroy
+  has_many :users, through: :user_roles
 
   # Validations
   validates :name, presence: true, uniqueness: { case_sensitive: false }, length: { minimum: 2, maximum: 50 }
