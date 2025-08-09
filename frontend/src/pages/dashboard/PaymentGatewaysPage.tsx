@@ -343,7 +343,7 @@ const PaymentGatewaysPage: React.FC = () => {
     
     // Initialize form with current configuration
     if (overview) {
-      const config = overview.gateways[gateway];
+      const config = gateway === 'stripe' ? overview.gateways.stripe : overview.gateways.paypal;
       if (gateway === 'stripe') {
         setConfigForm({
           publishable_key: '',

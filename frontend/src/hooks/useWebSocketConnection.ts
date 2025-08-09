@@ -60,7 +60,7 @@ export const useWebSocketConnection = (): UseWebSocketConnectionReturn => {
   const getWebSocketUrl = useCallback(() => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const hostname = window.location.hostname;
-    const port = process.env.NODE_ENV === 'development' ? '3000' : window.location.port;
+    const port = process.env.NODE_ENV === 'development' ? '3001' : window.location.port;
     const baseUrl = `${protocol}//${hostname}:${port}/cable`;
     
     // Add token as query parameter for authentication

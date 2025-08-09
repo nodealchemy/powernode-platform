@@ -4,16 +4,16 @@ import { refreshAccessToken, clearAuth } from '../store/slices/authSlice';
 
 // Dynamic API base URL detection for remote access
 const getAPIBaseURL = (): string => {
-  const envBaseURL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:3000';
+  const envBaseURL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:3001';
   const autoDetect = process.env.REACT_APP_AUTO_DETECT_BACKEND === 'true';
   
   if (autoDetect && typeof window !== 'undefined') {
     const currentHostname = window.location.hostname;
     const currentProtocol = window.location.protocol;
     
-    // Use current hostname with port 3000 for backend
+    // Use current hostname with port 3001 for backend
     if (currentHostname !== 'localhost' && currentHostname !== '127.0.0.1') {
-      return `${currentProtocol}//${currentHostname}:3000`;
+      return `${currentProtocol}//${currentHostname}:3001`;
     }
   }
   

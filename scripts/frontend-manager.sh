@@ -6,7 +6,7 @@
 set -e
 
 # Configuration
-REACT_PORT=3001
+REACT_PORT=3000
 REACT_HOST="0.0.0.0"
 PROJECT_ROOT="/home/rett/Projects/powernode-platform"
 FRONTEND_DIR="$PROJECT_ROOT/frontend"

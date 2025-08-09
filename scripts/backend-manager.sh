@@ -6,7 +6,7 @@
 set -e
 
 # Configuration
-RAILS_PORT=3000
+RAILS_PORT=3001
 RAILS_HOST="0.0.0.0"
 PROJECT_ROOT="/home/rett/Projects/powernode-platform"
 BACKEND_DIR="$PROJECT_ROOT/server"
