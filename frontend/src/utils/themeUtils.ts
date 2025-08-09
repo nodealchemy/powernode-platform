@@ -27,8 +27,7 @@ export const validateThemeClasses = () => {
   return {
     theme: currentTheme,
     properties: themeProperties.reduce((acc, prop) => {
-      acc[prop] = style.getPropertyValue(prop);
-      return acc;
+      return { ...acc, [prop]: style.getPropertyValue(prop) };
     }, {} as Record<string, string>)
   };
 };

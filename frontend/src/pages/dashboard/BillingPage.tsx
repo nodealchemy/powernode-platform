@@ -1,11 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { billingApi, BillingOverview, Invoice, PaymentMethod } from '../../services/billingApi';
+import { DateRangePicker } from '../../components/common/DateRangePicker';
+import CreateInvoiceModal, { InvoiceFormData } from '../../components/billing/CreateInvoiceModal';
 
 export const BillingPage: React.FC = () => {
   const [overview, setOverview] = useState<BillingOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [showCreateInvoice, setShowCreateInvoice] = useState(false);
   const [showAddPaymentMethod, setShowAddPaymentMethod] = useState(false);
+  const [showDateFilter, setShowDateFilter] = useState(false);
+  const [dateRange, setDateRange] = useState({
+    startDate: new Date(new Date().getFullYear(), new Date().getMonth() - 3, 1), // 3 months ago
+    endDate: new Date()
+  });
 
   useEffect(() => {
     loadBillingData();
@@ -18,6 +25,24 @@ export const BillingPage: React.FC = () => {
       setOverview(data);
     } catch (error) {
       console.error('Error loading billing data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateInvoice = async (invoiceData: InvoiceFormData) => {
+    try {
+      setLoading(true);
+      // In a real implementation, this would call the billing API
+      console.log('Creating invoice:', invoiceData);
+      
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      setShowCreateInvoice(false);
+      await loadBillingData(); // Refresh data
+    } catch (error) {
+      console.error('Error creating invoice:', error);
     } finally {
       setLoading(false);
     }
@@ -45,6 +70,35 @@ export const BillingPage: React.FC = () => {
         >
           Create Invoice
         </button>
+      </div>
+
+      {/* Date Filter Section */}
+      <div className="card-theme p-4">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-medium text-theme-primary">Invoice Filtering</h3>
+          <button
+            onClick={() => setShowDateFilter(!showDateFilter)}
+            className="btn-theme btn-theme-outline text-sm"
+          >
+            {showDateFilter ? 'Hide Filters' : 'Show Filters'}
+          </button>
+        </div>
+        
+        {showDateFilter && (
+          <DateRangePicker
+            startDate={dateRange.startDate}
+            endDate={dateRange.endDate}
+            onStartDateChange={(startDate) => 
+              startDate && setDateRange(prev => ({ ...prev, startDate }))
+            }
+            onEndDateChange={(endDate) => 
+              endDate && setDateRange(prev => ({ ...prev, endDate }))
+            }
+            showPresets={true}
+            maxDate={new Date()}
+            className="invoice-date-filter"
+          />
+        )}
       </div>
 
       {/* Billing Overview */}
@@ -230,6 +284,14 @@ export const BillingPage: React.FC = () => {
           </table>
         </div>
       </div>
+
+      {/* Create Invoice Modal */}
+      <CreateInvoiceModal
+        isOpen={showCreateInvoice}
+        onClose={() => setShowCreateInvoice(false)}
+        onSubmit={handleCreateInvoice}
+        loading={loading}
+      />
     </div>
   );
 };

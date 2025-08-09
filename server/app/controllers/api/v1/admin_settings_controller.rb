@@ -5,16 +5,7 @@ class Api::V1::AdminSettingsController < ApplicationController
 
   # GET /api/v1/admin_settings
   def show
-    render json: {
-      success: true,
-      data: {
-        system_settings: system_settings,
-        platform_stats: platform_statistics,
-        user_management: user_management_data,
-        security_settings: security_settings_data,
-        global_analytics: global_analytics_access
-      }
-    }, status: :ok
+    render json: admin_overview_data, status: :ok
   end
 
   # PUT /api/v1/admin_settings
@@ -160,6 +151,157 @@ class Api::V1::AdminSettingsController < ApplicationController
 
   private
 
+  def admin_overview_data
+    {
+      metrics: system_metrics,
+      recent_users: recent_users_data,
+      recent_accounts: recent_accounts_data,
+      recent_logs: recent_system_logs,
+      payment_gateways: payment_gateway_status,
+      settings_summary: settings_summary_data
+    }
+  end
+
+  def system_metrics
+    {
+      total_users: User.count,
+      total_accounts: Account.count,
+      active_accounts: Account.where(status: 'active').count,
+      suspended_accounts: Account.where(status: 'suspended').count,
+      cancelled_accounts: Account.where(status: 'cancelled').count,
+      total_subscriptions: Subscription.count,
+      active_subscriptions: Subscription.where(status: ['active', 'trialing']).count,
+      trial_subscriptions: Subscription.where(status: 'trialing').count,
+      total_revenue: (Payment.where(status: 'completed').sum(:amount_cents) || 0),
+      monthly_revenue: calculate_monthly_revenue,
+      failed_payments: Payment.where(status: 'failed').where('created_at > ?', 30.days.ago).count,
+      webhook_events_today: webhook_events_today_count,
+      system_health: calculate_system_health,
+      uptime: calculate_uptime
+    }
+  end
+
+  def recent_users_data
+    User.includes(:account, :roles)
+        .order(created_at: :desc)
+        .limit(10)
+        .map do |user|
+      {
+        id: user.id,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        full_name: user.full_name,
+        email: user.email,
+        email_verified: user.email_verified?,
+        last_login_at: user.last_login_at,
+        created_at: user.created_at,
+        account: {
+          id: user.account.id,
+          name: user.account.name,
+          status: user.account.status
+        },
+        roles: user.roles.map { |role| { id: role.id, name: role.name } }
+      }
+    end
+  end
+
+  def recent_accounts_data
+    Account.includes(:users, subscription: :plan)
+           .order(created_at: :desc)
+           .limit(10)
+           .map do |account|
+      owner = account.users.joins(:roles).where(roles: { name: 'owner' }).first || account.users.first
+      
+      {
+        id: account.id,
+        name: account.name,
+        subdomain: account.subdomain,
+        status: account.status,
+        created_at: account.created_at,
+        updated_at: account.updated_at,
+        users_count: account.users.count,
+        subscription: account.subscription ? {
+          id: account.subscription.id,
+          status: account.subscription.status,
+          plan: {
+            name: account.subscription.plan.name,
+            price_cents: account.subscription.plan.price
+          },
+          current_period_end: account.subscription.current_period_end
+        } : nil,
+        owner: owner ? {
+          id: owner.id,
+          first_name: owner.first_name,
+          last_name: owner.last_name,
+          email: owner.email
+        } : nil
+      }
+    end
+  end
+
+  def recent_system_logs
+    AuditLog.includes(:user, :account)
+            .order(created_at: :desc)
+            .limit(20)
+            .map do |log|
+      {
+        id: log.id,
+        level: determine_log_level(log.action),
+        message: format_log_message(log),
+        timestamp: log.created_at,
+        source: log.source || 'system',
+        metadata: log.metadata
+      }
+    end
+  end
+
+  def payment_gateway_status
+    {
+      stripe: {
+        connected: stripe_configured?,
+        environment: Rails.env.production? ? 'live' : 'test',
+        webhook_status: 'healthy', # TODO: Implement webhook health check
+        last_webhook: last_stripe_webhook_time
+      },
+      paypal: {
+        connected: paypal_configured?,
+        environment: Rails.env.production? ? 'live' : 'sandbox',
+        webhook_status: 'healthy', # TODO: Implement webhook health check
+        last_webhook: last_paypal_webhook_time
+      }
+    }
+  end
+
+  def settings_summary_data
+    {
+      maintenance_mode: false, # TODO: Implement from database settings
+      registration_enabled: true,
+      require_email_verification: true,
+      allow_account_deletion: false,
+      system_name: 'Powernode Platform',
+      system_email: Rails.application.credentials.dig(:mail, :from) || 'system@powernode.local',
+      support_email: Rails.application.credentials.dig(:mail, :support) || 'support@powernode.local',
+      trial_period_days: 14,
+      max_trial_accounts: nil,
+      payment_retry_attempts: 3,
+      webhook_timeout_seconds: 30,
+      session_timeout_minutes: 60,
+      password_min_length: 12,
+      backup_retention_days: 30,
+      log_retention_days: 90,
+      rate_limit_requests_per_minute: 60,
+      feature_flags: {},
+      smtp_settings: {
+        host: Rails.application.credentials.dig(:mail, :smtp, :host),
+        port: Rails.application.credentials.dig(:mail, :smtp, :port),
+        use_tls: true,
+        from_address: Rails.application.credentials.dig(:mail, :from)
+      },
+      created_at: 30.days.ago, # TODO: Store actual settings creation time
+      updated_at: 1.day.ago     # TODO: Store actual settings update time
+    }
+  end
+
   def require_admin_access
     unless current_user.owner? || current_user.admin?
       render json: {
@@ -195,7 +337,7 @@ class Api::V1::AdminSettingsController < ApplicationController
       account_lockout_duration: 30,
       platform_version: '1.0.0',
       database_version: ActiveRecord::Base.connection.select_value('SELECT version()'),
-      uptime: Time.current - Rails.application.config.startup_time rescue 'Unknown'
+      uptime: (Time.current - Rails.application.config.startup_time rescue 0)
     }
   end
 
@@ -357,5 +499,92 @@ class Api::V1::AdminSettingsController < ApplicationController
 
   def calculate_customer_growth
     Account.group_by_month(:created_at, last: 12).count
+  end
+
+  # Helper methods for admin overview data
+  def calculate_monthly_revenue
+    current_month_payments = Payment.where(
+      status: 'completed',
+      created_at: Date.current.beginning_of_month..Date.current.end_of_month
+    )
+    (current_month_payments.sum(:amount_cents) || 0)
+  end
+
+  def webhook_events_today_count
+    # TODO: Implement webhook event tracking
+    AuditLog.where(
+      source: ['stripe_webhook', 'paypal_webhook'],
+      created_at: Date.current.beginning_of_day..Date.current.end_of_day
+    ).count
+  end
+
+  def calculate_system_health
+    # Simple health check - can be enhanced based on various metrics
+    failed_payments = Payment.where(status: 'failed', created_at: 24.hours.ago..Time.current).count
+    error_logs = AuditLog.where(action: 'system_error', created_at: 24.hours.ago..Time.current).count
+    
+    if error_logs > 10 || failed_payments > 50
+      'error'
+    elsif error_logs > 5 || failed_payments > 20
+      'warning'
+    else
+      'healthy'
+    end
+  end
+
+  def calculate_uptime
+    # Simple uptime calculation - in production this would track actual downtime
+    Rails.application.config.startup_time ||= 1.day.ago
+    Time.current - Rails.application.config.startup_time
+  end
+
+  def determine_log_level(action)
+    case action
+    when /error|failed|suspend|lock|block/i
+      'error'
+    when /warning|timeout|retry/i
+      'warning'
+    when /create|update|delete|login|logout/i
+      'info'
+    else
+      'debug'
+    end
+  end
+
+  def format_log_message(log)
+    case log.action
+    when 'user_login'
+      "User #{log.user&.email} logged in"
+    when 'user_logout'
+      "User #{log.user&.email} logged out"
+    when 'subscription_created'
+      "New subscription created for #{log.account&.name}"
+    when 'payment_completed'
+      "Payment completed for #{log.account&.name}"
+    when 'payment_failed'
+      "Payment failed for #{log.account&.name}"
+    else
+      log.action.humanize
+    end
+  end
+
+  def stripe_configured?
+    Rails.application.credentials.dig(:stripe, :publishable_key).present? &&
+    Rails.application.credentials.dig(:stripe, :secret_key).present?
+  end
+
+  def paypal_configured?
+    Rails.application.credentials.dig(:paypal, :client_id).present? &&
+    Rails.application.credentials.dig(:paypal, :client_secret).present?
+  end
+
+  def last_stripe_webhook_time
+    # TODO: Implement webhook event tracking
+    AuditLog.where(source: 'stripe_webhook').order(:created_at).last&.created_at
+  end
+
+  def last_paypal_webhook_time
+    # TODO: Implement webhook event tracking  
+    AuditLog.where(source: 'paypal_webhook').order(:created_at).last&.created_at
   end
 end

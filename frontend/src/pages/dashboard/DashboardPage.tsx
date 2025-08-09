@@ -14,6 +14,8 @@ import { SettingsPage } from './SettingsPage';
 import { AdminSettingsPage } from './AdminSettingsPage';
 import PaymentGatewaysPage from './PaymentGatewaysPage';
 import { FormThemeTestPage } from '../../components/test/FormThemeTestPage';
+import { DatePickerTestPage } from '../../components/test/DatePickerTestPage';
+import { AdminSettingsOverviewPage } from './AdminSettingsOverviewPage';
 
 // Dashboard overview page
 const DashboardOverview: React.FC = () => {
@@ -237,8 +239,10 @@ export const DashboardPage: React.FC = () => {
         <Route path="/billing" element={<BillingPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/admin-settings" element={<AdminSettingsPage />} />
+        <Route path="/admin-settings-overview" element={<AdminSettingsOverviewPage />} />
         <Route path="/payment-gateways" element={<PaymentGatewaysPage />} />
         <Route path="/form-test" element={<FormThemeTestPage />} />
+        <Route path="/date-picker-test" element={<DatePickerTestPage />} />
       </Routes>
     </DashboardLayout>
   );
