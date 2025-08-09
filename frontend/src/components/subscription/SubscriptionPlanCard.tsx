@@ -53,9 +53,9 @@ export const SubscriptionPlanCard: React.FC<SubscriptionPlanCardProps> = ({
   const featureList = getFeatureList(plan.features, plan.limits);
   
   return (
-    <div className={`border rounded-lg p-6 ${isActive ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}>
+    <div className={`border rounded-lg p-6 ${isActive ? 'border-theme-info bg-theme-info' : 'border-theme card-theme'}`}>
       <div className="flex justify-between items-start mb-2">
-        <h4 className="text-lg font-semibold text-gray-900">{plan.name}</h4>
+        <h4 className="text-lg font-semibold text-theme-primary">{plan.name}</h4>
         {isActive && (
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
             Current Plan
@@ -63,7 +63,7 @@ export const SubscriptionPlanCard: React.FC<SubscriptionPlanCardProps> = ({
         )}
       </div>
       
-      <p className="text-3xl font-bold text-gray-900 mt-2">
+      <p className="text-3xl font-bold text-theme-primary mt-2">
         {formatPrice(plan.price, plan.currency, plan.interval)}
       </p>
       
@@ -72,7 +72,7 @@ export const SubscriptionPlanCard: React.FC<SubscriptionPlanCardProps> = ({
       )}
       
       <div className="mt-4">
-        <ul className="space-y-2 text-sm text-gray-600">
+        <ul className="space-y-2 text-sm text-theme-secondary">
           {featureList.slice(0, 4).map((feature, index) => (
             <li key={index} className="flex items-center">
               <svg className="w-4 h-4 text-green-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
@@ -82,7 +82,7 @@ export const SubscriptionPlanCard: React.FC<SubscriptionPlanCardProps> = ({
             </li>
           ))}
           {featureList.length > 4 && (
-            <li className="text-xs text-gray-400">
+            <li className="text-xs text-theme-tertiary">
               +{featureList.length - 4} more features
             </li>
           )}
@@ -94,7 +94,7 @@ export const SubscriptionPlanCard: React.FC<SubscriptionPlanCardProps> = ({
           <button
             onClick={() => onManage?.(plan.id)}
             disabled={loading}
-            className="w-full bg-gray-100 text-gray-900 py-2 px-4 rounded-md hover:bg-gray-200 transition-colors disabled:opacity-50"
+            className="btn-theme btn-theme-secondary w-full py-2 px-4 disabled:opacity-50"
           >
             {loading ? 'Loading...' : 'Manage Plan'}
           </button>
@@ -102,7 +102,7 @@ export const SubscriptionPlanCard: React.FC<SubscriptionPlanCardProps> = ({
           <button
             onClick={() => onSubscribe?.(plan.id)}
             disabled={loading}
-            className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50"
+            className="btn-theme btn-theme-primary w-full py-2 px-4 disabled:opacity-50"
           >
             {loading ? 'Loading...' : 'Subscribe'}
           </button>
@@ -110,7 +110,7 @@ export const SubscriptionPlanCard: React.FC<SubscriptionPlanCardProps> = ({
       </div>
       
       {plan.status !== 'active' && (
-        <p className="text-xs text-gray-500 mt-2 text-center">
+        <p className="text-xs text-theme-tertiary mt-2 text-center">
           Plan currently {plan.status}
         </p>
       )}

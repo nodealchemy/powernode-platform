@@ -48,6 +48,9 @@ class Api::V1::SettingsController < ApplicationController
   # PUT /api/v1/settings/notifications
   def update_notifications
     if update_user_preferences("notifications", notification_params)
+      # Broadcast the notification preferences update to all user's sessions
+      broadcast_settings_update('notifications_updated', current_notification_preferences)
+      
       render json: {
         success: true,
         data: current_notification_preferences,
@@ -73,6 +76,9 @@ class Api::V1::SettingsController < ApplicationController
   # PUT /api/v1/settings/preferences
   def update_preferences
     if update_user_preferences("preferences", preference_params)
+      # Broadcast the preferences update to all user's sessions
+      broadcast_settings_update('preferences_updated', current_user_preferences)
+      
       render json: {
         success: true,
         data: current_user_preferences,
@@ -210,6 +216,21 @@ class Api::V1::SettingsController < ApplicationController
     current_preferences = current_user.send(key) || {}
     updated_preferences = current_preferences.merge(new_preferences.to_h)
     
-    current_user.update(key => updated_preferences)
+    current_user.update(key.to_sym => updated_preferences)
+  end
+
+  def broadcast_settings_update(message_type, data)
+    # Broadcast to all sessions for the current user's account
+    NotificationChannel.broadcast_to(
+      current_account,
+      {
+        type: message_type,
+        data: data,
+        userId: current_user.id,
+        timestamp: Time.current.iso8601
+      }
+    )
+  rescue => e
+    Rails.logger.error "Failed to broadcast settings update: #{e.message}"
   end
 end

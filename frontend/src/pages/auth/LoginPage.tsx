@@ -48,20 +48,20 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-theme-background py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         <div>
-          <div className="mx-auto h-12 w-12 flex items-center justify-center rounded-xl bg-blue-600">
+          <div className="mx-auto h-12 w-12 flex items-center justify-center rounded-xl bg-theme-interactive-primary">
             <span className="text-white font-bold text-xl">P</span>
           </div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+          <h2 className="mt-6 text-center text-3xl font-extrabold text-theme-primary">
             Sign in to your account
           </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
+          <p className="mt-2 text-center text-sm text-theme-secondary">
             Or{' '}
             <Link
               to="/register"
-              className="font-medium text-blue-600 hover:text-blue-500"
+              className="font-medium text-theme-link hover:text-theme-link-hover"
             >
               create a new account
             </Link>
@@ -80,7 +80,7 @@ export const LoginPage: React.FC = () => {
                 type="email"
                 autoComplete="email"
                 required
-                className="relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
+                className="input-theme relative block w-full rounded-t-md focus:z-10"
                 placeholder="Email address"
                 value={formData.email}
                 onChange={handleChange}
@@ -96,7 +96,7 @@ export const LoginPage: React.FC = () => {
                 type="password"
                 autoComplete="current-password"
                 required
-                className="relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
+                className="input-theme relative block w-full rounded-b-md focus:z-10"
                 placeholder="Password"
                 value={formData.password}
                 onChange={handleChange}
@@ -108,7 +108,7 @@ export const LoginPage: React.FC = () => {
             <div className="text-sm">
               <Link
                 to="/forgot-password"
-                className="font-medium text-blue-600 hover:text-blue-500"
+                className="font-medium text-theme-link hover:text-theme-link-hover"
               >
                 Forgot your password?
               </Link>
@@ -119,7 +119,7 @@ export const LoginPage: React.FC = () => {
             <button
               type="submit"
               disabled={isLoading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="btn-theme btn-theme-primary group relative w-full justify-center"
             >
               {isLoading ? (
                 <div className="flex items-center">
@@ -133,8 +133,8 @@ export const LoginPage: React.FC = () => {
           </div>
 
           {error && (
-            <div className="rounded-md bg-red-50 p-4">
-              <div className="text-sm text-red-700">{error}</div>
+            <div className="alert-theme alert-theme-error">
+              <div className="text-sm">{error}</div>
             </div>
           )}
         </form>

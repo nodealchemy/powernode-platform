@@ -103,13 +103,13 @@ export const MetricsOverview: React.FC<MetricsOverviewProps> = ({ data }) => {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
       {metrics.map((metric, index) => (
-        <div key={index} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div key={index} className="card-theme rounded-lg shadow-sm border-theme p-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
               <span className="text-2xl mr-3">{metric.icon}</span>
               <div className="flex-1">
-                <p className="text-sm font-medium text-gray-500">{metric.title}</p>
-                <p className="text-2xl font-bold text-gray-900 mt-1">{metric.value}</p>
+                <p className="text-sm font-medium text-theme-secondary">{metric.title}</p>
+                <p className="text-2xl font-bold text-theme-primary mt-1">{metric.value}</p>
               </div>
             </div>
             {metric.risk && (
@@ -128,7 +128,7 @@ export const MetricsOverview: React.FC<MetricsOverviewProps> = ({ data }) => {
                 </span>
               </div>
             )}
-            <p className="text-xs text-gray-500 mt-1">{metric.description}</p>
+            <p className="text-xs text-theme-tertiary mt-1">{metric.description}</p>
           </div>
         </div>
       ))}

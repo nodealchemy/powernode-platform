@@ -79,6 +79,7 @@ export const mockAuthenticatedState = {
   },
   ui: {
     sidebarOpen: true,
+    sidebarCollapsed: false,
     theme: 'light' as const,
     loading: false,
     notifications: [],
@@ -97,6 +98,7 @@ export const mockUnauthenticatedState = {
   },
   ui: {
     sidebarOpen: true,
+    sidebarCollapsed: false,
     theme: 'light' as const,
     loading: false,
     notifications: [],

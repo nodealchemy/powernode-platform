@@ -20,35 +20,35 @@ export const SubscriptionStatusIndicator: React.FC<SubscriptionStatusIndicatorPr
     switch (status) {
       case 'active':
         return {
-          color: 'bg-green-100 text-green-800',
+          color: 'bg-theme-success text-theme-success',
           icon: '✓',
           message: 'Active',
           description: showDetails ? `Next billing: ${new Date(subscription.currentPeriodEnd).toLocaleDateString()}` : undefined
         };
       case 'trial_ending':
         return {
-          color: 'bg-yellow-100 text-yellow-800',
+          color: 'bg-theme-warning text-theme-warning',
           icon: '⏰',
           message: 'Trial Ending',
           description: showDetails ? `Trial ends in ${daysUntilExpiry} day${daysUntilExpiry !== 1 ? 's' : ''}` : undefined
         };
       case 'expiring':
         return {
-          color: 'bg-orange-100 text-orange-800',
+          color: 'bg-theme-warning text-theme-warning',
           icon: '⚠️',
           message: 'Expiring Soon',
           description: showDetails ? `Expires in ${daysUntilExpiry} day${daysUntilExpiry !== 1 ? 's' : ''}` : undefined
         };
       case 'expired':
         return {
-          color: 'bg-red-100 text-red-800',
+          color: 'bg-theme-error text-theme-error',
           icon: '❌',
           message: 'Expired',
           description: showDetails ? 'Subscription has expired' : undefined
         };
       default:
         return {
-          color: 'bg-gray-100 text-gray-800',
+          color: 'bg-theme-background-secondary text-theme-secondary',
           icon: '●',
           message: subscription.status.charAt(0).toUpperCase() + subscription.status.slice(1),
           description: undefined
@@ -68,10 +68,9 @@ export const SubscriptionStatusIndicator: React.FC<SubscriptionStatusIndicatorPr
   }
 
   return (
-    <div className={`p-3 rounded-lg border ${config.color.includes('green') ? 'border-green-200' : 
-                      config.color.includes('yellow') ? 'border-yellow-200' : 
-                      config.color.includes('orange') ? 'border-orange-200' : 
-                      config.color.includes('red') ? 'border-red-200' : 'border-gray-200'}`}>
+    <div className={`p-3 rounded-lg border ${config.color.includes('success') ? 'border-theme-success' : 
+                      config.color.includes('warning') ? 'border-theme-warning' : 
+                      config.color.includes('error') ? 'border-theme-error' : 'border-theme'}`}>
       <div className="flex items-center">
         <span className="text-lg mr-2">{config.icon}</span>
         <div>

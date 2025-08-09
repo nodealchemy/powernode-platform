@@ -27,7 +27,7 @@ class RevenueAnalyticsService
     snapshot.assign_attributes(metrics)
     snapshot.save!
 
-    Rails.logger.info "Revenue snapshot saved: MRR $#{snapshot.mrr.to_f}, Active Subscriptions: #{snapshot.active_subscriptions_count}"
+    Rails.logger.info "Revenue snapshot saved: MRR $#{snapshot.mrr.to_f}, Active Subscriptions: #{snapshot.active_subscriptions}"
     snapshot
   end
 
@@ -169,12 +169,12 @@ class RevenueAnalyticsService
       snapshots.each do |snapshot|
         csv << [
           snapshot.date.strftime("%Y-%m-%d"),
-          snapshot.period_type,
+          "monthly",
           snapshot.mrr.to_f,
           snapshot.arr.to_f,
-          snapshot.active_subscriptions_count,
-          snapshot.new_subscriptions_count,
-          snapshot.churned_subscriptions_count,
+          snapshot.active_subscriptions,
+          snapshot.new_subscriptions,
+          snapshot.churned_subscriptions,
           snapshot.customer_churn_rate_percentage,
           snapshot.revenue_churn_rate_percentage,
           snapshot.growth_rate_percentage,
@@ -266,15 +266,18 @@ class RevenueAnalyticsService
     {
       mrr_cents: mrr_cents,
       arr_cents: mrr_cents * 12,
-      active_subscriptions_count: active_subscriptions_count,
-      new_subscriptions_count: new_subscriptions_count,
-      churned_subscriptions_count: churned_subscriptions_count,
-      total_customers_count: total_customers_count,
-      new_customers_count: new_customers_count,
-      churned_customers_count: churned_customers_count,
-      customer_churn_rate: customer_churn_rate,
-      revenue_churn_rate: revenue_churn_rate,
-      growth_rate: growth_rate
+      active_subscriptions: active_subscriptions_count,
+      new_subscriptions: new_subscriptions_count,
+      churned_subscriptions: churned_subscriptions_count,
+      currency: "USD",
+      metadata: {
+        total_customers_count: total_customers_count,
+        new_customers_count: new_customers_count,
+        churned_customers_count: churned_customers_count,
+        customer_churn_rate: customer_churn_rate,
+        revenue_churn_rate: revenue_churn_rate,
+        growth_rate: growth_rate
+      }
     }
   end
 
@@ -388,9 +391,9 @@ class RevenueAnalyticsService
           period_type: period_type,
           mrr_cents: 0,
           arr_cents: 0,
-          active_subscriptions_count: 0,
-          new_subscriptions_count: 0,
-          churned_subscriptions_count: 0,
+          active_subscriptions: 0,
+          new_subscriptions: 0,
+          churned_subscriptions: 0,
           total_customers_count: 0,
           customer_churn_rate: 0.0,
           revenue_churn_rate: 0.0,

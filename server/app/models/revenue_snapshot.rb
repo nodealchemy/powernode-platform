@@ -81,15 +81,15 @@ class RevenueSnapshot < ApplicationRecord
   end
 
   def growth_rate_percentage
-    0.0 # Placeholder - would need historical data
+    get_metadata('growth_rate') || 0.0
   end
 
   def customer_churn_rate_percentage
-    0.0 # Placeholder - would need churn data
+    get_metadata('customer_churn_rate') || 0.0
   end
 
   def revenue_churn_rate_percentage
-    0.0 # Placeholder - would need churn data
+    get_metadata('revenue_churn_rate') || 0.0
   end
 
   def net_new_subscriptions
@@ -102,7 +102,7 @@ class RevenueSnapshot < ApplicationRecord
   end
 
   def total_customers_count
-    active_subscriptions # Simplified - assuming 1 customer per subscription
+    get_metadata('total_customers_count') || active_subscriptions # Simplified - assuming 1 customer per subscription
   end
 
   def new_subscriptions_count
@@ -118,11 +118,11 @@ class RevenueSnapshot < ApplicationRecord
   end
 
   def churned_customers_count
-    churned_subscriptions # Simplified - assuming 1 customer per subscription
+    get_metadata('churned_customers_count') || churned_subscriptions # Simplified - assuming 1 customer per subscription
   end
 
   def new_customers_count
-    new_subscriptions # Simplified - assuming 1 customer per subscription
+    get_metadata('new_customers_count') || new_subscriptions # Simplified - assuming 1 customer per subscription
   end
 
   def add_metadata(key, value)

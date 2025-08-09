@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useWebSocketConnection } from '../../hooks/useWebSocketConnection';
 
 interface WebSocketStatusIndicatorProps {
@@ -22,51 +22,43 @@ export const WebSocketStatusIndicator: React.FC<WebSocketStatusIndicatorProps> =
     ping,
     getConnectionQuality 
   } = useWebSocketConnection();
-  
-  const [showTooltip, setShowTooltip] = useState(false);
-  const [tooltipTimeoutId, setTooltipTimeoutId] = useState<NodeJS.Timeout | null>(null);
 
   const getStatusConfig = () => {
     switch (status) {
       case 'connected':
         return {
-          color: 'text-green-500',
-          bgColor: 'bg-green-100 hover:bg-green-200',
-          icon: '●',
-          label: 'Connected',
+          dotColor: 'bg-green-500',
+          textColor: 'text-green-600 dark:text-green-400',
+          label: 'Real-time',
           description: 'Real-time connection active'
         };
       case 'connecting':
         return {
-          color: 'text-yellow-500',
-          bgColor: 'bg-yellow-100 hover:bg-yellow-200',
-          icon: '◐',
+          dotColor: 'bg-yellow-500 animate-pulse',
+          textColor: 'text-yellow-600 dark:text-yellow-400',
           label: 'Connecting',
           description: 'Establishing connection...'
         };
       case 'reconnecting':
         return {
-          color: 'text-orange-500',
-          bgColor: 'bg-orange-100 hover:bg-orange-200',
-          icon: '◒',
+          dotColor: 'bg-orange-500 animate-pulse',
+          textColor: 'text-orange-600 dark:text-orange-400',
           label: 'Reconnecting',
           description: `Reconnecting... (${reconnectAttempts}/5)`
         };
       case 'error':
         return {
-          color: 'text-red-500',
-          bgColor: 'bg-red-100 hover:bg-red-200',
-          icon: '✗',
+          dotColor: 'bg-red-500',
+          textColor: 'text-red-600 dark:text-red-400',
           label: 'Error',
           description: error || 'Connection error'
         };
       case 'disconnected':
       default:
         return {
-          color: 'text-gray-500',
-          bgColor: 'bg-gray-100 hover:bg-gray-200',
-          icon: '○',
-          label: 'Disconnected',
+          dotColor: 'bg-gray-400',
+          textColor: 'text-theme-secondary',
+          label: 'Offline',
           description: 'Real-time connection inactive'
         };
     }
@@ -83,138 +75,37 @@ export const WebSocketStatusIndicator: React.FC<WebSocketStatusIndicatorProps> =
 
   const getQualityColor = (quality: string) => {
     switch (quality) {
-      case 'excellent': return 'text-green-600';
-      case 'good': return 'text-blue-600';
-      case 'fair': return 'text-yellow-600';
-      case 'poor': return 'text-red-600';
-      default: return 'text-gray-600';
-    }
-  };
-
-  const handleClick = () => {
-    if (status === 'disconnected' || status === 'error') {
-      connect();
-    } else if (status === 'connected') {
-      ping(); // Test connection
+      case 'excellent': return 'text-green-600 dark:text-green-400';
+      case 'good': return 'text-blue-600 dark:text-blue-400';
+      case 'fair': return 'text-yellow-600 dark:text-yellow-400';
+      case 'poor': return 'text-red-600 dark:text-red-400';
+      default: return 'text-theme-secondary';
     }
   };
 
   if (!showDetails) {
-    // Compact indicator for header
+    // Compact indicator matching Analytics Dashboard design
     return (
-      <div className="relative">
-        <button
-          onClick={handleClick}
-          onMouseEnter={() => {
-            if (tooltipTimeoutId) {
-              clearTimeout(tooltipTimeoutId);
-              setTooltipTimeoutId(null);
-            }
-            setShowTooltip(true);
-          }}
-          onMouseLeave={() => {
-            const timeoutId = setTimeout(() => setShowTooltip(false), 100);
-            setTooltipTimeoutId(timeoutId);
-          }}
-          className={`p-2 rounded-md transition-colors ${config.bgColor} ${className}`}
+      <div className={`flex items-center space-x-2 ${className}`}>
+        <div 
+          className={`w-2 h-2 rounded-full ${config.dotColor}`}
           title={config.description}
-        >
-          <div className="flex items-center space-x-1">
-            <span className={`text-lg ${config.color}`}>{config.icon}</span>
-          </div>
-        </button>
-
-        {showTooltip && (
-          <div 
-            className="absolute top-full right-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-[9999] p-3"
-            onMouseEnter={() => {
-              if (tooltipTimeoutId) {
-                clearTimeout(tooltipTimeoutId);
-                setTooltipTimeoutId(null);
-              }
-            }}
-            onMouseLeave={() => {
-              const timeoutId = setTimeout(() => setShowTooltip(false), 100);
-              setTooltipTimeoutId(timeoutId);
-            }}
-          >
-            <div className="text-sm">
-              <div className="flex items-center justify-between mb-2">
-                <span className="font-medium">WebSocket Status</span>
-                <span className={`text-xs px-2 py-1 rounded ${config.color} ${config.bgColor}`}>
-                  {config.label}
-                </span>
-              </div>
-              
-              {isConnected && (
-                <>
-                  <div className="flex justify-between text-xs text-gray-600 mb-1">
-                    <span>Latency:</span>
-                    <span className={getQualityColor(connectionQuality)}>
-                      {formatLatency(latency)} ({connectionQuality})
-                    </span>
-                  </div>
-                  {lastConnected && (
-                    <div className="flex justify-between text-xs text-gray-600 mb-1">
-                      <span>Connected:</span>
-                      <span>{lastConnected.toLocaleTimeString()}</span>
-                    </div>
-                  )}
-                </>
-              )}
-              
-              {error && (
-                <div className="text-xs text-red-600 mt-1">
-                  {error}
-                </div>
-              )}
-
-              {status === 'reconnecting' && (
-                <div className="text-xs text-orange-600 mt-1">
-                  Attempt {reconnectAttempts} of 5
-                </div>
-              )}
-
-              <div className="flex justify-between mt-2 pt-2 border-t border-gray-100">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    ping();
-                  }}
-                  disabled={!isConnected}
-                  className="text-xs text-blue-600 hover:text-blue-800 disabled:text-gray-400"
-                >
-                  Test
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (isConnected) {
-                      disconnect();
-                    } else {
-                      connect();
-                    }
-                  }}
-                  className="text-xs text-blue-600 hover:text-blue-800"
-                >
-                  {isConnected ? 'Disconnect' : 'Connect'}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        />
+        <span className={`text-xs ${config.textColor}`}>
+          {config.label}
+        </span>
       </div>
     );
   }
 
   // Detailed status panel
   return (
-    <div className={`bg-white border border-gray-200 rounded-lg p-4 ${className}`}>
+    <div className={`card-theme rounded-lg p-4 ${className}`}>
       <div className="flex items-center justify-between mb-3">
-        <h3 className="font-medium text-gray-900">WebSocket Connection</h3>
+        <h3 className="font-medium text-theme-primary">WebSocket Connection</h3>
         <div className="flex items-center space-x-2">
-          <span className={`text-lg ${config.color}`}>{config.icon}</span>
-          <span className={`text-sm px-2 py-1 rounded ${config.color} ${config.bgColor}`}>
+          <div className={`w-2 h-2 rounded-full ${config.dotColor}`} />
+          <span className={`text-sm ${config.textColor}`}>
             {config.label}
           </span>
         </div>
@@ -222,26 +113,26 @@ export const WebSocketStatusIndicator: React.FC<WebSocketStatusIndicatorProps> =
 
       <div className="space-y-2 text-sm">
         <div className="flex justify-between">
-          <span className="text-gray-600">Status:</span>
-          <span>{config.description}</span>
+          <span className="text-theme-secondary">Status:</span>
+          <span className="text-theme-primary">{config.description}</span>
         </div>
         
         {isConnected && (
           <>
             <div className="flex justify-between">
-              <span className="text-gray-600">Connection Quality:</span>
+              <span className="text-theme-secondary">Connection Quality:</span>
               <span className={`capitalize ${getQualityColor(connectionQuality)}`}>
                 {connectionQuality}
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600">Latency:</span>
-              <span>{formatLatency(latency)}</span>
+              <span className="text-theme-secondary">Latency:</span>
+              <span className="text-theme-primary">{formatLatency(latency)}</span>
             </div>
             {lastConnected && (
               <div className="flex justify-between">
-                <span className="text-gray-600">Connected At:</span>
-                <span>{lastConnected.toLocaleString()}</span>
+                <span className="text-theme-secondary">Connected At:</span>
+                <span className="text-theme-primary">{lastConnected.toLocaleString()}</span>
               </div>
             )}
           </>
@@ -249,23 +140,23 @@ export const WebSocketStatusIndicator: React.FC<WebSocketStatusIndicatorProps> =
 
         {status === 'reconnecting' && (
           <div className="flex justify-between">
-            <span className="text-gray-600">Reconnect Attempts:</span>
-            <span>{reconnectAttempts} of 5</span>
+            <span className="text-theme-secondary">Reconnect Attempts:</span>
+            <span className="text-theme-primary">{reconnectAttempts} of 5</span>
           </div>
         )}
 
         {error && (
-          <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-600">
+          <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded text-xs text-red-600 dark:text-red-400">
             {error}
           </div>
         )}
       </div>
 
-      <div className="flex justify-end space-x-2 mt-4 pt-3 border-t border-gray-100">
+      <div className="flex justify-end space-x-2 mt-4 pt-3 border-t border-theme-light">
         <button
           onClick={ping}
           disabled={!isConnected}
-          className="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-3 py-1 text-xs bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 rounded hover:bg-blue-200 dark:hover:bg-blue-900/30 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Test Connection
         </button>
@@ -273,8 +164,8 @@ export const WebSocketStatusIndicator: React.FC<WebSocketStatusIndicatorProps> =
           onClick={isConnected ? disconnect : connect}
           className={`px-3 py-1 text-xs rounded ${
             isConnected 
-              ? 'bg-red-100 text-red-700 hover:bg-red-200' 
-              : 'bg-green-100 text-green-700 hover:bg-green-200'
+              ? 'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/30' 
+              : 'bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/30'
           }`}
         >
           {isConnected ? 'Disconnect' : 'Connect'}

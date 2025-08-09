@@ -94,10 +94,10 @@ export const AdminSettingsPage: React.FC = () => {
   if (!hasAdminAccess) {
     return (
       <div className="text-center py-12">
-        <div className="text-red-600 text-lg font-medium">
+        <div className="text-theme-error text-lg font-medium">
           🚫 Access Denied
         </div>
-        <p className="text-gray-600 mt-2">
+        <p className="text-theme-secondary mt-2">
           You need administrator privileges to access this page.
         </p>
       </div>
@@ -107,7 +107,7 @@ export const AdminSettingsPage: React.FC = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-gray-600">Loading admin settings...</div>
+        <div className="text-theme-secondary">Loading admin settings...</div>
       </div>
     );
   }
@@ -125,24 +125,24 @@ export const AdminSettingsPage: React.FC = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Admin Settings</h1>
-          <p className="text-gray-600">
+          <h1 className="text-2xl font-bold text-theme-primary">Admin Settings</h1>
+          <p className="text-theme-secondary">
             System administration and platform management.
           </p>
         </div>
-        <div className="bg-red-100 text-red-800 px-3 py-1 rounded-full text-sm font-medium">
+        <div className="bg-theme-error text-theme-error px-3 py-1 rounded-full text-sm font-medium">
           🔧 Admin Mode
         </div>
       </div>
 
       {successMessage && (
-        <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
+        <div className="alert-theme alert-theme-success">
           {successMessage}
         </div>
       )}
 
       {/* Tab Navigation */}
-      <div className="border-b border-gray-200">
+      <div className="border-b border-theme">
         <nav className="-mb-px flex space-x-8">
           {tabs.map((tab) => (
             <button
@@ -150,8 +150,8 @@ export const AdminSettingsPage: React.FC = () => {
               onClick={() => setActiveTab(tab.id)}
               className={`py-2 px-1 border-b-2 font-medium text-sm ${
                 activeTab === tab.id
-                  ? 'border-red-500 text-red-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  ? 'border-theme-focus text-theme-link'
+                  : 'border-transparent text-theme-secondary hover:text-theme-primary hover:border-theme'
               }`}
             >
               <span className="mr-2">{tab.icon}</span>
@@ -165,65 +165,65 @@ export const AdminSettingsPage: React.FC = () => {
       {activeTab === 'overview' && settings && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {/* Platform Statistics */}
-          <div className="bg-white shadow rounded-lg p-6">
+          <div className="card-theme p-6">
             <div className="flex items-center">
               <div className="text-2xl">👥</div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Total Users</p>
-                <p className="text-2xl font-semibold text-gray-900">{settings.platform_stats.total_users}</p>
+                <p className="text-sm font-medium text-theme-secondary">Total Users</p>
+                <p className="text-2xl font-semibold text-theme-primary">{settings.platform_stats.total_users}</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white shadow rounded-lg p-6">
+          <div className="card-theme p-6">
             <div className="flex items-center">
               <div className="text-2xl">🏢</div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Active Accounts</p>
-                <p className="text-2xl font-semibold text-gray-900">{settings.platform_stats.active_accounts}</p>
+                <p className="text-sm font-medium text-theme-secondary">Active Accounts</p>
+                <p className="text-2xl font-semibold text-theme-primary">{settings.platform_stats.active_accounts}</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white shadow rounded-lg p-6">
+          <div className="card-theme p-6">
             <div className="flex items-center">
               <div className="text-2xl">💳</div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Subscriptions</p>
-                <p className="text-2xl font-semibold text-gray-900">{settings.platform_stats.active_subscriptions}</p>
+                <p className="text-sm font-medium text-theme-secondary">Subscriptions</p>
+                <p className="text-2xl font-semibold text-theme-primary">{settings.platform_stats.active_subscriptions}</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white shadow rounded-lg p-6">
+          <div className="card-theme p-6">
             <div className="flex items-center">
               <div className="text-2xl">💰</div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Revenue</p>
-                <p className="text-2xl font-semibold text-gray-900">${settings.platform_stats.total_revenue.toLocaleString()}</p>
+                <p className="text-sm font-medium text-theme-secondary">Revenue</p>
+                <p className="text-2xl font-semibold text-theme-primary">${settings.platform_stats.total_revenue.toLocaleString()}</p>
               </div>
             </div>
           </div>
 
           {/* System Status */}
-          <div className="md:col-span-2 bg-white shadow rounded-lg">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h3 className="text-lg font-medium text-gray-900">System Status</h3>
+          <div className="md:col-span-2 card-theme">
+            <div className="px-6 py-4 border-b border-theme">
+              <h3 className="text-lg font-medium text-theme-primary">System Status</h3>
             </div>
             <div className="p-6 space-y-4">
               <div className="flex justify-between">
-                <span className="text-sm text-gray-600">Platform Version</span>
-                <span className="text-sm font-medium">{settings.system_settings.platform_version}</span>
+                <span className="text-sm text-theme-secondary">Platform Version</span>
+                <span className="text-sm font-medium text-theme-primary">{settings.system_settings.platform_version}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-sm text-gray-600">Registration</span>
-                <span className={`text-sm font-medium ${settings.system_settings.registration_enabled ? 'text-green-600' : 'text-red-600'}`}>
+                <span className="text-sm text-theme-secondary">Registration</span>
+                <span className={`text-sm font-medium ${settings.system_settings.registration_enabled ? 'text-theme-success' : 'text-theme-error'}`}>
                   {settings.system_settings.registration_enabled ? 'Enabled' : 'Disabled'}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-sm text-gray-600">Maintenance Mode</span>
-                <span className={`text-sm font-medium ${settings.system_settings.maintenance_mode ? 'text-red-600' : 'text-green-600'}`}>
+                <span className="text-sm text-theme-secondary">Maintenance Mode</span>
+                <span className={`text-sm font-medium ${settings.system_settings.maintenance_mode ? 'text-theme-error' : 'text-theme-success'}`}>
                   {settings.system_settings.maintenance_mode ? 'Active' : 'Inactive'}
                 </span>
               </div>
@@ -231,22 +231,22 @@ export const AdminSettingsPage: React.FC = () => {
           </div>
 
           {/* Security Overview */}
-          <div className="md:col-span-2 bg-white shadow rounded-lg">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h3 className="text-lg font-medium text-gray-900">Security Overview</h3>
+          <div className="md:col-span-2 card-theme">
+            <div className="px-6 py-4 border-b border-theme">
+              <h3 className="text-lg font-medium text-theme-primary">Security Overview</h3>
             </div>
             <div className="p-6 space-y-4">
               <div className="flex justify-between">
-                <span className="text-sm text-gray-600">Failed Logins Today</span>
-                <span className="text-sm font-medium">{settings.security_settings.failed_login_attempts_today}</span>
+                <span className="text-sm text-theme-secondary">Failed Logins Today</span>
+                <span className="text-sm font-medium text-theme-primary">{settings.security_settings.failed_login_attempts_today}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-sm text-gray-600">Locked Accounts</span>
-                <span className="text-sm font-medium text-red-600">{settings.security_settings.locked_accounts}</span>
+                <span className="text-sm text-theme-secondary">Locked Accounts</span>
+                <span className="text-sm font-medium text-theme-error">{settings.security_settings.locked_accounts}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-sm text-gray-600">Recent Security Events</span>
-                <span className="text-sm font-medium">{settings.security_settings.recent_security_events}</span>
+                <span className="text-sm text-theme-secondary">Recent Security Events</span>
+                <span className="text-sm font-medium text-theme-primary">{settings.security_settings.recent_security_events}</span>
               </div>
             </div>
           </div>
@@ -255,16 +255,16 @@ export const AdminSettingsPage: React.FC = () => {
 
       {/* System Settings Tab */}
       {activeTab === 'system' && (
-        <div className="bg-white shadow rounded-lg">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h3 className="text-lg font-medium text-gray-900">System Configuration</h3>
+        <div className="card-theme">
+          <div className="px-6 py-4 border-b border-theme">
+            <h3 className="text-lg font-medium text-theme-primary">System Configuration</h3>
           </div>
           <div className="p-6 space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <h4 className="text-sm font-medium text-gray-900">Maintenance Mode</h4>
-                  <p className="text-sm text-gray-600">Enable to prevent user access during updates</p>
+                  <h4 className="text-sm font-medium text-theme-primary">Maintenance Mode</h4>
+                  <p className="text-sm text-theme-secondary">Enable to prevent user access during updates</p>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
@@ -274,14 +274,14 @@ export const AdminSettingsPage: React.FC = () => {
                     onChange={(e) => handleUpdateSettings({ maintenance_mode: e.target.checked })}
                     disabled={saving}
                   />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-red-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-600"></div>
+                  <div className="toggle-theme peer-checked:bg-red-600"></div>
                 </label>
               </div>
 
               <div className="flex items-center justify-between">
                 <div>
-                  <h4 className="text-sm font-medium text-gray-900">User Registration</h4>
-                  <p className="text-sm text-gray-600">Allow new users to register</p>
+                  <h4 className="text-sm font-medium text-theme-primary">User Registration</h4>
+                  <p className="text-sm text-theme-secondary">Allow new users to register</p>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
@@ -291,14 +291,14 @@ export const AdminSettingsPage: React.FC = () => {
                     onChange={(e) => handleUpdateSettings({ registration_enabled: e.target.checked })}
                     disabled={saving}
                   />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                  <div className="toggle-theme peer-checked:bg-blue-600"></div>
                 </label>
               </div>
 
               <div className="flex items-center justify-between">
                 <div>
-                  <h4 className="text-sm font-medium text-gray-900">Email Verification</h4>
-                  <p className="text-sm text-gray-600">Require email verification for new users</p>
+                  <h4 className="text-sm font-medium text-theme-primary">Email Verification</h4>
+                  <p className="text-sm text-theme-secondary">Require email verification for new users</p>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
@@ -308,19 +308,19 @@ export const AdminSettingsPage: React.FC = () => {
                     onChange={(e) => handleUpdateSettings({ email_verification_required: e.target.checked })}
                     disabled={saving}
                   />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                  <div className="toggle-theme peer-checked:bg-blue-600"></div>
                 </label>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="label-theme">
                   Password Complexity Level
                 </label>
                 <select
                   value={systemSettings.password_complexity_level || 'high'}
                   onChange={(e) => handleUpdateSettings({ password_complexity_level: e.target.value as any })}
                   disabled={saving}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="select-theme"
                 >
                   <option value="low">Low</option>
                   <option value="medium">Medium</option>
@@ -329,7 +329,7 @@ export const AdminSettingsPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="label-theme">
                   Session Timeout (minutes)
                 </label>
                 <input
@@ -339,12 +339,12 @@ export const AdminSettingsPage: React.FC = () => {
                   value={systemSettings.session_timeout_minutes || 60}
                   onChange={(e) => handleUpdateSettings({ session_timeout_minutes: parseInt(e.target.value) })}
                   disabled={saving}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="input-theme"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="label-theme">
                   Max Failed Login Attempts
                 </label>
                 <input
@@ -354,7 +354,7 @@ export const AdminSettingsPage: React.FC = () => {
                   value={systemSettings.max_failed_login_attempts || 5}
                   onChange={(e) => handleUpdateSettings({ max_failed_login_attempts: parseInt(e.target.value) })}
                   disabled={saving}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="input-theme"
                 />
               </div>
             </div>
@@ -364,59 +364,59 @@ export const AdminSettingsPage: React.FC = () => {
 
       {/* Users Tab */}
       {activeTab === 'users' && (
-        <div className="bg-white shadow rounded-lg">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h3 className="text-lg font-medium text-gray-900">User Management</h3>
-            <p className="text-sm text-gray-600 mt-1">{users.length} total users</p>
+        <div className="card-theme">
+          <div className="px-6 py-4 border-b border-theme">
+            <h3 className="text-lg font-medium text-theme-primary">User Management</h3>
+            <p className="text-sm text-theme-secondary mt-1">{users.length} total users</p>
           </div>
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="min-w-full divide-y divide-theme">
+              <thead className="bg-theme-background-secondary">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-theme-secondary uppercase tracking-wider">
                     User
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-theme-secondary uppercase tracking-wider">
                     Account
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-theme-secondary uppercase tracking-wider">
                     Role
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-theme-secondary uppercase tracking-wider">
                     Status
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-theme-secondary uppercase tracking-wider">
                     Last Login
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="card-theme divide-y divide-theme">
                 {users.slice(0, 10).map((user) => (
                   <tr key={user.id}>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div>
-                        <div className="text-sm font-medium text-gray-900">{user.full_name}</div>
-                        <div className="text-sm text-gray-500">{user.email}</div>
+                        <div className="text-sm font-medium text-theme-primary">{user.full_name}</div>
+                        <div className="text-sm text-theme-secondary">{user.email}</div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{user.account.name}</div>
+                      <div className="text-sm text-theme-primary">{user.account.name}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                      <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-theme-info text-theme-info">
                         {user.roles.join(', ')}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                        user.status === 'active' ? 'bg-green-100 text-green-800' :
-                        user.status === 'suspended' ? 'bg-red-100 text-red-800' :
-                        'bg-gray-100 text-gray-800'
+                        user.status === 'active' ? 'bg-theme-success text-theme-success' :
+                        user.status === 'suspended' ? 'bg-theme-error text-theme-error' :
+                        'bg-theme-background-tertiary text-theme-secondary'
                       }`}>
                         {user.status}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-theme-secondary">
                       {user.last_login_at ? new Date(user.last_login_at).toLocaleDateString() : 'Never'}
                     </td>
                   </tr>
@@ -429,52 +429,52 @@ export const AdminSettingsPage: React.FC = () => {
 
       {/* Accounts Tab */}
       {activeTab === 'accounts' && (
-        <div className="bg-white shadow rounded-lg">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h3 className="text-lg font-medium text-gray-900">Account Management</h3>
-            <p className="text-sm text-gray-600 mt-1">{accounts.length} total accounts</p>
+        <div className="card-theme">
+          <div className="px-6 py-4 border-b border-theme">
+            <h3 className="text-lg font-medium text-theme-primary">Account Management</h3>
+            <p className="text-sm text-theme-secondary mt-1">{accounts.length} total accounts</p>
           </div>
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="min-w-full divide-y divide-theme">
+              <thead className="bg-theme-background-secondary">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-theme-secondary uppercase tracking-wider">
                     Account
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-theme-secondary uppercase tracking-wider">
                     Users
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-theme-secondary uppercase tracking-wider">
                     Plan
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-theme-secondary uppercase tracking-wider">
                     Status
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-theme-secondary uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="card-theme divide-y divide-theme">
                 {accounts.slice(0, 10).map((account) => (
                   <tr key={account.id}>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div>
-                        <div className="text-sm font-medium text-gray-900">{account.name}</div>
-                        <div className="text-sm text-gray-500">{account.subdomain || 'No subdomain'}</div>
+                        <div className="text-sm font-medium text-theme-primary">{account.name}</div>
+                        <div className="text-sm text-theme-secondary">{account.subdomain || 'No subdomain'}</div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-theme-primary">
                       {account.users_count}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-theme-primary">
                       {account.subscription?.plan_name || 'No subscription'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                        account.status === 'active' ? 'bg-green-100 text-green-800' :
-                        account.status === 'suspended' ? 'bg-red-100 text-red-800' :
-                        'bg-gray-100 text-gray-800'
+                        account.status === 'active' ? 'bg-theme-success text-theme-success' :
+                        account.status === 'suspended' ? 'bg-theme-error text-theme-error' :
+                        'bg-theme-background-tertiary text-theme-secondary'
                       }`}>
                         {account.status}
                       </span>
@@ -483,14 +483,14 @@ export const AdminSettingsPage: React.FC = () => {
                       {account.status === 'active' ? (
                         <button
                           onClick={() => handleSuspendAccount(account.id, 'Admin action')}
-                          className="text-red-600 hover:text-red-900"
+                          className="text-theme-error hover:text-theme-error-hover"
                         >
                           Suspend
                         </button>
                       ) : (
                         <button
                           onClick={() => handleActivateAccount(account.id, 'Admin action')}
-                          className="text-green-600 hover:text-green-900"
+                          className="text-theme-success hover:text-theme-success-hover"
                         >
                           Activate
                         </button>
@@ -506,43 +506,43 @@ export const AdminSettingsPage: React.FC = () => {
 
       {/* System Logs Tab */}
       {activeTab === 'logs' && (
-        <div className="bg-white shadow rounded-lg">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h3 className="text-lg font-medium text-gray-900">Recent System Logs</h3>
-            <p className="text-sm text-gray-600 mt-1">Last 100 system events</p>
+        <div className="card-theme">
+          <div className="px-6 py-4 border-b border-theme">
+            <h3 className="text-lg font-medium text-theme-primary">Recent System Logs</h3>
+            <p className="text-sm text-theme-secondary mt-1">Last 100 system events</p>
           </div>
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="min-w-full divide-y divide-theme">
+              <thead className="bg-theme-background-secondary">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-theme-secondary uppercase tracking-wider">
                     Timestamp
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-theme-secondary uppercase tracking-wider">
                     Action
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-theme-secondary uppercase tracking-wider">
                     User
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-theme-secondary uppercase tracking-wider">
                     IP Address
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="card-theme divide-y divide-theme">
                 {logs.slice(0, 20).map((log) => (
                   <tr key={log.id}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-theme-secondary">
                       {new Date(log.created_at).toLocaleString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm font-medium text-gray-900">{log.action}</span>
-                      <div className="text-sm text-gray-500">{log.resource_type}</div>
+                      <span className="text-sm font-medium text-theme-primary">{log.action}</span>
+                      <div className="text-sm text-theme-secondary">{log.resource_type}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-theme-primary">
                       {log.user ? `${log.user.full_name} (${log.user.email})` : 'System'}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-theme-secondary">
                       {log.ip_address}
                     </td>
                   </tr>

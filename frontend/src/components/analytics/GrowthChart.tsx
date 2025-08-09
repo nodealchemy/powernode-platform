@@ -15,6 +15,7 @@ import {
   AreaChart
 } from 'recharts';
 import { format, parseISO } from 'date-fns';
+import { useChartColors } from '../../hooks/useThemeColors';
 
 interface GrowthChartProps {
   data: Array<{
@@ -40,6 +41,9 @@ export const GrowthChart: React.FC<GrowthChartProps> = ({
   title, 
   compact = false 
 }) => {
+  // Use theme-aware colors that update automatically
+  const colors = useChartColors();
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -61,18 +65,14 @@ export const GrowthChart: React.FC<GrowthChartProps> = ({
     }
   };
 
-  const getGrowthColor = (growth: number) => {
-    if (growth > 5) return '#10b981'; // Green for high growth
-    if (growth > 0) return '#3b82f6'; // Blue for positive growth
-    if (growth > -5) return '#f59e0b'; // Yellow for slight decline
-    return '#ef4444'; // Red for significant decline
-  };
+  // Use the built-in growth color function
+  const getGrowthColor = colors.getGrowthColor;
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-white p-4 border border-gray-200 rounded-lg shadow-lg">
-          <p className="font-semibold text-gray-900">{formatDate(label)}</p>
+        <div className="card-theme p-4 border-theme rounded-lg shadow-lg">
+          <p className="font-semibold text-theme-primary">{formatDate(label)}</p>
           {payload.map((entry: any, index: number) => (
             <p key={index} className="text-sm" style={{ color: entry.color }}>
               {entry.name}: {
@@ -117,12 +117,12 @@ export const GrowthChart: React.FC<GrowthChartProps> = ({
 
   if (compact) {
     return (
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">{title}</h3>
+      <div className="card-theme rounded-lg shadow-sm border-theme p-6">
+        <h3 className="text-lg font-semibold text-theme-primary mb-4">{title}</h3>
         <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={data}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <CartesianGrid strokeDasharray="3 3" stroke={colors.border} />
               <XAxis 
                 dataKey="date" 
                 tickFormatter={formatDate}
@@ -136,10 +136,10 @@ export const GrowthChart: React.FC<GrowthChartProps> = ({
               <Line
                 type="monotone"
                 dataKey="growth_rate"
-                stroke="#10b981"
+                stroke={colors.success}
                 strokeWidth={2}
-                dot={{ fill: '#10b981', strokeWidth: 0, r: 4 }}
-                activeDot={{ r: 6, stroke: '#10b981', strokeWidth: 2 }}
+                dot={{ fill: colors.success, strokeWidth: 0, r: 4 }}
+                activeDot={{ r: 6, stroke: colors.success, strokeWidth: 2 }}
               />
             </LineChart>
           </ResponsiveContainer>
@@ -151,13 +151,13 @@ export const GrowthChart: React.FC<GrowthChartProps> = ({
   return (
     <div className="space-y-6">
       {/* Growth Metrics Summary */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Growth Metrics</h3>
+      <div className="card-theme rounded-lg shadow-sm border-theme p-6">
+        <h3 className="text-lg font-semibold text-theme-primary mb-4">Growth Metrics</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {compoundGrowthRate !== undefined && (
             <div>
-              <p className="text-sm text-gray-500">Compound Monthly Growth Rate</p>
-              <p className={`text-2xl font-bold ${compoundGrowthRate >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              <p className="text-sm text-theme-secondary">Compound Monthly Growth Rate</p>
+              <p className={`text-2xl font-bold ${compoundGrowthRate >= 0 ? 'text-theme-success' : 'text-theme-error'}`}>
                 {formatPercentage(compoundGrowthRate)}
               </p>
             </div>
@@ -165,14 +165,14 @@ export const GrowthChart: React.FC<GrowthChartProps> = ({
           {forecasting && (
             <>
               <div>
-                <p className="text-sm text-gray-500">Next Month Projection</p>
-                <p className="text-2xl font-bold text-blue-600">
+                <p className="text-sm text-theme-secondary">Next Month Projection</p>
+                <p className="text-2xl font-bold text-theme-info">
                   {formatCurrency(forecasting.next_month_projection)}
                 </p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Confidence Interval</p>
-                <p className="text-2xl font-bold text-purple-600">
+                <p className="text-sm text-theme-secondary">Confidence Interval</p>
+                <p className="text-2xl font-bold text-theme-primary">
                   {forecasting.confidence_interval}
                 </p>
               </div>
@@ -182,18 +182,18 @@ export const GrowthChart: React.FC<GrowthChartProps> = ({
       </div>
 
       {/* Growth Rate Trend */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Monthly Growth Rate</h3>
+      <div className="card-theme rounded-lg shadow-sm border-theme p-6">
+        <h3 className="text-lg font-semibold text-theme-primary mb-4">Monthly Growth Rate</h3>
         <div className="h-96">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={data}>
               <defs>
                 <linearGradient id="growthGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.8}/>
-                  <stop offset="95%" stopColor="#10b981" stopOpacity={0.1}/>
+                  <stop offset="5%" stopColor={colors.success} stopOpacity={0.8}/>
+                  <stop offset="95%" stopColor={colors.success} stopOpacity={0.1}/>
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <CartesianGrid strokeDasharray="3 3" stroke={colors.border} />
               <XAxis 
                 dataKey="date" 
                 tickFormatter={formatDate}
@@ -205,11 +205,11 @@ export const GrowthChart: React.FC<GrowthChartProps> = ({
               <Area
                 type="monotone"
                 dataKey="growth_rate"
-                stroke="#10b981"
+                stroke={colors.success}
                 strokeWidth={3}
                 fill="url(#growthGradient)"
                 name="Growth Rate %"
-                dot={{ fill: '#10b981', strokeWidth: 0, r: 4 }}
+                dot={{ fill: colors.success, strokeWidth: 0, r: 4 }}
               />
             </AreaChart>
           </ResponsiveContainer>
@@ -217,12 +217,12 @@ export const GrowthChart: React.FC<GrowthChartProps> = ({
       </div>
 
       {/* Revenue Components */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Revenue Growth Components</h3>
+      <div className="card-theme rounded-lg shadow-sm border-theme p-6">
+        <h3 className="text-lg font-semibold text-theme-primary mb-4">Revenue Growth Components</h3>
         <div className="h-96">
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={data}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <CartesianGrid strokeDasharray="3 3" stroke={colors.border} />
               <XAxis 
                 dataKey="date" 
                 tickFormatter={formatDate}
@@ -234,14 +234,14 @@ export const GrowthChart: React.FC<GrowthChartProps> = ({
               <Bar
                 yAxisId="left"
                 dataKey="new_revenue"
-                fill="#10b981"
+                fill={colors.success}
                 name="New Revenue"
                 opacity={0.8}
               />
               <Bar
                 yAxisId="left"
                 dataKey="churned_revenue"
-                fill="#ef4444"
+                fill={colors.error}
                 name="Churned Revenue"
                 opacity={0.8}
               />
@@ -249,10 +249,10 @@ export const GrowthChart: React.FC<GrowthChartProps> = ({
                 yAxisId="right"
                 type="monotone"
                 dataKey="mrr"
-                stroke="#3b82f6"
+                stroke={colors.info}
                 strokeWidth={3}
                 name="Total MRR"
-                dot={{ fill: '#3b82f6', strokeWidth: 0, r: 4 }}
+                dot={{ fill: colors.info, strokeWidth: 0, r: 4 }}
               />
             </ComposedChart>
           </ResponsiveContainer>
@@ -260,8 +260,8 @@ export const GrowthChart: React.FC<GrowthChartProps> = ({
       </div>
 
       {/* Growth Rate Heatmap */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Growth Rate by Month</h3>
+      <div className="card-theme rounded-lg shadow-sm border-theme p-6">
+        <h3 className="text-lg font-semibold text-theme-primary mb-4">Growth Rate by Month</h3>
         <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-12 gap-2">
           {data.map((item, index) => (
             <div key={index} className="text-center">
@@ -271,7 +271,7 @@ export const GrowthChart: React.FC<GrowthChartProps> = ({
               >
                 {formatPercentage(item.growth_rate)}
               </div>
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-theme-tertiary mt-1">
                 {formatDate(item.date)}
               </p>
             </div>
@@ -281,19 +281,19 @@ export const GrowthChart: React.FC<GrowthChartProps> = ({
         {/* Legend */}
         <div className="flex items-center justify-center space-x-4 mt-4 text-xs">
           <div className="flex items-center space-x-1">
-            <div className="w-3 h-3 rounded bg-red-500"></div>
+            <div className="w-3 h-3 rounded bg-theme-error"></div>
             <span>High Decline (&lt;-5%)</span>
           </div>
           <div className="flex items-center space-x-1">
-            <div className="w-3 h-3 rounded bg-yellow-500"></div>
+            <div className="w-3 h-3 rounded bg-theme-warning"></div>
             <span>Slight Decline (-5% to 0%)</span>
           </div>
           <div className="flex items-center space-x-1">
-            <div className="w-3 h-3 rounded bg-blue-500"></div>
+            <div className="w-3 h-3 rounded bg-theme-info"></div>
             <span>Positive Growth (0% to 5%)</span>
           </div>
           <div className="flex items-center space-x-1">
-            <div className="w-3 h-3 rounded bg-green-500"></div>
+            <div className="w-3 h-3 rounded bg-theme-success"></div>
             <span>High Growth (&gt;5%)</span>
           </div>
         </div>

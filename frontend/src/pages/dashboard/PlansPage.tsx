@@ -114,7 +114,7 @@ export const PlansPage: React.FC = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-gray-600">Loading plans...</div>
+        <div className="text-theme-secondary">Loading plans...</div>
       </div>
     );
   }
@@ -123,8 +123,8 @@ export const PlansPage: React.FC = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Plans Management</h1>
-          <p className="text-gray-600">
+          <h1 className="text-2xl font-bold text-theme-primary">Plans Management</h1>
+          <p className="text-theme-secondary">
             {hasAdminAccess 
               ? "Manage subscription plans and pricing tiers."
               : "View available subscription plans."
@@ -134,7 +134,7 @@ export const PlansPage: React.FC = () => {
         {hasAdminAccess && (
           <button
             onClick={handleCreatePlan}
-            className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors duration-150"
+            className="btn-theme btn-theme-primary"
           >
             Create Plan
           </button>
@@ -142,13 +142,13 @@ export const PlansPage: React.FC = () => {
       </div>
 
       {successMessage && (
-        <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
+        <div className="bg-theme-success text-theme-success card-theme px-4 py-3">
           {successMessage}
         </div>
       )}
 
       {errorMessage && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+        <div className="bg-theme-error text-theme-error card-theme px-4 py-3">
           {errorMessage}
         </div>
       )}
@@ -156,35 +156,35 @@ export const PlansPage: React.FC = () => {
       {/* Plans Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {plans.map((plan) => (
-          <div key={plan.id} className="bg-white rounded-lg shadow-md overflow-hidden">
+          <div key={plan.id} className="card-theme shadow-md overflow-hidden">
             {/* Plan Header */}
-            <div className="p-6 border-b border-gray-200">
+            <div className="p-6 border-b border-theme">
               <div className="flex justify-between items-start mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">{plan.name}</h3>
+                <h3 className="text-lg font-semibold text-theme-primary">{plan.name}</h3>
                 <span className={`px-2 py-1 text-xs font-medium rounded-full ${plansApi.getStatusColor(plan.status || 'inactive')}`}>
                   {(plan.status || 'inactive').charAt(0).toUpperCase() + (plan.status || 'inactive').slice(1)}
                 </span>
               </div>
               
               <div className="mb-4">
-                <div className="text-3xl font-bold text-gray-900">
+                <div className="text-3xl font-bold text-theme-primary">
                   {plan.formatted_price}
                 </div>
-                <div className="text-sm text-gray-500">
+                <div className="text-sm text-theme-secondary">
                   per {plan.billing_cycle ? plan.billing_cycle.slice(0, -2) : 'month'} {/* Remove 'ly' suffix */}
                 </div>
                 {plan.billing_cycle !== 'monthly' && (
-                  <div className="text-xs text-gray-400">
+                  <div className="text-xs text-theme-tertiary">
                     ({plan.monthly_price}/month)
                   </div>
                 )}
               </div>
 
               {plan.description && (
-                <p className="text-gray-600 text-sm mb-4">{plan.description}</p>
+                <p className="text-theme-secondary text-sm mb-4">{plan.description}</p>
               )}
 
-              <div className="flex justify-between items-center text-sm text-gray-500">
+              <div className="flex justify-between items-center text-sm text-theme-secondary">
                 <span>{plan.subscription_count || 0} subscriptions</span>
                 <span>{plan.active_subscription_count || 0} active</span>
               </div>
@@ -192,17 +192,17 @@ export const PlansPage: React.FC = () => {
 
             {/* Plan Actions */}
             {hasAdminAccess && (
-              <div className="p-4 bg-gray-50 space-y-2">
+              <div className="card-content bg-theme-background-secondary space-y-2">
                 <div className="flex space-x-2">
                   <button
                     onClick={() => handleEditPlan(plan.id)}
-                    className="flex-1 bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700 transition-colors duration-150"
+                    className="flex-1 btn-theme btn-theme-primary btn-theme-sm"
                   >
                     Edit
                   </button>
                   <button
                     onClick={() => handleDuplicatePlan(plan.id)}
-                    className="flex-1 bg-gray-600 text-white px-3 py-1 rounded text-sm hover:bg-gray-700 transition-colors duration-150"
+                    className="flex-1 btn-theme btn-theme-secondary btn-theme-sm"
                   >
                     Duplicate
                   </button>
@@ -212,8 +212,8 @@ export const PlansPage: React.FC = () => {
                     onClick={() => handleToggleStatus(plan.id)}
                     className={`flex-1 px-3 py-1 rounded text-sm transition-colors duration-150 ${
                       plan.status === 'active'
-                        ? 'bg-yellow-600 text-white hover:bg-yellow-700'
-                        : 'bg-green-600 text-white hover:bg-green-700'
+                        ? 'bg-theme-warning text-white hover:opacity-80'
+                        : 'bg-theme-success text-white hover:opacity-80'
                     }`}
                   >
                     {plan.status === 'active' ? 'Deactivate' : 'Activate'}
@@ -221,7 +221,7 @@ export const PlansPage: React.FC = () => {
                   <button
                     onClick={() => handleDeletePlan(plan.id)}
                     disabled={plan.can_be_deleted === false}
-                    className="flex-1 bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700 transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex-1 bg-theme-error text-white px-3 py-1 rounded text-sm hover:opacity-80 transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Delete
                   </button>
@@ -231,10 +231,10 @@ export const PlansPage: React.FC = () => {
 
             {/* Plan Details for non-admin users */}
             {!hasAdminAccess && (
-              <div className="p-4 bg-gray-50">
-                <div className="flex justify-between items-center text-sm text-gray-500">
+              <div className="card-content bg-theme-background-secondary">
+                <div className="flex justify-between items-center text-sm text-theme-secondary">
                   <span>Trial: {plan.trial_days} days</span>
-                  <span className={`px-2 py-1 text-xs rounded ${plan.is_public ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                  <span className={`px-2 py-1 text-xs rounded ${plan.is_public ? 'bg-theme-success text-theme-success' : 'bg-theme-background-tertiary text-theme-secondary'}`}>
                     {plan.is_public ? 'Public' : 'Private'}
                   </span>
                 </div>
@@ -246,11 +246,11 @@ export const PlansPage: React.FC = () => {
 
       {plans.length === 0 && (
         <div className="text-center py-12">
-          <div className="text-gray-500 text-lg">No plans found</div>
+          <div className="text-theme-secondary text-lg">No plans found</div>
           {hasAdminAccess && (
             <button
               onClick={handleCreatePlan}
-              className="mt-4 bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 transition-colors duration-150"
+              className="mt-4 btn-theme btn-theme-primary"
             >
               Create Your First Plan
             </button>
@@ -399,14 +399,14 @@ const PlanFormModal: React.FC<PlanFormModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-screen overflow-hidden">
-        <div className="flex justify-between items-center p-6 border-b border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-900">
+      <div className="card-theme shadow-xl max-w-4xl w-full mx-4 max-h-screen overflow-hidden">
+        <div className="flex justify-between items-center p-6 border-b border-theme">
+          <h2 className="text-xl font-semibold text-theme-primary">
             {plan ? 'Edit Plan' : 'Create New Plan'}
           </h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-500"
+            className="text-theme-tertiary hover:text-theme-secondary"
           >
             <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -415,7 +415,7 @@ const PlanFormModal: React.FC<PlanFormModalProps> = ({
         </div>
 
         {/* Tab Navigation */}
-        <div className="border-b border-gray-200">
+        <div className="border-b border-theme">
           <nav className="flex space-x-8 px-6">
             {tabs.map((tab) => (
               <button
@@ -423,8 +423,8 @@ const PlanFormModal: React.FC<PlanFormModalProps> = ({
                 onClick={() => setActiveTab(tab.id)}
                 className={`py-4 px-1 border-b-2 font-medium text-sm ${
                   activeTab === tab.id
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    ? 'border-theme-link text-theme-link'
+                    : 'border-transparent text-theme-secondary hover:text-theme-primary hover:border-theme'
                 }`}
               >
                 <span className="mr-2">{tab.icon}</span>
@@ -440,27 +440,27 @@ const PlanFormModal: React.FC<PlanFormModalProps> = ({
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-theme-primary mb-1">
                     Plan Name *
                   </label>
                   <input
                     type="text"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="input-theme w-full"
                     placeholder="e.g. Professional"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-theme-primary mb-1">
                     Status
                   </label>
                   <select
                     value={formData.status}
                     onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="select-theme w-full"
                   >
                     <option value="active">Active</option>
                     <option value="inactive">Inactive</option>
@@ -470,13 +470,13 @@ const PlanFormModal: React.FC<PlanFormModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-theme-primary mb-1">
                   Description
                 </label>
                 <textarea
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="input-theme w-full"
                   placeholder="Brief description of the plan features..."
                   rows={3}
                 />
@@ -484,7 +484,7 @@ const PlanFormModal: React.FC<PlanFormModalProps> = ({
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-theme-primary mb-1">
                     Price (cents) *
                   </label>
                   <input
@@ -492,23 +492,23 @@ const PlanFormModal: React.FC<PlanFormModalProps> = ({
                     min="0"
                     value={formData.price_cents}
                     onChange={(e) => setFormData({ ...formData, price_cents: parseInt(e.target.value) || 0 })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="input-theme w-full"
                     placeholder="2999"
                     required
                   />
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-theme-secondary mt-1">
                     Price in cents (e.g., 2999 = $29.99)
                   </p>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-theme-primary mb-1">
                     Currency
                   </label>
                   <select
                     value={formData.currency}
                     onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="select-theme w-full"
                   >
                     {plansApi.getAvailableCurrencies().map(currency => (
                       <option key={currency.value} value={currency.value}>
@@ -519,13 +519,13 @@ const PlanFormModal: React.FC<PlanFormModalProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-theme-primary mb-1">
                     Billing Cycle
                   </label>
                   <select
                     value={formData.billing_cycle}
                     onChange={(e) => setFormData({ ...formData, billing_cycle: e.target.value as any })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="select-theme w-full"
                   >
                     {plansApi.getAvailableBillingCycles().map(cycle => (
                       <option key={cycle.value} value={cycle.value}>
@@ -538,7 +538,7 @@ const PlanFormModal: React.FC<PlanFormModalProps> = ({
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-theme-primary mb-1">
                     Trial Days
                   </label>
                   <input
@@ -547,7 +547,7 @@ const PlanFormModal: React.FC<PlanFormModalProps> = ({
                     max="365"
                     value={formData.trial_days}
                     onChange={(e) => setFormData({ ...formData, trial_days: parseInt(e.target.value) || 0 })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="input-theme w-full"
                   />
                 </div>
 
@@ -557,9 +557,9 @@ const PlanFormModal: React.FC<PlanFormModalProps> = ({
                     id="is_public"
                     checked={formData.is_public}
                     onChange={(e) => setFormData({ ...formData, is_public: e.target.checked })}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    className="h-4 w-4 text-theme-link focus:ring-theme-link border-theme rounded"
                   />
-                  <label htmlFor="is_public" className="ml-2 block text-sm text-gray-900">
+                  <label htmlFor="is_public" className="ml-2 block text-sm text-theme-primary">
                     Public Plan (visible to customers)
                   </label>
                 </div>
@@ -570,7 +570,7 @@ const PlanFormModal: React.FC<PlanFormModalProps> = ({
           {/* Features Tab */}
           {activeTab === 'features' && (
             <div className="space-y-4">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Plan Features</h3>
+              <h3 className="text-lg font-medium text-theme-primary mb-4">Plan Features</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {Object.entries(formData.features).map(([featureKey, enabled]) => (
                   <div key={featureKey} className="flex items-center">
@@ -579,9 +579,9 @@ const PlanFormModal: React.FC<PlanFormModalProps> = ({
                       id={featureKey}
                       checked={enabled}
                       onChange={(e) => handleFeatureChange(featureKey, e.target.checked)}
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      className="h-4 w-4 text-theme-link focus:ring-theme-link border-theme rounded"
                     />
-                    <label htmlFor={featureKey} className="ml-2 block text-sm text-gray-900">
+                    <label htmlFor={featureKey} className="ml-2 block text-sm text-theme-primary">
                       {featureKey.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                     </label>
                   </div>
@@ -593,11 +593,11 @@ const PlanFormModal: React.FC<PlanFormModalProps> = ({
           {/* Limits Tab */}
           {activeTab === 'limits' && (
             <div className="space-y-4">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Plan Limits</h3>
+              <h3 className="text-lg font-medium text-theme-primary mb-4">Plan Limits</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {Object.entries(formData.limits).map(([limitKey, value]) => (
                   <div key={limitKey}>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-theme-primary mb-1">
                       {limitKey.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                     </label>
                     <input
@@ -605,9 +605,9 @@ const PlanFormModal: React.FC<PlanFormModalProps> = ({
                       min={limitKey.includes('global_access') ? '0' : '-1'}
                       value={value}
                       onChange={(e) => handleLimitChange(limitKey, parseInt(e.target.value) || 0)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="input-theme w-full"
                     />
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs text-theme-secondary mt-1">
                       Use -1 for unlimited {limitKey.includes('global_access') ? '(or 1 for true)' : ''}
                     </p>
                   </div>
@@ -619,38 +619,38 @@ const PlanFormModal: React.FC<PlanFormModalProps> = ({
           {/* Advanced Tab */}
           {activeTab === 'advanced' && (
             <div className="space-y-4">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Advanced Settings</h3>
+              <h3 className="text-lg font-medium text-theme-primary mb-4">Advanced Settings</h3>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-theme-primary mb-1">
                     Stripe Price ID
                   </label>
                   <input
                     type="text"
                     value={formData.stripe_price_id || ''}
                     onChange={(e) => setFormData({ ...formData, stripe_price_id: e.target.value || undefined })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="input-theme w-full"
                     placeholder="price_..."
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-theme-primary mb-1">
                     PayPal Plan ID
                   </label>
                   <input
                     type="text"
                     value={formData.paypal_plan_id || ''}
                     onChange={(e) => setFormData({ ...formData, paypal_plan_id: e.target.value || undefined })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="input-theme w-full"
                     placeholder="P-..."
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-theme-primary mb-1">
                   Default Roles (comma-separated)
                 </label>
                 <input
@@ -660,7 +660,7 @@ const PlanFormModal: React.FC<PlanFormModalProps> = ({
                     ...formData, 
                     default_roles: e.target.value.split(',').map(role => role.trim()).filter(role => role)
                   })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="input-theme w-full"
                   placeholder="user, member"
                 />
               </div>
@@ -668,11 +668,11 @@ const PlanFormModal: React.FC<PlanFormModalProps> = ({
           )}
         </form>
 
-        <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end space-x-3">
+        <div className="card-footer flex justify-end space-x-3">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors duration-150"
+            className="btn-theme btn-theme-secondary"
             disabled={saving}
           >
             Cancel
@@ -680,7 +680,7 @@ const PlanFormModal: React.FC<PlanFormModalProps> = ({
           <button
             onClick={handleSubmit}
             disabled={saving}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="btn-theme btn-theme-primary"
           >
             {saving ? 'Saving...' : (plan ? 'Update Plan' : 'Create Plan')}
           </button>

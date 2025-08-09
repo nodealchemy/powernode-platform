@@ -16,6 +16,7 @@ import {
   Cell
 } from 'recharts';
 import { format, parseISO } from 'date-fns';
+import { useChartColors } from '../../hooks/useThemeColors';
 
 interface CustomerChartProps {
   data: Array<{
@@ -54,6 +55,9 @@ export const CustomerChart: React.FC<CustomerChartProps> = ({
   title, 
   compact = false 
 }) => {
+  // Use theme-aware colors that update automatically
+  const colors = useChartColors();
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -71,17 +75,14 @@ export const CustomerChart: React.FC<CustomerChartProps> = ({
     }
   };
 
-  // Colors for pie charts
-  const COLORS = [
-    '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', 
-    '#06b6d4', '#84cc16', '#f97316', '#ec4899', '#6b7280'
-  ];
+  // Use the chart palette from the theme hook
+  const COLORS = colors.chartPalette;
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-white p-4 border border-gray-200 rounded-lg shadow-lg">
-          <p className="font-semibold text-gray-900">{label ? formatDate(label) : ''}</p>
+        <div className="card-theme p-4 border-theme rounded-lg shadow-lg">
+          <p className="font-semibold text-theme-primary">{label ? formatDate(label) : ''}</p>
           {payload.map((entry: any, index: number) => (
             <p key={index} className="text-sm" style={{ color: entry.color }}>
               {entry.name}: {
@@ -101,9 +102,9 @@ export const CustomerChart: React.FC<CustomerChartProps> = ({
     if (active && payload && payload.length) {
       const data = payload[0];
       return (
-        <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
-          <p className="font-semibold text-gray-900">{data.name}</p>
-          <p className="text-sm text-gray-600">
+        <div className="card-theme p-3 border-theme rounded-lg shadow-lg">
+          <p className="font-semibold text-theme-primary">{data.name}</p>
+          <p className="text-sm text-theme-secondary">
             {data.value.toLocaleString()} customers ({((data.value / data.payload.total) * 100).toFixed(1)}%)
           </p>
         </div>
@@ -114,12 +115,12 @@ export const CustomerChart: React.FC<CustomerChartProps> = ({
 
   if (compact) {
     return (
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">{title}</h3>
+      <div className="card-theme rounded-lg shadow-sm border-theme p-6">
+        <h3 className="text-lg font-semibold text-theme-primary mb-4">{title}</h3>
         <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={data}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <CartesianGrid strokeDasharray="3 3" stroke={colors.border} />
               <XAxis 
                 dataKey="date" 
                 tickFormatter={formatDate}
@@ -130,9 +131,9 @@ export const CustomerChart: React.FC<CustomerChartProps> = ({
               <Line
                 type="monotone"
                 dataKey="total_customers"
-                stroke="#3b82f6"
+                stroke={colors.info}
                 strokeWidth={2}
-                dot={{ fill: '#3b82f6', strokeWidth: 0, r: 4 }}
+                dot={{ fill: colors.info, strokeWidth: 0, r: 4 }}
                 activeDot={{ r: 6, stroke: '#3b82f6', strokeWidth: 2 }}
               />
             </LineChart>
@@ -146,29 +147,29 @@ export const CustomerChart: React.FC<CustomerChartProps> = ({
     <div className="space-y-6">
       {/* Customer Metrics Summary */}
       {currentMetrics && (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Customer Metrics</h3>
+        <div className="card-theme rounded-lg shadow-sm border-theme p-6">
+          <h3 className="text-lg font-semibold text-theme-primary mb-4">Customer Metrics</h3>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             <div>
-              <p className="text-sm text-gray-500">Total Customers</p>
+              <p className="text-sm text-theme-secondary">Total Customers</p>
               <p className="text-2xl font-bold text-blue-600">
                 {currentMetrics.total_customers.toLocaleString()}
               </p>
             </div>
             <div>
-              <p className="text-sm text-gray-500">Average Revenue Per User</p>
+              <p className="text-sm text-theme-secondary">Average Revenue Per User</p>
               <p className="text-2xl font-bold text-green-600">
                 {formatCurrency(currentMetrics.arpu)}
               </p>
             </div>
             <div>
-              <p className="text-sm text-gray-500">Customer Lifetime Value</p>
+              <p className="text-sm text-theme-secondary">Customer Lifetime Value</p>
               <p className="text-2xl font-bold text-purple-600">
                 {formatCurrency(currentMetrics.ltv)}
               </p>
             </div>
             <div>
-              <p className="text-sm text-gray-500">LTV:CAC Ratio</p>
+              <p className="text-sm text-theme-secondary">LTV:CAC Ratio</p>
               <p className="text-2xl font-bold text-orange-600">
                 {currentMetrics.ltv_to_cac_ratio.toFixed(1)}:1
               </p>
@@ -178,12 +179,12 @@ export const CustomerChart: React.FC<CustomerChartProps> = ({
       )}
 
       {/* Customer Growth Trend */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Customer Growth Trend</h3>
+      <div className="card-theme rounded-lg shadow-sm border-theme p-6">
+        <h3 className="text-lg font-semibold text-theme-primary mb-4">Customer Growth Trend</h3>
         <div className="h-96">
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={data}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <CartesianGrid strokeDasharray="3 3" stroke={colors.border} />
               <XAxis 
                 dataKey="date" 
                 tickFormatter={formatDate}
@@ -210,10 +211,10 @@ export const CustomerChart: React.FC<CustomerChartProps> = ({
                 yAxisId="right"
                 type="monotone"
                 dataKey="total_customers"
-                stroke="#3b82f6"
+                stroke={colors.info}
                 strokeWidth={3}
                 name="Total Customers"
-                dot={{ fill: '#3b82f6', strokeWidth: 0, r: 4 }}
+                dot={{ fill: colors.info, strokeWidth: 0, r: 4 }}
               />
               <Line
                 yAxisId="left"
@@ -230,12 +231,12 @@ export const CustomerChart: React.FC<CustomerChartProps> = ({
       </div>
 
       {/* ARPU and LTV Trends */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">ARPU and LTV Trends</h3>
+      <div className="card-theme rounded-lg shadow-sm border-theme p-6">
+        <h3 className="text-lg font-semibold text-theme-primary mb-4">ARPU and LTV Trends</h3>
         <div className="h-96">
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={data}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <CartesianGrid strokeDasharray="3 3" stroke={colors.border} />
               <XAxis 
                 dataKey="date" 
                 tickFormatter={formatDate}
@@ -271,8 +272,8 @@ export const CustomerChart: React.FC<CustomerChartProps> = ({
       {segmentation && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* By Plan */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Customers by Plan</h3>
+          <div className="card-theme rounded-lg shadow-sm border-theme p-6">
+            <h3 className="text-lg font-semibold text-theme-primary mb-4">Customers by Plan</h3>
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
@@ -315,17 +316,17 @@ export const CustomerChart: React.FC<CustomerChartProps> = ({
           </div>
 
           {/* By Tenure */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Customers by Tenure</h3>
+          <div className="card-theme rounded-lg shadow-sm border-theme p-6">
+            <h3 className="text-lg font-semibold text-theme-primary mb-4">Customers by Tenure</h3>
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={segmentation.by_tenure}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <CartesianGrid strokeDasharray="3 3" stroke={colors.border} />
                   <XAxis dataKey="segment" />
                   <YAxis />
                   <Tooltip 
                     formatter={(value: any) => [value.toLocaleString(), 'Customers']}
-                    labelStyle={{ color: '#374151' }}
+                    labelStyle={{ color: 'var(--theme-primary)' }}
                   />
                   <Bar dataKey="customers" fill="#3b82f6" opacity={0.8} />
                 </BarChart>
@@ -344,12 +345,12 @@ export const CustomerChart: React.FC<CustomerChartProps> = ({
       )}
 
       {/* Net Growth Analysis */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Net Customer Growth Analysis</h3>
+      <div className="card-theme rounded-lg shadow-sm border-theme p-6">
+        <h3 className="text-lg font-semibold text-theme-primary mb-4">Net Customer Growth Analysis</h3>
         <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={data}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <CartesianGrid strokeDasharray="3 3" stroke={colors.border} />
               <XAxis 
                 dataKey="date" 
                 tickFormatter={formatDate}
@@ -358,7 +359,7 @@ export const CustomerChart: React.FC<CustomerChartProps> = ({
               <Tooltip content={<CustomTooltip />} />
               <Bar
                 dataKey="net_growth"
-                fill="#3b82f6"
+                fill={colors.info}
                 name="Net Customer Growth"
               />
             </BarChart>

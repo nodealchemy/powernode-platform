@@ -1,10 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../store';
 import { settingsApi, SettingsData, UserPreferences, NotificationPreferences } from '../../services/settingsApi';
+import { debugSettings } from '../../utils/debugSettings';
+import { useTheme } from '../../contexts/ThemeContext';
+import { useSettingsWebSocket } from '../../hooks/useSettingsWebSocket';
+import { WebSocketStatusIndicator } from '../../components/common/WebSocketStatusIndicator';
 
 export const EnhancedSettingsPage: React.FC = () => {
   const { user } = useSelector((state: RootState) => state.auth);
+  const { theme, setTheme } = useTheme();
   const [settings, setSettings] = useState<SettingsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -36,6 +41,57 @@ export const EnhancedSettingsPage: React.FC = () => {
 
   const [preferences, setPreferences] = useState<Partial<UserPreferences>>({});
   const [notifications, setNotifications] = useState<Partial<NotificationPreferences>>({});
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [isReceivingUpdate, setIsReceivingUpdate] = useState(false);
+
+  // Real-time settings update handlers
+  const handleSettingsUpdate = useCallback((updatedData: Partial<SettingsData>) => {
+    setIsReceivingUpdate(true);
+    
+    if (updatedData.user_preferences) {
+      setPreferences(prev => ({ ...prev, ...updatedData.user_preferences }));
+      setSuccessMessage('Settings updated from another session');
+    }
+    
+    if (updatedData.notification_preferences) {
+      setNotifications(prev => ({ ...prev, ...updatedData.notification_preferences }));
+      setSuccessMessage('Notifications updated from another session');
+    }
+
+    setLastUpdated(new Date());
+    setIsReceivingUpdate(false);
+
+    // Clear success message after 3 seconds
+    setTimeout(() => setSuccessMessage(''), 3000);
+  }, []);
+
+  const handlePreferencesUpdate = useCallback((updatedPreferences: Partial<UserPreferences>) => {
+    setPreferences(prev => ({ ...prev, ...updatedPreferences }));
+    
+    // Update theme context if theme preference changed
+    if (updatedPreferences.theme && updatedPreferences.theme !== theme) {
+      setTheme(updatedPreferences.theme);
+    }
+    
+    setLastUpdated(new Date());
+    setSuccessMessage('Preferences synced from another session');
+    setTimeout(() => setSuccessMessage(''), 3000);
+  }, [theme, setTheme]);
+
+  const handleNotificationsUpdate = useCallback((updatedNotifications: Partial<NotificationPreferences>) => {
+    setNotifications(prev => ({ ...prev, ...updatedNotifications }));
+    setLastUpdated(new Date());
+    setSuccessMessage('Notification settings synced from another session');
+    setTimeout(() => setSuccessMessage(''), 3000);
+  }, []);
+
+  // Initialize WebSocket for real-time updates
+  const { isConnected, broadcastSettingsUpdate } = useSettingsWebSocket({
+    onSettingsUpdate: handleSettingsUpdate,
+    onPreferencesUpdate: handlePreferencesUpdate,
+    onNotificationsUpdate: handleNotificationsUpdate,
+    enabled: true
+  });
 
   useEffect(() => {
     loadSettings();
@@ -85,11 +141,30 @@ export const EnhancedSettingsPage: React.FC = () => {
   const handleUpdatePreferences = async (updatedPrefs: Partial<UserPreferences>) => {
     try {
       setSaving(true);
-      await settingsApi.updatePreferences(updatedPrefs);
+      
+      // Handle theme updates through the theme context
+      if (updatedPrefs.theme && updatedPrefs.theme !== theme) {
+        await setTheme(updatedPrefs.theme);
+      }
+      
+      // Update other preferences normally
+      const otherPrefs = { ...updatedPrefs };
+      delete otherPrefs.theme; // Theme is handled by context
+      
+      if (Object.keys(otherPrefs).length > 0) {
+        await settingsApi.updatePreferences(otherPrefs);
+      }
+      
       setPreferences({ ...preferences, ...updatedPrefs });
+      
+      // Broadcast the update to other sessions in real-time
+      broadcastSettingsUpdate('preferences_updated', updatedPrefs);
+      
       showSuccess('Preferences updated successfully');
-    } catch (error) {
-      showError('preferences', 'Failed to update preferences');
+    } catch (error: any) {
+      console.error('Preferences update error:', error);
+      const errorMessage = error.response?.data?.error || error.message || 'Failed to update preferences';
+      showError('preferences', errorMessage);
     } finally {
       setSaving(false);
     }
@@ -100,9 +175,15 @@ export const EnhancedSettingsPage: React.FC = () => {
       setSaving(true);
       await settingsApi.updateNotifications(updatedNotifs);
       setNotifications({ ...notifications, ...updatedNotifs });
+      
+      // Broadcast the update to other sessions in real-time
+      broadcastSettingsUpdate('notifications_updated', updatedNotifs);
+      
       showSuccess('Notification preferences updated');
-    } catch (error) {
-      showError('notifications', 'Failed to update notifications');
+    } catch (error: any) {
+      console.error('Notifications update error:', error);
+      const errorMessage = error.response?.data?.error || error.message || 'Failed to update notifications';
+      showError('notifications', errorMessage);
     } finally {
       setSaving(false);
     }
@@ -130,7 +211,7 @@ export const EnhancedSettingsPage: React.FC = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-gray-600">Loading settings...</div>
+        <div className="text-theme-secondary">Loading settings...</div>
       </div>
     );
   }
@@ -140,26 +221,51 @@ export const EnhancedSettingsPage: React.FC = () => {
     { id: 'account', name: 'Account', icon: '🏢' },
     { id: 'preferences', name: 'Preferences', icon: '⚙️' },
     { id: 'notifications', name: 'Notifications', icon: '🔔' },
-    { id: 'security', name: 'Security', icon: '🔒' }
+    { id: 'security', name: 'Security', icon: '🔒' },
+    ...(process.env.NODE_ENV === 'development' ? [{ id: 'debug', name: 'Debug', icon: '🐛' }] : [])
   ];
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
-        <p className="text-gray-600">
-          Manage your account settings and preferences.
-        </p>
+      <div className="flex justify-between items-start">
+        <div>
+          <h1 className="text-2xl font-bold text-theme-primary">Settings</h1>
+          <p className="text-theme-secondary">
+            Manage your account settings and preferences.
+          </p>
+          {lastUpdated && (
+            <p className="text-sm text-theme-tertiary mt-1">
+              Last synced: {lastUpdated.toLocaleTimeString()}
+            </p>
+          )}
+        </div>
+        
+        {/* Real-time status indicator */}
+        <div className="flex items-center space-x-3">
+          <WebSocketStatusIndicator showDetails={false} />
+          {isReceivingUpdate && (
+            <div className="flex items-center space-x-2 px-3 py-1 bg-theme-info text-theme-info rounded-md">
+              <div className="animate-pulse w-2 h-2 bg-theme-info rounded-full"></div>
+              <span className="text-sm">Syncing...</span>
+            </div>
+          )}
+          {isConnected && (
+            <div className="flex items-center space-x-2 px-3 py-1 bg-theme-success text-theme-success rounded-md">
+              <div className="w-2 h-2 bg-theme-success rounded-full"></div>
+              <span className="text-sm">Live</span>
+            </div>
+          )}
+        </div>
       </div>
 
       {successMessage && (
-        <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
+        <div className="alert-theme alert-theme-success">
           {successMessage}
         </div>
       )}
 
       {/* Tab Navigation */}
-      <div className="border-b border-gray-200">
+      <div className="border-b border-theme">
         <nav className="-mb-px flex space-x-8">
           {tabs.map((tab) => (
             <button
@@ -167,8 +273,8 @@ export const EnhancedSettingsPage: React.FC = () => {
               onClick={() => setActiveTab(tab.id)}
               className={`py-2 px-1 border-b-2 font-medium text-sm ${
                 activeTab === tab.id
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  ? 'border-theme-focus text-theme-link'
+                  : 'border-transparent text-theme-secondary hover:text-theme-primary hover:border-theme'
               }`}
             >
               <span className="mr-2">{tab.icon}</span>
@@ -180,50 +286,50 @@ export const EnhancedSettingsPage: React.FC = () => {
 
       {/* Profile Tab */}
       {activeTab === 'profile' && (
-        <div className="bg-white shadow rounded-lg">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h3 className="text-lg font-medium text-gray-900">Profile Information</h3>
+        <div className="card-theme rounded-lg">
+          <div className="px-6 py-4 border-b border-theme">
+            <h3 className="text-lg font-medium text-theme-primary">Profile Information</h3>
           </div>
           <div className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-theme-primary mb-2">
                   First Name
                 </label>
                 <input
                   type="text"
                   value={profileForm.firstName}
                   onChange={(e) => setProfileForm({ ...profileForm, firstName: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="input-theme"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-theme-primary mb-2">
                   Last Name
                 </label>
                 <input
                   type="text"
                   value={profileForm.lastName}
                   onChange={(e) => setProfileForm({ ...profileForm, lastName: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="input-theme"
                 />
               </div>
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-theme-primary mb-2">
                   Email Address
                 </label>
                 <input
                   type="email"
                   value={profileForm.email}
                   onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="input-theme"
                 />
               </div>
             </div>
             <div className="mt-6">
               <button
                 disabled={saving}
-                className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50"
+                className="btn-theme btn-theme-primary"
               >
                 {saving ? 'Saving...' : 'Save Changes'}
               </button>
@@ -234,35 +340,35 @@ export const EnhancedSettingsPage: React.FC = () => {
 
       {/* Preferences Tab */}
       {activeTab === 'preferences' && preferences && (
-        <div className="bg-white shadow rounded-lg">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h3 className="text-lg font-medium text-gray-900">User Preferences</h3>
+        <div className="card-theme rounded-lg">
+          <div className="px-6 py-4 border-b border-theme">
+            <h3 className="text-lg font-medium text-theme-primary">User Preferences</h3>
           </div>
           <div className="p-6 space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-theme-primary mb-2">
                   Theme
                 </label>
                 <select
-                  value={preferences.theme}
+                  value={theme}
                   onChange={(e) => handleUpdatePreferences({ theme: e.target.value as 'light' | 'dark' })}
                   disabled={saving}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="input-theme"
                 >
                   <option value="light">Light</option>
                   <option value="dark">Dark</option>
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="label-theme">
                   Language
                 </label>
                 <select
                   value={preferences.language}
                   onChange={(e) => handleUpdatePreferences({ language: e.target.value })}
                   disabled={saving}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="select-theme"
                 >
                   <option value="en">English</option>
                   <option value="es">Spanish</option>
@@ -270,14 +376,14 @@ export const EnhancedSettingsPage: React.FC = () => {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="label-theme">
                   Items per Page
                 </label>
                 <select
                   value={preferences.items_per_page}
                   onChange={(e) => handleUpdatePreferences({ items_per_page: parseInt(e.target.value) })}
                   disabled={saving}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="select-theme"
                 >
                   <option value={10}>10</option>
                   <option value={25}>25</option>
@@ -286,14 +392,14 @@ export const EnhancedSettingsPage: React.FC = () => {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="label-theme">
                   Dashboard Layout
                 </label>
                 <select
                   value={preferences.dashboard_layout}
                   onChange={(e) => handleUpdatePreferences({ dashboard_layout: e.target.value as 'grid' | 'list' })}
                   disabled={saving}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="select-theme"
                 >
                   <option value="grid">Grid</option>
                   <option value="list">List</option>
@@ -306,9 +412,9 @@ export const EnhancedSettingsPage: React.FC = () => {
 
       {/* Notifications Tab */}
       {activeTab === 'notifications' && notifications && (
-        <div className="bg-white shadow rounded-lg">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h3 className="text-lg font-medium text-gray-900">Notification Preferences</h3>
+        <div className="card-theme">
+          <div className="px-6 py-4 border-b border-theme">
+            <h3 className="text-lg font-medium text-theme-primary">Notification Preferences</h3>
           </div>
           <div className="p-6 space-y-4">
             {[
@@ -320,8 +426,8 @@ export const EnhancedSettingsPage: React.FC = () => {
             ].map(({ key, label, description }) => (
               <div key={key} className="flex items-center justify-between">
                 <div>
-                  <h4 className="text-sm font-medium text-gray-900">{label}</h4>
-                  <p className="text-sm text-gray-600">{description}</p>
+                  <h4 className="text-sm font-medium text-theme-primary">{label}</h4>
+                  <p className="text-sm text-theme-secondary">{description}</p>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
@@ -331,7 +437,7 @@ export const EnhancedSettingsPage: React.FC = () => {
                     onChange={(e) => handleUpdateNotifications({ [key]: e.target.checked })}
                     disabled={saving}
                   />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                  <div className="toggle-theme"></div>
                 </label>
               </div>
             ))}
@@ -343,45 +449,45 @@ export const EnhancedSettingsPage: React.FC = () => {
       {activeTab === 'security' && (
         <div className="space-y-6">
           {/* Change Password */}
-          <div className="bg-white shadow rounded-lg">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h3 className="text-lg font-medium text-gray-900">Change Password</h3>
+          <div className="card-theme">
+            <div className="px-6 py-4 border-b border-theme">
+              <h3 className="text-lg font-medium text-theme-primary">Change Password</h3>
             </div>
             <div className="p-6">
               <form onSubmit={handlePasswordChange} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="label-theme">
                     Current Password
                   </label>
                   <input
                     type="password"
                     value={passwordForm.current_password}
                     onChange={(e) => setPasswordForm({ ...passwordForm, current_password: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="input-theme"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="label-theme">
                     New Password
                   </label>
                   <input
                     type="password"
                     value={passwordForm.password}
                     onChange={(e) => setPasswordForm({ ...passwordForm, password: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="input-theme"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="label-theme">
                     Confirm New Password
                   </label>
                   <input
                     type="password"
                     value={passwordForm.password_confirmation}
                     onChange={(e) => setPasswordForm({ ...passwordForm, password_confirmation: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="input-theme"
                     required
                   />
                 </div>
@@ -392,7 +498,7 @@ export const EnhancedSettingsPage: React.FC = () => {
                   <button
                     type="submit"
                     disabled={saving}
-                    className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50"
+                    className="btn-theme btn-theme-primary"
                   >
                     {saving ? 'Changing...' : 'Change Password'}
                   </button>
@@ -403,36 +509,74 @@ export const EnhancedSettingsPage: React.FC = () => {
 
           {/* Security Status */}
           {settings && (
-            <div className="bg-white shadow rounded-lg">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <h3 className="text-lg font-medium text-gray-900">Security Status</h3>
+            <div className="card-theme">
+              <div className="px-6 py-4 border-b border-theme">
+                <h3 className="text-lg font-medium text-theme-primary">Security Status</h3>
               </div>
               <div className="p-6 space-y-4">
                 <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium text-gray-700">Email Verification</span>
+                  <span className="text-sm font-medium text-theme-primary">Email Verification</span>
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                     settings.security_settings.email_verified 
-                      ? 'bg-green-100 text-green-800' 
-                      : 'bg-red-100 text-red-800'
+                      ? 'bg-theme-success text-theme-success' 
+                      : 'bg-theme-error text-theme-error'
                   }`}>
                     {settings.security_settings.email_verified ? 'Verified' : 'Not Verified'}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium text-gray-700">Password Last Changed</span>
-                  <span className="text-sm text-gray-600">
+                  <span className="text-sm font-medium text-theme-primary">Password Last Changed</span>
+                  <span className="text-sm text-theme-secondary">
                     {new Date(settings.security_settings.password_last_changed).toLocaleDateString()}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium text-gray-700">Failed Login Attempts</span>
-                  <span className="text-sm text-gray-600">
+                  <span className="text-sm font-medium text-theme-primary">Failed Login Attempts</span>
+                  <span className="text-sm text-theme-secondary">
                     {settings.security_settings.failed_attempts}
                   </span>
                 </div>
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Debug Tab - Development Only */}
+      {activeTab === 'debug' && process.env.NODE_ENV === 'development' && (
+        <div className="card-theme">
+          <div className="px-6 py-4 border-b border-theme">
+            <h3 className="text-lg font-medium text-theme-primary">Debug Settings API</h3>
+            <p className="text-sm text-theme-secondary mt-1">Development debugging tools</p>
+          </div>
+          <div className="p-6 space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <button
+                onClick={() => debugSettings.testPreferencesUpdate()}
+                className="btn-theme btn-theme-primary"
+              >
+                Test Preferences Update
+              </button>
+              <button
+                onClick={() => debugSettings.testNotificationsUpdate()}
+                className="btn-theme btn-theme-primary"
+              >
+                Test Notifications Update
+              </button>
+              <button
+                onClick={() => debugSettings.testAllSettings()}
+                className="btn-theme btn-theme-primary"
+              >
+                Test Get All Settings
+              </button>
+            </div>
+            <div className="mt-4 p-4 bg-theme-background-secondary rounded-md">
+              <p className="text-sm text-theme-primary">
+                <strong>Instructions:</strong> Open browser console and click the buttons above to test the settings API endpoints.
+                Check console for detailed logs and responses.
+              </p>
+            </div>
+          </div>
         </div>
       )}
     </div>

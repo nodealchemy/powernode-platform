@@ -32,6 +32,8 @@ class Account < ApplicationRecord
   # Callbacks
   before_validation :normalize_subdomain
   after_initialize :set_defaults
+  after_create :broadcast_customer_created
+  after_update :broadcast_customer_updated, if: :saved_changes?
 
   # Instance methods
   def active?
@@ -75,5 +77,32 @@ class Account < ApplicationRecord
 
   def set_defaults
     self.settings ||= {}
+  end
+
+  def broadcast_customer_created
+    broadcast_customer_change('created')
+  end
+
+  def broadcast_customer_updated
+    broadcast_customer_change('updated')
+  end
+
+  def broadcast_customer_change(event_type)
+    # Broadcast to all admin users
+    data = {
+      type: 'customer_updated',
+      event: event_type,
+      customer_id: id,
+      timestamp: Time.current.iso8601
+    }
+    
+    # Find all admin accounts that should receive this update
+    admin_accounts = Account.joins(users: :roles).where(roles: { name: ['Owner', 'Admin'] }).distinct
+    
+    admin_accounts.each do |admin_account|
+      ActionCable.server.broadcast("customer_updates_#{admin_account.id}", data)
+    end
+  rescue => e
+    Rails.logger.error "Failed to broadcast customer change: #{e.message}"
   end
 end

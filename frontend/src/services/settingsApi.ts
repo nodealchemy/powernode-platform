@@ -75,37 +75,51 @@ class SettingsApiService {
   // Get all settings
   async getSettings(): Promise<SettingsData> {
     const response = await apiClient.get('/settings');
-    return response.data;
+    return response.data.data || response.data;
   }
 
   // Update all settings
   async updateSettings(settings: SettingsUpdateRequest): Promise<SettingsData> {
     const response = await apiClient.put('/settings', { settings });
-    return response.data;
+    return response.data.data || response.data;
   }
 
   // Get user preferences only
   async getPreferences(): Promise<UserPreferences> {
     const response = await apiClient.get('/settings/preferences');
-    return response.data;
+    return response.data.data || response.data;
   }
 
   // Update user preferences
   async updatePreferences(preferences: Partial<UserPreferences>): Promise<UserPreferences> {
-    const response = await apiClient.put('/settings/preferences', { preferences });
-    return response.data;
+    try {
+      console.log('Updating preferences:', preferences);
+      const response = await apiClient.put('/settings/preferences', { preferences });
+      console.log('Preferences update response:', response.data);
+      return response.data.data || response.data;
+    } catch (error) {
+      console.error('Failed to update preferences:', error);
+      throw error;
+    }
   }
 
   // Get notification preferences only
   async getNotifications(): Promise<NotificationPreferences> {
     const response = await apiClient.get('/settings/notifications');
-    return response.data;
+    return response.data.data || response.data;
   }
 
   // Update notification preferences
   async updateNotifications(notifications: Partial<NotificationPreferences>): Promise<NotificationPreferences> {
-    const response = await apiClient.put('/settings/notifications', { notifications });
-    return response.data;
+    try {
+      console.log('Updating notifications:', notifications);
+      const response = await apiClient.put('/settings/notifications', { notifications });
+      console.log('Notifications update response:', response.data);
+      return response.data.data || response.data;
+    } catch (error) {
+      console.error('Failed to update notifications:', error);
+      throw error;
+    }
   }
 
   // Update user profile (name, email, etc.)
@@ -117,14 +131,24 @@ class SettingsApiService {
     password?: string;
     password_confirmation?: string;
   }): Promise<any> {
-    const response = await apiClient.put('/users/:id', userData); // Will need to replace :id with actual user ID
-    return response.data;
+    // Use the settings endpoint for profile updates
+    const response = await apiClient.put('/settings', { 
+      settings: {
+        security_settings: userData
+      }
+    });
+    return response.data.data || response.data;
   }
 
   // Update account settings
   async updateAccount(accountData: Partial<AccountSettings>): Promise<any> {
-    const response = await apiClient.put('/accounts/:id', { account: accountData }); // Will need to replace :id with actual account ID
-    return response.data;
+    // Use the settings endpoint for account updates
+    const response = await apiClient.put('/settings', { 
+      settings: {
+        account_settings: accountData
+      }
+    });
+    return response.data.data || response.data;
   }
 
   // Change password specifically

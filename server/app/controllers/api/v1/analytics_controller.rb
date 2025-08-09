@@ -27,9 +27,9 @@ class Api::V1::AnalyticsController < ApplicationController
       current_metrics: {
         mrr: current_mrr,
         arr: current_mrr * 12,
-        active_subscriptions: latest_snapshot&.active_subscriptions_count || 0,
+        active_subscriptions: latest_snapshot&.active_subscriptions || 0,
         total_customers: latest_snapshot&.total_customers_count || 0,
-        arpu: latest_snapshot&.arpu || 0,
+        arpu: latest_snapshot&.arpu&.to_f || 0,
         growth_rate: latest_snapshot&.growth_rate_percentage || 0
       },
       historical_data: mrr_trend.map do |snapshot|
@@ -37,9 +37,9 @@ class Api::V1::AnalyticsController < ApplicationController
           date: snapshot.date,
           mrr: snapshot.respond_to?(:mrr_cents) ? snapshot.mrr_cents / 100.0 : 0,
           arr: snapshot.respond_to?(:arr_cents) ? snapshot.arr_cents / 100.0 : 0,
-          active_subscriptions: snapshot.respond_to?(:active_subscriptions_count) ? snapshot.active_subscriptions_count : 0,
-          new_subscriptions: snapshot.respond_to?(:new_subscriptions_count) ? snapshot.new_subscriptions_count : 0,
-          churned_subscriptions: snapshot.respond_to?(:churned_subscriptions_count) ? snapshot.churned_subscriptions_count : 0
+          active_subscriptions: snapshot.respond_to?(:active_subscriptions) ? snapshot.active_subscriptions : 0,
+          new_subscriptions: snapshot.respond_to?(:new_subscriptions) ? snapshot.new_subscriptions : 0,
+          churned_subscriptions: snapshot.respond_to?(:churned_subscriptions) ? snapshot.churned_subscriptions : 0
         }
       end,
       period: {
@@ -88,8 +88,8 @@ class Api::V1::AnalyticsController < ApplicationController
         date: snapshot.date,
         mrr: snapshot.mrr_cents / 100.0,
         growth_rate: (month_growth * 100).round(2),
-        new_revenue: (snapshot.new_subscriptions_count * (snapshot.arpu_cents / 100.0)).round(2),
-        churned_revenue: (snapshot.churned_subscriptions_count * (snapshot.arpu_cents / 100.0)).round(2)
+        new_revenue: (snapshot.new_subscriptions * (snapshot.arpu_cents / 100.0)).round(2),
+        churned_revenue: (snapshot.churned_subscriptions * (snapshot.arpu_cents / 100.0)).round(2)
       }
 
       previous_snapshot = snapshot
@@ -152,7 +152,7 @@ class Api::V1::AnalyticsController < ApplicationController
         customer_churn_rate: snapshot.customer_churn_rate_percentage,
         revenue_churn_rate: snapshot.revenue_churn_rate_percentage,
         churned_customers: snapshot.churned_customers_count,
-        churned_subscriptions: snapshot.churned_subscriptions_count
+        churned_subscriptions: snapshot.churned_subscriptions
       }
     end
 

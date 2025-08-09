@@ -74,7 +74,7 @@ export const DateRangeFilter: React.FC<DateRangeFilterProps> = ({ dateRange, onC
   return (
     <div className="flex flex-wrap items-center gap-4">
       <div className="flex items-center space-x-2">
-        <span className="text-sm font-medium text-gray-700">Date Range:</span>
+        <span className="text-sm font-medium text-theme-secondary">Date Range:</span>
       </div>
       
       {/* Quick Presets */}
@@ -83,7 +83,7 @@ export const DateRangeFilter: React.FC<DateRangeFilterProps> = ({ dateRange, onC
           <button
             key={preset.value}
             onClick={() => handlePresetChange(preset.value)}
-            className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="btn-theme btn-theme-secondary px-3 py-1 text-sm"
           >
             {preset.label}
           </button>
@@ -93,19 +93,19 @@ export const DateRangeFilter: React.FC<DateRangeFilterProps> = ({ dateRange, onC
       {/* Custom Date Inputs */}
       <div className="flex items-center space-x-2">
         <div className="flex items-center space-x-1">
-          <label htmlFor="start-date" className="text-sm text-gray-600">From:</label>
+          <label htmlFor="start-date" className="text-sm text-theme-secondary">From:</label>
           <input
             id="start-date"
             type="date"
             value={formatDateForInput(dateRange.startDate)}
             onChange={handleStartDateChange}
             max={formatDateForInput(dateRange.endDate)}
-            className="px-3 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="input-theme px-3 py-1 text-sm"
           />
         </div>
         
         <div className="flex items-center space-x-1">
-          <label htmlFor="end-date" className="text-sm text-gray-600">To:</label>
+          <label htmlFor="end-date" className="text-sm text-theme-secondary">To:</label>
           <input
             id="end-date"
             type="date"
@@ -113,13 +113,13 @@ export const DateRangeFilter: React.FC<DateRangeFilterProps> = ({ dateRange, onC
             onChange={handleEndDateChange}
             min={formatDateForInput(dateRange.startDate)}
             max={formatDateForInput(new Date())}
-            className="px-3 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="input-theme px-3 py-1 text-sm"
           />
         </div>
       </div>
 
       {/* Date Range Summary */}
-      <div className="text-sm text-gray-500">
+      <div className="text-sm text-theme-tertiary">
         {(() => {
           const daysDiff = Math.ceil((dateRange.endDate.getTime() - dateRange.startDate.getTime()) / (1000 * 60 * 60 * 24));
           return `${daysDiff} day${daysDiff !== 1 ? 's' : ''}`;

@@ -19,6 +19,27 @@ export const useSubscriptionWebSocket = () => {
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectAttemptsRef = useRef(0);
 
+  const handleSubscriptionUpdate = useCallback((update: SubscriptionUpdate) => {
+    console.log('Received subscription update:', update);
+    
+    switch (update.type) {
+      case 'subscription_updated':
+      case 'subscription_cancelled':
+      case 'payment_processed':
+        // Refresh subscriptions data
+        dispatch(fetchSubscriptions());
+        break;
+        
+      case 'trial_ending':
+        // Show notification and refresh data
+        dispatch(fetchSubscriptions());
+        break;
+        
+      default:
+        console.log('Unknown subscription update type:', update.type);
+    }
+  }, [dispatch]);
+
   const connect = useCallback(() => {
     if (!user || !accessToken || wsRef.current?.readyState === WebSocket.CONNECTING || wsRef.current?.readyState === WebSocket.OPEN) {
       return;
@@ -92,29 +113,7 @@ export const useSubscriptionWebSocket = () => {
     } catch (error) {
       console.error('Failed to create WebSocket connection:', error);
     }
-  }, [user, accessToken]);
-
-  const handleSubscriptionUpdate = useCallback((update: SubscriptionUpdate) => {
-    console.log('Received subscription update:', update);
-    
-    switch (update.type) {
-      case 'subscription_updated':
-      case 'subscription_cancelled':
-      case 'payment_processed':
-        // Refresh subscriptions data
-        dispatch(fetchSubscriptions());
-        break;
-        
-      case 'trial_ending':
-        // Show notification and refresh data
-        dispatch(fetchSubscriptions());
-        // You could also trigger a notification here
-        break;
-        
-      default:
-        console.log('Unknown subscription update type:', update.type);
-    }
-  }, [dispatch]);
+  }, [user, accessToken, handleSubscriptionUpdate]);
 
   const disconnect = useCallback(() => {
     if (reconnectTimeoutRef.current) {

@@ -7,6 +7,9 @@ import { RootState, AppDispatch } from './store';
 import { getCurrentUser, refreshAccessToken, clearAuth, forceTokenClear } from './store/slices/authSlice';
 import { isTokenInvalidError, isValidJWTFormat } from './utils/tokenUtils';
 
+// Theme Provider
+import { ThemeProvider } from './contexts/ThemeContext';
+
 // Components
 import { ProtectedRoute } from './components/common/ProtectedRoute';
 import { PublicRoute } from './components/common/PublicRoute';
@@ -23,6 +26,7 @@ import { VerifyEmailPage } from './pages/auth/VerifyEmailPage';
 import { UnauthorizedPage } from './pages/auth/UnauthorizedPage';
 
 import './App.css';
+import './styles/themes.css';
 
 const AppContent: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -125,7 +129,7 @@ const AppContent: React.FC = () => {
         v7_relativeSplatPath: true,
       }}
     >
-      <div className="App">
+      <div className="App bg-theme-background min-h-screen text-theme-primary">
         <NotificationContainer />
         <Routes>
           {/* Public routes */}
@@ -208,7 +212,9 @@ const AppContent: React.FC = () => {
 function App() {
   return (
     <Provider store={store}>
-      <AppContent />
+      <ThemeProvider>
+        <AppContent />
+      </ThemeProvider>
     </Provider>
   );
 }

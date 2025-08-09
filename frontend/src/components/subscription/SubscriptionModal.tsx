@@ -75,13 +75,13 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" onClick={onClose}>
-      <div className="relative top-20 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-black bg-opacity-50 overflow-y-auto h-full w-full z-50" onClick={onClose}>
+      <div className="relative top-20 mx-auto p-5 border-theme w-full max-w-2xl shadow-lg rounded-md card-theme" onClick={(e) => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-medium text-gray-900">Manage Subscription</h3>
+          <h3 className="text-lg font-medium text-theme-primary">Manage Subscription</h3>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
+            className="text-theme-tertiary hover:text-theme-secondary"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -91,30 +91,30 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
 
         <div className="space-y-6">
           {/* Current Subscription Info */}
-          <div className="bg-gray-50 p-4 rounded-lg">
-            <h4 className="text-sm font-medium text-gray-900 mb-3">Current Subscription</h4>
+          <div className="bg-theme-background-secondary p-4 rounded-lg">
+            <h4 className="text-sm font-medium text-theme-primary mb-3">Current Subscription</h4>
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
-                <span className="text-gray-600">Plan:</span>
+                <span className="text-theme-secondary">Plan:</span>
                 <p className="font-medium">{subscription.plan.name}</p>
               </div>
               <div>
-                <span className="text-gray-600">Price:</span>
+                <span className="text-theme-secondary">Price:</span>
                 <p className="font-medium">{formatPrice(subscription.plan.price, subscription.plan.currency)}/{subscription.plan.interval}</p>
               </div>
               <div>
-                <span className="text-gray-600">Status:</span>
+                <span className="text-theme-secondary">Status:</span>
                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(subscription.status)}`}>
                   {subscription.status}
                 </span>
               </div>
               <div>
-                <span className="text-gray-600">Next Billing:</span>
+                <span className="text-theme-secondary">Next Billing:</span>
                 <p className="font-medium">{formatDate(subscription.currentPeriodEnd)}</p>
               </div>
               {subscription.trialEndsAt && (
                 <div className="col-span-2">
-                  <span className="text-gray-600">Trial Ends:</span>
+                  <span className="text-theme-secondary">Trial Ends:</span>
                   <p className="font-medium">{formatDate(subscription.trialEndsAt)}</p>
                 </div>
               )}
@@ -124,10 +124,10 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
           {/* Upgrade Options */}
           {availableUpgrades.length > 0 && subscription.status === 'active' && (
             <div>
-              <h4 className="text-sm font-medium text-gray-900 mb-3">Upgrade Plan</h4>
+              <h4 className="text-sm font-medium text-theme-primary mb-3">Upgrade Plan</h4>
               <div className="space-y-2">
                 {availableUpgrades.map((plan) => (
-                  <label key={plan.id} className="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+                  <label key={plan.id} className="flex items-center p-3 border-theme rounded-lg hover:bg-theme-background-secondary cursor-pointer">
                     <input
                       type="radio"
                       name="upgrade-plan"
@@ -138,8 +138,8 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                     />
                     <div className="ml-3 flex-1">
                       <div className="flex justify-between items-center">
-                        <p className="text-sm font-medium text-gray-900">{plan.name}</p>
-                        <p className="text-sm text-gray-600">{formatPrice(plan.price, plan.currency)}/{plan.interval}</p>
+                        <p className="text-sm font-medium text-theme-primary">{plan.name}</p>
+                        <p className="text-sm text-theme-secondary">{formatPrice(plan.price, plan.currency)}/{plan.interval}</p>
                       </div>
                     </div>
                   </label>
@@ -149,7 +149,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                 <button
                   onClick={handleUpgrade}
                   disabled={loading}
-                  className="mt-3 w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50"
+                  className="btn-theme btn-theme-primary mt-3 w-full py-2 px-4 disabled:opacity-50"
                 >
                   {loading ? 'Processing...' : 'Upgrade Plan'}
                 </button>
@@ -162,7 +162,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
             <div className="border-t pt-4">
               <button
                 onClick={() => setShowCancelConfirm(true)}
-                className="text-red-600 hover:text-red-700 text-sm font-medium"
+                className="text-theme-error hover:text-theme-error text-sm font-medium"
               >
                 Cancel Subscription
               </button>
@@ -171,22 +171,22 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
 
           {/* Cancel Confirmation */}
           {showCancelConfirm && (
-            <div className="border border-red-200 bg-red-50 p-4 rounded-lg">
-              <h5 className="text-sm font-medium text-red-900 mb-2">Cancel Subscription?</h5>
-              <p className="text-sm text-red-700 mb-3">
+            <div className="border border-theme-error bg-theme-error p-4 rounded-lg">
+              <h5 className="text-sm font-medium text-theme-error mb-2">Cancel Subscription?</h5>
+              <p className="text-sm text-theme-error mb-3">
                 Your subscription will remain active until {formatDate(subscription.currentPeriodEnd)}, after which you'll lose access to premium features.
               </p>
               <div className="flex space-x-2">
                 <button
                   onClick={handleCancel}
                   disabled={loading}
-                  className="bg-red-600 text-white px-3 py-1 rounded-md text-sm hover:bg-red-700 transition-colors disabled:opacity-50"
+                  className="btn-theme bg-theme-error text-theme-error px-3 py-1 rounded-md text-sm disabled:opacity-50"
                 >
                   {loading ? 'Canceling...' : 'Yes, Cancel'}
                 </button>
                 <button
                   onClick={() => setShowCancelConfirm(false)}
-                  className="bg-gray-300 text-gray-700 px-3 py-1 rounded-md text-sm hover:bg-gray-400 transition-colors"
+                  className="btn-theme btn-theme-secondary px-3 py-1 rounded-md text-sm"
                 >
                   Keep Subscription
                 </button>

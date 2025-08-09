@@ -163,7 +163,6 @@ export const useWebSocketConnection = (): UseWebSocketConnectionReturn => {
             return; // Ignore system messages
           }
           
-
           // Handle pong response for latency calculation
           // ActionCable sends: { message: { type: 'pong', timestamp: ..., server_timestamp: ... }, identifier: ... }
           if (data.message?.type === 'pong' || data.type === 'pong') {
@@ -183,6 +182,15 @@ export const useWebSocketConnection = (): UseWebSocketConnectionReturn => {
               
               lastPingTimeRef.current = null;
             }
+            return;
+          }
+
+          // Handle settings-related broadcast messages
+          if (data.message && ['settings_updated', 'preferences_updated', 'notifications_updated', 'profile_updated'].includes(data.message.type)) {
+            // Dispatch custom event for settings WebSocket hook to handle
+            window.dispatchEvent(new CustomEvent('settings-websocket-message', {
+              detail: data.message
+            }));
           }
         } catch (error) {
           console.error('Error parsing WebSocket message:', error);

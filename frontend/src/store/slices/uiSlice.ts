@@ -2,6 +2,7 @@ import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 
 interface UIState {
   sidebarOpen: boolean;
+  sidebarCollapsed: boolean;
   theme: 'light' | 'dark';
   loading: boolean;
   notifications: Array<{
@@ -14,6 +15,7 @@ interface UIState {
 
 const initialState: UIState = {
   sidebarOpen: true,
+  sidebarCollapsed: false, // On mobile, always show collapsed when open
   theme: 'light',
   loading: false,
   notifications: [],
@@ -28,6 +30,12 @@ const uiSlice = createSlice({
     },
     setSidebarOpen: (state, action: PayloadAction<boolean>) => {
       state.sidebarOpen = action.payload;
+    },
+    toggleSidebarCollapse: (state) => {
+      state.sidebarCollapsed = !state.sidebarCollapsed;
+    },
+    setSidebarCollapsed: (state, action: PayloadAction<boolean>) => {
+      state.sidebarCollapsed = action.payload;
     },
     setTheme: (state, action: PayloadAction<'light' | 'dark'>) => {
       state.theme = action.payload;
@@ -57,6 +65,8 @@ const uiSlice = createSlice({
 export const {
   toggleSidebar,
   setSidebarOpen,
+  toggleSidebarCollapse,
+  setSidebarCollapsed,
   setTheme,
   setLoading,
   addNotification,

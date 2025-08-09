@@ -68,6 +68,14 @@ Rails.application.routes.draw do
       post "billing/payment-intent", to: "billing#create_payment_intent"
       get "billing/subscription", to: "billing#subscription_billing"
 
+      # Customer management endpoints
+      resources :customers do
+        member do
+          get :stats
+          patch :update_status
+        end
+      end
+
       # Payment-related endpoints
       resources :payment_methods, except: [ :show ]
       resources :subscriptions

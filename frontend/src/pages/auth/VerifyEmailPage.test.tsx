@@ -48,6 +48,7 @@ const createMockStore = (initialAuthState = {}) => {
       },
       ui: {
         sidebarOpen: true,
+        sidebarCollapsed: false,
         theme: 'light' as const,
         loading: false,
         notifications: [],

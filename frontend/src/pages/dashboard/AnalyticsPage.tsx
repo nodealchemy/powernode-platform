@@ -56,7 +56,6 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   
   // Date range state
@@ -76,38 +75,98 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
     try {
       if (showLoading) {
         setLoading(true);
-      } else {
-        setRefreshing(true);
       }
       setError(null);
 
       const startDate = dateRange.startDate.toISOString().split('T')[0];
       const endDate = dateRange.endDate.toISOString().split('T')[0];
 
-      // Fetch all analytics data in parallel
-      const [revenue, growth, churn, customers, cohorts] = await Promise.all([
-        analyticsService.getRevenueAnalytics(startDate, endDate),
-        analyticsService.getGrowthAnalytics(startDate, endDate),
-        analyticsService.getChurnAnalytics(startDate, endDate),
-        analyticsService.getCustomerAnalytics(startDate, endDate),
-        analyticsService.getCohortAnalytics()
-      ]);
+      console.log('Loading analytics data for date range:', { startDate, endDate });
 
-      setData({
-        revenue: revenue.data,
-        growth: growth.data,
-        churn: churn.data,
-        customers: customers.data,
-        cohorts: cohorts.data
-      });
+      // Try to fetch each analytics endpoint individually to identify issues
+      let analyticsData: any = {};
       
+      try {
+        console.log('Fetching revenue analytics...');
+        const revenue = await analyticsService.getRevenueAnalytics(startDate, endDate);
+        console.log('Revenue response:', revenue);
+        analyticsData.revenue = revenue.data;
+      } catch (revenueError) {
+        console.error('Revenue analytics failed:', revenueError);
+        // Provide fallback data
+        analyticsData.revenue = {
+          current_metrics: { mrr: 0, arr: 0, active_subscriptions: 0, total_customers: 0, arpu: 0, growth_rate: 0 },
+          historical_data: [],
+          period: { start_date: startDate, end_date: endDate }
+        };
+      }
+
+      try {
+        console.log('Fetching growth analytics...');
+        const growth = await analyticsService.getGrowthAnalytics(startDate, endDate);
+        console.log('Growth response:', growth);
+        analyticsData.growth = growth.data;
+      } catch (growthError) {
+        console.error('Growth analytics failed:', growthError);
+        analyticsData.growth = {
+          compound_monthly_growth_rate: 0,
+          monthly_growth_data: [],
+          forecasting: { next_month_projection: 0, confidence_interval: '±0%' },
+          period: { start_date: startDate, end_date: endDate }
+        };
+      }
+
+      try {
+        console.log('Fetching churn analytics...');
+        const churn = await analyticsService.getChurnAnalytics(startDate, endDate);
+        console.log('Churn response:', churn);
+        analyticsData.churn = churn.data;
+      } catch (churnError) {
+        console.error('Churn analytics failed:', churnError);
+        analyticsData.churn = {
+          current_metrics: { customer_churn_rate: 0, average_customer_churn_rate: 0, average_revenue_churn_rate: 0, customer_retention_rate: 100 },
+          churn_trend: [],
+          insights: { churn_risk_level: 'low', recommended_actions: [] },
+          period: { start_date: startDate, end_date: endDate }
+        };
+      }
+
+      try {
+        console.log('Fetching customer analytics...');
+        const customers = await analyticsService.getCustomerAnalytics(startDate, endDate);
+        console.log('Customer response:', customers);
+        analyticsData.customers = customers.data;
+      } catch (customerError) {
+        console.error('Customer analytics failed:', customerError);
+        analyticsData.customers = {
+          current_metrics: { total_customers: 0, arpu: 0, ltv: 0, ltv_to_cac_ratio: 0 },
+          customer_growth_trend: [],
+          segmentation: { by_plan: [], by_tenure: [] },
+          period: { start_date: startDate, end_date: endDate }
+        };
+      }
+
+      try {
+        console.log('Fetching cohort analytics...');
+        const cohorts = await analyticsService.getCohortAnalytics();
+        console.log('Cohort response:', cohorts);
+        analyticsData.cohorts = cohorts.data;
+      } catch (cohortError) {
+        console.error('Cohort analytics failed:', cohortError);
+        analyticsData.cohorts = {
+          cohorts: [],
+          summary: { total_cohorts: 0, average_first_month_retention: 0, average_six_month_retention: 0 }
+        };
+      }
+
+      setData(analyticsData);
       setLastUpdated(new Date());
+      console.log('Analytics data loaded successfully:', analyticsData);
     } catch (err) {
       console.error('Failed to load analytics data:', err);
       setError(err instanceof Error ? err.message : 'Failed to load analytics data');
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
   };
 
@@ -137,9 +196,6 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
     setDateRange(newDateRange);
   };
 
-  const handleRefresh = () => {
-    loadAnalyticsData(false);
-  };
 
   const tabs = [
     { id: 'overview', label: 'Overview', icon: '📊' },
@@ -156,19 +212,19 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 p-6">
+      <div className="min-h-screen bg-theme-background-secondary p-6">
         <div className="max-w-7xl mx-auto">
-          <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+          <div className="bg-theme-error text-theme-error card-theme p-6">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <span className="text-red-500 text-xl">⚠️</span>
+                <span className="text-theme-error text-xl">⚠️</span>
               </div>
               <div className="ml-3">
-                <h3 className="text-sm font-medium text-red-800">Error Loading Analytics</h3>
-                <p className="mt-1 text-sm text-red-700">{error}</p>
+                <h3 className="text-sm font-medium text-theme-error">Error Loading Analytics</h3>
+                <p className="mt-1 text-sm text-theme-error">{error}</p>
                 <button
                   onClick={() => loadAnalyticsData()}
-                  className="mt-2 px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700"
+                  className="mt-2 px-3 py-1 bg-theme-error text-white rounded text-sm hover:opacity-80"
                 >
                   Try Again
                 </button>
@@ -185,44 +241,19 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-theme-background-secondary">
       {/* Header */}
-      <div className="bg-white shadow-sm border-b border-gray-200">
+      <div className="card-theme shadow-sm border-b border-theme">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between py-4">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Analytics Dashboard</h1>
-              <p className="text-sm text-gray-500">
+              <h1 className="text-2xl font-bold text-theme-primary">Analytics Dashboard</h1>
+              <p className="text-sm text-theme-secondary">
                 Real-time insights for {user?.account?.name || 'your business'}
               </p>
             </div>
             
             <div className="flex items-center space-x-4">
-              {/* Real-time indicator */}
-              <div className="flex items-center space-x-2">
-                <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-gray-400'}`} />
-                <span className="text-xs text-gray-500">
-                  {isConnected ? 'Real-time' : 'Offline'}
-                </span>
-              </div>
-
-              {/* Last updated */}
-              {lastUpdated && (
-                <span className="text-xs text-gray-500">
-                  Updated {lastUpdated.toLocaleTimeString()}
-                </span>
-              )}
-
-              {/* Refresh button */}
-              <button
-                onClick={handleRefresh}
-                disabled={refreshing}
-                className="p-2 text-gray-500 hover:text-gray-700 disabled:opacity-50"
-                title="Refresh data"
-              >
-                <span className={`text-lg ${refreshing ? 'animate-spin' : ''}`}>🔄</span>
-              </button>
-
               {/* Export button */}
               <AnalyticsExport 
                 dateRange={dateRange}
@@ -249,8 +280,8 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
                 onClick={() => setActiveTab(tab.id)}
                 className={`flex items-center space-x-2 py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
                   activeTab === tab.id
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    ? 'border-theme-link text-theme-link'
+                    : 'border-transparent text-theme-secondary hover:text-theme-primary hover:border-theme'
                 }`}
               >
                 <span>{tab.icon}</span>

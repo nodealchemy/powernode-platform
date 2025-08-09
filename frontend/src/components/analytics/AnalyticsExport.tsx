@@ -69,7 +69,7 @@ export const AnalyticsExport: React.FC<AnalyticsExportProps> = ({ dateRange, onE
       <button
         onClick={() => setIsOpen(!isOpen)}
         disabled={isExporting}
-        className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+        className="btn-theme btn-theme-primary flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
       >
         <span className="text-lg">📥</span>
         <span className="text-sm font-medium">
@@ -86,10 +86,10 @@ export const AnalyticsExport: React.FC<AnalyticsExportProps> = ({ dateRange, onE
           />
           
           {/* Export Menu */}
-          <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
-            <div className="p-4 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900">Export Analytics</h3>
-              <p className="text-sm text-gray-600 mt-1">
+          <div className="absolute right-0 top-full mt-2 w-80 card-theme rounded-lg shadow-lg border-theme z-50">
+            <div className="p-4 border-b border-theme">
+              <h3 className="text-lg font-semibold text-theme-primary">Export Analytics</h3>
+              <p className="text-sm text-theme-secondary mt-1">
                 Export data from {dateRange.startDate.toLocaleDateString()} to {dateRange.endDate.toLocaleDateString()}
               </p>
             </div>
@@ -100,8 +100,8 @@ export const AnalyticsExport: React.FC<AnalyticsExportProps> = ({ dateRange, onE
                   <div className="flex items-start space-x-3">
                     <span className="text-lg">{option.icon}</span>
                     <div className="flex-1 min-w-0">
-                      <h4 className="text-sm font-medium text-gray-900">{option.label}</h4>
-                      <p className="text-xs text-gray-500">{option.description}</p>
+                      <h4 className="text-sm font-medium text-theme-primary">{option.label}</h4>
+                      <p className="text-xs text-theme-tertiary">{option.description}</p>
                     </div>
                   </div>
                   
@@ -125,8 +125,8 @@ export const AnalyticsExport: React.FC<AnalyticsExportProps> = ({ dateRange, onE
               ))}
             </div>
             
-            <div className="p-4 border-t border-gray-200 bg-gray-50 rounded-b-lg">
-              <div className="flex items-center text-xs text-gray-500">
+            <div className="p-4 border-t border-theme bg-theme-background-secondary rounded-b-lg">
+              <div className="flex items-center text-xs text-theme-tertiary">
                 <span className="text-lg mr-2">ℹ️</span>
                 <div>
                   <p>CSV exports include raw data for further analysis.</p>

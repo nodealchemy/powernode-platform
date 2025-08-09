@@ -105,8 +105,8 @@ export const SubscriptionsPage: React.FC = () => {
   const [notification, setNotification] = useState<string | null>(null);
 
   // Use lifecycle management and real-time updates
-  const { refreshSubscriptions, checkSubscriptionStatus, getDaysUntilExpiry } = useSubscriptionLifecycle();
-  const { connectionStatus, reconnectAttempts } = useSubscriptionWebSocket();
+  const { checkSubscriptionStatus, getDaysUntilExpiry } = useSubscriptionLifecycle();
+  useSubscriptionWebSocket(); // Maintain realtime updates without displaying status
 
   useEffect(() => {
     // Set mock plans (in real app, this would be an API call)
@@ -191,90 +191,54 @@ export const SubscriptionsPage: React.FC = () => {
     });
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active':
-        return 'bg-green-100 text-green-800';
-      case 'trialing':
-        return 'bg-blue-100 text-blue-800';
-      case 'cancelled':
-        return 'bg-red-100 text-red-800';
-      case 'past_due':
-        return 'bg-yellow-100 text-yellow-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Subscriptions</h1>
-          <p className="text-gray-600">
+          <h1 className="text-2xl font-bold text-theme-primary">Subscriptions</h1>
+          <p className="text-theme-secondary">
             Manage your subscription plans and billing settings.
           </p>
-        </div>
-        <div className="flex items-center space-x-3">
-          {/* Real-time connection status */}
-          <div className="flex items-center text-sm">
-            <div className={`w-2 h-2 rounded-full mr-2 ${
-              connectionStatus === 'connected' ? 'bg-green-500' :
-              connectionStatus === 'connecting' || connectionStatus === 'reconnecting' ? 'bg-yellow-500' :
-              'bg-red-500'
-            }`}></div>
-            <span className="text-gray-600">
-              {connectionStatus === 'connected' ? 'Real-time updates active' : 
-               connectionStatus === 'connecting' ? 'Connecting...' :
-               connectionStatus === 'reconnecting' ? `Reconnecting... (${reconnectAttempts}/5)` :
-               'Connection inactive'}
-            </span>
-          </div>
-          <button
-            onClick={() => refreshSubscriptions()}
-            className="bg-gray-100 text-gray-700 px-3 py-2 rounded-md hover:bg-gray-200 transition-colors text-sm"
-          >
-            Refresh
-          </button>
         </div>
       </div>
 
       {/* Notification */}
       {notification && (
-        <div className={`p-4 rounded-md ${notification.includes('success') ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+        <div className={`p-4 card-theme ${notification.includes('success') ? 'bg-theme-success text-theme-success' : 'bg-theme-error text-theme-error'}`}>
           {notification}
         </div>
       )}
 
       {/* Error Display */}
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative">
+        <div className="bg-theme-error text-theme-error card-theme px-4 py-3 relative">
           <span className="block sm:inline">{error}</span>
         </div>
       )}
 
       {/* Current Subscription Summary */}
       {currentSubscription && (
-        <div className="bg-white shadow rounded-lg p-6">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Current Subscription</h3>
+        <div className="card-theme shadow p-6">
+          <h3 className="text-lg font-medium text-theme-primary mb-4">Current Subscription</h3>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-start">
             <div>
-              <p className="text-sm text-gray-600">Plan</p>
-              <p className="text-lg font-medium">{currentSubscription.plan.name}</p>
-              <p className="text-sm text-gray-500">${(currentSubscription.plan.price / 100).toFixed(2)}/{currentSubscription.plan.interval}</p>
+              <p className="text-sm text-theme-secondary">Plan</p>
+              <p className="text-lg font-medium text-theme-primary">{currentSubscription.plan.name}</p>
+              <p className="text-sm text-theme-secondary">${(currentSubscription.plan.price / 100).toFixed(2)}/{currentSubscription.plan.interval}</p>
             </div>
             <div>
-              <p className="text-sm text-gray-600 mb-2">Status</p>
+              <p className="text-sm text-theme-secondary mb-2">Status</p>
               <SubscriptionStatusIndicator 
                 subscription={currentSubscription} 
                 showDetails={false}
               />
             </div>
             <div>
-              <p className="text-sm text-gray-600">Next Billing</p>
-              <p className="text-lg font-medium">{formatDate(currentSubscription.currentPeriodEnd)}</p>
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-theme-secondary">Next Billing</p>
+              <p className="text-lg font-medium text-theme-primary">{formatDate(currentSubscription.currentPeriodEnd)}</p>
+              <p className="text-sm text-theme-secondary">
                 {getDaysUntilExpiry(currentSubscription)} days remaining
               </p>
             </div>
@@ -284,7 +248,7 @@ export const SubscriptionsPage: React.FC = () => {
                   setSelectedSubscription(currentSubscription);
                   setIsModalOpen(true);
                 }}
-                className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
+                className="btn-theme btn-theme-primary"
               >
                 Manage Subscription
               </button>
@@ -305,16 +269,16 @@ export const SubscriptionsPage: React.FC = () => {
       )}
 
       {/* Available Plans */}
-      <div className="bg-white shadow rounded-lg">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-medium text-gray-900">Available Plans</h3>
-          <p className="text-sm text-gray-600 mt-1">Choose a plan that best fits your needs</p>
+      <div className="card-theme shadow">
+        <div className="px-6 py-4 border-b border-theme">
+          <h3 className="text-lg font-medium text-theme-primary">Available Plans</h3>
+          <p className="text-sm text-theme-secondary mt-1">Choose a plan that best fits your needs</p>
         </div>
         <div className="p-6">
           {loading ? (
             <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-              <span className="ml-2 text-gray-600">Loading plans...</span>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-theme-link"></div>
+              <span className="ml-2 text-theme-secondary">Loading plans...</span>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -338,37 +302,37 @@ export const SubscriptionsPage: React.FC = () => {
 
       {/* All Subscriptions */}
       {subscriptions.length > 0 && (
-        <div className="bg-white shadow rounded-lg">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h3 className="text-lg font-medium text-gray-900">All Subscriptions</h3>
-            <p className="text-sm text-gray-600 mt-1">History of all your subscriptions</p>
+        <div className="card-theme shadow">
+          <div className="px-6 py-4 border-b border-theme">
+            <h3 className="text-lg font-medium text-theme-primary">All Subscriptions</h3>
+            <p className="text-sm text-theme-secondary mt-1">History of all your subscriptions</p>
           </div>
           <div className="overflow-hidden">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="min-w-full divide-y divide-theme">
+              <thead className="bg-theme-background-secondary">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-theme-secondary uppercase tracking-wider">
                     Plan
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-theme-secondary uppercase tracking-wider">
                     Status
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-theme-secondary uppercase tracking-wider">
                     Created
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-theme-secondary uppercase tracking-wider">
                     Next Billing
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-theme-secondary uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="card-theme divide-y divide-theme">
                 {subscriptions.map((subscription) => (
                   <tr key={subscription.id}>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{subscription.plan.name}</div>
+                      <div className="text-sm font-medium text-theme-primary">{subscription.plan.name}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <SubscriptionStatusIndicator 
@@ -376,10 +340,10 @@ export const SubscriptionsPage: React.FC = () => {
                         showDetails={false}
                       />
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-theme-primary">
                       {formatDate(subscription.createdAt)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-theme-primary">
                       {subscription.status === 'active' ? formatDate(subscription.currentPeriodEnd) : '-'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -389,7 +353,7 @@ export const SubscriptionsPage: React.FC = () => {
                             setSelectedSubscription(subscription);
                             setIsModalOpen(true);
                           }}
-                          className="text-blue-600 hover:text-blue-900"
+                          className="text-theme-link hover:text-theme-link-hover"
                         >
                           Manage
                         </button>

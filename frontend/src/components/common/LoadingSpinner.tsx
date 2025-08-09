@@ -20,21 +20,21 @@ export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-theme-background">
       <div
-        className={`animate-spin rounded-full border-4 border-gray-300 border-t-blue-600 ${
+        className={`animate-spin rounded-full border-4 border-theme border-t-blue-600 ${
           size === 'small' ? sizeClasses.small :
           size === 'large' ? sizeClasses.large :
           sizeClasses.medium
         }`}
       />
       {message && (
-        <p className="mt-4 text-gray-600 text-sm font-medium">{message}</p>
+        <p className="mt-4 text-theme-secondary text-sm font-medium">{message}</p>
       )}
       {showAuthFallback && onAuthFallback && (
         <button
           onClick={onAuthFallback}
-          className="mt-6 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium"
+          className="mt-6 px-4 py-2 btn-theme-primary rounded-md transition-colors text-sm font-medium"
         >
           Go to Login
         </button>

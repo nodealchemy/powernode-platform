@@ -1,5 +1,6 @@
 import React from 'react';
 import { format, parseISO } from 'date-fns';
+import { useChartColors } from '../../hooks/useThemeColors';
 
 interface CohortChartProps {
   data: Array<{
@@ -24,6 +25,8 @@ export const CohortChart: React.FC<CohortChartProps> = ({
   summary,
   title
 }) => {
+  // Use theme-aware colors that update automatically
+  const colors = useChartColors();
   const formatDate = (dateString: string) => {
     try {
       return format(parseISO(dateString + '-01'), 'MMM yyyy');
@@ -37,12 +40,12 @@ export const CohortChart: React.FC<CohortChartProps> = ({
   };
 
   const getRetentionColor = (rate: number) => {
-    if (rate >= 80) return 'bg-green-600 text-white';
-    if (rate >= 60) return 'bg-green-500 text-white';
-    if (rate >= 40) return 'bg-yellow-500 text-white';
-    if (rate >= 20) return 'bg-orange-500 text-white';
-    if (rate > 0) return 'bg-red-500 text-white';
-    return 'bg-gray-200 text-gray-500';
+    if (rate >= 80) return 'bg-theme-success text-white';
+    if (rate >= 60) return 'bg-theme-success text-white';
+    if (rate >= 40) return 'bg-theme-warning text-white';
+    if (rate >= 20) return 'bg-theme-warning text-white';
+    if (rate > 0) return 'bg-theme-error text-white';
+    return 'bg-theme-background-secondary text-theme-secondary';
   };
 
   const getIntensity = (rate: number) => {
@@ -57,22 +60,22 @@ export const CohortChart: React.FC<CohortChartProps> = ({
     <div className="space-y-6">
       {/* Summary Metrics */}
       {summary && (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Cohort Summary</h3>
+        <div className="card-theme rounded-lg shadow-sm border-theme p-6">
+          <h3 className="text-lg font-semibold text-theme-primary mb-4">Cohort Summary</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div>
-              <p className="text-sm text-gray-500">Total Cohorts</p>
-              <p className="text-2xl font-bold text-blue-600">{summary.total_cohorts}</p>
+              <p className="text-sm text-theme-secondary">Total Cohorts</p>
+              <p className="text-2xl font-bold text-theme-info">{summary.total_cohorts}</p>
             </div>
             <div>
-              <p className="text-sm text-gray-500">Avg 1st Month Retention</p>
-              <p className="text-2xl font-bold text-green-600">
+              <p className="text-sm text-theme-secondary">Avg 1st Month Retention</p>
+              <p className="text-2xl font-bold text-theme-success">
                 {formatPercentage(summary.average_first_month_retention)}
               </p>
             </div>
             <div>
-              <p className="text-sm text-gray-500">Avg 6th Month Retention</p>
-              <p className="text-2xl font-bold text-purple-600">
+              <p className="text-sm text-theme-secondary">Avg 6th Month Retention</p>
+              <p className="text-2xl font-bold text-theme-primary">
                 {formatPercentage(summary.average_six_month_retention)}
               </p>
             </div>
@@ -81,30 +84,30 @@ export const CohortChart: React.FC<CohortChartProps> = ({
       )}
 
       {/* Cohort Retention Heatmap */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Cohort Retention Analysis</h3>
+      <div className="card-theme rounded-lg shadow-sm border-theme p-6">
+        <h3 className="text-lg font-semibold text-theme-primary mb-4">Cohort Retention Analysis</h3>
         
         {/* Legend */}
         <div className="flex items-center justify-center space-x-4 mb-6 text-sm">
-          <span className="text-gray-600">Retention Rate:</span>
+          <span className="text-theme-secondary">Retention Rate:</span>
           <div className="flex items-center space-x-2">
-            <div className="w-4 h-4 bg-red-500 rounded"></div>
+            <div className="w-4 h-4 bg-theme-error rounded"></div>
             <span>0-20%</span>
           </div>
           <div className="flex items-center space-x-2">
-            <div className="w-4 h-4 bg-orange-500 rounded"></div>
+            <div className="w-4 h-4 bg-theme-warning rounded"></div>
             <span>20-40%</span>
           </div>
           <div className="flex items-center space-x-2">
-            <div className="w-4 h-4 bg-yellow-500 rounded"></div>
+            <div className="w-4 h-4 bg-theme-warning rounded"></div>
             <span>40-60%</span>
           </div>
           <div className="flex items-center space-x-2">
-            <div className="w-4 h-4 bg-green-500 rounded"></div>
+            <div className="w-4 h-4 bg-theme-success rounded"></div>
             <span>60-80%</span>
           </div>
           <div className="flex items-center space-x-2">
-            <div className="w-4 h-4 bg-green-600 rounded"></div>
+            <div className="w-4 h-4 bg-theme-success rounded"></div>
             <span>80%+</span>
           </div>
         </div>
@@ -113,27 +116,27 @@ export const CohortChart: React.FC<CohortChartProps> = ({
         <div className="overflow-x-auto">
           <table className="min-w-full">
             <thead>
-              <tr className="border-b border-gray-200">
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <tr className="border-b border-theme">
+                <th className="px-4 py-3 text-left text-xs font-medium text-theme-tertiary uppercase tracking-wider">
                   Cohort
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-medium text-theme-tertiary uppercase tracking-wider">
                   Size
                 </th>
                 {months.map(month => (
-                  <th key={month} className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th key={month} className="px-3 py-3 text-center text-xs font-medium text-theme-tertiary uppercase tracking-wider">
                     M{month}
                   </th>
                 ))}
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="card-theme divide-y divide-gray-200">
               {data.map((cohort, cohortIndex) => (
-                <tr key={cohortIndex} className={cohortIndex % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
-                  <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                <tr key={cohortIndex} className={cohortIndex % 2 === 0 ? 'bg-theme-background-secondary' : 'card-theme'}>
+                  <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-theme-primary">
                     {formatDate(cohort.cohort_date)}
                   </td>
-                  <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600">
+                  <td className="px-4 py-4 whitespace-nowrap text-sm text-theme-secondary">
                     {cohort.cohort_size.toLocaleString()}
                   </td>
                   {months.map(monthIndex => {
@@ -141,8 +144,8 @@ export const CohortChart: React.FC<CohortChartProps> = ({
                     if (!retentionData) {
                       return (
                         <td key={monthIndex} className="px-3 py-4 text-center">
-                          <div className="w-full h-8 bg-gray-100 rounded flex items-center justify-center">
-                            <span className="text-xs text-gray-400">-</span>
+                          <div className="w-full h-8 bg-theme-background-tertiary rounded flex items-center justify-center">
+                            <span className="text-xs text-theme-tertiary">-</span>
                           </div>
                         </td>
                       );
@@ -170,8 +173,8 @@ export const CohortChart: React.FC<CohortChartProps> = ({
       </div>
 
       {/* Retention Curves */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Retention Curves</h3>
+      <div className="card-theme rounded-lg shadow-sm border-theme p-6">
+        <h3 className="text-lg font-semibold text-theme-primary mb-4">Retention Curves</h3>
         <div className="h-96">
           <svg viewBox="0 0 800 400" className="w-full h-full">
             <defs>
@@ -278,7 +281,7 @@ export const CohortChart: React.FC<CohortChartProps> = ({
                 className="w-3 h-3 rounded-full"
                 style={{ backgroundColor: `hsl(${index * 360 / data.length}, 70%, 50%)` }}
               ></div>
-              <span className="text-gray-600 truncate">
+              <span className="text-theme-secondary truncate">
                 {formatDate(cohort.cohort_date)}
               </span>
             </div>
@@ -287,8 +290,8 @@ export const CohortChart: React.FC<CohortChartProps> = ({
       </div>
 
       {/* Cohort Performance Insights */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Cohort Performance Insights</h3>
+      <div className="card-theme rounded-lg shadow-sm border-theme p-6">
+        <h3 className="text-lg font-semibold text-theme-primary mb-4">Cohort Performance Insights</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {/* Best Performing Cohort */}
           {(() => {
@@ -305,14 +308,14 @@ export const CohortChart: React.FC<CohortChartProps> = ({
             const sixMonthRetention = bestCohort.retention_rates.find(r => r.month === 6);
             
             return (
-              <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                <h4 className="font-medium text-green-800 mb-2">🏆 Best Performing Cohort</h4>
-                <p className="text-sm text-green-700">
+              <div className="p-4 bg-theme-success-light border border-theme-success rounded-lg">
+                <h4 className="font-medium text-theme-success mb-2">🏆 Best Performing Cohort</h4>
+                <p className="text-sm text-theme-success">
                   {formatDate(bestCohort.cohort_date)} with{' '}
                   {sixMonthRetention ? formatPercentage(sixMonthRetention.retention_rate * 100) : 'N/A'} 
                   {' '}6-month retention
                 </p>
-                <p className="text-xs text-green-600 mt-1">
+                <p className="text-xs text-theme-success mt-1">
                   Cohort size: {bestCohort.cohort_size.toLocaleString()}
                 </p>
               </div>
@@ -326,16 +329,16 @@ export const CohortChart: React.FC<CohortChartProps> = ({
             );
             
             return (
-              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <h4 className="font-medium text-blue-800 mb-2">📈 Largest Cohort</h4>
-                <p className="text-sm text-blue-700">
+              <div className="p-4 bg-theme-info-light border border-theme-info rounded-lg">
+                <h4 className="font-medium text-theme-info mb-2">📈 Largest Cohort</h4>
+                <p className="text-sm text-theme-info">
                   {formatDate(largestCohort.cohort_date)} with{' '}
                   {largestCohort.cohort_size.toLocaleString()} customers
                 </p>
                 {(() => {
                   const sixMonthRetention = largestCohort.retention_rates.find(r => r.month === 6);
                   return sixMonthRetention ? (
-                    <p className="text-xs text-blue-600 mt-1">
+                    <p className="text-xs text-theme-info mt-1">
                       6-month retention: {formatPercentage(sixMonthRetention.retention_rate * 100)}
                     </p>
                   ) : null;
@@ -345,9 +348,9 @@ export const CohortChart: React.FC<CohortChartProps> = ({
           })()}
 
           {/* Average Retention Trend */}
-          <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg">
-            <h4 className="font-medium text-purple-800 mb-2">📊 Retention Trend</h4>
-            <p className="text-sm text-purple-700">
+          <div className="p-4 bg-theme-primary-light border border-theme-primary rounded-lg">
+            <h4 className="font-medium text-theme-primary mb-2">📊 Retention Trend</h4>
+            <p className="text-sm text-theme-primary">
               {data.length > 1 && (() => {
                 const firstCohort = data[data.length - 1];
                 const lastCohort = data[0];
@@ -364,7 +367,7 @@ export const CohortChart: React.FC<CohortChartProps> = ({
                   : '➡️ Stable retention';
               })()}
             </p>
-            <p className="text-xs text-purple-600 mt-1">
+            <p className="text-xs text-theme-primary mt-1">
               3-month retention comparison
             </p>
           </div>
