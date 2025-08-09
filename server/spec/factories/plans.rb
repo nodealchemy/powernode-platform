@@ -10,6 +10,6 @@ FactoryBot.define do
     status { "active" }
     default_roles { [] }
     trial_days { 14 }
-    public { true }
+    is_public { true }
   end
 end

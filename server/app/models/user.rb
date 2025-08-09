@@ -2,6 +2,9 @@ class User < ApplicationRecord
   # Authentication
   has_secure_password
 
+  # Attributes
+  attr_reader :reset_token
+
   # Associations
   belongs_to :account
   has_many :user_roles, dependent: :destroy
@@ -15,7 +18,6 @@ class User < ApplicationRecord
                    uniqueness: { case_sensitive: false }
   validates :first_name, presence: true, length: { minimum: 1, maximum: 50 }
   validates :last_name, presence: true, length: { minimum: 1, maximum: 50 }
-  validates :role, presence: true, inclusion: { in: %w[owner admin member] }
   validates :status, presence: true, inclusion: { in: %w[active inactive suspended] }
   validate :password_complexity, if: :password
   validate :password_not_recently_used, if: :password
@@ -34,9 +36,9 @@ class User < ApplicationRecord
 
   # Scopes
   scope :active, -> { where(status: "active") }
-  scope :owners, -> { where(role: "owner") }
-  scope :admins, -> { where(role: "admin") }
-  scope :members, -> { where(role: "member") }
+  scope :owners, -> { joins(:roles).where(roles: { name: "Owner" }) }
+  scope :admins, -> { joins(:roles).where(roles: { name: "Admin" }) }
+  scope :members, -> { joins(:roles).where(roles: { name: "Member" }) }
   scope :verified, -> { where.not(email_verified_at: nil) }
   scope :unverified, -> { where(email_verified_at: nil) }
   scope :locked, -> { where("locked_until > ?", Time.current) }
@@ -160,19 +162,23 @@ class User < ApplicationRecord
     }
     jwt_token = JWT.encode(payload, Rails.application.config.jwt_secret_key, "HS256")
 
-    self.reset_token = jwt_token
-    self.reset_expires_at = 1.hour.from_now
+    self.reset_token_digest = BCrypt::Password.create(jwt_token)
+    self.reset_token_expires_at = 1.hour.from_now
+    @reset_token = jwt_token
     save!
-    reset_token
+    jwt_token
   end
 
-  def reset_token_valid?(token = nil)
-    token_to_check = token || reset_token
-    return false unless token_to_check.present?
+  def reset_token_valid?(token)
+    return false unless token.present? && reset_token_digest.present?
+    return false if reset_token_expires_at.present? && Time.current > reset_token_expires_at
 
     begin
-      payload = JWT.decode(token_to_check, Rails.application.config.jwt_secret_key, true, algorithm: "HS256").first
-      payload["user_id"] == id && payload["type"] == "password_reset" && Time.current < Time.at(payload["exp"])
+      payload = JWT.decode(token, Rails.application.config.jwt_secret_key, true, algorithm: "HS256").first
+      BCrypt::Password.new(reset_token_digest) == token && 
+      payload["user_id"] == id && 
+      payload["type"] == "password_reset" && 
+      Time.current < Time.at(payload["exp"])
     rescue JWT::DecodeError, JWT::ExpiredSignature
       false
     end
@@ -182,13 +188,13 @@ class User < ApplicationRecord
     return false unless reset_token_valid?(token)
 
     self.password = new_password
-    self.reset_token = nil
-    self.reset_expires_at = nil
+    self.reset_token_digest = nil
+    self.reset_token_expires_at = nil
     save!
   end
 
   def clear_reset_token!
-    update!(reset_token: nil, reset_expires_at: nil)
+    update!(reset_token_digest: nil, reset_token_expires_at: nil)
   end
 
   # Analytics permission helper methods

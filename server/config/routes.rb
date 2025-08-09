@@ -6,6 +6,8 @@ Rails.application.routes.draw do
   # API Routes
   namespace :api do
     namespace :v1 do
+      # Health check endpoint for load balancers
+      get :health, to: proc { [200, {}, [{status: 'ok'}.to_json]] }
       # Authentication and registration endpoints
       namespace :auth do
         post :register, to: "registrations#create"
