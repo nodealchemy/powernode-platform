@@ -1,7 +1,0 @@
-#!/usr/bin/env bash
-set -e
-
-echo "⚛️  Starting React Frontend Development Server"
-echo "============================================="
-
-cd frontend && ./bin/dev-server

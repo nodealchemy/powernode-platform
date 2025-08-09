@@ -12,10 +12,13 @@ help:
 	@echo "  make install        - Install dependencies only"
 	@echo "  make db-setup       - Setup databases"
 	@echo ""
-	@echo "Development Commands:"
-	@echo "  make dev            - Start both development servers"
-	@echo "  make dev-api        - Start Rails API server only"
-	@echo "  make dev-frontend   - Start React frontend server only"
+	@echo "Development Commands (All servers listen on 0.0.0.0 for external access):"
+	@echo "  make dev            - Start both development servers (with process cleanup)"
+	@echo "  make dev-api        - Start Rails API server only (0.0.0.0:3000)"
+	@echo "  make dev-frontend   - Start React frontend server only (0.0.0.0:3001)"
+	@echo "  make dev-stop       - Stop all development servers"
+	@echo "  make dev-restart    - Restart all development servers"
+	@echo "  make dev-status     - Show development server status"
 	@echo ""
 	@echo "Testing Commands:"
 	@echo "  make test           - Run all tests"
@@ -63,15 +66,28 @@ db-reset:
 # Development commands
 dev:
 	@echo "🚀 Starting development servers..."
-	@./bin/dev
+	@./scripts/auto-dev.sh ensure
 
 dev-api:
 	@echo "🔧 Starting Rails API server..."
-	@./bin/dev-api
+	@./scripts/backend-manager.sh start
 
 dev-frontend:
 	@echo "⚛️  Starting React frontend server..."
-	@./bin/dev-frontend
+	@./scripts/frontend-manager.sh start
+
+dev-stop:
+	@echo "🛑 Stopping development servers..."
+	@./scripts/backend-manager.sh stop
+	@./scripts/frontend-manager.sh stop
+
+dev-restart:
+	@echo "🔄 Restarting development servers..."
+	@./scripts/auto-dev.sh restart
+
+dev-status:
+	@echo "📊 Development server status..."
+	@./scripts/auto-dev.sh status
 
 # Testing commands
 test: test-backend test-frontend

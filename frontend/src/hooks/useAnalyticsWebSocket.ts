@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useSelector } from 'react-redux';
 import { RootState } from '../store';
+import { safeWebSocketSend } from '../utils/websocketUtils';
 
 interface AnalyticsWebSocketOptions {
   onAnalyticsUpdate?: (data: any) => void;
@@ -33,16 +34,21 @@ export const useAnalyticsWebSocket = ({
           console.log('Analytics WebSocket connected');
           isConnectedRef.current = true;
 
-          // Subscribe to analytics channel
-          const subscribeMessage = {
-            command: 'subscribe',
-            identifier: JSON.stringify({
-              channel: 'AnalyticsChannel',
-              account_id: accountId || user.account?.id
-            })
-          };
-          
-          wsRef.current?.send(JSON.stringify(subscribeMessage));
+          // Wait for connection to be fully established before subscribing
+          setTimeout(async () => {
+            const subscribeMessage = {
+              command: 'subscribe',
+              identifier: JSON.stringify({
+                channel: 'AnalyticsChannel',
+                account_id: accountId || user.account?.id
+              })
+            };
+            
+            const sent = await safeWebSocketSend(wsRef.current, subscribeMessage);
+            if (!sent) {
+              console.warn('Failed to subscribe to Analytics channel');
+            }
+          }, 100); // Small delay to ensure connection is fully ready
         };
 
         wsRef.current.onmessage = (event) => {
@@ -109,21 +115,22 @@ export const useAnalyticsWebSocket = ({
     };
   }, [user?.account?.id, accessToken, accountId, onAnalyticsUpdate, onError]);
 
-  const requestAnalyticsUpdate = () => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      const requestMessage = {
-        command: 'message',
-        identifier: JSON.stringify({
-          channel: 'AnalyticsChannel',
-          account_id: accountId || user?.account?.id
-        }),
-        data: JSON.stringify({
-          action: 'request_analytics',
-          account_id: accountId || user?.account?.id
-        })
-      };
+  const requestAnalyticsUpdate = async () => {
+    const requestMessage = {
+      command: 'message',
+      identifier: JSON.stringify({
+        channel: 'AnalyticsChannel',
+        account_id: accountId || user?.account?.id
+      }),
+      data: JSON.stringify({
+        action: 'request_analytics',
+        account_id: accountId || user?.account?.id
+      })
+    };
 
-      wsRef.current.send(JSON.stringify(requestMessage));
+    const sent = await safeWebSocketSend(wsRef.current, requestMessage);
+    if (!sent) {
+      console.warn('Failed to request analytics update');
     }
   };
 

@@ -5,7 +5,7 @@ Rails.application.configure do
   # JWT Configuration
   config.jwt_secret_key = Rails.env.production? ?
     Rails.application.credentials.jwt_secret_key :
-    ENV.fetch("JWT_SECRET_KEY", SecureRandom.hex(32))  # Generate secure 64-char secret
+    ENV.fetch("JWT_SECRET_KEY", "development_jwt_secret_key_that_persists_across_restarts_and_is_secure_enough_for_local_development_only")
 
   config.jwt_expiration_time = ENV.fetch("JWT_EXPIRATION_TIME", "24h")
 

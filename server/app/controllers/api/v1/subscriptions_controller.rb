@@ -5,11 +5,11 @@ class Api::V1::SubscriptionsController < ApplicationController
 
   # GET /api/v1/subscriptions
   def index
-    subscriptions = current_account.subscriptions.includes(:plan).order(:created_at)
+    subscription = current_account.subscription
 
     render json: {
       success: true,
-      data: subscriptions.map { |sub| subscription_data(sub) }
+      data: subscription ? [subscription_data(subscription)] : []
     }, status: :ok
   end
 
@@ -23,7 +23,7 @@ class Api::V1::SubscriptionsController < ApplicationController
 
   # POST /api/v1/subscriptions
   def create
-    @subscription = current_account.subscriptions.build(subscription_params)
+    @subscription = current_account.build_subscription(subscription_params)
 
     if @subscription.save
       render json: {
@@ -76,7 +76,14 @@ class Api::V1::SubscriptionsController < ApplicationController
   private
 
   def set_subscription
-    @subscription = current_account.subscriptions.find(params[:id])
+    @subscription = current_account.subscription
+    
+    # Verify the subscription ID matches if provided
+    if params[:id] && @subscription&.id != params[:id]
+      raise ActiveRecord::RecordNotFound
+    end
+    
+    raise ActiveRecord::RecordNotFound unless @subscription
   rescue ActiveRecord::RecordNotFound
     render json: {
       success: false,
@@ -85,7 +92,7 @@ class Api::V1::SubscriptionsController < ApplicationController
   end
 
   def subscription_params
-    params.require(:subscription).permit(:plan_id, :trial_ends_at)
+    params.require(:subscription).permit(:plan_id, :trial_end)
   end
 
   def subscription_update_params
@@ -98,16 +105,16 @@ class Api::V1::SubscriptionsController < ApplicationController
       status: subscription.status,
       current_period_start: subscription.current_period_start,
       current_period_end: subscription.current_period_end,
-      trial_ends_at: subscription.trial_ends_at,
+      trial_ends_at: subscription.trial_end,
       canceled_at: subscription.canceled_at,
-      ends_at: subscription.ends_at,
+      ends_at: subscription.ended_at,
       created_at: subscription.created_at,
       updated_at: subscription.updated_at,
       plan: subscription.plan ? {
         id: subscription.plan.id,
         name: subscription.plan.name,
         price: subscription.plan.price,
-        interval: subscription.plan.interval,
+        billing_cycle: subscription.plan.billing_cycle,
         features: subscription.plan.features
       } : nil
     }

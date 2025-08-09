@@ -1,20 +1,23 @@
 # frozen_string_literal: true
 
 class Rack::Attack
-  # Enable rate limiting
-  Rails.application.config.rate_limiting_enabled = true
+  # Only enable rate limiting in production
+  Rails.application.config.rate_limiting_enabled = Rails.env.production?
 
-  # Throttle login attempts by IP
-  throttle("login_attempts_by_ip", limit: 5, period: 15.minutes) do |request|
-    if request.path == "/api/v1/auth/login" && request.post?
-      request.ip
+  # Only apply throttling in production environment
+  if Rails.env.production?
+    # Throttle login attempts by IP
+    throttle("login_attempts_by_ip", limit: 5, period: 15.minutes) do |request|
+      if request.path == "/api/v1/auth/login" && request.post?
+        request.ip
+      end
     end
-  end
 
-  # Throttle general API requests by IP
-  throttle("api_requests_by_ip", limit: 300, period: 15.minutes) do |request|
-    if request.path.start_with?("/api/")
-      request.ip
+    # Throttle general API requests by IP
+    throttle("api_requests_by_ip", limit: 300, period: 15.minutes) do |request|
+      if request.path.start_with?("/api/")
+        request.ip
+      end
     end
   end
 
@@ -56,5 +59,7 @@ class Rack::Attack
   end
 end
 
-# Enable Rack::Attack middleware
-Rails.application.config.middleware.use Rack::Attack
+# Enable Rack::Attack middleware only in production
+if Rails.env.production?
+  Rails.application.config.middleware.use Rack::Attack
+end

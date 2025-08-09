@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useSelector } from 'react-redux';
 import { RootState } from '../store';
+import { safeWebSocketSend } from '../utils/websocketUtils';
 
 export type WebSocketStatus = 'disconnected' | 'connecting' | 'connected' | 'error' | 'reconnecting';
 
@@ -69,19 +70,19 @@ export const useWebSocketConnection = (): UseWebSocketConnectionReturn => {
     return baseUrl;
   }, [accessToken]);
 
-  const ping = useCallback(() => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      const pingStart = Date.now();
-      lastPingTimeRef.current = pingStart;
-      
-      const pingMessage = {
-        command: 'message',
-        identifier: JSON.stringify({ channel: 'NotificationChannel', account_id: user?.account?.id }),
-        data: JSON.stringify({ action: 'ping', timestamp: pingStart })
-      };
+  const ping = useCallback(async () => {
+    const pingStart = Date.now();
+    lastPingTimeRef.current = pingStart;
+    
+    const pingMessage = {
+      command: 'message',
+      identifier: JSON.stringify({ channel: 'NotificationChannel', account_id: user?.account?.id }),
+      data: JSON.stringify({ action: 'ping', timestamp: pingStart })
+    };
 
-      wsRef.current.send(JSON.stringify(pingMessage));
-
+    const sent = await safeWebSocketSend(wsRef.current, pingMessage);
+    
+    if (sent) {
       // Set timeout for ping response
       pingTimeoutRef.current = setTimeout(() => {
         updateState({ 
@@ -91,6 +92,8 @@ export const useWebSocketConnection = (): UseWebSocketConnectionReturn => {
         });
         lastPingTimeRef.current = null;
       }, 5000);
+    } else {
+      lastPingTimeRef.current = null;
     }
   }, [user?.account?.id, updateState]);
 
@@ -130,20 +133,26 @@ export const useWebSocketConnection = (): UseWebSocketConnectionReturn => {
           error: null
         });
 
-        // Subscribe to notification channel
-        const subscribeMessage = {
-          command: 'subscribe',
-          identifier: JSON.stringify({
-            channel: 'NotificationChannel',
-            account_id: user.account?.id
-          })
-        };
-        
-        wsRef.current?.send(JSON.stringify(subscribeMessage));
-        startHeartbeat();
-        
-        // Initial ping to measure latency
-        setTimeout(() => ping(), 1000);
+        // Wait for connection to be fully established before subscribing
+        setTimeout(async () => {
+          const subscribeMessage = {
+            command: 'subscribe',
+            identifier: JSON.stringify({
+              channel: 'NotificationChannel',
+              account_id: user.account?.id
+            })
+          };
+          
+          const sent = await safeWebSocketSend(wsRef.current, subscribeMessage);
+          if (sent) {
+            startHeartbeat();
+            
+            // Initial ping to measure latency
+            setTimeout(() => ping(), 1000);
+          } else {
+            console.warn('Failed to subscribe to Notification channel');
+          }
+        }, 100); // Small delay to ensure connection is fully ready
       };
 
       wsRef.current.onmessage = (event) => {

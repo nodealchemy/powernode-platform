@@ -12,6 +12,10 @@ class User < ApplicationRecord
   has_many :audit_logs, dependent: :nullify
   has_many :password_histories, dependent: :destroy
 
+  # Serialization
+  serialize :preferences, coder: JSON
+  serialize :notification_preferences, coder: JSON
+
   # Validations
   validates :email, presence: true,
                    format: { with: URI::MailTo::EMAIL_REGEXP },

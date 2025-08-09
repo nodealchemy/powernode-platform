@@ -26,6 +26,30 @@ Rails.application.routes.draw do
       resources :roles
       resources :permissions, only: [ :index, :show ]
 
+      # Plans management (admin only for create/update/delete)
+      resources :plans do
+        member do
+          post :duplicate
+          put :toggle_status
+        end
+      end
+
+      # Settings endpoints
+      resource :settings, only: [ :show, :update ]
+      get "settings/notifications", to: "settings#notifications"
+      put "settings/notifications", to: "settings#update_notifications"
+      get "settings/preferences", to: "settings#preferences"
+      put "settings/preferences", to: "settings#update_preferences"
+
+      # Admin Settings endpoints (restricted to admin/owner roles)
+      resource :admin_settings, only: [ :show, :update ] do
+        get :users, on: :member
+        get :accounts, on: :member
+        get :system_logs, on: :member
+        post :suspend_account, on: :member
+        post :activate_account, on: :member
+      end
+
       # Payment-related endpoints
       resources :payment_methods, except: [ :show ]
       resources :subscriptions

@@ -3,6 +3,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { RootState, AppDispatch } from '../store';
 import { fetchSubscriptions, setCurrentSubscription } from '../store/slices/subscriptionSlice';
 import { useWebSocketConnection } from './useWebSocketConnection';
+import { safeWebSocketSend } from '../utils/websocketUtils';
 
 interface SubscriptionUpdate {
   type: 'subscription_updated' | 'subscription_cancelled' | 'payment_processed' | 'trial_ending';
@@ -12,19 +13,21 @@ interface SubscriptionUpdate {
 
 export const useSubscriptionWebSocket = () => {
   const dispatch = useDispatch<AppDispatch>();
-  const { user } = useSelector((state: RootState) => state.auth);
+  const { user, accessToken } = useSelector((state: RootState) => state.auth);
   const { isConnected, status } = useWebSocketConnection();
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectAttemptsRef = useRef(0);
 
   const connect = useCallback(() => {
-    if (!user || wsRef.current?.readyState === WebSocket.CONNECTING || wsRef.current?.readyState === WebSocket.OPEN) {
+    if (!user || !accessToken || wsRef.current?.readyState === WebSocket.CONNECTING || wsRef.current?.readyState === WebSocket.OPEN) {
       return;
     }
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.hostname}:3000/cable`;
+    const hostname = window.location.hostname;
+    const port = process.env.NODE_ENV === 'development' ? '3000' : window.location.port;
+    const wsUrl = `${protocol}//${hostname}:${port}/cable?token=${encodeURIComponent(accessToken)}`;
     
     try {
       wsRef.current = new WebSocket(wsUrl);
@@ -33,16 +36,21 @@ export const useSubscriptionWebSocket = () => {
         console.log('WebSocket connected for subscription updates');
         reconnectAttemptsRef.current = 0;
         
-        // Subscribe to subscription updates channel
-        const subscribeMessage = {
-          command: 'subscribe',
-          identifier: JSON.stringify({
-            channel: 'SubscriptionChannel',
-            account_id: user.account?.id
-          })
-        };
-        
-        wsRef.current?.send(JSON.stringify(subscribeMessage));
+        // Wait for connection to be fully established before subscribing
+        setTimeout(async () => {
+          const subscribeMessage = {
+            command: 'subscribe',
+            identifier: JSON.stringify({
+              channel: 'SubscriptionChannel',
+              account_id: user.account?.id
+            })
+          };
+          
+          const sent = await safeWebSocketSend(wsRef.current, subscribeMessage);
+          if (!sent) {
+            console.warn('Failed to subscribe to Subscription channel');
+          }
+        }, 100); // Small delay to ensure connection is fully ready
       };
 
       wsRef.current.onmessage = (event) => {
@@ -84,7 +92,7 @@ export const useSubscriptionWebSocket = () => {
     } catch (error) {
       console.error('Failed to create WebSocket connection:', error);
     }
-  }, [user]);
+  }, [user, accessToken]);
 
   const handleSubscriptionUpdate = useCallback((update: SubscriptionUpdate) => {
     console.log('Received subscription update:', update);
@@ -122,9 +130,9 @@ export const useSubscriptionWebSocket = () => {
     reconnectAttemptsRef.current = 0;
   }, []);
 
-  // Connect when user is available, disconnect when user is gone
+  // Connect when user and token are available, disconnect when either is gone
   useEffect(() => {
-    if (user) {
+    if (user && accessToken) {
       connect();
     } else {
       disconnect();
@@ -133,7 +141,7 @@ export const useSubscriptionWebSocket = () => {
     return () => {
       disconnect();
     };
-  }, [user, connect, disconnect]);
+  }, [user, accessToken, connect, disconnect]);
 
   // Cleanup on unmount
   useEffect(() => {

@@ -25,11 +25,11 @@ class SubscriptionChannel < ApplicationCable::Channel
   # Client can request subscription refresh
   def refresh_subscriptions
     if current_account
-      subscriptions = current_account.subscriptions.includes(:plan)
+      subscription = current_account.subscription
       
       broadcast_to_account(current_account, {
-        type: 'subscriptions_updated',
-        subscriptions: subscriptions.map { |sub| serialize_subscription(sub) }
+        type: 'subscription_updated',
+        subscription: subscription ? serialize_subscription(subscription) : nil
       })
     end
   end
@@ -44,13 +44,11 @@ class SubscriptionChannel < ApplicationCable::Channel
   def send_current_subscription_status
     return unless current_account
 
-    subscriptions = current_account.subscriptions.includes(:plan)
-    current_subscription = subscriptions.active.first
-
+    subscription = current_account.subscription
+    
     data = {
       type: 'subscription_status',
-      current_subscription: current_subscription ? serialize_subscription(current_subscription) : nil,
-      all_subscriptions: subscriptions.map { |sub| serialize_subscription(sub) },
+      subscription: subscription ? serialize_subscription(subscription) : nil,
       account_id: current_account.id,
       timestamp: Time.current.iso8601
     }
@@ -64,9 +62,9 @@ class SubscriptionChannel < ApplicationCable::Channel
       status: subscription.status,
       current_period_start: subscription.current_period_start&.iso8601,
       current_period_end: subscription.current_period_end&.iso8601,
-      trial_ends_at: subscription.trial_ends_at&.iso8601,
+      trial_ends_at: subscription.trial_end&.iso8601,
       canceled_at: subscription.canceled_at&.iso8601,
-      ends_at: subscription.ends_at&.iso8601,
+      ends_at: subscription.ended_at&.iso8601,
       created_at: subscription.created_at.iso8601,
       updated_at: subscription.updated_at.iso8601,
       plan: subscription.plan ? {

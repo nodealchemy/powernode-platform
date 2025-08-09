@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_08_09_060548) do
+ActiveRecord::Schema[8.0].define(version: 2025_08_09_143916) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -44,6 +44,8 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_09_060548) do
     t.string "paypal_customer_id", limit: 50
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "billing_email"
+    t.string "tax_id"
     t.index ["paypal_customer_id"], name: "index_accounts_on_paypal_customer_id", unique: true, where: "(paypal_customer_id IS NOT NULL)"
     t.index ["status"], name: "index_accounts_on_status"
     t.index ["stripe_customer_id"], name: "index_accounts_on_stripe_customer_id", unique: true, where: "(stripe_customer_id IS NOT NULL)"
@@ -234,6 +236,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_09_060548) do
     t.string "paypal_plan_id", limit: 100
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.text "default_roles"
     t.index ["billing_cycle"], name: "index_plans_on_billing_cycle"
     t.index ["currency"], name: "index_plans_on_currency"
     t.index ["is_public"], name: "index_plans_on_is_public"
@@ -337,6 +340,8 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_09_060548) do
     t.datetime "reset_token_expires_at"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.text "preferences"
+    t.text "notification_preferences"
     t.index ["account_id"], name: "index_users_on_account_id"
     t.index ["email"], name: "index_users_on_email", unique: true
     t.index ["email_verification_token"], name: "index_users_on_email_verification_token", unique: true, where: "(email_verification_token IS NOT NULL)"

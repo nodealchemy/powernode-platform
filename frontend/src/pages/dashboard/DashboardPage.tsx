@@ -8,8 +8,10 @@ import { DashboardLayout } from '../../components/dashboard/DashboardLayout';
 import { AnalyticsPage } from './AnalyticsPage';
 import { SubscriptionsPage } from './SubscriptionsPage';
 import { CustomersPage } from './CustomersPage';
+import { PlansPage } from './PlansPage';
 import { BillingPage } from './BillingPage';
 import { SettingsPage } from './SettingsPage';
+import { AdminSettingsPage } from './AdminSettingsPage';
 
 // Dashboard overview page
 const DashboardOverview: React.FC = () => {
@@ -89,8 +91,10 @@ export const DashboardPage: React.FC = () => {
         <Route path="/analytics" element={<AnalyticsPage />} />
         <Route path="/subscriptions" element={<SubscriptionsPage />} />
         <Route path="/customers" element={<CustomersPage />} />
+        <Route path="/plans" element={<PlansPage />} />
         <Route path="/billing" element={<BillingPage />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/admin-settings" element={<AdminSettingsPage />} />
       </Routes>
     </DashboardLayout>
   );

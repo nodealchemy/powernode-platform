@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { User } from '../../store/slices/authSlice';
 import { WebSocketStatusIndicator } from '../common/WebSocketStatusIndicator';
 
@@ -10,6 +11,9 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ user, onLogout, onToggleSidebar }) => {
   const [showUserMenu, setShowUserMenu] = useState(false);
+  
+  // Check if user has admin access
+  const hasAdminAccess = user?.role === 'owner' || user?.role === 'admin';
 
   return (
     <header className="bg-white border-b border-gray-200">
@@ -70,16 +74,22 @@ export const Header: React.FC<HeaderProps> = ({ user, onLogout, onToggleSidebar 
                     >
                       Your Profile
                     </button>
-                    <button
-                      type="button"
-                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      onClick={() => {
-                        setShowUserMenu(false);
-                        // Navigate to settings page
-                      }}
+                    <Link
+                      to="/dashboard/settings"
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      onClick={() => setShowUserMenu(false)}
                     >
                       Settings
-                    </button>
+                    </Link>
+                    {hasAdminAccess && (
+                      <Link
+                        to="/dashboard/admin-settings"
+                        className="block px-4 py-2 text-sm text-red-700 hover:bg-red-50 font-medium"
+                        onClick={() => setShowUserMenu(false)}
+                      >
+                        🔧 Admin Settings
+                      </Link>
+                    )}
                     <div className="border-t border-gray-100" />
                     <button
                       onClick={() => {

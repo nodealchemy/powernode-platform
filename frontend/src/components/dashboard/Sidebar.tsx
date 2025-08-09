@@ -1,5 +1,7 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { useSelector } from 'react-redux';
+import { RootState } from '../../store';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -11,13 +13,22 @@ const navigation = [
   { name: 'Analytics', href: '/dashboard/analytics', icon: '📈' },
   { name: 'Subscriptions', href: '/dashboard/subscriptions', icon: '💳' },
   { name: 'Customers', href: '/dashboard/customers', icon: '👥' },
+  { name: 'Plans', href: '/dashboard/plans', icon: '💎' },
   { name: 'Billing', href: '/dashboard/billing', icon: '💰' },
   { name: 'Settings', href: '/dashboard/settings', icon: '⚙️' },
 ];
 
+const adminNavigation = [
+  { name: 'Admin Settings', href: '/dashboard/admin-settings', icon: '🔧', adminOnly: true },
+];
+
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
   const location = useLocation();
-
+  const { user } = useSelector((state: RootState) => state.auth);
+  
+  // Check if user has admin access
+  const hasAdminAccess = user?.role === 'owner' || user?.role === 'admin';
+  
   return (
     <>
       {/* Mobile sidebar overlay */}
@@ -59,6 +70,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
 
           {/* Navigation */}
           <nav className="flex-1 px-4 py-6 space-y-1">
+            {/* Regular navigation items */}
             {navigation.map((item) => {
               const isActive = location.pathname === item.href;
               return (
@@ -76,6 +88,35 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
                 </Link>
               );
             })}
+
+            {/* Admin navigation section */}
+            {hasAdminAccess && (
+              <>
+                <div className="border-t border-gray-200 my-4"></div>
+                <div className="px-3 py-2">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    Administration
+                  </p>
+                </div>
+                {adminNavigation.map((item) => {
+                  const isActive = location.pathname === item.href;
+                  return (
+                    <Link
+                      key={item.name}
+                      to={item.href}
+                      className={`${
+                        isActive
+                          ? 'bg-red-50 border-red-500 text-red-700'
+                          : 'border-transparent text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                      } group flex items-center px-3 py-2 text-sm font-medium border-l-4 rounded-md transition-colors duration-150`}
+                    >
+                      <span className="mr-3 text-lg">{item.icon}</span>
+                      {item.name}
+                    </Link>
+                  );
+                })}
+              </>
+            )}
           </nav>
 
           {/* Footer */}

@@ -55,7 +55,7 @@ class SubscriptionBroadcastService
   end
 
   def broadcast_trial_ending
-    days_left = (@subscription.trial_ends_at - Time.current).to_i / 1.day
+    days_left = (@subscription.trial_end - Time.current).to_i / 1.day
     
     broadcast_to_account({
       type: 'trial_ending',
@@ -96,9 +96,9 @@ class SubscriptionBroadcastService
       status: subscription.status,
       current_period_start: subscription.current_period_start&.iso8601,
       current_period_end: subscription.current_period_end&.iso8601,
-      trial_ends_at: subscription.trial_ends_at&.iso8601,
+      trial_ends_at: subscription.trial_end&.iso8601,
       canceled_at: subscription.canceled_at&.iso8601,
-      ends_at: subscription.ends_at&.iso8601,
+      ends_at: subscription.ended_at&.iso8601,
       created_at: subscription.created_at.iso8601,
       updated_at: subscription.updated_at.iso8601,
       plan: subscription.plan ? {

@@ -5,11 +5,13 @@ class AuditLog < ApplicationRecord
 
   # Validations
   validates :action, presence: true, inclusion: {
-    in: %w[create update delete login logout payment subscription_change role_change]
+    in: %w[create update delete login logout payment subscription_change role_change 
+           create_plan update_plan delete_plan toggle_plan_status 
+           suspend_account activate_account admin_settings_update]
   }
   validates :resource_type, presence: true
   validates :resource_id, presence: true
-  validates :source, presence: true, inclusion: { in: %w[web api system webhook] }
+  validates :source, presence: true, inclusion: { in: %w[web api system webhook admin_panel] }
 
   # Serialization
   serialize :old_values, coder: JSON

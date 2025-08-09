@@ -1,3 +1,5 @@
+require 'ostruct'
+
 class RevenueAnalyticsService
   include ActiveModel::Model
 
@@ -19,8 +21,7 @@ class RevenueAnalyticsService
     # Create or update revenue snapshot
     snapshot = RevenueSnapshot.find_or_initialize_by(
       account: account,
-      date: date,
-      period_type: period_type
+      snapshot_date: date
     )
 
     snapshot.assign_attributes(metrics)
@@ -42,9 +43,8 @@ class RevenueAnalyticsService
     start_date_local = end_date_local.beginning_of_month - (months - 1).months
 
     snapshots = revenue_snapshots_query
-                 .monthly
                  .in_date_range(start_date_local, end_date_local)
-                 .order(:date)
+                 .order(:snapshot_date)
 
     # Fill in missing months with zero values
     fill_missing_snapshots(snapshots, start_date_local, end_date_local, "monthly")
@@ -195,6 +195,15 @@ class RevenueAnalyticsService
     end
   end
 
+  def count_active_customers(date = Date.current)
+    base_subscription_query
+      .joins(:account)
+      .where(created_at: ..date.end_of_day)
+      .where.not(ended_at: ..date.beginning_of_day)
+      .distinct
+      .count("accounts.id")
+  end
+
   private
 
   # Calculate all metrics for a given date and period
@@ -326,15 +335,6 @@ class RevenueAnalyticsService
     churned_mrr.to_f / start_mrr
   end
 
-  # Count active customers at a specific date
-  def count_active_customers(date = Date.current)
-    base_subscription_query
-      .joins(:account)
-      .where(created_at: ..date.end_of_day)
-      .where.not(ended_at: ..date.beginning_of_day)
-      .distinct
-      .count("accounts.id")
-  end
 
   # Count new customers in period
   def count_new_customers(start_date, end_date)
@@ -374,7 +374,7 @@ class RevenueAnalyticsService
 
   # Fill missing snapshots with zero values
   def fill_missing_snapshots(snapshots, start_date, end_date, period_type)
-    snapshot_hash = snapshots.index_by(&:date)
+    snapshot_hash = snapshots.index_by(&:snapshot_date)
     results = []
 
     current_date = start_date
