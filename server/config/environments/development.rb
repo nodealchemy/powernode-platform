@@ -63,10 +63,16 @@ Rails.application.configure do
   # Configure ActionCable to allow local network and development origins
   config.action_cable.disable_request_forgery_protection = true
   config.action_cable.allowed_request_origins = [
-    # Local development (http and ws/wss)
+    # Local development (http and ws/wss) - Frontend on 3000, Backend on 3001
+    "http://localhost:3000",
+    "http://127.0.0.1:3000", 
+    "http://powernode.dev:3000",
     "http://localhost:3001",
     "http://127.0.0.1:3001",
     "http://powernode.dev:3001",
+    "ws://localhost:3000",
+    "ws://127.0.0.1:3000",
+    "ws://powernode.dev:3000",
     "ws://localhost:3001",
     "ws://127.0.0.1:3001",
     "ws://powernode.dev:3001",
@@ -85,7 +91,10 @@ Rails.application.configure do
     /ws:\/\/[^\/]+\.local:300[0-9]/,
     /ws:\/\/[^\/]+\.dev:300[0-9]/,
     /ws:\/\/[^\/]+\.test:300[0-9]/,
-    /ws:\/\/[^\/]+\.ipnode\.net:300[0-9]/
+    /ws:\/\/[^\/]+\.ipnode\.net:300[0-9]/,
+    # Specific ipnode.net domain support
+    "http://dev-1.ipnode.net:3000",
+    "ws://dev-1.ipnode.net:3001"
   ]
 
   # Raise error when a before_action's only/except options reference missing actions.

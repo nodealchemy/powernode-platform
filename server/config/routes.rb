@@ -59,6 +59,15 @@ Rails.application.routes.draw do
         end
       end
 
+      # Billing and payments
+      get "billing", to: "billing#overview"
+      get "billing/invoices", to: "billing#invoices"
+      post "billing/invoices", to: "billing#create_invoice"
+      get "billing/payment-methods", to: "billing#payment_methods"
+      post "billing/payment-methods", to: "billing#create_payment_method"
+      post "billing/payment-intent", to: "billing#create_payment_intent"
+      get "billing/subscription", to: "billing#subscription_billing"
+
       # Payment-related endpoints
       resources :payment_methods, except: [ :show ]
       resources :subscriptions
