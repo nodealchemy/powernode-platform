@@ -1,13 +1,14 @@
 class PasswordStrengthService
-  MINIMUM_SCORE = 60
+  MINIMUM_SCORE = 70
   MINIMUM_LENGTH = 12
   MAXIMUM_LENGTH = 128
+  MINIMUM_ENTROPY = 50
 
   # Character set requirements
   UPPERCASE_REGEX = /[A-Z]/
   LOWERCASE_REGEX = /[a-z]/
   DIGIT_REGEX = /[0-9]/
-  SPECIAL_CHAR_REGEX = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/
+  SPECIAL_CHAR_REGEX = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/
 
   # Common weak patterns
   COMMON_PATTERNS = [
@@ -29,6 +30,10 @@ class PasswordStrengthService
 
   def self.score_password(password)
     new(password).score
+  end
+
+  def self.calculate_entropy(password)
+    new(password).entropy
   end
 
   def initialize(password)
@@ -101,13 +106,20 @@ class PasswordStrengthService
       if score < MINIMUM_SCORE
         errors << "Password is not strong enough (minimum strength score: #{MINIMUM_SCORE})"
       end
+
+      # Entropy check
+      if entropy < MINIMUM_ENTROPY
+        errors << "Password lacks sufficient randomness (minimum entropy: #{MINIMUM_ENTROPY} bits)"
+      end
     end
 
     {
       valid: errors.empty?,
       errors: errors,
       score: score,
-      strength: strength_level
+      entropy: entropy.round(2),
+      strength: strength_level,
+      character_space: calculate_character_space
     }
   end
 
@@ -125,11 +137,10 @@ class PasswordStrengthService
     score += 10 if @password.match?(DIGIT_REGEX)
     score += 15 if @password.match?(SPECIAL_CHAR_REGEX)
 
-    # Entropy calculation
-    character_space = calculate_character_space
-    if character_space > 0
-      entropy = @password.length * Math.log2(character_space)
-      score += [ entropy.to_i / 2, 30 ].min
+    # Entropy bonus
+    entropy_value = entropy
+    if entropy_value > 0
+      score += [ entropy_value.to_i / 2, 30 ].min
     end
 
     # Penalties for common patterns - reduced penalty for longer passwords
@@ -145,6 +156,17 @@ class PasswordStrengthService
 
     # Ensure score is between 0 and 100
     [ [ score, 0 ].max, 100 ].min
+  end
+
+  def entropy
+    return 0 if @password.empty?
+
+    character_space = calculate_character_space
+    return 0 if character_space == 0
+
+    # Shannon entropy calculation: H = L * log2(N)
+    # where L = password length, N = character space
+    @password.length * Math.log2(character_space)
   end
 
   def strength_level

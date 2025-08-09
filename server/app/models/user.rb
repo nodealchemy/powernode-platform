@@ -27,6 +27,7 @@ class User < ApplicationRecord
   before_create :set_owner_if_first_user
   after_create :assign_owner_role_if_needed
   after_update :save_password_to_history, if: :saved_change_to_password_digest?
+  after_update :clear_reset_token_on_password_change, if: :saved_change_to_password_digest?
   before_save :set_password_changed_at, if: :password_digest_changed?
 
   # Constants
@@ -275,6 +276,12 @@ class User < ApplicationRecord
 
   def set_password_changed_at
     self.password_changed_at = Time.current
+  end
+
+  def clear_reset_token_on_password_change
+    # Clear reset token when password changes to prevent replay attacks
+    self.reset_token_digest = nil
+    self.reset_token_expires_at = nil
   end
 
   def lock_account!

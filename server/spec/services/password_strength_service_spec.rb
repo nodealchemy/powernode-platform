@@ -7,10 +7,12 @@ RSpec.describe PasswordStrengthService, type: :service do
     context 'with a strong password' do
       let(:password) { 'MySecure$Phrase2024!' }
 
-      it 'returns valid result' do
+      it 'returns valid result with entropy information' do
         expect(subject[:valid]).to be true
         expect(subject[:errors]).to be_empty
-        expect(subject[:score]).to be >= 60
+        expect(subject[:score]).to be >= 70  # Updated minimum score
+        expect(subject[:entropy]).to be >= 50  # Minimum entropy requirement
+        expect(subject[:character_space]).to be >= 94  # All character types
         expect([ 'strong', 'very_strong' ]).to include(subject[:strength])
       end
     end
@@ -210,6 +212,54 @@ RSpec.describe PasswordStrengthService, type: :service do
         score = service.score
         mixed_score = described_class.new('Abcd1234!@#$').score
         expect(score).to be < mixed_score
+      end
+    end
+  end
+
+  describe '.calculate_entropy' do
+    it 'calculates entropy for mixed character password' do
+      entropy = described_class.calculate_entropy('Abcd1234!@#$')
+      # 12 characters * log2(94) ≈ 79.5 bits
+      expect(entropy).to be_within(1.0).of(79.5)
+    end
+
+    it 'calculates lower entropy for single character set' do
+      lowercase_entropy = described_class.calculate_entropy('abcdefghijkl')
+      mixed_entropy = described_class.calculate_entropy('Abcd1234!@#$')
+      expect(lowercase_entropy).to be < mixed_entropy
+    end
+
+    it 'returns zero entropy for empty password' do
+      expect(described_class.calculate_entropy('')).to eq(0)
+    end
+
+    it 'increases entropy with password length' do
+      short_entropy = described_class.calculate_entropy('Abc123!')
+      long_entropy = described_class.calculate_entropy('Abc123!@#$%^&*')
+      expect(long_entropy).to be > short_entropy
+    end
+  end
+
+  describe 'entropy validation' do
+    context 'with pattern-based weak password' do
+      let(:password) { 'aaaa1111AAAA!' }  # Has special char but repetitive pattern
+
+      it 'fails validation due to repeated patterns' do
+        result = described_class.validate_password(password)
+        expect(result[:valid]).to be false
+        # Should fail due to repeated character patterns
+        expect(result[:errors]).to include('Password contains common patterns that make it weak')
+      end
+    end
+
+    context 'with sufficient entropy password' do
+      let(:password) { 'MyVeryComplexPhrase789!@#$%' }
+
+      it 'passes entropy and strength validation' do
+        result = described_class.validate_password(password)
+        expect(result[:entropy]).to be >= 50
+        expect(result[:score]).to be >= 70
+        expect(result[:valid]).to be true
       end
     end
   end
