@@ -430,16 +430,16 @@ class Api::V1::PaymentGatewaysController < ApplicationController
     errors = []
     
     if config[:secret_key].present?
-      unless config[:secret_key].match(/^sk_(test_|live_)?[a-zA-Z0-9]{24}$/)
-        errors << "Secret key format is invalid"
+      unless config[:secret_key].match(/^sk_(test_|live_)?[a-zA-Z0-9_]{20,}$/)
+        errors << "Secret key format is invalid (must start with sk_test_ or sk_live_)"
       end
     else
       errors << "Secret key is required"
     end
     
     if config[:publishable_key].present?
-      unless config[:publishable_key].match(/^pk_(test_|live_)?[a-zA-Z0-9]{24}$/)
-        errors << "Publishable key format is invalid"
+      unless config[:publishable_key].match(/^pk_(test_|live_)?[a-zA-Z0-9_]{20,}$/)
+        errors << "Publishable key format is invalid (must start with pk_test_ or pk_live_)"
       end
     else
       errors << "Publishable key is required"
