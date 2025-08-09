@@ -102,9 +102,9 @@ class Payment < ApplicationRecord
   def gateway_transaction_id
     case provider
     when "stripe"
-      stripe_payment_intent_id || stripe_charge_id
+      metadata["stripe_payment_intent_id"] || metadata["stripe_charge_id"]
     when "paypal"
-      paypal_order_id || paypal_capture_id
+      metadata["paypal_order_id"] || metadata["paypal_capture_id"]
     else
       nil
     end

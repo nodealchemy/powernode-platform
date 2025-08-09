@@ -6,7 +6,8 @@ FactoryBot.define do
     external_id { "pm_#{SecureRandom.hex(10)}" }
     payment_type { "card" }
     last_four { "4242" }
-    expires_at { 1.year.from_now }
+    exp_month { 12 }
+    exp_year { 1.year.from_now.year }
     is_default { false }
     metadata { {} }
   end

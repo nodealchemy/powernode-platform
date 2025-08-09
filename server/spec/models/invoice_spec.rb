@@ -426,17 +426,17 @@ RSpec.describe Invoice, type: :model do
 
       it "accepts custom period dates" do
         period_start = Date.current
-        period_end = 1.month.from_now
+        period_end = 1.month.from_now.to_date
 
         line_item = invoice.add_subscription_line_item(plan, 1, period_start, period_end)
 
         expect(line_item.period_start).to eq(period_start)
-        expect(line_item.period_end).to be_within(1.second).of(period_end)
+        expect(line_item.period_end).to eq(period_end)
       end
 
       it "uses subscription period dates when not provided" do
         subscription.current_period_start = Date.current
-        subscription.current_period_end = 1.month.from_now
+        subscription.current_period_end = 1.month.from_now.to_date
         subscription.save!
 
         line_item = invoice.add_subscription_line_item(plan)

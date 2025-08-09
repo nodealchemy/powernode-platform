@@ -9,7 +9,6 @@ FactoryBot.define do
     currency { "USD" }
     due_date { 30.days.from_now }
     paid_at { nil }
-    payment_attempted_at { nil }
     stripe_invoice_id { nil }
     paypal_invoice_id { nil }
     metadata { {} }

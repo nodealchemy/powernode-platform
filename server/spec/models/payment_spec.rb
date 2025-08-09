@@ -258,25 +258,25 @@ RSpec.describe Payment, type: :model do
 
     describe "#gateway_transaction_id" do
       it "returns stripe payment intent ID for stripe payments" do
-        payment = build(:payment, payment_method: "stripe_card", stripe_payment_intent_id: "pi_123")
+        payment = build(:payment, payment_method: "stripe_card", metadata: { "stripe_payment_intent_id" => "pi_123" })
 
         expect(payment.gateway_transaction_id).to eq("pi_123")
       end
 
       it "returns stripe charge ID when no payment intent" do
-        payment = build(:payment, payment_method: "stripe_card", stripe_charge_id: "ch_123")
+        payment = build(:payment, payment_method: "stripe_card", metadata: { "stripe_charge_id" => "ch_123" })
 
         expect(payment.gateway_transaction_id).to eq("ch_123")
       end
 
       it "returns paypal order ID for paypal payments" do
-        payment = build(:payment, payment_method: "paypal", paypal_order_id: "ORDER_123")
+        payment = build(:payment, payment_method: "paypal", metadata: { "paypal_order_id" => "ORDER_123" })
 
         expect(payment.gateway_transaction_id).to eq("ORDER_123")
       end
 
       it "returns paypal capture ID when no order ID" do
-        payment = build(:payment, payment_method: "paypal", paypal_capture_id: "CAPTURE_123")
+        payment = build(:payment, payment_method: "paypal", metadata: { "paypal_capture_id" => "CAPTURE_123" })
 
         expect(payment.gateway_transaction_id).to eq("CAPTURE_123")
       end
@@ -357,8 +357,10 @@ RSpec.describe Payment, type: :model do
       it "processes stripe card payments correctly" do
         payment = create(:payment,
           payment_method: "stripe_card",
-          stripe_payment_intent_id: "pi_123456",
-          stripe_charge_id: "ch_123456"
+          metadata: { 
+            "stripe_payment_intent_id" => "pi_123456",
+            "stripe_charge_id" => "ch_123456"
+          }
         )
 
         expect(payment.provider).to eq("stripe")
@@ -370,7 +372,7 @@ RSpec.describe Payment, type: :model do
       it "processes stripe bank payments correctly" do
         payment = create(:payment,
           payment_method: "stripe_bank",
-          stripe_payment_intent_id: "pi_789012"
+          metadata: { "stripe_payment_intent_id" => "pi_789012" }
         )
 
         expect(payment.provider).to eq("stripe")
@@ -382,7 +384,7 @@ RSpec.describe Payment, type: :model do
       it "processes paypal payments correctly" do
         payment = create(:payment,
           payment_method: "paypal",
-          paypal_order_id: "ORDER_789012"
+          metadata: { "paypal_order_id" => "ORDER_789012" }
         )
 
         expect(payment.provider).to eq("paypal")

@@ -28,8 +28,8 @@ RSpec.describe Plan, type: :model do
     let!(:active_plan) { create(:plan, status: "active") }
     let!(:inactive_plan) { create(:plan, status: "inactive") }
     let!(:archived_plan) { create(:plan, status: "archived") }
-    let!(:public_plan) { create(:plan, public: true) }
-    let!(:private_plan) { create(:plan, public: false) }
+    let!(:public_plan) { create(:plan, is_public: true) }
+    let!(:private_plan) { create(:plan, is_public: false) }
 
     it "returns active plans" do
       expect(Plan.active).to include(active_plan)

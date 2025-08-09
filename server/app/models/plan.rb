@@ -17,7 +17,7 @@ class Plan < ApplicationRecord
 
   # Scopes
   scope :active, -> { where(status: "active") }
-  scope :public_plans, -> { where(public: true) }
+  scope :public_plans, -> { where(is_public: true) }
   scope :by_billing_cycle, ->(cycle) { where(billing_cycle: cycle) }
   scope :by_currency, ->(currency) { where(currency: currency) }
 
