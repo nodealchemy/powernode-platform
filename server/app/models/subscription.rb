@@ -214,13 +214,13 @@ class Subscription < ApplicationRecord
       reminder_time = trial_end - days_before.days
       next if reminder_time <= Time.current
 
-      SubscriptionLifecycleJob.set(wait_until: reminder_time)
-                             .perform_later('trial_ending_reminder', id)
+      # SubscriptionLifecycleJob.set(wait_until: reminder_time)
+      #                        .perform_later('trial_ending_reminder', id)
     end
 
     # Schedule trial conversion
-    SubscriptionLifecycleJob.set(wait_until: trial_end)
-                           .perform_later('trial_ended', id)
+    # SubscriptionLifecycleJob.set(wait_until: trial_end)
+    #                        .perform_later('trial_ended', id)
   end
 
   def schedule_renewal_reminders
@@ -231,13 +231,13 @@ class Subscription < ApplicationRecord
       reminder_time = current_period_end - days_before.days
       next if reminder_time <= Time.current
 
-      SubscriptionLifecycleJob.set(wait_until: reminder_time)
-                             .perform_later('renewal_reminder', id)
+      # SubscriptionLifecycleJob.set(wait_until: reminder_time)
+      #                        .perform_later('renewal_reminder', id)
     end
 
     # Schedule billing automation
-    BillingAutomationJob.set(wait_until: current_period_end)
-                       .perform_later(id)
+    # BillingAutomationJob.set(wait_until: current_period_end)
+    #                    .perform_later(id)
   end
 
   def handle_activation

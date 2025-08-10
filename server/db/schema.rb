@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_08_10_045842) do
+ActiveRecord::Schema[8.0].define(version: 2025_08_10_071513) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -313,6 +313,40 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_10_045842) do
     t.index ["user_id"], name: "index_scheduled_reports_on_user_id"
   end
 
+  create_table "service_activities", id: :string, force: :cascade do |t|
+    t.string "service_id", null: false
+    t.string "action", limit: 100
+    t.json "details"
+    t.datetime "performed_at"
+    t.string "ip_address"
+    t.text "user_agent"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["action"], name: "index_service_activities_on_action"
+    t.index ["performed_at"], name: "index_service_activities_on_performed_at"
+    t.index ["service_id", "performed_at"], name: "index_service_activities_on_service_id_and_performed_at"
+    t.index ["service_id"], name: "index_service_activities_on_service_id"
+  end
+
+  create_table "services", id: :string, force: :cascade do |t|
+    t.string "name", null: false
+    t.text "description"
+    t.string "token", null: false
+    t.string "permissions", default: "standard", null: false
+    t.string "status", default: "active", null: false
+    t.string "account_id"
+    t.datetime "last_seen_at"
+    t.integer "request_count", default: 0
+    t.datetime "token_regenerated_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_services_on_account_id"
+    t.index ["last_seen_at"], name: "index_services_on_last_seen_at"
+    t.index ["permissions"], name: "index_services_on_permissions"
+    t.index ["status"], name: "index_services_on_status"
+    t.index ["token"], name: "index_services_on_token", unique: true
+  end
+
   create_table "subscriptions", id: { type: :string, limit: 36 }, force: :cascade do |t|
     t.string "account_id", limit: 36, null: false
     t.string "plan_id", limit: 36, null: false
@@ -418,6 +452,8 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_10_045842) do
   add_foreign_key "role_permissions", "roles"
   add_foreign_key "scheduled_reports", "accounts"
   add_foreign_key "scheduled_reports", "users"
+  add_foreign_key "service_activities", "services"
+  add_foreign_key "services", "accounts"
   add_foreign_key "subscriptions", "accounts"
   add_foreign_key "subscriptions", "plans"
   add_foreign_key "user_roles", "roles"

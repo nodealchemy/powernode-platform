@@ -135,6 +135,25 @@ Rails.application.routes.draw do
           delete :scheduled, to: 'reports#destroy_scheduled'
         end
       end
+
+      # Admin services management
+      namespace :admin do
+        resources :services do
+          member do
+            post :regenerate_token
+            post :suspend
+            post :activate
+            post :revoke
+          end
+          
+          resources :service_activities, path: 'activities' do
+            collection do
+              get :summary
+              delete :cleanup
+            end
+          end
+        end
+      end
     end
   end
 

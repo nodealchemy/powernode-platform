@@ -16,20 +16,44 @@ class Api::V1::ServiceController < ApplicationController
     
     token = auth_header.sub(/^Bearer /, '')
     
-    # Verify token matches expected service token
-    expected_token = Rails.application.credentials.worker_service_token ||
-                     ENV['WORKER_SERVICE_TOKEN'] ||
-                     'test-service-token-123' # Development fallback
+    # Try to authenticate with new Service model first
+    service = Service.authenticate(token)
     
-    if token == expected_token
+    if service
+      # Record the authentication activity
+      service.record_activity!('authentication', {
+        ip_address: request.remote_ip,
+        user_agent: request.user_agent,
+        request_path: request.path,
+        status: 'success'
+      })
+      
       render json: {
         valid: true,
-        service: 'worker',
+        service_id: service.id,
+        service_name: service.name,
+        permissions: service.permissions,
+        account_id: service.account_id,
         verified_at: Time.current.iso8601
       }, status: 200
     else
-      Rails.logger.warn "Service token verification failed: token mismatch"
-      render json: { valid: false, error: 'Invalid service token' }, status: 401
+      # Fall back to legacy service token for backward compatibility
+      expected_token = Rails.application.credentials.worker_service_token ||
+                       ENV['WORKER_SERVICE_TOKEN'] ||
+                       'test-service-token-123' # Development fallback
+      
+      if token == expected_token
+        render json: {
+          valid: true,
+          service: 'worker',
+          legacy_token: true,
+          verified_at: Time.current.iso8601,
+          warning: 'Using legacy service token. Please migrate to Service-based authentication.'
+        }, status: 200
+      else
+        Rails.logger.warn "Service token verification failed: no matching service found"
+        render json: { valid: false, error: 'Invalid service token' }, status: 401
+      end
     end
   rescue StandardError => e
     Rails.logger.error "Service token verification error: #{e.message}"

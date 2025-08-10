@@ -246,6 +246,24 @@ puts '- Admin Password: AdminStrong2024!@#$'
 puts '- Admin Role: Owner'
 puts '- Status: Active'
 
+# Create admin service for system administration
+admin_service = Service.find_or_create_by!(name: 'Admin Service') do |service|
+  service.description = 'Administrative service with super admin privileges for system management'
+  service.permissions = 'super_admin'
+  service.status = 'active'
+  service.account = admin_account
+  service.token = Service.generate_secure_token
+end
+
+puts ""
+puts 'Created Admin Service:'
+puts "- Name: #{admin_service.name}"
+puts "- Permissions: #{admin_service.permissions}"
+puts "- Status: #{admin_service.status}"
+puts "- Account: #{admin_service.account.name}"
+puts "- Token: #{admin_service.masked_token}"
+puts "- Full Token: #{admin_service.token}"
+
 # Create sample customer accounts for demonstration
 puts "\nCreating sample customer accounts..."
 
