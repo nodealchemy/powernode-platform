@@ -1,17 +1,21 @@
-import apiClient from './api';
+import api from './api';
 
 export interface Plan {
   id: string;
   name: string;
-  price: number;
-  interval: string;
+  price: {
+    cents: number;
+    currency_iso: string;
+  } | number; // Support both new API format and legacy format
+  interval?: string;
+  billing_cycle?: string;
+  billingCycle?: string; // Legacy camelCase support
   features: Record<string, any>;
   limits?: Record<string, any>;
   status: string;
   isPublic?: boolean;
-  billingCycle: string;
-  currency: string;
-  trialDays: number;
+  currency?: string;
+  trialDays?: number;
 }
 
 export interface Subscription {
@@ -47,7 +51,7 @@ export interface UpdateSubscriptionRequest {
 class SubscriptionService {
   async getSubscriptions(): Promise<SubscriptionResponse> {
     try {
-      const response = await apiClient.get<SubscriptionResponse>('/subscriptions');
+      const response = await api.get<SubscriptionResponse>('/subscriptions');
       return response.data;
     } catch (error: any) {
       return {
@@ -60,7 +64,7 @@ class SubscriptionService {
 
   async getSubscription(id: string): Promise<SubscriptionResponse> {
     try {
-      const response = await apiClient.get<SubscriptionResponse>(`/subscriptions/${id}`);
+      const response = await api.get<SubscriptionResponse>(`/subscriptions/${id}`);
       return response.data;
     } catch (error: any) {
       return {
@@ -73,7 +77,7 @@ class SubscriptionService {
 
   async createSubscription(data: CreateSubscriptionRequest): Promise<SubscriptionResponse> {
     try {
-      const response = await apiClient.post<SubscriptionResponse>('/subscriptions', { subscription: data });
+      const response = await api.post<SubscriptionResponse>('/subscriptions', { subscription: data });
       return response.data;
     } catch (error: any) {
       return {
@@ -86,7 +90,7 @@ class SubscriptionService {
 
   async updateSubscription(id: string, data: UpdateSubscriptionRequest): Promise<SubscriptionResponse> {
     try {
-      const response = await apiClient.patch<SubscriptionResponse>(`/subscriptions/${id}`, { subscription: data });
+      const response = await api.patch<SubscriptionResponse>(`/subscriptions/${id}`, { subscription: data });
       return response.data;
     } catch (error: any) {
       return {
@@ -99,7 +103,7 @@ class SubscriptionService {
 
   async cancelSubscription(id: string): Promise<SubscriptionResponse> {
     try {
-      const response = await apiClient.delete<SubscriptionResponse>(`/subscriptions/${id}`);
+      const response = await api.delete<SubscriptionResponse>(`/subscriptions/${id}`);
       return response.data;
     } catch (error: any) {
       return {

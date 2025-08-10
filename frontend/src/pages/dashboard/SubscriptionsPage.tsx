@@ -8,6 +8,7 @@ import { SubscriptionStatusIndicator } from '../../components/subscription/Subsc
 import { useSubscriptionLifecycle } from '../../hooks/useSubscriptionLifecycle';
 import { useSubscriptionWebSocket } from '../../hooks/useSubscriptionWebSocket';
 import { Plan, Subscription } from '../../services/subscriptionService';
+import { subscriptionHistoryApi, SubscriptionHistoryResponse } from '../../services/subscriptionHistoryApi';
 
 // Mock plans data until we have a plans API endpoint
 const mockPlans: Plan[] = [
@@ -103,10 +104,25 @@ export const SubscriptionsPage: React.FC = () => {
   const [selectedSubscription, setSelectedSubscription] = useState<Subscription | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [notification, setNotification] = useState<string | null>(null);
+  const [subscriptionHistory, setSubscriptionHistory] = useState<SubscriptionHistoryResponse | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [showAllHistory, setShowAllHistory] = useState(false);
 
   // Use lifecycle management and real-time updates
   const { checkSubscriptionStatus, getDaysUntilExpiry } = useSubscriptionLifecycle();
   useSubscriptionWebSocket(); // Maintain realtime updates without displaying status
+
+  const loadSubscriptionHistory = async () => {
+    try {
+      setHistoryLoading(true);
+      const historyData = await subscriptionHistoryApi.getHistory();
+      setSubscriptionHistory(historyData);
+    } catch (error) {
+      console.error('Failed to load subscription history:', error);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
 
   useEffect(() => {
     // Set mock plans (in real app, this would be an API call)
@@ -114,6 +130,9 @@ export const SubscriptionsPage: React.FC = () => {
     
     // Fetch real subscriptions
     dispatch(fetchSubscriptions());
+    
+    // Load subscription history
+    loadSubscriptionHistory();
   }, [dispatch]);
 
   const handleSubscribe = async (planId: string) => {
@@ -183,12 +202,40 @@ export const SubscriptionsPage: React.FC = () => {
     return subscriptions.find(sub => sub.plan.id === planId && sub.status === 'active');
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
+  const formatDate = (dateString: string | null | undefined) => {
+    if (!dateString) return 'No expiration';
+    
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return 'No expiration';
+    
+    return date.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
     });
+  };
+
+  const formatPrice = (price: {cents: number; currency_iso: string} | number | null | undefined, interval?: string) => {
+    let priceCents: number;
+    
+    if (price == null) {
+      return 'Free';
+    }
+    
+    if (typeof price === 'object' && 'cents' in price) {
+      priceCents = price.cents;
+    } else if (typeof price === 'number') {
+      priceCents = price;
+    } else {
+      return 'Free';
+    }
+    
+    if (priceCents === 0 || isNaN(priceCents)) {
+      return 'Free';
+    }
+    
+    const formattedPrice = (priceCents / 100).toFixed(2);
+    return interval ? `$${formattedPrice}/${interval}` : `$${formattedPrice}`;
   };
 
 
@@ -226,7 +273,7 @@ export const SubscriptionsPage: React.FC = () => {
             <div>
               <p className="text-sm text-theme-secondary">Plan</p>
               <p className="text-lg font-medium text-theme-primary">{currentSubscription.plan.name}</p>
-              <p className="text-sm text-theme-secondary">${(currentSubscription.plan.price / 100).toFixed(2)}/{currentSubscription.plan.interval}</p>
+              <p className="text-sm text-theme-secondary">{formatPrice(currentSubscription.plan.price, currentSubscription.plan.billing_cycle)}</p>
             </div>
             <div>
               <p className="text-sm text-theme-secondary mb-2">Status</p>
@@ -236,10 +283,16 @@ export const SubscriptionsPage: React.FC = () => {
               />
             </div>
             <div>
-              <p className="text-sm text-theme-secondary">Next Billing</p>
+              <p className="text-sm text-theme-secondary">
+                {currentSubscription.currentPeriodEnd ? 'Next Billing' : 'Billing'}
+              </p>
               <p className="text-lg font-medium text-theme-primary">{formatDate(currentSubscription.currentPeriodEnd)}</p>
               <p className="text-sm text-theme-secondary">
-                {getDaysUntilExpiry(currentSubscription)} days remaining
+                {currentSubscription.currentPeriodEnd ? (
+                  `${getDaysUntilExpiry(currentSubscription)} days remaining`
+                ) : (
+                  'Never expires'
+                )}
               </p>
             </div>
             <div>
@@ -300,72 +353,94 @@ export const SubscriptionsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* All Subscriptions */}
-      {subscriptions.length > 0 && (
-        <div className="card-theme shadow">
-          <div className="px-6 py-4 border-b border-theme">
-            <h3 className="text-lg font-medium text-theme-primary">All Subscriptions</h3>
-            <p className="text-sm text-theme-secondary mt-1">History of all your subscriptions</p>
-          </div>
-          <div className="overflow-hidden">
-            <table className="min-w-full divide-y divide-theme">
-              <thead className="bg-theme-background-secondary">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-theme-secondary uppercase tracking-wider">
-                    Plan
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-theme-secondary uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-theme-secondary uppercase tracking-wider">
-                    Created
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-theme-secondary uppercase tracking-wider">
-                    Next Billing
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-theme-secondary uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="card-theme divide-y divide-theme">
-                {subscriptions.map((subscription) => (
-                  <tr key={subscription.id}>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-theme-primary">{subscription.plan.name}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <SubscriptionStatusIndicator 
-                        subscription={subscription} 
-                        showDetails={false}
-                      />
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-theme-primary">
-                      {formatDate(subscription.createdAt)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-theme-primary">
-                      {subscription.status === 'active' ? formatDate(subscription.currentPeriodEnd) : '-'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      {subscription.status === 'active' && (
-                        <button
-                          onClick={() => {
-                            setSelectedSubscription(subscription);
-                            setIsModalOpen(true);
-                          }}
-                          className="text-theme-link hover:text-theme-link-hover"
-                        >
-                          Manage
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      {/* Subscription History Timeline */}
+      <div className="card-theme shadow">
+        <div className="px-6 py-4 border-b border-theme">
+          <div className="flex justify-between items-center">
+            <div>
+              <h3 className="text-lg font-medium text-theme-primary">Subscription History</h3>
+              <p className="text-sm text-theme-secondary mt-1">Track changes to your subscription over time</p>
+            </div>
+            {subscriptionHistory && subscriptionHistory.history.length > 5 && (
+              <button
+                onClick={() => setShowAllHistory(!showAllHistory)}
+                className="text-theme-link hover:text-theme-link-hover text-sm font-medium"
+              >
+                {showAllHistory ? 'Show Less' : `Show All (${subscriptionHistory.total_events})`}
+              </button>
+            )}
           </div>
         </div>
-      )}
+        <div className="p-6">
+          {historyLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-theme-link"></div>
+              <span className="ml-2 text-theme-secondary">Loading subscription history...</span>
+            </div>
+          ) : subscriptionHistory && subscriptionHistory.history.length > 0 ? (
+            <div className="space-y-6">
+              <div className="flow-root">
+                <ul className="-mb-8">
+                  {(showAllHistory ? subscriptionHistory.history : subscriptionHistory.history.slice(0, 5)).map((event, eventIdx) => (
+                    <li key={event.id}>
+                      <div className="relative pb-8">
+                        {eventIdx !== (showAllHistory ? subscriptionHistory.history.length : Math.min(5, subscriptionHistory.history.length)) - 1 ? (
+                          <span className="absolute left-4 top-4 -ml-px h-full w-0.5 bg-theme-border" aria-hidden="true" />
+                        ) : null}
+                        <div className="relative flex space-x-3">
+                          <div>
+                            <span className={`h-8 w-8 rounded-full flex items-center justify-center ring-8 ring-theme-background text-lg ${subscriptionHistoryApi.getEventColor(event.event_type)} bg-theme-background`}>
+                              {subscriptionHistoryApi.getEventIcon(event.event_type)}
+                            </span>
+                          </div>
+                          <div className="flex min-w-0 flex-1 justify-between space-x-4 pt-1.5">
+                            <div>
+                              <p className="text-sm text-theme-primary font-medium">
+                                {subscriptionHistoryApi.formatEventType(event.event_type)}
+                              </p>
+                              <p className="text-sm text-theme-secondary">
+                                {subscriptionHistoryApi.getEventDetails(event)}
+                              </p>
+                              {event.user && (
+                                <p className="text-xs text-theme-secondary mt-1">
+                                  by {event.user.name}
+                                </p>
+                              )}
+                            </div>
+                            <div className="whitespace-nowrap text-right text-sm text-theme-secondary">
+                              <time dateTime={event.created_at}>
+                                {subscriptionHistoryApi.formatRelativeTime(event.created_at)}
+                              </time>
+                              <div className="text-xs text-theme-secondary mt-1">
+                                {subscriptionHistoryApi.formatDate(event.created_at)}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <div className="text-theme-secondary mb-4">
+                <svg className="mx-auto h-12 w-12 text-theme-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012-2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                </svg>
+              </div>
+              <h3 className="text-sm font-medium text-theme-primary">No subscription history</h3>
+              <p className="text-sm text-theme-secondary">
+                {currentSubscription ? 
+                  "Subscription changes and events will appear here." :
+                  "Create a subscription to start tracking your subscription history."
+                }
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Subscription Management Modal */}
       <SubscriptionModal

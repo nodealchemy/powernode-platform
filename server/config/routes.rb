@@ -78,7 +78,11 @@ Rails.application.routes.draw do
 
       # Payment-related endpoints
       resources :payment_methods, except: [ :show ]
-      resources :subscriptions
+      resources :subscriptions do
+        collection do
+          get :history
+        end
+      end
       resources :invoices, only: [ :index, :show ]
       resources :payments, only: [ :index, :show ]
 

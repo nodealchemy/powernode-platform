@@ -9,11 +9,33 @@ interface SubscriptionPlanCardProps {
   loading?: boolean;
 }
 
-const formatPrice = (price: number, currency: string = 'USD', interval: string = 'monthly') => {
+const formatPrice = (price: {cents: number; currency_iso: string} | number | null | undefined, currency?: string, interval?: string) => {
+  let priceCents: number;
+  let actualCurrency = currency;
+  
+  if (price == null) {
+    return 'Free';
+  }
+  
+  if (typeof price === 'object' && 'cents' in price) {
+    priceCents = price.cents;
+    actualCurrency = actualCurrency || price.currency_iso;
+  } else if (typeof price === 'number') {
+    priceCents = price;
+  } else {
+    return 'Free';
+  }
+  
+  if (priceCents === 0 || isNaN(priceCents)) {
+    return 'Free';
+  }
+  
   const formattedPrice = new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency: currency,
-  }).format(price / 100);
+    currency: actualCurrency || 'USD',
+  }).format(priceCents / 100);
+  
+  if (!interval) return formattedPrice;
   
   const intervalLabel = interval === 'yearly' ? 'year' : interval === 'quarterly' ? 'quarter' : 'month';
   return `${formattedPrice}/${intervalLabel}`;
@@ -64,10 +86,10 @@ export const SubscriptionPlanCard: React.FC<SubscriptionPlanCardProps> = ({
       </div>
       
       <p className="text-3xl font-bold text-theme-primary mt-2">
-        {formatPrice(plan.price, plan.currency, plan.interval)}
+        {formatPrice(plan.price, plan.currency, plan.billing_cycle || plan.interval)}
       </p>
       
-      {plan.trialDays > 0 && !isActive && (
+      {plan.trialDays && plan.trialDays > 0 && !isActive && (
         <p className="text-sm text-green-600 mt-1">{plan.trialDays}-day free trial</p>
       )}
       

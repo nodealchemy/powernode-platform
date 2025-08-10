@@ -1,4 +1,4 @@
-import { apiClient } from './api';
+import { api } from './api';
 
 export interface PaymentGatewayStatus {
   status: 'connected' | 'configured' | 'not_configured' | 'error';
@@ -110,13 +110,13 @@ export interface GatewayDetails {
 class PaymentGatewaysApi {
   // Get overview of all payment gateways
   async getOverview(): Promise<PaymentGatewaysOverview> {
-    const response = await apiClient.get('/payment_gateways');
+    const response = await api.get('/payment_gateways');
     return response.data;
   }
 
   // Get detailed information for a specific gateway
   async getGatewayDetails(gateway: 'stripe' | 'paypal'): Promise<GatewayDetails> {
-    const response = await apiClient.get(`/payment_gateways/${gateway}`);
+    const response = await api.get(`/payment_gateways/${gateway}`);
     return response.data;
   }
 
@@ -125,7 +125,7 @@ class PaymentGatewaysApi {
     gateway: 'stripe' | 'paypal',
     configuration: Partial<PaymentGatewayConfig>
   ): Promise<{ message: string; gateway: string; configuration: PaymentGatewayConfig }> {
-    const response = await apiClient.put(`/payment_gateways/${gateway}`, {
+    const response = await api.put(`/payment_gateways/${gateway}`, {
       configuration
     });
     return response.data;
@@ -133,7 +133,7 @@ class PaymentGatewaysApi {
 
   // Test gateway connection
   async testConnection(gateway: 'stripe' | 'paypal'): Promise<TestConnectionResult> {
-    const response = await apiClient.post(`/payment_gateways/${gateway}/test_connection`);
+    const response = await api.post(`/payment_gateways/${gateway}/test_connection`);
     return response.data;
   }
 
@@ -143,7 +143,7 @@ class PaymentGatewaysApi {
     page = 1,
     perPage = 20
   ): Promise<PaginatedResponse<WebhookEvent>> {
-    const response = await apiClient.get(`/payment_gateways/${gateway}/webhook_events`, {
+    const response = await api.get(`/payment_gateways/${gateway}/webhook_events`, {
       params: { page, per_page: perPage }
     });
     return {
@@ -158,7 +158,7 @@ class PaymentGatewaysApi {
     page = 1,
     perPage = 20
   ): Promise<PaginatedResponse<PaymentTransaction>> {
-    const response = await apiClient.get(`/payment_gateways/${gateway}/transactions`, {
+    const response = await api.get(`/payment_gateways/${gateway}/transactions`, {
       params: { page, per_page: perPage }
     });
     return {

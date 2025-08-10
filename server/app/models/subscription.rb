@@ -27,8 +27,9 @@ class Subscription < ApplicationRecord
   # Callbacks
   before_create :set_trial_period
   after_initialize :set_defaults
-  after_create :schedule_lifecycle_events
+  after_create :schedule_lifecycle_events, :log_subscription_creation
   after_update :handle_status_changes, if: :saved_change_to_status?
+  after_update :log_subscription_changes, if: :saved_changes?
 
   # State Machine
   aasm column: :status do
@@ -283,5 +284,114 @@ class Subscription < ApplicationRecord
     # Clear any scheduled jobs related to this subscription
     # Note: In a real implementation, you'd want to cancel specific scheduled jobs
     # This is a simplified approach
+  end
+
+  def log_subscription_creation
+    AuditLog.log_action(
+      action: "create",
+      resource: self,
+      account: account,
+      new_values: subscription_audit_values,
+      source: "system",
+      metadata: {
+        event_type: "subscription_created",
+        plan_name: plan.name,
+        trial_end: trial_end&.iso8601
+      }
+    )
+  end
+
+  def log_subscription_changes
+    return unless persisted? && saved_changes.present?
+    
+    # Track significant changes
+    significant_changes = saved_changes.slice(
+      'status', 'plan_id', 'quantity', 'current_period_start', 
+      'current_period_end', 'trial_end', 'canceled_at', 'ended_at'
+    )
+    
+    return if significant_changes.empty?
+    
+    old_values = {}
+    new_values = {}
+    
+    significant_changes.each do |field, (old_val, new_val)|
+      case field
+      when 'plan_id'
+        old_plan = old_val ? Plan.find_by(id: old_val) : nil
+        new_plan = new_val ? Plan.find_by(id: new_val) : nil
+        old_values['plan'] = old_plan&.name
+        new_values['plan'] = new_plan&.name
+        old_values['plan_price'] = old_plan&.price_cents
+        new_values['plan_price'] = new_plan&.price_cents
+      when 'current_period_start', 'current_period_end', 'trial_end', 'canceled_at', 'ended_at'
+        old_values[field] = old_val&.iso8601
+        new_values[field] = new_val&.iso8601
+      else
+        old_values[field] = old_val
+        new_values[field] = new_val
+      end
+    end
+    
+    # Determine the primary action type
+    action_type = if saved_changes.key?('plan_id')
+                    'subscription_change'
+                  elsif saved_changes.key?('status')
+                    'subscription_change'
+                  elsif saved_changes.key?('quantity')
+                    'subscription_change'
+                  else
+                    'update'
+                  end
+    
+    AuditLog.log_action(
+      action: action_type,
+      resource: self,
+      account: account,
+      old_values: old_values,
+      new_values: new_values,
+      source: "system",
+      metadata: {
+        event_type: determine_event_type(saved_changes),
+        changes_count: significant_changes.keys.count,
+        changed_fields: significant_changes.keys
+      }
+    )
+  end
+
+  def subscription_audit_values
+    {
+      status: status,
+      plan: plan.name,
+      plan_price: plan.price_cents,
+      quantity: quantity,
+      trial_end: trial_end&.iso8601,
+      current_period_start: current_period_start&.iso8601,
+      current_period_end: current_period_end&.iso8601
+    }
+  end
+
+  def determine_event_type(changes)
+    if changes.key?('status')
+      old_status, new_status = changes['status']
+      case new_status
+      when 'active'
+        old_status == 'trialing' ? 'trial_converted' : 'subscription_activated'
+      when 'canceled'
+        'subscription_canceled'
+      when 'past_due'
+        'payment_failed'
+      when 'trialing'
+        'trial_started'
+      else
+        'status_changed'
+      end
+    elsif changes.key?('plan_id')
+      'plan_changed'
+    elsif changes.key?('quantity')
+      'quantity_changed'
+    else
+      'subscription_updated'
+    end
   end
 end

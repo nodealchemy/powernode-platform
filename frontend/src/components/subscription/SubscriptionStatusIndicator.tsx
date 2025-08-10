@@ -17,6 +17,15 @@ export const SubscriptionStatusIndicator: React.FC<SubscriptionStatusIndicatorPr
   const status = checkSubscriptionStatus(subscription);
   const daysUntilExpiry = getDaysUntilExpiry(subscription);
 
+  const formatDate = (dateString: string | null | undefined) => {
+    if (!dateString) return 'No expiration';
+    
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return 'No expiration';
+    
+    return date.toLocaleDateString();
+  };
+
   const getStatusConfig = () => {
     switch (status) {
       case 'active':
@@ -24,7 +33,9 @@ export const SubscriptionStatusIndicator: React.FC<SubscriptionStatusIndicatorPr
           color: 'bg-theme-success text-theme-success',
           icon: '✓',
           message: 'Active',
-          description: showDetails ? `Next billing: ${new Date(subscription.currentPeriodEnd).toLocaleDateString()}` : undefined
+          description: showDetails ? (
+            subscription.currentPeriodEnd ? `Next billing: ${formatDate(subscription.currentPeriodEnd)}` : 'Never expires'
+          ) : undefined
         };
       case 'trial_ending':
         return {

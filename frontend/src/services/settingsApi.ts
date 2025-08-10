@@ -1,4 +1,4 @@
-import { apiClient } from './api';
+import { api } from './api';
 
 // Types for settings data
 export interface UserPreferences {
@@ -74,19 +74,19 @@ export interface SettingsUpdateRequest {
 class SettingsApiService {
   // Get all settings
   async getSettings(): Promise<SettingsData> {
-    const response = await apiClient.get('/settings');
+    const response = await api.get('/settings');
     return response.data.data || response.data;
   }
 
   // Update all settings
   async updateSettings(settings: SettingsUpdateRequest): Promise<SettingsData> {
-    const response = await apiClient.put('/settings', { settings });
+    const response = await api.put('/settings', { settings });
     return response.data.data || response.data;
   }
 
   // Get user preferences only
   async getPreferences(): Promise<UserPreferences> {
-    const response = await apiClient.get('/settings/preferences');
+    const response = await api.get('/settings/preferences');
     return response.data.data || response.data;
   }
 
@@ -94,7 +94,7 @@ class SettingsApiService {
   async updatePreferences(preferences: Partial<UserPreferences>): Promise<UserPreferences> {
     try {
       console.log('Updating preferences:', preferences);
-      const response = await apiClient.put('/settings/preferences', { preferences });
+      const response = await api.put('/settings/preferences', { preferences });
       console.log('Preferences update response:', response.data);
       return response.data.data || response.data;
     } catch (error) {
@@ -105,7 +105,7 @@ class SettingsApiService {
 
   // Get notification preferences only
   async getNotifications(): Promise<NotificationPreferences> {
-    const response = await apiClient.get('/settings/notifications');
+    const response = await api.get('/settings/notifications');
     return response.data.data || response.data;
   }
 
@@ -113,7 +113,7 @@ class SettingsApiService {
   async updateNotifications(notifications: Partial<NotificationPreferences>): Promise<NotificationPreferences> {
     try {
       console.log('Updating notifications:', notifications);
-      const response = await apiClient.put('/settings/notifications', { notifications });
+      const response = await api.put('/settings/notifications', { notifications });
       console.log('Notifications update response:', response.data);
       return response.data.data || response.data;
     } catch (error) {
@@ -132,7 +132,7 @@ class SettingsApiService {
     password_confirmation?: string;
   }): Promise<any> {
     // Use the settings endpoint for profile updates
-    const response = await apiClient.put('/settings', { 
+    const response = await api.put('/settings', { 
       settings: {
         security_settings: userData
       }
@@ -143,7 +143,7 @@ class SettingsApiService {
   // Update account settings
   async updateAccount(accountData: Partial<AccountSettings>): Promise<any> {
     // Use the settings endpoint for account updates
-    const response = await apiClient.put('/settings', { 
+    const response = await api.put('/settings', { 
       settings: {
         account_settings: accountData
       }
@@ -157,7 +157,7 @@ class SettingsApiService {
     password: string;
     password_confirmation: string;
   }): Promise<any> {
-    const response = await apiClient.put('/auth/change-password', data);
+    const response = await api.put('/auth/change-password', data);
     return response.data;
   }
 }

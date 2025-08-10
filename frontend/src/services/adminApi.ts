@@ -1,4 +1,4 @@
-import { apiClient } from './api';
+import { api } from './api';
 
 // Types for admin data
 export interface PlatformStats {
@@ -120,13 +120,13 @@ export interface AdminSettingsUpdateRequest {
 class AdminApiService {
   // Get all admin settings
   async getAdminSettings(): Promise<AdminSettingsData> {
-    const response = await apiClient.get('/admin_settings');
+    const response = await api.get('/admin_settings');
     return response.data;
   }
 
   // Update admin settings
   async updateAdminSettings(settings: AdminSettingsUpdateRequest): Promise<AdminSettingsData> {
-    const response = await apiClient.put('/admin_settings', { admin_settings: settings });
+    const response = await api.put('/admin_settings', { admin_settings: settings });
     return response.data;
   }
 
@@ -138,7 +138,7 @@ class AdminApiService {
     inactive_count: number;
     suspended_count: number;
   }> {
-    const response = await apiClient.get('/admin_settings/users');
+    const response = await api.get('/admin_settings/users');
     return response.data;
   }
 
@@ -150,7 +150,7 @@ class AdminApiService {
     suspended_count: number;
     cancelled_count: number;
   }> {
-    const response = await apiClient.get('/admin_settings/accounts');
+    const response = await api.get('/admin_settings/accounts');
     return response.data;
   }
 
@@ -159,13 +159,13 @@ class AdminApiService {
     logs: AdminLog[];
     total_count: number;
   }> {
-    const response = await apiClient.get('/admin_settings/system_logs');
+    const response = await api.get('/admin_settings/system_logs');
     return response.data;
   }
 
   // Suspend an account
   async suspendAccount(accountId: string, reason?: string): Promise<void> {
-    await apiClient.post('/admin_settings/suspend_account', {
+    await api.post('/admin_settings/suspend_account', {
       account_id: accountId,
       reason
     });
@@ -173,7 +173,7 @@ class AdminApiService {
 
   // Activate an account
   async activateAccount(accountId: string, reason?: string): Promise<void> {
-    await apiClient.post('/admin_settings/activate_account', {
+    await api.post('/admin_settings/activate_account', {
       account_id: accountId,
       reason
     });
@@ -181,7 +181,7 @@ class AdminApiService {
 
   // Update user status (using existing users endpoint)
   async updateUserStatus(userId: string, status: 'active' | 'inactive' | 'suspended'): Promise<any> {
-    const response = await apiClient.put(`/users/${userId}`, {
+    const response = await api.put(`/users/${userId}`, {
       user: { status }
     });
     return response.data;
@@ -189,18 +189,18 @@ class AdminApiService {
 
   // Delete user (using existing users endpoint)
   async deleteUser(userId: string): Promise<void> {
-    await apiClient.delete(`/users/${userId}`);
+    await api.delete(`/users/${userId}`);
   }
 
   // Get global analytics (if user has permission)
   async getGlobalAnalytics(): Promise<any> {
-    const response = await apiClient.get('/analytics/revenue?global=true');
+    const response = await api.get('/analytics/revenue?global=true');
     return response.data;
   }
 
   // Export system data
   async exportSystemData(type: 'users' | 'accounts' | 'logs' | 'analytics'): Promise<Blob> {
-    const response = await apiClient.get(`/analytics/export?type=${type}`, {
+    const response = await api.get(`/analytics/export?type=${type}`, {
       responseType: 'blob'
     });
     return response.data;

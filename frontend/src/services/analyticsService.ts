@@ -1,4 +1,4 @@
-import { apiClient as api } from './api';
+import { api } from './api';
 
 export interface AnalyticsResponse<T> {
   success: boolean;

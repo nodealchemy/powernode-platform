@@ -1,4 +1,4 @@
-import { apiClient } from './api';
+import { api } from './api';
 
 export interface LoginCredentials {
   email: string;
@@ -39,44 +39,44 @@ export interface RefreshTokenResponse {
 
 class AuthAPI {
   async login(credentials: LoginCredentials) {
-    return apiClient.post<AuthResponse>('/auth/login', credentials);
+    return api.post<AuthResponse>('/auth/login', credentials);
   }
 
   async register(userData: RegisterData) {
-    return apiClient.post<AuthResponse>('/auth/register', userData);
+    return api.post<AuthResponse>('/auth/register', userData);
   }
 
   async logout() {
-    return apiClient.post('/auth/logout');
+    return api.post('/auth/logout');
   }
 
   async refreshToken(refreshToken: string) {
-    return apiClient.post<RefreshTokenResponse>('/auth/refresh', {
+    return api.post<RefreshTokenResponse>('/auth/refresh', {
       refresh_token: refreshToken,
     });
   }
 
   async getCurrentUser() {
-    return apiClient.get('/auth/me');
+    return api.get('/auth/me');
   }
 
   async forgotPassword(email: string) {
-    return apiClient.post('/auth/forgot-password', { email });
+    return api.post('/auth/forgot-password', { email });
   }
 
   async resetPassword(token: string, password: string) {
-    return apiClient.post('/auth/reset-password', { 
+    return api.post('/auth/reset-password', { 
       token, 
       password 
     });
   }
 
   async verifyEmail(token: string) {
-    return apiClient.post('/auth/verify-email', { token });
+    return api.post('/auth/verify-email', { token });
   }
 
   async resendVerification() {
-    return apiClient.post('/auth/resend-verification');
+    return api.post('/auth/resend-verification');
   }
 }
 

@@ -1,4 +1,4 @@
-import { apiClient } from './api';
+import { api } from './api';
 
 export interface BillingOverview {
   outstanding: number;
@@ -93,19 +93,19 @@ export interface PaginatedResponse<T> {
 class BillingApi {
   // Get billing overview with summary statistics
   async getOverview(): Promise<BillingOverview> {
-    const response = await apiClient.get('/billing');
+    const response = await api.get('/billing');
     return response.data;
   }
 
   // Get subscription billing information
   async getSubscriptionBilling(): Promise<SubscriptionBilling> {
-    const response = await apiClient.get('/billing/subscription');
+    const response = await api.get('/billing/subscription');
     return response.data;
   }
 
   // Get invoices with pagination
   async getInvoices(page = 1, perPage = 20): Promise<PaginatedResponse<Invoice>> {
-    const response = await apiClient.get('/billing/invoices', {
+    const response = await api.get('/billing/invoices', {
       params: { page, per_page: perPage }
     });
     return {
@@ -125,7 +125,7 @@ class BillingApi {
     };
     errors?: string[];
   }> {
-    const response = await apiClient.post('/billing/invoices', {
+    const response = await api.post('/billing/invoices', {
       invoice: {
         currency: invoiceData.currency,
         due_date: invoiceData.due_date,
@@ -138,7 +138,7 @@ class BillingApi {
 
   // Get payment methods
   async getPaymentMethods(): Promise<{ payment_methods: PaymentMethod[] }> {
-    const response = await apiClient.get('/billing/payment-methods');
+    const response = await api.get('/billing/payment-methods');
     return response.data;
   }
 
@@ -148,7 +148,7 @@ class BillingApi {
     payment_method?: PaymentMethod;
     error?: string;
   }> {
-    const response = await apiClient.post('/billing/payment-methods', {
+    const response = await api.post('/billing/payment-methods', {
       payment_method_id: paymentMethodId,
       provider
     });
@@ -162,7 +162,7 @@ class BillingApi {
     payment_intent_id?: string;
     error?: string;
   }> {
-    const response = await apiClient.post('/billing/payment-intent', request);
+    const response = await api.post('/billing/payment-intent', request);
     return response.data;
   }
 

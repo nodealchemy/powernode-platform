@@ -1,4 +1,4 @@
-import { apiClient } from './api';
+import { api } from './api';
 
 // Types for plans data
 export interface Plan {
@@ -81,19 +81,19 @@ export interface PlanUpdateResponse {
 class PlansApiService {
   // Get all plans
   async getPlans(): Promise<PlansListResponse> {
-    const response = await apiClient.get('/plans');
+    const response = await api.get('/plans');
     return response.data;
   }
 
   // Get a specific plan
   async getPlan(planId: string): Promise<PlanResponse> {
-    const response = await apiClient.get(`/plans/${planId}`);
+    const response = await api.get(`/plans/${planId}`);
     return response.data;
   }
 
   // Create a new plan
   async createPlan(planData: PlanFormData): Promise<PlanCreateResponse> {
-    const response = await apiClient.post('/plans', {
+    const response = await api.post('/plans', {
       plan: planData
     });
     return response.data;
@@ -101,7 +101,7 @@ class PlansApiService {
 
   // Update an existing plan
   async updatePlan(planId: string, planData: Partial<PlanFormData>): Promise<PlanUpdateResponse> {
-    const response = await apiClient.put(`/plans/${planId}`, {
+    const response = await api.put(`/plans/${planId}`, {
       plan: planData
     });
     return response.data;
@@ -109,24 +109,28 @@ class PlansApiService {
 
   // Delete a plan
   async deletePlan(planId: string): Promise<{ success: boolean; message: string }> {
-    const response = await apiClient.delete(`/plans/${planId}`);
+    const response = await api.delete(`/plans/${planId}`);
     return response.data;
   }
 
   // Duplicate a plan
   async duplicatePlan(planId: string): Promise<PlanCreateResponse> {
-    const response = await apiClient.post(`/plans/${planId}/duplicate`);
+    const response = await api.post(`/plans/${planId}/duplicate`);
     return response.data;
   }
 
   // Toggle plan status (active/inactive)
   async togglePlanStatus(planId: string): Promise<PlanUpdateResponse> {
-    const response = await apiClient.put(`/plans/${planId}/toggle_status`);
+    const response = await api.put(`/plans/${planId}/toggle_status`);
     return response.data;
   }
 
   // Helper methods for plan data processing
-  formatPrice(priceCents: number, currency: string): string {
+  formatPrice(priceCents: number | null | undefined, currency: string): string {
+    if (priceCents == null || priceCents === 0 || isNaN(priceCents)) {
+      return 'Free';
+    }
+    
     const amount = priceCents / 100;
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -134,7 +138,11 @@ class PlansApiService {
     }).format(amount);
   }
 
-  calculateMonthlyPrice(priceCents: number, currency: string, billingCycle: string): string {
+  calculateMonthlyPrice(priceCents: number | null | undefined, currency: string, billingCycle: string): string {
+    if (priceCents == null || priceCents === 0 || isNaN(priceCents)) {
+      return 'Free';
+    }
+    
     let monthlyAmount = priceCents / 100;
     
     switch (billingCycle) {

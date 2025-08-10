@@ -1,4 +1,4 @@
-import { apiClient } from './api';
+import { api } from './api';
 
 export interface SystemMetrics {
   total_users: number;
@@ -128,13 +128,13 @@ export interface AdminOverviewData {
 class AdminSettingsApi {
   // Get admin overview data
   async getOverview(): Promise<AdminOverviewData> {
-    const response = await apiClient.get('/admin_settings');
+    const response = await api.get('/admin_settings');
     return response.data;
   }
 
   // Get detailed system metrics
   async getMetrics(): Promise<SystemMetrics> {
-    const response = await apiClient.get('/admin_settings/metrics');
+    const response = await api.get('/admin_settings/metrics');
     return response.data;
   }
 
@@ -162,7 +162,7 @@ class AdminSettingsApi {
     if (options.role && options.role !== 'all') params.set('role', options.role);
     if (options.status && options.status !== 'all') params.set('status', options.status);
     
-    const response = await apiClient.get(`/admin_settings/users?${params.toString()}`);
+    const response = await api.get(`/admin_settings/users?${params.toString()}`);
     return response.data;
   }
 
@@ -190,7 +190,7 @@ class AdminSettingsApi {
     if (options.status && options.status !== 'all') params.set('status', options.status);
     if (options.plan && options.plan !== 'all') params.set('plan', options.plan);
     
-    const response = await apiClient.get(`/admin_settings/accounts?${params.toString()}`);
+    const response = await api.get(`/admin_settings/accounts?${params.toString()}`);
     return response.data;
   }
 
@@ -218,13 +218,13 @@ class AdminSettingsApi {
     if (options.source && options.source !== 'all') params.set('source', options.source);
     if (options.since) params.set('since', options.since);
     
-    const response = await apiClient.get(`/admin_settings/system_logs?${params.toString()}`);
+    const response = await api.get(`/admin_settings/system_logs?${params.toString()}`);
     return response.data;
   }
 
   // Suspend account
   async suspendAccount(accountId: string, reason?: string): Promise<{ success: boolean; message: string }> {
-    const response = await apiClient.post('/admin_settings/suspend_account', {
+    const response = await api.post('/admin_settings/suspend_account', {
       account_id: accountId,
       reason
     });
@@ -233,7 +233,7 @@ class AdminSettingsApi {
 
   // Activate account
   async activateAccount(accountId: string): Promise<{ success: boolean; message: string }> {
-    const response = await apiClient.post('/admin_settings/activate_account', {
+    const response = await api.post('/admin_settings/activate_account', {
       account_id: accountId
     });
     return response.data;
@@ -245,7 +245,7 @@ class AdminSettingsApi {
     settings: AdminSettings;
     errors?: string[];
   }> {
-    const response = await apiClient.put('/admin_settings', { admin_settings: settings });
+    const response = await api.put('/admin_settings', { admin_settings: settings });
     return response.data;
   }
 
@@ -261,7 +261,7 @@ class AdminSettingsApi {
       status: 'healthy' | 'warning' | 'critical';
     };
   }> {
-    const response = await apiClient.get('/admin_settings/health');
+    const response = await api.get('/admin_settings/health');
     return response.data;
   }
 

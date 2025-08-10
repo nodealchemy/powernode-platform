@@ -1,4 +1,4 @@
-import { apiClient } from './api';
+import { api } from './api';
 
 export interface Customer {
   id: string;
@@ -104,13 +104,13 @@ class CustomersApi {
     if (options.status && options.status !== 'all') params.set('status', options.status);
     if (options.plan && options.plan !== 'all') params.set('plan', options.plan);
     
-    const response = await apiClient.get(`/customers?${params.toString()}`);
+    const response = await api.get(`/customers?${params.toString()}`);
     return response.data;
   }
 
   // Get detailed customer information
   async getCustomer(id: string): Promise<{ customer: DetailedCustomer }> {
-    const response = await apiClient.get(`/customers/${id}`);
+    const response = await api.get(`/customers/${id}`);
     return response.data;
   }
 
@@ -120,7 +120,7 @@ class CustomersApi {
     customer?: Customer;
     errors?: string[];
   }> {
-    const response = await apiClient.post('/customers', { customer: customerData });
+    const response = await api.post('/customers', { customer: customerData });
     return response.data;
   }
 
@@ -130,19 +130,19 @@ class CustomersApi {
     customer?: Customer;
     errors?: string[];
   }> {
-    const response = await apiClient.put(`/customers/${id}`, { customer: customerData });
+    const response = await api.put(`/customers/${id}`, { customer: customerData });
     return response.data;
   }
 
   // Deactivate customer
   async deactivateCustomer(id: string): Promise<{ success: boolean }> {
-    const response = await apiClient.delete(`/customers/${id}`);
+    const response = await api.delete(`/customers/${id}`);
     return response.data;
   }
 
   // Get customer statistics
   async getCustomerStats(): Promise<CustomerStats> {
-    const response = await apiClient.get('/customers/stats');
+    const response = await api.get('/customers/stats');
     return response.data;
   }
 

@@ -25,19 +25,43 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
 
   if (!isOpen || !subscription) return null;
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
+  const formatDate = (dateString: string | null | undefined) => {
+    if (!dateString) return 'No expiration';
+    
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return 'No expiration';
+    
+    return date.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
     });
   };
 
-  const formatPrice = (price: number, currency: string = 'USD') => {
+  const formatPrice = (price: {cents: number; currency_iso: string} | number | null | undefined, currency?: string) => {
+    let priceCents: number;
+    
+    if (price == null) {
+      return 'Free';
+    }
+    
+    if (typeof price === 'object' && 'cents' in price) {
+      priceCents = price.cents;
+      currency = currency || price.currency_iso;
+    } else if (typeof price === 'number') {
+      priceCents = price;
+    } else {
+      return 'Free';
+    }
+    
+    if (priceCents === 0 || isNaN(priceCents)) {
+      return 'Free';
+    }
+    
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: currency,
-    }).format(price / 100);
+      currency: currency || 'USD',
+    }).format(priceCents / 100);
   };
 
   const getStatusColor = (status: string) => {
@@ -100,7 +124,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
               </div>
               <div>
                 <span className="text-theme-secondary">Price:</span>
-                <p className="font-medium">{formatPrice(subscription.plan.price, subscription.plan.currency)}/{subscription.plan.interval}</p>
+                <p className="font-medium">{formatPrice(subscription.plan.price)}/{subscription.plan.billing_cycle || subscription.plan.interval}</p>
               </div>
               <div>
                 <span className="text-theme-secondary">Status:</span>
@@ -109,7 +133,9 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                 </span>
               </div>
               <div>
-                <span className="text-theme-secondary">Next Billing:</span>
+                <span className="text-theme-secondary">
+                  {subscription.currentPeriodEnd ? 'Next Billing:' : 'Billing:'}
+                </span>
                 <p className="font-medium">{formatDate(subscription.currentPeriodEnd)}</p>
               </div>
               {subscription.trialEndsAt && (
@@ -139,7 +165,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                     <div className="ml-3 flex-1">
                       <div className="flex justify-between items-center">
                         <p className="text-sm font-medium text-theme-primary">{plan.name}</p>
-                        <p className="text-sm text-theme-secondary">{formatPrice(plan.price, plan.currency)}/{plan.interval}</p>
+                        <p className="text-sm text-theme-secondary">{formatPrice(plan.price)}/{plan.billing_cycle || plan.interval}</p>
                       </div>
                     </div>
                   </label>
@@ -174,7 +200,10 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
             <div className="border border-theme-error bg-theme-error p-4 rounded-lg">
               <h5 className="text-sm font-medium text-theme-error mb-2">Cancel Subscription?</h5>
               <p className="text-sm text-theme-error mb-3">
-                Your subscription will remain active until {formatDate(subscription.currentPeriodEnd)}, after which you'll lose access to premium features.
+                {subscription.currentPeriodEnd 
+                  ? `Your subscription will remain active until ${formatDate(subscription.currentPeriodEnd)}, after which you'll lose access to premium features.`
+                  : 'Cancelling will immediately end your subscription and you\'ll lose access to premium features.'
+                }
               </p>
               <div className="flex space-x-2">
                 <button

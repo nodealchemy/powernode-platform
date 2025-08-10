@@ -136,5 +136,5 @@ class APIClient {
 
 const API_BASE_URL = getAPIBaseURL();
 
-export const apiClient = new APIClient(`${API_BASE_URL}/api/v1`);
-export default apiClient;
+export const api = new APIClient(`${API_BASE_URL}/api/v1`);
+export default api;
