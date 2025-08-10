@@ -19,6 +19,7 @@ import { NotificationContainer } from './components/common/NotificationContainer
 // Pages
 import { LoginPage } from './pages/auth/LoginPage';
 import { RegisterPage } from './pages/auth/RegisterPage';
+import { PlanSelectionPage } from './pages/auth/PlanSelectionPage';
 import { DashboardPage } from './pages/dashboard/DashboardPage';
 import { ForgotPasswordPage } from './pages/auth/ForgotPasswordPage';
 import { ResetPasswordPage } from './pages/auth/ResetPasswordPage';
@@ -133,6 +134,14 @@ const AppContent: React.FC = () => {
         <NotificationContainer />
         <Routes>
           {/* Public routes */}
+          <Route
+            path="/plans"
+            element={
+              <PublicRoute>
+                <PlanSelectionPage />
+              </PublicRoute>
+            }
+          />
           <Route
             path="/login"
             element={

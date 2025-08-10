@@ -12,6 +12,7 @@ interface SidebarProps {
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: '📊' },
   { name: 'Analytics', href: '/dashboard/analytics', icon: '📈' },
+  { name: 'Reports', href: '/dashboard/reports', icon: '📋' },
   { name: 'Subscriptions', href: '/dashboard/subscriptions', icon: '💳' },
   { name: 'Customers', href: '/dashboard/customers', icon: '👥' },
   { name: 'Plans', href: '/dashboard/plans', icon: '💎' },

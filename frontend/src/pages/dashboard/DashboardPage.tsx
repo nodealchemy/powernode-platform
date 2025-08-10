@@ -6,6 +6,7 @@ import { DashboardLayout } from '../../components/dashboard/DashboardLayout';
 
 // Import all dashboard pages
 import { AnalyticsPage } from './AnalyticsPage';
+import { ReportsPage } from './ReportsPage';
 import { SubscriptionsPage } from './SubscriptionsPage';
 import { CustomersPage } from './CustomersPage';
 import { PlansPage } from './PlansPage';
@@ -234,6 +235,7 @@ export const DashboardPage: React.FC = () => {
       <Routes>
         <Route path="/" element={<DashboardOverview />} />
         <Route path="/analytics" element={<AnalyticsPage />} />
+        <Route path="/reports" element={<ReportsPage />} />
         <Route path="/subscriptions" element={<SubscriptionsPage />} />
         <Route path="/customers" element={<CustomersPage />} />
         <Route path="/plans" element={<PlansPage />} />

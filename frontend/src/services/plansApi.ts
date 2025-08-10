@@ -20,6 +20,11 @@ export interface Plan {
   updated_at: string;
 }
 
+export interface VolumeDiscountTier {
+  min_quantity: number;
+  discount_percent: number;
+}
+
 export interface DetailedPlan extends Plan {
   features: Record<string, any>;
   limits: Record<string, any>;
@@ -28,6 +33,18 @@ export interface DetailedPlan extends Plan {
   stripe_price_id: string | null;
   paypal_plan_id: string | null;
   can_be_deleted: boolean;
+  // Discount fields
+  has_annual_discount: boolean;
+  annual_discount_percent: number;
+  has_volume_discount: boolean;
+  volume_discount_tiers: VolumeDiscountTier[];
+  has_promotional_discount: boolean;
+  promotional_discount_percent: number;
+  promotional_discount_start: string | null;
+  promotional_discount_end: string | null;
+  promotional_discount_code: string | null;
+  annual_savings_amount: string;
+  annual_savings_percentage: number;
 }
 
 export interface PlanFormData {
@@ -45,6 +62,16 @@ export interface PlanFormData {
   metadata: Record<string, any>;
   stripe_price_id?: string;
   paypal_plan_id?: string;
+  // Discount fields
+  has_annual_discount: boolean;
+  annual_discount_percent: number;
+  has_volume_discount: boolean;
+  volume_discount_tiers: VolumeDiscountTier[];
+  has_promotional_discount: boolean;
+  promotional_discount_percent: number;
+  promotional_discount_start: string;
+  promotional_discount_end: string;
+  promotional_discount_code: string;
 }
 
 export interface PlansListResponse {
@@ -82,6 +109,12 @@ class PlansApiService {
   // Get all plans
   async getPlans(): Promise<PlansListResponse> {
     const response = await api.get('/plans');
+    return response.data;
+  }
+
+  // Get public plans (no auth required - for registration)
+  async getPublicPlans(): Promise<PlansListResponse> {
+    const response = await api.get('/public/plans');
     return response.data;
   }
 

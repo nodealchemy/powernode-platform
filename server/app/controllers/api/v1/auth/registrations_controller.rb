@@ -30,6 +30,29 @@ class Api::V1::Auth::RegistrationsController < ApplicationController
       owner_role = Role.find_by(name: "Owner")
       @user.assign_role(owner_role) if owner_role
 
+      # Create subscription if plan is selected
+      if params[:planId].present?
+        plan = Plan.find_by(id: params[:planId], status: 'active', is_public: true)
+        if plan
+          # Create subscription with trial period
+          @subscription = @account.build_subscription(
+            plan: plan,
+            status: 'trial',
+            trial_start: Time.current,
+            trial_end: Time.current + plan.trial_days.days,
+            current_period_start: Time.current,
+            current_period_end: Time.current + plan.trial_days.days
+          )
+          @subscription.save!
+          
+          # Assign plan's default roles to the user
+          plan.default_roles.each do |role_name|
+            role = Role.find_by(name: role_name)
+            @user.assign_role(role) if role && !@user.has_role?(role_name)
+          end
+        end
+      end
+
       tokens = JwtService.generate_tokens(@user)
       @user.record_login!
 
@@ -37,6 +60,7 @@ class Api::V1::Auth::RegistrationsController < ApplicationController
         success: true,
         user: user_data(@user),
         account: account_data(@account),
+        subscription: @subscription ? subscription_data(@subscription) : nil,
         access_token: tokens[:access_token],
         refresh_token: tokens[:refresh_token],
         expires_at: tokens[:expires_at],
@@ -61,11 +85,18 @@ class Api::V1::Auth::RegistrationsController < ApplicationController
   private
 
   def account_params
-    params.require(:account).permit(:name, :subdomain)
+    {
+      name: params[:accountName]
+    }
   end
 
   def user_params
-    params.require(:user).permit(:first_name, :last_name, :email, :password, :password_confirmation)
+    {
+      first_name: params[:firstName],
+      last_name: params[:lastName],
+      email: params[:email],
+      password: params[:password]
+    }
   end
 
   def user_data(user)
@@ -87,6 +118,24 @@ class Api::V1::Auth::RegistrationsController < ApplicationController
       name: account.name,
       subdomain: account.subdomain,
       status: account.status
+    }
+  end
+
+  def subscription_data(subscription)
+    {
+      id: subscription.id,
+      status: subscription.status,
+      plan: {
+        id: subscription.plan.id,
+        name: subscription.plan.name,
+        price_cents: subscription.plan.price_cents,
+        currency: subscription.plan.currency,
+        billing_cycle: subscription.plan.billing_cycle
+      },
+      trial_start: subscription.trial_start&.iso8601,
+      trial_end: subscription.trial_end&.iso8601,
+      current_period_start: subscription.current_period_start&.iso8601,
+      current_period_end: subscription.current_period_end&.iso8601
     }
   end
 end

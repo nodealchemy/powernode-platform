@@ -11,6 +11,8 @@ export interface RegisterData {
   firstName: string;
   lastName: string;
   accountName: string;
+  planId?: string;
+  billingCycle?: string;
 }
 
 export interface AuthResponse {

@@ -1,9 +1,22 @@
 # frozen_string_literal: true
 
 class Api::V1::PlansController < ApplicationController
-  before_action :authenticate_request
-  before_action :require_admin_access, except: [:index, :show]
+  before_action :authenticate_request, except: [:public_index]
+  before_action :require_admin_access, except: [:index, :show, :public_index]
   before_action :set_plan, only: [:show, :update, :destroy]
+
+  # GET /api/v1/public/plans (public endpoint for registration)
+  def public_index
+    @plans = Plan.active.public_plans.order(:price_cents)
+
+    render json: {
+      success: true,
+      data: {
+        plans: @plans.map { |plan| public_plan_data(plan) },
+        total_count: @plans.count
+      }
+    }, status: :ok
+  end
 
   # GET /api/v1/plans
   def index
@@ -250,10 +263,19 @@ class Api::V1::PlansController < ApplicationController
       :is_public,
       :stripe_price_id,
       :paypal_plan_id,
+      :has_annual_discount,
+      :annual_discount_percent,
+      :has_volume_discount,
+      :has_promotional_discount,
+      :promotional_discount_percent,
+      :promotional_discount_start,
+      :promotional_discount_end,
+      :promotional_discount_code,
       features: {},
       limits: {},
       default_roles: [],
-      metadata: {}
+      metadata: {},
+      volume_discount_tiers: []
     )
   end
 
@@ -286,7 +308,35 @@ class Api::V1::PlansController < ApplicationController
       metadata: plan.metadata || {},
       stripe_price_id: plan.stripe_price_id,
       paypal_plan_id: plan.paypal_plan_id,
-      can_be_deleted: plan.can_be_deleted?
+      can_be_deleted: plan.can_be_deleted?,
+      # Discount fields
+      has_annual_discount: plan.has_annual_discount,
+      annual_discount_percent: plan.annual_discount_percent,
+      has_volume_discount: plan.has_volume_discount,
+      volume_discount_tiers: plan.volume_discount_tiers,
+      has_promotional_discount: plan.has_promotional_discount,
+      promotional_discount_percent: plan.promotional_discount_percent,
+      promotional_discount_start: plan.promotional_discount_start&.iso8601,
+      promotional_discount_end: plan.promotional_discount_end&.iso8601,
+      promotional_discount_code: plan.promotional_discount_code,
+      annual_savings_amount: plan.annual_savings_amount.format,
+      annual_savings_percentage: plan.annual_savings_percentage
     )
+  end
+
+  def public_plan_data(plan)
+    {
+      id: plan.id,
+      name: plan.name,
+      description: plan.description,
+      price_cents: plan.price_cents,
+      currency: plan.currency,
+      billing_cycle: plan.billing_cycle,
+      trial_days: plan.trial_days,
+      formatted_price: plan.price.format,
+      monthly_price: plan.monthly_price.format,
+      created_at: plan.created_at,
+      updated_at: plan.updated_at
+    }
   end
 end

@@ -64,6 +64,8 @@ export const register = createAsyncThunk(
     firstName: string;
     lastName: string;
     accountName: string;
+    planId?: string;
+    billingCycle?: string;
   }) => {
     const response = await authAPI.register(userData);
     return response.data;

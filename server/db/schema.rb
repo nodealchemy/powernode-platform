@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_08_10_071513) do
+ActiveRecord::Schema[8.0].define(version: 2025_08_10_162159) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -247,12 +247,50 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_10_071513) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.text "default_roles"
+    t.boolean "has_annual_discount", default: false, null: false
+    t.decimal "annual_discount_percent", precision: 5, scale: 2, default: "0.0"
+    t.boolean "has_volume_discount", default: false, null: false
+    t.text "volume_discount_tiers", default: "[]"
+    t.boolean "has_promotional_discount", default: false, null: false
+    t.decimal "promotional_discount_percent", precision: 5, scale: 2, default: "0.0"
+    t.datetime "promotional_discount_start"
+    t.datetime "promotional_discount_end"
+    t.string "promotional_discount_code", limit: 50
     t.index ["billing_cycle"], name: "index_plans_on_billing_cycle"
     t.index ["currency"], name: "index_plans_on_currency"
+    t.index ["has_annual_discount"], name: "index_plans_on_has_annual_discount"
+    t.index ["has_promotional_discount"], name: "index_plans_on_has_promotional_discount"
+    t.index ["has_volume_discount"], name: "index_plans_on_has_volume_discount"
     t.index ["is_public"], name: "index_plans_on_is_public"
     t.index ["paypal_plan_id"], name: "index_plans_on_paypal_plan_id", unique: true, where: "(paypal_plan_id IS NOT NULL)"
+    t.index ["promotional_discount_code"], name: "index_plans_on_promotional_discount_code", unique: true, where: "(promotional_discount_code IS NOT NULL)"
+    t.index ["promotional_discount_start", "promotional_discount_end"], name: "idx_on_promotional_discount_start_promotional_disco_717c03b924"
     t.index ["status"], name: "index_plans_on_status"
     t.index ["stripe_price_id"], name: "index_plans_on_stripe_price_id", unique: true, where: "(stripe_price_id IS NOT NULL)"
+  end
+
+  create_table "report_requests", id: :string, force: :cascade do |t|
+    t.string "account_id", null: false
+    t.string "user_id", null: false
+    t.string "name", null: false
+    t.string "report_type", null: false
+    t.string "format", null: false
+    t.string "status", default: "pending", null: false
+    t.jsonb "parameters"
+    t.string "file_url"
+    t.string "file_path"
+    t.integer "file_size"
+    t.string "content_type"
+    t.text "error_message"
+    t.datetime "completed_at", precision: nil
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "status"], name: "index_report_requests_on_account_id_and_status"
+    t.index ["account_id"], name: "index_report_requests_on_account_id"
+    t.index ["created_at"], name: "index_report_requests_on_created_at"
+    t.index ["report_type"], name: "index_report_requests_on_report_type"
+    t.index ["status"], name: "index_report_requests_on_status"
+    t.index ["user_id"], name: "index_report_requests_on_user_id"
   end
 
   create_table "revenue_snapshots", id: { type: :string, limit: 36 }, force: :cascade do |t|
@@ -447,6 +485,8 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_10_071513) do
   add_foreign_key "payment_methods", "accounts"
   add_foreign_key "payment_methods", "users"
   add_foreign_key "payments", "invoices"
+  add_foreign_key "report_requests", "accounts"
+  add_foreign_key "report_requests", "users"
   add_foreign_key "revenue_snapshots", "accounts", on_delete: :cascade
   add_foreign_key "role_permissions", "permissions"
   add_foreign_key "role_permissions", "roles"

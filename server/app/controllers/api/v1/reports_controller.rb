@@ -56,6 +56,301 @@ class Api::V1::ReportsController < ApplicationController
     }
   end
 
+  # GET /api/v1/reports/templates
+  def templates
+    render json: {
+      success: true,
+      data: [
+        {
+          id: 'revenue_analytics',
+          name: 'Revenue Analytics',
+          description: 'Comprehensive revenue analysis including MRR, ARR, growth trends, and forecasting',
+          category: 'financial',
+          icon: '💰',
+          formats: ['pdf', 'csv', 'xlsx'],
+          parameters: {
+            requires_date_range: true,
+            filters: [
+              {
+                name: 'plan_id',
+                type: 'select',
+                label: 'Plan',
+                options: Plan.pluck(:name),
+                required: false
+              }
+            ]
+          }
+        },
+        {
+          id: 'customer_analytics',
+          name: 'Customer Analytics',
+          description: 'Customer growth, ARPU, LTV, and segmentation analysis',
+          category: 'customer',
+          icon: '👥',
+          formats: ['pdf', 'csv', 'xlsx'],
+          parameters: {
+            requires_date_range: true,
+            filters: [
+              {
+                name: 'status',
+                type: 'select',
+                label: 'Customer Status',
+                options: ['active', 'inactive', 'trial'],
+                required: false
+              }
+            ]
+          }
+        },
+        {
+          id: 'churn_analysis',
+          name: 'Churn Analysis',
+          description: 'Customer and revenue churn rates, trends, and retention insights',
+          category: 'analytics',
+          icon: '📉',
+          formats: ['pdf', 'csv'],
+          parameters: {
+            requires_date_range: true,
+            filters: []
+          }
+        },
+        {
+          id: 'growth_analytics',
+          name: 'Growth Analytics',
+          description: 'Growth rates, new revenue expansion metrics, and compound growth analysis',
+          category: 'analytics',
+          icon: '📈',
+          formats: ['pdf', 'csv'],
+          parameters: {
+            requires_date_range: true,
+            filters: []
+          }
+        },
+        {
+          id: 'cohort_analysis',
+          name: 'Cohort Analysis',
+          description: 'Customer retention by cohort and tenure analysis',
+          category: 'analytics',
+          icon: '🔄',
+          formats: ['pdf', 'csv'],
+          parameters: {
+            requires_date_range: false,
+            filters: [
+              {
+                name: 'cohort_period',
+                type: 'select',
+                label: 'Cohort Period',
+                options: ['monthly', 'quarterly'],
+                required: false
+              }
+            ]
+          }
+        },
+        {
+          id: 'comprehensive_report',
+          name: 'Executive Summary',
+          description: 'Complete business overview with all key metrics and insights',
+          category: 'executive',
+          icon: '📊',
+          formats: ['pdf'],
+          parameters: {
+            requires_date_range: true,
+            filters: []
+          }
+        }
+      ]
+    }
+  end
+
+  # GET /api/v1/reports/requests
+  def requests
+    page = params[:page]&.to_i || 1
+    limit = params[:limit]&.to_i || 20
+    limit = [limit, 100].min # Cap at 100
+
+    report_requests = ReportRequest.for_account(@account_scope)
+                                  .order(created_at: :desc)
+                                  .limit(limit)
+                                  .offset((page - 1) * limit)
+
+    render json: {
+      success: true,
+      data: report_requests.map do |request|
+        {
+          id: request.id,
+          name: request.name,
+          type: request.report_type,
+          format: request.format,
+          status: request.status,
+          requested_at: request.created_at.iso8601,
+          completed_at: request.completed_at&.iso8601,
+          file_url: request.file_url,
+          file_size: request.file_size,
+          error_message: request.error_message,
+          parameters: request.parameters
+        }
+      end
+    }
+  end
+
+  # GET /api/v1/reports/requests/:id
+  def request_details
+    request = ReportRequest.for_account(@account_scope).find(params[:id])
+    
+    render json: {
+      success: true,
+      data: {
+        id: request.id,
+        name: request.name,
+        type: request.report_type,
+        format: request.format,
+        status: request.status,
+        requested_at: request.created_at.iso8601,
+        completed_at: request.completed_at&.iso8601,
+        file_url: request.file_url,
+        file_size: request.file_size,
+        error_message: request.error_message,
+        parameters: request.parameters
+      }
+    }
+  rescue ActiveRecord::RecordNotFound
+    render json: { success: false, error: "Report request not found" }, status: 404
+  end
+
+  # POST /api/v1/reports/requests
+  def create_request
+    template_id = params[:template_id]
+    name = params[:name]
+    format = params[:format]
+    parameters = params[:parameters] || {}
+
+    # Validate template exists
+    template_ids = ['revenue_analytics', 'customer_analytics', 'churn_analysis', 'growth_analytics', 'cohort_analysis', 'comprehensive_report']
+    unless template_ids.include?(template_id)
+      render json: { success: false, error: "Invalid template ID" }, status: 400
+      return
+    end
+
+    # Create the report request
+    request = ReportRequest.create!(
+      account: @account_scope,
+      user: current_user,
+      name: name,
+      report_type: template_id,
+      format: format,
+      status: 'pending',
+      parameters: parameters
+    )
+
+    # Queue background job to generate the report (job lives in worker service)
+    GenerateReportJob.perform_later(request.id)
+
+    render json: {
+      success: true,
+      data: {
+        id: request.id,
+        name: request.name,
+        status: request.status,
+        requested_at: request.created_at.iso8601
+      }
+    }
+  rescue => e
+    Rails.logger.error "Failed to create report request: #{e.message}"
+    render json: { success: false, error: e.message }, status: 500
+  end
+
+  # PATCH /api/v1/reports/requests/:id
+  def update_request
+    request = ReportRequest.for_account(@account_scope).find(params[:id])
+    
+    update_params = params.permit(:status, :file_path, :file_url, :file_size, :error_message, :completed_at)
+    
+    request.update!(update_params)
+
+    render json: { 
+      success: true,
+      data: {
+        id: request.id,
+        status: request.status,
+        updated_at: request.updated_at.iso8601
+      }
+    }
+  rescue ActiveRecord::RecordNotFound
+    render json: { success: false, error: "Report request not found" }, status: 404
+  rescue => e
+    Rails.logger.error "Failed to update report request: #{e.message}"
+    render json: { success: false, error: e.message }, status: 500
+  end
+
+  # DELETE /api/v1/reports/requests/:id
+  def cancel_request
+    request = ReportRequest.for_account(@account_scope).find(params[:id])
+    
+    if request.status == 'completed'
+      render json: { success: false, error: "Cannot cancel completed request" }, status: 400
+      return
+    end
+
+    if request.status == 'failed'
+      render json: { success: false, error: "Cannot cancel failed request" }, status: 400
+      return
+    end
+
+    request.update!(status: 'cancelled')
+
+    render json: { success: true }
+  rescue ActiveRecord::RecordNotFound
+    render json: { success: false, error: "Report request not found" }, status: 404
+  end
+
+  # GET /api/v1/reports/requests/:id/download
+  def download_request
+    request = ReportRequest.for_account(@account_scope).find(params[:id])
+    
+    unless request.status == 'completed' && request.file_url
+      render json: { success: false, error: "Report not ready for download" }, status: 404
+      return
+    end
+
+    # In a real implementation, this would serve the file from storage (S3, etc.)
+    # For now, we'll redirect to the file URL or serve it directly
+    if request.file_path && File.exist?(request.file_path)
+      send_file request.file_path,
+                filename: "#{request.name.parameterize}.#{request.format}",
+                type: request.content_type,
+                disposition: 'attachment'
+    else
+      render json: { success: false, error: "Report file not found" }, status: 404
+    end
+  rescue ActiveRecord::RecordNotFound
+    render json: { success: false, error: "Report request not found" }, status: 404
+  end
+
+  # GET /api/v1/reports/scheduled  
+  def scheduled
+    reports = ScheduledReport.for_account(@account_scope)
+                            .where(active: true)
+                            .order(:next_run_at)
+
+    render json: {
+      success: true,
+      data: reports.map do |report|
+        {
+          id: report.id,
+          name: report.name || humanize_report_type(report.report_type),
+          template_id: report.report_type,
+          frequency: report.frequency,
+          next_run: report.next_run_at&.iso8601,
+          last_run: report.last_run_at&.iso8601,
+          enabled: report.active,
+          delivery_method: report.delivery_method || 'email',
+          recipients: report.recipients || [],
+          parameters: report.parameters || {},
+          format: report.format
+        }
+      end
+    }
+  end
+
   # POST /api/v1/reports/generate
   def generate
     report_requests = params[:reports] || []

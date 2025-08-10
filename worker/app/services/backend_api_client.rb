@@ -48,6 +48,44 @@ class BackendApiClient
     put("/api/v1/reports/scheduled/#{report_id}", data)
   end
 
+  # Report request management methods
+  def get_report_request(request_id)
+    get("/api/v1/reports/requests/#{request_id}")
+  end
+
+  def update_report_request_status(request_id, status)
+    patch("/api/v1/reports/requests/#{request_id}", { status: status })
+  end
+
+  def complete_report_request(request_id, file_path: nil, file_size: nil, file_url: nil)
+    patch("/api/v1/reports/requests/#{request_id}", {
+      status: 'completed',
+      file_path: file_path,
+      file_size: file_size,
+      file_url: file_url,
+      completed_at: Time.current.iso8601
+    })
+  end
+
+  def fail_report_request(request_id, error_message)
+    patch("/api/v1/reports/requests/#{request_id}", {
+      status: 'failed',
+      error_message: error_message,
+      completed_at: Time.current.iso8601
+    })
+  end
+
+  # Get report data for generation
+  def get_report_data(report_type, account_id = nil, parameters = {})
+    params = {
+      report_type: report_type,
+      parameters: parameters
+    }
+    params[:account_id] = account_id if account_id
+    
+    get("/api/v1/analytics/export", params)
+  end
+
   # Service authentication verification
   def verify_service_token
     post("/api/v1/service/verify", {})

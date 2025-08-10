@@ -303,6 +303,26 @@ The project uses a sophisticated agent-based development approach defined in `cl
   - SERVICE_TOKEN must be configured in `.env` file
   - Redis server must be accessible at configured REDIS_URL
   - Backend API must be running and accessible for authentication
+
+#### **CRITICAL: Job Creation Protocol**
+- **All background jobs MUST be created in the standalone worker service (`./worker` directory)**
+- **NO jobs should be created in the Rails backend (`./server` directory)**
+- **Backend Role**: Rails API only enqueues jobs via `perform_later` calls
+- **Worker Role**: Standalone worker contains all job classes and processing logic
+- **Job Communication**: 
+  - Backend enqueues jobs with parameters/data
+  - Worker jobs make API calls back to Rails backend for data operations
+  - All database operations happen via authenticated API requests
+- **Job Structure**: Jobs in `./worker/app/jobs/` directory with API service integration
+- **Error Handling**: Failed jobs retry with exponential backoff, errors logged and reported via API
+
+#### **Job Development Workflow**
+1. **Creating Jobs**: Create job classes in `./worker/app/jobs/` directory (NOT in backend)
+2. **Enqueuing Jobs**: Backend controllers call `SomeJob.perform_later(params)` to enqueue
+3. **Job Implementation**: Jobs use `BackendApiClient` service for all data operations
+4. **Testing**: Jobs tested independently with API mocking, not database fixtures
+5. **Deployment**: Worker service deployed separately from Rails backend
+6. **Monitoring**: Use Sidekiq web interface at `http://localhost:4567/sidekiq` for job monitoring
 - **Web Interface Access**: Available at `http://localhost:4567` and `http://[HOST_IP]:4567` for external access
 - **Job Processing**: Sidekiq workers make authenticated API calls to the main Rails 8 backend for all data operations
 - **Service Authentication**: Dedicated service-to-service authentication mechanism using secure tokens for worker-to-backend communication

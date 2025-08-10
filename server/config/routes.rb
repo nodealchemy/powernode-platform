@@ -8,6 +8,10 @@ Rails.application.routes.draw do
     namespace :v1 do
       # Health check endpoint for load balancers
       get :health, to: proc { [200, {}, [{status: 'ok'}.to_json]] }
+      
+      # Public endpoints (no authentication required)
+      get 'public/plans', to: 'plans#public_index'
+      
       # Authentication and registration endpoints
       namespace :auth do
         post :register, to: "registrations#create"
@@ -128,15 +132,24 @@ Rails.application.routes.draw do
       # Enhanced reports endpoints for worker integration
       resources :reports, only: [:show, :index, :create] do
         collection do
+          get :templates
           get :scheduled
           post :generate
           post :schedule
+          get :requests, to: 'reports#requests'
+          post :requests, to: 'reports#create_request'
         end
         
         member do
           delete :scheduled, to: 'reports#destroy_scheduled'
         end
       end
+
+      # Report requests nested endpoints
+      get 'reports/requests/:id', to: 'reports#request_details'
+      patch 'reports/requests/:id', to: 'reports#update_request'
+      delete 'reports/requests/:id', to: 'reports#cancel_request'
+      get 'reports/requests/:id/download', to: 'reports#download_request'
 
       # Admin services management
       namespace :admin do
