@@ -53,6 +53,21 @@ class BackendApiClient
     post("/api/v1/service/verify", {})
   end
 
+  # User authentication for web interface access
+  def authenticate_user(email, password)
+    post("/api/v1/service/authenticate_user", {
+      email: email,
+      password: password
+    })
+  end
+
+  # Session verification for authenticated users
+  def verify_session(session_token)
+    post("/api/v1/service/verify_session", {
+      session_token: session_token
+    })
+  end
+
   # Health check
   def health_check
     get("/api/v1/health")

@@ -30,6 +30,9 @@ gem 'connection_pool', '~> 2.4'
 gem 'rackup', '~> 2.1'
 gem 'puma', '~> 6.4'
 
+# Session middleware for Sidekiq web authentication
+gem 'rack-session', '~> 2.0'
+
 # Security for service authentication
 gem 'jwt', '~> 2.7'
 

@@ -104,6 +104,8 @@ Rails.application.routes.draw do
       # Service authentication endpoint for worker
       namespace :service do
         match :verify, via: [:get, :post]
+        post :authenticate_user
+        post :verify_session
         get :health
       end
 

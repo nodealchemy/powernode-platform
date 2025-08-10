@@ -385,15 +385,17 @@ Claude Code should use the modern screen-based individual manager scripts:
 
 2. **Individual server control**:
    ```bash
-   ./scripts/backend-manager.sh start    # Start Rails in screen session
-   ./scripts/worker-manager.sh start     # Start Sidekiq worker in screen session
-   ./scripts/frontend-manager.sh start   # Start React in screen session
+   ./scripts/backend-manager.sh start       # Start Rails in screen session
+   ./scripts/worker-manager.sh start        # Start Sidekiq worker in screen session
+   ./scripts/worker-manager.sh start-web    # Start worker web interface in separate screen session
+   ./scripts/frontend-manager.sh start      # Start React in screen session
    ```
 
 3. **Health checking and status**:
    ```bash
    ./scripts/auto-dev.sh status           # Quick environment check
    ./scripts/backend-manager.sh status    # Detailed backend status
+   ./scripts/worker-manager.sh status     # Detailed worker and web interface status
    ./scripts/frontend-manager.sh status   # Detailed frontend status
    ```
 
@@ -464,10 +466,22 @@ Claude Code should use the modern screen-based individual manager scripts:
 - **Legacy Prevention**: ApplicationJob warns about deprecated usage
 
 **Worker Management**:
-- **Start Worker**: `./scripts/worker-manager.sh start` - starts worker and web interface
-- **Worker Status**: `./scripts/worker-manager.sh status` - comprehensive health check
-- **Sidekiq Web**: `http://localhost:4567/sidekiq` - authenticated monitoring interface  
-- **Screen Session**: `./scripts/worker-manager.sh screen` - attach to interactive session
+- **Start Worker**: `./scripts/worker-manager.sh start` - starts worker service only
+- **Start Web Interface**: `./scripts/worker-manager.sh start-web` - starts Sidekiq web interface in dedicated screen session
+- **Combined Status**: `./scripts/worker-manager.sh status` - comprehensive health check for both worker and web interface
+- **Sidekiq Web**: `http://localhost:4567/sidekiq` - authenticated monitoring interface with user email/password login
+- **Worker Screen Session**: `./scripts/worker-manager.sh screen` - attach to worker interactive session
+- **Web Screen Session**: `./scripts/worker-manager.sh web-screen` - attach to web interface interactive session
+- **Stop Web Only**: `./scripts/worker-manager.sh stop-web` - stops web interface while leaving worker running
+
+**CRITICAL: Worker Web Interface Management Protocol**:
+- **ALWAYS use `./scripts/worker-manager.sh`** for ALL worker web interface operations
+- **NEVER run `bundle exec rackup` or `puma` directly** for the web interface
+- **NEVER start worker-web manually** - always use the dedicated management script
+- **Required for proper**: Process management, environment loading, screen session handling, and graceful shutdown
+- **Authentication**: Web interface requires user email/password authentication with account validation
+- **Session Management**: Proper JWT session tokens with 8-hour expiration
+- **Process Isolation**: Web interface runs in separate `powernode-worker-web` screen session
 
 **Key Benefits**:
 - ✅ **Independent Scaling**: Worker service scales separately from Rails API

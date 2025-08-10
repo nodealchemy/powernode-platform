@@ -2,6 +2,7 @@
 
 require_relative 'config/application'
 require 'redis'
+require 'rack/session'
 
 # Initialize the Powernode Worker application
 PowernodeWorker.application
@@ -13,6 +14,7 @@ end
 
 # Configure Sidekiq Web with authentication
 map '/sidekiq' do
+  use Rack::Session::Cookie, secret: File.read(".session.key"), same_site: true, max_age: 86400
   use SidekiqWebAuth
   run Sidekiq::Web
 end
