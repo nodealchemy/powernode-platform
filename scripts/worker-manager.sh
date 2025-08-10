@@ -13,6 +13,16 @@ LOG_FILE="/home/rett/Projects/powernode-platform/logs/worker.log"
 WEB_PID_FILE="/var/tmp/powernode-worker-web.pid"
 WEB_LOG_FILE="/home/rett/Projects/powernode-platform/logs/worker-web.log"
 
+# Load environment variables from .env file
+load_environment() {
+    if [[ -f "$WORKER_DIR/.env" ]]; then
+        export $(grep -v '^#' "$WORKER_DIR/.env" | xargs)
+    fi
+}
+
+# Load environment variables
+load_environment
+
 # Ensure log directory exists
 mkdir -p "$(dirname "$LOG_FILE")"
 
