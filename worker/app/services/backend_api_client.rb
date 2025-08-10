@@ -50,7 +50,7 @@ class BackendApiClient
 
   # Service authentication verification
   def verify_service_token
-    get("/api/v1/service/verify")
+    post("/api/v1/service/verify", {})
   end
 
   # Health check

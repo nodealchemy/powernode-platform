@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Service, ServiceDetailsResponse, serviceAPI } from '../../services/serviceApi';
 import { ServiceActivityList } from './ServiceActivityList';
 import { LoadingSpinner } from '../common/LoadingSpinner';
+import { copyToClipboard } from '../../utils/clipboard';
 
 interface ServiceDetailsProps {
   service: Service;
@@ -52,9 +53,6 @@ export const ServiceDetails: React.FC<ServiceDetailsProps> = ({
     }
   };
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -181,7 +179,7 @@ export const ServiceDetails: React.FC<ServiceDetailsProps> = ({
                       {showToken && newToken ? newToken : service.masked_token}
                     </code>
                     <button
-                      onClick={() => copyToClipboard(showToken && newToken ? newToken : service.token || service.masked_token)}
+                      onClick={() => copyToClipboard(showToken && newToken ? newToken : service.token || service.masked_token, { successMessage: 'Token copied to clipboard!' })}
                       className="text-blue-600 hover:text-blue-700 text-sm"
                     >
                       Copy
@@ -309,10 +307,7 @@ export const ServiceDetails: React.FC<ServiceDetailsProps> = ({
             </div>
             <div className="flex gap-3">
               <button
-                onClick={() => {
-                  copyToClipboard(newToken);
-                  alert('Token copied to clipboard!');
-                }}
+                onClick={() => copyToClipboard(newToken, { successMessage: 'New token copied to clipboard!' })}
                 className="flex-1 bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700"
               >
                 Copy Token
