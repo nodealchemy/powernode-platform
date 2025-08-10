@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_08_09_172941) do
+ActiveRecord::Schema[8.0].define(version: 2025_08_10_045842) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -295,6 +295,24 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_09_172941) do
     t.index ["system_role"], name: "index_roles_on_system_role"
   end
 
+  create_table "scheduled_reports", id: :string, force: :cascade do |t|
+    t.string "report_type", null: false
+    t.string "frequency", null: false
+    t.text "recipients"
+    t.string "format", default: "pdf"
+    t.string "account_id"
+    t.string "user_id", null: false
+    t.datetime "next_run_at"
+    t.datetime "last_run_at"
+    t.boolean "active", default: true
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "active"], name: "index_scheduled_reports_on_account_id_and_active"
+    t.index ["account_id"], name: "index_scheduled_reports_on_account_id"
+    t.index ["next_run_at", "active"], name: "index_scheduled_reports_on_next_run_at_and_active"
+    t.index ["user_id"], name: "index_scheduled_reports_on_user_id"
+  end
+
   create_table "subscriptions", id: { type: :string, limit: 36 }, force: :cascade do |t|
     t.string "account_id", limit: 36, null: false
     t.string "plan_id", limit: 36, null: false
@@ -398,6 +416,8 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_09_172941) do
   add_foreign_key "revenue_snapshots", "accounts", on_delete: :cascade
   add_foreign_key "role_permissions", "permissions"
   add_foreign_key "role_permissions", "roles"
+  add_foreign_key "scheduled_reports", "accounts"
+  add_foreign_key "scheduled_reports", "users"
   add_foreign_key "subscriptions", "accounts"
   add_foreign_key "subscriptions", "plans"
   add_foreign_key "user_roles", "roles"

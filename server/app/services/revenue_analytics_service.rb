@@ -360,7 +360,8 @@ class RevenueAnalyticsService
   # Base query for subscriptions (scoped by account if provided)
   def base_subscription_query
     if account
-      account.subscriptions
+      # For account-specific queries, return a relation containing just the account's subscription
+      Subscription.where(account: account)
     else
       Subscription.all
     end

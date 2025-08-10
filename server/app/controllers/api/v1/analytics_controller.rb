@@ -325,8 +325,29 @@ class Api::V1::AnalyticsController < ApplicationController
         }
       end
     when "pdf"
-      # PDF generation would be implemented here
-      render json: { success: false, error: "PDF export not yet implemented" }, status: 501
+      pdf_data = PdfReportService.new(
+        report_type: "#{report_type}_report",
+        account: @account_scope,
+        start_date: @start_date,
+        end_date: @end_date,
+        user: current_user
+      ).generate_pdf
+
+      respond_to do |format|
+        format.pdf {
+          send_data pdf_data,
+          filename: "#{report_type}_report_#{Date.current.strftime('%Y%m%d')}.pdf",
+          type: "application/pdf"
+        }
+        format.json {
+          render json: {
+            success: true,
+            data: Base64.encode64(pdf_data),
+            filename: "#{report_type}_report_#{Date.current.strftime('%Y%m%d')}.pdf",
+            content_type: "application/pdf"
+          }
+        }
+      end
     else
       render json: { success: false, error: "Unsupported export format" }, status: 400
     end
