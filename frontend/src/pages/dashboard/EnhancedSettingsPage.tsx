@@ -126,7 +126,8 @@ export const EnhancedSettingsPage: React.FC = () => {
 
   useEffect(() => {
     loadSettings();
-  }, [loadSettings]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount
 
   const showSuccess = (message: string) => {
     setSuccessMessage(message);

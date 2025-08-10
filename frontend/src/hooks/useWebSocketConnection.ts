@@ -276,14 +276,16 @@ export const useWebSocketConnection = (): UseWebSocketConnectionReturn => {
     return () => {
       disconnect();
     };
-  }, [user?.account?.id, accessToken, connect, disconnect]); // Depend on account ID, token, and functions
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.account?.id, accessToken]); // Only depend on account ID and token, functions are stable
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
       disconnect();
     };
-  }, [disconnect]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty dependency array for unmount cleanup only
 
   return {
     ...state,

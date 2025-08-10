@@ -173,7 +173,8 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
   // Initial data load
   useEffect(() => {
     loadAnalyticsData();
-  }, [dateRange, loadAnalyticsData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dateRange]); // Only depend on dateRange, not loadAnalyticsData to avoid circular dependency
 
   // Auto-refresh data when connected via WebSocket
   useEffect(() => {
@@ -190,7 +191,8 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
 
       return () => clearInterval(interval);
     }
-  }, [isConnected, data, requestAnalyticsUpdate, loadAnalyticsData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isConnected, data, requestAnalyticsUpdate]); // Removed loadAnalyticsData to avoid circular dependency
 
   const handleDateRangeChange = (newDateRange: { startDate: Date; endDate: Date }) => {
     setDateRange(newDateRange);
