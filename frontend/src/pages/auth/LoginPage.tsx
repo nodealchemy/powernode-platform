@@ -59,7 +59,7 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <div className="light min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         {/* Logo and Title */}
         <div className="text-center">
@@ -86,20 +86,18 @@ export const LoginPage: React.FC = () => {
 
           <form className="space-y-6" onSubmit={handleSubmit}>
             <div>
-              <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-2">
+              <label htmlFor="email" className="label-theme">
                 Email address
               </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <EnvelopeIcon className="h-5 w-5 text-gray-400" />
-                </div>
+              <div className="form-field-icon">
+                <EnvelopeIcon className="form-icon" />
                 <input
                   id="email"
                   name="email"
                   type="email"
                   autoComplete="email"
                   required
-                  className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition duration-150 ease-in-out"
+                  className="input-theme"
                   placeholder="Enter your email"
                   value={formData.email}
                   onChange={handleChange}
@@ -108,33 +106,31 @@ export const LoginPage: React.FC = () => {
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-2">
+              <label htmlFor="password" className="label-theme">
                 Password
               </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <LockClosedIcon className="h-5 w-5 text-gray-400" />
-                </div>
+              <div className="form-field-icon">
+                <LockClosedIcon className="form-icon" />
                 <input
                   id="password"
                   name="password"
                   type={showPassword ? 'text' : 'password'}
                   autoComplete="current-password"
                   required
-                  className="block w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition duration-150 ease-in-out"
+                  className="input-theme pr-12"
                   placeholder="Enter your password"
                   value={formData.password}
                   onChange={handleChange}
                 />
                 <button
                   type="button"
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-theme-tertiary hover:text-theme-secondary transition-colors"
                   onClick={() => setShowPassword(!showPassword)}
                 >
                   {showPassword ? (
-                    <EyeSlashIcon className="h-5 w-5 text-gray-400 hover:text-gray-600 transition-colors" />
+                    <EyeSlashIcon className="h-5 w-5" />
                   ) : (
-                    <EyeIcon className="h-5 w-5 text-gray-400 hover:text-gray-600 transition-colors" />
+                    <EyeIcon className="h-5 w-5" />
                   )}
                 </button>
               </div>
@@ -148,16 +144,16 @@ export const LoginPage: React.FC = () => {
                   type="checkbox"
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
-                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+                  className="checkbox-theme"
                 />
-                <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700">
+                <label htmlFor="remember-me" className="ml-2 block text-sm text-theme-secondary">
                   Remember me
                 </label>
               </div>
 
               <Link
                 to="/forgot-password"
-                className="text-sm font-medium text-blue-600 hover:text-blue-500 transition-colors"
+                className="text-sm font-medium text-theme-link hover:text-theme-link-hover transition-colors"
               >
                 Forgot your password?
               </Link>
@@ -167,7 +163,7 @@ export const LoginPage: React.FC = () => {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition duration-150 ease-in-out"
+                className="btn-theme btn-theme-primary w-full py-3"
               >
                 {isLoading ? (
                   <div className="flex items-center">
@@ -188,7 +184,7 @@ export const LoginPage: React.FC = () => {
                 <div className="w-full border-t border-gray-300" />
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-gray-500">New to Powernode?</span>
+                <span className="px-2 bg-white text-theme-tertiary">New to Powernode?</span>
               </div>
             </div>
           </div>
@@ -196,7 +192,7 @@ export const LoginPage: React.FC = () => {
           <div className="mt-6 text-center">
             <Link
               to="/plans"
-              className="w-full inline-flex justify-center py-2.5 px-4 border border-gray-300 rounded-lg shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-150 ease-in-out"
+              className="btn-theme btn-theme-secondary w-full py-2.5"
             >
               Create your account
             </Link>
@@ -204,7 +200,7 @@ export const LoginPage: React.FC = () => {
           
           {/* Trust indicators */}
           <div className="mt-6 text-center">
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-theme-tertiary">
               Secure login • 256-bit SSL encryption
             </p>
           </div>
@@ -213,7 +209,7 @@ export const LoginPage: React.FC = () => {
       
       {/* Footer */}
       <div className="mt-8 text-center">
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-theme-tertiary">
           © 2024 Powernode. All rights reserved.
         </p>
       </div>
