@@ -4,9 +4,11 @@ import { RootState } from '../../store';
 import { settingsApi, SettingsData, UserPreferences, NotificationPreferences } from '../../services/settingsApi';
 import { useSettingsWebSocket } from '../../hooks/useSettingsWebSocket';
 import { WebSocketStatusIndicator } from '../../components/common/WebSocketStatusIndicator';
+import { useTheme } from '../../contexts/ThemeContext';
 
 export const SettingsPage: React.FC = () => {
   const { user } = useSelector((state: RootState) => state.auth);
+  const { theme, setTheme } = useTheme();
   const [settings, setSettings] = useState<SettingsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -38,6 +40,12 @@ export const SettingsPage: React.FC = () => {
     
     if (updatedData.user_preferences) {
       setPreferences(prev => ({ ...prev, ...updatedData.user_preferences }));
+      
+      // If theme was updated from another session, apply it locally
+      if (updatedData.user_preferences.theme && updatedData.user_preferences.theme !== theme) {
+        setTheme(updatedData.user_preferences.theme);
+      }
+      
       setSuccessMessage('Settings updated from another session');
     }
     
@@ -56,14 +64,20 @@ export const SettingsPage: React.FC = () => {
 
     // Clear success message after 3 seconds
     setTimeout(() => setSuccessMessage(''), 3000);
-  }, []);
+  }, [theme, setTheme]);
 
   const handlePreferencesUpdate = useCallback((updatedPreferences: Partial<UserPreferences>) => {
     setPreferences(prev => ({ ...prev, ...updatedPreferences }));
+    
+    // If theme was updated from another session, apply it locally
+    if (updatedPreferences.theme && updatedPreferences.theme !== theme) {
+      setTheme(updatedPreferences.theme);
+    }
+    
     setLastUpdated(new Date());
     setSuccessMessage('Preferences synced from another session');
     setTimeout(() => setSuccessMessage(''), 3000);
-  }, []);
+  }, [theme, setTheme]);
 
   const handleNotificationsUpdate = useCallback((updatedNotifications: Partial<NotificationPreferences>) => {
     setNotifications(prev => ({ ...prev, ...updatedNotifications }));
@@ -131,6 +145,24 @@ export const SettingsPage: React.FC = () => {
       showSuccess('Preferences updated successfully');
     } catch (error) {
       showError('Failed to update preferences');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleThemeChange = async (newTheme: 'light' | 'dark') => {
+    try {
+      setSaving(true);
+      // Use the theme context which automatically applies theme and saves to API
+      await setTheme(newTheme);
+      setPreferences({ ...preferences, theme: newTheme });
+      
+      // Broadcast the theme update to other sessions
+      broadcastSettingsUpdate('preferences_updated', { theme: newTheme });
+      
+      showSuccess('Theme updated successfully');
+    } catch (error) {
+      showError('Failed to update theme');
     } finally {
       setSaving(false);
     }
@@ -461,8 +493,8 @@ export const SettingsPage: React.FC = () => {
                   <span className="ml-1 text-theme-tertiary" title="Choose your preferred color scheme">ℹ️</span>
                 </label>
                 <select
-                  value={preferences.theme || 'light'}
-                  onChange={(e) => handleUpdatePreferences({ theme: e.target.value as 'light' | 'dark' })}
+                  value={theme}
+                  onChange={(e) => handleThemeChange(e.target.value as 'light' | 'dark')}
                   disabled={saving}
                   className="select-theme"
                 >

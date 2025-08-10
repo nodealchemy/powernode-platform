@@ -329,7 +329,7 @@ export const CustomersPage: React.FC = () => {
                         <select
                           value={customer.status}
                           onChange={(e) => handleStatusChange(customer.id, e.target.value)}
-                          className="text-xs border border-theme rounded px-2 py-1 focus:ring-1 focus:ring-theme-link focus:border-theme-link"
+                          className="select-theme text-xs"
                         >
                           <option value="active">Active</option>
                           <option value="suspended">Suspended</option>
