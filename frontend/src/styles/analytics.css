@@ -1,0 +1,197 @@
+/* Analytics Chart Styling Improvements */
+
+/* Scrollbar hiding for horizontal scrollable tabs */
+.scrollbar-hide {
+  -ms-overflow-style: none; /* Internet Explorer 10+ */
+  scrollbar-width: none; /* Firefox */
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none; /* Safari and Chrome */
+}
+
+/* Chart container responsive improvements */
+.analytics-chart-container {
+  min-height: 200px;
+}
+
+/* Improved tooltip styling */
+.recharts-tooltip-wrapper {
+  outline: none !important;
+}
+
+.recharts-tooltip-content {
+  border-radius: 8px !important;
+  box-shadow: 0 10px 25px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
+  border: 1px solid rgba(0, 0, 0, 0.05) !important;
+}
+
+/* Chart legend improvements */
+.recharts-legend-wrapper {
+  padding-top: 1rem !important;
+}
+
+.recharts-legend-item-text {
+  color: var(--color-text-secondary) !important;
+  font-size: 0.875rem !important;
+  font-weight: 500 !important;
+}
+
+/* Responsive chart sizing */
+@media (max-width: 640px) {
+  .recharts-cartesian-axis-tick-value {
+    font-size: 10px !important;
+  }
+  
+  .recharts-legend-item-text {
+    font-size: 0.75rem !important;
+  }
+}
+
+/* Hover effects for chart elements */
+.recharts-bar:hover,
+.recharts-line-dot:hover {
+  opacity: 0.8;
+  transition: opacity 0.2s ease;
+}
+
+/* Grid line styling */
+.recharts-cartesian-grid-horizontal line,
+.recharts-cartesian-grid-vertical line {
+  opacity: 0.3;
+}
+
+/* Improved cohort chart table styling */
+.cohort-table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.cohort-table th {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--color-surface);
+  backdrop-filter: blur(8px);
+}
+
+.cohort-table td {
+  transition: all 0.2s ease;
+}
+
+.cohort-table tbody tr:hover td {
+  background-color: var(--color-background-secondary);
+}
+
+/* Chart metric cards */
+.metric-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.metric-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+/* Animation for chart loading */
+@keyframes chartFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.chart-container {
+  animation: chartFadeIn 0.5s ease-out;
+}
+
+/* Improved growth rate heatmap */
+.growth-heatmap-cell {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  cursor: pointer;
+}
+
+.growth-heatmap-cell:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1;
+  position: relative;
+}
+
+/* Enhanced legend styling */
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+}
+
+.legend-item:hover {
+  background-color: var(--color-background-secondary);
+}
+
+.legend-color-box {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  flex-shrink: 0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* Mobile-specific improvements */
+@media (max-width: 768px) {
+  .analytics-tabs {
+    justify-content: flex-start;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .tab-button {
+    min-width: auto;
+    padding: 0.5rem 1rem;
+  }
+  
+  .chart-container {
+    margin: 0 -1rem;
+    padding: 0 1rem;
+  }
+}
+
+/* Dark mode chart improvements */
+@media (prefers-color-scheme: dark) {
+  .recharts-cartesian-grid-horizontal line,
+  .recharts-cartesian-grid-vertical line {
+    stroke: rgba(255, 255, 255, 0.1) !important;
+  }
+  
+  .recharts-text {
+    fill: var(--color-text-secondary) !important;
+  }
+}
+
+/* Print styles for analytics */
+@media print {
+  .chart-container {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  
+  .analytics-tabs {
+    display: none;
+  }
+}

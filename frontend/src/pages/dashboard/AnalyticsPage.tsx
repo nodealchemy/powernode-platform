@@ -15,6 +15,7 @@ import { MetricsOverview } from '../../components/analytics/MetricsOverview';
 import { DateRangeFilter } from '../../components/analytics/DateRangeFilter';
 import { AnalyticsExport } from '../../components/analytics/AnalyticsExport';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
+import '../../styles/analytics.css';
 
 export interface AnalyticsData {
   revenue: any;
@@ -25,6 +26,208 @@ export interface AnalyticsData {
 }
 
 interface AnalyticsPageProps {}
+
+// Fallback data generation functions
+const generateFallbackRevenueData = (startDate: string, endDate: string) => {
+  const data = [];
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  
+  let currentDate = new Date(start);
+  let baseMRR = 5000;
+  
+  while (currentDate <= end) {
+    const growth = 1 + (Math.random() * 0.2 - 0.1); // ±10% random growth
+    baseMRR *= growth;
+    
+    data.push({
+      date: currentDate.toISOString().split('T')[0],
+      mrr: Math.round(baseMRR),
+      arr: Math.round(baseMRR * 12),
+      active_subscriptions: Math.round(baseMRR / 50), // Assume $50 average
+      new_subscriptions: Math.round(Math.random() * 10),
+      churned_subscriptions: Math.round(Math.random() * 5)
+    });
+    
+    currentDate.setMonth(currentDate.getMonth() + 1);
+  }
+  
+  return {
+    current_metrics: {
+      mrr: baseMRR,
+      arr: baseMRR * 12,
+      active_subscriptions: Math.round(baseMRR / 50),
+      total_customers: Math.round(baseMRR / 50),
+      arpu: 50,
+      growth_rate: 15.5
+    },
+    historical_data: data,
+    period: { start_date: startDate, end_date: endDate }
+  };
+};
+
+const generateFallbackGrowthData = (startDate: string, endDate: string) => {
+  const data = [];
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  
+  let currentDate = new Date(start);
+  let baseMRR = 5000;
+  
+  while (currentDate <= end) {
+    const growthRate = (Math.random() * 20 - 5); // -5% to 15% growth
+    baseMRR *= (1 + growthRate / 100);
+    
+    data.push({
+      date: currentDate.toISOString().split('T')[0],
+      mrr: Math.round(baseMRR),
+      growth_rate: Math.round(growthRate * 10) / 10,
+      new_revenue: Math.round(baseMRR * 0.1),
+      churned_revenue: Math.round(baseMRR * 0.05)
+    });
+    
+    currentDate.setMonth(currentDate.getMonth() + 1);
+  }
+  
+  return {
+    compound_monthly_growth_rate: 8.5,
+    monthly_growth_data: data,
+    forecasting: {
+      next_month_projection: Math.round(baseMRR * 1.1),
+      confidence_interval: '±15%'
+    },
+    period: { start_date: startDate, end_date: endDate }
+  };
+};
+
+const generateFallbackChurnData = (startDate: string, endDate: string) => {
+  const data = [];
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  
+  let currentDate = new Date(start);
+  
+  while (currentDate <= end) {
+    data.push({
+      date: currentDate.toISOString().split('T')[0],
+      customer_churn_rate: Math.random() * 8, // 0-8% churn
+      revenue_churn_rate: Math.random() * 6, // 0-6% revenue churn
+      churned_customers: Math.round(Math.random() * 15),
+      churned_subscriptions: Math.round(Math.random() * 10)
+    });
+    
+    currentDate.setMonth(currentDate.getMonth() + 1);
+  }
+  
+  return {
+    current_metrics: {
+      customer_churn_rate: 3.2,
+      average_customer_churn_rate: 4.1,
+      average_revenue_churn_rate: 2.8,
+      customer_retention_rate: 96.8
+    },
+    churn_trend: data,
+    insights: {
+      churn_risk_level: 'medium' as const,
+      recommended_actions: [
+        'Implement proactive customer success outreach',
+        'Analyze churned customer feedback',
+        'Consider loyalty programs'
+      ]
+    },
+    period: { start_date: startDate, end_date: endDate }
+  };
+};
+
+const generateFallbackCustomerData = (startDate: string, endDate: string) => {
+  const data = [];
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  
+  let currentDate = new Date(start);
+  let totalCustomers = 100;
+  
+  while (currentDate <= end) {
+    const newCustomers = Math.round(Math.random() * 20);
+    const churnedCustomers = Math.round(Math.random() * 8);
+    totalCustomers += (newCustomers - churnedCustomers);
+    
+    data.push({
+      date: currentDate.toISOString().split('T')[0],
+      total_customers: totalCustomers,
+      new_customers: newCustomers,
+      churned_customers: churnedCustomers,
+      net_growth: newCustomers - churnedCustomers,
+      arpu: Math.round((40 + Math.random() * 30) * 100) / 100, // $40-70
+      ltv: Math.round((800 + Math.random() * 600) * 100) / 100 // $800-1400
+    });
+    
+    currentDate.setMonth(currentDate.getMonth() + 1);
+  }
+  
+  return {
+    current_metrics: {
+      total_customers: totalCustomers,
+      arpu: 55.50,
+      ltv: 1100.00,
+      ltv_to_cac_ratio: 3.2
+    },
+    customer_growth_trend: data,
+    segmentation: {
+      by_plan: [
+        { plan: 'Starter', customers: Math.round(totalCustomers * 0.6) },
+        { plan: 'Professional', customers: Math.round(totalCustomers * 0.3) },
+        { plan: 'Enterprise', customers: Math.round(totalCustomers * 0.1) }
+      ],
+      by_tenure: [
+        { segment: 'New (0-3 months)', customers: Math.round(totalCustomers * 0.25) },
+        { segment: 'Growing (3-12 months)', customers: Math.round(totalCustomers * 0.45) },
+        { segment: 'Mature (12+ months)', customers: Math.round(totalCustomers * 0.30) }
+      ]
+    },
+    period: { start_date: startDate, end_date: endDate }
+  };
+};
+
+const generateFallbackCohortData = () => {
+  const cohorts = [];
+  
+  for (let i = 0; i < 12; i++) {
+    const cohortDate = new Date();
+    cohortDate.setMonth(cohortDate.getMonth() - i);
+    const cohortSize = Math.round(20 + Math.random() * 40);
+    
+    const retentionRates = [];
+    let retentionRate = 1.0;
+    
+    for (let month = 0; month < 12; month++) {
+      if (month > 0) {
+        retentionRate *= (0.85 + Math.random() * 0.10); // 85-95% retention month over month
+      }
+      
+      retentionRates.push({
+        month,
+        retention_rate: retentionRate,
+        retained_customers: Math.round(cohortSize * retentionRate)
+      });
+    }
+    
+    cohorts.push({
+      cohort_date: cohortDate.toISOString().slice(0, 7), // YYYY-MM format
+      cohort_size: cohortSize,
+      retention_rates: retentionRates
+    });
+  }
+  
+  return {
+    cohorts,
+    summary: {
+      total_cohorts: cohorts.length,
+      average_first_month_retention: 92.5,
+      average_six_month_retention: 68.8
+    }
+  };
+};
 
 export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
   const { user } = useSelector((state: RootState) => state.auth);
@@ -56,6 +259,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [usingFallbackData, setUsingFallbackData] = useState(false);
   // const [lastUpdated, setLastUpdated] = useState<Date | null>(null); // TODO: Display last updated timestamp
   
   // Date range state
@@ -77,6 +281,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
         setLoading(true);
       }
       setError(null);
+      setUsingFallbackData(false);
 
       const startDate = dateRange.startDate.toISOString().split('T')[0];
       const endDate = dateRange.endDate.toISOString().split('T')[0];
@@ -93,12 +298,10 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
         analyticsData.revenue = revenue.data;
       } catch (revenueError) {
         console.error('Revenue analytics failed:', revenueError);
-        // Provide fallback data
-        analyticsData.revenue = {
-          current_metrics: { mrr: 0, arr: 0, active_subscriptions: 0, total_customers: 0, arpu: 0, growth_rate: 0 },
-          historical_data: [],
-          period: { start_date: startDate, end_date: endDate }
-        };
+        // Provide realistic fallback data for demonstration
+        const fallbackData = generateFallbackRevenueData(startDate, endDate);
+        analyticsData.revenue = fallbackData;
+        setUsingFallbackData(true);
       }
 
       try {
@@ -108,12 +311,9 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
         analyticsData.growth = growth.data;
       } catch (growthError) {
         console.error('Growth analytics failed:', growthError);
-        analyticsData.growth = {
-          compound_monthly_growth_rate: 0,
-          monthly_growth_data: [],
-          forecasting: { next_month_projection: 0, confidence_interval: '±0%' },
-          period: { start_date: startDate, end_date: endDate }
-        };
+        const fallbackData = generateFallbackGrowthData(startDate, endDate);
+        analyticsData.growth = fallbackData;
+        setUsingFallbackData(true);
       }
 
       try {
@@ -123,12 +323,9 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
         analyticsData.churn = churn.data;
       } catch (churnError) {
         console.error('Churn analytics failed:', churnError);
-        analyticsData.churn = {
-          current_metrics: { customer_churn_rate: 0, average_customer_churn_rate: 0, average_revenue_churn_rate: 0, customer_retention_rate: 100 },
-          churn_trend: [],
-          insights: { churn_risk_level: 'low', recommended_actions: [] },
-          period: { start_date: startDate, end_date: endDate }
-        };
+        const fallbackData = generateFallbackChurnData(startDate, endDate);
+        analyticsData.churn = fallbackData;
+        setUsingFallbackData(true);
       }
 
       try {
@@ -138,12 +335,9 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
         analyticsData.customers = customers.data;
       } catch (customerError) {
         console.error('Customer analytics failed:', customerError);
-        analyticsData.customers = {
-          current_metrics: { total_customers: 0, arpu: 0, ltv: 0, ltv_to_cac_ratio: 0 },
-          customer_growth_trend: [],
-          segmentation: { by_plan: [], by_tenure: [] },
-          period: { start_date: startDate, end_date: endDate }
-        };
+        const fallbackData = generateFallbackCustomerData(startDate, endDate);
+        analyticsData.customers = fallbackData;
+        setUsingFallbackData(true);
       }
 
       try {
@@ -153,10 +347,9 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
         analyticsData.cohorts = cohorts.data;
       } catch (cohortError) {
         console.error('Cohort analytics failed:', cohortError);
-        analyticsData.cohorts = {
-          cohorts: [],
-          summary: { total_cohorts: 0, average_first_month_retention: 0, average_six_month_retention: 0 }
-        };
+        const fallbackData = generateFallbackCohortData();
+        analyticsData.cohorts = fallbackData;
+        setUsingFallbackData(true);
       }
 
       setData(analyticsData);
@@ -247,7 +440,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
       {/* Header */}
       <div className="card-theme shadow-sm border-b border-theme">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between py-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between py-4 gap-4">
             <div>
               <h1 className="text-2xl font-bold text-theme-primary">Analytics Dashboard</h1>
               <p className="text-sm text-theme-secondary">
@@ -255,7 +448,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
               </p>
             </div>
             
-            <div className="flex items-center space-x-4">
+            <div className="flex flex-wrap items-center gap-3 sm:gap-4">
               {/* Export button */}
               <AnalyticsExport 
                 dateRange={dateRange}
@@ -275,31 +468,55 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
           </div>
 
           {/* Navigation Tabs */}
-          <div className="flex space-x-8 -mb-px">
+          <div className="analytics-tabs flex overflow-x-auto space-x-6 sm:space-x-8 -mb-px scrollbar-hide">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center space-x-2 py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
+                className={`tab-button flex items-center space-x-2 py-2 px-2 border-b-2 font-medium text-sm whitespace-nowrap flex-shrink-0 transition-colors duration-200 ${
                   activeTab === tab.id
                     ? 'border-theme-link text-theme-link'
                     : 'border-transparent text-theme-secondary hover:text-theme-primary hover:border-theme'
                 }`}
               >
-                <span>{tab.icon}</span>
-                <span>{tab.label}</span>
+                <span className="text-base">{tab.icon}</span>
+                <span className="hidden sm:inline">{tab.label}</span>
               </button>
             ))}
           </div>
         </div>
       </div>
 
+      {/* Fallback Data Notification */}
+      {usingFallbackData && (
+        <div className="bg-theme-warning-light border border-theme-warning text-theme-warning px-4 py-3 mx-4 sm:mx-6 lg:mx-8 mb-4 rounded-md">
+          <div className="flex items-center">
+            <div className="flex-shrink-0">
+              <span className="text-lg">ℹ️</span>
+            </div>
+            <div className="ml-3">
+              <p className="text-sm font-medium">
+                Currently displaying demo data. Some analytics endpoints may be unavailable.
+              </p>
+            </div>
+            <div className="ml-auto pl-3">
+              <button
+                onClick={() => loadAnalyticsData()}
+                className="text-sm font-medium text-theme-warning underline hover:no-underline"
+              >
+                Retry
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
         {activeTab === 'overview' && (
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             <MetricsOverview data={data} />
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
               <RevenueChart 
                 data={data.revenue.historical_data} 
                 title="Revenue Trend (Last 12 Months)"
@@ -311,7 +528,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
                 compact
               />
             </div>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
               <ChurnChart 
                 data={data.churn.churn_trend} 
                 title="Churn Analysis"
@@ -327,46 +544,56 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
         )}
 
         {activeTab === 'revenue' && (
-          <RevenueChart 
-            data={data.revenue.historical_data}
-            currentMetrics={data.revenue.current_metrics}
-            title="Revenue Analytics"
-          />
+          <div className="chart-container">
+            <RevenueChart 
+              data={data.revenue.historical_data}
+              currentMetrics={data.revenue.current_metrics}
+              title="Revenue Analytics"
+            />
+          </div>
         )}
 
         {activeTab === 'growth' && (
-          <GrowthChart 
-            data={data.growth.monthly_growth_data}
-            compoundGrowthRate={data.growth.compound_monthly_growth_rate}
-            forecasting={data.growth.forecasting}
-            title="Growth Analytics"
-          />
+          <div className="chart-container">
+            <GrowthChart 
+              data={data.growth.monthly_growth_data}
+              compoundGrowthRate={data.growth.compound_monthly_growth_rate}
+              forecasting={data.growth.forecasting}
+              title="Growth Analytics"
+            />
+          </div>
         )}
 
         {activeTab === 'churn' && (
-          <ChurnChart 
-            data={data.churn.churn_trend}
-            currentMetrics={data.churn.current_metrics}
-            insights={data.churn.insights}
-            title="Churn Analysis"
-          />
+          <div className="chart-container">
+            <ChurnChart 
+              data={data.churn.churn_trend}
+              currentMetrics={data.churn.current_metrics}
+              insights={data.churn.insights}
+              title="Churn Analysis"
+            />
+          </div>
         )}
 
         {activeTab === 'customers' && (
-          <CustomerChart 
-            data={data.customers.customer_growth_trend}
-            currentMetrics={data.customers.current_metrics}
-            segmentation={data.customers.segmentation}
-            title="Customer Analytics"
-          />
+          <div className="chart-container">
+            <CustomerChart 
+              data={data.customers.customer_growth_trend}
+              currentMetrics={data.customers.current_metrics}
+              segmentation={data.customers.segmentation}
+              title="Customer Analytics"
+            />
+          </div>
         )}
 
         {activeTab === 'cohorts' && (
-          <CohortChart 
-            data={data.cohorts.cohorts}
-            summary={data.cohorts.summary}
-            title="Cohort Retention Analysis"
-          />
+          <div className="chart-container">
+            <CohortChart 
+              data={data.cohorts.cohorts}
+              summary={data.cohorts.summary}
+              title="Cohort Retention Analysis"
+            />
+          </div>
         )}
       </div>
     </div>

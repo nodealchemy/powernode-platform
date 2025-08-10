@@ -134,7 +134,7 @@ export const CustomerChart: React.FC<CustomerChartProps> = ({
                 stroke={colors.info}
                 strokeWidth={2}
                 dot={{ fill: colors.info, strokeWidth: 0, r: 4 }}
-                activeDot={{ r: 6, stroke: '#3b82f6', strokeWidth: 2 }}
+                activeDot={{ r: 6, stroke: colors.info, strokeWidth: 2 }}
               />
             </LineChart>
           </ResponsiveContainer>
@@ -152,25 +152,25 @@ export const CustomerChart: React.FC<CustomerChartProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             <div>
               <p className="text-sm text-theme-secondary">Total Customers</p>
-              <p className="text-2xl font-bold text-blue-600">
+              <p className="text-2xl font-bold text-theme-info">
                 {currentMetrics.total_customers.toLocaleString()}
               </p>
             </div>
             <div>
               <p className="text-sm text-theme-secondary">Average Revenue Per User</p>
-              <p className="text-2xl font-bold text-green-600">
+              <p className="text-2xl font-bold text-theme-success">
                 {formatCurrency(currentMetrics.arpu)}
               </p>
             </div>
             <div>
               <p className="text-sm text-theme-secondary">Customer Lifetime Value</p>
-              <p className="text-2xl font-bold text-purple-600">
+              <p className="text-2xl font-bold text-theme-primary">
                 {formatCurrency(currentMetrics.ltv)}
               </p>
             </div>
             <div>
               <p className="text-sm text-theme-secondary">LTV:CAC Ratio</p>
-              <p className="text-2xl font-bold text-orange-600">
+              <p className="text-2xl font-bold text-theme-warning">
                 {currentMetrics.ltv_to_cac_ratio.toFixed(1)}:1
               </p>
             </div>
@@ -196,14 +196,14 @@ export const CustomerChart: React.FC<CustomerChartProps> = ({
               <Bar
                 yAxisId="left"
                 dataKey="new_customers"
-                fill="#10b981"
+                fill={colors.success}
                 name="New Customers"
                 opacity={0.8}
               />
               <Bar
                 yAxisId="left"
                 dataKey="churned_customers"
-                fill="#ef4444"
+                fill={colors.error}
                 name="Churned Customers"
                 opacity={0.8}
               />
@@ -220,10 +220,10 @@ export const CustomerChart: React.FC<CustomerChartProps> = ({
                 yAxisId="left"
                 type="monotone"
                 dataKey="net_growth"
-                stroke="#7c3aed"
+                stroke={colors.primary}
                 strokeWidth={2}
                 name="Net Growth"
-                dot={{ fill: '#7c3aed', strokeWidth: 0, r: 3 }}
+                dot={{ fill: colors.primary, strokeWidth: 0, r: 3 }}
               />
             </ComposedChart>
           </ResponsiveContainer>
@@ -249,19 +249,19 @@ export const CustomerChart: React.FC<CustomerChartProps> = ({
                 yAxisId="arpu"
                 type="monotone"
                 dataKey="arpu"
-                stroke="#10b981"
+                stroke={colors.success}
                 strokeWidth={3}
                 name="ARPU"
-                dot={{ fill: '#10b981', strokeWidth: 0, r: 4 }}
+                dot={{ fill: colors.success, strokeWidth: 0, r: 4 }}
               />
               <Line
                 yAxisId="ltv"
                 type="monotone"
                 dataKey="ltv"
-                stroke="#8b5cf6"
+                stroke={colors.info}
                 strokeWidth={3}
                 name="LTV"
-                dot={{ fill: '#8b5cf6', strokeWidth: 0, r: 4 }}
+                dot={{ fill: colors.info, strokeWidth: 0, r: 4 }}
               />
             </ComposedChart>
           </ResponsiveContainer>
@@ -328,7 +328,7 @@ export const CustomerChart: React.FC<CustomerChartProps> = ({
                     formatter={(value: any) => [value.toLocaleString(), 'Customers']}
                     labelStyle={{ color: 'var(--theme-primary)' }}
                   />
-                  <Bar dataKey="customers" fill="#3b82f6" opacity={0.8} />
+                  <Bar dataKey="customers" fill={colors.info} opacity={0.8} />
                 </BarChart>
               </ResponsiveContainer>
             </div>

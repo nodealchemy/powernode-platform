@@ -138,25 +138,25 @@ export const ChurnChart: React.FC<ChurnChartProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             <div>
               <p className="text-sm text-theme-secondary">Current Customer Churn</p>
-              <p className="text-2xl font-bold text-red-600">
+              <p className="text-2xl font-bold text-theme-error">
                 {formatPercentage(currentMetrics.customer_churn_rate)}
               </p>
             </div>
             <div>
               <p className="text-sm text-theme-secondary">Average Customer Churn</p>
-              <p className="text-2xl font-bold text-orange-600">
+              <p className="text-2xl font-bold text-theme-warning">
                 {formatPercentage(currentMetrics.average_customer_churn_rate)}
               </p>
             </div>
             <div>
               <p className="text-sm text-theme-secondary">Revenue Churn Rate</p>
-              <p className="text-2xl font-bold text-red-700">
+              <p className="text-2xl font-bold text-theme-error">
                 {formatPercentage(currentMetrics.average_revenue_churn_rate)}
               </p>
             </div>
             <div>
               <p className="text-sm text-theme-secondary">Customer Retention</p>
-              <p className="text-2xl font-bold text-green-600">
+              <p className="text-2xl font-bold text-theme-success">
                 {formatPercentage(currentMetrics.customer_retention_rate)}
               </p>
             </div>
@@ -301,18 +301,18 @@ export const ChurnChart: React.FC<ChurnChartProps> = ({
         </div>
         
         {/* Legend */}
-        <div className="flex items-center justify-center space-x-6 mt-4 text-xs">
+        <div className="flex flex-wrap items-center justify-center gap-4 mt-4 text-xs">
           <div className="flex items-center space-x-2">
-            <div className="w-3 h-3 rounded bg-green-500"></div>
-            <span>Low Churn (&lt;2%)</span>
+            <div className="w-3 h-3 rounded" style={{ backgroundColor: colors.success }}></div>
+            <span className="text-theme-secondary">Low Churn (&lt;2%)</span>
           </div>
           <div className="flex items-center space-x-2">
-            <div className="w-3 h-3 rounded bg-yellow-500"></div>
-            <span>Moderate Churn (2-5%)</span>
+            <div className="w-3 h-3 rounded" style={{ backgroundColor: colors.warning }}></div>
+            <span className="text-theme-secondary">Moderate Churn (2-5%)</span>
           </div>
           <div className="flex items-center space-x-2">
-            <div className="w-3 h-3 rounded bg-red-500"></div>
-            <span>High Churn (&gt;5%)</span>
+            <div className="w-3 h-3 rounded" style={{ backgroundColor: colors.error }}></div>
+            <span className="text-theme-secondary">High Churn (&gt;5%)</span>
           </div>
         </div>
       </div>

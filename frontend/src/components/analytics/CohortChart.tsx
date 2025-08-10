@@ -1,6 +1,6 @@
 import React from 'react';
 import { format, parseISO } from 'date-fns';
-// import { useChartColors } from '../../hooks/useThemeColors'; // TODO: Use for chart theme integration
+import { useChartColors } from '../../hooks/useThemeColors';
 
 interface CohortChartProps {
   data: Array<{
@@ -26,7 +26,7 @@ export const CohortChart: React.FC<CohortChartProps> = ({
   title
 }) => {
   // Use theme-aware colors that update automatically
-  // const colors = useChartColors(); // TODO: Implement cohort chart theme integration
+  const colors = useChartColors();
   const formatDate = (dateString: string) => {
     try {
       return format(parseISO(dateString + '-01'), 'MMM yyyy');
@@ -40,11 +40,11 @@ export const CohortChart: React.FC<CohortChartProps> = ({
   };
 
   const getRetentionColor = (rate: number) => {
-    if (rate >= 80) return 'bg-theme-success text-white';
-    if (rate >= 60) return 'bg-theme-success text-white';
-    if (rate >= 40) return 'bg-theme-warning text-white';
-    if (rate >= 20) return 'bg-theme-warning text-white';
-    if (rate > 0) return 'bg-theme-error text-white';
+    if (rate >= 80) return `bg-theme-success text-white`;
+    if (rate >= 60) return `bg-theme-info text-white`;
+    if (rate >= 40) return `bg-theme-warning text-white`;
+    if (rate >= 20) return `bg-orange-500 text-white`;
+    if (rate > 0) return `bg-theme-error text-white`;
     return 'bg-theme-background-secondary text-theme-secondary';
   };
 
@@ -88,27 +88,27 @@ export const CohortChart: React.FC<CohortChartProps> = ({
         <h3 className="text-lg font-semibold text-theme-primary mb-4">Cohort Retention Analysis</h3>
         
         {/* Legend */}
-        <div className="flex items-center justify-center space-x-4 mb-6 text-sm">
-          <span className="text-theme-secondary">Retention Rate:</span>
+        <div className="flex flex-wrap items-center justify-center gap-3 mb-6 text-sm">
+          <span className="text-theme-secondary font-medium">Retention Rate:</span>
           <div className="flex items-center space-x-2">
-            <div className="w-4 h-4 bg-theme-error rounded"></div>
-            <span>0-20%</span>
+            <div className="w-4 h-4 bg-theme-error rounded shadow-sm"></div>
+            <span className="text-theme-secondary">0-20%</span>
           </div>
           <div className="flex items-center space-x-2">
-            <div className="w-4 h-4 bg-theme-warning rounded"></div>
-            <span>20-40%</span>
+            <div className="w-4 h-4 bg-orange-500 rounded shadow-sm"></div>
+            <span className="text-theme-secondary">20-40%</span>
           </div>
           <div className="flex items-center space-x-2">
-            <div className="w-4 h-4 bg-theme-warning rounded"></div>
-            <span>40-60%</span>
+            <div className="w-4 h-4 bg-theme-warning rounded shadow-sm"></div>
+            <span className="text-theme-secondary">40-60%</span>
           </div>
           <div className="flex items-center space-x-2">
-            <div className="w-4 h-4 bg-theme-success rounded"></div>
-            <span>60-80%</span>
+            <div className="w-4 h-4 bg-theme-info rounded shadow-sm"></div>
+            <span className="text-theme-secondary">60-80%</span>
           </div>
           <div className="flex items-center space-x-2">
-            <div className="w-4 h-4 bg-theme-success rounded"></div>
-            <span>80%+</span>
+            <div className="w-4 h-4 bg-theme-success rounded shadow-sm"></div>
+            <span className="text-theme-secondary">80%+</span>
           </div>
         </div>
 
@@ -117,14 +117,14 @@ export const CohortChart: React.FC<CohortChartProps> = ({
           <table className="min-w-full">
             <thead>
               <tr className="border-b border-theme">
-                <th className="px-4 py-3 text-left text-xs font-medium text-theme-tertiary uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-semibold text-theme-secondary uppercase tracking-wider">
                   Cohort
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-theme-tertiary uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-semibold text-theme-secondary uppercase tracking-wider">
                   Size
                 </th>
                 {months.map(month => (
-                  <th key={month} className="px-3 py-3 text-center text-xs font-medium text-theme-tertiary uppercase tracking-wider">
+                  <th key={month} className="px-3 py-3 text-center text-xs font-semibold text-theme-secondary uppercase tracking-wider">
                     M{month}
                   </th>
                 ))}
@@ -274,14 +274,14 @@ export const CohortChart: React.FC<CohortChartProps> = ({
         </div>
         
         {/* Legend */}
-        <div className="mt-4 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
           {data.slice(0, 12).map((cohort, index) => (
-            <div key={index} className="flex items-center space-x-2 text-sm">
+            <div key={index} className="flex items-center space-x-2 text-sm p-2 bg-theme-background-secondary rounded">
               <div
-                className="w-3 h-3 rounded-full"
+                className="w-3 h-3 rounded-full flex-shrink-0 shadow-sm"
                 style={{ backgroundColor: `hsl(${index * 360 / data.length}, 70%, 50%)` }}
               ></div>
-              <span className="text-theme-secondary truncate">
+              <span className="text-theme-secondary truncate font-medium">
                 {formatDate(cohort.cohort_date)}
               </span>
             </div>

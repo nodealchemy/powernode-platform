@@ -151,9 +151,9 @@ export const GrowthChart: React.FC<GrowthChartProps> = ({
   return (
     <div className="space-y-6">
       {/* Growth Metrics Summary */}
-      <div className="card-theme rounded-lg shadow-sm border-theme p-6">
+      <div className="card-theme rounded-lg shadow-sm border-theme p-4 sm:p-6">
         <h3 className="text-lg font-semibold text-theme-primary mb-4">Growth Metrics</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {compoundGrowthRate !== undefined && (
             <div>
               <p className="text-sm text-theme-secondary">Compound Monthly Growth Rate</p>
@@ -182,9 +182,9 @@ export const GrowthChart: React.FC<GrowthChartProps> = ({
       </div>
 
       {/* Growth Rate Trend */}
-      <div className="card-theme rounded-lg shadow-sm border-theme p-6">
+      <div className="card-theme rounded-lg shadow-sm border-theme p-4 sm:p-6">
         <h3 className="text-lg font-semibold text-theme-primary mb-4">Monthly Growth Rate</h3>
-        <div className="h-96">
+        <div className="h-64 sm:h-80 lg:h-96">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={data}>
               <defs>
@@ -217,9 +217,9 @@ export const GrowthChart: React.FC<GrowthChartProps> = ({
       </div>
 
       {/* Revenue Components */}
-      <div className="card-theme rounded-lg shadow-sm border-theme p-6">
+      <div className="card-theme rounded-lg shadow-sm border-theme p-4 sm:p-6">
         <h3 className="text-lg font-semibold text-theme-primary mb-4">Revenue Growth Components</h3>
-        <div className="h-96">
+        <div className="h-64 sm:h-80 lg:h-96">
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={data}>
               <CartesianGrid strokeDasharray="3 3" stroke={colors.border} />
@@ -260,18 +260,19 @@ export const GrowthChart: React.FC<GrowthChartProps> = ({
       </div>
 
       {/* Growth Rate Heatmap */}
-      <div className="card-theme rounded-lg shadow-sm border-theme p-6">
+      <div className="card-theme rounded-lg shadow-sm border-theme p-4 sm:p-6">
         <h3 className="text-lg font-semibold text-theme-primary mb-4">Growth Rate by Month</h3>
-        <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-12 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-12 gap-2">
           {data.map((item, index) => (
             <div key={index} className="text-center">
               <div
-                className="w-full h-16 rounded-md flex items-center justify-center text-white font-semibold text-sm"
+                className="growth-heatmap-cell w-full h-12 sm:h-14 md:h-16 rounded-lg flex items-center justify-center text-white font-semibold text-xs sm:text-sm shadow-sm"
                 style={{ backgroundColor: getGrowthColor(item.growth_rate) }}
+                title={`${formatDate(item.date)}: ${formatPercentage(item.growth_rate)}`}
               >
                 {formatPercentage(item.growth_rate)}
               </div>
-              <p className="text-xs text-theme-tertiary mt-1">
+              <p className="text-xs text-theme-secondary mt-1 truncate">
                 {formatDate(item.date)}
               </p>
             </div>
@@ -279,22 +280,22 @@ export const GrowthChart: React.FC<GrowthChartProps> = ({
         </div>
         
         {/* Legend */}
-        <div className="flex items-center justify-center space-x-4 mt-4 text-xs">
-          <div className="flex items-center space-x-1">
-            <div className="w-3 h-3 rounded bg-theme-error"></div>
-            <span>High Decline (&lt;-5%)</span>
+        <div className="flex flex-wrap items-center justify-center gap-3 mt-4 text-xs">
+          <div className="flex items-center space-x-2">
+            <div className="w-3 h-3 rounded bg-theme-error shadow-sm"></div>
+            <span className="text-theme-secondary">High Decline (&lt;-5%)</span>
           </div>
-          <div className="flex items-center space-x-1">
-            <div className="w-3 h-3 rounded bg-theme-warning"></div>
-            <span>Slight Decline (-5% to 0%)</span>
+          <div className="flex items-center space-x-2">
+            <div className="w-3 h-3 rounded bg-theme-warning shadow-sm"></div>
+            <span className="text-theme-secondary">Slight Decline (-5% to 0%)</span>
           </div>
-          <div className="flex items-center space-x-1">
-            <div className="w-3 h-3 rounded bg-theme-info"></div>
-            <span>Positive Growth (0% to 5%)</span>
+          <div className="flex items-center space-x-2">
+            <div className="w-3 h-3 rounded bg-theme-info shadow-sm"></div>
+            <span className="text-theme-secondary">Positive Growth (0% to 5%)</span>
           </div>
-          <div className="flex items-center space-x-1">
-            <div className="w-3 h-3 rounded bg-theme-success"></div>
-            <span>High Growth (&gt;5%)</span>
+          <div className="flex items-center space-x-2">
+            <div className="w-3 h-3 rounded bg-theme-success shadow-sm"></div>
+            <span className="text-theme-secondary">High Growth (&gt;5%)</span>
           </div>
         </div>
       </div>
