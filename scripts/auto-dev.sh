@@ -1,12 +1,13 @@
 #!/bin/bash
 
 # Automatic Development Environment Manager
-# Helper script for Claude to automatically start/manage development servers
+# Helper script for Claude to automatically start/manage development servers including worker service
 
 set -e
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BACKEND_MANAGER="$PROJECT_ROOT/scripts/backend-manager.sh"
+WORKER_MANAGER="$PROJECT_ROOT/scripts/worker-manager.sh"
 FRONTEND_MANAGER="$PROJECT_ROOT/scripts/frontend-manager.sh"
 
 # Colors for output
@@ -32,15 +33,23 @@ warn() {
     echo -e "${YELLOW}[$(date +'%H:%M:%S')] ⚠${NC} $1"
 }
 
-# Function to check if both servers are running and healthy
+# Function to check if all servers are running and healthy
 check_dev_environment() {
     local backend_running=false
+    local worker_running=false
     local frontend_running=false
     
     # Check backend
     if "$BACKEND_MANAGER" status > /dev/null 2>&1; then
         if curl -s -f --max-time 3 "http://localhost:3000/api/v1/health" > /dev/null 2>&1; then
             backend_running=true
+        fi
+    fi
+    
+    # Check worker
+    if "$WORKER_MANAGER" status > /dev/null 2>&1; then
+        if curl -s -f --max-time 3 "http://localhost:4567/health" > /dev/null 2>&1; then
+            worker_running=true
         fi
     fi
     
@@ -51,7 +60,7 @@ check_dev_environment() {
         fi
     fi
     
-    if $backend_running && $frontend_running; then
+    if $backend_running && $worker_running && $frontend_running; then
         return 0
     else
         return 1
@@ -76,7 +85,17 @@ ensure_dev_environment() {
         return 1
     fi
     
-    # Start frontend second
+    # Wait for backend to be ready
+    sleep 3
+    
+    # Start worker second
+    log "Ensuring worker is running..."
+    if ! "$WORKER_MANAGER" start; then
+        error "Failed to start worker service"
+        return 1
+    fi
+    
+    # Start frontend third
     log "Ensuring frontend is running..."
     if ! "$FRONTEND_MANAGER" start; then
         error "Failed to start frontend server"
@@ -87,8 +106,9 @@ ensure_dev_environment() {
     if check_dev_environment; then
         success "Development environment is now fully operational!"
         log "Available at:"
-        log "  • Backend API: http://localhost:3000"
-        log "  • Frontend App: http://localhost:3001"
+        log "  • Backend API:  http://localhost:3000 (external: http://[HOST_IP]:3000)"
+        log "  • Worker Web:   http://localhost:4567 (external: http://[HOST_IP]:4567)"
+        log "  • Frontend App: http://localhost:3001 (external: http://[HOST_IP]:3001)"
         return 0
     else
         error "Development environment failed to start properly"
@@ -108,6 +128,18 @@ ensure_backend() {
     "$BACKEND_MANAGER" start
 }
 
+# Function to start only worker if needed
+ensure_worker() {
+    log "Ensuring worker service is running..."
+    
+    if curl -s -f --max-time 3 "http://localhost:4567/health" > /dev/null 2>&1; then
+        success "Worker is already running and healthy"
+        return 0
+    fi
+    
+    "$WORKER_MANAGER" start
+}
+
 # Function to start only frontend if needed
 ensure_frontend() {
     log "Ensuring frontend server is running..."
@@ -123,10 +155,15 @@ ensure_frontend() {
 # Function to show quick status
 quick_status() {
     local backend_status="❌ Not Running"
+    local worker_status="❌ Not Running"
     local frontend_status="❌ Not Running"
     
     if curl -s -f --max-time 3 "http://localhost:3000/api/v1/health" > /dev/null 2>&1; then
         backend_status="✅ Running & Healthy"
+    fi
+    
+    if curl -s -f --max-time 3 "http://localhost:4567/health" > /dev/null 2>&1; then
+        worker_status="✅ Running & Healthy"
     fi
     
     if curl -s -f --max-time 3 "http://localhost:3001" > /dev/null 2>&1; then
@@ -135,24 +172,28 @@ quick_status() {
     
     echo "Development Environment Status:"
     echo "  Backend:  $backend_status"
+    echo "  Worker:   $worker_status"
     echo "  Frontend: $frontend_status"
     
-    if [[ "$backend_status" == *"✅"* && "$frontend_status" == *"✅"* ]]; then
+    if [[ "$backend_status" == *"✅"* && "$worker_status" == *"✅"* && "$frontend_status" == *"✅"* ]]; then
         echo ""
         echo "🚀 Ready for development!"
-        echo "  • API: http://localhost:3000"
-        echo "  • App: http://localhost:3001"
+        echo "  • API:    http://localhost:3000 (external: http://[HOST_IP]:3000)"
+        echo "  • Worker: http://localhost:4567 (external: http://[HOST_IP]:4567)"
+        echo "  • App:    http://localhost:3001 (external: http://[HOST_IP]:3001)"
         return 0
     else
         return 1
     fi
 }
 
-# Function to restart both servers
+# Function to restart all servers
 restart_all() {
     log "Restarting development environment..."
     
     "$BACKEND_MANAGER" restart
+    sleep 2
+    "$WORKER_MANAGER" restart
     "$FRONTEND_MANAGER" restart
     
     if check_dev_environment; then
@@ -171,6 +212,9 @@ case "${1:-ensure}" in
         ;;
     backend)
         ensure_backend
+        ;;
+    worker)
+        ensure_worker
         ;;
     frontend)
         ensure_frontend
@@ -191,18 +235,19 @@ case "${1:-ensure}" in
         fi
         ;;
     *)
-        echo "Usage: $0 {ensure|backend|frontend|status|restart|check}"
+        echo "Usage: $0 {ensure|backend|worker|frontend|status|restart|check}"
         echo ""
         echo "Commands:"
-        echo "  ensure    - Automatically start both servers if needed (default)"
+        echo "  ensure    - Automatically start all servers if needed (default)"
         echo "  backend   - Ensure only backend is running"
+        echo "  worker    - Ensure only worker service is running"
         echo "  frontend  - Ensure only frontend is running"
-        echo "  status    - Show quick status of both servers"
-        echo "  restart   - Restart both servers"
+        echo "  status    - Show quick status of all servers"
+        echo "  restart   - Restart all servers"
         echo "  check     - Check if environment is healthy (exit code based)"
         echo ""
         echo "This script is designed for Claude to automatically manage"
-        echo "the development environment without manual intervention."
+        echo "the full development environment including worker service."
         exit 1
         ;;
 esac

@@ -94,6 +94,46 @@ Rails.application.routes.draw do
         get :cohorts
         get :customers
         match :export, via: [ :get, :post ]
+        
+        # Worker service endpoints
+        post :recalculate
+        post :update_revenue_snapshots
+        post :update_metrics
+      end
+
+      # Service authentication endpoint for worker
+      namespace :service do
+        match :verify, via: [:get, :post]
+        get :health
+      end
+
+      # Billing endpoints for worker service
+      namespace :billing do
+        post :process_renewal
+        post :retry_payment
+        post :process_payment
+        post :generate_invoice
+        post :suspend_subscription
+        post :cancel_subscription
+        post :cleanup
+        post :health_report
+        post :reactivate_suspended_accounts
+      end
+
+      # Notifications endpoint for worker service
+      resources :notifications, only: [:create]
+
+      # Enhanced reports endpoints for worker integration
+      resources :reports, only: [:show, :index, :create] do
+        collection do
+          get :scheduled
+          post :generate
+          post :schedule
+        end
+        
+        member do
+          delete :scheduled, to: 'reports#destroy_scheduled'
+        end
       end
     end
   end

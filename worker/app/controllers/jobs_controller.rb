@@ -8,7 +8,7 @@ class JobsController
     request = Rack::Request.new(env)
     
     case [request.request_method, request.path_info]
-    when ['POST', '/api/v1/jobs']
+    when ['POST', '/'], ['POST', '']
       enqueue_job(request)
     else
       not_found_response
@@ -146,13 +146,13 @@ class JobsController
 
   def success_response(data)
     [200, 
-     {'Content-Type' => 'application/json'}, 
+     {'content-type' => 'application/json'}, 
      [data.to_json]]
   end
 
   def error_response(status, message)
     [status, 
-     {'Content-Type' => 'application/json'}, 
+     {'content-type' => 'application/json'}, 
      [{error: message, timestamp: Time.current.iso8601}.to_json]]
   end
 

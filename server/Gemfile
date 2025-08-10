@@ -33,6 +33,7 @@ gem "sidekiq"
 
 # HTTP client for webhook processing
 gem "http"
+gem "httparty"
 
 # Analytics and reporting
 gem "prawn"

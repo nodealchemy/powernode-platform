@@ -82,48 +82,68 @@ The platform handles subscription lifecycle management, automated billing, payme
   - Follow logs: `./scripts/frontend-manager.sh follow`
   - Clear cache: `./scripts/frontend-manager.sh clear-cache`
 
-#### Orchestration (Both Services)
-- **Script**: `./dev-manager.sh`
+#### Worker Management (Sidekiq)
+- **Script**: `./scripts/worker-manager.sh`
+- **Commands**: `start|stop|restart|status|logs|follow|screen`
 - **Usage**:
-  - Start both: `./dev-manager.sh start`
-  - Stop both: `./dev-manager.sh stop`
-  - Restart both: `./dev-manager.sh restart`
-  - Status both: `./dev-manager.sh status`
-  - Backend only: `./dev-manager.sh backend [command]`
-  - Frontend only: `./dev-manager.sh frontend [command]`
+  - Start: `./scripts/worker-manager.sh start`
+  - Stop: `./scripts/worker-manager.sh stop`
+  - Restart: `./scripts/worker-manager.sh restart`
+  - Status: `./scripts/worker-manager.sh status`
+  - Logs: `./scripts/worker-manager.sh logs [lines]`
+  - Follow logs: `./scripts/worker-manager.sh follow`
+  - Screen attach: `./scripts/worker-manager.sh screen`
+
+#### Orchestration (All Services)
+- **Script**: `./scripts/dev-manager.sh`
+- **Usage**:
+  - Start all: `./scripts/dev-manager.sh start`
+  - Stop all: `./scripts/dev-manager.sh stop`
+  - Restart all: `./scripts/dev-manager.sh restart`
+  - Status all: `./scripts/dev-manager.sh status`
+  - Backend only: `./scripts/dev-manager.sh backend [command]`
+  - Worker only: `./scripts/dev-manager.sh worker [command]`
+  - Frontend only: `./scripts/dev-manager.sh frontend [command]`
 
 ### Process Management Rules
 
 1. **ALWAYS** run services as background processes using the scripts
 2. **ALWAYS** check for existing processes and kill them thoroughly
-3. **NEVER** use manual `rails server` or `npm start` commands
+3. **NEVER** use manual `rails server`, `npm start`, or `bundle exec sidekiq` commands
 4. **AUTOMATICALLY** start servers when needed for development tasks
 5. **ALWAYS** use the scripts when:
-   - Starting backend or frontend
-   - Stopping backend or frontend
-   - Restarting backend or frontend
+   - Starting backend, worker, or frontend
+   - Stopping backend, worker, or frontend
+   - Restarting backend, worker, or frontend
    - Checking server status
    - Viewing logs
 
-### Tmux-Based Server Management
+### Screen-Based Server Management
 
-**Modern Approach**: Both backend and frontend servers now run in detached tmux sessions to completely isolate them from the Bash tool and provide persistent, manageable sessions.
+**Modern Approach**: All services (backend, worker, frontend) now run in detached screen sessions to completely isolate them from the Bash tool and provide persistent, manageable sessions.
 
 **Backend (Rails)**:
 - Session name: `powernode-backend`
 - Command: `./scripts/backend-manager.sh start`
-- Attach: `./scripts/backend-manager.sh tmux`
+- Attach: `./scripts/backend-manager.sh screen`
 - Logs streamed to: `/home/rett/Projects/powernode-platform/logs/backend.log`
+
+**Worker (Sidekiq)**:
+- Session name: `powernode-worker`
+- Command: `./scripts/worker-manager.sh start`
+- Attach: `./scripts/worker-manager.sh screen`
+- Logs streamed to: `/home/rett/Projects/powernode-platform/logs/worker.log`
+- Web interface: `http://localhost:4567` (Puma server)
 
 **Frontend (React)**:
 - Session name: `powernode-frontend` 
 - Command: `./scripts/frontend-manager.sh start`
-- Attach: `./scripts/frontend-manager.sh tmux`
+- Attach: `./scripts/frontend-manager.sh screen`
 - Logs streamed to: `/home/rett/Projects/powernode-platform/logs/frontend.log`
 
 ### Important: Bash Tool Timeout Behavior
 
-**CONFIRMED LIMITATION**: The Bash tool will ALWAYS show "Command timed out after 2m 0.0s" when starting Rails servers, regardless of the implementation approach (daemon mode, tmux sessions, ultra-simple scripts). This is a fundamental limitation of how the Bash tool handles processes related to Rails/tmux and is NOT an indication of failure.
+**RESOLVED**: Screen-based server management has eliminated timeout issues that previously affected tmux-based approaches for Rails and Sidekiq server startup.
 
 **Key Facts**:
 - ✅ **Scripts execute successfully** within 1-2 seconds
@@ -132,18 +152,19 @@ The platform handles subscription lifecycle management, automated billing, payme
 - ⚠️ **Timeout message is cosmetic** and should be ignored
 - ✅ **Multiple approaches tested**: All show same timeout behavior
 
-**Benefits of Tmux Approach**:
+**Benefits of Screen-Based Approach**:
 - ✅ Complete isolation from Bash tool limitations
 - ✅ Persistent sessions that survive terminal disconnection
-- ✅ Interactive access via `tmux attach-session`
+- ✅ Interactive access via `screen` attach commands
 - ✅ Clean process management and cleanup
 - ✅ Real-time log streaming to both session and log files
+- ✅ No timeout issues with Rails or Sidekiq startup
 
 **Recommended workflow**:
-1. Run `./scripts/backend-manager.sh start` (ignore any timeout message)
-2. Run `./scripts/backend-manager.sh status` to verify success
-3. Use `./scripts/backend-manager.sh tmux` to attach and view live output
-4. Detach with `Ctrl+B, D` to leave session running
+1. Run `./scripts/dev-manager.sh start` for all services
+2. Run `./scripts/dev-manager.sh status` to verify success
+3. Use individual `[service]-manager.sh screen` to attach and view live output
+4. Detach with `Ctrl+A, D` to leave session running
 
 ### Automatic Background Server Management
 
@@ -151,15 +172,17 @@ The platform handles subscription lifecycle management, automated billing, payme
 
 #### **When to Start Servers Automatically**
 - When user asks to test functionality that requires running servers
-- When user asks to work on frontend or backend code that needs live testing
+- When user asks to work on frontend, backend, or worker code that needs live testing
 - When user asks to restart servers
 - When user asks to check application status
 - When user asks to view the application in browser
+- When user asks to work with background jobs or Sidekiq
 
 #### **Server Startup Priority**
 1. **Backend First**: Always start `./scripts/backend-manager.sh start` first
-2. **Frontend Second**: Then start `./scripts/frontend-manager.sh start`
-3. **Health Check**: Verify both are running with `./dev-manager.sh status`
+2. **Worker Second**: Then start `./scripts/worker-manager.sh start` 
+3. **Frontend Third**: Finally start `./scripts/frontend-manager.sh start`
+4. **Health Check**: Verify all are running with `./scripts/dev-manager.sh status`
 
 #### **Background Process Requirements**
 - **Always Background**: Never run servers in foreground that would block Claude
@@ -170,9 +193,10 @@ The platform handles subscription lifecycle management, automated billing, payme
 #### **Auto-Development Script** 
 **PREFERRED METHOD**: Use `./scripts/auto-dev.sh` for automatic server management:
 
-- **Auto Start**: `./scripts/auto-dev.sh ensure` - Starts both servers only if needed
-- **Quick Status**: `./scripts/auto-dev.sh status` - Fast health check of both servers
+- **Auto Start**: `./scripts/auto-dev.sh ensure` - Starts all services only if needed
+- **Quick Status**: `./scripts/auto-dev.sh status` - Fast health check of all services
 - **Backend Only**: `./scripts/auto-dev.sh backend` - Ensure backend is running
+- **Worker Only**: `./scripts/auto-dev.sh worker` - Ensure worker is running  
 - **Frontend Only**: `./scripts/auto-dev.sh frontend` - Ensure frontend is running
 - **Health Check**: `./scripts/auto-dev.sh check` - Silent health check (exit code based)
 
@@ -269,10 +293,17 @@ The project uses a sophisticated agent-based development approach defined in `cl
 - Environment-specific configuration management
 
 ### Background Jobs Architecture
-- **Standalone Worker Agent**: Background jobs run as a separate worker service located in `./worker` directory with no direct database connectivity
+- **Standalone Worker Service**: Background jobs run as a separate worker service located in `./worker` directory with no direct database connectivity
 - **API-Only Communication**: All data access must go through the Rails API backend via HTTP requests using service-to-service authentication
-- **Sidekiq Processing**: Worker agent uses current Sidekiq version with built-in web interface for monitoring
+- **Sidekiq Processing**: Worker service uses Sidekiq 7+ with Puma-powered web interface for monitoring and management
 - **Web Interface Authentication**: Sidekiq web interface integrates with Rails backend authentication system via API calls
+- **Process Management**: **ALWAYS** use `./scripts/worker-manager.sh` - **NEVER** run `bundle exec sidekiq` manually
+- **Screen Session**: Worker runs in detached `powernode-worker` screen session for persistence and interactive access
+- **Environment Requirements**: 
+  - SERVICE_TOKEN must be configured in `.env` file
+  - Redis server must be accessible at configured REDIS_URL
+  - Backend API must be running and accessible for authentication
+- **Web Interface Access**: Available at `http://localhost:4567` and `http://[HOST_IP]:4567` for external access
 - **Job Processing**: Sidekiq workers make authenticated API calls to the main Rails 8 backend for all data operations
 - **Service Authentication**: Dedicated service-to-service authentication mechanism using secure tokens for worker-to-backend communication
 - **Complete API Isolation**: Worker agent has zero direct database or model access, relying entirely on HTTP API endpoints
@@ -355,6 +386,7 @@ Claude Code should use the modern screen-based individual manager scripts:
 2. **Individual server control**:
    ```bash
    ./scripts/backend-manager.sh start    # Start Rails in screen session
+   ./scripts/worker-manager.sh start     # Start Sidekiq worker in screen session
    ./scripts/frontend-manager.sh start   # Start React in screen session
    ```
 
@@ -383,6 +415,8 @@ Claude Code should use the modern screen-based individual manager scripts:
 **External Access Configuration:**
 - All servers are configured to listen on 0.0.0.0 (all network interfaces)
 - Backend accessible at: `http://localhost:3000` and `http://[HOST_IP]:3000`
+- Worker web interface accessible at: `http://localhost:4567` and `http://[HOST_IP]:4567`
+- Sidekiq monitoring accessible at: `http://localhost:4567/sidekiq` and `http://[HOST_IP]:4567/sidekiq`
 - Frontend accessible at: `http://localhost:3001` and `http://[HOST_IP]:3001`
 - This enables access from remote machines, containers, and networks
 - WebSocket connections work with external IPs for real-time features
@@ -404,3 +438,40 @@ Claude Code should use the modern screen-based individual manager scripts:
 - `./scripts/frontend-manager.sh logs` - view server logs
 
 **Solution**: Screen sessions detach more cleanly from the Bash tool, eliminating the timeout issues that affected all tmux-based approaches for both Rails and React server startup. Both servers now use consistent screen-based process management.
+
+## Worker Service Architecture
+
+**IMPLEMENTED**: Standalone worker service with complete job migration from backend server.
+
+**Background Job Processing**:
+- **Location**: `./worker` directory - completely separate from Rails backend
+- **Architecture**: API-only connectivity - zero direct database access
+- **Communication**: All data operations via HTTP requests to Rails backend
+- **Authentication**: Service-to-service JWT token authentication
+- **Process Management**: Screen-based with `./scripts/worker-manager.sh`
+
+**Migrated Job Classes**:
+- **Backend Jobs Removed**: All `server/app/jobs/*.rb` files migrated to worker service
+- **Billing Jobs**: `worker/app/jobs/billing/` (automation, retry, lifecycle, cleanup, scheduler)  
+- **Report Jobs**: `worker/app/jobs/reports/` (generation, scheduled reports)
+- **Webhook Jobs**: `worker/app/jobs/webhooks/` (Stripe, PayPal processing)
+- **Analytics Jobs**: `worker/app/jobs/analytics/` (revenue snapshots, recalculation)
+
+**Backend Integration**:
+- **WorkerJobService**: Rails service for enqueueing jobs in worker service via HTTP
+- **Job API**: Worker exposes `/api/v1/jobs` endpoint for receiving job requests
+- **Enhanced Routes**: Backend API extended with worker service endpoints
+- **Legacy Prevention**: ApplicationJob warns about deprecated usage
+
+**Worker Management**:
+- **Start Worker**: `./scripts/worker-manager.sh start` - starts worker and web interface
+- **Worker Status**: `./scripts/worker-manager.sh status` - comprehensive health check
+- **Sidekiq Web**: `http://localhost:4567/sidekiq` - authenticated monitoring interface  
+- **Screen Session**: `./scripts/worker-manager.sh screen` - attach to interactive session
+
+**Key Benefits**:
+- ✅ **Independent Scaling**: Worker service scales separately from Rails API
+- ✅ **Fault Isolation**: Worker failures don't affect API availability  
+- ✅ **Technology Independence**: Worker can use different Rails/Ruby versions
+- ✅ **Enhanced Monitoring**: Dedicated Sidekiq web interface with custom auth
+- ✅ **Service Authentication**: Secure token-based inter-service communication

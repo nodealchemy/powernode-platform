@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 
 require_relative 'config/application'
+require 'redis'
 
 # Initialize the Powernode Worker application
 PowernodeWorker.application
@@ -29,7 +30,7 @@ map '/health' do
       api_client = BackendApiClient.new
       api_client.health_check
       
-      [200, {'Content-Type' => 'application/json'}, [
+      [200, {'content-type' => 'application/json'}, [
         {
           status: 'ok',
           timestamp: Time.current.iso8601,
@@ -38,7 +39,7 @@ map '/health' do
         }.to_json
       ]]
     rescue => e
-      [503, {'Content-Type' => 'application/json'}, [
+      [503, {'content-type' => 'application/json'}, [
         {
           status: 'error',
           timestamp: Time.current.iso8601,
@@ -52,7 +53,7 @@ end
 # Root endpoint - basic info
 map '/' do
   run proc { |env|
-    [200, {'Content-Type' => 'application/json'}, [
+    [200, {'content-type' => 'application/json'}, [
       {
         service: 'Powernode Worker',
         version: '1.0.0',

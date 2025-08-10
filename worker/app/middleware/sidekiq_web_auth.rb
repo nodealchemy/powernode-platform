@@ -14,6 +14,11 @@ class SidekiqWebAuth
 
     # Allow health check without auth
     return @app.call(env) if request.path == '/health'
+    
+    # Allow static assets without auth (CSS, JS, images)
+    if static_asset?(request.path)
+      return @app.call(env)
+    end
 
     # Extract token from Authorization header or session
     token = extract_token(request)
@@ -34,6 +39,11 @@ class SidekiqWebAuth
   end
 
   private
+
+  # Check if the request is for a static asset (CSS, JS, images)
+  def static_asset?(path)
+    path.match?(%r{^/sidekiq/(stylesheets|javascripts|images)/})
+  end
 
   def extract_token(request)
     # Check Authorization header first
@@ -81,13 +91,13 @@ class SidekiqWebAuth
 
   def unauthorized_response(message = 'Unauthorized')
     [401, 
-     { 'Content-Type' => 'text/html' }, 
+     { 'content-type' => 'text/html' }, 
      [render_login_page(message)]]
   end
 
   def internal_error_response
     [500, 
-     { 'Content-Type' => 'text/html' }, 
+     { 'content-type' => 'text/html' }, 
      ['<h1>Internal Server Error</h1><p>Please try again later.</p>']]
   end
 

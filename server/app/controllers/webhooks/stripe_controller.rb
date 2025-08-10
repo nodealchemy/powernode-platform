@@ -11,8 +11,21 @@ class Webhooks::StripeController < ApplicationController
       account_id: extract_account_id_from_event
     )
 
-    # Process webhook asynchronously
-    ProcessWebhookEventJob.perform_later(webhook_event.id)
+    # Process webhook asynchronously via worker service
+    webhook_data = {
+      provider: 'stripe',
+      event_type: @event.type,
+      payload: @event.data.to_hash,
+      webhook_event_id: webhook_event.id,
+      account_id: webhook_event.account_id
+    }
+    
+    begin
+      WorkerJobService.enqueue_webhook_processing(webhook_data)
+    rescue WorkerJobService::WorkerServiceError => e
+      Rails.logger.error "Failed to enqueue webhook processing: #{e.message}"
+      # Fallback: could implement local processing or retry logic here
+    end
 
     render json: { received: true }, status: 200
   rescue JSON::ParserError, Stripe::SignatureVerificationError => e
