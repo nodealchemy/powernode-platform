@@ -149,12 +149,14 @@ export const BillingPage: React.FC = () => {
         <div className="px-6 py-4 border-b border-theme">
           <div className="flex justify-between items-center">
             <h3 className="text-lg font-medium text-theme-primary">Payment Methods</h3>
+            {/* TODO: Implement payment method management
             <button 
               onClick={() => setShowAddPaymentMethod(true)}
               className="text-theme-link hover:text-theme-link-hover text-sm font-medium"
             >
               Add Method
             </button>
+            */}
           </div>
         </div>
         <div className="p-6">
@@ -192,12 +194,14 @@ export const BillingPage: React.FC = () => {
                 Configure Stripe or PayPal to start accepting payments.
               </p>
               <div className="mt-6">
+                {/* TODO: Implement payment method management
                 <button 
                   onClick={() => setShowAddPaymentMethod(true)}
                   className="btn-theme btn-theme-primary"
                 >
                   Configure Payments
                 </button>
+                */}
               </div>
             </div>
           )}

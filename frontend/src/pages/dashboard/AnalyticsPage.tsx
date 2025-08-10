@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../store';
 import { analyticsService } from '../../services/analyticsService';
@@ -45,7 +45,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
             }
           }
         } : prevData);
-        setLastUpdated(new Date());
+        // setLastUpdated(new Date()); // TODO: Display last updated timestamp
       }
     },
     onError: (errorMessage) => {
