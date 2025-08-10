@@ -9,7 +9,7 @@ This is **Powernode** built with:
 - **Frontend**: ReactJS with TypeScript (located in `./frontend` directory)
 - **Database**: PostgreSQL
 - **Payments**: Stripe (primary), PayPal (secondary)
-- **Background Jobs**: Sidekiq (standalone agent with API-only connectivity)
+- **Background Jobs**: Sidekiq (standalone worker agent with API-only connectivity)
 - **Testing**: RSpec (backend), Jest/Testing Library/Cypress (frontend)
 
 The platform handles subscription lifecycle management, automated billing, payment processing, proration calculations, dunning management, and comprehensive analytics.
@@ -218,7 +218,7 @@ The platform handles subscription lifecycle management, automated billing, payme
   - Backend: `cd server && bundle exec rails server -p 3000 -b 0.0.0.0`
   - Frontend: `cd frontend && HOST=0.0.0.0 npm run dev` (starts on port 3001, listens on all IPs)
 - **Money Gem**: Configured with USD default currency and proper localization (see `config/initializers/money.rb`)
-- **Background Jobs**: Standalone agent approach - see Background Jobs Architecture section below
+- **Background Jobs**: Standalone worker agent approach - see Background Jobs Architecture section below
 
 ### Multi-Agent Coordination
 The project uses a sophisticated agent-based development approach defined in `claude-swarm.yml`:
@@ -269,12 +269,14 @@ The project uses a sophisticated agent-based development approach defined in `cl
 - Environment-specific configuration management
 
 ### Background Jobs Architecture
-- **Standalone Agent**: Background jobs run as a separate agent/service with no direct database connectivity
-- **API-Only Communication**: All data access must go through the Rails API backend via HTTP requests
-- **Rails Version**: Background job agent may use Rails 4.2 for sidekiq-web support and compatibility
-- **Job Processing**: Sidekiq workers make API calls to the main Rails 8 backend for all data operations
-- **Authentication**: Background job API calls use service-to-service authentication tokens
-- **Scalability**: This architecture allows independent scaling of job processing and API backend
+- **Standalone Worker Agent**: Background jobs run as a separate worker service located in `./worker` directory with no direct database connectivity
+- **API-Only Communication**: All data access must go through the Rails API backend via HTTP requests using service-to-service authentication
+- **Sidekiq Processing**: Worker agent uses current Sidekiq version with built-in web interface for monitoring
+- **Web Interface Authentication**: Sidekiq web interface integrates with Rails backend authentication system via API calls
+- **Job Processing**: Sidekiq workers make authenticated API calls to the main Rails 8 backend for all data operations
+- **Service Authentication**: Dedicated service-to-service authentication mechanism using secure tokens for worker-to-backend communication
+- **Complete API Isolation**: Worker agent has zero direct database or model access, relying entirely on HTTP API endpoints
+- **Scalability**: This architecture allows independent scaling of job processing and API backend components
 
 ### Testing Strategy
 - Comprehensive model tests with FactoryBot (all factories fixed and validated)
