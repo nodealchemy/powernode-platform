@@ -148,15 +148,15 @@ export const PlanFormModal: React.FC<PlanFormModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
       <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={onClose}></div>
+        <div className="fixed inset-0 bg-black bg-opacity-50 transition-opacity" onClick={onClose}></div>
 
         <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
 
-        <div className="relative inline-block align-bottom bg-white rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full sm:p-6">
+        <div className="relative inline-block align-bottom card-theme rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full sm:p-6">
           <div className="absolute top-0 right-0 pt-4 pr-4">
             <button
               type="button"
-              className="bg-white rounded-md text-gray-400 hover:text-gray-500"
+              className="bg-theme-background-secondary hover:bg-theme-background-muted rounded-md text-theme-tertiary hover:text-theme-secondary p-1 transition-colors"
               onClick={onClose}
             >
               <XMarkIcon className="h-6 w-6" />
@@ -165,12 +165,12 @@ export const PlanFormModal: React.FC<PlanFormModalProps> = ({
 
           <div className="sm:flex sm:items-start">
             <div className="w-full mt-3 sm:mt-0 sm:text-left">
-              <h3 className="text-lg leading-6 font-medium text-gray-900 mb-6">
+              <h3 className="text-lg leading-6 font-medium text-theme-primary mb-6">
                 {isEditing ? 'Edit Plan' : 'Create New Plan'}
               </h3>
 
               {/* Tab Navigation */}
-              <div className="border-b border-gray-200 mb-6">
+              <div className="border-b border-theme mb-6">
                 <nav className="-mb-px flex space-x-8">
                   {[
                     { id: 'basic', label: 'Basic Info' },
@@ -183,7 +183,7 @@ export const PlanFormModal: React.FC<PlanFormModalProps> = ({
                       className={`py-2 px-1 border-b-2 font-medium text-sm ${
                         activeTab === tab.id
                           ? 'border-blue-500 text-blue-600'
-                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                          : 'border-transparent text-theme-secondary hover:text-theme-primary hover:border-theme'
                       }`}
                     >
                       {tab.label}
@@ -198,7 +198,7 @@ export const PlanFormModal: React.FC<PlanFormModalProps> = ({
                   <div className="space-y-4">
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                        <label className="label-theme">
                           Plan Name *
                         </label>
                         <input
@@ -212,7 +212,7 @@ export const PlanFormModal: React.FC<PlanFormModalProps> = ({
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                        <label className="label-theme">
                           Status
                         </label>
                         <select
@@ -228,7 +228,7 @@ export const PlanFormModal: React.FC<PlanFormModalProps> = ({
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="label-theme">
                         Description
                       </label>
                       <textarea
@@ -242,7 +242,7 @@ export const PlanFormModal: React.FC<PlanFormModalProps> = ({
 
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                        <label className="label-theme">
                           Price (cents) *
                         </label>
                         <input
@@ -254,11 +254,11 @@ export const PlanFormModal: React.FC<PlanFormModalProps> = ({
                           className="input-theme"
                           placeholder="2999"
                         />
-                        <p className="text-xs text-gray-500 mt-1">Enter price in cents (e.g., 2999 = $29.99)</p>
+                        <p className="text-xs text-theme-secondary mt-1">Enter price in cents (e.g., 2999 = $29.99)</p>
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                        <label className="label-theme">
                           Currency
                         </label>
                         <select
@@ -275,7 +275,7 @@ export const PlanFormModal: React.FC<PlanFormModalProps> = ({
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                        <label className="label-theme">
                           Billing Cycle
                         </label>
                         <select
@@ -294,7 +294,7 @@ export const PlanFormModal: React.FC<PlanFormModalProps> = ({
 
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                        <label className="label-theme">
                           Trial Days
                         </label>
                         <input
@@ -314,7 +314,7 @@ export const PlanFormModal: React.FC<PlanFormModalProps> = ({
                           onChange={(e) => handleInputChange('is_public', e.target.checked)}
                           className="h-4 w-4 text-blue-600 rounded border-gray-300"
                         />
-                        <label className="ml-2 text-sm text-gray-700">
+                        <label className="ml-2 text-sm text-theme-primary">
                           Public plan (visible to new customers)
                         </label>
                       </div>
@@ -325,15 +325,15 @@ export const PlanFormModal: React.FC<PlanFormModalProps> = ({
                 {/* Features Tab */}
                 {activeTab === 'features' && (
                   <div className="space-y-6">
-                    <p className="text-sm text-gray-600">
+                    <p className="text-sm text-theme-secondary">
                       Configure features, limits, and default roles for this plan.
                     </p>
                     {/* Features configuration would go here - simplified for this example */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="label-theme">
                         Features & Limits Configuration
                       </label>
-                      <p className="text-sm text-gray-500">
+                      <p className="text-sm text-theme-secondary">
                         Advanced feature configuration coming soon...
                       </p>
                     </div>

@@ -188,7 +188,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
             <div className="border-t pt-4">
               <button
                 onClick={() => setShowCancelConfirm(true)}
-                className="text-theme-error hover:text-theme-error text-sm font-medium"
+                className="text-red-600 hover:text-red-700 text-sm font-medium transition-colors"
               >
                 Cancel Subscription
               </button>
@@ -197,9 +197,9 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
 
           {/* Cancel Confirmation */}
           {showCancelConfirm && (
-            <div className="border border-theme-error bg-theme-error p-4 rounded-lg">
-              <h5 className="text-sm font-medium text-theme-error mb-2">Cancel Subscription?</h5>
-              <p className="text-sm text-theme-error mb-3">
+            <div className="border border-red-300 bg-red-50 p-4 rounded-lg">
+              <h5 className="text-sm font-medium text-red-800 mb-2">Cancel Subscription?</h5>
+              <p className="text-sm text-red-700 mb-3">
                 {subscription.currentPeriodEnd 
                   ? `Your subscription will remain active until ${formatDate(subscription.currentPeriodEnd)}, after which you'll lose access to premium features.`
                   : 'Cancelling will immediately end your subscription and you\'ll lose access to premium features.'
@@ -209,7 +209,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                 <button
                   onClick={handleCancel}
                   disabled={loading}
-                  className="btn-theme bg-theme-error text-theme-error px-3 py-1 rounded-md text-sm disabled:opacity-50"
+                  className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded-md text-sm disabled:opacity-50 transition-colors"
                 >
                   {loading ? 'Canceling...' : 'Yes, Cancel'}
                 </button>

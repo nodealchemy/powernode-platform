@@ -67,12 +67,19 @@ export const RegisterPage: React.FC = () => {
 
   const loadSelectedPlan = async (planId: string) => {
     try {
-      const response = await plansApi.getPlan(planId);
+      // Use public plans endpoint since user is not authenticated
+      const response = await plansApi.getPublicPlans();
       if (response.success) {
-        setSelectedPlan(response.data.plan);
+        const plan = response.data.plans.find(p => p.id === planId);
+        if (plan) {
+          setSelectedPlan(plan);
+        } else {
+          console.error('Plan not found in public plans');
+          navigate('/plans');
+        }
       }
     } catch (error) {
-      console.error('Failed to load selected plan:', error);
+      console.error('Failed to load public plans:', error);
       // Redirect back to plan selection if plan loading fails
       navigate('/plans');
     }
@@ -148,24 +155,28 @@ export const RegisterPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <div className="light min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         {/* Logo and Title */}
         <div className="text-center">
-          <div className="mx-auto w-16 h-16 bg-theme-interactive-primary rounded-2xl flex items-center justify-center mb-6">
+          <div className="mx-auto w-16 h-16 bg-gradient-to-br from-blue-600 to-blue-700 rounded-2xl flex items-center justify-center mb-6 shadow-lg">
             <span className="text-white font-bold text-2xl">P</span>
           </div>
-          <h1 className="text-3xl font-bold text-theme-primary mb-2">Powernode</h1>
-          <p className="text-theme-secondary">Create your account</p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Powernode</h1>
+          <p className="text-gray-600">Create your account</p>
         </div>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow-lg sm:rounded-lg sm:px-10">
+        <div className="bg-white py-8 px-4 shadow-xl border border-gray-200 sm:rounded-xl sm:px-10">
 
           {error && (
-            <div className="mb-6 bg-red-50 border border-red-300 text-red-600 px-4 py-3 rounded-md">
-              <p className="text-sm">{error}</p>
+            <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+              <div className="flex">
+                <div className="ml-3">
+                  <p className="text-sm font-medium">{error}</p>
+                </div>
+              </div>
             </div>
           )}
 
@@ -173,7 +184,7 @@ export const RegisterPage: React.FC = () => {
           <div className="mb-6">
             <Link
               to="/plans"
-              className="inline-flex items-center space-x-2 text-sm text-blue-600 hover:text-blue-500"
+              className="inline-flex items-center space-x-2 text-sm text-theme-link hover:text-theme-link-hover transition-colors"
             >
               <ArrowLeftIcon className="h-4 w-4" />
               <span>Change plan</span>
@@ -214,9 +225,9 @@ export const RegisterPage: React.FC = () => {
 
             {/* Company Information */}
             <div className="space-y-4">
-              <h3 className="text-lg font-medium text-gray-700">Company Information</h3>
+              <h3 className="text-lg font-semibold text-gray-900">Company Information</h3>
               <div>
-                <label htmlFor="accountName" className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="accountName" className="label-theme">
                   Company Name
                 </label>
                 <input
@@ -224,7 +235,7 @@ export const RegisterPage: React.FC = () => {
                   name="accountName"
                   type="text"
                   required
-                  className="input-theme w-full"
+                  className="input-theme"
                   placeholder="Enter company name"
                   value={formData.accountName}
                   onChange={handleChange}
@@ -234,10 +245,10 @@ export const RegisterPage: React.FC = () => {
 
             {/* Personal Information */}
             <div className="space-y-4">
-              <h3 className="text-lg font-medium text-gray-700">Admin Account</h3>
+              <h3 className="text-lg font-semibold text-gray-900">Your Account</h3>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-2">
+                  <label htmlFor="firstName" className="label-theme">
                     First Name
                   </label>
                   <input
@@ -245,14 +256,14 @@ export const RegisterPage: React.FC = () => {
                     name="firstName"
                     type="text"
                     required
-                    className="input-theme w-full"
+                    className="input-theme"
                     placeholder="First name"
                     value={formData.firstName}
                     onChange={handleChange}
                   />
                 </div>
                 <div>
-                  <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-2">
+                  <label htmlFor="lastName" className="label-theme">
                     Last Name
                   </label>
                   <input
@@ -260,7 +271,7 @@ export const RegisterPage: React.FC = () => {
                     name="lastName"
                     type="text"
                     required
-                    className="input-theme w-full"
+                    className="input-theme"
                     placeholder="Last name"
                     value={formData.lastName}
                     onChange={handleChange}
@@ -269,7 +280,7 @@ export const RegisterPage: React.FC = () => {
               </div>
 
               <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="email" className="label-theme">
                   Email Address
                 </label>
                 <input
@@ -278,7 +289,7 @@ export const RegisterPage: React.FC = () => {
                   type="email"
                   autoComplete="email"
                   required
-                  className="input-theme w-full"
+                  className="input-theme"
                   placeholder="Enter your email"
                   value={formData.email}
                   onChange={handleChange}
@@ -286,7 +297,7 @@ export const RegisterPage: React.FC = () => {
               </div>
 
               <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="password" className="label-theme">
                   Password
                 </label>
                 <div className="relative">
@@ -296,24 +307,24 @@ export const RegisterPage: React.FC = () => {
                     type={showPassword ? 'text' : 'password'}
                     autoComplete="new-password"
                     required
-                    className="input-theme w-full pr-10"
+                    className="input-theme pr-12"
                     placeholder="Create a password"
                     value={formData.password}
                     onChange={handleChange}
                   />
                   <button
                     type="button"
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-theme-tertiary hover:text-theme-secondary transition-colors"
                     onClick={() => setShowPassword(!showPassword)}
                   >
                     {showPassword ? (
-                      <EyeSlashIcon className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+                      <EyeSlashIcon className="h-5 w-5" />
                     ) : (
-                      <EyeIcon className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+                      <EyeIcon className="h-5 w-5" />
                     )}
                   </button>
                 </div>
-                <p className="mt-2 text-xs text-gray-500">
+                <p className="mt-2 text-xs text-theme-tertiary">
                   Password must be at least 8 characters long
                 </p>
               </div>
@@ -324,11 +335,11 @@ export const RegisterPage: React.FC = () => {
               <button
                 type="submit"
                 disabled={isLoading || !validateForm()}
-                className="btn-theme btn-theme-primary w-full py-2.5 text-sm font-semibold"
+                className="btn-theme btn-theme-primary w-full py-3"
               >
                 {isLoading ? (
                   <div className="flex items-center justify-center">
-                    <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2" />
+                    <div className="animate-spin -ml-1 mr-3 h-5 w-5 border-2 border-white border-t-transparent rounded-full" />
                     Creating account...
                   </div>
                 ) : (
@@ -339,11 +350,11 @@ export const RegisterPage: React.FC = () => {
 
             {/* Sign In Link */}
             <div className="text-center pt-4 border-t border-gray-200">
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-theme-secondary">
                 Already have an account?{' '}
                 <Link
                   to="/login"
-                  className="font-medium text-blue-600 hover:text-blue-500"
+                  className="font-medium text-theme-link hover:text-theme-link-hover transition-colors"
                 >
                   Sign in
                 </Link>

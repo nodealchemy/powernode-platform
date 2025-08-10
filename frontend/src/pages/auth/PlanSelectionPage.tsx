@@ -7,7 +7,9 @@ import {
   ArrowRightIcon,
   StarIcon,
   ShieldCheckIcon,
-  ClockIcon
+  ClockIcon,
+  ScaleIcon,
+  XMarkIcon
 } from '@heroicons/react/24/outline';
 import { StarIcon as StarSolidIcon } from '@heroicons/react/24/solid';
 
@@ -17,6 +19,8 @@ export const PlanSelectionPage: React.FC = () => {
   const [plansLoading, setPlansLoading] = useState(false);
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
+  const [showComparison, setShowComparison] = useState(false);
+  const [plansToCompare, setPlansToCompare] = useState<string[]>([]);
 
   useEffect(() => {
     loadAvailablePlans();
@@ -129,6 +133,38 @@ export const PlanSelectionPage: React.FC = () => {
     ];
   };
 
+  const getAllPlanFeatures = (): string[] => {
+    // Get all unique features across all plans for comparison
+    const allFeatures = new Set<string>();
+    availablePlans.forEach(plan => {
+      getPlanFeatures(plan).forEach(feature => {
+        allFeatures.add(feature);
+      });
+    });
+    return Array.from(allFeatures).sort();
+  };
+
+  const togglePlanComparison = (planId: string) => {
+    setPlansToCompare(prev => {
+      if (prev.includes(planId)) {
+        return prev.filter(id => id !== planId);
+      } else if (prev.length < 3) { // Limit to 3 plans for comparison
+        return [...prev, planId];
+      }
+      return prev;
+    });
+  };
+
+  const startComparison = () => {
+    if (plansToCompare.length >= 2) {
+      setShowComparison(true);
+    }
+  };
+
+  const planHasFeature = (plan: Plan, feature: string): boolean => {
+    return getPlanFeatures(plan).includes(feature);
+  };
+
   if (plansLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -155,12 +191,23 @@ export const PlanSelectionPage: React.FC = () => {
                 <p className="text-sm text-gray-500">Choose your plan</p>
               </div>
             </div>
-            <Link
-              to="/login"
-              className="text-sm font-medium text-blue-600 hover:text-blue-500"
-            >
-              Already have an account?
-            </Link>
+            <div className="flex items-center space-x-4">
+              {plansToCompare.length >= 2 && (
+                <button
+                  onClick={startComparison}
+                  className="inline-flex items-center space-x-2 px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  <ScaleIcon className="h-4 w-4" />
+                  <span>Compare {plansToCompare.length} Plans</span>
+                </button>
+              )}
+              <Link
+                to="/login"
+                className="text-sm font-medium text-blue-600 hover:text-blue-500"
+              >
+                Already have an account?
+              </Link>
+            </div>
           </div>
         </div>
       </div>
@@ -193,8 +240,8 @@ export const PlanSelectionPage: React.FC = () => {
         </div>
 
         {/* Billing Toggle */}
-        <div className="flex justify-center mb-12">
-          <div className="bg-white rounded-lg p-1 shadow-sm border flex">
+        <div className="flex flex-col items-center mb-12">
+          <div className="bg-white rounded-lg p-1 shadow-sm border flex mb-4">
             <button
               onClick={() => setBillingCycle('monthly')}
               className={`px-6 py-3 text-sm font-medium rounded-md transition-colors ${
@@ -219,6 +266,28 @@ export const PlanSelectionPage: React.FC = () => {
               </span>
             </button>
           </div>
+          
+          {/* Comparison Helper */}
+          {plansToCompare.length > 0 && (
+            <div className="text-center">
+              <p className="text-sm text-gray-600 mb-2">
+                {plansToCompare.length} plan{plansToCompare.length > 1 ? 's' : ''} selected for comparison
+                {plansToCompare.length >= 2 && (
+                  <button
+                    onClick={startComparison}
+                    className="ml-2 text-green-600 hover:text-green-700 font-medium"
+                  >
+                    Compare now →
+                  </button>
+                )}
+              </p>
+              {plansToCompare.length < 2 && (
+                <p className="text-xs text-gray-500">
+                  Select at least 2 plans to compare features
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Plans Grid */}
@@ -227,10 +296,10 @@ export const PlanSelectionPage: React.FC = () => {
             <div
               key={plan.id}
               onClick={() => handlePlanSelection(plan.id)}
-              className={`relative cursor-pointer bg-white rounded-xl border-2 transition-all hover:shadow-lg ${
+              className={`relative cursor-pointer card-theme rounded-xl border-2 transition-all hover:shadow-lg ${
                 selectedPlanId === plan.id
                   ? 'border-blue-500 shadow-lg scale-105'
-                  : 'border-gray-200 hover:border-gray-300'
+                  : 'border-theme hover:border-blue-300'
               } ${isPlanPopular(plan) ? 'ring-2 ring-blue-500 ring-opacity-20' : ''}`}
             >
               {/* Popular Badge */}
@@ -251,6 +320,23 @@ export const PlanSelectionPage: React.FC = () => {
                   </div>
                 </div>
               )}
+
+              {/* Compare Checkbox */}
+              <div className="absolute top-4 left-4">
+                <label className="flex items-center space-x-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={plansToCompare.includes(plan.id)}
+                    onChange={(e) => {
+                      e.stopPropagation();
+                      togglePlanComparison(plan.id);
+                    }}
+                    disabled={!plansToCompare.includes(plan.id) && plansToCompare.length >= 3}
+                    className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                  />
+                  <span className="text-xs text-gray-500">Compare</span>
+                </label>
+              </div>
 
               <div className="p-8">
                 {/* Plan Header */}
@@ -301,7 +387,7 @@ export const PlanSelectionPage: React.FC = () => {
                       <span>Selected</span>
                     </div>
                   ) : (
-                    <div className="w-full border-2 border-gray-200 text-gray-600 py-3 px-4 rounded-lg font-medium hover:border-gray-300 hover:bg-gray-50 transition-colors">
+                    <div className="w-full border-2 border-theme text-theme-secondary py-3 px-4 rounded-lg font-medium hover:border-blue-300 hover:bg-theme-background-secondary transition-colors">
                       Select {plan.name}
                     </div>
                   )}
@@ -314,20 +400,20 @@ export const PlanSelectionPage: React.FC = () => {
         {/* Selected Plan Summary & CTA */}
         {selectedPlanId && (
           <div className="mt-16 max-w-2xl mx-auto">
-            <div className="bg-white rounded-xl shadow-lg border p-8">
+            <div className="card-theme rounded-xl shadow-lg p-8">
               <div className="text-center mb-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                <h3 className="text-lg font-semibold text-theme-primary mb-2">
                   Ready to get started with {getSelectedPlan()?.name}?
                 </h3>
-                <p className="text-gray-600">
+                <p className="text-theme-secondary">
                   You'll be able to review and modify your subscription after creating your account.
                 </p>
               </div>
               
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg mb-6">
+              <div className="flex items-center justify-between p-4 bg-theme-background-secondary rounded-lg mb-6">
                 <div>
-                  <div className="font-medium text-gray-900">{getSelectedPlan()?.name}</div>
-                  <div className="text-sm text-gray-500">
+                  <div className="font-medium text-theme-primary">{getSelectedPlan()?.name}</div>
+                  <div className="text-sm text-theme-secondary">
                     Billed {billingCycle}
                     {getSelectedPlan()?.trial_days && getSelectedPlan()!.trial_days > 0 && (
                       <span className="ml-2 text-blue-600">• {getSelectedPlan()!.trial_days} day trial</span>
@@ -335,10 +421,10 @@ export const PlanSelectionPage: React.FC = () => {
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="text-xl font-bold text-gray-900">
+                  <div className="text-xl font-bold text-theme-primary">
                     {calculatePlanPrice(getSelectedPlan()!, billingCycle)}
                   </div>
-                  <div className="text-sm text-gray-500">
+                  <div className="text-sm text-theme-secondary">
                     per {billingCycle === 'yearly' ? 'year' : 'month'}
                   </div>
                 </div>
@@ -352,7 +438,7 @@ export const PlanSelectionPage: React.FC = () => {
                 <ArrowRightIcon className="h-5 w-5" />
               </button>
               
-              <p className="text-xs text-gray-500 text-center mt-4">
+              <p className="text-xs text-theme-tertiary text-center mt-4">
                 No credit card required • Cancel anytime • 30-day money-back guarantee
               </p>
             </div>
@@ -368,15 +454,161 @@ export const PlanSelectionPage: React.FC = () => {
             <a href="mailto:support@powernode.com" className="text-blue-600 hover:text-blue-500">
               Contact Support
             </a>
-            <a href="/pricing" className="text-blue-600 hover:text-blue-500">
+            <button 
+              onClick={() => {
+                // Auto-select all plans for comparison if none selected
+                if (plansToCompare.length === 0) {
+                  setPlansToCompare(availablePlans.map(plan => plan.id).slice(0, 3));
+                }
+                setShowComparison(true);
+              }}
+              className="text-blue-600 hover:text-blue-500"
+            >
               Compare Plans
-            </a>
+            </button>
             <a href="/faq" className="text-blue-600 hover:text-blue-500">
               View FAQ
             </a>
           </div>
         </div>
       </div>
+
+      {/* Comparison Modal */}
+      {showComparison && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="card-theme rounded-xl shadow-xl max-w-6xl w-full max-h-[90vh] overflow-hidden">
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-theme flex items-center justify-between">
+              <h3 className="text-xl font-semibold text-theme-primary">Compare Plans</h3>
+              <button
+                onClick={() => setShowComparison(false)}
+                className="text-theme-tertiary hover:text-theme-secondary transition-colors"
+              >
+                <XMarkIcon className="h-6 w-6" />
+              </button>
+            </div>
+
+            {/* Comparison Content */}
+            <div className="overflow-auto max-h-[calc(90vh-80px)]">
+              <div className="p-6">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr>
+                        <th className="text-left py-3 px-4 font-medium text-theme-primary w-1/4">Features</th>
+                        {plansToCompare.map(planId => {
+                          const plan = availablePlans.find(p => p.id === planId);
+                          if (!plan) return null;
+                          return (
+                            <th key={planId} className="text-center py-3 px-4 w-1/4">
+                              <div className="space-y-2">
+                                <div className="font-semibold text-theme-primary">{plan.name}</div>
+                                <div className="text-2xl font-bold text-blue-600">
+                                  {calculatePlanPrice(plan, billingCycle)}
+                                </div>
+                                <div className="text-sm text-theme-secondary">
+                                  per {billingCycle === 'yearly' ? 'year' : 'month'}
+                                </div>
+                                <button
+                                  onClick={() => {
+                                    handlePlanSelection(planId);
+                                    setShowComparison(false);
+                                  }}
+                                  className="btn-theme btn-theme-primary w-full text-sm"
+                                >
+                                  Select Plan
+                                </button>
+                              </div>
+                            </th>
+                          );
+                        })}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-theme">
+                      {/* Pricing Row */}
+                      <tr className="bg-theme-background-secondary">
+                        <td className="py-3 px-4 font-medium text-theme-primary">Pricing</td>
+                        {plansToCompare.map(planId => {
+                          const plan = availablePlans.find(p => p.id === planId);
+                          if (!plan) return null;
+                          return (
+                            <td key={planId} className="text-center py-3 px-4">
+                              <div className="text-lg font-semibold text-theme-primary">
+                                {calculatePlanPrice(plan, billingCycle)}
+                              </div>
+                              {billingCycle === 'yearly' && plan.price_cents > 0 && (
+                                <div className="text-xs text-theme-secondary">
+                                  {getMonthlyPrice(plan)}/month
+                                </div>
+                              )}
+                            </td>
+                          );
+                        })}
+                      </tr>
+
+                      {/* Trial Period Row */}
+                      <tr>
+                        <td className="py-3 px-4 font-medium text-theme-primary">Free Trial</td>
+                        {plansToCompare.map(planId => {
+                          const plan = availablePlans.find(p => p.id === planId);
+                          if (!plan) return null;
+                          return (
+                            <td key={planId} className="text-center py-3 px-4">
+                              {plan.trial_days > 0 ? (
+                                <span className="text-green-600 font-medium">
+                                  {plan.trial_days} days
+                                </span>
+                              ) : (
+                                <span className="text-theme-tertiary">No trial</span>
+                              )}
+                            </td>
+                          );
+                        })}
+                      </tr>
+
+                      {/* Features Rows */}
+                      {getAllPlanFeatures().map((feature, index) => (
+                        <tr key={index} className={`${index % 2 === 0 ? 'bg-theme-background-secondary hover:bg-theme-background-secondary' : 'bg-theme-background hover:bg-theme-background'}`}>
+                          <td className="py-3 px-4 font-medium text-theme-primary">{feature}</td>
+                          {plansToCompare.map(planId => {
+                            const plan = availablePlans.find(p => p.id === planId);
+                            if (!plan) return null;
+                            const hasFeature = planHasFeature(plan, feature);
+                            return (
+                              <td key={planId} className="text-center py-3 px-4">
+                                {hasFeature ? (
+                                  <CheckIcon className="h-5 w-5 text-green-500 mx-auto" />
+                                ) : (
+                                  <span className="text-theme-tertiary">—</span>
+                                )}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-4 border-t border-theme bg-theme-background-secondary">
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-theme-secondary">
+                  Select a plan to continue with your registration
+                </p>
+                <button
+                  onClick={() => setShowComparison(false)}
+                  className="btn-theme btn-theme-secondary px-4 py-2 text-sm"
+                >
+                  Close Comparison
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

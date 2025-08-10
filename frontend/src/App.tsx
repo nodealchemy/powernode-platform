@@ -143,6 +143,10 @@ const AppContent: React.FC = () => {
             }
           />
           <Route
+            path="/pricing"
+            element={<Navigate to="/plans" replace />}
+          />
+          <Route
             path="/login"
             element={
               <PublicRoute>
