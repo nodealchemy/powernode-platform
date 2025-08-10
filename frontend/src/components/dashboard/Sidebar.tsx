@@ -22,6 +22,7 @@ const navigation = [
 const adminNavigation = [
   { name: 'Admin Settings', href: '/dashboard/admin-settings', icon: '🔧', adminOnly: true },
   { name: 'Payment Gateways', href: '/dashboard/payment-gateways', icon: '💳', adminOnly: true },
+  { name: 'Services', href: '/dashboard/services', icon: '🤖', adminOnly: true },
 ];
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {

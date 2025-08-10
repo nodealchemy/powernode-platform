@@ -9,3 +9,4 @@ export { default as PaymentGatewaysPage } from './PaymentGatewaysPage';
 export { PlansPage } from './PlansPage';
 export { SettingsPage } from './SettingsPage';
 export { SubscriptionsPage } from './SubscriptionsPage';
+export { ServicesPage } from './ServicesPage';
