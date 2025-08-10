@@ -1,4 +1,5 @@
 require 'jwt'
+require 'cgi'
 
 # Middleware for Sidekiq Web interface authentication
 # Authenticates requests using service tokens validated against the backend
@@ -20,7 +21,19 @@ class SidekiqWebAuth
       return @app.call(env)
     end
 
-    # Extract token from Authorization header or session
+    # Handle form-based authentication submission
+    if request.post? && request.params['token']
+      token = request.params['token']
+      if verify_token_with_backend(token)
+        # Redirect to the same path with token as query parameter
+        redirect_url = "#{request.path}?token=#{CGI.escape(token)}"
+        return [302, {'location' => redirect_url}, []]
+      else
+        return unauthorized_response('Invalid or expired token')
+      end
+    end
+
+    # Extract token from Authorization header, session, or cookie
     token = extract_token(request)
 
     unless token
@@ -52,11 +65,7 @@ class SidekiqWebAuth
       return auth_header.split(' ', 2).last
     end
 
-    # Check session token
-    session_token = request.session['auth_token'] if request.session
-    return session_token if session_token
-
-    # Check query parameter (for direct links)
+    # Check query parameter (for direct links and form redirects)
     request.params['token']
   end
 
@@ -218,14 +227,9 @@ class SidekiqWebAuth
         </div>
         
         <script>
-          // Handle form submission
-          document.querySelector('form').addEventListener('submit', function(e) {
-            e.preventDefault();
-            const token = document.getElementById('token').value;
-            if (token) {
-              // Redirect with token parameter
-              window.location.href = window.location.pathname + '?token=' + encodeURIComponent(token);
-            }
+          // Focus on the token input for better UX
+          document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('token').focus();
           });
         </script>
       </body>
