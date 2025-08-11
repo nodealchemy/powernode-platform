@@ -62,22 +62,18 @@ class Webhooks::ProcessWebhookJob < BaseJob
   end
   
   def process_paypal_webhook(webhook_data)
-    event_type = webhook_data['event_type']
-    payload = webhook_data['payload']
+    # Delegate to specialized PayPal webhook processor
+    processor = Webhooks::PaypalWebhookProcessorJob.new
+    result = processor.process_webhook(webhook_data)
     
-    case event_type
-    when 'BILLING.SUBSCRIPTION.ACTIVATED'
-      handle_subscription_activated(payload, 'paypal')
-    when 'BILLING.SUBSCRIPTION.CANCELLED'
-      handle_subscription_cancelled(payload, 'paypal')
-    when 'PAYMENT.SALE.COMPLETED'
-      handle_payment_succeeded(payload, 'paypal')
-    when 'PAYMENT.SALE.DENIED'
-      handle_payment_failed(payload, 'paypal')
+    if result[:success]
+      { 'success' => true, 'message' => result[:message] || 'PayPal webhook processed successfully' }
     else
-      logger.info "Unhandled PayPal event type: #{event_type}"
-      { 'success' => true, 'message' => 'Event type not handled' }
+      { 'success' => false, 'error' => result[:error] || 'PayPal webhook processing failed' }
     end
+  rescue => e
+    logger.error "PayPal webhook processing failed: #{e.message}"
+    { 'success' => false, 'error' => e.message }
   end
   
   def handle_payment_succeeded(payload, provider)

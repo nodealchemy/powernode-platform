@@ -1,5 +1,4 @@
 import { api } from './api';
-import { mockAccounts, mockAccountStats, currentAccount } from './mockData';
 
 export interface Account {
   id: string;
@@ -62,17 +61,8 @@ export interface AccountResponse {
 class AccountsApiService {
   // Get current account
   async getCurrentAccount(): Promise<AccountResponse> {
-    try {
-      const response = await api.get('/accounts/current');
-      return response.data;
-    } catch (error) {
-      console.warn('API failed, using mock data:', error);
-      // Return mock data as fallback
-      return {
-        success: true,
-        data: currentAccount
-      };
-    }
+    const response = await api.get('/accounts/current');
+    return response.data;
   }
 
   // Get specific account (admin only for other accounts)
@@ -99,32 +89,14 @@ class AccountsApiService {
 
   // Get all accounts (admin only)
   async getAllAccounts(): Promise<AccountsListResponse> {
-    try {
-      const response = await api.get('/admin/accounts');
-      return response.data;
-    } catch (error) {
-      console.warn('API failed, using mock data:', error);
-      // Return mock data as fallback
-      return {
-        success: true,
-        data: mockAccounts
-      };
-    }
+    const response = await api.get('/admin/accounts');
+    return response.data;
   }
 
   // Get account statistics (admin only)
   async getAccountStats(): Promise<{ success: boolean; data: AccountStats }> {
-    try {
-      const response = await api.get('/admin/accounts/stats');
-      return response.data;
-    } catch (error) {
-      console.warn('API failed, using mock data:', error);
-      // Return mock data as fallback
-      return {
-        success: true,
-        data: mockAccountStats
-      };
-    }
+    const response = await api.get('/admin/accounts/stats');
+    return response.data;
   }
 
   // Suspend account (admin only)

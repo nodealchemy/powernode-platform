@@ -15,7 +15,7 @@ export const TeamMembersManagement: React.FC<TeamMembersManagementProps> = ({ ac
   const [showEditModal, setShowEditModal] = useState(false);
 
   // Check if current user can manage team members (owner or admin of the account)
-  const canManageTeam = currentUser?.roles.includes('owner') || currentUser?.roles.includes('admin');
+  const canManageTeam = currentUser?.role === 'owner' || currentUser?.role === 'admin';
 
   useEffect(() => {
     loadTeamMembers();
@@ -37,18 +37,18 @@ export const TeamMembersManagement: React.FC<TeamMembersManagementProps> = ({ ac
     }
   };
 
-  const handleRoleChange = async (userId: string, newRoles: string[]) => {
+  const handleRoleChange = async (userId: string, newRole: string) => {
     if (!canManageTeam) {
-      alert('You do not have permission to change user roles');
+      alert('You do not have permission to change user role');
       return;
     }
 
     try {
-      await usersApi.updateUserRoles(userId, newRoles, accountId || currentUser?.account?.id);
+      await usersApi.updateUserRole(userId, newRole, accountId || currentUser?.account?.id);
       loadTeamMembers();
       setShowEditModal(false);
     } catch (error) {
-      console.error('Failed to update user roles:', error);
+      console.error('Failed to update user role:', error);
     }
   };
 
@@ -70,15 +70,13 @@ export const TeamMembersManagement: React.FC<TeamMembersManagementProps> = ({ ac
 
   const getRoleBadge = (role: string) => {
     const roleColors = {
-      owner: 'bg-theme-interactive-secondary bg-opacity-10 text-theme-interactive-secondary',
-      admin: 'bg-theme-interactive-primary bg-opacity-10 text-theme-interactive-primary',
-      manager: 'bg-theme-info bg-opacity-10 text-theme-info',
-      member: 'bg-theme-surface text-theme-secondary',
-      viewer: 'bg-theme-surface text-theme-tertiary',
+      admin: 'bg-theme-error bg-opacity-10 text-theme-error',
+      owner: 'bg-theme-success bg-opacity-10 text-theme-success',
+      member: 'bg-theme-info bg-opacity-10 text-theme-info',
     };
 
     return (
-      <span className={`text-xs px-2 py-1 rounded-full font-medium ${roleColors[role as keyof typeof roleColors] || roleColors.member}`}>
+      <span className={`text-xs px-2 py-1 rounded-full ${roleColors[role as keyof typeof roleColors] || roleColors.member}`}>
         {role.charAt(0).toUpperCase() + role.slice(1)}
       </span>
     );
@@ -124,7 +122,7 @@ export const TeamMembersManagement: React.FC<TeamMembersManagementProps> = ({ ac
         <div className="bg-theme-background rounded-lg p-4">
           <h3 className="text-sm font-medium text-theme-tertiary mb-1">Admins</h3>
           <p className="text-2xl font-bold text-theme-interactive-primary">
-            {teamMembers.filter(m => m.roles.includes('admin') || m.roles.includes('owner')).length}
+            {teamMembers.filter(m => m.role === 'admin' || m.role === 'owner').length}
           </p>
         </div>
         <div className="bg-theme-background rounded-lg p-4">
@@ -174,11 +172,7 @@ export const TeamMembersManagement: React.FC<TeamMembersManagementProps> = ({ ac
                   </div>
                 </td>
                 <td className="py-3 px-4">
-                  <div className="flex flex-wrap gap-1">
-                    {member.roles.map(role => getRoleBadge(role)).map((badge, index) => (
-                      <span key={index}>{badge}</span>
-                    ))}
-                  </div>
+                  {getRoleBadge(member.role)}
                 </td>
                 <td className="py-3 px-4">
                   {getStatusBadge(member.status)}
@@ -197,11 +191,11 @@ export const TeamMembersManagement: React.FC<TeamMembersManagementProps> = ({ ac
                               setShowEditModal(true);
                             }}
                             className="text-theme-link hover:text-theme-link-hover text-sm"
-                            disabled={member.roles.includes('owner')}
+                            disabled={member.role === 'owner'}
                           >
                             Edit
                           </button>
-                          {!member.roles.includes('owner') && (
+                          {member.role !== 'owner' && (
                             <button
                               onClick={() => handleRemoveMember(member.id)}
                               className="text-theme-error hover:text-theme-error-hover text-sm"
@@ -248,8 +242,8 @@ export const TeamMembersManagement: React.FC<TeamMembersManagementProps> = ({ ac
               </label>
               <select
                 className="w-full px-3 py-2 border border-theme rounded-lg bg-theme-background text-theme-primary"
-                defaultValue={selectedMember.roles[0] || 'member'}
-                onChange={(e) => handleRoleChange(selectedMember.id, [e.target.value])}
+                defaultValue={selectedMember.role || 'member'}
+                onChange={(e) => handleRoleChange(selectedMember.id, e.target.value)}
               >
                 <option value="admin">Admin</option>
                 <option value="manager">Manager</option>
@@ -274,7 +268,7 @@ export const TeamMembersManagement: React.FC<TeamMembersManagementProps> = ({ ac
                 Cancel
               </button>
               <button
-                onClick={() => handleRoleChange(selectedMember.id, selectedMember.roles || ['member'])}
+                onClick={() => handleRoleChange(selectedMember.id, selectedMember.role || 'member')}
                 className="btn-theme btn-theme-primary"
               >
                 Save Changes

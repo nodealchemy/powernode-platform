@@ -229,10 +229,10 @@ export const DelegationsManagement: React.FC = () => {
                     <div className="flex items-center justify-between text-sm">
                       <div className="flex items-center space-x-4">
                         <span className="text-theme-tertiary">
-                          {delegation.users.length} user{delegation.users.length !== 1 ? 's' : ''}
+                          {delegation.users?.length || 0} user{(delegation.users?.length || 0) !== 1 ? 's' : ''}
                         </span>
                         <span className="text-theme-tertiary">
-                          {delegation.permissions.length} permission{delegation.permissions.length !== 1 ? 's' : ''}
+                          {delegation.permissions?.length || 0} permission{(delegation.permissions?.length || 0) !== 1 ? 's' : ''}
                         </span>
                       </div>
                       <span className="text-theme-link hover:text-theme-link-hover">
@@ -281,7 +281,7 @@ export const DelegationsManagement: React.FC = () => {
                       {delegation.description}
                     </p>
                     <div className="mt-2 text-xs text-theme-tertiary">
-                      {delegation.status === 'expired' ? 'Expired' : 'Revoked'} on {formatDate(delegation.updatedAt)}
+                      {delegation.status === 'expired' ? 'Expired' : 'Revoked'} on {formatDate(delegation.updatedAt || delegation.updated_at)}
                     </div>
                   </div>
                 ))}

@@ -1,0 +1,252 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import { impersonationApi, ImpersonationSession } from '../../services/impersonationApi';
+import Button from '../ui/Button';
+import FormField from '../ui/FormField';
+
+const ImpersonationHistory: React.FC = () => {
+  const [sessions, setSessions] = useState<ImpersonationSession[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  // const [currentPage, setCurrentPage] = useState(1);
+  // const [totalPages, setTotalPages] = useState(1);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'expired' | 'terminated'>('all');
+
+  const loadHistory = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const response = await impersonationApi.getHistory(50);
+      if (response.success && response.data) {
+        let filteredSessions = response.data;
+        
+        // Apply search filter
+        if (searchQuery.trim()) {
+          const query = searchQuery.toLowerCase();
+          filteredSessions = filteredSessions.filter(session =>
+            session.impersonator.email.toLowerCase().includes(query) ||
+            session.impersonated_user.email.toLowerCase().includes(query) ||
+            session.impersonator.full_name.toLowerCase().includes(query) ||
+            session.impersonated_user.full_name.toLowerCase().includes(query)
+          );
+        }
+        
+        // Apply status filter
+        if (statusFilter !== 'all') {
+          filteredSessions = filteredSessions.filter(session => {
+            if (statusFilter === 'active') return session.active && !session.expired;
+            if (statusFilter === 'expired') return session.expired;
+            if (statusFilter === 'terminated') return !session.active && !session.expired;
+            return true;
+          });
+        }
+        
+        setSessions(filteredSessions);
+      } else {
+        throw new Error(response.error || 'Failed to load history');
+      }
+    } catch (error: any) {
+      console.error('Failed to load impersonation history:', error);
+      setError(error.message || 'Failed to load impersonation history');
+    } finally {
+      setLoading(false);
+    }
+  }, [searchQuery, statusFilter]);
+
+  useEffect(() => {
+    loadHistory();
+  }, [loadHistory]);
+
+  const handleSearch = () => {
+    loadHistory();
+  };
+
+  const getStatusColor = (session: ImpersonationSession): string => {
+    if (session.active && !session.expired) {
+      return 'bg-green-100 text-green-800';
+    } else if (session.expired) {
+      return 'bg-yellow-100 text-yellow-800';
+    } else {
+      return 'bg-red-100 text-red-800';
+    }
+  };
+
+  const getStatusLabel = (session: ImpersonationSession): string => {
+    if (session.active && !session.expired) {
+      return 'Active';
+    } else if (session.expired) {
+      return 'Expired';
+    } else {
+      return 'Ended';
+    }
+  };
+
+  const formatDuration = (session: ImpersonationSession): string => {
+    if (session.duration) {
+      const minutes = Math.floor(session.duration / 60);
+      const hours = Math.floor(minutes / 60);
+      
+      if (hours > 0) {
+        return `${hours}h ${minutes % 60}m`;
+      }
+      return `${minutes}m`;
+    }
+
+    // Calculate duration from timestamps
+    const start = new Date(session.started_at);
+    const end = session.ended_at ? new Date(session.ended_at) : new Date();
+    const durationMs = end.getTime() - start.getTime();
+    const minutes = Math.floor(durationMs / (1000 * 60));
+    const hours = Math.floor(minutes / 60);
+    
+    if (hours > 0) {
+      return `${hours}h ${minutes % 60}m`;
+    }
+    return `${minutes}m`;
+  };
+
+  return (
+    <div className="bg-white shadow-sm rounded-lg">
+      <div className="px-6 py-4 border-b border-gray-200">
+        <h3 className="text-lg font-medium text-gray-900">Impersonation History</h3>
+        <p className="mt-1 text-sm text-gray-500">
+          Track all user impersonation sessions and activities
+        </p>
+      </div>
+
+      <div className="p-6">
+        {/* Filters */}
+        <div className="mb-6 flex flex-col sm:flex-row gap-4">
+          <div className="flex-1">
+            <FormField
+              label=""
+              placeholder="Search by user email or name..."
+              value={searchQuery}
+              onChange={(value) => setSearchQuery(value)}
+            />
+          </div>
+          <div className="flex space-x-2">
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as any)}
+              className="border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="all">All Status</option>
+              <option value="active">Active</option>
+              <option value="expired">Expired</option>
+              <option value="terminated">Terminated</option>
+            </select>
+            <Button onClick={handleSearch} loading={loading}>
+              Search
+            </Button>
+          </div>
+        </div>
+
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-md">
+            <p className="text-sm text-red-800">{error}</p>
+          </div>
+        )}
+
+        {/* History Table */}
+        {loading ? (
+          <div className="flex justify-center items-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <span className="ml-2 text-gray-500">Loading history...</span>
+          </div>
+        ) : sessions.length === 0 ? (
+          <div className="text-center py-12">
+            <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+            </svg>
+            <h3 className="mt-2 text-sm font-medium text-gray-900">No impersonation history</h3>
+            <p className="mt-1 text-sm text-gray-500">
+              No impersonation sessions found matching your criteria.
+            </p>
+          </div>
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Impersonator
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Target User
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Started
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Duration
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Reason
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {sessions.map((session) => (
+                    <tr key={session.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div>
+                          <div className="text-sm font-medium text-gray-900">
+                            {session.impersonator.full_name}
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            {session.impersonator.email}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div>
+                          <div className="text-sm font-medium text-gray-900">
+                            {session.impersonated_user.full_name}
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            {session.impersonated_user.email}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(session)}`}>
+                          {getStatusLabel(session)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {new Date(session.started_at).toLocaleString()}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {formatDuration(session)}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-900 max-w-xs truncate">
+                        {session.reason || 'No reason provided'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="mt-6 flex items-center justify-between">
+              <div className="text-sm text-gray-700">
+                Showing {sessions.length} sessions
+              </div>
+              <Button onClick={loadHistory} variant="secondary">
+                Refresh
+              </Button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default ImpersonationHistory;

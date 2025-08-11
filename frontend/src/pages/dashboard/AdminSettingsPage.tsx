@@ -39,7 +39,7 @@ export const AdminSettingsPage: React.FC = () => {
       const settingsData = await adminApi.getAdminSettings();
 
       setSettings(settingsData);
-      setSystemSettings(settingsData.system_settings);
+      setSystemSettings(settingsData?.system_settings || {});
     } catch (error) {
       console.error('Failed to load admin data:', error);
     } finally {
@@ -179,7 +179,7 @@ export const AdminSettingsPage: React.FC = () => {
                   <label className="label-theme">Platform Name</label>
                   <input
                     type="text"
-                    value={systemSettings.system_name || 'Powernode Platform'}
+                    value={systemSettings?.system_name || 'Powernode Platform'}
                     onChange={(e) => handleUpdateSettings({ system_name: e.target.value })}
                     disabled={saving}
                     className="input-theme"
@@ -192,7 +192,7 @@ export const AdminSettingsPage: React.FC = () => {
                   <label className="label-theme">System Email</label>
                   <input
                     type="email"
-                    value={systemSettings.system_email || ''}
+                    value={systemSettings?.system_email || ''}
                     onChange={(e) => handleUpdateSettings({ system_email: e.target.value })}
                     disabled={saving}
                     className="input-theme"
@@ -205,7 +205,7 @@ export const AdminSettingsPage: React.FC = () => {
                   <label className="label-theme">Support Email</label>
                   <input
                     type="email"
-                    value={systemSettings.support_email || ''}
+                    value={systemSettings?.support_email || ''}
                     onChange={(e) => handleUpdateSettings({ support_email: e.target.value })}
                     disabled={saving}
                     className="input-theme"
@@ -218,7 +218,7 @@ export const AdminSettingsPage: React.FC = () => {
                   <label className="label-theme">Platform URL</label>
                   <input
                     type="url"
-                    value={systemSettings.platform_url || ''}
+                    value={systemSettings?.platform_url || ''}
                     onChange={(e) => handleUpdateSettings({ platform_url: e.target.value })}
                     disabled={saving}
                     className="input-theme"
@@ -250,7 +250,7 @@ export const AdminSettingsPage: React.FC = () => {
                     <input
                       type="checkbox"
                       className="sr-only peer"
-                      checked={systemSettings.registration_enabled || false}
+                      checked={systemSettings?.registration_enabled || false}
                       onChange={(e) => handleUpdateSettings({ registration_enabled: e.target.checked })}
                       disabled={saving}
                     />
@@ -267,7 +267,7 @@ export const AdminSettingsPage: React.FC = () => {
                     <input
                       type="checkbox"
                       className="sr-only peer"
-                      checked={systemSettings.email_verification_required || false}
+                      checked={systemSettings?.email_verification_required || false}
                       onChange={(e) => handleUpdateSettings({ email_verification_required: e.target.checked })}
                       disabled={saving}
                     />
@@ -284,7 +284,7 @@ export const AdminSettingsPage: React.FC = () => {
                     <input
                       type="checkbox"
                       className="sr-only peer"
-                      checked={systemSettings.allow_account_deletion || false}
+                      checked={systemSettings?.allow_account_deletion || false}
                       onChange={(e) => handleUpdateSettings({ allow_account_deletion: e.target.checked })}
                       disabled={saving}
                     />
@@ -301,7 +301,7 @@ export const AdminSettingsPage: React.FC = () => {
                     <input
                       type="checkbox"
                       className="sr-only peer"
-                      checked={systemSettings.maintenance_mode || false}
+                      checked={systemSettings?.maintenance_mode || false}
                       onChange={(e) => handleUpdateSettings({ maintenance_mode: e.target.checked })}
                       disabled={saving}
                     />
@@ -326,7 +326,7 @@ export const AdminSettingsPage: React.FC = () => {
                 <div>
                   <label className="label-theme">Password Complexity Level</label>
                   <select
-                    value={systemSettings.password_complexity_level || 'high'}
+                    value={systemSettings?.password_complexity_level || 'high'}
                     onChange={(e) => handleUpdateSettings({ password_complexity_level: e.target.value as any })}
                     disabled={saving}
                     className="select-theme"
@@ -343,7 +343,7 @@ export const AdminSettingsPage: React.FC = () => {
                     type="number"
                     min="5"
                     max="480"
-                    value={systemSettings.session_timeout_minutes || 60}
+                    value={systemSettings?.session_timeout_minutes || 60}
                     onChange={(e) => handleUpdateSettings({ session_timeout_minutes: parseInt(e.target.value) })}
                     disabled={saving}
                     className="input-theme"
@@ -357,7 +357,7 @@ export const AdminSettingsPage: React.FC = () => {
                     type="number"
                     min="3"
                     max="10"
-                    value={systemSettings.max_failed_login_attempts || 5}
+                    value={systemSettings?.max_failed_login_attempts || 5}
                     onChange={(e) => handleUpdateSettings({ max_failed_login_attempts: parseInt(e.target.value) })}
                     disabled={saving}
                     className="input-theme"
@@ -371,7 +371,7 @@ export const AdminSettingsPage: React.FC = () => {
                     type="number"
                     min="5"
                     max="1440"
-                    value={systemSettings.account_lockout_duration || 30}
+                    value={systemSettings?.account_lockout_duration || 30}
                     onChange={(e) => handleUpdateSettings({ account_lockout_duration: parseInt(e.target.value) })}
                     disabled={saving}
                     className="input-theme"
@@ -399,7 +399,7 @@ export const AdminSettingsPage: React.FC = () => {
                     type="number"
                     min="0"
                     max="365"
-                    value={systemSettings.trial_period_days || 14}
+                    value={systemSettings?.trial_period_days || 14}
                     onChange={(e) => handleUpdateSettings({ trial_period_days: parseInt(e.target.value) })}
                     disabled={saving}
                     className="input-theme"
@@ -413,7 +413,7 @@ export const AdminSettingsPage: React.FC = () => {
                     type="number"
                     min="1"
                     max="5"
-                    value={systemSettings.payment_retry_attempts || 3}
+                    value={systemSettings?.payment_retry_attempts || 3}
                     onChange={(e) => handleUpdateSettings({ payment_retry_attempts: parseInt(e.target.value) })}
                     disabled={saving}
                     className="input-theme"
@@ -427,7 +427,7 @@ export const AdminSettingsPage: React.FC = () => {
                     type="number"
                     min="5"
                     max="60"
-                    value={systemSettings.webhook_timeout_seconds || 30}
+                    value={systemSettings?.webhook_timeout_seconds || 30}
                     onChange={(e) => handleUpdateSettings({ webhook_timeout_seconds: parseInt(e.target.value) })}
                     disabled={saving}
                     className="input-theme"
@@ -436,13 +436,18 @@ export const AdminSettingsPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="label-theme">Rate Limit (requests/minute)</label>
+                  <label className="label-theme">API Rate Limit (requests/minute)</label>
                   <input
                     type="number"
                     min="10"
                     max="1000"
-                    value={systemSettings.rate_limit_requests_per_minute || 60}
-                    onChange={(e) => handleUpdateSettings({ rate_limit_requests_per_minute: parseInt(e.target.value) })}
+                    value={systemSettings?.rate_limiting?.api_requests_per_minute || 60}
+                    onChange={(e) => handleUpdateSettings({ 
+                      rate_limiting: { 
+                        ...systemSettings?.rate_limiting, 
+                        api_requests_per_minute: parseInt(e.target.value) 
+                      } 
+                    })}
                     disabled={saving}
                     className="input-theme"
                   />
@@ -702,14 +707,14 @@ export const AdminSettingsPage: React.FC = () => {
                     <input
                       type="checkbox"
                       className="sr-only peer"
-                      checked={systemSettings.maintenance_mode || false}
+                      checked={systemSettings?.maintenance_mode || false}
                       onChange={(e) => handleUpdateSettings({ maintenance_mode: e.target.checked })}
                       disabled={saving}
                     />
                     <div className="toggle-theme peer-checked:bg-theme-error"></div>
                   </label>
                 </div>
-                {systemSettings.maintenance_mode && (
+                {systemSettings?.maintenance_mode && (
                   <div className="alert-theme alert-theme-warning">
                     <strong>⚠️ Maintenance Mode Active:</strong> Users cannot access the application.
                   </div>

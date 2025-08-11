@@ -25,7 +25,7 @@ const UsersPage: React.FC<UsersPageProps> = () => {
     last_name: '',
     email: '',
     phone: '',
-    roles: ['member'],
+    role: 'member',
     password: '',
     password_confirmation: ''
   });
@@ -56,7 +56,7 @@ const UsersPage: React.FC<UsersPageProps> = () => {
       }
     } catch (err) {
       console.error('Error loading users:', err);
-      setError('Using mock data - API connection failed. Some features may be limited.');
+      setError('Failed to load users. Please check your connection and try again.');
     } finally {
       setLoading(false);
     }
@@ -82,7 +82,7 @@ const UsersPage: React.FC<UsersPageProps> = () => {
       last_name: '',
       email: '',
       phone: '',
-      roles: ['member'],
+      role: 'member',
       password: '',
       password_confirmation: ''
     });
@@ -126,7 +126,7 @@ const UsersPage: React.FC<UsersPageProps> = () => {
       last_name: formData.last_name,
       email: formData.email,
       phone: formData.phone,
-      roles: formData.roles
+      role: formData.role
     };
 
     try {
@@ -216,7 +216,7 @@ const UsersPage: React.FC<UsersPageProps> = () => {
       last_name: user.last_name,
       email: user.email,
       phone: user.phone || '',
-      roles: user.roles || ['member'],
+      role: user.role || 'member',
       password: '',
       password_confirmation: ''
     });
@@ -350,13 +350,9 @@ const UsersPage: React.FC<UsersPageProps> = () => {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex flex-wrap gap-1">
-                      {user.roles.map((role, index) => (
-                        <Badge key={index} className={usersApi.getRoleColor(role)}>
-                          {role.replace('_', ' ')}
-                        </Badge>
-                      ))}
-                    </div>
+                    <Badge className={usersApi.getRoleColor(user.role)}>
+                      {user.role.replace('_', ' ')}
+                    </Badge>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <Badge className={usersApi.getStatusColor(user.status)}>
@@ -512,8 +508,8 @@ const UsersPage: React.FC<UsersPageProps> = () => {
           <FormField
             label="Role"
             type="select"
-            value={formData.roles[0] || 'member'}
-            onChange={(value: string) => handleFormChange('roles', [value])}
+            value={formData.role || 'member'}
+            onChange={(value: string) => handleFormChange('role', value)}
             options={usersApi.getAvailableRoles().map(role => ({
               value: role.value,
               label: role.label
@@ -613,8 +609,8 @@ const UsersPage: React.FC<UsersPageProps> = () => {
           <FormField
             label="Role"
             type="select"
-            value={formData.roles[0] || 'member'}
-            onChange={(value: string) => handleFormChange('roles', [value])}
+            value={formData.role || 'member'}
+            onChange={(value: string) => handleFormChange('role', value)}
             options={usersApi.getAvailableRoles().map(role => ({
               value: role.value,
               label: role.label

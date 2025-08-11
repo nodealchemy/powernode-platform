@@ -13,7 +13,7 @@ interface User {
   email: string;
   firstName: string;
   lastName: string;
-  roles: string[];
+  role: string;
 }
 
 export const DelegationDetailsModal: React.FC<DelegationDetailsModalProps> = ({
@@ -49,8 +49,8 @@ export const DelegationDetailsModal: React.FC<DelegationDetailsModalProps> = ({
 
   const loadAvailableUsers = async () => {
     try {
-      const data = await delegationApi.getAvailableUsers(delegation.sourceAccountId);
-      const currentUserIds = delegation.users.map(u => u.userId);
+      const data = await delegationApi.getAvailableUsers(delegation.sourceAccountId || delegation.account.id);
+      const currentUserIds = delegation.users?.map(u => u.userId) || [];
       setAvailableUsers(data.users.filter((u: User) => !currentUserIds.includes(u.id)));
     } catch (error) {
       console.error('Failed to load available users:', error);
@@ -144,7 +144,7 @@ export const DelegationDetailsModal: React.FC<DelegationDetailsModalProps> = ({
                 {tab.charAt(0).toUpperCase() + tab.slice(1)}
                 {tab === 'users' && (
                   <span className="ml-2 bg-theme-surface px-2 py-0.5 rounded-full text-xs">
-                    {delegation.users.length}
+                    {delegation.users?.length || 0}
                   </span>
                 )}
               </button>
@@ -174,7 +174,7 @@ export const DelegationDetailsModal: React.FC<DelegationDetailsModalProps> = ({
 
                 <div>
                   <h3 className="text-sm font-medium text-theme-tertiary mb-1">Created</h3>
-                  <p className="text-theme-primary">{formatDate(delegation.createdAt)}</p>
+                  <p className="text-theme-primary">{formatDate(delegation.createdAt || delegation.created_at)}</p>
                   <p className="text-sm text-theme-secondary">by {delegation.createdByName}</p>
                 </div>
 
@@ -194,11 +194,11 @@ export const DelegationDetailsModal: React.FC<DelegationDetailsModalProps> = ({
               <div>
                 <h3 className="text-sm font-medium text-theme-tertiary mb-3">Granted Permissions</h3>
                 <div className="grid grid-cols-2 gap-3">
-                  {delegation.permissions.map((permission) => (
-                    <div key={permission} className="bg-theme-background rounded-lg p-3">
+                  {(delegation.permissions || []).map((permission) => (
+                    <div key={typeof permission === 'string' ? permission : permission.id || permission.key} className="bg-theme-background rounded-lg p-3">
                       <div className="flex items-center space-x-2">
                         <span className="text-theme-success">✓</span>
-                        <span className="text-theme-primary text-sm">{getPermissionLabel(permission)}</span>
+                        <span className="text-theme-primary text-sm">{getPermissionLabel(typeof permission === 'string' ? permission : permission.key)}</span>
                       </div>
                     </div>
                   ))}
@@ -286,20 +286,20 @@ export const DelegationDetailsModal: React.FC<DelegationDetailsModalProps> = ({
               )}
 
               <div className="space-y-3">
-                {delegation.users.map((user) => (
-                  <div key={user.id} className="bg-theme-background rounded-lg p-4 flex items-center justify-between">
+                {(delegation.users || []).map((user) => (
+                  <div key={user.userId || user.id} className="bg-theme-background rounded-lg p-4 flex items-center justify-between">
                     <div>
                       <div className="font-medium text-theme-primary">
-                        {user.firstName} {user.lastName}
+                        {user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim()}
                       </div>
                       <div className="text-sm text-theme-secondary">{user.email}</div>
                       <div className="text-xs text-theme-tertiary mt-1">
-                        Added {formatDate(user.addedAt)}
+                        Added {user.addedAt && formatDate(user.addedAt)}
                       </div>
                     </div>
                     {delegation.status === 'active' && (
                       <button
-                        onClick={() => handleRemoveUser(user.userId)}
+                        onClick={() => handleRemoveUser(user.userId || user.id || '')}
                         className="text-theme-error hover:text-theme-error-hover"
                       >
                         Remove
@@ -308,7 +308,7 @@ export const DelegationDetailsModal: React.FC<DelegationDetailsModalProps> = ({
                   </div>
                 ))}
 
-                {delegation.users.length === 0 && (
+                {(delegation.users?.length || 0) === 0 && (
                   <div className="bg-theme-background rounded-lg p-8 text-center">
                     <p className="text-theme-secondary">No users added to this delegation</p>
                     <p className="text-sm text-theme-tertiary mt-1">
@@ -332,7 +332,7 @@ export const DelegationDetailsModal: React.FC<DelegationDetailsModalProps> = ({
                     <div className="flex-1">
                       <div className="flex items-center space-x-2">
                         <span className="font-medium text-theme-primary">
-                          {activity.performedByName}
+                          {activity.performedByName || activity.performed_by}
                         </span>
                         <span className="text-theme-secondary">
                           {activity.action.replace(/_/g, ' ')}
@@ -342,7 +342,7 @@ export const DelegationDetailsModal: React.FC<DelegationDetailsModalProps> = ({
                         <p className="text-sm text-theme-secondary mt-1">{activity.details}</p>
                       )}
                       <p className="text-xs text-theme-tertiary mt-1">
-                        {formatDate(activity.timestamp)}
+                        {formatDate(activity.timestamp || activity.performedAt || activity.performed_at)}
                       </p>
                     </div>
                   </div>

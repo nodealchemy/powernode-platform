@@ -28,7 +28,7 @@ export interface VolumeDiscountTier {
 export interface DetailedPlan extends Plan {
   features: Record<string, any>;
   limits: Record<string, any>;
-  default_roles: string[];
+  default_role: string;
   metadata: Record<string, any>;
   stripe_price_id: string | null;
   paypal_plan_id: string | null;
@@ -58,7 +58,7 @@ export interface PlanFormData {
   is_public: boolean;
   features: Record<string, any>;
   limits: Record<string, any>;
-  default_roles: string[];
+  default_role: string;
   metadata: Record<string, any>;
   stripe_price_id?: string;
   paypal_plan_id?: string;

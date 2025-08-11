@@ -44,7 +44,7 @@ describe('LoginPage', () => {
           email: 'test@example.com',
           firstName: 'John',
           lastName: 'Doe',
-          roles: ['admin'],
+          role: 'admin',
           status: 'active',
           emailVerified: true,
           account: {

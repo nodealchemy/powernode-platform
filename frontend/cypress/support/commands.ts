@@ -111,7 +111,7 @@ Cypress.Commands.add('seedTestData', () => {
           password: 'password123',
           firstName: 'Admin',
           lastName: 'User',
-          roles: ['admin'],
+          role: 'admin',
           accountName: 'Test Company',
         },
         {
@@ -119,7 +119,7 @@ Cypress.Commands.add('seedTestData', () => {
           password: 'password123',
           firstName: 'Member',
           lastName: 'User',
-          roles: ['member'],
+          role: 'member',
           accountName: 'Test Company',
         },
       ],

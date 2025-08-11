@@ -16,6 +16,7 @@
     "@uiw/react-md-editor": "^4.0.8",
     "axios": "^1.11.0",
     "date-fns": "^4.1.0",
+    "lucide-react": "^0.539.0",
     "react": "^19.1.1",
     "react-datepicker": "^8.4.0",
     "react-dom": "^19.1.1",

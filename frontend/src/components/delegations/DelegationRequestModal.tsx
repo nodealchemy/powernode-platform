@@ -135,7 +135,7 @@ export const DelegationRequestModal: React.FC<DelegationRequestModalProps> = ({
               <div>
                 <h3 className="text-sm font-medium text-theme-tertiary mb-3">Requested Permissions</h3>
                 <div className="space-y-2">
-                  {request.delegation.permissions.map((permission) => (
+                  {(request.delegation.permissions || []).map((permission) => (
                     <div key={permission} className="bg-theme-background rounded-lg p-3">
                       <div className="flex items-start space-x-3">
                         <span className="text-theme-interactive-primary mt-0.5">🔐</span>
@@ -150,18 +150,18 @@ export const DelegationRequestModal: React.FC<DelegationRequestModalProps> = ({
               </div>
 
               {/* Users to be Granted Access */}
-              {request.delegation.users.length > 0 && (
+              {(request.delegation.users?.length || 0) > 0 && (
                 <div>
                   <h3 className="text-sm font-medium text-theme-tertiary mb-3">Users to be Granted Access</h3>
                   <div className="bg-theme-background rounded-lg p-4">
                     <div className="space-y-2">
-                      {request.delegation.users.map((user) => (
+                      {(request.delegation.users || []).map((user) => (
                         <div key={user.id} className="flex items-center justify-between">
                           <div>
-                            <p className="text-theme-primary">{user.firstName} {user.lastName}</p>
+                            <p className="text-theme-primary">{user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim()}</p>
                             <p className="text-sm text-theme-secondary">{user.email}</p>
                           </div>
-                          <span className="text-sm text-theme-tertiary">{user.roles?.join(', ') || 'N/A'}</span>
+                          <span className="text-sm text-theme-tertiary">{user.role || 'N/A'}</span>
                         </div>
                       ))}
                     </div>
