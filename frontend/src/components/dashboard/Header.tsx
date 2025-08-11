@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { User } from '../../store/slices/authSlice';
 import { WebSocketStatusIndicator } from '../common/WebSocketStatusIndicator';
 import { ThemeToggle } from '../common/ThemeToggle';
+import { NotificationContainer } from '../common/NotificationContainer';
 
 interface HeaderProps {
   user: User | null;
@@ -45,7 +46,7 @@ export const Header: React.FC<HeaderProps> = ({ user, onLogout, onToggleSidebar 
 
   return (
     <header className="bg-theme-surface h-16 border-b border-theme">
-      <div className="flex justify-between items-center px-4 sm:px-6 lg:px-8 h-full">
+      <div className="grid grid-cols-3 items-center px-4 sm:px-6 lg:px-8 h-full">
         {/* Left side */}
         <div className="flex items-center space-x-3">
           {/* Mobile sidebar toggle */}
@@ -60,8 +61,13 @@ export const Header: React.FC<HeaderProps> = ({ user, onLogout, onToggleSidebar 
           </button>
         </div>
 
+        {/* Center - Notifications */}
+        <div className="flex justify-center">
+          <NotificationContainer />
+        </div>
+
         {/* Right side */}
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center justify-end space-x-4">
           {/* WebSocket Connection Status */}
           <WebSocketStatusIndicator />
           

@@ -14,7 +14,6 @@ import { ThemeProvider } from './contexts/ThemeContext';
 import { ProtectedRoute } from './components/common/ProtectedRoute';
 import { PublicRoute } from './components/common/PublicRoute';
 import { LoadingSpinner } from './components/common/LoadingSpinner';
-import { NotificationContainer } from './components/common/NotificationContainer';
 
 // Pages
 import { LoginPage } from './pages/auth/LoginPage';
@@ -132,7 +131,6 @@ const AppContent: React.FC = () => {
       }}
     >
       <div className="App bg-theme-background min-h-screen text-theme-primary">
-        <NotificationContainer />
         <Routes>
           {/* Public routes */}
           <Route

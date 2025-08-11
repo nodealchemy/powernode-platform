@@ -1,28 +1,105 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '../../store';
 import { toggleSidebarCollapse } from '../../store/slices/uiSlice';
+import { hasAccess, hasAdminAccess, hasBillingAccess } from '../../utils/permissionUtils';
 
 interface SidebarProps {
   isOpen: boolean;
   onToggle: () => void;
 }
 
-const navigation = [
-  { name: 'Dashboard', href: '/dashboard', icon: '📊' },
-  { name: 'Analytics', href: '/dashboard/analytics', icon: '📈' },
-  { name: 'Reports', href: '/dashboard/reports', icon: '📋' },
-  { name: 'Subscriptions', href: '/dashboard/subscriptions', icon: '💳' },
-  { name: 'Customers', href: '/dashboard/customers', icon: '👥' },
-  { name: 'Plans', href: '/dashboard/plans', icon: '💎' },
-  { name: 'Billing', href: '/dashboard/billing', icon: '💰' },
-  { name: 'Pages', href: '/dashboard/pages', icon: '📄' },
-  { name: 'Settings', href: '/dashboard/settings', icon: '⚙️' },
+interface NavigationItem {
+  name: string;
+  href: string;
+  icon: string;
+  permissions?: string[];
+  roles?: string[];
+  requiresBillingAccess?: boolean; // Legacy support
+  adminOnly?: boolean; // Legacy support
+}
+
+const navigation: NavigationItem[] = [
+  { 
+    name: 'Dashboard', 
+    href: '/dashboard', 
+    icon: '📊',
+    permissions: ['dashboard_access']
+  },
+  { 
+    name: 'Analytics', 
+    href: '/dashboard/analytics', 
+    icon: '📈',
+    permissions: ['basic_analytics']
+  },
+  { 
+    name: 'Reports', 
+    href: '/dashboard/reports', 
+    icon: '📋',
+    permissions: ['basic_analytics']
+  },
+  { 
+    name: 'Subscriptions', 
+    href: '/dashboard/subscriptions', 
+    icon: '💳',
+    permissions: ['account_management']
+  },
+  { 
+    name: 'Customers', 
+    href: '/dashboard/customers', 
+    icon: '👥',
+    permissions: ['user_management']
+  },
+  { 
+    name: 'Plans', 
+    href: '/dashboard/plans', 
+    icon: '💎',
+    roles: ['owner', 'admin'],
+    permissions: ['billing_management']
+  },
+  { 
+    name: 'Billing', 
+    href: '/dashboard/billing', 
+    icon: '💰',
+    permissions: ['billing_management']
+  },
+  { 
+    name: 'Payment Gateways', 
+    href: '/dashboard/payment-gateways', 
+    icon: '🔗',
+    permissions: ['billing_management'],
+    roles: ['owner', 'admin', 'billing_manager']
+  },
+  { 
+    name: 'Pages', 
+    href: '/dashboard/pages', 
+    icon: '📄',
+    permissions: ['account_management']
+  },
+  { 
+    name: 'Services', 
+    href: '/dashboard/services', 
+    icon: '🔌',
+    permissions: ['custom_integrations'],
+    roles: ['owner', 'admin']
+  },
+  { 
+    name: 'Settings', 
+    href: '/dashboard/settings', 
+    icon: '⚙️',
+    permissions: ['dashboard_access']
+  },
 ];
 
-const adminNavigation = [
-  { name: 'Admin Settings', href: '/dashboard/admin-settings', icon: '🔧', adminOnly: true },
+const adminNavigation: NavigationItem[] = [
+  { 
+    name: 'Admin Settings', 
+    href: '/dashboard/admin-settings', 
+    icon: '🔧',
+    roles: ['owner', 'admin'],
+    permissions: ['system_administration']
+  },
 ];
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
@@ -31,9 +108,89 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
   const { user } = useSelector((state: RootState) => state.auth);
   const { sidebarCollapsed } = useSelector((state: RootState) => state.ui);
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
+  const [scrollState, setScrollState] = useState({
+    isScrollable: false,
+    canScrollUp: false,
+    canScrollDown: false
+  });
+  const navRef = useRef<HTMLElement>(null);
   
-  // Check if user has admin access
-  const hasAdminAccess = user?.role === 'owner' || user?.role === 'admin';
+  // Handle scroll state updates
+  const updateScrollState = useCallback(() => {
+    const navElement = navRef.current;
+    if (!navElement) return;
+    
+    const { scrollTop, scrollHeight, clientHeight } = navElement;
+    const isScrollable = scrollHeight > clientHeight;
+    const canScrollUp = scrollTop > 0;
+    const canScrollDown = scrollTop < scrollHeight - clientHeight;
+    
+    setScrollState({ isScrollable, canScrollUp, canScrollDown });
+  }, []);
+  
+  // Update scroll state on mount and when sidebar changes
+  useEffect(() => {
+    updateScrollState();
+    const navElement = navRef.current;
+    if (navElement) {
+      navElement.addEventListener('scroll', updateScrollState);
+      // Also check when window resizes
+      window.addEventListener('resize', updateScrollState);
+      return () => {
+        navElement.removeEventListener('scroll', updateScrollState);
+        window.removeEventListener('resize', updateScrollState);
+      };
+    }
+  }, [updateScrollState, sidebarCollapsed]);
+  
+  // Keyboard navigation for sidebar scrolling
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const navElement = navRef.current;
+      if (!navElement || !scrollState.isScrollable) return;
+      
+      // Only handle keyboard navigation when sidebar has focus or a sidebar item is focused
+      const activeElement = document.activeElement;
+      const isInSidebar = navElement.contains(activeElement);
+      
+      if (isInSidebar) {
+        switch (event.key) {
+          case 'PageUp':
+            event.preventDefault();
+            navElement.scrollBy({ top: -navElement.clientHeight * 0.8, behavior: 'smooth' });
+            break;
+          case 'PageDown':
+            event.preventDefault();
+            navElement.scrollBy({ top: navElement.clientHeight * 0.8, behavior: 'smooth' });
+            break;
+          case 'Home':
+            if (event.ctrlKey) {
+              event.preventDefault();
+              navElement.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+            break;
+          case 'End':
+            if (event.ctrlKey) {
+              event.preventDefault();
+              navElement.scrollTo({ top: navElement.scrollHeight, behavior: 'smooth' });
+            }
+            break;
+        }
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [scrollState.isScrollable]);
+  
+  // Comprehensive permission checking using centralized utility
+  const hasPermission = (requiredPermissions?: string[], requiredRoles?: string[]) => {
+    return hasAccess(user, requiredPermissions, requiredRoles);
+  };
+  
+  // Legacy permission checks for backward compatibility
+  const hasAdminAccessLocal = hasAdminAccess(user);
+  const hasBillingAccessLocal = hasBillingAccess(user);
   
   const handleCollapseToggle = useCallback(() => {
     dispatch(toggleSidebarCollapse());
@@ -129,9 +286,28 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
           </div>
 
           {/* Navigation */}
-          <nav className={`flex-1 ${sidebarCollapsed ? 'px-2' : 'px-3'} py-6 space-y-1`}>
+          <div className="flex-1 relative">
+            {/* Scroll fade indicators */}
+            {scrollState.isScrollable && scrollState.canScrollUp && (
+              <div className="absolute top-0 left-0 right-0 h-8 bg-gradient-to-b from-theme-surface via-theme-surface/80 to-transparent pointer-events-none z-10" />
+            )}
+            {scrollState.isScrollable && scrollState.canScrollDown && (
+              <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-theme-surface via-theme-surface/80 to-transparent pointer-events-none z-10" />
+            )}
+            
+            <nav 
+              ref={navRef}
+              className={`h-full ${sidebarCollapsed ? 'px-2' : 'px-3'} py-6 space-y-1 overflow-y-auto sidebar-scrollbar`}
+            >
             {/* Regular navigation items */}
-            {navigation.map((item) => {
+            {navigation.filter(item => {
+              // Legacy support for old permission properties
+              if (item.adminOnly && !hasAdminAccessLocal) return false;
+              if (item.requiresBillingAccess && !hasBillingAccessLocal) return false;
+              
+              // New comprehensive permission checking
+              return hasPermission(item.permissions, item.roles);
+            }).map((item) => {
               const isActive = location.pathname === item.href;
               return (
                 <div
@@ -169,7 +345,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
             })}
 
             {/* Admin navigation section */}
-            {hasAdminAccess && (
+            {adminNavigation.filter(item => hasPermission(item.permissions, item.roles)).length > 0 && (
               <>
                 <div className="border-t border-theme my-4"></div>
                 {!sidebarCollapsed && (
@@ -179,7 +355,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
                     </p>
                   </div>
                 )}
-                {adminNavigation.map((item) => {
+                {adminNavigation.filter(item => hasPermission(item.permissions, item.roles)).map((item) => {
                   const isActive = location.pathname === item.href;
                   return (
                     <div
@@ -217,7 +393,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
                 })}
               </>
             )}
-          </nav>
+            </nav>
+          </div>
 
           {/* Footer */}
           {!sidebarCollapsed && (

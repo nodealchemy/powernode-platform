@@ -1,20 +1,20 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useSelector } from 'react-redux';
-import { RootState } from '../../store';
+import { useSelector, useDispatch } from 'react-redux';
+import { RootState, AppDispatch } from '../../store';
+import { addNotification } from '../../store/slices/uiSlice';
 import { settingsApi, SettingsData, UserPreferences, NotificationPreferences } from '../../services/settingsApi';
 import { useSettingsWebSocket } from '../../hooks/useSettingsWebSocket';
 import { WebSocketStatusIndicator } from '../../components/common/WebSocketStatusIndicator';
 import { useTheme } from '../../contexts/ThemeContext';
 
 export const SettingsPage: React.FC = () => {
+  const dispatch = useDispatch<AppDispatch>();
   const { user } = useSelector((state: RootState) => state.auth);
   const { theme, setTheme } = useTheme();
   const [settings, setSettings] = useState<SettingsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('profile');
-  const [successMessage, setSuccessMessage] = useState('');
-  const [errorMessage, setErrorMessage] = useState('');
 
   // Form states
   const [profileForm, setProfileForm] = useState({
@@ -46,25 +46,31 @@ export const SettingsPage: React.FC = () => {
         setTheme(updatedData.user_preferences.theme);
       }
       
-      setSuccessMessage('Settings updated from another session');
+      dispatch(addNotification({
+        type: 'success',
+        message: 'Settings updated from another session'
+      }));
     }
     
     if (updatedData.notification_preferences) {
       setNotifications(prev => ({ ...prev, ...updatedData.notification_preferences }));
-      setSuccessMessage('Notifications updated from another session');
+      dispatch(addNotification({
+        type: 'success',
+        message: 'Notifications updated from another session'
+      }));
     }
     
     if (updatedData.account_settings) {
       setSettings(prev => prev ? { ...prev, account_settings: updatedData.account_settings! } : null);
-      setSuccessMessage('Account settings updated from another session');
+      dispatch(addNotification({
+        type: 'success',
+        message: 'Account settings updated from another session'
+      }));
     }
 
     setLastUpdated(new Date());
     setIsReceivingUpdate(false);
-
-    // Clear success message after 3 seconds
-    setTimeout(() => setSuccessMessage(''), 3000);
-  }, [theme, setTheme]);
+  }, [theme, setTheme, dispatch]);
 
   const handlePreferencesUpdate = useCallback((updatedPreferences: Partial<UserPreferences>) => {
     setPreferences(prev => ({ ...prev, ...updatedPreferences }));
@@ -75,16 +81,20 @@ export const SettingsPage: React.FC = () => {
     }
     
     setLastUpdated(new Date());
-    setSuccessMessage('Preferences synced from another session');
-    setTimeout(() => setSuccessMessage(''), 3000);
-  }, [theme, setTheme]);
+    dispatch(addNotification({
+      type: 'success',
+      message: 'Preferences synced from another session'
+    }));
+  }, [theme, setTheme, dispatch]);
 
   const handleNotificationsUpdate = useCallback((updatedNotifications: Partial<NotificationPreferences>) => {
     setNotifications(prev => ({ ...prev, ...updatedNotifications }));
     setLastUpdated(new Date());
-    setSuccessMessage('Notification settings synced from another session');
-    setTimeout(() => setSuccessMessage(''), 3000);
-  }, []);
+    dispatch(addNotification({
+      type: 'success',
+      message: 'Notification settings synced from another session'
+    }));
+  }, [dispatch]);
 
   // Initialize WebSocket for real-time updates
   const { isConnected, broadcastSettingsUpdate } = useSettingsWebSocket({
@@ -111,26 +121,31 @@ export const SettingsPage: React.FC = () => {
       setNotifications(settingsData.notification_preferences || {});
     } catch (error) {
       console.error('Failed to load settings:', error);
-      setErrorMessage('Failed to load settings');
+      dispatch(addNotification({
+        type: 'error',
+        message: 'Failed to load settings'
+      }));
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, dispatch]);
 
   useEffect(() => {
     loadSettings();
   }, [loadSettings]);
 
   const showSuccess = (message: string) => {
-    setSuccessMessage(message);
-    setErrorMessage('');
-    setTimeout(() => setSuccessMessage(''), 3000);
+    dispatch(addNotification({
+      type: 'success',
+      message
+    }));
   };
 
   const showError = (message: string) => {
-    setErrorMessage(message);
-    setSuccessMessage('');
-    setTimeout(() => setErrorMessage(''), 5000);
+    dispatch(addNotification({
+      type: 'error',
+      message
+    }));
   };
 
   const handleUpdatePreferences = async (updatedPrefs: Partial<UserPreferences>) => {
@@ -319,18 +334,6 @@ export const SettingsPage: React.FC = () => {
           )}
         </div>
       </div>
-
-      {successMessage && (
-        <div className="alert-theme alert-theme-success">
-          {successMessage}
-        </div>
-      )}
-
-      {errorMessage && (
-        <div className="alert-theme alert-theme-error">
-          {errorMessage}
-        </div>
-      )}
 
       {/* Tab Navigation */}
       <div className="border-b border-theme">
