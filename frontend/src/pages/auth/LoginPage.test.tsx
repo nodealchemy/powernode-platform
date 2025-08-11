@@ -27,12 +27,12 @@ describe('LoginPage', () => {
       preloadedState: mockUnauthenticatedState,
     });
 
-    expect(screen.getByText('Sign in to your account')).toBeInTheDocument();
-    expect(screen.getByPlaceholderText('Email address')).toBeInTheDocument();
-    expect(screen.getByPlaceholderText('Password')).toBeInTheDocument();
+    expect(screen.getByText('Welcome back')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Enter your email')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Enter your password')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument();
     expect(screen.getByText('Forgot your password?')).toBeInTheDocument();
-    expect(screen.getByText('create a new account')).toBeInTheDocument();
+    expect(screen.getByText('Create your account')).toBeInTheDocument();
   });
 
   it('handles successful login', async () => {
@@ -69,8 +69,8 @@ describe('LoginPage', () => {
     });
 
     // Fill in the form
-    await user.type(screen.getByPlaceholderText('Email address'), 'test@example.com');
-    await user.type(screen.getByPlaceholderText('Password'), 'password123');
+    await user.type(screen.getByPlaceholderText('Enter your email'), 'test@example.com');
+    await user.type(screen.getByPlaceholderText('Enter your password'), 'password123');
 
     // Submit the form
     await act(async () => {
@@ -101,8 +101,8 @@ describe('LoginPage', () => {
     });
 
     // Fill in the form
-    await user.type(screen.getByPlaceholderText('Email address'), 'wrong@example.com');
-    await user.type(screen.getByPlaceholderText('Password'), 'wrongpassword');
+    await user.type(screen.getByPlaceholderText('Enter your email'), 'wrong@example.com');
+    await user.type(screen.getByPlaceholderText('Enter your password'), 'wrongpassword');
 
     // Submit the form
     await act(async () => {
@@ -137,8 +137,8 @@ describe('LoginPage', () => {
     await user.click(submitButton);
 
     // HTML5 validation should prevent form submission
-    const emailField = screen.getByPlaceholderText('Email address');
-    const passwordField = screen.getByPlaceholderText('Password');
+    const emailField = screen.getByPlaceholderText('Enter your email');
+    const passwordField = screen.getByPlaceholderText('Enter your password');
 
     expect(emailField).toBeInvalid();
     expect(passwordField).toBeInvalid();
@@ -158,8 +158,8 @@ describe('LoginPage', () => {
     });
 
     // Fill in the form
-    await user.type(screen.getByPlaceholderText('Email address'), 'test@example.com');
-    await user.type(screen.getByPlaceholderText('Password'), 'password123');
+    await user.type(screen.getByPlaceholderText('Enter your email'), 'test@example.com');
+    await user.type(screen.getByPlaceholderText('Enter your password'), 'password123');
 
     // Submit the form
     const submitPromise = act(async () => {

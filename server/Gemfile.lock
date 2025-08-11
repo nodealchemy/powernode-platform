@@ -316,6 +316,7 @@ GEM
     rdoc (6.14.2)
       erb
       psych (>= 4.0.0)
+    redcarpet (3.6.1)
     redis-client (0.25.1)
       connection_pool
     regexp_parser (2.11.0)
@@ -471,6 +472,7 @@ DEPENDENCIES
   rack-attack (~> 6.7)
   rack-cors
   rails (~> 8.0.2)
+  redcarpet
   rspec-json_expectations (~> 2.2)
   rspec-rails
   rubocop-rails-omakase

@@ -101,13 +101,14 @@ RSpec.describe User, 'Password Security', type: :model do
   describe 'password history tracking' do
     it 'saves password to history after update' do
       user.save!
+      original_password = 'UncommonStr0ngP@ssw0rd#99' # Factory password
 
       expect {
         user.update!(password: 'NewSecurePhrase789!')
       }.to change { user.password_histories.count }.by(1)
 
       history_entry = user.password_histories.last
-      expect(BCrypt::Password.new(history_entry.password_digest)).to eq('NewSecurePhrase789!')
+      expect(BCrypt::Password.new(history_entry.password_digest)).to eq(original_password)
     end
 
     it 'cleans up old password history entries' do

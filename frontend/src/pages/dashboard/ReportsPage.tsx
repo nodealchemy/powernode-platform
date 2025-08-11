@@ -46,7 +46,8 @@ export const ReportsPage: React.FC = () => {
   const { user } = useSelector((state: RootState) => state.auth);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'templates' | 'requests' | 'scheduled'>('templates');
+  const [activeTab, setActiveTab] = useState<'builder' | 'library' | 'queue' | 'scheduled' | 'analytics'>('builder');
+  const [builderStep, setBuilderStep] = useState<1 | 2 | 3 | 4>(1);
   
   // Report data
   const [templates, setTemplates] = useState<ReportTemplate[]>([]);
@@ -114,15 +115,6 @@ export const ReportsPage: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const handleTemplateSelect = (template: ReportTemplate) => {
-    setSelectedTemplate(template);
-    setReportConfig({
-      name: `${template.name} Report - ${new Date().toLocaleDateString()}`,
-      format: template.formats[0] as 'csv' | 'pdf' | 'xlsx' | 'json',
-      filters: {}
-    });
-    setShowRequestModal(true);
-  };
 
   const handleSubmitRequest = async () => {
     if (!selectedTemplate) return;
@@ -191,9 +183,11 @@ export const ReportsPage: React.FC = () => {
   }, {} as Record<string, ReportTemplate[]>);
 
   const tabs = [
-    { id: 'templates', label: 'Report Templates', icon: '📋' },
-    { id: 'requests', label: 'My Requests', icon: '📄' },
-    { id: 'scheduled', label: 'Scheduled Reports', icon: '⏰' }
+    { id: 'builder', label: 'Report Builder', icon: '🏗️' },
+    { id: 'library', label: 'Report Library', icon: '📚' },
+    { id: 'queue', label: 'Report Queue', icon: '📋' },
+    { id: 'scheduled', label: 'Scheduled Reports', icon: '⏰' },
+    { id: 'analytics', label: 'Analytics', icon: '📊' }
   ] as const;
 
   if (loading) {
@@ -262,56 +256,293 @@ export const ReportsPage: React.FC = () => {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {activeTab === 'templates' && (
+        {activeTab === 'builder' && (
           <div className="space-y-6">
-            {Object.entries(categorizedTemplates).map(([category, categoryTemplates]) => (
-              <div key={category}>
-                <h2 className="text-lg font-semibold text-theme-primary mb-4 capitalize">
-                  {category} Reports
-                </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {categoryTemplates.map((template) => (
-                    <div key={template.id} className="card-theme p-4 hover:shadow-md transition-shadow">
-                      <div className="flex items-start space-x-3">
-                        <span className="text-2xl">{template.icon}</span>
-                        <div className="flex-1">
-                          <h3 className="font-medium text-theme-primary">{template.name}</h3>
-                          <p className="text-sm text-theme-secondary mt-1">{template.description}</p>
-                          <div className="flex items-center justify-between mt-3">
-                            <div className="flex space-x-1">
-                              {template.formats.map((format) => (
-                                <span
-                                  key={format}
-                                  className="px-2 py-1 text-xs bg-theme-background-tertiary text-theme-secondary rounded uppercase"
-                                >
-                                  {format}
-                                </span>
-                              ))}
+            {/* Builder Progress */}
+            <div className="card-theme p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold text-theme-primary">Create Custom Report</h2>
+                <div className="text-sm text-theme-secondary">Step {builderStep} of 4</div>
+              </div>
+              
+              {/* Progress Bar */}
+              <div className="w-full bg-theme-background-tertiary rounded-full h-2 mb-6">
+                <div 
+                  className="bg-theme-interactive-primary h-2 rounded-full transition-all duration-300"
+                  style={{ width: `${(builderStep / 4) * 100}%` }}
+                ></div>
+              </div>
+              
+              {/* Step Content */}
+              {builderStep === 1 && (
+                <div className="space-y-6">
+                  <h3 className="text-lg font-medium text-theme-primary">Select Report Type</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {Object.entries(categorizedTemplates).map(([category, categoryTemplates]) => (
+                      <div key={category} className="space-y-3">
+                        <h4 className="font-medium text-theme-primary capitalize">{category}</h4>
+                        {categoryTemplates.map((template) => (
+                          <div 
+                            key={template.id} 
+                            className="p-4 border border-theme rounded-lg hover:bg-theme-surface cursor-pointer transition-colors"
+                            onClick={() => {
+                              setSelectedTemplate(template);
+                              setBuilderStep(2);
+                            }}
+                          >
+                            <div className="flex items-center space-x-3">
+                              <span className="text-xl">{template.icon}</span>
+                              <div>
+                                <div className="font-medium text-theme-primary">{template.name}</div>
+                                <div className="text-sm text-theme-secondary">{template.description}</div>
+                              </div>
                             </div>
-                            <button
-                              onClick={() => handleTemplateSelect(template)}
-                              className="btn-theme btn-theme-primary text-xs px-3 py-1"
-                            >
-                              Generate
-                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {builderStep === 2 && selectedTemplate && (
+                <div className="space-y-6">
+                  <h3 className="text-lg font-medium text-theme-primary">Configure Parameters</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-theme-primary mb-2">Report Name</label>
+                      <input
+                        type="text"
+                        value={reportConfig.name}
+                        onChange={(e) => setReportConfig(prev => ({ ...prev, name: e.target.value }))}
+                        className="input-theme w-full"
+                        placeholder="Enter report name"
+                      />
+                    </div>
+                    {selectedTemplate.parameters.requires_date_range && (
+                      <div>
+                        <label className="block text-sm font-medium text-theme-primary mb-2">Date Range</label>
+                        <DateRangeFilter dateRange={dateRange} onChange={setDateRange} />
+                      </div>
+                    )}
+                  </div>
+                  {selectedTemplate.parameters.filters && (
+                    <div className="space-y-4">
+                      <h4 className="font-medium text-theme-primary">Filters</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {selectedTemplate.parameters.filters.map((filter) => (
+                          <div key={filter.name}>
+                            <label className="block text-sm font-medium text-theme-primary mb-1">{filter.label}</label>
+                            {filter.type === 'text' && (
+                              <input type="text" className="input-theme w-full" />
+                            )}
+                            {filter.type === 'select' && filter.options && (
+                              <select className="input-theme w-full">
+                                <option value="">Select {filter.label}</option>
+                                {filter.options.map((option) => (
+                                  <option key={option} value={option}>{option}</option>
+                                ))}
+                              </select>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              {builderStep === 3 && (
+                <div className="space-y-6">
+                  <h3 className="text-lg font-medium text-theme-primary">Choose Format & Schedule</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-theme-primary mb-2">Output Format</label>
+                      <div className="space-y-2">
+                        {selectedTemplate?.formats.map((format) => (
+                          <label key={format} className="flex items-center">
+                            <input
+                              type="radio"
+                              name="format"
+                              value={format}
+                              checked={reportConfig.format === format}
+                              onChange={(e) => setReportConfig(prev => ({ ...prev, format: e.target.value as any }))}
+                              className="mr-2"
+                            />
+                            <span className="text-theme-primary">{format.toUpperCase()}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-theme-primary mb-2">Schedule</label>
+                      <div className="space-y-2">
+                        <label className="flex items-center">
+                          <input type="radio" name="schedule" value="once" className="mr-2" defaultChecked />
+                          <span className="text-theme-primary">Generate Once</span>
+                        </label>
+                        <label className="flex items-center">
+                          <input type="radio" name="schedule" value="daily" className="mr-2" />
+                          <span className="text-theme-primary">Daily</span>
+                        </label>
+                        <label className="flex items-center">
+                          <input type="radio" name="schedule" value="weekly" className="mr-2" />
+                          <span className="text-theme-primary">Weekly</span>
+                        </label>
+                        <label className="flex items-center">
+                          <input type="radio" name="schedule" value="monthly" className="mr-2" />
+                          <span className="text-theme-primary">Monthly</span>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {builderStep === 4 && (
+                <div className="space-y-6">
+                  <h3 className="text-lg font-medium text-theme-primary">Review & Generate</h3>
+                  <div className="card-theme bg-theme-surface p-4">
+                    <h4 className="font-medium text-theme-primary mb-3">Report Summary</h4>
+                    <dl className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <dt className="text-theme-secondary">Template:</dt>
+                        <dd className="text-theme-primary font-medium">{selectedTemplate?.name}</dd>
+                      </div>
+                      <div className="flex justify-between">
+                        <dt className="text-theme-secondary">Name:</dt>
+                        <dd className="text-theme-primary">{reportConfig.name}</dd>
+                      </div>
+                      <div className="flex justify-between">
+                        <dt className="text-theme-secondary">Format:</dt>
+                        <dd className="text-theme-primary">{reportConfig.format.toUpperCase()}</dd>
+                      </div>
+                      {selectedTemplate?.parameters.requires_date_range && (
+                        <div className="flex justify-between">
+                          <dt className="text-theme-secondary">Date Range:</dt>
+                          <dd className="text-theme-primary">
+                            {dateRange.startDate.toLocaleDateString()} - {dateRange.endDate.toLocaleDateString()}
+                          </dd>
+                        </div>
+                      )}
+                    </dl>
+                  </div>
+                </div>
+              )}
+              
+              {/* Navigation */}
+              <div className="flex items-center justify-between mt-8 pt-6 border-t border-theme">
+                <button
+                  onClick={() => setBuilderStep(Math.max(1, builderStep - 1) as 1 | 2 | 3 | 4)}
+                  disabled={builderStep === 1}
+                  className="btn-theme btn-theme-secondary disabled:opacity-50"
+                >
+                  &larr; Previous
+                </button>
+                
+                {builderStep < 4 ? (
+                  <button
+                    onClick={() => setBuilderStep(Math.min(4, builderStep + 1) as 1 | 2 | 3 | 4)}
+                    disabled={builderStep === 2 && !selectedTemplate}
+                    className="btn-theme btn-theme-primary disabled:opacity-50"
+                  >
+                    Next &rarr;
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleSubmitRequest}
+                    disabled={isSubmitting || !reportConfig.name}
+                    className="btn-theme btn-theme-primary disabled:opacity-50"
+                  >
+                    {isSubmitting ? 'Generating...' : 'Generate Report'}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {activeTab === 'library' && (
+          <div className="space-y-6">
+            {/* Search and Filters */}
+            <div className="card-theme p-4">
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex-1 relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <span className="text-theme-secondary text-sm w-4 h-4 flex items-center justify-center">🔍</span>
+                  </div>
+                  <input
+                    type="text"
+                    className="input-theme w-full pl-11"
+                    placeholder="Search report templates..."
+                  />
+                </div>
+                <select className="input-theme w-full sm:w-48">
+                  <option value="">All Categories</option>
+                  {Object.keys(categorizedTemplates).map((category) => (
+                    <option key={category} value={category}>{category}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            
+            {/* Template Grid */}
+            <div className="space-y-6">
+              {Object.entries(categorizedTemplates).map(([category, categoryTemplates]) => (
+                <div key={category}>
+                  <h2 className="text-lg font-semibold text-theme-primary mb-4 capitalize">
+                    {category} Reports
+                  </h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {categoryTemplates.map((template) => (
+                      <div key={template.id} className="card-theme p-4 hover:shadow-md transition-shadow">
+                        <div className="flex items-start space-x-3">
+                          <span className="text-2xl">{template.icon}</span>
+                          <div className="flex-1">
+                            <h3 className="font-medium text-theme-primary">{template.name}</h3>
+                            <p className="text-sm text-theme-secondary mt-1">{template.description}</p>
+                            <div className="flex items-center justify-between mt-3">
+                              <div className="flex space-x-1">
+                                {template.formats.map((format) => (
+                                  <span
+                                    key={format}
+                                    className="px-2 py-1 text-xs bg-theme-background-tertiary text-theme-secondary rounded uppercase"
+                                  >
+                                    {format}
+                                  </span>
+                                ))}
+                              </div>
+                              <div className="flex space-x-2">
+                                <button
+                                  onClick={() => {
+                                    setSelectedTemplate(template);
+                                    setActiveTab('builder');
+                                    setBuilderStep(2);
+                                  }}
+                                  className="btn-theme btn-theme-primary text-xs px-3 py-1"
+                                >
+                                  Use Template
+                                </button>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         )}
 
-        {activeTab === 'requests' && (
+        {activeTab === 'queue' && (
           <div className="space-y-4">
             {requests.length === 0 ? (
               <div className="text-center py-12">
-                <span className="text-6xl">📄</span>
-                <h3 className="text-lg font-medium text-theme-primary mt-2">No report requests yet</h3>
-                <p className="text-theme-secondary">Start by generating a report from the templates tab.</p>
+                <span className="text-6xl">📋</span>
+                <h3 className="text-lg font-medium text-theme-primary mt-2">No reports in queue</h3>
+                <p className="text-theme-secondary">Start by creating a report from the Builder or Library.</p>
               </div>
             ) : (
               requests.map((request) => (
@@ -359,10 +590,146 @@ export const ReportsPage: React.FC = () => {
         )}
 
         {activeTab === 'scheduled' && (
-          <div className="text-center py-12">
-            <span className="text-6xl">⏰</span>
-            <h3 className="text-lg font-medium text-theme-primary mt-2">Scheduled Reports Coming Soon</h3>
-            <p className="text-theme-secondary">Set up automated report generation and delivery.</p>
+          <div className="space-y-6">
+            {/* Create Schedule */}
+            <div className="card-theme p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold text-theme-primary">Scheduled Reports</h2>
+                <button className="btn-theme btn-theme-primary">
+                  + New Schedule
+                </button>
+              </div>
+              
+              {/* Example scheduled reports */}
+              <div className="space-y-4">
+                <div className="border border-theme rounded-lg p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <h3 className="font-medium text-theme-primary">Monthly Revenue Report</h3>
+                      <div className="flex items-center space-x-4 text-sm text-theme-secondary mt-1">
+                        <span>Every 1st of month</span>
+                        <span>PDF Format</span>
+                        <span>Last run: 2 days ago</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <span className="px-2 py-1 text-xs rounded bg-theme-success text-theme-success">ACTIVE</span>
+                      <button className="text-theme-secondary hover:text-theme-primary">Edit</button>
+                      <button className="text-theme-secondary hover:text-theme-primary">Pause</button>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="border border-theme rounded-lg p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <h3 className="font-medium text-theme-primary">Weekly Customer Analytics</h3>
+                      <div className="flex items-center space-x-4 text-sm text-theme-secondary mt-1">
+                        <span>Every Monday</span>
+                        <span>XLSX Format</span>
+                        <span>Next run: in 3 days</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <span className="px-2 py-1 text-xs rounded bg-theme-warning text-theme-warning">PAUSED</span>
+                      <button className="text-theme-secondary hover:text-theme-primary">Edit</button>
+                      <button className="text-theme-secondary hover:text-theme-primary">Resume</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Schedule Templates */}
+            <div className="card-theme p-6">
+              <h3 className="text-lg font-semibold text-theme-primary mb-4">Common Schedules</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="border border-theme rounded-lg p-4 text-center hover:bg-theme-surface cursor-pointer">
+                  <div className="text-2xl mb-2">📅</div>
+                  <div className="font-medium text-theme-primary">Daily Reports</div>
+                  <div className="text-sm text-theme-secondary">Daily operational metrics</div>
+                </div>
+                <div className="border border-theme rounded-lg p-4 text-center hover:bg-theme-surface cursor-pointer">
+                  <div className="text-2xl mb-2">📆</div>
+                  <div className="font-medium text-theme-primary">Weekly Summary</div>
+                  <div className="text-sm text-theme-secondary">Weekly performance overview</div>
+                </div>
+                <div className="border border-theme rounded-lg p-4 text-center hover:bg-theme-surface cursor-pointer">
+                  <div className="text-2xl mb-2">📊</div>
+                  <div className="font-medium text-theme-primary">Monthly Analysis</div>
+                  <div className="text-sm text-theme-secondary">Comprehensive monthly insights</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {activeTab === 'analytics' && (
+          <div className="space-y-6">
+            {/* Usage Overview */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <div className="card-theme p-4 text-center">
+                <div className="text-2xl font-bold text-theme-interactive-primary">47</div>
+                <div className="text-sm text-theme-secondary">Reports Generated</div>
+                <div className="text-xs text-theme-tertiary">This month</div>
+              </div>
+              <div className="card-theme p-4 text-center">
+                <div className="text-2xl font-bold text-theme-interactive-primary">8</div>
+                <div className="text-sm text-theme-secondary">Active Schedules</div>
+                <div className="text-xs text-theme-tertiary">Running</div>
+              </div>
+              <div className="card-theme p-4 text-center">
+                <div className="text-2xl font-bold text-theme-interactive-primary">23</div>
+                <div className="text-sm text-theme-secondary">Templates Used</div>
+                <div className="text-xs text-theme-tertiary">Total</div>
+              </div>
+              <div className="card-theme p-4 text-center">
+                <div className="text-2xl font-bold text-theme-interactive-primary">2.1GB</div>
+                <div className="text-sm text-theme-secondary">Data Generated</div>
+                <div className="text-xs text-theme-tertiary">Total size</div>
+              </div>
+            </div>
+            
+            {/* Popular Templates */}
+            <div className="card-theme p-6">
+              <h3 className="text-lg font-semibold text-theme-primary mb-4">Most Popular Templates</h3>
+              <div className="space-y-3">
+                {templates.slice(0, 5).map((template, index) => (
+                  <div key={template.id} className="flex items-center justify-between py-2">
+                    <div className="flex items-center space-x-3">
+                      <span className="text-theme-secondary font-medium">{index + 1}</span>
+                      <span className="text-lg">{template.icon}</span>
+                      <span className="text-theme-primary">{template.name}</span>
+                    </div>
+                    <div className="text-sm text-theme-secondary">
+                      {Math.floor(Math.random() * 50) + 10} uses
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            {/* Recent Activity */}
+            <div className="card-theme p-6">
+              <h3 className="text-lg font-semibold text-theme-primary mb-4">Recent Activity</h3>
+              <div className="space-y-3">
+                <div className="flex items-center space-x-3 py-2">
+                  <div className="w-2 h-2 bg-theme-success rounded-full"></div>
+                  <span className="text-theme-primary">Monthly Revenue Report completed</span>
+                  <span className="text-sm text-theme-secondary">2 hours ago</span>
+                </div>
+                <div className="flex items-center space-x-3 py-2">
+                  <div className="w-2 h-2 bg-theme-info rounded-full"></div>
+                  <span className="text-theme-primary">Customer Analytics scheduled</span>
+                  <span className="text-sm text-theme-secondary">1 day ago</span>
+                </div>
+                <div className="flex items-center space-x-3 py-2">
+                  <div className="w-2 h-2 bg-theme-warning rounded-full"></div>
+                  <span className="text-theme-primary">Subscription Report failed</span>
+                  <span className="text-sm text-theme-secondary">2 days ago</span>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </div>

@@ -78,16 +78,17 @@ RSpec.describe UserRole, type: :model do
     end
 
     it "is destroyed when user is destroyed" do
-      user = create(:user)
+      user = create(:user, :skip_owner_callback)
       role = create(:role)
       user_role = create(:user_role, user: user, role: role)
 
-      expect { user.destroy! }.to change { UserRole.count }.by(-1)
+      # User gets Owner role automatically (first user in account) + the test role = 2 roles
+      expect { user.destroy! }.to change { UserRole.count }.by(-2)
       expect(UserRole.find_by(id: user_role.id)).to be_nil
     end
 
     it "is destroyed when role is destroyed" do
-      user = create(:user)
+      user = create(:user, :skip_owner_callback)
       role = create(:role)
       user_role = create(:user_role, user: user, role: role)
 
@@ -126,7 +127,7 @@ RSpec.describe UserRole, type: :model do
     end
 
     it "prevents duplicate user-role assignments" do
-      user = create(:user)
+      user = create(:user, :skip_owner_callback)
       role = create(:role, name: "Editor")
 
       # Create first assignment
@@ -136,14 +137,15 @@ RSpec.describe UserRole, type: :model do
       duplicate_assignment = build(:user_role, user: user, role: role)
 
       expect(duplicate_assignment).not_to be_valid
-      expect(UserRole.count).to eq(1)
+      # User gets Owner role automatically + Editor role = 2 total UserRoles
+      expect(UserRole.count).to eq(2)
     end
 
     it "handles complex many-to-many relationships" do
       # Create multiple users and roles
-      user1 = create(:user, email: "user1@example.com")
-      user2 = create(:user, email: "user2@example.com")
-      user3 = create(:user, email: "user3@example.com")
+      user1 = create(:user, :skip_owner_callback, email: "user1@example.com")
+      user2 = create(:user, :skip_owner_callback, email: "user2@example.com")
+      user3 = create(:user, :skip_owner_callback, email: "user3@example.com")
 
       admin_role = create(:role, name: "Admin")
       editor_role = create(:role, name: "Editor")
@@ -161,10 +163,10 @@ RSpec.describe UserRole, type: :model do
       # User3 has only viewer role
       create(:user_role, user: user3, role: viewer_role)
 
-      # Verify user roles
-      expect(user1.roles.count).to eq(3)
-      expect(user2.roles.count).to eq(2)
-      expect(user3.roles.count).to eq(1)
+      # Verify user roles (each user gets Owner role automatically + test roles)
+      expect(user1.roles.count).to eq(4) # Owner + Admin + Editor + Viewer
+      expect(user2.roles.count).to eq(3) # Owner + Editor + Viewer
+      expect(user3.roles.count).to eq(2) # Owner + Viewer
 
       # Verify role users
       expect(admin_role.users.count).to eq(1)
@@ -215,8 +217,8 @@ RSpec.describe UserRole, type: :model do
   end
 
   describe "query and finding" do
-    let!(:user1) { create(:user, email: "user1@example.com") }
-    let!(:user2) { create(:user, email: "user2@example.com") }
+    let!(:user1) { create(:user, :skip_owner_callback, email: "user1@example.com") }
+    let!(:user2) { create(:user, :skip_owner_callback, email: "user2@example.com") }
     let!(:role1) { create(:role, name: "Admin") }
     let!(:role2) { create(:role, name: "Editor") }
     let!(:user_role1) { create(:user_role, user: user1, role: role1) }
@@ -226,7 +228,8 @@ RSpec.describe UserRole, type: :model do
     it "can find user_roles by user" do
       user1_roles = UserRole.where(user: user1)
 
-      expect(user1_roles.count).to eq(2)
+      # User1 gets Owner role automatically + Admin + Editor = 3 roles
+      expect(user1_roles.count).to eq(3)
       expect(user1_roles).to include(user_role1, user_role2)
     end
 
@@ -246,13 +249,11 @@ RSpec.describe UserRole, type: :model do
 
   describe "role assignment scenarios" do
     let(:account) { create(:account) }
-    let(:user) { create(:user, account: account) }
+    let(:user) { create(:user, :skip_owner_callback, account: account) }
 
     it "supports account owner role assignment" do
-      owner_role = create(:role, name: "Owner")
-      owner_assignment = create(:user_role, user: user, role: owner_role)
-
-      expect(user.roles).to include(owner_role)
+      # User automatically gets Owner role as the first user in the account
+      expect(user.roles.pluck(:name)).to include("Owner")
       expect(account.owner).to eq(user) # This should work with the Account#owner method
     end
 
@@ -264,7 +265,8 @@ RSpec.describe UserRole, type: :model do
       create(:user_role, user: user, role: billing_role)
 
       expect(user.roles).to include(admin_role, billing_role)
-      expect(user.roles.count).to eq(2)
+      # User gets Owner role automatically + Admin + Billing Manager = 3 total roles
+      expect(user.roles.count).to eq(3)
     end
 
     it "handles system vs custom roles" do

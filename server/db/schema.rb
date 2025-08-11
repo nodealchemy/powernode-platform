@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_08_10_162159) do
+ActiveRecord::Schema[8.0].define(version: 2025_08_11_000353) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -162,6 +162,26 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_10_162159) do
     t.index ["status"], name: "index_invoices_on_status"
     t.index ["stripe_invoice_id"], name: "index_invoices_on_stripe_invoice_id", unique: true, where: "(stripe_invoice_id IS NOT NULL)"
     t.index ["subscription_id"], name: "index_invoices_on_subscription_id"
+  end
+
+  create_table "pages", id: { type: :string, limit: 36 }, force: :cascade do |t|
+    t.string "title", limit: 200, null: false
+    t.string "slug", limit: 150, null: false
+    t.text "content", null: false
+    t.string "meta_description", limit: 300
+    t.text "meta_keywords"
+    t.string "status", limit: 20, default: "draft", null: false
+    t.string "author_id", limit: 36, null: false
+    t.datetime "published_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["author_id"], name: "index_pages_on_author_id"
+    t.index ["created_at"], name: "index_pages_on_created_at"
+    t.index ["published_at"], name: "index_pages_on_published_at"
+    t.index ["slug"], name: "index_pages_on_slug", unique: true
+    t.index ["status", "author_id"], name: "index_pages_on_status_and_author_id"
+    t.index ["status", "published_at"], name: "index_pages_on_status_and_published_at", where: "((status)::text = 'published'::text)"
+    t.index ["status"], name: "index_pages_on_status"
   end
 
   create_table "password_histories", id: { type: :string, limit: 36 }, force: :cascade do |t|
@@ -481,6 +501,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_10_162159) do
   add_foreign_key "invitations", "users", column: "inviter_id"
   add_foreign_key "invoice_line_items", "invoices"
   add_foreign_key "invoices", "subscriptions"
+  add_foreign_key "pages", "users", column: "author_id"
   add_foreign_key "password_histories", "users"
   add_foreign_key "payment_methods", "accounts"
   add_foreign_key "payment_methods", "users"

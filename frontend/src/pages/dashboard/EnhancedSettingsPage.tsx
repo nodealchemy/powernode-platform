@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../store';
 import { settingsApi, SettingsData, UserPreferences, NotificationPreferences } from '../../services/settingsApi';
-import { debugSettings } from '../../utils/debugSettings';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useSettingsWebSocket } from '../../hooks/useSettingsWebSocket';
 import { WebSocketStatusIndicator } from '../../components/common/WebSocketStatusIndicator';
@@ -223,7 +222,6 @@ export const EnhancedSettingsPage: React.FC = () => {
     { id: 'preferences', name: 'Preferences', icon: '⚙️' },
     { id: 'notifications', name: 'Notifications', icon: '🔔' },
     { id: 'security', name: 'Security', icon: '🔒' },
-    ...(process.env.NODE_ENV === 'development' ? [{ id: 'debug', name: 'Debug', icon: '🐛' }] : [])
   ];
 
   return (
@@ -543,43 +541,6 @@ export const EnhancedSettingsPage: React.FC = () => {
         </div>
       )}
 
-      {/* Debug Tab - Development Only */}
-      {activeTab === 'debug' && process.env.NODE_ENV === 'development' && (
-        <div className="card-theme">
-          <div className="px-6 py-4 border-b border-theme">
-            <h3 className="text-lg font-medium text-theme-primary">Debug Settings API</h3>
-            <p className="text-sm text-theme-secondary mt-1">Development debugging tools</p>
-          </div>
-          <div className="p-6 space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <button
-                onClick={() => debugSettings.testPreferencesUpdate()}
-                className="btn-theme btn-theme-primary"
-              >
-                Test Preferences Update
-              </button>
-              <button
-                onClick={() => debugSettings.testNotificationsUpdate()}
-                className="btn-theme btn-theme-primary"
-              >
-                Test Notifications Update
-              </button>
-              <button
-                onClick={() => debugSettings.testAllSettings()}
-                className="btn-theme btn-theme-primary"
-              >
-                Test Get All Settings
-              </button>
-            </div>
-            <div className="mt-4 p-4 bg-theme-background-secondary rounded-md">
-              <p className="text-sm text-theme-primary">
-                <strong>Instructions:</strong> Open browser console and click the buttons above to test the settings API endpoints.
-                Check console for detailed logs and responses.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

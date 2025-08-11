@@ -11,6 +11,7 @@ class User < ApplicationRecord
   has_many :roles, through: :user_roles
   has_many :audit_logs, dependent: :nullify
   has_many :password_histories, dependent: :destroy
+  has_many :pages, foreign_key: 'author_id', dependent: :destroy
 
   # Serialization
   serialize :preferences, coder: JSON
@@ -30,7 +31,7 @@ class User < ApplicationRecord
   before_validation :normalize_email
   before_create :set_owner_if_first_user
   after_create :assign_owner_role_if_needed
-  after_update :save_password_to_history, if: :saved_change_to_password_digest?
+  before_update :save_password_to_history, if: :password_digest_changed?
   after_update :clear_reset_token_on_password_change, if: :saved_change_to_password_digest?
   before_save :set_password_changed_at, if: :password_digest_changed?
 
@@ -275,8 +276,12 @@ class User < ApplicationRecord
   end
 
   def save_password_to_history
-    PasswordHistory.add_for_user(self, password_digest)
-    PasswordHistory.cleanup_old_entries(self, PASSWORD_HISTORY_COUNT)
+    # Save the OLD password digest before it changes
+    old_digest = password_digest_was
+    if old_digest.present?
+      PasswordHistory.add_for_user(self, old_digest)
+      PasswordHistory.cleanup_old_entries(self, PASSWORD_HISTORY_COUNT)
+    end
   end
 
   def set_password_changed_at

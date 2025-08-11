@@ -7,10 +7,14 @@ FactoryBot.define do
     password { 'UncommonStr0ngP@ssw0rd#99' }
     status { 'active' }
     email_verified_at { 1.day.ago }
+    
+    transient do
+      skip_roles { false }
+    end
 
-    after(:create) do |user|
-      # Assign default Member role if no roles assigned yet
-      if user.roles.empty?
+    after(:create) do |user, evaluator|
+      # Assign default Member role if no roles assigned yet and not skipping roles
+      if user.roles.empty? && !evaluator.try(:skip_roles)
         member_role = Role.find_by(name: 'Member') || create(:role, :member)
         user.roles << member_role
       end
@@ -54,7 +58,7 @@ FactoryBot.define do
 
     trait :skip_owner_callback do
       # This trait can be used when creating multiple users for the same account
-      after(:create) { |user| }
+      skip_roles { true }
     end
   end
 end
