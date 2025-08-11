@@ -50,8 +50,7 @@ class Account < ApplicationRecord
   end
 
   def owner
-    users.joins(:user_roles).joins("JOIN roles ON user_roles.role_id = roles.id")
-         .where(roles: { name: "Owner" }).first
+    users.where(role: "owner").first
   end
 
   def current_subscription
@@ -98,7 +97,7 @@ class Account < ApplicationRecord
     }
     
     # Find all admin accounts that should receive this update
-    admin_accounts = Account.joins(users: :roles).where(roles: { name: ['Owner', 'Admin'] }).distinct
+    admin_accounts = Account.joins(:users).where(users: { role: ['owner', 'admin'] }).distinct
     
     admin_accounts.each do |admin_account|
       ActionCable.server.broadcast("customer_updates_#{admin_account.id}", data)

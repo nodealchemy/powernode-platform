@@ -2,7 +2,6 @@ class Invitation < ApplicationRecord
   # Associations
   belongs_to :account
   belongs_to :inviter, class_name: 'User', foreign_key: 'inviter_id'
-  belongs_to :role, optional: true
 
   # Validations
   validates :email, presence: true, 
@@ -13,6 +12,8 @@ class Invitation < ApplicationRecord
   validates :expires_at, presence: true
   validates :first_name, presence: true
   validates :last_name, presence: true
+  validates :role, presence: true, inclusion: { in: %w[admin owner member], message: "must be admin, owner, or member" }
+  validate :inviter_can_send_invitations
 
   # Scopes
   scope :pending, -> { where(status: 'pending') }
@@ -67,5 +68,14 @@ class Invitation < ApplicationRecord
 
   def set_defaults
     self.status = 'pending' if status.blank?
+    self.role = 'member' if role.blank? # Default to member role if not specified
+  end
+
+  def inviter_can_send_invitations
+    return if inviter.blank?
+    
+    unless inviter.admin_or_owner?
+      errors.add(:inviter, "must be an admin or owner to send invitations")
+    end
   end
 end

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_08_11_000353) do
+ActiveRecord::Schema[8.0].define(version: 2025_08_11_200221) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -52,6 +52,56 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_11_000353) do
     t.index ["subdomain"], name: "index_accounts_on_subdomain", unique: true, where: "((subdomain IS NOT NULL) AND ((subdomain)::text <> ''::text))"
   end
 
+  create_table "api_key_usages", id: :string, force: :cascade do |t|
+    t.string "api_key_id", null: false
+    t.string "endpoint", limit: 500, null: false
+    t.string "http_method", limit: 10, null: false
+    t.integer "status_code", null: false
+    t.integer "request_count", default: 1, null: false
+    t.string "ip_address", limit: 45
+    t.text "user_agent"
+    t.json "metadata"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["api_key_id", "created_at"], name: "index_api_key_usages_on_api_key_id_and_created_at"
+    t.index ["api_key_id"], name: "index_api_key_usages_on_api_key_id"
+    t.index ["created_at"], name: "index_api_key_usages_on_created_at"
+    t.index ["endpoint"], name: "index_api_key_usages_on_endpoint"
+    t.index ["http_method"], name: "index_api_key_usages_on_http_method"
+    t.index ["ip_address"], name: "index_api_key_usages_on_ip_address"
+    t.index ["status_code", "created_at"], name: "index_api_key_usages_on_status_code_and_created_at"
+    t.index ["status_code"], name: "index_api_key_usages_on_status_code"
+  end
+
+  create_table "api_keys", id: :string, force: :cascade do |t|
+    t.string "name", limit: 100, null: false
+    t.text "description"
+    t.string "key_hash", limit: 64, null: false
+    t.string "key_prefix", limit: 20, null: false
+    t.string "key_suffix", limit: 10, null: false
+    t.string "status", limit: 20, default: "active", null: false
+    t.json "scopes"
+    t.datetime "expires_at", precision: nil
+    t.datetime "last_used_at", precision: nil
+    t.integer "usage_count", default: 0, null: false
+    t.integer "rate_limit_per_hour"
+    t.integer "rate_limit_per_day"
+    t.json "allowed_ips"
+    t.json "metadata"
+    t.string "created_by_id"
+    t.string "account_id"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_api_keys_on_account_id"
+    t.index ["created_by_id"], name: "index_api_keys_on_created_by_id"
+    t.index ["expires_at"], name: "index_api_keys_on_expires_at"
+    t.index ["key_hash"], name: "index_api_keys_on_key_hash", unique: true
+    t.index ["last_used_at"], name: "index_api_keys_on_last_used_at"
+    t.index ["status", "expires_at"], name: "index_api_keys_on_status_and_expires_at"
+    t.index ["status"], name: "index_api_keys_on_status"
+    t.index ["usage_count"], name: "index_api_keys_on_usage_count"
+  end
+
   create_table "audit_logs", id: { type: :string, limit: 36 }, force: :cascade do |t|
     t.string "user_id", limit: 36
     t.string "account_id", limit: 36, null: false
@@ -86,6 +136,42 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_11_000353) do
     t.index ["user_id"], name: "index_blacklisted_tokens_on_user_id"
   end
 
+  create_table "delegation_permissions", id: :string, force: :cascade do |t|
+    t.string "account_delegation_id", null: false
+    t.string "permission_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_delegation_id", "permission_id"], name: "idx_unique_delegation_permission", unique: true
+    t.index ["account_delegation_id"], name: "index_delegation_permissions_on_account_delegation_id"
+    t.index ["permission_id"], name: "index_delegation_permissions_on_permission_id"
+  end
+
+  create_table "email_deliveries", id: { type: :string, limit: 36 }, force: :cascade do |t|
+    t.string "recipient_email", null: false
+    t.string "subject", null: false
+    t.string "email_type", limit: 50, null: false
+    t.string "account_id", limit: 36
+    t.string "user_id", limit: 36
+    t.string "template", limit: 100
+    t.text "template_data"
+    t.string "status", limit: 30, default: "pending", null: false
+    t.string "message_id", limit: 255
+    t.datetime "sent_at", precision: nil
+    t.datetime "failed_at", precision: nil
+    t.text "error_message"
+    t.integer "retry_count", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_email_deliveries_on_account_id"
+    t.index ["created_at"], name: "index_email_deliveries_on_created_at"
+    t.index ["email_type", "status"], name: "index_email_deliveries_on_email_type_and_status"
+    t.index ["email_type"], name: "index_email_deliveries_on_email_type"
+    t.index ["recipient_email"], name: "index_email_deliveries_on_recipient_email"
+    t.index ["status", "created_at"], name: "index_email_deliveries_on_status_and_created_at"
+    t.index ["status"], name: "index_email_deliveries_on_status"
+    t.index ["user_id"], name: "index_email_deliveries_on_user_id"
+  end
+
   create_table "gateway_configurations", id: :string, force: :cascade do |t|
     t.string "provider", null: false
     t.string "key_name", null: false
@@ -96,10 +182,30 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_11_000353) do
     t.index ["provider"], name: "index_gateway_configurations_on_provider"
   end
 
+  create_table "impersonation_sessions", id: { type: :string, limit: 36 }, force: :cascade do |t|
+    t.string "impersonator_id", limit: 36, null: false
+    t.string "impersonated_user_id", limit: 36, null: false
+    t.string "account_id", limit: 36, null: false
+    t.string "session_token", null: false
+    t.string "reason", limit: 500
+    t.datetime "started_at", precision: nil, null: false
+    t.datetime "ended_at", precision: nil
+    t.string "ip_address", limit: 45
+    t.string "user_agent", limit: 500
+    t.boolean "active", default: true, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "active"], name: "index_impersonation_sessions_on_account_id_and_active"
+    t.index ["impersonated_user_id", "active"], name: "idx_on_impersonated_user_id_active_e88ee0e6a0"
+    t.index ["impersonator_id", "active"], name: "index_impersonation_sessions_on_impersonator_id_and_active"
+    t.index ["session_token"], name: "index_impersonation_sessions_on_session_token", unique: true
+    t.index ["started_at"], name: "index_impersonation_sessions_on_started_at"
+    t.check_constraint "impersonator_id::text <> impersonated_user_id::text", name: "prevent_self_impersonation"
+  end
+
   create_table "invitations", id: { type: :string, limit: 36 }, force: :cascade do |t|
     t.string "account_id", limit: 36, null: false
     t.string "inviter_id", limit: 36, null: false
-    t.string "role_id", limit: 36
     t.string "email", limit: 255, null: false
     t.string "first_name", limit: 50
     t.string "last_name", limit: 50
@@ -111,11 +217,12 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_11_000353) do
     t.text "message"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "role", limit: 20, null: false
     t.index ["account_id"], name: "index_invitations_on_account_id"
     t.index ["email"], name: "index_invitations_on_email"
     t.index ["expires_at"], name: "index_invitations_on_expires_at"
     t.index ["inviter_id"], name: "index_invitations_on_inviter_id"
-    t.index ["role_id"], name: "index_invitations_on_role_id"
+    t.index ["role"], name: "index_invitations_on_role"
     t.index ["status"], name: "index_invitations_on_status"
     t.index ["token"], name: "index_invitations_on_token", unique: true
   end
@@ -230,9 +337,14 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_11_000353) do
     t.text "metadata", default: "{}"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "paypal_payment_id"
+    t.string "paypal_transaction_id"
+    t.string "paypal_payer_id"
     t.index ["failed_at"], name: "index_payments_on_failed_at"
     t.index ["invoice_id"], name: "index_payments_on_invoice_id"
     t.index ["payment_method"], name: "index_payments_on_payment_method"
+    t.index ["paypal_payment_id"], name: "index_payments_on_paypal_payment_id"
+    t.index ["paypal_transaction_id"], name: "index_payments_on_paypal_transaction_id"
     t.index ["processed_at"], name: "index_payments_on_processed_at"
     t.index ["status"], name: "index_payments_on_status"
   end
@@ -421,23 +533,17 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_11_000353) do
     t.string "paypal_subscription_id", limit: 100
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "paypal_agreement_id"
+    t.string "paypal_plan_id"
     t.index ["account_id"], name: "index_subscriptions_on_account_id", unique: true
     t.index ["current_period_end"], name: "index_subscriptions_on_current_period_end"
+    t.index ["paypal_agreement_id"], name: "index_subscriptions_on_paypal_agreement_id"
+    t.index ["paypal_plan_id"], name: "index_subscriptions_on_paypal_plan_id"
     t.index ["paypal_subscription_id"], name: "index_subscriptions_on_paypal_subscription_id", unique: true, where: "(paypal_subscription_id IS NOT NULL)"
     t.index ["plan_id"], name: "index_subscriptions_on_plan_id"
     t.index ["status"], name: "index_subscriptions_on_status"
     t.index ["stripe_subscription_id"], name: "index_subscriptions_on_stripe_subscription_id", unique: true, where: "(stripe_subscription_id IS NOT NULL)"
     t.index ["trial_end"], name: "index_subscriptions_on_trial_end"
-  end
-
-  create_table "user_roles", id: { type: :string, limit: 36 }, force: :cascade do |t|
-    t.string "user_id", limit: 36, null: false
-    t.string "role_id", limit: 36, null: false
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.index ["role_id"], name: "index_user_roles_on_role_id"
-    t.index ["user_id", "role_id"], name: "index_user_roles_on_user_id_and_role_id", unique: true
-    t.index ["user_id"], name: "index_user_roles_on_user_id"
   end
 
   create_table "users", id: { type: :string, limit: 36 }, force: :cascade do |t|
@@ -462,11 +568,61 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_11_000353) do
     t.datetime "updated_at", null: false
     t.text "preferences"
     t.text "notification_preferences"
+    t.string "role", limit: 20, null: false
     t.index ["account_id"], name: "index_users_on_account_id"
     t.index ["email"], name: "index_users_on_email", unique: true
     t.index ["email_verification_token"], name: "index_users_on_email_verification_token", unique: true, where: "(email_verification_token IS NOT NULL)"
     t.index ["reset_token_digest"], name: "index_users_on_reset_token_digest", unique: true, where: "(reset_token_digest IS NOT NULL)"
+    t.index ["role"], name: "index_users_on_role"
     t.index ["status"], name: "index_users_on_status"
+  end
+
+  create_table "webhook_deliveries", id: :string, force: :cascade do |t|
+    t.string "webhook_endpoint_id", null: false
+    t.string "event_type", limit: 100, null: false
+    t.string "status", limit: 30, default: "pending", null: false
+    t.json "payload"
+    t.integer "http_status"
+    t.integer "response_time_ms"
+    t.text "response_body"
+    t.json "response_headers"
+    t.integer "attempt_count", default: 0, null: false
+    t.datetime "next_retry_at", precision: nil
+    t.datetime "completed_at", precision: nil
+    t.text "error_message"
+    t.json "metadata"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["completed_at"], name: "index_webhook_deliveries_on_completed_at"
+    t.index ["created_at"], name: "index_webhook_deliveries_on_created_at"
+    t.index ["event_type"], name: "index_webhook_deliveries_on_event_type"
+    t.index ["next_retry_at"], name: "index_webhook_deliveries_on_next_retry_at"
+    t.index ["status", "next_retry_at"], name: "index_webhook_deliveries_on_status_and_next_retry_at"
+    t.index ["status"], name: "index_webhook_deliveries_on_status"
+    t.index ["webhook_endpoint_id"], name: "index_webhook_deliveries_on_webhook_endpoint_id"
+  end
+
+  create_table "webhook_endpoints", id: :string, force: :cascade do |t|
+    t.string "url", limit: 2000, null: false
+    t.string "description", limit: 500
+    t.string "status", limit: 20, default: "active", null: false
+    t.text "secret_token"
+    t.string "content_type", limit: 100, default: "application/json", null: false
+    t.integer "timeout_seconds", default: 30, null: false
+    t.integer "retry_limit", default: 3, null: false
+    t.string "retry_backoff", limit: 20, default: "exponential", null: false
+    t.json "event_types"
+    t.integer "success_count", default: 0, null: false
+    t.integer "failure_count", default: 0, null: false
+    t.datetime "last_delivery_at", precision: nil
+    t.json "metadata"
+    t.string "created_by_id"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["created_by_id"], name: "index_webhook_endpoints_on_created_by_id"
+    t.index ["last_delivery_at"], name: "index_webhook_endpoints_on_last_delivery_at"
+    t.index ["status"], name: "index_webhook_endpoints_on_status"
+    t.index ["url"], name: "index_webhook_endpoints_on_url"
   end
 
   create_table "webhook_events", id: { type: :string, limit: 36 }, force: :cascade do |t|
@@ -493,11 +649,20 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_11_000353) do
   add_foreign_key "account_delegations", "roles", on_delete: :nullify
   add_foreign_key "account_delegations", "users", column: "delegated_by_id"
   add_foreign_key "account_delegations", "users", column: "delegated_user_id"
+  add_foreign_key "api_key_usages", "api_keys"
+  add_foreign_key "api_keys", "accounts"
+  add_foreign_key "api_keys", "users", column: "created_by_id"
   add_foreign_key "audit_logs", "accounts"
   add_foreign_key "audit_logs", "users", on_delete: :nullify
   add_foreign_key "blacklisted_tokens", "users"
+  add_foreign_key "delegation_permissions", "account_delegations"
+  add_foreign_key "delegation_permissions", "permissions"
+  add_foreign_key "email_deliveries", "accounts"
+  add_foreign_key "email_deliveries", "users"
+  add_foreign_key "impersonation_sessions", "accounts"
+  add_foreign_key "impersonation_sessions", "users", column: "impersonated_user_id"
+  add_foreign_key "impersonation_sessions", "users", column: "impersonator_id"
   add_foreign_key "invitations", "accounts"
-  add_foreign_key "invitations", "roles", on_delete: :nullify
   add_foreign_key "invitations", "users", column: "inviter_id"
   add_foreign_key "invoice_line_items", "invoices"
   add_foreign_key "invoices", "subscriptions"
@@ -517,8 +682,8 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_11_000353) do
   add_foreign_key "services", "accounts"
   add_foreign_key "subscriptions", "accounts"
   add_foreign_key "subscriptions", "plans"
-  add_foreign_key "user_roles", "roles"
-  add_foreign_key "user_roles", "users"
   add_foreign_key "users", "accounts"
+  add_foreign_key "webhook_deliveries", "webhook_endpoints"
+  add_foreign_key "webhook_endpoints", "users", column: "created_by_id"
   add_foreign_key "webhook_events", "accounts", on_delete: :nullify
 end

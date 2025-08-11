@@ -106,7 +106,7 @@ class Api::V1::Auth::RegistrationsController < ApplicationController
       firstName: user.first_name,
       lastName: user.last_name,
       fullName: user.full_name,
-      role: user.roles.first&.name&.downcase || 'member',
+      role: user.role || 'member',
       status: user.status,
       emailVerified: user.email_verified?
     }

@@ -18,8 +18,13 @@ module Authentication
 
     begin
       payload = JwtService.decode(header)
-      @current_user = User.find(payload[:user_id])
-      @current_account = @current_user.account
+      
+      # Check if this is an impersonation token
+      if payload[:type] == 'impersonation'
+        handle_impersonation_token(payload)
+      else
+        handle_regular_token(payload)
+      end
 
       return render_unauthorized("User inactive") unless @current_user.active?
       return render_unauthorized("Account suspended") unless @current_account.active?
@@ -81,6 +86,51 @@ module Authentication
 
   def should_record_login?
     # Only record login once per hour to avoid excessive database writes
+    # Don't record login for impersonation sessions
+    return false if impersonating?
+    
     current_user.last_login_at.nil? || current_user.last_login_at < 1.hour.ago
+  end
+
+  def handle_regular_token(payload)
+    @current_user = User.find(payload[:user_id])
+    @current_account = @current_user.account
+    @impersonator = nil
+    @impersonation_session = nil
+  end
+
+  def handle_impersonation_token(payload)
+    @impersonation_session = ImpersonationSession.find_by(id: payload[:session_id])
+    
+    unless @impersonation_session&.active?
+      raise StandardError, "Invalid impersonation session"
+    end
+
+    if @impersonation_session.expired?
+      @impersonation_session.end_session!
+      raise StandardError, "Impersonation session expired"
+    end
+
+    # Set the impersonated user as current user
+    @current_user = @impersonation_session.impersonated_user
+    @current_account = @current_user.account
+    @impersonator = @impersonation_session.impersonator
+
+    # Add impersonation header for client identification
+    response.set_header('X-Impersonation-Active', 'true')
+    response.set_header('X-Impersonator-Email', @impersonator.email)
+    response.set_header('X-Impersonation-Session', @impersonation_session.id)
+  end
+
+  def impersonating?
+    @impersonation_session.present?
+  end
+
+  def impersonator
+    @impersonator
+  end
+
+  def impersonation_session
+    @impersonation_session
   end
 end

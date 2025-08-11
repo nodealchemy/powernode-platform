@@ -205,35 +205,110 @@ class PaymentProcessingService
 
   # PayPal-specific methods
   def create_paypal_payment_intent(amount_cents, currency, payment_method, options)
-    # PayPal payment intent creation
-    # This would integrate with PayPal's Orders API
-    {
-      success: true,
-      message: "PayPal integration not fully implemented yet"
-    }
+    paypal_service = PaypalService.new(account: account, user: user)
+    
+    result = paypal_service.create_payment_order(
+      amount_cents: amount_cents,
+      currency: currency,
+      return_url: options[:return_url],
+      cancel_url: options[:cancel_url],
+      description: options[:description],
+      invoice_number: options[:invoice_number],
+      items: options[:items]
+    )
+    
+    if result[:success]
+      {
+        success: true,
+        payment_id: result[:payment_id],
+        approval_url: result[:approval_url],
+        status: result[:status]
+      }
+    else
+      result
+    end
   end
 
   def process_paypal_payment(payment, retry_attempt)
-    # PayPal payment processing
-    {
-      success: true,
-      message: "PayPal processing not fully implemented yet"
-    }
+    return { success: false, error: "No PayPal payment ID found" } unless payment.paypal_payment_id
+
+    paypal_service = PaypalService.new(account: account, user: user)
+    
+    # For existing PayPal payments, we need the payer_id from the return flow
+    # This method would typically be called after the user returns from PayPal
+    payer_id = payment.metadata_parsed["payer_id"]
+    
+    return { success: false, error: "PayPal payer ID required" } unless payer_id
+    
+    result = paypal_service.execute_payment(
+      payment_id: payment.paypal_payment_id,
+      payer_id: payer_id
+    )
+    
+    if result[:success]
+      payment.update!(
+        status: result[:status] == "approved" ? "succeeded" : result[:status],
+        processed_at: Time.current,
+        paypal_transaction_id: result[:transaction_id]
+      )
+      
+      { success: true, payment: result[:payment] }
+    else
+      payment.update!(status: "failed", error_message: result[:error])
+      result
+    end
   end
 
   def create_paypal_refund(payment, amount_cents, reason)
-    # PayPal refund creation
-    {
-      success: true,
-      message: "PayPal refunds not fully implemented yet"
-    }
+    return { success: false, error: "No PayPal transaction ID found" } unless payment.paypal_transaction_id
+
+    paypal_service = PaypalService.new(account: account, user: user)
+    
+    result = paypal_service.create_refund(
+      transaction_id: payment.paypal_transaction_id,
+      amount_cents: amount_cents,
+      reason: reason
+    )
+    
+    if result[:success]
+      # Update payment status
+      if result[:amount_refunded].try(:[], :total).to_f == payment.amount.to_f
+        payment.update!(status: "refunded")
+      else
+        payment.update!(status: "partially_refunded")
+      end
+      
+      {
+        success: true,
+        refund: result[:refund],
+        refund_id: result[:refund_id],
+        amount_refunded: result[:amount_refunded]
+      }
+    else
+      result
+    end
   end
 
   def attach_paypal_payment_method(payment_method_id)
-    # PayPal payment method attachment
+    # PayPal doesn't use the same "attach" model as Stripe
+    # PayPal payment methods are typically handled through agreements for subscriptions
+    # For one-time payments, the payment method is handled in the payment flow
+    
+    # Create a local record for tracking
+    local_payment_method = account.payment_methods.create!(
+      user: user,
+      provider: "paypal",
+      provider_payment_method_id: payment_method_id,
+      payment_method_type: "paypal_account",
+      metadata: {
+        paypal_payer_id: payment_method_id
+      }
+    )
+
     {
       success: true,
-      message: "PayPal payment method attachment not fully implemented yet"
+      payment_method: local_payment_method,
+      message: "PayPal payment method recorded"
     }
   end
 

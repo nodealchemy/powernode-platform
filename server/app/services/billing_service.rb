@@ -1,367 +1,206 @@
+# Billing Service - Delegates complex operations to worker service
 class BillingService
   include ActiveModel::Model
 
   attr_accessor :subscription, :account, :user
 
-  def initialize(subscription)
+  def initialize(subscription = nil)
     @subscription = subscription
-    @account = subscription.account
-    @user = subscription.account.users.first
+    @account = subscription&.account
+    @user = subscription&.account&.users&.first
   end
 
-  # Create subscription with payment method
+  # Create subscription with payment method (delegated to worker service)
   def create_subscription_with_payment(plan:, payment_method:, trial_end: nil, quantity: 1, **options)
-    ActiveRecord::Base.transaction do
-      # Create subscription
-      subscription = account.subscriptions.create!(
-        plan: plan,
-        quantity: quantity,
-        trial_end: trial_end || (plan.trial_days.days.from_now if plan.trial_days > 0),
-        current_period_start: Time.current,
-        current_period_end: calculate_period_end(plan, trial_end),
-        status: trial_end || plan.trial_days > 0 ? "trialing" : "active",
-        metadata: options
-      )
+    Rails.logger.info "Delegating subscription creation to worker service"
+    
+    job_data = {
+      plan_id: plan.id,
+      payment_method_id: payment_method.id,
+      account_id: account.id,
+      user_id: user.id,
+      trial_end: trial_end,
+      quantity: quantity
+    }.merge(options)
 
-      # Create subscription in payment gateway
-      case payment_method.provider
-      when "stripe"
-        create_stripe_subscription(subscription, payment_method, options)
-      when "paypal"
-        create_paypal_subscription(subscription, payment_method, options)
-      end
-
-      # Generate initial invoice if not in trial
-      unless subscription.on_trial?
-        generate_subscription_invoice(subscription)
-      end
-
-      subscription
-    end
-  end
-
-  # Generate subscription invoice
-  def generate_subscription_invoice(custom_subscription = nil)
-    sub = custom_subscription || subscription
-
-    invoice = sub.invoices.create!(
-      subtotal_cents: calculate_subscription_amount(sub),
-      tax_rate: account.tax_rate || 0.0,
-      currency: sub.plan.currency,
-      due_date: 30.days.from_now
-    )
-
-    # Add subscription line item
-    invoice.add_subscription_line_item(sub.plan, sub.quantity)
-
-    # Add usage-based charges if applicable
-    add_usage_charges(invoice, sub) if sub.plan.has_usage_pricing?
-
-    # Add any pending one-time charges
-    add_pending_charges(invoice, sub)
-
-    # Calculate totals and finalize
-    invoice.calculate_totals
-    invoice.finalize!
-
-    invoice
-  end
-
-  # Handle subscription changes (upgrades/downgrades)
-  def change_subscription(new_plan:, quantity: nil, prorate: true, effective_date: nil)
-    effective_date ||= Time.current
-    quantity ||= subscription.quantity
-
-    ActiveRecord::Base.transaction do
-      old_plan = subscription.plan
-      old_quantity = subscription.quantity
-
-      # Calculate proration if needed
-      proration_credit = 0
-      proration_charge = 0
-
-      if prorate && !subscription.on_trial?
-        proration_credit = calculate_proration_credit(subscription, effective_date)
-        proration_charge = calculate_proration_charge(new_plan, quantity, effective_date)
-      end
-
-      # Update subscription
-      subscription.update!(
-        plan: new_plan,
-        quantity: quantity,
-        metadata: subscription.metadata.merge(
-          previous_plan_id: old_plan.id,
-          changed_at: effective_date.iso8601
-        )
-      )
-
-      # Update in payment gateway
-      case subscription.payment_provider
-      when "stripe"
-        update_stripe_subscription(subscription, new_plan, quantity, prorate)
-      when "paypal"
-        update_paypal_subscription(subscription, new_plan, quantity)
-      end
-
-      # Generate proration invoice if needed
-      if prorate && (proration_credit != 0 || proration_charge != 0)
-        generate_proration_invoice(subscription, proration_credit, proration_charge, old_plan, new_plan)
-      end
-
-      subscription
-    end
-  end
-
-  # Cancel subscription
-  def cancel_subscription(at_period_end: true, reason: nil)
-    cancellation_date = at_period_end ? subscription.current_period_end : Time.current
-
-    subscription.cancel!
-    subscription.update!(
-      canceled_at: Time.current,
-      ended_at: cancellation_date,
-      metadata: subscription.metadata.merge(
-        cancellation_reason: reason,
-        at_period_end: at_period_end
-      )
-    )
-
-    case subscription.payment_provider
-    when "stripe"
-      cancel_stripe_subscription(subscription, at_period_end)
-    when "paypal"
-      cancel_paypal_subscription(subscription, reason)
-    end
-  end
-
-  # Handle failed payment
-  def handle_failed_payment(payment)
-    # Schedule retry attempts with exponential backoff
-    retry_schedule = [ 1.day, 3.days, 5.days, 7.days ]
-
-    retry_schedule.each_with_index do |delay, index|
-      # Schedule background job for payment retry
-      PaymentRetryJob.set(wait: delay).perform_later(payment.id, index + 1)
-    end
-
-    # Mark subscription as past due after first failure
-    subscription.mark_past_due! if subscription.may_mark_past_due?
-
-    # Send dunning emails
-    send_dunning_notification(payment, "payment_failed")
-  end
-
-  # Process payment retry
-  def retry_failed_payment(payment, retry_attempt)
-    return false if retry_attempt > 4
-
-    payment_processor = PaymentProcessingService.new(
-      account: account,
-      user: user
-    )
-
-    result = payment_processor.retry_payment(payment: payment)
-
-    if result[:success]
-      Rails.logger.info "Payment retry successful: #{payment.id} (attempt #{retry_attempt})"
-      true
-    else
-      Rails.logger.warn "Payment retry failed: #{payment.id} (attempt #{retry_attempt})"
-
-      # Final retry attempt - suspend subscription
-      if retry_attempt >= 4
-        suspend_subscription_for_non_payment
-        send_dunning_notification(payment, "final_payment_failure")
-      end
-
-      false
-    end
-  end
-
-  private
-
-  def calculate_period_end(plan, trial_end)
-    start_date = trial_end || Time.current
-
-    case plan.billing_cycle
-    when "monthly"
-      start_date + 1.month
-    when "quarterly"
-      start_date + 3.months
-    when "yearly"
-      start_date + 1.year
-    else
-      start_date + 1.month
-    end
-  end
-
-  def calculate_subscription_amount(sub)
-    base_amount = sub.plan.price_cents * sub.quantity
-
-    # Add setup fees if first billing period
-    if sub.invoices.count == 0 && sub.plan.setup_fee_cents > 0
-      base_amount += sub.plan.setup_fee_cents
-    end
-
-    base_amount
-  end
-
-  def add_usage_charges(invoice, sub)
-    # Implementation for usage-based billing would go here
-  end
-
-  def add_pending_charges(invoice, sub)
-    # Implementation for pending one-time charges would go here
-  end
-
-  def calculate_proration_credit(sub, effective_date)
-    return 0 if sub.on_trial?
-
-    remaining_days = ((sub.current_period_end - effective_date) / 1.day).ceil
-    total_days = ((sub.current_period_end - sub.current_period_start) / 1.day).ceil
-
-    return 0 if remaining_days <= 0
-
-    current_amount = sub.plan.price_cents * sub.quantity
-    (current_amount * remaining_days / total_days.to_f).round
-  end
-
-  def calculate_proration_charge(new_plan, quantity, effective_date)
-    return 0 unless subscription.current_period_end
-
-    remaining_days = ((subscription.current_period_end - effective_date) / 1.day).ceil
-    total_days = ((subscription.current_period_end - subscription.current_period_start) / 1.day).ceil
-
-    return 0 if remaining_days <= 0
-
-    new_amount = new_plan.price_cents * quantity
-    (new_amount * remaining_days / total_days.to_f).round
-  end
-
-  def generate_proration_invoice(sub, credit, charge, old_plan, new_plan)
-    net_amount = charge - credit
-    return if net_amount == 0
-
-    invoice = sub.invoices.create!(
-      subtotal_cents: net_amount.abs,
-      tax_rate: account.tax_rate || 0.0,
-      currency: sub.plan.currency,
-      due_date: 1.day.from_now,
-      invoice_type: "proration"
-    )
-
-    if credit > 0
-      invoice.add_line_item(
-        description: "Credit for unused time on #{old_plan.name}",
-        quantity: 1,
-        unit_price_cents: -credit
-      )
-    end
-
-    if charge > 0
-      invoice.add_line_item(
-        description: "Prorated charge for #{new_plan.name}",
-        quantity: 1,
-        unit_price_cents: charge
-      )
-    end
-
-    invoice.calculate_totals
-    invoice.finalize! if net_amount > 0
-  end
-
-  def suspend_subscription_for_non_payment
-    subscription.mark_unpaid! if subscription.may_mark_unpaid?
-
-    account.update!(
-      status: "suspended",
-      suspended_at: Time.current,
-      suspension_reason: "non_payment"
-    )
-  end
-
-  def send_dunning_notification(payment, notification_type)
-    # Implementation for sending dunning emails would go here
-    Rails.logger.info "Dunning notification: #{notification_type} for payment #{payment.id}"
-  end
-
-  # Stripe-specific methods
-  def create_stripe_subscription(sub, payment_method, options)
-    customer = ensure_stripe_customer
-
-    stripe_sub = Stripe::Subscription.create({
-      customer: customer.id,
-      items: [ { price: sub.plan.stripe_price_id, quantity: sub.quantity } ],
-      payment_behavior: "default_incomplete",
-      default_payment_method: payment_method.provider_payment_method_id,
-      trial_end: sub.trial_end&.to_i,
-      metadata: {
-        account_id: account.id,
-        subscription_id: sub.id
+    begin
+      # Enqueue job in worker service for complex billing logic
+      WorkerJobService.enqueue_billing_job('create_subscription_with_payment', job_data)
+      
+      # Return immediate response - actual processing happens asynchronously
+      {
+        success: true,
+        message: "Subscription creation queued for processing",
+        job_data: job_data
       }
-    }.merge(options))
-
-    sub.update!(stripe_subscription_id: stripe_sub.id)
-    stripe_sub
+    rescue WorkerJobService::WorkerServiceError => e
+      Rails.logger.error "Failed to delegate billing job: #{e.message}"
+      { success: false, error: e.message }
+    end
   end
 
-  def update_stripe_subscription(sub, new_plan, quantity, prorate)
-    Stripe::Subscription.update(sub.stripe_subscription_id, {
-      items: [ {
-        id: get_stripe_subscription_item_id(sub),
-        price: new_plan.stripe_price_id,
-        quantity: quantity
-      } ],
-      proration_behavior: prorate ? "create_prorations" : "none"
-    })
-  end
-
-  def cancel_stripe_subscription(sub, at_period_end)
-    Stripe::Subscription.delete(sub.stripe_subscription_id, {
-      prorate: !at_period_end
-    })
-  end
-
-  # PayPal-specific methods (placeholder implementations)
-  def create_paypal_subscription(sub, payment_method, options)
-    # PayPal subscription creation would go here
-    Rails.logger.info "PayPal subscription creation not fully implemented"
-  end
-
-  def update_paypal_subscription(sub, new_plan, quantity)
-    # PayPal subscription update would go here
-    Rails.logger.info "PayPal subscription update not fully implemented"
-  end
-
-  def cancel_paypal_subscription(sub, reason)
-    # PayPal subscription cancellation would go here
-    Rails.logger.info "PayPal subscription cancellation not fully implemented"
-  end
-
-  # Helper methods
-  def ensure_stripe_customer
-    return @stripe_customer if @stripe_customer
-
-    if account.stripe_customer_id.present?
-      @stripe_customer = Stripe::Customer.retrieve(account.stripe_customer_id)
-    else
-      @stripe_customer = Stripe::Customer.create({
-        email: user.email,
-        name: user.full_name,
-        metadata: {
-          account_id: account.id,
-          user_id: user.id
-        }
-      })
-
-      account.update!(stripe_customer_id: @stripe_customer.id)
+  # Process subscription renewal (delegated to worker service)
+  def process_renewal(subscription_id: nil, payment_retry_attempt: 0)
+    subscription_id ||= subscription&.id
+    
+    unless subscription_id
+      return { success: false, error: "No subscription specified" }
     end
 
-    @stripe_customer
+    Rails.logger.info "Delegating renewal processing to worker service"
+    
+    job_data = {
+      subscription_id: subscription_id,
+      payment_retry_attempt: payment_retry_attempt
+    }
+
+    begin
+      # Enqueue renewal job in worker service
+      WorkerJobService.enqueue_billing_job('process_renewal', job_data)
+      
+      {
+        success: true,
+        message: "Renewal processing queued",
+        subscription_id: subscription_id
+      }
+    rescue WorkerJobService::WorkerServiceError => e
+      Rails.logger.error "Failed to delegate renewal job: #{e.message}"
+      { success: false, error: e.message }
+    end
   end
 
-  def get_stripe_subscription_item_id(sub)
-    stripe_sub = Stripe::Subscription.retrieve(sub.stripe_subscription_id)
-    stripe_sub.items.data.first.id
+  # Cancel subscription (delegated to worker service)
+  def cancel_subscription(cancellation_reason: nil, immediate: false)
+    unless subscription
+      return { success: false, error: "No subscription to cancel" }
+    end
+
+    Rails.logger.info "Delegating subscription cancellation to worker service"
+    
+    job_data = {
+      subscription_id: subscription.id,
+      cancellation_reason: cancellation_reason,
+      immediate: immediate
+    }
+
+    begin
+      # Enqueue cancellation job in worker service
+      WorkerJobService.enqueue_billing_job('cancel_subscription', job_data)
+      
+      {
+        success: true,
+        message: "Cancellation queued for processing",
+        subscription_id: subscription.id
+      }
+    rescue WorkerJobService::WorkerServiceError => e
+      Rails.logger.error "Failed to delegate cancellation job: #{e.message}"
+      { success: false, error: e.message }
+    end
+  end
+
+  # Suspend subscription (delegated to worker service)
+  def suspend_subscription(suspension_reason: nil)
+    unless subscription
+      return { success: false, error: "No subscription to suspend" }
+    end
+
+    Rails.logger.info "Delegating subscription suspension to worker service"
+    
+    job_data = {
+      subscription_id: subscription.id,
+      suspension_reason: suspension_reason
+    }
+
+    begin
+      # Enqueue suspension job in worker service
+      WorkerJobService.enqueue_billing_job('suspend_subscription', job_data)
+      
+      {
+        success: true,
+        message: "Suspension queued for processing",
+        subscription_id: subscription.id
+      }
+    rescue WorkerJobService::WorkerServiceError => e
+      Rails.logger.error "Failed to delegate suspension job: #{e.message}"
+      { success: false, error: e.message }
+    end
+  end
+
+  # Simple synchronous operations that don't need worker delegation
+  def calculate_proration(old_plan:, new_plan:, billing_cycle_anchor:)
+    # Simple calculation that can remain synchronous
+    days_remaining = (billing_cycle_anchor.to_date - Date.current).to_i
+    days_in_period = case new_plan.billing_interval
+    when 'month'
+      new_plan.interval_count * 30
+    when 'year'
+      new_plan.interval_count * 365
+    when 'week'
+      new_plan.interval_count * 7
+    else
+      30
+    end
+
+    return 0 if days_remaining <= 0 || days_in_period <= 0
+
+    proration_factor = days_remaining.to_f / days_in_period
+    new_amount = new_plan.price_cents * proration_factor
+    old_refund = old_plan.price_cents * proration_factor
+
+    {
+      proration_amount_cents: (new_amount - old_refund).round,
+      days_remaining: days_remaining,
+      proration_factor: proration_factor
+    }
+  end
+
+  def format_currency(amount_cents)
+    Money.new(amount_cents, "USD").format
+  end
+
+  # Class methods for direct worker service delegation
+  class << self
+    def process_all_renewals(force: false)
+      Rails.logger.info "Delegating bulk renewal processing to worker service"
+      
+      begin
+        WorkerJobService.enqueue_billing_job('process_all_renewals', { force: force })
+        { success: true, message: "Bulk renewal processing queued" }
+      rescue WorkerJobService::WorkerServiceError => e
+        Rails.logger.error "Failed to delegate bulk renewals: #{e.message}"
+        { success: false, error: e.message }
+      end
+    end
+
+    def cleanup_expired_subscriptions
+      Rails.logger.info "Delegating subscription cleanup to worker service"
+      
+      begin
+        WorkerJobService.enqueue_billing_job('cleanup_expired_subscriptions', {})
+        { success: true, message: "Cleanup processing queued" }
+      rescue WorkerJobService::WorkerServiceError => e
+        Rails.logger.error "Failed to delegate cleanup: #{e.message}"
+        { success: false, error: e.message }
+      end
+    end
+
+    def generate_billing_report(account_id: nil, start_date: nil, end_date: nil)
+      Rails.logger.info "Delegating billing report generation to worker service"
+      
+      job_data = {
+        account_id: account_id,
+        start_date: start_date,
+        end_date: end_date,
+        report_type: 'billing_summary'
+      }
+
+      begin
+        WorkerJobService.enqueue_report_job('generate_report', job_data)
+        { success: true, message: "Report generation queued", job_data: job_data }
+      rescue WorkerJobService::WorkerServiceError => e
+        Rails.logger.error "Failed to delegate report generation: #{e.message}"
+        { success: false, error: e.message }
+      end
+    end
   end
 end

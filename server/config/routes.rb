@@ -25,7 +25,20 @@ Rails.application.routes.draw do
       end
 
       # Protected resources (will be added later)
-      resources :accounts, only: [ :show, :update ]
+      resources :accounts, only: [ :show, :update ] do
+        resources :delegations, only: [:index, :create, :show, :update, :destroy] do
+          collection do
+            get :available_permissions
+          end
+          member do
+            patch :activate
+            patch :deactivate
+            patch :revoke
+            post :permissions, to: 'delegations#add_permission'
+            delete 'permissions/:permission_id', to: 'delegations#remove_permission'
+          end
+        end
+      end
       resources :users
       resources :roles
       resources :permissions, only: [ :index, :show ]
@@ -89,6 +102,19 @@ Rails.application.routes.draw do
       end
       resources :invoices, only: [ :index, :show ]
       resources :payments, only: [ :index, :show ]
+
+      # PayPal integration endpoints
+      resource :paypal, only: [] do
+        collection do
+          post :create_payment, path: 'payments'
+          post :execute_payment, path: 'payments/:id/execute'
+          post :create_refund, path: 'payments/:id/refund'
+          post :create_subscription_plan, path: 'subscriptions/plans'
+          post :create_subscription, path: 'subscriptions'
+          post :execute_subscription, path: 'subscriptions/:id/execute'
+          delete :cancel_subscription, path: 'subscriptions/:id'
+        end
+      end
 
       # Analytics endpoints
       namespace :analytics do
@@ -154,8 +180,58 @@ Rails.application.routes.draw do
       # Pages management
       resources :pages, only: [:index, :show], param: :slug
       
+      # Impersonation endpoints (admin only)
+      resources :impersonations, only: [:index, :create, :destroy] do
+        collection do
+          get :history
+          get :users, to: 'impersonations#impersonatable_users'
+          post :validate, to: 'impersonations#validate_token'
+          post :cleanup_expired, to: 'impersonations#cleanup_expired'
+        end
+      end
+
+      # System Management endpoints (admin only)
+      resources :audit_logs, only: [:index, :show] do
+        collection do
+          get :stats
+          post :export
+          delete :cleanup
+        end
+      end
+
+      resources :webhooks, only: [:index, :show, :create, :update, :destroy] do
+        member do
+          post :test
+          post :toggle_status
+        end
+        collection do
+          get :available_events, to: 'webhooks#available_events'
+          get :deliveries, to: 'webhooks#delivery_history'
+          get :stats
+          post :retry_failed
+        end
+      end
+
+      resources :api_keys, only: [:index, :show, :create, :update, :destroy] do
+        member do
+          post :regenerate
+          post :toggle_status
+        end
+        collection do
+          get :usage, to: 'api_keys#usage_stats'
+          get :scopes, to: 'api_keys#available_scopes'
+          post :validate, to: 'api_keys#validate_key'
+        end
+      end
+
       # Admin services management
       namespace :admin do
+        resources :users do
+          member do
+            post :impersonate
+          end
+        end
+        
         resources :pages do
           member do
             post :publish

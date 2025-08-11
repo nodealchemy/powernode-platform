@@ -181,7 +181,7 @@ class Api::V1::Auth::SessionsController < ApplicationController
       firstName: user.first_name,
       lastName: user.last_name,
       fullName: user.full_name,
-      roles: user.roles.pluck(:name).map(&:downcase),
+      role: user.role,
       status: user.status,
       emailVerified: user.email_verified?,
       lastLoginAt: user.last_login_at,

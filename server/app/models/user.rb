@@ -7,11 +7,17 @@ class User < ApplicationRecord
 
   # Associations
   belongs_to :account
-  has_many :user_roles, dependent: :destroy
-  has_many :roles, through: :user_roles
   has_many :audit_logs, dependent: :nullify
   has_many :password_histories, dependent: :destroy
   has_many :pages, foreign_key: 'author_id', dependent: :destroy
+  has_many :impersonation_sessions_as_impersonator, 
+           class_name: 'ImpersonationSession',
+           foreign_key: 'impersonator_id',
+           dependent: :destroy
+  has_many :impersonation_sessions_as_target,
+           class_name: 'ImpersonationSession', 
+           foreign_key: 'impersonated_user_id',
+           dependent: :destroy
 
   # Serialization
   serialize :preferences, coder: JSON
@@ -24,6 +30,7 @@ class User < ApplicationRecord
   validates :first_name, presence: true, length: { minimum: 1, maximum: 50 }
   validates :last_name, presence: true, length: { minimum: 1, maximum: 50 }
   validates :status, presence: true, inclusion: { in: %w[active inactive suspended] }
+  validates :role, presence: true, inclusion: { in: %w[admin owner member] }
   validate :password_complexity, if: :password
   validate :password_not_recently_used, if: :password
 
@@ -42,9 +49,9 @@ class User < ApplicationRecord
 
   # Scopes
   scope :active, -> { where(status: "active") }
-  scope :owners, -> { joins(:roles).where(roles: { name: "Owner" }) }
-  scope :admins, -> { joins(:roles).where(roles: { name: "Admin" }) }
-  scope :members, -> { joins(:roles).where(roles: { name: "Member" }) }
+  scope :owners, -> { where(role: "owner") }
+  scope :admins, -> { where(role: "admin") }
+  scope :members, -> { where(role: "member") }
   scope :verified, -> { where.not(email_verified_at: nil) }
   scope :unverified, -> { where(email_verified_at: nil) }
   scope :locked, -> { where("locked_until > ?", Time.current) }
@@ -69,15 +76,19 @@ class User < ApplicationRecord
   end
 
   def owner?
-    roles.exists?(name: 'Owner')
+    role == 'owner'
   end
 
   def admin?
-    roles.exists?(name: 'Admin')
+    role == 'admin'
   end
 
   def member?
-    roles.exists?(name: 'Member')
+    role == 'member'
+  end
+  
+  def admin_or_owner?
+    admin? || owner?
   end
 
   def email_verified?
@@ -93,23 +104,27 @@ class User < ApplicationRecord
   end
 
   def has_role?(role_name)
-    roles.exists?(name: role_name)
+    role == role_name.downcase
   end
 
   def has_permission?(permission_name)
-    roles.joins(:permissions).exists?(permissions: { name: permission_name })
+    # For single role system, check permissions through role
+    return false unless role.present?
+    
+    role_record = Role.find_by(name: role.titleize)
+    role_record&.has_permission?(permission_name) || false
   end
 
-  def assign_role(role)
-    roles << role unless has_role?(role.name)
-  end
-
-  def remove_role(role)
-    roles.delete(role)
+  def assign_role(new_role)
+    self.role = new_role.is_a?(String) ? new_role.downcase : new_role.name.downcase
+    save! if persisted?
   end
 
   def all_permissions
-    Permission.joins(:roles).where(roles: { id: role_ids })
+    return Permission.none unless role.present?
+    
+    role_record = Role.find_by(name: role.titleize)
+    role_record&.permissions || Permission.none
   end
 
   # Password security methods
@@ -249,11 +264,9 @@ class User < ApplicationRecord
 
   def assign_owner_role_if_needed
     if @should_be_owner
-      owner_role = Role.find_or_create_by!(name: 'Owner') do |role|
-        role.description = 'Account owner with full administrative access'
-        role.system_role = true
-      end
-      roles << owner_role unless roles.exists?(name: 'Owner')
+      # For single role system, just set the role column
+      self.role = 'owner'
+      save! if persisted?
     end
   end
 

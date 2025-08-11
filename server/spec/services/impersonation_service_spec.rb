@@ -1,0 +1,337 @@
+# frozen_string_literal: true
+
+require 'rails_helper'
+
+RSpec.describe ImpersonationService, type: :service do
+  let(:account) { create(:account) }
+  let(:admin_role) { create(:role, name: 'Admin') }
+  let(:member_role) { create(:role, name: 'Member') }
+  let(:admin_user) { create(:user, account: account, roles: [admin_role]) }
+  let(:target_user) { create(:user, account: account, roles: [member_role]) }
+  let(:service) { described_class.new(admin_user) }
+
+  # Add impersonation permission to admin role
+  let!(:impersonate_permission) do
+    permission = create(:permission, resource: 'users', action: 'impersonate')
+    admin_role.permissions << permission
+    permission
+  end
+
+  describe '#start_impersonation' do
+    let(:valid_params) do
+      {
+        target_user_id: target_user.id,
+        reason: 'Testing purposes',
+        ip_address: '127.0.0.1',
+        user_agent: 'Test Agent'
+      }
+    end
+
+    context 'with valid parameters' do
+      it 'creates an impersonation session' do
+        expect {
+          service.start_impersonation(**valid_params)
+        }.to change(ImpersonationSession, :count).by(1)
+      end
+
+      it 'returns an impersonation token' do
+        token = service.start_impersonation(**valid_params)
+        expect(token).to be_present
+
+        # Verify token can be decoded
+        payload = JwtService.decode(token)
+        expect(payload[:type]).to eq('impersonation')
+        expect(payload[:user_id]).to eq(target_user.id)
+        expect(payload[:impersonator_id]).to eq(admin_user.id)
+      end
+
+      it 'creates an audit log entry' do
+        expect {
+          service.start_impersonation(**valid_params)
+        }.to change(AuditLog, :count).by(1)
+
+        log = AuditLog.last
+        expect(log.user).to eq(admin_user)
+        expect(log.action).to eq('impersonation.started')
+        expect(log.resource).to eq('User')
+        expect(log.resource_id).to eq(target_user.id)
+        expect(log.details['impersonated_user_email']).to eq(target_user.email)
+        expect(log.details['reason']).to eq('Testing purposes')
+      end
+    end
+
+    context 'permission validation' do
+      it 'raises PermissionDeniedError when user lacks impersonation permission' do
+        user_without_permission = create(:user, account: account, roles: [member_role])
+        service = described_class.new(user_without_permission)
+
+        expect {
+          service.start_impersonation(**valid_params)
+        }.to raise_error(ImpersonationService::PermissionDeniedError, 
+                        'You do not have permission to impersonate other users')
+      end
+
+      it 'allows owner to impersonate without explicit permission' do
+        owner_role = create(:role, name: 'Owner')
+        owner_user = create(:user, account: account, roles: [owner_role])
+        service = described_class.new(owner_user)
+
+        expect {
+          service.start_impersonation(**valid_params)
+        }.not_to raise_error
+      end
+
+      it 'allows admin to impersonate without explicit permission' do
+        admin_without_permission = create(:user, account: account, roles: [admin_role])
+        admin_role.permissions.delete(impersonate_permission) # Remove explicit permission
+        service = described_class.new(admin_without_permission)
+
+        expect {
+          service.start_impersonation(**valid_params)
+        }.not_to raise_error
+      end
+    end
+
+    context 'security validations' do
+      it 'raises InvalidUserError for users in different accounts' do
+        other_account = create(:account)
+        other_user = create(:user, account: other_account)
+
+        expect {
+          service.start_impersonation(target_user_id: other_user.id)
+        }.to raise_error(ImpersonationService::InvalidUserError, 
+                        'You can only impersonate users in your own account')
+      end
+
+      it 'raises SelfImpersonationError when trying to impersonate self' do
+        expect {
+          service.start_impersonation(target_user_id: admin_user.id)
+        }.to raise_error(ImpersonationService::SelfImpersonationError, 
+                        'You cannot impersonate yourself')
+      end
+
+      it 'raises InvalidUserError for inactive users' do
+        target_user.update!(status: 'inactive')
+
+        expect {
+          service.start_impersonation(**valid_params)
+        }.to raise_error(ImpersonationService::InvalidUserError, 
+                        'Cannot impersonate inactive user')
+      end
+
+      it 'prevents non-owners from impersonating owners' do
+        owner_role = create(:role, name: 'Owner')
+        owner_user = create(:user, account: account, roles: [owner_role])
+
+        expect {
+          service.start_impersonation(target_user_id: owner_user.id)
+        }.to raise_error(ImpersonationService::PermissionDeniedError, 
+                        'Only owners can impersonate other owners')
+      end
+
+      it 'allows owners to impersonate other owners' do
+        owner_role = create(:role, name: 'Owner')
+        owner_user = create(:user, account: account, roles: [owner_role])
+        target_owner = create(:user, account: account, roles: [owner_role])
+        service = described_class.new(owner_user)
+
+        expect {
+          service.start_impersonation(target_user_id: target_owner.id)
+        }.not_to raise_error
+      end
+    end
+  end
+
+  describe '#end_impersonation' do
+    let!(:session) do
+      create(:impersonation_session,
+             impersonator: admin_user,
+             impersonated_user: target_user,
+             active: true)
+    end
+
+    context 'with valid session token' do
+      it 'ends the impersonation session' do
+        service.end_impersonation(session.session_token)
+        expect(session.reload.active).to be false
+        expect(session.ended_at).to be_present
+      end
+
+      it 'creates an audit log entry' do
+        expect {
+          service.end_impersonation(session.session_token)
+        }.to change(AuditLog, :count).by(1)
+
+        log = AuditLog.last
+        expect(log.user).to eq(admin_user)
+        expect(log.action).to eq('impersonation.ended')
+        expect(log.resource).to eq('User')
+        expect(log.resource_id).to eq(target_user.id)
+        expect(log.details['impersonated_user_email']).to eq(target_user.email)
+        expect(log.details['session_id']).to eq(session.id)
+      end
+
+      it 'returns the ended session' do
+        result = service.end_impersonation(session.session_token)
+        expect(result).to eq(session)
+        expect(result.active).to be false
+      end
+    end
+
+    context 'with invalid session token' do
+      it 'raises SessionNotFoundError for non-existent session' do
+        expect {
+          service.end_impersonation('invalid_token')
+        }.to raise_error(ActiveRecord::RecordNotFound)
+      end
+
+      it 'raises PermissionDeniedError for other user\'s session' do
+        other_user = create(:user, account: account, roles: [admin_role])
+        other_service = described_class.new(other_user)
+
+        expect {
+          other_service.end_impersonation(session.session_token)
+        }.to raise_error(ImpersonationService::PermissionDeniedError, 
+                        'You can only end your own impersonation sessions')
+      end
+    end
+  end
+
+  describe '#list_active_sessions' do
+    let!(:active_session1) do
+      create(:impersonation_session,
+             account: account,
+             impersonator: admin_user,
+             active: true)
+    end
+    let!(:active_session2) do
+      create(:impersonation_session,
+             account: account,
+             active: true)
+    end
+    let!(:ended_session) do
+      create(:impersonation_session,
+             account: account,
+             active: false)
+    end
+    let!(:other_account_session) do
+      other_account = create(:account)
+      create(:impersonation_session,
+             account: other_account,
+             active: true)
+    end
+
+    it 'returns only active sessions for the account' do
+      sessions = service.list_active_sessions
+      expect(sessions).to include(active_session1, active_session2)
+      expect(sessions).not_to include(ended_session, other_account_session)
+    end
+
+    it 'includes associated users' do
+      sessions = service.list_active_sessions
+      expect(sessions.first.impersonator).to be_present
+      expect(sessions.first.impersonated_user).to be_present
+    end
+
+    it 'orders by most recent first' do
+      travel_to 1.hour.ago do
+        old_session = create(:impersonation_session, account: account, active: true)
+      end
+
+      sessions = service.list_active_sessions
+      expect(sessions.first.started_at).to be > sessions.last.started_at
+    end
+  end
+
+  describe '#get_session_history' do
+    it 'returns sessions for the account with limit' do
+      create_list(:impersonation_session, 3, account: account)
+      
+      sessions = service.get_session_history(limit: 2)
+      expect(sessions.count).to eq(2)
+    end
+
+    it 'defaults to 50 sessions limit' do
+      allow(ImpersonationSession).to receive(:for_account).and_return(
+        double(includes: double(recent: double(limit: double)))
+      )
+
+      service.get_session_history
+      expect(ImpersonationSession).to have_received(:for_account).with(admin_user.account_id)
+    end
+  end
+
+  describe '#validate_impersonation_token' do
+    let!(:session) do
+      create(:impersonation_session,
+             impersonator: admin_user,
+             impersonated_user: target_user,
+             active: true)
+    end
+
+    let(:valid_token) do
+      payload = {
+        user_id: target_user.id,
+        impersonator_id: admin_user.id,
+        session_id: session.id,
+        type: 'impersonation',
+        exp: (Time.current + ImpersonationSession::MAX_SESSION_DURATION).to_i
+      }
+      JwtService.encode(payload)
+    end
+
+    it 'returns session for valid active token' do
+      result = service.validate_impersonation_token(valid_token)
+      expect(result).to eq(session)
+    end
+
+    it 'returns nil for invalid token format' do
+      result = service.validate_impersonation_token('invalid_token')
+      expect(result).to be_nil
+    end
+
+    it 'returns nil for non-impersonation token' do
+      regular_token = JwtService.encode({ user_id: target_user.id })
+      result = service.validate_impersonation_token(regular_token)
+      expect(result).to be_nil
+    end
+
+    it 'returns nil for expired session' do
+      travel_to ImpersonationSession::MAX_SESSION_DURATION.from_now + 1.hour do
+        result = service.validate_impersonation_token(valid_token)
+        expect(result).to be_nil
+        expect(session.reload.active).to be false
+      end
+    end
+
+    it 'returns nil for non-existent session' do
+      payload = {
+        user_id: target_user.id,
+        impersonator_id: admin_user.id,
+        session_id: 'non-existent-id',
+        type: 'impersonation',
+        exp: (Time.current + ImpersonationSession::MAX_SESSION_DURATION).to_i
+      }
+      invalid_token = JwtService.encode(payload)
+
+      result = service.validate_impersonation_token(invalid_token)
+      expect(result).to be_nil
+    end
+
+    it 'returns nil for inactive session' do
+      session.update!(active: false)
+      result = service.validate_impersonation_token(valid_token)
+      expect(result).to be_nil
+    end
+  end
+
+  describe '.cleanup_expired_sessions' do
+    it 'delegates to ImpersonationSession.cleanup_expired_sessions' do
+      allow(ImpersonationSession).to receive(:cleanup_expired_sessions)
+      
+      described_class.cleanup_expired_sessions
+      
+      expect(ImpersonationSession).to have_received(:cleanup_expired_sessions)
+    end
+  end
+end
