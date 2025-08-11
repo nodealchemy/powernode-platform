@@ -43,11 +43,11 @@ const navigation: NavigationItem[] = [
 
 const adminNavigation: NavigationItem[] = [
   { 
-    name: 'User Management', 
-    href: '/dashboard/admin/users', 
-    icon: '👥',
+    name: 'Content Management', 
+    href: '/dashboard/pages', 
+    icon: '📄',
     permissions: ['dashboard_access'],
-    roles: ['admin']  // Only system administrators
+    roles: ['admin']  // Only system administrators for now
   },
   { 
     name: 'Plans Management', 
@@ -57,18 +57,18 @@ const adminNavigation: NavigationItem[] = [
     roles: ['admin']  // Only system administrators
   },
   { 
+    name: 'User Management', 
+    href: '/dashboard/admin/users', 
+    icon: '👥',
+    permissions: ['dashboard_access'],
+    roles: ['admin']  // Only system administrators
+  },
+  { 
     name: 'System Settings', 
     href: '/dashboard/system', 
     icon: '⚙️',
     permissions: ['dashboard_access'],
     roles: ['admin']  // Only system administrators
-  },
-  { 
-    name: 'Content Pages', 
-    href: '/dashboard/pages', 
-    icon: '📄',
-    permissions: ['dashboard_access'],
-    roles: ['admin']  // Only system administrators for now
   },
 ];
 

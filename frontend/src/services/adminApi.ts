@@ -35,7 +35,14 @@ export interface SystemSettings {
   trial_period_days?: number;
   payment_retry_attempts?: number;
   webhook_timeout_seconds?: number;
-  rate_limit_requests_per_minute?: number;
+  rate_limiting?: {
+    api_requests_per_minute?: number;
+    impersonation_attempts_per_hour?: number;
+    login_attempts_per_hour?: number;
+    password_reset_attempts_per_hour?: number;
+    registration_attempts_per_hour?: number;
+    webhook_requests_per_minute?: number;
+  };
   
   // System Information
   platform_version: string;
@@ -66,7 +73,7 @@ export interface AdminUser {
   email: string;
   full_name: string;
   status: string;
-  roles: string[];
+  role: string;
   account: {
     id: string;
     name: string;

@@ -1,5 +1,4 @@
 import { api } from './api';
-import { mockUsers, mockUserStats } from './mockData';
 
 export interface User {
   id: string;
@@ -9,7 +8,7 @@ export interface User {
   email: string;
   email_verified: boolean;
   phone?: string;
-  roles: string[];
+  role: string;
   status: 'active' | 'suspended' | 'inactive';
   locked: boolean;
   failed_login_attempts: number;
@@ -29,7 +28,7 @@ export interface UserFormData {
   last_name: string;
   email: string;
   phone?: string;
-  roles: string[];
+  role: string;
   password?: string;
   password_confirmation?: string;
 }
@@ -68,20 +67,38 @@ export interface UserStats {
   recent_logins: number;
 }
 
+export interface AdminAccount {
+  id: string;
+  name: string;
+  subdomain: string;
+  status: string;
+  users_count: number;
+  subscription?: {
+    id: string;
+    plan_name: string;
+    status: string;
+    created_at: string;
+  } | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AdminAccountsResponse {
+  success: boolean;
+  data: {
+    accounts: AdminAccount[];
+    total_count: number;
+    active_count: number;
+    suspended_count: number;
+    cancelled_count: number;
+  };
+}
+
 class UsersApiService {
   // Get all users in current account
   async getUsers(): Promise<UsersListResponse> {
-    try {
-      const response = await api.get('/users');
-      return response.data;
-    } catch (error) {
-      console.warn('API failed, using mock data:', error);
-      // Return mock data as fallback
-      return {
-        success: true,
-        data: mockUsers
-      };
-    }
+    const response = await api.get('/users');
+    return response.data;
   }
 
   // Get specific user
@@ -146,52 +163,28 @@ class UsersApiService {
 
   // Get users for specific account only
   async getAccountUsers(accountId?: string): Promise<UsersListResponse> {
-    try {
-      const response = await api.get('/users', {
-        params: { account_id: accountId }
-      });
-      return response.data;
-    } catch (error) {
-      console.warn('API failed, using mock data:', error);
-      return {
-        success: true,
-        data: mockUsers.filter(u => !accountId || u.account?.id === accountId)
-      };
-    }
+    const response = await api.get('/users', {
+      params: { account_id: accountId }
+    });
+    return response.data;
   }
 
   // Get all users system-wide (admin only)
   async getAllUsers(): Promise<UsersListResponse> {
-    try {
-      const response = await api.get('/admin/users');
-      return response.data;
-    } catch (error) {
-      console.warn('API failed, using mock data:', error);
-      return {
-        success: true,
-        data: mockUsers
-      };
-    }
+    const response = await api.get('/admin/users');
+    return response.data;
   }
 
   // Get all accounts (admin only)
-  async getAllAccounts(): Promise<{ success: boolean; data: any[] }> {
-    try {
-      const response = await api.get('/admin/accounts');
-      return response.data;
-    } catch (error) {
-      console.warn('API failed:', error);
-      return {
-        success: true,
-        data: []
-      };
-    }
+  async getAllAccounts(): Promise<AdminAccountsResponse> {
+    const response = await api.get('/admin_settings/accounts');
+    return response.data;
   }
 
-  // Update user roles within account
-  async updateUserRoles(userId: string, roles: string[], accountId?: string): Promise<UserResponse> {
-    const response = await api.put(`/users/${userId}/roles`, {
-      roles,
+  // Update user role within account
+  async updateUserRole(userId: string, role: string, accountId?: string): Promise<UserResponse> {
+    const response = await api.put(`/users/${userId}/role`, {
+      role,
       account_id: accountId
     });
     return response.data;
@@ -211,17 +204,8 @@ class UsersApiService {
 
   // Get user statistics
   async getUserStats(): Promise<{ success: boolean; data: UserStats }> {
-    try {
-      const response = await api.get('/users/stats');
-      return response.data;
-    } catch (error) {
-      console.warn('API failed, using mock data:', error);
-      // Return mock data as fallback
-      return {
-        success: true,
-        data: mockUserStats
-      };
-    }
+    const response = await api.get('/users/stats');
+    return response.data;
   }
 
   // Available roles for user assignment
@@ -297,24 +281,13 @@ class UsersApiService {
   // Get role color for UI
   getRoleColor(role: string): string {
     switch (role) {
-      case 'owner':
-        return 'text-purple-700 bg-purple-50 border-purple-200';
       case 'admin':
-        return 'text-red-700 bg-red-50 border-red-200';
-      case 'billing_manager':
-      case 'sales_manager':
-      case 'customer_manager':
-        return 'text-blue-700 bg-blue-50 border-blue-200';
-      case 'content_manager':
-      case 'analyst':
-        return 'text-indigo-700 bg-indigo-50 border-indigo-200';
-      case 'support':
-        return 'text-green-700 bg-green-50 border-green-200';
-      case 'viewer':
-        return 'text-theme-secondary bg-theme-surface-hover border-theme';
-      case 'user':
+        return 'bg-theme-error bg-opacity-10 text-theme-error';
+      case 'owner':
+        return 'bg-theme-success bg-opacity-10 text-theme-success';
+      case 'member':
       default:
-        return 'text-slate-700 bg-slate-50 border-slate-200';
+        return 'bg-theme-info bg-opacity-10 text-theme-info';
     }
   }
 
@@ -336,7 +309,7 @@ class UsersApiService {
       errors.push('Email format is invalid');
     }
 
-    if (!userData.roles || userData.roles.length === 0 || !userData.roles[0].trim()) {
+    if (!userData.role || !userData.role.trim()) {
       errors.push('Role is required');
     }
 

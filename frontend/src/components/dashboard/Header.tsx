@@ -16,7 +16,7 @@ export const Header: React.FC<HeaderProps> = ({ user, onLogout, onToggleSidebar 
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Check if user has admin access
-  const hasAdminAccess = user?.roles.includes('owner') || user?.roles.includes('admin');
+  const hasAdminAccess = user?.role === 'owner' || user?.role === 'admin';
 
   // Get user initials
   const getUserInitials = () => {

@@ -1,241 +1,453 @@
-import axios, { AxiosError } from 'axios';
+import { api } from './api';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000/api/v1';
+// Helper function for making API requests
+const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
+  try {
+    const method = (options.method || 'GET').toLowerCase();
+    const data = options.body ? JSON.parse(options.body as string) : undefined;
+    
+    let response;
+    switch (method) {
+      case 'get':
+        response = await api.get(endpoint);
+        break;
+      case 'post':
+        response = await api.post(endpoint, data);
+        break;
+      case 'patch':
+        response = await api.patch(endpoint, data);
+        break;
+      case 'put':
+        response = await api.put(endpoint, data);
+        break;
+      case 'delete':
+        response = await api.delete(endpoint);
+        break;
+      default:
+        response = await api.get(endpoint);
+    }
+    
+    return response.data;
+  } catch (error: any) {
+    if (error.response?.data) {
+      throw new Error(error.response.data.message || error.response.data.error || 'API request failed');
+    }
+    throw error;
+  }
+};
 
-// Types
-export interface Delegation {
+// Types matching the new role-based delegation system
+export interface Role {
   id: string;
   name: string;
   description: string;
-  sourceAccountId: string;
-  sourceAccountName: string;
-  targetAccountId: string;
-  targetAccountName: string;
-  permissions: string[];
-  status: 'pending' | 'active' | 'expired' | 'revoked';
-  createdBy: string;
-  createdByName: string;
-  approvedBy?: string;
-  approvedByName?: string;
-  expiresAt?: string;
-  createdAt: string;
-  updatedAt: string;
-  users: DelegationUser[];
-  activityLog?: DelegationActivity[];
 }
 
-export interface DelegationUser {
+export interface DelegatedUser {
   id: string;
-  userId: string;
   email: string;
-  firstName: string;
-  lastName: string;
-  roles: string[];
-  addedAt: string;
-  addedBy: string;
+  full_name: string;
+}
+
+export interface Delegation {
+  id: string;
+  account: {
+    id: string;
+    name: string;
+    subdomain: string;
+  };
+  delegated_user: DelegatedUser;
+  delegated_by: DelegatedUser;
+  role: Role | null;
+  permissions?: Permission[];
+  status: string;
+  expires_at: string | null;
+  revoked_at: string | null;
+  revoked_by: DelegatedUser | null;
+  notes: string | null;
+  is_active: boolean;
+  is_expired: boolean;
+  created_at: string;
+  updated_at: string;
+  // Legacy properties for backward compatibility with old components
+  name?: string;
+  description?: string;
+  sourceAccountId?: string;
+  sourceAccountName?: string;
+  targetAccountId?: string;
+  targetAccountName?: string;
+  users?: Array<{ 
+    userId?: string; 
+    id?: string; 
+    email: string; 
+    name?: string; 
+    firstName?: string;
+    lastName?: string;
+    role?: string;
+    addedAt?: string;
+  }>;
+  createdAt?: string; // camelCase alias for created_at
+  updatedAt?: string; // camelCase alias for updated_at
+  expiresAt?: string; // camelCase alias for expires_at
+  createdByName?: string;
+  revokedByName?: string;
+  revokedAt?: string; // camelCase alias for revoked_at
+}
+
+export interface Permission {
+  id: string;
+  resource: string;
+  action: string;
+  description: string;
+  key: string;
+}
+
+export interface DelegationFormData {
+  delegated_user_email: string;
+  role_id?: string;
+  permission_ids?: string[];
+  expires_at?: string;
+  notes?: string;
+}
+
+export interface DelegationsResponse {
+  delegations: Delegation[];
+  meta: {
+    total_count: number;
+    active_count: number;
+    expired_count: number;
+  };
+}
+
+export interface DelegationResponse {
+  delegation: Delegation;
+  message?: string;
 }
 
 export interface DelegationActivity {
   id: string;
-  action: 'created' | 'approved' | 'rejected' | 'revoked' | 'expired' | 'user_added' | 'user_removed' | 'permissions_changed';
-  performedBy: string;
-  performedByName: string;
-  details?: string;
-  timestamp: string;
-}
-
-export interface CreateDelegationRequest {
-  name: string;
+  action: string;
   description: string;
-  targetAccountId: string;
-  permissions: string[];
-  userIds?: string[];
-  expiresAt?: string;
-}
-
-export interface UpdateDelegationRequest {
-  name?: string;
-  description?: string;
-  permissions?: string[];
-  expiresAt?: string;
+  performed_by: string;
+  performed_at: string;
+  // Legacy camelCase properties for backward compatibility
+  performedBy?: string;
+  performedByName?: string;
+  performedAt?: string;
+  details?: string;
+  timestamp?: string;
 }
 
 export interface DelegationRequest {
   id: string;
-  delegation: Delegation;
-  requestedBy: string;
-  requestedByName: string;
-  requestedByEmail: string;
-  message?: string;
+  requesterEmail: string;
+  requestedByName?: string;
+  requestedByEmail?: string;
+  targetAccountId: string;
+  permissions: string[];
   status: 'pending' | 'approved' | 'rejected';
-  reviewedBy?: string;
-  reviewedByName?: string;
-  reviewNote?: string;
+  message?: string;
   createdAt: string;
-  reviewedAt?: string;
+  delegation: {
+    name: string;
+    description: string;
+    sourceAccountName?: string;
+    expiresAt?: string;
+    permissions: string[];
+    users?: Array<{ 
+      id?: string; 
+      name?: string; 
+      firstName?: string;
+      lastName?: string;
+      email: string; 
+      role?: string;
+    }>;
+  };
 }
 
-// Available permissions for delegation
-export const DELEGATION_PERMISSIONS = [
-  { key: 'read_users', label: 'View Users', description: 'View user profiles and information' },
-  { key: 'manage_users', label: 'Manage Users', description: 'Create, update, and delete users' },
-  { key: 'read_billing', label: 'View Billing', description: 'View billing information and invoices' },
-  { key: 'manage_billing', label: 'Manage Billing', description: 'Update payment methods and billing settings' },
-  { key: 'read_subscriptions', label: 'View Subscriptions', description: 'View subscription details and history' },
-  { key: 'manage_subscriptions', label: 'Manage Subscriptions', description: 'Upgrade, downgrade, or cancel subscriptions' },
-  { key: 'read_analytics', label: 'View Analytics', description: 'Access analytics and reports' },
-  { key: 'manage_settings', label: 'Manage Settings', description: 'Update account settings and preferences' },
-  { key: 'support_access', label: 'Support Access', description: 'Access for customer support purposes' },
-];
+export interface User {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: string;
+}
 
-// API functions
 export const delegationApi = {
-  // Get all delegations for the current account
-  async getDelegations(params?: { status?: string; role?: 'source' | 'target' }) {
-    try {
-      const response = await axios.get(`${API_BASE_URL}/delegations`, { params });
-      return response.data;
-    } catch (error) {
-      console.error('Error fetching delegations:', error);
-      throw error;
-    }
+  // List all delegations for the current account
+  async getDelegations(filters?: { status?: string; role_id?: string }): Promise<DelegationsResponse> {
+    const params = new URLSearchParams();
+    if (filters?.status) params.append('status', filters.status);
+    if (filters?.role_id) params.append('role_id', filters.role_id);
+    
+    const queryString = params.toString();
+    const endpoint = `/api/v1/accounts/current/delegations${queryString ? `?${queryString}` : ''}`;
+    
+    return apiRequest(endpoint);
   },
 
   // Get a specific delegation by ID
-  async getDelegation(id: string) {
-    try {
-      const response = await axios.get(`${API_BASE_URL}/delegations/${id}`);
-      return response.data;
-    } catch (error) {
-      console.error('Error fetching delegation:', error);
-      throw error;
-    }
+  async getDelegation(delegationId: string): Promise<DelegationResponse> {
+    return apiRequest(`/api/v1/accounts/current/delegations/${delegationId}`);
   },
 
   // Create a new delegation
-  async createDelegation(data: CreateDelegationRequest) {
-    try {
-      const response = await axios.post(`${API_BASE_URL}/delegations`, data);
-      return response.data;
-    } catch (error) {
-      console.error('Error creating delegation:', error);
-      throw error;
-    }
+  async createDelegation(data: DelegationFormData): Promise<DelegationResponse> {
+    return apiRequest('/api/v1/accounts/current/delegations', {
+      method: 'POST',
+      body: JSON.stringify({ delegation: data }),
+    });
   },
 
   // Update an existing delegation
-  async updateDelegation(id: string, data: UpdateDelegationRequest) {
-    try {
-      const response = await axios.patch(`${API_BASE_URL}/delegations/${id}`, data);
-      return response.data;
-    } catch (error) {
-      console.error('Error updating delegation:', error);
-      throw error;
-    }
+  async updateDelegation(delegationId: string, updates: Partial<DelegationFormData>): Promise<DelegationResponse> {
+    return apiRequest(`/api/v1/accounts/current/delegations/${delegationId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ delegation: updates }),
+    });
+  },
+
+  // Delete a delegation (revoke it)
+  async deleteDelegation(delegationId: string): Promise<{ message: string }> {
+    return apiRequest(`/api/v1/accounts/current/delegations/${delegationId}`, {
+      method: 'DELETE',
+    });
+  },
+
+  // Activate a delegation
+  async activateDelegation(delegationId: string): Promise<DelegationResponse> {
+    return apiRequest(`/api/v1/accounts/current/delegations/${delegationId}/activate`, {
+      method: 'PATCH',
+    });
+  },
+
+  // Deactivate a delegation
+  async deactivateDelegation(delegationId: string): Promise<DelegationResponse> {
+    return apiRequest(`/api/v1/accounts/current/delegations/${delegationId}/deactivate`, {
+      method: 'PATCH',
+    });
   },
 
   // Revoke a delegation
-  async revokeDelegation(id: string, reason?: string) {
-    try {
-      const response = await axios.post(`${API_BASE_URL}/delegations/${id}/revoke`, { reason });
-      return response.data;
-    } catch (error) {
-      console.error('Error revoking delegation:', error);
-      throw error;
-    }
+  async revokeDelegation(delegationId: string): Promise<DelegationResponse> {
+    return apiRequest(`/api/v1/accounts/current/delegations/${delegationId}/revoke`, {
+      method: 'PATCH',
+    });
   },
 
-  // Add users to a delegation
-  async addUsersToDelegation(id: string, userIds: string[]) {
-    try {
-      const response = await axios.post(`${API_BASE_URL}/delegations/${id}/users`, { userIds });
-      return response.data;
-    } catch (error) {
-      console.error('Error adding users to delegation:', error);
-      throw error;
-    }
+  // Get available roles that can be delegated
+  async getAvailableRoles(): Promise<Role[]> {
+    const response = await apiRequest('/api/v1/roles');
+    // Filter out Owner role as it cannot be delegated
+    return response.filter((role: Role) => role.name !== 'Owner');
   },
 
-  // Remove a user from a delegation
-  async removeUserFromDelegation(delegationId: string, userId: string) {
-    try {
-      const response = await axios.delete(`${API_BASE_URL}/delegations/${delegationId}/users/${userId}`);
-      return response.data;
-    } catch (error) {
-      console.error('Error removing user from delegation:', error);
-      throw error;
-    }
+  // Get available permissions for delegation (optionally filtered by role)
+  async getAvailablePermissions(roleId?: string): Promise<Permission[]> {
+    const params = roleId ? `?role_id=${roleId}` : '';
+    return apiRequest(`/api/v1/accounts/current/delegations/available_permissions${params}`);
   },
 
-  // Get delegation requests (incoming)
-  async getDelegationRequests(status?: 'pending' | 'approved' | 'rejected') {
-    try {
-      const response = await axios.get(`${API_BASE_URL}/delegation-requests`, { 
-        params: { status } 
-      });
-      return response.data;
-    } catch (error) {
-      console.error('Error fetching delegation requests:', error);
-      throw error;
-    }
+  // Add permission to delegation
+  async addPermissionToDelegation(delegationId: string, permissionId: string): Promise<DelegationResponse> {
+    return apiRequest(`/api/v1/accounts/current/delegations/${delegationId}/permissions`, {
+      method: 'POST',
+      body: JSON.stringify({ permission_id: permissionId }),
+    });
   },
 
-  // Approve a delegation request
-  async approveDelegationRequest(requestId: string, note?: string) {
-    try {
-      const response = await axios.post(`${API_BASE_URL}/delegation-requests/${requestId}/approve`, { note });
-      return response.data;
-    } catch (error) {
-      console.error('Error approving delegation request:', error);
-      throw error;
-    }
-  },
-
-  // Reject a delegation request
-  async rejectDelegationRequest(requestId: string, reason: string) {
-    try {
-      const response = await axios.post(`${API_BASE_URL}/delegation-requests/${requestId}/reject`, { reason });
-      return response.data;
-    } catch (error) {
-      console.error('Error rejecting delegation request:', error);
-      throw error;
-    }
+  // Remove permission from delegation
+  async removePermissionFromDelegation(delegationId: string, permissionId: string): Promise<DelegationResponse> {
+    return apiRequest(`/api/v1/accounts/current/delegations/${delegationId}/permissions/${permissionId}`, {
+      method: 'DELETE',
+    });
   },
 
   // Get delegation activity log
-  async getDelegationActivity(delegationId: string) {
-    try {
-      const response = await axios.get(`${API_BASE_URL}/delegations/${delegationId}/activity`);
-      return response.data;
-    } catch (error) {
-      console.error('Error fetching delegation activity:', error);
-      throw error;
-    }
+  async getDelegationActivity(delegationId: string): Promise<{ activities: DelegationActivity[] }> {
+    return apiRequest(`/api/v1/accounts/current/delegations/${delegationId}/activity`);
   },
 
-  // Search for accounts to delegate access to
-  async searchAccounts(query: string) {
-    try {
-      const response = await axios.get(`${API_BASE_URL}/accounts/search`, {
-        params: { q: query }
-      });
-      return response.data;
-    } catch (error) {
-      console.error('Error searching accounts:', error);
-      throw error;
-    }
+  // Search accounts (placeholder - implement based on backend)
+  async searchAccounts(query: string): Promise<{ accounts: any[] }> {
+    return apiRequest(`/api/v1/accounts/search?q=${encodeURIComponent(query)}`);
   },
 
-  // Get available users to add to delegation
-  async getAvailableUsers(accountId: string) {
-    try {
-      const response = await axios.get(`${API_BASE_URL}/accounts/${accountId}/users`);
-      return response.data;
-    } catch (error) {
-      console.error('Error fetching available users:', error);
-      throw error;
-    }
+  // Get available users for an account (placeholder - implement based on backend)
+  async getAvailableUsers(accountId: string): Promise<{ users: User[] }> {
+    return apiRequest(`/api/v1/accounts/${accountId}/users`);
+  },
+
+
+  // Create delegation request (placeholder - implement based on backend)
+  async createDelegationRequest(data: any): Promise<{ request: DelegationRequest }> {
+    return apiRequest('/api/v1/delegation-requests', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  // Add users to delegation (placeholder - implement based on backend)
+  async addUsersToDelegation(delegationId: string, userIds: string[]): Promise<DelegationResponse> {
+    return apiRequest(`/api/v1/accounts/current/delegations/${delegationId}/users`, {
+      method: 'POST',
+      body: JSON.stringify({ user_ids: userIds }),
+    });
+  },
+
+  // Remove user from delegation (placeholder - implement based on backend)
+  async removeUserFromDelegation(delegationId: string, userId: string): Promise<DelegationResponse> {
+    return apiRequest(`/api/v1/accounts/current/delegations/${delegationId}/users/${userId}`, {
+      method: 'DELETE',
+    });
+  },
+
+  // Get delegation requests with optional status filter
+  async getDelegationRequests(status?: string): Promise<{ requests: DelegationRequest[] }> {
+    const params = status ? `?status=${status}` : '';
+    return apiRequest(`/api/v1/delegation-requests${params}`);
+  },
+
+  // Approve delegation request
+  async approveDelegationRequest(requestId: string, note?: string): Promise<{ request: DelegationRequest }> {
+    return apiRequest(`/api/v1/delegation-requests/${requestId}/approve`, {
+      method: 'POST',
+      body: JSON.stringify({ note }),
+    });
+  },
+
+  // Reject delegation request
+  async rejectDelegationRequest(requestId: string, reason: string): Promise<{ request: DelegationRequest }> {
+    return apiRequest(`/api/v1/delegation-requests/${requestId}/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    });
   },
 };
+
+// Helper functions for delegation status and permissions
+export const delegationHelpers = {
+  getStatusColor(delegation: Delegation): string {
+    if (delegation.status === 'revoked') return 'text-red-600 bg-red-50 border-red-200';
+    if (delegation.is_expired) return 'text-orange-600 bg-orange-50 border-orange-200';
+    if (delegation.status === 'inactive') return 'text-gray-600 bg-gray-50 border-gray-200';
+    if (delegation.is_active) return 'text-green-600 bg-green-50 border-green-200';
+    return 'text-gray-600 bg-gray-50 border-gray-200';
+  },
+
+  getRoleColor(roleName: string): string {
+    switch (roleName) {
+      case 'Admin': return 'bg-red-100 text-red-800 border-red-200';
+      case 'Member': return 'bg-blue-100 text-blue-800 border-blue-200';
+      default: return 'bg-gray-100 text-gray-800 border-gray-200';
+    }
+  },
+
+  getStatusText(delegation: Delegation): string {
+    if (delegation.status === 'revoked') return 'Revoked';
+    if (delegation.is_expired) return 'Expired';
+    if (delegation.status === 'inactive') return 'Inactive';
+    if (delegation.is_active) return 'Active';
+    return delegation.status.charAt(0).toUpperCase() + delegation.status.slice(1);
+  },
+
+  formatExpirationDate(expiresAt: string | null): string {
+    if (!expiresAt) return 'Never';
+    
+    const date = new Date(expiresAt);
+    const now = new Date();
+    const diffTime = date.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays < 0) return 'Expired';
+    if (diffDays === 0) return 'Expires today';
+    if (diffDays === 1) return 'Expires tomorrow';
+    if (diffDays <= 7) return `Expires in ${diffDays} days`;
+    
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  },
+
+  canPerformAction(delegation: Delegation, action: 'activate' | 'deactivate' | 'revoke' | 'edit'): boolean {
+    switch (action) {
+      case 'activate':
+        return delegation.status === 'inactive' && !delegation.is_expired;
+      case 'deactivate':
+        return delegation.status === 'active' && !delegation.is_expired;
+      case 'revoke':
+        return delegation.status !== 'revoked';
+      case 'edit':
+        return delegation.status !== 'revoked';
+      default:
+        return false;
+    }
+  },
+
+  getDelegationPriority(delegation: Delegation): number {
+    // Higher numbers = higher priority for sorting
+    if (delegation.status === 'revoked') return 1;
+    if (delegation.is_expired) return 2;
+    if (delegation.status === 'inactive') return 3;
+    if (delegation.is_active) return 4;
+    return 0;
+  },
+};
+
+// Legacy constant for backward compatibility - consider updating components to use the new permission system
+export const DELEGATION_PERMISSIONS = [
+  {
+    key: 'users.read',
+    label: 'View Users',
+    description: 'View user information and profiles',
+  },
+  {
+    key: 'users.create',
+    label: 'Create Users',
+    description: 'Create new user accounts',
+  },
+  {
+    key: 'users.update',
+    label: 'Update Users',
+    description: 'Modify user information and settings',
+  },
+  {
+    key: 'users.delete',
+    label: 'Delete Users',
+    description: 'Remove user accounts',
+  },
+  {
+    key: 'accounts.read',
+    label: 'View Account',
+    description: 'View account information and settings',
+  },
+  {
+    key: 'accounts.update',
+    label: 'Manage Account',
+    description: 'Modify account settings and configuration',
+  },
+  {
+    key: 'billing.read',
+    label: 'View Billing',
+    description: 'View billing information and invoices',
+  },
+  {
+    key: 'billing.update',
+    label: 'Manage Billing',
+    description: 'Modify billing settings and payment methods',
+  },
+  {
+    key: 'analytics.read',
+    label: 'View Analytics',
+    description: 'View analytics and reporting data',
+  },
+  {
+    key: 'analytics.global',
+    label: 'Global Analytics',
+    description: 'Access all analytics across the platform',
+  },
+];
 
 export default delegationApi;

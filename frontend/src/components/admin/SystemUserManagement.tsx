@@ -1,16 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../store';
-import { usersApi, User } from '../../services/usersApi';
+import { usersApi, User, AdminAccount } from '../../services/usersApi';
 import { hasAdminAccess } from '../../utils/permissionUtils';
+import ImpersonateUserModal from './ImpersonateUserModal';
 
 export const SystemUserManagement: React.FC = () => {
   const { user: currentUser } = useSelector((state: RootState) => state.auth);
   const [users, setUsers] = useState<User[]>([]);
-  const [accounts, setAccounts] = useState<any[]>([]);
+  const [accounts, setAccounts] = useState<AdminAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [showImpersonateModal, setShowImpersonateModal] = useState(false);
+  const [impersonateUserId, setImpersonateUserId] = useState<string | null>(null);
   const [filters, setFilters] = useState({
     search: '',
     accountId: '',
@@ -42,7 +45,7 @@ export const SystemUserManagement: React.FC = () => {
         setUsers(usersResponse.data);
       }
       if (accountsResponse?.success) {
-        setAccounts(accountsResponse.data || []);
+        setAccounts(accountsResponse.data?.accounts || []);
       }
     } catch (error) {
       console.error('Failed to load system data:', error);
@@ -82,29 +85,20 @@ export const SystemUserManagement: React.FC = () => {
     }
   };
 
-  const handleImpersonateUser = async (userId: string) => {
-    if (!window.confirm('Are you sure you want to impersonate this user? Your current session will be saved.')) return;
-
-    try {
-      await usersApi.impersonateUser(userId);
-      // Redirect to dashboard as impersonated user
-      window.location.href = '/dashboard';
-    } catch (error) {
-      console.error('Failed to impersonate user:', error);
-    }
+  const handleImpersonateUser = (userId: string) => {
+    setImpersonateUserId(userId);
+    setShowImpersonateModal(true);
   };
 
   const getRoleBadge = (role: string) => {
     const roleColors = {
-      owner: 'bg-theme-interactive-secondary bg-opacity-10 text-theme-interactive-secondary',
-      admin: 'bg-theme-interactive-primary bg-opacity-10 text-theme-interactive-primary',
-      manager: 'bg-theme-info bg-opacity-10 text-theme-info',
-      member: 'bg-theme-surface text-theme-secondary',
-      viewer: 'bg-theme-surface text-theme-tertiary',
+      admin: 'bg-theme-error bg-opacity-10 text-theme-error',
+      owner: 'bg-theme-success bg-opacity-10 text-theme-success',
+      member: 'bg-theme-info bg-opacity-10 text-theme-info',
     };
 
     return (
-      <span className={`text-xs px-2 py-1 rounded-full font-medium ${roleColors[role as keyof typeof roleColors] || roleColors.member}`}>
+      <span className={`text-xs px-2 py-1 rounded-full ${roleColors[role as keyof typeof roleColors] || roleColors.member}`}>
         {role.charAt(0).toUpperCase() + role.slice(1)}
       </span>
     );
@@ -131,7 +125,7 @@ export const SystemUserManagement: React.FC = () => {
       return false;
     }
     if (filters.accountId && user.account?.id !== filters.accountId) return false;
-    if (filters.role && !user.roles.includes(filters.role)) return false;
+    if (filters.role && user.role !== filters.role) return false;
     if (filters.status && user.status !== filters.status) return false;
     return true;
   });
@@ -201,7 +195,7 @@ export const SystemUserManagement: React.FC = () => {
           <div className="bg-theme-background rounded-lg p-4">
             <h3 className="text-sm font-medium text-theme-tertiary mb-1">System Admins</h3>
             <p className="text-2xl font-bold text-theme-interactive-secondary">
-              {users.filter(u => u.roles.includes('admin') || u.roles.includes('owner')).length}
+              {users.filter(u => u.role === 'admin' || u.role === 'owner').length}
             </p>
           </div>
         </div>
@@ -300,11 +294,7 @@ export const SystemUserManagement: React.FC = () => {
                     <p className="text-sm text-theme-primary">{user.account?.name || 'N/A'}</p>
                   </td>
                   <td className="py-3 px-4">
-                    <div className="flex flex-wrap gap-1">
-                      {user.roles.map(role => getRoleBadge(role)).map((badge, index) => (
-                        <span key={index}>{badge}</span>
-                      ))}
-                    </div>
+                    {getRoleBadge(user.role)}
                   </td>
                   <td className="py-3 px-4">
                     {getStatusBadge(user.status)}
@@ -344,6 +334,7 @@ export const SystemUserManagement: React.FC = () => {
                       <button
                         onClick={() => handleImpersonateUser(user.id)}
                         className="text-theme-info hover:text-theme-info-hover text-sm"
+                        title="Impersonate User"
                       >
                         Impersonate
                       </button>
@@ -408,7 +399,16 @@ export const SystemUserManagement: React.FC = () => {
                   </div>
                   <div>
                     <label className="block text-sm text-theme-secondary">User ID</label>
-                    <p className="text-theme-primary font-mono text-xs">{selectedUser.id}</p>
+                    <div className="flex items-center space-x-2">
+                      <p className="text-theme-primary font-mono text-xs break-all">{selectedUser.id}</p>
+                      <button
+                        onClick={() => navigator.clipboard.writeText(selectedUser.id)}
+                        className="text-theme-link hover:text-theme-link-hover text-xs"
+                        title="Copy User ID"
+                      >
+                        Copy
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -423,11 +423,7 @@ export const SystemUserManagement: React.FC = () => {
                   <div>
                     <label className="block text-sm text-theme-secondary">Role</label>
                     <div className="mt-1">
-                      <div className="flex flex-wrap gap-1">
-                        {selectedUser.roles.map(role => getRoleBadge(role)).map((badge, index) => (
-                          <span key={index}>{badge}</span>
-                        ))}
-                      </div>
+                      {getRoleBadge(selectedUser.role)}
                     </div>
                   </div>
                   <div>
@@ -480,6 +476,16 @@ export const SystemUserManagement: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Impersonate User Modal */}
+      <ImpersonateUserModal
+        isOpen={showImpersonateModal}
+        onClose={() => {
+          setShowImpersonateModal(false);
+          setImpersonateUserId(null);
+        }}
+        preselectedUserId={impersonateUserId || undefined}
+      />
     </div>
   );
 };

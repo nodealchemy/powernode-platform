@@ -31,10 +31,7 @@ export interface AdminUser {
     name: string;
     status: string;
   };
-  roles: Array<{
-    id: string;
-    name: string;
-  }>;
+  role: string;
 }
 
 export interface AdminAccount {
@@ -71,6 +68,15 @@ export interface SystemLog {
   metadata?: Record<string, any>;
 }
 
+export interface RateLimitingSettings {
+  api_requests_per_minute: number;
+  impersonation_attempts_per_hour: number;
+  login_attempts_per_hour: number;
+  password_reset_attempts_per_hour: number;
+  registration_attempts_per_hour: number;
+  webhook_requests_per_minute: number;
+}
+
 export interface AdminSettings {
   id: string;
   system_name: string;
@@ -88,7 +94,7 @@ export interface AdminSettings {
   allow_account_deletion: boolean;
   backup_retention_days: number;
   log_retention_days: number;
-  rate_limit_requests_per_minute: number;
+  rate_limiting: RateLimitingSettings;
   feature_flags: Record<string, boolean>;
   smtp_settings: {
     host: string;

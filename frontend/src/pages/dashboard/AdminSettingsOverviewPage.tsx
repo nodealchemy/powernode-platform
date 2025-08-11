@@ -20,115 +20,7 @@ export const AdminSettingsOverviewPage: React.FC = () => {
       setData(overviewData);
     } catch (error: any) {
       console.error('Failed to load admin overview:', error);
-      // Use mock data if API fails
-      const mockData: AdminOverviewData = {
-        metrics: {
-          total_users: 25,
-          total_accounts: 8,
-          active_accounts: 7,
-          suspended_accounts: 1,
-          cancelled_accounts: 0,
-          total_subscriptions: 8,
-          active_subscriptions: 7,
-          trial_subscriptions: 2,
-          total_revenue: 245000,
-          monthly_revenue: 18500,
-          failed_payments: 3,
-          webhook_events_today: 147,
-          system_health: 'healthy' as const,
-          uptime: 432000
-        },
-        recent_users: [
-          {
-            id: '1',
-            first_name: 'John',
-            last_name: 'Doe',
-            full_name: 'John Doe',
-            email: 'john@example.com',
-            email_verified: true,
-            last_login_at: new Date().toISOString(),
-            created_at: new Date(Date.now() - 86400000).toISOString(),
-            account: { id: '1', name: 'Acme Corp', status: 'active' },
-            roles: [{ id: '1', name: 'owner' }]
-          }
-        ],
-        recent_accounts: [
-          {
-            id: '1',
-            name: 'Acme Corp',
-            subdomain: 'acme',
-            status: 'active' as const,
-            created_at: new Date(Date.now() - 172800000).toISOString(),
-            updated_at: new Date().toISOString(),
-            users_count: 5,
-            subscription: {
-              id: '1',
-              status: 'active',
-              plan: { name: 'Pro', price_cents: 4900 },
-              current_period_end: new Date(Date.now() + 2592000000).toISOString()
-            },
-            owner: { id: '1', first_name: 'John', last_name: 'Doe', email: 'john@example.com' }
-          }
-        ],
-        recent_logs: [
-          {
-            id: '1',
-            level: 'info' as const,
-            message: 'User login successful',
-            timestamp: new Date().toISOString(),
-            source: 'authentication',
-            metadata: {}
-          }
-        ],
-        payment_gateways: {
-          stripe: {
-            connected: true,
-            environment: 'test' as const,
-            last_webhook: new Date().toISOString(),
-            webhook_status: 'healthy' as const
-          },
-          paypal: {
-            connected: false,
-            environment: 'sandbox' as const,
-            last_webhook: null,
-            webhook_status: 'failed' as const
-          }
-        },
-        settings_summary: {
-          maintenance_mode: false,
-          registration_enabled: true,
-          require_email_verification: true,
-          allow_account_deletion: false,
-          system_name: 'Powernode Platform',
-          system_email: 'system@powernode.local',
-          support_email: 'support@powernode.local',
-          trial_period_days: 14,
-          max_trial_accounts: 100,
-          payment_retry_attempts: 3,
-          webhook_timeout_seconds: 30,
-          session_timeout_minutes: 60,
-          password_min_length: 12,
-          backup_retention_days: 30,
-          log_retention_days: 90,
-          rate_limit_requests_per_minute: 60,
-          feature_flags: {
-            advanced_analytics: true,
-            beta_dashboard: false,
-            multi_currency: true
-          },
-          smtp_settings: {
-            host: 'smtp.example.com',
-            port: 587,
-            username: 'system@powernode.local',
-            use_tls: true,
-            from_address: 'noreply@powernode.local'
-          },
-          created_at: new Date(Date.now() - 2592000000).toISOString(),
-          updated_at: new Date(Date.now() - 86400000).toISOString()
-        }
-      };
-      setData(mockData);
-      console.warn('Using mock data due to API error');
+      setError(error.message || 'Failed to load admin overview data');
     } finally {
       setLoading(false);
     }
@@ -407,6 +299,108 @@ export const AdminSettingsOverviewPage: React.FC = () => {
         </div>
       </div>
 
+      {/* Rate Limiting Configuration */}
+      <div>
+        <h2 className="text-lg font-medium text-theme-primary mb-4">Rate Limiting Configuration</h2>
+        <div className="card-theme p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h3 className="text-lg font-semibold text-theme-primary flex items-center">
+                <span className="mr-2">🛡️</span>
+                Active Rate Limits
+              </h3>
+              <p className="text-sm text-theme-secondary">System-wide rate limiting settings for security and performance</p>
+            </div>
+            <div className="flex items-center space-x-2">
+              <div className="w-2 h-2 bg-theme-success rounded-full"></div>
+              <span className="text-sm text-theme-success font-medium">Active</span>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="p-4 rounded-lg border border-theme bg-theme-background-secondary">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-theme-primary">API Requests</span>
+                <div className="w-2 h-2 rounded-full bg-theme-info"></div>
+              </div>
+              <p className="text-xl font-bold text-theme-primary">
+                {settings_summary?.rate_limiting?.api_requests_per_minute || 60}
+              </p>
+              <p className="text-xs text-theme-secondary mt-1">requests per minute</p>
+            </div>
+            
+            <div className="p-4 rounded-lg border border-theme bg-theme-background-secondary">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-theme-primary">Impersonation</span>
+                <div className="w-2 h-2 rounded-full bg-theme-warning"></div>
+              </div>
+              <p className="text-xl font-bold text-theme-primary">
+                {settings_summary?.rate_limiting?.impersonation_attempts_per_hour || 5}
+              </p>
+              <p className="text-xs text-theme-secondary mt-1">attempts per hour</p>
+            </div>
+            
+            <div className="p-4 rounded-lg border border-theme bg-theme-background-secondary">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-theme-primary">Login Attempts</span>
+                <div className="w-2 h-2 rounded-full bg-theme-error"></div>
+              </div>
+              <p className="text-xl font-bold text-theme-primary">
+                {settings_summary?.rate_limiting?.login_attempts_per_hour || 10}
+              </p>
+              <p className="text-xs text-theme-secondary mt-1">attempts per hour</p>
+            </div>
+            
+            <div className="p-4 rounded-lg border border-theme bg-theme-background-secondary">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-theme-primary">Password Reset</span>
+                <div className="w-2 h-2 rounded-full bg-theme-info"></div>
+              </div>
+              <p className="text-xl font-bold text-theme-primary">
+                {settings_summary?.rate_limiting?.password_reset_attempts_per_hour || 3}
+              </p>
+              <p className="text-xs text-theme-secondary mt-1">attempts per hour</p>
+            </div>
+            
+            <div className="p-4 rounded-lg border border-theme bg-theme-background-secondary">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-theme-primary">Registration</span>
+                <div className="w-2 h-2 rounded-full bg-theme-success"></div>
+              </div>
+              <p className="text-xl font-bold text-theme-primary">
+                {settings_summary?.rate_limiting?.registration_attempts_per_hour || 5}
+              </p>
+              <p className="text-xs text-theme-secondary mt-1">attempts per hour</p>
+            </div>
+            
+            <div className="p-4 rounded-lg border border-theme bg-theme-background-secondary">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-theme-primary">Webhook Requests</span>
+                <div className="w-2 h-2 rounded-full bg-theme-success"></div>
+              </div>
+              <p className="text-xl font-bold text-theme-primary">
+                {settings_summary?.rate_limiting?.webhook_requests_per_minute || 100}
+              </p>
+              <p className="text-xs text-theme-secondary mt-1">requests per minute</p>
+            </div>
+          </div>
+          
+          <div className="mt-6 p-4 rounded-lg bg-theme-background-tertiary border border-theme">
+            <div className="flex items-start space-x-3">
+              <div className="flex-shrink-0 text-theme-info">ℹ️</div>
+              <div>
+                <h4 className="text-sm font-medium text-theme-primary">Rate Limiting Information</h4>
+                <p className="text-sm text-theme-secondary mt-1">
+                  These limits help protect the system from abuse and ensure stable performance for all users. 
+                  Limits are automatically adjusted based on the environment (development vs production). 
+                  Users who exceed these limits will receive a 429 Too Many Requests response.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Configuration Summary */}
       <div>
         <h2 className="text-lg font-medium text-theme-primary mb-4">System Configuration Summary</h2>
@@ -435,10 +429,6 @@ export const AdminSettingsOverviewPage: React.FC = () => {
               <div className="flex justify-between items-center">
                 <span className="text-sm text-theme-secondary">Session Timeout</span>
                 <span className="text-sm font-medium text-theme-primary">{settings_summary?.session_timeout_minutes || 60} min</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-theme-secondary">Rate Limit</span>
-                <span className="text-sm font-medium text-theme-primary">{settings_summary?.rate_limit_requests_per_minute || 60}/min</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm text-theme-secondary">Account Deletion</span>
@@ -624,11 +614,9 @@ export const AdminSettingsOverviewPage: React.FC = () => {
                         <span className="text-xs text-theme-tertiary">
                           {user.account.name}
                         </span>
-                        {user.roles.map(role => (
-                          <span key={role.id} className="text-xs bg-theme-background-tertiary text-theme-secondary px-2 py-0.5 rounded">
-                            {role.name}
-                          </span>
-                        ))}
+                        <span className="text-xs bg-theme-background-tertiary text-theme-secondary px-2 py-0.5 rounded">
+                          {user.role}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -807,55 +795,55 @@ export const AdminSettingsOverviewPage: React.FC = () => {
               Critical System Settings
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className={`p-4 rounded-lg border ${settings_summary.maintenance_mode ? 'bg-theme-error border-theme-error' : 'bg-theme-success border-theme-success'}`}>
+              <div className={`p-4 rounded-lg border ${settings_summary?.maintenance_mode ? 'bg-theme-error border-theme-error' : 'bg-theme-success border-theme-success'}`}>
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-medium text-theme-primary">Maintenance Mode</span>
-                  <div className={`w-2 h-2 rounded-full ${settings_summary.maintenance_mode ? 'bg-theme-error' : 'bg-theme-success'}`} />
+                  <div className={`w-2 h-2 rounded-full ${settings_summary?.maintenance_mode ? 'bg-theme-error' : 'bg-theme-success'}`} />
                 </div>
-                <p className={`text-lg font-bold ${settings_summary.maintenance_mode ? 'text-theme-error' : 'text-theme-success'}`}>
-                  {settings_summary.maintenance_mode ? 'ACTIVE' : 'Normal Operation'}
+                <p className={`text-lg font-bold ${settings_summary?.maintenance_mode ? 'text-theme-error' : 'text-theme-success'}`}>
+                  {settings_summary?.maintenance_mode ? 'ACTIVE' : 'Normal Operation'}
                 </p>
                 <p className="text-xs text-theme-secondary mt-1">
-                  {settings_summary.maintenance_mode ? 'System unavailable to users' : 'System fully operational'}
+                  {settings_summary?.maintenance_mode ? 'System unavailable to users' : 'System fully operational'}
                 </p>
               </div>
               
-              <div className={`p-4 rounded-lg border ${!settings_summary.registration_enabled ? 'bg-theme-warning border-theme-warning' : 'bg-theme-success border-theme-success'}`}>
+              <div className={`p-4 rounded-lg border ${!settings_summary?.registration_enabled ? 'bg-theme-warning border-theme-warning' : 'bg-theme-success border-theme-success'}`}>
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-medium text-theme-primary">User Registration</span>
-                  <div className={`w-2 h-2 rounded-full ${settings_summary.registration_enabled ? 'bg-theme-success' : 'bg-theme-warning'}`} />
+                  <div className={`w-2 h-2 rounded-full ${settings_summary?.registration_enabled ? 'bg-theme-success' : 'bg-theme-warning'}`} />
                 </div>
-                <p className={`text-lg font-bold ${settings_summary.registration_enabled ? 'text-green-700 dark:text-green-400' : 'text-orange-700 dark:text-orange-400'}`}>
-                  {settings_summary.registration_enabled ? 'Open' : 'Restricted'}
+                <p className={`text-lg font-bold ${settings_summary?.registration_enabled ? 'text-green-700 dark:text-green-400' : 'text-orange-700 dark:text-orange-400'}`}>
+                  {settings_summary?.registration_enabled ? 'Open' : 'Restricted'}
                 </p>
                 <p className="text-xs text-theme-secondary mt-1">
-                  {settings_summary.registration_enabled ? 'New users can register' : 'Registration disabled'}
+                  {settings_summary?.registration_enabled ? 'New users can register' : 'Registration disabled'}
                 </p>
               </div>
               
-              <div className={`p-4 rounded-lg border ${!settings_summary.require_email_verification ? 'bg-theme-warning border-theme-warning' : 'bg-theme-success border-theme-success'}`}>
+              <div className={`p-4 rounded-lg border ${!settings_summary?.require_email_verification ? 'bg-theme-warning border-theme-warning' : 'bg-theme-success border-theme-success'}`}>
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-medium text-theme-primary">Email Verification</span>
-                  <div className={`w-2 h-2 rounded-full ${settings_summary.require_email_verification ? 'bg-theme-success' : 'bg-theme-warning'}`} />
+                  <div className={`w-2 h-2 rounded-full ${settings_summary?.require_email_verification ? 'bg-theme-success' : 'bg-theme-warning'}`} />
                 </div>
-                <p className={`text-lg font-bold ${settings_summary.require_email_verification ? 'text-green-700 dark:text-green-400' : 'text-yellow-700 dark:text-yellow-400'}`}>
-                  {settings_summary.require_email_verification ? 'Required' : 'Optional'}
+                <p className={`text-lg font-bold ${settings_summary?.require_email_verification ? 'text-green-700 dark:text-green-400' : 'text-yellow-700 dark:text-yellow-400'}`}>
+                  {settings_summary?.require_email_verification ? 'Required' : 'Optional'}
                 </p>
                 <p className="text-xs text-theme-secondary mt-1">
-                  {settings_summary.require_email_verification ? 'Users must verify email' : 'Email verification optional'}
+                  {settings_summary?.require_email_verification ? 'Users must verify email' : 'Email verification optional'}
                 </p>
               </div>
               
-              <div className={`p-4 rounded-lg border ${!settings_summary.allow_account_deletion ? 'bg-theme-info border-theme-info' : 'bg-theme-warning border-theme-warning'}`}>
+              <div className={`p-4 rounded-lg border ${!settings_summary?.allow_account_deletion ? 'bg-theme-info border-theme-info' : 'bg-theme-warning border-theme-warning'}`}>
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-medium text-theme-primary">Account Deletion</span>
-                  <div className={`w-2 h-2 rounded-full ${settings_summary.allow_account_deletion ? 'bg-theme-warning' : 'bg-theme-info'}`} />
+                  <div className={`w-2 h-2 rounded-full ${settings_summary?.allow_account_deletion ? 'bg-theme-warning' : 'bg-theme-info'}`} />
                 </div>
-                <p className={`text-lg font-bold ${settings_summary.allow_account_deletion ? 'text-orange-700 dark:text-orange-400' : 'text-blue-700 dark:text-blue-400'}`}>
-                  {settings_summary.allow_account_deletion ? 'Allowed' : 'Protected'}
+                <p className={`text-lg font-bold ${settings_summary?.allow_account_deletion ? 'text-orange-700 dark:text-orange-400' : 'text-blue-700 dark:text-blue-400'}`}>
+                  {settings_summary?.allow_account_deletion ? 'Allowed' : 'Protected'}
                 </p>
                 <p className="text-xs text-theme-secondary mt-1">
-                  {settings_summary.allow_account_deletion ? 'Users can delete accounts' : 'Account deletion restricted'}
+                  {settings_summary?.allow_account_deletion ? 'Users can delete accounts' : 'Account deletion restricted'}
                 </p>
               </div>
             </div>
@@ -874,7 +862,7 @@ export const AdminSettingsOverviewPage: React.FC = () => {
                   <div className="flex justify-between items-start">
                     <div>
                       <p className="font-medium text-theme-primary">System Identity</p>
-                      <p className="text-sm text-theme-secondary">{settings_summary.system_name || 'Powernode Platform'}</p>
+                      <p className="text-sm text-theme-secondary">{settings_summary?.system_name || 'Powernode Platform'}</p>
                     </div>
                     <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400 px-2 py-1 rounded text-xs font-medium">Active</span>
                   </div>
@@ -884,15 +872,15 @@ export const AdminSettingsOverviewPage: React.FC = () => {
                   <div className="flex justify-between items-start">
                     <div>
                       <p className="font-medium text-theme-primary">Contact Configuration</p>
-                      <p className="text-sm text-theme-secondary">System: {settings_summary.system_email || 'Not configured'}</p>
-                      <p className="text-sm text-theme-secondary">Support: {settings_summary.support_email || 'Not configured'}</p>
+                      <p className="text-sm text-theme-secondary">System: {settings_summary?.system_email || 'Not configured'}</p>
+                      <p className="text-sm text-theme-secondary">Support: {settings_summary?.support_email || 'Not configured'}</p>
                     </div>
                     <span className={`px-2 py-1 rounded text-xs font-medium ${
-                      settings_summary.system_email && settings_summary.support_email 
+                      settings_summary?.system_email && settings_summary?.support_email 
                         ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400' 
                         : 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-400'
                     }`}>
-                      {settings_summary.system_email && settings_summary.support_email ? 'Complete' : 'Partial'}
+                      {settings_summary?.system_email && settings_summary?.support_email ? 'Complete' : 'Partial'}
                     </span>
                   </div>
                 </div>
@@ -901,8 +889,8 @@ export const AdminSettingsOverviewPage: React.FC = () => {
                   <div className="flex justify-between items-start">
                     <div>
                       <p className="font-medium text-theme-primary">Data Retention</p>
-                      <p className="text-sm text-theme-secondary">Backups: {settings_summary.backup_retention_days || 30} days</p>
-                      <p className="text-sm text-theme-secondary">Logs: {settings_summary.log_retention_days || 90} days</p>
+                      <p className="text-sm text-theme-secondary">Backups: {settings_summary?.backup_retention_days || 30} days</p>
+                      <p className="text-sm text-theme-secondary">Logs: {settings_summary?.log_retention_days || 90} days</p>
                     </div>
                     <span className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400 px-2 py-1 rounded text-xs font-medium">Configured</span>
                   </div>
@@ -921,7 +909,7 @@ export const AdminSettingsOverviewPage: React.FC = () => {
                   <div className="flex justify-between items-start">
                     <div>
                       <p className="font-medium text-theme-primary">Session Management</p>
-                      <p className="text-sm text-theme-secondary">Timeout: {settings_summary.session_timeout_minutes || 60} minutes</p>
+                      <p className="text-sm text-theme-secondary">Timeout: {settings_summary?.session_timeout_minutes || 60} minutes</p>
                       <p className="text-sm text-theme-secondary">Auto-logout when inactive</p>
                     </div>
                     <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400 px-2 py-1 rounded text-xs font-medium">Active</span>
@@ -932,7 +920,7 @@ export const AdminSettingsOverviewPage: React.FC = () => {
                   <div className="flex justify-between items-start">
                     <div>
                       <p className="font-medium text-theme-primary">Password Policy</p>
-                      <p className="text-sm text-theme-secondary">Min Length: {settings_summary.password_min_length || 12} characters</p>
+                      <p className="text-sm text-theme-secondary">Min Length: {settings_summary?.password_min_length || 12} characters</p>
                       <p className="text-sm text-theme-secondary">Complexity requirements enforced</p>
                     </div>
                     <span className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400 px-2 py-1 rounded text-xs font-medium">Enforced</span>
@@ -943,7 +931,7 @@ export const AdminSettingsOverviewPage: React.FC = () => {
                   <div className="flex justify-between items-start">
                     <div>
                       <p className="font-medium text-theme-primary">Rate Limiting</p>
-                      <p className="text-sm text-theme-secondary">API: {settings_summary.rate_limit_requests_per_minute || 60} requests/minute</p>
+                      <p className="text-sm text-theme-secondary">API: {settings_summary?.rate_limiting?.api_requests_per_minute || 60} requests/minute</p>
                       <p className="text-sm text-theme-secondary">DDoS protection active</p>
                     </div>
                     <span className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400 px-2 py-1 rounded text-xs font-medium">Protected</span>
@@ -966,8 +954,8 @@ export const AdminSettingsOverviewPage: React.FC = () => {
                   <div className="flex justify-between items-start">
                     <div>
                       <p className="font-medium text-theme-primary">Trial Configuration</p>
-                      <p className="text-sm text-theme-secondary">Period: {settings_summary.trial_period_days || 14} days</p>
-                      <p className="text-sm text-theme-secondary">Max Accounts: {settings_summary.max_trial_accounts || 'Unlimited'}</p>
+                      <p className="text-sm text-theme-secondary">Period: {settings_summary?.trial_period_days || 14} days</p>
+                      <p className="text-sm text-theme-secondary">Max Accounts: {settings_summary?.max_trial_accounts || 'Unlimited'}</p>
                     </div>
                     <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400 px-2 py-1 rounded text-xs font-medium">Active</span>
                   </div>
@@ -977,7 +965,7 @@ export const AdminSettingsOverviewPage: React.FC = () => {
                   <div className="flex justify-between items-start">
                     <div>
                       <p className="font-medium text-theme-primary">Payment Processing</p>
-                      <p className="text-sm text-theme-secondary">Retry Attempts: {settings_summary.payment_retry_attempts || 3}</p>
+                      <p className="text-sm text-theme-secondary">Retry Attempts: {settings_summary?.payment_retry_attempts || 3}</p>
                       <p className="text-sm text-theme-secondary">Automated dunning process</p>
                     </div>
                     <span className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400 px-2 py-1 rounded text-xs font-medium">Automated</span>
@@ -988,7 +976,7 @@ export const AdminSettingsOverviewPage: React.FC = () => {
                   <div className="flex justify-between items-start">
                     <div>
                       <p className="font-medium text-theme-primary">Webhook Configuration</p>
-                      <p className="text-sm text-theme-secondary">Timeout: {settings_summary.webhook_timeout_seconds || 30} seconds</p>
+                      <p className="text-sm text-theme-secondary">Timeout: {settings_summary?.webhook_timeout_seconds || 30} seconds</p>
                       <p className="text-sm text-theme-secondary">Real-time payment events</p>
                     </div>
                     <span className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400 px-2 py-1 rounded text-xs font-medium">Configured</span>
@@ -1004,13 +992,13 @@ export const AdminSettingsOverviewPage: React.FC = () => {
                 Features & Communication
               </h3>
               <div className="space-y-4">
-                {settings_summary.feature_flags && Object.keys(settings_summary.feature_flags).length > 0 && (
+                {settings_summary?.feature_flags && Object.keys(settings_summary?.feature_flags || {}).length > 0 && (
                   <div className="border-b border-theme-light pb-3">
                     <div className="flex justify-between items-start">
                       <div>
                         <p className="font-medium text-theme-primary">Feature Flags</p>
                         <div className="flex flex-wrap gap-1 mt-1">
-                          {Object.entries(settings_summary.feature_flags).map(([flag, enabled]) => (
+                          {Object.entries(settings_summary?.feature_flags || {}).map(([flag, enabled]) => (
                             <span key={flag} className={`px-2 py-1 rounded text-xs font-medium ${
                               enabled 
                                 ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400' 
@@ -1050,9 +1038,9 @@ export const AdminSettingsOverviewPage: React.FC = () => {
           <div className="card-theme p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4 text-sm text-theme-secondary">
-                <span>Settings last updated: {settings_summary.updated_at ? adminSettingsApi.formatRelativeTime(settings_summary.updated_at) : 'Never'}</span>
+                <span>Settings last updated: {settings_summary?.updated_at ? adminSettingsApi.formatRelativeTime(settings_summary.updated_at) : 'Never'}</span>
                 <span>•</span>
-                <span>Configuration created: {settings_summary.created_at ? adminSettingsApi.formatRelativeTime(settings_summary.created_at) : 'Unknown'}</span>
+                <span>Configuration created: {settings_summary?.created_at ? adminSettingsApi.formatRelativeTime(settings_summary.created_at) : 'Unknown'}</span>
               </div>
               <div className="flex items-center space-x-2">
                 <div className="w-2 h-2 bg-green-500 rounded-full"></div>

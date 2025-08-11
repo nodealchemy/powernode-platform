@@ -1,12 +1,13 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { authAPI } from '../../services/authAPI';
+import { impersonationApi } from '../../services/impersonationApi';
 
 export interface User {
   id: string;
   email: string;
   firstName: string;
   lastName: string;
-  roles: string[];
+  role: string;
   status: string;
   emailVerified: boolean;
   account: {
@@ -14,6 +15,15 @@ export interface User {
     name: string;
     status: string;
   };
+}
+
+export interface ImpersonationState {
+  isImpersonating: boolean;
+  originalUser: User | null;
+  impersonatedUser: User | null;
+  sessionId: string | null;
+  startedAt: string | null;
+  expiresAt: string | null;
 }
 
 interface AuthState {
@@ -26,6 +36,7 @@ interface AuthState {
   resendingVerification: boolean;
   resendVerificationSuccess: boolean;
   resendCooldown: number;
+  impersonation: ImpersonationState;
 }
 
 const getInitialState = (): AuthState => {
@@ -42,6 +53,14 @@ const getInitialState = (): AuthState => {
     resendingVerification: false,
     resendVerificationSuccess: false,
     resendCooldown: 0,
+    impersonation: {
+      isImpersonating: false,
+      originalUser: null,
+      impersonatedUser: null,
+      sessionId: null,
+      startedAt: null,
+      expiresAt: null,
+    },
   };
 };
 
@@ -140,6 +159,76 @@ export const resendVerificationEmail = createAsyncThunk(
   }
 );
 
+// Impersonation async thunks
+export const startImpersonation = createAsyncThunk(
+  'auth/startImpersonation',
+  async ({ user_id, reason }: { user_id: string; reason?: string }, { getState, rejectWithValue }) => {
+    try {
+      const state = getState() as { auth: AuthState };
+      const originalUser = state.auth.user;
+      
+      const response = await impersonationApi.startImpersonation({ user_id, reason });
+      
+      if (!response.success || !response.data) {
+        throw new Error(response.error || 'Failed to start impersonation');
+      }
+      
+      return {
+        ...response.data,
+        originalUser,
+      };
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to start impersonation');
+    }
+  }
+);
+
+export const stopImpersonation = createAsyncThunk(
+  'auth/stopImpersonation',
+  async (_, { getState, rejectWithValue }) => {
+    try {
+      const state = getState() as { auth: AuthState };
+      const sessionToken = localStorage.getItem('impersonationToken') || '';
+      
+      if (!sessionToken) {
+        throw new Error('No active impersonation session');
+      }
+      
+      const response = await impersonationApi.stopImpersonation(sessionToken);
+      
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to stop impersonation');
+      }
+      
+      return response.data;
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to stop impersonation');
+    }
+  }
+);
+
+export const checkImpersonationStatus = createAsyncThunk(
+  'auth/checkImpersonationStatus',
+  async (_, { rejectWithValue }) => {
+    try {
+      const impersonationToken = localStorage.getItem('impersonationToken');
+      if (!impersonationToken) {
+        return null;
+      }
+      
+      const response = await impersonationApi.validateToken(impersonationToken);
+      
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to validate impersonation token');
+      }
+      
+      return response.data;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.error || 'Failed to get impersonation session');
+    }
+  }
+);
+
 const authSlice = createSlice({
   name: 'auth',
   initialState,
@@ -156,6 +245,14 @@ const authSlice = createSlice({
       state.resendingVerification = false;
       state.resendVerificationSuccess = false;
       state.resendCooldown = 0;
+      state.impersonation = {
+        isImpersonating: false,
+        originalUser: null,
+        impersonatedUser: null,
+        sessionId: null,
+        startedAt: null,
+        expiresAt: null,
+      };
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
     },
@@ -166,6 +263,14 @@ const authSlice = createSlice({
       state.refreshToken = null;
       state.isAuthenticated = false;
       state.error = 'Session expired. Please log in again.';
+      state.impersonation = {
+        isImpersonating: false,
+        originalUser: null,
+        impersonatedUser: null,
+        sessionId: null,
+        startedAt: null,
+        expiresAt: null,
+      };
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
     },
@@ -282,6 +387,123 @@ const authSlice = createSlice({
       .addCase(resendVerificationEmail.rejected, (state, action) => {
         state.resendingVerification = false;
         state.error = action.payload as string;
+      })
+      
+      // Start impersonation
+      .addCase(startImpersonation.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(startImpersonation.fulfilled, (state, action) => {
+        state.isLoading = false;
+        
+        // Convert target_user to User format
+        const targetUser = {
+          id: action.payload.target_user.id,
+          email: action.payload.target_user.email,
+          firstName: action.payload.target_user.full_name.split(' ')[0] || '',
+          lastName: action.payload.target_user.full_name.split(' ').slice(1).join(' ') || '',
+          role: action.payload.target_user.role,
+          status: action.payload.target_user.status,
+          emailVerified: true, // Assuming verified users can be impersonated
+          account: state.user?.account || { id: '', name: '', status: '' }
+        };
+        
+        state.user = targetUser;
+        state.impersonation = {
+          isImpersonating: true,
+          originalUser: action.payload.originalUser,
+          impersonatedUser: targetUser,
+          sessionId: action.payload.token, // Using token as session ID
+          startedAt: new Date().toISOString(),
+          expiresAt: action.payload.expires_at,
+        };
+        
+        // Store impersonation token separately
+        localStorage.setItem('impersonationToken', action.payload.token);
+      })
+      .addCase(startImpersonation.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+      })
+      
+      // Stop impersonation
+      .addCase(stopImpersonation.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(stopImpersonation.fulfilled, (state, action) => {
+        state.isLoading = false;
+        
+        // Restore original user
+        state.user = state.impersonation.originalUser;
+        state.impersonation = {
+          isImpersonating: false,
+          originalUser: null,
+          impersonatedUser: null,
+          sessionId: null,
+          startedAt: null,
+          expiresAt: null,
+        };
+        
+        // Remove impersonation token
+        localStorage.removeItem('impersonationToken');
+      })
+      .addCase(stopImpersonation.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+      })
+      
+      // Check impersonation status
+      .addCase(checkImpersonationStatus.fulfilled, (state, action) => {
+        if (action.payload && action.payload.valid && action.payload.session) {
+          const session = action.payload.session;
+          
+          // Convert impersonated_user to User format
+          const impersonatedUser = {
+            id: session.impersonated_user.id,
+            email: session.impersonated_user.email,
+            firstName: session.impersonated_user.full_name.split(' ')[0] || '',
+            lastName: session.impersonated_user.full_name.split(' ').slice(1).join(' ') || '',
+            role: session.impersonated_user.role,
+            status: session.impersonated_user.status,
+            emailVerified: true,
+            account: state.user?.account || { id: '', name: '', status: '' }
+          };
+
+          // Convert impersonator to User format  
+          const impersonator = {
+            id: session.impersonator.id,
+            email: session.impersonator.email,
+            firstName: session.impersonator.full_name.split(' ')[0] || '',
+            lastName: session.impersonator.full_name.split(' ').slice(1).join(' ') || '',
+            role: session.impersonator.role,
+            status: session.impersonator.status,
+            emailVerified: true,
+            account: state.user?.account || { id: '', name: '', status: '' }
+          };
+          
+          state.user = impersonatedUser;
+          state.impersonation = {
+            isImpersonating: true,
+            originalUser: impersonator,
+            impersonatedUser: impersonatedUser,
+            sessionId: session.session_token,
+            startedAt: session.started_at,
+            expiresAt: action.payload.expires_at || null,
+          };
+        } else {
+          // Clear invalid impersonation state
+          state.impersonation = {
+            isImpersonating: false,
+            originalUser: null,
+            impersonatedUser: null,
+            sessionId: null,
+            startedAt: null,
+            expiresAt: null,
+          };
+          localStorage.removeItem('impersonationToken');
+        }
       });
   },
 });

@@ -423,13 +423,37 @@ Before any component is considered complete:
 - **Job Structure**: Jobs in `./worker/app/jobs/` directory with API service integration
 - **Error Handling**: Failed jobs retry with exponential backoff, errors logged and reported via API
 
+#### **MANDATORY: Service Delegation Architecture**
+- **ALL COMPLEX SERVICES MUST DELEGATE TO WORKER SERVICE**
+- **Backend Services Role**: Simple synchronous operations only (calculations, validations, formatting)
+- **Worker Services Role**: Complex operations (PDF generation, analytics calculations, billing processing, payment handling, email delivery, report generation)
+- **Delegation Pattern**: Backend services enqueue jobs in worker service via `WorkerJobService`
+- **Service Migration**: All existing services migrated to use worker delegation:
+  - `BillingService` → `BillingWorkerService` 
+  - `PdfReportService` → `PdfReportWorkerService`
+  - `RevenueAnalyticsService` → `AnalyticsWorkerService`
+  - `PaymentProcessingService` → Integrated with `PaypalService` in worker
+- **Prohibited**: Creating new complex processing logic in backend services
+- **Required**: All CPU-intensive, I/O-heavy, or long-running operations must be performed by worker service
+
+#### **SERVICE DEVELOPMENT RULES**
+1. **Backend Services**: Only for immediate data needs, simple calculations, formatting, validation
+2. **Worker Services**: All complex business logic, external API calls, file operations, calculations requiring database aggregations
+3. **New Features**: Must evaluate if complexity requires worker delegation (default: YES for any operation taking >100ms)
+4. **Email/Notifications**: MUST be handled by worker service only
+5. **Reporting/Analytics**: MUST be handled by worker service only  
+6. **Payment Processing**: MUST be handled by worker service only
+7. **File Generation**: MUST be handled by worker service only
+
 #### **Job Development Workflow**
 1. **Creating Jobs**: Create job classes in `./worker/app/jobs/` directory (NOT in backend)
-2. **Enqueuing Jobs**: Backend controllers call `SomeJob.perform_later(params)` to enqueue
-3. **Job Implementation**: Jobs use `BackendApiClient` service for all data operations
-4. **Testing**: Jobs tested independently with API mocking, not database fixtures
-5. **Deployment**: Worker service deployed separately from Rails backend
-6. **Monitoring**: Use Sidekiq web interface at `http://localhost:4567/sidekiq` for job monitoring
+2. **Creating Services**: Create worker services in `./worker/app/services/` directory (NOT in backend)
+3. **Enqueuing Jobs**: Backend controllers call `WorkerJobService` methods to enqueue
+4. **Job Implementation**: Jobs use `BackendApiClient` service for all data operations
+5. **Service Implementation**: Services inherit from `BaseWorkerService` for API integration
+6. **Testing**: Jobs and services tested independently with API mocking, not database fixtures
+7. **Deployment**: Worker service deployed separately from Rails backend
+8. **Monitoring**: Use Sidekiq web interface at `http://localhost:4567/sidekiq` for job monitoring
 - **Web Interface Access**: Available at `http://localhost:4567` and `http://[HOST_IP]:4567` for external access
 - **Job Processing**: Sidekiq workers make authenticated API calls to the main Rails 8 backend for all data operations
 - **Service Authentication**: Dedicated service-to-service authentication mechanism using secure tokens for worker-to-backend communication

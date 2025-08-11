@@ -27,7 +27,7 @@ const createMockStore = (initialAuthState = {}) => {
           email: 'test@example.com',
           firstName: 'John',
           lastName: 'Doe',
-          roles: ['admin'],
+          role: 'admin',
           status: 'active',
           emailVerified: false,
           account: {
@@ -44,6 +44,14 @@ const createMockStore = (initialAuthState = {}) => {
         resendingVerification: false,
         resendVerificationSuccess: false,
         resendCooldown: 0,
+        impersonation: {
+          isImpersonating: false,
+          originalUser: null,
+          impersonatedUser: null,
+          sessionId: null,
+          startedAt: null,
+          expiresAt: null,
+        },
         ...initialAuthState,
       },
       ui: {

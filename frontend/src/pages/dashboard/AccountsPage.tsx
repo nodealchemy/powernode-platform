@@ -71,7 +71,7 @@ const AccountsPage: React.FC<AccountsPageProps> = () => {
       }
     } catch (err) {
       console.error('Error loading accounts:', err);
-      setError('Using mock data - API connection failed. Some features may be limited.');
+      setError('Failed to load accounts. Please check your connection and try again.');
     } finally {
       setLoading(false);
     }

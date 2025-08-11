@@ -25,6 +25,7 @@ import { ResetPasswordPage } from './pages/auth/ResetPasswordPage';
 import { VerifyEmailPage } from './pages/auth/VerifyEmailPage';
 import { UnauthorizedPage } from './pages/auth/UnauthorizedPage';
 import { WelcomePage } from './pages/WelcomePage';
+import { AcceptInvitationPage } from './pages/auth/AcceptInvitationPage';
 
 import './App.css';
 import './styles/themes.css';
@@ -174,6 +175,14 @@ const AppContent: React.FC = () => {
             element={
               <PublicRoute>
                 <ResetPasswordPage />
+              </PublicRoute>
+            }
+          />
+          <Route
+            path="/accept-invitation/:token"
+            element={
+              <PublicRoute>
+                <AcceptInvitationPage />
               </PublicRoute>
             }
           />

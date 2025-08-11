@@ -1,9 +1,13 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { TabNavigation, MobileTabNavigation } from '../../components/ui/TabNavigation';
 import { Breadcrumb } from '../../components/ui/Breadcrumb';
 import { TeamMembersManagement } from '../../components/account/TeamMembersManagement';
 import { DelegationsManagement } from '../../components/delegations/DelegationsManagement';
+import { InviteTeamMemberModal } from '../../components/account/InviteTeamMemberModal';
+import { invitationsApi, Invitation } from '../../services/invitationsApi';
+import { useSelector } from 'react-redux';
+import { RootState } from '../../store';
 
 const tabs = [
   { id: 'profile', label: 'Profile', path: '/dashboard/account/profile', icon: '👤' },
@@ -117,7 +121,77 @@ const ProfilePage: React.FC = () => {
 
 // Team Page - Combines Users and Invitations
 const TeamPage: React.FC = () => {
-  const [activeView, setActiveView] = React.useState<'members' | 'invitations'>('members');
+  const { user: currentUser } = useSelector((state: RootState) => state.auth);
+  const [activeView, setActiveView] = useState<'members' | 'invitations'>('members');
+  const [invitations, setInvitations] = useState<Invitation[]>([]);
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [loading, setLoading] = useState(false);
+  
+  const loadInvitationsCallback = useCallback(async () => {
+    if (!currentUser?.account?.id) return;
+    
+    setLoading(true);
+    try {
+      const response = await invitationsApi.getAccountInvitations(currentUser.account.id);
+      if (response.success) {
+        setInvitations(response.data);
+      }
+    } catch (error) {
+      console.error('Failed to load invitations:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [currentUser?.account?.id]);
+
+  useEffect(() => {
+    loadInvitationsCallback();
+  }, [loadInvitationsCallback]);
+
+  const loadInvitations = async () => {
+    if (!currentUser?.account?.id) return;
+    
+    setLoading(true);
+    try {
+      const response = await invitationsApi.getAccountInvitations(currentUser.account.id);
+      if (response.success) {
+        setInvitations(response.data);
+      }
+    } catch (error) {
+      console.error('Failed to load invitations:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleInviteSent = () => {
+    loadInvitations();
+  };
+
+  const handleResendInvitation = async (invitationId: string) => {
+    try {
+      const response = await invitationsApi.resendInvitation(invitationId);
+      if (response.success) {
+        loadInvitations();
+      }
+    } catch (error) {
+      console.error('Failed to resend invitation:', error);
+    }
+  };
+
+  const handleCancelInvitation = async (invitationId: string) => {
+    if (!window.confirm('Are you sure you want to cancel this invitation?')) return;
+    
+    try {
+      const response = await invitationsApi.cancelInvitation(invitationId);
+      if (response.success) {
+        loadInvitations();
+      }
+    } catch (error) {
+      console.error('Failed to cancel invitation:', error);
+    }
+  };
+
+  const pendingInvitations = invitations.filter(inv => inv.status === 'pending');
 
   return (
     <div className="space-y-6">
@@ -128,10 +202,10 @@ const TeamPage: React.FC = () => {
             <p className="text-theme-secondary mt-1">Manage team members and invitations</p>
           </div>
           <div className="flex space-x-3">
-            <button className="btn-theme btn-theme-secondary">
-              Import Users
-            </button>
-            <button className="btn-theme btn-theme-primary">
+            <button 
+              className="btn-theme btn-theme-primary"
+              onClick={() => setShowInviteModal(true)}
+            >
               Invite Member
             </button>
           </div>
@@ -148,7 +222,6 @@ const TeamPage: React.FC = () => {
             }`}
           >
             Team Members
-            <span className="ml-2 bg-theme-surface px-2 py-0.5 rounded-full text-xs">5</span>
           </button>
           <button
             onClick={() => setActiveView('invitations')}
@@ -159,12 +232,32 @@ const TeamPage: React.FC = () => {
             }`}
           >
             Pending Invitations
-            <span className="ml-2 bg-theme-warning bg-opacity-10 text-theme-warning px-2 py-0.5 rounded-full text-xs">2</span>
+            {pendingInvitations.length > 0 && (
+              <span className="ml-2 bg-theme-warning bg-opacity-10 text-theme-warning px-2 py-0.5 rounded-full text-xs">
+                {pendingInvitations.length}
+              </span>
+            )}
           </button>
         </div>
 
-        {activeView === 'members' ? <TeamMembersManagement /> : <InvitationsSection />}
+        {activeView === 'members' ? (
+          <TeamMembersManagement />
+        ) : (
+          <InvitationsSection 
+            invitations={pendingInvitations}
+            loading={loading}
+            onResend={handleResendInvitation}
+            onCancel={handleCancelInvitation}
+          />
+        )}
       </div>
+
+      <InviteTeamMemberModal
+        isOpen={showInviteModal}
+        onClose={() => setShowInviteModal(false)}
+        onInviteSent={handleInviteSent}
+        accountId={currentUser?.account?.id}
+      />
     </div>
   );
 };
@@ -376,48 +469,100 @@ const PreferencesPage: React.FC = () => {
 };
 
 // Invitations Section (for Team page)
-const InvitationsSection: React.FC = () => {
+interface InvitationsSectionProps {
+  invitations: Invitation[];
+  loading: boolean;
+  onResend: (id: string) => void;
+  onCancel: (id: string) => void;
+}
+
+const InvitationsSection: React.FC<InvitationsSectionProps> = ({
+  invitations,
+  loading,
+  onResend,
+  onCancel
+}) => {
+  const formatTimeAgo = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffTime = Math.abs(now.getTime() - date.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 1) return '1 day ago';
+    if (diffDays < 7) return `${diffDays} days ago`;
+    if (diffDays < 30) return `${Math.ceil(diffDays / 7)} weeks ago`;
+    return `${Math.ceil(diffDays / 30)} months ago`;
+  };
+
+  const getDaysUntilExpiry = (expiryString: string) => {
+    const expiryDate = new Date(expiryString);
+    const now = new Date();
+    const diffTime = expiryDate.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays <= 0) return 'Expired';
+    if (diffDays === 1) return 'Expires in 1 day';
+    return `Expires in ${diffDays} days`;
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <div className="animate-spin h-6 w-6 border-2 border-theme-interactive-primary border-t-transparent rounded-full mr-3"></div>
+        <span className="text-theme-secondary">Loading invitations...</span>
+      </div>
+    );
+  }
+
+  if (invitations.length === 0) {
+    return (
+      <div className="text-center py-12">
+        <div className="text-4xl mb-4">📧</div>
+        <h3 className="text-lg font-medium text-theme-primary mb-2">No pending invitations</h3>
+        <p className="text-theme-secondary mb-6">
+          When you invite team members, they'll appear here until they accept or the invitation expires.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
-      <div className="bg-theme-background rounded-lg p-4 border border-theme">
-        <div className="flex items-center justify-between mb-3">
-          <div>
-            <h4 className="font-medium text-theme-primary">sarah.johnson@example.com</h4>
-            <p className="text-sm text-theme-secondary">Invited as Developer • Sent 2 days ago</p>
+      {invitations.map((invitation) => (
+        <div key={invitation.id} className="bg-theme-background rounded-lg p-4 border border-theme">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h4 className="font-medium text-theme-primary">{invitation.email}</h4>
+              <p className="text-sm text-theme-secondary">
+                Invited as {invitation.role} • Sent {formatTimeAgo(invitation.invited_at)}
+              </p>
+            </div>
+            <div className="flex items-center space-x-2">
+              <button 
+                className="text-theme-link hover:text-theme-link-hover text-sm"
+                onClick={() => onResend(invitation.id)}
+              >
+                Resend
+              </button>
+              <button 
+                className="text-theme-error hover:text-theme-error-hover text-sm"
+                onClick={() => onCancel(invitation.id)}
+              >
+                Cancel
+              </button>
+            </div>
           </div>
-          <div className="flex items-center space-x-2">
-            <button className="text-theme-link hover:text-theme-link-hover text-sm">
-              Resend
-            </button>
-            <button className="text-theme-error hover:text-theme-error-hover text-sm">
-              Cancel
-            </button>
+          <div className={`text-xs ${
+            getDaysUntilExpiry(invitation.expires_at).includes('Expired')
+              ? 'text-theme-error'
+              : getDaysUntilExpiry(invitation.expires_at).includes('1 day')
+              ? 'text-theme-warning'
+              : 'text-theme-tertiary'
+          }`}>
+            {getDaysUntilExpiry(invitation.expires_at)}
           </div>
         </div>
-        <div className="text-xs text-theme-tertiary">
-          Expires in 5 days
-        </div>
-      </div>
-      
-      <div className="bg-theme-background rounded-lg p-4 border border-theme">
-        <div className="flex items-center justify-between mb-3">
-          <div>
-            <h4 className="font-medium text-theme-primary">mike.chen@example.com</h4>
-            <p className="text-sm text-theme-secondary">Invited as Admin • Sent 5 days ago</p>
-          </div>
-          <div className="flex items-center space-x-2">
-            <button className="text-theme-link hover:text-theme-link-hover text-sm">
-              Resend
-            </button>
-            <button className="text-theme-error hover:text-theme-error-hover text-sm">
-              Cancel
-            </button>
-          </div>
-        </div>
-        <div className="text-xs text-theme-tertiary">
-          Expires in 2 days
-        </div>
-      </div>
+      ))}
     </div>
   );
 };

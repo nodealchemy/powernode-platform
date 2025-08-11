@@ -32,9 +32,9 @@ export const PERMISSIONS = {
 
 export type Permission = typeof PERMISSIONS[keyof typeof PERMISSIONS];
 
-// Role definitions with their associated permissions
+// Role definitions with their associated permissions (single role system)
 export const ROLE_PERMISSIONS: Record<string, Permission[]> = {
-  'owner': [
+  'admin': [
     PERMISSIONS.DASHBOARD_ACCESS,
     PERMISSIONS.BASIC_ANALYTICS,
     PERMISSIONS.ADVANCED_ANALYTICS,
@@ -50,62 +50,20 @@ export const ROLE_PERMISSIONS: Record<string, Permission[]> = {
     PERMISSIONS.PRIORITY_SUPPORT,
     PERMISSIONS.DEDICATED_SUPPORT
   ],
-  'admin': [
+  'owner': [
     PERMISSIONS.DASHBOARD_ACCESS,
     PERMISSIONS.BASIC_ANALYTICS,
     PERMISSIONS.ADVANCED_ANALYTICS,
     PERMISSIONS.USER_MANAGEMENT,
     PERMISSIONS.ACCOUNT_MANAGEMENT,
     PERMISSIONS.BILLING_MANAGEMENT,
-    PERMISSIONS.SYSTEM_ADMINISTRATION,
-    PERMISSIONS.SECURITY_ADMINISTRATION,
+    PERMISSIONS.API_ACCESS,
+    PERMISSIONS.CUSTOM_INTEGRATIONS,
     PERMISSIONS.PRIORITY_SUPPORT
   ],
-  'billing_manager': [
-    PERMISSIONS.DASHBOARD_ACCESS,
-    PERMISSIONS.BASIC_ANALYTICS,
-    PERMISSIONS.ACCOUNT_MANAGEMENT,
-    PERMISSIONS.BILLING_MANAGEMENT,
-    PERMISSIONS.EMAIL_SUPPORT
-  ],
-  'sales_manager': [
-    PERMISSIONS.DASHBOARD_ACCESS,
-    PERMISSIONS.BASIC_ANALYTICS,
-    PERMISSIONS.ADVANCED_ANALYTICS,
-    PERMISSIONS.USER_MANAGEMENT,
-    PERMISSIONS.ACCOUNT_MANAGEMENT,
-    PERMISSIONS.EMAIL_SUPPORT
-  ],
-  'customer_manager': [
-    PERMISSIONS.DASHBOARD_ACCESS,
-    PERMISSIONS.BASIC_ANALYTICS,
-    PERMISSIONS.USER_MANAGEMENT,
-    PERMISSIONS.ACCOUNT_MANAGEMENT,
-    PERMISSIONS.EMAIL_SUPPORT
-  ],
-  'content_manager': [
-    PERMISSIONS.DASHBOARD_ACCESS,
-    PERMISSIONS.BASIC_ANALYTICS,
-    PERMISSIONS.ACCOUNT_MANAGEMENT,
-    PERMISSIONS.EMAIL_SUPPORT
-  ],
-  'analyst': [
-    PERMISSIONS.DASHBOARD_ACCESS,
-    PERMISSIONS.BASIC_ANALYTICS,
-    PERMISSIONS.ADVANCED_ANALYTICS
-  ],
-  'support': [
-    PERMISSIONS.DASHBOARD_ACCESS,
-    PERMISSIONS.BASIC_ANALYTICS,
-    PERMISSIONS.USER_MANAGEMENT,
-    PERMISSIONS.EMAIL_SUPPORT
-  ],
-  'viewer': [
+  'member': [
     PERMISSIONS.DASHBOARD_ACCESS,
     PERMISSIONS.BASIC_ANALYTICS
-  ],
-  'user': [
-    PERMISSIONS.DASHBOARD_ACCESS
   ]
 };
 
@@ -122,13 +80,13 @@ export const getRolePermissions = (role: string): Permission[] => {
 export const hasPermissions = (user: User | null, requiredPermissions?: string[]): boolean => {
   if (!user || !requiredPermissions || requiredPermissions.length === 0) return true;
   
-  // Owner role has access to everything
-  if (user.roles.includes('owner')) return true;
+  // Admin role has access to everything
+  if (user.role === 'admin') return true;
   
-  // Get permissions for all user roles
-  const allUserPermissions = user.roles.flatMap(role => getRolePermissions(role));
+  // Get permissions for user role
+  const userPermissions = getRolePermissions(user.role);
   
-  return requiredPermissions.some(permission => allUserPermissions.includes(permission as Permission));
+  return requiredPermissions.some(permission => userPermissions.includes(permission as Permission));
 };
 
 /**
@@ -137,7 +95,7 @@ export const hasPermissions = (user: User | null, requiredPermissions?: string[]
 export const hasRoles = (user: User | null, requiredRoles?: string[]): boolean => {
   if (!user || !requiredRoles || requiredRoles.length === 0) return true;
   
-  return requiredRoles.some(requiredRole => user.roles.includes(requiredRole));
+  return requiredRoles.includes(user.role);
 };
 
 /**
@@ -150,8 +108,8 @@ export const hasAccess = (
 ): boolean => {
   if (!user) return false;
   
-  // Owner role has access to everything
-  if (user.roles.includes('owner')) return true;
+  // Admin role has access to everything
+  if (user.role === 'admin') return true;
   
   // Check role requirements first
   if (requiredRoles && requiredRoles.length > 0) {
@@ -172,9 +130,8 @@ export const hasAccess = (
 export const getUserPermissions = (user: User | null): Permission[] => {
   if (!user) return [];
   
-  // Get permissions for all user roles and deduplicate
-  const allPermissions = user.roles.flatMap(role => getRolePermissions(role));
-  return Array.from(new Set(allPermissions));
+  // Get permissions for user role
+  return getRolePermissions(user.role);
 };
 
 /**
@@ -191,7 +148,7 @@ export const hasAdminAccess = (user: User | null): boolean => {
  * Check if user can manage their account's team
  */
 export const hasTeamManagementAccess = (user: User | null): boolean => {
-  return hasRoles(user, ['owner', 'admin', 'manager']);
+  return hasRoles(user, ['owner', 'admin']);
 };
 
 /**
@@ -200,7 +157,7 @@ export const hasTeamManagementAccess = (user: User | null): boolean => {
 export const isAccountOwner = (user: User | null): boolean => {
   if (!user) return false;
   
-  return user.roles.includes('owner');
+  return user.role === 'owner';
 };
 
 /**
@@ -233,7 +190,7 @@ export const getUserRolesInfo = (user: User | null) => {
   return {
     hasUser: true,
     email: user.email,
-    roles: user.roles,
+    role: user.role,
     isAdmin: hasAdminAccess(user),
     isOwner: isAccountOwner(user),
     allPermissions: getUserPermissions(user)
