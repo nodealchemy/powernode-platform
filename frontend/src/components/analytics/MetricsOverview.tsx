@@ -20,8 +20,8 @@ export const MetricsOverview: React.FC<MetricsOverviewProps> = ({ data }) => {
   };
 
   const getGrowthColor = (growth: number) => {
-    if (growth > 0) return 'text-green-600 dark:text-green-400';
-    if (growth < 0) return 'text-red-600 dark:text-red-400';
+    if (growth > 0) return 'text-theme-success';
+    if (growth < 0) return 'text-theme-error';
     return 'text-theme-secondary';
   };
 
@@ -33,10 +33,10 @@ export const MetricsOverview: React.FC<MetricsOverviewProps> = ({ data }) => {
 
   const getRiskColor = (level: string) => {
     switch (level) {
-      case 'low': return 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30';
-      case 'medium': return 'text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/30';
-      case 'high': return 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30';
-      default: return 'text-theme-secondary bg-theme-background-secondary';
+      case 'low': return 'text-theme-success bg-theme-success bg-opacity-10';
+      case 'medium': return 'text-theme-warning bg-theme-warning bg-opacity-10';
+      case 'high': return 'text-theme-error bg-theme-error bg-opacity-10';
+      default: return 'text-theme-secondary bg-theme-surface';
     }
   };
 

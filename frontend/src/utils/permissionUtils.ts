@@ -123,10 +123,12 @@ export const hasPermissions = (user: User | null, requiredPermissions?: string[]
   if (!user || !requiredPermissions || requiredPermissions.length === 0) return true;
   
   // Owner role has access to everything
-  if (user.role === 'owner') return true;
+  if (user.roles.includes('owner')) return true;
   
-  const userPermissions = getRolePermissions(user.role);
-  return requiredPermissions.some(permission => userPermissions.includes(permission as Permission));
+  // Get permissions for all user roles
+  const allUserPermissions = user.roles.flatMap(role => getRolePermissions(role));
+  
+  return requiredPermissions.some(permission => allUserPermissions.includes(permission as Permission));
 };
 
 /**
@@ -135,7 +137,7 @@ export const hasPermissions = (user: User | null, requiredPermissions?: string[]
 export const hasRoles = (user: User | null, requiredRoles?: string[]): boolean => {
   if (!user || !requiredRoles || requiredRoles.length === 0) return true;
   
-  return requiredRoles.includes(user.role);
+  return requiredRoles.some(requiredRole => user.roles.includes(requiredRole));
 };
 
 /**
@@ -149,7 +151,7 @@ export const hasAccess = (
   if (!user) return false;
   
   // Owner role has access to everything
-  if (user.role === 'owner') return true;
+  if (user.roles.includes('owner')) return true;
   
   // Check role requirements first
   if (requiredRoles && requiredRoles.length > 0) {
@@ -169,14 +171,36 @@ export const hasAccess = (
  */
 export const getUserPermissions = (user: User | null): Permission[] => {
   if (!user) return [];
-  return getRolePermissions(user.role);
+  
+  // Get permissions for all user roles and deduplicate
+  const allPermissions = user.roles.flatMap(role => getRolePermissions(role));
+  return Array.from(new Set(allPermissions));
 };
 
 /**
- * Check if user can access admin features
+ * Check if user can access admin features (system-wide)
+ * Note: 'admin' role is for system administrators only
+ * 'owner' role is for account owners and does NOT have system admin access
  */
 export const hasAdminAccess = (user: User | null): boolean => {
-  return hasRoles(user, ['owner', 'admin']);
+  // Only system administrators should have access to system-wide admin features
+  return hasRoles(user, ['admin']);
+};
+
+/**
+ * Check if user can manage their account's team
+ */
+export const hasTeamManagementAccess = (user: User | null): boolean => {
+  return hasRoles(user, ['owner', 'admin', 'manager']);
+};
+
+/**
+ * Check if user is account owner
+ */
+export const isAccountOwner = (user: User | null): boolean => {
+  if (!user) return false;
+  
+  return user.roles.includes('owner');
 };
 
 /**
@@ -198,4 +222,20 @@ export const hasAnalyticsAccess = (user: User | null): boolean => {
  */
 export const hasAdvancedAnalyticsAccess = (user: User | null): boolean => {
   return hasPermissions(user, [PERMISSIONS.ADVANCED_ANALYTICS]);
+};
+
+/**
+ * Debug utility - Get user roles information
+ */
+export const getUserRolesInfo = (user: User | null) => {
+  if (!user) return { hasUser: false };
+  
+  return {
+    hasUser: true,
+    email: user.email,
+    roles: user.roles,
+    isAdmin: hasAdminAccess(user),
+    isOwner: isAccountOwner(user),
+    allPermissions: getUserPermissions(user)
+  };
 };

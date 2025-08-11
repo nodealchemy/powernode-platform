@@ -101,7 +101,7 @@ describe('ProtectedRoute', () => {
         ...mockAuthenticatedState.auth,
         user: {
           ...mockAuthenticatedState.auth.user!,
-          role: 'member',
+          roles: ['member'],
         },
       },
     };
@@ -127,7 +127,7 @@ describe('ProtectedRoute', () => {
         ...mockAuthenticatedState.auth,
         user: {
           ...mockAuthenticatedState.auth.user!,
-          role: 'owner',
+          roles: ['owner'],
         },
       },
     };

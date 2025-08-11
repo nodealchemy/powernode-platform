@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
+import { Navigate } from 'react-router-dom';
 import { RootState } from '../../store';
 import {
   plansApi,
@@ -7,6 +8,7 @@ import {
   DetailedPlan
 } from '../../services/plansApi';
 import { PlanFormModal } from '../../components/admin/PlanFormModal';
+import { hasAdminAccess } from '../../utils/permissionUtils';
 
 export const PlansPage: React.FC = () => {
   const { user } = useSelector((state: RootState) => state.auth);
@@ -19,11 +21,7 @@ export const PlansPage: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState('');
 
   // Check if user has admin access
-  const hasAdminAccess = user?.role === 'owner' || user?.role === 'admin';
-
-  useEffect(() => {
-    loadPlans();
-  }, []);
+  const isAdmin = hasAdminAccess(user);
 
   const loadPlans = async () => {
     try {
@@ -38,6 +36,15 @@ export const PlansPage: React.FC = () => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    loadPlans();
+  }, []);
+  
+  // Redirect non-admins to dashboard after hooks
+  if (!isAdmin) {
+    return <Navigate to="/dashboard" replace />;
+  }
 
   const showSuccess = (message: string) => {
     setSuccessMessage(message);
@@ -125,13 +132,13 @@ export const PlansPage: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-theme-primary">Plans Management</h1>
           <p className="text-theme-secondary">
-            {hasAdminAccess 
+            {isAdmin 
               ? "Manage subscription plans and pricing tiers."
               : "View available subscription plans."
             }
           </p>
         </div>
-        {hasAdminAccess && (
+        {isAdmin && (
           <button
             onClick={handleCreatePlan}
             className="btn-theme btn-theme-primary"
@@ -223,7 +230,7 @@ export const PlansPage: React.FC = () => {
                     Active
                   </div>
                 </div>
-                {!hasAdminAccess && (
+                {!isAdmin && (
                   <>
                     <div className="h-8 w-px bg-theme-border"></div>
                     <div className="text-center flex-1">
@@ -237,7 +244,7 @@ export const PlansPage: React.FC = () => {
             </div>
 
             {/* Plan Actions - Fixed to Bottom with Consistent Height */}
-            {hasAdminAccess && (
+            {isAdmin && (
               <div className="p-8 pt-0 mt-auto">
                 <div className="space-y-3">
                   {/* Primary Actions */}
@@ -312,7 +319,7 @@ export const PlansPage: React.FC = () => {
       {plans.length === 0 && (
         <div className="text-center py-12">
           <div className="text-theme-secondary text-lg">No plans found</div>
-          {hasAdminAccess && (
+          {isAdmin && (
             <button
               onClick={handleCreatePlan}
               className="mt-4 btn-theme btn-theme-primary"

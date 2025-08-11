@@ -218,7 +218,7 @@ const AppContent: React.FC = () => {
               isAuthenticated ? (
                 <Navigate to="/dashboard" replace />
               ) : (
-                <WelcomePage />
+                <Navigate to="/welcome" replace />
               )
             }
           />

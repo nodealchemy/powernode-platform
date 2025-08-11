@@ -132,7 +132,7 @@ describe('authSlice', () => {
           email: 'test@example.com',
           firstName: 'John',
           lastName: 'Doe',
-          role: 'admin',
+          roles: ['admin'],
           status: 'active',
           emailVerified: true,
           account: {
@@ -215,7 +215,7 @@ describe('authSlice', () => {
           email: 'newuser@example.com',
           firstName: 'Jane',
           lastName: 'Smith',
-          role: 'owner',
+          roles: ['owner'],
           status: 'active',
           emailVerified: false,
           account: {
@@ -317,7 +317,7 @@ describe('authSlice', () => {
             email: 'test@example.com',
             firstName: 'John',
             lastName: 'Doe',
-            role: 'admin',
+            roles: ['admin'],
             status: 'active',
             emailVerified: true,
             account: {

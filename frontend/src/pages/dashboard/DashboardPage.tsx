@@ -19,6 +19,15 @@ import PaymentGatewaysPage from './PaymentGatewaysPage';
 import { ServicesPage } from './ServicesPage';
 import { PagesPage } from './PagesPage';
 import { AdminSettingsOverviewPage } from './AdminSettingsOverviewPage';
+import UsersPage from './UsersPage';
+import AccountsPage from './AccountsPage';
+import { AdminUsersPage } from './AdminUsersPage';
+
+// Import consolidated management pages
+import { AccountManagementPage } from './AccountManagementPage';
+import { BusinessManagementPage } from './BusinessManagementPage';
+import { SystemManagementPage } from './SystemManagementPage';
+import { AnalyticsManagementPage } from './AnalyticsManagementPage';
 
 // Dashboard overview page
 const DashboardOverview: React.FC = () => {
@@ -331,7 +340,19 @@ export const DashboardPage: React.FC = () => {
   return (
     <DashboardLayout>
       <Routes>
+        {/* Dashboard Overview */}
         <Route path="/" element={<DashboardOverview />} />
+        
+        {/* Consolidated Management Areas */}
+        <Route path="/account/*" element={<AccountManagementPage />} />
+        <Route path="/analytics/*" element={<AnalyticsManagementPage />} />
+        <Route path="/business/*" element={<BusinessManagementPage />} />
+        <Route path="/system/*" element={<SystemManagementPage />} />
+        
+        {/* Admin routes */}
+        <Route path="/admin/users" element={<AdminUsersPage />} />
+        
+        {/* Legacy individual pages (for backward compatibility) */}
         <Route path="/analytics" element={<AnalyticsPage />} />
         <Route path="/reports" element={<ReportsPage />} />
         <Route path="/subscriptions" element={<SubscriptionsPage />} />
@@ -344,6 +365,8 @@ export const DashboardPage: React.FC = () => {
         <Route path="/payment-gateways" element={<PaymentGatewaysPage />} />
         <Route path="/services" element={<ServicesPage />} />
         <Route path="/pages" element={<PagesPage />} />
+        <Route path="/users" element={<UsersPage />} />
+        <Route path="/accounts" element={<AccountsPage />} />
       </Routes>
     </DashboardLayout>
   );

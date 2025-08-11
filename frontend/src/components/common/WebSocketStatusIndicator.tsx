@@ -27,36 +27,36 @@ export const WebSocketStatusIndicator: React.FC<WebSocketStatusIndicatorProps> =
     switch (status) {
       case 'connected':
         return {
-          dotColor: 'bg-green-500',
-          textColor: 'text-green-600 dark:text-green-400',
+          dotColor: 'bg-theme-success',
+          textColor: 'text-theme-success',
           label: 'Real-time',
           description: 'Real-time connection active'
         };
       case 'connecting':
         return {
-          dotColor: 'bg-yellow-500 animate-pulse',
-          textColor: 'text-yellow-600 dark:text-yellow-400',
+          dotColor: 'bg-theme-warning animate-pulse',
+          textColor: 'text-theme-warning',
           label: 'Connecting',
           description: 'Establishing connection...'
         };
       case 'reconnecting':
         return {
-          dotColor: 'bg-orange-500 animate-pulse',
-          textColor: 'text-orange-600 dark:text-orange-400',
+          dotColor: 'bg-theme-warning animate-pulse',
+          textColor: 'text-theme-warning',
           label: 'Reconnecting',
           description: `Reconnecting... (${reconnectAttempts}/5)`
         };
       case 'error':
         return {
-          dotColor: 'bg-red-500',
-          textColor: 'text-red-600 dark:text-red-400',
+          dotColor: 'bg-theme-error',
+          textColor: 'text-theme-error',
           label: 'Error',
           description: error || 'Connection error'
         };
       case 'disconnected':
       default:
         return {
-          dotColor: 'bg-gray-400',
+          dotColor: 'bg-theme-tertiary',
           textColor: 'text-theme-secondary',
           label: 'Offline',
           description: 'Real-time connection inactive'
@@ -75,10 +75,10 @@ export const WebSocketStatusIndicator: React.FC<WebSocketStatusIndicatorProps> =
 
   const getQualityColor = (quality: string) => {
     switch (quality) {
-      case 'excellent': return 'text-green-600 dark:text-green-400';
-      case 'good': return 'text-blue-600 dark:text-blue-400';
-      case 'fair': return 'text-yellow-600 dark:text-yellow-400';
-      case 'poor': return 'text-red-600 dark:text-red-400';
+      case 'excellent': return 'text-theme-success';
+      case 'good': return 'text-theme-info';
+      case 'fair': return 'text-theme-warning';
+      case 'poor': return 'text-theme-error';
       default: return 'text-theme-secondary';
     }
   };

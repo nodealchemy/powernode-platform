@@ -2,6 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Import theme system */
+@import './styles/themes.css';
+
+/* Import global styling enhancements */
+@import './styles/global-enhancements.css';
+
 body {
   margin: 0;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',

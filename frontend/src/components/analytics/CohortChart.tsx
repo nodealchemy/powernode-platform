@@ -130,7 +130,7 @@ export const CohortChart: React.FC<CohortChartProps> = ({
                 ))}
               </tr>
             </thead>
-            <tbody className="card-theme divide-y divide-gray-200">
+            <tbody className="card-theme divide-y divide-theme">
               {data.map((cohort, cohortIndex) => (
                 <tr key={cohortIndex} className={cohortIndex % 2 === 0 ? 'bg-theme-background-secondary' : 'card-theme'}>
                   <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-theme-primary">
@@ -194,7 +194,7 @@ export const CohortChart: React.FC<CohortChartProps> = ({
                 y1={350 - (y * 3)}
                 x2="750"
                 y2={350 - (y * 3)}
-                stroke="#e5e7eb"
+                stroke="rgba(0, 0, 0, 0.06)"
                 strokeWidth="1"
               />
             ))}

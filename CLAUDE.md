@@ -246,11 +246,46 @@ The platform handles subscription lifecycle management, automated billing, payme
 - **Background Jobs**: Standalone worker agent approach - see Background Jobs Architecture section below
 
 ### Multi-Agent Coordination
-The project uses a sophisticated agent-based development approach defined in `claude-swarm.yml`:
-- **Backend Agents**: Rails architect, data modeler, payment specialist, billing engine developer
-- **Frontend Agents**: React architect, UI developer, dashboard specialist, admin panel developer
-- **Quality Agents**: Backend/frontend test engineers
-- **Infrastructure Agents**: DevOps engineer, security specialist, performance optimizer
+The project uses a sophisticated agent-based development approach defined in `claude-swarm.yml` with 18 specialized agents organized in a hierarchical topology:
+
+**✅ VALIDATED AGENT STRUCTURE:**
+
+**Platform Orchestration:**
+- `platform_architect` - System oversight and coordination (main coordinator)
+
+**Backend Development (7 agents):**
+- `rails_architect` - Rails 8 API setup, configuration, architectural decisions
+- `data_modeler` - Database design, ActiveRecord models, subscription data layer
+- `payment_integration_specialist` - Stripe/PayPal integration, webhook processing
+- `billing_engine_developer` - Subscription lifecycles, proration, automated renewals
+- `api_developer` - RESTful endpoints, serialization, error handling
+- `background_job_engineer` - Sidekiq jobs, scheduling, worker management
+- `analytics_engineer` - Business intelligence, KPIs, reporting features
+
+**Frontend Development (4 agents):**
+- `react_architect` - TypeScript structure, routing, state management
+- `ui_component_developer` - Reusable components, responsive interfaces
+- `dashboard_specialist` - Interactive charts, reporting interfaces
+- `admin_panel_developer` - System management panels
+
+**Quality Assurance (2 agents):**
+- `backend_test_engineer` - RSpec tests, API testing, payment processing tests
+- `frontend_test_engineer` - Jest/Testing Library/Cypress, E2E tests
+
+**Infrastructure & Operations (4 agents):**
+- `devops_engineer` - CI/CD, deployment, monitoring, infrastructure automation
+- `security_specialist` - PCI compliance, security audits, data protection
+- `performance_optimizer` - Load testing, optimization, scalability planning
+- `notification_engineer` - Email, SMS, real-time communication systems
+- `documentation_specialist` - API docs, guides, technical writing
+
+**Swarm Capabilities:**
+- ✅ Hierarchical topology with 18-agent capacity
+- ✅ Memory management and persistence 
+- ✅ Task orchestration and workflow automation
+- ✅ GitHub integration for repository management
+- ✅ Neural pattern analysis and learning
+- ✅ Dynamic agent allocation and optimization
 
 ## Key Implementation Patterns
 

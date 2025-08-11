@@ -143,7 +143,7 @@ class AdminSettingsApi {
     page?: number;
     per_page?: number;
     search?: string;
-    role?: string;
+    roles?: string[];
     status?: string;
   } = {}): Promise<{
     users: AdminUser[];
@@ -159,7 +159,7 @@ class AdminSettingsApi {
     if (options.page) params.set('page', options.page.toString());
     if (options.per_page) params.set('per_page', options.per_page.toString());
     if (options.search) params.set('search', options.search);
-    if (options.role && options.role !== 'all') params.set('role', options.role);
+    if (options.roles && options.roles.length > 0) params.set('roles', options.roles.join(','));
     if (options.status && options.status !== 'all') params.set('status', options.status);
     
     const response = await api.get(`/admin_settings/users?${params.toString()}`);

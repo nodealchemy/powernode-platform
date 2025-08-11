@@ -27,7 +27,7 @@ const createMockStore = (initialAuthState = {}) => {
           email: 'test@example.com',
           firstName: 'John',
           lastName: 'Doe',
-          role: 'admin',
+          roles: ['admin'],
           status: 'active',
           emailVerified: false,
           account: {
