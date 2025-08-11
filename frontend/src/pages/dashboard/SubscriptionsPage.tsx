@@ -253,14 +253,14 @@ export const SubscriptionsPage: React.FC = () => {
 
       {/* Notification */}
       {notification && (
-        <div className={`p-4 card-theme ${notification.includes('success') ? 'bg-theme-success text-theme-success' : 'bg-theme-error text-theme-error'}`}>
+        <div className={notification.includes('success') ? 'alert-theme alert-theme-success' : 'alert-theme alert-theme-error'}>
           {notification}
         </div>
       )}
 
       {/* Error Display */}
       {error && (
-        <div className="bg-theme-error text-theme-error card-theme px-4 py-3 relative">
+        <div className="alert-theme alert-theme-error">
           <span className="block sm:inline">{error}</span>
         </div>
       )}

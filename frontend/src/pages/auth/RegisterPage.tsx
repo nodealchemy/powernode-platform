@@ -155,23 +155,23 @@ export const RegisterPage: React.FC = () => {
   };
 
   return (
-    <div className="light min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-theme-background-secondary flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         {/* Logo and Title */}
         <div className="text-center">
-          <div className="mx-auto w-16 h-16 bg-gradient-to-br from-blue-600 to-blue-700 rounded-2xl flex items-center justify-center mb-6 shadow-lg">
+          <div className="mx-auto w-16 h-16 bg-theme-interactive-primary rounded-2xl flex items-center justify-center mb-6 shadow-lg">
             <span className="text-white font-bold text-2xl">P</span>
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Powernode</h1>
-          <p className="text-gray-600">Create your account</p>
+          <h1 className="text-3xl font-bold text-theme-primary mb-2">Powernode</h1>
+          <p className="text-theme-secondary">Create your account</p>
         </div>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow-xl border border-gray-200 sm:rounded-xl sm:px-10">
+        <div className="bg-theme-surface py-8 px-4 shadow-xl border border-theme sm:rounded-xl sm:px-10">
 
           {error && (
-            <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+            <div className="mb-6 bg-theme-error border border-theme text-theme-error px-4 py-3 rounded-lg">
               <div className="flex">
                 <div className="ml-3">
                   <p className="text-sm font-medium">{error}</p>
@@ -193,27 +193,27 @@ export const RegisterPage: React.FC = () => {
 
           {/* Selected Plan Summary */}
           {selectedPlan && (
-            <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="mb-6 p-4 bg-theme-info border border-theme rounded-lg">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
-                  <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center">
+                  <div className="w-6 h-6 bg-theme-interactive-primary rounded-full flex items-center justify-center">
                     <CheckIcon className="h-4 w-4 text-white" />
                   </div>
                   <div>
-                    <h4 className="font-medium text-gray-900">{selectedPlan.name}</h4>
-                    <p className="text-sm text-gray-600">
+                    <h4 className="font-medium text-theme-primary">{selectedPlan.name}</h4>
+                    <p className="text-sm text-theme-secondary">
                       Billed {billingCycle}
                       {selectedPlan.trial_days > 0 && (
-                        <span className="ml-2 text-blue-600">• {selectedPlan.trial_days} day trial</span>
+                        <span className="ml-2 text-theme-info">• {selectedPlan.trial_days} day trial</span>
                       )}
                     </p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="font-semibold text-gray-900">
+                  <div className="font-semibold text-theme-primary">
                     {calculatePlanPrice(selectedPlan, billingCycle)}
                   </div>
-                  <div className="text-sm text-gray-500">
+                  <div className="text-sm text-theme-secondary">
                     per {billingCycle === 'yearly' ? 'year' : 'month'}
                   </div>
                 </div>
@@ -225,7 +225,7 @@ export const RegisterPage: React.FC = () => {
 
             {/* Company Information */}
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-gray-900">Company Information</h3>
+              <h3 className="text-lg font-semibold text-theme-primary">Company Information</h3>
               <div>
                 <label htmlFor="accountName" className="label-theme">
                   Company Name
@@ -245,7 +245,7 @@ export const RegisterPage: React.FC = () => {
 
             {/* Personal Information */}
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-gray-900">Your Account</h3>
+              <h3 className="text-lg font-semibold text-theme-primary">Your Account</h3>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="firstName" className="label-theme">
@@ -349,7 +349,7 @@ export const RegisterPage: React.FC = () => {
             </div>
 
             {/* Sign In Link */}
-            <div className="text-center pt-4 border-t border-gray-200">
+            <div className="text-center pt-4 border-t border-theme">
               <p className="text-sm text-theme-secondary">
                 Already have an account?{' '}
                 <Link

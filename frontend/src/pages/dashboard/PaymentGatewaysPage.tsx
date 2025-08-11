@@ -20,11 +20,11 @@ const StatusBadge: React.FC<StatusBadgeProps> = ({ status, text }) => {
   const getColorClasses = (color: 'green' | 'yellow' | 'red' | 'gray'): string => {
     switch (color) {
       case 'green':
-        return 'bg-theme-success text-theme-success border-green-200';
+        return 'bg-theme-success text-theme-success border-theme-success';
       case 'yellow':
-        return 'bg-theme-warning text-theme-warning border-yellow-200';
+        return 'bg-theme-warning text-theme-warning border-theme-warning';
       case 'red':
-        return 'bg-theme-error text-theme-error border-red-200';
+        return 'bg-theme-error text-theme-error border-theme-error';
       case 'gray':
       default:
         return 'bg-theme-background-tertiary text-theme-secondary border-theme';
@@ -229,7 +229,7 @@ const GatewayCard: React.FC<GatewayCardProps> = ({
         <div className="flex space-x-2">
           <button
             onClick={() => onConfigure(gateway)}
-            className="btn-theme btn-theme-secondary bg-green-600 hover:bg-green-700 text-white"
+            className="btn-theme btn-theme-success text-white"
           >
             Configure
           </button>
@@ -424,7 +424,7 @@ const PaymentGatewaysPage: React.FC = () => {
         </div>
 
         {/* Gateway Details Tabs */}
-        <div className="border-b border-gray-200">
+        <div className="border-b border-theme">
           <nav className="-mb-px flex space-x-8">
             {(['overview', 'transactions', 'webhooks'] as const).map((tab) => (
               <button
@@ -432,8 +432,8 @@ const PaymentGatewaysPage: React.FC = () => {
                 onClick={() => setActiveTab(tab)}
                 className={`py-2 px-1 border-b-2 font-medium text-sm ${
                   activeTab === tab
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    ? 'border-theme-focus text-theme-link'
+                    : 'border-transparent text-theme-secondary hover:text-theme-primary hover:border-theme'
                 }`}
               >
                 {tab.charAt(0).toUpperCase() + tab.slice(1)}
@@ -448,7 +448,7 @@ const PaymentGatewaysPage: React.FC = () => {
             <>
               {/* Configuration Info */}
               <div className="card-theme p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Configuration</h3>
+                <h3 className="text-lg font-semibold text-theme-primary mb-4">Configuration</h3>
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div className="flex justify-between">
                     <span className="text-theme-secondary">Provider:</span>
@@ -475,28 +475,28 @@ const PaymentGatewaysPage: React.FC = () => {
 
               {/* Statistics */}
               <div className="card-theme p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Statistics</h3>
+                <h3 className="text-lg font-semibold text-theme-primary mb-4">Statistics</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-blue-600">
+                    <div className="text-2xl font-bold text-theme-interactive-primary">
                       {gatewayDetails.statistics.total_transactions.toLocaleString()}
                     </div>
                     <div className="text-sm text-theme-secondary">Total Transactions</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-green-600">
+                    <div className="text-2xl font-bold text-theme-success">
                       {paymentGatewaysApi.formatSuccessRate(gatewayDetails.statistics.success_rate)}
                     </div>
                     <div className="text-sm text-theme-secondary">Success Rate</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-purple-600">
+                    <div className="text-2xl font-bold text-theme-link">
                       {paymentGatewaysApi.formatCurrency(gatewayDetails.statistics.total_volume)}
                     </div>
                     <div className="text-sm text-theme-secondary">Total Volume</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-indigo-600">
+                    <div className="text-2xl font-bold text-theme-info">
                       {gatewayDetails.statistics.last_30_days.transactions.toLocaleString()}
                     </div>
                     <div className="text-sm text-theme-secondary">30-Day Transactions</div>
@@ -508,14 +508,14 @@ const PaymentGatewaysPage: React.FC = () => {
 
           {activeTab === 'transactions' && (
             <div className="card-theme p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Transactions</h3>
+              <h3 className="text-lg font-semibold text-theme-primary mb-4">Recent Transactions</h3>
               <TransactionTable transactions={gatewayDetails.transactions} loading={loading} />
             </div>
           )}
 
           {activeTab === 'webhooks' && (
             <div className="card-theme p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Webhook Events</h3>
+              <h3 className="text-lg font-semibold text-theme-primary mb-4">Recent Webhook Events</h3>
               <WebhookTable webhooks={gatewayDetails.webhooks} loading={loading} />
             </div>
           )}
@@ -535,7 +535,7 @@ const PaymentGatewaysPage: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="card-theme p-6">
             <h3 className="text-lg font-semibold text-theme-primary mb-2">Total Transactions</h3>
-            <div className="text-3xl font-bold text-blue-600">
+            <div className="text-3xl font-bold text-theme-interactive-primary">
               {overview.statistics.overall.total_transactions.toLocaleString()}
             </div>
             <div className="text-sm text-theme-secondary">
@@ -544,14 +544,14 @@ const PaymentGatewaysPage: React.FC = () => {
           </div>
           <div className="card-theme p-6">
             <h3 className="text-lg font-semibold text-theme-primary mb-2">Success Rate</h3>
-            <div className="text-3xl font-bold text-green-600">
+            <div className="text-3xl font-bold text-theme-success">
               {paymentGatewaysApi.formatSuccessRate(overview.statistics.overall.success_rate)}
             </div>
             <div className="text-sm text-theme-secondary">Overall performance</div>
           </div>
           <div className="card-theme p-6">
             <h3 className="text-lg font-semibold text-theme-primary mb-2">Total Volume</h3>
-            <div className="text-3xl font-bold text-purple-600">
+            <div className="text-3xl font-bold text-theme-link">
               {paymentGatewaysApi.formatCurrency(overview.statistics.overall.total_volume)}
             </div>
             <div className="text-sm text-theme-secondary">All-time processed</div>
@@ -588,24 +588,24 @@ const PaymentGatewaysPage: React.FC = () => {
       {/* Test Results */}
       {Object.keys(testResults).length > 0 && (
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-gray-900">Connection Test Results</h3>
+          <h3 className="text-lg font-semibold text-theme-primary">Connection Test Results</h3>
           {Object.entries(testResults).map(([gateway, result]) => (
-            <div key={gateway} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div key={gateway} className="card-theme p-6">
               <div className="flex items-center justify-between mb-3">
-                <h4 className="font-medium text-gray-900 capitalize">{gateway} Test Result</h4>
+                <h4 className="font-medium text-theme-primary capitalize">{gateway} Test Result</h4>
                 <StatusBadge status={result.success ? 'connected' : 'error'} />
               </div>
               <div className="text-sm space-y-2">
                 {result.success ? (
-                  <div className="text-green-700">
+                  <div className="text-theme-success">
                     ✓ Connection successful - Gateway is operational
                   </div>
                 ) : (
-                  <div className="text-red-700">
+                  <div className="text-theme-error">
                     ✗ Connection failed: {result.error}
                   </div>
                 )}
-                <div className="text-gray-600">
+                <div className="text-theme-secondary">
                   Tested: {new Date(result.tested_at).toLocaleString()}
                 </div>
               </div>
@@ -617,7 +617,7 @@ const PaymentGatewaysPage: React.FC = () => {
       {/* Recent Transactions */}
       {overview && overview.recent_transactions.length > 0 && (
         <div className="card-theme p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Transactions</h3>
+          <h3 className="text-lg font-semibold text-theme-primary mb-4">Recent Transactions</h3>
           <TransactionTable transactions={overview.recent_transactions} loading={loading} />
         </div>
       )}
@@ -643,7 +643,7 @@ const PaymentGatewaysPage: React.FC = () => {
 
               {configError && (
                 <div className="mb-6 alert-theme alert-theme-error">
-                  <p className="text-theme-error text-sm">{configError}</p>
+                  <p className="text-sm">{configError}</p>
                 </div>
               )}
 
@@ -755,14 +755,14 @@ const PaymentGatewaysPage: React.FC = () => {
                 </div>
               )}
 
-              <div className="flex items-center justify-between mt-6 pt-6 border-t border-gray-200">
+              <div className="flex items-center justify-between mt-6 pt-6 border-t border-theme">
                 <div className="flex items-center space-x-4">
                   <label className="flex items-center">
                     <input
                       type="checkbox"
                       checked={configForm.enabled || false}
                       onChange={(e) => setConfigForm({...configForm, enabled: e.target.checked})}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      className="rounded border-theme text-theme-interactive-primary focus:ring-theme-focus"
                     />
                     <span className="ml-2 text-sm text-theme-secondary">Enable Gateway</span>
                   </label>

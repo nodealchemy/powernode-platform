@@ -67,17 +67,17 @@ export const ServiceActivityList: React.FC<ServiceActivityListProps> = ({ servic
   const getActionColor = (action: string) => {
     switch (action) {
       case 'authentication':
-        return 'bg-blue-100 text-blue-800';
+        return 'bg-theme-info text-theme-info border border-theme';
       case 'job_enqueue':
-        return 'bg-green-100 text-green-800';
+        return 'bg-theme-success text-theme-success border border-theme';
       case 'api_request':
-        return 'bg-purple-100 text-purple-800';
+        return 'bg-theme-info text-theme-info border border-theme';
       case 'health_check':
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-theme-background-secondary text-theme-secondary border border-theme';
       case 'error_occurred':
-        return 'bg-red-100 text-red-800';
+        return 'bg-theme-error text-theme-error border border-theme';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-theme-background-secondary text-theme-secondary border border-theme';
     }
   };
 
@@ -92,39 +92,39 @@ export const ServiceActivityList: React.FC<ServiceActivityListProps> = ({ servic
   }
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6 lg:p-8">
       {/* Summary */}
       {summary && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white p-4 rounded-lg border border-gray-200">
-            <div className="text-2xl font-bold text-blue-600">{summary.total_recent}</div>
-            <div className="text-sm text-gray-600">Recent Activities</div>
+          <div className="bg-theme-surface p-4 rounded-lg border border-theme">
+            <div className="text-2xl font-bold text-theme-link">{summary.total_recent}</div>
+            <div className="text-sm text-theme-secondary">Recent Activities</div>
           </div>
-          <div className="bg-white p-4 rounded-lg border border-gray-200">
-            <div className="text-2xl font-bold text-green-600">{summary.successful_recent}</div>
-            <div className="text-sm text-gray-600">Successful</div>
+          <div className="bg-theme-surface p-4 rounded-lg border border-theme">
+            <div className="text-2xl font-bold text-theme-success">{summary.successful_recent}</div>
+            <div className="text-sm text-theme-secondary">Successful</div>
           </div>
-          <div className="bg-white p-4 rounded-lg border border-gray-200">
-            <div className="text-2xl font-bold text-red-600">{summary.failed_recent}</div>
-            <div className="text-sm text-gray-600">Failed</div>
+          <div className="bg-theme-surface p-4 rounded-lg border border-theme">
+            <div className="text-2xl font-bold text-theme-error">{summary.failed_recent}</div>
+            <div className="text-sm text-theme-secondary">Failed</div>
           </div>
-          <div className="bg-white p-4 rounded-lg border border-gray-200">
-            <div className="text-2xl font-bold text-purple-600">{Object.keys(summary.actions).length}</div>
-            <div className="text-sm text-gray-600">Action Types</div>
+          <div className="bg-theme-surface p-4 rounded-lg border border-theme">
+            <div className="text-2xl font-bold text-theme-info">{Object.keys(summary.actions).length}</div>
+            <div className="text-sm text-theme-secondary">Action Types</div>
           </div>
         </div>
       )}
 
       {/* Filters */}
-      <div className="bg-white rounded-lg border border-gray-200 p-4 mb-6">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Filters</h3>
+      <div className="bg-theme-surface rounded-lg border border-theme p-4 mb-6">
+        <h3 className="text-lg font-medium text-theme-primary mb-4">Filters</h3>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Action</label>
+            <label className="block text-sm font-medium text-theme-primary mb-1">Action</label>
             <select
               value={filters.action}
               onChange={(e) => handleFilterChange('action', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+              className="w-full px-3 py-2 border border-theme rounded-md text-sm bg-theme-surface text-theme-primary"
             >
               <option value="">All Actions</option>
               <option value="authentication">Authentication</option>
@@ -135,11 +135,11 @@ export const ServiceActivityList: React.FC<ServiceActivityListProps> = ({ servic
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+            <label className="block text-sm font-medium text-theme-primary mb-1">Status</label>
             <select
               value={filters.status}
               onChange={(e) => handleFilterChange('status', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+              className="w-full px-3 py-2 border border-theme rounded-md text-sm bg-theme-surface text-theme-primary"
             >
               <option value="">All Statuses</option>
               <option value="success">Success</option>
@@ -147,40 +147,40 @@ export const ServiceActivityList: React.FC<ServiceActivityListProps> = ({ servic
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">From</label>
+            <label className="block text-sm font-medium text-theme-primary mb-1">From</label>
             <input
               type="datetime-local"
               value={filters.from}
               onChange={(e) => handleFilterChange('from', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+              className="w-full px-3 py-2 border border-theme rounded-md text-sm bg-theme-surface text-theme-primary"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">To</label>
+            <label className="block text-sm font-medium text-theme-primary mb-1">To</label>
             <input
               type="datetime-local"
               value={filters.to}
               onChange={(e) => handleFilterChange('to', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+              className="w-full px-3 py-2 border border-theme rounded-md text-sm bg-theme-surface text-theme-primary"
             />
           </div>
         </div>
       </div>
 
       {/* Activities Table */}
-      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-        <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
-          <h3 className="text-lg font-medium text-gray-900">
+      <div className="bg-theme-surface rounded-lg border border-theme overflow-hidden">
+        <div className="px-4 sm:px-6 lg:px-8 py-3 border-b border-theme bg-theme-background-secondary">
+          <h3 className="text-lg font-medium text-theme-primary">
             Activities ({pagination.total})
           </h3>
         </div>
         
         {error && (
-          <div className="p-4 bg-red-50 border-b border-red-200">
-            <p className="text-red-600 text-sm">{error}</p>
+          <div className="p-4 bg-theme-error border-b border-theme">
+            <p className="text-theme-error text-sm">{error}</p>
             <button
               onClick={loadActivities}
-              className="mt-2 text-red-600 hover:text-red-700 text-sm underline"
+              className="mt-2 text-theme-error hover:text-theme-error text-sm underline opacity-80 hover:opacity-100 transition-opacity duration-150"
             >
               Try again
             </button>
@@ -189,42 +189,42 @@ export const ServiceActivityList: React.FC<ServiceActivityListProps> = ({ servic
 
         {loading ? (
           <div className="flex items-center justify-center p-8">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-theme-interactive-primary"></div>
           </div>
         ) : activities.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
+          <div className="text-center py-8 text-theme-secondary">
             <div className="text-4xl mb-3">📊</div>
             <p className="text-lg font-medium">No activities found</p>
             <p className="text-sm mt-1">Try adjusting your filters or check back later</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="min-w-full divide-y divide-theme">
+              <thead className="bg-theme-background-secondary">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-theme-tertiary uppercase tracking-wider">
                     Action
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-theme-tertiary uppercase tracking-wider">
                     Status
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-theme-tertiary uppercase tracking-wider">
                     Time
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-theme-tertiary uppercase tracking-wider">
                     Duration
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-theme-tertiary uppercase tracking-wider">
                     IP Address
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-theme-tertiary uppercase tracking-wider">
                     Details
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-theme-surface divide-y divide-theme">
                 {activities.map((activity) => (
-                  <tr key={activity.id} className="hover:bg-gray-50">
+                  <tr key={activity.id} className="hover:bg-theme-surface-hover">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 py-1 text-xs rounded-full ${getActionColor(activity.action)}`}>
                         {activity.action}
@@ -232,34 +232,34 @@ export const ServiceActivityList: React.FC<ServiceActivityListProps> = ({ servic
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
-                        <div className={`w-2 h-2 rounded-full mr-2 ${activity.successful ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                        <span className="text-sm text-gray-900">
+                        <div className={`w-2 h-2 rounded-full mr-2 ${activity.successful ? 'bg-theme-success' : 'bg-theme-error'}`}></div>
+                        <span className="text-sm text-theme-primary">
                           {activity.successful ? 'Success' : 'Failed'}
                         </span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-theme-primary">
                       {new Date(activity.performed_at).toLocaleString()}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-theme-primary">
                       {formatDuration(activity.duration)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-theme-primary">
                       {activity.ip_address || '-'}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-900">
+                    <td className="px-6 py-4 text-sm text-theme-primary">
                       {activity.error_message && (
-                        <div className="text-red-600 text-xs">
+                        <div className="text-theme-error text-xs">
                           {activity.error_message}
                         </div>
                       )}
                       {activity.request_path && (
-                        <div className="text-gray-600 text-xs">
+                        <div className="text-theme-secondary text-xs">
                           {activity.request_path}
                         </div>
                       )}
                       {activity.response_status && (
-                        <div className="text-gray-600 text-xs">
+                        <div className="text-theme-secondary text-xs">
                           Status: {activity.response_status}
                         </div>
                       )}
@@ -273,26 +273,26 @@ export const ServiceActivityList: React.FC<ServiceActivityListProps> = ({ servic
 
         {/* Pagination */}
         {pagination.total_pages > 1 && (
-          <div className="px-6 py-3 border-t border-gray-200 bg-gray-50">
+          <div className="px-4 sm:px-6 lg:px-8 py-3 border-t border-theme bg-theme-background-secondary">
             <div className="flex items-center justify-between">
-              <div className="text-sm text-gray-700">
+              <div className="text-sm text-theme-secondary">
                 Showing {((pagination.page - 1) * pagination.per_page) + 1} to {Math.min(pagination.page * pagination.per_page, pagination.total)} of {pagination.total} results
               </div>
               <div className="flex gap-2">
                 <button
                   onClick={() => handlePageChange(pagination.page - 1)}
                   disabled={pagination.page === 1}
-                  className="px-3 py-1 text-sm border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                  className="px-3 py-1 text-sm border border-theme rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-theme-surface-hover bg-theme-surface text-theme-primary"
                 >
                   Previous
                 </button>
-                <span className="px-3 py-1 text-sm text-gray-700">
+                <span className="px-3 py-1 text-sm text-theme-primary">
                   Page {pagination.page} of {pagination.total_pages}
                 </span>
                 <button
                   onClick={() => handlePageChange(pagination.page + 1)}
                   disabled={pagination.page === pagination.total_pages}
-                  className="px-3 py-1 text-sm border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                  className="px-3 py-1 text-sm border border-theme rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-theme-surface-hover bg-theme-surface text-theme-primary"
                 >
                   Next
                 </button>

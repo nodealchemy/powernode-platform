@@ -59,23 +59,23 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="light min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-theme-background-secondary flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         {/* Logo and Title */}
         <div className="text-center">
-          <div className="mx-auto w-16 h-16 bg-gradient-to-br from-blue-600 to-blue-700 rounded-2xl flex items-center justify-center mb-6 shadow-lg">
+          <div className="mx-auto w-16 h-16 bg-theme-interactive-primary rounded-2xl flex items-center justify-center mb-6 shadow-lg">
             <span className="text-white font-bold text-2xl">P</span>
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Powernode</h1>
-          <p className="text-gray-600">Welcome back</p>
+          <h1 className="text-3xl font-bold text-theme-primary mb-2">Powernode</h1>
+          <p className="text-theme-secondary">Welcome back</p>
         </div>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow-xl border border-gray-200 sm:rounded-xl sm:px-10">
+        <div className="bg-theme-surface py-8 px-4 shadow-xl border border-theme sm:rounded-xl sm:px-10">
 
           {error && (
-            <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+            <div className="mb-6 bg-theme-error border border-theme text-theme-error px-4 py-3 rounded-lg">
               <div className="flex">
                 <div className="ml-3">
                   <p className="text-sm font-medium">{error}</p>
@@ -181,10 +181,10 @@ export const LoginPage: React.FC = () => {
           <div className="mt-8">
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-300" />
+                <div className="w-full border-t border-theme" />
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-theme-tertiary">New to Powernode?</span>
+                <span className="px-2 bg-theme-surface text-theme-tertiary">New to Powernode?</span>
               </div>
             </div>
           </div>

@@ -141,8 +141,8 @@ export const CustomersPage: React.FC = () => {
       </div>
 
       {error && (
-        <div className="bg-theme-error text-theme-error card-theme p-4">
-          <p className="text-theme-error text-sm">{error}</p>
+        <div className="alert-theme alert-theme-error">
+          <p className="text-sm">{error}</p>
         </div>
       )}
 

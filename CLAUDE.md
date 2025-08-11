@@ -41,10 +41,11 @@ The platform handles subscription lifecycle management, automated billing, payme
 
 ### Frontend Structure (React + TypeScript)
 - **Pages**: Customer dashboard, admin panel, billing management, application settings, user management, account management, subscription management, invitations management, delegations management, payment processor management
-- **Components**: Reusable UI components with accessibility
+- **Components**: Reusable UI components with accessibility and consistent styling
 - **Store**: Redux/Context for state management
 - **Services**: API integration and data fetching
 - **Application Settings**: All application settings manageable from within the frontend
+- **Styling**: Tailwind CSS with theme system and consistent design patterns
 
 ### Key Business Logic Areas
 - **Subscription Lifecycle**: Creation, upgrades/downgrades, pausing, cancellation
@@ -250,6 +251,77 @@ The project uses a sophisticated agent-based development approach defined in `cl
 - **Frontend Agents**: React architect, UI developer, dashboard specialist, admin panel developer
 - **Quality Agents**: Backend/frontend test engineers
 - **Infrastructure Agents**: DevOps engineer, security specialist, performance optimizer
+
+## Key Implementation Patterns
+
+### Frontend Styling Standards
+
+**CRITICAL: Consistent Component Styling Requirements**
+
+All frontend components MUST adhere to these styling standards:
+
+#### **Theme Management**
+- **LOGGED OUT USERS**: ALWAYS use light theme only - theme switching is disabled
+- **LOGGED IN USERS**: Can switch between light and dark themes - preference is saved to user settings
+- **ThemeToggle Component**: Automatically hides when user is logged out
+- **Authentication State**: Theme context monitors authentication and forces light theme on logout
+
+#### **Responsive Design Patterns**
+- **ALWAYS** use responsive padding: `px-4 sm:px-6 lg:px-8` for consistent horizontal spacing
+- **ALWAYS** use responsive layout patterns for mobile-first design
+- **NEVER** use fixed padding values that break responsive consistency
+- **REQUIRED**: Test components at all breakpoints (mobile, tablet, desktop)
+
+#### **Theme System Integration**
+- **MANDATORY**: Use theme-aware classes for all colors and surfaces
+  - Background: `bg-theme-surface`, `bg-theme-background`
+  - Text: `text-theme-primary`, `text-theme-secondary`, `text-theme-tertiary`
+  - Interactive: `text-theme-link`, `bg-theme-interactive-primary`
+  - Borders: `border-theme`, `border-theme-focus`
+  - Hover states: `hover:bg-theme-surface-hover`, `hover:text-theme-primary`
+- **FORBIDDEN**: Direct color classes like `bg-white`, `text-gray-500`, `border-gray-300`
+- **REQUIRED**: Support both light and dark theme modes
+
+#### **Layout Consistency Standards**
+- **Header Components**: MUST use `h-16` height with responsive padding `px-4 sm:px-6 lg:px-8`
+- **Sidebar Components**: MUST align with header padding patterns for visual consistency
+- **Navigation Elements**: MUST use consistent spacing and alignment patterns
+- **Button Components**: MUST follow unified sizing and spacing conventions
+- **Form Elements**: MUST maintain consistent field heights and spacing
+
+#### **Accessibility Requirements**
+- **MANDATORY**: Proper ARIA labels and roles for all interactive elements
+- **REQUIRED**: Keyboard navigation support with visible focus indicators
+- **REQUIRED**: Color contrast ratios meeting WCAG AA standards
+- **REQUIRED**: Screen reader compatibility with semantic HTML structure
+
+#### **Component Architecture Standards**
+- **Reusability**: All UI components MUST be built as reusable with prop-based customization
+- **TypeScript**: MUST include comprehensive TypeScript interfaces for all props
+- **Documentation**: MUST include component usage examples and prop documentation
+- **Testing**: MUST include unit tests for component behavior and styling
+
+#### **Animation and Transitions**
+- **Consistency**: Use standardized transition durations (`duration-150`, `duration-200`, `duration-300`)
+- **Performance**: Prefer `transform` and `opacity` changes over layout-affecting animations
+- **Accessibility**: Respect `prefers-reduced-motion` for users with motion sensitivity
+
+#### **Quality Assurance Protocol**
+Before any component is considered complete:
+
+1. **Visual Consistency Check**: Compare with existing components for alignment and spacing
+2. **Theme Testing**: Verify appearance in both light and dark themes
+3. **Responsive Testing**: Test at mobile (375px), tablet (768px), and desktop (1024px+) breakpoints
+4. **Accessibility Audit**: Validate ARIA labels, keyboard navigation, and color contrast
+5. **Cross-Component Integration**: Ensure new components work harmoniously with existing layout
+
+#### **Style Enforcement Rules**
+- **NEVER** create components with hardcoded colors or fixed dimensions
+- **ALWAYS** use the established theme system and responsive patterns
+- **REQUIRED**: Update this documentation when introducing new styling patterns
+- **MANDATORY**: Code review must verify styling consistency before merge
+
+**These standards ensure visual coherence, accessibility, and maintainability across the entire frontend application.**
 
 ## Key Implementation Patterns
 

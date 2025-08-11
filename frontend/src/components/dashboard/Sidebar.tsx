@@ -92,7 +92,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
       >
         <div className="flex flex-col h-full">
           {/* Logo */}
-          <div className={`flex items-center justify-between h-16 ${sidebarCollapsed ? 'px-3' : 'px-4'} border-b border-theme`}>
+          <div className={`flex items-center justify-between h-16 ${sidebarCollapsed ? 'px-3' : 'px-4 sm:px-6 lg:px-8'} border-b border-theme`}>
             <div className="flex items-center">
               <div className="h-8 w-8 bg-theme-interactive-primary rounded-lg flex items-center justify-center flex-shrink-0">
                 <span className="text-white font-bold">P</span>

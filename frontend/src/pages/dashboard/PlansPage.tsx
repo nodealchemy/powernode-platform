@@ -142,13 +142,13 @@ export const PlansPage: React.FC = () => {
       </div>
 
       {successMessage && (
-        <div className="bg-theme-success text-theme-success card-theme px-4 py-3">
+        <div className="alert-theme alert-theme-success">
           {successMessage}
         </div>
       )}
 
       {errorMessage && (
-        <div className="bg-theme-error text-theme-error card-theme px-4 py-3">
+        <div className="alert-theme alert-theme-error">
           {errorMessage}
         </div>
       )}
@@ -156,13 +156,13 @@ export const PlansPage: React.FC = () => {
       {/* Plans Grid - Enhanced UX Design with Perfect Alignment */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         {plans.map((plan) => (
-          <div key={plan.id} className="group card-theme shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden border border-theme-light hover:border-blue-200 flex flex-col h-full">
+          <div key={plan.id} className="group card-theme shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden border border-theme-light hover:border-theme-focus flex flex-col h-full">
             {/* Plan Header - Flexible Content */}
             <div className="p-8 relative flex-grow">
               {/* Status Badge */}
               <div className="flex justify-between items-start mb-6">
                 <div className="flex-1">
-                  <h3 className="text-xl font-bold text-theme-primary mb-2 group-hover:text-blue-600 transition-colors">
+                  <h3 className="text-xl font-bold text-theme-primary mb-2 group-hover:text-theme-link transition-colors">
                     {plan.name}
                   </h3>
                   <div className="h-10">
@@ -197,7 +197,7 @@ export const PlansPage: React.FC = () => {
                 </div>
                 <div className="h-6 mt-1">
                   {plan.trial_days > 0 && (
-                    <div className="inline-flex items-center px-2 py-1 bg-green-50 text-green-700 text-xs font-medium rounded-full">
+                    <div className="inline-flex items-center px-2 py-1 bg-theme-success text-theme-success text-xs font-medium rounded-full">
                       {plan.trial_days}-day free trial
                     </div>
                   )}
@@ -216,7 +216,7 @@ export const PlansPage: React.FC = () => {
                 </div>
                 <div className="h-8 w-px bg-theme-border"></div>
                 <div className="text-center flex-1">
-                  <div className="text-2xl font-bold text-green-600">
+                  <div className="text-2xl font-bold text-theme-success">
                     {plan.active_subscription_count || 0}
                   </div>
                   <div className="text-xs text-theme-secondary uppercase tracking-wide">
@@ -227,7 +227,7 @@ export const PlansPage: React.FC = () => {
                   <>
                     <div className="h-8 w-px bg-theme-border"></div>
                     <div className="text-center flex-1">
-                      <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${plan.is_public ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
+                      <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${plan.is_public ? 'bg-theme-success text-theme-success' : 'bg-theme-background-secondary text-theme-secondary'}`}>
                         {plan.is_public ? 'Public' : 'Private'}
                       </span>
                     </div>
@@ -268,8 +268,8 @@ export const PlansPage: React.FC = () => {
                       onClick={() => handleToggleStatus(plan.id)}
                       className={`flex items-center justify-center space-x-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 h-10 ${
                         plan.status === 'active'
-                          ? 'bg-amber-100 text-amber-800 hover:bg-amber-200 border border-amber-200'
-                          : 'bg-green-100 text-green-800 hover:bg-green-200 border border-green-200'
+                          ? 'bg-theme-warning text-theme-warning border-theme-warning'
+                          : 'bg-theme-success text-theme-success border-theme-success'
                       }`}
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -285,7 +285,7 @@ export const PlansPage: React.FC = () => {
                     <button
                       onClick={() => handleDeletePlan(plan.id)}
                       disabled={plan.can_be_deleted === false}
-                      className="flex items-center justify-center space-x-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-red-50 h-10"
+                      className="flex items-center justify-center space-x-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 bg-theme-error text-theme-error border-theme-error disabled:opacity-50 disabled:cursor-not-allowed h-10"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
