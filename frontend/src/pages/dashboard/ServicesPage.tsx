@@ -144,20 +144,20 @@ export const ServicesPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-theme-background-secondary">
       {/* Header */}
-      <div className="bg-white shadow">
-        <div className="px-6 py-4">
+      <div className="bg-theme-surface shadow">
+        <div className="px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Services</h1>
-              <p className="text-sm text-gray-600 mt-1">
+              <h1 className="text-2xl font-bold text-theme-primary">Services</h1>
+              <p className="text-sm text-theme-secondary mt-1">
                 Manage authentication services for background jobs and integrations
               </p>
             </div>
             <button
               onClick={() => setState(prev => ({ ...prev, showCreateModal: true }))}
-              className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
+              className="bg-theme-interactive-primary text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-theme-interactive-primary-hover transition-colors duration-200"
             >
               Create Service
             </button>
@@ -166,12 +166,12 @@ export const ServicesPage: React.FC = () => {
           {/* Stats */}
           <div className="flex gap-6 mt-4">
             <div className="text-sm">
-              <span className="text-gray-500">Total Services:</span>
-              <span className="ml-2 font-semibold text-gray-900">{state.stats.total}</span>
+              <span className="text-theme-secondary">Total Services:</span>
+              <span className="ml-2 font-semibold text-theme-primary">{state.stats.total}</span>
             </div>
             <div className="text-sm">
-              <span className="text-gray-500">Account Services:</span>
-              <span className="ml-2 font-semibold text-blue-600">{state.stats.account_services}</span>
+              <span className="text-theme-secondary">Account Services:</span>
+              <span className="ml-2 font-semibold text-theme-link">{state.stats.account_services}</span>
             </div>
           </div>
         </div>
@@ -179,11 +179,11 @@ export const ServicesPage: React.FC = () => {
 
       {/* Error Display */}
       {state.error && (
-        <div className="mx-6 mt-4 p-4 bg-red-50 border border-red-200 rounded-md">
-          <p className="text-red-600 text-sm">{state.error}</p>
+        <div className="mx-4 sm:mx-6 lg:px-8 mt-4 p-4 bg-theme-error rounded-md border border-theme">
+          <p className="text-theme-error text-sm">{state.error}</p>
           <button
             onClick={loadServices}
-            className="mt-2 text-red-600 hover:text-red-700 text-sm underline"
+            className="mt-2 text-theme-error hover:text-theme-error text-sm underline opacity-80 hover:opacity-100 transition-opacity duration-150"
           >
             Try again
           </button>
@@ -193,7 +193,7 @@ export const ServicesPage: React.FC = () => {
       {/* Main Content */}
       <div className="flex-1 flex">
         {/* Services List */}
-        <div className="w-1/3 bg-white border-r border-gray-200">
+        <div className="w-1/3 bg-theme-surface border-r border-theme">
           <ServiceList
             services={state.services}
             selectedService={state.selectedService}
@@ -215,7 +215,7 @@ export const ServicesPage: React.FC = () => {
               onStatusChange={handleStatusChange}
             />
           ) : (
-            <div className="flex items-center justify-center h-full text-gray-500">
+            <div className="flex items-center justify-center h-full text-theme-secondary">
               <div className="text-center">
                 <div className="text-4xl mb-4">🔧</div>
                 <p className="text-lg font-medium">Select a service to view details</p>

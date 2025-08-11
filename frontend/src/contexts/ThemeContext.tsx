@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { useSelector } from 'react-redux';
+import { RootState } from '../store';
 import { settingsApi } from '../services/settingsApi';
 
 type Theme = 'light' | 'dark';
@@ -27,27 +29,57 @@ interface ThemeProviderProps {
 export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
   const [theme, setThemeState] = useState<Theme>('light');
   const [loading, setLoading] = useState(true);
+  const [userTheme, setUserTheme] = useState<Theme>('light'); // Store user's preferred theme
+  
+  // Get authentication state
+  const { isAuthenticated } = useSelector((state: RootState) => state.auth);
 
-  // Load theme from user preferences on mount
+  // Load theme from user preferences on mount (only if authenticated)
   useEffect(() => {
     const loadTheme = async () => {
       try {
-        const preferences = await settingsApi.getPreferences();
-        setThemeState(preferences.theme);
-        applyThemeToDocument(preferences.theme);
+        if (isAuthenticated) {
+          const preferences = await settingsApi.getPreferences();
+          setUserTheme(preferences.theme);
+          setThemeState(preferences.theme);
+          applyThemeToDocument(preferences.theme);
+        } else {
+          // Force light theme when logged out
+          setThemeState('light');
+          applyThemeToDocument('light');
+        }
       } catch (error) {
         console.error('Failed to load theme preference:', error);
-        // Fall back to system preference or default
-        const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-        setThemeState(systemTheme);
-        applyThemeToDocument(systemTheme);
+        if (isAuthenticated) {
+          // Fall back to system preference or default for authenticated users
+          const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          setUserTheme(systemTheme);
+          setThemeState(systemTheme);
+          applyThemeToDocument(systemTheme);
+        } else {
+          // Always use light theme when logged out
+          setThemeState('light');
+          applyThemeToDocument('light');
+        }
       } finally {
         setLoading(false);
       }
     };
 
     loadTheme();
-  }, []);
+  }, [isAuthenticated]);
+
+  // Force light theme when user logs out
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setThemeState('light');
+      applyThemeToDocument('light');
+    } else if (userTheme) {
+      // Restore user's preferred theme when logging in
+      setThemeState(userTheme);
+      applyThemeToDocument(userTheme);
+    }
+  }, [isAuthenticated, userTheme]);
 
   // Apply theme to document
   const applyThemeToDocument = (newTheme: Theme) => {
@@ -66,8 +98,15 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
   };
 
   const setTheme = async (newTheme: Theme) => {
+    // Prevent theme changes when logged out
+    if (!isAuthenticated) {
+      console.warn('Cannot change theme when logged out - forced to light theme');
+      return;
+    }
+
     try {
       setThemeState(newTheme);
+      setUserTheme(newTheme);
       applyThemeToDocument(newTheme);
       
       // Update user preferences

@@ -1,4 +1,6 @@
 import React from 'react';
+import { useSelector } from 'react-redux';
+import { RootState } from '../../store';
 import { useTheme } from '../../contexts/ThemeContext';
 
 interface ThemeToggleProps {
@@ -11,6 +13,12 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = ({
   showLabel = false 
 }) => {
   const { theme, toggleTheme, loading } = useTheme();
+  const { isAuthenticated } = useSelector((state: RootState) => state.auth);
+
+  // Hide theme toggle when logged out (forced to light theme)
+  if (!isAuthenticated) {
+    return null;
+  }
 
   if (loading) {
     return (

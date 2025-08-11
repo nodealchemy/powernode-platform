@@ -37,18 +37,26 @@ export const NotificationContainer: React.FC = () => {
           key={notification.id}
           className={`p-4 rounded-lg shadow-lg max-w-sm flex items-center justify-between ${
             notification.type === 'success'
-              ? 'bg-theme-success text-theme-success border border-theme-success'
+              ? 'bg-green-50 dark:bg-green-800 text-green-800 dark:text-green-100 border border-green-300 dark:border-green-600'
               : notification.type === 'error'
-              ? 'bg-theme-error text-theme-error border border-theme-error'
+              ? 'bg-red-50 dark:bg-red-800 text-red-800 dark:text-red-100 border border-red-300 dark:border-red-600'
               : notification.type === 'warning'
-              ? 'bg-theme-warning text-theme-warning border border-theme-warning'
-              : 'bg-theme-info text-theme-info border border-theme-info'
+              ? 'bg-yellow-50 dark:bg-yellow-800 text-yellow-800 dark:text-yellow-100 border border-yellow-300 dark:border-yellow-600'
+              : 'bg-blue-50 dark:bg-blue-800 text-blue-800 dark:text-blue-100 border border-blue-300 dark:border-blue-600'
           }`}
         >
           <span className="text-sm font-medium">{notification.message}</span>
           <button
             onClick={() => handleRemove(notification.id)}
-            className="ml-4 text-theme-tertiary hover:text-theme-secondary"
+            className={`ml-4 transition-colors duration-150 ${
+              notification.type === 'success'
+                ? 'text-green-600 dark:text-green-200 hover:text-green-700 dark:hover:text-green-100'
+                : notification.type === 'error'
+                ? 'text-red-600 dark:text-red-200 hover:text-red-700 dark:hover:text-red-100'
+                : notification.type === 'warning'
+                ? 'text-yellow-600 dark:text-yellow-200 hover:text-yellow-700 dark:hover:text-yellow-100'
+                : 'text-blue-600 dark:text-blue-200 hover:text-blue-700 dark:hover:text-blue-100'
+            }`}
           >
             <svg
               className="h-4 w-4"

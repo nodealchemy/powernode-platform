@@ -274,7 +274,7 @@ export const AdminSettingsPage: React.FC = () => {
                     onChange={(e) => handleUpdateSettings({ maintenance_mode: e.target.checked })}
                     disabled={saving}
                   />
-                  <div className="toggle-theme peer-checked:bg-red-600"></div>
+                  <div className="toggle-theme peer-checked:bg-theme-error"></div>
                 </label>
               </div>
 
@@ -291,7 +291,7 @@ export const AdminSettingsPage: React.FC = () => {
                     onChange={(e) => handleUpdateSettings({ registration_enabled: e.target.checked })}
                     disabled={saving}
                   />
-                  <div className="toggle-theme peer-checked:bg-blue-600"></div>
+                  <div className="toggle-theme peer-checked:bg-theme-interactive-primary"></div>
                 </label>
               </div>
 
@@ -308,7 +308,7 @@ export const AdminSettingsPage: React.FC = () => {
                     onChange={(e) => handleUpdateSettings({ email_verification_required: e.target.checked })}
                     disabled={saving}
                   />
-                  <div className="toggle-theme peer-checked:bg-blue-600"></div>
+                  <div className="toggle-theme peer-checked:bg-theme-interactive-primary"></div>
                 </label>
               </div>
 

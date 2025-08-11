@@ -371,7 +371,7 @@ export const SettingsPage: React.FC = () => {
                     value={profileForm.firstName}
                     onChange={(e) => setProfileForm({ ...profileForm, firstName: e.target.value })}
                     className={`input-theme w-full ${
-                      !profileForm.firstName.trim() ? 'border-red-500' : ''
+                      !profileForm.firstName.trim() ? 'border-theme-error' : ''
                     }`}
                     placeholder="Enter your first name"
                     required
@@ -389,7 +389,7 @@ export const SettingsPage: React.FC = () => {
                     value={profileForm.lastName}
                     onChange={(e) => setProfileForm({ ...profileForm, lastName: e.target.value })}
                     className={`input-theme w-full ${
-                      !profileForm.lastName.trim() ? 'border-red-500' : ''
+                      !profileForm.lastName.trim() ? 'border-theme-error' : ''
                     }`}
                     placeholder="Enter your last name"
                     required
@@ -407,7 +407,7 @@ export const SettingsPage: React.FC = () => {
                     value={profileForm.email}
                     onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })}
                     className={`input-theme w-full ${
-                      profileForm.email.trim() && !isValidEmail(profileForm.email) ? 'border-red-500' : ''
+                      profileForm.email.trim() && !isValidEmail(profileForm.email) ? 'border-theme-error' : ''
                     }`}
                     placeholder="Enter your email address"
                     required

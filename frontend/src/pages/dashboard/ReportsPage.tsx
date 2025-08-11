@@ -204,17 +204,17 @@ export const ReportsPage: React.FC = () => {
     return (
       <div className="min-h-screen bg-theme-background-secondary p-6">
         <div className="max-w-7xl mx-auto">
-          <div className="bg-theme-error text-theme-error card-theme p-6">
+          <div className="alert-theme alert-theme-error">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <span className="text-theme-error text-xl">⚠️</span>
+                <span className="text-xl">⚠️</span>
               </div>
               <div className="ml-3">
-                <h3 className="text-sm font-medium text-theme-error">Error Loading Reports</h3>
-                <p className="mt-1 text-sm text-theme-error">{error}</p>
+                <h3 className="text-sm font-medium">Error Loading Reports</h3>
+                <p className="mt-1 text-sm">{error}</p>
                 <button
                   onClick={loadData}
-                  className="mt-2 px-3 py-1 bg-theme-error text-white rounded text-sm hover:opacity-80"
+                  className="mt-2 btn-theme btn-theme-primary text-sm"
                 >
                   Try Again
                 </button>
@@ -327,10 +327,10 @@ export const ReportsPage: React.FC = () => {
                     </div>
                     <div className="flex items-center space-x-3">
                       <span className={`px-2 py-1 text-xs rounded ${
-                        request.status === 'completed' ? 'bg-green-100 text-green-700' :
-                        request.status === 'processing' ? 'bg-blue-100 text-blue-700' :
-                        request.status === 'failed' ? 'bg-red-100 text-red-700' :
-                        'bg-gray-100 text-gray-700'
+                        request.status === 'completed' ? 'bg-theme-success text-theme-success' :
+                        request.status === 'processing' ? 'bg-theme-info text-theme-info' :
+                        request.status === 'failed' ? 'bg-theme-error text-theme-error' :
+                        'bg-theme-background-secondary text-theme-secondary'
                       }`}>
                         {request.status.toUpperCase()}
                       </span>

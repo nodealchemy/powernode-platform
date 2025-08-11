@@ -36,28 +36,28 @@ const ServiceItem: React.FC<ServiceItemProps> = ({
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active':
-        return 'bg-green-100 text-green-800';
+        return 'bg-theme-success text-theme-success border border-theme';
       case 'suspended':
-        return 'bg-yellow-100 text-yellow-800';
+        return 'bg-theme-warning text-theme-warning border border-theme';
       case 'revoked':
-        return 'bg-red-100 text-red-800';
+        return 'bg-theme-error text-theme-error border border-theme';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-theme-background-secondary text-theme-secondary border border-theme';
     }
   };
 
   const getPermissionColor = (permission: string) => {
     switch (permission) {
       case 'readonly':
-        return 'bg-blue-100 text-blue-800';
+        return 'bg-theme-info text-theme-info border border-theme';
       case 'standard':
-        return 'bg-green-100 text-green-800';
+        return 'bg-theme-success text-theme-success border border-theme';
       case 'admin':
-        return 'bg-orange-100 text-orange-800';
+        return 'bg-theme-warning text-theme-warning border border-theme';
       case 'super_admin':
-        return 'bg-red-100 text-red-800';
+        return 'bg-theme-error text-theme-error border border-theme';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-theme-background-secondary text-theme-secondary border border-theme';
     }
   };
 
@@ -75,15 +75,15 @@ const ServiceItem: React.FC<ServiceItemProps> = ({
 
   return (
     <div
-      className={`p-4 border-b border-gray-200 cursor-pointer hover:bg-gray-50 relative ${
-        isSelected ? 'bg-blue-50 border-blue-200' : ''
+      className={`p-4 border-b border-theme cursor-pointer hover:bg-theme-surface-hover relative ${
+        isSelected ? 'bg-theme-surface-selected border-theme-focus' : ''
       }`}
       onClick={onSelect}
     >
       <div className="flex items-start justify-between">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-2">
-            <h3 className="text-sm font-medium text-gray-900 truncate">
+            <h3 className="text-sm font-medium text-theme-primary truncate">
               {service.name}
             </h3>
             <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(service.status)}`}>
@@ -95,25 +95,25 @@ const ServiceItem: React.FC<ServiceItemProps> = ({
             <span className={`px-2 py-1 text-xs rounded ${getPermissionColor(service.permissions)}`}>
               {service.permissions}
             </span>
-            <span className="text-xs text-gray-500">•</span>
-            <span className="text-xs text-gray-500">{service.account_name}</span>
+            <span className="text-xs text-theme-tertiary">•</span>
+            <span className="text-xs text-theme-secondary">{service.account_name}</span>
           </div>
           
           {service.description && (
-            <p className="text-xs text-gray-600 mb-2 line-clamp-2">
+            <p className="text-xs text-theme-secondary mb-2 line-clamp-2">
               {service.description}
             </p>
           )}
           
-          <div className="flex items-center gap-4 text-xs text-gray-500">
+          <div className="flex items-center gap-4 text-xs text-theme-secondary">
             <span>Requests: {service.request_count}</span>
             {service.active_recently ? (
-              <span className="flex items-center gap-1 text-green-600">
-                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+              <span className="flex items-center gap-1 text-theme-success">
+                <div className="w-2 h-2 bg-theme-success rounded-full"></div>
                 Active
               </span>
             ) : (
-              <span className="text-gray-400">Inactive</span>
+              <span className="text-theme-tertiary">Inactive</span>
             )}
           </div>
         </div>
@@ -124,7 +124,7 @@ const ServiceItem: React.FC<ServiceItemProps> = ({
               e.stopPropagation();
               setShowActions(!showActions);
             }}
-            className="p-1 text-gray-400 hover:text-gray-600 rounded"
+            className="p-1 text-theme-tertiary hover:text-theme-primary rounded transition-colors duration-200"
           >
             <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
               <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
@@ -132,7 +132,7 @@ const ServiceItem: React.FC<ServiceItemProps> = ({
           </button>
           
           {showActions && (
-            <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg border border-gray-200 z-10">
+            <div className="absolute right-0 mt-2 w-48 bg-theme-surface rounded-md shadow-lg border border-theme z-10">
               <div className="py-1">
                 <button
                   onClick={(e) => {
@@ -140,7 +140,7 @@ const ServiceItem: React.FC<ServiceItemProps> = ({
                     handleAction(() => onTokenRegenerate(), 'regenerate');
                   }}
                   disabled={loading === 'regenerate'}
-                  className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                  className="block w-full text-left px-4 py-2 text-sm text-theme-primary hover:bg-theme-surface-hover disabled:opacity-50 transition-colors duration-150"
                 >
                   {loading === 'regenerate' ? 'Regenerating...' : 'Regenerate Token'}
                 </button>
@@ -152,7 +152,7 @@ const ServiceItem: React.FC<ServiceItemProps> = ({
                       handleAction(() => onStatusChange('suspend'), 'suspend');
                     }}
                     disabled={loading === 'suspend'}
-                    className="block w-full text-left px-4 py-2 text-sm text-yellow-700 hover:bg-gray-50 disabled:opacity-50"
+                    className="block w-full text-left px-4 py-2 text-sm text-theme-warning hover:bg-theme-surface-hover disabled:opacity-50 transition-colors duration-150"
                   >
                     {loading === 'suspend' ? 'Suspending...' : 'Suspend'}
                   </button>
@@ -165,7 +165,7 @@ const ServiceItem: React.FC<ServiceItemProps> = ({
                       handleAction(() => onStatusChange('activate'), 'activate');
                     }}
                     disabled={loading === 'activate'}
-                    className="block w-full text-left px-4 py-2 text-sm text-green-700 hover:bg-gray-50 disabled:opacity-50"
+                    className="block w-full text-left px-4 py-2 text-sm text-theme-success hover:bg-theme-surface-hover disabled:opacity-50 transition-colors duration-150"
                   >
                     {loading === 'activate' ? 'Activating...' : 'Activate'}
                   </button>
@@ -180,13 +180,13 @@ const ServiceItem: React.FC<ServiceItemProps> = ({
                       }
                     }}
                     disabled={loading === 'revoke'}
-                    className="block w-full text-left px-4 py-2 text-sm text-red-700 hover:bg-gray-50 disabled:opacity-50"
+                    className="block w-full text-left px-4 py-2 text-sm text-theme-error hover:bg-theme-surface-hover disabled:opacity-50 transition-colors duration-150"
                   >
                     {loading === 'revoke' ? 'Revoking...' : 'Revoke'}
                   </button>
                 )}
                 
-                <div className="border-t border-gray-100 my-1"></div>
+                <div className="border-t border-theme my-1"></div>
                 
                 <button
                   onClick={(e) => {
@@ -196,7 +196,7 @@ const ServiceItem: React.FC<ServiceItemProps> = ({
                     }
                   }}
                   disabled={loading === 'delete'}
-                  className="block w-full text-left px-4 py-2 text-sm text-red-700 hover:bg-gray-50 disabled:opacity-50"
+                  className="block w-full text-left px-4 py-2 text-sm text-theme-error hover:bg-theme-surface-hover disabled:opacity-50"
                 >
                   {loading === 'delete' ? 'Deleting...' : 'Delete'}
                 </button>
@@ -207,8 +207,8 @@ const ServiceItem: React.FC<ServiceItemProps> = ({
       </div>
       
       {loading && (
-        <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center">
-          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+        <div className="absolute inset-0 bg-theme-surface bg-opacity-75 flex items-center justify-center">
+          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-theme-interactive-primary"></div>
         </div>
       )}
     </div>
@@ -226,7 +226,7 @@ export const ServiceList: React.FC<ServiceListProps> = ({
 }) => {
   if (services.length === 0) {
     return (
-      <div className="flex items-center justify-center h-64 text-gray-500">
+      <div className="flex items-center justify-center h-64 text-theme-secondary">
         <div className="text-center">
           <div className="text-3xl mb-3">🔧</div>
           <p className="text-lg font-medium">No services found</p>
@@ -238,8 +238,8 @@ export const ServiceList: React.FC<ServiceListProps> = ({
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="p-4 border-b border-gray-200 bg-gray-50">
-        <h2 className="text-lg font-medium text-gray-900">Services ({services.length})</h2>
+      <div className="p-4 sm:p-6 lg:p-8 border-b border-theme bg-theme-background-secondary">
+        <h2 className="text-lg font-medium text-theme-primary">Services ({services.length})</h2>
       </div>
       
       <div>

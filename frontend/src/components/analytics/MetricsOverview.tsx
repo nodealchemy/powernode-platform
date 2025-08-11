@@ -20,9 +20,9 @@ export const MetricsOverview: React.FC<MetricsOverviewProps> = ({ data }) => {
   };
 
   const getGrowthColor = (growth: number) => {
-    if (growth > 0) return 'text-green-600';
-    if (growth < 0) return 'text-red-600';
-    return 'text-gray-600';
+    if (growth > 0) return 'text-green-600 dark:text-green-400';
+    if (growth < 0) return 'text-red-600 dark:text-red-400';
+    return 'text-theme-secondary';
   };
 
   const getGrowthIcon = (growth: number) => {
@@ -33,10 +33,10 @@ export const MetricsOverview: React.FC<MetricsOverviewProps> = ({ data }) => {
 
   const getRiskColor = (level: string) => {
     switch (level) {
-      case 'low': return 'text-green-600 bg-green-50';
-      case 'medium': return 'text-yellow-600 bg-yellow-50';
-      case 'high': return 'text-red-600 bg-red-50';
-      default: return 'text-gray-600 bg-gray-50';
+      case 'low': return 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30';
+      case 'medium': return 'text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/30';
+      case 'high': return 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30';
+      default: return 'text-theme-secondary bg-theme-background-secondary';
     }
   };
 
