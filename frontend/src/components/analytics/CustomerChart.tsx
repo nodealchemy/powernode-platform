@@ -368,21 +368,21 @@ export const CustomerChart: React.FC<CustomerChartProps> = ({
         
         {/* Growth Summary */}
         <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-          <div className="text-center p-3 bg-green-50 rounded-lg">
-            <p className="text-green-600 font-medium">Total New Customers</p>
-            <p className="text-xl font-bold text-green-700">
+          <div className="text-center p-3 bg-theme-success bg-opacity-10 rounded-lg">
+            <p className="text-theme-success font-medium">Total New Customers</p>
+            <p className="text-xl font-bold text-theme-success">
               {data.reduce((sum, item) => sum + item.new_customers, 0).toLocaleString()}
             </p>
           </div>
-          <div className="text-center p-3 bg-red-50 rounded-lg">
-            <p className="text-red-600 font-medium">Total Churned Customers</p>
-            <p className="text-xl font-bold text-red-700">
+          <div className="text-center p-3 bg-theme-error bg-opacity-10 rounded-lg">
+            <p className="text-theme-error font-medium">Total Churned Customers</p>
+            <p className="text-xl font-bold text-theme-error">
               {data.reduce((sum, item) => sum + item.churned_customers, 0).toLocaleString()}
             </p>
           </div>
-          <div className="text-center p-3 bg-blue-50 rounded-lg">
-            <p className="text-blue-600 font-medium">Net Growth</p>
-            <p className="text-xl font-bold text-blue-700">
+          <div className="text-center p-3 bg-theme-info bg-opacity-10 rounded-lg">
+            <p className="text-theme-info font-medium">Net Growth</p>
+            <p className="text-xl font-bold text-theme-info">
               {data.reduce((sum, item) => sum + item.net_growth, 0).toLocaleString()}
             </p>
           </div>

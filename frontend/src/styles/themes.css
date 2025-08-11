@@ -156,12 +156,12 @@
   --color-surface-selected: var(--color-primary-50); /* Selected states */
   --color-surface-disabled: var(--color-neutral-100); /* Disabled surfaces */
   
-  /* Border Hierarchy */
-  --color-border: var(--color-neutral-200);       /* Standard borders */
-  --color-border-light: var(--color-neutral-100); /* Subtle borders */
-  --color-border-strong: var(--color-neutral-300); /* Emphasized borders */
+  /* Border Hierarchy - More subtle and refined */
+  --color-border: rgba(0, 0, 0, 0.06);            /* Standard borders - very subtle */
+  --color-border-light: rgba(0, 0, 0, 0.03);      /* Subtle borders - almost invisible */
+  --color-border-strong: rgba(0, 0, 0, 0.12);     /* Emphasized borders - still subtle */
   --color-border-focus: var(--color-primary-500); /* Focus rings */
-  --color-divider: var(--color-neutral-200);      /* Divider lines */
+  --color-divider: rgba(0, 0, 0, 0.04);           /* Divider lines - very subtle */
   
   /* Text Hierarchy - WCAG AA compliant */
   --color-text-primary: var(--color-neutral-900);    /* 4.5:1 contrast - body text, headings */
@@ -231,12 +231,12 @@
   --color-surface-selected: var(--color-primary-900);     /* Selected states */
   --color-surface-disabled: var(--color-neutral-800);     /* Disabled surfaces */
   
-  /* Border Hierarchy */
-  --color-border: var(--color-neutral-700);            /* Standard borders */
-  --color-border-light: var(--color-neutral-800);      /* Subtle borders */
-  --color-border-strong: var(--color-neutral-600);     /* Emphasized borders */
-  --color-border-focus: var(--color-primary-500);      /* Focus rings */
-  --color-divider: var(--color-neutral-700);           /* Divider lines */
+  /* Border Hierarchy - Subtle for dark mode */
+  --color-border: rgba(255, 255, 255, 0.08);          /* Standard borders - subtle */
+  --color-border-light: rgba(255, 255, 255, 0.04);    /* Subtle borders - very faint */
+  --color-border-strong: rgba(255, 255, 255, 0.16);   /* Emphasized borders */
+  --color-border-focus: var(--color-primary-500);     /* Focus rings */
+  --color-divider: rgba(255, 255, 255, 0.06);         /* Divider lines - very subtle */
   
   /* Text Hierarchy - WCAG AA compliant for dark mode */
   --color-text-primary: var(--color-neutral-50);          /* High contrast white */
@@ -320,7 +320,33 @@
 .border-theme-light { border-color: var(--color-border-light); }
 .border-theme-strong { border-color: var(--color-border-strong); }
 .border-theme-focus { border-color: var(--color-border-focus); }
+.divide-theme > :not([hidden]) ~ :not([hidden]) { border-color: var(--color-divider); }
 .divide-theme-light > :not([hidden]) ~ :not([hidden]) { border-color: var(--color-border-light); }
+
+/* Subtle border utilities for better visual hierarchy */
+.border-subtle { 
+  border: 1px solid var(--color-border-light);
+}
+
+.border-t-subtle {
+  border-top: 1px solid var(--color-border-light);
+}
+
+.border-b-subtle {
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.border-l-subtle {
+  border-left: 1px solid var(--color-border-light);
+}
+
+.border-r-subtle {
+  border-right: 1px solid var(--color-border-light);
+}
+
+.divide-subtle > :not([hidden]) ~ :not([hidden]) {
+  border-top: 1px solid var(--color-divider);
+}
 
 /* Interactive Utilities */
 .interactive-primary {
@@ -972,7 +998,7 @@
   }
 }
 
-/* ===== NOTIFICATION ANIMATIONS ===== */
+/* ===== ENHANCED TAB CONTAINER ANIMATIONS ===== */
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -984,9 +1010,143 @@
   }
 }
 
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes slideInFromBottom {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    transform: scale(0.95);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
 .animate-fade-in {
   animation: fadeIn 0.3s ease-out;
 }
+
+.fade-in-50 {
+  animation: fadeInScale 0.5s ease-out;
+}
+
+.slide-in-from-bottom-4 {
+  animation: slideInFromBottom 0.5s ease-out;
+}
+
+.animate-in {
+  animation: fadeInScale 0.5s ease-out;
+}
+
+.scale-100 {
+  transform: scale(1);
+}
+
+.scale-101 {
+  transform: scale(1.01);
+}
+
+.scale-102 {
+  transform: scale(1.02);
+}
+
+.scale-105 {
+  transform: scale(1.05);
+}
+
+.scale-110 {
+  transform: scale(1.1);
+}
+
+/* Enhanced hover and focus animations */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Tab-specific transition classes */
+.duration-150 {
+  transition-duration: 150ms;
+}
+
+.duration-200 {
+  transition-duration: 200ms;
+}
+
+.duration-300 {
+  transition-duration: 300ms;
+}
+
+.duration-500 {
+  transition-duration: 500ms;
+}
+
+.ease-in-out {
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ease-out {
+  transition-timing-function: cubic-bezier(0, 0, 0.2, 1);
+}
+
+/* Tab badge animations */
+@keyframes badgePulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 0.9;
+  }
+}
+
+.badge-animate {
+  animation: badgePulse 2s ease-in-out infinite;
+}
+
+/* Border animations for underline tabs */
+@keyframes borderExpand {
+  from {
+    width: 0;
+  }
+  to {
+    width: 100%;
+  }
+}
+
+.border-expand {
+  animation: borderExpand 0.3s ease-out forwards;
+}
+
+/* Backdrop blur utility classes - Removed duplicate, see line 1439 */
 
 /* ===== SCROLLBAR STYLING ===== */
 /* Custom scrollbar for sidebar and other scrollable elements */
@@ -1033,35 +1193,67 @@
   /* Smooth scrolling behavior */
   scroll-behavior: smooth;
   
-  /* Custom scrollbar styling */
+  /* Firefox scrollbar styling */
   scrollbar-width: thin;
-  scrollbar-color: var(--color-text-tertiary) transparent;
+  scrollbar-color: rgba(156, 163, 175, 0.5) transparent;
 }
 
 .sidebar-scrollbar::-webkit-scrollbar {
-  width: 4px;
+  width: 6px;
+  background: transparent;
 }
 
 .sidebar-scrollbar::-webkit-scrollbar-track {
   background: transparent;
   margin: 8px 0; /* Add margin to avoid overlap with header/footer */
+  border-radius: 3px;
 }
 
 .sidebar-scrollbar::-webkit-scrollbar-thumb {
-  background-color: var(--color-text-tertiary);
-  opacity: 0.4;
-  border-radius: 2px;
-  transition: opacity var(--duration-fast) var(--easing-ease-out);
-}
-
-.sidebar-scrollbar:hover::-webkit-scrollbar-thumb {
-  background-color: var(--color-text-secondary);
-  opacity: 0.6;
+  background: rgba(156, 163, 175, 0.4);
+  border-radius: 3px;
+  transition: all 0.2s ease-in-out;
+  min-height: 20px; /* Minimum thumb height */
 }
 
 .sidebar-scrollbar::-webkit-scrollbar-thumb:hover {
-  background-color: var(--color-text-secondary);
-  opacity: 0.8;
+  background: rgba(156, 163, 175, 0.7);
+}
+
+/* Dark theme scrollbar adjustments */
+:root.theme-dark .sidebar-scrollbar {
+  scrollbar-color: rgba(209, 213, 219, 0.5) transparent;
+}
+
+:root.theme-dark .sidebar-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(209, 213, 219, 0.4);
+}
+
+:root.theme-dark .sidebar-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(209, 213, 219, 0.7);
+}
+
+/* Ensure scrollbar is always visible when content overflows */
+.sidebar-scrollbar::-webkit-scrollbar-thumb {
+  background-clip: content-box;
+  border: 1px solid transparent;
+}
+
+/* Enhanced scrollbar behavior for better UX */
+.sidebar-scrollbar {
+  /* Show scrollbar only when needed, but make it more visible when present */
+  overflow-y: auto;
+}
+
+/* Scrollbar visibility enhancement on hover/focus */
+.sidebar-scrollbar:hover::-webkit-scrollbar-thumb,
+.sidebar-scrollbar:focus-within::-webkit-scrollbar-thumb {
+  background: rgba(156, 163, 175, 0.6);
+}
+
+:root.theme-dark .sidebar-scrollbar:hover::-webkit-scrollbar-thumb,
+:root.theme-dark .sidebar-scrollbar:focus-within::-webkit-scrollbar-thumb {
+  background: rgba(209, 213, 219, 0.6);
 }
 
 /* Scroll indicators for better UX */
@@ -1085,4 +1277,350 @@
 .scroll-fade-bottom::after {
   bottom: 0;
   background: linear-gradient(to top, var(--color-surface), transparent);
+}
+
+/* ===== MODERN TABBED INTERFACE ANIMATIONS ===== */
+
+/* Modern Animation System for Enhanced UX */
+/* Using fadeIn animation from line 976 */
+
+@keyframes fade-in-50 {
+  from { 
+    opacity: 0; 
+    transform: scale(0.98);
+  }
+  to { 
+    opacity: 1; 
+    transform: scale(1);
+  }
+}
+
+@keyframes slide-in-from-bottom {
+  from { 
+    opacity: 0;
+    transform: translateY(8px); 
+  }
+  to { 
+    opacity: 1;
+    transform: translateY(0); 
+  }
+}
+
+@keyframes slide-in-from-bottom-4 {
+  from { 
+    opacity: 0;
+    transform: translateY(16px); 
+  }
+  to { 
+    opacity: 1;
+    transform: translateY(0); 
+  }
+}
+
+@keyframes slide-in-from-top {
+  from { 
+    opacity: 0;
+    transform: translateY(-8px); 
+  }
+  to { 
+    opacity: 1;
+    transform: translateY(0); 
+  }
+}
+
+@keyframes scale-in {
+  from { 
+    opacity: 0;
+    transform: scale(0.95); 
+  }
+  to { 
+    opacity: 1;
+    transform: scale(1); 
+  }
+}
+
+@keyframes bounce-in {
+  0% { 
+    opacity: 0;
+    transform: scale(0.3); 
+  }
+  50% { 
+    opacity: 1;
+    transform: scale(1.05); 
+  }
+  70% { 
+    transform: scale(0.9); 
+  }
+  100% { 
+    opacity: 1;
+    transform: scale(1); 
+  }
+}
+
+@keyframes shimmer {
+  0% { 
+    background-position: -200px 0; 
+  }
+  100% { 
+    background-position: calc(200px + 100%) 0; 
+  }
+}
+
+/* Animation Utility Classes */
+.animate-in {
+  animation-fill-mode: both;
+}
+
+.fade-in {
+  animation: fade-in 0.3s ease-out;
+}
+
+.fade-in-50 {
+  animation: fade-in-50 0.4s ease-out;
+}
+
+.slide-in-from-bottom {
+  animation: slide-in-from-bottom 0.4s ease-out;
+}
+
+.slide-in-from-bottom-4 {
+  animation: slide-in-from-bottom-4 0.5s ease-out;
+}
+
+.slide-in-from-top {
+  animation: slide-in-from-top 0.4s ease-out;
+}
+
+.scale-in {
+  animation: scale-in 0.3s ease-out;
+}
+
+.bounce-in {
+  animation: bounce-in 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+/* Duration Utilities */
+.duration-150 {
+  transition-duration: 150ms;
+}
+
+.duration-200 {
+  transition-duration: 200ms;
+}
+
+.duration-300 {
+  transition-duration: 300ms;
+}
+
+.duration-500 {
+  transition-duration: 500ms;
+}
+
+/* Easing Utilities */
+.ease-out {
+  transition-timing-function: cubic-bezier(0, 0, 0.2, 1);
+}
+
+.ease-in-out {
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Modern Transform Utilities */
+.transform-gpu {
+  transform: translateZ(0);
+  will-change: transform;
+}
+
+.scale-\[1\.01\] {
+  transform: scale(1.01);
+}
+
+.scale-\[1\.02\] {
+  transform: scale(1.02);
+}
+
+.scale-\[1\.05\] {
+  transform: scale(1.05);
+}
+
+.scale-110 {
+  transform: scale(1.1);
+}
+
+/* Backdrop Blur Effects */
+.backdrop-blur-sm {
+  backdrop-filter: blur(4px);
+}
+
+.backdrop-blur-md {
+  backdrop-filter: blur(8px);
+}
+
+.backdrop-blur-lg {
+  backdrop-filter: blur(12px);
+}
+
+/* ===== MODAL ANIMATIONS ===== */
+@keyframes modal-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes modal-zoom-in {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes modal-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes modal-slide-left {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.animate-modal-slide-up {
+  animation: modal-slide-up 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.animate-modal-zoom-in {
+  animation: modal-zoom-in 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.animate-modal-fade-in {
+  animation: modal-fade-in 0.3s ease-out;
+}
+
+.animate-modal-slide-left {
+  animation: modal-slide-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ===== CARD ANIMATIONS ===== */
+@keyframes gradient-shift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.animate-gradient-shift {
+  background-size: 200% 200%;
+  animation: gradient-shift 3s ease infinite;
+}
+
+.animate-scale-in {
+  animation: scale-in 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ===== CUSTOM SCROLLBAR ===== */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: var(--color-surface);
+  border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--color-border-focus);
+}
+
+/* Enhanced Shadow System */
+.shadow-theme-interactive-primary\/25 {
+  box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.25), 0 2px 4px -1px rgba(59, 130, 246, 0.06);
+}
+
+.shadow-theme-interactive-primary\/30 {
+  box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.3), 0 4px 6px -2px rgba(59, 130, 246, 0.05);
+}
+
+.shadow-theme-surface\/25 {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+.shadow-theme-surface\/30 {
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+/* Border Width Utilities */
+.border-b-3 {
+  border-bottom-width: 3px;
+}
+
+/* Enhanced Scrollbar for Modern Tabs */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(156, 163, 175, 0.3) transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  height: 4px;
+  width: 4px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: rgba(156, 163, 175, 0.3);
+  border-radius: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: rgba(156, 163, 175, 0.5);
+}
+
+.scrollbar-track-transparent::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-thumb-theme-surface::-webkit-scrollbar-thumb {
+  background: var(--color-surface);
+}
+
+.scrollbar-thumb-theme-interactive-primary\/30::-webkit-scrollbar-thumb:hover {
+  background: rgba(59, 130, 246, 0.3);
+}
+
+/* Enhanced focus rings for accessibility */
+.focus-ring-modern {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+  transition: box-shadow 0.2s ease-out;
 }

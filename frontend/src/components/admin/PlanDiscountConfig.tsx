@@ -101,13 +101,13 @@ export const PlanDiscountConfig: React.FC<PlanDiscountConfigProps> = ({
       </div>
 
       {/* Annual Discount Section */}
-      <div className="border border-gray-200 rounded-lg">
+      <div className="border border-theme rounded-lg">
         <div 
-          className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50"
+          className="flex items-center justify-between p-4 cursor-pointer hover:bg-theme-surface-hover"
           onClick={() => toggleSection('annual')}
         >
           <div className="flex items-center space-x-3">
-            <PercentBadgeIcon className="w-5 h-5 text-blue-600" />
+            <PercentBadgeIcon className="w-5 h-5 text-theme-interactive-primary" />
             <div>
               <h4 className="font-medium text-theme-primary">Annual Discount</h4>
               <p className="text-sm text-theme-secondary">Discount for annual billing</p>
@@ -125,7 +125,7 @@ export const PlanDiscountConfig: React.FC<PlanDiscountConfigProps> = ({
                   }
                 }}
                 disabled={disabled}
-                className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                className="h-4 w-4 text-theme-interactive-primary rounded border-theme focus:ring-theme-interactive-primary"
               />
               <span className="ml-2 text-sm">Enable</span>
             </label>
@@ -133,7 +133,7 @@ export const PlanDiscountConfig: React.FC<PlanDiscountConfigProps> = ({
         </div>
         
         {(hasAnnualDiscount || expandedSections.annual) && (
-          <div className="px-4 pb-4 border-t border-gray-100">
+          <div className="px-4 pb-4 border-t border-theme-light">
             <div className="mt-4 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-theme-primary mb-2">
@@ -165,13 +165,13 @@ export const PlanDiscountConfig: React.FC<PlanDiscountConfigProps> = ({
       </div>
 
       {/* Volume Discount Section */}
-      <div className="border border-gray-200 rounded-lg">
+      <div className="border border-theme rounded-lg">
         <div 
-          className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50"
+          className="flex items-center justify-between p-4 cursor-pointer hover:bg-theme-surface-hover"
           onClick={() => toggleSection('volume')}
         >
           <div className="flex items-center space-x-3">
-            <InformationCircleIcon className="w-5 h-5 text-green-600" />
+            <InformationCircleIcon className="w-5 h-5 text-theme-success" />
             <div>
               <h4 className="font-medium text-theme-primary">Volume Discount</h4>
               <p className="text-sm text-theme-secondary">Quantity-based discounts</p>
@@ -189,7 +189,7 @@ export const PlanDiscountConfig: React.FC<PlanDiscountConfigProps> = ({
                   }
                 }}
                 disabled={disabled}
-                className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                className="h-4 w-4 text-theme-interactive-primary rounded border-theme focus:ring-theme-interactive-primary"
               />
               <span className="ml-2 text-sm">Enable</span>
             </label>
@@ -197,7 +197,7 @@ export const PlanDiscountConfig: React.FC<PlanDiscountConfigProps> = ({
         </div>
         
         {(hasVolumeDiscount || expandedSections.volume) && (
-          <div className="px-4 pb-4 border-t border-gray-100">
+          <div className="px-4 pb-4 border-t border-theme-light">
             <div className="mt-4">
               <div className="flex items-center justify-between mb-3">
                 <h5 className="text-sm font-medium text-theme-primary">Discount Tiers</h5>
@@ -205,7 +205,7 @@ export const PlanDiscountConfig: React.FC<PlanDiscountConfigProps> = ({
                   type="button"
                   onClick={addVolumeDiscountTier}
                   disabled={disabled || !hasVolumeDiscount}
-                  className="inline-flex items-center px-3 py-1 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="inline-flex items-center px-3 py-1 text-sm bg-theme-interactive-primary text-white rounded-md hover:bg-theme-interactive-primary-hover disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <PlusIcon className="w-4 h-4 mr-1" />
                   Add Tier
@@ -214,7 +214,7 @@ export const PlanDiscountConfig: React.FC<PlanDiscountConfigProps> = ({
               
               <div className="space-y-3">
                 {volumeDiscountTiers.map((tier, index) => (
-                  <div key={index} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
+                  <div key={index} className="flex items-center space-x-3 p-3 bg-theme-surface-hover rounded-lg">
                     <div className="flex-1">
                       <label className="block text-xs font-medium text-theme-primary mb-1">
                         Min Quantity
@@ -252,7 +252,7 @@ export const PlanDiscountConfig: React.FC<PlanDiscountConfigProps> = ({
                       type="button"
                       onClick={() => removeVolumeDiscountTier(index)}
                       disabled={disabled || !hasVolumeDiscount}
-                      className="p-2 text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="p-2 text-theme-error hover:text-theme-error-hover disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <TrashIcon className="w-4 h-4" />
                     </button>
@@ -271,9 +271,9 @@ export const PlanDiscountConfig: React.FC<PlanDiscountConfigProps> = ({
       </div>
 
       {/* Promotional Discount Section */}
-      <div className="border border-gray-200 rounded-lg">
+      <div className="border border-theme rounded-lg">
         <div 
-          className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50"
+          className="flex items-center justify-between p-4 cursor-pointer hover:bg-theme-surface-hover"
           onClick={() => toggleSection('promotional')}
         >
           <div className="flex items-center space-x-3">
@@ -295,7 +295,7 @@ export const PlanDiscountConfig: React.FC<PlanDiscountConfigProps> = ({
                   }
                 }}
                 disabled={disabled}
-                className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                className="h-4 w-4 text-theme-interactive-primary rounded border-theme focus:ring-theme-interactive-primary"
               />
               <span className="ml-2 text-sm">Enable</span>
             </label>
@@ -303,7 +303,7 @@ export const PlanDiscountConfig: React.FC<PlanDiscountConfigProps> = ({
         </div>
         
         {(hasPromotionalDiscount || expandedSections.promotional) && (
-          <div className="px-4 pb-4 border-t border-gray-100">
+          <div className="px-4 pb-4 border-t border-theme-light">
             <div className="mt-4 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-theme-primary mb-2">

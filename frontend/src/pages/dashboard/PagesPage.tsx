@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
+import { Navigate } from 'react-router-dom';
 import { RootState, AppDispatch } from '../../store';
 import { addNotification } from '../../store/slices/uiSlice';
 import { pagesApi, Page } from '../../services/pagesApi';
 import { PageEditor } from '../../components/pages/PageEditor';
+import { hasAdminAccess } from '../../utils/permissionUtils';
 
 export const PagesPage: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -21,7 +23,7 @@ export const PagesPage: React.FC = () => {
   const [totalPages, setTotalPages] = useState(1);
 
   // Check if user has admin access
-  const hasAdminAccess = user?.role === 'owner' || user?.role === 'admin';
+  const isAdmin = hasAdminAccess(user);
 
   const loadPages = useCallback(async () => {
     try {
@@ -46,10 +48,10 @@ export const PagesPage: React.FC = () => {
   }, [filters.currentPage, filters.status, filters.search, dispatch]);
 
   useEffect(() => {
-    if (hasAdminAccess) {
+    if (isAdmin) {
       loadPages();
     }
-  }, [hasAdminAccess, filters, loadPages]);
+  }, [isAdmin, filters, loadPages]);
 
   const showSuccess = (message: string) => {
     dispatch(addNotification({
@@ -178,6 +180,11 @@ export const PagesPage: React.FC = () => {
         onError={showError}
       />
     );
+  }
+  
+  // Redirect non-admins to dashboard after hooks
+  if (!isAdmin) {
+    return <Navigate to="/dashboard" replace />;
   }
 
   return (

@@ -182,7 +182,7 @@ export const PlanFormModal: React.FC<PlanFormModalProps> = ({
                       onClick={() => setActiveTab(tab.id as any)}
                       className={`py-2 px-1 border-b-2 font-medium text-sm ${
                         activeTab === tab.id
-                          ? 'border-blue-500 text-blue-600'
+                          ? 'border-theme-interactive-primary text-theme-interactive-primary'
                           : 'border-transparent text-theme-secondary hover:text-theme-primary hover:border-theme'
                       }`}
                     >
@@ -312,7 +312,7 @@ export const PlanFormModal: React.FC<PlanFormModalProps> = ({
                           type="checkbox"
                           checked={formData.is_public}
                           onChange={(e) => handleInputChange('is_public', e.target.checked)}
-                          className="h-4 w-4 text-blue-600 rounded border-gray-300"
+                          className="h-4 w-4 text-theme-interactive-primary rounded border-theme"
                         />
                         <label className="ml-2 text-sm text-theme-primary">
                           Public plan (visible to new customers)

@@ -67,15 +67,15 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active':
-        return 'bg-green-100 text-green-800';
+        return 'bg-theme-success bg-opacity-10 text-theme-success';
       case 'trialing':
-        return 'bg-blue-100 text-blue-800';
+        return 'bg-theme-info bg-opacity-10 text-theme-info';
       case 'cancelled':
-        return 'bg-red-100 text-red-800';
+        return 'bg-theme-error bg-opacity-10 text-theme-error';
       case 'past_due':
-        return 'bg-yellow-100 text-yellow-800';
+        return 'bg-theme-warning bg-opacity-10 text-theme-warning';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-theme-surface text-theme-secondary';
     }
   };
 
@@ -160,7 +160,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                       value={plan.id}
                       checked={selectedPlanId === plan.id}
                       onChange={(e) => setSelectedPlanId(e.target.value)}
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                      className="h-4 w-4 text-theme-interactive-primary focus:ring-theme-interactive-primary border-theme"
                     />
                     <div className="ml-3 flex-1">
                       <div className="flex justify-between items-center">

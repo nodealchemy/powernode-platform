@@ -233,7 +233,8 @@ admin_user = User.find_or_create_by!(email: 'admin@powernode.dev') do |user|
   user.last_login_at = Time.current
 end
 
-# Assign Owner role to admin user
+# Assign both Admin and Owner roles to admin user
+admin_user.assign_role(admin_role) unless admin_user.roles.include?(admin_role)
 admin_user.assign_role(owner_role) unless admin_user.roles.include?(owner_role)
 
 puts ""
@@ -243,7 +244,7 @@ puts "- Subdomain: #{admin_account.subdomain}"
 puts "- Subscription: #{admin_subscription.plan.name} plan"
 puts "- Admin User: #{admin_user.email}"
 puts '- Admin Password: AdminStrong2024!@#$'
-puts '- Admin Role: Owner'
+puts '- Admin Roles: Admin, Owner'
 puts '- Status: Active'
 
 # Create admin service for system administration
@@ -443,6 +444,242 @@ invoice_count = Invoice.count
 payment_count = Payment.count
 puts "  Created #{invoice_count} invoices and #{payment_count} payments"
 
+# Create sample webhook events
+puts "\nCreating sample webhook events..."
+
+WebhookEvent.find_or_create_by!(external_id: 'evt_test_stripe_001') do |webhook|
+  webhook.provider = 'stripe'
+  webhook.event_type = 'payment_intent.succeeded'
+  webhook.account = Account.joins(:subscription).where.not(subscriptions: { plan: administrator_plan }).first
+  webhook.payload = {
+    id: 'evt_test_stripe_001',
+    object: 'event',
+    api_version: '2023-10-16',
+    created: 1.week.ago.to_i,
+    type: 'payment_intent.succeeded',
+    data: {
+      object: {
+        id: 'pi_test_001',
+        amount: 2999,
+        currency: 'usd',
+        status: 'succeeded'
+      }
+    }
+  }.to_json
+  webhook.status = 'processed'
+  webhook.processed_at = 1.week.ago
+  webhook.retry_count = 0
+end
+
+WebhookEvent.find_or_create_by!(external_id: 'evt_test_paypal_001') do |webhook|
+  webhook.provider = 'paypal'
+  webhook.event_type = 'PAYMENT.SALE.COMPLETED'
+  webhook.account = Account.joins(:subscription).where.not(subscriptions: { plan: administrator_plan }).second
+  webhook.payload = {
+    id: 'WH-2WR32451HC0233532-67976317FL4543714',
+    event_type: 'PAYMENT.SALE.COMPLETED',
+    create_time: 1.week.ago.iso8601,
+    resource_type: 'sale',
+    resource: {
+      id: '8RS20933LY1826041',
+      amount: { total: '9.99', currency: 'USD' },
+      state: 'completed'
+    }
+  }.to_json
+  webhook.status = 'processed'
+  webhook.processed_at = 1.week.ago
+  webhook.retry_count = 0
+end
+
+# Create sample revenue snapshots
+puts "\nCreating sample revenue snapshots..."
+
+# Global revenue snapshots for last 6 months
+6.times do |i|
+  snapshot_date = (i + 1).months.ago.beginning_of_month
+  
+  # Calculate metrics based on existing data at that time
+  mrr_amount = ((i + 1) * 50000) + rand(10000) # Growing MRR
+  active_subs = 10 + (i * 2) # Growing subscription count
+  
+  RevenueSnapshot.find_or_create_by!(account: nil, snapshot_date: snapshot_date) do |snapshot|
+    snapshot.mrr_cents = mrr_amount
+    snapshot.arr_cents = mrr_amount * 12
+    snapshot.active_subscriptions = active_subs
+    snapshot.new_subscriptions = rand(1..3)
+    snapshot.churned_subscriptions = rand(0..1)
+    snapshot.add_metadata('growth_rate', rand(5.0..15.0).round(2))
+    snapshot.add_metadata('customer_churn_rate', rand(2.0..8.0).round(2))
+    snapshot.add_metadata('revenue_churn_rate', rand(1.0..5.0).round(2))
+  end
+end
+
+# Account-specific revenue snapshots for top customers
+Account.joins(:subscription)
+       .joins(subscription: :plan)
+       .where.not(subscriptions: { plan: administrator_plan })
+       .limit(3).each do |account|
+  subscription = account.subscription
+  plan = subscription.plan
+  
+  3.times do |i|
+    snapshot_date = (i + 1).months.ago.beginning_of_month
+    next if snapshot_date < account.created_at
+    
+    RevenueSnapshot.find_or_create_by!(account: account, snapshot_date: snapshot_date) do |snapshot|
+      snapshot.mrr_cents = plan.price_cents
+      snapshot.arr_cents = plan.price_cents * 12
+      snapshot.active_subscriptions = 1
+      snapshot.new_subscriptions = i == 2 ? 1 : 0 # New in first snapshot
+      snapshot.churned_subscriptions = 0
+      snapshot.add_metadata('account_specific', true)
+    end
+  end
+end
+
+# Create sample pages
+puts "\nCreating sample pages..."
+
+pages_data = [
+  {
+    title: 'Welcome to Powernode',
+    slug: 'welcome',
+    content: "# Welcome to Powernode\n\nYour comprehensive subscription management and billing platform is ready to help you grow your business.\n\n## What is Powernode?\n\nPowernode is a powerful subscription management platform designed to automate your billing processes, handle payment processing, and provide deep insights into your subscription business.\n\n## Key Features\n\n### 📊 **Comprehensive Analytics**\n- Monthly and Annual Recurring Revenue (MRR/ARR) tracking\n- Customer churn analysis and cohort reporting\n- Revenue growth and customer lifetime value metrics\n- Real-time dashboard with business insights\n\n### 💳 **Payment Processing**\n- Integrated Stripe and PayPal payment gateways\n- Automated recurring billing and invoicing\n- Smart dunning management for failed payments\n- Multiple payment method support\n\n### 👥 **Account Management**\n- Multi-user accounts with role-based permissions\n- Account delegation and team collaboration\n- Invitation system for new team members\n- Flexible subscription plan management\n\n### 🔧 **Developer Tools**\n- RESTful API for seamless integrations\n- Webhook support for real-time notifications\n- Background job processing with Sidekiq\n- Comprehensive audit logging\n\n## Getting Started\n\n### For New Users\n1. **Sign Up**: Choose from our flexible subscription plans\n2. **Configure**: Set up your account preferences and payment methods\n3. **Integrate**: Use our API or web interface to manage subscriptions\n4. **Grow**: Monitor your metrics and optimize your subscription business\n\n### For Administrators\n- Access the **Administration** panel for system-wide management\n- Configure plans, manage users, and monitor platform health\n- Set up payment gateways and webhook endpoints\n- Review analytics across all customer accounts\n\n## Quick Links\n\n- 📈 [View Dashboard](/dashboard) - See your key metrics at a glance\n- ⚙️ [Account Settings](/account) - Manage your account preferences\n- 💰 [Subscription Plans](/plans) - Browse available plans\n- 📚 [API Documentation](/pages/api-docs) - Integrate with our platform\n- 🔒 [Privacy Policy](/pages/privacy-policy) - Learn about data protection\n- 📋 [Terms of Service](/pages/terms-of-service) - Review our service terms\n\n## Need Help?\n\nOur platform is designed to be intuitive, but we're here to help if you need assistance:\n\n- **System Status**: Monitor platform health in real-time\n- **Support**: Contact our team for technical assistance\n- **Documentation**: Comprehensive guides for all features\n\n---\n\n**Ready to get started?** [Sign up for an account](/signup) or [log in](/login) to access your dashboard.\n\nWelcome to the future of subscription management! 🚀",
+    status: 'published',
+    meta_description: 'Welcome to Powernode - your comprehensive subscription management and billing platform. Get started with automated billing, analytics, and payment processing.',
+    meta_keywords: 'subscription management, billing platform, recurring revenue, payment processing, analytics'
+  },
+  {
+    title: 'Privacy Policy',
+    slug: 'privacy-policy',
+    content: '# Privacy Policy\n\nThis privacy policy describes how we collect, use, and protect your personal information...\n\n## Data Collection\n\nWe collect information you provide directly to us, such as when you create an account...\n\n## Data Usage\n\nWe use the information we collect to provide, maintain, and improve our services...',
+    status: 'published',
+    meta_description: 'Learn about our privacy practices and how we protect your personal information.',
+    meta_keywords: 'privacy policy, data protection, personal information'
+  },
+  {
+    title: 'Terms of Service',
+    slug: 'terms-of-service', 
+    content: '# Terms of Service\n\nBy using our service, you agree to these terms...\n\n## Acceptance of Terms\n\nBy accessing and using this service, you accept and agree to be bound by the terms...\n\n## Service Description\n\nOur platform provides subscription management and billing services...',
+    status: 'published',
+    meta_description: 'Read our terms of service and understand your rights and responsibilities.',
+    meta_keywords: 'terms of service, legal agreement, user agreement'
+  },
+  {
+    title: 'API Documentation',
+    slug: 'api-docs',
+    content: '# API Documentation\n\nWelcome to our API documentation...\n\n## Authentication\n\nAll API requests require authentication using JWT tokens...\n\n## Endpoints\n\n### Accounts\n\n- `GET /api/v1/accounts` - List accounts\n- `POST /api/v1/accounts` - Create account',
+    status: 'published',
+    meta_description: 'Complete API documentation for developers integrating with our platform.',
+    meta_keywords: 'API documentation, developers, integration, endpoints'
+  },
+  {
+    title: 'Getting Started Guide',
+    slug: 'getting-started',
+    content: '# Getting Started with Powernode\n\nWelcome to Powernode! This guide will help you set up your account...\n\n## Step 1: Create Account\n\nStart by creating your account and choosing a plan...\n\n## Step 2: Configure Settings\n\nCustomize your account settings and preferences...',
+    status: 'draft',
+    meta_description: 'Learn how to get started with Powernode platform.',
+    meta_keywords: 'getting started, tutorial, setup guide'
+  }
+]
+
+pages_data.each do |page_data|
+  Page.find_or_create_by!(slug: page_data[:slug]) do |page|
+    page.title = page_data[:title]
+    page.content = page_data[:content]
+    page.status = page_data[:status]
+    page.meta_description = page_data[:meta_description]
+    page.meta_keywords = page_data[:meta_keywords]
+    page.author = admin_user
+    page.published_at = page_data[:status] == 'published' ? 1.month.ago : nil
+  end
+end
+
+# Create sample payment methods for customers
+puts "\nCreating sample payment methods..."
+
+Account.joins(:subscription)
+       .joins(subscription: :plan)
+       .where.not(subscriptions: { plan: administrator_plan })
+       .limit(5).each do |account|
+  primary_user = account.users.first
+  
+  # Create a credit card payment method
+  PaymentMethod.find_or_create_by!(account: account, user: primary_user, external_id: "pm_card_#{account.id}") do |pm|
+    pm.provider = 'stripe'
+    pm.payment_type = 'card'
+    pm.last_four = ['4242', '1234', '5678', '9999'].sample
+    pm.brand = ['visa', 'mastercard', 'amex'].sample
+    pm.exp_month = rand(1..12)
+    pm.exp_year = rand(2025..2028)
+    pm.is_default = true
+  end
+  
+  # Some accounts have PayPal as well
+  if rand < 0.3
+    PaymentMethod.find_or_create_by!(account: account, user: primary_user, external_id: "pp_account_#{account.id}") do |pm|
+      pm.provider = 'paypal'
+      pm.payment_type = 'paypal'
+      pm.is_default = false
+    end
+  end
+end
+
+# Create sample account delegations
+puts "\nCreating sample account delegations..."
+
+# Create a few additional users that can be delegated to
+delegated_users_data = [
+  { first_name: 'Alex', last_name: 'Johnson', email: 'alex@example.com' },
+  { first_name: 'Maria', last_name: 'Garcia', email: 'maria@consultant.com' },
+  { first_name: 'Tom', last_name: 'Wilson', email: 'tom@contractor.net' }
+]
+
+delegated_users = []
+delegated_users_data.each do |user_data|
+  user = User.find_or_create_by!(email: user_data[:email]) do |u|
+    u.account = admin_account # These users belong to admin account but can be delegated
+    u.first_name = user_data[:first_name]
+    u.last_name = user_data[:last_name]
+    u.password = 'DelegatedUser2024!@#$'
+    u.password_confirmation = 'DelegatedUser2024!@#$'
+    u.status = 'active'
+    u.email_verified = true
+    u.email_verified_at = 1.month.ago
+  end
+  delegated_users << user
+end
+
+# Create some delegations
+enterprise_accounts = Account.joins(:subscription)
+                            .joins(subscription: :plan)
+                            .where(subscriptions: { plan: enterprise_plan })
+                            .limit(2)
+
+enterprise_accounts.each_with_index do |account, index|
+  delegated_user = delegated_users[index]
+  delegator = account.users.first
+  
+  AccountDelegation.find_or_create_by!(account: account, delegated_user: delegated_user, delegated_by: delegator) do |delegation|
+    delegation.role = admin_role
+    delegation.status = 'active'
+    delegation.expires_at = 6.months.from_now
+  end
+end
+
+# Create sample gateway configurations (using fake values for demo)
+puts "\nCreating sample gateway configurations..."
+
+GatewayConfiguration.set_config('stripe', 'publishable_key', 'pk_test_demo_key_for_development')
+GatewayConfiguration.set_config('stripe', 'secret_key', 'sk_test_demo_secret_for_development')
+GatewayConfiguration.set_config('stripe', 'endpoint_secret', 'whsec_demo_endpoint_secret')
+GatewayConfiguration.set_config('stripe', 'webhook_tolerance', '300')
+
+GatewayConfiguration.set_config('paypal', 'client_id', 'demo_paypal_client_id')
+GatewayConfiguration.set_config('paypal', 'client_secret', 'demo_paypal_client_secret')
+GatewayConfiguration.set_config('paypal', 'webhook_id', 'demo_webhook_id')
+GatewayConfiguration.set_config('paypal', 'mode', 'sandbox')
+
 puts "\nSeeding completed!"
 puts "\nSample Data Summary:"
 puts "- Total Accounts: #{Account.count}"
@@ -450,3 +687,9 @@ puts "- Total Users: #{User.count}"
 puts "- Total Subscriptions: #{Subscription.count}"
 puts "- Total Invoices: #{Invoice.count}"
 puts "- Total Payments: #{Payment.count}"
+puts "- Total Webhook Events: #{WebhookEvent.count}"
+puts "- Total Revenue Snapshots: #{RevenueSnapshot.count}"
+puts "- Total Pages: #{Page.count}"
+puts "- Total Payment Methods: #{PaymentMethod.count}"
+puts "- Total Account Delegations: #{AccountDelegation.count}"
+puts "- Total Gateway Configurations: #{GatewayConfiguration.count}"

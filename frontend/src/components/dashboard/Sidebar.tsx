@@ -24,81 +24,51 @@ const navigation: NavigationItem[] = [
   { 
     name: 'Dashboard', 
     href: '/dashboard', 
-    icon: '📊',
+    icon: '🏠',
     permissions: ['dashboard_access']
   },
   { 
     name: 'Analytics', 
     href: '/dashboard/analytics', 
-    icon: '📈',
-    permissions: ['basic_analytics']
+    icon: '📊',
+    permissions: ['dashboard_access']
   },
   { 
-    name: 'Reports', 
-    href: '/dashboard/reports', 
-    icon: '📋',
-    permissions: ['basic_analytics']
-  },
-  { 
-    name: 'Subscriptions', 
-    href: '/dashboard/subscriptions', 
-    icon: '💳',
-    permissions: ['account_management']
-  },
-  { 
-    name: 'Customers', 
-    href: '/dashboard/customers', 
-    icon: '👥',
-    permissions: ['user_management']
-  },
-  { 
-    name: 'Plans', 
-    href: '/dashboard/plans', 
-    icon: '💎',
-    roles: ['owner', 'admin'],
-    permissions: ['billing_management']
-  },
-  { 
-    name: 'Billing', 
-    href: '/dashboard/billing', 
-    icon: '💰',
-    permissions: ['billing_management']
-  },
-  { 
-    name: 'Payment Gateways', 
-    href: '/dashboard/payment-gateways', 
-    icon: '🔗',
-    permissions: ['billing_management'],
-    roles: ['owner', 'admin', 'billing_manager']
-  },
-  { 
-    name: 'Pages', 
-    href: '/dashboard/pages', 
-    icon: '📄',
-    permissions: ['account_management']
-  },
-  { 
-    name: 'Services', 
-    href: '/dashboard/services', 
-    icon: '🔌',
-    permissions: ['custom_integrations'],
-    roles: ['owner', 'admin']
-  },
-  { 
-    name: 'Settings', 
-    href: '/dashboard/settings', 
-    icon: '⚙️',
+    name: 'Business', 
+    href: '/dashboard/business', 
+    icon: '💼',
     permissions: ['dashboard_access']
   },
 ];
 
 const adminNavigation: NavigationItem[] = [
   { 
-    name: 'Admin Settings', 
-    href: '/dashboard/admin-settings', 
-    icon: '🔧',
-    roles: ['owner', 'admin'],
-    permissions: ['system_administration']
+    name: 'User Management', 
+    href: '/dashboard/admin/users', 
+    icon: '👥',
+    permissions: ['dashboard_access'],
+    roles: ['admin']  // Only system administrators
+  },
+  { 
+    name: 'Plans Management', 
+    href: '/dashboard/plans', 
+    icon: '💼',
+    permissions: ['dashboard_access'],
+    roles: ['admin']  // Only system administrators
+  },
+  { 
+    name: 'System Settings', 
+    href: '/dashboard/system', 
+    icon: '⚙️',
+    permissions: ['dashboard_access'],
+    roles: ['admin']  // Only system administrators
+  },
+  { 
+    name: 'Content Pages', 
+    href: '/dashboard/pages', 
+    icon: '📄',
+    permissions: ['dashboard_access'],
+    roles: ['admin']  // Only system administrators for now
   },
 ];
 
@@ -130,17 +100,30 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
   
   // Update scroll state on mount and when sidebar changes
   useEffect(() => {
-    updateScrollState();
+    // Add a small delay to ensure DOM is fully rendered
+    const timeoutId = setTimeout(() => {
+      updateScrollState();
+    }, 100);
+
     const navElement = navRef.current;
     if (navElement) {
       navElement.addEventListener('scroll', updateScrollState);
       // Also check when window resizes
       window.addEventListener('resize', updateScrollState);
+      
+      // Initial check after a short delay
+      requestAnimationFrame(() => {
+        updateScrollState();
+      });
+      
       return () => {
         navElement.removeEventListener('scroll', updateScrollState);
         window.removeEventListener('resize', updateScrollState);
+        clearTimeout(timeoutId);
       };
     }
+    
+    return () => clearTimeout(timeoutId);
   }, [updateScrollState, sidebarCollapsed]);
   
   // Keyboard navigation for sidebar scrolling
@@ -188,7 +171,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
     return hasAccess(user, requiredPermissions, requiredRoles);
   };
   
-  // Legacy permission checks for backward compatibility
+  // Permission checks
   const hasAdminAccessLocal = hasAdminAccess(user);
   const hasBillingAccessLocal = hasBillingAccess(user);
   
@@ -286,19 +269,25 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
           </div>
 
           {/* Navigation */}
-          <div className="flex-1 relative">
-            {/* Scroll fade indicators */}
-            {scrollState.isScrollable && scrollState.canScrollUp && (
-              <div className="absolute top-0 left-0 right-0 h-8 bg-gradient-to-b from-theme-surface via-theme-surface/80 to-transparent pointer-events-none z-10" />
-            )}
-            {scrollState.isScrollable && scrollState.canScrollDown && (
-              <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-theme-surface via-theme-surface/80 to-transparent pointer-events-none z-10" />
-            )}
+          <div className="flex-1 relative min-h-0">
             
             <nav 
               ref={navRef}
               className={`h-full ${sidebarCollapsed ? 'px-2' : 'px-3'} py-6 space-y-1 overflow-y-auto sidebar-scrollbar`}
+              style={{ 
+                maxHeight: 'calc(100vh - 8rem)', /* Subtract header height and footer space */
+                overflowY: 'auto'
+              }}
             >
+            {/* Main Navigation Section */}
+            {!sidebarCollapsed && (
+              <div className="px-3 pb-2">
+                <p className="text-xs font-semibold text-theme-tertiary uppercase tracking-wider">
+                  Main
+                </p>
+              </div>
+            )}
+            
             {/* Regular navigation items */}
             {navigation.filter(item => {
               // Legacy support for old permission properties
@@ -308,7 +297,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
               // New comprehensive permission checking
               return hasPermission(item.permissions, item.roles);
             }).map((item) => {
-              const isActive = location.pathname === item.href;
+              const isActive = item.href === '/dashboard' 
+                ? location.pathname === item.href
+                : location.pathname.startsWith(item.href);
               return (
                 <div
                   key={item.name}
@@ -344,8 +335,45 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
               );
             })}
 
-            {/* Admin navigation section */}
-            {adminNavigation.filter(item => hasPermission(item.permissions, item.roles)).length > 0 && (
+            {/* Account Settings Section */}
+            <div className="border-t border-theme my-4"></div>
+            {!sidebarCollapsed && (
+              <div className="px-3 py-2">
+                <p className="text-xs font-semibold text-theme-tertiary uppercase tracking-wider">
+                  Settings
+                </p>
+              </div>
+            )}
+            
+            <div className="relative" onMouseEnter={() => setHoveredItem('My Account')} onMouseLeave={() => setHoveredItem(null)}>
+              <Link
+                to="/dashboard/account"
+                className={`${
+                  location.pathname.startsWith('/dashboard/account')
+                    ? 'bg-theme-surface-selected border-theme-focus text-theme-link'
+                    : 'border-transparent text-theme-secondary hover:bg-theme-surface-hover hover:text-theme-primary'
+                } group flex items-center ${
+                  sidebarCollapsed ? 'justify-center px-3 py-3' : 'px-3 py-2'
+                } text-sm font-medium border-l-4 rounded-md transition-all duration-150`}
+                title={sidebarCollapsed ? 'My Account' : undefined}
+              >
+                <span className={`text-lg sidebar-icon-transition ${sidebarCollapsed ? '' : 'mr-3'}`}>👤</span>
+                {!sidebarCollapsed && (
+                  <span className="sidebar-content-transition">My Account</span>
+                )}
+              </Link>
+              
+              {/* Tooltip for collapsed state */}
+              {sidebarCollapsed && hoveredItem === 'My Account' && (
+                <div className="absolute left-full top-0 ml-2 px-2 py-1 bg-theme-surface-pressed text-theme-inverse text-xs rounded-md whitespace-nowrap z-50 pointer-events-none shadow-md">
+                  My Account
+                  <div className="absolute left-0 top-1/2 transform -translate-y-1/2 -translate-x-1 border-4 border-transparent border-r-gray-900 dark:border-r-gray-100"></div>
+                </div>
+              )}
+            </div>
+            
+            {/* Admin navigation section - Only show for system administrators */}
+            {hasAdminAccessLocal && adminNavigation.filter(item => hasPermission(item.permissions, item.roles)).length > 0 && (
               <>
                 <div className="border-t border-theme my-4"></div>
                 {!sidebarCollapsed && (
@@ -356,7 +384,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
                   </div>
                 )}
                 {adminNavigation.filter(item => hasPermission(item.permissions, item.roles)).map((item) => {
-                  const isActive = location.pathname === item.href;
+                  const isActive = location.pathname.startsWith(item.href);
                   return (
                     <div
                       key={item.name}
@@ -368,7 +396,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
                         to={item.href}
                         className={`${
                           isActive
-                            ? 'bg-red-50 dark:bg-red-900/30 border-red-500 text-red-700 dark:text-red-400'
+                            ? 'bg-theme-error-background border-theme-error-border text-theme-error'
                             : 'border-transparent text-theme-secondary hover:bg-theme-surface-hover hover:text-theme-primary'
                         } group flex items-center ${
                           sidebarCollapsed ? 'justify-center px-3 py-3' : 'px-3 py-2'

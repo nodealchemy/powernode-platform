@@ -6,8 +6,8 @@ class WebhookEvent < ApplicationRecord
 
   validates :provider, presence: true, inclusion: { in: %w[stripe paypal] }
   validates :event_type, presence: true
-  validates :provider_event_id, presence: true, uniqueness: true
-  validates :event_data, presence: true
+  validates :external_id, presence: true, uniqueness: true
+  validates :payload, presence: true
   validates :retry_count, numericality: { greater_than_or_equal_to: 0, less_than_or_equal_to: 10 }
 
   scope :pending, -> { where(status: "pending") }
@@ -49,7 +49,7 @@ class WebhookEvent < ApplicationRecord
   end
 
   def event_data_parsed
-    @event_data_parsed ||= JSON.parse(event_data)
+    @event_data_parsed ||= JSON.parse(payload)
   rescue JSON::ParserError
     {}
   end

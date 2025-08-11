@@ -455,12 +455,6 @@ export const SettingsPage: React.FC = () => {
                     {user?.account?.name || 'No account name'}
                   </p>
                 </div>
-                <div>
-                  <h4 className="text-sm font-medium text-theme-primary">Account Role</h4>
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-theme-info text-theme-info capitalize">
-                    {user?.role || 'No role assigned'}
-                  </span>
-                </div>
               </div>
               <div className="space-y-4">
                 <div>
