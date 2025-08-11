@@ -1,7 +1,9 @@
-import React from 'react';
-import { Routes, Route } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Routes, Route, useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../store';
+import { plansApi } from '../../services/plansApi';
+import { paymentGatewaysApi } from '../../services/paymentGatewaysApi';
 import { DashboardLayout } from '../../components/dashboard/DashboardLayout';
 
 // Import all dashboard pages
@@ -20,7 +22,48 @@ import { AdminSettingsOverviewPage } from './AdminSettingsOverviewPage';
 
 // Dashboard overview page
 const DashboardOverview: React.FC = () => {
+  const navigate = useNavigate();
   const { user } = useSelector((state: RootState) => state.auth);
+  const [hasPlans, setHasPlans] = useState(false);
+  const [hasPaymentGateways, setHasPaymentGateways] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const checkSetupStatus = async () => {
+      try {
+        // Check plans
+        const plansResponse = await plansApi.getPlans();
+        setHasPlans(plansResponse.data.plans.length > 0);
+        
+        // Check payment gateways
+        const gatewaysResponse = await paymentGatewaysApi.getOverview();
+        const hasStripe = gatewaysResponse.gateways.stripe.enabled && 
+                         gatewaysResponse.status.stripe.status === 'connected';
+        const hasPayPal = gatewaysResponse.gateways.paypal.enabled && 
+                         gatewaysResponse.status.paypal.status === 'connected';
+        setHasPaymentGateways(hasStripe || hasPayPal);
+      } catch (error) {
+        console.error('Failed to check setup status:', error);
+        // Assume no setup on error
+        setHasPlans(false);
+        setHasPaymentGateways(false);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    checkSetupStatus();
+  }, []);
+
+  // Calculate completion status
+  const completedTasks = [
+    true, // Account created (always true if user is logged in)
+    user?.emailVerified || false, // Email verification (check actual status)
+    hasPlans, // Plans setup
+    hasPaymentGateways // Payment gateways configured
+  ];
+  const completedCount = completedTasks.filter(Boolean).length;
+  const totalTasks = completedTasks.length;
   
   return (
     <div className="space-y-6">
@@ -97,7 +140,7 @@ const DashboardOverview: React.FC = () => {
               Getting Started
             </h3>
             <span className="bg-theme-info text-theme-on-primary px-3 py-1 rounded-full text-xs font-medium bg-opacity-10 text-theme-info">
-              2 of 4 complete
+              {loading ? 'Loading...' : `${completedCount} of ${totalTasks} complete`}
             </span>
           </div>
           
@@ -116,43 +159,87 @@ const DashboardOverview: React.FC = () => {
 
             <div className="flex items-start space-x-3">
               <div className="flex-shrink-0 mt-1">
-                <div className="h-5 w-5 bg-theme-success rounded-full flex items-center justify-center">
-                  <span className="text-white text-xs">✓</span>
+                <div className={`h-5 w-5 rounded-full flex items-center justify-center ${
+                  user?.emailVerified ? 'bg-theme-success' : 'bg-theme-error'
+                }`}>
+                  <span className="text-white text-xs">
+                    {user?.emailVerified ? '✓' : '✗'}
+                  </span>
                 </div>
               </div>
               <div className="flex-1">
-                <p className="text-sm font-medium text-theme-primary">Email verification completed</p>
-                <p className="text-xs text-theme-tertiary mt-1">Your email address has been verified</p>
+                <p className={`text-sm font-medium ${
+                  user?.emailVerified ? 'text-theme-primary' : 'text-theme-primary'
+                }`}>
+                  {user?.emailVerified ? 'Email verification completed' : 'Email verification required'}
+                </p>
+                <p className="text-xs text-theme-tertiary mt-1">
+                  {user?.emailVerified ? 'Your email address has been verified' : 'Please verify your email address'}
+                </p>
+                {!user?.emailVerified && (
+                  <button 
+                    onClick={() => navigate('/verify-email')}
+                    className="btn-theme btn-theme-primary mt-2 text-xs px-3 py-1"
+                  >
+                    Verify Email
+                  </button>
+                )}
               </div>
             </div>
 
             <div className="flex items-start space-x-3">
               <div className="flex-shrink-0 mt-1">
-                <div className="h-5 w-5 bg-theme-warning rounded-full flex items-center justify-center">
-                  <span className="text-white text-xs">!</span>
+                <div className={`h-5 w-5 rounded-full flex items-center justify-center ${
+                  hasPlans ? 'bg-theme-success' : 'bg-theme-warning'
+                }`}>
+                  <span className="text-white text-xs">
+                    {hasPlans ? '✓' : '!'}
+                  </span>
                 </div>
               </div>
               <div className="flex-1">
-                <p className="text-sm font-medium text-theme-primary">Set up your first subscription plan</p>
-                <p className="text-xs text-theme-tertiary mt-1">Create plans to start accepting payments</p>
-                <button className="btn-theme btn-theme-primary mt-2 text-xs px-3 py-1">
-                  Create Plan
-                </button>
+                <p className={`text-sm font-medium ${hasPlans ? 'text-theme-primary' : 'text-theme-primary'}`}>
+                  {hasPlans ? 'Subscription plans configured' : 'Set up your first subscription plan'}
+                </p>
+                <p className="text-xs text-theme-tertiary mt-1">
+                  {hasPlans ? 'You have plans ready for customers' : 'Create plans to start accepting payments'}
+                </p>
+                {!hasPlans && (
+                  <button 
+                    onClick={() => navigate('/dashboard/plans')}
+                    className="btn-theme btn-theme-primary mt-2 text-xs px-3 py-1"
+                  >
+                    Create Plan
+                  </button>
+                )}
               </div>
             </div>
 
             <div className="flex items-start space-x-3">
               <div className="flex-shrink-0 mt-1">
-                <div className="h-5 w-5 bg-theme-background-tertiary border border-theme rounded-full flex items-center justify-center">
-                  <span className="text-theme-tertiary text-xs">○</span>
+                <div className={`h-5 w-5 rounded-full flex items-center justify-center ${
+                  hasPaymentGateways ? 'bg-theme-success' : 'bg-theme-warning'
+                }`}>
+                  <span className="text-white text-xs">
+                    {hasPaymentGateways ? '✓' : '!'}
+                  </span>
                 </div>
               </div>
               <div className="flex-1">
-                <p className="text-sm font-medium text-theme-tertiary">Configure payment methods</p>
-                <p className="text-xs text-theme-quaternary mt-1">Set up Stripe or PayPal integration</p>
-                <button className="btn-theme btn-theme-secondary mt-2 text-xs px-3 py-1">
-                  Configure Payments
-                </button>
+                <p className={`text-sm font-medium ${hasPaymentGateways ? 'text-theme-primary' : 'text-theme-primary'}`}>
+                  {hasPaymentGateways ? 'Payment gateways configured' : 'Configure payment methods'}
+                </p>
+                <p className="text-xs text-theme-tertiary mt-1">
+                  {hasPaymentGateways ? 'Stripe or PayPal is ready for payments' : 'Set up Stripe or PayPal integration'}
+                </p>
+                {!hasPaymentGateways && (
+                  <button 
+                    onClick={() => navigate('/dashboard/payment-gateways')}
+                    className="btn-theme btn-theme-primary mt-2 text-xs px-3 py-1"
+                  >
+                    Configure Payments
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -165,7 +252,10 @@ const DashboardOverview: React.FC = () => {
           </h3>
           
           <div className="grid grid-cols-1 gap-3">
-            <button className="btn-theme btn-theme-secondary flex items-center justify-between p-4 text-left hover:bg-theme-surface-hover">
+            <button 
+              onClick={() => navigate('/dashboard/customers')}
+              className="btn-theme btn-theme-secondary flex items-center justify-between p-4 text-left hover:bg-theme-surface-hover"
+            >
               <div className="flex items-center space-x-3">
                 <span className="text-2xl">👥</span>
                 <div>
@@ -176,7 +266,10 @@ const DashboardOverview: React.FC = () => {
               <span className="text-theme-tertiary">→</span>
             </button>
 
-            <button className="btn-theme btn-theme-secondary flex items-center justify-between p-4 text-left hover:bg-theme-surface-hover">
+            <button 
+              onClick={() => navigate('/dashboard/analytics')}
+              className="btn-theme btn-theme-secondary flex items-center justify-between p-4 text-left hover:bg-theme-surface-hover"
+            >
               <div className="flex items-center space-x-3">
                 <span className="text-2xl">📊</span>
                 <div>
@@ -187,7 +280,10 @@ const DashboardOverview: React.FC = () => {
               <span className="text-theme-tertiary">→</span>
             </button>
 
-            <button className="btn-theme btn-theme-secondary flex items-center justify-between p-4 text-left hover:bg-theme-surface-hover">
+            <button 
+              onClick={() => navigate('/dashboard/payment-gateways')}
+              className="btn-theme btn-theme-secondary flex items-center justify-between p-4 text-left hover:bg-theme-surface-hover"
+            >
               <div className="flex items-center space-x-3">
                 <span className="text-2xl">💳</span>
                 <div>
@@ -198,7 +294,10 @@ const DashboardOverview: React.FC = () => {
               <span className="text-theme-tertiary">→</span>
             </button>
 
-            <button className="btn-theme btn-theme-secondary flex items-center justify-between p-4 text-left hover:bg-theme-surface-hover">
+            <button 
+              onClick={() => navigate('/dashboard/settings')}
+              className="btn-theme btn-theme-secondary flex items-center justify-between p-4 text-left hover:bg-theme-surface-hover"
+            >
               <div className="flex items-center space-x-3">
                 <span className="text-2xl">⚙️</span>
                 <div>

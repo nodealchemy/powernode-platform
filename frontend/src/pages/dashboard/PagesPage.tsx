@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useSelector } from 'react-redux';
-import { RootState } from '../../store';
+import { useSelector, useDispatch } from 'react-redux';
+import { RootState, AppDispatch } from '../../store';
+import { addNotification } from '../../store/slices/uiSlice';
 import { pagesApi, Page } from '../../services/pagesApi';
 import { PageEditor } from '../../components/pages/PageEditor';
 
 export const PagesPage: React.FC = () => {
+  const dispatch = useDispatch<AppDispatch>();
   const { user } = useSelector((state: RootState) => state.auth);
   const [pages, setPages] = useState<Page[]>([]);
   const [loading, setLoading] = useState(true);
@@ -17,8 +19,6 @@ export const PagesPage: React.FC = () => {
     currentPage: 1
   });
   const [totalPages, setTotalPages] = useState(1);
-  const [successMessage, setSuccessMessage] = useState('');
-  const [errorMessage, setErrorMessage] = useState('');
 
   // Check if user has admin access
   const hasAdminAccess = user?.role === 'owner' || user?.role === 'admin';
@@ -36,11 +36,14 @@ export const PagesPage: React.FC = () => {
       setTotalPages(response.meta.total_pages);
     } catch (error: any) {
       console.error('Failed to load pages:', error);
-      setErrorMessage('Failed to load pages');
+      dispatch(addNotification({
+        type: 'error',
+        message: 'Failed to load pages'
+      }));
     } finally {
       setLoading(false);
     }
-  }, [filters.currentPage, filters.status, filters.search]);
+  }, [filters.currentPage, filters.status, filters.search, dispatch]);
 
   useEffect(() => {
     if (hasAdminAccess) {
@@ -49,15 +52,17 @@ export const PagesPage: React.FC = () => {
   }, [hasAdminAccess, filters, loadPages]);
 
   const showSuccess = (message: string) => {
-    setSuccessMessage(message);
-    setErrorMessage('');
-    setTimeout(() => setSuccessMessage(''), 3000);
+    dispatch(addNotification({
+      type: 'success',
+      message
+    }));
   };
 
   const showError = (message: string) => {
-    setErrorMessage(message);
-    setSuccessMessage('');
-    setTimeout(() => setErrorMessage(''), 5000);
+    dispatch(addNotification({
+      type: 'error',
+      message
+    }));
   };
 
   const handleCreatePage = () => {
@@ -191,18 +196,6 @@ export const PagesPage: React.FC = () => {
           Create Page
         </button>
       </div>
-
-      {successMessage && (
-        <div className="alert-theme alert-theme-success">
-          {successMessage}
-        </div>
-      )}
-
-      {errorMessage && (
-        <div className="alert-theme alert-theme-error">
-          {errorMessage}
-        </div>
-      )}
 
       {/* Filters */}
       <div className="card-theme p-6">

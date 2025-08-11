@@ -31,45 +31,51 @@ export const NotificationContainer: React.FC = () => {
   if (notifications.length === 0) return null;
 
   return (
-    <div className="fixed top-4 right-4 z-50 space-y-2">
+    <div className="flex justify-center items-center">
       {notifications.map((notification) => (
         <div
           key={notification.id}
-          className={`p-4 rounded-lg shadow-lg max-w-sm flex items-center justify-between ${
+          className={`px-4 py-2 rounded-lg shadow-md flex items-center space-x-3 animate-fade-in ${
             notification.type === 'success'
-              ? 'bg-green-50 dark:bg-green-800 text-green-800 dark:text-green-100 border border-green-300 dark:border-green-600'
+              ? 'bg-theme-success text-theme-success border border-theme-success'
               : notification.type === 'error'
-              ? 'bg-red-50 dark:bg-red-800 text-red-800 dark:text-red-100 border border-red-300 dark:border-red-600'
+              ? 'bg-theme-error text-theme-error border border-theme-error'
               : notification.type === 'warning'
-              ? 'bg-yellow-50 dark:bg-yellow-800 text-yellow-800 dark:text-yellow-100 border border-yellow-300 dark:border-yellow-600'
-              : 'bg-blue-50 dark:bg-blue-800 text-blue-800 dark:text-blue-100 border border-blue-300 dark:border-blue-600'
+              ? 'bg-theme-warning text-theme-warning border border-theme-warning'
+              : 'bg-theme-info text-theme-info border border-theme-info'
           }`}
         >
-          <span className="text-sm font-medium">{notification.message}</span>
+          {/* Icon */}
+          {notification.type === 'success' && (
+            <svg className="h-4 w-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+          )}
+          {notification.type === 'error' && (
+            <svg className="h-4 w-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          )}
+          {notification.type === 'warning' && (
+            <svg className="h-4 w-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+          )}
+          {notification.type === 'info' && (
+            <svg className="h-4 w-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          )}
+          
+          <span className="text-sm font-medium truncate max-w-xs">{notification.message}</span>
+          
           <button
             onClick={() => handleRemove(notification.id)}
-            className={`ml-4 transition-colors duration-150 ${
-              notification.type === 'success'
-                ? 'text-green-600 dark:text-green-200 hover:text-green-700 dark:hover:text-green-100'
-                : notification.type === 'error'
-                ? 'text-red-600 dark:text-red-200 hover:text-red-700 dark:hover:text-red-100'
-                : notification.type === 'warning'
-                ? 'text-yellow-600 dark:text-yellow-200 hover:text-yellow-700 dark:hover:text-yellow-100'
-                : 'text-blue-600 dark:text-blue-200 hover:text-blue-700 dark:hover:text-blue-100'
-            }`}
+            className="flex-shrink-0 ml-2 p-1 rounded-full hover:bg-black hover:bg-opacity-10 transition-colors duration-150"
+            title="Dismiss"
           >
-            <svg
-              className="h-4 w-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
+            <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
