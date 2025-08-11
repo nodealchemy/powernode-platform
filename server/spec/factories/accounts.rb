@@ -1,6 +1,6 @@
 FactoryBot.define do
   factory :account do
-    sequence(:name) { |n| "#{Faker::Company.name} #{n}" }
+    sequence(:name) { |n| "Test Company #{n}" }
     sequence(:subdomain) { |n| "company-#{n}" }
     status { 'active' }
     settings { {} }

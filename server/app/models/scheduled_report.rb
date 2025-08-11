@@ -1,5 +1,4 @@
 class ScheduledReport < ApplicationRecord
-  include UuidGeneration
 
   belongs_to :account, optional: true
   belongs_to :user

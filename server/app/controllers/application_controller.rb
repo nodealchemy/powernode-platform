@@ -35,8 +35,8 @@ class ApplicationController < ActionController::API
 
   def pagination_params
     {
-      page: [ params[:page].to_i, 1 ].max,
-      per_page: [ [ params[:per_page].to_i, 1 ].max, 100 ].min
+      page: [ params[:page]&.to_i || 1, 1 ].max,
+      per_page: [ [ params[:per_page]&.to_i || 20, 1 ].max, 100 ].min
     }
   end
 end

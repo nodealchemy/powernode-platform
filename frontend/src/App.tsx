@@ -25,6 +25,7 @@ import { ForgotPasswordPage } from './pages/auth/ForgotPasswordPage';
 import { ResetPasswordPage } from './pages/auth/ResetPasswordPage';
 import { VerifyEmailPage } from './pages/auth/VerifyEmailPage';
 import { UnauthorizedPage } from './pages/auth/UnauthorizedPage';
+import { WelcomePage } from './pages/WelcomePage';
 
 import './App.css';
 import './styles/themes.css';
@@ -202,6 +203,16 @@ const AppContent: React.FC = () => {
           {/* Unauthorized page */}
           <Route path="/unauthorized" element={<UnauthorizedPage />} />
 
+          {/* Welcome page route */}
+          <Route
+            path="/welcome"
+            element={
+              <PublicRoute>
+                <WelcomePage />
+              </PublicRoute>
+            }
+          />
+
           {/* Default redirects */}
           <Route
             path="/"
@@ -209,7 +220,7 @@ const AppContent: React.FC = () => {
               isAuthenticated ? (
                 <Navigate to="/dashboard" replace />
               ) : (
-                <Navigate to="/login" replace />
+                <WelcomePage />
               )
             }
           />

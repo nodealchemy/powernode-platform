@@ -151,8 +151,19 @@ Rails.application.routes.draw do
       delete 'reports/requests/:id', to: 'reports#cancel_request'
       get 'reports/requests/:id/download', to: 'reports#download_request'
 
+      # Pages management
+      resources :pages, only: [:index, :show], param: :slug
+      
       # Admin services management
       namespace :admin do
+        resources :pages do
+          member do
+            post :publish
+            post :unpublish
+            post :duplicate
+          end
+        end
+        
         resources :services do
           member do
             post :regenerate_token

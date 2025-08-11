@@ -13,13 +13,31 @@ export interface PlatformStats {
 }
 
 export interface SystemSettings {
+  // Platform Configuration
+  system_name?: string;
+  system_email?: string;
+  support_email?: string;
+  platform_url?: string;
+  
+  // User Registration & Access
   maintenance_mode: boolean;
   registration_enabled: boolean;
   email_verification_required: boolean;
+  allow_account_deletion?: boolean;
+  
+  // Security Settings
   password_complexity_level: 'low' | 'medium' | 'high';
   session_timeout_minutes: number;
   max_failed_login_attempts: number;
   account_lockout_duration: number;
+  
+  // Business Settings
+  trial_period_days?: number;
+  payment_retry_attempts?: number;
+  webhook_timeout_seconds?: number;
+  rate_limit_requests_per_minute?: number;
+  
+  // System Information
   platform_version: string;
   database_version: string;
   uptime: string | number;

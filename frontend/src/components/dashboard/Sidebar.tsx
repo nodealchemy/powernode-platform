@@ -17,13 +17,12 @@ const navigation = [
   { name: 'Customers', href: '/dashboard/customers', icon: '👥' },
   { name: 'Plans', href: '/dashboard/plans', icon: '💎' },
   { name: 'Billing', href: '/dashboard/billing', icon: '💰' },
+  { name: 'Pages', href: '/dashboard/pages', icon: '📄' },
   { name: 'Settings', href: '/dashboard/settings', icon: '⚙️' },
 ];
 
 const adminNavigation = [
   { name: 'Admin Settings', href: '/dashboard/admin-settings', icon: '🔧', adminOnly: true },
-  { name: 'Payment Gateways', href: '/dashboard/payment-gateways', icon: '💳', adminOnly: true },
-  { name: 'Services', href: '/dashboard/services', icon: '🤖', adminOnly: true },
 ];
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
