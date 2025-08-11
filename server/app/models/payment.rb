@@ -19,6 +19,20 @@ class Payment < ApplicationRecord
   # Serialization
   serialize :metadata, coder: JSON
 
+  # PayPal helper methods
+  def paypal?
+    payment_method == 'paypal'
+  end
+
+  def add_metadata(key, value)
+    self.metadata = (metadata || {}).merge(key => value)
+    save! if persisted?
+  end
+
+  def metadata_parsed
+    metadata || {}
+  end
+
   # Scopes
   scope :succeeded, -> { where(status: "succeeded") }
   scope :failed, -> { where(status: "failed") }

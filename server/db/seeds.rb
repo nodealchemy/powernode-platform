@@ -80,6 +80,12 @@ member_permissions = Permission.where(
 )
 member_role.permissions = member_permissions
 
+# Validate roles were created successfully
+unless owner_role&.persisted? && admin_role&.persisted? && member_role&.persisted?
+  puts "ERROR: Failed to create required system roles. Exiting..."
+  exit(1)
+end
+
 puts "Created #{Role.count} roles:"
 puts "- Owner: #{owner_role.permissions.count} permissions"
 puts "- Admin: #{admin_role.permissions.count} permissions"
@@ -117,9 +123,15 @@ administrator_plan = Plan.find_or_create_by!(name: 'Administrator') do |plan|
     'accounts_managed' => -1,  # unlimited
     'global_access' => true
   }
-  plan.default_roles = [ 'Admin', 'Owner' ]
+  plan.default_roles = [ 'Admin' ]  # Only Admin role - Owner is assigned automatically to account creators
   plan.status = 'active'
   plan.is_public = false  # Not publicly available, assigned by system admins only
+end
+
+# Update existing Administrator plan if it has invalid roles
+if administrator_plan.default_roles.include?('Owner')
+  puts "Updating Administrator plan default_roles to remove Owner role..."
+  administrator_plan.update!(default_roles: ['Admin'])
 end
 
 starter_plan = Plan.find_or_create_by!(name: 'Starter') do |plan|
@@ -205,6 +217,18 @@ puts "- Starter: $#{starter_plan.price_cents / 100.0}/month (#{starter_plan.tria
 puts "- Professional: $#{professional_plan.price_cents / 100.0}/month (#{professional_plan.trial_days} day trial)"
 puts "- Enterprise: $#{enterprise_plan.price_cents / 100.0}/month (#{enterprise_plan.trial_days} day trial)"
 
+# Validate that all plan default_roles reference existing roles
+puts "\nValidating plan default roles..."
+[administrator_plan, starter_plan, professional_plan, enterprise_plan].each do |plan|
+  invalid_roles = plan.default_roles.reject { |role_name| Role.exists?(name: role_name) }
+  if invalid_roles.any?
+    puts "ERROR: Plan '#{plan.name}' references non-existent roles: #{invalid_roles.join(', ')}"
+    exit(1)
+  else
+    puts "- #{plan.name}: #{plan.default_roles.join(', ')} ✓"
+  end
+end
+
 # Create Admin account and user with Administrator plan
 admin_account = Account.find_or_create_by!(name: 'Powernode Administration') do |account|
   account.subdomain = 'admin'
@@ -220,7 +244,7 @@ admin_subscription = Subscription.find_or_create_by!(account: admin_account) do 
   subscription.trial_end = nil
 end
 
-# Create admin user
+# Create admin user - ONLY System Administrator gets admin role
 admin_user = User.find_or_create_by!(email: 'admin@powernode.dev') do |user|
   user.account = admin_account
   user.first_name = 'System'
@@ -228,14 +252,14 @@ admin_user = User.find_or_create_by!(email: 'admin@powernode.dev') do |user|
   user.password = 'AdminStrong2024!@#$'
   user.password_confirmation = 'AdminStrong2024!@#$'
   user.status = 'active'
+  user.role = 'admin'  # Only the System Administrator gets admin role
   user.email_verified = true
   user.email_verified_at = Time.current
   user.last_login_at = Time.current
 end
 
-# Assign both Admin and Owner roles to admin user
-admin_user.assign_role(admin_role) unless admin_user.roles.include?(admin_role)
-admin_user.assign_role(owner_role) unless admin_user.roles.include?(owner_role)
+# Ensure admin user has admin role (single role system)
+admin_user.update!(role: 'admin') unless admin_user.role == 'admin'
 
 puts ""
 puts 'Created Admin Account and User:'
@@ -244,7 +268,7 @@ puts "- Subdomain: #{admin_account.subdomain}"
 puts "- Subscription: #{admin_subscription.plan.name} plan"
 puts "- Admin User: #{admin_user.email}"
 puts '- Admin Password: AdminStrong2024!@#$'
-puts '- Admin Roles: Admin, Owner'
+puts "- Admin Role: #{admin_user.role}"
 puts '- Status: Active'
 
 # Create admin service for system administration
@@ -316,6 +340,15 @@ sample_customers = [
     user: { first_name: 'Jennifer', last_name: 'Brown', email: 'jennifer@cloudfirst.io' },
     plan: starter_plan,
     created_at: 3.weeks.ago
+  },
+  {
+    account: { name: 'DevTeam Solutions', subdomain: 'devteam', status: 'active' },
+    user: { first_name: 'Alex', last_name: 'Thompson', email: 'alex@devteam.co' },
+    plan: professional_plan,
+    created_at: 5.weeks.ago,
+    additional_users: [
+      { first_name: 'Sam', last_name: 'Miller', email: 'sam@devteam.co', role: 'member' }
+    ]
   }
 ]
 
@@ -343,7 +376,7 @@ sample_customers.each_with_index do |customer_data, index|
     sub.updated_at = account_attrs[:created_at]
   end
   
-  # Create primary user
+  # Create primary user (owner)
   email = user_attrs[:email]
   user = User.find_or_create_by!(email: email) do |u|
     u.account = account
@@ -352,6 +385,8 @@ sample_customers.each_with_index do |customer_data, index|
     u.password = 'CustomerPass2024!@#$'
     u.password_confirmation = 'CustomerPass2024!@#$'
     u.status = 'active'
+    # Set role - first user becomes owner, others become member
+    u.role = account.users.count == 0 ? 'owner' : 'member'
     u.email_verified = true
     u.email_verified_at = account_attrs[:created_at] + 1.day
     u.last_login_at = account_attrs[:created_at] + rand(1..30).days
@@ -359,19 +394,30 @@ sample_customers.each_with_index do |customer_data, index|
     u.updated_at = account_attrs[:created_at] + rand(1..10).days
   end
   
-  # Assign default role based on plan
-  default_role_names = plan.default_roles || ['Member']
-  default_role_names.each do |role_name|
-    role = Role.find_by(name: role_name)
-    user.assign_role(role) if role && !user.roles.include?(role)
-  end
+  puts "  Created: #{account.name} - #{user.full_name} (#{user.email}) - #{plan.name} (owner)"
   
-  # Make first user the owner
-  if account.users.owners.empty?
-    user.assign_role(owner_role) unless user.roles.include?(owner_role)
+  # Create additional users if specified
+  if customer_data[:additional_users]
+    customer_data[:additional_users].each do |additional_user_attrs|
+      additional_email = additional_user_attrs[:email]
+      additional_user = User.find_or_create_by!(email: additional_email) do |u|
+        u.account = account
+        u.first_name = additional_user_attrs[:first_name]
+        u.last_name = additional_user_attrs[:last_name]
+        u.password = 'CustomerPass2024!@#$'
+        u.password_confirmation = 'CustomerPass2024!@#$'
+        u.status = 'active'
+        u.role = additional_user_attrs[:role] || 'member'
+        u.email_verified = true
+        u.email_verified_at = account_attrs[:created_at] + 2.days
+        u.last_login_at = account_attrs[:created_at] + rand(1..25).days
+        u.created_at = account_attrs[:created_at] + 1.day
+        u.updated_at = account_attrs[:created_at] + rand(2..12).days
+      end
+      
+      puts "    Added user: #{additional_user.full_name} (#{additional_user.email}) - #{additional_user.role}"
+    end
   end
-  
-  puts "  Created: #{account.name} - #{user.full_name} (#{user.email}) - #{plan.name}"
 end
 
 puts "\nCreated #{sample_customers.count} sample customer accounts"
@@ -644,9 +690,14 @@ delegated_users_data.each do |user_data|
     u.password = 'DelegatedUser2024!@#$'
     u.password_confirmation = 'DelegatedUser2024!@#$'
     u.status = 'active'
+    u.role = 'admin' # Assign admin role since they belong to admin account
     u.email_verified = true
     u.email_verified_at = 1.month.ago
   end
+  
+  # Assign admin role to delegated users (they belong to admin account with Administrator plan)
+  user.update!(role: 'admin') unless user.role == 'admin'
+  
   delegated_users << user
 end
 
@@ -656,15 +707,28 @@ enterprise_accounts = Account.joins(:subscription)
                             .where(subscriptions: { plan: enterprise_plan })
                             .limit(2)
 
+# Create delegations with different roles for testing (using single role strings)
+delegation_configs = [
+  { role: 'admin', expires_months: 6, notes: 'Full administrative access for consultant' },
+  { role: 'member', expires_months: 3, notes: 'Limited access for temporary project work' },
+  { role: 'admin', expires_months: 12, notes: 'Long-term administrative delegation' }
+]
+
 enterprise_accounts.each_with_index do |account, index|
+  break if index >= delegated_users.count
+
   delegated_user = delegated_users[index]
   delegator = account.users.first
+  config = delegation_configs[index] || delegation_configs.first
   
   AccountDelegation.find_or_create_by!(account: account, delegated_user: delegated_user, delegated_by: delegator) do |delegation|
-    delegation.role = admin_role
+    delegation.role = config[:role]
     delegation.status = 'active'
-    delegation.expires_at = 6.months.from_now
+    delegation.expires_at = config[:expires_months].months.from_now
+    delegation.notes = config[:notes]
   end
+  
+  puts "  Created delegation: #{account.name} -> #{delegated_user.email} (#{config[:role]})"
 end
 
 # Create sample gateway configurations (using fake values for demo)
@@ -693,3 +757,18 @@ puts "- Total Pages: #{Page.count}"
 puts "- Total Payment Methods: #{PaymentMethod.count}"
 puts "- Total Account Delegations: #{AccountDelegation.count}"
 puts "- Total Gateway Configurations: #{GatewayConfiguration.count}"
+
+# Final validation: Ensure all users have a role
+puts "\nValidating all users have roles..."
+users_without_roles = User.where(role: [nil, ''])
+if users_without_roles.exists?
+  puts "ERROR: Found #{users_without_roles.count} users without roles:"
+  users_without_roles.each do |user|
+    puts "  - #{user.email} (#{user.account.name})"
+    # Assign member role as fallback
+    user.update!(role: 'member')
+    puts "    -> Assigned member role as fallback"
+  end
+else
+  puts "✅ All #{User.count} users have a role assigned"
+end

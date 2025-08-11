@@ -7,7 +7,8 @@ class AuditLog < ApplicationRecord
   validates :action, presence: true, inclusion: {
     in: %w[create update delete login logout payment subscription_change role_change 
            create_plan update_plan delete_plan toggle_plan_status 
-           suspend_account activate_account admin_settings_update]
+           suspend_account activate_account admin_settings_update
+           impersonation.started impersonation.ended]
   }
   validates :resource_type, presence: true
   validates :resource_id, presence: true
@@ -25,6 +26,20 @@ class AuditLog < ApplicationRecord
   scope :by_action, ->(action) { where(action: action) }
   scope :recent, -> { order(created_at: :desc) }
   scope :in_date_range, ->(start_date, end_date) { where(created_at: start_date..end_date) }
+
+  # Advanced filtering scopes for admin interface
+  scope :apply_filters, ->(filters) {
+    scope = all
+    scope = scope.where(action: filters[:action]) if filters[:action].present?
+    scope = scope.joins(:user).where(users: { email: filters[:user_email] }) if filters[:user_email].present?
+    scope = scope.joins(:account).where(accounts: { name: filters[:account_name] }) if filters[:account_name].present?
+    scope = scope.where(resource_type: filters[:resource_type]) if filters[:resource_type].present?
+    scope = scope.where(source: filters[:source]) if filters[:source].present?
+    scope = scope.where(ip_address: filters[:ip_address]) if filters[:ip_address].present?
+    scope = scope.where(created_at: filters[:date_from].beginning_of_day..) if filters[:date_from].present?
+    scope = scope.where(created_at: ..filters[:date_to].end_of_day) if filters[:date_to].present?
+    scope
+  }
 
   # Callbacks
   after_initialize :set_defaults

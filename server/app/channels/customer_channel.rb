@@ -66,7 +66,7 @@ class CustomerChannel < ApplicationCable::Channel
       }
       
       # Broadcast to all admin accounts
-      admin_accounts = Account.joins(users: :roles).where(roles: { name: ['Owner', 'Admin'] }).distinct
+      admin_accounts = Account.joins(:users).where(users: { role: ['owner', 'admin'] }).distinct
       admin_accounts.each do |admin_account|
         ActionCable.server.broadcast("customer_updates_#{admin_account.id}", broadcast_data)
       end
@@ -99,7 +99,7 @@ class CustomerChannel < ApplicationCable::Channel
   private
 
   def admin_user?
-    current_user&.roles&.any? { |role| ['Owner', 'Admin'].include?(role.name) }
+    current_user&.admin_or_owner?
   end
 
   def build_search_query(search_query, filters = {})

@@ -148,16 +148,18 @@ class Api::V1::UsersController < ApplicationController
       last_login_at: user.last_login_at,
       created_at: user.created_at,
       updated_at: user.updated_at,
-      roles: user.roles.map { |role| { id: role.id, name: role.name } }
+      role: user.role
     }
   end
 
   def assign_default_roles(user)
     return unless current_account.subscription&.plan
 
-    current_account.subscription.plan.default_roles.each do |role_name|
-      role = Role.find_by(name: role_name)
-      user.roles << role if role && !user.roles.include?(role)
+    # For single role system, assign the first default role from the plan
+    default_role = current_account.subscription.plan.default_roles.first
+    if default_role
+      role_name = default_role.downcase
+      user.update!(role: role_name) if %w[admin owner member].include?(role_name)
     end
   end
 end

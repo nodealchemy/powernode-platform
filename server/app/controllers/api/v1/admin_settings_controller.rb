@@ -10,29 +10,43 @@ class Api::V1::AdminSettingsController < ApplicationController
 
   # PUT /api/v1/admin_settings
   def update
-    result = AdminSettingsUpdateService.new(
-      user: current_user,
-      params: admin_settings_params
-    ).call
+    begin
+      settings_params = admin_settings_params
+      updated_settings = SystemSettingsService.update_settings(settings_params)
+      
+      # Log the settings update
+      AuditLog.create!(
+        user: current_user,
+        account: current_user.account,
+        action: 'admin_settings_update',
+        resource_type: 'SystemSettings',
+        resource_id: 'system',
+        source: 'admin_panel',
+        ip_address: request.remote_ip,
+        user_agent: request.user_agent,
+        metadata: {
+          updated_fields: settings_params.keys,
+          rate_limiting_changed: settings_params.key?(:rate_limiting)
+        }
+      )
 
-    if result[:success]
       render json: {
         success: true,
-        data: result[:data],
+        data: updated_settings,
         message: "Admin settings updated successfully"
       }, status: :ok
-    else
+    rescue StandardError => e
       render json: {
         success: false,
         error: "Admin settings update failed",
-        details: result[:errors]
+        details: e.message
       }, status: :unprocessable_content
     end
   end
 
   # GET /api/v1/admin_settings/users
   def users
-    users = User.includes(:account, :roles)
+    users = User.includes(:account)
                 .order(:created_at)
                 .limit(100) # Paginate in real implementation
 
@@ -182,7 +196,7 @@ class Api::V1::AdminSettingsController < ApplicationController
   end
 
   def recent_users_data
-    User.includes(:account, :roles)
+    User.includes(:account)
         .order(created_at: :desc)
         .limit(10)
         .map do |user|
@@ -200,7 +214,7 @@ class Api::V1::AdminSettingsController < ApplicationController
           name: user.account.name,
           status: user.account.status
         },
-        roles: user.roles.map { |role| { id: role.id, name: role.name } }
+        role: user.role
       }
     end
   end
@@ -210,7 +224,7 @@ class Api::V1::AdminSettingsController < ApplicationController
            .order(created_at: :desc)
            .limit(10)
            .map do |account|
-      owner = account.users.joins(:roles).where(roles: { name: 'owner' }).first || account.users.first
+      owner = account.users.where(role: 'owner').first || account.users.first
       
       {
         id: account.id,
@@ -273,33 +287,10 @@ class Api::V1::AdminSettingsController < ApplicationController
   end
 
   def settings_summary_data
-    {
-      maintenance_mode: false, # TODO: Implement from database settings
-      registration_enabled: true,
-      require_email_verification: true,
-      allow_account_deletion: false,
-      system_name: 'Powernode Platform',
-      system_email: Rails.application.credentials.dig(:mail, :from) || 'system@powernode.local',
-      support_email: Rails.application.credentials.dig(:mail, :support) || 'support@powernode.local',
-      trial_period_days: 14,
-      max_trial_accounts: nil,
-      payment_retry_attempts: 3,
-      webhook_timeout_seconds: 30,
-      session_timeout_minutes: 60,
-      password_min_length: 12,
-      backup_retention_days: 30,
-      log_retention_days: 90,
-      rate_limit_requests_per_minute: 60,
-      feature_flags: {},
-      smtp_settings: {
-        host: Rails.application.credentials.dig(:mail, :smtp, :host),
-        port: Rails.application.credentials.dig(:mail, :smtp, :port),
-        use_tls: true,
-        from_address: Rails.application.credentials.dig(:mail, :from)
-      },
+    SystemSettingsService.load_settings.merge({
       created_at: 30.days.ago, # TODO: Store actual settings creation time
       updated_at: 1.day.ago     # TODO: Store actual settings update time
-    }
+    })
   end
 
   def require_admin_access
@@ -337,7 +328,7 @@ class Api::V1::AdminSettingsController < ApplicationController
       account_lockout_duration: 30,
       platform_version: '1.0.0',
       database_version: ActiveRecord::Base.connection.select_value('SELECT version()'),
-      uptime: (Time.current - Rails.application.config.startup_time rescue 0)
+      uptime: calculate_uptime
     }
   end
 
@@ -357,9 +348,7 @@ class Api::V1::AdminSettingsController < ApplicationController
   def user_management_data
     {
       total_users: User.count,
-      users_by_role: User.joins(:roles)
-                         .group('roles.name')
-                         .count,
+      users_by_role: User.group(:role).count,
       users_by_status: User.group(:status).count,
       recent_registrations: User.where(created_at: 7.days.ago..Time.current).count,
       email_verification_pending: User.where(email_verified_at: nil).count
@@ -401,7 +390,7 @@ class Api::V1::AdminSettingsController < ApplicationController
       email: user.email,
       full_name: user.full_name,
       status: user.status,
-      roles: user.roles.pluck(:name),
+      role: user.role,
       account: {
         id: user.account.id,
         name: user.account.name,
@@ -533,9 +522,10 @@ class Api::V1::AdminSettingsController < ApplicationController
   end
 
   def calculate_uptime
-    # Simple uptime calculation - in production this would track actual downtime
-    Rails.application.config.startup_time ||= 1.day.ago
-    Time.current - Rails.application.config.startup_time
+    # Simple uptime calculation - use process start time as approximation
+    # In production, this would track actual application start time
+    process_start_time = File.stat('/proc/self').ctime rescue (Time.current - 1.day)
+    [Time.current - process_start_time, 0].max
   end
 
   def determine_log_level(action)
