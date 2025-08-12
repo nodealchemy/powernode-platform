@@ -18,7 +18,17 @@ class SystemSettingsService
     end
 
     def rate_limit_setting(type)
+      # Check if rate limiting is globally disabled first
+      return 0 unless rate_limiting_enabled?
+      
       get_setting("rate_limiting.#{type}", default_rate_limits[type.to_sym])
+    end
+    
+    def rate_limiting_enabled?
+      # Check both environment variable and admin settings
+      return false if ENV['DISABLE_RATE_LIMITING'] == 'true'
+      
+      get_setting('rate_limiting.enabled', true)
     end
 
     def clear_cache
@@ -52,6 +62,10 @@ class SystemSettingsService
         log_retention_days: 90,
         rate_limiting: default_rate_limits,
         feature_flags: {},
+        api_keys: {
+          default_hourly_limit: 1000,
+          default_daily_limit: 10000
+        },
         smtp_settings: {
           host: Rails.application.credentials.dig(:mail, :smtp, :host),
           port: Rails.application.credentials.dig(:mail, :smtp, :port),
@@ -63,12 +77,15 @@ class SystemSettingsService
 
     def default_rate_limits
       {
-        api_requests_per_minute: 60,
+        enabled: ENV['DISABLE_RATE_LIMITING'] != 'true', # Can be toggled via admin settings
+        api_requests_per_minute: Rails.env.development? ? 1000 : 60,
         impersonation_attempts_per_hour: Rails.env.development? ? 50 : 5,
         login_attempts_per_hour: 10,
         password_reset_attempts_per_hour: 3,
         registration_attempts_per_hour: 5,
-        webhook_requests_per_minute: 100
+        email_verification_attempts_per_hour: 10,
+        webhook_requests_per_minute: 100,
+        authenticated_requests_per_hour: 200
       }
     end
 

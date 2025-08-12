@@ -307,13 +307,27 @@ export const AdminSettingsOverviewPage: React.FC = () => {
             <div>
               <h3 className="text-lg font-semibold text-theme-primary flex items-center">
                 <span className="mr-2">🛡️</span>
-                Active Rate Limits
+                Rate Limiting Status
               </h3>
-              <p className="text-sm text-theme-secondary">System-wide rate limiting settings for security and performance</p>
+              <p className="text-sm text-theme-secondary">
+                {settings_summary?.rate_limiting?.enabled !== false 
+                  ? 'System-wide rate limiting settings for security and performance'
+                  : 'Rate limiting is currently disabled - all endpoints allow unlimited requests'
+                }
+              </p>
             </div>
             <div className="flex items-center space-x-2">
-              <div className="w-2 h-2 bg-theme-success rounded-full"></div>
-              <span className="text-sm text-theme-success font-medium">Active</span>
+              {settings_summary?.rate_limiting?.enabled !== false ? (
+                <>
+                  <div className="w-2 h-2 bg-theme-success rounded-full"></div>
+                  <span className="text-sm text-theme-success font-medium">Enabled</span>
+                </>
+              ) : (
+                <>
+                  <div className="w-2 h-2 bg-theme-warning rounded-full"></div>
+                  <span className="text-sm text-theme-warning font-medium">Disabled</span>
+                </>
+              )}
             </div>
           </div>
           
