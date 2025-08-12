@@ -737,7 +737,7 @@ export const ReportsPage: React.FC = () => {
       {/* Report Request Modal */}
       {showRequestModal && selectedTemplate && (
         <>
-          <div className="fixed inset-0 bg-black bg-opacity-50 z-40" onClick={() => setShowRequestModal(false)} />
+          <div className="fixed inset-0 bg-theme-overlay z-40" onClick={() => setShowRequestModal(false)} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="card-theme w-full max-w-lg max-h-screen overflow-y-auto">
               <div className="flex items-center justify-between p-6 border-b border-theme">

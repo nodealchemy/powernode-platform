@@ -9,8 +9,7 @@ class InvoiceLineItem < ApplicationRecord
   validate :validate_pricing
   validates :line_type, presence: true, inclusion: { in: %w[subscription usage discount tax adjustment] }
 
-  # Serialization
-  serialize :metadata, coder: JSON
+  # Note: metadata is a native JSON column - no serialization needed in Rails 8
 
   # Money attributes
   monetize :unit_price_cents, :total_cents

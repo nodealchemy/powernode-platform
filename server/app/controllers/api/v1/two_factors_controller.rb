@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-class Api::V1::TwoFactorController < ApplicationController
+class Api::V1::TwoFactorsController < ApplicationController
   # POST /api/v1/two_factor/enable
   def enable
     if current_user.two_factor_enabled?

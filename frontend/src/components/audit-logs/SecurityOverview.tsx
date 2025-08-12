@@ -62,11 +62,11 @@ export const SecurityOverview: React.FC<SecurityOverviewProps> = ({ metrics, tim
 
   const getColorClasses = (color: string) => {
     switch (color) {
-      case 'red': return 'bg-red-100 text-red-700';
-      case 'yellow': return 'bg-yellow-100 text-yellow-700';
-      case 'orange': return 'bg-orange-100 text-orange-700';
-      case 'purple': return 'bg-purple-100 text-purple-700';
-      default: return 'bg-gray-100 text-gray-700';
+      case 'red': return 'bg-theme-error-background text-theme-error';
+      case 'yellow': return 'bg-theme-warning-background text-theme-warning';
+      case 'orange': return 'bg-theme-warning-background text-theme-warning';
+      case 'purple': return 'bg-theme-info-background text-theme-info';
+      default: return 'bg-theme-surface text-theme-secondary';
     }
   };
 
@@ -75,8 +75,8 @@ export const SecurityOverview: React.FC<SecurityOverviewProps> = ({ metrics, tim
       {/* Security Status Overview */}
       <div className="bg-theme-background rounded-lg border border-theme p-6">
         <div className="flex items-center gap-3 mb-6">
-          <div className="p-2 bg-green-100 rounded-lg">
-            <Shield className="w-6 h-6 text-green-600" />
+          <div className="p-2 bg-theme-success-background rounded-lg">
+            <Shield className="w-6 h-6 text-theme-success" />
           </div>
           <div>
             <h3 className="text-lg font-semibold text-theme-primary">Security Status</h3>
@@ -93,11 +93,11 @@ export const SecurityOverview: React.FC<SecurityOverviewProps> = ({ metrics, tim
                 </div>
                 <div className="flex items-center gap-1 text-sm">
                   {metric.change > 0 ? (
-                    <TrendingUp className="w-3 h-3 text-red-500" />
+                    <TrendingUp className="w-3 h-3 text-theme-error" />
                   ) : (
-                    <TrendingDown className="w-3 h-3 text-green-500" />
+                    <TrendingDown className="w-3 h-3 text-theme-success" />
                   )}
-                  <span className={metric.change > 0 ? 'text-red-600' : 'text-green-600'}>
+                  <span className={metric.change > 0 ? 'text-theme-error' : 'text-theme-success'}>
                     {Math.abs(metric.change)}%
                   </span>
                 </div>
@@ -121,15 +121,15 @@ export const SecurityOverview: React.FC<SecurityOverviewProps> = ({ metrics, tim
             {threatSources.map((source, index) => (
               <div key={index} className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-6 bg-gray-200 rounded border flex items-center justify-center">
-                    <span className="text-xs font-medium">{source.country.substring(0, 2).toUpperCase()}</span>
+                  <div className="w-8 h-6 bg-theme-surface rounded border border-theme flex items-center justify-center">
+                    <span className="text-xs font-medium text-theme-secondary">{source.country.substring(0, 2).toUpperCase()}</span>
                   </div>
                   <span className="text-sm font-medium text-theme-primary">{source.country}</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="w-20 bg-theme-background rounded-full h-2">
                     <div 
-                      className="bg-red-500 h-2 rounded-full"
+                      className="bg-theme-error h-2 rounded-full"
                       style={{ width: `${source.percentage}%` }}
                     />
                   </div>
@@ -146,36 +146,36 @@ export const SecurityOverview: React.FC<SecurityOverviewProps> = ({ metrics, tim
             <h4 className="text-lg font-semibold text-theme-primary">Recent Security Events</h4>
           </div>
           <div className="space-y-3">
-            <div className="flex items-start gap-3 p-3 bg-red-50 rounded-lg border border-red-200">
-              <div className="p-1 bg-red-100 rounded">
-                <AlertTriangle className="w-3 h-3 text-red-600" />
+            <div className="flex items-start gap-3 p-3 bg-theme-error-background rounded-lg border border-theme-error">
+              <div className="p-1 bg-theme-error-background rounded">
+                <AlertTriangle className="w-3 h-3 text-theme-error" />
               </div>
               <div className="flex-1">
-                <div className="text-sm font-medium text-red-800">Multiple failed login attempts</div>
-                <div className="text-xs text-red-600">admin@company.com - 5 attempts</div>
-                <div className="text-xs text-red-500">2 minutes ago</div>
+                <div className="text-sm font-medium text-theme-error">Multiple failed login attempts</div>
+                <div className="text-xs text-theme-error">admin@company.com - 5 attempts</div>
+                <div className="text-xs text-theme-tertiary">2 minutes ago</div>
               </div>
             </div>
             
-            <div className="flex items-start gap-3 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
-              <div className="p-1 bg-yellow-100 rounded">
-                <Eye className="w-3 h-3 text-yellow-600" />
+            <div className="flex items-start gap-3 p-3 bg-theme-warning-background rounded-lg border border-theme-warning">
+              <div className="p-1 bg-theme-warning-background rounded">
+                <Eye className="w-3 h-3 text-theme-warning" />
               </div>
               <div className="flex-1">
-                <div className="text-sm font-medium text-yellow-800">Unusual access pattern detected</div>
-                <div className="text-xs text-yellow-600">User login from new location</div>
-                <div className="text-xs text-yellow-500">15 minutes ago</div>
+                <div className="text-sm font-medium text-theme-warning">Unusual access pattern detected</div>
+                <div className="text-xs text-theme-warning">User login from new location</div>
+                <div className="text-xs text-theme-tertiary">15 minutes ago</div>
               </div>
             </div>
             
-            <div className="flex items-start gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-              <div className="p-1 bg-blue-100 rounded">
-                <Users className="w-3 h-3 text-blue-600" />
+            <div className="flex items-start gap-3 p-3 bg-theme-info-background rounded-lg border border-theme-info">
+              <div className="p-1 bg-theme-info-background rounded">
+                <Users className="w-3 h-3 text-theme-info" />
               </div>
               <div className="flex-1">
-                <div className="text-sm font-medium text-blue-800">Admin action performed</div>
-                <div className="text-xs text-blue-600">User permissions modified</div>
-                <div className="text-xs text-blue-500">1 hour ago</div>
+                <div className="text-sm font-medium text-theme-info">Admin action performed</div>
+                <div className="text-xs text-theme-info">User permissions modified</div>
+                <div className="text-xs text-theme-tertiary">1 hour ago</div>
               </div>
             </div>
           </div>

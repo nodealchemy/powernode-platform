@@ -4,6 +4,8 @@ import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '../../store';
 import { toggleSidebarCollapse } from '../../store/slices/uiSlice';
 import { hasAccess, hasAdminAccess, hasBillingAccess } from '../../utils/permissionUtils';
+import { VersionDisplay } from '../common/VersionDisplay';
+import { settingsApi } from '../../services/settingsApi';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -34,37 +36,43 @@ const navigation: NavigationItem[] = [
     permissions: ['dashboard_access']
   },
   { 
-    name: 'Business', 
+    name: 'Customers', 
     href: '/dashboard/business', 
-    icon: '💼',
+    icon: '👥',
+    permissions: ['dashboard_access']
+  },
+  { 
+    name: 'My Account', 
+    href: '/dashboard/account', 
+    icon: '👤',
     permissions: ['dashboard_access']
   },
 ];
 
 const adminNavigation: NavigationItem[] = [
   { 
-    name: 'Content Management', 
+    name: 'Content', 
     href: '/dashboard/pages', 
     icon: '📄',
     permissions: ['dashboard_access'],
     roles: ['admin']  // Only system administrators for now
   },
   { 
-    name: 'Plans Management', 
+    name: 'Plans', 
     href: '/dashboard/plans', 
     icon: '💼',
     permissions: ['dashboard_access'],
     roles: ['admin']  // Only system administrators
   },
   { 
-    name: 'User Management', 
+    name: 'Users', 
     href: '/dashboard/admin/users', 
     icon: '👥',
     permissions: ['dashboard_access'],
     roles: ['admin']  // Only system administrators
   },
   { 
-    name: 'System Settings', 
+    name: 'Settings', 
     href: '/dashboard/system', 
     icon: '⚙️',
     permissions: ['dashboard_access'],
@@ -78,6 +86,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
   const { user } = useSelector((state: RootState) => state.auth);
   const { sidebarCollapsed } = useSelector((state: RootState) => state.ui);
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
+  const [copyrightText, setCopyrightText] = useState<string>('');
   const [scrollState, setScrollState] = useState({
     isScrollable: false,
     canScrollUp: false,
@@ -208,6 +217,21 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
     
     return () => window.removeEventListener('resize', handleResize);
   }, [sidebarCollapsed, dispatch]);
+
+  // Load copyright text on component mount
+  useEffect(() => {
+    const loadCopyright = async () => {
+      try {
+        const copyright = await settingsApi.getCopyright();
+        setCopyrightText(copyright);
+      } catch (error) {
+        console.warn('Failed to load copyright text, using fallback');
+        setCopyrightText(`© ${new Date().getFullYear()} Powernode Platform. All rights reserved.`);
+      }
+    };
+
+    loadCopyright();
+  }, []);
   
   return (
     <>
@@ -335,43 +359,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
               );
             })}
 
-            {/* Account Settings Section */}
-            <div className="border-t border-theme my-4"></div>
-            {!sidebarCollapsed && (
-              <div className="px-3 py-2">
-                <p className="text-xs font-semibold text-theme-tertiary uppercase tracking-wider">
-                  Settings
-                </p>
-              </div>
-            )}
-            
-            <div className="relative" onMouseEnter={() => setHoveredItem('My Account')} onMouseLeave={() => setHoveredItem(null)}>
-              <Link
-                to="/dashboard/account"
-                className={`${
-                  location.pathname.startsWith('/dashboard/account')
-                    ? 'bg-theme-surface-selected border-theme-focus text-theme-link'
-                    : 'border-transparent text-theme-secondary hover:bg-theme-surface-hover hover:text-theme-primary'
-                } group flex items-center ${
-                  sidebarCollapsed ? 'justify-center px-3 py-3' : 'px-3 py-2'
-                } text-sm font-medium border-l-4 rounded-md transition-all duration-150`}
-                title={sidebarCollapsed ? 'My Account' : undefined}
-              >
-                <span className={`text-lg sidebar-icon-transition ${sidebarCollapsed ? '' : 'mr-3'}`}>👤</span>
-                {!sidebarCollapsed && (
-                  <span className="sidebar-content-transition">My Account</span>
-                )}
-              </Link>
-              
-              {/* Tooltip for collapsed state */}
-              {sidebarCollapsed && hoveredItem === 'My Account' && (
-                <div className="absolute left-full top-0 ml-2 px-2 py-1 bg-theme-surface-pressed text-theme-inverse text-xs rounded-md whitespace-nowrap z-50 pointer-events-none shadow-md">
-                  My Account
-                  <div className="absolute left-0 top-1/2 transform -translate-y-1/2 -translate-x-1 border-4 border-transparent border-r-gray-900 dark:border-r-gray-100"></div>
-                </div>
-              )}
-            </div>
-            
             {/* Admin navigation section - Only show for system administrators */}
             {hasAdminAccessLocal && adminNavigation.filter(item => hasPermission(item.permissions, item.roles)).length > 0 && (
               <>
@@ -428,8 +415,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
           {!sidebarCollapsed && (
             <div className="border-t border-theme p-4">
               <div className="text-xs text-theme-tertiary">
-                <p>Version 1.0.0</p>
-                <p>© 2025 Powernode</p>
+                <VersionDisplay show="simple" className="mb-1" />
+                <p>{copyrightText || `© ${new Date().getFullYear()} Powernode Platform. All rights reserved.`}</p>
               </div>
             </div>
           )}

@@ -215,11 +215,11 @@ const WebhookManagementPage: React.FC = () => {
 
   // Render page header following SystemManagement template
   const renderPageHeader = () => (
-    <div className="bg-theme-surface rounded-lg p-6">
+    <div>
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h2 className="text-xl font-semibold text-theme-primary">Webhook Management</h2>
-          <p className="text-theme-secondary mt-1">Configure and monitor webhook endpoints for real-time notifications</p>
+          <h1 className="text-3xl font-bold text-theme-primary">Webhook Management</h1>
+          <p className="text-theme-secondary mt-2">Configure and monitor webhook endpoints for real-time notifications</p>
         </div>
         <div className="flex items-center gap-3">
           <button
@@ -245,10 +245,12 @@ const WebhookManagementPage: React.FC = () => {
       </div>
 
       {/* Stats overview when in list mode */}
-      {viewMode === 'list' && renderStatsOverview()}
-      
-      {/* Action buttons when in list mode */}
-      {viewMode === 'list' && renderActionButtons()}
+      {viewMode === 'list' && (
+        <div className="bg-theme-surface rounded-lg p-6 mb-6">
+          {renderStatsOverview()}
+          {renderActionButtons()}
+        </div>
+      )}
     </div>
   );
 
@@ -257,7 +259,7 @@ const WebhookManagementPage: React.FC = () => {
     if (!stats) return null;
 
     return (
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <div className="bg-theme-background rounded-lg p-4 border border-theme">
           <div className="flex items-center gap-3">
             <Globe className="w-8 h-8 text-theme-interactive-primary" />

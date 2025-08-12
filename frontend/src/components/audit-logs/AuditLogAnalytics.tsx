@@ -155,48 +155,48 @@ export const AuditLogAnalytics: React.FC<AuditLogAnalyticsProps> = ({
                 <div className="bg-theme-background rounded-lg p-4 border border-theme">
                   <div className="flex items-center justify-between mb-2">
                     <div className="text-sm font-medium text-theme-secondary">Total Events</div>
-                    <Activity className="w-4 h-4 text-blue-500" />
+                    <Activity className="w-4 h-4 text-theme-link" />
                   </div>
                   <div className="text-2xl font-bold text-theme-primary">{mockMetrics.totalEvents.toLocaleString()}</div>
                   <div className="flex items-center gap-1 mt-1">
-                    <TrendingUp className="w-3 h-3 text-green-500" />
-                    <span className="text-xs text-green-600">+12% from last period</span>
+                    <TrendingUp className="w-3 h-3 text-theme-status-success" />
+                    <span className="text-xs text-theme-status-success">+12% from last period</span>
                   </div>
                 </div>
                 
                 <div className="bg-theme-background rounded-lg p-4 border border-theme">
                   <div className="flex items-center justify-between mb-2">
                     <div className="text-sm font-medium text-theme-secondary">Security Events</div>
-                    <Shield className="w-4 h-4 text-green-500" />
+                    <Shield className="w-4 h-4 text-theme-status-success" />
                   </div>
                   <div className="text-2xl font-bold text-theme-primary">{mockMetrics.securityEvents}</div>
                   <div className="flex items-center gap-1 mt-1">
-                    <TrendingDown className="w-3 h-3 text-green-500" />
-                    <span className="text-xs text-green-600">-5% from last period</span>
+                    <TrendingDown className="w-3 h-3 text-theme-status-success" />
+                    <span className="text-xs text-theme-status-success">-5% from last period</span>
                   </div>
                 </div>
                 
                 <div className="bg-theme-background rounded-lg p-4 border border-theme">
                   <div className="flex items-center justify-between mb-2">
                     <div className="text-sm font-medium text-theme-secondary">High Risk</div>
-                    <AlertTriangle className="w-4 h-4 text-red-500" />
+                    <AlertTriangle className="w-4 h-4 text-theme-status-error" />
                   </div>
                   <div className="text-2xl font-bold text-theme-primary">{mockMetrics.highRiskEvents}</div>
                   <div className="flex items-center gap-1 mt-1">
-                    <TrendingUp className="w-3 h-3 text-red-500" />
-                    <span className="text-xs text-red-600">+8% from last period</span>
+                    <TrendingUp className="w-3 h-3 text-theme-status-error" />
+                    <span className="text-xs text-theme-status-error">+8% from last period</span>
                   </div>
                 </div>
                 
                 <div className="bg-theme-background rounded-lg p-4 border border-theme">
                   <div className="flex items-center justify-between mb-2">
                     <div className="text-sm font-medium text-theme-secondary">Unique Users</div>
-                    <Users className="w-4 h-4 text-purple-500" />
+                    <Users className="w-4 h-4 text-theme-link" />
                   </div>
                   <div className="text-2xl font-bold text-theme-primary">{mockMetrics.uniqueUsers}</div>
                   <div className="flex items-center gap-1 mt-1">
-                    <TrendingUp className="w-3 h-3 text-purple-500" />
-                    <span className="text-xs text-purple-600">+3% from last period</span>
+                    <TrendingUp className="w-3 h-3 text-theme-link" />
+                    <span className="text-xs text-theme-link">+3% from last period</span>
                   </div>
                 </div>
               </div>
@@ -251,28 +251,28 @@ export const AuditLogAnalytics: React.FC<AuditLogAnalyticsProps> = ({
                     <div>
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-sm font-medium text-theme-secondary">GDPR Compliance</span>
-                        <span className="text-sm font-semibold text-green-600">98%</span>
+                        <span className="text-sm font-semibold text-theme-status-success">98%</span>
                       </div>
                       <div className="w-full bg-theme-background rounded-full h-2">
-                        <div className="bg-green-500 h-2 rounded-full" style={{ width: '98%' }}></div>
+                        <div className="bg-theme-status-success h-2 rounded-full" style={{ width: '98%' }}></div>
                       </div>
                     </div>
                     <div>
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-sm font-medium text-theme-secondary">CCPA Compliance</span>
-                        <span className="text-sm font-semibold text-blue-600">95%</span>
+                        <span className="text-sm font-semibold text-theme-link">95%</span>
                       </div>
                       <div className="w-full bg-theme-background rounded-full h-2">
-                        <div className="bg-blue-500 h-2 rounded-full" style={{ width: '95%' }}></div>
+                        <div className="bg-theme-link h-2 rounded-full" style={{ width: '95%' }}></div>
                       </div>
                     </div>
                     <div>
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-sm font-medium text-theme-secondary">SOX Compliance</span>
-                        <span className="text-sm font-semibold text-yellow-600">92%</span>
+                        <span className="text-sm font-semibold text-theme-status-warning">92%</span>
                       </div>
                       <div className="w-full bg-theme-background rounded-full h-2">
-                        <div className="bg-yellow-500 h-2 rounded-full" style={{ width: '92%' }}></div>
+                        <div className="bg-theme-status-warning h-2 rounded-full" style={{ width: '92%' }}></div>
                       </div>
                     </div>
                   </div>
@@ -294,25 +294,25 @@ export const AuditLogAnalytics: React.FC<AuditLogAnalyticsProps> = ({
                 <div className="bg-theme-background rounded-lg border border-theme p-6">
                   <h3 className="text-lg font-semibold text-theme-primary mb-4">Risk Recommendations</h3>
                   <div className="space-y-3">
-                    <div className="flex items-start gap-3 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
-                      <AlertTriangle className="w-4 h-4 text-yellow-600 mt-0.5" />
+                    <div className="flex items-start gap-3 p-3 bg-theme-status-warning-background rounded-lg border border-theme-status-warning">
+                      <AlertTriangle className="w-4 h-4 text-theme-status-warning mt-0.5" />
                       <div>
-                        <div className="text-sm font-medium text-yellow-800">High Failed Login Rate</div>
-                        <div className="text-xs text-yellow-700">Consider implementing additional rate limiting</div>
+                        <div className="text-sm font-medium text-theme-status-warning">High Failed Login Rate</div>
+                        <div className="text-xs text-theme-status-warning">Consider implementing additional rate limiting</div>
                       </div>
                     </div>
-                    <div className="flex items-start gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                      <Eye className="w-4 h-4 text-blue-600 mt-0.5" />
+                    <div className="flex items-start gap-3 p-3 bg-theme-link-background rounded-lg border border-theme-link">
+                      <Eye className="w-4 h-4 text-theme-link mt-0.5" />
                       <div>
-                        <div className="text-sm font-medium text-blue-800">Off-Hours Activity</div>
-                        <div className="text-xs text-blue-700">Review admin actions during unusual hours</div>
+                        <div className="text-sm font-medium text-theme-link">Off-Hours Activity</div>
+                        <div className="text-xs text-theme-link">Review admin actions during unusual hours</div>
                       </div>
                     </div>
-                    <div className="flex items-start gap-3 p-3 bg-green-50 rounded-lg border border-green-200">
-                      <Shield className="w-4 h-4 text-green-600 mt-0.5" />
+                    <div className="flex items-start gap-3 p-3 bg-theme-status-success-background rounded-lg border border-theme-status-success">
+                      <Shield className="w-4 h-4 text-theme-status-success mt-0.5" />
                       <div>
-                        <div className="text-sm font-medium text-green-800">Security Posture Good</div>
-                        <div className="text-xs text-green-700">Current security measures are effective</div>
+                        <div className="text-sm font-medium text-theme-status-success">Security Posture Good</div>
+                        <div className="text-xs text-theme-status-success">Current security measures are effective</div>
                       </div>
                     </div>
                   </div>

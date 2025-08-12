@@ -13,8 +13,7 @@ class Subscription < ApplicationRecord
   validates :stripe_subscription_id, uniqueness: { allow_nil: true }
   validates :paypal_subscription_id, uniqueness: { allow_nil: true }
 
-  # Serialization
-  serialize :metadata, coder: JSON
+  # Note: metadata is a native JSON column - no serialization needed in Rails 8
 
   # Scopes
   scope :active, -> { where(status: [ "trialing", "active" ]) }

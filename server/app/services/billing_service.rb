@@ -130,13 +130,13 @@ class BillingService
   def calculate_proration(old_plan:, new_plan:, billing_cycle_anchor:)
     # Simple calculation that can remain synchronous
     days_remaining = (billing_cycle_anchor.to_date - Date.current).to_i
-    days_in_period = case new_plan.billing_interval
-    when 'month'
-      new_plan.interval_count * 30
-    when 'year'
-      new_plan.interval_count * 365
-    when 'week'
-      new_plan.interval_count * 7
+    days_in_period = case new_plan.billing_cycle
+    when 'monthly'
+      30
+    when 'yearly'
+      365
+    when 'quarterly'
+      90
     else
       30
     end

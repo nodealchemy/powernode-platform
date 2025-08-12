@@ -10,10 +10,8 @@ class ApiKey < ApplicationRecord
   validates :status, presence: true, inclusion: { in: %w[active revoked expired] }
   validates :expires_at, comparison: { greater_than: :created_at }, allow_nil: true
 
-  # Serialization
-  serialize :scopes, coder: JSON
-  serialize :allowed_ips, coder: JSON
-  serialize :metadata, coder: JSON
+  # Note: scopes, allowed_ips, and metadata are JSON columns
+  # and don't need explicit serialization in Rails 8
 
   # Scopes
   scope :active, -> { where(status: 'active').where('expires_at IS NULL OR expires_at > ?', Time.current) }

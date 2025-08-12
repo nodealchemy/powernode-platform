@@ -42,30 +42,30 @@ export const AuditLogTable: React.FC<AuditLogTableProps> = ({
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
-      case 'critical': return 'bg-red-100 text-red-800';
-      case 'high': return 'bg-red-50 text-red-700';
-      case 'medium': return 'bg-yellow-50 text-yellow-700';
-      case 'low': return 'bg-green-50 text-green-700';
-      default: return 'bg-gray-50 text-gray-700';
+      case 'critical': return 'bg-theme-error-background text-theme-error';
+      case 'high': return 'bg-theme-error-background text-theme-error';
+      case 'medium': return 'bg-theme-warning-background text-theme-warning';
+      case 'low': return 'bg-theme-success-background text-theme-success';
+      default: return 'bg-theme-surface text-theme-secondary';
     }
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'success': return 'bg-green-100 text-green-800';
-      case 'warning': return 'bg-yellow-100 text-yellow-800';
-      case 'error': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'success': return 'bg-theme-success-background text-theme-success';
+      case 'warning': return 'bg-theme-warning-background text-theme-warning';
+      case 'error': return 'bg-theme-error-background text-theme-error';
+      default: return 'bg-theme-surface text-theme-secondary';
     }
   };
 
   const getRiskLevelIcon = (level: string) => {
     switch (level) {
-      case 'critical': return <AlertTriangle className="w-4 h-4 text-red-600" />;
-      case 'high': return <Shield className="w-4 h-4 text-red-500" />;
-      case 'medium': return <Eye className="w-4 h-4 text-yellow-500" />;
-      case 'low': return <User className="w-4 h-4 text-green-500" />;
-      default: return <User className="w-4 h-4 text-gray-500" />;
+      case 'critical': return <AlertTriangle className="w-4 h-4 text-theme-error" />;
+      case 'high': return <Shield className="w-4 h-4 text-theme-error" />;
+      case 'medium': return <Eye className="w-4 h-4 text-theme-warning" />;
+      case 'low': return <User className="w-4 h-4 text-theme-success" />;
+      default: return <User className="w-4 h-4 text-theme-secondary" />;
     }
   };
 

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_08_11_205006) do
+ActiveRecord::Schema[8.0].define(version: 2025_08_12_165028) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -39,17 +39,25 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_11_205006) do
     t.string "name", limit: 100, null: false
     t.string "subdomain", limit: 30
     t.string "status", limit: 20, default: "active", null: false
-    t.text "settings", default: "{}"
     t.string "stripe_customer_id", limit: 50
     t.string "paypal_customer_id", limit: 50
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.string "billing_email"
     t.string "tax_id"
+    t.json "settings", default: {}
     t.index ["paypal_customer_id"], name: "index_accounts_on_paypal_customer_id", unique: true, where: "(paypal_customer_id IS NOT NULL)"
     t.index ["status"], name: "index_accounts_on_status"
     t.index ["stripe_customer_id"], name: "index_accounts_on_stripe_customer_id", unique: true, where: "(stripe_customer_id IS NOT NULL)"
     t.index ["subdomain"], name: "index_accounts_on_subdomain", unique: true, where: "((subdomain IS NOT NULL) AND ((subdomain)::text <> ''::text))"
+  end
+
+  create_table "admin_settings", id: :string, force: :cascade do |t|
+    t.string "key", null: false
+    t.text "value"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["key"], name: "index_admin_settings_on_key", unique: true
   end
 
   create_table "api_key_usages", id: :string, force: :cascade do |t|
@@ -109,12 +117,12 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_11_205006) do
     t.string "resource_type", limit: 100, null: false
     t.string "resource_id", limit: 36, null: false
     t.string "source", limit: 20, default: "web", null: false
-    t.text "old_values"
-    t.text "new_values"
-    t.text "metadata", default: "{}"
     t.string "ip_address", limit: 45
     t.string "user_agent", limit: 500
     t.datetime "created_at", null: false
+    t.json "old_values"
+    t.json "new_values"
+    t.json "metadata", default: {}
     t.index ["account_id"], name: "index_audit_logs_on_account_id"
     t.index ["action"], name: "index_audit_logs_on_action"
     t.index ["created_at"], name: "index_audit_logs_on_created_at"
@@ -236,9 +244,9 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_11_205006) do
     t.string "line_type", limit: 30, default: "subscription", null: false
     t.date "period_start"
     t.date "period_end"
-    t.text "metadata", default: "{}"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.json "metadata", default: {}
     t.index ["invoice_id"], name: "index_invoice_line_items_on_invoice_id"
     t.index ["line_type"], name: "index_invoice_line_items_on_line_type"
     t.index ["period_end"], name: "index_invoice_line_items_on_period_end"
@@ -257,11 +265,11 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_11_205006) do
     t.datetime "due_date"
     t.datetime "paid_at"
     t.text "notes"
-    t.text "metadata", default: "{}"
     t.string "stripe_invoice_id", limit: 100
     t.string "paypal_invoice_id", limit: 100
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.json "metadata", default: {}
     t.index ["due_date"], name: "index_invoices_on_due_date"
     t.index ["invoice_number"], name: "index_invoices_on_invoice_number", unique: true
     t.index ["paid_at"], name: "index_invoices_on_paid_at"
@@ -311,9 +319,9 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_11_205006) do
     t.integer "exp_year"
     t.string "holder_name", limit: 100
     t.boolean "is_default", default: false, null: false
-    t.text "metadata", default: "{}"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.json "metadata", default: {}
     t.index ["account_id"], name: "index_payment_methods_on_account_id"
     t.index ["external_id"], name: "index_payment_methods_on_external_id"
     t.index ["is_default"], name: "index_payment_methods_on_is_default"
@@ -334,12 +342,12 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_11_205006) do
     t.datetime "failed_at"
     t.text "failure_reason"
     t.text "gateway_response"
-    t.text "metadata", default: "{}"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.string "paypal_payment_id"
     t.string "paypal_transaction_id"
     t.string "paypal_payer_id"
+    t.json "metadata", default: {}
     t.index ["failed_at"], name: "index_payments_on_failed_at"
     t.index ["invoice_id"], name: "index_payments_on_invoice_id"
     t.index ["payment_method"], name: "index_payments_on_payment_method"
@@ -371,23 +379,23 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_11_205006) do
     t.string "status", limit: 20, default: "active", null: false
     t.integer "trial_days", default: 0, null: false
     t.boolean "is_public", default: true, null: false
-    t.text "features", default: "{}"
-    t.text "limits", default: "{}"
-    t.text "metadata", default: "{}"
     t.string "stripe_price_id", limit: 100
     t.string "paypal_plan_id", limit: 100
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.text "default_roles"
     t.boolean "has_annual_discount", default: false, null: false
     t.decimal "annual_discount_percent", precision: 5, scale: 2, default: "0.0"
     t.boolean "has_volume_discount", default: false, null: false
-    t.text "volume_discount_tiers", default: "[]"
     t.boolean "has_promotional_discount", default: false, null: false
     t.decimal "promotional_discount_percent", precision: 5, scale: 2, default: "0.0"
     t.datetime "promotional_discount_start"
     t.datetime "promotional_discount_end"
     t.string "promotional_discount_code", limit: 50
+    t.json "features", default: {}
+    t.json "limits", default: {}
+    t.json "metadata", default: {}
+    t.json "default_roles", default: []
+    t.json "volume_discount_tiers", default: []
     t.index ["billing_cycle"], name: "index_plans_on_billing_cycle"
     t.index ["currency"], name: "index_plans_on_currency"
     t.index ["has_annual_discount"], name: "index_plans_on_has_annual_discount"
@@ -436,8 +444,8 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_11_205006) do
     t.integer "upgraded_subscriptions", default: 0, null: false
     t.integer "downgraded_subscriptions", default: 0, null: false
     t.string "currency", limit: 3, default: "USD", null: false
-    t.text "metadata", default: "{}"
     t.datetime "created_at", null: false
+    t.json "metadata", default: {}
     t.index ["account_id", "snapshot_date"], name: "index_revenue_snapshots_on_account_id_and_snapshot_date", unique: true, where: "(account_id IS NOT NULL)"
     t.index ["account_id"], name: "index_revenue_snapshots_on_account_id"
     t.index ["currency"], name: "index_revenue_snapshots_on_currency"
@@ -528,13 +536,13 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_11_205006) do
     t.datetime "trial_end"
     t.datetime "canceled_at"
     t.datetime "ended_at"
-    t.text "metadata", default: "{}"
     t.string "stripe_subscription_id", limit: 100
     t.string "paypal_subscription_id", limit: 100
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.string "paypal_agreement_id"
     t.string "paypal_plan_id"
+    t.json "metadata", default: {}
     t.index ["account_id"], name: "index_subscriptions_on_account_id", unique: true
     t.index ["current_period_end"], name: "index_subscriptions_on_current_period_end"
     t.index ["paypal_agreement_id"], name: "index_subscriptions_on_paypal_agreement_id"

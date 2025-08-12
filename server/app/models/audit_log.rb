@@ -33,8 +33,9 @@ class AuditLog < ApplicationRecord
   validates :source, presence: true, inclusion: { 
     in: %w[web api system webhook admin_panel mobile_app integration automation scheduler] 
   }
-  validates :severity, inclusion: { in: %w[low medium high critical] }, allow_nil: true
-  validates :risk_level, inclusion: { in: %w[low medium high critical] }, allow_nil: true
+  # Note: severity and risk_level columns don't exist in database schema
+  # validates :severity, inclusion: { in: %w[low medium high critical] }, allow_nil: true
+  # validates :risk_level, inclusion: { in: %w[low medium high critical] }, allow_nil: true
 
   # Note: old_values, new_values, and metadata are JSON columns in PostgreSQL
   # They have native JSON serialization, no need for explicit serialize calls
@@ -45,8 +46,9 @@ class AuditLog < ApplicationRecord
   scope :by_account, ->(account) { where(account: account) }
   scope :by_action, ->(action) { where(action: action) }
   scope :by_source, ->(source) { where(source: source) }
-  scope :by_severity, ->(severity) { where(severity: severity) }
-  scope :by_risk_level, ->(risk_level) { where(risk_level: risk_level) }
+  # Note: severity and risk_level columns don't exist in database schema
+  # scope :by_severity, ->(severity) { where(severity: severity) }
+  # scope :by_risk_level, ->(risk_level) { where(risk_level: risk_level) }
   scope :recent, -> { order(created_at: :desc) }
   scope :in_date_range, ->(start_date, end_date) { where(created_at: start_date..end_date) }
   
@@ -54,7 +56,8 @@ class AuditLog < ApplicationRecord
   scope :security_events, -> { where(action: security_actions) }
   scope :failed_events, -> { where(action: failed_actions) }
   scope :admin_events, -> { where(action: admin_actions) }
-  scope :high_risk, -> { where(risk_level: ['high', 'critical']) }
+  # Note: risk_level column doesn't exist in database schema
+  # scope :high_risk, -> { where(risk_level: ['high', 'critical']) }
   scope :suspicious, -> { where(action: suspicious_actions) }
   scope :compliance_events, -> { where(action: compliance_actions) }
   
@@ -134,9 +137,10 @@ class AuditLog < ApplicationRecord
   end
 
   def self.log_action(action:, resource:, user: nil, account:, old_values: nil, new_values: nil, **options)
+    # Note: severity and risk_level columns don't exist in database schema
     # Calculate risk level and severity automatically
-    risk_level = calculate_risk_level(action, options)
-    severity = calculate_severity(action, options)
+    # risk_level = calculate_risk_level(action, options)
+    # severity = calculate_severity(action, options)
     
     create!(
       action: action,
@@ -149,8 +153,8 @@ class AuditLog < ApplicationRecord
       ip_address: options[:ip_address],
       user_agent: options[:user_agent],
       source: options[:source] || "web",
-      severity: options[:severity] || severity,
-      risk_level: options[:risk_level] || risk_level,
+      # severity: options[:severity] || severity,
+      # risk_level: options[:risk_level] || risk_level,
       metadata: (options[:metadata] || {}).merge(
         request_id: options[:request_id],
         session_id: options[:session_id],
@@ -168,8 +172,8 @@ class AuditLog < ApplicationRecord
       resource: resource,
       user: user,
       account: account,
-      severity: 'high',
-      risk_level: 'high',
+      # severity: 'high',
+      # risk_level: 'high',
       **options.merge(source: options[:source] || 'security_system')
     )
   end
@@ -180,8 +184,8 @@ class AuditLog < ApplicationRecord
       resource: resource,
       user: user,
       account: account,
-      severity: 'medium',
-      risk_level: 'medium',
+      # severity: 'medium',
+      # risk_level: 'medium',
       **options.merge(
         source: options[:source] || 'compliance_system',
         metadata: (options[:metadata] || {}).merge(
@@ -341,23 +345,29 @@ class AuditLog < ApplicationRecord
   end
 
   def severity_color
-    case severity
-    when 'critical' then 'text-red-600 bg-red-50'
-    when 'high' then 'text-red-500 bg-red-50'
-    when 'medium' then 'text-yellow-600 bg-yellow-50'
-    when 'low' then 'text-green-600 bg-green-50'
-    else 'text-gray-600 bg-gray-50'
-    end
+    # Note: severity column doesn't exist in database schema
+    # Return default color for now
+    'text-gray-600 bg-gray-50'
+    # case severity
+    # when 'critical' then 'text-red-600 bg-red-50'
+    # when 'high' then 'text-red-500 bg-red-50'
+    # when 'medium' then 'text-yellow-600 bg-yellow-50'
+    # when 'low' then 'text-green-600 bg-green-50'
+    # else 'text-gray-600 bg-gray-50'
+    # end
   end
 
   def risk_level_color
-    case risk_level
-    when 'critical' then 'text-purple-600 bg-purple-50'
-    when 'high' then 'text-red-600 bg-red-50'
-    when 'medium' then 'text-yellow-600 bg-yellow-50'
-    when 'low' then 'text-green-600 bg-green-50'
-    else 'text-gray-600 bg-gray-50'
-    end
+    # Note: risk_level column doesn't exist in database schema
+    # Return default color for now
+    'text-gray-600 bg-gray-50'
+    # case risk_level
+    # when 'critical' then 'text-purple-600 bg-purple-50'
+    # when 'high' then 'text-red-600 bg-red-50'
+    # when 'medium' then 'text-yellow-600 bg-yellow-50'
+    # when 'low' then 'text-green-600 bg-green-50'
+    # else 'text-gray-600 bg-gray-50'
+    # end
   end
 
   def formatted_metadata
@@ -383,9 +393,12 @@ class AuditLog < ApplicationRecord
   end
 
   def is_suspicious?
-    self.class.suspicious_actions.include?(action) || 
-    risk_level.in?(['high', 'critical']) || 
-    severity == 'critical'
+    # Note: risk_level and severity columns don't exist in database schema
+    # Base detection on action only for now
+    self.class.suspicious_actions.include?(action)
+    # self.class.suspicious_actions.include?(action) || 
+    # risk_level.in?(['high', 'critical']) || 
+    # severity == 'critical'
   end
 
   def is_security_related?
@@ -406,12 +419,12 @@ class AuditLog < ApplicationRecord
       total_events: logs.count,
       security_events: logs.security_events.count,
       failed_events: logs.failed_events.count,
-      high_risk_events: logs.high_risk.count,
+      # high_risk_events: logs.high_risk.count,  # high_risk scope disabled (missing risk_level column)
       suspicious_events: logs.suspicious.count,
       unique_users: logs.joins(:user).distinct.count('users.id'),
       unique_ips: logs.where.not(ip_address: nil).distinct.count(:ip_address),
-      by_severity: logs.group(:severity).count,
-      by_risk_level: logs.group(:risk_level).count,
+      # by_severity: logs.group(:severity).count,  # severity column doesn't exist
+      # by_risk_level: logs.group(:risk_level).count,  # risk_level column doesn't exist
       hourly_distribution: logs.by_hour.count
     }
   end
@@ -440,8 +453,8 @@ class AuditLog < ApplicationRecord
         user: log.user&.email || 'System',
         account: log.account&.name,
         resource: "#{log.resource_type}##{log.resource_id}",
-        severity: log.severity,
-        risk_level: log.risk_level,
+        # severity: log.severity,  # severity column doesn't exist
+        # risk_level: log.risk_level,  # risk_level column doesn't exist
         ip_address: log.ip_address,
         message: log.summary
       }
@@ -451,42 +464,44 @@ class AuditLog < ApplicationRecord
   def self.risk_analysis(time_range = 7.days.ago..Time.current)
     logs = where(created_at: time_range)
     
-    risk_scores = logs.map do |log|
-      calculate_dynamic_risk_score(log)
-    end
-    
+    # Note: risk_level column doesn't exist, disable advanced risk analysis
     {
-      average_risk_score: risk_scores.sum.to_f / risk_scores.length,
-      high_risk_percentage: (logs.high_risk.count.to_f / logs.count * 100).round(2),
-      top_risk_actions: logs.group(:action).average('CASE 
-        WHEN risk_level = \'critical\' THEN 4
-        WHEN risk_level = \'high\' THEN 3  
-        WHEN risk_level = \'medium\' THEN 2
-        ELSE 1 END').sort_by(&:last).reverse.first(10),
-      risk_trend: logs.by_day.group(:risk_level).count
+      # risk_scores = logs.map do |log|
+      #   calculate_dynamic_risk_score(log)
+      # end
+      # 
+      # average_risk_score: risk_scores.sum.to_f / risk_scores.length,
+      # high_risk_percentage: (logs.high_risk.count.to_f / logs.count * 100).round(2),
+      # top_risk_actions: logs.group(:action).average('CASE 
+      #   WHEN risk_level = \'critical\' THEN 4
+      #   WHEN risk_level = \'high\' THEN 3  
+      #   WHEN risk_level = \'medium\' THEN 2
+      #   ELSE 1 END').sort_by(&:last).reverse.first(10),
+      # risk_trend: logs.by_day.group(:risk_level).count
+      total_events: logs.count,
+      suspicious_events: logs.suspicious.count,
+      security_events: logs.security_events.count,
+      failed_events: logs.failed_events.count
     }
   end
 
   private
 
   def self.calculate_dynamic_risk_score(log)
-    score = 0
+    # Note: risk_level and severity columns don't exist in database schema
+    # Return simplified risk score based on action and source
+    score = 1.0
     
-    # Base score by risk level
-    score += case log.risk_level
-             when 'critical' then 4
-             when 'high' then 3
-             when 'medium' then 2
-             else 1
-             end
-    
-    # Severity multiplier
-    score *= case log.severity
-             when 'critical' then 2.0
-             when 'high' then 1.5
-             when 'medium' then 1.2
-             else 1.0
-             end
+    # Base score by action type
+    if suspicious_actions.include?(log.action)
+      score = 4.0
+    elsif failed_actions.include?(log.action)
+      score = 3.0
+    elsif security_actions.include?(log.action)
+      score = 2.5
+    elsif admin_actions.include?(log.action)
+      score = 2.0
+    end
     
     # Time-based factors
     hour = log.created_at.hour

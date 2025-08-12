@@ -203,16 +203,16 @@ const RevenuePage: React.FC = () => {
 export const BusinessManagementPage: React.FC = () => {
   const breadcrumbItems = [
     { label: 'Dashboard', path: '/dashboard', icon: '🏠' },
-    { label: 'Business Management', icon: '💼' }
+    { label: 'Customer Management', icon: '👥' }
   ];
 
   return (
     <div className="space-y-6">
       <div>
         <Breadcrumb items={breadcrumbItems} className="mb-4" />
-        <h1 className="text-2xl font-bold text-theme-primary">Business Management</h1>
+        <h1 className="text-2xl font-bold text-theme-primary">Customer Management</h1>
         <p className="text-theme-secondary mt-1">
-          Manage your subscription business, customers, and revenue.
+          Manage your customers, subscriptions, and revenue.
         </p>
       </div>
 

@@ -230,6 +230,17 @@ Rails.application.routes.draw do
         end
       end
 
+      # Version and health endpoints
+      resource :version, only: [:show], controller: :version do
+        get :full, on: :collection
+        get :health, on: :collection
+      end
+
+      # Settings endpoints
+      resource :settings, only: [:show, :update], controller: :settings do
+        get :public, on: :collection
+      end
+
       resources :api_keys, only: [:index, :show, :create, :update, :destroy] do
         member do
           post :regenerate

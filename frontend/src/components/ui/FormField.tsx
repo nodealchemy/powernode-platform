@@ -67,7 +67,7 @@ export const FormField = forwardRef<HTMLInputElement | HTMLSelectElement | HTMLT
     `;
     
     const errorClasses = error 
-      ? 'border-red-500 focus:border-red-500 focus:shadow-[0_0_0_4px_rgba(239,68,68,0.1)] hover:border-red-400' 
+      ? 'border-theme-error focus:border-theme-error focus:shadow-[0_0_0_4px_rgba(var(--color-error-rgb),0.1)] hover:border-theme-error-hover' 
       : '';
     
     const sizeClasses = {
@@ -206,7 +206,7 @@ export const FormField = forwardRef<HTMLInputElement | HTMLSelectElement | HTMLT
             <span className="flex items-center gap-1">
               {label}
               {required && (
-                <span className="text-red-500 animate-pulse">*</span>
+                <span className="text-theme-error animate-pulse">*</span>
               )}
             </span>
           </label>
@@ -231,14 +231,14 @@ export const FormField = forwardRef<HTMLInputElement | HTMLSelectElement | HTMLT
           {floatingLabel && (
             <label className={labelClasses}>
               {label}
-              {required && <span className="text-red-500 ml-0.5">*</span>}
+              {required && <span className="text-theme-error ml-0.5">*</span>}
             </label>
           )}
         </div>
         
         {/* Error message with animation */}
         {error && (
-          <p className="text-sm text-red-600 flex items-center gap-1 mt-1 animate-in slide-in-from-top-1 duration-200">
+          <p className="text-sm text-theme-error flex items-center gap-1 mt-1 animate-in slide-in-from-top-1 duration-200">
             <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>

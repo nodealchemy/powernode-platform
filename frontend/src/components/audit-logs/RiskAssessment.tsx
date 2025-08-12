@@ -119,21 +119,21 @@ export const RiskAssessment: React.FC<RiskAssessmentProps> = ({ metrics, timeRan
 
   const getRiskColor = (level: string) => {
     switch (level) {
-      case 'critical': return 'text-red-700 bg-red-100 border-red-200';
-      case 'high': return 'text-orange-700 bg-orange-100 border-orange-200';
-      case 'medium': return 'text-yellow-700 bg-yellow-100 border-yellow-200';
-      case 'low': return 'text-green-700 bg-green-100 border-green-200';
-      default: return 'text-gray-700 bg-gray-100 border-gray-200';
+      case 'critical': return 'text-theme-status-error bg-theme-status-error-background border-theme-status-error';
+      case 'high': return 'text-theme-status-warning bg-theme-status-warning-background border-theme-status-warning';
+      case 'medium': return 'text-theme-status-warning bg-theme-status-warning-background border-theme-status-warning';
+      case 'low': return 'text-theme-status-success bg-theme-status-success-background border-theme-status-success';
+      default: return 'text-theme-secondary bg-theme-surface border-theme';
     }
   };
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
-      case 'critical': return 'bg-red-500';
-      case 'high': return 'bg-orange-500';
-      case 'medium': return 'bg-yellow-500';
-      case 'low': return 'bg-green-500';
-      default: return 'bg-gray-500';
+      case 'critical': return 'bg-theme-status-error';
+      case 'high': return 'bg-theme-status-warning';
+      case 'medium': return 'bg-theme-status-warning';
+      case 'low': return 'bg-theme-status-success';
+      default: return 'bg-theme-secondary';
     }
   };
 
@@ -142,10 +142,10 @@ export const RiskAssessment: React.FC<RiskAssessmentProps> = ({ metrics, timeRan
   );
 
   const getRiskLevel = (score: number) => {
-    if (score >= 80) return { level: 'critical', color: 'text-red-600' };
-    if (score >= 60) return { level: 'high', color: 'text-orange-600' };
-    if (score >= 40) return { level: 'medium', color: 'text-yellow-600' };
-    return { level: 'low', color: 'text-green-600' };
+    if (score >= 80) return { level: 'critical', color: 'text-theme-status-error' };
+    if (score >= 60) return { level: 'high', color: 'text-theme-status-warning' };
+    if (score >= 40) return { level: 'medium', color: 'text-theme-status-warning' };
+    return { level: 'low', color: 'text-theme-status-success' };
   };
 
   const riskLevel = getRiskLevel(overallRiskScore);
@@ -174,17 +174,17 @@ export const RiskAssessment: React.FC<RiskAssessmentProps> = ({ metrics, timeRan
               {/* Score bar */}
               <div 
                 className={`h-4 rounded-full transition-all duration-500 ${
-                  overallRiskScore >= 80 ? 'bg-red-500' :
-                  overallRiskScore >= 60 ? 'bg-orange-500' :
-                  overallRiskScore >= 40 ? 'bg-yellow-500' : 'bg-green-500'
+                  overallRiskScore >= 80 ? 'bg-theme-status-error' :
+                  overallRiskScore >= 60 ? 'bg-theme-status-warning' :
+                  overallRiskScore >= 40 ? 'bg-theme-status-warning' : 'bg-theme-status-success'
                 }`}
                 style={{ width: `${overallRiskScore}%` }}
               />
               {/* Threshold markers */}
               <div className="absolute inset-0 flex justify-between px-1">
-                <div className="w-0.5 h-4 bg-white opacity-50" style={{ marginLeft: '40%' }} />
-                <div className="w-0.5 h-4 bg-white opacity-50" style={{ marginLeft: '60%' }} />
-                <div className="w-0.5 h-4 bg-white opacity-50" style={{ marginLeft: '80%' }} />
+                <div className="w-0.5 h-4 bg-theme-background opacity-50" style={{ marginLeft: '40%' }} />
+                <div className="w-0.5 h-4 bg-theme-background opacity-50" style={{ marginLeft: '60%' }} />
+                <div className="w-0.5 h-4 bg-theme-background opacity-50" style={{ marginLeft: '80%' }} />
               </div>
             </div>
           </div>
@@ -202,7 +202,7 @@ export const RiskAssessment: React.FC<RiskAssessmentProps> = ({ metrics, timeRan
         {riskFactors.map((factor, index) => (
           <div key={index} className={`p-4 rounded-lg border ${getRiskColor(factor.level)}`}>
             <div className="flex items-center justify-between mb-2">
-              <div className="p-1 rounded bg-white bg-opacity-50">
+              <div className="p-1 rounded bg-theme-background bg-opacity-50">
                 {factor.icon}
               </div>
               <div className="flex items-center gap-1 text-sm">
@@ -211,7 +211,7 @@ export const RiskAssessment: React.FC<RiskAssessmentProps> = ({ metrics, timeRan
                 ) : (
                   <TrendingDown className="w-3 h-3" />
                 )}
-                <span className={factor.trend > 0 ? 'text-red-600' : 'text-green-600'}>
+                <span className={factor.trend > 0 ? 'text-theme-status-error' : 'text-theme-status-success'}>
                   {Math.abs(factor.trend)}%
                 </span>
               </div>
@@ -222,7 +222,7 @@ export const RiskAssessment: React.FC<RiskAssessmentProps> = ({ metrics, timeRan
             
             {/* Risk level indicator */}
             <div className="mt-3">
-              <div className="w-full bg-white bg-opacity-30 rounded-full h-1">
+              <div className="w-full bg-theme-background bg-opacity-30 rounded-full h-1">
                 <div 
                   className="bg-current h-1 rounded-full transition-all duration-300"
                   style={{ width: `${factor.score}%` }}
@@ -265,40 +265,40 @@ export const RiskAssessment: React.FC<RiskAssessmentProps> = ({ metrics, timeRan
         <h3 className="text-lg font-semibold text-theme-primary mb-4">Risk Mitigation Recommendations</h3>
         
         <div className="space-y-4">
-          <div className="flex items-start gap-3 p-4 bg-red-50 rounded-lg border border-red-200">
-            <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5" />
+          <div className="flex items-start gap-3 p-4 bg-theme-status-error-background rounded-lg border border-theme-status-error">
+            <AlertTriangle className="w-5 h-5 text-theme-status-error mt-0.5" />
             <div>
-              <div className="font-medium text-red-800">Critical: Account Compromise Detection</div>
-              <div className="text-sm text-red-700 mb-2">
+              <div className="font-medium text-theme-status-error">Critical: Account Compromise Detection</div>
+              <div className="text-sm text-theme-status-error mb-2">
                 Multiple indicators suggest potential account compromise. Immediate action required.
               </div>
-              <div className="text-xs text-red-600">
+              <div className="text-xs text-theme-status-error">
                 Recommended: Force password reset for affected accounts, enable 2FA, review access logs
               </div>
             </div>
           </div>
           
-          <div className="flex items-start gap-3 p-4 bg-orange-50 rounded-lg border border-orange-200">
-            <Shield className="w-5 h-5 text-orange-600 mt-0.5" />
+          <div className="flex items-start gap-3 p-4 bg-theme-status-warning-background rounded-lg border border-theme-status-warning">
+            <Shield className="w-5 h-5 text-theme-status-warning mt-0.5" />
             <div>
-              <div className="font-medium text-orange-800">High: Privilege Escalation Monitoring</div>
-              <div className="text-sm text-orange-700 mb-2">
+              <div className="font-medium text-theme-status-warning">High: Privilege Escalation Monitoring</div>
+              <div className="text-sm text-theme-status-warning mb-2">
                 Increase monitoring for unauthorized privilege escalation attempts.
               </div>
-              <div className="text-xs text-orange-600">
+              <div className="text-xs text-theme-status-warning">
                 Recommended: Implement role-based access controls, audit admin permissions
               </div>
             </div>
           </div>
           
-          <div className="flex items-start gap-3 p-4 bg-yellow-50 rounded-lg border border-yellow-200">
-            <Eye className="w-5 h-5 text-yellow-600 mt-0.5" />
+          <div className="flex items-start gap-3 p-4 bg-theme-status-warning-background rounded-lg border border-theme-status-warning">
+            <Eye className="w-5 h-5 text-theme-status-warning mt-0.5" />
             <div>
-              <div className="font-medium text-yellow-800">Medium: Enhanced Monitoring</div>
-              <div className="text-sm text-yellow-700 mb-2">
+              <div className="font-medium text-theme-status-warning">Medium: Enhanced Monitoring</div>
+              <div className="text-sm text-theme-status-warning mb-2">
                 Strengthen monitoring for authentication failures and data access patterns.
               </div>
-              <div className="text-xs text-yellow-600">
+              <div className="text-xs text-theme-status-warning">
                 Recommended: Tune alert thresholds, implement behavioral analytics
               </div>
             </div>

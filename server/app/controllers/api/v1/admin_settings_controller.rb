@@ -36,6 +36,9 @@ class Api::V1::AdminSettingsController < ApplicationController
         message: "Admin settings updated successfully"
       }, status: :ok
     rescue StandardError => e
+      Rails.logger.error "Admin settings update failed: #{e.class.name}: #{e.message}"
+      Rails.logger.error e.backtrace.join("\n")
+      
       render json: {
         success: false,
         error: "Admin settings update failed",
@@ -307,6 +310,7 @@ class Api::V1::AdminSettingsController < ApplicationController
       :maintenance_mode,
       :registration_enabled,
       :email_verification_required,
+      :require_email_verification,  # Support both parameter names
       :password_complexity_level,
       :session_timeout_minutes,
       :max_failed_login_attempts,
@@ -319,6 +323,7 @@ class Api::V1::AdminSettingsController < ApplicationController
       :payment_retry_attempts,
       :webhook_timeout_seconds,
       :allow_account_deletion,
+      :copyright_text,
       system_notifications: {},
       rate_limiting: [
         :enabled,

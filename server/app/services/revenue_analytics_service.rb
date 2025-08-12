@@ -72,10 +72,10 @@ class RevenueAnalyticsService
       quantity = subscription.quantity || 1
       
       # Normalize to monthly
-      case subscription.plan.billing_interval
-      when 'year'
+      case subscription.plan.billing_cycle
+      when 'yearly'
         plan_price * quantity / 12
-      when 'week'
+      when 'weekly'
         plan_price * quantity * 4.33 # Average weeks per month
       else
         plan_price * quantity
@@ -101,7 +101,7 @@ class RevenueAnalyticsService
     subscriptions = @account ? @account.subscriptions : Subscription.all
     
     active_start = subscriptions.where('created_at <= ?', start_date).active.count
-    cancelled_period = subscriptions.where(cancelled_at: start_date..end_date).count
+    cancelled_period = subscriptions.where(canceled_at: start_date..end_date).count
     
     return 0.0 if active_start == 0
     

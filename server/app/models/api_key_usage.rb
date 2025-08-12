@@ -8,8 +8,7 @@ class ApiKeyUsage < ApplicationRecord
   validates :status_code, presence: true, numericality: { in: 100..599 }
   validates :request_count, presence: true, numericality: { greater_than: 0 }
 
-  # Serialization
-  serialize :metadata, coder: JSON
+  # Note: metadata is a JSON column and doesn't need explicit serialization in Rails 8
 
   # Scopes
   scope :successful, -> { where(status_code: 200..299) }

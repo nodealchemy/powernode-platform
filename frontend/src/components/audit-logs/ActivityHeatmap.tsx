@@ -48,11 +48,11 @@ export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({ timeRange }) =
   
   const getIntensityColor = (activity: number) => {
     const intensity = activity / maxActivity;
-    if (intensity > 0.8) return 'bg-blue-600';
-    if (intensity > 0.6) return 'bg-blue-500';
-    if (intensity > 0.4) return 'bg-blue-400';
-    if (intensity > 0.2) return 'bg-blue-300';
-    if (intensity > 0.1) return 'bg-blue-200';
+    if (intensity > 0.8) return 'bg-theme-interactive-primary';
+    if (intensity > 0.6) return 'bg-theme-interactive-primary opacity-80';
+    if (intensity > 0.4) return 'bg-theme-interactive-primary opacity-60';
+    if (intensity > 0.2) return 'bg-theme-interactive-primary opacity-40';
+    if (intensity > 0.1) return 'bg-theme-interactive-primary opacity-20';
     return 'bg-gray-100';
   };
 
@@ -115,11 +115,11 @@ export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({ timeRange }) =
             <span className="text-sm text-theme-secondary">Less</span>
             <div className="flex items-center gap-1">
               <div className="w-3 h-3 bg-gray-100 rounded-sm" />
-              <div className="w-3 h-3 bg-blue-200 rounded-sm" />
-              <div className="w-3 h-3 bg-blue-300 rounded-sm" />
-              <div className="w-3 h-3 bg-blue-400 rounded-sm" />
-              <div className="w-3 h-3 bg-blue-500 rounded-sm" />
-              <div className="w-3 h-3 bg-blue-600 rounded-sm" />
+              <div className="w-3 h-3 bg-theme-interactive-primary opacity-20 rounded-sm" />
+              <div className="w-3 h-3 bg-theme-interactive-primary opacity-40 rounded-sm" />
+              <div className="w-3 h-3 bg-theme-interactive-primary opacity-60 rounded-sm" />
+              <div className="w-3 h-3 bg-theme-interactive-primary opacity-80 rounded-sm" />
+              <div className="w-3 h-3 bg-theme-interactive-primary rounded-sm" />
             </div>
             <span className="text-sm text-theme-secondary">More</span>
           </div>

@@ -2,17 +2,17 @@ import { useEffect, useCallback } from 'react';
 import { useSelector } from 'react-redux';
 import { RootState } from '../store';
 import { useWebSocketConnection } from './useWebSocketConnection';
-import { SettingsData } from '../services/settingsApi';
+import { UserSettings } from '../services/settingsApi';
 
 interface SettingsWebSocketMessage {
   type: 'settings_updated' | 'preferences_updated' | 'notifications_updated' | 'profile_updated';
-  data: Partial<SettingsData>;
+  data: Partial<UserSettings>;
   userId: string;
   timestamp: string;
 }
 
 interface UseSettingsWebSocketOptions {
-  onSettingsUpdate?: (data: Partial<SettingsData>) => void;
+  onSettingsUpdate?: (data: Partial<UserSettings>) => void;
   onPreferencesUpdate?: (data: any) => void;
   onNotificationsUpdate?: (data: any) => void;
   onProfileUpdate?: (data: any) => void;

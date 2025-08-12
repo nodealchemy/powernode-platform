@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '../../store';
 import { toggleSidebar } from '../../store/slices/uiSlice';
@@ -48,6 +48,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
               {children}
             </div>
           </div>
+          
         </main>
       </div>
     </div>

@@ -15,8 +15,7 @@ class RevenueSnapshot < ApplicationRecord
   monetize :mrr_cents
   monetize :arr_cents
 
-  # Serialization
-  serialize :metadata, coder: JSON
+  # Note: metadata is a native JSON column - no serialization needed in Rails 8
 
   # Scopes
   scope :for_account, ->(account) { where(account: account) }

@@ -421,7 +421,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
                 <p className="mt-1 text-sm text-theme-error">{error}</p>
                 <button
                   onClick={() => loadAnalyticsData()}
-                  className="mt-2 px-3 py-1 bg-theme-error text-white rounded text-sm hover:opacity-80"
+                  className="mt-2 px-3 py-1 bg-theme-error text-theme-error-contrast rounded text-sm hover:opacity-80"
                 >
                   Try Again
                 </button>

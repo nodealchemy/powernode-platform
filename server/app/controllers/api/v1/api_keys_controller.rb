@@ -6,20 +6,25 @@ class Api::V1::ApiKeysController < ApplicationController
 
   # GET /api/v1/api_keys
   def index
-    api_keys = ApiKey.includes(:created_by, :account)
-                    .order(:created_at)
-                    .page(params[:page] || 1)
-                    .per(params[:per_page] || 20)
+    page = (params[:page] || 1).to_i
+    per_page = [(params[:per_page] || 20).to_i, 100].min # Max 100 per page
+    offset = (page - 1) * per_page
+    
+    api_keys_query = ApiKey.includes(:created_by, :account).order(:created_at)
+    total_count = api_keys_query.count
+    api_keys = api_keys_query.limit(per_page).offset(offset)
+    
+    total_pages = (total_count.to_f / per_page).ceil
 
     render json: {
       success: true,
       data: {
         api_keys: api_keys.map { |key| api_key_summary(key) },
         pagination: {
-          current_page: api_keys.current_page,
-          per_page: api_keys.limit_value,
-          total_pages: api_keys.total_pages,
-          total_count: api_keys.total_count
+          current_page: page,
+          per_page: per_page,
+          total_pages: total_pages,
+          total_count: total_count
         },
         stats: api_key_stats
       }
@@ -320,7 +325,7 @@ class Api::V1::ApiKeysController < ApplicationController
       requests_today: ApiKeyUsage.where(created_at: Date.current.beginning_of_day..Date.current.end_of_day).sum(:request_count),
       most_used_keys: ApiKey.joins(:api_key_usages)
                            .group('api_keys.name')
-                           .order('sum_request_count DESC')
+                           .order('SUM(api_key_usages.request_count) DESC')
                            .limit(5)
                            .sum('api_key_usages.request_count')
     }

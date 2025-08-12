@@ -1,6 +1,17 @@
 # frozen_string_literal: true
 
 class Api::V1::SettingsController < ApplicationController
+  skip_before_action :authenticate_request, only: [:public]
+  # GET /api/v1/settings/public
+  def public
+    render json: {
+      success: true,
+      data: {
+        copyright_text: formatted_copyright_text
+      }
+    }, status: :ok
+  end
+
   # GET /api/v1/settings
   def show
     render json: {
@@ -232,5 +243,10 @@ class Api::V1::SettingsController < ApplicationController
     )
   rescue => e
     Rails.logger.error "Failed to broadcast settings update: #{e.message}"
+  end
+
+  def formatted_copyright_text
+    copyright_template = SystemSettingsService.get_setting(:copyright_text) || '© {year} Powernode Platform. All rights reserved.'
+    copyright_template.gsub('{year}', Date.current.year.to_s)
   end
 end

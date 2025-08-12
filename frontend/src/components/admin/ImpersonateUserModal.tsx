@@ -112,8 +112,8 @@ const ImpersonateUserModal: React.FC<ImpersonateUserModalProps> = ({
     <Modal isOpen={isOpen} onClose={handleClose} maxWidth="lg" title="Impersonate User">
       <div className="p-6">
 
-        <div className="mb-4 p-3 bg-orange-50 border border-orange-200 rounded-md">
-          <p className="text-sm text-orange-800">
+        <div className="mb-4 p-3 bg-theme-warning-background border border-theme-warning rounded-md">
+          <p className="text-sm text-theme-warning">
             <strong>Warning:</strong> Impersonation sessions are limited to 8 hours and all actions will be logged for audit purposes.
           </p>
         </div>
@@ -121,22 +121,22 @@ const ImpersonateUserModal: React.FC<ImpersonateUserModalProps> = ({
         <form onSubmit={handleSubmit} className="space-y-6">
           {isLoading ? (
             <div className="flex justify-center items-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-              <span className="ml-2 text-gray-500">Loading users...</span>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-theme-interactive-primary"></div>
+              <span className="ml-2 text-theme-secondary">Loading users...</span>
             </div>
           ) : availableUsers.length > 0 ? (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-theme-primary mb-2">
                 Select user to impersonate
               </label>
-              <div className="max-h-60 overflow-y-auto border border-gray-200 rounded-md">
+              <div className="max-h-60 overflow-y-auto border border-theme rounded-md">
                 {availableUsers.map((user) => (
                   <div
                     key={user.id}
-                    className={`p-3 border-b border-gray-100 last:border-b-0 cursor-pointer transition-colors ${
+                    className={`p-3 border-b border-theme last:border-b-0 cursor-pointer transition-colors ${
                       selectedUser?.id === user.id
-                        ? 'bg-blue-50 border-blue-200'
-                        : 'hover:bg-gray-50'
+                        ? 'bg-theme-interactive-background border-theme-interactive-primary'
+                        : 'hover:bg-theme-surface-hover'
                     }`}
                     onClick={() => setSelectedUser(user)}
                   >
@@ -144,16 +144,16 @@ const ImpersonateUserModal: React.FC<ImpersonateUserModalProps> = ({
                       <div className="flex-1">
                         <div className="flex items-center space-x-3">
                           <div>
-                            <p className="text-sm font-medium text-gray-900">
+                            <p className="text-sm font-medium text-theme-primary">
                               {user.full_name}
                             </p>
-                            <p className="text-sm text-gray-500">{user.email}</p>
+                            <p className="text-sm text-theme-secondary">{user.email}</p>
                             {user.account && (
-                              <p className="text-xs text-gray-400">
+                              <p className="text-xs text-theme-tertiary">
                                 Account: {user.account.name}
                               </p>
                             )}
-                            <p className="text-xs text-gray-400">
+                            <p className="text-xs text-theme-tertiary">
                               Status: {user.status}
                             </p>
                           </div>
@@ -166,14 +166,14 @@ const ImpersonateUserModal: React.FC<ImpersonateUserModalProps> = ({
                           </span>
                         </div>
                         {user.last_login_at && (
-                          <p className="text-xs text-gray-400 mt-1">
+                          <p className="text-xs text-theme-tertiary mt-1">
                             Last login: {new Date(user.last_login_at).toLocaleString()}
                           </p>
                         )}
                       </div>
                       {selectedUser?.id === user.id && (
                         <div className="ml-3">
-                          <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                          <svg className="w-5 h-5 text-theme-interactive-primary" fill="currentColor" viewBox="0 0 20 20">
                             <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                           </svg>
                         </div>
@@ -185,11 +185,11 @@ const ImpersonateUserModal: React.FC<ImpersonateUserModalProps> = ({
             </div>
           ) : (
             <div className="text-center py-8">
-              <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="mx-auto h-12 w-12 text-theme-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
               </svg>
-              <h3 className="mt-2 text-sm font-medium text-gray-900">No users available</h3>
-              <p className="mt-1 text-sm text-gray-500">
+              <h3 className="mt-2 text-sm font-medium text-theme-primary">No users available</h3>
+              <p className="mt-1 text-sm text-theme-secondary">
                 There are no users available for impersonation in your account.
               </p>
             </div>
@@ -197,13 +197,13 @@ const ImpersonateUserModal: React.FC<ImpersonateUserModalProps> = ({
 
           {selectedUser && (
             <div>
-              <label htmlFor="reason" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="reason" className="block text-sm font-medium text-theme-primary mb-2">
                 Reason for impersonation (optional)
               </label>
               <textarea
                 id="reason"
                 rows={3}
-                className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                className="block w-full border-theme rounded-md shadow-sm focus:ring-theme-focus focus:border-theme-focus sm:text-sm bg-theme-background text-theme-primary"
                 placeholder="Enter reason for impersonation..."
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
@@ -212,8 +212,8 @@ const ImpersonateUserModal: React.FC<ImpersonateUserModalProps> = ({
           )}
 
           {error && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-md">
-              <p className="text-sm text-red-800">{error}</p>
+            <div className="p-3 bg-theme-error-background border border-theme-error rounded-md">
+              <p className="text-sm text-theme-error">{error}</p>
             </div>
           )}
 

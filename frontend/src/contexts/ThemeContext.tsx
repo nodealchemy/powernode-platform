@@ -39,10 +39,13 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
     const loadTheme = async () => {
       try {
         if (isAuthenticated) {
-          const preferences = await settingsApi.getPreferences();
-          setUserTheme(preferences.theme);
-          setThemeState(preferences.theme);
-          applyThemeToDocument(preferences.theme);
+          const response = await settingsApi.getUserSettings();
+          if (response.success) {
+            const userTheme = response.data.user_preferences.theme || 'light';
+            setUserTheme(userTheme);
+            setThemeState(userTheme);
+            applyThemeToDocument(userTheme);
+          }
         } else {
           // Force light theme when logged out
           setThemeState('light');
@@ -110,7 +113,7 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
       applyThemeToDocument(newTheme);
       
       // Update user preferences
-      await settingsApi.updatePreferences({ theme: newTheme });
+      await settingsApi.updateUserSettings({ user_preferences: { theme: newTheme } });
     } catch (error) {
       console.error('Failed to update theme preference:', error);
       // Revert on error

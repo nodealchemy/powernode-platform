@@ -243,7 +243,7 @@ const UsersPage: React.FC<UsersPageProps> = () => {
       <div className="mb-8">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-theme-primary">User Management</h1>
+            <h1 className="text-2xl font-bold text-theme-primary">Users</h1>
             <p className="text-theme-secondary mt-1">Manage users within your account</p>
           </div>
           <Button 
