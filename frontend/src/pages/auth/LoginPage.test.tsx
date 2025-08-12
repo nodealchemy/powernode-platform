@@ -39,6 +39,7 @@ describe('LoginPage', () => {
     const user = userEvent.setup();
     const mockResponse = {
       data: {
+        success: true,
         user: {
           id: '123',
           email: 'test@example.com',
@@ -177,6 +178,7 @@ describe('LoginPage', () => {
     await act(async () => {
       resolvePromise!({
         data: {
+          success: true,
           user: { id: '1', email: 'test@example.com' },
           access_token: 'token',
           refresh_token: 'refresh',
