@@ -5,6 +5,7 @@ import { toggleSidebar } from '../../store/slices/uiSlice';
 import { logout } from '../../store/slices/authSlice';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
+import ImpersonationBanner from '../admin/ImpersonationBanner';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -37,6 +38,9 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
           onLogout={handleLogout}
           onToggleSidebar={handleToggleSidebar}
         />
+        
+        {/* Impersonation Banner */}
+        <ImpersonationBanner />
         
         <main className="flex-1 relative overflow-y-auto focus:outline-none bg-theme-background">
           <div className="py-6">

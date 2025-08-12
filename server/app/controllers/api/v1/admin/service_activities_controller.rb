@@ -63,6 +63,75 @@ class Api::V1::Admin::ServiceActivitiesController < ApplicationController
   rescue ActiveRecord::RecordNotFound
     render json: { error: 'Activity not found' }, status: :not_found
   end
+
+  # POST /api/v1/admin/services/:service_id/activities
+  def create
+    @activity = @service.service_activities.build(activity_params)
+    @activity.user_id = current_user.id if current_user
+    
+    if @activity.save
+      render json: {
+        success: true,
+        message: 'Activity created successfully',
+        activity: activity_json(@activity)
+      }, status: :created
+    else
+      render json: {
+        success: false,
+        error: 'Failed to create activity',
+        details: @activity.errors.full_messages
+      }, status: :unprocessable_content
+    end
+  end
+
+  # PATCH/PUT /api/v1/admin/services/:service_id/activities/:id
+  def update
+    @activity = @service.service_activities.find(params[:id])
+    
+    if @activity.update(activity_update_params)
+      render json: {
+        success: true,
+        message: 'Activity updated successfully',
+        activity: activity_json(@activity)
+      }
+    else
+      render json: {
+        success: false,
+        error: 'Failed to update activity',
+        details: @activity.errors.full_messages
+      }, status: :unprocessable_content
+    end
+  rescue ActiveRecord::RecordNotFound
+    render json: { error: 'Activity not found' }, status: :not_found
+  end
+
+  # DELETE /api/v1/admin/services/:service_id/activities/:id
+  def destroy
+    @activity = @service.service_activities.find(params[:id])
+    
+    if @activity.destroy
+      # Log the deletion activity
+      @service.record_activity!('activity_deleted', {
+        deleted_activity_id: @activity.id,
+        deleted_by_user_id: current_user.id,
+        deleted_action: @activity.action,
+        status: 'success'
+      })
+      
+      render json: {
+        success: true,
+        message: 'Activity deleted successfully'
+      }
+    else
+      render json: {
+        success: false,
+        error: 'Failed to delete activity',
+        details: @activity.errors.full_messages
+      }, status: :unprocessable_content
+    end
+  rescue ActiveRecord::RecordNotFound
+    render json: { error: 'Activity not found' }, status: :not_found
+  end
   
   # GET /api/v1/admin/services/:service_id/activities/summary
   def summary
@@ -189,5 +258,17 @@ class Api::V1::Admin::ServiceActivitiesController < ApplicationController
     return nil if durations.empty?
     
     (durations.sum / durations.size).round(3)
+  end
+
+  def activity_params
+    params.require(:activity).permit(
+      :action, :performed_at, :ip_address, :user_agent, :request_path,
+      :response_status, :error_message, details: {}
+    )
+  end
+
+  def activity_update_params
+    # Only allow updating certain fields
+    params.require(:activity).permit(:error_message, details: {})
   end
 end

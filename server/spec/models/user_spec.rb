@@ -97,14 +97,14 @@ RSpec.describe User, type: :model do
       it 'assigns owner role to first user in account' do
         user = build(:user, account: account)
         user.save
-        expect(user.roles.pluck(:name)).to include('Owner')
+        expect(user.role).to eq('owner')
       end
 
       it 'does not assign owner role for subsequent users' do
         create(:user, :owner, account: account)
         user = build(:user, account: account)
         user.save
-        expect(user.roles.pluck(:name)).not_to include('Owner')
+        expect(user.role).not_to eq('owner')
       end
     end
   end
@@ -181,7 +181,7 @@ RSpec.describe User, type: :model do
     describe '#has_role?' do
       let(:role) { create(:role, name: 'Custom Role') }
 
-      before { user.roles << role }
+      before { user.update!(role: role.name) }
 
       it 'returns true when user has the role' do
         expect(user.has_role?('Custom Role')).to be true
@@ -198,7 +198,7 @@ RSpec.describe User, type: :model do
 
       before do
         role.permissions << permission
-        user.roles << role
+        user.update!(role: role.name)
       end
 
       it 'returns true when user has permission through role' do

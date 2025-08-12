@@ -2,7 +2,7 @@
 
 class Api::V1::WebhooksController < ApplicationController
   before_action :require_admin_access
-  before_action :find_webhook, only: [:show, :update, :destroy, :test, :toggle_status]
+  before_action :find_webhook, only: [:show, :update, :destroy, :test, :toggle_status, :health_test]
 
   # GET /api/v1/webhooks
   def index
@@ -223,6 +223,47 @@ class Api::V1::WebhooksController < ApplicationController
         retry_count: retry_count,
         total_failed: failed_deliveries.count
       }
+    }, status: :ok
+  end
+
+  # GET /api/v1/webhooks/health
+  def health_check
+    health_service = WebhookHealthService.new(current_user.account)
+    health_data = health_service.overall_health
+    
+    render json: {
+      success: true,
+      data: health_data
+    }, status: :ok
+  end
+
+  # GET /api/v1/webhooks/health/stats
+  def health_stats
+    days = params[:days]&.to_i || 7
+    health_service = WebhookHealthService.new(current_user.account)
+    stats_data = health_service.webhook_event_stats(days: days)
+    
+    render json: {
+      success: true,
+      data: stats_data
+    }, status: :ok
+  end
+
+  # POST /api/v1/webhooks/:id/health_test
+  def health_test
+    health_service = WebhookHealthService.new(current_user.account)
+    test_result = health_service.test_endpoint(@webhook)
+    
+    log_webhook_action('webhook_health_test', @webhook, {
+      test_result: test_result[:success],
+      response_time: test_result[:response_time],
+      status_code: test_result[:status_code]
+    })
+    
+    render json: {
+      success: true,
+      message: 'Webhook health test completed',
+      data: test_result
     }, status: :ok
   end
 

@@ -181,6 +181,15 @@ class UsersApiService {
     return response.data;
   }
 
+  // Create user in specific account (admin only)
+  async createAdminUser(userData: UserFormData & { account_id: string }): Promise<UserCreateResponse> {
+    const response = await api.post('/admin/users', {
+      user: userData,
+      account_id: userData.account_id
+    });
+    return response.data;
+  }
+
   // Update user role within account
   async updateUserRole(userId: string, role: string, accountId?: string): Promise<UserResponse> {
     const response = await api.put(`/users/${userId}/role`, {

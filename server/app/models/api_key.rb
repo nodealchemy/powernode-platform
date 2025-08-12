@@ -192,8 +192,8 @@ class ApiKey < ApplicationRecord
     self.scopes ||= []
     self.allowed_ips ||= []
     self.usage_count ||= 0
-    self.rate_limit_per_hour ||= 1000
-    self.rate_limit_per_day ||= 10000
+    self.rate_limit_per_hour ||= SystemSettingsService.get_setting('api_keys.default_hourly_limit', 1000)
+    self.rate_limit_per_day ||= SystemSettingsService.get_setting('api_keys.default_daily_limit', 10000)
     self.metadata ||= {}
   end
 

@@ -5,6 +5,8 @@ import { RootState, AppDispatch } from '../../store';
 import { login, clearError } from '../../store/slices/authSlice';
 import { addNotification } from '../../store/slices/uiSlice';
 import { EyeIcon, EyeSlashIcon, LockClosedIcon, EnvelopeIcon } from '@heroicons/react/24/outline';
+import { authAPI } from '../../services/authAPI';
+import TwoFactorVerification from '../../components/auth/TwoFactorVerification';
 
 export const LoginPage: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -20,6 +22,9 @@ export const LoginPage: React.FC = () => {
   
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [requires2FA, setRequires2FA] = useState(false);
+  const [verificationToken, setVerificationToken] = useState<string | null>(null);
+  const [loginLoading, setLoginLoading] = useState(false);
   
   // Clear error when component unmounts or user navigates away
   useEffect(() => {
@@ -42,20 +47,78 @@ export const LoginPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoginLoading(true);
     
     try {
-      await dispatch(login(formData)).unwrap();
-      dispatch(addNotification({
-        type: 'success',
-        message: 'Login successful! Welcome back.',
-      }));
-      navigate(from, { replace: true });
+      const response = await authAPI.login(formData);
+      
+      if (response.data.success) {
+        if (response.data.requires_2fa) {
+          // Handle 2FA requirement
+          setRequires2FA(true);
+          setVerificationToken(response.data.verification_token || null);
+          dispatch(addNotification({
+            type: 'info',
+            message: 'Please enter your two-factor authentication code.',
+          }));
+        } else {
+          // Normal login success - save tokens
+          if (response.data.access_token) {
+            localStorage.setItem('accessToken', response.data.access_token);
+          }
+          if (response.data.refresh_token) {
+            localStorage.setItem('refreshToken', response.data.refresh_token);
+          }
+          
+          // Use the regular Redux action to complete the login
+          await dispatch(login(formData)).unwrap();
+          
+          dispatch(addNotification({
+            type: 'success',
+            message: 'Login successful! Welcome back.',
+          }));
+          navigate(from, { replace: true });
+        }
+      }
     } catch (error: any) {
       dispatch(addNotification({
         type: 'error',
         message: error.message || 'Login failed. Please try again.',
       }));
+    } finally {
+      setLoginLoading(false);
     }
+  };
+
+  const handle2FASuccess = (data: any) => {
+    // Save tokens from successful 2FA verification
+    if (data.access_token) {
+      localStorage.setItem('accessToken', data.access_token);
+    }
+    if (data.refresh_token) {
+      localStorage.setItem('refreshToken', data.refresh_token);
+    }
+
+    dispatch(addNotification({
+      type: 'success',
+      message: 'Two-factor authentication successful! Welcome back.',
+    }));
+    
+    // Navigate to dashboard
+    navigate(from, { replace: true });
+    window.location.reload(); // Refresh to load user data
+  };
+
+  const handle2FAError = (error: string) => {
+    dispatch(addNotification({
+      type: 'error',
+      message: error,
+    }));
+  };
+
+  const handle2FACancel = () => {
+    setRequires2FA(false);
+    setVerificationToken(null);
   };
 
   return (
@@ -74,17 +137,27 @@ export const LoginPage: React.FC = () => {
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-theme-surface py-8 px-4 shadow-xl border border-theme sm:rounded-xl sm:px-10">
 
-          {error && (
-            <div className="mb-6 bg-theme-error border border-theme text-theme-error px-4 py-3 rounded-lg">
-              <div className="flex">
-                <div className="ml-3">
-                  <p className="text-sm font-medium">{error}</p>
+          {/* Show 2FA verification instead of login form when required */}
+          {requires2FA && verificationToken ? (
+            <TwoFactorVerification
+              verificationToken={verificationToken}
+              onSuccess={handle2FASuccess}
+              onError={handle2FAError}
+              onCancel={handle2FACancel}
+            />
+          ) : (
+            <>
+              {error && (
+                <div className="mb-6 bg-theme-error border border-theme text-theme-error px-4 py-3 rounded-lg">
+                  <div className="flex">
+                    <div className="ml-3">
+                      <p className="text-sm font-medium">{error}</p>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
-          )}
+              )}
 
-          <form className="space-y-6" onSubmit={handleSubmit}>
+              <form className="space-y-6" onSubmit={handleSubmit}>
             <div>
               <label htmlFor="email" className="label-theme">
                 Email address
@@ -162,10 +235,10 @@ export const LoginPage: React.FC = () => {
             <div>
               <button
                 type="submit"
-                disabled={isLoading}
+                disabled={loginLoading}
                 className="btn-theme btn-theme-primary w-full py-3"
               >
-                {isLoading ? (
+                {loginLoading ? (
                   <div className="flex items-center">
                     <div className="animate-spin -ml-1 mr-3 h-5 w-5 border-2 border-white border-t-transparent rounded-full" />
                     Signing in...
@@ -204,6 +277,8 @@ export const LoginPage: React.FC = () => {
               Secure login • 256-bit SSL encryption
             </p>
           </div>
+          </>
+          )}
         </div>
       </div>
       

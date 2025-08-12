@@ -1,13 +1,13 @@
 module AuthHelpers
   def jwt_token_for(user)
-    # Get primary role name for backward compatibility
-    primary_role = user.roles.first&.name || 'Member'
+    # Get user's role
+    user_role = user.role || 'member'
     
     payload = {
       user_id: user.id,
       account_id: user.account.id,
       email: user.email,
-      role: primary_role.downcase,
+      role: user_role.downcase,
       type: 'access',
       exp: 1.hour.from_now.to_i
     }

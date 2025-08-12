@@ -4,6 +4,7 @@ import { RootState } from '../../store';
 import { usersApi, User, AdminAccount } from '../../services/usersApi';
 import { hasAdminAccess } from '../../utils/permissionUtils';
 import ImpersonateUserModal from './ImpersonateUserModal';
+import CreateUserModal from './CreateUserModal';
 
 export const SystemUserManagement: React.FC = () => {
   const { user: currentUser } = useSelector((state: RootState) => state.auth);
@@ -13,6 +14,7 @@ export const SystemUserManagement: React.FC = () => {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showImpersonateModal, setShowImpersonateModal] = useState(false);
+  const [showCreateUserModal, setShowCreateUserModal] = useState(false);
   const [impersonateUserId, setImpersonateUserId] = useState<string | null>(null);
   const [filters, setFilters] = useState({
     search: '',
@@ -163,7 +165,7 @@ export const SystemUserManagement: React.FC = () => {
             <p className="text-theme-secondary mt-1">Manage all users across the entire system</p>
           </div>
           <button 
-            onClick={() => alert('Create user functionality not yet implemented')}
+            onClick={() => setShowCreateUserModal(true)}
             className="btn-theme btn-theme-primary"
           >
             Create User
@@ -485,6 +487,16 @@ export const SystemUserManagement: React.FC = () => {
           setImpersonateUserId(null);
         }}
         preselectedUserId={impersonateUserId || undefined}
+      />
+
+      {/* Create User Modal */}
+      <CreateUserModal
+        isOpen={showCreateUserModal}
+        onClose={() => setShowCreateUserModal(false)}
+        onSuccess={() => {
+          loadSystemData(); // Reload users list after successful creation
+        }}
+        accounts={accounts}
       />
     </div>
   );

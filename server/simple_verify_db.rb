@@ -28,11 +28,11 @@ end
 
 # Check accounts and users
 puts "\nAccounts & Users (#{Account.count} accounts, #{User.count} users):"
-Account.includes(users: :roles).order(:name).each do |account|
+Account.includes(:users).order(:name).each do |account|
   puts "  - #{account.name} (#{account.subdomain}.powernode.dev)"
   account.users.each do |user|
-    roles = user.roles.pluck(:name).join(', ')
-    puts "    --> #{user.email}: #{roles.present? ? roles : 'No roles'}"
+    role_name = user.role || 'No role'
+    puts "    --> #{user.email}: #{role_name}"
   end
 end
 
@@ -60,7 +60,7 @@ admin_user = User.find_by(email: 'admin@powernode.dev')
 if admin_user
   puts "  Email: #{admin_user.email}"
   puts "  Password: AdminStrong2024!@#$"
-  puts "  Roles: #{admin_user.roles.pluck(:name).join(', ')}"
+  puts "  Role: #{admin_user.role || 'No role'}"
   puts "  URL: http://localhost:3001"
 else
   puts "  ERROR: Admin user not found"
