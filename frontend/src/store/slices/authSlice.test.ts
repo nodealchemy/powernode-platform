@@ -127,6 +127,7 @@ describe('authSlice', () => {
   describe('login async thunk', () => {
     const mockLoginResponse = {
       data: {
+        success: true,
         user: {
           id: '1',
           email: 'test@example.com',
@@ -210,6 +211,7 @@ describe('authSlice', () => {
   describe('register async thunk', () => {
     const mockRegisterResponse = {
       data: {
+        success: true,
         user: {
           id: '1',
           email: 'newuser@example.com',
@@ -288,7 +290,9 @@ describe('authSlice', () => {
       });
 
       mockedAuthAPI.logout.mockResolvedValueOnce({
-        data: {},
+        data: {
+          success: true
+        },
         status: 200,
         statusText: 'OK',
         headers: {},
@@ -312,6 +316,7 @@ describe('authSlice', () => {
     it('should handle successful user fetch', async () => {
       const mockUserResponse = {
         data: {
+          success: true,
           user: {
             id: '1',
             email: 'test@example.com',
@@ -357,6 +362,7 @@ describe('authSlice', () => {
     it('should handle successful token refresh', async () => {
       const mockRefreshResponse = {
         data: {
+          success: true,
           access_token: 'new-access-token',
           refresh_token: 'new-refresh-token',
         },
@@ -414,7 +420,10 @@ describe('authSlice', () => {
   describe('resendVerificationEmail async thunk', () => {
     it('should handle successful resend verification', async () => {
       const mockResponse = {
-        data: { message: 'Verification email sent' },
+        data: { 
+          success: true,
+          message: 'Verification email sent' 
+        },
         status: 200,
         statusText: 'OK',
         headers: {},
@@ -458,7 +467,7 @@ describe('authSlice', () => {
       expect(store.getState().auth.error).toBeNull();
       expect(store.getState().auth.resendVerificationSuccess).toBe(false);
 
-      resolvePromise!({ data: { message: 'Success' } });
+      resolvePromise!({ data: { success: true, message: 'Success' } });
       await resendPromise;
 
       expect(store.getState().auth.resendingVerification).toBe(false);
@@ -470,7 +479,7 @@ describe('authSlice', () => {
       // Set success state
       store.dispatch({
         type: 'auth/resendVerificationEmail/fulfilled',
-        payload: { message: 'Success' },
+        payload: { success: true, message: 'Success' },
       });
 
       expect(store.getState().auth.resendVerificationSuccess).toBe(true);
@@ -483,7 +492,7 @@ describe('authSlice', () => {
       // Set cooldown state
       store.dispatch({
         type: 'auth/resendVerificationEmail/fulfilled',
-        payload: { message: 'Success' },
+        payload: { success: true, message: 'Success' },
       });
 
       expect(store.getState().auth.resendCooldown).toBe(60);
