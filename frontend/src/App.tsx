@@ -4,7 +4,7 @@ import { Provider } from 'react-redux';
 import { store } from './store';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState, AppDispatch } from './store';
-import { getCurrentUser, refreshAccessToken, clearAuth, forceTokenClear } from './store/slices/authSlice';
+import { getCurrentUser, refreshAccessToken, clearAuth, forceTokenClear, checkImpersonationStatus } from './store/slices/authSlice';
 import { isTokenInvalidError, isValidJWTFormat } from './utils/tokenUtils';
 
 // Theme Provider
@@ -41,34 +41,50 @@ const AppContent: React.FC = () => {
     const initializeAuth = async () => {
       // Set a timeout to prevent infinite loading
       const timeoutId = setTimeout(() => {
-        console.warn('Authentication initialization timed out');
         setShowAuthFallback(true);
       }, 5000); // 5 second timeout, then show fallback
 
       try {
         // First, validate token format before attempting API calls
         if (accessToken && !isValidJWTFormat(accessToken)) {
-          console.warn('Invalid access token format detected, clearing tokens');
           dispatch(forceTokenClear());
-          return;
+          // Continue to check impersonation token instead of returning early
         }
         
         if (refreshToken && !isValidJWTFormat(refreshToken)) {
-          console.warn('Invalid refresh token format detected, clearing tokens');
           dispatch(forceTokenClear());
-          return;
+          // Continue to check impersonation token instead of returning early
         }
         
-        if (accessToken && !user) {
+        // Check for impersonation first, even if regular tokens are invalid
+        const impersonationToken = localStorage.getItem('impersonationToken');
+        
+        if (impersonationToken || (accessToken && !user)) {
+          // Check if there's an active impersonation session first
+          
+          
+          // PRIORITY: If we have an impersonation token, validate it first
+          if (impersonationToken) {
+            try {
+              const impersonationData = await dispatch(checkImpersonationStatus()).unwrap();
+              
+              if (impersonationData && impersonationData.valid) {
+                return; // Skip regular authentication entirely
+              } else {
+                localStorage.removeItem('impersonationToken');
+              }
+            } catch (impersonationError) {
+              localStorage.removeItem('impersonationToken');
+            }
+          }
+          
+          // If no valid impersonation session, proceed with regular authentication
           try {
-            // First try to get current user with existing token
             await dispatch(getCurrentUser()).unwrap();
           } catch (error) {
-            console.error('Failed to restore user session with access token:', error);
             
             // Check if this error indicates invalid tokens that should be cleared immediately
             if (isTokenInvalidError(error)) {
-              console.log('Detected invalid token error, clearing all auth data');
               dispatch(forceTokenClear());
               return;
             }
@@ -77,14 +93,28 @@ const AppContent: React.FC = () => {
             if (refreshToken) {
               try {
                 await dispatch(refreshAccessToken()).unwrap();
-                // After successful refresh, try to get user again
+                
+                // After refresh, check for impersonation session again
+                const impersonationToken = localStorage.getItem('impersonationToken');
+                if (impersonationToken) {
+                  try {
+                    const impersonationData = await dispatch(checkImpersonationStatus()).unwrap();
+                    if (impersonationData && impersonationData.valid) {
+                      return; // Skip regular user fetch
+                    } else {
+                      localStorage.removeItem('impersonationToken');
+                    }
+                  } catch (impersonationError) {
+                    localStorage.removeItem('impersonationToken');
+                  }
+                }
+                
+                // If no valid impersonation, get regular user
                 await dispatch(getCurrentUser()).unwrap();
               } catch (refreshError: any) {
-                console.error('Failed to refresh token and restore session:', refreshError);
                 
                 // Check if this is a token invalidity error
                 if (isTokenInvalidError(refreshError)) {
-                  console.log('Detected invalid token signatures during refresh, clearing all auth data');
                   dispatch(forceTokenClear());
                 } else {
                   // Clear all auth data if both attempts fail
@@ -98,7 +128,6 @@ const AppContent: React.FC = () => {
           }
         }
       } catch (error) {
-        console.error('Unexpected error during auth initialization:', error);
         dispatch(clearAuth());
       } finally {
         clearTimeout(timeoutId);
@@ -107,7 +136,7 @@ const AppContent: React.FC = () => {
     };
 
     initializeAuth();
-  }, [dispatch, accessToken, refreshToken, user]);
+  }, [dispatch, accessToken, refreshToken]);
 
   const handleAuthFallback = () => {
     dispatch(clearAuth());

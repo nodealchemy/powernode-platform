@@ -1,6 +1,6 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 import { store } from '../store';
-import { refreshAccessToken, clearAuth } from '../store/slices/authSlice';
+import { refreshAccessToken, clearAuth, stopImpersonation } from '../store/slices/authSlice';
 
 // Dynamic API base URL detection for remote access
 const getAPIBaseURL = (): string => {
@@ -45,7 +45,14 @@ class APIClient {
     this.client.interceptors.request.use(
       (config) => {
         const state = store.getState();
-        const token = state.auth.accessToken;
+        
+        
+        // Use impersonation token if active, otherwise use regular access token
+        let token = state.auth.accessToken;
+        if (state.auth.impersonation.isImpersonating && state.auth.impersonation.sessionId) {
+          token = state.auth.impersonation.sessionId;
+        } else {
+        }
         
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
@@ -63,6 +70,19 @@ class APIClient {
         const originalRequest = error.config;
 
         if (error.response?.status === 401 && !originalRequest._retry) {
+          const state = store.getState();
+          
+          // If we're impersonating and get 401, the impersonation session is invalid
+          if (state.auth.impersonation.isImpersonating) {
+            try {
+              // Try to gracefully end the impersonation session
+              await store.dispatch(stopImpersonation());
+            } catch (stopError) {
+              store.dispatch(clearAuth());
+            }
+            return Promise.reject(error);
+          }
+          
           if (this.isRefreshing) {
             // If refresh is already in progress, queue the request
             return new Promise((resolve, reject) => {

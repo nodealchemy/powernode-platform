@@ -37,7 +37,6 @@ const ImpersonateUserModal: React.FC<ImpersonateUserModalProps> = ({
         throw new Error(response.error || 'Failed to load users');
       }
     } catch (error: any) {
-      console.error('Failed to load impersonatable users:', error);
       setError(error.message || 'Failed to load impersonatable users');
     } finally {
       setIsLoading(false);
@@ -76,8 +75,9 @@ const ImpersonateUserModal: React.FC<ImpersonateUserModalProps> = ({
       
       onClose();
       resetForm();
+      // Refresh the page after successful impersonation start to ensure clean state
+      window.location.reload();
     } catch (error: any) {
-      console.error('Failed to start impersonation:', error);
       setError(error.message || 'Failed to start impersonation');
     } finally {
       setIsSubmitting(false);
