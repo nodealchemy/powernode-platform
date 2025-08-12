@@ -2,7 +2,8 @@
 
 class Api::V1::Admin::UsersController < ApplicationController
   before_action :require_admin!
-  before_action :find_user, only: [:show, :impersonate]
+  before_action :find_user, only: [:show, :update, :destroy, :impersonate]
+  before_action :find_account, only: [:create]
   before_action :rate_limit_impersonation, only: [:impersonate]
 
   # GET /api/v1/admin/users
@@ -21,6 +22,134 @@ class Api::V1::Admin::UsersController < ApplicationController
       success: true,
       data: user_summary(@user)
     }
+  end
+
+  # POST /api/v1/admin/users
+  def create
+    @user = @account.users.build(user_params)
+    
+    # Set default role if not specified
+    @user.role ||= @account.plan&.default_role || 'member'
+    
+    # Generate temporary password
+    temp_password = SecureRandom.alphanumeric(12)
+    @user.password = temp_password
+    @user.password_confirmation = temp_password
+    
+    if @user.save
+      # Send welcome email with login instructions
+      UserMailer.welcome_user(@user, temp_password).deliver_later
+      
+      AuditLog.create!(
+        account: @account,
+        user: current_user,
+        action: 'user.created',
+        details: "Created user #{@user.email} in account #{@account.name}",
+        ip_address: request.remote_ip
+      )
+      
+      render json: {
+        success: true,
+        message: 'User created successfully',
+        data: user_summary(@user)
+      }, status: :created
+    else
+      render json: {
+        success: false,
+        error: 'Failed to create user',
+        validation_errors: @user.errors.full_messages
+      }, status: :unprocessable_content
+    end
+  end
+
+  # PATCH/PUT /api/v1/admin/users/:id
+  def update
+    # System admins can update any user's basic info but not change admin status
+    update_params = user_params
+    
+    # Prevent system admin role changes unless super admin
+    if update_params[:role] == 'admin' && !current_user.super_admin?
+      return render json: {
+        success: false,
+        error: 'You do not have permission to assign admin role'
+      }, status: :forbidden
+    end
+    
+    # Prevent users from removing their own admin status
+    if @user.id == current_user.id && update_params[:role] && update_params[:role] != 'admin'
+      return render json: {
+        success: false,
+        error: 'You cannot change your own role'
+      }, status: :forbidden
+    end
+
+    if @user.update(update_params)
+      AuditLog.create!(
+        account: @user.account,
+        user: current_user,
+        action: 'user.updated',
+        details: "Updated user #{@user.email}",
+        ip_address: request.remote_ip
+      )
+      
+      render json: {
+        success: true,
+        message: 'User updated successfully',
+        data: user_summary(@user)
+      }
+    else
+      render json: {
+        success: false,
+        error: 'Failed to update user',
+        validation_errors: @user.errors.full_messages
+      }, status: :unprocessable_content
+    end
+  end
+
+  # DELETE /api/v1/admin/users/:id
+  def destroy
+    # Prevent self-deletion
+    if @user.id == current_user.id
+      return render json: {
+        success: false,
+        error: 'You cannot delete your own account'
+      }, status: :forbidden
+    end
+    
+    # Prevent deletion of account owners unless there's another owner
+    if @user.owner?
+      other_owners = @user.account.users.where(role: 'owner').where.not(id: @user.id)
+      if other_owners.empty?
+        return render json: {
+          success: false,
+          error: 'Cannot delete the only account owner. Transfer ownership first.'
+        }, status: :forbidden
+      end
+    end
+    
+    account = @user.account
+    user_email = @user.email
+    
+    if @user.destroy
+      AuditLog.create!(
+        account: account,
+        user: current_user,
+        action: 'user.deleted',
+        details: "Deleted user #{user_email}",
+        ip_address: request.remote_ip
+      )
+      
+      render json: {
+        success: true,
+        message: 'User deleted successfully'
+      }
+    else
+      render json: {
+        success: false,
+        error: 'Failed to delete user',
+        validation_errors: @user.errors.full_messages
+      }, status: :unprocessable_content
+    end
   end
 
   # POST /api/v1/admin/users/:id/impersonate
@@ -67,15 +196,32 @@ class Api::V1::Admin::UsersController < ApplicationController
   def find_user
     # For admin operations, find user across all accounts
     @user = User.find(params[:id])
-  rescue ActiveRecord::RecordNotFound
-    render_not_found('User not found')
+  rescue ActiveRecord::RecordNotFound => e
+    render_not_found(e)
+  end
+
+  def find_account
+    account_id = params[:account_id]
+    return render_bad_request('Account ID required') unless account_id
+    
+    @account = Account.find(account_id)
+  rescue ActiveRecord::RecordNotFound => e
+    render_not_found(e)
+  end
+
+  def user_params
+    params.require(:user).permit(
+      :email, :first_name, :last_name, :role, :phone_number,
+      :timezone, :status
+    )
   end
 
   def rate_limit_impersonation
+    max_attempts = SystemSettingsService.rate_limit_setting('impersonation_attempts_per_hour')
     cache_key = "impersonation_attempts:#{current_user.id}"
     attempts = Rails.cache.read(cache_key) || 0
     
-    if attempts >= 5
+    if attempts >= max_attempts
       render json: {
         success: false,
         error: 'Too many impersonation attempts. Please try again later.',

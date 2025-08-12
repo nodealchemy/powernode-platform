@@ -5,6 +5,7 @@ import { Breadcrumb } from '../../components/ui/Breadcrumb';
 import { TeamMembersManagement } from '../../components/account/TeamMembersManagement';
 import { DelegationsManagement } from '../../components/delegations/DelegationsManagement';
 import { InviteTeamMemberModal } from '../../components/account/InviteTeamMemberModal';
+import TwoFactorSettings from '../../components/account/TwoFactorSettings';
 import { invitationsApi, Invitation } from '../../services/invitationsApi';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../store';
@@ -284,23 +285,7 @@ const SecurityPage: React.FC = () => {
           </div>
 
           {/* Two-Factor Authentication */}
-          <div>
-            <h3 className="text-lg font-medium text-theme-primary mb-4">Two-Factor Authentication</h3>
-            <div className="bg-theme-background rounded-lg p-4">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <p className="font-medium text-theme-primary">Status</p>
-                  <p className="text-sm text-theme-secondary">Add an extra layer of security to your account</p>
-                </div>
-                <span className="bg-theme-error bg-opacity-10 text-theme-error px-3 py-1 rounded-full text-sm">
-                  Not Enabled
-                </span>
-              </div>
-              <button className="btn-theme btn-theme-primary">
-                Enable 2FA
-              </button>
-            </div>
-          </div>
+          <TwoFactorSettings />
 
           {/* Active Sessions */}
           <div>

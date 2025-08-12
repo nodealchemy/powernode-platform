@@ -94,3 +94,7 @@ gem "rack-attack", "~> 6.7"
 
 # Security headers
 gem "secure_headers", "~> 7.1"
+
+# Two-Factor Authentication (2FA)
+gem "rotp", "~> 6.3"
+gem "rqrcode", "~> 2.2"

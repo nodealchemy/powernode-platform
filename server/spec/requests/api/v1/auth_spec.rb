@@ -56,7 +56,7 @@ RSpec.describe 'Api::V1::Auth', type: :request do
         post '/api/v1/auth/register', params: valid_params, as: :json
 
         new_user = User.find_by(email: 'newuser@example.com')
-        expect(new_user.roles.pluck(:name)).to include('Owner')
+        expect(new_user.role).to eq('owner')
       end
     end
 
@@ -290,7 +290,7 @@ RSpec.describe 'Api::V1::Auth', type: :request do
         'email' => user.email,
         'firstName' => user.first_name,
         'lastName' => user.last_name,
-        'role' => user.roles.first&.name&.downcase || 'member',
+        'role' => user.role || 'member',
         'account' => hash_including(
           'id' => user.account.id,
           'name' => user.account.name

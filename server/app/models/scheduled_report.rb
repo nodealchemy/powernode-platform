@@ -42,11 +42,95 @@ class ScheduledReport < ApplicationRecord
     calculate_next_run_time
     save!
 
-    # TODO: Send email with report attachment
-    # This would be handled by a mailer/notification service
-    Rails.logger.info "Scheduled report #{id} executed for #{recipients_list.join(', ')}"
+    # Send email with report attachment via worker service
+    send_report_email(pdf_data)
+    
+    Rails.logger.info "Scheduled report #{id} executed and emailed to #{recipients_list.join(', ')}"
     
     pdf_data
+  end
+
+  def send_report_email(pdf_data)
+    return if recipients_list.empty?
+    
+    # Generate report filename with timestamp
+    timestamp = Time.current.strftime('%Y%m%d_%H%M%S')
+    filename = "#{report_type}_report_#{timestamp}.pdf"
+    
+    # Create temporary file for the PDF
+    temp_file = Tempfile.new([filename, '.pdf'])
+    temp_file.binmode
+    temp_file.write(pdf_data)
+    temp_file.close
+    
+    begin
+      # Send email to each recipient using worker service
+      recipients_list.each do |recipient_email|
+        # Use WorkerJobService to queue the email delivery
+        WorkerJobService.enqueue_email_job('report_email', {
+          recipient: recipient_email,
+          subject: generate_report_subject,
+          template: 'scheduled_report',
+          template_data: {
+            report_type: report_type,
+            frequency: frequency,
+            account_name: account&.name || 'System',
+            user_name: user.full_name,
+            generated_at: Time.current.strftime('%B %d, %Y at %I:%M %p'),
+            period: format_report_period
+          },
+          attachments: [
+            {
+              filename: filename,
+              content: Base64.encode64(pdf_data),
+              content_type: 'application/pdf'
+            }
+          ],
+          account_id: account&.id,
+          user_id: user.id
+        })
+      end
+    ensure
+      # Clean up temporary file
+      temp_file.unlink if temp_file
+    end
+    
+    # Record email delivery attempt
+    EmailDelivery.create!(
+      recipient_email: recipients_list.join(', '),
+      subject: generate_report_subject,
+      email_type: 'report_generated',
+      account: account,
+      user: user,
+      template: 'scheduled_report',
+      template_data: {
+        report_id: id,
+        recipients_count: recipients_list.size
+      }.to_json
+    )
+  end
+  
+  def generate_report_subject
+    period_text = case frequency
+                  when 'daily' then 'Daily'
+                  when 'weekly' then 'Weekly'
+                  when 'monthly' then 'Monthly'
+                  end
+    
+    "#{period_text} #{report_type.humanize} Report - #{format_report_period}"
+  end
+  
+  def format_report_period
+    case frequency
+    when 'daily'
+      (last_run_at || Time.current).strftime('%B %d, %Y')
+    when 'weekly'
+      start_of_week = (last_run_at || Time.current).beginning_of_week
+      end_of_week = start_of_week.end_of_week
+      "Week of #{start_of_week.strftime('%B %d')} - #{end_of_week.strftime('%B %d, %Y')}"
+    when 'monthly'
+      (last_run_at || Time.current).strftime('%B %Y')
+    end
   end
 
   private
