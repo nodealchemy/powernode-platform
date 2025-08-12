@@ -54,7 +54,6 @@ export const impersonationApi = {
       const response = await apiClient.post('/impersonations', request);
       return response.data;
     } catch (error: any) {
-      console.error('Error starting impersonation:', error);
       throw error;
     }
   },
@@ -67,7 +66,6 @@ export const impersonationApi = {
       });
       return response.data;
     } catch (error: any) {
-      console.error('Error stopping impersonation:', error);
       throw error;
     }
   },
@@ -78,7 +76,6 @@ export const impersonationApi = {
       const response = await apiClient.get('/impersonations');
       return response.data;
     } catch (error: any) {
-      console.error('Error fetching active impersonation sessions:', error);
       throw error;
     }
   },
@@ -91,7 +88,6 @@ export const impersonationApi = {
       });
       return response.data;
     } catch (error: any) {
-      console.error('Error fetching impersonation history:', error);
       throw error;
     }
   },
@@ -102,22 +98,21 @@ export const impersonationApi = {
       const response = await apiClient.get('/impersonations/users');
       return response.data;
     } catch (error: any) {
-      console.error('Error fetching impersonatable users:', error);
       throw error;
     }
   },
 
   // Validate impersonation token
   async validateToken(token: string): Promise<ApiResponse<{
-    valid: boolean;
     session?: ImpersonationSession;
     expires_at?: string;
-  }>> {
+  }> & {
+    valid?: boolean;
+  }> {
     try {
       const response = await apiClient.post('/impersonations/validate', { token });
       return response.data;
     } catch (error: any) {
-      console.error('Error validating impersonation token:', error);
       throw error;
     }
   }

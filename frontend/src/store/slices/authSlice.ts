@@ -42,6 +42,8 @@ interface AuthState {
 const getInitialState = (): AuthState => {
   const accessToken = localStorage.getItem('accessToken');
   const refreshToken = localStorage.getItem('refreshToken');
+  const impersonationToken = localStorage.getItem('impersonationToken');
+  
   
   return {
     user: null,
@@ -54,10 +56,10 @@ const getInitialState = (): AuthState => {
     resendVerificationSuccess: false,
     resendCooldown: 0,
     impersonation: {
-      isImpersonating: false,
+      isImpersonating: !!impersonationToken,
       originalUser: null,
       impersonatedUser: null,
-      sessionId: null,
+      sessionId: impersonationToken || null,
       startedAt: null,
       expiresAt: null,
     },
@@ -212,6 +214,7 @@ export const checkImpersonationStatus = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       const impersonationToken = localStorage.getItem('impersonationToken');
+      
       if (!impersonationToken) {
         return null;
       }
@@ -222,7 +225,12 @@ export const checkImpersonationStatus = createAsyncThunk(
         throw new Error(response.error || 'Failed to validate impersonation token');
       }
       
-      return response.data;
+      // CRITICAL FIX: Backend returns 'valid' at top level, but also include session data
+      return {
+        valid: response.valid || false,
+        session: response.data?.session || null,
+        expires_at: response.data?.expires_at || null
+      };
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.error || 'Failed to get impersonation session');
     }
@@ -255,24 +263,20 @@ const authSlice = createSlice({
       };
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
+      localStorage.removeItem('impersonationToken');
     },
     forceTokenClear: (state) => {
       // Force clear tokens immediately, useful for handling invalid signatures
+      // CRITICAL FIX: Don't clear impersonation token - it should be validated separately
       state.user = null;
       state.accessToken = null;
       state.refreshToken = null;
       state.isAuthenticated = false;
       state.error = 'Session expired. Please log in again.';
-      state.impersonation = {
-        isImpersonating: false,
-        originalUser: null,
-        impersonatedUser: null,
-        sessionId: null,
-        startedAt: null,
-        expiresAt: null,
-      };
+      // DON'T reset impersonation state here - let it be validated separately
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
+      // localStorage.removeItem('impersonationToken'); // REMOVED - preserve for validation
     },
     clearResendVerificationSuccess: (state) => {
       state.resendVerificationSuccess = false;
@@ -293,12 +297,16 @@ const authSlice = createSlice({
       .addCase(login.fulfilled, (state, action) => {
         state.isLoading = false;
         state.isAuthenticated = true;
-        state.user = action.payload.user;
-        state.accessToken = action.payload.access_token;
-        state.refreshToken = action.payload.refresh_token;
+        state.user = action.payload.user || null;
+        state.accessToken = action.payload.access_token || null;
+        state.refreshToken = action.payload.refresh_token || null;
         
-        localStorage.setItem('accessToken', action.payload.access_token);
-        localStorage.setItem('refreshToken', action.payload.refresh_token);
+        if (action.payload.access_token) {
+          localStorage.setItem('accessToken', action.payload.access_token);
+        }
+        if (action.payload.refresh_token) {
+          localStorage.setItem('refreshToken', action.payload.refresh_token);
+        }
       })
       .addCase(login.rejected, (state, action) => {
         state.isLoading = false;
@@ -313,12 +321,16 @@ const authSlice = createSlice({
       .addCase(register.fulfilled, (state, action) => {
         state.isLoading = false;
         state.isAuthenticated = true;
-        state.user = action.payload.user;
-        state.accessToken = action.payload.access_token;
-        state.refreshToken = action.payload.refresh_token;
+        state.user = action.payload.user || null;
+        state.accessToken = action.payload.access_token || null;
+        state.refreshToken = action.payload.refresh_token || null;
         
-        localStorage.setItem('accessToken', action.payload.access_token);
-        localStorage.setItem('refreshToken', action.payload.refresh_token);
+        if (action.payload.access_token) {
+          localStorage.setItem('accessToken', action.payload.access_token);
+        }
+        if (action.payload.refresh_token) {
+          localStorage.setItem('refreshToken', action.payload.refresh_token);
+        }
       })
       .addCase(register.rejected, (state, action) => {
         state.isLoading = false;
@@ -337,10 +349,15 @@ const authSlice = createSlice({
       
       // Refresh token
       .addCase(refreshAccessToken.fulfilled, (state, action) => {
-        state.accessToken = action.payload.access_token;
-        state.refreshToken = action.payload.refresh_token;
-        localStorage.setItem('accessToken', action.payload.access_token);
-        localStorage.setItem('refreshToken', action.payload.refresh_token);
+        state.accessToken = action.payload.access_token || null;
+        state.refreshToken = action.payload.refresh_token || null;
+        
+        if (action.payload.access_token) {
+          localStorage.setItem('accessToken', action.payload.access_token);
+        }
+        if (action.payload.refresh_token) {
+          localStorage.setItem('refreshToken', action.payload.refresh_token);
+        }
       })
       .addCase(refreshAccessToken.rejected, (state, action) => {
         const payload = action.payload as { clearTokens: boolean; message: string } | string;
@@ -357,7 +374,7 @@ const authSlice = createSlice({
       
       // Get current user
       .addCase(getCurrentUser.fulfilled, (state, action) => {
-        state.user = action.payload.user;
+        state.user = action.payload.user || null;
         state.isAuthenticated = true;
       })
       .addCase(getCurrentUser.rejected, (state, action) => {
@@ -421,6 +438,7 @@ const authSlice = createSlice({
         
         // Store impersonation token separately
         localStorage.setItem('impersonationToken', action.payload.token);
+        
       })
       .addCase(startImpersonation.rejected, (state, action) => {
         state.isLoading = false;
@@ -456,6 +474,20 @@ const authSlice = createSlice({
       
       // Check impersonation status
       .addCase(checkImpersonationStatus.fulfilled, (state, action) => {
+        
+        // CRITICAL FIX: Handle null payload (no token in localStorage)
+        if (action.payload === null) {
+          state.impersonation = {
+            isImpersonating: false,
+            originalUser: null,
+            impersonatedUser: null,
+            sessionId: null,
+            startedAt: null,
+            expiresAt: null,
+          };
+          return; // Exit early, don't clear localStorage token
+        }
+        
         if (action.payload && action.payload.valid && action.payload.session) {
           const session = action.payload.session;
           
@@ -483,12 +515,15 @@ const authSlice = createSlice({
             account: state.user?.account || { id: '', name: '', status: '' }
           };
           
+          // CRITICAL FIX: Don't re-read from localStorage, use the token from the async thunk
+          const impersonationToken = localStorage.getItem('impersonationToken');
+          
           state.user = impersonatedUser;
           state.impersonation = {
             isImpersonating: true,
             originalUser: impersonator,
             impersonatedUser: impersonatedUser,
-            sessionId: session.session_token,
+            sessionId: impersonationToken, // Use the token that should be in localStorage
             startedAt: session.started_at,
             expiresAt: action.payload.expires_at || null,
           };
@@ -504,6 +539,18 @@ const authSlice = createSlice({
           };
           localStorage.removeItem('impersonationToken');
         }
+      })
+      .addCase(checkImpersonationStatus.rejected, (state, action) => {
+        // Clear invalid impersonation state on error
+        state.impersonation = {
+          isImpersonating: false,
+          originalUser: null,
+          impersonatedUser: null,
+          sessionId: null,
+          startedAt: null,
+          expiresAt: null,
+        };
+        localStorage.removeItem('impersonationToken');
       });
   },
 });

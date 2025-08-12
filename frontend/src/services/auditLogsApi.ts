@@ -46,6 +46,8 @@ export interface AuditLogFilters {
   date_from?: string;
   date_to?: string;
   status?: string;
+  page?: number;
+  limit?: number;
 }
 
 export interface AuditLogStats {
@@ -128,7 +130,6 @@ export const auditLogsApi = {
       const response = await api.get(`/audit_logs?${params}`);
       return response.data;
     } catch (error: any) {
-      console.error('Failed to fetch audit logs:', error);
       return {
         success: false,
         data: {
@@ -161,7 +162,6 @@ export const auditLogsApi = {
       const response = await api.get(`/audit_logs/${id}`);
       return response.data;
     } catch (error: any) {
-      console.error('Failed to fetch audit log:', error);
       return {
         success: false,
         data: {} as DetailedAuditLog,
@@ -176,7 +176,6 @@ export const auditLogsApi = {
       const response = await api.get('/audit_logs/stats');
       return response.data;
     } catch (error: any) {
-      console.error('Failed to fetch audit log stats:', error);
       return {
         success: false,
         data: {} as DetailedAuditLogStats,
@@ -197,7 +196,6 @@ export const auditLogsApi = {
       });
       return response.data;
     } catch (error: any) {
-      console.error('Failed to export audit logs:', error);
       return {
         success: false,
         data: { format },
@@ -216,7 +214,6 @@ export const auditLogsApi = {
       });
       return response.data;
     } catch (error: any) {
-      console.error('Failed to cleanup audit logs:', error);
       return {
         success: false,
         error: error.response?.data?.error || 'Failed to cleanup audit logs'
