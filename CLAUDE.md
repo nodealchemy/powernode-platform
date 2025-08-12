@@ -1,1345 +1,356 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Development guidance for **Powernode** subscription platform.
+
+## Git Commit Configuration
+
+- **IMPORTANT**: Git commit messages should NOT include "Generated with [Claude Code]" or "Co-Authored-By: Claude" notes
+- Use clean, conventional commit messages without Claude attribution
 
 ## Project Overview
 
-This is **Powernode** built with:
-- **Backend**: Ruby on Rails 8 API-only application (located in `./server` directory)
-- **Frontend**: ReactJS with TypeScript (located in `./frontend` directory)
+**Powernode** - Subscription lifecycle management platform:
+- **Backend**: Rails 8 API (`./server`)
+- **Frontend**: React TypeScript (`./frontend`) 
+- **Worker**: Sidekiq standalone service (`./worker`)
 - **Database**: PostgreSQL
-- **Payments**: Stripe (primary), PayPal (secondary)
-- **Background Jobs**: Sidekiq (standalone worker agent with API-only connectivity)
-- **Testing**: RSpec (backend), Jest/Testing Library/Cypress (frontend)
+- **Payments**: Stripe, PayPal
+- **Testing**: RSpec, Jest/Cypress
 
-The platform handles subscription lifecycle management, automated billing, payment processing, proration calculations, dunning management, and comprehensive analytics.
+## Architecture
 
-## Architecture Overview
+### Core Models
+- **Account** → User (many), Subscription (one)
+- **Subscription** → Plan, Payments, Invoices
+- **User** → Roles, Permissions, Invitations
+- Primary keys: UUIDv7
+- Authentication: JWT tokens
+- Audit logging: All changes tracked
 
-### Backend Structure (Rails 8 API)
-- **Models**: Account, User, Role, Permission, Invitation, AccountDelegation, Subscription, Plan, Invoice, Payment, AuditLog with complex associations
-  - Users are associated with an Account (accounts may have multiple users)
-  - **Account-Subscription Relationship**: Each Account `has_one :subscription` (one-to-one relationship)
-    - Enforced at application level with validation: `validates :account, uniqueness: { message: "can only have one subscription" }`
-    - Enforced at database level with unique constraint on `subscriptions.account_id`
-  - Role-based access control with Users having Roles and Permissions
-  - Subscriptions `belongs_to` an Account and a Plan
-  - Plans have configurable default roles
-  - Plans include features and limits stored as hash
-  - Default roles from plan are assigned to user on account creation
-  - First created user becomes account owner
-  - Invitations for new user invitees
-  - Account Delegation support to allow existing users from different accounts
-  - State machine functionality for subscription and payment states
-  - Audit logging for all model changes and user actions
-- **Primary Keys**: Use application-generated UUIDv7 for all primary keys
-- **Authentication**: JWT authentication for API access
-- **Services**: Payment processing, billing calculations, dunning management
-- **Jobs**: Automated renewals, payment retries, notification sending
-- **Controllers**: RESTful API endpoints with proper serialization
-- **Webhooks**: Payment gateway event handling (Stripe, PayPal)
+### Frontend (React + TypeScript)
+- Theme-aware components (light/dark)
+- Tailwind CSS with consistent patterns
+- API services with standardized patterns
+- Responsive design (mobile-first)
 
-### Frontend Structure (React + TypeScript)
-- **Pages**: Customer dashboard, admin panel, billing management, application settings, user management, account management, subscription management, invitations management, delegations management, payment processor management
-- **Components**: Reusable UI components with accessibility and consistent styling
-- **Store**: Redux/Context for state management
-- **Services**: API integration and data fetching
-- **Application Settings**: All application settings manageable from within the frontend
-- **Styling**: Tailwind CSS with theme system and consistent design patterns
+### Worker Service (Sidekiq)
+- API-only communication (no DB access)
+- Background job processing
+- Payment webhooks, billing automation
+- Screen-based process management
 
-### Key Business Logic Areas
-- **Subscription Lifecycle**: Creation, upgrades/downgrades, pausing, cancellation
-- **Billing Engine**: Automated renewals, proration calculations, invoice generation
-- **Payment Processing**: Gateway integrations, retry logic, webhook handling
-- **Dunning Management**: Failed payment recovery, account suspension
-- **Analytics**: MRR/ARR calculations, churn analysis, customer lifetime value
+## Process Management
 
-## CRITICAL: Process Management Configuration
+**CRITICAL**: Always use management scripts, never start servers manually.
 
-**POWERNODE_ROOT**: Dynamically determined using `$(pwd)` or `$(git rev-parse --show-toplevel)`
-
-### ALWAYS Use Individual Process Manager Scripts
-
-**NEVER** manually start Rails or React servers. **ALWAYS** use the dedicated process manager scripts.
-
-**Dynamic Path Setup** (Claude should run this once to determine project root):
+### Quick Commands
 ```bash
-# Method 1: Use current directory (if already in project root)
-POWERNODE_ROOT=$(pwd)
-
-# Method 2: Use git to find project root (preferred)
+# Auto-detect project root
 POWERNODE_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 
-# Method 3: Navigate to project root if in subdirectory
-cd "$(git rev-parse --show-toplevel 2>/dev/null || echo .)"
-POWERNODE_ROOT=$(pwd)
+# Essential commands
+$POWERNODE_ROOT/scripts/auto-dev.sh ensure    # Start all services
+$POWERNODE_ROOT/scripts/auto-dev.sh status    # Check health
 ```
 
-**Usage Pattern for Claude** (recommended workflow):
+### Service Management Scripts
+
+#### Auto-Development (Preferred)
+- `auto-dev.sh ensure` - Start all services if needed
+- `auto-dev.sh status` - Health check all services
+- `auto-dev.sh backend|worker|frontend` - Manage individual services
+
+#### Individual Services
+- **Backend**: `backend-manager.sh start|stop|status|logs`
+- **Worker**: `worker-manager.sh start|stop|status|start-web|stop-web`
+- **Frontend**: `frontend-manager.sh start|stop|status|logs`
+
+#### Service Endpoints
+- Backend: `http://localhost:3000`
+- Worker Web: `http://localhost:4567/sidekiq`
+- Frontend: `http://localhost:3001`
+
+### Process Rules
+- **NEVER** start servers manually (`rails server`, `npm start`, `bundle exec sidekiq`)
+- **ALWAYS** use management scripts
+- Services run in detached screen sessions
+- Screen sessions: `powernode-backend`, `powernode-worker`, `powernode-frontend`
+
+### Claude Automation
+**Auto-start servers when:**
+- User requests testing/development work
+- User wants to view application
+- User needs background jobs
+
+**Startup sequence:**
+1. Backend first
+2. Worker second  
+3. Frontend third
+4. Health check all
+
+## Development Commands
+
+### Database
 ```bash
-# Method A: Set variable once, use multiple times
-POWERNODE_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-$POWERNODE_ROOT/scripts/auto-dev.sh ensure
-$POWERNODE_ROOT/scripts/auto-dev.sh status
-
-# Method B: Inline (for single commands)
-$(git rev-parse --show-toplevel 2>/dev/null || pwd)/scripts/auto-dev.sh status
-
-# Method C: Change directory first (if preferred)
-cd "$(git rev-parse --show-toplevel 2>/dev/null || echo .)"
-./scripts/auto-dev.sh status
+cd server
+rails db:create db:migrate db:seed
 ```
 
-**Claude Quick Reference**:
-- **Status Check**: `$(git rev-parse --show-toplevel 2>/dev/null || pwd)/scripts/auto-dev.sh status`
-- **Start All**: `$(git rev-parse --show-toplevel 2>/dev/null || pwd)/scripts/auto-dev.sh ensure`
-- **Backend Only**: `$(git rev-parse --show-toplevel 2>/dev/null || pwd)/scripts/backend-manager.sh start`
-
-#### Automatic Development Environment Management (PREFERRED)
-- **Script**: `$POWERNODE_ROOT/scripts/auto-dev.sh`
-- **Commands**: `ensure|backend|worker|frontend|status|restart|check`
-- **Usage**:
-  - Ensure all services: `$POWERNODE_ROOT/scripts/auto-dev.sh ensure`
-  - Quick status: `$POWERNODE_ROOT/scripts/auto-dev.sh status`
-  - Backend only: `$POWERNODE_ROOT/scripts/auto-dev.sh backend`
-  - Worker only: `$POWERNODE_ROOT/scripts/auto-dev.sh worker`
-  - Frontend only: `$POWERNODE_ROOT/scripts/auto-dev.sh frontend`
-  - Health check: `$POWERNODE_ROOT/scripts/auto-dev.sh check`
-
-#### Backend Management
-- **Script**: `$POWERNODE_ROOT/scripts/backend-manager.sh`
-- **Commands**: `start|stop|restart|status|logs|follow`
-- **Usage**: 
-  - Start: `$POWERNODE_ROOT/scripts/backend-manager.sh start`
-  - Stop: `$POWERNODE_ROOT/scripts/backend-manager.sh stop`
-  - Restart: `$POWERNODE_ROOT/scripts/backend-manager.sh restart`
-  - Status: `$POWERNODE_ROOT/scripts/backend-manager.sh status`
-  - Logs: `$POWERNODE_ROOT/scripts/backend-manager.sh logs [lines]`
-  - Follow logs: `$POWERNODE_ROOT/scripts/backend-manager.sh follow`
-
-#### Frontend Management
-- **Script**: `$POWERNODE_ROOT/scripts/frontend-manager.sh`
-- **Commands**: `start|stop|restart|status|logs|follow|clear-cache`
-- **Usage**:
-  - Start: `$POWERNODE_ROOT/scripts/frontend-manager.sh start`
-  - Stop: `$POWERNODE_ROOT/scripts/frontend-manager.sh stop`
-  - Restart: `$POWERNODE_ROOT/scripts/frontend-manager.sh restart`
-  - Status: `$POWERNODE_ROOT/scripts/frontend-manager.sh status`
-  - Logs: `$POWERNODE_ROOT/scripts/frontend-manager.sh logs [lines]`
-  - Follow logs: `$POWERNODE_ROOT/scripts/frontend-manager.sh follow`
-  - Clear cache: `$POWERNODE_ROOT/scripts/frontend-manager.sh clear-cache`
-
-#### Worker Management (Sidekiq)
-- **Script**: `$POWERNODE_ROOT/scripts/worker-manager.sh`
-- **Commands**: `start|stop|restart|status|logs|follow|screen|start-web|stop-web|web-screen`
-- **Usage**:
-  - Start worker: `$POWERNODE_ROOT/scripts/worker-manager.sh start`
-  - Start web interface: `$POWERNODE_ROOT/scripts/worker-manager.sh start-web`
-  - Stop worker: `$POWERNODE_ROOT/scripts/worker-manager.sh stop`
-  - Stop web interface: `$POWERNODE_ROOT/scripts/worker-manager.sh stop-web`
-  - Restart: `$POWERNODE_ROOT/scripts/worker-manager.sh restart`
-  - Status: `$POWERNODE_ROOT/scripts/worker-manager.sh status`
-  - Logs: `$POWERNODE_ROOT/scripts/worker-manager.sh logs [lines]`
-  - Follow logs: `$POWERNODE_ROOT/scripts/worker-manager.sh follow`
-  - Worker screen: `$POWERNODE_ROOT/scripts/worker-manager.sh screen`
-  - Web screen: `$POWERNODE_ROOT/scripts/worker-manager.sh web-screen`
-
-#### Orchestration (All Services)
-- **Script**: `$POWERNODE_ROOT/scripts/dev-manager.sh`
-- **Usage**:
-  - Start all: `$POWERNODE_ROOT/scripts/dev-manager.sh start`
-  - Stop all: `$POWERNODE_ROOT/scripts/dev-manager.sh stop`
-  - Restart all: `$POWERNODE_ROOT/scripts/dev-manager.sh restart`
-  - Status all: `$POWERNODE_ROOT/scripts/dev-manager.sh status`
-  - Backend only: `$POWERNODE_ROOT/scripts/dev-manager.sh backend [command]`
-  - Worker only: `$POWERNODE_ROOT/scripts/dev-manager.sh worker [command]`
-  - Frontend only: `$POWERNODE_ROOT/scripts/dev-manager.sh frontend [command]`
-
-### Process Management Rules
-
-1. **ALWAYS** run services as background processes using the scripts
-2. **ALWAYS** check for existing processes and kill them thoroughly
-3. **NEVER** use manual `rails server`, `npm start`, or `bundle exec sidekiq` commands
-4. **AUTOMATICALLY** start servers when needed for development tasks
-5. **ALWAYS** use the scripts when:
-   - Starting backend, worker, or frontend
-   - Stopping backend, worker, or frontend
-   - Restarting backend, worker, or frontend
-   - Checking server status
-   - Viewing logs
-
-### Screen-Based Server Management
-
-**Modern Approach**: All services (backend, worker, frontend) now run in detached screen sessions to completely isolate them from the Bash tool and provide persistent, manageable sessions.
-
-**Backend (Rails)**:
-- Session name: `powernode-backend`
-- Command: `$POWERNODE_ROOT/scripts/backend-manager.sh start`
-- Attach: `$POWERNODE_ROOT/scripts/backend-manager.sh screen`
-- Logs streamed to: `$POWERNODE_ROOT/logs/backend.log`
-
-**Worker (Sidekiq)**:
-- Session name: `powernode-worker`
-- Command: `$POWERNODE_ROOT/scripts/worker-manager.sh start`
-- Attach: `$POWERNODE_ROOT/scripts/worker-manager.sh screen`
-- Logs streamed to: `$POWERNODE_ROOT/logs/worker.log`
-- Web interface: `http://localhost:4567` (Puma server)
-
-**Frontend (React)**:
-- Session name: `powernode-frontend` 
-- Command: `$POWERNODE_ROOT/scripts/frontend-manager.sh start`
-- Attach: `$POWERNODE_ROOT/scripts/frontend-manager.sh screen`
-- Logs streamed to: `$POWERNODE_ROOT/logs/frontend.log`
-
-### Important: Bash Tool Timeout Behavior
-
-**RESOLVED**: Screen-based server management has eliminated timeout issues that previously affected tmux-based approaches for Rails and Sidekiq server startup.
-
-**Key Facts**:
-- ✅ **Scripts execute successfully** within 1-2 seconds
-- ✅ **Servers start properly** and become healthy immediately
-- ✅ **All functionality works** as expected
-- ⚠️ **Timeout message is cosmetic** and should be ignored
-- ✅ **Multiple approaches tested**: All show same timeout behavior
-
-**Benefits of Screen-Based Approach**:
-- ✅ Complete isolation from Bash tool limitations
-- ✅ Persistent sessions that survive terminal disconnection
-- ✅ Interactive access via `screen` attach commands
-- ✅ Clean process management and cleanup
-- ✅ Real-time log streaming to both session and log files
-- ✅ No timeout issues with Rails or Sidekiq startup
-
-**Recommended workflow**:
-1. Run `$POWERNODE_ROOT/scripts/dev-manager.sh start` for all services
-2. Run `$POWERNODE_ROOT/scripts/dev-manager.sh status` to verify success
-3. Use individual `[service]-manager.sh screen` to attach and view live output
-4. Detach with `Ctrl+A, D` to leave session running
-
-### Automatic Background Server Management
-
-**CRITICAL**: Claude should automatically manage development servers as follows:
-
-#### **When to Start Servers Automatically**
-- When user asks to test functionality that requires running servers
-- When user asks to work on frontend, backend, or worker code that needs live testing
-- When user asks to restart servers
-- When user asks to check application status
-- When user asks to view the application in browser
-- When user asks to work with background jobs or Sidekiq
-
-#### **Server Startup Priority**
-1. **Backend First**: Always start `$POWERNODE_ROOT/scripts/backend-manager.sh start` first
-2. **Worker Second**: Then start `$POWERNODE_ROOT/scripts/worker-manager.sh start` 
-3. **Frontend Third**: Finally start `$POWERNODE_ROOT/scripts/frontend-manager.sh start`
-4. **Health Check**: Verify all are running with `$POWERNODE_ROOT/scripts/dev-manager.sh status`
-
-#### **Background Process Requirements**
-- **Always Background**: Never run servers in foreground that would block Claude
-- **Process Validation**: Always check if servers are already running before starting
-- **Health Verification**: Confirm servers are responding before proceeding
-- **Graceful Handling**: Handle server startup failures gracefully with error reporting
-
-#### **Auto-Development Script** 
-**PREFERRED METHOD**: Use `$POWERNODE_ROOT/scripts/auto-dev.sh` for automatic server management:
-
-- **Auto Start**: `$POWERNODE_ROOT/scripts/auto-dev.sh ensure` - Starts all services only if needed
-- **Quick Status**: `$POWERNODE_ROOT/scripts/auto-dev.sh status` - Fast health check of all services
-- **Backend Only**: `$POWERNODE_ROOT/scripts/auto-dev.sh backend` - Ensure backend is running
-- **Worker Only**: `$POWERNODE_ROOT/scripts/auto-dev.sh worker` - Ensure worker is running  
-- **Frontend Only**: `$POWERNODE_ROOT/scripts/auto-dev.sh frontend` - Ensure frontend is running
-- **Health Check**: `$POWERNODE_ROOT/scripts/auto-dev.sh check` - Silent health check (exit code based)
-
-**Claude Usage Pattern**:
-1. Before any development task: `$POWERNODE_ROOT/scripts/auto-dev.sh ensure`
-2. Quick status check: `$POWERNODE_ROOT/scripts/auto-dev.sh status`
-3. If issues detected: Use individual managers for debugging
-
-### Script Features
-- **Comprehensive Process Detection**: Multiple methods to find all related processes
-- **Graceful + Force Kill**: SIGTERM first, then SIGKILL after timeout
-- **Health Checking**: Waits for services to be ready before confirming startup
-- **Logging**: Centralized logging with structured output
-- **PID Management**: Proper PID file tracking and cleanup
-- **Port Management**: Automatic port conflict resolution
-
-## Development Workflow
-
-### Project Status Tracking
-- Main task tracking should be maintained in a TODO.md file with development tasks
-- Tasks use status indicators: `[ ]` PENDING, `[🔄]` IN_PROGRESS, `[✅]` COMPLETED, `[❌]` BLOCKED, `[⚠️]` NEEDS_REVIEW
-- Always update task status when working on related features
-
-### Development Commands
-
-**CRITICAL: Process Management Protocol**
-- **ALWAYS kill old processes before starting new ones** to prevent port conflicts and resource issues
-- **Required before ANY server startup**: Run `$POWERNODE_ROOT/scripts/process-manager.sh stop` or `make dev-stop`
-- **Use automated scripts**: `$POWERNODE_ROOT/scripts/dev-start.sh` handles full cleanup + startup sequence
-- **Never start servers without first stopping existing processes**
-- **For Claude Code automation**: Use `$POWERNODE_ROOT/scripts/process-manager.sh` for reliable process control
-
-**Process Management Scripts:**
-- `$POWERNODE_ROOT/scripts/dev-stop.sh` - Interactive process cleanup with verification
-- `$POWERNODE_ROOT/scripts/dev-start.sh` - Full development environment startup
-- `$POWERNODE_ROOT/scripts/process-manager.sh` - Automation-friendly process control utility
-- `make dev-stop` / `make dev-start` / `make dev-restart` - Makefile shortcuts
-
-**Standard Commands:**
-- **Database**: Standard Rails commands from server directory (`cd server && rails db:create`, `rails db:migrate`, `rails db:seed`)
-- **Testing**: `cd server && bundle exec rspec` for backend tests
-- **Development Servers** (All configured for external access on 0.0.0.0): 
-  - Backend: `cd server && bundle exec rails server -p 3000 -b 0.0.0.0`
-  - Frontend: `cd frontend && HOST=0.0.0.0 npm run dev` (starts on port 3001, listens on all IPs)
-- **Money Gem**: Configured with USD default currency and proper localization (see `config/initializers/money.rb`)
-- **Background Jobs**: Standalone worker agent approach - see Background Jobs Architecture section below
-
-### Git Commit Workflow
-
-**CRITICAL: Pre-Commit Cleanup Protocol**
-
-Claude **MUST** perform comprehensive cleanup before any git commit:
-
-#### **MANDATORY Pre-Commit Steps (Execute in Order)**
-
-1. **System Cleanup**:
-   ```bash
-   # Clean up temporary files and artifacts
-   find . -name "*.tmp" -type f -delete 2>/dev/null || true
-   find . -name "*.log" -path "*/tmp/*" -type f -delete 2>/dev/null || true
-   find . -name ".DS_Store" -type f -delete 2>/dev/null || true
-   find . -name "Thumbs.db" -type f -delete 2>/dev/null || true
-   find . -name "*.swp" -type f -delete 2>/dev/null || true
-   find . -name "*.swo" -type f -delete 2>/dev/null || true
-   find . -name "*~" -type f -delete 2>/dev/null || true
-   ```
-
-2. **Node.js/NPM Cleanup** (Frontend):
-   ```bash
-   cd frontend
-   # Remove temporary build artifacts
-   rm -rf .next/ dist/ build/ coverage/ .nyc_output/ 2>/dev/null || true
-   # Clean package manager artifacts
-   rm -rf node_modules/.cache/ 2>/dev/null || true
-   rm -f npm-debug.log* yarn-error.log* 2>/dev/null || true
-   cd ..
-   ```
-
-3. **Ruby/Rails Cleanup** (Backend):
-   ```bash
-   cd server
-   # Remove Rails temporary files
-   rm -rf tmp/cache/ tmp/pids/ tmp/sessions/ tmp/sockets/ 2>/dev/null || true
-   # Remove test coverage artifacts
-   rm -rf coverage/ 2>/dev/null || true
-   # Remove log files (keep structure, clear contents)
-   find log/ -name "*.log" -type f -exec truncate -s 0 {} \; 2>/dev/null || true
-   cd ..
-   ```
-
-4. **Worker Service Cleanup**:
-   ```bash
-   cd worker
-   rm -rf tmp/ coverage/ 2>/dev/null || true
-   find log/ -name "*.log" -type f -exec truncate -s 0 {} \; 2>/dev/null || true
-   cd ..
-   ```
-
-5. **General Project Cleanup**:
-   ```bash
-   # Remove editor/IDE temporary files
-   find . -name ".vscode" -type d -path "*/tmp/*" -exec rm -rf {} \; 2>/dev/null || true
-   find . -name ".idea" -type d -path "*/tmp/*" -exec rm -rf {} \; 2>/dev/null || true
-   # Remove OS-specific files
-   find . -name "*.orig" -type f -delete 2>/dev/null || true
-   find . -name "*.rej" -type f -delete 2>/dev/null || true
-   ```
-
-6. **Git Status Verification**:
-   ```bash
-   # Show final status before commit
-   git status --porcelain
-   git diff --cached --stat
-   ```
-
-#### **Pre-Commit Automation Script**
-
-Claude should use this command sequence before every commit:
-
+### Testing
 ```bash
-# Quick cleanup command (single line)
+cd server && bundle exec rspec        # Backend tests
+cd frontend && npm test              # Frontend tests
+```
+
+### Project Tracking
+- Use TODO.md with status indicators: `[ ]` `[🔄]` `[✅]` `[❌]` `[⚠️]`
+
+### Git Workflow
+
+**Pre-Commit Cleanup (MANDATORY)**:
+```bash
+# Quick cleanup before commits
 find . -name "*.tmp" -o -name ".DS_Store" -o -name "Thumbs.db" -o -name "*.swp" -o -name "*.swo" -o -name "*~" | xargs rm -f 2>/dev/null; cd frontend && rm -rf .next/ dist/ build/ coverage/ .nyc_output/ node_modules/.cache/ && cd ../server && rm -rf tmp/cache/ tmp/pids/ tmp/sessions/ tmp/sockets/ coverage/ && find log/ -name "*.log" -exec truncate -s 0 {} \; 2>/dev/null; cd ../worker && rm -rf tmp/ coverage/ && find log/ -name "*.log" -exec truncate -s 0 {} \; 2>/dev/null; cd .. && git status --porcelain
 ```
 
-#### **Commit Requirements**
+**Commit Pattern**:
+1. Complete work
+2. Run cleanup (above)
+3. Test/lint
+4. `git add . && git commit -m "message"`
 
-- **NEVER commit without cleanup**: Cleanup is mandatory, not optional
-- **Verify clean state**: Always run `git status` after cleanup to confirm
-- **Log truncation**: Clear log files but preserve directory structure
-- **Preserve gitignored files**: Only clean files that should not be committed
-- **Error handling**: Use `2>/dev/null || true` to prevent cleanup failures from blocking commits
-- **Cross-platform compatibility**: Commands work on Linux, macOS, and Windows (with appropriate shell)
+## Versioning & Git Flow
 
-#### **Integration with Commit Workflow**
+### Versions
+- **Current**: `0.0.1-dev` (develop branch)
+- **Format**: `MAJOR.MINOR.PATCH[-alpha|-beta|-rc]`
+- **Branching**: Git-Flow (main, develop, feature/*, release/*, hotfix/*)
 
-Every git commit MUST follow this pattern:
-1. Complete development work
-2. **Run mandatory cleanup** (above steps)
-3. Run tests and linting if available
-4. Stage changes with `git add`
-5. Commit with descriptive message
-6. Push if requested
-
-**Example Complete Commit Workflow**:
-```bash
-# 1. Complete development work
-# 2. MANDATORY: Run cleanup
-find . -name "*.tmp" -o -name ".DS_Store" -o -name "Thumbs.db" -o -name "*.swp" -o -name "*.swo" -o -name "*~" | xargs rm -f 2>/dev/null; cd frontend && rm -rf .next/ dist/ build/ coverage/ .nyc_output/ node_modules/.cache/ && cd ../server && rm -rf tmp/cache/ tmp/pids/ tmp/sessions/ tmp/sockets/ coverage/ && find log/ -name "*.log" -exec truncate -s 0 {} \; 2>/dev/null; cd ../worker && rm -rf tmp/ coverage/ && find log/ -name "*.log" -exec truncate -s 0 {} \; 2>/dev/null; cd .. && git status --porcelain
-
-# 3. Test and lint (if applicable)
-# 4. Stage and commit
-git add .
-git commit -m "Your descriptive commit message"
-# 5. Push if requested
-git push
-```
-
-## Version Management and Git-Flow
-
-**PROJECT VERSIONING:**
-
-- **Current Version**: `0.0.1-dev` (develop branch)
-- **Versioning System**: Semantic Versioning (SemVer) - `MAJOR.MINOR.PATCH`
-- **Git Workflow**: Git-Flow branching model
-
-### Semantic Versioning (SemVer) Rules
-
-**Version Format**: `MAJOR.MINOR.PATCH[-PRE_RELEASE][+BUILD_METADATA]`
-
-- **MAJOR**: Breaking changes, incompatible API changes
-- **MINOR**: New features, backwards-compatible functionality
-- **PATCH**: Bug fixes, backwards-compatible patches
-- **PRE-RELEASE**: `-alpha`, `-beta`, `-rc.1`, `-dev`
-- **BUILD**: `+build.123`, `+20230815`
-
-**Version Increment Examples:**
-- `0.0.1` → `0.0.2` (patch: bug fixes)
-- `0.0.2` → `0.1.0` (minor: new features)
-- `0.1.0` → `1.0.0` (major: breaking changes)
-- `0.1.0-dev` → `0.1.0-alpha.1` → `0.1.0-beta.1` → `0.1.0-rc.1` → `0.1.0`
-
-### Git-Flow Branching Model
-
-**MANDATORY BRANCH STRUCTURE:**
-
-1. **main**: Production-ready releases only (`v0.1.0`, `v1.0.0`)
-2. **develop**: Integration branch for features (`0.0.1-dev`)
-3. **feature/***: New feature development (`feature/user-auth`, `feature/billing`)
-4. **release/***: Release preparation (`release/0.1.0`)
-5. **hotfix/***: Critical production fixes (`hotfix/security-patch`)
-
-**Git-Flow Commands:**
-
-```bash
-# Initialize git-flow (run once)
-git flow init
-
-# Start new feature
-git flow feature start user-authentication
-
-# Finish feature (merges to develop)
-git flow feature finish user-authentication
-
-# Start release
-git flow release start 0.1.0
-
-# Finish release (merges to main and develop, creates tag)
-git flow release finish 0.1.0
-
-# Start hotfix from main
-git flow hotfix start security-fix
-
-# Finish hotfix (merges to main and develop)
-git flow hotfix finish security-fix
-```
-
-### Commit Message Standards
-
-**MANDATORY COMMIT FORMAT (Conventional Commits):**
-
+### Commit Format (Conventional)
 ```
 <type>(<scope>): <description>
-
-[optional body]
-
-[optional footer(s)]
 ```
+**Types**: feat, fix, docs, style, refactor, test, chore, ci
 
-**Types:**
-- `feat`: New feature
-- `fix`: Bug fix  
-- `docs`: Documentation changes
-- `style`: Code style changes (formatting, etc.)
-- `refactor`: Code refactoring
-- `perf`: Performance improvements
-- `test`: Test additions/modifications
-- `chore`: Build process, auxiliary tools
-- `ci`: CI/CD changes
-- `revert`: Revert previous commit
+**Examples**:
+- `feat(auth): implement JWT authentication`
+- `fix(billing): resolve renewal issue`
 
-**Examples:**
-```bash
-git commit -m "feat(auth): implement JWT token authentication"
-git commit -m "fix(billing): resolve subscription renewal issue"
-git commit -m "docs(api): add payment gateway documentation"
-```
+### Multi-Agent Development
+**18 Specialized Agents**:
+- **Platform**: architect (coordinator)
+- **Backend**: rails_architect, data_modeler, payment_specialist, billing_engine, api_developer, background_jobs, analytics
+- **Frontend**: react_architect, ui_components, dashboard, admin_panel  
+- **QA**: backend_test, frontend_test
+- **Ops**: devops, security, performance, notifications, docs
 
-### Version Tagging Protocol
-
-**MANDATORY TAGGING FOR RELEASES:**
-
-```bash
-# Create annotated tag for releases
-git tag -a v0.1.0 -m "Release version 0.1.0 - User Authentication System"
-
-# Push tags to origin
-git push origin --tags
-
-# List all tags
-git tag -l
-```
-
-**CRITICAL**: 
-- All commits MUST follow semantic versioning commit standards
-- All releases MUST be properly tagged with semantic version numbers
-- Git-Flow branching model is MANDATORY for all development
-
-### Multi-Agent Coordination
-The project uses a sophisticated agent-based development approach defined in `claude-swarm.yml` with 18 specialized agents organized in a hierarchical topology:
-
-**✅ VALIDATED AGENT STRUCTURE:**
-
-**Platform Orchestration:**
-- `platform_architect` - System oversight and coordination (main coordinator)
-
-**Backend Development (7 agents):**
-- `rails_architect` - Rails 8 API setup, configuration, architectural decisions
-- `data_modeler` - Database design, ActiveRecord models, subscription data layer
-- `payment_integration_specialist` - Stripe/PayPal integration, webhook processing
-- `billing_engine_developer` - Subscription lifecycles, proration, automated renewals
-- `api_developer` - RESTful endpoints, serialization, error handling
-- `background_job_engineer` - Sidekiq jobs, scheduling, worker management
-- `analytics_engineer` - Business intelligence, KPIs, reporting features
-
-**Frontend Development (4 agents):**
-- `react_architect` - TypeScript structure, routing, state management
-- `ui_component_developer` - Reusable components, responsive interfaces
-- `dashboard_specialist` - Interactive charts, reporting interfaces
-- `admin_panel_developer` - System management panels
-
-**Quality Assurance (2 agents):**
-- `backend_test_engineer` - RSpec tests, API testing, payment processing tests
-- `frontend_test_engineer` - Jest/Testing Library/Cypress, E2E tests
-
-**Infrastructure & Operations (4 agents):**
-- `devops_engineer` - CI/CD, deployment, monitoring, infrastructure automation
-- `security_specialist` - PCI compliance, security audits, data protection
-- `performance_optimizer` - Load testing, optimization, scalability planning
-- `notification_engineer` - Email, SMS, real-time communication systems
-- `documentation_specialist` - API docs, guides, technical writing
-
-**Swarm Capabilities:**
-- ✅ Hierarchical topology with 18-agent capacity
-- ✅ Memory management and persistence 
-- ✅ Task orchestration and workflow automation
-- ✅ GitHub integration for repository management
-- ✅ Neural pattern analysis and learning
-- ✅ Dynamic agent allocation and optimization
-
-## Key Implementation Patterns
+## Key Development Patterns
 
 ### Frontend Styling Standards
 
-**🚨 CRITICAL: Theme-Aware Component Styling Requirements 🚨**
+**CRITICAL: Theme-Aware Components**
 
-**MANDATORY PROTOCOL**: Every component creation or modification MUST include a comprehensive theme-aware styling audit.
+**MANDATORY**: All components must use theme-aware styling.
 
-All frontend components MUST adhere to these styling standards:
+#### Theme Requirements
+1. **NEVER** use hardcoded colors (`bg-red-500`, `text-blue-600`)
+2. **ALWAYS** use theme classes (`bg-theme-*`, `text-theme-*`)
+3. **AUDIT** existing components for hardcoded styles
+4. **TEST** in both light and dark themes
 
-#### **🎨 Mandatory Theme-Aware Styling Protocol**
-
-**ABSOLUTE REQUIREMENTS**:
-1. **ALWAYS** audit all existing styles for hardcoded colors before any modification
-2. **NEVER** use hardcoded Tailwind color classes (e.g., `bg-red-500`, `text-blue-600`, `border-green-200`)
-3. **ALWAYS** use theme-aware classes that automatically adapt to light/dark themes
-4. **MANDATORY** validation of theme compliance before component completion
-
-#### **🔍 Required Hardcoded Style Audit Process**
-
-**Before creating or modifying ANY component:**
-
-1. **Search for Hardcoded Colors**: Scan for patterns like:
-   ```typescript
-   // ❌ FORBIDDEN patterns to audit and replace:
-   'bg-red-50', 'text-green-600', 'border-blue-200'
-   'bg-yellow-100', 'text-gray-500', 'border-gray-300'
-   'bg-white', 'text-black', 'border-slate-200'
-   ```
-
-2. **Replace with Theme Classes**: Convert to theme-aware equivalents:
-   ```typescript
-   // ✅ REQUIRED theme-aware patterns:
-   'bg-theme-error-background', 'text-theme-success', 'border-theme-warning-border'
-   'bg-theme-surface', 'text-theme-primary', 'border-theme'
-   'bg-theme-background', 'text-theme-secondary', 'border-theme-focus'
-   ```
-
-3. **Validate Theme Compliance**: Ensure all colors use the theme system
-
-#### **🎯 Complete Theme Class Reference**
-
-**Status Colors (ALWAYS use these for status indicators):**
-- **Success States**:
-  - Text: `text-theme-success`
-  - Background: `bg-theme-success-background`
-  - Border: `border-theme-success-border`
-  - Solid: `bg-theme-success`
-
-- **Warning States**:
-  - Text: `text-theme-warning`
-  - Background: `bg-theme-warning-background`
-  - Border: `border-theme-warning-border`
-  - Solid: `bg-theme-warning`
-
-- **Error States**:
-  - Text: `text-theme-error`
-  - Background: `bg-theme-error-background`
-  - Border: `border-theme-error-border`
-  - Solid: `bg-theme-error`
-
-- **Info States**:
-  - Text: `text-theme-info`
-  - Background: `bg-theme-info-background`
-  - Border: `border-theme-info-border`
-  - Solid: `bg-theme-info`
-
-**Base Theme Colors (use for general UI elements):**
-- **Backgrounds**: `bg-theme-background`, `bg-theme-background-secondary`, `bg-theme-surface`
-- **Text Hierarchy**: `text-theme-primary`, `text-theme-secondary`, `text-theme-tertiary`
-- **Interactive Elements**: `bg-theme-interactive-primary`, `text-theme-link`, `text-theme-link-hover`
-- **Borders**: `border-theme`, `border-theme-focus`, `border-theme-light`
-- **States**: `hover:bg-theme-surface-hover`, `bg-theme-surface-pressed`, `bg-theme-surface-selected`
-
-#### **Theme Management**
-- **LOGGED OUT USERS**: ALWAYS use light theme only - theme switching is disabled
-- **LOGGED IN USERS**: Can switch between light and dark themes - preference is saved to user settings
-- **ThemeToggle Component**: Automatically hides when user is logged out
-- **Authentication State**: Theme context monitors authentication and forces light theme on logout
-
-#### **Responsive Design Patterns**
-- **ALWAYS** use responsive padding: `px-4 sm:px-6 lg:px-8` for consistent horizontal spacing
-- **ALWAYS** use responsive layout patterns for mobile-first design
-- **NEVER** use fixed padding values that break responsive consistency
-- **REQUIRED**: Test components at all breakpoints (mobile, tablet, desktop)
-
-#### **❌ FORBIDDEN Hardcoded Patterns**
+#### Forbidden vs Required Patterns
 ```typescript
-// ❌ NEVER use these hardcoded color patterns:
-'bg-red-50 text-red-700 border-red-200'      // Error states
-'bg-green-100 text-green-600 border-green-300'  // Success states  
-'bg-yellow-50 text-yellow-600'               // Warning states
-'bg-blue-100 text-blue-700'                  // Info states
-'bg-white text-gray-900 border-gray-300'     // General UI
-'bg-slate-50 text-slate-600'                 // Neutral states
-'bg-purple-100 text-purple-600'              // Accent colors
+// ❌ FORBIDDEN
+'bg-red-50', 'text-green-600', 'bg-white', 'text-black'
+
+// ✅ REQUIRED  
+'bg-theme-error-background', 'text-theme-success'
+'bg-theme-surface', 'text-theme-primary'
 ```
 
-#### **✅ REQUIRED Theme-Aware Patterns**
-```typescript
-// ✅ ALWAYS use these theme-aware patterns:
-'bg-theme-error-background text-theme-error border-theme-error-border'    // Error states
-'bg-theme-success-background text-theme-success border-theme-success-border'  // Success states
-'bg-theme-warning-background text-theme-warning border-theme-warning-border'  // Warning states
-'bg-theme-info-background text-theme-info border-theme-info-border'      // Info states
-'bg-theme-surface text-theme-primary border-theme'                       // General UI
-'bg-theme-background text-theme-secondary border-theme-light'            // Neutral states
-'bg-theme-interactive-primary text-white'                                // Interactive elements
+#### Theme Class Reference
+
+**Status Colors**:
+- Success: `text-theme-success`, `bg-theme-success-background`, `border-theme-success-border`
+- Warning: `text-theme-warning`, `bg-theme-warning-background`, `border-theme-warning-border`  
+- Error: `text-theme-error`, `bg-theme-error-background`, `border-theme-error-border`
+- Info: `text-theme-info`, `bg-theme-info-background`, `border-theme-info-border`
+
+**Base Colors**:
+- Backgrounds: `bg-theme-background`, `bg-theme-surface`
+- Text: `text-theme-primary`, `text-theme-secondary`, `text-theme-tertiary`
+- Interactive: `bg-theme-interactive-primary`, `text-theme-link`
+- Borders: `border-theme`, `border-theme-focus`
+
+#### Theme Management
+- **Logged out**: Light theme only
+- **Logged in**: User can toggle light/dark
+- **Responsive**: Use `px-4 sm:px-6 lg:px-8` patterns
+
+#### Standards
+- **Layout**: Headers use `h-16`, responsive padding `px-4 sm:px-6 lg:px-8`
+- **Accessibility**: ARIA labels, keyboard navigation, WCAG AA contrast
+- **Components**: Reusable with TypeScript interfaces
+- **Animations**: Standard durations (`duration-150/200/300`), respect `prefers-reduced-motion`
+
+#### Component Checklist
+1. **Color Audit**: No hardcoded colors (`bg-red-`, `text-blue-`, etc.)
+2. **Theme Testing**: Works in both light and dark themes
+3. **Responsive**: Test mobile/tablet/desktop breakpoints
+4. **Accessibility**: ARIA labels, keyboard nav, contrast ratios
+5. **Integration**: Harmonizes with existing components
+
+#### Theme Audit Commands
+```bash
+# Find hardcoded colors
+grep -r "bg-red-\|bg-green-\|bg-blue-\|bg-white\|text-black" frontend/src/
+
+# Verify theme usage
+grep -r "bg-theme-\|text-theme-" frontend/src/
 ```
 
-#### **Layout Consistency Standards**
-- **Header Components**: MUST use `h-16` height with responsive padding `px-4 sm:px-6 lg:px-8`
-- **Sidebar Components**: MUST align with header padding patterns for visual consistency
-- **Navigation Elements**: MUST use consistent spacing and alignment patterns
-- **Button Components**: MUST follow unified sizing and spacing conventions
-- **Form Elements**: MUST maintain consistent field heights and spacing
-
-#### **Accessibility Requirements**
-- **MANDATORY**: Proper ARIA labels and roles for all interactive elements
-- **REQUIRED**: Keyboard navigation support with visible focus indicators
-- **REQUIRED**: Color contrast ratios meeting WCAG AA standards
-- **REQUIRED**: Screen reader compatibility with semantic HTML structure
-
-#### **Component Architecture Standards**
-- **Reusability**: All UI components MUST be built as reusable with prop-based customization
-- **TypeScript**: MUST include comprehensive TypeScript interfaces for all props
-- **Documentation**: MUST include component usage examples and prop documentation
-- **Testing**: MUST include unit tests for component behavior and styling
-
-#### **Animation and Transitions**
-- **Consistency**: Use standardized transition durations (`duration-150`, `duration-200`, `duration-300`)
-- **Performance**: Prefer `transform` and `opacity` changes over layout-affecting animations
-- **Accessibility**: Respect `prefers-reduced-motion` for users with motion sensitivity
-
-#### **🔍 Mandatory Theme Audit Checklist**
-
-**REQUIRED before any component is considered complete:**
-
-1. **Hardcoded Color Audit**: 
-   - ✅ Search entire component for `bg-red-`, `text-blue-`, `border-green-`, etc.
-   - ✅ Replace ALL hardcoded color classes with theme-aware equivalents
-   - ✅ Verify no `bg-white`, `text-black`, `border-gray-` patterns remain
-   - ✅ Confirm all status indicators use theme status colors
-
-2. **Theme Switching Validation**:
-   - ✅ Test component in light theme - verify proper contrast and readability
-   - ✅ Test component in dark theme - verify proper contrast and readability  
-   - ✅ Verify theme switching works without page reload
-   - ✅ Confirm no colors appear broken or invisible in either theme
-
-3. **Visual Consistency Check**: 
-   - ✅ Compare with existing components for alignment and spacing
-   - ✅ Verify consistent use of theme color patterns across similar elements
-   - ✅ Ensure status colors match application-wide conventions
-
-4. **Responsive Testing**: 
-   - ✅ Test at mobile (375px), tablet (768px), and desktop (1024px+) breakpoints
-   - ✅ Verify theme classes work properly at all screen sizes
-   - ✅ Confirm responsive padding follows `px-4 sm:px-6 lg:px-8` pattern
-
-5. **Accessibility Audit**: 
-   - ✅ Validate ARIA labels, keyboard navigation, and color contrast
-   - ✅ Verify WCAG AA compliance in both light and dark themes
-   - ✅ Test with screen readers to ensure theme changes don't break accessibility
-
-6. **Cross-Component Integration**: 
-   - ✅ Ensure new components work harmoniously with existing layout
-   - ✅ Verify theme integration doesn't conflict with parent components
-   - ✅ Test component in various theme contexts (headers, modals, sidebars)
-
-#### **🚨 Critical Style Enforcement Rules**
-
-**ABSOLUTELY FORBIDDEN**:
-- ❌ **NEVER** create components with hardcoded color classes
-- ❌ **NEVER** use fixed color values that don't adapt to theme changes
-- ❌ **NEVER** merge code that fails theme audit checklist
-- ❌ **NEVER** skip theme validation testing
-
-**ABSOLUTELY REQUIRED**:
-- ✅ **ALWAYS** use the established theme system for ALL colors
-- ✅ **ALWAYS** validate theme compliance before component completion
-- ✅ **ALWAYS** test in both light and dark themes
-- ✅ **ALWAYS** audit existing components when modifying for hardcoded styles
-
-**MANDATORY PROCESS**:
-- 📝 **BEFORE** starting component work: Audit existing styles for hardcoded colors
-- 🔍 **DURING** component development: Use ONLY theme-aware classes
-- ✅ **AFTER** component completion: Complete full theme audit checklist
-- 🚀 **BEFORE** code submission: Verify theme switching works perfectly
-
-#### **⚠️ Component Rejection Criteria**
-
-**Components will be REJECTED if they contain:**
-- Any hardcoded Tailwind color classes (`bg-red-50`, `text-blue-600`, etc.)
-- Color values that don't adapt to theme changes
-- Inconsistent status color usage (mixing hardcoded and theme colors)
-- Missing theme validation testing
-- Accessibility issues in either light or dark theme
-
-#### **🎯 Theme Compliance Success Criteria**
-
-**Components are approved when:**
-- ✅ ALL colors use theme-aware classes
-- ✅ Perfect appearance in both light and dark themes
-- ✅ Consistent status color usage throughout
-- ✅ Proper contrast ratios in both themes (WCAG AA)
-- ✅ Seamless theme switching without visual glitches
-- ✅ Responsive behavior maintained across themes
-- ✅ Integration with existing theme system
-
-#### **🛠️ Automated Theme Auditing Tools**
-
-**Use these commands to audit and fix hardcoded styles:**
-
-1. **Search for Hardcoded Colors**:
-   ```bash
-   # Find all hardcoded color classes in components
-   grep -r "bg-red-\|bg-green-\|bg-blue-\|bg-yellow-\|bg-purple-\|bg-gray-\|bg-white\|text-red-\|text-green-\|text-blue-\|text-yellow-\|text-black\|text-gray-\|border-red-\|border-green-\|border-blue-\|border-yellow-\|border-gray-" frontend/src/components/ frontend/src/pages/
-   
-   # Search for specific forbidden patterns
-   grep -r "bg-.*-[0-9][0-9][0-9]" frontend/src/components/ frontend/src/pages/
-   grep -r "text-.*-[0-9][0-9][0-9]" frontend/src/components/ frontend/src/pages/
-   grep -r "border-.*-[0-9][0-9][0-9]" frontend/src/components/ frontend/src/pages/
-   ```
-
-2. **Validate Theme Class Usage**:
-   ```bash
-   # Verify theme classes are being used
-   grep -r "theme-success\|theme-warning\|theme-error\|theme-info" frontend/src/components/ frontend/src/pages/
-   grep -r "bg-theme-\|text-theme-\|border-theme-" frontend/src/components/ frontend/src/pages/
-   ```
-
-3. **Test Build with Theme Compliance**:
-   ```bash
-   # Ensure no theme-related TypeScript errors
-   npm run build
-   npm run typecheck
-   ```
-
-**MANDATORY USAGE**: Run these commands before submitting any component changes to ensure theme compliance.
-
-#### **📚 Theme Implementation Examples**
-
-**Status Badge Examples**:
+#### Example: Status Badge
 ```typescript
-// ✅ CORRECT: Theme-aware status badges
+// ✅ CORRECT
 const getStatusClasses = (status: string) => {
   switch (status) {
-    case 'success':
-      return 'bg-theme-success-background text-theme-success border-theme-success-border';
-    case 'warning': 
-      return 'bg-theme-warning-background text-theme-warning border-theme-warning-border';
-    case 'error':
-      return 'bg-theme-error-background text-theme-error border-theme-error-border';
-    default:
-      return 'bg-theme-surface text-theme-secondary border-theme';
+    case 'success': return 'bg-theme-success-background text-theme-success';
+    case 'error': return 'bg-theme-error-background text-theme-error';
+    default: return 'bg-theme-surface text-theme-secondary';
   }
 };
 
-// ❌ WRONG: Hardcoded colors
-const getStatusClasses = (status: string) => {
-  switch (status) {
-    case 'success':
-      return 'bg-green-100 text-green-700 border-green-200';  // ❌ FORBIDDEN
-    case 'warning':
-      return 'bg-yellow-100 text-yellow-700 border-yellow-200';  // ❌ FORBIDDEN
-    case 'error':
-      return 'bg-red-100 text-red-700 border-red-200';  // ❌ FORBIDDEN
-  }
-};
+// ❌ WRONG
+return 'bg-green-100 text-green-700';  // Hardcoded colors
 ```
 
-**Interactive Element Examples**:
-```typescript
-// ✅ CORRECT: Theme-aware interactive elements
-<button className="bg-theme-interactive-primary hover:bg-theme-interactive-primary-hover text-white px-4 py-2 rounded-lg transition-colors">
-  Submit
-</button>
+### API Service Pattern (MANDATORY)
 
-<div className="bg-theme-surface hover:bg-theme-surface-hover border border-theme rounded-lg p-4 cursor-pointer transition-colors">
-  Card Content
-</div>
-
-// ❌ WRONG: Hardcoded interactive colors
-<button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">  {/* ❌ FORBIDDEN */}
-  Submit  
-</button>
-```
-
-**Layout Examples**:
-```typescript
-// ✅ CORRECT: Theme-aware layouts
-<div className="bg-theme-background min-h-screen">
-  <header className="bg-theme-surface border-b border-theme px-4 sm:px-6 lg:px-8 h-16">
-    <h1 className="text-theme-primary text-xl font-semibold">Title</h1>
-  </header>
-  <main className="bg-theme-background-secondary">
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-6">
-      Content
-    </div>
-  </main>
-</div>
-
-// ❌ WRONG: Hardcoded layout colors  
-<div className="bg-gray-50 min-h-screen">  {/* ❌ FORBIDDEN */}
-  <header className="bg-white border-b border-gray-200 px-8 h-16">  {/* ❌ FORBIDDEN */}
-    <h1 className="text-gray-900 text-xl font-semibold">Title</h1>  {/* ❌ FORBIDDEN */}
-  </header>
-</div>
-```
-
-**These standards ensure visual coherence, accessibility, and maintainability across the entire frontend application while guaranteeing perfect theme compatibility.**
-
-## Key Implementation Patterns
-
-### API Service Development
-
-**🚨 CRITICAL: STANDARDIZED API SERVICE PATTERN - MANDATORY COMPLIANCE 🚨**
-
-**⚠️ BREAKING CHANGE**: All API services have been standardized. **ZERO EXCEPTIONS** allowed.
-
-#### **🔒 MANDATORY API SERVICE PATTERN**
-
-**SINGLE APPROVED PATTERN** (Based on audit of 22 services):
+**Standardized pattern for all API services:**
 
 ```typescript
 import { api } from './api';
 
-// Type definitions for this service
 export interface ServiceItem {
   id: string;
   name: string;
 }
 
-export interface CreateServiceItemRequest {
-  name: string;
-}
-
-// STANDARD PATTERN: Object-based export with direct API calls
 export const serviceNameApi = {
-  // GET collection
   async getItems(page = 1, perPage = 20): Promise<ServiceItem[]> {
-    const response = await api.get(`/service_items?page=${page}&per_page=${perPage}`);
+    const response = await api.get(`/items?page=${page}&per_page=${perPage}`);
     return response.data;
   },
 
-  // GET single item
   async getItem(id: string): Promise<ServiceItem> {
-    const response = await api.get(`/service_items/${id}`);
+    const response = await api.get(`/items/${id}`);
     return response.data;
   },
 
-  // POST create
-  async createItem(itemData: CreateServiceItemRequest): Promise<ServiceItem> {
-    const response = await api.post('/service_items', itemData);
+  async createItem(data: Partial<ServiceItem>): Promise<ServiceItem> {
+    const response = await api.post('/items', data);
     return response.data;
   },
 
-  // PUT update
-  async updateItem(id: string, itemData: Partial<ServiceItem>): Promise<ServiceItem> {
-    const response = await api.put(`/service_items/${id}`, itemData);
+  async updateItem(id: string, data: Partial<ServiceItem>): Promise<ServiceItem> {
+    const response = await api.put(`/items/${id}`, data);
     return response.data;
   },
 
-  // DELETE
   async deleteItem(id: string): Promise<void> {
-    await api.delete(`/service_items/${id}`);
+    await api.delete(`/items/${id}`);
   }
 };
 ```
 
-#### **📋 COMPLIANCE REQUIREMENTS - NO EXCEPTIONS**
+**Requirements:**
+- Import: `import { api } from './api'`
+- Export: `export const serviceNameApi = { ... }`
+- Direct API calls: `api.get()`, `api.post()`, etc.
+- Return: `response.data`
+- TypeScript: Proper interfaces and return types
 
-**✅ MANDATORY CHECKLIST FOR ALL API SERVICES:**
+### Security Requirements
+- **JWT Authentication**: 15min access tokens, 7-day refresh tokens, HMAC-SHA256
+- **Email Verification**: Required before login, time-limited tokens
+- **Password Security**: 12+ chars, complexity rules, history tracking, account lockout
+- **PCI Compliance**: Secure payment data handling
+- **Rate Limiting**: All endpoints protected
 
-1. **Import Pattern**: `import { api } from './api'` 
-   - ❌ **FORBIDDEN**: `import api from './api'`
-   - ❌ **FORBIDDEN**: `import apiClient from './api'`
+### Business Logic
+- **Subscriptions**: State machines, proration calculations, audit trails
+- **Payments**: Gateway integrations, retry logic, webhook handling
+- **Money Gem**: USD default, proper rounding, i18n formatting
 
-2. **Request Pattern**: Direct `api.get()`, `api.post()`, `api.put()`, `api.delete()`
-   - ❌ **FORBIDDEN**: Local `apiRequest` helper functions
-   - ❌ **FORBIDDEN**: Wrapper functions around API calls
+### Worker Service Architecture
 
-3. **Export Pattern**: `export const serviceNameApi = { ... }`
-   - ❌ **FORBIDDEN**: Class-based patterns with `new SomeApiService()`
-   - ❌ **FORBIDDEN**: Default exports
+**CRITICAL**: All background jobs in standalone worker service (`./worker`)
 
-4. **TypeScript**: All methods must have proper return types
-5. **Data Extraction**: Always return `response.data`
-6. **Error Handling**: Let API client interceptors handle errors
+#### Job Creation Rules
+- **Jobs Location**: `./worker/app/jobs/` (NOT in Rails backend)
+- **Communication**: API-only, no direct database access
+- **Backend Role**: Simple operations, enqueue jobs only
+- **Worker Role**: Complex operations (billing, emails, reports, analytics)
 
-#### **🚨 AUDIT RESULTS - 100% STANDARDIZATION ACHIEVED**
+#### Service Delegation
+- **Backend**: Simple calculations, validations, formatting
+- **Worker**: Complex operations (>100ms), external APIs, file generation
+- **MUST use worker**: Email, payments, reports, analytics
 
-**COMPLIANCE STATUS:**
-- ✅ **22/22 services** now use `import { api } from './api'`
-- ✅ **20/22 services** use direct `api.method()` calls (standard)
-- ✅ **2/22 services** using helper pattern converted to standard
-- ✅ **Template created**: `BASE_API_SERVICE_TEMPLATE.ts`
-
-#### **🛡️ ENFORCEMENT PROTOCOL**
-
-**AUTOMATIC REJECTION CRITERIA:**
-- Any service using non-standard import patterns
-- Any service creating local `apiRequest` helpers 
-- Any service using class-based exports
-- Any service deviating from the standard pattern
-
-**VALIDATION COMMAND:**
-```bash
-# Run before creating any new API service
-grep -l "import { api } from './api'" src/services/*Api.ts | wc -l
-# Must equal total number of API service files
-```
-
-#### **📚 REFERENCE IMPLEMENTATION**
-
-**Template Location**: `frontend/src/services/BASE_API_SERVICE_TEMPLATE.ts`
-**Exemplary Services**: `adminApi.ts`, `usersApi.ts`, `apiKeysApi.ts`
-
-#### **🚫 DEPRECATED PATTERNS (CONVERTED TO STANDARD)**
-
-- ~~Helper function pattern~~ → Direct API calls
-- ~~Class-based services~~ → Object-based exports  
-- ~~Default imports~~ → Named imports
-- ~~Renamed imports (apiClient)~~ → Standard api import
-
-**All new API services MUST follow the standard pattern. No exceptions.**
-
-### Payment Integration
-- Use service objects for payment gateway interactions
-- Implement comprehensive webhook handling for payment events
-- Store payment methods securely with PCI compliance considerations
-- Handle payment retries with exponential backoff
-- **Money Gem Configuration**: 
-  - Default currency set to USD (`Money.default_currency = "USD"`)
-  - Rounding mode configured (`Money.rounding_mode = BigDecimal::ROUND_HALF_UP`)
-  - I18n locale backend for proper formatting (`Money.locale_backend = :i18n`)
-
-### Subscription Management
-- Model subscription states as state machines
-- Implement proration calculations for mid-cycle changes
-- Use background jobs for automated renewal processing
-- Track subscription history for audit purposes
-
-### Security Considerations
-- **JWT Authentication**: Stateless token-based authentication for API access
-  - **Development Configuration**: Uses persistent JWT secret key to prevent token invalidation on server restart
-  - **Production Configuration**: Uses encrypted credentials for JWT secret key
-  - **Token Management**: Access tokens expire in 15 minutes, refresh tokens expire in 7 days
-  - **Token Blacklisting**: Implements token blacklisting on logout to prevent token reuse
-  - **Signature Verification**: All tokens verified with HMAC-SHA256 for security
-- **Email Verification Required**: Users must verify their email address before login is allowed
-  - Registration creates unverified accounts but login is blocked until email verification
-  - Email verification tokens must be time-limited and single-use
-  - Resend verification email functionality should be rate-limited
-- **Password Security**: Strong password complexity requirements enforced
-  - Minimum 12 characters length
-  - Must contain uppercase, lowercase, numbers, and special characters
-  - Password strength validation with entropy scoring
-  - Password history tracking to prevent reuse of last 12 passwords
-  - Account lockout after 5 failed attempts with exponential backoff
-  - Secure password reset with time-limited tokens
-- Rate limiting on all endpoints
-- PCI DSS compliance for payment data
-- Proper input validation and sanitization
-- Environment-specific configuration management
-
-### Background Jobs Architecture
-- **Standalone Worker Service**: Background jobs run as a separate worker service located in `./worker` directory with no direct database connectivity
-- **API-Only Communication**: All data access must go through the Rails API backend via HTTP requests using service-to-service authentication
-- **Sidekiq Processing**: Worker service uses Sidekiq 7+ with Puma-powered web interface for monitoring and management
-- **Web Interface Authentication**: Sidekiq web interface integrates with Rails backend authentication system via API calls
-- **Process Management**: **ALWAYS** use `$POWERNODE_ROOT/scripts/worker-manager.sh` - **NEVER** run `bundle exec sidekiq` manually
-- **Screen Session**: Worker runs in detached `powernode-worker` screen session for persistence and interactive access
-- **Environment Requirements**: 
-  - SERVICE_TOKEN must be configured in `.env` file
-  - Redis server must be accessible at configured REDIS_URL
-  - Backend API must be running and accessible for authentication
-
-#### **CRITICAL: Job Creation Protocol**
-- **All background jobs MUST be created in the standalone worker service (`./worker` directory)**
-- **NO jobs should be created in the Rails backend (`./server` directory)**
-- **Backend Role**: Rails API only enqueues jobs via `perform_later` calls
-- **Worker Role**: Standalone worker contains all job classes and processing logic
-- **Job Communication**: 
-  - Backend enqueues jobs with parameters/data
-  - Worker jobs make API calls back to Rails backend for data operations
-  - All database operations happen via authenticated API requests
-- **Job Structure**: Jobs in `./worker/app/jobs/` directory with API service integration
-- **Error Handling**: Failed jobs retry with exponential backoff, errors logged and reported via API
-
-#### **MANDATORY: Service Delegation Architecture**
-- **ALL COMPLEX SERVICES MUST DELEGATE TO WORKER SERVICE**
-- **Backend Services Role**: Simple synchronous operations only (calculations, validations, formatting)
-- **Worker Services Role**: Complex operations (PDF generation, analytics calculations, billing processing, payment handling, email delivery, report generation)
-- **Delegation Pattern**: Backend services enqueue jobs in worker service via `WorkerJobService`
-- **Service Migration**: All existing services migrated to use worker delegation:
-  - `BillingService` → `BillingWorkerService` 
-  - `PdfReportService` → `PdfReportWorkerService`
-  - `RevenueAnalyticsService` → `AnalyticsWorkerService`
-  - `PaymentProcessingService` → Integrated with `PaypalService` in worker
-- **Prohibited**: Creating new complex processing logic in backend services
-- **Required**: All CPU-intensive, I/O-heavy, or long-running operations must be performed by worker service
-
-#### **SERVICE DEVELOPMENT RULES**
-1. **Backend Services**: Only for immediate data needs, simple calculations, formatting, validation
-2. **Worker Services**: All complex business logic, external API calls, file operations, calculations requiring database aggregations
-3. **New Features**: Must evaluate if complexity requires worker delegation (default: YES for any operation taking >100ms)
-4. **Email/Notifications**: MUST be handled by worker service only
-5. **Reporting/Analytics**: MUST be handled by worker service only  
-6. **Payment Processing**: MUST be handled by worker service only
-7. **File Generation**: MUST be handled by worker service only
-
-#### **WORKER JOB EXAMPLES - CORRECT vs INCORRECT**
-
-**✅ CORRECT - BaseJob with Sidekiq syntax:**
+#### Worker Job Pattern
 ```ruby
-class Billing::RenewalJob < BaseJob
-  sidekiq_options queue: 'billing', retry: 3
+class SomeJob < BaseJob
+  sidekiq_options queue: 'default', retry: 3
 
-  def execute(subscription_id)
-    logger.info "Processing renewal for #{subscription_id}"
-    
-    # Use API client for data access
-    data = api_client.get("/api/v1/subscriptions/#{subscription_id}")
-    
-    # Use raw time calculations
-    next_date = Time.now + (30 * 24 * 60 * 60) # 30 days
-    
-    # Direct Redis for caching
-    Redis.current.setex("renewal:#{subscription_id}", 3600, data.to_json)
+  def execute(args)
+    # Use API client, not ActiveRecord
+    data = api_client.get("/api/v1/resource/#{args['id']}")
+    # Process...
   end
 end
 ```
 
-**❌ INCORRECT - Rails dependencies:**
-```ruby
-class Billing::RenewalJob < ApplicationJob  # ❌ Wrong base class
-  queue_as :billing  # ❌ Rails syntax
+**Requirements**:
+- Inherit from `BaseJob` (not `ApplicationJob`)
+- Use `execute` method (not `perform`)
+- Use `api_client` for data access
+- No Rails dependencies (`Rails.cache`, `Rails.logger`, etc.)
 
-  def perform(subscription_id)  # ❌ Rails method name
-    Rails.logger.info "Processing renewal"  # ❌ Rails logger
-    
-    subscription = Subscription.find(subscription_id)  # ❌ ActiveRecord
-    
-    next_date = 1.month.from_now  # ❌ Rails time helper
-    
-    Rails.cache.write(key, data, expires_in: 1.hour)  # ❌ Rails cache
-  end
-end
-```
-
-**ENQUEUING JOBS:**
-```ruby
-# ✅ CORRECT
-Billing::RenewalJob.perform_async('subscription_id' => '123')
-Billing::RenewalJob.perform_in(3600, 'subscription_id' => '123')
-
-# ❌ INCORRECT
-Billing::RenewalJob.perform_later(subscription_id: '123')  # Rails syntax
-Billing::RenewalJob.perform_async(subscription_id: '123')  # Symbol keys
-```
-
-#### **Job Development Workflow**
-1. **Creating Jobs**: Create job classes in `./worker/app/jobs/` directory (NOT in backend)
-2. **Creating Services**: Create worker services in `./worker/app/services/` directory (NOT in backend)
-3. **Enqueuing Jobs**: Backend controllers call `WorkerJobService` methods to enqueue
-4. **Job Implementation**: Jobs use `BackendApiClient` service for all data operations
-5. **Service Implementation**: Services inherit from `BaseWorkerService` for API integration
-6. **Testing**: Jobs and services tested independently with API mocking, not database fixtures
-7. **Deployment**: Worker service deployed separately from Rails backend
-8. **Monitoring**: Use Sidekiq web interface at `http://localhost:4567/sidekiq` for job monitoring
-- **Web Interface Access**: Available at `http://localhost:4567` and `http://[HOST_IP]:4567` for external access
-- **Job Processing**: Sidekiq workers make authenticated API calls to the main Rails 8 backend for all data operations
-- **Service Authentication**: Dedicated service-to-service authentication mechanism using secure tokens for worker-to-backend communication
-- **Complete API Isolation**: Worker agent has zero direct database or model access, relying entirely on HTTP API endpoints
-- **Scalability**: This architecture allows independent scaling of job processing and API backend components
+#### Worker Management
+- **Start**: `worker-manager.sh start` (creates screen session)
+- **Web Interface**: `worker-manager.sh start-web`
+- **Monitoring**: `http://localhost:4567/sidekiq`
+- **Authentication**: Service-to-service JWT tokens
+- **Scaling**: Independent from Rails backend
 
 ### Testing Strategy
-- Comprehensive model tests with FactoryBot (all factories fixed and validated)
-- **Factory Validation**: All FactoryBot factories use valid data instead of placeholder "MyString" values
-- **Money Gem Integration**: Tests properly handle Money objects and currency validation
-- **Association Testing**: Proper shoulda-matchers usage with correct subject declarations for complex validations
-- **One-to-One Relationship Testing**: Account-Subscription uniqueness validation at both application and database levels
-- **Password Security Testing**: Comprehensive test coverage for password requirements
-  - Password complexity validation tests
-  - Password strength scoring tests
-  - Account lockout behavior tests
-  - Password history and reuse prevention tests
-  - Password reset security flow tests
-- API endpoint testing with proper fixtures
-- Payment processing tests using VCR or stubs
-- **Test Status**: Major model tests now passing (AuditLog: 42/42, Plan: 38/38, Payment: 62/62, Account: 41/41)
-- Frontend component testing with Testing Library
-- E2E tests for critical user flows
+- **Backend**: RSpec with FactoryBot, shoulda-matchers, VCR for payments
+- **Frontend**: Jest, Testing Library, Cypress for E2E
+- **Models**: Money gem integration, association testing, security flows
+- **Status**: 203+ tests passing across key models
 
-## Development Phases
+## Project Status
 
-The project follows a structured 6-phase approach:
-1. **Backend Foundation** - Rails API setup, authentication, core models
-2. **Payment Integration** - Gateway integrations, billing logic, webhooks
-3. **Analytics & Reporting** - Business intelligence, KPI calculations
-4. **Frontend Development** - React app, customer/admin interfaces
-5. **Quality Assurance** - Comprehensive testing suite
-6. **DevOps & Production** - CI/CD, monitoring, performance optimization
+**Phase 1 - Backend Foundation**: ✅ COMPLETED
+- Rails 8 API with core models (Account, User, Subscription, Plan, etc.)
+- JWT authentication, UUIDv7 primary keys
+- Money gem configuration, state machines
+- 203+ tests passing, FactoryBot validated
+- Worker service architecture implemented
 
-## Important Notes
+**Current Phase**: Payment Integration - Stripe/PayPal, billing logic, webhooks
 
-- This is a greenfield project - no existing codebase yet
-- Prioritize security and PCI compliance from the start
-- Focus on scalable architecture for subscription growth
-- Implement comprehensive error handling and logging
-- Plan for multi-tenant capabilities if needed
-- Consider regulatory compliance (tax calculations, reporting)
+**Development Phases**:
+1. Backend Foundation ✅
+2. Payment Integration 🔄
+3. Analytics & Reporting
+4. Frontend Development  
+5. Quality Assurance
+6. DevOps & Production
 
-## Current Project Status
+**Focus**: Security-first, PCI compliance, scalable subscription platform
 
-**Phase 1 - Backend Foundation**: ✅ **COMPLETED**
-- Rails 8 API application fully set up in `./server` directory
-- Core models implemented: Account, User, Subscription, Plan, Invoice, Payment, AuditLog
-- **Account-Subscription One-to-One Relationship**: Implemented with validation and database constraints
-- Money gem properly configured with USD defaults and I18n localization
-- Authentication system with JWT tokens
-- Database schema with UUIDv7 primary keys
-- **Testing Suite**: Major model tests passing (203+ tests across key models)
-  - AuditLog: 42/42 tests ✅
-  - Plan: 38/38 tests ✅ 
-  - Payment: 62/62 tests ✅
-  - Account: 41/41 tests ✅
-  - Subscription: Uniqueness validation working ✅
-- **Factory Bot**: All factories validated and using proper test data
-- State machines implemented for subscriptions and payments
-- Multi-agent development approach defined in `claude-swarm.yml`
-- 17 specialized agents for different aspects of development
-- Payment gateway initializers configured (Stripe, PayPal)
+---
 
-**Next Phase**: Payment Integration - Gateway integrations, billing logic, webhooks
+**Always update TODO.md when tasks are completed.**
 
-- Always update TODO.md when tasks are completed or changes to CLAUDE.md are made.
-
-## Process Management Protocol for Claude Code
-
-**RECOMMENDED SCREEN-BASED SERVER MANAGEMENT:**
-
-Claude Code should use the modern screen-based individual manager scripts:
-
-1. **Automatic environment management (preferred)**:
-   ```bash
-   $POWERNODE_ROOT/scripts/auto-dev.sh ensure    # Start servers if needed
-   $POWERNODE_ROOT/scripts/auto-dev.sh status    # Check health
-   ```
-
-2. **Individual server control**:
-   ```bash
-   $POWERNODE_ROOT/scripts/backend-manager.sh start       # Start Rails in screen session
-   $POWERNODE_ROOT/scripts/worker-manager.sh start        # Start Sidekiq worker in screen session
-   $POWERNODE_ROOT/scripts/worker-manager.sh start-web    # Start worker web interface in separate screen session
-   $POWERNODE_ROOT/scripts/frontend-manager.sh start      # Start React in screen session
-   ```
-
-3. **Health checking and status**:
-   ```bash
-   $POWERNODE_ROOT/scripts/auto-dev.sh status           # Quick environment check
-   $POWERNODE_ROOT/scripts/backend-manager.sh status    # Detailed backend status
-   $POWERNODE_ROOT/scripts/worker-manager.sh status     # Detailed worker and web interface status
-   $POWERNODE_ROOT/scripts/frontend-manager.sh status   # Detailed frontend status
-   ```
-
-**Benefits of screen-based approach:**
-- **No timeout issues** - Clean detachment from Bash tool
-- **Reliable process management** - Comprehensive detection methods
-- **Interactive debugging** - Screen session attachment capabilities
-- **Persistent sessions** - Servers survive shell disconnection
-
-**This approach prevents:**
-- Bash tool timeout errors
-- Port conflicts (3000, 3001)
-- Resource conflicts
-- Orphaned background processes
-- Failed server startups
-
-**All development server management should use these screen-based scripts rather than direct Rails/NPM commands.**
-
-**External Access Configuration:**
-- All servers are configured to listen on 0.0.0.0 (all network interfaces)
-- Backend accessible at: `http://localhost:3000` and `http://[HOST_IP]:3000`
-- Worker web interface accessible at: `http://localhost:4567` and `http://[HOST_IP]:4567`
-- Sidekiq monitoring accessible at: `http://localhost:4567/sidekiq` and `http://[HOST_IP]:4567/sidekiq`
-- Frontend accessible at: `http://localhost:3001` and `http://[HOST_IP]:3001`
-- This enables access from remote machines, containers, and networks
-- WebSocket connections work with external IPs for real-time features
-
-## Screen-Based Server Management
-
-**RESOLVED**: Both backend and frontend server timeout issues have been resolved by switching from tmux to GNU screen.
-
-**Backend Server Management**:
-- `$POWERNODE_ROOT/scripts/backend-manager.sh start` - starts Rails in screen session 'powernode-backend' (no timeout)
-- `$POWERNODE_ROOT/scripts/backend-manager.sh status` - check server health and running status
-- `$POWERNODE_ROOT/scripts/backend-manager.sh screen` - attach to interactive screen session
-- `$POWERNODE_ROOT/scripts/backend-manager.sh logs` - view server logs
-
-**Frontend Server Management**:
-- `$POWERNODE_ROOT/scripts/frontend-manager.sh start` - starts React in screen session 'powernode-frontend' (no timeout)
-- `$POWERNODE_ROOT/scripts/frontend-manager.sh status` - check server health and running status  
-- `$POWERNODE_ROOT/scripts/frontend-manager.sh screen` - attach to interactive screen session
-- `$POWERNODE_ROOT/scripts/frontend-manager.sh logs` - view server logs
-
-**Solution**: Screen sessions detach more cleanly from the Bash tool, eliminating the timeout issues that affected all tmux-based approaches for both Rails and React server startup. Both servers now use consistent screen-based process management.
-
-## Worker Service Architecture
-
-**IMPLEMENTED**: Standalone worker service with complete job migration from backend server.
-
-**Background Job Processing**:
-- **Location**: `./worker` directory - completely separate from Rails backend
-- **Architecture**: API-only connectivity - zero direct database access
-- **Communication**: All data operations via HTTP requests to Rails backend
-- **Authentication**: Service-to-service JWT token authentication
-- **Process Management**: Screen-based with `$POWERNODE_ROOT/scripts/worker-manager.sh`
-
-**Migrated Job Classes**:
-- **Backend Jobs Removed**: All `server/app/jobs/*.rb` files migrated to worker service
-- **Billing Jobs**: `worker/app/jobs/billing/` (automation, retry, lifecycle, cleanup, scheduler)  
-- **Report Jobs**: `worker/app/jobs/reports/` (generation, scheduled reports)
-- **Webhook Jobs**: `worker/app/jobs/webhooks/` (Stripe, PayPal processing)
-- **Analytics Jobs**: `worker/app/jobs/analytics/` (revenue snapshots, recalculation)
-
-### **CRITICAL: Worker Job Development Requirements**
-
-**MANDATORY: NO RAILS DEPENDENCIES**
-- **FORBIDDEN**: `Rails.logger`, `Rails.cache`, `Rails.root`, `Rails.env`, `ActiveRecord`
-- **FORBIDDEN**: `ApplicationJob`, `perform_later`, `queue_as`
-- **FORBIDDEN**: `Time.current`, `Date.current`, `1.day.ago`, `1.month.from_now` (Rails time helpers)
-- **REQUIRED**: Use `Time.now`, `Date.today`, raw seconds calculations
-- **REQUIRED**: Use `logger` method from BaseJob, not `Rails.logger`
-
-**MANDATORY: BASEJOB INHERITANCE**
-- **ALL jobs MUST inherit from `BaseJob`**, never `ApplicationJob` or `BaseWorker`
-- **Job Methods**: Use `def execute(...)` not `def perform(...)`
-- **Sidekiq Configuration**: Use `sidekiq_options queue: 'name'` not `queue_as :name`
-
-**MANDATORY: SIDEKIQ SYNTAX**
-- **Enqueuing**: Use `perform_async(args)` not `perform_later(args)`
-- **Delayed Jobs**: Use `perform_in(delay, args)` or `perform_at(time, args)`
-- **Job Arguments**: Must be JSON-serializable (strings, not symbols)
-
-**MANDATORY: REDIS COMPATIBILITY**
-- **Cache Operations**: Use direct Redis calls via `Redis.current`
-- **NO Rails.cache**: Replace with `Redis.current.get()` / `Redis.current.setex()`
-- **Expiry Format**: Use seconds (integer), not Rails time objects
-
-**MANDATORY: API-ONLY DATA ACCESS**
-- **NO Database Models**: All data via `BackendApiClient` HTTP requests
-- **NO ActiveRecord**: All database operations through Rails API endpoints
-- **Authentication**: All API calls use service-to-service tokens
-
-**Backend Integration**:
-- **WorkerJobService**: Rails service for enqueueing jobs in worker service via HTTP
-- **Job API**: Worker exposes `/api/v1/jobs` endpoint for receiving job requests
-- **Enhanced Routes**: Backend API extended with worker service endpoints
-- **Legacy Prevention**: ApplicationJob warns about deprecated usage
-
-**Worker Management**:
-- **Start Worker**: `$POWERNODE_ROOT/scripts/worker-manager.sh start` - starts worker service only
-- **Start Web Interface**: `$POWERNODE_ROOT/scripts/worker-manager.sh start-web` - starts Sidekiq web interface in dedicated screen session
-- **Combined Status**: `$POWERNODE_ROOT/scripts/worker-manager.sh status` - comprehensive health check for both worker and web interface
-- **Sidekiq Web**: `http://localhost:4567/sidekiq` - authenticated monitoring interface with user email/password login
-- **Worker Screen Session**: `$POWERNODE_ROOT/scripts/worker-manager.sh screen` - attach to worker interactive session
-- **Web Screen Session**: `$POWERNODE_ROOT/scripts/worker-manager.sh web-screen` - attach to web interface interactive session
-- **Stop Web Only**: `$POWERNODE_ROOT/scripts/worker-manager.sh stop-web` - stops web interface while leaving worker running
-
-**CRITICAL: Worker Web Interface Management Protocol**:
-- **ALWAYS use `$POWERNODE_ROOT/scripts/worker-manager.sh`** for ALL worker web interface operations
-- **NEVER run `bundle exec rackup` or `puma` directly** for the web interface
-- **NEVER start worker-web manually** - always use the dedicated management script
-- **Required for proper**: Process management, environment loading, screen session handling, and graceful shutdown
-- **Authentication**: Web interface requires user email/password authentication with account validation
-- **Session Management**: Proper JWT session tokens with 8-hour expiration
-- **Process Isolation**: Web interface runs in separate `powernode-worker-web` screen session
-
-**Key Benefits**:
-- ✅ **Independent Scaling**: Worker service scales separately from Rails API
-- ✅ **Fault Isolation**: Worker failures don't affect API availability  
-- ✅ **Technology Independence**: Worker can use different Rails/Ruby versions
-- ✅ **Enhanced Monitoring**: Dedicated Sidekiq web interface with custom auth
-- ✅ **Service Authentication**: Secure token-based inter-service communication
