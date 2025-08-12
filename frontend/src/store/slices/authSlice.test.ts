@@ -73,6 +73,14 @@ describe('authSlice', () => {
         resendingVerification: false,
         resendVerificationSuccess: false,
         resendCooldown: 0,
+        impersonation: {
+          isImpersonating: false,
+          originalUser: null,
+          impersonatedUser: null,
+          sessionId: null,
+          startedAt: null,
+          expiresAt: null,
+        },
       });
     });
 
