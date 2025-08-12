@@ -1,4 +1,4 @@
-import apiClient from './api';
+import { api } from './api';
 
 export interface Invitation {
   id: string;
@@ -37,7 +37,7 @@ class InvitationsApi {
         ? `/api/v1/accounts/${accountId}/invitations`
         : '/api/v1/invitations';
       
-      const response = await apiClient.get(url);
+      const response = await api.get(url);
       return {
         success: true,
         data: response.data
@@ -61,7 +61,7 @@ class InvitationsApi {
         ? `/api/v1/accounts/${accountId}/invitations`
         : '/api/v1/invitations';
         
-      const response = await apiClient.post(url, request);
+      const response = await api.post(url, request);
       return {
         success: true,
         data: response.data,
@@ -82,7 +82,7 @@ class InvitationsApi {
    */
   async resendInvitation(invitationId: string): Promise<ApiResponse<Invitation>> {
     try {
-      const response = await apiClient.post(`/api/v1/invitations/${invitationId}/resend`);
+      const response = await api.post(`/api/v1/invitations/${invitationId}/resend`);
       return {
         success: true,
         data: response.data,
@@ -103,7 +103,7 @@ class InvitationsApi {
    */
   async cancelInvitation(invitationId: string): Promise<ApiResponse<boolean>> {
     try {
-      await apiClient.delete(`/api/v1/invitations/${invitationId}`);
+      await api.delete(`/api/v1/invitations/${invitationId}`);
       return {
         success: true,
         data: true,
@@ -129,7 +129,7 @@ class InvitationsApi {
     password_confirmation: string;
   }): Promise<ApiResponse<any>> {
     try {
-      const response = await apiClient.post(`/api/v1/invitations/${token}/accept`, userData);
+      const response = await api.post(`/api/v1/invitations/${token}/accept`, userData);
       return {
         success: true,
         data: response.data,
@@ -150,7 +150,7 @@ class InvitationsApi {
    */
   async getInvitationByToken(token: string): Promise<ApiResponse<Invitation>> {
     try {
-      const response = await apiClient.get(`/api/v1/invitations/${token}`);
+      const response = await api.get(`/api/v1/invitations/${token}`);
       return {
         success: true,
         data: response.data
@@ -170,7 +170,7 @@ class InvitationsApi {
    */
   async updateInvitationRole(invitationId: string, role: string): Promise<ApiResponse<Invitation>> {
     try {
-      const response = await apiClient.patch(`/api/v1/invitations/${invitationId}`, { role });
+      const response = await api.patch(`/api/v1/invitations/${invitationId}`, { role });
       return {
         success: true,
         data: response.data,
