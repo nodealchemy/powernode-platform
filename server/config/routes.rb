@@ -22,6 +22,19 @@ Rails.application.routes.draw do
         post "forgot-password", to: "passwords#forgot"
         post "reset-password", to: "passwords#reset"
         put "change-password", to: "passwords#change"
+        post "verify-2fa", to: "sessions#verify_2fa"
+      end
+
+      # Two-Factor Authentication endpoints (require authentication)
+      resource :two_factor, only: [] do
+        collection do
+          post :enable
+          post :verify_setup
+          delete :disable
+          get :status
+          post :regenerate_backup_codes
+          get :backup_codes
+        end
       end
 
       # Protected resources (will be added later)
@@ -183,6 +196,7 @@ Rails.application.routes.draw do
       # Impersonation endpoints (admin only)
       resources :impersonations, only: [:index, :create, :destroy] do
         collection do
+          delete '/', to: 'impersonations#destroy'
           get :history
           get :users, to: 'impersonations#impersonatable_users'
           post :validate, to: 'impersonations#validate_token'
@@ -203,12 +217,15 @@ Rails.application.routes.draw do
         member do
           post :test
           post :toggle_status
+          post :health_test
         end
         collection do
           get :available_events, to: 'webhooks#available_events'
           get :deliveries, to: 'webhooks#delivery_history'
           get :stats
           post :retry_failed
+          get :health, to: 'webhooks#health_check'
+          get 'health/stats', to: 'webhooks#health_stats'
         end
       end
 
