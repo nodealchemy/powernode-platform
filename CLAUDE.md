@@ -294,6 +294,226 @@ cd "$(git rev-parse --show-toplevel 2>/dev/null || echo .)"
 - **Money Gem**: Configured with USD default currency and proper localization (see `config/initializers/money.rb`)
 - **Background Jobs**: Standalone worker agent approach - see Background Jobs Architecture section below
 
+### Git Commit Workflow
+
+**CRITICAL: Pre-Commit Cleanup Protocol**
+
+Claude **MUST** perform comprehensive cleanup before any git commit:
+
+#### **MANDATORY Pre-Commit Steps (Execute in Order)**
+
+1. **System Cleanup**:
+   ```bash
+   # Clean up temporary files and artifacts
+   find . -name "*.tmp" -type f -delete 2>/dev/null || true
+   find . -name "*.log" -path "*/tmp/*" -type f -delete 2>/dev/null || true
+   find . -name ".DS_Store" -type f -delete 2>/dev/null || true
+   find . -name "Thumbs.db" -type f -delete 2>/dev/null || true
+   find . -name "*.swp" -type f -delete 2>/dev/null || true
+   find . -name "*.swo" -type f -delete 2>/dev/null || true
+   find . -name "*~" -type f -delete 2>/dev/null || true
+   ```
+
+2. **Node.js/NPM Cleanup** (Frontend):
+   ```bash
+   cd frontend
+   # Remove temporary build artifacts
+   rm -rf .next/ dist/ build/ coverage/ .nyc_output/ 2>/dev/null || true
+   # Clean package manager artifacts
+   rm -rf node_modules/.cache/ 2>/dev/null || true
+   rm -f npm-debug.log* yarn-error.log* 2>/dev/null || true
+   cd ..
+   ```
+
+3. **Ruby/Rails Cleanup** (Backend):
+   ```bash
+   cd server
+   # Remove Rails temporary files
+   rm -rf tmp/cache/ tmp/pids/ tmp/sessions/ tmp/sockets/ 2>/dev/null || true
+   # Remove test coverage artifacts
+   rm -rf coverage/ 2>/dev/null || true
+   # Remove log files (keep structure, clear contents)
+   find log/ -name "*.log" -type f -exec truncate -s 0 {} \; 2>/dev/null || true
+   cd ..
+   ```
+
+4. **Worker Service Cleanup**:
+   ```bash
+   cd worker
+   rm -rf tmp/ coverage/ 2>/dev/null || true
+   find log/ -name "*.log" -type f -exec truncate -s 0 {} \; 2>/dev/null || true
+   cd ..
+   ```
+
+5. **General Project Cleanup**:
+   ```bash
+   # Remove editor/IDE temporary files
+   find . -name ".vscode" -type d -path "*/tmp/*" -exec rm -rf {} \; 2>/dev/null || true
+   find . -name ".idea" -type d -path "*/tmp/*" -exec rm -rf {} \; 2>/dev/null || true
+   # Remove OS-specific files
+   find . -name "*.orig" -type f -delete 2>/dev/null || true
+   find . -name "*.rej" -type f -delete 2>/dev/null || true
+   ```
+
+6. **Git Status Verification**:
+   ```bash
+   # Show final status before commit
+   git status --porcelain
+   git diff --cached --stat
+   ```
+
+#### **Pre-Commit Automation Script**
+
+Claude should use this command sequence before every commit:
+
+```bash
+# Quick cleanup command (single line)
+find . -name "*.tmp" -o -name ".DS_Store" -o -name "Thumbs.db" -o -name "*.swp" -o -name "*.swo" -o -name "*~" | xargs rm -f 2>/dev/null; cd frontend && rm -rf .next/ dist/ build/ coverage/ .nyc_output/ node_modules/.cache/ && cd ../server && rm -rf tmp/cache/ tmp/pids/ tmp/sessions/ tmp/sockets/ coverage/ && find log/ -name "*.log" -exec truncate -s 0 {} \; 2>/dev/null; cd ../worker && rm -rf tmp/ coverage/ && find log/ -name "*.log" -exec truncate -s 0 {} \; 2>/dev/null; cd .. && git status --porcelain
+```
+
+#### **Commit Requirements**
+
+- **NEVER commit without cleanup**: Cleanup is mandatory, not optional
+- **Verify clean state**: Always run `git status` after cleanup to confirm
+- **Log truncation**: Clear log files but preserve directory structure
+- **Preserve gitignored files**: Only clean files that should not be committed
+- **Error handling**: Use `2>/dev/null || true` to prevent cleanup failures from blocking commits
+- **Cross-platform compatibility**: Commands work on Linux, macOS, and Windows (with appropriate shell)
+
+#### **Integration with Commit Workflow**
+
+Every git commit MUST follow this pattern:
+1. Complete development work
+2. **Run mandatory cleanup** (above steps)
+3. Run tests and linting if available
+4. Stage changes with `git add`
+5. Commit with descriptive message
+6. Push if requested
+
+**Example Complete Commit Workflow**:
+```bash
+# 1. Complete development work
+# 2. MANDATORY: Run cleanup
+find . -name "*.tmp" -o -name ".DS_Store" -o -name "Thumbs.db" -o -name "*.swp" -o -name "*.swo" -o -name "*~" | xargs rm -f 2>/dev/null; cd frontend && rm -rf .next/ dist/ build/ coverage/ .nyc_output/ node_modules/.cache/ && cd ../server && rm -rf tmp/cache/ tmp/pids/ tmp/sessions/ tmp/sockets/ coverage/ && find log/ -name "*.log" -exec truncate -s 0 {} \; 2>/dev/null; cd ../worker && rm -rf tmp/ coverage/ && find log/ -name "*.log" -exec truncate -s 0 {} \; 2>/dev/null; cd .. && git status --porcelain
+
+# 3. Test and lint (if applicable)
+# 4. Stage and commit
+git add .
+git commit -m "Your descriptive commit message"
+# 5. Push if requested
+git push
+```
+
+## Version Management and Git-Flow
+
+**PROJECT VERSIONING:**
+
+- **Current Version**: `0.0.1-dev` (develop branch)
+- **Versioning System**: Semantic Versioning (SemVer) - `MAJOR.MINOR.PATCH`
+- **Git Workflow**: Git-Flow branching model
+
+### Semantic Versioning (SemVer) Rules
+
+**Version Format**: `MAJOR.MINOR.PATCH[-PRE_RELEASE][+BUILD_METADATA]`
+
+- **MAJOR**: Breaking changes, incompatible API changes
+- **MINOR**: New features, backwards-compatible functionality
+- **PATCH**: Bug fixes, backwards-compatible patches
+- **PRE-RELEASE**: `-alpha`, `-beta`, `-rc.1`, `-dev`
+- **BUILD**: `+build.123`, `+20230815`
+
+**Version Increment Examples:**
+- `0.0.1` → `0.0.2` (patch: bug fixes)
+- `0.0.2` → `0.1.0` (minor: new features)
+- `0.1.0` → `1.0.0` (major: breaking changes)
+- `0.1.0-dev` → `0.1.0-alpha.1` → `0.1.0-beta.1` → `0.1.0-rc.1` → `0.1.0`
+
+### Git-Flow Branching Model
+
+**MANDATORY BRANCH STRUCTURE:**
+
+1. **main**: Production-ready releases only (`v0.1.0`, `v1.0.0`)
+2. **develop**: Integration branch for features (`0.0.1-dev`)
+3. **feature/***: New feature development (`feature/user-auth`, `feature/billing`)
+4. **release/***: Release preparation (`release/0.1.0`)
+5. **hotfix/***: Critical production fixes (`hotfix/security-patch`)
+
+**Git-Flow Commands:**
+
+```bash
+# Initialize git-flow (run once)
+git flow init
+
+# Start new feature
+git flow feature start user-authentication
+
+# Finish feature (merges to develop)
+git flow feature finish user-authentication
+
+# Start release
+git flow release start 0.1.0
+
+# Finish release (merges to main and develop, creates tag)
+git flow release finish 0.1.0
+
+# Start hotfix from main
+git flow hotfix start security-fix
+
+# Finish hotfix (merges to main and develop)
+git flow hotfix finish security-fix
+```
+
+### Commit Message Standards
+
+**MANDATORY COMMIT FORMAT (Conventional Commits):**
+
+```
+<type>(<scope>): <description>
+
+[optional body]
+
+[optional footer(s)]
+```
+
+**Types:**
+- `feat`: New feature
+- `fix`: Bug fix  
+- `docs`: Documentation changes
+- `style`: Code style changes (formatting, etc.)
+- `refactor`: Code refactoring
+- `perf`: Performance improvements
+- `test`: Test additions/modifications
+- `chore`: Build process, auxiliary tools
+- `ci`: CI/CD changes
+- `revert`: Revert previous commit
+
+**Examples:**
+```bash
+git commit -m "feat(auth): implement JWT token authentication"
+git commit -m "fix(billing): resolve subscription renewal issue"
+git commit -m "docs(api): add payment gateway documentation"
+```
+
+### Version Tagging Protocol
+
+**MANDATORY TAGGING FOR RELEASES:**
+
+```bash
+# Create annotated tag for releases
+git tag -a v0.1.0 -m "Release version 0.1.0 - User Authentication System"
+
+# Push tags to origin
+git push origin --tags
+
+# List all tags
+git tag -l
+```
+
+**CRITICAL**: 
+- All commits MUST follow semantic versioning commit standards
+- All releases MUST be properly tagged with semantic version numbers
+- Git-Flow branching model is MANDATORY for all development
+
 ### Multi-Agent Coordination
 The project uses a sophisticated agent-based development approach defined in `claude-swarm.yml` with 18 specialized agents organized in a hierarchical topology:
 
@@ -340,9 +560,75 @@ The project uses a sophisticated agent-based development approach defined in `cl
 
 ### Frontend Styling Standards
 
-**CRITICAL: Consistent Component Styling Requirements**
+**🚨 CRITICAL: Theme-Aware Component Styling Requirements 🚨**
+
+**MANDATORY PROTOCOL**: Every component creation or modification MUST include a comprehensive theme-aware styling audit.
 
 All frontend components MUST adhere to these styling standards:
+
+#### **🎨 Mandatory Theme-Aware Styling Protocol**
+
+**ABSOLUTE REQUIREMENTS**:
+1. **ALWAYS** audit all existing styles for hardcoded colors before any modification
+2. **NEVER** use hardcoded Tailwind color classes (e.g., `bg-red-500`, `text-blue-600`, `border-green-200`)
+3. **ALWAYS** use theme-aware classes that automatically adapt to light/dark themes
+4. **MANDATORY** validation of theme compliance before component completion
+
+#### **🔍 Required Hardcoded Style Audit Process**
+
+**Before creating or modifying ANY component:**
+
+1. **Search for Hardcoded Colors**: Scan for patterns like:
+   ```typescript
+   // ❌ FORBIDDEN patterns to audit and replace:
+   'bg-red-50', 'text-green-600', 'border-blue-200'
+   'bg-yellow-100', 'text-gray-500', 'border-gray-300'
+   'bg-white', 'text-black', 'border-slate-200'
+   ```
+
+2. **Replace with Theme Classes**: Convert to theme-aware equivalents:
+   ```typescript
+   // ✅ REQUIRED theme-aware patterns:
+   'bg-theme-error-background', 'text-theme-success', 'border-theme-warning-border'
+   'bg-theme-surface', 'text-theme-primary', 'border-theme'
+   'bg-theme-background', 'text-theme-secondary', 'border-theme-focus'
+   ```
+
+3. **Validate Theme Compliance**: Ensure all colors use the theme system
+
+#### **🎯 Complete Theme Class Reference**
+
+**Status Colors (ALWAYS use these for status indicators):**
+- **Success States**:
+  - Text: `text-theme-success`
+  - Background: `bg-theme-success-background`
+  - Border: `border-theme-success-border`
+  - Solid: `bg-theme-success`
+
+- **Warning States**:
+  - Text: `text-theme-warning`
+  - Background: `bg-theme-warning-background`
+  - Border: `border-theme-warning-border`
+  - Solid: `bg-theme-warning`
+
+- **Error States**:
+  - Text: `text-theme-error`
+  - Background: `bg-theme-error-background`
+  - Border: `border-theme-error-border`
+  - Solid: `bg-theme-error`
+
+- **Info States**:
+  - Text: `text-theme-info`
+  - Background: `bg-theme-info-background`
+  - Border: `border-theme-info-border`
+  - Solid: `bg-theme-info`
+
+**Base Theme Colors (use for general UI elements):**
+- **Backgrounds**: `bg-theme-background`, `bg-theme-background-secondary`, `bg-theme-surface`
+- **Text Hierarchy**: `text-theme-primary`, `text-theme-secondary`, `text-theme-tertiary`
+- **Interactive Elements**: `bg-theme-interactive-primary`, `text-theme-link`, `text-theme-link-hover`
+- **Borders**: `border-theme`, `border-theme-focus`, `border-theme-light`
+- **States**: `hover:bg-theme-surface-hover`, `bg-theme-surface-pressed`, `bg-theme-surface-selected`
 
 #### **Theme Management**
 - **LOGGED OUT USERS**: ALWAYS use light theme only - theme switching is disabled
@@ -356,15 +642,29 @@ All frontend components MUST adhere to these styling standards:
 - **NEVER** use fixed padding values that break responsive consistency
 - **REQUIRED**: Test components at all breakpoints (mobile, tablet, desktop)
 
-#### **Theme System Integration**
-- **MANDATORY**: Use theme-aware classes for all colors and surfaces
-  - Background: `bg-theme-surface`, `bg-theme-background`
-  - Text: `text-theme-primary`, `text-theme-secondary`, `text-theme-tertiary`
-  - Interactive: `text-theme-link`, `bg-theme-interactive-primary`
-  - Borders: `border-theme`, `border-theme-focus`
-  - Hover states: `hover:bg-theme-surface-hover`, `hover:text-theme-primary`
-- **FORBIDDEN**: Direct color classes like `bg-white`, `text-gray-500`, `border-gray-300`
-- **REQUIRED**: Support both light and dark theme modes
+#### **❌ FORBIDDEN Hardcoded Patterns**
+```typescript
+// ❌ NEVER use these hardcoded color patterns:
+'bg-red-50 text-red-700 border-red-200'      // Error states
+'bg-green-100 text-green-600 border-green-300'  // Success states  
+'bg-yellow-50 text-yellow-600'               // Warning states
+'bg-blue-100 text-blue-700'                  // Info states
+'bg-white text-gray-900 border-gray-300'     // General UI
+'bg-slate-50 text-slate-600'                 // Neutral states
+'bg-purple-100 text-purple-600'              // Accent colors
+```
+
+#### **✅ REQUIRED Theme-Aware Patterns**
+```typescript
+// ✅ ALWAYS use these theme-aware patterns:
+'bg-theme-error-background text-theme-error border-theme-error-border'    // Error states
+'bg-theme-success-background text-theme-success border-theme-success-border'  // Success states
+'bg-theme-warning-background text-theme-warning border-theme-warning-border'  // Warning states
+'bg-theme-info-background text-theme-info border-theme-info-border'      // Info states
+'bg-theme-surface text-theme-primary border-theme'                       // General UI
+'bg-theme-background text-theme-secondary border-theme-light'            // Neutral states
+'bg-theme-interactive-primary text-white'                                // Interactive elements
+```
 
 #### **Layout Consistency Standards**
 - **Header Components**: MUST use `h-16` height with responsive padding `px-4 sm:px-6 lg:px-8`
@@ -390,24 +690,299 @@ All frontend components MUST adhere to these styling standards:
 - **Performance**: Prefer `transform` and `opacity` changes over layout-affecting animations
 - **Accessibility**: Respect `prefers-reduced-motion` for users with motion sensitivity
 
-#### **Quality Assurance Protocol**
-Before any component is considered complete:
+#### **🔍 Mandatory Theme Audit Checklist**
 
-1. **Visual Consistency Check**: Compare with existing components for alignment and spacing
-2. **Theme Testing**: Verify appearance in both light and dark themes
-3. **Responsive Testing**: Test at mobile (375px), tablet (768px), and desktop (1024px+) breakpoints
-4. **Accessibility Audit**: Validate ARIA labels, keyboard navigation, and color contrast
-5. **Cross-Component Integration**: Ensure new components work harmoniously with existing layout
+**REQUIRED before any component is considered complete:**
 
-#### **Style Enforcement Rules**
-- **NEVER** create components with hardcoded colors or fixed dimensions
-- **ALWAYS** use the established theme system and responsive patterns
-- **REQUIRED**: Update this documentation when introducing new styling patterns
-- **MANDATORY**: Code review must verify styling consistency before merge
+1. **Hardcoded Color Audit**: 
+   - ✅ Search entire component for `bg-red-`, `text-blue-`, `border-green-`, etc.
+   - ✅ Replace ALL hardcoded color classes with theme-aware equivalents
+   - ✅ Verify no `bg-white`, `text-black`, `border-gray-` patterns remain
+   - ✅ Confirm all status indicators use theme status colors
 
-**These standards ensure visual coherence, accessibility, and maintainability across the entire frontend application.**
+2. **Theme Switching Validation**:
+   - ✅ Test component in light theme - verify proper contrast and readability
+   - ✅ Test component in dark theme - verify proper contrast and readability  
+   - ✅ Verify theme switching works without page reload
+   - ✅ Confirm no colors appear broken or invisible in either theme
+
+3. **Visual Consistency Check**: 
+   - ✅ Compare with existing components for alignment and spacing
+   - ✅ Verify consistent use of theme color patterns across similar elements
+   - ✅ Ensure status colors match application-wide conventions
+
+4. **Responsive Testing**: 
+   - ✅ Test at mobile (375px), tablet (768px), and desktop (1024px+) breakpoints
+   - ✅ Verify theme classes work properly at all screen sizes
+   - ✅ Confirm responsive padding follows `px-4 sm:px-6 lg:px-8` pattern
+
+5. **Accessibility Audit**: 
+   - ✅ Validate ARIA labels, keyboard navigation, and color contrast
+   - ✅ Verify WCAG AA compliance in both light and dark themes
+   - ✅ Test with screen readers to ensure theme changes don't break accessibility
+
+6. **Cross-Component Integration**: 
+   - ✅ Ensure new components work harmoniously with existing layout
+   - ✅ Verify theme integration doesn't conflict with parent components
+   - ✅ Test component in various theme contexts (headers, modals, sidebars)
+
+#### **🚨 Critical Style Enforcement Rules**
+
+**ABSOLUTELY FORBIDDEN**:
+- ❌ **NEVER** create components with hardcoded color classes
+- ❌ **NEVER** use fixed color values that don't adapt to theme changes
+- ❌ **NEVER** merge code that fails theme audit checklist
+- ❌ **NEVER** skip theme validation testing
+
+**ABSOLUTELY REQUIRED**:
+- ✅ **ALWAYS** use the established theme system for ALL colors
+- ✅ **ALWAYS** validate theme compliance before component completion
+- ✅ **ALWAYS** test in both light and dark themes
+- ✅ **ALWAYS** audit existing components when modifying for hardcoded styles
+
+**MANDATORY PROCESS**:
+- 📝 **BEFORE** starting component work: Audit existing styles for hardcoded colors
+- 🔍 **DURING** component development: Use ONLY theme-aware classes
+- ✅ **AFTER** component completion: Complete full theme audit checklist
+- 🚀 **BEFORE** code submission: Verify theme switching works perfectly
+
+#### **⚠️ Component Rejection Criteria**
+
+**Components will be REJECTED if they contain:**
+- Any hardcoded Tailwind color classes (`bg-red-50`, `text-blue-600`, etc.)
+- Color values that don't adapt to theme changes
+- Inconsistent status color usage (mixing hardcoded and theme colors)
+- Missing theme validation testing
+- Accessibility issues in either light or dark theme
+
+#### **🎯 Theme Compliance Success Criteria**
+
+**Components are approved when:**
+- ✅ ALL colors use theme-aware classes
+- ✅ Perfect appearance in both light and dark themes
+- ✅ Consistent status color usage throughout
+- ✅ Proper contrast ratios in both themes (WCAG AA)
+- ✅ Seamless theme switching without visual glitches
+- ✅ Responsive behavior maintained across themes
+- ✅ Integration with existing theme system
+
+#### **🛠️ Automated Theme Auditing Tools**
+
+**Use these commands to audit and fix hardcoded styles:**
+
+1. **Search for Hardcoded Colors**:
+   ```bash
+   # Find all hardcoded color classes in components
+   grep -r "bg-red-\|bg-green-\|bg-blue-\|bg-yellow-\|bg-purple-\|bg-gray-\|bg-white\|text-red-\|text-green-\|text-blue-\|text-yellow-\|text-black\|text-gray-\|border-red-\|border-green-\|border-blue-\|border-yellow-\|border-gray-" frontend/src/components/ frontend/src/pages/
+   
+   # Search for specific forbidden patterns
+   grep -r "bg-.*-[0-9][0-9][0-9]" frontend/src/components/ frontend/src/pages/
+   grep -r "text-.*-[0-9][0-9][0-9]" frontend/src/components/ frontend/src/pages/
+   grep -r "border-.*-[0-9][0-9][0-9]" frontend/src/components/ frontend/src/pages/
+   ```
+
+2. **Validate Theme Class Usage**:
+   ```bash
+   # Verify theme classes are being used
+   grep -r "theme-success\|theme-warning\|theme-error\|theme-info" frontend/src/components/ frontend/src/pages/
+   grep -r "bg-theme-\|text-theme-\|border-theme-" frontend/src/components/ frontend/src/pages/
+   ```
+
+3. **Test Build with Theme Compliance**:
+   ```bash
+   # Ensure no theme-related TypeScript errors
+   npm run build
+   npm run typecheck
+   ```
+
+**MANDATORY USAGE**: Run these commands before submitting any component changes to ensure theme compliance.
+
+#### **📚 Theme Implementation Examples**
+
+**Status Badge Examples**:
+```typescript
+// ✅ CORRECT: Theme-aware status badges
+const getStatusClasses = (status: string) => {
+  switch (status) {
+    case 'success':
+      return 'bg-theme-success-background text-theme-success border-theme-success-border';
+    case 'warning': 
+      return 'bg-theme-warning-background text-theme-warning border-theme-warning-border';
+    case 'error':
+      return 'bg-theme-error-background text-theme-error border-theme-error-border';
+    default:
+      return 'bg-theme-surface text-theme-secondary border-theme';
+  }
+};
+
+// ❌ WRONG: Hardcoded colors
+const getStatusClasses = (status: string) => {
+  switch (status) {
+    case 'success':
+      return 'bg-green-100 text-green-700 border-green-200';  // ❌ FORBIDDEN
+    case 'warning':
+      return 'bg-yellow-100 text-yellow-700 border-yellow-200';  // ❌ FORBIDDEN
+    case 'error':
+      return 'bg-red-100 text-red-700 border-red-200';  // ❌ FORBIDDEN
+  }
+};
+```
+
+**Interactive Element Examples**:
+```typescript
+// ✅ CORRECT: Theme-aware interactive elements
+<button className="bg-theme-interactive-primary hover:bg-theme-interactive-primary-hover text-white px-4 py-2 rounded-lg transition-colors">
+  Submit
+</button>
+
+<div className="bg-theme-surface hover:bg-theme-surface-hover border border-theme rounded-lg p-4 cursor-pointer transition-colors">
+  Card Content
+</div>
+
+// ❌ WRONG: Hardcoded interactive colors
+<button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">  {/* ❌ FORBIDDEN */}
+  Submit  
+</button>
+```
+
+**Layout Examples**:
+```typescript
+// ✅ CORRECT: Theme-aware layouts
+<div className="bg-theme-background min-h-screen">
+  <header className="bg-theme-surface border-b border-theme px-4 sm:px-6 lg:px-8 h-16">
+    <h1 className="text-theme-primary text-xl font-semibold">Title</h1>
+  </header>
+  <main className="bg-theme-background-secondary">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-6">
+      Content
+    </div>
+  </main>
+</div>
+
+// ❌ WRONG: Hardcoded layout colors  
+<div className="bg-gray-50 min-h-screen">  {/* ❌ FORBIDDEN */}
+  <header className="bg-white border-b border-gray-200 px-8 h-16">  {/* ❌ FORBIDDEN */}
+    <h1 className="text-gray-900 text-xl font-semibold">Title</h1>  {/* ❌ FORBIDDEN */}
+  </header>
+</div>
+```
+
+**These standards ensure visual coherence, accessibility, and maintainability across the entire frontend application while guaranteeing perfect theme compatibility.**
 
 ## Key Implementation Patterns
+
+### API Service Development
+
+**🚨 CRITICAL: STANDARDIZED API SERVICE PATTERN - MANDATORY COMPLIANCE 🚨**
+
+**⚠️ BREAKING CHANGE**: All API services have been standardized. **ZERO EXCEPTIONS** allowed.
+
+#### **🔒 MANDATORY API SERVICE PATTERN**
+
+**SINGLE APPROVED PATTERN** (Based on audit of 22 services):
+
+```typescript
+import { api } from './api';
+
+// Type definitions for this service
+export interface ServiceItem {
+  id: string;
+  name: string;
+}
+
+export interface CreateServiceItemRequest {
+  name: string;
+}
+
+// STANDARD PATTERN: Object-based export with direct API calls
+export const serviceNameApi = {
+  // GET collection
+  async getItems(page = 1, perPage = 20): Promise<ServiceItem[]> {
+    const response = await api.get(`/service_items?page=${page}&per_page=${perPage}`);
+    return response.data;
+  },
+
+  // GET single item
+  async getItem(id: string): Promise<ServiceItem> {
+    const response = await api.get(`/service_items/${id}`);
+    return response.data;
+  },
+
+  // POST create
+  async createItem(itemData: CreateServiceItemRequest): Promise<ServiceItem> {
+    const response = await api.post('/service_items', itemData);
+    return response.data;
+  },
+
+  // PUT update
+  async updateItem(id: string, itemData: Partial<ServiceItem>): Promise<ServiceItem> {
+    const response = await api.put(`/service_items/${id}`, itemData);
+    return response.data;
+  },
+
+  // DELETE
+  async deleteItem(id: string): Promise<void> {
+    await api.delete(`/service_items/${id}`);
+  }
+};
+```
+
+#### **📋 COMPLIANCE REQUIREMENTS - NO EXCEPTIONS**
+
+**✅ MANDATORY CHECKLIST FOR ALL API SERVICES:**
+
+1. **Import Pattern**: `import { api } from './api'` 
+   - ❌ **FORBIDDEN**: `import api from './api'`
+   - ❌ **FORBIDDEN**: `import apiClient from './api'`
+
+2. **Request Pattern**: Direct `api.get()`, `api.post()`, `api.put()`, `api.delete()`
+   - ❌ **FORBIDDEN**: Local `apiRequest` helper functions
+   - ❌ **FORBIDDEN**: Wrapper functions around API calls
+
+3. **Export Pattern**: `export const serviceNameApi = { ... }`
+   - ❌ **FORBIDDEN**: Class-based patterns with `new SomeApiService()`
+   - ❌ **FORBIDDEN**: Default exports
+
+4. **TypeScript**: All methods must have proper return types
+5. **Data Extraction**: Always return `response.data`
+6. **Error Handling**: Let API client interceptors handle errors
+
+#### **🚨 AUDIT RESULTS - 100% STANDARDIZATION ACHIEVED**
+
+**COMPLIANCE STATUS:**
+- ✅ **22/22 services** now use `import { api } from './api'`
+- ✅ **20/22 services** use direct `api.method()` calls (standard)
+- ✅ **2/22 services** using helper pattern converted to standard
+- ✅ **Template created**: `BASE_API_SERVICE_TEMPLATE.ts`
+
+#### **🛡️ ENFORCEMENT PROTOCOL**
+
+**AUTOMATIC REJECTION CRITERIA:**
+- Any service using non-standard import patterns
+- Any service creating local `apiRequest` helpers 
+- Any service using class-based exports
+- Any service deviating from the standard pattern
+
+**VALIDATION COMMAND:**
+```bash
+# Run before creating any new API service
+grep -l "import { api } from './api'" src/services/*Api.ts | wc -l
+# Must equal total number of API service files
+```
+
+#### **📚 REFERENCE IMPLEMENTATION**
+
+**Template Location**: `frontend/src/services/BASE_API_SERVICE_TEMPLATE.ts`
+**Exemplary Services**: `adminApi.ts`, `usersApi.ts`, `apiKeysApi.ts`
+
+#### **🚫 DEPRECATED PATTERNS (CONVERTED TO STANDARD)**
+
+- ~~Helper function pattern~~ → Direct API calls
+- ~~Class-based services~~ → Object-based exports  
+- ~~Default imports~~ → Named imports
+- ~~Renamed imports (apiClient)~~ → Standard api import
+
+**All new API services MUST follow the standard pattern. No exceptions.**
 
 ### Payment Integration
 - Use service objects for payment gateway interactions
