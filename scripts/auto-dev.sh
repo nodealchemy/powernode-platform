@@ -46,11 +46,9 @@ check_dev_environment() {
         fi
     fi
     
-    # Check worker
-    if "$WORKER_MANAGER" status > /dev/null 2>&1; then
-        if curl -s -f --max-time 3 "http://localhost:4567/health" > /dev/null 2>&1; then
-            worker_running=true
-        fi
+    # Check worker - use manager status for both worker and web interface
+    if "$WORKER_MANAGER" status 2>&1 | grep -q "Worker: RUNNING" && "$WORKER_MANAGER" status 2>&1 | grep -q "Web Interface: RUNNING"; then
+        worker_running=true
     fi
     
     # Check frontend
@@ -95,6 +93,13 @@ ensure_dev_environment() {
         return 1
     fi
     
+    # Start worker web interface
+    log "Ensuring worker web interface is running..."
+    if ! "$WORKER_MANAGER" start-web; then
+        error "Failed to start worker web interface"
+        return 1
+    fi
+    
     # Start frontend third
     log "Ensuring frontend is running..."
     if ! "$FRONTEND_MANAGER" start; then
@@ -132,12 +137,20 @@ ensure_backend() {
 ensure_worker() {
     log "Ensuring worker service is running..."
     
-    if curl -s -f --max-time 3 "http://localhost:4567/health" > /dev/null 2>&1; then
-        success "Worker is already running and healthy"
+    if "$WORKER_MANAGER" status 2>&1 | grep -q "Worker: RUNNING" && "$WORKER_MANAGER" status 2>&1 | grep -q "Web Interface: RUNNING"; then
+        success "Worker and web interface are already running and healthy"
         return 0
     fi
     
-    "$WORKER_MANAGER" start
+    # Start worker service if needed
+    if ! "$WORKER_MANAGER" status 2>&1 | grep -q "Worker: RUNNING"; then
+        "$WORKER_MANAGER" start
+    fi
+    
+    # Start web interface if needed
+    if ! "$WORKER_MANAGER" status 2>&1 | grep -q "Web Interface: RUNNING"; then
+        "$WORKER_MANAGER" start-web
+    fi
 }
 
 # Function to start only frontend if needed
@@ -162,8 +175,11 @@ quick_status() {
         backend_status="✅ Running & Healthy"
     fi
     
-    if curl -s -f --max-time 3 "http://localhost:4567/health" > /dev/null 2>&1; then
-        worker_status="✅ Running & Healthy"
+    # Check worker using manager status for both worker and web interface
+    if "$WORKER_MANAGER" status 2>&1 | grep -q "Worker: RUNNING" && "$WORKER_MANAGER" status 2>&1 | grep -q "Web Interface: RUNNING"; then
+        worker_status="✅ Running & Healthy (with Web UI)"
+    elif "$WORKER_MANAGER" status 2>&1 | grep -q "Worker: RUNNING"; then
+        worker_status="⚠️ Running (Web UI Stopped)"
     fi
     
     if curl -s -f --max-time 3 "http://localhost:3001" > /dev/null 2>&1; then
@@ -194,6 +210,7 @@ restart_all() {
     "$BACKEND_MANAGER" restart
     sleep 2
     "$WORKER_MANAGER" restart
+    "$WORKER_MANAGER" start-web
     "$FRONTEND_MANAGER" restart
     
     if check_dev_environment; then

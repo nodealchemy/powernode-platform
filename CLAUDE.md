@@ -56,55 +56,104 @@ The platform handles subscription lifecycle management, automated billing, payme
 
 ## CRITICAL: Process Management Configuration
 
+**POWERNODE_ROOT**: Dynamically determined using `$(pwd)` or `$(git rev-parse --show-toplevel)`
+
 ### ALWAYS Use Individual Process Manager Scripts
 
-**NEVER** manually start Rails or React servers. **ALWAYS** use the dedicated process manager scripts:
+**NEVER** manually start Rails or React servers. **ALWAYS** use the dedicated process manager scripts.
+
+**Dynamic Path Setup** (Claude should run this once to determine project root):
+```bash
+# Method 1: Use current directory (if already in project root)
+POWERNODE_ROOT=$(pwd)
+
+# Method 2: Use git to find project root (preferred)
+POWERNODE_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+
+# Method 3: Navigate to project root if in subdirectory
+cd "$(git rev-parse --show-toplevel 2>/dev/null || echo .)"
+POWERNODE_ROOT=$(pwd)
+```
+
+**Usage Pattern for Claude** (recommended workflow):
+```bash
+# Method A: Set variable once, use multiple times
+POWERNODE_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+$POWERNODE_ROOT/scripts/auto-dev.sh ensure
+$POWERNODE_ROOT/scripts/auto-dev.sh status
+
+# Method B: Inline (for single commands)
+$(git rev-parse --show-toplevel 2>/dev/null || pwd)/scripts/auto-dev.sh status
+
+# Method C: Change directory first (if preferred)
+cd "$(git rev-parse --show-toplevel 2>/dev/null || echo .)"
+./scripts/auto-dev.sh status
+```
+
+**Claude Quick Reference**:
+- **Status Check**: `$(git rev-parse --show-toplevel 2>/dev/null || pwd)/scripts/auto-dev.sh status`
+- **Start All**: `$(git rev-parse --show-toplevel 2>/dev/null || pwd)/scripts/auto-dev.sh ensure`
+- **Backend Only**: `$(git rev-parse --show-toplevel 2>/dev/null || pwd)/scripts/backend-manager.sh start`
+
+#### Automatic Development Environment Management (PREFERRED)
+- **Script**: `$POWERNODE_ROOT/scripts/auto-dev.sh`
+- **Commands**: `ensure|backend|worker|frontend|status|restart|check`
+- **Usage**:
+  - Ensure all services: `$POWERNODE_ROOT/scripts/auto-dev.sh ensure`
+  - Quick status: `$POWERNODE_ROOT/scripts/auto-dev.sh status`
+  - Backend only: `$POWERNODE_ROOT/scripts/auto-dev.sh backend`
+  - Worker only: `$POWERNODE_ROOT/scripts/auto-dev.sh worker`
+  - Frontend only: `$POWERNODE_ROOT/scripts/auto-dev.sh frontend`
+  - Health check: `$POWERNODE_ROOT/scripts/auto-dev.sh check`
 
 #### Backend Management
-- **Script**: `./scripts/backend-manager.sh`
+- **Script**: `$POWERNODE_ROOT/scripts/backend-manager.sh`
 - **Commands**: `start|stop|restart|status|logs|follow`
 - **Usage**: 
-  - Start: `./scripts/backend-manager.sh start`
-  - Stop: `./scripts/backend-manager.sh stop`
-  - Restart: `./scripts/backend-manager.sh restart`
-  - Status: `./scripts/backend-manager.sh status`
-  - Logs: `./scripts/backend-manager.sh logs [lines]`
-  - Follow logs: `./scripts/backend-manager.sh follow`
+  - Start: `$POWERNODE_ROOT/scripts/backend-manager.sh start`
+  - Stop: `$POWERNODE_ROOT/scripts/backend-manager.sh stop`
+  - Restart: `$POWERNODE_ROOT/scripts/backend-manager.sh restart`
+  - Status: `$POWERNODE_ROOT/scripts/backend-manager.sh status`
+  - Logs: `$POWERNODE_ROOT/scripts/backend-manager.sh logs [lines]`
+  - Follow logs: `$POWERNODE_ROOT/scripts/backend-manager.sh follow`
 
 #### Frontend Management
-- **Script**: `./scripts/frontend-manager.sh`
+- **Script**: `$POWERNODE_ROOT/scripts/frontend-manager.sh`
 - **Commands**: `start|stop|restart|status|logs|follow|clear-cache`
 - **Usage**:
-  - Start: `./scripts/frontend-manager.sh start`
-  - Stop: `./scripts/frontend-manager.sh stop`
-  - Restart: `./scripts/frontend-manager.sh restart`
-  - Status: `./scripts/frontend-manager.sh status`
-  - Logs: `./scripts/frontend-manager.sh logs [lines]`
-  - Follow logs: `./scripts/frontend-manager.sh follow`
-  - Clear cache: `./scripts/frontend-manager.sh clear-cache`
+  - Start: `$POWERNODE_ROOT/scripts/frontend-manager.sh start`
+  - Stop: `$POWERNODE_ROOT/scripts/frontend-manager.sh stop`
+  - Restart: `$POWERNODE_ROOT/scripts/frontend-manager.sh restart`
+  - Status: `$POWERNODE_ROOT/scripts/frontend-manager.sh status`
+  - Logs: `$POWERNODE_ROOT/scripts/frontend-manager.sh logs [lines]`
+  - Follow logs: `$POWERNODE_ROOT/scripts/frontend-manager.sh follow`
+  - Clear cache: `$POWERNODE_ROOT/scripts/frontend-manager.sh clear-cache`
 
 #### Worker Management (Sidekiq)
-- **Script**: `./scripts/worker-manager.sh`
-- **Commands**: `start|stop|restart|status|logs|follow|screen`
+- **Script**: `$POWERNODE_ROOT/scripts/worker-manager.sh`
+- **Commands**: `start|stop|restart|status|logs|follow|screen|start-web|stop-web|web-screen`
 - **Usage**:
-  - Start: `./scripts/worker-manager.sh start`
-  - Stop: `./scripts/worker-manager.sh stop`
-  - Restart: `./scripts/worker-manager.sh restart`
-  - Status: `./scripts/worker-manager.sh status`
-  - Logs: `./scripts/worker-manager.sh logs [lines]`
-  - Follow logs: `./scripts/worker-manager.sh follow`
-  - Screen attach: `./scripts/worker-manager.sh screen`
+  - Start worker: `$POWERNODE_ROOT/scripts/worker-manager.sh start`
+  - Start web interface: `$POWERNODE_ROOT/scripts/worker-manager.sh start-web`
+  - Stop worker: `$POWERNODE_ROOT/scripts/worker-manager.sh stop`
+  - Stop web interface: `$POWERNODE_ROOT/scripts/worker-manager.sh stop-web`
+  - Restart: `$POWERNODE_ROOT/scripts/worker-manager.sh restart`
+  - Status: `$POWERNODE_ROOT/scripts/worker-manager.sh status`
+  - Logs: `$POWERNODE_ROOT/scripts/worker-manager.sh logs [lines]`
+  - Follow logs: `$POWERNODE_ROOT/scripts/worker-manager.sh follow`
+  - Worker screen: `$POWERNODE_ROOT/scripts/worker-manager.sh screen`
+  - Web screen: `$POWERNODE_ROOT/scripts/worker-manager.sh web-screen`
 
 #### Orchestration (All Services)
-- **Script**: `./scripts/dev-manager.sh`
+- **Script**: `$POWERNODE_ROOT/scripts/dev-manager.sh`
 - **Usage**:
-  - Start all: `./scripts/dev-manager.sh start`
-  - Stop all: `./scripts/dev-manager.sh stop`
-  - Restart all: `./scripts/dev-manager.sh restart`
-  - Status all: `./scripts/dev-manager.sh status`
-  - Backend only: `./scripts/dev-manager.sh backend [command]`
-  - Worker only: `./scripts/dev-manager.sh worker [command]`
-  - Frontend only: `./scripts/dev-manager.sh frontend [command]`
+  - Start all: `$POWERNODE_ROOT/scripts/dev-manager.sh start`
+  - Stop all: `$POWERNODE_ROOT/scripts/dev-manager.sh stop`
+  - Restart all: `$POWERNODE_ROOT/scripts/dev-manager.sh restart`
+  - Status all: `$POWERNODE_ROOT/scripts/dev-manager.sh status`
+  - Backend only: `$POWERNODE_ROOT/scripts/dev-manager.sh backend [command]`
+  - Worker only: `$POWERNODE_ROOT/scripts/dev-manager.sh worker [command]`
+  - Frontend only: `$POWERNODE_ROOT/scripts/dev-manager.sh frontend [command]`
 
 ### Process Management Rules
 
@@ -125,22 +174,22 @@ The platform handles subscription lifecycle management, automated billing, payme
 
 **Backend (Rails)**:
 - Session name: `powernode-backend`
-- Command: `./scripts/backend-manager.sh start`
-- Attach: `./scripts/backend-manager.sh screen`
-- Logs streamed to: `/home/rett/Projects/powernode-platform/logs/backend.log`
+- Command: `$POWERNODE_ROOT/scripts/backend-manager.sh start`
+- Attach: `$POWERNODE_ROOT/scripts/backend-manager.sh screen`
+- Logs streamed to: `$POWERNODE_ROOT/logs/backend.log`
 
 **Worker (Sidekiq)**:
 - Session name: `powernode-worker`
-- Command: `./scripts/worker-manager.sh start`
-- Attach: `./scripts/worker-manager.sh screen`
-- Logs streamed to: `/home/rett/Projects/powernode-platform/logs/worker.log`
+- Command: `$POWERNODE_ROOT/scripts/worker-manager.sh start`
+- Attach: `$POWERNODE_ROOT/scripts/worker-manager.sh screen`
+- Logs streamed to: `$POWERNODE_ROOT/logs/worker.log`
 - Web interface: `http://localhost:4567` (Puma server)
 
 **Frontend (React)**:
 - Session name: `powernode-frontend` 
-- Command: `./scripts/frontend-manager.sh start`
-- Attach: `./scripts/frontend-manager.sh screen`
-- Logs streamed to: `/home/rett/Projects/powernode-platform/logs/frontend.log`
+- Command: `$POWERNODE_ROOT/scripts/frontend-manager.sh start`
+- Attach: `$POWERNODE_ROOT/scripts/frontend-manager.sh screen`
+- Logs streamed to: `$POWERNODE_ROOT/logs/frontend.log`
 
 ### Important: Bash Tool Timeout Behavior
 
@@ -162,8 +211,8 @@ The platform handles subscription lifecycle management, automated billing, payme
 - ✅ No timeout issues with Rails or Sidekiq startup
 
 **Recommended workflow**:
-1. Run `./scripts/dev-manager.sh start` for all services
-2. Run `./scripts/dev-manager.sh status` to verify success
+1. Run `$POWERNODE_ROOT/scripts/dev-manager.sh start` for all services
+2. Run `$POWERNODE_ROOT/scripts/dev-manager.sh status` to verify success
 3. Use individual `[service]-manager.sh screen` to attach and view live output
 4. Detach with `Ctrl+A, D` to leave session running
 
@@ -180,10 +229,10 @@ The platform handles subscription lifecycle management, automated billing, payme
 - When user asks to work with background jobs or Sidekiq
 
 #### **Server Startup Priority**
-1. **Backend First**: Always start `./scripts/backend-manager.sh start` first
-2. **Worker Second**: Then start `./scripts/worker-manager.sh start` 
-3. **Frontend Third**: Finally start `./scripts/frontend-manager.sh start`
-4. **Health Check**: Verify all are running with `./scripts/dev-manager.sh status`
+1. **Backend First**: Always start `$POWERNODE_ROOT/scripts/backend-manager.sh start` first
+2. **Worker Second**: Then start `$POWERNODE_ROOT/scripts/worker-manager.sh start` 
+3. **Frontend Third**: Finally start `$POWERNODE_ROOT/scripts/frontend-manager.sh start`
+4. **Health Check**: Verify all are running with `$POWERNODE_ROOT/scripts/dev-manager.sh status`
 
 #### **Background Process Requirements**
 - **Always Background**: Never run servers in foreground that would block Claude
@@ -192,18 +241,18 @@ The platform handles subscription lifecycle management, automated billing, payme
 - **Graceful Handling**: Handle server startup failures gracefully with error reporting
 
 #### **Auto-Development Script** 
-**PREFERRED METHOD**: Use `./scripts/auto-dev.sh` for automatic server management:
+**PREFERRED METHOD**: Use `$POWERNODE_ROOT/scripts/auto-dev.sh` for automatic server management:
 
-- **Auto Start**: `./scripts/auto-dev.sh ensure` - Starts all services only if needed
-- **Quick Status**: `./scripts/auto-dev.sh status` - Fast health check of all services
-- **Backend Only**: `./scripts/auto-dev.sh backend` - Ensure backend is running
-- **Worker Only**: `./scripts/auto-dev.sh worker` - Ensure worker is running  
-- **Frontend Only**: `./scripts/auto-dev.sh frontend` - Ensure frontend is running
-- **Health Check**: `./scripts/auto-dev.sh check` - Silent health check (exit code based)
+- **Auto Start**: `$POWERNODE_ROOT/scripts/auto-dev.sh ensure` - Starts all services only if needed
+- **Quick Status**: `$POWERNODE_ROOT/scripts/auto-dev.sh status` - Fast health check of all services
+- **Backend Only**: `$POWERNODE_ROOT/scripts/auto-dev.sh backend` - Ensure backend is running
+- **Worker Only**: `$POWERNODE_ROOT/scripts/auto-dev.sh worker` - Ensure worker is running  
+- **Frontend Only**: `$POWERNODE_ROOT/scripts/auto-dev.sh frontend` - Ensure frontend is running
+- **Health Check**: `$POWERNODE_ROOT/scripts/auto-dev.sh check` - Silent health check (exit code based)
 
 **Claude Usage Pattern**:
-1. Before any development task: `./scripts/auto-dev.sh ensure`
-2. Quick status check: `./scripts/auto-dev.sh status`
+1. Before any development task: `$POWERNODE_ROOT/scripts/auto-dev.sh ensure`
+2. Quick status check: `$POWERNODE_ROOT/scripts/auto-dev.sh status`
 3. If issues detected: Use individual managers for debugging
 
 ### Script Features
@@ -225,15 +274,15 @@ The platform handles subscription lifecycle management, automated billing, payme
 
 **CRITICAL: Process Management Protocol**
 - **ALWAYS kill old processes before starting new ones** to prevent port conflicts and resource issues
-- **Required before ANY server startup**: Run `./scripts/process-manager.sh stop` or `make dev-stop`
-- **Use automated scripts**: `./scripts/dev-start.sh` handles full cleanup + startup sequence
+- **Required before ANY server startup**: Run `$POWERNODE_ROOT/scripts/process-manager.sh stop` or `make dev-stop`
+- **Use automated scripts**: `$POWERNODE_ROOT/scripts/dev-start.sh` handles full cleanup + startup sequence
 - **Never start servers without first stopping existing processes**
-- **For Claude Code automation**: Use `./scripts/process-manager.sh` for reliable process control
+- **For Claude Code automation**: Use `$POWERNODE_ROOT/scripts/process-manager.sh` for reliable process control
 
 **Process Management Scripts:**
-- `./scripts/dev-stop.sh` - Interactive process cleanup with verification
-- `./scripts/dev-start.sh` - Full development environment startup
-- `./scripts/process-manager.sh` - Automation-friendly process control utility
+- `$POWERNODE_ROOT/scripts/dev-stop.sh` - Interactive process cleanup with verification
+- `$POWERNODE_ROOT/scripts/dev-start.sh` - Full development environment startup
+- `$POWERNODE_ROOT/scripts/process-manager.sh` - Automation-friendly process control utility
 - `make dev-stop` / `make dev-start` / `make dev-restart` - Makefile shortcuts
 
 **Standard Commands:**
@@ -404,7 +453,7 @@ Before any component is considered complete:
 - **API-Only Communication**: All data access must go through the Rails API backend via HTTP requests using service-to-service authentication
 - **Sidekiq Processing**: Worker service uses Sidekiq 7+ with Puma-powered web interface for monitoring and management
 - **Web Interface Authentication**: Sidekiq web interface integrates with Rails backend authentication system via API calls
-- **Process Management**: **ALWAYS** use `./scripts/worker-manager.sh` - **NEVER** run `bundle exec sidekiq` manually
+- **Process Management**: **ALWAYS** use `$POWERNODE_ROOT/scripts/worker-manager.sh` - **NEVER** run `bundle exec sidekiq` manually
 - **Screen Session**: Worker runs in detached `powernode-worker` screen session for persistence and interactive access
 - **Environment Requirements**: 
   - SERVICE_TOKEN must be configured in `.env` file
@@ -444,6 +493,56 @@ Before any component is considered complete:
 5. **Reporting/Analytics**: MUST be handled by worker service only  
 6. **Payment Processing**: MUST be handled by worker service only
 7. **File Generation**: MUST be handled by worker service only
+
+#### **WORKER JOB EXAMPLES - CORRECT vs INCORRECT**
+
+**✅ CORRECT - BaseJob with Sidekiq syntax:**
+```ruby
+class Billing::RenewalJob < BaseJob
+  sidekiq_options queue: 'billing', retry: 3
+
+  def execute(subscription_id)
+    logger.info "Processing renewal for #{subscription_id}"
+    
+    # Use API client for data access
+    data = api_client.get("/api/v1/subscriptions/#{subscription_id}")
+    
+    # Use raw time calculations
+    next_date = Time.now + (30 * 24 * 60 * 60) # 30 days
+    
+    # Direct Redis for caching
+    Redis.current.setex("renewal:#{subscription_id}", 3600, data.to_json)
+  end
+end
+```
+
+**❌ INCORRECT - Rails dependencies:**
+```ruby
+class Billing::RenewalJob < ApplicationJob  # ❌ Wrong base class
+  queue_as :billing  # ❌ Rails syntax
+
+  def perform(subscription_id)  # ❌ Rails method name
+    Rails.logger.info "Processing renewal"  # ❌ Rails logger
+    
+    subscription = Subscription.find(subscription_id)  # ❌ ActiveRecord
+    
+    next_date = 1.month.from_now  # ❌ Rails time helper
+    
+    Rails.cache.write(key, data, expires_in: 1.hour)  # ❌ Rails cache
+  end
+end
+```
+
+**ENQUEUING JOBS:**
+```ruby
+# ✅ CORRECT
+Billing::RenewalJob.perform_async('subscription_id' => '123')
+Billing::RenewalJob.perform_in(3600, 'subscription_id' => '123')
+
+# ❌ INCORRECT
+Billing::RenewalJob.perform_later(subscription_id: '123')  # Rails syntax
+Billing::RenewalJob.perform_async(subscription_id: '123')  # Symbol keys
+```
 
 #### **Job Development Workflow**
 1. **Creating Jobs**: Create job classes in `./worker/app/jobs/` directory (NOT in backend)
@@ -530,24 +629,24 @@ Claude Code should use the modern screen-based individual manager scripts:
 
 1. **Automatic environment management (preferred)**:
    ```bash
-   ./scripts/auto-dev.sh ensure    # Start servers if needed
-   ./scripts/auto-dev.sh status    # Check health
+   $POWERNODE_ROOT/scripts/auto-dev.sh ensure    # Start servers if needed
+   $POWERNODE_ROOT/scripts/auto-dev.sh status    # Check health
    ```
 
 2. **Individual server control**:
    ```bash
-   ./scripts/backend-manager.sh start       # Start Rails in screen session
-   ./scripts/worker-manager.sh start        # Start Sidekiq worker in screen session
-   ./scripts/worker-manager.sh start-web    # Start worker web interface in separate screen session
-   ./scripts/frontend-manager.sh start      # Start React in screen session
+   $POWERNODE_ROOT/scripts/backend-manager.sh start       # Start Rails in screen session
+   $POWERNODE_ROOT/scripts/worker-manager.sh start        # Start Sidekiq worker in screen session
+   $POWERNODE_ROOT/scripts/worker-manager.sh start-web    # Start worker web interface in separate screen session
+   $POWERNODE_ROOT/scripts/frontend-manager.sh start      # Start React in screen session
    ```
 
 3. **Health checking and status**:
    ```bash
-   ./scripts/auto-dev.sh status           # Quick environment check
-   ./scripts/backend-manager.sh status    # Detailed backend status
-   ./scripts/worker-manager.sh status     # Detailed worker and web interface status
-   ./scripts/frontend-manager.sh status   # Detailed frontend status
+   $POWERNODE_ROOT/scripts/auto-dev.sh status           # Quick environment check
+   $POWERNODE_ROOT/scripts/backend-manager.sh status    # Detailed backend status
+   $POWERNODE_ROOT/scripts/worker-manager.sh status     # Detailed worker and web interface status
+   $POWERNODE_ROOT/scripts/frontend-manager.sh status   # Detailed frontend status
    ```
 
 **Benefits of screen-based approach:**
@@ -579,16 +678,16 @@ Claude Code should use the modern screen-based individual manager scripts:
 **RESOLVED**: Both backend and frontend server timeout issues have been resolved by switching from tmux to GNU screen.
 
 **Backend Server Management**:
-- `./scripts/backend-manager.sh start` - starts Rails in screen session 'powernode-backend' (no timeout)
-- `./scripts/backend-manager.sh status` - check server health and running status
-- `./scripts/backend-manager.sh screen` - attach to interactive screen session
-- `./scripts/backend-manager.sh logs` - view server logs
+- `$POWERNODE_ROOT/scripts/backend-manager.sh start` - starts Rails in screen session 'powernode-backend' (no timeout)
+- `$POWERNODE_ROOT/scripts/backend-manager.sh status` - check server health and running status
+- `$POWERNODE_ROOT/scripts/backend-manager.sh screen` - attach to interactive screen session
+- `$POWERNODE_ROOT/scripts/backend-manager.sh logs` - view server logs
 
 **Frontend Server Management**:
-- `./scripts/frontend-manager.sh start` - starts React in screen session 'powernode-frontend' (no timeout)
-- `./scripts/frontend-manager.sh status` - check server health and running status  
-- `./scripts/frontend-manager.sh screen` - attach to interactive screen session
-- `./scripts/frontend-manager.sh logs` - view server logs
+- `$POWERNODE_ROOT/scripts/frontend-manager.sh start` - starts React in screen session 'powernode-frontend' (no timeout)
+- `$POWERNODE_ROOT/scripts/frontend-manager.sh status` - check server health and running status  
+- `$POWERNODE_ROOT/scripts/frontend-manager.sh screen` - attach to interactive screen session
+- `$POWERNODE_ROOT/scripts/frontend-manager.sh logs` - view server logs
 
 **Solution**: Screen sessions detach more cleanly from the Bash tool, eliminating the timeout issues that affected all tmux-based approaches for both Rails and React server startup. Both servers now use consistent screen-based process management.
 
@@ -601,7 +700,7 @@ Claude Code should use the modern screen-based individual manager scripts:
 - **Architecture**: API-only connectivity - zero direct database access
 - **Communication**: All data operations via HTTP requests to Rails backend
 - **Authentication**: Service-to-service JWT token authentication
-- **Process Management**: Screen-based with `./scripts/worker-manager.sh`
+- **Process Management**: Screen-based with `$POWERNODE_ROOT/scripts/worker-manager.sh`
 
 **Migrated Job Classes**:
 - **Backend Jobs Removed**: All `server/app/jobs/*.rb` files migrated to worker service
@@ -610,6 +709,35 @@ Claude Code should use the modern screen-based individual manager scripts:
 - **Webhook Jobs**: `worker/app/jobs/webhooks/` (Stripe, PayPal processing)
 - **Analytics Jobs**: `worker/app/jobs/analytics/` (revenue snapshots, recalculation)
 
+### **CRITICAL: Worker Job Development Requirements**
+
+**MANDATORY: NO RAILS DEPENDENCIES**
+- **FORBIDDEN**: `Rails.logger`, `Rails.cache`, `Rails.root`, `Rails.env`, `ActiveRecord`
+- **FORBIDDEN**: `ApplicationJob`, `perform_later`, `queue_as`
+- **FORBIDDEN**: `Time.current`, `Date.current`, `1.day.ago`, `1.month.from_now` (Rails time helpers)
+- **REQUIRED**: Use `Time.now`, `Date.today`, raw seconds calculations
+- **REQUIRED**: Use `logger` method from BaseJob, not `Rails.logger`
+
+**MANDATORY: BASEJOB INHERITANCE**
+- **ALL jobs MUST inherit from `BaseJob`**, never `ApplicationJob` or `BaseWorker`
+- **Job Methods**: Use `def execute(...)` not `def perform(...)`
+- **Sidekiq Configuration**: Use `sidekiq_options queue: 'name'` not `queue_as :name`
+
+**MANDATORY: SIDEKIQ SYNTAX**
+- **Enqueuing**: Use `perform_async(args)` not `perform_later(args)`
+- **Delayed Jobs**: Use `perform_in(delay, args)` or `perform_at(time, args)`
+- **Job Arguments**: Must be JSON-serializable (strings, not symbols)
+
+**MANDATORY: REDIS COMPATIBILITY**
+- **Cache Operations**: Use direct Redis calls via `Redis.current`
+- **NO Rails.cache**: Replace with `Redis.current.get()` / `Redis.current.setex()`
+- **Expiry Format**: Use seconds (integer), not Rails time objects
+
+**MANDATORY: API-ONLY DATA ACCESS**
+- **NO Database Models**: All data via `BackendApiClient` HTTP requests
+- **NO ActiveRecord**: All database operations through Rails API endpoints
+- **Authentication**: All API calls use service-to-service tokens
+
 **Backend Integration**:
 - **WorkerJobService**: Rails service for enqueueing jobs in worker service via HTTP
 - **Job API**: Worker exposes `/api/v1/jobs` endpoint for receiving job requests
@@ -617,16 +745,16 @@ Claude Code should use the modern screen-based individual manager scripts:
 - **Legacy Prevention**: ApplicationJob warns about deprecated usage
 
 **Worker Management**:
-- **Start Worker**: `./scripts/worker-manager.sh start` - starts worker service only
-- **Start Web Interface**: `./scripts/worker-manager.sh start-web` - starts Sidekiq web interface in dedicated screen session
-- **Combined Status**: `./scripts/worker-manager.sh status` - comprehensive health check for both worker and web interface
+- **Start Worker**: `$POWERNODE_ROOT/scripts/worker-manager.sh start` - starts worker service only
+- **Start Web Interface**: `$POWERNODE_ROOT/scripts/worker-manager.sh start-web` - starts Sidekiq web interface in dedicated screen session
+- **Combined Status**: `$POWERNODE_ROOT/scripts/worker-manager.sh status` - comprehensive health check for both worker and web interface
 - **Sidekiq Web**: `http://localhost:4567/sidekiq` - authenticated monitoring interface with user email/password login
-- **Worker Screen Session**: `./scripts/worker-manager.sh screen` - attach to worker interactive session
-- **Web Screen Session**: `./scripts/worker-manager.sh web-screen` - attach to web interface interactive session
-- **Stop Web Only**: `./scripts/worker-manager.sh stop-web` - stops web interface while leaving worker running
+- **Worker Screen Session**: `$POWERNODE_ROOT/scripts/worker-manager.sh screen` - attach to worker interactive session
+- **Web Screen Session**: `$POWERNODE_ROOT/scripts/worker-manager.sh web-screen` - attach to web interface interactive session
+- **Stop Web Only**: `$POWERNODE_ROOT/scripts/worker-manager.sh stop-web` - stops web interface while leaving worker running
 
 **CRITICAL: Worker Web Interface Management Protocol**:
-- **ALWAYS use `./scripts/worker-manager.sh`** for ALL worker web interface operations
+- **ALWAYS use `$POWERNODE_ROOT/scripts/worker-manager.sh`** for ALL worker web interface operations
 - **NEVER run `bundle exec rackup` or `puma` directly** for the web interface
 - **NEVER start worker-web manually** - always use the dedicated management script
 - **Required for proper**: Process management, environment loading, screen session handling, and graceful shutdown

@@ -1,10 +1,10 @@
-require_relative 'base_worker'
+require_relative 'base_job'
 
-# Worker for handling billing automation tasks
-class BillingAutomationWorker < BaseWorker
+# Job for handling billing automation tasks
+class BillingAutomationWorker < BaseJob
   sidekiq_options queue: 'billing', retry: 5, backtrace: true
 
-  def perform(task_type, *args)
+  def execute(task_type, *args)
     case task_type
     when 'process_renewals'
       process_subscription_renewals
@@ -140,7 +140,7 @@ class BillingAutomationWorker < BaseWorker
     return false unless subscription[:current_period_end]
     
     end_date = Time.parse(subscription[:current_period_end])
-    end_date <= Time.current
+    end_date <= Time.now
   end
 
   def should_generate_invoice?(subscription, target_date)
@@ -154,7 +154,7 @@ class BillingAutomationWorker < BaseWorker
     return false unless subscription[:trial_end]
     
     trial_end = Time.parse(subscription[:trial_end])
-    trial_end <= Time.current
+    trial_end <= Time.now
   end
 
   def process_subscription_renewal(subscription)
@@ -214,7 +214,7 @@ class BillingAutomationWorker < BaseWorker
     
     # Calculate days overdue
     due_date = Date.parse(invoice[:due_date])
-    days_overdue = (Date.current - due_date).to_i
+    days_overdue = (Date.today - due_date).to_i
     
     # Apply dunning logic based on days overdue
     case days_overdue
@@ -240,8 +240,8 @@ class BillingAutomationWorker < BaseWorker
     
     api_client.update_subscription_status(subscription[:id], 'active', {
       trial_end: nil,
-      current_period_start: Time.current.utc.iso8601,
-      current_period_end: calculate_next_period_end(Time.current, subscription[:plan][:billing_cycle]).utc.iso8601
+      current_period_start: Time.now.utc.iso8601,
+      current_period_end: calculate_next_period_end(Time.now, subscription[:plan][:billing_cycle]).utc.iso8601
     })
     
     create_audit_log(
@@ -258,13 +258,13 @@ class BillingAutomationWorker < BaseWorker
   def calculate_next_period_end(start_time, billing_cycle)
     case billing_cycle
     when 'monthly'
-      start_time + 1.month
+      start_time + (30 * 24 * 60 * 60) # 30 days
     when 'yearly'
-      start_time + 1.year
+      start_time + (365 * 24 * 60 * 60) # 365 days
     when 'quarterly'
-      start_time + 3.months
+      start_time + (90 * 24 * 60 * 60) # 90 days
     else
-      start_time + 1.month
+      start_time + (30 * 24 * 60 * 60) # Default to 30 days
     end
   end
 end

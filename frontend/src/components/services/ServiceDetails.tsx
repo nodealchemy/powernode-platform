@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Service, ServiceDetailsResponse, serviceAPI } from '../../services/serviceApi';
 import { ServiceActivityList } from './ServiceActivityList';
-import { LoadingSpinner } from '../common/LoadingSpinner';
+import { LoadingSpinner } from '../ui/LoadingSpinner';
 import { copyToClipboard } from '../../utils/clipboard';
 
 interface ServiceDetailsProps {

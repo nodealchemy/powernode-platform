@@ -8,10 +8,10 @@ import { hasAdminAccess } from '../../utils/permissionUtils';
 import { ServicesPage } from './ServicesPage';
 import PaymentGatewaysPage from './PaymentGatewaysPage';
 import { AdminSettingsPage } from './AdminSettingsPage';
+import WebhookManagementPage from '../system/WebhookManagementPage';
 import { auditLogsApi, AuditLog } from '../../services/auditLogsApi';
-import { webhooksApi } from '../../services/webhooksApi';
 import { apiKeysApi } from '../../services/apiKeysApi';
-import { LoadingSpinner } from '../../components/common/LoadingSpinner';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 
 const tabs = [
   { id: 'services', label: 'Services', path: '/dashboard/system/services', icon: '⚡' },
@@ -47,10 +47,10 @@ const AuditLogsPage: React.FC = () => {
       });
       
       if (response.success) {
-        setAuditLogs(response.data.logs);
+        setAuditLogs(response.data);
         setPagination(prev => ({
           ...prev,
-          total: response.data.pagination.total_count
+          total: response.meta.total
         }));
       } else {
         setError(response.error || 'Failed to load audit logs');
@@ -111,7 +111,14 @@ const AuditLogsPage: React.FC = () => {
             />
             <button 
               className="btn-theme btn-theme-secondary"
-              onClick={() => auditLogsApi.exportLogs(filters)}
+              onClick={() => auditLogsApi.exportLogs({
+                format: 'csv',
+                scope: 'filtered',
+                includeMetadata: true,
+                includeSensitiveData: false,
+                maxRecords: 10000,
+                filters
+              })}
             >
               Export Logs
             </button>
@@ -232,182 +239,6 @@ const AuditLogsPage: React.FC = () => {
   );
 };
 
-interface Webhook {
-  id: string;
-  url: string;
-  event_types: string[];
-  status: 'active' | 'inactive';
-  last_delivery_at?: string;
-  created_at: string;
-}
-
-const WebhooksPage: React.FC = () => {
-  const [webhooks, setWebhooks] = useState<Webhook[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [showAddModal, setShowAddModal] = useState(false);
-
-  const loadWebhooks = async () => {
-    try {
-      setLoading(true);
-      const response = await webhooksApi.getWebhooks();
-      
-      if (response.success) {
-        setWebhooks(response.data.webhooks);
-      } else {
-        setError(response.error || 'Failed to load webhooks');
-      }
-    } catch (err) {
-      setError('Failed to load webhooks');
-      console.error('Webhooks error:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadWebhooks();
-  }, []);
-
-  const handleToggleStatus = async (webhookId: string, newStatus: 'active' | 'inactive') => {
-    try {
-      const response = await webhooksApi.updateWebhook(webhookId, { status: newStatus });
-      if (response.success) {
-        setWebhooks(prev => prev.map(w => 
-          w.id === webhookId ? { ...w, status: newStatus } : w
-        ));
-      }
-    } catch (err) {
-      console.error('Failed to update webhook status:', err);
-    }
-  };
-
-  const handleDelete = async (webhookId: string) => {
-    if (!window.confirm('Are you sure you want to delete this webhook?')) return;
-    
-    try {
-      const response = await webhooksApi.deleteWebhook(webhookId);
-      if (response.success) {
-        setWebhooks(prev => prev.filter(w => w.id !== webhookId));
-      }
-    } catch (err) {
-      console.error('Failed to delete webhook:', err);
-    }
-  };
-
-  return (
-    <div className="space-y-6">
-      <div className="bg-theme-surface rounded-lg p-6">
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <h2 className="text-xl font-semibold text-theme-primary">Webhook Management</h2>
-            <p className="text-theme-secondary mt-1">Configure webhook endpoints and event subscriptions</p>
-          </div>
-          <button 
-            className="btn-theme btn-theme-primary"
-            onClick={() => setShowAddModal(true)}
-          >
-            Add Webhook
-          </button>
-        </div>
-
-        {loading ? (
-          <div className="flex items-center justify-center py-8">
-            <LoadingSpinner />
-          </div>
-        ) : error ? (
-          <div className="bg-theme-error bg-opacity-10 border border-theme-error rounded-lg p-4">
-            <p className="text-theme-error">{error}</p>
-            <button 
-              onClick={loadWebhooks}
-              className="mt-2 btn-theme btn-theme-secondary"
-            >
-              Retry
-            </button>
-          </div>
-        ) : webhooks.length === 0 ? (
-          <div className="text-center py-8">
-            <p className="text-theme-secondary mb-4">No webhooks configured</p>
-            <button 
-              className="btn-theme btn-theme-primary"
-              onClick={() => setShowAddModal(true)}
-            >
-              Add Your First Webhook
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {webhooks.map((webhook) => (
-              <div key={webhook.id} className="bg-theme-background rounded-lg p-4 border border-theme">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-3 mb-2">
-                      <h3 className="font-medium text-theme-primary">{webhook.url}</h3>
-                      <span className={`text-xs px-2 py-1 rounded-full ${
-                        webhook.status === 'active' 
-                          ? 'bg-theme-success bg-opacity-10 text-theme-success' 
-                          : 'bg-theme-surface text-theme-tertiary'
-                      }`}>
-                        {webhook.status}
-                      </span>
-                    </div>
-                    <div className="flex flex-wrap gap-2 mb-2">
-                      {webhook.event_types.map((event) => (
-                        <span key={event} className="text-xs bg-theme-surface px-2 py-1 rounded text-theme-secondary">
-                          {event}
-                        </span>
-                      ))}
-                    </div>
-                    <p className="text-xs text-theme-tertiary">
-                      Last triggered: {webhook.last_delivery_at ? new Date(webhook.last_delivery_at).toLocaleString() : 'Never'}
-                    </p>
-                  </div>
-                  <div className="flex space-x-2">
-                    <button 
-                      className="text-theme-link hover:text-theme-link-hover text-sm"
-                      onClick={() => webhooksApi.testWebhook(webhook.id)}
-                    >
-                      Test
-                    </button>
-                    <button 
-                      className="text-theme-link hover:text-theme-link-hover text-sm"
-                      onClick={() => handleToggleStatus(webhook.id, webhook.status === 'active' ? 'inactive' : 'active')}
-                    >
-                      {webhook.status === 'active' ? 'Disable' : 'Enable'}
-                    </button>
-                    <button 
-                      className="text-theme-error hover:text-theme-error-hover text-sm"
-                      onClick={() => handleDelete(webhook.id)}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <div className="mt-6 bg-theme-background rounded-lg p-4 border border-theme">
-          <h3 className="font-medium text-theme-primary mb-3">Webhook Events</h3>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-            {[
-              'payment.success', 'payment.failed', 'payment.refunded',
-              'subscription.created', 'subscription.updated', 'subscription.cancelled',
-              'user.created', 'user.updated', 'user.deleted',
-              'invoice.created', 'invoice.paid', 'invoice.overdue'
-            ].map((event) => (
-              <label key={event} className="flex items-center space-x-2 text-sm">
-                <input type="checkbox" className="rounded border-theme text-theme-interactive-primary" />
-                <span className="text-theme-secondary">{event}</span>
-              </label>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
 
 const ApiKeysPage: React.FC = () => {
   const [apiKeys, setApiKeys] = useState<any[]>([]);
@@ -689,7 +520,7 @@ export const SystemManagementPage: React.FC = () => {
           <Route path="/gateways" element={<PaymentGatewaysPage />} />
           <Route path="/admin" element={<AdminSettingsPage />} />
           <Route path="/audit" element={<AuditLogsPage />} />
-          <Route path="/webhooks" element={<WebhooksPage />} />
+          <Route path="/webhooks/*" element={<WebhookManagementPage />} />
           <Route path="/api" element={<ApiKeysPage />} />
         </Routes>
       </div>

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { twoFactorApi } from '../../services/twoFactorApi';
 import TwoFactorSetup from '../auth/TwoFactorSetup';
 import Modal from '../ui/Modal';
-import { LoadingSpinner } from '../common/LoadingSpinner';
+import { LoadingSpinner } from '../ui/LoadingSpinner';
 
 const TwoFactorSettings: React.FC = () => {
   const [status, setStatus] = useState<{

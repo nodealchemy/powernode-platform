@@ -46,7 +46,10 @@ export interface AuditLogFilters {
   date_from?: string;
   date_to?: string;
   status?: string;
+  severity?: string;
+  risk_level?: string;
   page?: number;
+  per_page?: number;
   limit?: number;
 }
 
@@ -77,12 +80,38 @@ export interface AuditLogsPagination {
 
 export interface AuditLogsResponse {
   success: boolean;
-  data: {
-    logs: AuditLog[];
-    pagination: AuditLogsPagination;
-    stats: AuditLogStats;
+  data: AuditLog[];
+  meta: {
+    current_page: number;
+    per_page: number;
+    total_pages: number;
+    total: number;
   };
   error?: string;
+}
+
+export interface SecuritySummary {
+  totalEvents: number;
+  securityEvents: number;
+  failedEvents: number;
+  highRiskEvents: number;
+  suspiciousEvents: number;
+  uniqueUsers: number;
+  uniqueIps: number;
+  bySeverity: Record<string, number>;
+  byRiskLevel: Record<string, number>;
+  hourlyDistribution: Record<string, number>;
+}
+
+export interface ComplianceSummary {
+  totalComplianceEvents: number;
+  gdprRequests: number;
+  ccpaRequests: number;
+  dataDeletions: number;
+  dataExports: number;
+  securityScans: number;
+  byRegulation: Record<string, number>;
+  monthlyTrend: Record<string, number>;
 }
 
 export interface AuditLogResponse {
@@ -113,45 +142,99 @@ export interface AuditLogExportResponse {
 // API Service
 export const auditLogsApi = {
   // Get audit logs with filters and pagination
-  async getAuditLogs(
-    filters: AuditLogFilters = {},
-    page = 1,
-    perPage = 50
-  ): Promise<AuditLogsResponse> {
+  async getAuditLogs(filters: AuditLogFilters = {}): Promise<AuditLogsResponse> {
     try {
-      const params = new URLSearchParams({
-        page: page.toString(),
-        per_page: perPage.toString(),
-        ...Object.fromEntries(
+      const params = new URLSearchParams(
+        Object.fromEntries(
           Object.entries(filters).filter(([_, value]) => value !== undefined && value !== '')
-        ),
-      });
+        )
+      );
 
       const response = await api.get(`/audit_logs?${params}`);
       return response.data;
     } catch (error: any) {
       return {
         success: false,
-        data: {
-          logs: [],
-          pagination: {
-            current_page: 1,
-            per_page: perPage,
-            total_pages: 0,
-            total_count: 0
-          },
-          stats: {
-            total_logs: 0,
-            logs_today: 0,
-            logs_this_week: 0,
-            by_action: {},
-            by_source: {},
-            by_level: {},
-            failed_logins_today: 0,
-            suspicious_activity_count: 0
-          }
+        data: [],
+        meta: {
+          current_page: 1,
+          per_page: filters.per_page || 25,
+          total_pages: 0,
+          total: 0
         },
         error: error.response?.data?.error || 'Failed to fetch audit logs'
+      };
+    }
+  },
+
+  // Get security summary analytics
+  async getSecuritySummary(timeRange?: string): Promise<SecuritySummary> {
+    try {
+      const params = timeRange ? `?time_range=${timeRange}` : '';
+      const response = await api.get(`/audit_logs/security_summary${params}`);
+      return response.data;
+    } catch (error: any) {
+      console.error('Failed to fetch security summary:', error);
+      return {
+        totalEvents: 0,
+        securityEvents: 0,
+        failedEvents: 0,
+        highRiskEvents: 0,
+        suspiciousEvents: 0,
+        uniqueUsers: 0,
+        uniqueIps: 0,
+        bySeverity: {},
+        byRiskLevel: {},
+        hourlyDistribution: {}
+      };
+    }
+  },
+
+  // Get compliance summary analytics
+  async getComplianceSummary(timeRange?: string): Promise<ComplianceSummary> {
+    try {
+      const params = timeRange ? `?time_range=${timeRange}` : '';
+      const response = await api.get(`/audit_logs/compliance_summary${params}`);
+      return response.data;
+    } catch (error: any) {
+      console.error('Failed to fetch compliance summary:', error);
+      return {
+        totalComplianceEvents: 0,
+        gdprRequests: 0,
+        ccpaRequests: 0,
+        dataDeletions: 0,
+        dataExports: 0,
+        securityScans: 0,
+        byRegulation: {},
+        monthlyTrend: {}
+      };
+    }
+  },
+
+  // Get activity timeline for analytics
+  async getActivityTimeline(limit = 50): Promise<any[]> {
+    try {
+      const response = await api.get(`/audit_logs/activity_timeline?limit=${limit}`);
+      return response.data;
+    } catch (error: any) {
+      console.error('Failed to fetch activity timeline:', error);
+      return [];
+    }
+  },
+
+  // Get risk analysis data
+  async getRiskAnalysis(timeRange?: string): Promise<any> {
+    try {
+      const params = timeRange ? `?time_range=${timeRange}` : '';
+      const response = await api.get(`/audit_logs/risk_analysis${params}`);
+      return response.data;
+    } catch (error: any) {
+      console.error('Failed to fetch risk analysis:', error);
+      return {
+        averageRiskScore: 0,
+        highRiskPercentage: 0,
+        topRiskActions: [],
+        riskTrend: {}
       };
     }
   },
@@ -186,19 +269,27 @@ export const auditLogsApi = {
 
   // Export audit logs
   async exportLogs(
-    filters: AuditLogFilters = {},
-    format: 'csv' | 'json' = 'csv'
+    exportOptions: {
+      format: 'csv' | 'json' | 'pdf';
+      scope: 'current' | 'filtered' | 'all';
+      includeMetadata: boolean;
+      includeSensitiveData: boolean;
+      maxRecords: number;
+      filters?: AuditLogFilters;
+      customDateRange?: {
+        enabled: boolean;
+        startDate: string;
+        endDate: string;
+      };
+    }
   ): Promise<AuditLogExportResponse> {
     try {
-      const response = await api.post('/audit_logs/export', {
-        ...filters,
-        format
-      });
+      const response = await api.post('/audit_logs/export', exportOptions);
       return response.data;
     } catch (error: any) {
       return {
         success: false,
-        data: { format },
+        data: { format: exportOptions.format },
         error: error.response?.data?.error || 'Failed to export audit logs'
       };
     }
@@ -263,16 +354,50 @@ export const auditLogsApi = {
   getAvailableActions(): string[] {
     return [
       'user_login',
-      'user_logout',
+      'user_logout', 
       'user_registration',
       'login_failed',
+      'password_reset',
       'subscription_created',
       'subscription_updated',
+      'subscription_cancelled',
       'payment_completed',
       'payment_failed',
+      'payment_refunded',
       'admin_settings_update',
-      'impersonation_start',
-      'impersonation_end'
+      'impersonation_started',
+      'impersonation_ended',
+      'account_locked',
+      'account_unlocked',
+      'password_changed',
+      'two_factor_enabled',
+      'two_factor_disabled',
+      'api_key_created',
+      'security_alert',
+      'fraud_detection',
+      'suspicious_activity',
+      'gdpr_request',
+      'ccpa_request',
+      'data_export',
+      'audit_log_cleanup'
+    ];
+  },
+
+  getAvailableSeverityLevels(): string[] {
+    return [
+      'low',
+      'medium', 
+      'high',
+      'critical'
+    ];
+  },
+
+  getAvailableRiskLevels(): string[] {
+    return [
+      'low',
+      'medium',
+      'high', 
+      'critical'
     ];
   },
 
@@ -282,7 +407,11 @@ export const auditLogsApi = {
       'api', 
       'system',
       'webhook',
-      'admin_panel'
+      'admin_panel',
+      'mobile_app',
+      'integration',
+      'automation',
+      'scheduler'
     ];
   },
 

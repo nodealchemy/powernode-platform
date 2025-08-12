@@ -3,7 +3,7 @@ import { serviceAPI, Service } from '../../services/serviceApi';
 import { ServiceList } from '../../components/services/ServiceList';
 import { ServiceDetails } from '../../components/services/ServiceDetails';
 import { CreateServiceModal } from '../../components/services/CreateServiceModal';
-import { LoadingSpinner } from '../../components/common/LoadingSpinner';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 
 interface ServicesPageState {
   services: Service[];
