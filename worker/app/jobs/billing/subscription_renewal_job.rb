@@ -54,7 +54,7 @@ class Billing::SubscriptionRenewalJob < BaseJob
     next_billing_date = Date.parse(subscription_data['next_billing_date'])
     
     # Process renewals up to 1 day early
-    next_billing_date <= Date.current + 1.day
+    next_billing_date <= Date.today + 1
   end
   
   def process_renewal(subscription_data, account_data)
@@ -67,7 +67,7 @@ class Billing::SubscriptionRenewalJob < BaseJob
       metadata: {
         renewal_type: 'automated',
         processed_by: 'worker_service',
-        processed_at: Time.current.iso8601
+        processed_at: Time.now.iso8601
       }
     }
     
@@ -117,7 +117,7 @@ class Billing::SubscriptionRenewalJob < BaseJob
   
   def schedule_payment_retry(subscription_data)
     # Schedule payment retry in 3 days
-    retry_time = 3.days.from_now + 9.hours
+    retry_time = Time.now + (3 * 24 * 60 * 60) + (9 * 60 * 60) # 3 days + 9 hours
     
     Billing::PaymentRetryJob.perform_at(retry_time, subscription_data['id'], 'renewal_failure')
     
@@ -145,7 +145,7 @@ class Billing::SubscriptionRenewalJob < BaseJob
   
   def schedule_renewal_retry(subscription_data)
     # Retry in 1 hour for generic failures
-    retry_time = 1.hour.from_now
+    retry_time = Time.now + (60 * 60) # 1 hour
     
     Billing::SubscriptionRenewalJob.perform_at(retry_time, subscription_data['id'])
     

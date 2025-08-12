@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../store';
 import { reportsService } from '../../services/reportsService';
-import { LoadingSpinner } from '../../components/common/LoadingSpinner';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { DateRangeFilter } from '../../components/analytics/DateRangeFilter';
 
 export interface ReportRequest {
@@ -191,7 +191,7 @@ export const ReportsPage: React.FC = () => {
   ] as const;
 
   if (loading) {
-    return <LoadingSpinner size="large" message="Loading reports..." />;
+    return <LoadingSpinner size="lg" message="Loading reports..." />;
   }
 
   if (error) {

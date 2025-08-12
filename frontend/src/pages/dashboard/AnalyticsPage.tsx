@@ -12,9 +12,10 @@ import { ChurnChart } from '../../components/analytics/ChurnChart';
 import { CustomerChart } from '../../components/analytics/CustomerChart';
 import { CohortChart } from '../../components/analytics/CohortChart';
 import { MetricsOverview } from '../../components/analytics/MetricsOverview';
+import { LiveMetricsOverview } from '../../components/analytics/LiveMetricsOverview';
 import { DateRangeFilter } from '../../components/analytics/DateRangeFilter';
 import { AnalyticsExport } from '../../components/analytics/AnalyticsExport';
-import { LoadingSpinner } from '../../components/common/LoadingSpinner';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import '../../styles/analytics.css';
 
 export interface AnalyticsData {
@@ -272,7 +273,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
   });
 
   // Active tab state
-  const [activeTab, setActiveTab] = useState<'overview' | 'revenue' | 'growth' | 'churn' | 'customers' | 'cohorts'>('overview');
+  const [activeTab, setActiveTab] = useState<'live' | 'overview' | 'revenue' | 'growth' | 'churn' | 'customers' | 'cohorts'>('live');
 
   // Load analytics data
   const loadAnalyticsData = useCallback(async (showLoading = true) => {
@@ -393,6 +394,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
 
 
   const tabs = [
+    { id: 'live', label: 'Live', icon: '🔴' },
     { id: 'overview', label: 'Overview', icon: '📊' },
     { id: 'revenue', label: 'Revenue', icon: '💰' },
     { id: 'growth', label: 'Growth', icon: '📈' },
@@ -402,7 +404,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
   ] as const;
 
   if (loading) {
-    return <LoadingSpinner size="large" message="Loading analytics data..." />;
+    return <LoadingSpinner size="lg" message="Loading analytics data..." />;
   }
 
   if (error) {
@@ -432,7 +434,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
   }
 
   if (!data) {
-    return <LoadingSpinner size="large" message="No analytics data available" />;
+    return <LoadingSpinner size="lg" message="No analytics data available" />;
   }
 
   return (
@@ -513,6 +515,17 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+        {activeTab === 'live' && (
+          <div className="space-y-4 sm:space-y-6">
+            <LiveMetricsOverview 
+              accountId={user?.account?.id}
+              showTodayActivity={true}
+              showWeeklyTrend={true}
+              updateInterval={15000} // Update every 15 seconds for live view
+            />
+          </div>
+        )}
+
         {activeTab === 'overview' && (
           <div className="space-y-4 sm:space-y-6">
             <MetricsOverview data={data} />

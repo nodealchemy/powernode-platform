@@ -1,22 +1,55 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { useSelector } from 'react-redux';
 import { RootState } from '../store';
 import { safeWebSocketSend } from '../utils/websocketUtils';
 
+export interface AnalyticsUpdateData {
+  current_metrics: {
+    mrr: number;
+    arr: number;
+    active_customers: number;
+    churn_rate: number;
+    arpu: number;
+    growth_rate: number;
+    [key: string]: any;
+  };
+  today_activity?: {
+    new_subscriptions: number;
+    cancelled_subscriptions: number;
+    payments_processed: number;
+    failed_payments: number;
+    revenue_today: number;
+  };
+  weekly_trend?: Array<{
+    date: string;
+    new_subscriptions: number;
+    revenue: number;
+    payments_count: number;
+  }>;
+  timestamp: string;
+  account_id?: string;
+}
+
 interface AnalyticsWebSocketOptions {
-  onAnalyticsUpdate?: (data: any) => void;
+  onAnalyticsUpdate?: (data: AnalyticsUpdateData) => void;
   onError?: (error: string) => void;
   accountId?: string;
+  autoRequest?: boolean;
+  requestInterval?: number;
 }
 
 export const useAnalyticsWebSocket = ({
   onAnalyticsUpdate,
   onError,
-  accountId
+  accountId,
+  autoRequest = false,
+  requestInterval = 30000
 }: AnalyticsWebSocketOptions) => {
   const { user, accessToken } = useSelector((state: RootState) => state.auth);
   const wsRef = useRef<WebSocket | null>(null);
   const isConnectedRef = useRef(false);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (!user?.account?.id || !accessToken) return;
@@ -66,6 +99,17 @@ export const useAnalyticsWebSocket = ({
             } else if (data.type === 'analytics_update' && onAnalyticsUpdate) {
               onAnalyticsUpdate(data.data);
             }
+            
+            // Handle connection established message
+            if (data.message?.type === 'analytics_connection_established') {
+              console.log('Analytics connection established:', data.message.message);
+              // Start auto-request interval if enabled
+              if (autoRequest && !intervalRef.current) {
+                intervalRef.current = setInterval(() => {
+                  requestAnalyticsUpdate();
+                }, requestInterval);
+              }
+            }
 
             // Handle errors
             if (data.message?.type === 'error' && onError) {
@@ -82,8 +126,14 @@ export const useAnalyticsWebSocket = ({
           console.log('Analytics WebSocket disconnected');
           isConnectedRef.current = false;
           
+          // Clear auto-request interval
+          if (intervalRef.current) {
+            clearInterval(intervalRef.current);
+            intervalRef.current = null;
+          }
+          
           // Attempt to reconnect after 5 seconds
-          setTimeout(() => {
+          reconnectTimeoutRef.current = setTimeout(() => {
             if (user?.account?.id && accessToken) {
               connectWebSocket();
             }
@@ -111,11 +161,23 @@ export const useAnalyticsWebSocket = ({
         wsRef.current.close();
         wsRef.current = null;
       }
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
+      }
       isConnectedRef.current = false;
     };
-  }, [user?.account?.id, accessToken, accountId, onAnalyticsUpdate, onError]);
+  }, [user?.account?.id, accessToken, accountId, onAnalyticsUpdate, onError, autoRequest, requestInterval]);
 
-  const requestAnalyticsUpdate = async () => {
+  const requestAnalyticsUpdate = useCallback(async () => {
+    if (!isConnectedRef.current || !wsRef.current) {
+      console.warn('WebSocket not connected, cannot request analytics update');
+      return;
+    }
     const requestMessage = {
       command: 'message',
       identifier: JSON.stringify({
@@ -132,10 +194,23 @@ export const useAnalyticsWebSocket = ({
     if (!sent) {
       console.warn('Failed to request analytics update');
     }
-  };
+  }, [accountId, user?.account?.id]);
 
   return {
     requestAnalyticsUpdate,
-    isConnected: isConnectedRef.current
+    isConnected: isConnectedRef.current,
+    startAutoRequests: () => {
+      if (!intervalRef.current && isConnectedRef.current) {
+        intervalRef.current = setInterval(() => {
+          requestAnalyticsUpdate();
+        }, requestInterval);
+      }
+    },
+    stopAutoRequests: () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    }
   };
 };

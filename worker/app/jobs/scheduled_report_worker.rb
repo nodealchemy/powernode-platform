@@ -1,10 +1,10 @@
-require_relative 'base_worker'
+require_relative 'base_job'
 
-# Worker for processing scheduled reports
-class ScheduledReportWorker < BaseWorker
+# Job for processing scheduled reports
+class ScheduledReportWorker < BaseJob
   sidekiq_options queue: 'reports', retry: 3, backtrace: true
 
-  def perform(scheduled_report_id)
+  def execute(scheduled_report_id)
     log_info("Processing scheduled report", report_id: scheduled_report_id)
     
     begin
@@ -22,15 +22,15 @@ class ScheduledReportWorker < BaseWorker
       result = api_client.generate_pdf_report(
         report_data[:report_type],
         account_id: report_data[:account_id],
-        start_date: 1.month.ago.beginning_of_month.to_date,
-        end_date: Date.current.end_of_month,
+        start_date: Date.today - 30, # approximately 1 month ago
+        end_date: Date.today,
         user_id: report_data[:user_id]
       )
 
       if result[:success]
         # Update the scheduled report with last run time
         api_client.update_scheduled_report(scheduled_report_id, {
-          last_run_at: Time.current.utc.iso8601,
+          last_run_at: Time.now.utc.iso8601,
           next_run_at: calculate_next_run_time(report_data[:frequency])
         })
 
@@ -77,15 +77,16 @@ class ScheduledReportWorker < BaseWorker
   private
 
   def calculate_next_run_time(frequency)
+    base_time = Time.now
     case frequency
     when 'daily'
-      1.day.from_now.beginning_of_day + 8.hours
+      (base_time + (24 * 60 * 60) + (8 * 60 * 60)).utc.iso8601 # Next day + 8 hours
     when 'weekly' 
-      1.week.from_now.beginning_of_week + 8.hours
+      (base_time + (7 * 24 * 60 * 60) + (8 * 60 * 60)).utc.iso8601 # Next week + 8 hours
     when 'monthly'
-      1.month.from_now.beginning_of_month + 8.hours
+      (base_time + (30 * 24 * 60 * 60) + (8 * 60 * 60)).utc.iso8601 # Next month + 8 hours
     else
-      1.day.from_now
-    end.utc.iso8601
+      (base_time + (24 * 60 * 60)).utc.iso8601 # Default to next day
+    end
   end
 end

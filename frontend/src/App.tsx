@@ -13,7 +13,7 @@ import { ThemeProvider } from './contexts/ThemeContext';
 // Components
 import { ProtectedRoute } from './components/common/ProtectedRoute';
 import { PublicRoute } from './components/common/PublicRoute';
-import { LoadingSpinner } from './components/common/LoadingSpinner';
+import { LoadingSpinner } from './components/ui/LoadingSpinner';
 
 // Pages
 import { LoginPage } from './pages/auth/LoginPage';

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { invitationsApi, Invitation } from '../../services/invitationsApi';
 import { FormField } from '../../components/ui/FormField';
-import { LoadingSpinner } from '../../components/common/LoadingSpinner';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 
 export const AcceptInvitationPage: React.FC = () => {
   const { token } = useParams<{ token: string }>();

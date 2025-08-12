@@ -1,10 +1,10 @@
-require_relative 'base_worker'
+require_relative 'base_job'
 
-# Worker for processing webhook events from payment gateways
-class WebhookProcessorWorker < BaseWorker
+# Job for processing webhook events from payment gateways
+class WebhookProcessorWorker < BaseJob
   sidekiq_options queue: 'webhooks', retry: 5, backtrace: true
 
-  def perform(webhook_event_id)
+  def execute(webhook_event_id)
     log_info("Processing webhook event", event_id: webhook_event_id)
     
     begin

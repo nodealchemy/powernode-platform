@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Service, ServiceActivity, ActivityListResponse, serviceAPI } from '../../services/serviceApi';
-import { LoadingSpinner } from '../common/LoadingSpinner';
+import { LoadingSpinner } from '../ui/LoadingSpinner';
 
 interface ServiceActivityListProps {
   service: Service;

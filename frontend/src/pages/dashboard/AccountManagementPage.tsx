@@ -349,6 +349,87 @@ const SecurityPage: React.FC = () => {
 
 // Preferences Page - Theme, Language, Notifications, Display
 const PreferencesPage: React.FC = () => {
+  const [preferences, setPreferences] = useState({
+    theme: 'system',
+    language: 'en',
+    emailNotifications: true,
+    pushNotifications: false,
+    weeklyDigest: true,
+    dateFormat: 'MM/DD/YYYY',
+    timeZone: 'America/Los_Angeles'
+  });
+  const [isLoading, setIsLoading] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
+  const [originalPreferences, setOriginalPreferences] = useState(preferences);
+
+  // Load user preferences on component mount
+  useEffect(() => {
+    loadUserPreferences();
+  }, []);
+
+  const loadUserPreferences = async () => {
+    try {
+      // In a real app, this would fetch from an API
+      // For now, we'll load from localStorage or use defaults
+      const savedPrefs = localStorage.getItem('userPreferences');
+      if (savedPrefs) {
+        const parsedPrefs = JSON.parse(savedPrefs);
+        setPreferences(parsedPrefs);
+        setOriginalPreferences(parsedPrefs);
+      }
+    } catch (error) {
+      console.error('Failed to load preferences:', error);
+    }
+  };
+
+  const updatePreference = (key: string, value: any) => {
+    setPreferences(prev => {
+      const updated = { ...prev, [key]: value };
+      setHasChanges(JSON.stringify(updated) !== JSON.stringify(originalPreferences));
+      return updated;
+    });
+  };
+
+  const handleSavePreferences = async () => {
+    setIsLoading(true);
+    try {
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Save to localStorage for demo purposes
+      localStorage.setItem('userPreferences', JSON.stringify(preferences));
+      
+      // Update original preferences to reset change tracking
+      setOriginalPreferences(preferences);
+      setHasChanges(false);
+      
+      // Show success notification
+      // In a real app, you'd use a proper notification system
+      alert('Preferences saved successfully!');
+    } catch (error) {
+      console.error('Failed to save preferences:', error);
+      alert('Failed to save preferences. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResetToDefaults = () => {
+    if (window.confirm('Are you sure you want to reset all preferences to their default values?')) {
+      const defaultPrefs = {
+        theme: 'system',
+        language: 'en',
+        emailNotifications: true,
+        pushNotifications: false,
+        weeklyDigest: true,
+        dateFormat: 'MM/DD/YYYY',
+        timeZone: 'America/Los_Angeles'
+      };
+      setPreferences(defaultPrefs);
+      setHasChanges(JSON.stringify(defaultPrefs) !== JSON.stringify(originalPreferences));
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="bg-theme-surface rounded-lg p-6">
@@ -361,19 +442,27 @@ const PreferencesPage: React.FC = () => {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-theme-primary mb-2">Theme</label>
-                <select className="w-full md:w-64 px-3 py-2 border border-theme rounded-lg bg-theme-background text-theme-primary">
-                  <option>System Default</option>
-                  <option>Light</option>
-                  <option>Dark</option>
+                <select 
+                  value={preferences.theme}
+                  onChange={(e) => updatePreference('theme', e.target.value)}
+                  className="w-full md:w-64 px-3 py-2 border border-theme rounded-lg bg-theme-background text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-interactive-primary focus:border-transparent"
+                >
+                  <option value="system">System Default</option>
+                  <option value="light">Light</option>
+                  <option value="dark">Dark</option>
                 </select>
               </div>
               
               <div>
                 <label className="block text-sm font-medium text-theme-primary mb-2">Language</label>
-                <select className="w-full md:w-64 px-3 py-2 border border-theme rounded-lg bg-theme-background text-theme-primary">
-                  <option>English</option>
-                  <option>Spanish</option>
-                  <option>French</option>
+                <select 
+                  value={preferences.language}
+                  onChange={(e) => updatePreference('language', e.target.value)}
+                  className="w-full md:w-64 px-3 py-2 border border-theme rounded-lg bg-theme-background text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-interactive-primary focus:border-transparent"
+                >
+                  <option value="en">English</option>
+                  <option value="es">Spanish</option>
+                  <option value="fr">French</option>
                 </select>
               </div>
             </div>
@@ -389,7 +478,12 @@ const PreferencesPage: React.FC = () => {
                   <p className="text-sm text-theme-secondary">Receive email updates about your account</p>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" className="sr-only peer" defaultChecked />
+                  <input 
+                    type="checkbox" 
+                    className="sr-only peer" 
+                    checked={preferences.emailNotifications}
+                    onChange={(e) => updatePreference('emailNotifications', e.target.checked)}
+                  />
                   <div className="w-11 h-6 bg-theme-surface rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-theme-interactive-primary"></div>
                 </label>
               </div>
@@ -400,7 +494,12 @@ const PreferencesPage: React.FC = () => {
                   <p className="text-sm text-theme-secondary">Get push notifications in your browser</p>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" className="sr-only peer" />
+                  <input 
+                    type="checkbox" 
+                    className="sr-only peer" 
+                    checked={preferences.pushNotifications}
+                    onChange={(e) => updatePreference('pushNotifications', e.target.checked)}
+                  />
                   <div className="w-11 h-6 bg-theme-surface rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-theme-interactive-primary"></div>
                 </label>
               </div>
@@ -411,7 +510,12 @@ const PreferencesPage: React.FC = () => {
                   <p className="text-sm text-theme-secondary">Summary of your weekly activity</p>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" className="sr-only peer" defaultChecked />
+                  <input 
+                    type="checkbox" 
+                    className="sr-only peer" 
+                    checked={preferences.weeklyDigest}
+                    onChange={(e) => updatePreference('weeklyDigest', e.target.checked)}
+                  />
                   <div className="w-11 h-6 bg-theme-surface rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-theme-interactive-primary"></div>
                 </label>
               </div>
@@ -424,29 +528,68 @@ const PreferencesPage: React.FC = () => {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-theme-primary mb-2">Date Format</label>
-                <select className="w-full md:w-64 px-3 py-2 border border-theme rounded-lg bg-theme-background text-theme-primary">
-                  <option>MM/DD/YYYY</option>
-                  <option>DD/MM/YYYY</option>
-                  <option>YYYY-MM-DD</option>
+                <select 
+                  value={preferences.dateFormat}
+                  onChange={(e) => updatePreference('dateFormat', e.target.value)}
+                  className="w-full md:w-64 px-3 py-2 border border-theme rounded-lg bg-theme-background text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-interactive-primary focus:border-transparent"
+                >
+                  <option value="MM/DD/YYYY">MM/DD/YYYY</option>
+                  <option value="DD/MM/YYYY">DD/MM/YYYY</option>
+                  <option value="YYYY-MM-DD">YYYY-MM-DD</option>
                 </select>
               </div>
               
               <div>
                 <label className="block text-sm font-medium text-theme-primary mb-2">Time Zone</label>
-                <select className="w-full md:w-64 px-3 py-2 border border-theme rounded-lg bg-theme-background text-theme-primary">
-                  <option>Pacific Time (PT)</option>
-                  <option>Eastern Time (ET)</option>
-                  <option>Central Time (CT)</option>
-                  <option>Mountain Time (MT)</option>
+                <select 
+                  value={preferences.timeZone}
+                  onChange={(e) => updatePreference('timeZone', e.target.value)}
+                  className="w-full md:w-64 px-3 py-2 border border-theme rounded-lg bg-theme-background text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-interactive-primary focus:border-transparent"
+                >
+                  <option value="America/Los_Angeles">Pacific Time (PT)</option>
+                  <option value="America/New_York">Eastern Time (ET)</option>
+                  <option value="America/Chicago">Central Time (CT)</option>
+                  <option value="America/Denver">Mountain Time (MT)</option>
                 </select>
               </div>
             </div>
           </div>
         </div>
         
+        {/* Save indicator */}
+        {hasChanges && (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mt-6">
+            <div className="flex items-center">
+              <div className="text-yellow-600 mr-2">⚠️</div>
+              <span className="text-sm text-yellow-800">You have unsaved changes</span>
+            </div>
+          </div>
+        )}
+        
         <div className="flex justify-end space-x-3 mt-6 pt-6 border-t border-theme">
-          <button className="btn-theme btn-theme-secondary">Reset to Defaults</button>
-          <button className="btn-theme btn-theme-primary">Save Preferences</button>
+          <button 
+            className="btn-theme btn-theme-secondary"
+            onClick={handleResetToDefaults}
+            disabled={isLoading}
+          >
+            Reset to Defaults
+          </button>
+          <button 
+            className={`btn-theme ${
+              hasChanges ? 'btn-theme-primary' : 'btn-theme-secondary opacity-50 cursor-not-allowed'
+            }`}
+            onClick={handleSavePreferences}
+            disabled={!hasChanges || isLoading}
+          >
+            {isLoading ? (
+              <div className="flex items-center">
+                <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2"></div>
+                Saving...
+              </div>
+            ) : (
+              'Save Preferences'
+            )}
+          </button>
         </div>
       </div>
     </div>

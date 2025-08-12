@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { twoFactorApi } from '../../services/twoFactorApi';
-import { LoadingSpinner } from '../common/LoadingSpinner';
+import { LoadingSpinner } from '../ui/LoadingSpinner';
 
 interface TwoFactorSetupProps {
   onComplete?: () => void;

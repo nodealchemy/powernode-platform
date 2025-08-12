@@ -80,20 +80,20 @@ class Reports::GenerateReportJob < BaseJob
   # Save the generated report file to storage
   def save_report_file(report_request, file_data)
     # Create reports directory if it doesn't exist
-    reports_dir = Rails.root.join('storage', 'reports')
+    reports_dir = File.join(PowernodeWorker.application.root, 'storage', 'reports')
     FileUtils.mkdir_p(reports_dir)
     
     # Generate unique filename
-    timestamp = Time.current.strftime('%Y%m%d_%H%M%S')
-    sanitized_name = report_request['name'].parameterize(separator: '_')
+    timestamp = Time.now.strftime('%Y%m%d_%H%M%S')
+    sanitized_name = report_request['name'].gsub(/[^0-9A-Za-z.\-]/, '_')
     filename = "#{sanitized_name}_#{timestamp}.#{report_request['format']}"
-    file_path = reports_dir.join(filename)
+    file_path = File.join(reports_dir, filename)
     
     # Write file to storage
     File.write(file_path, file_data, mode: 'wb')
     
     logger.info "Report file saved to #{file_path}"
-    file_path.to_s
+    file_path
   end
   
   # Build download URL for the generated report
@@ -169,7 +169,7 @@ class Reports::GenerateReportJob < BaseJob
     JSON.pretty_generate({
       report_name: report_request['name'],
       report_type: report_request['report_type'],
-      generated_at: Time.current.iso8601,
+      generated_at: Time.now.iso8601,
       data: report_data
     })
   end
@@ -270,7 +270,7 @@ class Reports::GenerateReportJob < BaseJob
       report_type: report_result['report_type'],
       account_id: report_result['account_id'],
       status: 'completed',
-      generated_at: Time.current.iso8601,
+      generated_at: Time.now.iso8601,
       download_url: report_result['download_url']
     }
     

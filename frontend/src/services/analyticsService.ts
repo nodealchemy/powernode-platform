@@ -222,19 +222,30 @@ class AnalyticsService {
     window.URL.revokeObjectURL(url);
   }
 
-  // Real-time analytics updates via WebSocket
-  subscribeToAnalyticsUpdates(callback: (data: any) => void) {
-    // This would integrate with the WebSocket connection
-    // For now, we'll use polling as fallback
+  // Live analytics endpoint for real-time data
+  async getLiveAnalytics(accountId?: string): Promise<AnalyticsResponse<any>> {
+    const params = new URLSearchParams({
+      ...(accountId && { account_id: accountId })
+    });
+
+    const response = await api.get(`/analytics/live?${params}`);
+    return response.data;
+  }
+
+  // Real-time analytics updates via WebSocket (fallback to polling)
+  subscribeToAnalyticsUpdates(callback: (data: any) => void, useWebSocket = true) {
+    if (useWebSocket) {
+      // WebSocket integration handled by useAnalyticsWebSocket hook
+      return null;
+    }
+    
+    // Fallback to polling for live analytics data
     return setInterval(async () => {
       try {
-        const endDate = new Date().toISOString().split('T')[0];
-        const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-        
-        const revenue = await this.getRevenueAnalytics(startDate, endDate);
+        const liveData = await this.getLiveAnalytics();
         callback({
-          type: 'revenue_update',
-          data: revenue.data.current_metrics
+          type: 'live_analytics_update',
+          data: liveData.data
         });
       } catch (error) {
         console.error('Failed to fetch real-time analytics:', error);
@@ -242,8 +253,10 @@ class AnalyticsService {
     }, 30000); // Update every 30 seconds
   }
 
-  unsubscribeFromAnalyticsUpdates(intervalId: number) {
-    clearInterval(intervalId);
+  unsubscribeFromAnalyticsUpdates(intervalId: number | null) {
+    if (intervalId) {
+      clearInterval(intervalId);
+    }
   }
 }
 
