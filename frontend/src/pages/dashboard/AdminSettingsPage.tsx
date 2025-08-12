@@ -382,6 +382,243 @@ export const AdminSettingsPage: React.FC = () => {
             </div>
           </div>
 
+          {/* Rate Limit Settings */}
+          <div className="card-theme">
+            <div className="px-6 py-4 border-b border-theme">
+              <h3 className="text-lg font-semibold text-theme-primary flex items-center">
+                <span className="mr-2">🛡️</span>
+                Rate Limit Settings
+              </h3>
+              <p className="text-sm text-theme-secondary mt-1">API request limits and security throttling configuration</p>
+            </div>
+            <div className="p-6 space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Rate Limiting Global Toggle */}
+                <div className="col-span-2">
+                  <div className="flex items-center justify-between p-4 bg-theme-surface rounded-lg border border-theme">
+                    <div className="flex-1">
+                      <h4 className="text-sm font-medium text-theme-primary">Enable Rate Limiting</h4>
+                      <p className="text-xs text-theme-secondary mt-1">
+                        {systemSettings?.rate_limiting?.enabled !== false 
+                          ? 'Rate limiting is active for all API endpoints'
+                          : 'Rate limiting is disabled - all endpoints allow unlimited requests'
+                        }
+                      </p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={systemSettings?.rate_limiting?.enabled !== false}
+                        onChange={(e) => handleUpdateSettings({ 
+                          rate_limiting: { 
+                            ...systemSettings?.rate_limiting, 
+                            enabled: e.target.checked
+                          } 
+                        })}
+                        disabled={saving}
+                        className="sr-only"
+                      />
+                      <div className="w-11 h-6 bg-theme-surface-secondary rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-theme-success"></div>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Detailed Rate Limiting Settings */}
+                <div className="col-span-2">
+                  <h4 className="text-md font-semibold text-theme-primary mb-4">Individual Rate Limits</h4>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    {/* API Requests */}
+                    <div>
+                      <label className="label-theme">API Requests (per 15min)</label>
+                      <input
+                        type="number"
+                        min="10"
+                        max="5000"
+                        value={systemSettings?.rate_limiting?.api_requests_per_minute || 300}
+                        onChange={(e) => handleUpdateSettings({ 
+                          rate_limiting: { 
+                            ...systemSettings?.rate_limiting, 
+                            api_requests_per_minute: parseInt(e.target.value) 
+                          } 
+                        })}
+                        disabled={saving || systemSettings?.rate_limiting?.enabled === false}
+                        className="input-theme"
+                      />
+                      <p className="text-xs text-theme-tertiary mt-1">General API endpoint rate limit</p>
+                    </div>
+
+                    {/* Login Attempts */}
+                    <div>
+                      <label className="label-theme">Login Attempts (per hour)</label>
+                      <input
+                        type="number"
+                        min="3"
+                        max="50"
+                        value={systemSettings?.rate_limiting?.login_attempts_per_hour || 10}
+                        onChange={(e) => handleUpdateSettings({ 
+                          rate_limiting: { 
+                            ...systemSettings?.rate_limiting, 
+                            login_attempts_per_hour: parseInt(e.target.value) 
+                          } 
+                        })}
+                        disabled={saving || systemSettings?.rate_limiting?.enabled === false}
+                        className="input-theme"
+                      />
+                      <p className="text-xs text-theme-tertiary mt-1">Failed login protection per IP</p>
+                    </div>
+
+                    {/* Registration Attempts */}
+                    <div>
+                      <label className="label-theme">Registration Attempts (per hour)</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="25"
+                        value={systemSettings?.rate_limiting?.registration_attempts_per_hour || 5}
+                        onChange={(e) => handleUpdateSettings({ 
+                          rate_limiting: { 
+                            ...systemSettings?.rate_limiting, 
+                            registration_attempts_per_hour: parseInt(e.target.value) 
+                          } 
+                        })}
+                        disabled={saving || systemSettings?.rate_limiting?.enabled === false}
+                        className="input-theme"
+                      />
+                      <p className="text-xs text-theme-tertiary mt-1">New user registration per IP</p>
+                    </div>
+
+                    {/* Password Reset Attempts */}
+                    <div>
+                      <label className="label-theme">Password Reset (per hour)</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="15"
+                        value={systemSettings?.rate_limiting?.password_reset_attempts_per_hour || 3}
+                        onChange={(e) => handleUpdateSettings({ 
+                          rate_limiting: { 
+                            ...systemSettings?.rate_limiting, 
+                            password_reset_attempts_per_hour: parseInt(e.target.value) 
+                          } 
+                        })}
+                        disabled={saving || systemSettings?.rate_limiting?.enabled === false}
+                        className="input-theme"
+                      />
+                      <p className="text-xs text-theme-tertiary mt-1">Password reset requests per IP</p>
+                    </div>
+
+                    {/* Email Verification */}
+                    <div>
+                      <label className="label-theme">Email Verification (per hour)</label>
+                      <input
+                        type="number"
+                        min="3"
+                        max="25"
+                        value={systemSettings?.rate_limiting?.email_verification_attempts_per_hour || 10}
+                        onChange={(e) => handleUpdateSettings({ 
+                          rate_limiting: { 
+                            ...systemSettings?.rate_limiting, 
+                            email_verification_attempts_per_hour: parseInt(e.target.value) 
+                          } 
+                        })}
+                        disabled={saving || systemSettings?.rate_limiting?.enabled === false}
+                        className="input-theme"
+                      />
+                      <p className="text-xs text-theme-tertiary mt-1">Email verification requests per IP</p>
+                    </div>
+
+                    {/* Authenticated Requests */}
+                    <div>
+                      <label className="label-theme">Authenticated Requests (per hour)</label>
+                      <input
+                        type="number"
+                        min="50"
+                        max="1000"
+                        value={systemSettings?.rate_limiting?.authenticated_requests_per_hour || 200}
+                        onChange={(e) => handleUpdateSettings({ 
+                          rate_limiting: { 
+                            ...systemSettings?.rate_limiting, 
+                            authenticated_requests_per_hour: parseInt(e.target.value) 
+                          } 
+                        })}
+                        disabled={saving || systemSettings?.rate_limiting?.enabled === false}
+                        className="input-theme"
+                      />
+                      <p className="text-xs text-theme-tertiary mt-1">Authenticated API calls per user</p>
+                    </div>
+
+                    {/* Admin/Impersonation Attempts */}
+                    <div>
+                      <label className="label-theme">Admin/Impersonation (per hour)</label>
+                      <input
+                        type="number"
+                        min="5"
+                        max="100"
+                        value={systemSettings?.rate_limiting?.impersonation_attempts_per_hour || 50}
+                        onChange={(e) => handleUpdateSettings({ 
+                          rate_limiting: { 
+                            ...systemSettings?.rate_limiting, 
+                            impersonation_attempts_per_hour: parseInt(e.target.value) 
+                          } 
+                        })}
+                        disabled={saving || systemSettings?.rate_limiting?.enabled === false}
+                        className="input-theme"
+                      />
+                      <p className="text-xs text-theme-tertiary mt-1">Admin operations per IP (higher in dev)</p>
+                    </div>
+
+                    {/* Webhook Requests */}
+                    <div>
+                      <label className="label-theme">Webhook Requests (per minute)</label>
+                      <input
+                        type="number"
+                        min="10"
+                        max="500"
+                        value={systemSettings?.rate_limiting?.webhook_requests_per_minute || 100}
+                        onChange={(e) => handleUpdateSettings({ 
+                          rate_limiting: { 
+                            ...systemSettings?.rate_limiting, 
+                            webhook_requests_per_minute: parseInt(e.target.value) 
+                          } 
+                        })}
+                        disabled={saving || systemSettings?.rate_limiting?.enabled === false}
+                        className="input-theme"
+                      />
+                      <p className="text-xs text-theme-tertiary mt-1">Payment gateway webhooks per IP</p>
+                    </div>
+                  </div>
+                  
+                  {/* Rate Limiting Status Indicator */}
+                  <div className={`mt-6 p-4 rounded-lg border ${
+                    systemSettings?.rate_limiting?.enabled === false 
+                      ? 'bg-theme-warning border-theme-warning' 
+                      : 'bg-theme-info border-theme-info'
+                  }`}>
+                    <div className="flex items-center">
+                      <span className="mr-2">
+                        {systemSettings?.rate_limiting?.enabled === false ? '⚠️' : 'ℹ️'}
+                      </span>
+                      <div>
+                        <h5 className="font-medium text-theme-primary">
+                          {systemSettings?.rate_limiting?.enabled === false 
+                            ? 'Rate Limiting Disabled' 
+                            : 'Rate Limiting Active'
+                          }
+                        </h5>
+                        <p className="text-sm text-theme-secondary mt-1">
+                          {systemSettings?.rate_limiting?.enabled === false 
+                            ? 'All rate limit settings above are currently disabled. Enable rate limiting to activate protection.'
+                            : 'All API endpoints are protected with the rate limits configured above. Changes take effect immediately.'
+                          }
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Business Settings */}
           <div className="card-theme">
             <div className="px-6 py-4 border-b border-theme">
@@ -433,25 +670,6 @@ export const AdminSettingsPage: React.FC = () => {
                     className="input-theme"
                   />
                   <p className="text-xs text-theme-tertiary mt-1">Timeout for payment webhook processing</p>
-                </div>
-
-                <div>
-                  <label className="label-theme">API Rate Limit (requests/minute)</label>
-                  <input
-                    type="number"
-                    min="10"
-                    max="1000"
-                    value={systemSettings?.rate_limiting?.api_requests_per_minute || 60}
-                    onChange={(e) => handleUpdateSettings({ 
-                      rate_limiting: { 
-                        ...systemSettings?.rate_limiting, 
-                        api_requests_per_minute: parseInt(e.target.value) 
-                      } 
-                    })}
-                    disabled={saving}
-                    className="input-theme"
-                  />
-                  <p className="text-xs text-theme-tertiary mt-1">API rate limiting per user</p>
                 </div>
               </div>
             </div>

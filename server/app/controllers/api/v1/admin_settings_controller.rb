@@ -274,13 +274,13 @@ class Api::V1::AdminSettingsController < ApplicationController
       stripe: {
         connected: stripe_configured?,
         environment: Rails.env.production? ? 'live' : 'test',
-        webhook_status: 'healthy', # TODO: Implement webhook health check
+        webhook_status: stripe_webhook_health,
         last_webhook: last_stripe_webhook_time
       },
       paypal: {
         connected: paypal_configured?,
         environment: Rails.env.production? ? 'live' : 'sandbox',
-        webhook_status: 'healthy', # TODO: Implement webhook health check
+        webhook_status: paypal_webhook_health,
         last_webhook: last_paypal_webhook_time
       }
     }
@@ -311,8 +311,26 @@ class Api::V1::AdminSettingsController < ApplicationController
       :session_timeout_minutes,
       :max_failed_login_attempts,
       :account_lockout_duration,
+      :system_name,
+      :system_email,
+      :support_email,
+      :platform_url,
+      :trial_period_days,
+      :payment_retry_attempts,
+      :webhook_timeout_seconds,
+      :allow_account_deletion,
       system_notifications: {},
-      rate_limiting: {},
+      rate_limiting: [
+        :enabled,
+        :api_requests_per_minute,
+        :login_attempts_per_hour,
+        :registration_attempts_per_hour,
+        :password_reset_attempts_per_hour,
+        :email_verification_attempts_per_hour,
+        :authenticated_requests_per_hour,
+        :impersonation_attempts_per_hour,
+        :webhook_requests_per_minute
+      ],
       feature_flags: {}
     )
   end
@@ -568,13 +586,37 @@ class Api::V1::AdminSettingsController < ApplicationController
     Rails.application.credentials.dig(:paypal, :client_secret).present?
   end
 
+  def stripe_webhook_health
+    stripe_events = WebhookEvent.for_provider('stripe').where('created_at >= ?', 24.hours.ago)
+    calculate_webhook_health_status(stripe_events)
+  end
+
+  def paypal_webhook_health
+    paypal_events = WebhookEvent.for_provider('paypal').where('created_at >= ?', 24.hours.ago)
+    calculate_webhook_health_status(paypal_events)
+  end
+
+  def calculate_webhook_health_status(events)
+    return 'no_data' if events.empty?
+    
+    total = events.count
+    processed = events.processed.count
+    failed = events.failed.count
+    
+    success_rate = (processed.to_f / total * 100).round(1)
+    
+    return 'healthy' if success_rate >= 95
+    return 'warning' if success_rate >= 80
+    'unhealthy'
+  end
+
   def last_stripe_webhook_time
-    # TODO: Implement webhook event tracking
+    WebhookEvent.for_provider('stripe').order(:created_at).last&.created_at ||
     AuditLog.where(source: 'stripe_webhook').order(:created_at).last&.created_at
   end
 
   def last_paypal_webhook_time
-    # TODO: Implement webhook event tracking  
+    WebhookEvent.for_provider('paypal').order(:created_at).last&.created_at ||
     AuditLog.where(source: 'paypal_webhook').order(:created_at).last&.created_at
   end
 end

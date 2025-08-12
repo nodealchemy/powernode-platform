@@ -69,12 +69,15 @@ export interface SystemLog {
 }
 
 export interface RateLimitingSettings {
+  enabled?: boolean;
   api_requests_per_minute: number;
   impersonation_attempts_per_hour: number;
   login_attempts_per_hour: number;
   password_reset_attempts_per_hour: number;
   registration_attempts_per_hour: number;
   webhook_requests_per_minute: number;
+  email_verification_attempts_per_hour: number;
+  authenticated_requests_per_hour: number;
 }
 
 export interface AdminSettings {
