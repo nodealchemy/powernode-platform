@@ -53,6 +53,42 @@ class JwtService
       raise StandardError, "User not found"
     end
 
+    def generate_2fa_token(user)
+      # Generate a partial authentication token that requires 2FA verification
+      payload = {
+        user_id: user.id,
+        account_id: user.account_id,
+        email: user.email,
+        role: user.role || 'member',
+        type: "2fa_required",
+        requires_2fa: true
+      }
+
+      {
+        token: encode(payload, 10.minutes.from_now),
+        expires_at: 10.minutes.from_now
+      }
+    end
+
+    def verify_2fa_token(token, two_factor_code)
+      payload = decode(token)
+
+      raise StandardError, "Invalid token type" unless payload[:type] == "2fa_required"
+      raise StandardError, "Token does not require 2FA" unless payload[:requires_2fa]
+
+      user = User.find(payload[:user_id])
+      raise StandardError, "User not found or inactive" unless user&.active?
+      
+      unless user.verify_two_factor_token(two_factor_code)
+        raise StandardError, "Invalid 2FA code"
+      end
+
+      # Generate full access tokens after successful 2FA verification
+      generate_tokens(user)
+    rescue ActiveRecord::RecordNotFound
+      raise StandardError, "User not found"
+    end
+
     def blacklist_token(token, user, reason: "logout")
       # Decode token to get expiration time without using our own decode method (to avoid blacklist check)
       begin
