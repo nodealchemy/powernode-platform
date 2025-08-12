@@ -3,7 +3,7 @@
 class ImpersonationSession < ApplicationRecord
   belongs_to :impersonator, class_name: 'User'
   belongs_to :impersonated_user, class_name: 'User'
-  belongs_to :account, optional: false
+  belongs_to :account, required: true
 
   validates :session_token, presence: true, uniqueness: true
   validates :reason, length: { maximum: 500 }, allow_blank: true
@@ -90,7 +90,7 @@ class ImpersonationSession < ApplicationRecord
   end
 
   def generate_session_token
-    self.session_token = SecureRandom.hex(32)
+    self.session_token = SecureRandom.hex(32) if session_token.blank?
   end
 
   def set_account_from_users

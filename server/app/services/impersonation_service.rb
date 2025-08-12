@@ -29,7 +29,7 @@ class ImpersonationService
     AuditLog.create!(
       user: @current_user,
       account: @current_user.account,
-      action: 'impersonation.started',
+      action: 'impersonation_started',
       resource_type: 'User',
       resource_id: target_user.id,
       source: 'admin_panel',
@@ -82,7 +82,7 @@ class ImpersonationService
     AuditLog.create!(
       user: @current_user,
       account: @current_user.account,
-      action: 'impersonation.ended',
+      action: 'impersonation_ended',
       resource_type: 'User',
       resource_id: session.impersonated_user_id,
       source: 'admin_panel',
@@ -121,13 +121,16 @@ class ImpersonationService
       return nil unless payload[:type] == 'impersonation'
       
       session = ImpersonationSession.find_by(id: payload[:session_id])
-      return nil unless session&.active?
+      return nil unless session
       
       # Check if session has expired
       if session.expired?
         session.end_session!
         return nil
       end
+      
+      # Check if session is still active (not manually ended)
+      return nil unless session.active
       
       session
     rescue StandardError
@@ -148,8 +151,7 @@ class ImpersonationService
     end
 
     # Check if target user exists and is in the same account
-    # System administrators can impersonate users from any account
-    unless @current_user.admin? || target_user.account == @current_user.account
+    unless target_user.account == @current_user.account
       raise InvalidUserError, 'You can only impersonate users in your own account'
     end
 
@@ -163,9 +165,9 @@ class ImpersonationService
       raise InvalidUserError, 'Cannot impersonate inactive user'
     end
 
-    # Prevent impersonating owners if current user is not owner or system admin
-    if target_user.owner? && !@current_user.owner? && !@current_user.admin?
-      raise PermissionDeniedError, 'Only owners or system administrators can impersonate owners'
+    # Prevent impersonating owners if current user is not owner
+    if target_user.owner? && !@current_user.owner?
+      raise PermissionDeniedError, 'Only owners can impersonate other owners'
     end
 
     # Prevent system administrators from impersonating other system administrators

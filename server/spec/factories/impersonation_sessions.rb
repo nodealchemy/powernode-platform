@@ -2,7 +2,7 @@
 
 FactoryBot.define do
   factory :impersonation_session do
-    session_token { SecureRandom.hex(32) }
+    sequence(:session_token) { |n| "test_token_#{n}_#{SecureRandom.hex(16)}" }
     reason { 'Testing purposes' }
     started_at { Time.current }
     ended_at { nil }

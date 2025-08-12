@@ -27,11 +27,8 @@ class Api::V1::Auth::RegistrationsController < ApplicationController
       @account.save!
 
       @user = @account.users.build(user_params)
+      # First user in account gets owner role (this is handled by User model callback)
       @user.save!
-
-      # Assign Owner role to the first user (handled automatically in User model)
-      owner_role = Role.find_by(name: "Owner")
-      @user.assign_role(owner_role) if owner_role
 
       # Create subscription if plan is selected
       if params[:planId].present?
@@ -48,11 +45,7 @@ class Api::V1::Auth::RegistrationsController < ApplicationController
           )
           @subscription.save!
           
-          # Assign plan's default roles to the user
-          plan.default_roles.each do |role_name|
-            role = Role.find_by(name: role_name)
-            @user.assign_role(role) if role && !@user.has_role?(role_name)
-          end
+          # Note: Plan-based role assignment not implemented in single-role system
         end
       end
 

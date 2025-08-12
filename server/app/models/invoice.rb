@@ -147,7 +147,6 @@ class Invoice < ApplicationRecord
 
   def set_defaults
     self.metadata ||= {}
-    self.billing_address ||= {}
     self.currency ||= subscription&.plan&.currency || "USD"
   end
 end
