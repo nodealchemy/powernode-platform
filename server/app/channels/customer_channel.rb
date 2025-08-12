@@ -3,16 +3,16 @@
 class CustomerChannel < ApplicationCable::Channel
   def subscribed
     account_id = params[:account_id]
-    
+
     if current_user && authorized_for_account?(account_id) && admin_user?
       stream_from("customer_updates_#{account_id}")
-      
+
       Rails.logger.info "Admin user #{current_user.id} subscribed to customer updates for account #{account_id}"
-      
+
       # Send welcome message with initial data
       transmit({
-        type: 'connection_established',
-        message: 'Connected to customer updates',
+        type: "connection_established",
+        message: "Connected to customer updates",
         timestamp: Time.current.iso8601
       })
     else
@@ -28,18 +28,18 @@ class CustomerChannel < ApplicationCable::Channel
   # Handle real-time customer search
   def search(data)
     return unless admin_user?
-    
-    search_query = data['query'].to_s.strip
-    filters = data['filters'] || {}
-    
+
+    search_query = data["query"].to_s.strip
+    filters = data["filters"] || {}
+
     # Perform search
     accounts_query = build_search_query(search_query, filters)
     results = accounts_query.includes(:users, :subscription, subscription: :plan)
                            .limit(10)
                            .map { |account| serialize_customer(account) }
-    
+
     transmit({
-      type: 'search_results',
+      type: "search_results",
       query: search_query,
       results: results,
       timestamp: Time.current.iso8601
@@ -49,38 +49,38 @@ class CustomerChannel < ApplicationCable::Channel
   # Handle customer status changes
   def update_customer_status(data)
     return unless admin_user?
-    
-    account_id = data['customer_id']
-    new_status = data['status']
-    
+
+    account_id = data["customer_id"]
+    new_status = data["status"]
+
     account = Account.find_by(id: account_id)
     return unless account
-    
+
     if account.update(status: new_status)
       # Broadcast the change
       broadcast_data = {
-        type: 'customer_updated',
-        event: 'status_changed',
+        type: "customer_updated",
+        event: "status_changed",
         customer: serialize_customer(account),
         timestamp: Time.current.iso8601
       }
-      
+
       # Broadcast to all admin accounts
-      admin_accounts = Account.joins(:users).where(users: { role: ['owner', 'admin'] }).distinct
+      admin_accounts = Account.joins(:users).where(users: { role: [ "owner", "admin" ] }).distinct
       admin_accounts.each do |admin_account|
         ActionCable.server.broadcast("customer_updates_#{admin_account.id}", broadcast_data)
       end
-      
+
       transmit({
-        type: 'update_success',
+        type: "update_success",
         message: "Customer status updated to #{new_status}",
         customer_id: account_id,
         timestamp: Time.current.iso8601
       })
     else
       transmit({
-        type: 'update_error',
-        message: 'Failed to update customer status',
+        type: "update_error",
+        message: "Failed to update customer status",
         errors: account.errors.full_messages,
         timestamp: Time.current.iso8601
       })
@@ -90,7 +90,7 @@ class CustomerChannel < ApplicationCable::Channel
   # Handle ping for connection testing
   def ping(data = {})
     transmit({
-      type: 'pong',
+      type: "pong",
       server_timestamp: Time.current.iso8601,
       customer_count: Account.count
     })
@@ -104,7 +104,7 @@ class CustomerChannel < ApplicationCable::Channel
 
   def build_search_query(search_query, filters = {})
     accounts = Account.joins(:users)
-    
+
     # Apply search filter
     if search_query.present?
       search = "%#{search_query}%"
@@ -113,24 +113,24 @@ class CustomerChannel < ApplicationCable::Channel
         search, search, search, search
       )
     end
-    
+
     # Apply status filter
-    if filters['status'].present? && filters['status'] != 'all'
-      accounts = accounts.where(status: filters['status'])
+    if filters["status"].present? && filters["status"] != "all"
+      accounts = accounts.where(status: filters["status"])
     end
-    
+
     # Apply plan filter
-    if filters['plan'].present? && filters['plan'] != 'all'
-      accounts = accounts.joins(:subscription).where(subscriptions: { plan_id: filters['plan'] })
+    if filters["plan"].present? && filters["plan"] != "all"
+      accounts = accounts.joins(:subscription).where(subscriptions: { plan_id: filters["plan"] })
     end
-    
+
     accounts.distinct.order(created_at: :desc)
   end
 
   def serialize_customer(account)
     primary_user = account.users.owners.first || account.users.first
     subscription = account.subscription
-    
+
     {
       id: account.id,
       name: account.name,
@@ -166,16 +166,16 @@ class CustomerChannel < ApplicationCable::Channel
 
   def calculate_mrr(account)
     return 0 unless account.subscription&.active?
-    
+
     monthly_amount = case account.subscription.plan.billing_cycle
-    when 'monthly'
+    when "monthly"
       account.subscription.plan.price_cents
-    when 'yearly'
+    when "yearly"
       account.subscription.plan.price_cents / 12
     else
       0
     end
-    
+
     monthly_amount
   end
 end

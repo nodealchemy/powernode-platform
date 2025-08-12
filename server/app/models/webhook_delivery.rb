@@ -7,10 +7,8 @@ class WebhookDelivery < ApplicationRecord
   validates :status, presence: true, inclusion: { in: %w[pending successful failed max_retries_reached] }
   validates :attempt_count, presence: true, numericality: { greater_than_or_equal_to: 0 }
 
-  # Serialization
-  serialize :payload, coder: JSON
-  serialize :response_headers, coder: JSON
-  serialize :metadata, coder: JSON
+  # Note: payload, response_headers, and metadata are JSON columns in PostgreSQL
+  # They have native JSON serialization, no need for explicit serialize calls
 
   # Scopes
   scope :pending, -> { where(status: 'pending') }

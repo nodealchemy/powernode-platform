@@ -18,7 +18,7 @@ module ApplicationCable
         begin
           decoded_token = JwtService.decode(token)
           user = User.find(decoded_token["user_id"])
-          
+
           if user&.active?
             user
           else

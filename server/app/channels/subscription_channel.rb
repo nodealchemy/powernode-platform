@@ -4,12 +4,12 @@ class SubscriptionChannel < ApplicationCable::Channel
   def subscribed
     # Verify user has access to the account
     account_id = params[:account_id]
-    
+
     if current_user && authorized_for_account?(account_id)
       stream_for_account(current_account)
-      
+
       Rails.logger.info "User #{current_user.id} subscribed to subscription updates for account #{account_id}"
-      
+
       # Send current subscription status on connect
       send_current_subscription_status
     else
@@ -26,9 +26,9 @@ class SubscriptionChannel < ApplicationCable::Channel
   def refresh_subscriptions
     if current_account
       subscription = current_account.subscription
-      
+
       broadcast_to_account(current_account, {
-        type: 'subscription_updated',
+        type: "subscription_updated",
         subscription: subscription ? serialize_subscription(subscription) : nil
       })
     end
@@ -45,9 +45,9 @@ class SubscriptionChannel < ApplicationCable::Channel
     return unless current_account
 
     subscription = current_account.subscription
-    
+
     data = {
-      type: 'subscription_status',
+      type: "subscription_status",
       subscription: subscription ? serialize_subscription(subscription) : nil,
       account_id: current_account.id,
       timestamp: Time.current.iso8601

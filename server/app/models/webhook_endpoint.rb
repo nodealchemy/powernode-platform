@@ -18,9 +18,8 @@ class WebhookEndpoint < ApplicationRecord
   }
   validates :retry_backoff, presence: true, inclusion: { in: %w[linear exponential] }
 
-  # Serialization
-  serialize :event_types, coder: JSON
-  serialize :metadata, coder: JSON
+  # Note: event_types and metadata are JSON columns in PostgreSQL
+  # They have native JSON serialization, no need for explicit serialize calls
 
   # Scopes
   scope :active, -> { where(status: 'active') }

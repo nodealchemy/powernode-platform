@@ -82,7 +82,7 @@ class RevenueAnalyticsService
       end
     end
 
-    Money.new(mrr_cents, "USD")
+    mrr_cents / 100.0 # Return as float for controller compatibility
   end
 
   def current_arr
@@ -105,7 +105,68 @@ class RevenueAnalyticsService
     
     return 0.0 if active_start == 0
     
-    (cancelled_period.to_f / active_start * 100).round(2)
+    (cancelled_period.to_f / active_start).round(4) # Return as decimal for controller
+  end
+
+  # Alias for controller compatibility
+  def calculate_churn_rate(date = Date.current, period_type = "monthly")
+    case period_type
+    when "monthly"
+      churn_rate(30)
+    when "weekly"
+      churn_rate(7)
+    else
+      churn_rate(30)
+    end
+  end
+
+  # Count active customers
+  def count_active_customers
+    active_subscriptions_count
+  end
+
+  # Calculate ARPU (Average Revenue Per User)
+  def calculate_arpu
+    active_customers = count_active_customers
+    return 0.0 if active_customers == 0
+    
+    (current_mrr / active_customers).round(2)
+  end
+
+  # Calculate LTV (Customer Lifetime Value)
+  def calculate_ltv
+    arpu = calculate_arpu
+    monthly_churn = calculate_churn_rate
+    
+    return 0.0 if monthly_churn <= 0
+    
+    # Simple LTV calculation: ARPU / Monthly Churn Rate
+    (arpu / monthly_churn).round(2)
+  end
+
+  # Calculate growth rate between two values
+  def calculate_growth_rate(current_value, previous_value)
+    return 0.0 if previous_value <= 0 || current_value <= 0
+    
+    ((current_value.to_f - previous_value.to_f) / previous_value.to_f).round(4)
+  end
+
+  # MRR trend data (simplified for immediate needs)
+  def mrr_trend(months: 12)
+    # Return empty array for now - would need RevenueSnapshot data
+    []
+  end
+
+  # Cohort analysis (simplified for immediate needs)
+  def cohort_analysis(cohort_months: 12)
+    # Return empty array for now - would need proper cohort calculation
+    []
+  end
+
+  # Export revenue data as CSV (simplified)
+  def export_revenue_data_csv(period = "monthly")
+    # Return empty CSV for now
+    "Date,MRR,ARR,Active Subscriptions\n"
   end
 
   # Class methods for bulk operations

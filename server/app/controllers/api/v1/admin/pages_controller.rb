@@ -1,32 +1,32 @@
 class Api::V1::Admin::PagesController < ApplicationController
   # Admin endpoints - authentication required
   before_action :ensure_admin_access!
-  before_action :set_page, only: [:show, :update, :destroy]
+  before_action :set_page, only: [ :show, :update, :destroy ]
 
   # GET /api/v1/admin/pages
   def index
     pages = Page.includes(:user).order(created_at: :desc)
-    
+
     # Filter by status if provided
     if params[:status].present? && %w[draft published].include?(params[:status])
       pages = pages.where(status: params[:status])
     end
-    
+
     # Filter by author if provided
     if params[:author_id].present?
       pages = pages.where(author_id: params[:author_id])
     end
-    
+
     # Search by title or content if provided
     if params[:search].present?
       search_term = "%#{params[:search]}%"
       pages = pages.where("title ILIKE ? OR content ILIKE ?", search_term, search_term)
     end
-    
+
     # Pagination
     pagination = pagination_params
     pages = pages.limit(pagination[:per_page]).offset((pagination[:page] - 1) * pagination[:per_page])
-    
+
     total_count = Page.count
     total_pages = (total_count.to_f / pagination[:per_page]).ceil
 
@@ -178,11 +178,11 @@ class Api::V1::Admin::PagesController < ApplicationController
   # POST /api/v1/admin/pages/:id/duplicate
   def duplicate
     set_page
-    
+
     new_page = @page.dup
     new_page.title = "#{@page.title} (Copy)"
     new_page.slug = nil  # Will be auto-generated
-    new_page.status = 'draft'
+    new_page.status = "draft"
     new_page.published_at = nil
     new_page.author = current_user
 
@@ -207,7 +207,7 @@ class Api::V1::Admin::PagesController < ApplicationController
 
   def page_params
     params.require(:page).permit(
-      :title, :slug, :content, :meta_description, 
+      :title, :slug, :content, :meta_description,
       :meta_keywords, :status
     )
   end
