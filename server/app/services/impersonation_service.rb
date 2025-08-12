@@ -46,8 +46,31 @@ class ImpersonationService
     generate_impersonation_token(session, target_user)
   end
 
-  def end_impersonation(session_token)
-    session = ImpersonationSession.active.find_by!(session_token: session_token)
+  def end_impersonation(token_or_session_token)
+    # Check if the token is a JWT impersonation token or a session token
+    if token_or_session_token.include?('.')
+      # This is a JWT token, decode it to get the session ID
+      begin
+        payload = JwtService.decode(token_or_session_token)
+        
+        unless payload[:type] == 'impersonation'
+          raise PermissionDeniedError, 'Invalid impersonation token'
+        end
+        
+        session = ImpersonationSession.find(payload[:session_id])
+      rescue JWT::DecodeError => e
+        raise PermissionDeniedError, 'Invalid impersonation token'
+      rescue ActiveRecord::RecordNotFound
+        raise ActiveRecord::RecordNotFound, 'Impersonation session not found'
+      end
+    else
+      # This is a session token, find by session_token field
+      session = ImpersonationSession.active.find_by!(session_token: token_or_session_token)
+    end
+    
+    unless session.active?
+      raise PermissionDeniedError, 'Impersonation session is not active'
+    end
     
     unless session.impersonator == @current_user
       raise PermissionDeniedError, 'You can only end your own impersonation sessions'
@@ -140,9 +163,9 @@ class ImpersonationService
       raise InvalidUserError, 'Cannot impersonate inactive user'
     end
 
-    # Prevent impersonating owners if current user is not owner
-    if target_user.owner? && !@current_user.owner?
-      raise PermissionDeniedError, 'Only owners can impersonate other owners'
+    # Prevent impersonating owners if current user is not owner or system admin
+    if target_user.owner? && !@current_user.owner? && !@current_user.admin?
+      raise PermissionDeniedError, 'Only owners or system administrators can impersonate owners'
     end
 
     # Prevent system administrators from impersonating other system administrators

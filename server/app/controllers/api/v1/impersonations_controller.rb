@@ -1,8 +1,9 @@
 # frozen_string_literal: true
 
 class Api::V1::ImpersonationsController < ApplicationController
-  before_action :require_admin!
-  before_action :require_permission, only: [:create, :destroy, :validate_token]
+  skip_before_action :authenticate_request, only: [:validate_token]
+  before_action :require_admin!, except: [:validate_token]
+  before_action :require_permission, only: [:create, :destroy]
   before_action :find_target_user, only: [:create]
   before_action :rate_limit_impersonation, only: [:create]
 
@@ -35,15 +36,22 @@ class Api::V1::ImpersonationsController < ApplicationController
     end
   end
 
-  # DELETE /api/v1/impersonation
+  # DELETE /api/v1/impersonations
   def destroy
-    service = ImpersonationService.new(current_user)
     session_token = params[:session_token]
-
     return render_bad_request('Session token required') unless session_token
 
     begin
+      Rails.logger.info "Attempting to end impersonation session with token: #{session_token[0..10]}..." if session_token
+      
+      # If we're currently in an impersonation session (current user is impersonated),
+      # we need to use the original impersonator for the service
+      service_user = impersonating? ? impersonator : current_user
+      service = ImpersonationService.new(service_user)
+      
       session = service.end_impersonation(session_token)
+      
+      Rails.logger.info "Impersonation session ended successfully: #{session.id}"
       
       render json: {
         success: true,
@@ -52,13 +60,24 @@ class Api::V1::ImpersonationsController < ApplicationController
           duration: session.duration.to_i
         }
       }
-    rescue ActiveRecord::RecordNotFound
-      render_not_found('Impersonation session not found')
+    rescue ActiveRecord::RecordNotFound => e
+      Rails.logger.warn "Impersonation session not found: #{e.message}"
+      render_not_found(e)
     rescue ImpersonationService::Error => e
+      Rails.logger.warn "Impersonation service error: #{e.message}"
       render json: {
         success: false,
         error: e.message
       }, status: :unprocessable_content
+    rescue StandardError => e
+      Rails.logger.error "Unexpected error ending impersonation: #{e.message}"
+      Rails.logger.error e.backtrace.join("\n") if Rails.env.development?
+      
+      render json: {
+        success: false,
+        error: 'Failed to end impersonation session',
+        code: 'impersonation_end_failed'
+      }, status: :internal_server_error
     end
   end
 
@@ -123,24 +142,72 @@ class Api::V1::ImpersonationsController < ApplicationController
     token = params[:token]
     return render_bad_request('Token required') unless token
 
-    service = ImpersonationService.new(current_user)
-    session = service.validate_impersonation_token(token)
-
-    if session
-      render json: {
-        success: true,
-        valid: true,
-        data: {
-          session: session_summary(session),
-          expires_at: (session.started_at + ImpersonationSession::MAX_SESSION_DURATION).iso8601
+    begin
+      # Decode the token to get the impersonator user
+      payload = JwtService.decode(token)
+      
+      unless payload[:type] == 'impersonation'
+        return render json: {
+          success: true,
+          valid: false,
+          message: 'Invalid token type'
         }
-      }
-    else
-      render json: {
-        success: true,
-        valid: false,
-        message: 'Invalid or expired impersonation token'
-      }
+      end
+      
+      impersonator = User.find_by(id: payload[:impersonator_id])
+      unless impersonator
+        return render json: {
+          success: true,
+          valid: false,
+          message: 'Impersonator user not found'
+        }
+      end
+      
+      # Create service with the impersonator user
+      service = ImpersonationService.new(impersonator)
+      session = service.validate_impersonation_token(token)
+
+      if session
+        render json: {
+          success: true,
+          valid: true,
+          data: {
+            session: session_summary(session),
+            expires_at: (session.started_at + ImpersonationSession::MAX_SESSION_DURATION).iso8601
+          }
+        }
+      else
+        render json: {
+          success: true,
+          valid: false,
+          message: 'Invalid or expired impersonation token'
+        }
+      end
+    rescue StandardError => e
+      # Handle JWT decode errors and other token validation errors
+      if e.message.include?('Invalid token') || e.message.include?('blacklisted')
+        Rails.logger.warn "Invalid impersonation token: #{e.message}"
+        render json: {
+          success: true,
+          valid: false,
+          message: 'Invalid or expired token'
+        }
+      # Handle user not found errors
+      elsif e.is_a?(ActiveRecord::RecordNotFound) || e.message.include?('not found')
+        Rails.logger.warn "Impersonator user not found: #{e.message}"
+        render json: {
+          success: true,
+          valid: false,
+          message: 'Impersonator user not found'
+        }
+      else
+        # Handle unexpected errors
+        Rails.logger.error "Error validating impersonation token: #{e.message}"
+        render json: {
+          success: false,
+          error: 'Token validation failed'
+        }, status: :internal_server_error
+      end
     end
   end
 
