@@ -14,9 +14,7 @@ class Invoice < ApplicationRecord
   validates :status, presence: true, inclusion: { in: %w[draft open paid void uncollectible] }
   validates :tax_rate, presence: true, numericality: { greater_than_or_equal_to: 0, less_than: 1 }
 
-  # Serialization
-  serialize :metadata, coder: JSON
-  serialize :billing_address, coder: JSON
+  # Note: metadata and billing_address are native JSON columns - no serialization needed in Rails 8
 
   # Scopes
   scope :draft, -> { where(status: "draft") }

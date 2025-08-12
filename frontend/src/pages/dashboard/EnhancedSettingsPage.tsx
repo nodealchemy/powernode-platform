@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../store';
-import { settingsApi, SettingsData, UserPreferences, NotificationPreferences } from '../../services/settingsApi';
+import { settingsApi, UserSettings, NotificationPreferences } from '../../services/settingsApi';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useSettingsWebSocket } from '../../hooks/useSettingsWebSocket';
 import { WebSocketStatusIndicator } from '../../components/common/WebSocketStatusIndicator';
@@ -9,7 +9,7 @@ import { WebSocketStatusIndicator } from '../../components/common/WebSocketStatu
 export const EnhancedSettingsPage: React.FC = () => {
   const { user } = useSelector((state: RootState) => state.auth);
   const { theme, setTheme } = useTheme();
-  const [settings, setSettings] = useState<SettingsData | null>(null);
+  const [settings, setSettings] = useState<UserSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('profile');
@@ -38,13 +38,13 @@ export const EnhancedSettingsPage: React.FC = () => {
     phone: ''
   });
 
-  const [preferences, setPreferences] = useState<Partial<UserPreferences>>({});
-  const [notifications, setNotifications] = useState<Partial<NotificationPreferences>>({});
+  const [preferences, setPreferences] = useState<Partial<UserSettings>>({});
+  const [notifications, setNotifications] = useState<Partial<UserSettings>>({});
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [isReceivingUpdate, setIsReceivingUpdate] = useState(false);
 
   // Real-time settings update handlers
-  const handleSettingsUpdate = useCallback((updatedData: Partial<SettingsData>) => {
+  const handleSettingsUpdate = useCallback((updatedData: Partial<UserSettings>) => {
     setIsReceivingUpdate(true);
     
     if (updatedData.user_preferences) {
@@ -64,12 +64,12 @@ export const EnhancedSettingsPage: React.FC = () => {
     setTimeout(() => setSuccessMessage(''), 3000);
   }, []);
 
-  const handlePreferencesUpdate = useCallback((updatedPreferences: Partial<UserPreferences>) => {
+  const handlePreferencesUpdate = useCallback((updatedPreferences: Partial<UserSettings>) => {
     setPreferences(prev => ({ ...prev, ...updatedPreferences }));
     
     // Update theme context if theme preference changed
-    if (updatedPreferences.theme && updatedPreferences.theme !== theme) {
-      setTheme(updatedPreferences.theme);
+    if (updatedPreferences.user_preferences?.theme && updatedPreferences.user_preferences.theme !== theme) {
+      setTheme(updatedPreferences.user_preferences.theme);
     }
     
     setLastUpdated(new Date());
@@ -77,7 +77,7 @@ export const EnhancedSettingsPage: React.FC = () => {
     setTimeout(() => setSuccessMessage(''), 3000);
   }, [theme, setTheme]);
 
-  const handleNotificationsUpdate = useCallback((updatedNotifications: Partial<NotificationPreferences>) => {
+  const handleNotificationsUpdate = useCallback((updatedNotifications: Partial<UserSettings>) => {
     setNotifications(prev => ({ ...prev, ...updatedNotifications }));
     setLastUpdated(new Date());
     setSuccessMessage('Notification settings synced from another session');
@@ -95,7 +95,11 @@ export const EnhancedSettingsPage: React.FC = () => {
   const loadSettings = useCallback(async () => {
     try {
       setLoading(true);
-      const settingsData = await settingsApi.getSettings();
+      const response = await settingsApi.getUserSettings();
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to load settings');
+      }
+      const settingsData = response.data;
       setSettings(settingsData);
       
       // Initialize form states
@@ -114,8 +118,8 @@ export const EnhancedSettingsPage: React.FC = () => {
         phone: settingsData.account_settings.phone || ''
       });
 
-      setPreferences(settingsData.user_preferences);
-      setNotifications(settingsData.notification_preferences);
+      setPreferences({ user_preferences: settingsData.user_preferences });
+      setNotifications({ notification_preferences: settingsData.notification_preferences });
     } catch (error) {
       console.error('Failed to load settings:', error);
     } finally {
@@ -138,21 +142,23 @@ export const EnhancedSettingsPage: React.FC = () => {
     setTimeout(() => setErrors({}), 5000);
   };
 
-  const handleUpdatePreferences = async (updatedPrefs: Partial<UserPreferences>) => {
+  const handleUpdatePreferences = async (updatedPrefs: Partial<UserSettings>) => {
     try {
       setSaving(true);
       
       // Handle theme updates through the theme context
-      if (updatedPrefs.theme && updatedPrefs.theme !== theme) {
-        await setTheme(updatedPrefs.theme);
+      if (updatedPrefs.user_preferences?.theme && updatedPrefs.user_preferences.theme !== theme) {
+        await setTheme(updatedPrefs.user_preferences.theme);
       }
       
       // Update other preferences normally
       const otherPrefs = { ...updatedPrefs };
-      delete otherPrefs.theme; // Theme is handled by context
+      if (otherPrefs.user_preferences?.theme) {
+        delete otherPrefs.user_preferences.theme; // Theme is handled by context
+      }
       
       if (Object.keys(otherPrefs).length > 0) {
-        await settingsApi.updatePreferences(otherPrefs);
+        await settingsApi.updateUserSettings(otherPrefs);
       }
       
       setPreferences({ ...preferences, ...updatedPrefs });
@@ -170,10 +176,10 @@ export const EnhancedSettingsPage: React.FC = () => {
     }
   };
 
-  const handleUpdateNotifications = async (updatedNotifs: Partial<NotificationPreferences>) => {
+  const handleUpdateNotifications = async (updatedNotifs: Partial<UserSettings>) => {
     try {
       setSaving(true);
-      await settingsApi.updateNotifications(updatedNotifs);
+      await settingsApi.updateUserSettings(updatedNotifs);
       setNotifications({ ...notifications, ...updatedNotifs });
       
       // Broadcast the update to other sessions in real-time
@@ -351,7 +357,7 @@ export const EnhancedSettingsPage: React.FC = () => {
                 </label>
                 <select
                   value={theme}
-                  onChange={(e) => handleUpdatePreferences({ theme: e.target.value as 'light' | 'dark' })}
+                  onChange={(e) => handleUpdatePreferences({ user_preferences: { theme: e.target.value as 'light' | 'dark' } })}
                   disabled={saving}
                   className="input-theme"
                 >
@@ -364,8 +370,8 @@ export const EnhancedSettingsPage: React.FC = () => {
                   Language
                 </label>
                 <select
-                  value={preferences.language}
-                  onChange={(e) => handleUpdatePreferences({ language: e.target.value })}
+                  value={preferences.user_preferences?.language}
+                  onChange={(e) => handleUpdatePreferences({ user_preferences: { language: e.target.value } })}
                   disabled={saving}
                   className="select-theme"
                 >
@@ -379,8 +385,8 @@ export const EnhancedSettingsPage: React.FC = () => {
                   Items per Page
                 </label>
                 <select
-                  value={preferences.items_per_page}
-                  onChange={(e) => handleUpdatePreferences({ items_per_page: parseInt(e.target.value) })}
+                  value={preferences.user_preferences?.items_per_page}
+                  onChange={(e) => handleUpdatePreferences({ user_preferences: { items_per_page: parseInt(e.target.value) } })}
                   disabled={saving}
                   className="select-theme"
                 >
@@ -395,8 +401,8 @@ export const EnhancedSettingsPage: React.FC = () => {
                   Dashboard Layout
                 </label>
                 <select
-                  value={preferences.dashboard_layout}
-                  onChange={(e) => handleUpdatePreferences({ dashboard_layout: e.target.value as 'grid' | 'list' })}
+                  value={preferences.user_preferences?.dashboard_layout}
+                  onChange={(e) => handleUpdatePreferences({ user_preferences: { dashboard_layout: e.target.value as 'grid' | 'list' } })}
                   disabled={saving}
                   className="select-theme"
                 >
@@ -432,8 +438,8 @@ export const EnhancedSettingsPage: React.FC = () => {
                   <input
                     type="checkbox"
                     className="sr-only peer"
-                    checked={notifications[key as keyof NotificationPreferences] as boolean}
-                    onChange={(e) => handleUpdateNotifications({ [key]: e.target.checked })}
+                    checked={(notifications.notification_preferences?.[key as keyof NotificationPreferences] as boolean) || false}
+                    onChange={(e) => handleUpdateNotifications({ notification_preferences: { [key]: e.target.checked } })}
                     disabled={saving}
                   />
                   <div className="toggle-theme"></div>
@@ -516,23 +522,23 @@ export const EnhancedSettingsPage: React.FC = () => {
                 <div className="flex justify-between items-center">
                   <span className="text-sm font-medium text-theme-primary">Email Verification</span>
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    settings.security_settings.email_verified 
+                    settings.security_settings?.email_verified 
                       ? 'bg-theme-success text-theme-success' 
                       : 'bg-theme-error text-theme-error'
                   }`}>
-                    {settings.security_settings.email_verified ? 'Verified' : 'Not Verified'}
+                    {settings.security_settings?.email_verified ? 'Verified' : 'Not Verified'}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm font-medium text-theme-primary">Password Last Changed</span>
                   <span className="text-sm text-theme-secondary">
-                    {new Date(settings.security_settings.password_last_changed).toLocaleDateString()}
+                    {settings.security_settings?.password_last_changed ? new Date(settings.security_settings.password_last_changed).toLocaleDateString() : 'Not available'}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm font-medium text-theme-primary">Failed Login Attempts</span>
                   <span className="text-sm text-theme-secondary">
-                    {settings.security_settings.failed_attempts}
+                    {settings.security_settings?.failed_attempts || 0}
                   </span>
                 </div>
               </div>

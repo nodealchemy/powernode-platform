@@ -165,7 +165,7 @@ export const Badge: React.FC<BadgeProps> = ({
           onClick={onRemove}
           className={`
             ml-1 -mr-0.5 inline-flex items-center justify-center
-            rounded-full hover:bg-black/10 dark:hover:bg-white/10
+            rounded-full hover:bg-theme-surface-hover
             transition-colors duration-200
             focus:outline-none focus:ring-2 focus:ring-offset-1
             ${size === 'xs' ? 'w-3 h-3' : 

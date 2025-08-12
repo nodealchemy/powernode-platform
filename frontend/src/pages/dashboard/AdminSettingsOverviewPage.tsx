@@ -1,16 +1,201 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-// import { useSelector } from 'react-redux';
-// import { RootState } from '../../store';
-// TODO: Use for user-specific admin checks
 import { adminSettingsApi, AdminOverviewData } from '../../services/adminSettingsApi';
-// TODO: Use SystemMetrics type for detailed metrics display
+
+interface QuickActionProps {
+  icon: string;
+  title: string;
+  description: string;
+  path?: string;
+  onClick?: () => void;
+  status?: 'normal' | 'warning' | 'error' | 'success';
+  badge?: string;
+}
+
+const QuickAction: React.FC<QuickActionProps> = ({ 
+  icon, 
+  title, 
+  description, 
+  path, 
+  onClick, 
+  status = 'normal',
+  badge 
+}) => {
+  const statusColors = {
+    normal: 'hover:bg-theme-surface-hover border-theme bg-theme-surface',
+    warning: 'hover:bg-theme-warning-background border-theme-warning-border bg-theme-warning-background',
+    error: 'hover:bg-theme-error-background border-theme-error-border bg-theme-error-background',
+    success: 'hover:bg-theme-success-background border-theme-success-border bg-theme-success-background'
+  };
+
+  const content = (
+    // eslint-disable-next-line security/detect-object-injection
+    <div className={`group p-6 rounded-xl border transition-all duration-200 cursor-pointer relative overflow-hidden ${statusColors[status]}`}>
+      {badge && (
+        <div className="absolute top-3 right-3">
+          <span className="px-2 py-1 bg-theme-interactive-primary text-white text-xs font-medium rounded-full">
+            {badge}
+          </span>
+        </div>
+      )}
+      <div className="flex items-start gap-4">
+        <div className="w-12 h-12 bg-theme-background rounded-lg flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
+          <span className="text-xl">{icon}</span>
+        </div>
+        <div className="flex-1 min-w-0">
+          <h3 className="font-semibold text-theme-primary mb-1 group-hover:text-theme-link transition-colors">
+            {title}
+          </h3>
+          <p className="text-sm text-theme-secondary line-clamp-2">
+            {description}
+          </p>
+        </div>
+        <div className="text-theme-tertiary group-hover:text-theme-primary transition-colors">
+          →
+        </div>
+      </div>
+    </div>
+  );
+
+  if (path) {
+    return <Link to={path}>{content}</Link>;
+  }
+
+  return <div onClick={onClick}>{content}</div>;
+};
+
+interface SystemStatusCardProps {
+  title: string;
+  status: 'healthy' | 'warning' | 'error' | 'maintenance';
+  value: string;
+  description: string;
+  action?: {
+    label: string;
+    onClick: () => void;
+  };
+}
+
+const SystemStatusCard: React.FC<SystemStatusCardProps> = ({ 
+  title, 
+  status, 
+  value, 
+  description, 
+  action 
+}) => {
+  const statusConfig = {
+    healthy: {
+      color: 'text-theme-success',
+      bgColor: 'bg-theme-success-background',
+      borderColor: 'border-theme-success-border',
+      icon: '✅'
+    },
+    warning: {
+      color: 'text-theme-warning',
+      bgColor: 'bg-theme-warning-background',
+      borderColor: 'border-theme-warning-border',
+      icon: '⚠️'
+    },
+    error: {
+      color: 'text-theme-error',
+      bgColor: 'bg-theme-error-background',
+      borderColor: 'border-theme-error-border',
+      icon: '❌'
+    },
+    maintenance: {
+      color: 'text-theme-warning',
+      bgColor: 'bg-theme-warning-background',
+      borderColor: 'border-theme-warning-border',
+      icon: '🔧'
+    }
+  };
+
+  // eslint-disable-next-line security/detect-object-injection
+  const config = statusConfig[status];
+
+  return (
+    <div className="group p-6 rounded-xl border border-theme bg-theme-surface hover:bg-theme-surface-hover transition-all duration-200 cursor-default">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 bg-theme-background rounded-lg flex items-center justify-center flex-shrink-0">
+            <span className="text-xl">{config.icon}</span>
+          </div>
+          <h3 className="font-semibold text-theme-primary">{title}</h3>
+        </div>
+        <div className={`w-3 h-3 rounded-full ${
+          status === 'healthy' ? 'bg-theme-success' :
+          status === 'warning' ? 'bg-theme-warning' :
+          status === 'error' ? 'bg-theme-error' :
+          'bg-theme-warning'
+        } shadow-sm`} />
+      </div>
+      <div className={`text-2xl font-bold ${config.color} mb-2`}>
+        {value}
+      </div>
+      <p className="text-sm text-theme-secondary mb-4">{description}</p>
+      {action && (
+        <button
+          onClick={action.onClick}
+          className={`text-sm font-medium ${config.color} hover:underline transition-colors duration-200`}
+        >
+          {action.label}
+        </button>
+      )}
+    </div>
+  );
+};
+
+interface MetricCardProps {
+  title: string;
+  value: string | number;
+  change?: {
+    value: string;
+    type: 'increase' | 'decrease' | 'neutral';
+  };
+  icon: string;
+  color: 'blue' | 'green' | 'yellow' | 'red' | 'purple';
+}
+
+const MetricCard: React.FC<MetricCardProps> = ({ title, value, change, icon, color }) => {
+  const colorConfig = {
+    blue: { bg: 'bg-theme-info-background', text: 'text-theme-info', icon: 'bg-theme-info' },
+    green: { bg: 'bg-theme-success-background', text: 'text-theme-success', icon: 'bg-theme-success' },
+    yellow: { bg: 'bg-theme-warning-background', text: 'text-theme-warning', icon: 'bg-theme-warning' },
+    red: { bg: 'bg-theme-error-background', text: 'text-theme-error', icon: 'bg-theme-error' },
+    purple: { bg: 'bg-theme-info-background', text: 'text-theme-info', icon: 'bg-theme-interactive-primary' }
+  };
+
+  // eslint-disable-next-line security/detect-object-injection
+  const config = colorConfig[color];
+
+  return (
+    <div className="bg-theme-surface rounded-xl p-6 border border-theme">
+      <div className="flex items-center justify-between mb-4">
+        <div className={`w-12 h-12 ${config.icon} rounded-lg flex items-center justify-center`}>
+          <span className="text-white text-xl">{icon}</span>
+        </div>
+        {change && (
+          <div className={`px-2 py-1 rounded text-xs font-medium ${
+            change.type === 'increase' ? 'bg-theme-success-background text-theme-success' :
+            change.type === 'decrease' ? 'bg-theme-error-background text-theme-error' :
+            'bg-theme-surface text-theme-secondary'
+          }`}>
+            {change.type === 'increase' ? '↗' : change.type === 'decrease' ? '↘' : '→'} {change.value}
+          </div>
+        )}
+      </div>
+      <div className="text-2xl font-bold text-theme-primary mb-1">
+        {value}
+      </div>
+      <p className="text-sm text-theme-secondary">{title}</p>
+    </div>
+  );
+};
 
 export const AdminSettingsOverviewPage: React.FC = () => {
-  // const { user } = useSelector((state: RootState) => state.auth); // TODO: Use for user-specific admin checks
   const [data, setData] = useState<AdminOverviewData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const loadOverviewData = useCallback(async () => {
     try {
@@ -26,89 +211,30 @@ export const AdminSettingsOverviewPage: React.FC = () => {
     }
   }, []);
 
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await loadOverviewData();
+    setRefreshing(false);
+  };
+
   useEffect(() => {
     loadOverviewData();
   }, [loadOverviewData]);
 
-
-  const getStatusBadge = (status: string, text?: string) => {
-    const colors = adminSettingsApi.getStatusColor(status);
-    const colorClasses = {
-      green: 'bg-theme-success text-theme-success border-green-200',
-      yellow: 'bg-theme-warning text-theme-warning border-yellow-200',
-      red: 'bg-theme-error text-theme-error border-red-200',
-      blue: 'bg-theme-info text-theme-info border-blue-200',
-      gray: 'bg-theme-background-tertiary text-theme-secondary border-theme'
-    };
-
-    const colorClass = colors === 'green' ? colorClasses.green :
-                      colors === 'yellow' ? colorClasses.yellow :
-                      colors === 'red' ? colorClasses.red :
-                      colors === 'blue' ? colorClasses.blue :
-                      colorClasses.gray;
-    
-    return (
-      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${colorClass}`}>
-        {text || status}
-      </span>
-    );
-  };
-
-  const getLogLevelBadge = (level: string) => {
-    const colors = adminSettingsApi.getLogLevelColor(level);
-    const colorClasses = {
-      green: 'bg-theme-success text-theme-success',
-      yellow: 'bg-theme-warning text-theme-warning',
-      red: 'bg-theme-error text-theme-error',
-      blue: 'bg-theme-info text-theme-info',
-      gray: 'bg-theme-background-tertiary text-theme-secondary'
-    };
-
-    const colorClass = colors === 'green' ? colorClasses.green :
-                      colors === 'yellow' ? colorClasses.yellow :
-                      colors === 'red' ? colorClasses.red :
-                      colors === 'blue' ? colorClasses.blue :
-                      colorClasses.gray;
-    
-    return (
-      <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${colorClass}`}>
-        {level.toUpperCase()}
-      </span>
-    );
-  };
-
-  const renderMetricsCard = (title: string, value: string | number, subtitle: string, status?: string) => (
-    <div className="card-theme overflow-hidden">
-      <div className="p-5">
-        <div className="flex items-center">
-          <div className="flex-1">
-            <dt className="text-sm font-medium text-theme-tertiary truncate">{title}</dt>
-            <dd className="text-2xl font-bold text-theme-primary">{value}</dd>
-            <div className="flex items-center mt-1">
-              <p className="text-xs text-theme-secondary">{subtitle}</p>
-              {status && (
-                <div className="ml-2">
-                  {getStatusBadge(status)}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
   if (loading && !data) {
     return (
       <div className="space-y-6">
-        <div className="flex justify-between items-center">
+        <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-theme-primary">Admin Settings Overview</h1>
-            <p className="text-theme-secondary">Comprehensive summary of active administrative settings and system configuration</p>
+            <h1 className="text-3xl font-bold text-theme-primary">Admin Overview</h1>
+            <p className="text-theme-secondary mt-2">System administration dashboard and monitoring</p>
           </div>
         </div>
-        <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-theme-link"></div>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-theme-interactive-primary mx-auto mb-4"></div>
+            <p className="text-theme-secondary">Loading system overview...</p>
+          </div>
         </div>
       </div>
     );
@@ -117,953 +243,619 @@ export const AdminSettingsOverviewPage: React.FC = () => {
   if (error) {
     return (
       <div className="space-y-6">
-        <div className="flex justify-between items-center">
+        <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-theme-primary">Admin Settings Overview</h1>
-            <p className="text-theme-secondary">Comprehensive summary of active administrative settings and system configuration</p>
+            <h1 className="text-3xl font-bold text-theme-primary">Admin Overview</h1>
+            <p className="text-theme-secondary mt-2">System administration dashboard and monitoring</p>
           </div>
         </div>
-        <div className="alert-theme alert-theme-error">
-          <div className="flex">
-            <div className="ml-3">
-              <h3 className="text-sm font-medium text-theme-error">Error Loading Data</h3>
-              <p className="text-sm text-theme-error mt-1">{error}</p>
-              <button
-                onClick={loadOverviewData}
-                className="mt-3 text-sm font-medium text-theme-error hover:text-theme-error underline"
-              >
-                Try Again
-              </button>
+        <div className="bg-theme-error-background border border-theme-error-border rounded-xl p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <span className="text-theme-error text-2xl">⚠️</span>
+            <div>
+              <h3 className="text-lg font-semibold text-theme-error">Unable to Load System Data</h3>
+              <p className="text-theme-error">{error}</p>
             </div>
           </div>
+          <button
+            onClick={loadOverviewData}
+            className="bg-theme-error text-white px-4 py-2 rounded-lg hover:bg-theme-error transition-colors"
+          >
+            Retry Loading
+          </button>
         </div>
       </div>
     );
   }
 
-  if (!data) {
-    return null;
-  }
+  if (!data) return null;
 
   const { metrics, recent_users, recent_accounts, recent_logs, payment_gateways, settings_summary } = data;
 
+  // Determine system status
+  const getSystemStatus = () => {
+    if (settings_summary?.maintenance_mode) return { status: 'maintenance' as const, message: 'System in maintenance mode' };
+    if (metrics.system_health === 'error') return { status: 'error' as const, message: 'System experiencing errors' };
+    if (metrics.system_health === 'warning') return { status: 'warning' as const, message: 'System has warnings' };
+    return { status: 'healthy' as const, message: 'All systems operational' };
+  };
+
+  const systemStatus = getSystemStatus();
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-theme-primary">Admin Settings Overview</h1>
-          <div className="flex items-center gap-4 mt-1">
-            <p className="text-theme-secondary">System administration and monitoring dashboard</p>
+          <h1 className="text-3xl font-bold text-theme-primary">Admin Overview</h1>
+          <div className="flex items-center gap-4 mt-2">
+            <p className="text-theme-secondary">System administration dashboard and monitoring</p>
             <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-theme-success rounded-full"></div>
-              <span className="text-sm text-theme-success font-medium">System Operational</span>
+              <div className={`w-2 h-2 rounded-full ${
+                systemStatus.status === 'healthy' ? 'bg-theme-success' :
+                systemStatus.status === 'warning' ? 'bg-theme-warning' :
+                systemStatus.status === 'error' ? 'bg-theme-error' :
+                'bg-theme-warning'
+              }`} />
+              <span className={`text-sm font-medium ${
+                systemStatus.status === 'healthy' ? 'text-theme-success' :
+                systemStatus.status === 'warning' ? 'text-theme-warning' :
+                systemStatus.status === 'error' ? 'text-theme-error' :
+                'text-theme-warning'
+              }`}>
+                {systemStatus.message}
+              </span>
             </div>
           </div>
         </div>
         <div className="flex items-center gap-3">
           <button
-            onClick={loadOverviewData}
-            className="btn-theme btn-theme-secondary px-3 py-2 text-sm"
-            disabled={loading}
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="bg-theme-background border border-theme text-theme-primary px-4 py-2 rounded-lg hover:bg-theme-surface transition-colors flex items-center gap-2"
           >
-            {loading ? 'Refreshing...' : 'Refresh Data'}
+            <span className={refreshing ? 'animate-spin' : ''}>🔄</span>
+            <span>{refreshing ? 'Refreshing...' : 'Refresh'}</span>
           </button>
         </div>
       </div>
 
-      {/* Admin Control Panel */}
-      <div className="card-theme p-6">
-        <h2 className="text-lg font-semibold text-theme-primary mb-4 flex items-center">
-          <span className="mr-2">🎛️</span>
-          Admin Control Panel
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="p-4 rounded-lg border border-theme bg-theme-background-secondary">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-theme-primary">System Status</span>
-              <div className="w-2 h-2 rounded-full bg-theme-success"></div>
-            </div>
-            <p className="text-lg font-bold text-theme-success">Operational</p>
-            <p className="text-xs text-theme-secondary mt-1">All systems running normally</p>
-          </div>
-          
-          <div className="p-4 rounded-lg border border-theme bg-theme-background-secondary">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-theme-primary">Maintenance Mode</span>
-              <div className={`w-2 h-2 rounded-full ${settings_summary?.maintenance_mode ? 'bg-theme-error' : 'bg-theme-success'}`}></div>
-            </div>
-            <p className={`text-lg font-bold ${settings_summary?.maintenance_mode ? 'text-theme-error' : 'text-theme-success'}`}>
-              {settings_summary?.maintenance_mode ? 'ACTIVE' : 'Disabled'}
-            </p>
-            <p className="text-xs text-theme-secondary mt-1">
-              {settings_summary?.maintenance_mode ? 'Site in maintenance' : 'Site fully accessible'}
-            </p>
-          </div>
-          
-          <div className="p-4 rounded-lg border border-theme bg-theme-background-secondary">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-theme-primary">User Registration</span>
-              <div className={`w-2 h-2 rounded-full ${settings_summary?.registration_enabled ? 'bg-theme-success' : 'bg-theme-warning'}`}></div>
-            </div>
-            <p className={`text-lg font-bold ${settings_summary?.registration_enabled ? 'text-theme-success' : 'text-theme-warning'}`}>
-              {settings_summary?.registration_enabled ? 'Open' : 'Closed'}
-            </p>
-            <p className="text-xs text-theme-secondary mt-1">
-              {settings_summary?.registration_enabled ? 'New users can sign up' : 'Registration disabled'}
-            </p>
-          </div>
-          
-          <div className="p-4 rounded-lg border border-theme bg-theme-background-secondary">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-theme-primary">Security Level</span>
-              <div className="w-2 h-2 rounded-full bg-theme-success"></div>
-            </div>
-            <p className="text-lg font-bold text-theme-success">High</p>
-            <p className="text-xs text-theme-secondary mt-1">Email verification required</p>
-          </div>
-        </div>
-      </div>
-
-      {/* System Health Alert */}
-      {metrics.system_health !== 'healthy' && (
-        <div className={`border rounded-md p-4 ${
-          metrics.system_health === 'error' 
-            ? 'alert-theme alert-theme-error' 
-            : 'alert-theme alert-theme-warning'
+      {/* System Status Alert */}
+      {systemStatus.status !== 'healthy' && (
+        <div className={`p-4 rounded-xl border ${
+          systemStatus.status === 'maintenance' ? 'bg-theme-warning-background border-theme-warning-border' :
+          systemStatus.status === 'warning' ? 'bg-theme-warning-background border-theme-warning-border' :
+          'bg-theme-error-background border-theme-error-border'
         }`}>
-          <div className="flex items-center">
-            <div className={`flex-shrink-0 w-5 h-5 ${
-              metrics.system_health === 'error' ? 'text-theme-error' : 'text-theme-warning'
-            }`}>
-              ⚠️
-            </div>
-            <div className="ml-3">
-              <h3 className={`text-sm font-medium ${
-                metrics.system_health === 'error' ? 'text-theme-error' : 'text-theme-warning'
-              }`}>
-                System Health Alert
-              </h3>
-              <p className={`text-sm mt-1 ${
-                metrics.system_health === 'error' ? 'text-theme-error' : 'text-theme-warning'
-              }`}>
-                System is experiencing {metrics.system_health === 'error' ? 'errors' : 'warnings'}. 
-                Please check system logs for details.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Key Metrics Grid */}
-      <div>
-        <h2 className="text-lg font-medium text-theme-primary mb-4">System Metrics</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {renderMetricsCard(
-            'System Health',
-            metrics.system_health === 'healthy' ? '✅ Healthy' : 
-            metrics.system_health === 'warning' ? '⚠️ Warning' : '❌ Error',
-            `Uptime: ${adminSettingsApi.formatUptime(metrics.uptime)}`,
-            metrics.system_health
-          )}
-          {renderMetricsCard(
-            'Total Users',
-            adminSettingsApi.formatNumber(metrics.total_users),
-            'Across all accounts'
-          )}
-          {renderMetricsCard(
-            'Active Accounts',
-            `${adminSettingsApi.formatNumber(metrics.active_accounts)} / ${adminSettingsApi.formatNumber(metrics.total_accounts)}`,
-            `${metrics.suspended_accounts} suspended, ${metrics.cancelled_accounts} cancelled`
-          )}
-          {renderMetricsCard(
-            'Revenue (Monthly)',
-            adminSettingsApi.formatCurrency(metrics.monthly_revenue),
-            `Total: ${adminSettingsApi.formatCurrency(metrics.total_revenue)}`
-          )}
-          {renderMetricsCard(
-            'Active Subscriptions',
-            `${adminSettingsApi.formatNumber(metrics.active_subscriptions)} / ${adminSettingsApi.formatNumber(metrics.total_subscriptions)}`,
-            `${metrics.trial_subscriptions} on trial`
-          )}
-          {renderMetricsCard(
-            'Failed Payments',
-            adminSettingsApi.formatNumber(metrics.failed_payments),
-            'Requires attention'
-          )}
-          {renderMetricsCard(
-            'Webhook Events',
-            adminSettingsApi.formatNumber(metrics.webhook_events_today),
-            'Today'
-          )}
-        </div>
-      </div>
-
-      {/* Rate Limiting Configuration */}
-      <div>
-        <h2 className="text-lg font-medium text-theme-primary mb-4">Rate Limiting Configuration</h2>
-        <div className="card-theme p-6">
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">
+              {systemStatus.status === 'maintenance' ? '🔧' :
+               systemStatus.status === 'warning' ? '⚠️' : '❌'}
+            </span>
             <div>
-              <h3 className="text-lg font-semibold text-theme-primary flex items-center">
-                <span className="mr-2">🛡️</span>
-                Rate Limiting Status
-              </h3>
-              <p className="text-sm text-theme-secondary">
-                {settings_summary?.rate_limiting?.enabled !== false 
-                  ? 'System-wide rate limiting settings for security and performance'
-                  : 'Rate limiting is currently disabled - all endpoints allow unlimited requests'
-                }
-              </p>
-            </div>
-            <div className="flex items-center space-x-2">
-              {settings_summary?.rate_limiting?.enabled !== false ? (
-                <>
-                  <div className="w-2 h-2 bg-theme-success rounded-full"></div>
-                  <span className="text-sm text-theme-success font-medium">Enabled</span>
-                </>
-              ) : (
-                <>
-                  <div className="w-2 h-2 bg-theme-warning rounded-full"></div>
-                  <span className="text-sm text-theme-warning font-medium">Disabled</span>
-                </>
-              )}
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <div className="p-4 rounded-lg border border-theme bg-theme-background-secondary">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-theme-primary">API Requests</span>
-                <div className="w-2 h-2 rounded-full bg-theme-info"></div>
-              </div>
-              <p className="text-xl font-bold text-theme-primary">
-                {settings_summary?.rate_limiting?.api_requests_per_minute || 60}
-              </p>
-              <p className="text-xs text-theme-secondary mt-1">requests per minute</p>
-            </div>
-            
-            <div className="p-4 rounded-lg border border-theme bg-theme-background-secondary">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-theme-primary">Impersonation</span>
-                <div className="w-2 h-2 rounded-full bg-theme-warning"></div>
-              </div>
-              <p className="text-xl font-bold text-theme-primary">
-                {settings_summary?.rate_limiting?.impersonation_attempts_per_hour || 5}
-              </p>
-              <p className="text-xs text-theme-secondary mt-1">attempts per hour</p>
-            </div>
-            
-            <div className="p-4 rounded-lg border border-theme bg-theme-background-secondary">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-theme-primary">Login Attempts</span>
-                <div className="w-2 h-2 rounded-full bg-theme-error"></div>
-              </div>
-              <p className="text-xl font-bold text-theme-primary">
-                {settings_summary?.rate_limiting?.login_attempts_per_hour || 10}
-              </p>
-              <p className="text-xs text-theme-secondary mt-1">attempts per hour</p>
-            </div>
-            
-            <div className="p-4 rounded-lg border border-theme bg-theme-background-secondary">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-theme-primary">Password Reset</span>
-                <div className="w-2 h-2 rounded-full bg-theme-info"></div>
-              </div>
-              <p className="text-xl font-bold text-theme-primary">
-                {settings_summary?.rate_limiting?.password_reset_attempts_per_hour || 3}
-              </p>
-              <p className="text-xs text-theme-secondary mt-1">attempts per hour</p>
-            </div>
-            
-            <div className="p-4 rounded-lg border border-theme bg-theme-background-secondary">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-theme-primary">Registration</span>
-                <div className="w-2 h-2 rounded-full bg-theme-success"></div>
-              </div>
-              <p className="text-xl font-bold text-theme-primary">
-                {settings_summary?.rate_limiting?.registration_attempts_per_hour || 5}
-              </p>
-              <p className="text-xs text-theme-secondary mt-1">attempts per hour</p>
-            </div>
-            
-            <div className="p-4 rounded-lg border border-theme bg-theme-background-secondary">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-theme-primary">Webhook Requests</span>
-                <div className="w-2 h-2 rounded-full bg-theme-success"></div>
-              </div>
-              <p className="text-xl font-bold text-theme-primary">
-                {settings_summary?.rate_limiting?.webhook_requests_per_minute || 100}
-              </p>
-              <p className="text-xs text-theme-secondary mt-1">requests per minute</p>
-            </div>
-          </div>
-          
-          <div className="mt-6 p-4 rounded-lg bg-theme-background-tertiary border border-theme">
-            <div className="flex items-start space-x-3">
-              <div className="flex-shrink-0 text-theme-info">ℹ️</div>
-              <div>
-                <h4 className="text-sm font-medium text-theme-primary">Rate Limiting Information</h4>
-                <p className="text-sm text-theme-secondary mt-1">
-                  These limits help protect the system from abuse and ensure stable performance for all users. 
-                  Limits are automatically adjusted based on the environment (development vs production). 
-                  Users who exceed these limits will receive a 429 Too Many Requests response.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Configuration Summary */}
-      <div>
-        <h2 className="text-lg font-medium text-theme-primary mb-4">System Configuration Summary</h2>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Authentication & Security */}
-          <div className="card-theme p-6">
-            <h3 className="text-lg font-semibold text-theme-primary mb-4 flex items-center">
-              <span className="mr-2">🔒</span>
-              Authentication & Security
-            </h3>
-            <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-theme-secondary">Email Verification</span>
-                <span className={`px-2 py-1 rounded text-xs font-medium ${
-                  settings_summary?.require_email_verification 
-                    ? 'bg-theme-success text-theme-success' 
-                    : 'bg-theme-warning text-theme-warning'
-                }`}>
-                  {settings_summary?.require_email_verification ? 'Required' : 'Optional'}
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-theme-secondary">Password Min Length</span>
-                <span className="text-sm font-medium text-theme-primary">{settings_summary?.password_min_length || 12} chars</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-theme-secondary">Session Timeout</span>
-                <span className="text-sm font-medium text-theme-primary">{settings_summary?.session_timeout_minutes || 60} min</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-theme-secondary">Account Deletion</span>
-                <span className={`px-2 py-1 rounded text-xs font-medium ${
-                  settings_summary?.allow_account_deletion 
-                    ? 'bg-theme-warning text-theme-warning' 
-                    : 'bg-theme-info text-theme-info'
-                }`}>
-                  {settings_summary?.allow_account_deletion ? 'Allowed' : 'Restricted'}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Business Settings */}
-          <div className="card-theme p-6">
-            <h3 className="text-lg font-semibold text-theme-primary mb-4 flex items-center">
-              <span className="mr-2">💼</span>
-              Business Settings
-            </h3>
-            <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-theme-secondary">Trial Period</span>
-                <span className="text-sm font-medium text-theme-primary">{settings_summary?.trial_period_days || 14} days</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-theme-secondary">Max Trial Accounts</span>
-                <span className="text-sm font-medium text-theme-primary">{settings_summary?.max_trial_accounts || 'Unlimited'}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-theme-secondary">Payment Retries</span>
-                <span className="text-sm font-medium text-theme-primary">{settings_summary?.payment_retry_attempts || 3} attempts</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-theme-secondary">Webhook Timeout</span>
-                <span className="text-sm font-medium text-theme-primary">{settings_summary?.webhook_timeout_seconds || 30}s</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-theme-secondary">System Name</span>
-                <span className="text-sm font-medium text-theme-primary truncate">{settings_summary?.system_name || 'Powernode'}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Data & Communication */}
-          <div className="card-theme p-6">
-            <h3 className="text-lg font-semibold text-theme-primary mb-4 flex items-center">
-              <span className="mr-2">📧</span>
-              Data & Communication
-            </h3>
-            <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-theme-secondary">System Email</span>
-                <span className="text-sm font-medium text-theme-primary truncate">{settings_summary?.system_email || 'Not set'}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-theme-secondary">Support Email</span>
-                <span className="text-sm font-medium text-theme-primary truncate">{settings_summary?.support_email || 'Not set'}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-theme-secondary">SMTP Host</span>
-                <span className="text-sm font-medium text-theme-primary truncate">{settings_summary?.smtp_settings?.host || 'Not configured'}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-theme-secondary">Backup Retention</span>
-                <span className="text-sm font-medium text-theme-primary">{settings_summary?.backup_retention_days || 30} days</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-theme-secondary">Log Retention</span>
-                <span className="text-sm font-medium text-theme-primary">{settings_summary?.log_retention_days || 90} days</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Feature Flags */}
-      {settings_summary?.feature_flags && Object.keys(settings_summary.feature_flags).length > 0 && (
-        <div className="card-theme p-6">
-          <h2 className="text-lg font-semibold text-theme-primary mb-4 flex items-center">
-            <span className="mr-2">🚀</span>
-            Active Feature Flags
-          </h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-            {Object.entries(settings_summary.feature_flags).map(([flag, enabled]) => (
-              <div key={flag} className={`p-3 rounded-lg border ${
-                enabled 
-                  ? 'border-theme-success bg-theme-success text-theme-success' 
-                  : 'border-theme bg-theme-background-secondary'
+              <h3 className={`font-semibold ${
+                systemStatus.status === 'maintenance' ? 'text-theme-warning' :
+                systemStatus.status === 'warning' ? 'text-theme-warning' :
+                'text-theme-error'
               }`}>
-                <div className="flex items-center justify-between mb-1">
-                  <div className={`w-2 h-2 rounded-full ${enabled ? 'bg-theme-success' : 'bg-theme-tertiary'}`}></div>
-                  <span className={`text-xs font-medium ${enabled ? 'text-theme-success' : 'text-theme-tertiary'}`}>
-                    {enabled ? 'ON' : 'OFF'}
-                  </span>
-                </div>
-                <p className={`text-sm font-medium ${enabled ? 'text-theme-primary' : 'text-theme-tertiary'}`}>
-                  {flag.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                </p>
-              </div>
-            ))}
+                System Status Alert
+              </h3>
+              <p className={`text-sm ${
+                systemStatus.status === 'maintenance' ? 'text-theme-warning' :
+                systemStatus.status === 'warning' ? 'text-theme-warning' :
+                'text-theme-error'
+              }`}>
+                {systemStatus.message}. Please review system settings and logs for details.
+              </p>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Payment Gateway Status */}
-      <div>
-        <h2 className="text-lg font-medium text-theme-primary mb-4">Payment Gateway Status</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="card-theme p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-medium text-theme-primary">Stripe</h3>
-              {getStatusBadge(
-                payment_gateways.stripe.connected ? 'connected' : 'error',
-                payment_gateways.stripe.connected ? 'Connected' : 'Disconnected'
-              )}
-            </div>
-            <div className="space-y-2">
-              <p className="text-sm text-theme-secondary">
-                Environment: <span className="font-medium">{payment_gateways.stripe.environment}</span>
-              </p>
-              <p className="text-sm text-theme-secondary">
-                Webhook Status: {getStatusBadge(payment_gateways.stripe.webhook_status)}
-              </p>
-              {payment_gateways.stripe.last_webhook && (
-                <p className="text-sm text-theme-secondary">
-                  Last Webhook: {adminSettingsApi.formatRelativeTime(payment_gateways.stripe.last_webhook)}
-                </p>
-              )}
-            </div>
-          </div>
-          
-          <div className="card-theme p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-medium text-theme-primary">PayPal</h3>
-              {getStatusBadge(
-                payment_gateways.paypal.connected ? 'connected' : 'error',
-                payment_gateways.paypal.connected ? 'Connected' : 'Disconnected'
-              )}
-            </div>
-            <div className="space-y-2">
-              <p className="text-sm text-theme-secondary">
-                Environment: <span className="font-medium">{payment_gateways.paypal.environment}</span>
-              </p>
-              <p className="text-sm text-theme-secondary">
-                Webhook Status: {getStatusBadge(payment_gateways.paypal.webhook_status)}
-              </p>
-              {payment_gateways.paypal.last_webhook && (
-                <p className="text-sm text-theme-secondary">
-                  Last Webhook: {adminSettingsApi.formatRelativeTime(payment_gateways.paypal.last_webhook)}
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
+      {/* System Status Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <SystemStatusCard
+          title="System Health"
+          status={metrics.system_health as any}
+          value={metrics.system_health === 'healthy' ? 'Operational' : 
+                 metrics.system_health === 'warning' ? 'Warnings' : 'Critical'}
+          description={`Uptime: ${adminSettingsApi.formatUptime(metrics.uptime)}`}
+        />
+
+        <SystemStatusCard
+          title="Maintenance Mode"
+          status={settings_summary?.maintenance_mode ? 'maintenance' : 'healthy'}
+          value={settings_summary?.maintenance_mode ? 'ACTIVE' : 'Disabled'}
+          description={settings_summary?.maintenance_mode ? 'Users cannot access system' : 'System fully accessible'}
+          action={settings_summary?.maintenance_mode ? {
+            label: 'Disable Maintenance',
+            onClick: () => console.log('Toggle maintenance mode')
+          } : undefined}
+        />
+
+        <SystemStatusCard
+          title="Registration"
+          status={settings_summary?.registration_enabled ? 'healthy' : 'warning'}
+          value={settings_summary?.registration_enabled ? 'Open' : 'Closed'}
+          description={settings_summary?.registration_enabled ? 'New users can register' : 'Registration disabled'}
+        />
+
+        <SystemStatusCard
+          title="Security Level"
+          status="healthy"
+          value="High"
+          description={`Email verification ${settings_summary?.require_email_verification ? 'required' : 'optional'}`}
+        />
       </div>
 
-      {/* Recent Activity Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Recent Users */}
-        <div className="card-theme">
-          <div className="px-6 py-4 border-b border-theme-light">
-            <h3 className="text-lg font-medium text-theme-primary">Recent Users</h3>
-          </div>
-          <div className="divide-y divide-theme-light max-h-80 overflow-y-auto">
-            {recent_users.length === 0 ? (
-              <div className="px-6 py-4 text-center text-theme-secondary">No recent users</div>
-            ) : (
-              recent_users.map((user) => (
-                <div key={user.id} className="px-6 py-4">
-                  <div className="flex items-center space-x-3">
-                    <div className="h-8 w-8 rounded-full bg-theme-info flex items-center justify-center">
-                      <span className="text-theme-info font-medium text-sm">
-                        {user.first_name[0]}{user.last_name[0]}
-                      </span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-theme-primary truncate">
-                        {user.full_name}
-                      </p>
-                      <p className="text-sm text-theme-secondary truncate">{user.email}</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="text-xs text-theme-tertiary">
-                          {user.account.name}
-                        </span>
-                        <span className="text-xs bg-theme-background-tertiary text-theme-secondary px-2 py-0.5 rounded">
-                          {user.role}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  <p className="text-xs text-theme-tertiary mt-2">
-                    Joined {adminSettingsApi.formatRelativeTime(user.created_at)}
-                  </p>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-
-        {/* Recent Accounts */}
-        <div className="card-theme">
-          <div className="px-6 py-4 border-b border-theme-light">
-            <h3 className="text-lg font-medium text-theme-primary">Recent Accounts</h3>
-          </div>
-          <div className="divide-y divide-theme-light max-h-80 overflow-y-auto">
-            {recent_accounts.length === 0 ? (
-              <div className="px-6 py-4 text-center text-theme-secondary">No recent accounts</div>
-            ) : (
-              recent_accounts.map((account) => (
-                <div key={account.id} className="px-6 py-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-theme-primary truncate">
-                        {account.name}
-                      </p>
-                      <p className="text-sm text-theme-secondary">{account.owner.email}</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        {getStatusBadge(account.status)}
-                        {account.subscription && (
-                          <span className="text-xs text-theme-tertiary">
-                            {account.subscription.plan.name}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  <p className="text-xs text-theme-tertiary mt-2">
-                    Created {adminSettingsApi.formatRelativeTime(account.created_at)}
-                  </p>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-
-        {/* Recent System Logs */}
-        <div className="card-theme">
-          <div className="px-6 py-4 border-b border-theme-light">
-            <h3 className="text-lg font-medium text-theme-primary">System Logs</h3>
-          </div>
-          <div className="divide-y divide-theme-light max-h-80 overflow-y-auto">
-            {recent_logs.length === 0 ? (
-              <div className="px-6 py-4 text-center text-theme-secondary">No recent logs</div>
-            ) : (
-              recent_logs.map((log) => (
-                <div key={log.id} className="px-6 py-4">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        {getLogLevelBadge(log.level)}
-                        <span className="text-xs text-theme-tertiary">{log.source}</span>
-                      </div>
-                      <p className="text-sm text-theme-primary break-words">
-                        {log.message}
-                      </p>
-                    </div>
-                  </div>
-                  <p className="text-xs text-theme-tertiary mt-2">
-                    {adminSettingsApi.formatRelativeTime(log.timestamp)}
-                  </p>
-                </div>
-              ))
-            )}
-          </div>
+      {/* Key Metrics */}
+      <div>
+        <h2 className="text-xl font-semibold text-theme-primary mb-6 flex items-center gap-2">
+          <span>📊</span>
+          <span>Key Metrics</span>
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <MetricCard
+            title="Total Users"
+            value={adminSettingsApi.formatNumber(metrics.total_users)}
+            icon="👥"
+            color="blue"
+            change={{ value: "12%", type: "increase" }}
+          />
+          <MetricCard
+            title="Active Accounts"
+            value={`${metrics.active_accounts}/${metrics.total_accounts}`}
+            icon="🏢"
+            color="green"
+            change={{ value: "5%", type: "increase" }}
+          />
+          <MetricCard
+            title="Monthly Revenue"
+            value={adminSettingsApi.formatCurrency(metrics.monthly_revenue)}
+            icon="💰"
+            color="purple"
+            change={{ value: "8%", type: "increase" }}
+          />
+          <MetricCard
+            title="Active Subscriptions"
+            value={`${metrics.active_subscriptions}/${metrics.total_subscriptions}`}
+            icon="📋"
+            color="green"
+            change={{ value: "3%", type: "increase" }}
+          />
         </div>
       </div>
 
       {/* Quick Actions */}
-      <div className="card-theme p-6">
-        <h3 className="text-lg font-medium text-theme-primary mb-4">Admin Quick Actions</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <Link
-            to="/dashboard/admin-settings"
-            className="btn-theme btn-theme-secondary flex items-center justify-between px-4 py-3 text-left hover:bg-theme-surface-hover transition-colors"
-          >
-            <div className="flex items-center">
-              <span className="mr-3 text-lg">⚙️</span>
-              <div>
-                <p className="font-medium text-theme-primary">System Settings</p>
-                <p className="text-xs text-theme-secondary">Configure platform settings</p>
-              </div>
-            </div>
-            <span className="text-theme-tertiary">→</span>
-          </Link>
-
-          <Link
-            to="/dashboard/payment-gateways"
-            className="btn-theme btn-theme-secondary flex items-center justify-between px-4 py-3 text-left hover:bg-theme-surface-hover transition-colors"
-          >
-            <div className="flex items-center">
-              <span className="mr-3 text-lg">💳</span>
-              <div>
-                <p className="font-medium text-theme-primary">Payment Gateways</p>
-                <p className="text-xs text-theme-secondary">Manage Stripe & PayPal</p>
-              </div>
-            </div>
-            <span className="text-theme-tertiary">→</span>
-          </Link>
-
-          <button className="btn-theme btn-theme-secondary flex items-center justify-between px-4 py-3 text-left hover:bg-theme-surface-hover transition-colors">
-            <div className="flex items-center">
-              <span className="mr-3 text-lg">👥</span>
-              <div>
-                <p className="font-medium text-theme-primary">User Management</p>
-                <p className="text-xs text-theme-secondary">View and manage users</p>
-              </div>
-            </div>
-            <span className="text-theme-tertiary">→</span>
-          </button>
-
-          <button className="btn-theme btn-theme-secondary flex items-center justify-between px-4 py-3 text-left hover:bg-theme-surface-hover transition-colors">
-            <div className="flex items-center">
-              <span className="mr-3 text-lg">🏢</span>
-              <div>
-                <p className="font-medium text-theme-primary">Account Management</p>
-                <p className="text-xs text-theme-secondary">Manage customer accounts</p>
-              </div>
-            </div>
-            <span className="text-theme-tertiary">→</span>
-          </button>
-
-          <button className="btn-theme btn-theme-secondary flex items-center justify-between px-4 py-3 text-left hover:bg-theme-surface-hover transition-colors">
-            <div className="flex items-center">
-              <span className="mr-3 text-lg">📊</span>
-              <div>
-                <p className="font-medium text-theme-primary">System Logs</p>
-                <p className="text-xs text-theme-secondary">View audit and system logs</p>
-              </div>
-            </div>
-            <span className="text-theme-tertiary">→</span>
-          </button>
-
-          <button 
-            className={`btn-theme flex items-center justify-between px-4 py-3 text-left transition-colors ${
-              settings_summary?.maintenance_mode 
-                ? 'btn-theme-error hover:bg-theme-error' 
-                : 'btn-theme-warning hover:bg-theme-warning'
-            }`}
-          >
-            <div className="flex items-center">
-              <span className="mr-3 text-lg">🔧</span>
-              <div>
-                <p className="font-medium text-theme-primary">
-                  {settings_summary?.maintenance_mode ? 'Disable Maintenance' : 'Maintenance Mode'}
-                </p>
-                <p className="text-xs text-theme-secondary">
-                  {settings_summary?.maintenance_mode ? 'Exit maintenance mode' : 'Enable maintenance mode'}
-                </p>
-              </div>
-            </div>
-            <span className="text-theme-tertiary">→</span>
-          </button>
+      <div>
+        <h2 className="text-xl font-semibold text-theme-primary mb-6 flex items-center gap-2">
+          <span>⚡</span>
+          <span>Quick Actions</span>
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <QuickAction
+            icon="⚙️"
+            title="System Settings"
+            description="Configure platform settings, security, and business rules"
+            path="/dashboard/system/admin"
+          />
+          <QuickAction
+            icon="👥"
+            title="User Management"
+            description="View and manage user accounts, roles, and permissions"
+            path="/dashboard/admin/users"
+          />
+          <QuickAction
+            icon="💳"
+            title="Payment Gateways"
+            description="Configure Stripe and PayPal integrations"
+            path="/dashboard/system/gateways"
+          />
+          <QuickAction
+            icon="🔗"
+            title="Webhooks"
+            description="Manage payment gateway webhooks and endpoints"
+            path="/dashboard/system/webhooks"
+          />
+          <QuickAction
+            icon="📝"
+            title="Audit Logs"
+            description="Review system activity and security events"
+            path="/dashboard/system/audit"
+            badge={recent_logs.length.toString()}
+          />
+          <QuickAction
+            icon="⚡"
+            title="Services"
+            description="Manage background job services and authentication"
+            path="/dashboard/system/services"
+          />
         </div>
       </div>
 
-      {/* Active Admin Settings Summary */}
-      {settings_summary && (
-        <div className="space-y-6">
-          {/* Critical System Status */}
-          <div className="card-theme p-6">
-            <h2 className="text-lg font-semibold text-theme-primary mb-6 flex items-center">
-              <span className="mr-2">🚨</span>
-              Critical System Settings
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className={`p-4 rounded-lg border ${settings_summary?.maintenance_mode ? 'bg-theme-error border-theme-error' : 'bg-theme-success border-theme-success'}`}>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-theme-primary">Maintenance Mode</span>
-                  <div className={`w-2 h-2 rounded-full ${settings_summary?.maintenance_mode ? 'bg-theme-error' : 'bg-theme-success'}`} />
-                </div>
-                <p className={`text-lg font-bold ${settings_summary?.maintenance_mode ? 'text-theme-error' : 'text-theme-success'}`}>
-                  {settings_summary?.maintenance_mode ? 'ACTIVE' : 'Normal Operation'}
-                </p>
-                <p className="text-xs text-theme-secondary mt-1">
-                  {settings_summary?.maintenance_mode ? 'System unavailable to users' : 'System fully operational'}
-                </p>
+      {/* Configuration Overview */}
+      <div>
+        <h2 className="text-xl font-semibold text-theme-primary mb-6 flex items-center gap-2">
+          <span>🛠️</span>
+          <span>Configuration Overview</span>
+        </h2>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Security Configuration */}
+          <div className="bg-theme-surface rounded-xl p-6 border border-theme">
+            <h3 className="text-lg font-semibold text-theme-primary mb-4 flex items-center gap-2">
+              <span>🔒</span>
+              <span>Security</span>
+            </h3>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-theme-secondary">Password Min Length</span>
+                <span className="text-sm font-medium text-theme-primary">{settings_summary?.password_min_length || 12} chars</span>
               </div>
-              
-              <div className={`p-4 rounded-lg border ${!settings_summary?.registration_enabled ? 'bg-theme-warning border-theme-warning' : 'bg-theme-success border-theme-success'}`}>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-theme-primary">User Registration</span>
-                  <div className={`w-2 h-2 rounded-full ${settings_summary?.registration_enabled ? 'bg-theme-success' : 'bg-theme-warning'}`} />
-                </div>
-                <p className={`text-lg font-bold ${settings_summary?.registration_enabled ? 'text-green-700 dark:text-green-400' : 'text-orange-700 dark:text-orange-400'}`}>
-                  {settings_summary?.registration_enabled ? 'Open' : 'Restricted'}
-                </p>
-                <p className="text-xs text-theme-secondary mt-1">
-                  {settings_summary?.registration_enabled ? 'New users can register' : 'Registration disabled'}
-                </p>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-theme-secondary">Session Timeout</span>
+                <span className="text-sm font-medium text-theme-primary">{settings_summary?.session_timeout_minutes || 60} min</span>
               </div>
-              
-              <div className={`p-4 rounded-lg border ${!settings_summary?.require_email_verification ? 'bg-theme-warning border-theme-warning' : 'bg-theme-success border-theme-success'}`}>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-theme-primary">Email Verification</span>
-                  <div className={`w-2 h-2 rounded-full ${settings_summary?.require_email_verification ? 'bg-theme-success' : 'bg-theme-warning'}`} />
-                </div>
-                <p className={`text-lg font-bold ${settings_summary?.require_email_verification ? 'text-green-700 dark:text-green-400' : 'text-yellow-700 dark:text-yellow-400'}`}>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-theme-secondary">Email Verification</span>
+                <span className={`text-xs px-2 py-1 rounded font-medium ${
+                  settings_summary?.require_email_verification 
+                    ? 'bg-theme-success-background text-theme-success' 
+                    : 'bg-theme-warning-background text-theme-warning'
+                }`}>
                   {settings_summary?.require_email_verification ? 'Required' : 'Optional'}
-                </p>
-                <p className="text-xs text-theme-secondary mt-1">
-                  {settings_summary?.require_email_verification ? 'Users must verify email' : 'Email verification optional'}
-                </p>
+                </span>
               </div>
-              
-              <div className={`p-4 rounded-lg border ${!settings_summary?.allow_account_deletion ? 'bg-theme-info border-theme-info' : 'bg-theme-warning border-theme-warning'}`}>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-theme-primary">Account Deletion</span>
-                  <div className={`w-2 h-2 rounded-full ${settings_summary?.allow_account_deletion ? 'bg-theme-warning' : 'bg-theme-info'}`} />
-                </div>
-                <p className={`text-lg font-bold ${settings_summary?.allow_account_deletion ? 'text-orange-700 dark:text-orange-400' : 'text-blue-700 dark:text-blue-400'}`}>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-theme-secondary">Rate Limiting</span>
+                <span className={`text-xs px-2 py-1 rounded font-medium ${
+                  settings_summary?.rate_limiting?.enabled !== false
+                    ? 'bg-theme-success-background text-theme-success' 
+                    : 'bg-theme-error-background text-theme-error'
+                }`}>
+                  {settings_summary?.rate_limiting?.enabled !== false ? 'Active' : 'Disabled'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Business Configuration */}
+          <div className="bg-theme-surface rounded-xl p-6 border border-theme">
+            <h3 className="text-lg font-semibold text-theme-primary mb-4 flex items-center gap-2">
+              <span>💼</span>
+              <span>Business</span>
+            </h3>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-theme-secondary">Trial Period</span>
+                <span className="text-sm font-medium text-theme-primary">{settings_summary?.trial_period_days || 14} days</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-theme-secondary">Payment Retries</span>
+                <span className="text-sm font-medium text-theme-primary">{settings_summary?.payment_retry_attempts || 3} attempts</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-theme-secondary">Webhook Timeout</span>
+                <span className="text-sm font-medium text-theme-primary">{settings_summary?.webhook_timeout_seconds || 30}s</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-theme-secondary">Account Deletion</span>
+                <span className={`text-xs px-2 py-1 rounded font-medium ${
+                  settings_summary?.allow_account_deletion 
+                    ? 'bg-theme-warning-background text-theme-warning' 
+                    : 'bg-theme-success-background text-theme-success'
+                }`}>
                   {settings_summary?.allow_account_deletion ? 'Allowed' : 'Protected'}
-                </p>
-                <p className="text-xs text-theme-secondary mt-1">
-                  {settings_summary?.allow_account_deletion ? 'Users can delete accounts' : 'Account deletion restricted'}
-                </p>
+                </span>
               </div>
             </div>
           </div>
-          
-          {/* Active Configuration Summary */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* System & Operations */}
-            <div className="card-theme p-6">
-              <h3 className="text-lg font-semibold text-theme-primary mb-4 flex items-center">
-                <span className="mr-2">⚙️</span>
-                System & Operations
-              </h3>
-              <div className="space-y-4">
-                <div className="border-b border-theme-light pb-3">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="font-medium text-theme-primary">System Identity</p>
-                      <p className="text-sm text-theme-secondary">{settings_summary?.system_name || 'Powernode Platform'}</p>
-                    </div>
-                    <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400 px-2 py-1 rounded text-xs font-medium">Active</span>
-                  </div>
-                </div>
-                
-                <div className="border-b border-theme-light pb-3">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="font-medium text-theme-primary">Contact Configuration</p>
-                      <p className="text-sm text-theme-secondary">System: {settings_summary?.system_email || 'Not configured'}</p>
-                      <p className="text-sm text-theme-secondary">Support: {settings_summary?.support_email || 'Not configured'}</p>
-                    </div>
-                    <span className={`px-2 py-1 rounded text-xs font-medium ${
-                      settings_summary?.system_email && settings_summary?.support_email 
-                        ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400' 
-                        : 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-400'
-                    }`}>
-                      {settings_summary?.system_email && settings_summary?.support_email ? 'Complete' : 'Partial'}
-                    </span>
-                  </div>
-                </div>
-                
-                <div className="border-b border-theme-light pb-3">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="font-medium text-theme-primary">Data Retention</p>
-                      <p className="text-sm text-theme-secondary">Backups: {settings_summary?.backup_retention_days || 30} days</p>
-                      <p className="text-sm text-theme-secondary">Logs: {settings_summary?.log_retention_days || 90} days</p>
-                    </div>
-                    <span className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400 px-2 py-1 rounded text-xs font-medium">Configured</span>
-                  </div>
-                </div>
+
+          {/* Communication Configuration */}
+          <div className="bg-theme-surface rounded-xl p-6 border border-theme">
+            <h3 className="text-lg font-semibold text-theme-primary mb-4 flex items-center gap-2">
+              <span>📧</span>
+              <span>Communication</span>
+            </h3>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-theme-secondary">System Email</span>
+                <span className="text-xs font-medium text-theme-primary truncate max-w-24" title={settings_summary?.system_email || 'Not set'}>
+                  {settings_summary?.system_email ? '✓ Set' : '⚠ Not set'}
+                </span>
               </div>
-            </div>
-            
-            {/* Security & Access Control */}
-            <div className="card-theme p-6">
-              <h3 className="text-lg font-semibold text-theme-primary mb-4 flex items-center">
-                <span className="mr-2">🛡️</span>
-                Security & Access Control
-              </h3>
-              <div className="space-y-4">
-                <div className="border-b border-theme-light pb-3">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="font-medium text-theme-primary">Session Management</p>
-                      <p className="text-sm text-theme-secondary">Timeout: {settings_summary?.session_timeout_minutes || 60} minutes</p>
-                      <p className="text-sm text-theme-secondary">Auto-logout when inactive</p>
-                    </div>
-                    <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400 px-2 py-1 rounded text-xs font-medium">Active</span>
-                  </div>
-                </div>
-                
-                <div className="border-b border-theme-light pb-3">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="font-medium text-theme-primary">Password Policy</p>
-                      <p className="text-sm text-theme-secondary">Min Length: {settings_summary?.password_min_length || 12} characters</p>
-                      <p className="text-sm text-theme-secondary">Complexity requirements enforced</p>
-                    </div>
-                    <span className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400 px-2 py-1 rounded text-xs font-medium">Enforced</span>
-                  </div>
-                </div>
-                
-                <div className="border-b border-theme-light pb-3">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="font-medium text-theme-primary">Rate Limiting</p>
-                      <p className="text-sm text-theme-secondary">API: {settings_summary?.rate_limiting?.api_requests_per_minute || 60} requests/minute</p>
-                      <p className="text-sm text-theme-secondary">DDoS protection active</p>
-                    </div>
-                    <span className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400 px-2 py-1 rounded text-xs font-medium">Protected</span>
-                  </div>
-                </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-theme-secondary">Support Email</span>
+                <span className="text-xs font-medium text-theme-primary truncate max-w-24" title={settings_summary?.support_email || 'Not set'}>
+                  {settings_summary?.support_email ? '✓ Set' : '⚠ Not set'}
+                </span>
               </div>
-            </div>
-          </div>
-          
-          {/* Business Rules & Features */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Subscription & Billing */}
-            <div className="card-theme p-6">
-              <h3 className="text-lg font-semibold text-theme-primary mb-4 flex items-center">
-                <span className="mr-2">💳</span>
-                Subscription & Billing
-              </h3>
-              <div className="space-y-4">
-                <div className="border-b border-theme-light pb-3">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="font-medium text-theme-primary">Trial Configuration</p>
-                      <p className="text-sm text-theme-secondary">Period: {settings_summary?.trial_period_days || 14} days</p>
-                      <p className="text-sm text-theme-secondary">Max Accounts: {settings_summary?.max_trial_accounts || 'Unlimited'}</p>
-                    </div>
-                    <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400 px-2 py-1 rounded text-xs font-medium">Active</span>
-                  </div>
-                </div>
-                
-                <div className="border-b border-theme-light pb-3">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="font-medium text-theme-primary">Payment Processing</p>
-                      <p className="text-sm text-theme-secondary">Retry Attempts: {settings_summary?.payment_retry_attempts || 3}</p>
-                      <p className="text-sm text-theme-secondary">Automated dunning process</p>
-                    </div>
-                    <span className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400 px-2 py-1 rounded text-xs font-medium">Automated</span>
-                  </div>
-                </div>
-                
-                <div className="border-b border-theme-light pb-3">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="font-medium text-theme-primary">Webhook Configuration</p>
-                      <p className="text-sm text-theme-secondary">Timeout: {settings_summary?.webhook_timeout_seconds || 30} seconds</p>
-                      <p className="text-sm text-theme-secondary">Real-time payment events</p>
-                    </div>
-                    <span className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400 px-2 py-1 rounded text-xs font-medium">Configured</span>
-                  </div>
-                </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-theme-secondary">SMTP Host</span>
+                <span className={`text-xs px-2 py-1 rounded font-medium ${
+                  settings_summary?.smtp_settings?.host 
+                    ? 'bg-theme-success-background text-theme-success' 
+                    : 'bg-theme-error-background text-theme-error'
+                }`}>
+                  {settings_summary?.smtp_settings?.host ? 'Configured' : 'Missing'}
+                </span>
               </div>
-            </div>
-            
-            {/* Feature Flags & SMTP */}
-            <div className="card-theme p-6">
-              <h3 className="text-lg font-semibold text-theme-primary mb-4 flex items-center">
-                <span className="mr-2">🚀</span>
-                Features & Communication
-              </h3>
-              <div className="space-y-4">
-                {settings_summary?.feature_flags && Object.keys(settings_summary?.feature_flags || {}).length > 0 && (
-                  <div className="border-b border-theme-light pb-3">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <p className="font-medium text-theme-primary">Feature Flags</p>
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          {Object.entries(settings_summary?.feature_flags || {}).map(([flag, enabled]) => (
-                            <span key={flag} className={`px-2 py-1 rounded text-xs font-medium ${
-                              enabled 
-                                ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400' 
-                                : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
-                            }`}>
-                              {flag}: {enabled ? 'ON' : 'OFF'}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-                
-                <div className="border-b border-theme-light pb-3">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="font-medium text-theme-primary">Email Configuration</p>
-                      <p className="text-sm text-theme-secondary">SMTP Host: {settings_summary.smtp_settings?.host || 'Not configured'}</p>
-                      <p className="text-sm text-theme-secondary">Port: {settings_summary.smtp_settings?.port || 'N/A'} ({settings_summary.smtp_settings?.use_tls ? 'TLS' : 'Plain'})</p>
-                      <p className="text-sm text-theme-secondary">From: {settings_summary.smtp_settings?.from_address || 'Not set'}</p>
-                    </div>
-                    <span className={`px-2 py-1 rounded text-xs font-medium ${
-                      settings_summary.smtp_settings?.host 
-                        ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400' 
-                        : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400'
-                    }`}>
-                      {settings_summary.smtp_settings?.host ? 'Configured' : 'Missing'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          {/* Settings Summary Footer */}
-          <div className="card-theme p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4 text-sm text-theme-secondary">
-                <span>Settings last updated: {settings_summary?.updated_at ? adminSettingsApi.formatRelativeTime(settings_summary.updated_at) : 'Never'}</span>
-                <span>•</span>
-                <span>Configuration created: {settings_summary?.created_at ? adminSettingsApi.formatRelativeTime(settings_summary.created_at) : 'Unknown'}</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                <span className="text-sm text-theme-secondary">Settings Active</span>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-theme-secondary">System Name</span>
+                <span className="text-sm font-medium text-theme-primary truncate max-w-24" title={settings_summary?.system_name || 'Powernode'}>
+                  {settings_summary?.system_name || 'Powernode'}
+                </span>
               </div>
             </div>
           </div>
         </div>
-      )}
+      </div>
+
+      {/* Payment Gateway Status */}
+      <div>
+        <h2 className="text-xl font-semibold text-theme-primary mb-6 flex items-center gap-2">
+          <span>💳</span>
+          <span>Payment Gateway Status</span>
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="group bg-theme-surface rounded-xl p-6 border border-theme hover:bg-theme-surface-hover transition-all duration-200">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-theme-background rounded-lg flex items-center justify-center flex-shrink-0">
+                  <span className="text-xl">💳</span>
+                </div>
+                <h3 className="text-lg font-semibold text-theme-primary">Stripe</h3>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className={`w-3 h-3 rounded-full ${
+                  payment_gateways.stripe.connected ? 'bg-theme-success' : 'bg-theme-error'
+                } shadow-sm`} />
+                <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                  payment_gateways.stripe.connected 
+                    ? 'bg-theme-success-background text-theme-success' 
+                    : 'bg-theme-error-background text-theme-error'
+                }`}>
+                  {payment_gateways.stripe.connected ? '✓ Connected' : '✗ Disconnected'}
+                </span>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-theme-secondary">Environment</span>
+                <span className="text-sm font-medium text-theme-primary">{payment_gateways.stripe.environment}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-theme-secondary">Webhook Status</span>
+                <span className={`text-xs px-2 py-1 rounded font-medium ${
+                  payment_gateways.stripe.webhook_status === 'healthy' 
+                    ? 'bg-theme-success-background text-theme-success' 
+                    : 'bg-theme-warning-background text-theme-warning'
+                }`}>
+                  {payment_gateways.stripe.webhook_status}
+                </span>
+              </div>
+              {payment_gateways.stripe.last_webhook && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-theme-secondary">Last Webhook</span>
+                  <span className="text-sm font-medium text-theme-primary">
+                    {adminSettingsApi.formatRelativeTime(payment_gateways.stripe.last_webhook)}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="group bg-theme-surface rounded-xl p-6 border border-theme hover:bg-theme-surface-hover transition-all duration-200">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-theme-background rounded-lg flex items-center justify-center flex-shrink-0">
+                  <span className="text-xl">🅿️</span>
+                </div>
+                <h3 className="text-lg font-semibold text-theme-primary">PayPal</h3>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className={`w-3 h-3 rounded-full ${
+                  payment_gateways.paypal.connected ? 'bg-theme-success' : 'bg-theme-error'
+                } shadow-sm`} />
+                <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                  payment_gateways.paypal.connected 
+                    ? 'bg-theme-success-background text-theme-success' 
+                    : 'bg-theme-error-background text-theme-error'
+                }`}>
+                  {payment_gateways.paypal.connected ? '✓ Connected' : '✗ Disconnected'}
+                </span>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-theme-secondary">Environment</span>
+                <span className="text-sm font-medium text-theme-primary">{payment_gateways.paypal.environment}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-theme-secondary">Webhook Status</span>
+                <span className={`text-xs px-2 py-1 rounded font-medium ${
+                  payment_gateways.paypal.webhook_status === 'healthy' 
+                    ? 'bg-theme-success-background text-theme-success' 
+                    : 'bg-theme-warning-background text-theme-warning'
+                }`}>
+                  {payment_gateways.paypal.webhook_status}
+                </span>
+              </div>
+              {payment_gateways.paypal.last_webhook && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-theme-secondary">Last Webhook</span>
+                  <span className="text-sm font-medium text-theme-primary">
+                    {adminSettingsApi.formatRelativeTime(payment_gateways.paypal.last_webhook)}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Recent Activity */}
+      <div>
+        <h2 className="text-xl font-semibold text-theme-primary mb-6 flex items-center gap-2">
+          <span>📈</span>
+          <span>Recent Activity</span>
+        </h2>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Recent Users */}
+          <div className="bg-theme-surface rounded-xl border border-theme overflow-hidden">
+            <div className="px-6 py-4 border-b border-theme bg-theme-background-secondary">
+              <h3 className="font-semibold text-theme-primary flex items-center gap-2">
+                <span>👥</span>
+                <span>Recent Users</span>
+                <span className="bg-theme-interactive-primary text-white text-xs px-2 py-1 rounded-full">
+                  {recent_users.length}
+                </span>
+              </h3>
+            </div>
+            <div className="max-h-80 overflow-y-auto">
+              {recent_users.length === 0 ? (
+                <div className="p-6 text-center text-theme-secondary">
+                  <span className="text-4xl mb-2 block">👥</span>
+                  <p>No recent users</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-theme">
+                  {recent_users.map((user) => (
+                    <div key={user.id} className="p-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-theme-interactive-primary rounded-full flex items-center justify-center flex-shrink-0">
+                          <span className="text-white font-medium text-sm">
+                            {user.first_name[0]}{user.last_name[0]}
+                          </span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-theme-primary truncate">{user.full_name}</p>
+                          <p className="text-sm text-theme-secondary truncate">{user.email}</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-xs bg-theme-background px-2 py-1 rounded text-theme-secondary">
+                              {user.role}
+                            </span>
+                            <span className="text-xs text-theme-tertiary">
+                              {adminSettingsApi.formatRelativeTime(user.created_at)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Recent Accounts */}
+          <div className="bg-theme-surface rounded-xl border border-theme overflow-hidden">
+            <div className="px-6 py-4 border-b border-theme bg-theme-background-secondary">
+              <h3 className="font-semibold text-theme-primary flex items-center gap-2">
+                <span>🏢</span>
+                <span>Recent Accounts</span>
+                <span className="bg-theme-interactive-primary text-white text-xs px-2 py-1 rounded-full">
+                  {recent_accounts.length}
+                </span>
+              </h3>
+            </div>
+            <div className="max-h-80 overflow-y-auto">
+              {recent_accounts.length === 0 ? (
+                <div className="p-6 text-center text-theme-secondary">
+                  <span className="text-4xl mb-2 block">🏢</span>
+                  <p>No recent accounts</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-theme">
+                  {recent_accounts.map((account) => (
+                    <div key={account.id} className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-theme-primary truncate">{account.name}</p>
+                          <p className="text-sm text-theme-secondary truncate">{account.owner.email}</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className={`text-xs px-2 py-1 rounded font-medium ${
+                              account.status === 'active' ? 'bg-theme-success-background text-theme-success' :
+                              account.status === 'suspended' ? 'bg-theme-warning-background text-theme-warning' :
+                              'bg-theme-error-background text-theme-error'
+                            }`}>
+                              {account.status}
+                            </span>
+                            <span className="text-xs text-theme-tertiary">
+                              {adminSettingsApi.formatRelativeTime(account.created_at)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Recent System Logs */}
+          <div className="bg-theme-surface rounded-xl border border-theme overflow-hidden">
+            <div className="px-6 py-4 border-b border-theme bg-theme-background-secondary">
+              <h3 className="font-semibold text-theme-primary flex items-center gap-2">
+                <span>📝</span>
+                <span>System Logs</span>
+                <span className="bg-theme-interactive-primary text-white text-xs px-2 py-1 rounded-full">
+                  {recent_logs.length}
+                </span>
+              </h3>
+            </div>
+            <div className="max-h-80 overflow-y-auto">
+              {recent_logs.length === 0 ? (
+                <div className="p-6 text-center text-theme-secondary">
+                  <span className="text-4xl mb-2 block">📝</span>
+                  <p>No recent logs</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-theme">
+                  {recent_logs.map((log) => (
+                    <div key={log.id} className="p-4">
+                      <div className="flex items-start gap-3">
+                        <span className={`text-xs px-2 py-1 rounded font-medium flex-shrink-0 ${
+                          log.level === 'error' ? 'bg-theme-error-background text-theme-error' :
+                          log.level === 'warning' ? 'bg-theme-warning-background text-theme-warning' :
+                          log.level === 'info' ? 'bg-theme-info-background text-theme-info' :
+                          'bg-theme-surface text-theme-secondary'
+                        }`}>
+                          {log.level.toUpperCase()}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-theme-primary break-words">{log.message}</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-xs text-theme-tertiary">{log.source}</span>
+                            <span className="text-xs text-theme-tertiary">
+                              {adminSettingsApi.formatRelativeTime(log.timestamp)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="bg-theme-background-secondary rounded-xl p-4 border border-theme">
+        <div className="flex items-center justify-between text-sm text-theme-secondary">
+          <div className="flex items-center gap-4">
+            <span>Last updated: {settings_summary?.updated_at ? adminSettingsApi.formatRelativeTime(settings_summary.updated_at) : 'Never'}</span>
+            <span>•</span>
+            <span>Data refreshed: {new Date().toLocaleTimeString()}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 bg-theme-success rounded-full animate-pulse"></div>
+            <span>Live Data</span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

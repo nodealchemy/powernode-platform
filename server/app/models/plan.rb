@@ -15,11 +15,8 @@ class Plan < ApplicationRecord
   validate :validate_promotional_discount_dates
   validate :validate_volume_discount_tiers
 
-  # Serialization
-  serialize :features, coder: JSON
-  serialize :limits, coder: JSON
-  serialize :default_roles, coder: JSON
-  serialize :volume_discount_tiers, coder: JSON
+  # Note: features, limits, default_roles, volume_discount_tiers are now native JSON columns
+  # No explicit serialization needed in Rails 8
 
   # Scopes
   scope :active, -> { where(status: "active") }

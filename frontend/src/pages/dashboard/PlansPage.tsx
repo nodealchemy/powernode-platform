@@ -130,7 +130,7 @@ export const PlansPage: React.FC = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-theme-primary">Plans Management</h1>
+          <h1 className="text-2xl font-bold text-theme-primary">Plans</h1>
           <p className="text-theme-secondary">
             {isAdmin 
               ? "Manage subscription plans and pricing tiers."

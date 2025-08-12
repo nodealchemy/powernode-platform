@@ -176,7 +176,7 @@ export const ServiceActivityList: React.FC<ServiceActivityListProps> = ({ servic
         </div>
         
         {error && (
-          <div className="p-4 bg-theme-error border-b border-theme">
+          <div className="p-4 bg-theme-error-background border-b border-theme-error">
             <p className="text-theme-error text-sm">{error}</p>
             <button
               onClick={loadActivities}

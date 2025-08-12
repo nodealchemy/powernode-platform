@@ -106,7 +106,7 @@ class PaypalService
       payment_definitions: [{
         name: "Regular payment definition",
         type: "REGULAR",
-        frequency: map_frequency_to_paypal(plan.billing_interval),
+        frequency: map_frequency_to_paypal(plan.billing_cycle),
         frequency_interval: plan.interval_count || 1,
         amount: {
           value: plan.price.to_f.to_s,
@@ -368,16 +368,18 @@ class PaypalService
 
   private
 
-  def map_frequency_to_paypal(billing_interval)
-    case billing_interval
-    when 'day'
+  def map_frequency_to_paypal(billing_cycle)
+    case billing_cycle
+    when 'daily'
       'DAY'
-    when 'week'
+    when 'weekly'
       'WEEK'
-    when 'month'
+    when 'monthly'
       'MONTH'
-    when 'year'
+    when 'yearly'
       'YEAR'
+    when 'quarterly'
+      'MONTH' # PayPal doesn't support quarterly, map to monthly
     else
       'MONTH' # Default to monthly
     end

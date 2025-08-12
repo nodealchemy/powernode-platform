@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '../../store';
 import { addNotification } from '../../store/slices/uiSlice';
-import { settingsApi, SettingsData, UserPreferences, NotificationPreferences } from '../../services/settingsApi';
+import { settingsApi, UserSettings, NotificationPreferences } from '../../services/settingsApi';
 import { useSettingsWebSocket } from '../../hooks/useSettingsWebSocket';
 import { WebSocketStatusIndicator } from '../../components/common/WebSocketStatusIndicator';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -11,7 +11,7 @@ export const SettingsPage: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const { user } = useSelector((state: RootState) => state.auth);
   const { theme, setTheme } = useTheme();
-  const [settings, setSettings] = useState<SettingsData | null>(null);
+  const [settings, setSettings] = useState<UserSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('profile');
@@ -29,13 +29,13 @@ export const SettingsPage: React.FC = () => {
     password_confirmation: ''
   });
 
-  const [preferences, setPreferences] = useState<Partial<UserPreferences>>({});
-  const [notifications, setNotifications] = useState<Partial<NotificationPreferences>>({});
+  const [preferences, setPreferences] = useState<Partial<UserSettings>>({});
+  const [notifications, setNotifications] = useState<Partial<UserSettings>>({});
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [isReceivingUpdate, setIsReceivingUpdate] = useState(false);
 
   // Real-time settings update handlers
-  const handleSettingsUpdate = useCallback((updatedData: Partial<SettingsData>) => {
+  const handleSettingsUpdate = useCallback((updatedData: Partial<UserSettings>) => {
     setIsReceivingUpdate(true);
     
     if (updatedData.user_preferences) {
@@ -72,12 +72,12 @@ export const SettingsPage: React.FC = () => {
     setIsReceivingUpdate(false);
   }, [theme, setTheme, dispatch]);
 
-  const handlePreferencesUpdate = useCallback((updatedPreferences: Partial<UserPreferences>) => {
+  const handlePreferencesUpdate = useCallback((updatedPreferences: Partial<UserSettings>) => {
     setPreferences(prev => ({ ...prev, ...updatedPreferences }));
     
     // If theme was updated from another session, apply it locally
-    if (updatedPreferences.theme && updatedPreferences.theme !== theme) {
-      setTheme(updatedPreferences.theme);
+    if (updatedPreferences.user_preferences?.theme && updatedPreferences.user_preferences.theme !== theme) {
+      setTheme(updatedPreferences.user_preferences.theme);
     }
     
     setLastUpdated(new Date());
@@ -87,7 +87,7 @@ export const SettingsPage: React.FC = () => {
     }));
   }, [theme, setTheme, dispatch]);
 
-  const handleNotificationsUpdate = useCallback((updatedNotifications: Partial<NotificationPreferences>) => {
+  const handleNotificationsUpdate = useCallback((updatedNotifications: Partial<UserSettings>) => {
     setNotifications(prev => ({ ...prev, ...updatedNotifications }));
     setLastUpdated(new Date());
     dispatch(addNotification({
@@ -107,7 +107,11 @@ export const SettingsPage: React.FC = () => {
   const loadSettings = useCallback(async () => {
     try {
       setLoading(true);
-      const settingsData = await settingsApi.getSettings();
+      const response = await settingsApi.getUserSettings();
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to load settings');
+      }
+      const settingsData = response.data;
       setSettings(settingsData);
       
       // Initialize form states
@@ -117,8 +121,8 @@ export const SettingsPage: React.FC = () => {
         email: user?.email || ''
       });
 
-      setPreferences(settingsData.user_preferences || {});
-      setNotifications(settingsData.notification_preferences || {});
+      setPreferences({ user_preferences: settingsData.user_preferences || {} });
+      setNotifications({ notification_preferences: settingsData.notification_preferences || {} });
     } catch (error) {
       console.error('Failed to load settings:', error);
       dispatch(addNotification({
@@ -148,10 +152,10 @@ export const SettingsPage: React.FC = () => {
     }));
   };
 
-  const handleUpdatePreferences = async (updatedPrefs: Partial<UserPreferences>) => {
+  const handleUpdatePreferences = async (updatedPrefs: Partial<UserSettings>) => {
     try {
       setSaving(true);
-      await settingsApi.updatePreferences(updatedPrefs);
+      await settingsApi.updateUserSettings(updatedPrefs);
       setPreferences({ ...preferences, ...updatedPrefs });
       
       // Broadcast the update to other sessions in real-time
@@ -170,10 +174,10 @@ export const SettingsPage: React.FC = () => {
       setSaving(true);
       // Use the theme context which automatically applies theme and saves to API
       await setTheme(newTheme);
-      setPreferences({ ...preferences, theme: newTheme });
+      setPreferences({ ...preferences, user_preferences: { ...preferences.user_preferences, theme: newTheme } });
       
       // Broadcast the theme update to other sessions
-      broadcastSettingsUpdate('preferences_updated', { theme: newTheme });
+      broadcastSettingsUpdate('preferences_updated', { user_preferences: { theme: newTheme } });
       
       showSuccess('Theme updated successfully');
     } catch (error) {
@@ -183,10 +187,10 @@ export const SettingsPage: React.FC = () => {
     }
   };
 
-  const handleUpdateNotifications = async (updatedNotifs: Partial<NotificationPreferences>) => {
+  const handleUpdateNotifications = async (updatedNotifs: Partial<UserSettings>) => {
     try {
       setSaving(true);
-      await settingsApi.updateNotifications(updatedNotifs);
+      await settingsApi.updateUserSettings(updatedNotifs);
       setNotifications({ ...notifications, ...updatedNotifs });
       
       // Broadcast the update to other sessions in real-time
@@ -506,8 +510,8 @@ export const SettingsPage: React.FC = () => {
                   <span className="ml-1 text-theme-tertiary" title="Select your preferred language">🌐</span>
                 </label>
                 <select
-                  value={preferences.language || 'en'}
-                  onChange={(e) => handleUpdatePreferences({ language: e.target.value })}
+                  value={preferences.user_preferences?.language || 'en'}
+                  onChange={(e) => handleUpdatePreferences({ user_preferences: { language: e.target.value } })}
                   disabled={saving}
                   className="select-theme"
                 >
@@ -523,8 +527,8 @@ export const SettingsPage: React.FC = () => {
                   <span className="ml-1 text-theme-tertiary" title="Number of items to display per page in lists">📄</span>
                 </label>
                 <select
-                  value={preferences.items_per_page || 25}
-                  onChange={(e) => handleUpdatePreferences({ items_per_page: parseInt(e.target.value) })}
+                  value={preferences.user_preferences?.items_per_page || 25}
+                  onChange={(e) => handleUpdatePreferences({ user_preferences: { items_per_page: parseInt(e.target.value) } })}
                   disabled={saving}
                   className="select-theme"
                 >
@@ -541,8 +545,8 @@ export const SettingsPage: React.FC = () => {
                   <span className="ml-1 text-theme-tertiary" title="Choose how data is displayed on your dashboard">📊</span>
                 </label>
                 <select
-                  value={preferences.dashboard_layout || 'grid'}
-                  onChange={(e) => handleUpdatePreferences({ dashboard_layout: e.target.value as 'grid' | 'list' })}
+                  value={preferences.user_preferences?.dashboard_layout || 'grid'}
+                  onChange={(e) => handleUpdatePreferences({ user_preferences: { dashboard_layout: e.target.value as 'grid' | 'list' } })}
                   disabled={saving}
                   className="select-theme"
                 >
@@ -731,8 +735,8 @@ export const SettingsPage: React.FC = () => {
                 <input
                   type="checkbox"
                   className="toggle-theme"
-                  checked={notifications[key as keyof NotificationPreferences] as boolean || false}
-                  onChange={(e) => handleUpdateNotifications({ [key]: e.target.checked })}
+                  checked={(notifications.notification_preferences?.[key as keyof NotificationPreferences] as boolean) || false}
+                  onChange={(e) => handleUpdateNotifications({ notification_preferences: { [key]: e.target.checked } })}
                   disabled={saving}
                 />
               </div>

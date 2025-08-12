@@ -151,7 +151,7 @@ class Api::V1::PaypalController < ApplicationController
         status: "pending",
         paypal_agreement_id: result[:agreement_id],
         current_period_start: Date.current,
-        current_period_end: 1.send(plan.billing_interval).from_now.to_date
+        current_period_end: 1.send(plan.billing_cycle.singularize).from_now.to_date
       )
 
       if subscription.save
@@ -242,7 +242,7 @@ class Api::V1::PaypalController < ApplicationController
     if result[:success]
       subscription.update!(
         status: "cancelled",
-        cancelled_at: Time.current,
+        canceled_at: Time.current,
         cancellation_reason: params[:reason]
       )
 

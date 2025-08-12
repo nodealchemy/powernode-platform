@@ -85,6 +85,7 @@ export interface AdminSettings {
   system_name: string;
   system_email: string;
   support_email: string;
+  copyright_text: string;
   maintenance_mode: boolean;
   registration_enabled: boolean;
   trial_period_days: number;

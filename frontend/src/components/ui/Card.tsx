@@ -63,11 +63,10 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(
         ${selected ? 'border-theme-interactive-primary bg-theme-surface-selected' : ''}
       `,
       glass: `
-        bg-white/10 dark:bg-gray-900/10
-        backdrop-blur-md
-        border border-white/20 dark:border-gray-700/20
-        ${hoverable ? 'hover:bg-white/20 dark:hover:bg-gray-900/20 hover:shadow-xl hover:-translate-y-1' : ''}
-        ${selected ? 'ring-2 ring-white/50 dark:ring-gray-400/50' : ''}
+        bg-theme-surface/10 backdrop-blur-md
+        border border-theme-surface/20
+        ${hoverable ? 'hover:bg-theme-surface/20 hover:shadow-xl hover:-translate-y-1' : ''}
+        ${selected ? 'ring-2 ring-theme-interactive-primary/50' : ''}
       `,
       gradient: `
         ${gradient ? `bg-gradient-to-${gradient.direction || 'br'}` : 'bg-gradient-to-br from-theme-interactive-primary to-theme-interactive-primary-hover'}
@@ -110,7 +109,7 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(
     const borderGlowClasses = borderGlow ? `
       before:absolute before:inset-0 
       before:p-[2px] before:rounded-inherit
-      before:bg-gradient-to-r before:from-theme-interactive-primary before:via-purple-500 before:to-pink-500
+      before:bg-gradient-to-r before:from-theme-interactive-primary before:via-theme-interactive-primary-hover before:to-theme-interactive-secondary
       before:-z-10 before:animate-gradient-shift
       before:opacity-0 hover:before:opacity-100
       before:transition-opacity before:duration-500

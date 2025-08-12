@@ -85,19 +85,19 @@ export const ComplianceMetrics: React.FC<ComplianceMetricsProps> = ({ timeRange 
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'compliant': return 'text-green-700 bg-green-100';
-      case 'warning': return 'text-yellow-700 bg-yellow-100';
-      case 'non-compliant': return 'text-red-700 bg-red-100';
-      default: return 'text-gray-700 bg-gray-100';
+      case 'compliant': return 'text-theme-status-success bg-theme-status-success-background';
+      case 'warning': return 'text-theme-status-warning bg-theme-status-warning-background';
+      case 'non-compliant': return 'text-theme-status-error bg-theme-status-error-background';
+      default: return 'text-theme-secondary bg-theme-surface';
     }
   };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'compliant': return <CheckCircle className="w-4 h-4 text-green-600" />;
-      case 'warning': return <AlertTriangle className="w-4 h-4 text-yellow-600" />;
-      case 'non-compliant': return <AlertTriangle className="w-4 h-4 text-red-600" />;
-      default: return <Shield className="w-4 h-4 text-gray-600" />;
+      case 'compliant': return <CheckCircle className="w-4 h-4 text-theme-status-success" />;
+      case 'warning': return <AlertTriangle className="w-4 h-4 text-theme-status-warning" />;
+      case 'non-compliant': return <AlertTriangle className="w-4 h-4 text-theme-status-error" />;
+      default: return <Shield className="w-4 h-4 text-theme-secondary" />;
     }
   };
 
@@ -111,22 +111,22 @@ export const ComplianceMetrics: React.FC<ComplianceMetricsProps> = ({ timeRange 
         <div className="bg-theme-background rounded-lg border border-theme p-6">
           <div className="flex items-center justify-between mb-2">
             <div className="text-sm font-medium text-theme-secondary">Overall Compliance Score</div>
-            <div className="p-1 bg-green-100 rounded">
-              <Shield className="w-4 h-4 text-green-600" />
+            <div className="p-1 bg-theme-status-success-background rounded">
+              <Shield className="w-4 h-4 text-theme-status-success" />
             </div>
           </div>
           <div className="text-3xl font-bold text-theme-primary">{overallScore}%</div>
           <div className="flex items-center gap-1 mt-1">
-            <TrendingUp className="w-3 h-3 text-green-500" />
-            <span className="text-xs text-green-600">+2% from last month</span>
+            <TrendingUp className="w-3 h-3 text-theme-status-success" />
+            <span className="text-xs text-theme-status-success">+2% from last month</span>
           </div>
         </div>
 
         <div className="bg-theme-background rounded-lg border border-theme p-6">
           <div className="flex items-center justify-between mb-2">
             <div className="text-sm font-medium text-theme-secondary">Compliance Events</div>
-            <div className="p-1 bg-blue-100 rounded">
-              <Activity className="w-4 h-4 text-blue-600" />
+            <div className="p-1 bg-theme-link-background rounded">
+              <Activity className="w-4 h-4 text-theme-link" />
             </div>
           </div>
           <div className="text-3xl font-bold text-theme-primary">{totalEvents}</div>
@@ -136,8 +136,8 @@ export const ComplianceMetrics: React.FC<ComplianceMetricsProps> = ({ timeRange 
         <div className="bg-theme-background rounded-lg border border-theme p-6">
           <div className="flex items-center justify-between mb-2">
             <div className="text-sm font-medium text-theme-secondary">Last Audit</div>
-            <div className="p-1 bg-purple-100 rounded">
-              <Calendar className="w-4 h-4 text-purple-600" />
+            <div className="p-1 bg-theme-accent-background rounded">
+              <Calendar className="w-4 h-4 text-theme-accent" />
             </div>
           </div>
           <div className="text-lg font-bold text-theme-primary">Jan 15, 2024</div>
@@ -181,12 +181,12 @@ export const ComplianceMetrics: React.FC<ComplianceMetricsProps> = ({ timeRange 
                         <span className="text-sm text-theme-primary">{req.name}</span>
                         <div className="flex items-center gap-1">
                           {req.met ? (
-                            <CheckCircle className="w-4 h-4 text-green-600" />
+                            <CheckCircle className="w-4 h-4 text-theme-status-success" />
                           ) : (
-                            <AlertTriangle className="w-4 h-4 text-red-600" />
+                            <AlertTriangle className="w-4 h-4 text-theme-status-error" />
                           )}
                           <span className={`text-xs font-medium ${
-                            req.met ? 'text-green-600' : 'text-red-600'
+                            req.met ? 'text-theme-status-success' : 'text-theme-status-error'
                           }`}>
                             {req.met ? 'Met' : 'Not Met'}
                           </span>
@@ -226,8 +226,8 @@ export const ComplianceMetrics: React.FC<ComplianceMetricsProps> = ({ timeRange 
                 <div className="w-full bg-theme-surface rounded-full h-2">
                   <div 
                     className={`h-2 rounded-full transition-all duration-300 ${
-                      metric.score >= 95 ? 'bg-green-500' :
-                      metric.score >= 90 ? 'bg-yellow-500' : 'bg-red-500'
+                      metric.score >= 95 ? 'bg-theme-status-success' :
+                      metric.score >= 90 ? 'bg-theme-status-warning' : 'bg-theme-status-error'
                     }`}
                     style={{ width: `${metric.score}%` }}
                   />

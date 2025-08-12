@@ -146,7 +146,7 @@ export const WebSocketStatusIndicator: React.FC<WebSocketStatusIndicatorProps> =
         )}
 
         {error && (
-          <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded text-xs text-red-600 dark:text-red-400">
+          <div className="mt-2 p-2 bg-theme-error-background border border-theme-error rounded text-xs text-theme-error">
             {error}
           </div>
         )}
@@ -164,8 +164,8 @@ export const WebSocketStatusIndicator: React.FC<WebSocketStatusIndicatorProps> =
           onClick={isConnected ? disconnect : connect}
           className={`px-3 py-1 text-xs rounded ${
             isConnected 
-              ? 'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/30' 
-              : 'bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/30'
+              ? 'bg-theme-error-background text-theme-error hover:bg-theme-error-background' 
+              : 'bg-theme-success-background text-theme-success hover:bg-theme-success-background'
           }`}
         >
           {isConnected ? 'Disconnect' : 'Connect'}

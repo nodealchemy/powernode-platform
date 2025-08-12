@@ -16,8 +16,7 @@ class Payment < ApplicationRecord
     in: %w[pending processing succeeded failed canceled refunded partially_refunded]
   }
 
-  # Serialization
-  serialize :metadata, coder: JSON
+  # Note: metadata is a native JSON column - no serialization needed in Rails 8
 
   # PayPal helper methods
   def paypal?

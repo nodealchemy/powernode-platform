@@ -18,14 +18,14 @@ export const AdminUsersPage: React.FC = () => {
   const breadcrumbItems = [
     { label: 'Dashboard', path: '/dashboard', icon: '🏠' },
     { label: 'Admin', path: '/dashboard/admin', icon: '⚙️' },
-    { label: 'User Management', icon: '👥' }
+    { label: 'Users', icon: '👥' }
   ];
 
   return (
     <div className="space-y-6">
       <div>
         <Breadcrumb items={breadcrumbItems} className="mb-4" />
-        <h1 className="text-2xl font-bold text-theme-primary">System User Management</h1>
+        <h1 className="text-2xl font-bold text-theme-primary">System Users</h1>
         <p className="text-theme-secondary mt-1">
           Manage all users across the entire platform. Admin access required.
         </p>

@@ -101,13 +101,13 @@ export const PermissionSelector: React.FC<PermissionSelectorProps> = ({
 
   const getActionColor = (action: string) => {
     switch (action) {
-      case 'read': return 'text-blue-600 bg-blue-50';
-      case 'create': return 'text-green-600 bg-green-50';
-      case 'update': return 'text-yellow-600 bg-yellow-50';
-      case 'delete': return 'text-red-600 bg-red-50';
-      case 'export': return 'text-purple-600 bg-purple-50';
-      case 'global': return 'text-orange-600 bg-orange-50';
-      default: return 'text-gray-600 bg-gray-50';
+      case 'read': return 'text-theme-info bg-theme-info-background';
+      case 'create': return 'text-theme-success bg-theme-success-background';
+      case 'update': return 'text-theme-warning bg-theme-warning-background';
+      case 'delete': return 'text-theme-error bg-theme-error-background';
+      case 'export': return 'text-theme-info bg-theme-info-background';
+      case 'global': return 'text-theme-warning bg-theme-warning-background';
+      default: return 'text-theme-secondary bg-theme-background-secondary';
     }
   };
 
@@ -194,7 +194,7 @@ export const PermissionSelector: React.FC<PermissionSelectorProps> = ({
               {Object.entries(groupedPermissions).map(([resource, permissions]) => (
                 <div key={resource} className="border-b border-theme last:border-b-0">
                   <div 
-                    className="flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100 cursor-pointer"
+                    className="flex items-center justify-between p-3 bg-theme-background-secondary hover:bg-theme-surface-hover cursor-pointer"
                     onClick={() => handleSelectAllInResource(resource)}
                   >
                     <div className="flex items-center gap-2">
@@ -211,11 +211,11 @@ export const PermissionSelector: React.FC<PermissionSelectorProps> = ({
                         {permissions.filter(p => selectedPermissionIds.includes(p.id)).length} selected
                       </span>
                       {permissions.every(p => selectedPermissionIds.includes(p.id)) ? (
-                        <Check className="w-4 h-4 text-green-600" />
+                        <Check className="w-4 h-4 text-theme-success" />
                       ) : permissions.some(p => selectedPermissionIds.includes(p.id)) ? (
-                        <div className="w-4 h-4 bg-blue-600 rounded-sm"></div>
+                        <div className="w-4 h-4 bg-theme-info rounded-sm"></div>
                       ) : (
-                        <div className="w-4 h-4 border-2 border-gray-300 rounded-sm"></div>
+                        <div className="w-4 h-4 border-2 border-theme rounded-sm"></div>
                       )}
                     </div>
                   </div>
@@ -225,8 +225,8 @@ export const PermissionSelector: React.FC<PermissionSelectorProps> = ({
                     return (
                       <div
                         key={permission.id}
-                        className={`flex items-center justify-between p-3 pl-8 hover:bg-gray-50 cursor-pointer transition-colors ${
-                          isSelected ? 'bg-blue-50' : ''
+                        className={`flex items-center justify-between p-3 pl-8 hover:bg-theme-surface-hover cursor-pointer transition-colors ${
+                          isSelected ? 'bg-theme-info-background' : ''
                         }`}
                         onClick={() => handlePermissionToggle(permission.id)}
                       >
@@ -245,11 +245,11 @@ export const PermissionSelector: React.FC<PermissionSelectorProps> = ({
                         </div>
                         <div className="ml-4">
                           {isSelected ? (
-                            <div className="w-5 h-5 bg-blue-600 rounded flex items-center justify-center">
+                            <div className="w-5 h-5 bg-theme-info rounded flex items-center justify-center">
                               <Check className="w-3 h-3 text-white" />
                             </div>
                           ) : (
-                            <div className="w-5 h-5 border-2 border-gray-300 rounded"></div>
+                            <div className="w-5 h-5 border-2 border-theme rounded"></div>
                           )}
                         </div>
                       </div>
@@ -262,14 +262,14 @@ export const PermissionSelector: React.FC<PermissionSelectorProps> = ({
 
           {filteredPermissions.length === 0 && (
             <div className="text-center py-8 text-theme-secondary">
-              <Shield className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+              <Shield className="w-12 h-12 text-theme-tertiary mx-auto mb-4" />
               <p>No permissions found matching your criteria</p>
             </div>
           )}
 
           {mode === 'both' && selectedPermissionIds.length === 0 && !selectedRoleId && (
-            <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <p className="text-sm text-yellow-700">
+            <div className="mt-4 p-3 bg-theme-warning-background border border-theme-warning rounded-lg">
+              <p className="text-sm text-theme-warning">
                 <strong>Note:</strong> Please select either a role or specific permissions to create the delegation.
               </p>
             </div>

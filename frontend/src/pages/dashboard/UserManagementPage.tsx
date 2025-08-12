@@ -105,7 +105,7 @@ const RolesPage: React.FC = () => {
 const PermissionsPage: React.FC = () => {
   const permissionGroups = [
     {
-      name: 'User Management',
+      name: 'Users',
       permissions: [
         { name: 'user_view', label: 'View Users', description: 'Can view user profiles and lists' },
         { name: 'user_create', label: 'Create Users', description: 'Can create new user accounts' },
@@ -353,14 +353,14 @@ const DelegationsPage: React.FC = () => {
 export const UserManagementPage: React.FC = () => {
   const breadcrumbItems = [
     { label: 'Dashboard', path: '/dashboard', icon: '🏠' },
-    { label: 'User Management', icon: '👥' }
+    { label: 'Users', icon: '👥' }
   ];
 
   return (
     <div className="space-y-6">
       <div>
         <Breadcrumb items={breadcrumbItems} className="mb-4" />
-        <h1 className="text-2xl font-bold text-theme-primary">User Management</h1>
+        <h1 className="text-2xl font-bold text-theme-primary">Users</h1>
         <p className="text-theme-secondary mt-1">
           Manage users, accounts, roles, permissions, and access control.
         </p>

@@ -14,9 +14,9 @@ import { apiKeysApi } from '../../services/apiKeysApi';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 
 const tabs = [
+  { id: 'admin', label: 'Admin Settings', path: '/dashboard/system/admin', icon: '🔧' },
   { id: 'services', label: 'Services', path: '/dashboard/system/services', icon: '⚡' },
   { id: 'gateways', label: 'Payment Gateways', path: '/dashboard/system/gateways', icon: '💳' },
-  { id: 'admin', label: 'Admin Config', path: '/dashboard/system/admin', icon: '🔧' },
   { id: 'audit', label: 'Audit Logs', path: '/dashboard/system/audit', icon: '📝' },
   { id: 'webhooks', label: 'Webhooks', path: '/dashboard/system/webhooks', icon: '🔗' },
   { id: 'api', label: 'API Keys', path: '/dashboard/system/api', icon: '🔑' },
@@ -78,13 +78,12 @@ const AuditLogsPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="bg-theme-surface rounded-lg p-6">
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <h2 className="text-xl font-semibold text-theme-primary">Audit Logs</h2>
-            <p className="text-theme-secondary mt-1">Track all system activities and changes</p>
-          </div>
-          <div className="flex space-x-3">
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h1 className="text-3xl font-bold text-theme-primary">Audit Logs</h1>
+          <p className="text-theme-secondary mt-2">Track all system activities and changes</p>
+        </div>
+        <div className="flex space-x-3">
             <select 
               className="px-3 py-2 border border-theme rounded-lg text-theme-primary bg-theme-background"
               value={filters.action_type}
@@ -92,7 +91,7 @@ const AuditLogsPage: React.FC = () => {
             >
               <option value="all">All Actions</option>
               <option value="authentication">Authentication</option>
-              <option value="user_management">User Management</option>
+              <option value="user_management">Users</option>
               <option value="billing">Billing</option>
               <option value="system_changes">System Changes</option>
             </select>
@@ -122,9 +121,10 @@ const AuditLogsPage: React.FC = () => {
             >
               Export Logs
             </button>
-          </div>
         </div>
+      </div>
 
+      <div className="bg-theme-surface rounded-lg p-6">
         {loading ? (
           <div className="flex items-center justify-center py-8">
             <LoadingSpinner />
@@ -171,7 +171,7 @@ const AuditLogsPage: React.FC = () => {
                           log.status === 'success'
                             ? 'bg-theme-success bg-opacity-10 text-theme-success' 
                             : log.status === 'warning'
-                            ? 'bg-yellow-500 bg-opacity-10 text-yellow-600'
+                            ? 'bg-theme-warning bg-opacity-10 text-theme-warning'
                             : 'bg-theme-error bg-opacity-10 text-theme-error'
                         }`}>
                           {log.status || 'unknown'}
@@ -214,7 +214,7 @@ const AuditLogsPage: React.FC = () => {
                     key={pageNum}
                     className={`px-3 py-1 rounded ${
                       pageNum === pagination.page
-                        ? 'bg-theme-interactive-primary text-white'
+                        ? 'bg-theme-interactive-primary text-theme-interactive-primary-contrast'
                         : 'border border-theme text-theme-primary hover:bg-theme-surface-hover'
                     }`}
                     onClick={() => setPagination(prev => ({ ...prev, page: pageNum }))}
@@ -349,19 +349,20 @@ const ApiKeysPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="bg-theme-surface rounded-lg p-6">
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <h2 className="text-xl font-semibold text-theme-primary">API Key Management</h2>
-            <p className="text-theme-secondary mt-1">Manage API keys for external integrations</p>
-          </div>
-          <button 
-            className="btn-theme btn-theme-primary"
-            onClick={handleGenerateKey}
-          >
-            Generate New Key
-          </button>
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h1 className="text-3xl font-bold text-theme-primary">API Key Management</h1>
+          <p className="text-theme-secondary mt-2">Manage API keys for external integrations</p>
         </div>
+        <button 
+          className="btn-theme btn-theme-primary"
+          onClick={handleGenerateKey}
+        >
+          Generate New Key
+        </button>
+      </div>
+
+      <div className="bg-theme-surface rounded-lg p-6">
 
         <div className="bg-theme-warning bg-opacity-10 border border-theme-warning border-opacity-30 rounded-lg p-4 mb-6">
           <div className="flex items-start space-x-3">
@@ -515,10 +516,10 @@ export const SystemManagementPage: React.FC = () => {
 
       <div>
         <Routes>
-          <Route path="/" element={<Navigate to="/dashboard/system/services" replace />} />
+          <Route path="/" element={<Navigate to="/dashboard/system/admin" replace />} />
+          <Route path="/admin" element={<AdminSettingsPage />} />
           <Route path="/services" element={<ServicesPage />} />
           <Route path="/gateways" element={<PaymentGatewaysPage />} />
-          <Route path="/admin" element={<AdminSettingsPage />} />
           <Route path="/audit" element={<AuditLogsPage />} />
           <Route path="/webhooks/*" element={<WebhookManagementPage />} />
           <Route path="/api" element={<ApiKeysPage />} />

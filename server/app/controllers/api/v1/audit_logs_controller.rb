@@ -22,16 +22,14 @@ class Api::V1::AuditLogsController < ApplicationController
 
     render json: {
       success: true,
-      data: {
-        logs: logs.map { |log| audit_log_data(log) },
-        pagination: {
-          current_page: page,
-          per_page: per_page,
-          total_pages: total_pages,
-          total_count: total_count
-        },
-        stats: audit_log_stats
-      }
+      data: logs.map { |log| audit_log_data(log) },
+      meta: {
+        current_page: page,
+        per_page: per_page,
+        total_pages: total_pages,
+        total: total_count
+      },
+      stats: audit_log_stats
     }, status: :ok
   end
 

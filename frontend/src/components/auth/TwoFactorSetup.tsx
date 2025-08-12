@@ -100,7 +100,7 @@ const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ onComplete, onCancel })
           {qrCode && (
             <div className="flex flex-col items-center space-y-4">
               <div 
-                className="p-4 bg-white border rounded-lg"
+                className="p-4 bg-theme-surface border border-theme rounded-lg"
                 dangerouslySetInnerHTML={{ __html: qrCode }}
               />
               <p className="text-sm text-theme-secondary text-center">
@@ -148,8 +148,8 @@ const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ onComplete, onCancel })
           </div>
 
           {error && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-md">
-              <p className="text-red-700 text-sm">{error}</p>
+            <div className="p-3 bg-theme-error-background border border-theme-error rounded-md">
+              <p className="text-theme-error text-sm">{error}</p>
             </div>
           )}
 
@@ -184,8 +184,8 @@ const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ onComplete, onCancel })
       {step === 'complete' && (
         <div className="space-y-6">
           <div className="text-center">
-            <div className="w-16 h-16 mx-auto bg-green-100 rounded-full flex items-center justify-center mb-4">
-              <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-16 h-16 mx-auto bg-theme-success-background rounded-full flex items-center justify-center mb-4">
+              <svg className="w-8 h-8 text-theme-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             </div>
@@ -199,11 +199,11 @@ const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ onComplete, onCancel })
 
           {backupCodes.length > 0 && (
             <div className="space-y-4">
-              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-md">
-                <p className="text-yellow-800 text-sm font-medium mb-2">
+              <div className="p-4 bg-theme-warning-background border border-theme-warning rounded-md">
+                <p className="text-theme-warning text-sm font-medium mb-2">
                   ⚠️ Save your backup codes
                 </p>
-                <p className="text-yellow-700 text-sm">
+                <p className="text-theme-warning text-sm opacity-90">
                   Store these backup codes in a safe place. You can use them to access your account if you lose your authenticator device.
                 </p>
               </div>

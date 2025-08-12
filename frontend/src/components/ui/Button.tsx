@@ -76,31 +76,31 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         focus:ring-theme-focus
       `,
       danger: `
-        bg-gradient-to-r from-red-600 to-red-700
+        bg-theme-error
         text-white 
-        hover:from-red-700 hover:to-red-800
-        hover:shadow-lg hover:shadow-red-600/25 hover:-translate-y-0.5
+        hover:bg-theme-error
+        hover:shadow-lg hover:shadow-theme-error/25 hover:-translate-y-0.5
         active:translate-y-0 active:shadow-md
-        focus:ring-red-500
-        ${elevation ? 'shadow-md shadow-red-600/20' : ''}
+        focus:ring-theme-error
+        ${elevation ? 'shadow-md shadow-theme-error/20' : ''}
       `,
       success: `
-        bg-gradient-to-r from-green-600 to-green-700
+        bg-theme-success
         text-white 
-        hover:from-green-700 hover:to-green-800
-        hover:shadow-lg hover:shadow-green-600/25 hover:-translate-y-0.5
+        hover:bg-theme-success
+        hover:shadow-lg hover:shadow-theme-success/25 hover:-translate-y-0.5
         active:translate-y-0 active:shadow-md
-        focus:ring-green-500
-        ${elevation ? 'shadow-md shadow-green-600/20' : ''}
+        focus:ring-theme-success
+        ${elevation ? 'shadow-md shadow-theme-success/20' : ''}
       `,
       warning: `
-        bg-gradient-to-r from-amber-500 to-amber-600
+        bg-theme-warning
         text-white 
-        hover:from-amber-600 hover:to-amber-700
-        hover:shadow-lg hover:shadow-amber-600/25 hover:-translate-y-0.5
+        hover:bg-theme-warning
+        hover:shadow-lg hover:shadow-theme-warning/25 hover:-translate-y-0.5
         active:translate-y-0 active:shadow-md
-        focus:ring-amber-500
-        ${elevation ? 'shadow-md shadow-amber-600/20' : ''}
+        focus:ring-theme-warning
+        ${elevation ? 'shadow-md shadow-theme-warning/20' : ''}
       `
     };
     

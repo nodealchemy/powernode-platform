@@ -13,7 +13,15 @@ class SystemSettingsService
     def update_settings(new_settings)
       current_settings = load_settings
       merged_settings = deep_merge(current_settings, new_settings)
-      Rails.cache.write(CACHE_KEY, merged_settings, expires_in: CACHE_EXPIRY)
+      
+      # Persist settings to database
+      new_settings.each do |key, value|
+        AdminSetting.set(key, value)
+      end
+      
+      # Clear cache to ensure fresh load on next request
+      clear_cache
+      
       merged_settings
     end
 
@@ -37,7 +45,9 @@ class SystemSettingsService
 
     def load_settings
       Rails.cache.fetch(CACHE_KEY, expires_in: CACHE_EXPIRY) do
-        default_settings
+        # Merge defaults with persisted settings
+        persisted_settings = AdminSetting.to_hash
+        deep_merge(default_settings, persisted_settings)
       end
     end
 
@@ -60,6 +70,7 @@ class SystemSettingsService
         password_min_length: 12,
         backup_retention_days: 30,
         log_retention_days: 90,
+        copyright_text: '© {year} Powernode Platform. All rights reserved.',
         rate_limiting: default_rate_limits,
         feature_flags: {},
         api_keys: {

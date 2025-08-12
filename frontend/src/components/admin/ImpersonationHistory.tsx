@@ -64,11 +64,11 @@ const ImpersonationHistory: React.FC = () => {
 
   const getStatusColor = (session: ImpersonationSession): string => {
     if (session.active && !session.expired) {
-      return 'bg-green-100 text-green-800';
+      return 'bg-theme-success-background text-theme-success';
     } else if (session.expired) {
-      return 'bg-yellow-100 text-yellow-800';
+      return 'bg-theme-warning-background text-theme-warning';
     } else {
-      return 'bg-red-100 text-red-800';
+      return 'bg-theme-error-background text-theme-error';
     }
   };
 
@@ -107,10 +107,10 @@ const ImpersonationHistory: React.FC = () => {
   };
 
   return (
-    <div className="bg-white shadow-sm rounded-lg">
-      <div className="px-6 py-4 border-b border-gray-200">
-        <h3 className="text-lg font-medium text-gray-900">Impersonation History</h3>
-        <p className="mt-1 text-sm text-gray-500">
+    <div className="bg-theme-surface shadow-sm rounded-lg">
+      <div className="px-6 py-4 border-b border-theme">
+        <h3 className="text-lg font-medium text-theme-primary">Impersonation History</h3>
+        <p className="mt-1 text-sm text-theme-secondary">
           Track all user impersonation sessions and activities
         </p>
       </div>
@@ -130,7 +130,7 @@ const ImpersonationHistory: React.FC = () => {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as any)}
-              className="border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+              className="border-theme rounded-md shadow-sm focus:ring-theme-interactive-primary focus:border-theme-focus"
             >
               <option value="all">All Status</option>
               <option value="active">Active</option>
@@ -144,72 +144,72 @@ const ImpersonationHistory: React.FC = () => {
         </div>
 
         {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-md">
-            <p className="text-sm text-red-800">{error}</p>
+          <div className="mb-6 p-4 bg-theme-error-background border border-theme-error rounded-md">
+            <p className="text-sm text-theme-error">{error}</p>
           </div>
         )}
 
         {/* History Table */}
         {loading ? (
           <div className="flex justify-center items-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            <span className="ml-2 text-gray-500">Loading history...</span>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-theme-interactive-primary"></div>
+            <span className="ml-2 text-theme-secondary">Loading history...</span>
           </div>
         ) : sessions.length === 0 ? (
           <div className="text-center py-12">
-            <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="mx-auto h-12 w-12 text-theme-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
             </svg>
-            <h3 className="mt-2 text-sm font-medium text-gray-900">No impersonation history</h3>
-            <p className="mt-1 text-sm text-gray-500">
+            <h3 className="mt-2 text-sm font-medium text-theme-primary">No impersonation history</h3>
+            <p className="mt-1 text-sm text-theme-secondary">
               No impersonation sessions found matching your criteria.
             </p>
           </div>
         ) : (
           <>
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+              <table className="min-w-full divide-y divide-theme">
+                <thead className="bg-theme-background-secondary">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-theme-secondary uppercase tracking-wider">
                       Impersonator
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-theme-secondary uppercase tracking-wider">
                       Target User
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-theme-secondary uppercase tracking-wider">
                       Status
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-theme-secondary uppercase tracking-wider">
                       Started
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-theme-secondary uppercase tracking-wider">
                       Duration
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-theme-secondary uppercase tracking-wider">
                       Reason
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-theme-surface divide-y divide-theme">
                   {sessions.map((session) => (
-                    <tr key={session.id} className="hover:bg-gray-50">
+                    <tr key={session.id} className="hover:bg-theme-surface-hover">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div>
-                          <div className="text-sm font-medium text-gray-900">
+                          <div className="text-sm font-medium text-theme-primary">
                             {session.impersonator.full_name}
                           </div>
-                          <div className="text-sm text-gray-500">
+                          <div className="text-sm text-theme-secondary">
                             {session.impersonator.email}
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div>
-                          <div className="text-sm font-medium text-gray-900">
+                          <div className="text-sm font-medium text-theme-primary">
                             {session.impersonated_user.full_name}
                           </div>
-                          <div className="text-sm text-gray-500">
+                          <div className="text-sm text-theme-secondary">
                             {session.impersonated_user.email}
                           </div>
                         </div>
@@ -219,13 +219,13 @@ const ImpersonationHistory: React.FC = () => {
                           {getStatusLabel(session)}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-theme-primary">
                         {new Date(session.started_at).toLocaleString()}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-theme-primary">
                         {formatDuration(session)}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-900 max-w-xs truncate">
+                      <td className="px-6 py-4 text-sm text-theme-primary max-w-xs truncate">
                         {session.reason || 'No reason provided'}
                       </td>
                     </tr>
@@ -235,7 +235,7 @@ const ImpersonationHistory: React.FC = () => {
             </div>
 
             <div className="mt-6 flex items-center justify-between">
-              <div className="text-sm text-gray-700">
+              <div className="text-sm text-theme-secondary">
                 Showing {sessions.length} sessions
               </div>
               <Button onClick={loadHistory} variant="secondary">

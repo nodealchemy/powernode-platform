@@ -1,4 +1,5 @@
 require_relative "boot"
+require_relative "version"
 
 require "rails/all"
 
@@ -28,5 +29,8 @@ module Server
     # Middleware like session, flash, cookies can be added back manually.
     # Skip views, helpers and assets when generating a new resource.
     config.api_only = true
+
+    # Track boot time for uptime calculations
+    config.boot_time = Time.current
   end
 end

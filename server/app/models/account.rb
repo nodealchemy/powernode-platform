@@ -22,8 +22,7 @@ class Account < ApplicationRecord
                        allow_blank: true
   validates :status, presence: true, inclusion: { in: %w[active suspended cancelled] }
 
-  # Serialization
-  serialize :settings, coder: JSON
+  # Note: settings is now a native JSON column, no explicit serialization needed
 
   # Scopes
   scope :active, -> { where(status: "active") }
