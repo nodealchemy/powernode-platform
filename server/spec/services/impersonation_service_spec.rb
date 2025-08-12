@@ -3,11 +3,14 @@
 require 'rails_helper'
 
 RSpec.describe ImpersonationService, type: :service do
+  include ActiveSupport::Testing::TimeHelpers
   let(:account) { create(:account) }
   let(:admin_role) { create(:role, name: 'Admin') }
   let(:member_role) { create(:role, name: 'Member') }
-  let(:admin_user) { create(:user, account: account, roles: [admin_role]) }
-  let(:target_user) { create(:user, account: account, roles: [member_role]) }
+  # Create owner first in account, then admin and member users
+  let!(:owner) { create(:user, :owner, account: account) }
+  let(:admin_user) { create(:user, :admin, account: account) }
+  let(:target_user) { create(:user, :member, account: account) }
   let(:service) { described_class.new(admin_user) }
 
   # Add impersonation permission to admin role
@@ -52,17 +55,17 @@ RSpec.describe ImpersonationService, type: :service do
 
         log = AuditLog.last
         expect(log.user).to eq(admin_user)
-        expect(log.action).to eq('impersonation.started')
-        expect(log.resource).to eq('User')
+        expect(log.action).to eq('impersonation_started')
+        expect(log.resource_type).to eq('User')
         expect(log.resource_id).to eq(target_user.id)
-        expect(log.details['impersonated_user_email']).to eq(target_user.email)
-        expect(log.details['reason']).to eq('Testing purposes')
+        expect(log.metadata['impersonated_user_email']).to eq(target_user.email)
+        expect(log.metadata['reason']).to eq('Testing purposes')
       end
     end
 
     context 'permission validation' do
       it 'raises PermissionDeniedError when user lacks impersonation permission' do
-        user_without_permission = create(:user, account: account, roles: [member_role])
+        user_without_permission = create(:user, :member, account: account)
         service = described_class.new(user_without_permission)
 
         expect {
@@ -73,7 +76,7 @@ RSpec.describe ImpersonationService, type: :service do
 
       it 'allows owner to impersonate without explicit permission' do
         owner_role = create(:role, name: 'Owner')
-        owner_user = create(:user, account: account, roles: [owner_role])
+        owner_user = create(:user, :owner, account: account)
         service = described_class.new(owner_user)
 
         expect {
@@ -82,7 +85,7 @@ RSpec.describe ImpersonationService, type: :service do
       end
 
       it 'allows admin to impersonate without explicit permission' do
-        admin_without_permission = create(:user, account: account, roles: [admin_role])
+        admin_without_permission = create(:user, :admin, account: account)
         admin_role.permissions.delete(impersonate_permission) # Remove explicit permission
         service = described_class.new(admin_without_permission)
 
@@ -121,7 +124,7 @@ RSpec.describe ImpersonationService, type: :service do
 
       it 'prevents non-owners from impersonating owners' do
         owner_role = create(:role, name: 'Owner')
-        owner_user = create(:user, account: account, roles: [owner_role])
+        owner_user = create(:user, :owner, account: account)
 
         expect {
           service.start_impersonation(target_user_id: owner_user.id)
@@ -131,8 +134,8 @@ RSpec.describe ImpersonationService, type: :service do
 
       it 'allows owners to impersonate other owners' do
         owner_role = create(:role, name: 'Owner')
-        owner_user = create(:user, account: account, roles: [owner_role])
-        target_owner = create(:user, account: account, roles: [owner_role])
+        owner_user = create(:user, :owner, account: account)
+        target_owner = create(:user, :owner, account: account)
         service = described_class.new(owner_user)
 
         expect {
@@ -164,11 +167,11 @@ RSpec.describe ImpersonationService, type: :service do
 
         log = AuditLog.last
         expect(log.user).to eq(admin_user)
-        expect(log.action).to eq('impersonation.ended')
-        expect(log.resource).to eq('User')
+        expect(log.action).to eq('impersonation_ended')
+        expect(log.resource_type).to eq('User')
         expect(log.resource_id).to eq(target_user.id)
-        expect(log.details['impersonated_user_email']).to eq(target_user.email)
-        expect(log.details['session_id']).to eq(session.id)
+        expect(log.metadata['impersonated_user_email']).to eq(target_user.email)
+        expect(log.metadata['session_id']).to eq(session.id)
       end
 
       it 'returns the ended session' do
@@ -186,7 +189,7 @@ RSpec.describe ImpersonationService, type: :service do
       end
 
       it 'raises PermissionDeniedError for other user\'s session' do
-        other_user = create(:user, account: account, roles: [admin_role])
+        other_user = create(:user, :admin, account: account)
         other_service = described_class.new(other_user)
 
         expect {
@@ -297,11 +300,25 @@ RSpec.describe ImpersonationService, type: :service do
     end
 
     it 'returns nil for expired session' do
-      travel_to ImpersonationSession::MAX_SESSION_DURATION.from_now + 1.hour do
-        result = service.validate_impersonation_token(valid_token)
-        expect(result).to be_nil
-        expect(session.reload.active).to be false
-      end
+      # Create a session that started too long ago (expired) but with a valid JWT token
+      expired_session = create(:impersonation_session, 
+                               impersonator: admin_user,
+                               impersonated_user: target_user,
+                               account: account,
+                               started_at: ImpersonationSession::MAX_SESSION_DURATION.ago - 1.hour,
+                               active: true)
+      
+      expired_token = JwtService.encode({
+        user_id: target_user.id,
+        impersonator_id: admin_user.id,
+        session_id: expired_session.id,
+        type: 'impersonation',
+        exp: 1.hour.from_now.to_i  # JWT token is still valid
+      })
+      
+      result = service.validate_impersonation_token(expired_token)
+      expect(result).to be_nil
+      expect(expired_session.reload.active).to be false
     end
 
     it 'returns nil for non-existent session' do

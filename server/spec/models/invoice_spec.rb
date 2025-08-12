@@ -152,7 +152,7 @@ RSpec.describe Invoice, type: :model do
         invoice = Invoice.new(subscription: subscription)
 
         expect(invoice.metadata).to eq({})
-        expect(invoice.billing_address).to eq({})
+        # billing_address column doesn't exist - removed from model
         expect(invoice.currency).to eq(subscription.plan.currency)
       end
 

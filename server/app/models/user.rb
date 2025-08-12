@@ -36,8 +36,7 @@ class User < ApplicationRecord
 
   # Callbacks
   before_validation :normalize_email
-  before_create :set_owner_if_first_user
-  after_create :assign_owner_role_if_needed
+  before_validation :set_owner_if_first_user, on: :create
   before_update :save_password_to_history, if: :password_digest_changed?
   after_update :clear_reset_token_on_password_change, if: :saved_change_to_password_digest?
   before_save :set_password_changed_at, if: :password_digest_changed?
@@ -398,16 +397,10 @@ class User < ApplicationRecord
   def set_owner_if_first_user
     # Only assign Owner role if this is the first user in the account
     if account&.users&.count&.zero?
-      # This will be handled in after_create callback to assign Owner role
-      @should_be_owner = true
-    end
-  end
-
-  def assign_owner_role_if_needed
-    if @should_be_owner
-      # For single role system, just set the role column
       self.role = 'owner'
-      save! if persisted?
+    elsif role.blank?
+      # Default role for non-first users
+      self.role = 'member'
     end
   end
 

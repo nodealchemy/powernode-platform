@@ -3,8 +3,6 @@ require 'rails_helper'
 RSpec.describe User, type: :model do
   describe 'associations' do
     it { should belong_to(:account) }
-    it { should have_many(:user_roles).dependent(:destroy) }
-    it { should have_many(:roles).through(:user_roles) }
     it { should have_many(:audit_logs).dependent(:nullify) }
   end
 
@@ -143,12 +141,18 @@ RSpec.describe User, type: :model do
       end
 
       it '#admin? returns true for admin role' do
-        user_with_admin_role = create(:user, :admin)
+        # Create account with owner first, then create admin user
+        account = create(:account)
+        create(:user, :owner, account: account) # This will be the owner
+        user_with_admin_role = create(:user, :admin, account: account)
         expect(user_with_admin_role.admin?).to be true
       end
 
       it '#member? returns true for member role' do
-        user_with_member_role = create(:user, :member)
+        # Create account with owner first, then create member user  
+        account = create(:account)
+        create(:user, :owner, account: account) # This will be the owner
+        user_with_member_role = create(:user, :member, account: account)
         expect(user_with_member_role.member?).to be true
       end
     end
@@ -179,26 +183,24 @@ RSpec.describe User, type: :model do
     end
 
     describe '#has_role?' do
-      let(:role) { create(:role, name: 'Custom Role') }
-
-      before { user.update!(role: role.name) }
-
       it 'returns true when user has the role' do
+        user.role = 'custom role'
         expect(user.has_role?('Custom Role')).to be true
       end
 
       it 'returns false when user does not have the role' do
+        user.role = 'custom role'
         expect(user.has_role?('Other Role')).to be false
       end
     end
 
     describe '#has_permission?' do
       let(:permission) { create(:permission, resource: 'accounts', action: 'read') }
-      let(:role) { create(:role) }
+      let(:role_record) { create(:role, name: 'Admin') }  # Use valid role name
 
       before do
-        role.permissions << permission
-        user.update!(role: role.name)
+        role_record.permissions << permission
+        user.update!(role: 'admin')  # Use valid role directly
       end
 
       it 'returns true when user has permission through role' do

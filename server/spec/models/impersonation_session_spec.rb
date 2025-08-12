@@ -9,13 +9,17 @@ RSpec.describe ImpersonationSession, type: :model do
 
   # Associations
   describe 'associations' do
+    subject { create(:impersonation_session) }
+    
     it { should belong_to(:impersonator).class_name('User') }
     it { should belong_to(:impersonated_user).class_name('User') }
-    it { should belong_to(:account) }
+    it { should belong_to(:account).required }
   end
 
   # Validations
   describe 'validations' do
+    subject { create(:impersonation_session) }
+    
     it { should validate_presence_of(:session_token) }
     it { should validate_uniqueness_of(:session_token) }
     it { should validate_length_of(:reason).is_at_most(500) }
@@ -26,12 +30,16 @@ RSpec.describe ImpersonationSession, type: :model do
     it 'validates same account for impersonator and impersonated user' do
       account1 = create(:account)
       account2 = create(:account)
-      impersonator = create(:user, account: account1)
+      impersonator = create(:user, :member, account: account1)
       target_user = create(:user, account: account2)
 
-      session = build(:impersonation_session, 
-                     impersonator: impersonator, 
-                     impersonated_user: target_user)
+      # Build session manually to avoid factory callback interference
+      session = ImpersonationSession.new(
+        impersonator: impersonator,
+        impersonated_user: target_user,
+        session_token: SecureRandom.hex(32),
+        started_at: Time.current
+      )
 
       expect(session).not_to be_valid
       expect(session.errors[:base]).to include('Impersonator and impersonated user must be in the same account')
@@ -50,8 +58,8 @@ RSpec.describe ImpersonationSession, type: :model do
 
   # Scopes
   describe 'scopes' do
-    let!(:active_session) { create(:impersonation_session, active: true) }
-    let!(:ended_session) { create(:impersonation_session, active: false) }
+    let!(:active_session) { create(:impersonation_session, active: true, started_at: 30.minutes.ago) }
+    let!(:ended_session) { create(:impersonation_session, active: false, started_at: 45.minutes.ago) }
 
     it '.active returns only active sessions' do
       expect(ImpersonationSession.active).to include(active_session)
@@ -67,7 +75,7 @@ RSpec.describe ImpersonationSession, type: :model do
       old_session = create(:impersonation_session, started_at: 2.days.ago)
       new_session = create(:impersonation_session, started_at: 1.hour.ago)
 
-      expect(ImpersonationSession.recent).to eq([new_session, active_session, ended_session, old_session])
+      expect(ImpersonationSession.recent).to eq([active_session, ended_session, new_session, old_session])
     end
   end
 
@@ -114,7 +122,7 @@ RSpec.describe ImpersonationSession, type: :model do
       session = create(:impersonation_session,
                       started_at: 2.hours.ago,
                       ended_at: 1.hour.ago)
-      expect(session.duration).to eq(1.hour)
+      expect(session.duration).to be_within(1.second).of(1.hour)
     end
 
     it 'returns duration from start to current time when session is active' do
@@ -216,8 +224,12 @@ RSpec.describe ImpersonationSession, type: :model do
     end
 
     it 'ends existing active sessions for the target user' do
+      # Create existing session with same account users
+      existing_impersonator = create(:user, account: account)
       existing_session = create(:impersonation_session, 
+                               impersonator: existing_impersonator,
                                impersonated_user: target_user, 
+                               account: account,
                                active: true)
 
       travel_to Time.current do
@@ -252,7 +264,15 @@ RSpec.describe ImpersonationSession, type: :model do
     it 'sets account from impersonated user on creation' do
       account = create(:account)
       target_user = create(:user, account: account)
-      session = build(:impersonation_session, impersonated_user: target_user, account: nil)
+      impersonator = create(:user, account: account)
+      # Build manually to avoid factory callbacks interfering
+      session = ImpersonationSession.new(
+        impersonator: impersonator,
+        impersonated_user: target_user,
+        session_token: SecureRandom.hex(32),
+        started_at: Time.current,
+        account: nil
+      )
       session.save!
       expect(session.account).to eq(account)
     end
