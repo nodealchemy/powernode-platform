@@ -16,7 +16,8 @@ export interface RegisterData {
 }
 
 export interface AuthResponse {
-  user: {
+  success: boolean;
+  user?: {
     id: string;
     email: string;
     firstName: string;
@@ -30,8 +31,14 @@ export interface AuthResponse {
       status: string;
     };
   };
-  access_token: string;
-  refresh_token: string;
+  access_token?: string;
+  refresh_token?: string;
+  expires_at?: string;
+  warning?: string;
+  message?: string;
+  error?: string;
+  requires_2fa?: boolean;
+  verification_token?: string;
 }
 
 export interface RefreshTokenResponse {

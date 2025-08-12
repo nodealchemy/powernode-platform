@@ -59,7 +59,10 @@ class User < ApplicationRecord
 
   # JSON serialization - exclude sensitive fields
   def as_json(options = {})
-    super(options.merge(except: [ :password_digest, :failed_login_attempts, :locked_until, :password_changed_at ]))
+    super(options.merge(except: [ 
+      :password_digest, :failed_login_attempts, :locked_until, :password_changed_at,
+      :two_factor_secret, :backup_codes
+    ]))
   end
 
   # Instance methods
@@ -233,6 +236,144 @@ class User < ApplicationRecord
     end
   end
 
+  # Two-Factor Authentication methods
+  def two_factor_enabled?
+    two_factor_enabled && two_factor_secret.present?
+  end
+
+  def enable_two_factor!
+    self.two_factor_secret = ROTP::Base32.random
+    self.two_factor_enabled = true
+    self.two_factor_enabled_at = Time.current
+    self.backup_codes = generate_backup_codes
+    self.two_factor_backup_codes_generated_at = Time.current
+    save!
+
+    # Create audit log entry
+    AuditLog.create!(
+      user: self,
+      account: account,
+      action: "two_factor_enabled",
+      resource_type: "User",
+      resource_id: id,
+      source: "api",
+      metadata: { method: "totp" }
+    )
+
+    two_factor_secret
+  end
+
+  def disable_two_factor!
+    self.two_factor_enabled = false
+    self.two_factor_secret = nil
+    self.backup_codes = nil
+    self.two_factor_enabled_at = nil
+    self.two_factor_backup_codes_generated_at = nil
+    save!
+
+    # Create audit log entry
+    AuditLog.create!(
+      user: self,
+      account: account,
+      action: "two_factor_disabled",
+      resource_type: "User",
+      resource_id: id,
+      source: "api"
+    )
+  end
+
+  def verify_two_factor_token(token)
+    return false unless two_factor_enabled?
+    return false unless token.present?
+
+    # Remove spaces and ensure 6 digits
+    clean_token = token.to_s.gsub(/\s+/, "")
+    return false unless clean_token.match(/\A\d{6}\z/)
+
+    # Check TOTP token
+    totp = ROTP::TOTP.new(two_factor_secret, issuer: "Powernode")
+    return true if totp.verify(clean_token, drift_behind: 30, drift_ahead: 30)
+
+    # Check backup codes if TOTP fails
+    verify_backup_code(clean_token)
+  end
+
+  def verify_backup_code(code)
+    return false unless backup_codes.present?
+    return false unless code.present?
+
+    codes_array = JSON.parse(backup_codes)
+    code_index = codes_array.find_index(code.to_s)
+
+    if code_index
+      # Remove the used backup code
+      codes_array.delete_at(code_index)
+      self.backup_codes = codes_array.to_json
+      save!
+
+      # Create audit log entry for backup code usage
+      AuditLog.create!(
+        user: self,
+        account: account,
+        action: "two_factor_backup_code_used",
+        resource_type: "User",
+        resource_id: id,
+        source: "api",
+        metadata: { remaining_codes: codes_array.size }
+      )
+
+      return true
+    end
+
+    false
+  end
+
+  def two_factor_qr_code
+    return nil unless two_factor_secret.present?
+
+    totp = ROTP::TOTP.new(two_factor_secret, issuer: "Powernode")
+    provisioning_uri = totp.provisioning_uri("#{email} (#{account.name})")
+    
+    qrcode = RQRCode::QRCode.new(provisioning_uri)
+    qrcode.as_svg(
+      offset: 0,
+      color: '000',
+      shape_rendering: 'crispEdges',
+      module_size: 6,
+      standalone: true
+    )
+  end
+
+  def two_factor_backup_codes
+    return [] unless backup_codes.present?
+    JSON.parse(backup_codes)
+  end
+
+  def regenerate_backup_codes!
+    self.backup_codes = generate_backup_codes
+    self.two_factor_backup_codes_generated_at = Time.current
+    save!
+
+    # Create audit log entry
+    AuditLog.create!(
+      user: self,
+      account: account,
+      action: "two_factor_backup_codes_regenerated",
+      resource_type: "User",
+      resource_id: id,
+      source: "api"
+    )
+
+    two_factor_backup_codes
+  end
+
+  def two_factor_provisioning_uri
+    return nil unless two_factor_secret.present?
+
+    totp = ROTP::TOTP.new(two_factor_secret, issuer: "Powernode")
+    totp.provisioning_uri("#{email} (#{account.name})")
+  end
+
   # Override authenticate method to handle account lockout
   def authenticate(unencrypted_password)
     return false if locked?
@@ -315,5 +456,13 @@ class User < ApplicationRecord
     update!(
       locked_until: Time.current + lockout_duration
     )
+  end
+
+  def generate_backup_codes
+    codes = []
+    10.times do
+      codes << SecureRandom.random_number(100_000_000).to_s.rjust(8, '0')
+    end
+    codes.to_json
   end
 end
