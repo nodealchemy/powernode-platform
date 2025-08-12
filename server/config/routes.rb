@@ -131,6 +131,7 @@ Rails.application.routes.draw do
 
       # Analytics endpoints
       namespace :analytics do
+        get :live
         get :revenue
         get :growth
         get :churn

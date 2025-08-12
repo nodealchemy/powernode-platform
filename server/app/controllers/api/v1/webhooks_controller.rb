@@ -6,20 +6,27 @@ class Api::V1::WebhooksController < ApplicationController
 
   # GET /api/v1/webhooks
   def index
+    page = [params[:page].to_i, 1].max
+    per_page = [(params[:per_page] || 20).to_i, 100].min
+    offset = (page - 1) * per_page
+
+    total_count = WebhookEndpoint.count
+    total_pages = (total_count.to_f / per_page).ceil
+
     webhooks = WebhookEndpoint.includes(:webhook_events)
                               .order(:created_at)
-                              .page(params[:page] || 1)
-                              .per(params[:per_page] || 20)
+                              .limit(per_page)
+                              .offset(offset)
 
     render json: {
       success: true,
       data: {
         webhooks: webhooks.map { |webhook| webhook_summary(webhook) },
         pagination: {
-          current_page: webhooks.current_page,
-          per_page: webhooks.limit_value,
-          total_pages: webhooks.total_pages,
-          total_count: webhooks.total_count
+          current_page: page,
+          per_page: per_page,
+          total_pages: total_pages,
+          total_count: total_count
         },
         stats: webhook_stats
       }
@@ -172,23 +179,30 @@ class Api::V1::WebhooksController < ApplicationController
   # GET /api/v1/webhooks/deliveries
   def delivery_history
     webhook_id = params[:webhook_id]
+    page = [params[:page].to_i, 1].max
+    per_page = [(params[:per_page] || 50).to_i, 200].min
+    offset = (page - 1) * per_page
+
     deliveries_query = WebhookDelivery.includes(:webhook_endpoint)
                                       .order(created_at: :desc)
     
     deliveries_query = deliveries_query.where(webhook_endpoint_id: webhook_id) if webhook_id.present?
     
-    deliveries = deliveries_query.page(params[:page] || 1)
-                                .per(params[:per_page] || 50)
+    total_count = deliveries_query.count
+    total_pages = (total_count.to_f / per_page).ceil
+
+    deliveries = deliveries_query.limit(per_page)
+                                .offset(offset)
 
     render json: {
       success: true,
       data: {
         deliveries: deliveries.map { |delivery| delivery_summary(delivery) },
         pagination: {
-          current_page: deliveries.current_page,
-          per_page: deliveries.limit_value,
-          total_pages: deliveries.total_pages,
-          total_count: deliveries.total_count
+          current_page: page,
+          per_page: per_page,
+          total_pages: total_pages,
+          total_count: total_count
         }
       }
     }, status: :ok
@@ -376,9 +390,7 @@ class Api::V1::WebhooksController < ApplicationController
       event_type_distribution: WebhookDelivery.where(created_at: 7.days.ago..Time.current)
                                              .group(:event_type)
                                              .count,
-      daily_delivery_trend: WebhookDelivery.where(created_at: 7.days.ago..Time.current)
-                                          .group_by_day(:created_at)
-                                          .count,
+      daily_delivery_trend: calculate_daily_delivery_trend,
       average_response_times: WebhookDelivery.successful
                                            .where(created_at: 24.hours.ago..Time.current)
                                            .average(:response_time_ms),
@@ -407,6 +419,23 @@ class Api::V1::WebhooksController < ApplicationController
         }
       }
     }
+  end
+
+  def calculate_daily_delivery_trend
+    # Get delivery counts for the last 7 days using standard Rails methods
+    deliveries = WebhookDelivery.where(created_at: 7.days.ago..Time.current)
+                                .group("DATE(created_at)")
+                                .count
+    
+    # Convert to expected format (date string => count)
+    trend = {}
+    7.times do |i|
+      date = i.days.ago.to_date
+      date_key = date.strftime('%Y-%m-%d')
+      trend[date_key] = deliveries[date.to_s] || 0
+    end
+    
+    trend
   end
 
   def log_webhook_action(action, webhook, metadata = {})

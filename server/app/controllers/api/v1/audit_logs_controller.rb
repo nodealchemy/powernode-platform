@@ -6,21 +6,29 @@ class Api::V1::AuditLogsController < ApplicationController
   # GET /api/v1/audit_logs
   def index
     filters = audit_log_filters
-    logs = AuditLog.includes(:user, :account)
-                   .apply_filters(filters)
-                   .order(created_at: :desc)
-                   .page(params[:page] || 1)
-                   .per(params[:per_page] || 50)
+    page = [params[:page].to_i, 1].max
+    per_page = [(params[:per_page] || 50).to_i, 200].min
+    offset = (page - 1) * per_page
+
+    logs_query = AuditLog.includes(:user, :account)
+                         .apply_filters(filters)
+                         .order(created_at: :desc)
+
+    total_count = logs_query.count
+    total_pages = (total_count.to_f / per_page).ceil
+
+    logs = logs_query.limit(per_page)
+                     .offset(offset)
 
     render json: {
       success: true,
       data: {
         logs: logs.map { |log| audit_log_data(log) },
         pagination: {
-          current_page: logs.current_page,
-          per_page: logs.limit_value,
-          total_pages: logs.total_pages,
-          total_count: logs.total_count
+          current_page: page,
+          per_page: per_page,
+          total_pages: total_pages,
+          total_count: total_count
         },
         stats: audit_log_stats
       }
@@ -138,7 +146,7 @@ class Api::V1::AuditLogsController < ApplicationController
 
   def audit_log_filters
     {
-      action: params[:action],
+      action: params[:action_type],  # Use action_type to avoid Rails routing conflict
       user_email: params[:user_email],
       account_name: params[:account_name],
       resource_type: params[:resource_type],

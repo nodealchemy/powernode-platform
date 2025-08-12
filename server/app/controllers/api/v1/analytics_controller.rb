@@ -5,6 +5,70 @@ class Api::V1::AnalyticsController < ApplicationController
   before_action :set_date_range, only: [ :revenue, :growth, :churn, :cohorts, :customers ]
   before_action :set_account_scope, only: [ :revenue, :growth, :churn, :cohorts, :customers ]
 
+  # GET /api/v1/analytics/live
+  # Returns real-time analytics data for live dashboard updates
+  def live
+    # Check cache first for performance
+    cache_key = generate_live_cache_key(@account_scope&.id)
+    cached_data = Rails.cache.read(cache_key)
+    
+    if cached_data && params[:force_refresh] != 'true'
+      Rails.logger.debug "Returning cached live analytics for account: #{@account_scope&.id}"
+      render json: { success: true, data: cached_data }
+      return
+    end
+
+    analytics_service = RevenueAnalyticsService.new(
+      account: @account_scope
+    )
+
+    # Get current real-time metrics
+    current_metrics = {
+      mrr: analytics_service.current_mrr,
+      arr: analytics_service.current_mrr * 12,
+      active_customers: analytics_service.count_active_customers,
+      churn_rate: (analytics_service.calculate_churn_rate * 100).round(2),
+      arpu: analytics_service.calculate_arpu,
+      growth_rate: calculate_current_growth_rate(analytics_service)
+    }
+
+    # Get today's activity metrics
+    today_activity = {
+      new_subscriptions: count_todays_subscriptions(:active),
+      cancelled_subscriptions: count_todays_subscriptions(:cancelled),
+      payments_processed: count_todays_payments(:successful),
+      failed_payments: count_todays_payments(:failed),
+      revenue_today: calculate_todays_revenue
+    }
+
+    # Get recent trends (last 7 days)
+    weekly_trend = calculate_weekly_trend
+
+    data = {
+      current_metrics: current_metrics,
+      today_activity: today_activity,
+      weekly_trend: weekly_trend,
+      last_updated: Time.current.iso8601,
+      account_id: @account_scope&.id
+    }
+
+    # Cache the results for 2 minutes for live data
+    Rails.cache.write(cache_key, data, expires_in: 2.minutes)
+
+    render json: { success: true, data: data }
+
+    # Broadcast update to WebSocket channel if requested
+    if params[:broadcast] == 'true'
+      broadcast_analytics_update(data)
+    end
+
+    # Trigger analytics notifications check in background
+    schedule_analytics_notification_check(data)
+  rescue => e
+    Rails.logger.error "Live analytics error: #{e.message}"
+    render json: { success: false, error: e.message }, status: 500
+  end
+
   # GET /api/v1/analytics/revenue
   # Returns MRR/ARR overview with historical data
   def revenue
@@ -441,5 +505,142 @@ class Api::V1::AnalyticsController < ApplicationController
     end
 
     segments.map { |segment, count| { segment: segment, customers: count } }
+  end
+
+  # Live analytics helper methods
+  def calculate_current_growth_rate(analytics_service)
+    # Get current month and previous month MRR for growth calculation
+    current_month = Date.current.beginning_of_month
+    previous_month = 1.month.ago.beginning_of_month
+
+    current_snapshot = if @account_scope
+                        RevenueSnapshot.latest_for_account(@account_scope, "monthly")
+    else
+                        RevenueSnapshot.latest_global("monthly")
+    end
+
+    previous_snapshot = if @account_scope
+                         RevenueSnapshot.for_account(@account_scope).monthly
+                           .where(date: previous_month).first
+    else
+                         RevenueSnapshot.global.monthly
+                           .where(date: previous_month).first
+    end
+
+    if current_snapshot && previous_snapshot && previous_snapshot.mrr_cents > 0
+      growth_rate = ((current_snapshot.mrr_cents.to_f - previous_snapshot.mrr_cents.to_f) / previous_snapshot.mrr_cents.to_f) * 100
+      growth_rate.round(2)
+    else
+      0.0
+    end
+  end
+
+  def count_todays_subscriptions(status)
+    base_query = @account_scope ? @account_scope.subscriptions : Subscription.all
+    base_query.where(status: status)
+              .where(created_at: Date.current.beginning_of_day..Date.current.end_of_day)
+              .count
+  end
+
+  def count_todays_payments(status)
+    base_query = if @account_scope
+                  Payment.joins(subscription: :account).where(subscriptions: { accounts: { id: @account_scope.id } })
+    else
+                  Payment.all
+    end
+    base_query.where(status: status)
+              .where(created_at: Date.current.beginning_of_day..Date.current.end_of_day)
+              .count
+  end
+
+  def calculate_todays_revenue
+    base_query = if @account_scope
+                  Payment.joins(subscription: :account).where(subscriptions: { accounts: { id: @account_scope.id } })
+    else
+                  Payment.all
+    end
+    successful_payments = base_query.where(status: :successful)
+                                   .where(created_at: Date.current.beginning_of_day..Date.current.end_of_day)
+    
+    total_cents = successful_payments.sum(:amount_cents)
+    (total_cents / 100.0).round(2)
+  end
+
+  def calculate_weekly_trend
+    # Get last 7 days of key metrics
+    trend_data = []
+    
+    (0..6).each do |days_ago|
+      date = days_ago.days.ago.to_date
+      
+      # Count subscriptions for this day
+      base_subscriptions = @account_scope ? @account_scope.subscriptions : Subscription.all
+      new_subs = base_subscriptions.where(created_at: date.beginning_of_day..date.end_of_day).count
+      
+      # Count payments for this day
+      base_payments = if @account_scope
+                       Payment.joins(subscription: :account).where(subscriptions: { accounts: { id: @account_scope.id } })
+      else
+                       Payment.all
+      end
+      payments = base_payments.where(status: :successful)
+                             .where(created_at: date.beginning_of_day..date.end_of_day)
+      
+      revenue = (payments.sum(:amount_cents) / 100.0).round(2)
+      
+      trend_data.unshift({
+        date: date.iso8601,
+        new_subscriptions: new_subs,
+        revenue: revenue,
+        payments_count: payments.count
+      })
+    end
+    
+    trend_data
+  end
+
+  def broadcast_analytics_update(data)
+    # Broadcast to appropriate channel
+    if @account_scope
+      ActionCable.server.broadcast "analytics_account_#{@account_scope.id}", {
+        type: "analytics_update",
+        data: data
+      }
+    else
+      ActionCable.server.broadcast "analytics_global", {
+        type: "analytics_update", 
+        data: data
+      }
+    end
+  rescue => e
+    Rails.logger.error "Failed to broadcast analytics update: #{e.message}"
+  end
+
+  def generate_live_cache_key(account_id)
+    timestamp = Time.current.strftime("%Y%m%d%H%M") # Changes every minute
+    if account_id
+      "analytics:live:account:#{account_id}:#{timestamp}"
+    else
+      "analytics:live:global:#{timestamp}"
+    end
+  end
+
+  def schedule_analytics_notification_check(data)
+    # Schedule background job to check notifications
+    # This uses the worker service pattern
+    Rails.logger.debug "Scheduling analytics notification check for account: #{@account_scope&.id}"
+    
+    # Queue the notification check job
+    begin
+      # This would be handled by the worker service
+      WorkerJobService.enqueue_job(
+        'analytics_notification_check',
+        account_id: @account_scope&.id,
+        metrics_data: data
+      )
+    rescue => e
+      Rails.logger.warn "Failed to schedule analytics notification check: #{e.message}"
+      # Don't fail the main request if background job scheduling fails
+    end
   end
 end
