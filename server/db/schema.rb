@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_08_11_200221) do
+ActiveRecord::Schema[8.0].define(version: 2025_08_11_205006) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -569,12 +569,18 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_11_200221) do
     t.text "preferences"
     t.text "notification_preferences"
     t.string "role", limit: 20, null: false
+    t.boolean "two_factor_enabled", default: false, null: false
+    t.string "two_factor_secret"
+    t.text "backup_codes"
+    t.datetime "two_factor_backup_codes_generated_at"
+    t.datetime "two_factor_enabled_at"
     t.index ["account_id"], name: "index_users_on_account_id"
     t.index ["email"], name: "index_users_on_email", unique: true
     t.index ["email_verification_token"], name: "index_users_on_email_verification_token", unique: true, where: "(email_verification_token IS NOT NULL)"
     t.index ["reset_token_digest"], name: "index_users_on_reset_token_digest", unique: true, where: "(reset_token_digest IS NOT NULL)"
     t.index ["role"], name: "index_users_on_role"
     t.index ["status"], name: "index_users_on_status"
+    t.index ["two_factor_enabled"], name: "index_users_on_two_factor_enabled"
   end
 
   create_table "webhook_deliveries", id: :string, force: :cascade do |t|
