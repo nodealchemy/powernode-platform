@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   DollarSign, 
   Users, 
@@ -60,40 +60,106 @@ export const LiveMetricsOverview: React.FC<LiveMetricsOverviewProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [isLive, setIsLive] = useState(false);
+  const [isReconnecting, setIsReconnecting] = useState(false);
+
+  // Stable callbacks to prevent WebSocket reconnections
+  const handleAnalyticsUpdate = useCallback((data: any) => {
+    console.log('Live metrics update received:', data);
+    if (data.current_metrics) {
+      // Always clear errors when we receive valid data
+      setError(null);
+      setLastUpdated(new Date());
+      setIsLive(true);
+      setIsReconnecting(false); // Clear reconnecting state
+      
+      setMetrics(prevMetrics => {
+        // If we don't have initial metrics, create them from the WebSocket data
+        if (!prevMetrics) {
+          return {
+            current_metrics: data.current_metrics,
+            today_activity: data.today_activity || {
+              new_subscriptions: 0,
+              cancelled_subscriptions: 0,
+              payments_processed: 0,
+              failed_payments: 0,
+              revenue_today: 0
+            },
+            weekly_trend: data.weekly_trend || [],
+            last_updated: data.timestamp || new Date().toISOString(),
+            account_id: data.account_id
+          };
+        }
+        
+        // Update existing metrics
+        return {
+          ...prevMetrics,
+          current_metrics: {
+            ...prevMetrics.current_metrics,
+            ...data.current_metrics
+          },
+          today_activity: data.today_activity || prevMetrics.today_activity,
+          weekly_trend: data.weekly_trend || prevMetrics.weekly_trend,
+          last_updated: data.timestamp || new Date().toISOString(),
+          account_id: data.account_id || prevMetrics.account_id
+        };
+      });
+    }
+  }, []);
+
+  const handleWebSocketError = useCallback((errorMessage: string) => {
+    console.error('Live metrics WebSocket error:', errorMessage);
+    
+    // Provide more user-friendly error messages
+    let userFriendlyError = errorMessage;
+    if (errorMessage.includes('unauthorized') || errorMessage.includes('Unauthorized')) {
+      userFriendlyError = 'Authentication required. Please refresh the page and log in again.';
+    } else if (errorMessage.includes('network') || errorMessage.includes('connection')) {
+      userFriendlyError = 'Network connection error. Please check your internet connection.';
+    } else if (errorMessage.includes('rate limit')) {
+      userFriendlyError = 'Too many requests. Please wait a moment before retrying.';
+    } else if (errorMessage.includes('Failed to fetch')) {
+      userFriendlyError = 'Unable to connect to server. Please check if the backend is running.';
+    }
+    
+    // Set reconnecting state if the message indicates reconnection
+    if (errorMessage.includes('Attempting to reconnect')) {
+      setIsReconnecting(true);
+      
+      // Clear reconnecting state after 30 seconds if no connection
+      setTimeout(() => {
+        setIsReconnecting(false);
+      }, 30000);
+    }
+    
+    setError(userFriendlyError);
+    setIsLive(false);
+  }, []);
 
   // WebSocket connection for real-time updates
   const { requestAnalyticsUpdate, isConnected } = useAnalyticsWebSocket({
     accountId,
-    autoRequest: true,
-    requestInterval: updateInterval,
-    onAnalyticsUpdate: (data) => {
-      console.log('Live metrics update received:', data);
-      if (data.current_metrics) {
-        setMetrics(prevMetrics => {
-          if (!prevMetrics) return null;
-          
-          return {
-            ...prevMetrics,
-            current_metrics: {
-              ...prevMetrics.current_metrics,
-              ...data.current_metrics
-            },
-            today_activity: data.today_activity || prevMetrics.today_activity,
-            weekly_trend: data.weekly_trend || prevMetrics.weekly_trend,
-            last_updated: data.timestamp || new Date().toISOString(),
-            account_id: data.account_id || prevMetrics.account_id
-          };
-        });
-        setLastUpdated(new Date());
-        setIsLive(true);
-      }
-    },
-    onError: (errorMessage) => {
-      console.error('Live metrics WebSocket error:', errorMessage);
-      setError(errorMessage);
+    onAnalyticsUpdate: handleAnalyticsUpdate,
+    onError: handleWebSocketError
+  });
+
+  // Monitor WebSocket connection status
+  useEffect(() => {
+    console.log('WebSocket connection status changed:', isConnected ? 'Connected' : 'Disconnected');
+    if (!isConnected) {
       setIsLive(false);
     }
-  });
+  }, [isConnected]);
+
+  // Auto-request analytics updates when connected
+  useEffect(() => {
+    if (!isConnected) return;
+    
+    const interval = setInterval(() => {
+      requestAnalyticsUpdate();
+    }, updateInterval);
+    
+    return () => clearInterval(interval);
+  }, [isConnected, requestAnalyticsUpdate, updateInterval]);
 
   // Initial data load
   useEffect(() => {
@@ -108,11 +174,36 @@ export const LiveMetricsOverview: React.FC<LiveMetricsOverviewProps> = ({
           setLastUpdated(new Date());
           setIsLive(true);
         } else {
-          setError(response.error || 'Failed to load live metrics');
+          const errorMsg = response.error || 'Failed to load live metrics';
+          console.error('Live metrics API error:', errorMsg);
+          setError(errorMsg);
         }
       } catch (err) {
         console.error('Failed to load live metrics:', err);
-        setError('Failed to load live metrics');
+        
+        // Provide more specific error messages for API failures
+        // But don't show the error immediately - wait to see if WebSocket provides data
+        let userError = 'Failed to load live metrics';
+        if (err instanceof Error) {
+          if (err.message.includes('401') || err.message.includes('unauthorized')) {
+            userError = 'Authentication required. Please refresh the page and log in again.';
+          } else if (err.message.includes('403')) {
+            userError = 'Access denied. You may not have permission to view analytics.';
+          } else if (err.message.includes('404')) {
+            userError = 'Analytics service not found. Please contact support.';
+          } else if (err.message.includes('500')) {
+            userError = 'Server error occurred. Please try again later.';
+          } else if (err.message.includes('NetworkError') || err.message.includes('fetch')) {
+            userError = 'Network error. Please check your connection and try again.';
+          }
+        }
+        
+        // Set error but give WebSocket a chance to provide data
+        setTimeout(() => {
+          if (!metrics) {
+            setError(userError);
+          }
+        }, 2000); // Wait 2 seconds for WebSocket data before showing error
       } finally {
         setLoading(false);
       }
@@ -169,28 +260,42 @@ export const LiveMetricsOverview: React.FC<LiveMetricsOverviewProps> = ({
     );
   }
 
-  if (error) {
-    return (
-      <div className={`bg-theme-surface rounded-lg border border-theme p-6 ${className}`}>
-        <div className="flex items-center gap-3 text-theme-error">
-          <AlertCircle className="w-5 h-5" />
-          <span>{error}</span>
-          <button 
-            onClick={handleRefresh}
-            className="ml-auto px-3 py-1 bg-theme-interactive-primary text-white rounded text-sm hover:bg-theme-interactive-primary-hover"
-          >
-            Retry
-          </button>
-        </div>
-      </div>
-    );
-  }
-
+  // Prioritize data display over error state
   if (!metrics) {
+    // Only show error if we have no metrics data at all
+    if (error) {
+      return (
+        <div className={`bg-theme-surface rounded-lg border border-theme p-6 ${className}`}>
+          <div className="flex items-center gap-3 text-theme-error">
+            <AlertCircle className="w-5 h-5" />
+            <span>{error}</span>
+            {isReconnecting && (
+              <div className="flex items-center gap-2 ml-4">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-theme-warning"></div>
+                <span className="text-sm text-theme-warning">Reconnecting...</span>
+              </div>
+            )}
+            <button 
+              onClick={handleRefresh}
+              disabled={isReconnecting}
+              className={`ml-auto px-3 py-1 rounded text-sm ${
+                isReconnecting 
+                  ? 'bg-gray-400 text-gray-600 cursor-not-allowed' 
+                  : 'bg-theme-interactive-primary text-white hover:bg-theme-interactive-primary-hover'
+              }`}
+            >
+              {isReconnecting ? 'Connecting...' : 'Retry'}
+            </button>
+          </div>
+        </div>
+      );
+    }
+    
+    // No error and no data - show loading or no data message
     return (
       <div className={`bg-theme-surface rounded-lg border border-theme p-6 ${className}`}>
         <div className="text-center text-theme-secondary">
-          No live metrics data available
+          {isReconnecting ? 'Connecting to live metrics...' : 'No live metrics data available'}
         </div>
       </div>
     );
@@ -204,13 +309,15 @@ export const LiveMetricsOverview: React.FC<LiveMetricsOverviewProps> = ({
           <div className="flex items-center gap-3">
             <h3 className="text-lg font-semibold text-theme-primary">Live Metrics</h3>
             <div className="flex items-center gap-1">
-              {isLive ? (
+              {isConnected && isLive ? (
                 <Wifi className="w-4 h-4 text-theme-success" />
+              ) : isConnected ? (
+                <Activity className="w-4 h-4 text-theme-warning animate-pulse" />
               ) : (
                 <WifiOff className="w-4 h-4 text-theme-error" />
               )}
-              <span className={`text-xs ${isLive ? 'text-theme-success' : 'text-theme-error'}`}>
-                {isLive ? 'Live' : 'Disconnected'}
+              <span className={`text-xs ${isConnected && isLive ? 'text-theme-success' : isConnected ? 'text-theme-warning' : 'text-theme-error'}`}>
+                {isConnected && isLive ? 'Live' : isConnected ? 'Connected' : 'Disconnected'}
               </span>
             </div>
           </div>

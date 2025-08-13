@@ -1,270 +1,127 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { useSelector } from 'react-redux';
-import { RootState } from '../store';
-import { Customer, CustomerStats, customersApi } from '../services/customersApi';
-import { useWebSocketConnection } from './useWebSocketConnection';
-import { safeWebSocketSend } from '../utils/websocketUtils';
+import { useCallback, useRef, useEffect } from 'react';
+import { useWebSocket } from './useWebSocket';
 
-interface CustomerWebSocketData {
-  customers: Customer[];
-  stats: CustomerStats;
-  searchResults: Customer[];
-  lastUpdate: Date | null;
-  error: string | null;
+interface CustomerWebSocketOptions {
+  onCustomerUpdate?: (data: any) => void;
+  onSearchResults?: (data: any) => void;
+  onError?: (error: string) => void;
 }
 
-interface CustomerUpdateMessage {
-  type: 'customer_updated' | 'search_results' | 'connection_established' | 'pong';
-  event?: 'created' | 'updated' | 'status_changed' | 'deactivated';
-  customer?: Customer;
-  customer_id?: string;
-  stats?: CustomerStats;
-  results?: Customer[];
-  query?: string;
-  timestamp: string;
-}
+export const useCustomerWebSocket = ({
+  onCustomerUpdate,
+  onSearchResults,
+  onError
+}: CustomerWebSocketOptions) => {
+  const { isConnected, subscribe, sendMessage, error: connectionError } = useWebSocket();
+  const unsubscribeRef = useRef<(() => void) | null>(null);
 
-export const useCustomerWebSocket = () => {
-  const { user, accessToken } = useSelector((state: RootState) => state.auth);
-  const { isConnected, status, reconnectAttempts } = useWebSocketConnection();
-  // TODO: Use globalConnect and globalDisconnect for global connection management
-  const wsRef = useRef<WebSocket | null>(null);
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  // Store latest callback refs to avoid dependency issues
+  const onCustomerUpdateRef = useRef(onCustomerUpdate);
+  const onSearchResultsRef = useRef(onSearchResults);
+  const onErrorRef = useRef(onError);
+  
+  onCustomerUpdateRef.current = onCustomerUpdate;
+  onSearchResultsRef.current = onSearchResults;
+  onErrorRef.current = onError;
 
-  const [data, setData] = useState<CustomerWebSocketData>({
-    customers: [],
-    stats: {
-      total_customers: 0,
-      active_customers: 0,
-      active_subscriptions: 0,
-      new_this_month: 0,
-      total_mrr: 0,
-      churn_rate: 0
-    },
-    searchResults: [],
-    lastUpdate: null,
-    error: null
-  });
-
-  const updateData = useCallback((updates: Partial<CustomerWebSocketData>) => {
-    setData(prev => ({ 
-      ...prev, 
-      ...updates, 
-      lastUpdate: new Date() 
-    }));
-  }, []);
-
-  const getWebSocketUrl = useCallback(() => {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const hostname = window.location.hostname;
-    const port = process.env.NODE_ENV === 'development' ? '3000' : window.location.port;
-    const baseUrl = `${protocol}//${hostname}:${port}/cable`;
-    
-    if (accessToken) {
-      return `${baseUrl}?token=${encodeURIComponent(accessToken)}`;
-    }
-    return baseUrl;
-  }, [accessToken]);
-
-  const handleCustomerUpdate = useCallback((message: CustomerUpdateMessage) => {
-    console.log('Customer update received:', message);
-    
-    if (message.stats) {
-      updateData({ stats: message.stats });
-    }
-    
-    if (message.customer && message.event) {
-      setData(prev => {
-        let updatedCustomers = [...prev.customers];
-        
-        switch (message.event) {
-          case 'created':
-            // Add new customer to the beginning of the list
-            updatedCustomers.unshift(message.customer!);
-            break;
-            
-          case 'updated':
-          case 'status_changed':
-            // Update existing customer
-            updatedCustomers = updatedCustomers.map(customer => 
-              customer.id === message.customer!.id ? message.customer! : customer
-            );
-            break;
-            
-          case 'deactivated':
-            // Update customer status or remove from active list
-            updatedCustomers = updatedCustomers.map(customer => 
-              customer.id === message.customer!.id ? message.customer! : customer
-            );
-            break;
-        }
-        
-        return {
-          ...prev,
-          customers: updatedCustomers,
-          stats: message.stats || prev.stats,
-          lastUpdate: new Date()
-        };
-      });
-    }
-  }, [updateData]);
-
-  const connect = useCallback(() => {
-    if (!user || !accessToken || wsRef.current) return;
-
-    const wsUrl = getWebSocketUrl();
-    
-    try {
-      wsRef.current = new WebSocket(wsUrl);
+  // Handle incoming messages
+  const handleMessage = useCallback((data: any) => {
+    switch (data.type) {
+      case 'customer_updated':
+      case 'customer_created':
+      case 'customer_status_changed':
+        onCustomerUpdateRef.current?.(data);
+        break;
       
-      wsRef.current.onopen = () => {
-        console.log('Customer WebSocket connected');
-        updateData({ error: null });
+      case 'search_results':
+        onSearchResultsRef.current?.(data);
+        break;
         
-        // Subscribe to customer updates channel
-        const subscribeMessage = {
-          command: "subscribe",
-          identifier: JSON.stringify({
-            channel: "CustomerChannel",
-            account_id: user.account?.id
-          })
-        };
-        
-        safeWebSocketSend(wsRef.current, subscribeMessage);
-      };
-
-      wsRef.current.onmessage = (event) => {
-        try {
-          const message = JSON.parse(event.data) as CustomerUpdateMessage;
-          
-          switch (message.type) {
-            case 'connection_established':
-              console.log('Customer channel connection established');
-              break;
-              
-            case 'customer_updated':
-              handleCustomerUpdate(message);
-              break;
-              
-            case 'search_results':
-              if (message.results) {
-                updateData({ searchResults: message.results });
-              }
-              break;
-              
-            case 'pong':
-              // Handle ping response for connection monitoring
-              break;
-          }
-        } catch (error) {
-          console.error('Error parsing customer WebSocket message:', error);
-        }
-      };
-
-      wsRef.current.onerror = (error) => {
-        console.error('Customer WebSocket error:', error);
-        updateData({ error: 'Connection error' });
-      };
-
-      wsRef.current.onclose = (event) => {
-        console.log('Customer WebSocket disconnected:', event.code, event.reason);
-        wsRef.current = null;
-      };
-    } catch (error) {
-      console.error('Failed to create customer WebSocket connection:', error);
-      updateData({ error: 'Failed to connect' });
-    }
-  }, [user, accessToken, getWebSocketUrl, updateData, handleCustomerUpdate]);
-
-  const disconnect = useCallback(() => {
-    if (reconnectTimeoutRef.current) {
-      clearTimeout(reconnectTimeoutRef.current);
-      reconnectTimeoutRef.current = null;
-    }
-    
-    if (wsRef.current) {
-      wsRef.current.close();
-      wsRef.current = null;
+      case 'error':
+        onErrorRef.current?.(data.message || 'Customer channel error');
+        break;
     }
   }, []);
 
-  // Real-time search functionality
-  const searchCustomers = useCallback(async (query: string, filters: any = {}) => {
-    if (!wsRef.current || !isConnected) return;
-    
-    const searchMessage = {
-      command: "message",
-      identifier: JSON.stringify({
-        channel: "CustomerChannel",
-        account_id: user?.account?.id
-      }),
-      data: JSON.stringify({
-        action: "search",
-        query,
-        filters
-      })
-    };
-    
-    await safeWebSocketSend(wsRef.current, searchMessage);
-  }, [isConnected, user?.account?.id]);
+  // Handle channel errors
+  const handleError = useCallback((errorMessage: string) => {
+    console.error('❌ Customer channel error:', errorMessage);
+    onErrorRef.current?.(errorMessage);
+  }, []);
 
-  // Real-time customer status update
-  const updateCustomerStatus = useCallback(async (customerId: string, status: string) => {
-    if (!wsRef.current || !isConnected) return;
-    
-    const updateMessage = {
-      command: "message",
-      identifier: JSON.stringify({
-        channel: "CustomerChannel",
-        account_id: user?.account?.id
-      }),
-      data: JSON.stringify({
-        action: "update_customer_status",
-        customer_id: customerId,
-        status
-      })
-    };
-    
-    await safeWebSocketSend(wsRef.current, updateMessage);
-  }, [isConnected, user?.account?.id]);
-
-  // Load initial customer data
-  const loadCustomers = useCallback(async (options: any = {}) => {
-    try {
-      const response = await customersApi.getCustomers(options);
-      updateData({
-        customers: response.customers,
-        stats: response.stats,
-        error: null
-      });
-      return response;
-    } catch (error) {
-      console.error('Failed to load customers:', error);
-      updateData({ error: 'Failed to load customers' });
-      throw error;
+  // Subscribe to customer channel
+  const subscribeToCustomers = useCallback(() => {
+    if (unsubscribeRef.current) {
+      unsubscribeRef.current();
     }
-  }, [updateData]);
+    
+    unsubscribeRef.current = subscribe({
+      channel: 'CustomerChannel',
+      onMessage: handleMessage,
+      onError: handleError
+    });
+    
+  }, [subscribe, handleMessage, handleError]);
 
-  // Connect when user is authenticated
+  // Search customers
+  const searchCustomers = useCallback(async (query: string, filters: any = {}) => {
+    if (!isConnected) {
+      console.warn('Cannot search customers: WebSocket not connected');
+      return;
+    }
+    
+    await sendMessage('CustomerChannel', 'search', { query, filters });
+  }, [isConnected, sendMessage]);
+
+  // Update customer status
+  const updateCustomerStatus = useCallback(async (customerId: string, status: string) => {
+    if (!isConnected) {
+      console.warn('Cannot update customer: WebSocket not connected');
+      return;
+    }
+    
+    await sendMessage('CustomerChannel', 'update_customer_status', { 
+      customer_id: customerId, 
+      status 
+    });
+  }, [isConnected, sendMessage]);
+
+  // Load customers list
+  const loadCustomers = useCallback(async (filters: any = {}) => {
+    if (!isConnected) {
+      console.warn('Cannot load customers: WebSocket not connected');
+      return;
+    }
+    
+    await sendMessage('CustomerChannel', 'load_customers', filters);
+  }, [isConnected, sendMessage]);
+
+  // Auto-subscribe when connected
   useEffect(() => {
-    if (user && accessToken) {
-      connect();
+    if (isConnected) {
+      subscribeToCustomers();
     }
     
     return () => {
-      disconnect();
+      if (unsubscribeRef.current) {
+        unsubscribeRef.current();
+        unsubscribeRef.current = null;
+      }
     };
-  }, [user, accessToken, connect, disconnect]);
+  }, [isConnected, subscribeToCustomers]);
+
+  // Handle connection errors
+  useEffect(() => {
+    if (connectionError) {
+      onErrorRef.current?.(connectionError);
+    }
+  }, [connectionError]);
 
   return {
-    ...data,
     isConnected,
-    connectionStatus: status,
-    reconnectAttempts,
-    connect,
-    disconnect,
     searchCustomers,
     updateCustomerStatus,
-    loadCustomers
+    loadCustomers,
+    error: connectionError
   };
 };

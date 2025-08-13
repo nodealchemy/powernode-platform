@@ -1,160 +1,131 @@
-import { useEffect, useCallback, useRef } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { RootState, AppDispatch } from '../store';
-import { fetchSubscriptions } from '../store/slices/subscriptionSlice';
-// TODO: Use setCurrentSubscription for real-time subscription updates
-import { useWebSocketConnection } from './useWebSocketConnection';
-import { safeWebSocketSend } from '../utils/websocketUtils';
+import { useCallback, useRef, useEffect } from 'react';
+import { useWebSocket } from './useWebSocket';
 
-interface SubscriptionUpdate {
-  type: 'subscription_updated' | 'subscription_cancelled' | 'payment_processed' | 'trial_ending';
-  subscription: any;
-  message?: string;
+interface SubscriptionWebSocketOptions {
+  onSubscriptionUpdate?: (data: any) => void;
+  onSubscriptionCancelled?: (data: any) => void;
+  onPaymentProcessed?: (data: any) => void;
+  onTrialEnding?: (data: any) => void;
+  onError?: (error: string) => void;
 }
 
-export const useSubscriptionWebSocket = () => {
-  const dispatch = useDispatch<AppDispatch>();
-  const { user, accessToken } = useSelector((state: RootState) => state.auth);
-  const { isConnected, status } = useWebSocketConnection();
-  const wsRef = useRef<WebSocket | null>(null);
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const reconnectAttemptsRef = useRef(0);
+export const useSubscriptionWebSocket = ({
+  onSubscriptionUpdate,
+  onSubscriptionCancelled,
+  onPaymentProcessed,
+  onTrialEnding,
+  onError
+}: SubscriptionWebSocketOptions) => {
+  const { isConnected, subscribe, sendMessage, error: connectionError } = useWebSocket();
+  const unsubscribeRef = useRef<(() => void) | null>(null);
 
-  const handleSubscriptionUpdate = useCallback((update: SubscriptionUpdate) => {
-    console.log('Received subscription update:', update);
-    
-    switch (update.type) {
+  // Store latest callback refs to avoid dependency issues
+  const onSubscriptionUpdateRef = useRef(onSubscriptionUpdate);
+  const onSubscriptionCancelledRef = useRef(onSubscriptionCancelled);
+  const onPaymentProcessedRef = useRef(onPaymentProcessed);
+  const onTrialEndingRef = useRef(onTrialEnding);
+  const onErrorRef = useRef(onError);
+  
+  onSubscriptionUpdateRef.current = onSubscriptionUpdate;
+  onSubscriptionCancelledRef.current = onSubscriptionCancelled;
+  onPaymentProcessedRef.current = onPaymentProcessed;
+  onTrialEndingRef.current = onTrialEnding;
+  onErrorRef.current = onError;
+
+  // Handle incoming messages
+  const handleMessage = useCallback((data: any) => {
+    switch (data.type) {
       case 'subscription_updated':
+        onSubscriptionUpdateRef.current?.(data);
+        break;
+      
       case 'subscription_cancelled':
+        onSubscriptionCancelledRef.current?.(data);
+        break;
+        
       case 'payment_processed':
-        // Refresh subscriptions data
-        dispatch(fetchSubscriptions());
+        onPaymentProcessedRef.current?.(data);
         break;
         
       case 'trial_ending':
-        // Show notification and refresh data
-        dispatch(fetchSubscriptions());
+        onTrialEndingRef.current?.(data);
         break;
         
-      default:
-        console.log('Unknown subscription update type:', update.type);
+      case 'error':
+        onErrorRef.current?.(data.message || 'Subscription channel error');
+        break;
     }
-  }, [dispatch]);
-
-  const connect = useCallback(() => {
-    if (!user || !accessToken || wsRef.current?.readyState === WebSocket.CONNECTING || wsRef.current?.readyState === WebSocket.OPEN) {
-      return;
-    }
-
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const hostname = window.location.hostname;
-    const port = process.env.NODE_ENV === 'development' ? '3000' : window.location.port;
-    const wsUrl = `${protocol}//${hostname}:${port}/cable?token=${encodeURIComponent(accessToken)}`;
-    
-    try {
-      wsRef.current = new WebSocket(wsUrl);
-
-      wsRef.current.onopen = () => {
-        console.log('WebSocket connected for subscription updates');
-        reconnectAttemptsRef.current = 0;
-        
-        // Wait for connection to be fully established before subscribing
-        setTimeout(async () => {
-          const subscribeMessage = {
-            command: 'subscribe',
-            identifier: JSON.stringify({
-              channel: 'SubscriptionChannel',
-              account_id: user.account?.id
-            })
-          };
-          
-          const sent = await safeWebSocketSend(wsRef.current, subscribeMessage);
-          if (!sent) {
-            console.warn('Failed to subscribe to Subscription channel');
-          }
-        }, 100); // Small delay to ensure connection is fully ready
-      };
-
-      wsRef.current.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          
-          if (data.type === 'ping' || data.type === 'welcome' || data.type === 'confirm_subscription') {
-            return; // Ignore system messages
-          }
-
-          if (data.message && data.message.type) {
-            const update: SubscriptionUpdate = data.message;
-            handleSubscriptionUpdate(update);
-          }
-        } catch (error) {
-          console.error('Error parsing WebSocket message:', error);
-        }
-      };
-
-      wsRef.current.onclose = (event) => {
-        console.log('WebSocket closed:', event.code, event.reason);
-        wsRef.current = null;
-        
-        // Attempt to reconnect with exponential backoff
-        if (reconnectAttemptsRef.current < 5) {
-          const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 30000);
-          reconnectAttemptsRef.current++;
-          
-          reconnectTimeoutRef.current = setTimeout(() => {
-            connect();
-          }, delay);
-        }
-      };
-
-      wsRef.current.onerror = (error) => {
-        console.error('WebSocket error:', error);
-      };
-
-    } catch (error) {
-      console.error('Failed to create WebSocket connection:', error);
-    }
-  }, [user, accessToken, handleSubscriptionUpdate]);
-
-  const disconnect = useCallback(() => {
-    if (reconnectTimeoutRef.current) {
-      clearTimeout(reconnectTimeoutRef.current);
-      reconnectTimeoutRef.current = null;
-    }
-    
-    if (wsRef.current) {
-      wsRef.current.close();
-      wsRef.current = null;
-    }
-    
-    reconnectAttemptsRef.current = 0;
   }, []);
 
-  // Connect when user and token are available, disconnect when either is gone
-  useEffect(() => {
-    if (user && accessToken) {
-      connect();
-    } else {
-      disconnect();
+  // Handle channel errors
+  const handleError = useCallback((errorMessage: string) => {
+    console.error('❌ Subscription channel error:', errorMessage);
+    onErrorRef.current?.(errorMessage);
+  }, []);
+
+  // Subscribe to subscription channel
+  const subscribeToSubscriptions = useCallback(() => {
+    if (unsubscribeRef.current) {
+      unsubscribeRef.current();
     }
+    
+    unsubscribeRef.current = subscribe({
+      channel: 'SubscriptionChannel',
+      onMessage: handleMessage,
+      onError: handleError
+    });
+    
+  }, [subscribe, handleMessage, handleError]);
 
-    return () => {
-      disconnect();
-    };
-  }, [user, accessToken, connect, disconnect]);
+  // Request subscription updates
+  const requestSubscriptionUpdate = useCallback(async (subscriptionId?: string) => {
+    if (!isConnected) {
+      console.warn('Cannot request subscription update: WebSocket not connected');
+      return;
+    }
+    
+    await sendMessage('SubscriptionChannel', 'request_update', { 
+      subscription_id: subscriptionId 
+    });
+  }, [isConnected, sendMessage]);
 
-  // Cleanup on unmount
+  // Monitor subscription status
+  const monitorSubscription = useCallback(async (subscriptionId: string) => {
+    if (!isConnected) {
+      console.warn('Cannot monitor subscription: WebSocket not connected');
+      return;
+    }
+    
+    await sendMessage('SubscriptionChannel', 'monitor', { 
+      subscription_id: subscriptionId 
+    });
+  }, [isConnected, sendMessage]);
+
+  // Auto-subscribe when connected
   useEffect(() => {
+    if (isConnected) {
+      subscribeToSubscriptions();
+    }
+    
     return () => {
-      disconnect();
+      if (unsubscribeRef.current) {
+        unsubscribeRef.current();
+        unsubscribeRef.current = null;
+      }
     };
-  }, [disconnect]);
+  }, [isConnected, subscribeToSubscriptions]);
+
+  // Handle connection errors
+  useEffect(() => {
+    if (connectionError) {
+      onErrorRef.current?.(connectionError);
+    }
+  }, [connectionError]);
 
   return {
-    isConnected: isConnected,
-    connectionStatus: status,
-    reconnectAttempts: reconnectAttemptsRef.current,
-    connect,
-    disconnect
+    isConnected,
+    requestSubscriptionUpdate,
+    monitorSubscription,
+    error: connectionError
   };
 };
