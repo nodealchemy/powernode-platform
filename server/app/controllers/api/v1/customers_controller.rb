@@ -139,12 +139,16 @@ class Api::V1::CustomersController < ApplicationController
   private
 
   def build_accounts_query
-    accounts = Account.joins(:users)
+    # Start with Account query
+    accounts = Account.all
+    
+    # Build subquery for account IDs that match criteria
+    account_ids_query = Account.joins(:users)
     
     # Filter by search query
     if params[:search].present?
       search = "%#{params[:search]}%"
-      accounts = accounts.where(
+      account_ids_query = account_ids_query.where(
         "accounts.name ILIKE ? OR users.email ILIKE ? OR users.first_name ILIKE ? OR users.last_name ILIKE ?",
         search, search, search, search
       )
@@ -152,15 +156,19 @@ class Api::V1::CustomersController < ApplicationController
     
     # Filter by status
     if params[:status].present? && params[:status] != 'all'
-      accounts = accounts.where(status: params[:status])
+      account_ids_query = account_ids_query.where(accounts: { status: params[:status] })
     end
     
     # Filter by plan
     if params[:plan].present? && params[:plan] != 'all'
-      accounts = accounts.joins(:subscription).where(subscriptions: { plan_id: params[:plan] })
+      account_ids_query = account_ids_query.joins(:subscription).where(subscriptions: { plan_id: params[:plan] })
     end
     
-    accounts.distinct.order(created_at: :desc)
+    # Get distinct account IDs and apply to main query
+    matching_account_ids = account_ids_query.select("accounts.id").distinct.pluck(:id)
+    accounts = accounts.where(id: matching_account_ids) if matching_account_ids.any?
+    
+    accounts.order(created_at: :desc)
   end
 
   def serialize_customer(account)

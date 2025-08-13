@@ -235,7 +235,7 @@ class AnalyticsService {
   // Real-time analytics updates via WebSocket (fallback to polling)
   subscribeToAnalyticsUpdates(callback: (data: any) => void, useWebSocket = true) {
     if (useWebSocket) {
-      // WebSocket integration handled by useAnalyticsWebSocket hook
+      // WebSocket integration handled by unified WebSocket connection
       return null;
     }
     

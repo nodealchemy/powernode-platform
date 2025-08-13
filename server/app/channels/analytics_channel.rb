@@ -3,12 +3,13 @@
 class AnalyticsChannel < ApplicationCable::Channel
   def subscribed
     account_id = params[:account_id]
+    Rails.logger.info "AnalyticsChannel subscription attempt - User: #{current_user&.id}, Account: #{account_id}"
 
     if current_user && authorized_for_analytics?(account_id)
       if account_id
         stream_for_account_analytics(account_id)
       else
-        stream_for_global_analytics if current_user.can?(:view_global_analytics)
+        stream_for_global_analytics if current_user.has_permission?('analytics.global')
       end
 
       Rails.logger.info "User #{current_user.id} subscribed to analytics for account #{account_id || 'global'}"
@@ -21,6 +22,7 @@ class AnalyticsChannel < ApplicationCable::Channel
       })
     else
       Rails.logger.warn "Unauthorized analytics subscription attempt for account #{account_id} by user #{current_user&.id}"
+      Rails.logger.warn "Auth details - Current user present: #{!!current_user}, Authorization result: #{authorized_for_analytics?(account_id)}"
       reject
     end
   end
@@ -79,11 +81,11 @@ class AnalyticsChannel < ApplicationCable::Channel
       account = Account.find_by(id: account_id)
       return false unless account
 
-      current_user.can?(:view_analytics) &&
-        (current_user.account_id == account.id || current_user.can?(:view_global_analytics))
+      current_user.has_permission?('analytics.read') &&
+        (current_user.account_id == account.id || current_user.has_permission?('analytics.global'))
     else
       # Global analytics - user must have global analytics permission
-      current_user.can?(:view_global_analytics)
+      current_user.has_permission?('analytics.global')
     end
   end
 

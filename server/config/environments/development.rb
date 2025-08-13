@@ -94,6 +94,8 @@ Rails.application.configure do
     /ws:\/\/[^\/]+\.ipnode\.net:300[0-9]/,
     # Specific ipnode.net domain support
     "http://dev-1.ipnode.net:3000",
+    "http://dev-1.ipnode.net:3001",
+    "ws://dev-1.ipnode.net:3000",
     "ws://dev-1.ipnode.net:3001"
   ]
 
