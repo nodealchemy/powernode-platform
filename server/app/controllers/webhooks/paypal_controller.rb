@@ -39,20 +39,40 @@ class Webhooks::PaypalController < ApplicationController
     payload = request.body.read
     @event_data = JSON.parse(payload)
 
-    # PayPal webhook signature verification would go here
-    # This is a simplified version - in production you'd verify the signature
-    # using PayPal's webhook signature verification process
-
     webhook_id = Rails.application.config.paypal[:webhook_id]
-    # In a real implementation, you would verify the signature here
-    # For now, we'll just parse and validate the basic structure
+    
+    # Use proper PayPal webhook signature verification
+    verifier = PaypalWebhookVerifier.new(
+      webhook_id: webhook_id,
+      event_body: payload,
+      headers: extract_paypal_headers
+    )
+    
+    verification_result = verifier.verify_signature
+    
+    unless verification_result[:success] && verification_result[:verified]
+      Rails.logger.error "PayPal webhook signature verification failed: #{verification_result[:error]}"
+      raise StandardError, "PayPal webhook signature verification failed"
+    end
 
     unless @event_data["id"] && @event_data["event_type"]
-      raise StandardError, "Invalid PayPal webhook payload"
+      raise StandardError, "Invalid PayPal webhook payload structure"
     end
+    
+    Rails.logger.info "PayPal webhook signature verified for event: #{@event_data['event_type']}"
   rescue JSON::ParserError => e
     Rails.logger.error "PayPal webhook payload parsing failed: #{e.message}"
     raise e
+  end
+  
+  def extract_paypal_headers
+    {
+      'PAYPAL-AUTH-ALGO' => request.headers['PAYPAL-AUTH-ALGO'],
+      'PAYPAL-CERT-ID' => request.headers['PAYPAL-CERT-ID'],
+      'PAYPAL-TRANSMISSION-ID' => request.headers['PAYPAL-TRANSMISSION-ID'],
+      'PAYPAL-TRANSMISSION-SIG' => request.headers['PAYPAL-TRANSMISSION-SIG'],
+      'PAYPAL-TRANSMISSION-TIME' => request.headers['PAYPAL-TRANSMISSION-TIME']
+    }
   end
 
   def extract_account_id_from_event

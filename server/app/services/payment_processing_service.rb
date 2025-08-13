@@ -71,8 +71,41 @@ class PaymentProcessingService
     { success: false, error: e.message }
   end
 
-  # Attach payment method to customer
-  def attach_payment_method(payment_method_id:, provider: "stripe")
+  # Attach payment method to customer with security validation
+  def attach_payment_method(payment_method_id:, provider: "stripe", request_metadata: {})
+    # First perform security validation
+    if provider == "stripe"
+      stripe_payment_method = Stripe::PaymentMethod.retrieve(payment_method_id)
+      
+      security_validator = PaymentMethodSecurityValidator.new(
+        account: account,
+        user: user,
+        payment_method_data: stripe_payment_method.to_hash.merge('provider' => provider),
+        request_metadata: request_metadata
+      )
+      
+      validation_result = security_validator.validate
+      
+      # Block high-risk payment methods
+      if validation_result[:recommendation] == 'reject'
+        return {
+          success: false,
+          error: "Payment method rejected due to security concerns",
+          security_validation: validation_result
+        }
+      end
+      
+      # Require additional verification for risky payment methods
+      if validation_result[:requires_additional_verification]
+        return {
+          success: false,
+          error: "Additional verification required",
+          requires_verification: true,
+          security_validation: validation_result
+        }
+      end
+    end
+    
     case provider
     when "stripe"
       attach_stripe_payment_method(payment_method_id)
