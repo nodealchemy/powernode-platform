@@ -279,6 +279,26 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_12_165028) do
     t.index ["subscription_id"], name: "index_invoices_on_subscription_id"
   end
 
+  create_table "missing_payment_logs", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "provider", null: false
+    t.string "provider_payment_id", null: false
+    t.integer "amount_cents", null: false
+    t.string "currency", default: "USD", null: false
+    t.string "status", default: "pending_creation", null: false
+    t.string "associated_payment_id", limit: 36
+    t.datetime "discovered_at"
+    t.datetime "created_at_timestamp"
+    t.datetime "ignored_at"
+    t.json "investigation_notes"
+    t.text "resolution_notes"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["associated_payment_id"], name: "index_missing_payment_logs_on_associated_payment_id"
+    t.index ["discovered_at"], name: "index_missing_payment_logs_on_discovered_at"
+    t.index ["provider", "provider_payment_id"], name: "index_missing_payment_logs_on_provider_and_provider_payment_id", unique: true
+    t.index ["status"], name: "index_missing_payment_logs_on_status"
+  end
+
   create_table "pages", id: { type: :string, limit: 36 }, force: :cascade do |t|
     t.string "title", limit: 200, null: false
     t.string "slug", limit: 150, null: false
@@ -407,6 +427,69 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_12_165028) do
     t.index ["promotional_discount_start", "promotional_discount_end"], name: "idx_on_promotional_discount_start_promotional_disco_717c03b924"
     t.index ["status"], name: "index_plans_on_status"
     t.index ["stripe_price_id"], name: "index_plans_on_stripe_price_id", unique: true, where: "(stripe_price_id IS NOT NULL)"
+  end
+
+  create_table "reconciliation_flags", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "flag_type", null: false
+    t.string "provider", null: false
+    t.string "local_payment_id", limit: 36
+    t.string "external_id"
+    t.string "status", default: "pending", null: false
+    t.boolean "requires_manual_review", default: false
+    t.json "metadata"
+    t.text "notes"
+    t.datetime "resolved_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["external_id"], name: "index_reconciliation_flags_on_external_id"
+    t.index ["flag_type"], name: "index_reconciliation_flags_on_flag_type"
+    t.index ["local_payment_id"], name: "index_reconciliation_flags_on_local_payment_id"
+    t.index ["provider"], name: "index_reconciliation_flags_on_provider"
+    t.index ["requires_manual_review"], name: "index_reconciliation_flags_on_requires_manual_review"
+    t.index ["status"], name: "index_reconciliation_flags_on_status"
+  end
+
+  create_table "reconciliation_investigations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "investigation_type", null: false
+    t.string "local_payment_id", limit: 36
+    t.string "provider_payment_id"
+    t.integer "local_amount", null: false
+    t.integer "provider_amount", null: false
+    t.integer "amount_difference", null: false
+    t.string "status", default: "pending", null: false
+    t.boolean "requires_investigation", default: false
+    t.json "findings"
+    t.json "corrective_actions"
+    t.string "resolution_type"
+    t.integer "amount_corrected"
+    t.datetime "investigation_started_at"
+    t.datetime "resolved_at"
+    t.datetime "closed_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["amount_difference"], name: "index_reconciliation_investigations_on_amount_difference"
+    t.index ["investigation_type"], name: "index_reconciliation_investigations_on_investigation_type"
+    t.index ["local_payment_id"], name: "index_reconciliation_investigations_on_local_payment_id"
+    t.index ["provider_payment_id"], name: "index_reconciliation_investigations_on_provider_payment_id"
+    t.index ["requires_investigation"], name: "index_reconciliation_investigations_on_requires_investigation"
+    t.index ["status"], name: "index_reconciliation_investigations_on_status"
+  end
+
+  create_table "reconciliation_reports", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.date "reconciliation_date", null: false
+    t.string "reconciliation_type", null: false
+    t.datetime "date_range_start", null: false
+    t.datetime "date_range_end", null: false
+    t.integer "discrepancies_count", default: 0, null: false
+    t.integer "high_severity_count", default: 0, null: false
+    t.integer "medium_severity_count", default: 0, null: false
+    t.json "summary"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["date_range_start", "date_range_end"], name: "idx_on_date_range_start_date_range_end_c2c7b5c20c"
+    t.index ["discrepancies_count"], name: "index_reconciliation_reports_on_discrepancies_count"
+    t.index ["reconciliation_date"], name: "index_reconciliation_reports_on_reconciliation_date"
+    t.index ["reconciliation_type"], name: "index_reconciliation_reports_on_reconciliation_type"
   end
 
   create_table "report_requests", id: :string, force: :cascade do |t|
@@ -680,11 +763,14 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_12_165028) do
   add_foreign_key "invitations", "users", column: "inviter_id"
   add_foreign_key "invoice_line_items", "invoices"
   add_foreign_key "invoices", "subscriptions"
+  add_foreign_key "missing_payment_logs", "payments", column: "associated_payment_id"
   add_foreign_key "pages", "users", column: "author_id"
   add_foreign_key "password_histories", "users"
   add_foreign_key "payment_methods", "accounts"
   add_foreign_key "payment_methods", "users"
   add_foreign_key "payments", "invoices"
+  add_foreign_key "reconciliation_flags", "payments", column: "local_payment_id"
+  add_foreign_key "reconciliation_investigations", "payments", column: "local_payment_id"
   add_foreign_key "report_requests", "accounts"
   add_foreign_key "report_requests", "users"
   add_foreign_key "revenue_snapshots", "accounts", on_delete: :cascade

@@ -145,6 +145,33 @@ Rails.application.routes.draw do
         post :update_metrics
       end
 
+      # Payment reconciliation endpoints (service-to-service)
+      namespace :reconciliation do
+        get :stripe_payments
+        get :paypal_payments
+        post :report
+        post :corrections
+        post :flags
+        post :investigations
+      end
+      
+      # Webhook sync endpoints (service-to-service)
+      namespace :webhooks do
+        namespace :stripe_sync, path: 'stripe' do
+          post :invoice_paid
+          post :invoice_failed
+          post :subscription_updated
+          post :subscription_canceled
+          post :payment_succeeded
+          post :payment_failed
+          post :setup_intent_succeeded
+          post :payment_method_attached
+          post :payment_method_detached
+          post :unhandled_event
+          post :activate_subscription
+        end
+      end
+
       # Service authentication endpoint for worker
       namespace :service do
         match :verify, via: [:get, :post]
