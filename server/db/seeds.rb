@@ -73,9 +73,9 @@ owner_role.permissions = Permission.all
 admin_permissions = Permission.where.not(resource: 'accounts', action: 'delete')
 admin_role.permissions = admin_permissions
 
-# Assign basic permissions to Member
+# Assign basic permissions to Member (including analytics)
 member_permissions = Permission.where(
-  resource: [ 'accounts', 'users', 'subscriptions', 'billing' ],
+  resource: [ 'accounts', 'users', 'subscriptions', 'billing', 'analytics' ],
   action: 'read'
 )
 member_role.permissions = member_permissions

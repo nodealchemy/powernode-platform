@@ -333,6 +333,83 @@ export const AdminSettingsPage: React.FC = () => {
             </div>
           </SettingsCard>
 
+          {/* Rate Limiting Settings */}
+          <SettingsCard
+            title="Rate Limiting & Security"
+            description="Control request limits and prevent abuse"
+            icon="🛡️"
+          >
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <ToggleSettingItem
+                title="Enable Rate Limiting"
+                description="Protect against excessive requests and abuse"
+                checked={systemSettings?.rate_limiting?.enabled || false}
+                onChange={(checked) => handleUpdateSettings({ 
+                  rate_limiting: { ...systemSettings?.rate_limiting, enabled: checked }
+                })}
+                disabled={saving}
+                variant="success"
+              />
+
+              <FormField
+                label="API Requests per Minute"
+                helpText="Maximum API requests per IP per minute"
+              >
+                <Input
+                  type="number"
+                  min="10"
+                  max="5000"
+                  value={systemSettings?.rate_limiting?.api_requests_per_minute || 1000}
+                  onChange={(e) => handleUpdateSettings({ 
+                    rate_limiting: { 
+                      ...systemSettings?.rate_limiting, 
+                      api_requests_per_minute: parseInt(e.target.value) 
+                    }
+                  })}
+                  disabled={saving || !systemSettings?.rate_limiting?.enabled}
+                />
+              </FormField>
+
+              <FormField
+                label="Login Attempts per Hour"
+                helpText="Maximum login attempts per IP per hour"
+              >
+                <Input
+                  type="number"
+                  min="5"
+                  max="100"
+                  value={systemSettings?.rate_limiting?.login_attempts_per_hour || 10}
+                  onChange={(e) => handleUpdateSettings({ 
+                    rate_limiting: { 
+                      ...systemSettings?.rate_limiting, 
+                      login_attempts_per_hour: parseInt(e.target.value) 
+                    }
+                  })}
+                  disabled={saving || !systemSettings?.rate_limiting?.enabled}
+                />
+              </FormField>
+
+              <FormField
+                label="WebSocket Connections per Minute"
+                helpText="Maximum WebSocket connections per IP per minute"
+              >
+                <Input
+                  type="number"
+                  min="5"
+                  max="100"
+                  value={systemSettings?.rate_limiting?.websocket_connections_per_minute || 30}
+                  onChange={(e) => handleUpdateSettings({ 
+                    rate_limiting: { 
+                      ...systemSettings?.rate_limiting, 
+                      websocket_connections_per_minute: parseInt(e.target.value) 
+                    }
+                  })}
+                  disabled={saving || !systemSettings?.rate_limiting?.enabled}
+                />
+              </FormField>
+            </div>
+          </SettingsCard>
+
           {/* Business Settings */}
           <SettingsCard
             title="Business Settings"

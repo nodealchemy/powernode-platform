@@ -96,6 +96,7 @@ class SystemSettingsService
         registration_attempts_per_hour: 5,
         email_verification_attempts_per_hour: 10,
         webhook_requests_per_minute: 100,
+        websocket_connections_per_minute: Rails.env.development? ? 30 : 10,
         authenticated_requests_per_hour: 200
       }
     end

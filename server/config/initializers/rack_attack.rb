@@ -95,6 +95,13 @@ class Rack::Attack
         request.ip
       end
     end
+
+    # WebSocket connection throttling to prevent connection loops
+    throttle("websocket_connections_by_ip", limit: proc { rate_limiting_enabled? ? get_rate_limit('websocket_connections_per_minute', Rails.env.development? ? 30 : 10) : 999999 }, period: 1.minute) do |request|
+      if request.path == "/cable" && request.get_header("HTTP_UPGRADE")&.downcase == "websocket"
+        request.ip
+      end
+    end
   end
 
   # Block IPs that are clearly malicious

@@ -334,7 +334,8 @@ class Api::V1::AdminSettingsController < ApplicationController
         :email_verification_attempts_per_hour,
         :authenticated_requests_per_hour,
         :impersonation_attempts_per_hour,
-        :webhook_requests_per_minute
+        :webhook_requests_per_minute,
+        :websocket_connections_per_minute
       ],
       feature_flags: {}
     )
