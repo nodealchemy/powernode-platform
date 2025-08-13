@@ -1,22 +1,12 @@
-import { useEffect, useCallback } from 'react';
-import { useSelector } from 'react-redux';
-import { RootState } from '../store';
-import { useWebSocketConnection } from './useWebSocketConnection';
-import { UserSettings } from '../services/settingsApi';
+import { useCallback, useRef, useEffect } from 'react';
+import { useWebSocket } from './useWebSocket';
 
-interface SettingsWebSocketMessage {
-  type: 'settings_updated' | 'preferences_updated' | 'notifications_updated' | 'profile_updated';
-  data: Partial<UserSettings>;
-  userId: string;
-  timestamp: string;
-}
-
-interface UseSettingsWebSocketOptions {
-  onSettingsUpdate?: (data: Partial<UserSettings>) => void;
+interface SettingsWebSocketOptions {
+  onSettingsUpdate?: (data: any) => void;
   onPreferencesUpdate?: (data: any) => void;
   onNotificationsUpdate?: (data: any) => void;
   onProfileUpdate?: (data: any) => void;
-  enabled?: boolean;
+  onError?: (error: string) => void;
 }
 
 export const useSettingsWebSocket = ({
@@ -24,86 +14,118 @@ export const useSettingsWebSocket = ({
   onPreferencesUpdate,
   onNotificationsUpdate,
   onProfileUpdate,
-  enabled = true
-}: UseSettingsWebSocketOptions = {}) => {
-  const { user } = useSelector((state: RootState) => state.auth);
-  const { isConnected } = useWebSocketConnection();
+  onError
+}: SettingsWebSocketOptions) => {
+  const { isConnected, subscribe, sendMessage, error: connectionError } = useWebSocket();
+  const unsubscribeRef = useRef<(() => void) | null>(null);
 
-  // Broadcast settings update to other tabs/sessions (placeholder - actual broadcasting happens on server)
-  const broadcastSettingsUpdate = useCallback((type: SettingsWebSocketMessage['type'], data: any) => {
-    // The actual broadcasting happens server-side when settings are updated via API
-    // This function is kept for compatibility but doesn't need to do anything
-    // since the server will broadcast the change to all connected clients
-    console.log(`Settings update broadcasted: ${type}`, data);
+  // Store latest callback refs to avoid dependency issues
+  const onSettingsUpdateRef = useRef(onSettingsUpdate);
+  const onPreferencesUpdateRef = useRef(onPreferencesUpdate);
+  const onNotificationsUpdateRef = useRef(onNotificationsUpdate);
+  const onProfileUpdateRef = useRef(onProfileUpdate);
+  const onErrorRef = useRef(onError);
+  
+  onSettingsUpdateRef.current = onSettingsUpdate;
+  onPreferencesUpdateRef.current = onPreferencesUpdate;
+  onNotificationsUpdateRef.current = onNotificationsUpdate;
+  onProfileUpdateRef.current = onProfileUpdate;
+  onErrorRef.current = onError;
+
+  // Handle incoming messages
+  const handleMessage = useCallback((data: any) => {
+    switch (data.type) {
+      case 'settings_updated':
+        onSettingsUpdateRef.current?.(data);
+        break;
+      
+      case 'preferences_updated':
+        onPreferencesUpdateRef.current?.(data);
+        break;
+        
+      case 'notifications_updated':
+        onNotificationsUpdateRef.current?.(data);
+        break;
+        
+      case 'profile_updated':
+        onProfileUpdateRef.current?.(data);
+        break;
+        
+      case 'pong':
+        // Handle ping/pong if needed
+        break;
+        
+      case 'error':
+        onErrorRef.current?.(data.message || 'Settings channel error');
+        break;
+    }
   }, []);
 
-  // Listen for settings updates through a global event system
-  useEffect(() => {
-    if (!enabled || !user?.id) return;
+  // Handle channel errors
+  const handleError = useCallback((errorMessage: string) => {
+    console.error('❌ Settings channel error:', errorMessage);
+    onErrorRef.current?.(errorMessage);
+  }, []);
 
-    const handleSettingsMessage = (event: CustomEvent) => {
-      const message = event.detail;
-      
-      // Only process messages for this user
-      if (message.userId === user.id) {
-        switch (message.type) {
-          case 'settings_updated':
-            onSettingsUpdate?.(message.data);
-            break;
-          case 'preferences_updated':
-            onPreferencesUpdate?.(message.data);
-            break;
-          case 'notifications_updated':
-            onNotificationsUpdate?.(message.data);
-            break;
-          case 'profile_updated':
-            onProfileUpdate?.(message.data);
-            break;
-        }
+  // Subscribe to notification channel (settings are delivered via notifications)
+  const subscribeToSettings = useCallback(() => {
+    if (unsubscribeRef.current) {
+      unsubscribeRef.current();
+    }
+    
+    unsubscribeRef.current = subscribe({
+      channel: 'NotificationChannel',
+      onMessage: handleMessage,
+      onError: handleError
+    });
+    
+  }, [subscribe, handleMessage, handleError]);
+
+  // Request settings sync
+  const requestSettingsSync = useCallback(async () => {
+    if (!isConnected) {
+      console.warn('Cannot sync settings: WebSocket not connected');
+      return;
+    }
+    
+    await sendMessage('NotificationChannel', 'sync_settings');
+  }, [isConnected, sendMessage]);
+
+  // Ping the connection
+  const ping = useCallback(async () => {
+    if (!isConnected) {
+      console.warn('Cannot ping: WebSocket not connected');
+      return;
+    }
+    
+    await sendMessage('NotificationChannel', 'ping');
+  }, [isConnected, sendMessage]);
+
+  // Auto-subscribe when connected
+  useEffect(() => {
+    if (isConnected) {
+      subscribeToSettings();
+    }
+    
+    return () => {
+      if (unsubscribeRef.current) {
+        unsubscribeRef.current();
+        unsubscribeRef.current = null;
       }
     };
+  }, [isConnected, subscribeToSettings]);
 
-    // Listen for custom settings events
-    window.addEventListener('settings-websocket-message', handleSettingsMessage as EventListener);
-
-    return () => {
-      window.removeEventListener('settings-websocket-message', handleSettingsMessage as EventListener);
-    };
-  }, [enabled, user?.id, onSettingsUpdate, onPreferencesUpdate, onNotificationsUpdate, onProfileUpdate]);
+  // Handle connection errors
+  useEffect(() => {
+    if (connectionError) {
+      onErrorRef.current?.(connectionError);
+    }
+  }, [connectionError]);
 
   return {
     isConnected,
-    broadcastSettingsUpdate
+    requestSettingsSync,
+    ping,
+    error: connectionError
   };
-};
-
-// Convenience hooks for specific settings types
-export const usePreferencesWebSocket = (
-  onUpdate: (data: any) => void, 
-  enabled = true
-) => {
-  return useSettingsWebSocket({
-    onPreferencesUpdate: onUpdate,
-    enabled
-  });
-};
-
-export const useNotificationsWebSocket = (
-  onUpdate: (data: any) => void, 
-  enabled = true
-) => {
-  return useSettingsWebSocket({
-    onNotificationsUpdate: onUpdate,
-    enabled
-  });
-};
-
-export const useProfileWebSocket = (
-  onUpdate: (data: any) => void, 
-  enabled = true
-) => {
-  return useSettingsWebSocket({
-    onProfileUpdate: onUpdate,
-    enabled
-  });
 };

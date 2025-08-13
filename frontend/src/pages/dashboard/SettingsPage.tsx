@@ -97,11 +97,17 @@ export const SettingsPage: React.FC = () => {
   }, [dispatch]);
 
   // Initialize WebSocket for real-time updates
-  const { isConnected, broadcastSettingsUpdate } = useSettingsWebSocket({
+  const { isConnected, requestSettingsSync } = useSettingsWebSocket({
     onSettingsUpdate: handleSettingsUpdate,
     onPreferencesUpdate: handlePreferencesUpdate,
     onNotificationsUpdate: handleNotificationsUpdate,
-    enabled: true
+    onProfileUpdate: (data) => {
+      console.log('Profile updated:', data);
+      // Handle profile updates if needed
+    },
+    onError: (error) => {
+      console.error('Settings WebSocket error:', error);
+    }
   });
 
   const loadSettings = useCallback(async () => {
@@ -158,8 +164,8 @@ export const SettingsPage: React.FC = () => {
       await settingsApi.updateUserSettings(updatedPrefs);
       setPreferences({ ...preferences, ...updatedPrefs });
       
-      // Broadcast the update to other sessions in real-time
-      broadcastSettingsUpdate('preferences_updated', updatedPrefs);
+      // Sync settings to other sessions
+      requestSettingsSync();
       
       showSuccess('Preferences updated successfully');
     } catch (error) {
@@ -176,8 +182,8 @@ export const SettingsPage: React.FC = () => {
       await setTheme(newTheme);
       setPreferences({ ...preferences, user_preferences: { ...preferences.user_preferences, theme: newTheme } });
       
-      // Broadcast the theme update to other sessions
-      broadcastSettingsUpdate('preferences_updated', { user_preferences: { theme: newTheme } });
+      // Sync settings to other sessions
+      requestSettingsSync();
       
       showSuccess('Theme updated successfully');
     } catch (error) {
@@ -193,8 +199,8 @@ export const SettingsPage: React.FC = () => {
       await settingsApi.updateUserSettings(updatedNotifs);
       setNotifications({ ...notifications, ...updatedNotifs });
       
-      // Broadcast the update to other sessions in real-time
-      broadcastSettingsUpdate('notifications_updated', updatedNotifs);
+      // Sync settings to other sessions
+      requestSettingsSync();
       
       showSuccess('Notification preferences updated');
     } catch (error) {

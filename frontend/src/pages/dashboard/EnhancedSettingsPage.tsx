@@ -85,11 +85,17 @@ export const EnhancedSettingsPage: React.FC = () => {
   }, []);
 
   // Initialize WebSocket for real-time updates
-  const { isConnected, broadcastSettingsUpdate } = useSettingsWebSocket({
+  const { isConnected, requestSettingsSync } = useSettingsWebSocket({
     onSettingsUpdate: handleSettingsUpdate,
     onPreferencesUpdate: handlePreferencesUpdate,
     onNotificationsUpdate: handleNotificationsUpdate,
-    enabled: true
+    onProfileUpdate: (data) => {
+      console.log('Profile updated:', data);
+      // Handle profile updates if needed
+    },
+    onError: (error) => {
+      console.error('Settings WebSocket error:', error);
+    }
   });
 
   const loadSettings = useCallback(async () => {
@@ -163,8 +169,8 @@ export const EnhancedSettingsPage: React.FC = () => {
       
       setPreferences({ ...preferences, ...updatedPrefs });
       
-      // Broadcast the update to other sessions in real-time
-      broadcastSettingsUpdate('preferences_updated', updatedPrefs);
+      // Sync settings to other sessions
+      requestSettingsSync();
       
       showSuccess('Preferences updated successfully');
     } catch (error: any) {
@@ -182,8 +188,8 @@ export const EnhancedSettingsPage: React.FC = () => {
       await settingsApi.updateUserSettings(updatedNotifs);
       setNotifications({ ...notifications, ...updatedNotifs });
       
-      // Broadcast the update to other sessions in real-time
-      broadcastSettingsUpdate('notifications_updated', updatedNotifs);
+      // Sync settings to other sessions
+      requestSettingsSync();
       
       showSuccess('Notification preferences updated');
     } catch (error: any) {

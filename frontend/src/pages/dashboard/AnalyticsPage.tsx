@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../store';
 import { analyticsService } from '../../services/analyticsService';
-import { useWebSocketConnection } from '../../hooks/useWebSocketConnection';
 import { useAnalyticsWebSocket } from '../../hooks/useAnalyticsWebSocket';
 
 // Chart Components
@@ -232,29 +231,33 @@ const generateFallbackCohortData = () => {
 
 export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
   const { user } = useSelector((state: RootState) => state.auth);
-  const { isConnected } = useWebSocketConnection();
   
-  // Analytics WebSocket for real-time updates
-  const { requestAnalyticsUpdate } = useAnalyticsWebSocket({
-    onAnalyticsUpdate: (updateData) => {
-      // Update specific metrics without full reload
-      if (data && updateData.current_metrics) {
-        setData(prevData => prevData ? {
-          ...prevData,
-          revenue: {
-            ...prevData.revenue,
-            current_metrics: {
-              ...prevData.revenue.current_metrics,
-              ...updateData.current_metrics
-            }
+  // Stable callbacks to prevent WebSocket reconnections
+  const handleAnalyticsUpdate = useCallback((updateData: any) => {
+    // Update specific metrics without full reload
+    if (data && updateData.current_metrics) {
+      setData(prevData => prevData ? {
+        ...prevData,
+        revenue: {
+          ...prevData.revenue,
+          current_metrics: {
+            ...prevData.revenue.current_metrics,
+            ...updateData.current_metrics
           }
-        } : prevData);
-        // setLastUpdated(new Date()); // TODO: Display last updated timestamp
-      }
-    },
-    onError: (errorMessage) => {
-      console.error('Analytics WebSocket error:', errorMessage);
+        }
+      } : prevData);
+      // setLastUpdated(new Date()); // TODO: Display last updated timestamp
     }
+  }, []);
+
+  const handleWebSocketError = useCallback((errorMessage: string) => {
+    console.error('Analytics WebSocket error:', errorMessage);
+  }, []);
+
+  // Analytics WebSocket for real-time updates
+  const { requestAnalyticsUpdate, isConnected } = useAnalyticsWebSocket({
+    onAnalyticsUpdate: handleAnalyticsUpdate,
+    onError: handleWebSocketError
   });
   
   const [data, setData] = useState<AnalyticsData | null>(null);
@@ -370,23 +373,21 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dateRange]); // Only depend on dateRange, not loadAnalyticsData to avoid circular dependency
 
-  // Auto-refresh data when connected via WebSocket
+  // Auto-refresh analytics data when WebSocket is connected
   useEffect(() => {
     if (isConnected && data) {
+      console.log('Starting auto-refresh interval for analytics data');
       const interval = setInterval(() => {
         // Request real-time analytics update via WebSocket
         requestAnalyticsUpdate();
-        
-        // Also do a full refresh less frequently
-        if (Date.now() % (5 * 60 * 1000) < 30000) { // Every 5 minutes
-          loadAnalyticsData(false);
-        }
-      }, 30000); // Check every 30 seconds
+      }, 30000); // Request update every 30 seconds
 
-      return () => clearInterval(interval);
+      return () => {
+        console.log('Clearing auto-refresh interval');
+        clearInterval(interval);
+      };
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isConnected, data, requestAnalyticsUpdate]); // Removed loadAnalyticsData to avoid circular dependency
+  }, [isConnected, data, requestAnalyticsUpdate]);
 
   const handleDateRangeChange = (newDateRange: { startDate: Date; endDate: Date }) => {
     setDateRange(newDateRange);

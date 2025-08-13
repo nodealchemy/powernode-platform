@@ -3,15 +3,39 @@ import { useCustomerWebSocket } from '../../hooks/useCustomerWebSocket';
 import { customersApi } from '../../services/customersApi';
 
 export const CustomersPage: React.FC = () => {
+  const [customers, setCustomers] = useState<any[]>([]);
+  const [stats, setStats] = useState<any>(null);
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+
   const {
-    customers,
-    stats,
-    searchResults,
-    error,
-    loadCustomers,
     searchCustomers,
-    updateCustomerStatus
-  } = useCustomerWebSocket();
+    updateCustomerStatus,
+    loadCustomers,
+    error
+  } = useCustomerWebSocket({
+    onCustomerUpdate: (data) => {
+      console.log('Customer updated:', data);
+      // Handle customer updates
+      if (data.customer) {
+        setCustomers(prev => prev.map(c => 
+          c.id === data.customer.id ? { ...c, ...data.customer } : c
+        ));
+      }
+      if (data.stats) {
+        setStats(data.stats);
+      }
+    },
+    onSearchResults: (data) => {
+      console.log('Search results:', data);
+      if (data.results) {
+        setSearchResults(data.results);
+        setShowSearchResults(true);
+      }
+    },
+    onError: (errorMessage) => {
+      console.error('Customer WebSocket error:', errorMessage);
+    }
+  });
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
