@@ -1,0 +1,158 @@
+{
+  "branches": [
+    "main",
+    {
+      "name": "develop",
+      "prerelease": "beta"
+    },
+    {
+      "name": "release/*",
+      "prerelease": "rc"
+    }
+  ],
+  "plugins": [
+    "@semantic-release/commit-analyzer",
+    "@semantic-release/release-notes-generator",
+    [
+      "@semantic-release/changelog",
+      {
+        "changelogFile": "CHANGELOG.md",
+        "changelogTitle": "# Changelog\n\nAll notable changes to this project will be documented in this file.\n\nThe format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),\nand this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)."
+      }
+    ],
+    [
+      "@semantic-release/npm",
+      {
+        "npmPublish": false,
+        "pkgRoot": "frontend"
+      }
+    ],
+    [
+      "@semantic-release/git",
+      {
+        "assets": [
+          "CHANGELOG.md",
+          "package.json",
+          "frontend/package.json",
+          "server/Gemfile",
+          "worker/Gemfile",
+          "CLAUDE.md"
+        ],
+        "message": "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
+      }
+    ],
+    [
+      "@semantic-release/github",
+      {
+        "successComment": "🎉 This issue has been resolved in version ${nextRelease.version}. The release is available on [GitHub release](<github_release_url>)",
+        "failComment": "❌ The release from branch ${branch.name} had failed due to the following errors:\n- ${errors.map(err => err.message).join('\\n- ')}",
+        "releasedLabels": ["released<%= nextRelease.channel ? `on @\${nextRelease.channel}` : \"\" %>"],
+        "addReleases": "bottom"
+      }
+    ]
+  ],
+  "preset": "conventionalcommits",
+  "presetConfig": {
+    "types": [
+      {
+        "type": "feat",
+        "section": "✨ Features",
+        "hidden": false
+      },
+      {
+        "type": "fix", 
+        "section": "🐛 Bug Fixes",
+        "hidden": false
+      },
+      {
+        "type": "perf",
+        "section": "🚀 Performance Improvements",
+        "hidden": false
+      },
+      {
+        "type": "revert",
+        "section": "🗑 Reverts",
+        "hidden": false
+      },
+      {
+        "type": "docs",
+        "section": "📚 Documentation",
+        "hidden": false
+      },
+      {
+        "type": "style",
+        "section": "💎 Styles",
+        "hidden": true
+      },
+      {
+        "type": "chore",
+        "section": "♻️ Chores",
+        "hidden": true
+      },
+      {
+        "type": "refactor",
+        "section": "📦 Code Refactoring",
+        "hidden": false
+      },
+      {
+        "type": "test",
+        "section": "🚨 Tests",
+        "hidden": true
+      },
+      {
+        "type": "ci",
+        "section": "⚙️ Continuous Integration",
+        "hidden": true
+      }
+    ]
+  },
+  "releaseRules": [
+    {
+      "type": "feat",
+      "release": "minor"
+    },
+    {
+      "type": "fix",
+      "release": "patch"
+    },
+    {
+      "type": "perf",
+      "release": "patch"
+    },
+    {
+      "type": "revert",
+      "release": "patch"
+    },
+    {
+      "type": "docs",
+      "release": "patch"
+    },
+    {
+      "type": "refactor",
+      "release": "patch"
+    },
+    {
+      "type": "style",
+      "release": false
+    },
+    {
+      "type": "test",
+      "release": false
+    },
+    {
+      "type": "ci",
+      "release": false
+    },
+    {
+      "type": "chore",
+      "release": false
+    },
+    {
+      "breaking": true,
+      "release": "major"
+    }
+  ],
+  "tagFormat": "v${version}",
+  "repositoryUrl": "https://github.com/powernode/powernode-platform",
+  "debug": true
+}
