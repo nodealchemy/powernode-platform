@@ -124,7 +124,7 @@ find . -name "*.tmp" -o -name ".DS_Store" -o -name "Thumbs.db" -o -name "*.swp" 
 **MANDATORY**: Strict Git-Flow release model with semantic versioning enforcement.
 
 ### Current Version
-- **Current**: `0.0.1-dev` (develop branch)
+- **Current**: `0.0.1` (release branch)
 - **Next Release**: `0.1.0` (first minor release)
 
 ### Semantic Versioning (SemVer 2.0.0)

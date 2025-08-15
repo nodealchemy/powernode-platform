@@ -1,6 +1,6 @@
 {
   "name": "powernode-platform",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "description": "Subscription management platform with Rails 8 API and React TypeScript frontend",
   "private": true,
   "scripts": {
