@@ -8,7 +8,7 @@ set -e
 # Configuration
 REACT_PORT=3001
 REACT_HOST="0.0.0.0"
-PROJECT_ROOT="/home/rett/Projects/powernode-platform"
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 FRONTEND_DIR="$PROJECT_ROOT/frontend"
 PID_FILE="$PROJECT_ROOT/.pids/frontend.pid"
 LOG_FILE="$PROJECT_ROOT/logs/frontend.log"

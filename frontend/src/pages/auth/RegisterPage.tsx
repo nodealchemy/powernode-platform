@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState, AppDispatch } from '../../store';
@@ -42,30 +42,7 @@ export const RegisterPage: React.FC = () => {
     accountName: ''
   });
 
-  // Load selected plan from URL params
-  useEffect(() => {
-    const planId = searchParams.get('plan');
-    const billing = searchParams.get('billing') as 'monthly' | 'yearly' || 'monthly';
-    
-    if (planId) {
-      loadSelectedPlan(planId);
-      setBillingCycle(billing);
-    } else {
-      // Redirect to plan selection if no plan is selected
-      navigate('/plans');
-    }
-  }, [searchParams, navigate]);
-
-  // Clear error when component unmounts
-  useEffect(() => {
-    return () => {
-      if (error) {
-        dispatch(clearError());
-      }
-    };
-  }, [dispatch]);
-
-  const loadSelectedPlan = async (planId: string) => {
+  const loadSelectedPlan = useCallback(async (planId: string) => {
     try {
       // Use public plans endpoint since user is not authenticated
       const response = await plansApi.getPublicPlans();
@@ -83,7 +60,30 @@ export const RegisterPage: React.FC = () => {
       // Redirect back to plan selection if plan loading fails
       navigate('/plans');
     }
-  };
+  }, [navigate]);
+
+  // Load selected plan from URL params
+  useEffect(() => {
+    const planId = searchParams.get('plan');
+    const billing = searchParams.get('billing') as 'monthly' | 'yearly' || 'monthly';
+    
+    if (planId) {
+      loadSelectedPlan(planId);
+      setBillingCycle(billing);
+    } else {
+      // Redirect to plan selection if no plan is selected
+      navigate('/plans');
+    }
+  }, [searchParams, navigate, loadSelectedPlan]);
+
+  // Clear error when component unmounts
+  useEffect(() => {
+    return () => {
+      if (error) {
+        dispatch(clearError());
+      }
+    };
+  }, [dispatch, error]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -159,9 +159,11 @@ export const RegisterPage: React.FC = () => {
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         {/* Logo and Title */}
         <div className="text-center">
-          <div className="mx-auto w-16 h-16 bg-theme-interactive-primary rounded-2xl flex items-center justify-center mb-6 shadow-lg">
-            <span className="text-white font-bold text-2xl">P</span>
-          </div>
+          <Link to="/welcome" className="inline-block">
+            <div className="mx-auto w-16 h-16 bg-theme-interactive-primary rounded-2xl flex items-center justify-center mb-6 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105">
+              <span className="text-white font-bold text-2xl">P</span>
+            </div>
+          </Link>
           <h1 className="text-3xl font-bold text-theme-primary mb-2">Powernode</h1>
           <p className="text-theme-secondary">Create your account</p>
         </div>

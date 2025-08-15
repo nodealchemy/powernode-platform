@@ -9,16 +9,21 @@ import {
 } from '../../services/plansApi';
 import { PlanFormModal } from '../../components/admin/PlanFormModal';
 import { hasAdminAccess } from '../../utils/permissionUtils';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { PageContainer, PageAction } from '../../components/layout/PageContainer';
+import { useNotification } from '../../hooks/useNotification';
+import { Plus, RefreshCw } from 'lucide-react';
 
 export const PlansPage: React.FC = () => {
   const { user } = useSelector((state: RootState) => state.auth);
+  const { showNotification } = useNotification();
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'overview' | 'templates' | 'active' | 'analytics'>('overview');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<DetailedPlan | null>(null);
-  const [successMessage, setSuccessMessage] = useState('');
-  const [errorMessage, setErrorMessage] = useState('');
 
   // Check if user has admin access
   const isAdmin = hasAdminAccess(user);
@@ -26,12 +31,14 @@ export const PlansPage: React.FC = () => {
   const loadPlans = async () => {
     try {
       setLoading(true);
+      setError(null);
       const response = await plansApi.getPlans();
       setPlans(response.data?.plans || []);
-    } catch (error: any) {
-      console.error('Failed to load plans:', error);
-      const errorMsg = error?.response?.data?.error || error?.message || 'Failed to load plans';
-      setErrorMessage(errorMsg);
+    } catch (err: any) {
+      console.error('Failed to load plans:', err);
+      const errorMsg = err?.response?.data?.error || err?.message || 'Failed to load plans';
+      setError(errorMsg);
+      showNotification(errorMsg, 'error');
     } finally {
       setLoading(false);
     }
@@ -47,15 +54,11 @@ export const PlansPage: React.FC = () => {
   }
 
   const showSuccess = (message: string) => {
-    setSuccessMessage(message);
-    setErrorMessage('');
-    setTimeout(() => setSuccessMessage(''), 3000);
+    showNotification(message, 'success');
   };
 
   const showError = (message: string) => {
-    setErrorMessage(message);
-    setSuccessMessage('');
-    setTimeout(() => setErrorMessage(''), 5000);
+    showNotification(message, 'error');
   };
 
   const handleCreatePlan = () => {
@@ -118,49 +121,283 @@ export const PlansPage: React.FC = () => {
     loadPlans();
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-theme-secondary">Loading plans...</div>
-      </div>
-    );
-  }
+  const tabs = [
+    { id: 'overview', label: 'Overview', icon: '📊' },
+    { id: 'templates', label: 'Plan Templates', icon: '📋' },
+    { id: 'active', label: 'Active Plans', icon: '✅' },
+    { id: 'analytics', label: 'Analytics', icon: '📈' }
+  ] as const;
+
+  const activePlans = plans.filter(plan => plan.status === 'active');
+  const totalRevenue = plans.reduce((sum, plan) => {
+    const priceCents = typeof plan.price_cents === 'string' ? parseFloat(plan.price_cents) : (plan.price_cents || 0);
+    return sum + (plan.active_subscription_count || 0) * (priceCents / 100);
+  }, 0);
+
+  const pageActions: PageAction[] = [
+    {
+      id: 'refresh',
+      label: 'Refresh',
+      onClick: loadPlans,
+      variant: 'secondary',
+      icon: RefreshCw,
+      disabled: loading
+    },
+    ...(isAdmin ? [{
+      id: 'create-plan',
+      label: 'Create Plan',
+      onClick: handleCreatePlan,
+      variant: 'primary' as const,
+      icon: Plus
+    }] : [])
+  ];
+
+  const getBreadcrumbs = () => {
+    const baseBreadcrumbs = [
+      { label: 'Dashboard', href: '/dashboard', icon: '🏠' },
+      { label: 'Plans', icon: '📋' }
+    ];
+    
+    // Add active tab to breadcrumbs
+    const activeTabInfo = tabs.find(tab => tab.id === activeTab);
+    if (activeTabInfo && activeTab !== 'overview') {
+      baseBreadcrumbs.push({
+        label: activeTabInfo.label,
+        icon: activeTabInfo.icon
+      });
+    }
+    
+    return baseBreadcrumbs;
+  };
+
+  const getPageDescription = () => {
+    if (loading) return "Loading plans...";
+    if (error) return "Error loading plans";
+    return isAdmin 
+      ? `Manage subscription plans and pricing tiers for ${user?.account?.name || 'your account'}`
+      : "View available subscription plans and pricing options";
+  };
+
+  const getPageActions = () => {
+    if (error) {
+      return [{
+        id: 'retry',
+        label: 'Try Again',
+        onClick: loadPlans,
+        variant: 'primary' as const
+      }];
+    }
+    return pageActions;
+  };
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-theme-primary">Plans</h1>
-          <p className="text-theme-secondary">
-            {isAdmin 
-              ? "Manage subscription plans and pricing tiers."
-              : "View available subscription plans."
-            }
-          </p>
-        </div>
-        {isAdmin && (
-          <button
-            onClick={handleCreatePlan}
-            className="btn-theme btn-theme-primary"
-          >
-            Create Plan
-          </button>
-        )}
-      </div>
-
-      {successMessage && (
-        <div className="alert-theme alert-theme-success">
-          {successMessage}
-        </div>
-      )}
-
-      {errorMessage && (
+    <PageContainer
+      title="Plans"
+      description={getPageDescription()}
+      breadcrumbs={getBreadcrumbs()}
+      actions={getPageActions()}
+    >
+      {loading ? (
+        <LoadingSpinner size="lg" message="Loading plans..." />
+      ) : error ? (
         <div className="alert-theme alert-theme-error">
-          {errorMessage}
+          <div className="flex items-center">
+            <div className="flex-shrink-0">
+              <span className="text-xl">⚠️</span>
+            </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium">Error Loading Plans</h3>
+              <p className="mt-1 text-sm">{error}</p>
+            </div>
+          </div>
         </div>
-      )}
+      ) : (
+        <>
+          {/* Navigation Tabs */}
+          <div className="border-b border-theme mb-6">
+            <div className="flex space-x-8 -mb-px">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center space-x-2 py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
+                    activeTab === tab.id
+                      ? 'border-theme-link text-theme-link'
+                      : 'border-transparent text-theme-secondary hover:text-theme-primary hover:border-theme'
+                  }`}
+                >
+                  <span>{tab.icon}</span>
+                  <span>{tab.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
 
-      {/* Plans Grid - Enhanced UX Design with Perfect Alignment */}
+          {/* Tab Content */}
+          <div>
+        {activeTab === 'overview' && (
+          <div className="space-y-6">
+            {/* Overview Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <div className="card-theme p-4 text-center">
+                <div className="text-2xl font-bold text-theme-interactive-primary">{plans.length}</div>
+                <div className="text-sm text-theme-secondary">Total Plans</div>
+                <div className="text-xs text-theme-tertiary">Created</div>
+              </div>
+              <div className="card-theme p-4 text-center">
+                <div className="text-2xl font-bold text-theme-interactive-primary">{activePlans.length}</div>
+                <div className="text-sm text-theme-secondary">Active Plans</div>
+                <div className="text-xs text-theme-tertiary">Available</div>
+              </div>
+              <div className="card-theme p-4 text-center">
+                <div className="text-2xl font-bold text-theme-interactive-primary">
+                  {plans.reduce((sum, plan) => sum + (plan.subscription_count || 0), 0)}
+                </div>
+                <div className="text-sm text-theme-secondary">Total Subscriptions</div>
+                <div className="text-xs text-theme-tertiary">All time</div>
+              </div>
+              <div className="card-theme p-4 text-center">
+                <div className="text-2xl font-bold text-theme-interactive-primary">
+                  ${totalRevenue.toFixed(2)}
+                </div>
+                <div className="text-sm text-theme-secondary">Monthly Revenue</div>
+                <div className="text-xs text-theme-tertiary">Estimated</div>
+              </div>
+            </div>
+
+            {/* Quick Actions */}
+            <div className="card-theme p-6">
+              <h3 className="text-lg font-semibold text-theme-primary mb-4">Quick Actions</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {isAdmin && (
+                  <button 
+                    onClick={handleCreatePlan}
+                    className="border border-theme rounded-lg p-4 text-center hover:bg-theme-surface cursor-pointer transition-colors"
+                  >
+                    <div className="text-2xl mb-2">➕</div>
+                    <div className="font-medium text-theme-primary">Create New Plan</div>
+                    <div className="text-sm text-theme-secondary">Set up a new subscription tier</div>
+                  </button>
+                )}
+                <div className="border border-theme rounded-lg p-4 text-center hover:bg-theme-surface cursor-pointer transition-colors">
+                  <div className="text-2xl mb-2">📊</div>
+                  <div className="font-medium text-theme-primary">Plan Analytics</div>
+                  <div className="text-sm text-theme-secondary">View performance metrics</div>
+                </div>
+                <div className="border border-theme rounded-lg p-4 text-center hover:bg-theme-surface cursor-pointer transition-colors">
+                  <div className="text-2xl mb-2">🔄</div>
+                  <div className="font-medium text-theme-primary">Sync Pricing</div>
+                  <div className="text-sm text-theme-secondary">Update pricing across platforms</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Recent Activity */}
+            <div className="card-theme p-6">
+              <h3 className="text-lg font-semibold text-theme-primary mb-4">Recent Activity</h3>
+              <div className="space-y-3">
+                <div className="flex items-center space-x-3 py-2">
+                  <div className="w-2 h-2 bg-theme-success rounded-full"></div>
+                  <span className="text-theme-primary">Pro Plan activated</span>
+                  <span className="text-sm text-theme-secondary">2 hours ago</span>
+                </div>
+                <div className="flex items-center space-x-3 py-2">
+                  <div className="w-2 h-2 bg-theme-info rounded-full"></div>
+                  <span className="text-theme-primary">Basic Plan pricing updated</span>
+                  <span className="text-sm text-theme-secondary">1 day ago</span>
+                </div>
+                <div className="flex items-center space-x-3 py-2">
+                  <div className="w-2 h-2 bg-theme-warning rounded-full"></div>
+                  <span className="text-theme-primary">Enterprise Plan created</span>
+                  <span className="text-sm text-theme-secondary">3 days ago</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'templates' && (
+          <div className="space-y-6">
+            {/* Search and Filters */}
+            <div className="card-theme p-4">
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex-1 relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <span className="text-theme-secondary text-sm w-4 h-4 flex items-center justify-center">🔍</span>
+                  </div>
+                  <input
+                    type="text"
+                    className="input-theme w-full pl-11"
+                    placeholder="Search plan templates..."
+                  />
+                </div>
+                <select className="input-theme w-full sm:w-48">
+                  <option value="">All Categories</option>
+                  <option value="basic">Basic</option>
+                  <option value="business">Business</option>
+                  <option value="enterprise">Enterprise</option>
+                </select>
+              </div>
+            </div>
+            
+            {/* Template Grid */}
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-lg font-semibold text-theme-primary mb-4">Recommended Templates</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="card-theme p-4 hover:shadow-md transition-shadow">
+                    <div className="flex items-start space-x-3">
+                      <span className="text-2xl">🚀</span>
+                      <div className="flex-1">
+                        <h3 className="font-medium text-theme-primary">Starter Plan</h3>
+                        <p className="text-sm text-theme-secondary mt-1">Perfect for individuals and small projects</p>
+                        <div className="flex items-center justify-between mt-3">
+                          <div className="text-sm text-theme-secondary">$9.99/month</div>
+                          <button className="btn-theme btn-theme-primary text-xs px-3 py-1">
+                            Use Template
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="card-theme p-4 hover:shadow-md transition-shadow">
+                    <div className="flex items-start space-x-3">
+                      <span className="text-2xl">💼</span>
+                      <div className="flex-1">
+                        <h3 className="font-medium text-theme-primary">Business Plan</h3>
+                        <p className="text-sm text-theme-secondary mt-1">Ideal for growing businesses and teams</p>
+                        <div className="flex items-center justify-between mt-3">
+                          <div className="text-sm text-theme-secondary">$29.99/month</div>
+                          <button className="btn-theme btn-theme-primary text-xs px-3 py-1">
+                            Use Template
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="card-theme p-4 hover:shadow-md transition-shadow">
+                    <div className="flex items-start space-x-3">
+                      <span className="text-2xl">🏢</span>
+                      <div className="flex-1">
+                        <h3 className="font-medium text-theme-primary">Enterprise Plan</h3>
+                        <p className="text-sm text-theme-secondary mt-1">Advanced features for large organizations</p>
+                        <div className="flex items-center justify-between mt-3">
+                          <div className="text-sm text-theme-secondary">$99.99/month</div>
+                          <button className="btn-theme btn-theme-primary text-xs px-3 py-1">
+                            Use Template
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'active' && (
+          <div className="space-y-6">{/* Plans Grid - Enhanced UX Design with Perfect Alignment */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         {plans.map((plan) => (
           <div key={plan.id} className="group card-theme shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden border border-theme-light hover:border-theme-focus flex flex-col h-full">
@@ -318,7 +555,9 @@ export const PlansPage: React.FC = () => {
 
       {plans.length === 0 && (
         <div className="text-center py-12">
-          <div className="text-theme-secondary text-lg">No plans found</div>
+          <span className="text-6xl">📋</span>
+          <h3 className="text-lg font-medium text-theme-primary mt-2">No plans found</h3>
+          <p className="text-theme-secondary">Create your first subscription plan to get started.</p>
           {isAdmin && (
             <button
               onClick={handleCreatePlan}
@@ -329,6 +568,56 @@ export const PlansPage: React.FC = () => {
           )}
         </div>
       )}
+          </div>
+        )}
+
+        {activeTab === 'analytics' && (
+          <div className="space-y-6">
+            {/* Plan Performance */}
+            <div className="card-theme p-6">
+              <h3 className="text-lg font-semibold text-theme-primary mb-4">Plan Performance</h3>
+              <div className="space-y-3">
+                {plans.slice(0, 5).map((plan, index) => (
+                  <div key={plan.id} className="flex items-center justify-between py-2">
+                    <div className="flex items-center space-x-3">
+                      <span className="text-theme-secondary font-medium">{index + 1}</span>
+                      <span className="text-lg">📋</span>
+                      <span className="text-theme-primary">{plan.name}</span>
+                    </div>
+                    <div className="text-sm text-theme-secondary">
+                      {plan.subscription_count || 0} subscriptions
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            {/* Revenue Breakdown */}
+            <div className="card-theme p-6">
+              <h3 className="text-lg font-semibold text-theme-primary mb-4">Revenue Breakdown</h3>
+              <div className="space-y-4">
+                {plans.map((plan) => {
+                  const priceCents = typeof plan.price_cents === 'string' ? parseFloat(plan.price_cents) : (plan.price_cents || 0);
+                  const revenue = (plan.active_subscription_count || 0) * (priceCents / 100);
+                  return (
+                    <div key={plan.id} className="flex items-center justify-between py-2">
+                      <div>
+                        <span className="text-theme-primary font-medium">{plan.name}</span>
+                        <div className="text-sm text-theme-secondary">
+                          {plan.active_subscription_count || 0} active × {plan.formatted_price}
+                        </div>
+                      </div>
+                      <div className="text-lg font-semibold text-theme-primary">
+                        ${revenue.toFixed(2)}/mo
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Create Plan Modal */}
       <PlanFormModal
@@ -348,6 +637,8 @@ export const PlansPage: React.FC = () => {
         showSuccess={showSuccess}
         showError={showError}
       />
-    </div>
+        </>
+      )}
+    </PageContainer>
   );
 };

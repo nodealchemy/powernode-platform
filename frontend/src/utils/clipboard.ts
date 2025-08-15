@@ -10,7 +10,7 @@ export const copyToClipboard = async (text: string, options?: {
   const {
     showAlert = true,
     successMessage = 'Copied to clipboard!',
-    errorMessage = 'Failed to copy to clipboard'
+    // errorMessage = 'Failed to copy to clipboard'
   } = options || {};
 
   try {

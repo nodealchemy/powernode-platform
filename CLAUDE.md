@@ -270,6 +270,66 @@ export const serviceNameApi = {
 - Return: `response.data`
 - TypeScript: Proper interfaces and return types
 
+### Global Notification System (MANDATORY)
+
+**CRITICAL**: All user action feedback MUST use the global notification system.
+
+#### Requirements
+1. **NO local success/error message state** - Never use `useState` for success/error messages
+2. **USE global notifications** - All transactional messages use global notification system
+3. **CONSISTENT UX** - All messages appear in same location as login/logout messages
+
+#### Implementation Pattern
+
+**✅ CORRECT - Use global notifications:**
+```typescript
+import { useNotification } from '../../hooks/useNotification';
+
+export const MyComponent: React.FC = () => {
+  const { showNotification } = useNotification();
+
+  const handleUpdate = async () => {
+    try {
+      await api.updateSomething();
+      showNotification('Settings updated successfully', 'success');
+    } catch (error) {
+      showNotification('Failed to update settings', 'error');
+    }
+  };
+}
+```
+
+**❌ WRONG - Local message state:**
+```typescript
+// Never do this
+const [successMessage, setSuccessMessage] = useState('');
+const [errorMessage, setErrorMessage] = useState('');
+
+// And never display local messages
+{successMessage && <div className="alert-theme-success">{successMessage}</div>}
+```
+
+#### Message Types
+- `'success'` - Successful operations (updates, creation, etc.)
+- `'error'` - Failed operations, validation errors
+- `'warning'` - Important notices, non-blocking issues
+- `'info'` - General information, status updates
+
+#### When Local Alerts ARE Appropriate
+1. **Data loading errors** - When displaying error states for failed data fetches
+2. **Form validation** - Field-specific validation messages
+3. **Page-specific instructions** - Context-specific guidance (like email sent confirmations)
+4. **Empty states** - When no data is available to display
+
+#### Audit Commands
+```bash
+# Find components using local message state (should return empty)
+grep -r "useState.*[Ss]uccess.*[Mm]essage\|useState.*[Ee]rror.*[Mm]essage" frontend/src/
+
+# Find local alert displays that might be messages (review these)
+grep -r "alert-theme-success\|alert-theme-error" frontend/src/
+```
+
 ### Security Requirements
 - **JWT Authentication**: 15min access tokens, 7-day refresh tokens, HMAC-SHA256
 - **Email Verification**: Required before login, time-limited tokens

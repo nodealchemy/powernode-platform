@@ -38,10 +38,10 @@ Rails.application.config.after_initialize do
     
     begin
       # Schedule daily billing scheduler
-      BillingSchedulerJob.schedule_daily_run
+      WorkerJobService.enqueue_billing_scheduler(Date.current, delay: 1.hour)
       
       # Schedule weekly cleanup
-      BillingSchedulerJob.schedule_weekly_cleanup
+      WorkerJobService.enqueue_billing_cleanup(delay: 1.day)
       
       # Schedule immediate billing check if there are overdue subscriptions
       overdue_count = Subscription.joins(:account)
@@ -52,7 +52,7 @@ Rails.application.config.after_initialize do
       
       if overdue_count > 0
         Rails.logger.info "Found #{overdue_count} overdue subscriptions, scheduling immediate billing automation"
-        BillingAutomationJob.set(wait: 1.minute).perform_later
+        WorkerJobService.enqueue_billing_automation(nil, delay: 1.minute)
       end
       
       Rails.logger.info "Billing automation system initialized successfully"
@@ -71,22 +71,22 @@ class BillingAutomation
   class << self
     def trigger_billing_cycle(subscription_id = nil)
       if subscription_id
-        BillingAutomationJob.perform_later(subscription_id)
+        WorkerJobService.enqueue_billing_automation(subscription_id)
       else
-        BillingAutomationJob.perform_later
+        WorkerJobService.enqueue_billing_automation
       end
     end
     
     def trigger_payment_retry(payment_id, retry_attempt = 1)
-      PaymentRetryJob.perform_later(payment_id, retry_attempt)
+      WorkerJobService.enqueue_payment_retry(payment_id, 'payment_failure', retry_attempt)
     end
     
     def trigger_lifecycle_action(action, subscription_id, **options)
-      SubscriptionLifecycleJob.perform_later(action, subscription_id, **options)
+      WorkerJobService.enqueue_subscription_lifecycle(action, subscription_id, **options)
     end
     
     def force_billing_cleanup
-      BillingCleanupJob.perform_later
+      WorkerJobService.enqueue_billing_cleanup
     end
     
     def get_billing_health_report

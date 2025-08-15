@@ -1,0 +1,24 @@
+<h2>Welcome to Powernode!</h2>
+
+<p>Hi <%= @user[:first_name] || @user[:email] %>,</p>
+
+<p>Thank you for joining Powernode! We're excited to have you on board.</p>
+
+<p>Your account has been successfully created. You can now access all the features of our platform.</p>
+
+<p style="text-align: center;">
+  <a href="<%= @login_url %>" class="button">Access Your Dashboard</a>
+</p>
+
+<h3>Getting Started:</h3>
+<ul>
+  <li>Complete your profile setup</li>
+  <li>Explore our subscription plans</li>
+  <li>Configure your account settings</li>
+  <li>Invite team members</li>
+</ul>
+
+<p>If you have any questions or need assistance, our support team is here to help!</p>
+
+<p>Best regards,<br>
+The Powernode Team</p>

@@ -11,20 +11,20 @@ interface AuditLogMetricsProps {
 }
 
 const colorMap = {
-  blue: 'text-blue-600 bg-blue-100',
-  green: 'text-green-600 bg-green-100',
-  red: 'text-red-600 bg-red-100',
-  yellow: 'text-yellow-600 bg-yellow-100',
-  purple: 'text-purple-600 bg-purple-100'
+  blue: 'text-theme-link bg-theme-link-background',
+  green: 'text-theme-success bg-theme-success-background',
+  red: 'text-theme-error bg-theme-error-background',
+  yellow: 'text-theme-warning bg-theme-warning-background',
+  purple: 'text-theme-info bg-theme-info-background'
 };
 
-const trendColorMap = {
-  blue: 'text-blue-600',
-  green: 'text-green-600',
-  red: 'text-red-600',
-  yellow: 'text-yellow-600',
-  purple: 'text-purple-600'
-};
+// const trendColorMap = {
+//   blue: 'text-theme-link',
+//   green: 'text-theme-success',
+//   red: 'text-theme-error',
+//   yellow: 'text-theme-warning',
+//   purple: 'text-theme-info'
+// };
 
 export const AuditLogMetrics: React.FC<AuditLogMetricsProps> = ({
   title,
@@ -50,9 +50,9 @@ export const AuditLogMetrics: React.FC<AuditLogMetricsProps> = ({
     if (!trendText) return 'text-theme-tertiary';
     
     if (trendText.startsWith('+')) {
-      return color === 'red' ? 'text-red-600' : 'text-green-600';
+      return color === 'red' ? 'text-theme-error' : 'text-theme-success';
     } else if (trendText.startsWith('-')) {
-      return color === 'red' ? 'text-green-600' : 'text-red-600';
+      return color === 'red' ? 'text-theme-success' : 'text-theme-error';
     } else {
       return 'text-theme-tertiary';
     }
@@ -75,6 +75,7 @@ export const AuditLogMetrics: React.FC<AuditLogMetricsProps> = ({
     <div className="bg-theme-surface rounded-lg border border-theme p-4 hover:shadow-md transition-shadow duration-200">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-medium text-theme-secondary">{title}</h3>
+        {/* eslint-disable-next-line security/detect-object-injection */}
         <div className={`p-1 rounded ${colorMap[color]}`}>
           {icon}
         </div>

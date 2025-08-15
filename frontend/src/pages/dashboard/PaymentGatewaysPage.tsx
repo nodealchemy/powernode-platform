@@ -8,6 +8,8 @@ import {
   TestConnectionResult
 } from '../../services/paymentGatewaysApi';
 import Button from '../../components/ui/Button';
+import { PageContainer, PageAction } from '../../components/layout/PageContainer';
+import { RefreshCw, TestTube } from 'lucide-react';
 
 interface StatusBadgeProps {
   status: string;
@@ -331,7 +333,7 @@ const WebhookTable: React.FC<WebhookTableProps> = ({ webhooks, loading = false }
   );
 };
 
-const PaymentGatewaysPage: React.FC = () => {
+export const PaymentGatewaysPage: React.FC = () => {
   const [overview, setOverview] = useState<PaymentGatewaysOverview | null>(null);
   const [selectedGateway, setSelectedGateway] = useState<'stripe' | 'paypal' | null>(null);
   const [gatewayDetails, setGatewayDetails] = useState<GatewayDetails | null>(null);
@@ -621,15 +623,40 @@ const PaymentGatewaysPage: React.FC = () => {
     );
   }
 
+  const pageActions: PageAction[] = [
+    {
+      id: 'refresh',
+      label: 'Refresh',
+      onClick: loadOverview,
+      variant: 'secondary',
+      icon: RefreshCw,
+      disabled: loading
+    },
+    {
+      id: 'test-connections',
+      label: 'Test All',
+      onClick: () => {
+        if (overview?.gateways.stripe.enabled) handleTestConnection('stripe');
+        if (overview?.gateways.paypal.enabled) handleTestConnection('paypal');
+      },
+      variant: 'primary',
+      icon: TestTube,
+      disabled: loading || !overview || (!overview.gateways.stripe.enabled && !overview.gateways.paypal.enabled)
+    }
+  ];
+
+  const breadcrumbs = [
+    { label: 'Dashboard', href: '/dashboard', icon: '🏠' },
+    { label: 'Payment Gateways', icon: '💳' }
+  ];
+
   return (
-    <div className="space-y-8">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-theme-primary">Payment Gateways</h1>
-        <p className="text-theme-secondary mt-2">
-          Manage your payment providers and monitor transaction performance. Configure and test your payment integrations.
-        </p>
-      </div>
+    <PageContainer
+      title="Payment Gateways"
+      description="Manage your payment providers and monitor transaction performance. Configure and test your payment integrations."
+      breadcrumbs={breadcrumbs}
+      actions={pageActions}
+    >
 
       {/* Overview Stats */}
       {overview && (
@@ -650,7 +677,7 @@ const PaymentGatewaysPage: React.FC = () => {
           </div>
           
           <div className="bg-theme-surface border border-theme rounded-xl p-6 text-center">
-            <div className="w-12 h-12 bg-green-500 rounded-lg flex items-center justify-center mx-auto mb-4">
+            <div className="w-12 h-12 bg-theme-success rounded-lg flex items-center justify-center mx-auto mb-4">
               <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
@@ -962,8 +989,7 @@ const PaymentGatewaysPage: React.FC = () => {
           </div>
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 };
 
-export default PaymentGatewaysPage;

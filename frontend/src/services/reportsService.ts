@@ -204,20 +204,21 @@ class ReportsService {
     accountId?: string
   ): Promise<void> {
     // Convert to new report request format
-    const templateId = this.mapLegacyReportTypeToTemplate(reportType);
+    // const templateId = this.mapLegacyReportTypeToTemplate(reportType);
     
-    const params: ReportRequestParams = {
-      template_id: templateId,
-      name: `${reportType} Analytics Export - ${new Date().toLocaleDateString()}`,
-      format,
-      parameters: {
-        date_range: {
-          start_date: dateRange.startDate.toISOString().split('T')[0],
-          end_date: dateRange.endDate.toISOString().split('T')[0]
-        },
-        filters: accountId ? { account_id: accountId } : {}
-      }
-    };
+    // TODO: Use new report request format when ready
+    // const params: ReportRequestParams = {
+    //   template_id: templateId,
+    //   name: `${reportType} Analytics Export - ${new Date().toLocaleDateString()}`,
+    //   format,
+    //   parameters: {
+    //     date_range: {
+    //       start_date: dateRange.startDate.toISOString().split('T')[0],
+    //       end_date: dateRange.endDate.toISOString().split('T')[0]
+    //     },
+    //     filters: accountId ? { account_id: accountId } : {}
+    //   }
+    // };
 
     // For immediate exports, we can use the legacy endpoint or create a request and wait
     const response = await api.get('/analytics/export', {

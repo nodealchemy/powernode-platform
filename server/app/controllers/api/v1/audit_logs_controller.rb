@@ -1,7 +1,9 @@
 # frozen_string_literal: true
 
 class Api::V1::AuditLogsController < ApplicationController
-  before_action :require_admin_access
+  skip_before_action :authenticate_request, only: [:create]
+  before_action :require_admin_access, except: [:create] 
+  before_action :authenticate_service_or_admin, only: [:create]
 
   # GET /api/v1/audit_logs
   def index
@@ -97,6 +99,92 @@ class Api::V1::AuditLogsController < ApplicationController
     end
   end
 
+  # POST /api/v1/audit_logs
+  def create
+    begin
+      # Extract parameters for audit log creation
+      # Handle both flat and nested parameter formats
+      audit_params = if params[:audit_log].present?
+                       params[:audit_log].permit(:action, :resource_type, :resource_id, :source, :ip_address, :user_agent, details: {})
+                     else
+                       params.permit(:action, :resource_type, :resource_id, :source, :ip_address, :user_agent, details: {})
+                     end
+      
+      # Validate required parameters
+      unless audit_params[:action].present?
+        return render json: {
+          success: false,
+          error: 'Action is required'
+        }, status: :unprocessable_entity
+      end
+      
+      # Set defaults for worker requests
+      audit_params[:resource_type] ||= 'WorkerJob'
+      audit_params[:resource_id] ||= 'worker_task'
+      audit_params[:source] ||= 'worker'
+      audit_params[:ip_address] ||= request.remote_ip
+      audit_params[:user_agent] ||= request.user_agent
+      
+      # Handle details/metadata (can be at top level or nested)
+      metadata = audit_params[:details] || params[:details] || {}
+      metadata[:created_via] = 'worker_api'
+      metadata[:request_timestamp] = Time.current.iso8601
+      
+      # Find account - use system account for worker requests
+      account = if current_user&.account
+                  current_user.account
+                else
+                  # For worker service requests, find a system account or use first account
+                  Account.find_by(name: 'System') || Account.first
+                end
+      
+      unless account
+        return render json: {
+          success: false,
+          error: 'No account found for audit log'
+        }, status: :unprocessable_entity
+      end
+      
+      # Create audit log
+      audit_log = AuditLog.create!(
+        action: audit_params[:action],
+        resource_type: audit_params[:resource_type], 
+        resource_id: audit_params[:resource_id],
+        user: current_user,
+        account: account,
+        source: audit_params[:source],
+        ip_address: audit_params[:ip_address],
+        user_agent: audit_params[:user_agent],
+        metadata: metadata
+      )
+      
+      render json: {
+        success: true,
+        message: 'Audit log created successfully',
+        data: {
+          id: audit_log.id,
+          action: audit_log.action,
+          created_at: audit_log.created_at.iso8601
+        }
+      }, status: :created
+      
+    rescue ActiveRecord::RecordInvalid => e
+      Rails.logger.error "Audit log validation failed: #{e.record.errors.full_messages.join(', ')}"
+      render json: {
+        success: false,
+        error: 'Invalid audit log data',
+        details: e.record.errors.full_messages
+      }, status: :unprocessable_entity
+    rescue StandardError => e
+      Rails.logger.error "Failed to create audit log: #{e.message}"
+      render json: {
+        success: false,
+        error: 'Failed to create audit log',
+        details: e.message
+      }, status: :internal_server_error
+    end
+  end
+
   # DELETE /api/v1/audit_logs/cleanup
   def cleanup
     cutoff_date = params[:cutoff_date]&.to_date || 1.year.ago.to_date
@@ -140,6 +228,40 @@ class Api::V1::AuditLogsController < ApplicationController
         error: "Access denied: Admin privileges required"
       }, status: :forbidden
     end
+  end
+  
+  def authenticate_service_or_admin
+    # Allow admin users or valid service tokens
+    return if current_user&.admin? || current_user&.owner?
+    
+    # Check for service token authentication
+    auth_header = request.headers['Authorization']
+    return render_unauthorized('Missing authorization header') unless auth_header
+    
+    token = auth_header.sub(/^Bearer /, '')
+    return render_unauthorized('Missing token') if token.blank?
+    
+    begin
+      payload = JWT.decode(token, Rails.application.config.jwt_secret_key, true, algorithm: 'HS256').first
+      
+      # Accept service tokens from worker
+      if payload['service'] == 'backend' && payload['type'] == 'service'
+        # Service token is valid, allow access
+        return
+      end
+      
+      render_unauthorized('Invalid service token')
+    rescue JWT::DecodeError, JWT::ExpiredSignature => e
+      Rails.logger.warn "Invalid service token for audit log creation: #{e.message}"
+      render_unauthorized('Invalid or expired service token')
+    end
+  end
+  
+  def render_unauthorized(message)
+    render json: {
+      success: false,
+      error: message
+    }, status: :unauthorized
   end
 
   def audit_log_filters

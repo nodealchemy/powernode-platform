@@ -6,6 +6,8 @@ import { settingsApi, UserSettings, NotificationPreferences } from '../../servic
 import { useSettingsWebSocket } from '../../hooks/useSettingsWebSocket';
 import { WebSocketStatusIndicator } from '../../components/common/WebSocketStatusIndicator';
 import { useTheme } from '../../contexts/ThemeContext';
+import { PageContainer, PageAction } from '../../components/layout/PageContainer';
+import { Save, RefreshCw } from 'lucide-react';
 
 export const SettingsPage: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -296,62 +298,103 @@ export const SettingsPage: React.FC = () => {
     return hasUpperCase && hasLowerCase && hasNumbers && hasSpecialChar;
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-theme-secondary">Loading settings...</div>
-      </div>
-    );
-  }
-
-  const tabs = [
-    { id: 'profile', name: 'Profile', icon: '👤' },
-    { id: 'account', name: 'Account', icon: '🏢' },
-    { id: 'preferences', name: 'Preferences', icon: '⚙️' },
-    { id: 'notifications', name: 'Notifications', icon: '🔔' },
-    { id: 'security', name: 'Security', icon: '🔒' }
+  const pageActions: PageAction[] = [
+    {
+      id: 'save',
+      label: 'Save Changes',
+      onClick: () => {
+        // Handle save action based on active tab
+        if (activeTab === 'profile') {
+          document.getElementById('profile-form')?.dispatchEvent(new Event('submit', { bubbles: true }));
+        }
+      },
+      variant: 'primary',
+      icon: Save,
+      disabled: saving
+    },
+    {
+      id: 'refresh',
+      label: 'Refresh',
+      onClick: loadSettings,
+      variant: 'secondary',
+      icon: RefreshCw,
+      disabled: loading
+    }
   ];
 
-  return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-start">
-        <div>
-          <h1 className="text-2xl font-bold text-theme-primary">Settings</h1>
-          <p className="text-theme-secondary">
-            Manage your account settings and preferences.
-          </p>
-          {lastUpdated && (
-            <p className="text-sm text-theme-tertiary mt-1">
-              Last synced: {lastUpdated.toLocaleTimeString()}
-            </p>
-          )}
-        </div>
-        
-        {/* Real-time status indicator */}
-        <div className="flex items-center space-x-3">
-          <WebSocketStatusIndicator showDetails={false} />
-          {isReceivingUpdate && (
-            <div className="flex items-center space-x-2 px-3 py-1 bg-theme-info text-theme-info rounded-md">
-              <div className="animate-pulse w-2 h-2 bg-theme-info rounded-full"></div>
-              <span className="text-sm">Syncing...</span>
-            </div>
-          )}
-          {isConnected && (
-            <div className="flex items-center space-x-2 px-3 py-1 bg-theme-success text-theme-success rounded-md">
-              <div className="w-2 h-2 bg-theme-success rounded-full"></div>
-              <span className="text-sm">Live</span>
-            </div>
-          )}
-        </div>
-      </div>
+  const getBreadcrumbs = () => {
+    const baseBreadcrumbs = [
+      { label: 'Dashboard', href: '/dashboard', icon: '🏠' },
+      { label: 'Settings', icon: '⚙️' }
+    ];
+    
+    // Add active tab to breadcrumbs
+    const activeTabInfo = tabs.find(tab => tab.id === activeTab);
+    if (activeTabInfo && activeTab !== 'profile') {
+      baseBreadcrumbs.push({
+        label: activeTabInfo.label,
+        icon: activeTabInfo.icon
+      });
+    }
+    
+    return baseBreadcrumbs;
+  };
 
-      {/* Tab Navigation */}
+  const tabs = [
+    { id: 'profile', label: 'Profile', icon: '👤' },
+    { id: 'account', label: 'Account', icon: '🏢' },
+    { id: 'preferences', label: 'Preferences', icon: '⚙️' },
+    { id: 'notifications', label: 'Notifications', icon: '🔔' },
+    { id: 'security', label: 'Security', icon: '🔒' }
+  ];
+
+  // Handle tab changes
+  const handleTabChange = (tabId: string) => {
+    setActiveTab(tabId);
+  };
+
+  const getPageDescription = () => {
+    if (loading) return "Loading settings...";
+    return `Manage your account settings and preferences${lastUpdated ? ` - Last synced: ${lastUpdated.toLocaleTimeString()}` : ''}`;
+  };
+
+  return (
+    <PageContainer
+      title="Settings"
+      description={getPageDescription()}
+      breadcrumbs={getBreadcrumbs()}
+      actions={loading ? [] : pageActions}
+    >
+      {loading ? (
+        <div className="flex items-center justify-center h-64">
+          <div className="text-theme-secondary">Loading settings...</div>
+        </div>
+      ) : (
+        <div>
+          {/* Real-time status indicator */}
+          <div className="flex justify-end items-center space-x-3 mb-6">
+            <WebSocketStatusIndicator showDetails={false} />
+            {isReceivingUpdate && (
+              <div className="flex items-center space-x-2 px-3 py-1 bg-theme-info text-theme-info rounded-md">
+                <div className="animate-pulse w-2 h-2 bg-theme-info rounded-full"></div>
+                <span className="text-sm">Syncing...</span>
+              </div>
+            )}
+            {isConnected && (
+              <div className="flex items-center space-x-2 px-3 py-1 bg-theme-success text-theme-success rounded-md">
+                <div className="w-2 h-2 bg-theme-success rounded-full"></div>
+                <span className="text-sm">Live</span>
+              </div>
+            )}
+          </div>
+
+          {/* Tab Navigation */}
       <div className="border-b border-theme">
         <nav className="-mb-px flex space-x-8">
           {tabs.map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => handleTabChange(tab.id)}
               className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-150 ${
                 activeTab === tab.id
                   ? 'border-theme-focus text-theme-link'
@@ -359,7 +402,7 @@ export const SettingsPage: React.FC = () => {
               }`}
             >
               <span className="mr-2">{tab.icon}</span>
-              {tab.name}
+              {tab.label}
             </button>
           ))}
         </nav>
@@ -373,7 +416,7 @@ export const SettingsPage: React.FC = () => {
             <p className="text-sm text-theme-secondary mt-1">Update your personal information</p>
           </div>
           <div className="p-6">
-            <form onSubmit={handleProfileUpdate}>
+            <form id="profile-form" onSubmit={handleProfileUpdate}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="label-theme">
@@ -750,6 +793,8 @@ export const SettingsPage: React.FC = () => {
           </div>
         </div>
       )}
-    </div>
+      </div>
+      )}
+    </PageContainer>
   );
 };

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Save, Settings, RefreshCw, Info } from 'lucide-react';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 import { useNotification } from '../../hooks/useNotification';
@@ -36,11 +36,7 @@ export const PlatformConfiguration: React.FC = () => {
   
   const { showNotification } = useNotification();
 
-  useEffect(() => {
-    loadSettings();
-  }, []);
-
-  const loadSettings = async () => {
+  const loadSettings = useCallback(async () => {
     try {
       setLoading(true);
       const response = await adminSettingsApi.getOverview();
@@ -67,7 +63,11 @@ export const PlatformConfiguration: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [showNotification]);
+
+  useEffect(() => {
+    loadSettings();
+  }, [loadSettings]);
 
   const handleChange = (field: keyof PlatformSettings, value: string | boolean | number) => {
     setSettings(prev => ({

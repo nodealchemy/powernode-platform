@@ -147,7 +147,7 @@ class Subscription < ApplicationRecord
 
   def schedule_billing_automation(delay: 0)
     return if canceled? || incomplete_expired?
-    BillingAutomationJob.set(wait: delay.seconds).perform_later(id)
+    WorkerJobService.enqueue_billing_automation(id, delay: delay.seconds)
   end
 
   private

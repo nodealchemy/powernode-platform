@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Service, ServiceActivity, ActivityListResponse, serviceAPI } from '../../services/serviceApi';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Service, ServiceActivity, serviceAPI } from '../../services/serviceApi';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 
 interface ServiceActivityListProps {
@@ -24,11 +24,7 @@ export const ServiceActivityList: React.FC<ServiceActivityListProps> = ({ servic
   });
   const [summary, setSummary] = useState<any>(null);
 
-  useEffect(() => {
-    loadActivities();
-  }, [service.id, pagination.page, filters]);
-
-  const loadActivities = async () => {
+  const loadActivities = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -53,7 +49,11 @@ export const ServiceActivityList: React.FC<ServiceActivityListProps> = ({ servic
     } finally {
       setLoading(false);
     }
-  };
+  }, [service.id, pagination.page, pagination.per_page, filters]);
+
+  useEffect(() => {
+    loadActivities();
+  }, [loadActivities]);
 
   const handleFilterChange = (key: string, value: string) => {
     setFilters(prev => ({ ...prev, [key]: value }));

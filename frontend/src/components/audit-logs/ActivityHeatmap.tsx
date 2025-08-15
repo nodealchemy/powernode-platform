@@ -1,5 +1,5 @@
 import React from 'react';
-import { Activity, Clock } from 'lucide-react';
+import { Activity } from 'lucide-react';
 
 interface ActivityHeatmapProps {
   timeRange: { label: string; value: string; days: number };
@@ -10,7 +10,7 @@ export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({ timeRange }) =
   const generateHeatmapData = () => {
     const data = [];
     const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const hours = Array.from({ length: 24 }, (_, i) => i);
+    // const hours = Array.from({ length: 24 }, (_, i) => i);
     
     for (let day = 0; day < 7; day++) {
       for (let hour = 0; hour < 24; hour++) {
@@ -31,6 +31,7 @@ export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({ timeRange }) =
         const activity = Math.floor(baseActivity + Math.random() * baseActivity * 0.5);
         
         data.push({
+          // eslint-disable-next-line security/detect-object-injection
           day: daysOfWeek[day],
           hour,
           activity,

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Globe,
   Edit,
@@ -92,7 +92,7 @@ const WebhookDetails: React.FC<WebhookDetailsProps> = ({
   }, [webhook.id]);
 
   // Load delivery history
-  const loadDeliveries = async (page = 1) => {
+  const loadDeliveries = useCallback(async (page = 1) => {
     setLoadingDeliveries(true);
     
     try {
@@ -113,14 +113,14 @@ const WebhookDetails: React.FC<WebhookDetailsProps> = ({
     } finally {
       setLoadingDeliveries(false);
     }
-  };
+  }, [webhook.id, deliveryFilters.per_page]);
 
   // Load deliveries when tab changes or filters change
   useEffect(() => {
     if (activeTab === 'deliveries') {
       loadDeliveries(deliveryFilters.page);
     }
-  }, [activeTab, deliveryFilters, webhook.id]);
+  }, [activeTab, deliveryFilters, webhook.id, loadDeliveries]);
 
   // Copy secret token to clipboard
   const copySecretToken = async () => {

@@ -3,9 +3,6 @@ import {
   Shield, 
   Eye, 
   AlertTriangle, 
-  TrendingUp, 
-  Users, 
-  Clock, 
   Activity,
   Download,
   RefreshCw,
@@ -18,7 +15,6 @@ import { AuditLogAnalytics } from '../../components/audit-logs/AuditLogAnalytics
 import { AuditLogMetrics } from '../../components/audit-logs/AuditLogMetrics';
 import { AuditLogExport } from '../../components/audit-logs/AuditLogExport';
 import { auditLogsApi, AuditLog, AuditLogFilters as FilterType } from '../../services/auditLogsApi';
-import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { useNotification } from '../../hooks/useNotification';
 
 interface AuditLogsState {
@@ -368,3 +364,5 @@ export const AuditLogsPage: React.FC = () => {
     </div>
   );
 };
+
+export default AuditLogsPage;

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { invitationsApi, Invitation } from '../../services/invitationsApi';
 import { FormField } from '../../components/ui/FormField';
@@ -20,17 +20,7 @@ export const AcceptInvitationPage: React.FC = () => {
   });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
-  useEffect(() => {
-    if (!token) {
-      setError('Invalid invitation link');
-      setLoading(false);
-      return;
-    }
-    
-    loadInvitation();
-  }, [token]);
-
-  const loadInvitation = async () => {
+  const loadInvitation = useCallback(async () => {
     if (!token) return;
     
     try {
@@ -50,7 +40,17 @@ export const AcceptInvitationPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [token]);
+
+  useEffect(() => {
+    if (!token) {
+      setError('Invalid invitation link');
+      setLoading(false);
+      return;
+    }
+    
+    loadInvitation();
+  }, [token, loadInvitation]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

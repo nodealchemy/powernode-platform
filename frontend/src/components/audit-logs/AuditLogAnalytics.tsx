@@ -1,15 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   TrendingUp,
   TrendingDown,
   Shield,
   AlertTriangle,
   Users,
-  Globe,
-  Clock,
   Activity,
   Eye,
-  Filter,
   Calendar,
   RefreshCw
 } from 'lucide-react';
@@ -49,7 +46,7 @@ export const AuditLogAnalytics: React.FC<AuditLogAnalyticsProps> = ({
 }) => {
   const [selectedTimeRange, setSelectedTimeRange] = useState<TimeRange>(timeRanges[1]);
   const [activeTab, setActiveTab] = useState<'overview' | 'security' | 'compliance' | 'risk'>('overview');
-  const [loading, setLoading] = useState(false);
+  const [loading] = useState(false);
 
   // Handle time range changes
   const handleTimeRangeChange = (timeRange: TimeRange) => {

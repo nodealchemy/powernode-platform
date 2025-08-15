@@ -16,8 +16,8 @@ class Api::V1::Auth::PasswordsController < ApplicationController
       # Generate and save password reset token
       user.generate_reset_token!
 
-      # Send password reset email
-      UserMailer.password_reset(user).deliver_now
+      # Send password reset email via worker service
+      WorkerJobService.enqueue_password_reset_email(user.id)
     end
 
     # Always return success to prevent email enumeration

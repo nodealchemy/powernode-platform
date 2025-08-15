@@ -328,18 +328,18 @@ export const delegationApi = {
 // Helper functions for delegation status and permissions
 export const delegationHelpers = {
   getStatusColor(delegation: Delegation): string {
-    if (delegation.status === 'revoked') return 'text-red-600 bg-red-50 border-red-200';
-    if (delegation.is_expired) return 'text-orange-600 bg-orange-50 border-orange-200';
-    if (delegation.status === 'inactive') return 'text-gray-600 bg-gray-50 border-gray-200';
-    if (delegation.is_active) return 'text-green-600 bg-green-50 border-green-200';
-    return 'text-gray-600 bg-gray-50 border-gray-200';
+    if (delegation.status === 'revoked') return 'text-theme-error bg-theme-error-background border-theme-error-border';
+    if (delegation.is_expired) return 'text-theme-warning bg-theme-warning-background border-theme-warning-border';
+    if (delegation.status === 'inactive') return 'text-theme-secondary bg-theme-surface border-theme';
+    if (delegation.is_active) return 'text-theme-success bg-theme-success-background border-theme-success-border';
+    return 'text-theme-secondary bg-theme-surface border-theme';
   },
 
   getRoleColor(roleName: string): string {
     switch (roleName) {
-      case 'Admin': return 'bg-red-100 text-red-800 border-red-200';
-      case 'Member': return 'bg-blue-100 text-blue-800 border-blue-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
+      case 'Admin': return 'bg-theme-error-background text-theme-error border-theme-error-border';
+      case 'Member': return 'bg-theme-info-background text-theme-info border-theme-info-border';
+      default: return 'bg-theme-surface text-theme-secondary border-theme';
     }
   },
 

@@ -189,7 +189,7 @@ export const stopImpersonation = createAsyncThunk(
   'auth/stopImpersonation',
   async (_, { getState, rejectWithValue }) => {
     try {
-      const state = getState() as { auth: AuthState };
+      // const state = getState() as { auth: AuthState };
       const sessionToken = localStorage.getItem('impersonationToken') || '';
       
       if (!sessionToken) {

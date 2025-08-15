@@ -141,15 +141,15 @@ export const versionApi = {
     const parsed = this.parseVersion(version);
     
     if (parsed.prerelease?.includes('dev')) {
-      return 'bg-yellow-100 text-yellow-800';
+      return 'bg-theme-warning-background text-theme-warning';
     } else if (parsed.prerelease?.includes('alpha')) {
-      return 'bg-red-100 text-red-800';
+      return 'bg-theme-error-background text-theme-error';
     } else if (parsed.prerelease?.includes('beta')) {
-      return 'bg-orange-100 text-orange-800';
+      return 'bg-theme-warning-background text-theme-warning';
     } else if (parsed.prerelease?.includes('rc')) {
-      return 'bg-blue-100 text-blue-800';
+      return 'bg-theme-info-background text-theme-info';
     } else {
-      return 'bg-green-100 text-green-800';
+      return 'bg-theme-success-background text-theme-success';
     }
   }
 };
