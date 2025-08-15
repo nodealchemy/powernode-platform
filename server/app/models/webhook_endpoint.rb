@@ -1,0 +1,147 @@
+class WebhookEndpoint < ApplicationRecord
+  # Associations
+  belongs_to :created_by, class_name: 'User', optional: true
+  has_many :webhook_deliveries, dependent: :destroy
+  has_many :webhook_events, dependent: :destroy
+
+  # Validations
+  validates :url, presence: true, format: { with: URI::DEFAULT_PARSER.make_regexp(%w[http https]) }
+  validates :status, presence: true, inclusion: { in: %w[active inactive] }
+  validates :content_type, presence: true, inclusion: { 
+    in: %w[application/json application/x-www-form-urlencoded] 
+  }
+  validates :timeout_seconds, presence: true, numericality: { 
+    greater_than: 0, less_than_or_equal_to: 300 
+  }
+  validates :retry_limit, presence: true, numericality: { 
+    greater_than_or_equal_to: 0, less_than_or_equal_to: 10 
+  }
+  validates :retry_backoff, presence: true, inclusion: { in: %w[linear exponential] }
+
+  # Note: event_types and metadata are JSON columns in PostgreSQL
+  # They have native JSON serialization, no need for explicit serialize calls
+
+  # Scopes
+  scope :active, -> { where(status: 'active') }
+  scope :inactive, -> { where(status: 'inactive') }
+  scope :for_event_type, ->(event_type) { where("event_types @> ?", [event_type].to_json) }
+
+  # Callbacks
+  before_validation :set_defaults
+  before_create :generate_secret_token
+  after_update :log_status_change
+
+  # Class methods
+  def self.available_event_types
+    [
+      # User events
+      'user.created', 'user.updated', 'user.deleted', 'user.login', 'user.logout',
+      
+      # Account events
+      'account.created', 'account.updated', 'account.suspended', 'account.activated',
+      
+      # Subscription events
+      'subscription.created', 'subscription.updated', 'subscription.cancelled',
+      'subscription.trial_started', 'subscription.trial_ended',
+      
+      # Payment events
+      'payment.created', 'payment.completed', 'payment.failed', 'payment.refunded',
+      
+      # Invoice events
+      'invoice.created', 'invoice.sent', 'invoice.paid', 'invoice.overdue',
+      
+      # Plan events
+      'plan.created', 'plan.updated', 'plan.deleted',
+      
+      # System events
+      'system.maintenance_start', 'system.maintenance_end',
+      
+      # Test events
+      'test.webhook'
+    ]
+  end
+
+  def self.event_categories
+    {
+      'User Management' => %w[user.created user.updated user.deleted user.login user.logout],
+      'Account Management' => %w[account.created account.updated account.suspended account.activated],
+      'Billing & Subscriptions' => %w[subscription.created subscription.updated subscription.cancelled payment.completed payment.failed invoice.created invoice.paid],
+      'System Events' => %w[system.maintenance_start system.maintenance_end],
+      'Testing' => %w[test.webhook]
+    }
+  end
+
+  # Instance methods
+  def active?
+    status == 'active'
+  end
+
+  def inactive?
+    status == 'inactive'
+  end
+
+  def success_rate
+    return 0 if total_deliveries.zero?
+    (success_count.to_f / total_deliveries * 100).round(2)
+  end
+
+  def total_deliveries
+    webhook_deliveries.count
+  end
+
+  def average_response_time
+    successful_deliveries = webhook_deliveries.successful.where.not(response_time_ms: nil)
+    return 0 if successful_deliveries.empty?
+    successful_deliveries.average(:response_time_ms)&.round(2) || 0
+  end
+
+  def last_success_at
+    webhook_deliveries.successful.maximum(:completed_at)
+  end
+
+  def last_failure_at
+    webhook_deliveries.failed.maximum(:completed_at)
+  end
+
+  def can_receive_event?(event_type)
+    active? && (event_types.blank? || event_types.include?(event_type))
+  end
+
+  def regenerate_secret!
+    self.secret_token = generate_secret_token_value
+    save!
+  end
+
+  def masked_secret
+    return nil unless secret_token.present?
+    "#{secret_token[0..7]}#{'*' * 24}#{secret_token[-8..-1]}"
+  end
+
+  private
+
+  def set_defaults
+    self.status ||= 'active'
+    self.content_type ||= 'application/json'
+    self.timeout_seconds ||= 30
+    self.retry_limit ||= 3
+    self.retry_backoff ||= 'exponential'
+    self.event_types ||= []
+    self.success_count ||= 0
+    self.failure_count ||= 0
+    self.metadata ||= {}
+  end
+
+  def generate_secret_token
+    self.secret_token ||= generate_secret_token_value
+  end
+
+  def generate_secret_token_value
+    "whsec_#{SecureRandom.base64(32).tr('+/', '-_')}"
+  end
+
+  def log_status_change
+    if saved_change_to_status?
+      Rails.logger.info "Webhook endpoint #{id} status changed from #{status_before_last_save} to #{status}"
+    end
+  end
+end

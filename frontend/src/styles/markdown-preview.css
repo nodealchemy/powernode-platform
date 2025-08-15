@@ -1,0 +1,282 @@
+/* Markdown Preview Theme Integration */
+
+/* ===== MARKDOWN PREVIEW STYLING ===== */
+.markdown-preview {
+  /* Inherit theme colors for better integration */
+  --md-text-primary: var(--color-text-primary);
+  --md-text-secondary: var(--color-text-secondary);
+  --md-text-tertiary: var(--color-text-tertiary);
+  --md-background: var(--color-background);
+  --md-surface: var(--color-surface);
+  --md-border: var(--color-border);
+  --md-link: var(--color-text-link);
+  --md-link-hover: var(--color-text-link-hover);
+  --md-code-bg: var(--color-background-secondary);
+  --md-blockquote-bg: var(--color-background-secondary);
+}
+
+/* Override MDEditor default styles with theme integration */
+.markdown-preview .wmde-markdown {
+  background-color: transparent !important;
+  color: var(--md-text-primary) !important;
+  font-family: inherit;
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+/* Headings */
+.markdown-preview .wmde-markdown h1,
+.markdown-preview .wmde-markdown h2,
+.markdown-preview .wmde-markdown h3,
+.markdown-preview .wmde-markdown h4,
+.markdown-preview .wmde-markdown h5,
+.markdown-preview .wmde-markdown h6 {
+  color: var(--md-text-primary) !important;
+  font-weight: 600;
+  margin-top: 2rem;
+  margin-bottom: 1rem;
+  line-height: 1.25;
+}
+
+.markdown-preview .wmde-markdown h1 {
+  font-size: 2.25rem;
+  border-bottom: 2px solid var(--md-border);
+  padding-bottom: 0.5rem;
+}
+
+.markdown-preview .wmde-markdown h2 {
+  font-size: 1.875rem;
+  border-bottom: 1px solid var(--md-border);
+  padding-bottom: 0.25rem;
+}
+
+.markdown-preview .wmde-markdown h3 {
+  font-size: 1.5rem;
+}
+
+.markdown-preview .wmde-markdown h4 {
+  font-size: 1.25rem;
+}
+
+.markdown-preview .wmde-markdown h5 {
+  font-size: 1.125rem;
+}
+
+.markdown-preview .wmde-markdown h6 {
+  font-size: 1rem;
+  color: var(--md-text-secondary) !important;
+}
+
+/* Paragraphs and text */
+.markdown-preview .wmde-markdown p {
+  color: var(--md-text-primary) !important;
+  margin-bottom: 1rem;
+}
+
+.markdown-preview .wmde-markdown strong {
+  color: var(--md-text-primary) !important;
+  font-weight: 600;
+}
+
+.markdown-preview .wmde-markdown em {
+  color: var(--md-text-primary) !important;
+  font-style: italic;
+}
+
+/* Links */
+.markdown-preview .wmde-markdown a {
+  color: var(--md-link) !important;
+  text-decoration: underline;
+  transition: color 0.2s ease;
+}
+
+.markdown-preview .wmde-markdown a:hover {
+  color: var(--md-link-hover) !important;
+}
+
+/* Lists */
+.markdown-preview .wmde-markdown ul,
+.markdown-preview .wmde-markdown ol {
+  color: var(--md-text-primary) !important;
+  margin-bottom: 1rem;
+  padding-left: 1.5rem;
+}
+
+.markdown-preview .wmde-markdown li {
+  color: var(--md-text-primary) !important;
+  margin-bottom: 0.5rem;
+}
+
+.markdown-preview .wmde-markdown li::marker {
+  color: var(--md-text-secondary) !important;
+}
+
+/* Code blocks and inline code */
+.markdown-preview .wmde-markdown code {
+  background-color: var(--md-code-bg) !important;
+  color: var(--md-text-primary) !important;
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 0.875rem;
+}
+
+.markdown-preview .wmde-markdown pre {
+  background-color: var(--md-code-bg) !important;
+  border: 1px solid var(--md-border) !important;
+  border-radius: 0.5rem;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  overflow-x: auto;
+}
+
+.markdown-preview .wmde-markdown pre code {
+  background-color: transparent !important;
+  padding: 0;
+  border-radius: 0;
+  color: var(--md-text-primary) !important;
+}
+
+/* Blockquotes */
+.markdown-preview .wmde-markdown blockquote {
+  background-color: var(--md-blockquote-bg) !important;
+  border-left: 4px solid var(--md-link) !important;
+  margin: 1rem 0;
+  padding: 1rem;
+  border-radius: 0.25rem;
+}
+
+.markdown-preview .wmde-markdown blockquote p {
+  color: var(--md-text-secondary) !important;
+  font-style: italic;
+  margin-bottom: 0;
+}
+
+/* Tables */
+.markdown-preview .wmde-markdown table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1rem;
+  border: 1px solid var(--md-border) !important;
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.markdown-preview .wmde-markdown th,
+.markdown-preview .wmde-markdown td {
+  padding: 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid var(--md-border) !important;
+  color: var(--md-text-primary) !important;
+}
+
+.markdown-preview .wmde-markdown th {
+  background-color: var(--md-surface) !important;
+  font-weight: 600;
+  color: var(--md-text-primary) !important;
+}
+
+.markdown-preview .wmde-markdown tbody tr:hover {
+  background-color: var(--md-surface) !important;
+}
+
+/* Horizontal rules */
+.markdown-preview .wmde-markdown hr {
+  border: none;
+  border-top: 1px solid var(--md-border) !important;
+  margin: 2rem 0;
+}
+
+/* Images */
+.markdown-preview .wmde-markdown img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  margin-bottom: 1rem;
+}
+
+/* Dark theme specific overrides */
+[data-theme="dark"] .markdown-preview .wmde-markdown {
+  /* Ensure proper contrast in dark mode */
+}
+
+[data-theme="dark"] .markdown-preview .wmde-markdown code {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+[data-theme="dark"] .markdown-preview .wmde-markdown pre {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+[data-theme="dark"] .markdown-preview .wmde-markdown blockquote {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+/* Light theme specific overrides */
+[data-theme="light"] .markdown-preview .wmde-markdown code {
+  background-color: rgba(0, 0, 0, 0.05) !important;
+}
+
+[data-theme="light"] .markdown-preview .wmde-markdown pre {
+  background-color: rgba(0, 0, 0, 0.02) !important;
+  border-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+[data-theme="light"] .markdown-preview .wmde-markdown blockquote {
+  background-color: rgba(0, 0, 0, 0.02) !important;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .markdown-preview .wmde-markdown {
+    font-size: 14px;
+  }
+  
+  .markdown-preview .wmde-markdown h1 {
+    font-size: 1.875rem;
+  }
+  
+  .markdown-preview .wmde-markdown h2 {
+    font-size: 1.5rem;
+  }
+  
+  .markdown-preview .wmde-markdown h3 {
+    font-size: 1.25rem;
+  }
+  
+  .markdown-preview .wmde-markdown table {
+    font-size: 0.875rem;
+  }
+  
+  .markdown-preview .wmde-markdown th,
+  .markdown-preview .wmde-markdown td {
+    padding: 0.5rem;
+  }
+}
+
+/* Focus and accessibility */
+.markdown-preview .wmde-markdown a:focus {
+  outline: 2px solid var(--md-link);
+  outline-offset: 2px;
+  border-radius: 0.25rem;
+}
+
+/* Print styles */
+@media print {
+  .markdown-preview .wmde-markdown {
+    color: black !important;
+  }
+  
+  .markdown-preview .wmde-markdown a {
+    color: black !important;
+    text-decoration: underline;
+  }
+  
+  .markdown-preview .wmde-markdown code,
+  .markdown-preview .wmde-markdown pre {
+    background-color: #f5f5f5 !important;
+    border: 1px solid #ccc !important;
+  }
+}
