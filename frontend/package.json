@@ -1,6 +1,6 @@
 {
   "name": "frontend",
-  "version": "0.0.1-dev",
+  "version": "0.0.1",
   "private": true,
   "dependencies": {
     "@heroicons/react": "^2.2.0",
