@@ -1,0 +1,53 @@
+source 'https://rubygems.org'
+git_source(:github) { |repo| "https://github.com/#{repo}.git" }
+
+ruby '3.2.8'
+
+# Background job processing
+gem 'sidekiq', '~> 7.2'
+
+# HTTP client for API communication
+gem 'faraday', '~> 2.7'
+gem 'faraday-retry', '~> 2.2'
+
+# Configuration and environment
+gem 'dotenv', '~> 3.0'
+
+# Core Ruby extensions (needed for time helpers like .day, .hours, etc.)
+gem 'activesupport', '~> 7.1'
+
+# Email functionality
+gem 'actionmailer', '~> 7.1'
+
+# JSON handling
+gem 'oj', '~> 3.16'
+
+# Logging and debugging
+gem 'amazing_print', '~> 1.5'
+
+# Redis connection
+gem 'redis', '~> 5.0'
+gem 'connection_pool', '~> 2.4'
+
+# Web server for Sidekiq web interface
+gem 'rackup', '~> 2.1'
+gem 'puma', '~> 6.4'
+
+# Session middleware for Sidekiq web authentication
+gem 'rack-session', '~> 2.0'
+
+# Security for service authentication
+gem 'jwt', '~> 2.7'
+
+# Development and testing
+group :development, :test do
+  gem 'pry', '~> 0.14'
+  gem 'rspec', '~> 3.12'
+  gem 'webmock', '~> 3.19'
+  gem 'vcr', '~> 6.2'
+end
+
+# Production
+group :production do
+  gem 'foreman', '~> 0.87'
+end

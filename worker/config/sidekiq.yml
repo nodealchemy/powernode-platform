@@ -1,0 +1,45 @@
+# Sidekiq Configuration for Powernode Worker Service
+
+:environment: <%= ENV['WORKER_ENV'] || ENV['RAILS_ENV'] || 'development' %>
+:concurrency: <%= ENV.fetch('WORKER_CONCURRENCY', '5').to_i %>
+:timeout: 25
+:verbose: <%= ENV['WORKER_ENV'] == 'development' %>
+
+# Queue configuration
+:queues:
+  - [critical, 3]
+  - [billing, 2]  
+  - [email, 2]
+  - [reports, 2]
+  - [webhooks, 1]
+  - [default, 1]
+
+# Redis configuration
+:redis:
+  url: <%= ENV.fetch('REDIS_URL', 'redis://localhost:6379/1') %>
+  network_timeout: 5
+  pool_timeout: 5
+
+# Job retry configuration
+:retry: 3
+
+# Dead job retention (in seconds)
+:dead_timeout_in_seconds: 1209600  # 2 weeks
+
+# Process configuration
+:pidfile: /var/tmp/powernode-worker.pid
+:logfile: /home/rett/Projects/powernode-platform/logs/worker.log
+:daemonize: false
+
+# Development settings
+<% if (ENV['WORKER_ENV'] || ENV['RAILS_ENV'] || 'development') == 'development' %>
+:poll_interval: 5
+<% else %>
+:poll_interval: 15  
+<% end %>
+
+# Production settings
+<% if (ENV['WORKER_ENV'] || ENV['RAILS_ENV'] || 'development') == 'production' %>
+:max_retries: 5
+:dead_max_jobs: 10000
+<% end %>

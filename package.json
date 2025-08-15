@@ -1,0 +1,44 @@
+{
+  "name": "powernode-platform",
+  "version": "0.0.1",
+  "description": "Subscription management platform with Rails 8 API and React TypeScript frontend",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "cd server && bundle exec rails server -p 3001",
+    "dev:frontend": "cd frontend && npm start",
+    "test": "concurrently \"npm run test:backend\" \"npm run test:frontend\"",
+    "test:backend": "cd server && bundle exec rspec",
+    "test:frontend": "cd frontend && npm test -- --watchAll=false",
+    "test:e2e": "cd frontend && npx cypress run",
+    "test:e2e:open": "cd frontend && npx cypress open",
+    "security": "concurrently \"npm run security:backend\" \"npm run security:frontend\"",
+    "security:backend": "cd server && bundle exec rake security:all",
+    "security:frontend": "cd frontend && npm audit && npm run lint:security",
+    "lint": "concurrently \"npm run lint:backend\" \"npm run lint:frontend\"",
+    "lint:backend": "cd server && bundle exec rubocop",
+    "lint:frontend": "cd frontend && npm run lint",
+    "build": "cd frontend && npm run build",
+    "setup": "npm run setup:backend && npm run setup:frontend",
+    "setup:backend": "cd server && bundle install && bundle exec rails db:create db:migrate db:seed",
+    "setup:frontend": "cd frontend && npm install"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "keywords": [
+    "subscription",
+    "billing",
+    "rails",
+    "react",
+    "typescript",
+    "stripe",
+    "paypal"
+  ],
+  "author": "Powernode Team",
+  "license": "MIT"
+}

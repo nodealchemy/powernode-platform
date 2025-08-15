@@ -1,0 +1,20 @@
+# <type>[optional scope][!]: <description>
+#
+# [optional body]
+#
+# [optional footer(s)]
+
+# Example:
+# feat(auth): add OAuth2 integration
+#
+# Implement OAuth2 authentication flow with support for
+# Google and GitHub providers.
+#
+# Closes #123
+# BREAKING CHANGE: Authentication API endpoints restructured
+
+# Types: feat, fix, docs, style, refactor, test, chore, ci, perf, revert
+# Use ! after type/scope to indicate breaking changes
+# Keep subject line under 50 characters
+# Use imperative mood: "add" not "added" or "adds"
+# Reference issues and breaking changes in footer

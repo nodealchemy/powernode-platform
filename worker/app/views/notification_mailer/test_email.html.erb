@@ -1,0 +1,25 @@
+<h2>Test Email Successful!</h2>
+
+<p>This is a test email from your Powernode Platform to verify that your email configuration is working correctly.</p>
+
+<div class="success">
+  <strong>✓ Email delivery successful</strong><br>
+  Your email server configuration is working properly.
+</div>
+
+<h3>Configuration Details:</h3>
+<ul>
+  <li><strong>Provider:</strong> <%= @settings[:provider]&.capitalize || 'Not configured' %></li>
+  <li><strong>Timestamp:</strong> <%= @timestamp.strftime('%B %d, %Y at %I:%M %p %Z') %></li>
+  <% if @settings[:smtp_enabled] && @settings[:provider] == 'smtp' %>
+    <li><strong>SMTP Host:</strong> <%= @settings[:smtp_host] %></li>
+    <li><strong>SMTP Port:</strong> <%= @settings[:smtp_port] %></li>
+    <li><strong>Encryption:</strong> <%= @settings[:smtp_encryption]&.upcase || 'None' %></li>
+  <% end %>
+</ul>
+
+<p>If you received this email, your email configuration is working correctly and you can send emails to your users.</p>
+
+<p style="margin-top: 30px;">
+  <em>This is an automated test email. No action is required.</em>
+</p>
