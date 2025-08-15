@@ -70,9 +70,8 @@ export const AuditLogFilters: React.FC<AuditLogFiltersProps> = ({
 
   const statusOptions = ['success', 'warning', 'error'];
 
-  const severityOptions = ['low', 'medium', 'high', 'critical'];
-
-  const riskLevelOptions = ['low', 'medium', 'high', 'critical'];
+  // const severityOptions = ['low', 'medium', 'high', 'critical'];
+  // const riskLevelOptions = ['low', 'medium', 'high', 'critical'];
 
   return (
     <div className="bg-theme-surface rounded-lg border border-theme overflow-hidden">

@@ -5,13 +5,13 @@
 
 set -euo pipefail
 
-WORKER_DIR="/home/rett/Projects/powernode-platform/worker"
+WORKER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/worker"
 SCREEN_SESSION="powernode-worker"
 WEB_SCREEN_SESSION="powernode-worker-web"
 PID_FILE="/var/tmp/powernode-worker.pid"
-LOG_FILE="/home/rett/Projects/powernode-platform/logs/worker.log"
+LOG_FILE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/logs/worker.log"
 WEB_PID_FILE="/var/tmp/powernode-worker-web.pid"
-WEB_LOG_FILE="/home/rett/Projects/powernode-platform/logs/worker-web.log"
+WEB_LOG_FILE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/logs/worker-web.log"
 
 # Load environment variables from .env file
 load_environment() {

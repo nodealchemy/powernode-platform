@@ -7,19 +7,19 @@ interface CreateDelegationModalProps {
   onCreate: (data: any) => void;
 }
 
-interface Account {
-  id: string;
-  name: string;
-  domain?: string;
-}
+// interface Account {
+//   id: string;
+//   name: string;
+//   domain?: string;
+// }
 
-interface User {
-  id: string;
-  email: string;
-  firstName: string;
-  lastName: string;
-  roles: string[];
-}
+// interface User {
+//   id: string;
+//   email: string;
+//   firstName: string;
+//   lastName: string;
+//   roles: string[];
+// }
 
 export const CreateDelegationModal: React.FC<CreateDelegationModalProps> = ({ onClose, onCreate }) => {
   const [step, setStep] = useState(1);

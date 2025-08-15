@@ -6,6 +6,7 @@ interface DateRangePickerProps {
   endDate: Date | null;
   onStartDateChange: (date: Date | null) => void;
   onEndDateChange: (date: Date | null) => void;
+  onRangeChange?: (range: { startDate: Date; endDate: Date }) => void;
   startPlaceholder?: string;
   endPlaceholder?: string;
   dateFormat?: string;
@@ -28,6 +29,7 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
   endDate,
   onStartDateChange,
   onEndDateChange,
+  onRangeChange,
   startPlaceholder = 'Start date',
   endPlaceholder = 'End date',
   dateFormat = 'MM/dd/yyyy',
@@ -117,8 +119,14 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
 
   const handlePresetClick = (preset: DateRangePreset) => {
     const { startDate: newStartDate, endDate: newEndDate } = preset.getDateRange();
-    onStartDateChange(newStartDate);
-    onEndDateChange(newEndDate);
+    
+    if (onRangeChange) {
+      onRangeChange({ startDate: newStartDate, endDate: newEndDate });
+    } else {
+      onStartDateChange(newStartDate);
+      onEndDateChange(newEndDate);
+    }
+    
     setShowCustomInputs(false);
   };
 
@@ -164,21 +172,62 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
     return daysDiff;
   };
 
+  const getActivePreset = () => {
+    if (!startDate || !endDate) return null;
+    
+    return presets.find(preset => {
+      const { startDate: presetStart, endDate: presetEnd } = preset.getDateRange();
+      return (
+        Math.abs(startDate.getTime() - presetStart.getTime()) < 24 * 60 * 60 * 1000 &&
+        Math.abs(endDate.getTime() - presetEnd.getTime()) < 24 * 60 * 60 * 1000
+      );
+    });
+  };
+
+  const activePreset = getActivePreset();
+
   return (
     <div className={`space-y-4 ${className}`}>
+      {/* Selected Date Range Display */}
+      {startDate && endDate && (
+        <div className="bg-theme-interactive-primary bg-opacity-10 border border-theme-interactive-primary rounded-lg p-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-theme-interactive-primary">Selected Range</p>
+              <p className="text-lg font-semibold text-theme-primary">{formatDateRange()}</p>
+              <p className="text-xs text-theme-secondary">
+                {getDaysDifference()} day{getDaysDifference() !== 1 ? 's' : ''}
+              </p>
+            </div>
+            {activePreset && (
+              <span className="px-2 py-1 bg-theme-interactive-primary text-white text-xs rounded-full">
+                {activePreset.label}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
       {showPresets && (
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex flex-wrap gap-2">
-            {presets.map((preset) => (
-              <button
-                key={preset.value}
-                onClick={() => handlePresetClick(preset)}
-                disabled={disabled}
-                className="btn-theme btn-theme-secondary px-3 py-1 text-sm hover:btn-theme-primary transition-all duration-200"
-              >
-                {preset.label}
-              </button>
-            ))}
+            {presets.map((preset) => {
+              const isActive = activePreset?.value === preset.value;
+              return (
+                <button
+                  key={preset.value}
+                  onClick={() => handlePresetClick(preset)}
+                  disabled={disabled}
+                  className={`px-3 py-1 text-sm transition-all duration-200 ${
+                    isActive
+                      ? 'bg-theme-interactive-primary text-white border border-theme-interactive-primary'
+                      : 'btn-theme btn-theme-secondary hover:btn-theme-primary'
+                  }`}
+                >
+                  {preset.label}
+                </button>
+              );
+            })}
             <button
               onClick={() => setShowCustomInputs(!showCustomInputs)}
               disabled={disabled}

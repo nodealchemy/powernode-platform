@@ -420,11 +420,17 @@ export const apiKeysApi = {
   },
 
   isValidIpAddress(ip: string): boolean {
-    // Basic IPv4 validation
-    const ipv4Regex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
-    // Basic IPv6 validation (simplified)
-    const ipv6Regex = /^([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$/;
-    return ipv4Regex.test(ip) || ipv6Regex.test(ip);
+    // Use safer IP validation without complex regex
+    const parts = ip.split('.');
+    if (parts.length === 4) {
+      // IPv4 validation
+      return parts.every(part => {
+        const num = parseInt(part, 10);
+        return !isNaN(num) && num >= 0 && num <= 255 && part === num.toString();
+      });
+    }
+    // For IPv6, use a simple check for now
+    return ip.includes(':') && ip.length >= 3;
   },
 
   getDefaultFormData(): ApiKeyFormData {

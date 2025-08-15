@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { delegationApi, Delegation, DelegationActivity, DELEGATION_PERMISSIONS } from '../../services/delegationApi';
 
 interface DelegationDetailsModalProps {
@@ -29,13 +29,7 @@ export const DelegationDetailsModal: React.FC<DelegationDetailsModalProps> = ({
   const [showAddUsers, setShowAddUsers] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    if (activeTab === 'activity') {
-      loadActivityLog();
-    }
-  }, [activeTab]);
-
-  const loadActivityLog = async () => {
+  const loadActivityLog = useCallback(async () => {
     try {
       setLoading(true);
       const data = await delegationApi.getDelegationActivity(delegation.id);
@@ -45,7 +39,13 @@ export const DelegationDetailsModal: React.FC<DelegationDetailsModalProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [delegation.id]);
+
+  useEffect(() => {
+    if (activeTab === 'activity') {
+      loadActivityLog();
+    }
+  }, [activeTab, loadActivityLog]);
 
   const loadAvailableUsers = async () => {
     try {

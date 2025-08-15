@@ -1,12 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
   Download, 
   Trash2, 
   RefreshCw, 
-  Play, 
-  Pause, 
   Calendar, 
-  Clock, 
   Database, 
   HardDrive, 
   Cpu, 
@@ -21,11 +18,10 @@ import {
   BackupInfo, 
   SystemHealth, 
   CleanupStats, 
-  MaintenanceSchedule,
   SystemMetrics,
   MaintenanceStatus
 } from '../../services/maintenanceApi';
-import { SettingsCard, ToggleSwitch, FormField, Input, Select, StatsCard } from './SettingsComponents';
+import { SettingsCard, ToggleSwitch, FormField, Input } from './SettingsComponents';
 import { useNotification } from '../../hooks/useNotification';
 
 // Maintenance Mode Control Component

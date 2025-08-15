@@ -7,8 +7,11 @@ import { SubscriptionModal } from '../../components/subscription/SubscriptionMod
 import { SubscriptionStatusIndicator } from '../../components/subscription/SubscriptionStatusIndicator';
 import { useSubscriptionLifecycle } from '../../hooks/useSubscriptionLifecycle';
 import { useSubscriptionWebSocket } from '../../hooks/useSubscriptionWebSocket';
+import { useNotification } from '../../hooks/useNotification';
 import { Plan, Subscription } from '../../services/subscriptionService';
 import { subscriptionHistoryApi, SubscriptionHistoryResponse } from '../../services/subscriptionHistoryApi';
+import { PageContainer, PageAction } from '../../components/layout/PageContainer';
+import { RefreshCw, CreditCard } from 'lucide-react';
 
 // Mock plans data until we have a plans API endpoint
 const mockPlans: Plan[] = [
@@ -100,10 +103,10 @@ const mockPlans: Plan[] = [
 
 export const SubscriptionsPage: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
+  const { showNotification } = useNotification();
   const { subscriptions, currentSubscription, availablePlans, loading, error } = useSelector((state: RootState) => state.subscription);
   const [selectedSubscription, setSelectedSubscription] = useState<Subscription | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [notification, setNotification] = useState<string | null>(null);
   const [subscriptionHistory, setSubscriptionHistory] = useState<SubscriptionHistoryResponse | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [showAllHistory, setShowAllHistory] = useState(false);
@@ -160,15 +163,12 @@ export const SubscriptionsPage: React.FC = () => {
     try {
       const result = await dispatch(createSubscription({ planId }));
       if (createSubscription.fulfilled.match(result)) {
-        setNotification('Subscription created successfully!');
-        setTimeout(() => setNotification(null), 3000);
+        showNotification('Subscription created successfully!', 'success');
       } else {
-        setNotification('Failed to create subscription. Please try again.');
-        setTimeout(() => setNotification(null), 3000);
+        showNotification('Failed to create subscription. Please try again.', 'error');
       }
     } catch (error) {
-      setNotification('An error occurred. Please try again.');
-      setTimeout(() => setNotification(null), 3000);
+      showNotification('An error occurred. Please try again.', 'error');
     }
   };
 
@@ -188,16 +188,13 @@ export const SubscriptionsPage: React.FC = () => {
           data: { planId }
         }));
         if (updateSubscription.fulfilled.match(result)) {
-          setNotification('Subscription upgraded successfully!');
+          showNotification('Subscription upgraded successfully!', 'success');
           setIsModalOpen(false);
-          setTimeout(() => setNotification(null), 3000);
         } else {
-          setNotification('Failed to upgrade subscription. Please try again.');
-          setTimeout(() => setNotification(null), 3000);
+          showNotification('Failed to upgrade subscription. Please try again.', 'error');
         }
       } catch (error) {
-        setNotification('An error occurred. Please try again.');
-        setTimeout(() => setNotification(null), 3000);
+        showNotification('An error occurred. Please try again.', 'error');
       }
     }
   };
@@ -206,16 +203,13 @@ export const SubscriptionsPage: React.FC = () => {
     try {
       const result = await dispatch(cancelSubscription(subscriptionId));
       if (cancelSubscription.fulfilled.match(result)) {
-        setNotification('Subscription cancelled successfully.');
+        showNotification('Subscription cancelled successfully.', 'success');
         setIsModalOpen(false);
-        setTimeout(() => setNotification(null), 3000);
       } else {
-        setNotification('Failed to cancel subscription. Please try again.');
-        setTimeout(() => setNotification(null), 3000);
+        showNotification('Failed to cancel subscription. Please try again.', 'error');
       }
     } catch (error) {
-      setNotification('An error occurred. Please try again.');
-      setTimeout(() => setNotification(null), 3000);
+      showNotification('An error occurred. Please try again.', 'error');
     }
   };
 
@@ -260,139 +254,151 @@ export const SubscriptionsPage: React.FC = () => {
   };
 
 
+  const pageActions: PageAction[] = [
+    {
+      id: 'refresh',
+      label: 'Refresh',
+      onClick: () => dispatch(fetchSubscriptions()),
+      variant: 'secondary',
+      icon: RefreshCw,
+      disabled: loading
+    },
+    {
+      id: 'manage-billing',
+      label: 'Manage Billing',
+      onClick: () => window.location.href = '/dashboard/billing',
+      variant: 'primary',
+      icon: CreditCard
+    }
+  ];
+
+  const breadcrumbs = [
+    { label: 'Dashboard', href: '/dashboard', icon: '🏠' },
+    { label: 'Subscriptions', icon: '📋' }
+  ];
+
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-theme-primary">Subscriptions</h1>
-          <p className="text-theme-secondary">
-            Manage your subscription plans and billing settings.
-          </p>
-        </div>
-      </div>
-
-      {/* Notification */}
-      {notification && (
-        <div className={notification.includes('success') ? 'alert-theme alert-theme-success' : 'alert-theme alert-theme-error'}>
-          {notification}
-        </div>
-      )}
-
-      {/* Error Display */}
-      {error && (
-        <div className="alert-theme alert-theme-error">
-          <span className="block sm:inline">{error}</span>
-        </div>
-      )}
-
-      {/* Current Subscription Summary */}
-      {currentSubscription && (
-        <div className="card-theme shadow p-6">
-          <h3 className="text-lg font-medium text-theme-primary mb-4">Current Subscription</h3>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-start">
-            <div>
-              <p className="text-sm text-theme-secondary">Plan</p>
-              <p className="text-lg font-medium text-theme-primary">{currentSubscription.plan.name}</p>
-              <p className="text-sm text-theme-secondary">{formatPrice(currentSubscription.plan.price, currentSubscription.plan.billing_cycle)}</p>
-            </div>
-            <div>
-              <p className="text-sm text-theme-secondary mb-2">Status</p>
-              <SubscriptionStatusIndicator 
-                subscription={currentSubscription} 
-                showDetails={false}
-              />
-            </div>
-            <div>
-              <p className="text-sm text-theme-secondary">
-                {currentSubscription.currentPeriodEnd ? 'Next Billing' : 'Billing'}
-              </p>
-              <p className="text-lg font-medium text-theme-primary">{formatDate(currentSubscription.currentPeriodEnd)}</p>
-              <p className="text-sm text-theme-secondary">
-                {currentSubscription.currentPeriodEnd ? (
-                  `${getDaysUntilExpiry(currentSubscription)} days remaining`
-                ) : (
-                  'Never expires'
-                )}
-              </p>
-            </div>
-            <div>
-              <button
-                onClick={() => {
-                  setSelectedSubscription(currentSubscription);
-                  setIsModalOpen(true);
-                }}
-                className="btn-theme btn-theme-primary"
-              >
-                Manage Subscription
-              </button>
-            </div>
+    <PageContainer
+      title="Subscriptions"
+      description="Manage your subscription plans and billing settings."
+      breadcrumbs={breadcrumbs}
+      actions={pageActions}
+    >
+      <div className="space-y-6">
+        {/* Error Display */}
+        {error && (
+          <div className="alert-theme alert-theme-error">
+            <span className="block sm:inline">{error}</span>
           </div>
-          
-          {/* Enhanced status details for critical states */}
-          {(checkSubscriptionStatus(currentSubscription) === 'trial_ending' || 
-            checkSubscriptionStatus(currentSubscription) === 'expiring') && (
-            <div className="mt-4">
-              <SubscriptionStatusIndicator 
-                subscription={currentSubscription} 
-                showDetails={true}
-              />
-            </div>
-          )}
-        </div>
-      )}
+        )}
 
-      {/* Available Plans */}
-      <div className="card-theme shadow">
-        <div className="px-6 py-4 border-b border-theme">
-          <h3 className="text-lg font-medium text-theme-primary">Available Plans</h3>
-          <p className="text-sm text-theme-secondary mt-1">Choose a plan that best fits your needs</p>
-        </div>
-        <div className="p-6">
-          {loading ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-theme-link"></div>
-              <span className="ml-2 text-theme-secondary">Loading plans...</span>
+        {/* Current Subscription Summary */}
+        {currentSubscription && (
+          <div className="card-theme shadow p-6">
+            <h3 className="text-lg font-medium text-theme-primary mb-4">Current Subscription</h3>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-start">
+              <div>
+                <p className="text-sm text-theme-secondary">Plan</p>
+                <p className="text-lg font-medium text-theme-primary">{currentSubscription.plan.name}</p>
+                <p className="text-sm text-theme-secondary">{formatPrice(currentSubscription.plan.price, currentSubscription.plan.billing_cycle)}</p>
+              </div>
+              <div>
+                <p className="text-sm text-theme-secondary mb-2">Status</p>
+                <SubscriptionStatusIndicator 
+                  subscription={currentSubscription} 
+                  showDetails={false}
+                />
+              </div>
+              <div>
+                <p className="text-sm text-theme-secondary">
+                  {currentSubscription.currentPeriodEnd ? 'Next Billing' : 'Billing'}
+                </p>
+                <p className="text-lg font-medium text-theme-primary">{formatDate(currentSubscription.currentPeriodEnd)}</p>
+                <p className="text-sm text-theme-secondary">
+                  {currentSubscription.currentPeriodEnd ? (
+                    `${getDaysUntilExpiry(currentSubscription)} days remaining`
+                  ) : (
+                    'Never expires'
+                  )}
+                </p>
+              </div>
+              <div>
+                <button
+                  onClick={() => {
+                    setSelectedSubscription(currentSubscription);
+                    setIsModalOpen(true);
+                  }}
+                  className="btn-theme btn-theme-primary"
+                >
+                  Manage Subscription
+                </button>
+              </div>
             </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {availablePlans.filter(plan => plan.isPublic).map((plan) => {
-                const subscription = getSubscriptionForPlan(plan.id);
-                return (
-                  <SubscriptionPlanCard
-                    key={plan.id}
-                    plan={plan}
-                    isActive={!!subscription}
-                    onSubscribe={!subscription ? handleSubscribe : undefined}
-                    onManage={subscription ? handleManagePlan : undefined}
-                    loading={loading}
-                  />
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </div>
+            
+            {/* Enhanced status details for critical states */}
+            {(checkSubscriptionStatus(currentSubscription) === 'trial_ending' || 
+              checkSubscriptionStatus(currentSubscription) === 'expiring') && (
+              <div className="mt-4">
+                <SubscriptionStatusIndicator 
+                  subscription={currentSubscription} 
+                  showDetails={true}
+                />
+              </div>
+            )}
+          </div>
+        )}
 
-      {/* Subscription History Timeline */}
-      <div className="card-theme shadow">
-        <div className="px-6 py-4 border-b border-theme">
-          <div className="flex justify-between items-center">
-            <div>
-              <h3 className="text-lg font-medium text-theme-primary">Subscription History</h3>
-              <p className="text-sm text-theme-secondary mt-1">Track changes to your subscription over time</p>
-            </div>
-            {subscriptionHistory && subscriptionHistory.history.length > 5 && (
-              <button
-                onClick={() => setShowAllHistory(!showAllHistory)}
-                className="text-theme-link hover:text-theme-link-hover text-sm font-medium"
-              >
-                {showAllHistory ? 'Show Less' : `Show All (${subscriptionHistory.total_events})`}
-              </button>
+        {/* Available Plans */}
+        <div className="card-theme shadow">
+          <div className="px-6 py-4 border-b border-theme">
+            <h3 className="text-lg font-medium text-theme-primary">Available Plans</h3>
+            <p className="text-sm text-theme-secondary mt-1">Choose a plan that best fits your needs</p>
+          </div>
+          <div className="p-6">
+            {loading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-theme-link"></div>
+                <span className="ml-2 text-theme-secondary">Loading plans...</span>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {availablePlans.filter(plan => plan.isPublic).map((plan) => {
+                  const subscription = getSubscriptionForPlan(plan.id);
+                  return (
+                    <SubscriptionPlanCard
+                      key={plan.id}
+                      plan={plan}
+                      isActive={!!subscription}
+                      onSubscribe={!subscription ? handleSubscribe : undefined}
+                      onManage={subscription ? handleManagePlan : undefined}
+                      loading={loading}
+                    />
+                  );
+                })}
+              </div>
             )}
           </div>
         </div>
-        <div className="p-6">
+
+        {/* Subscription History Timeline */}
+        <div className="card-theme shadow">
+          <div className="px-6 py-4 border-b border-theme">
+            <div className="flex justify-between items-center">
+              <div>
+                <h3 className="text-lg font-medium text-theme-primary">Subscription History</h3>
+                <p className="text-sm text-theme-secondary mt-1">Track changes to your subscription over time</p>
+              </div>
+              {subscriptionHistory && subscriptionHistory.history.length > 5 && (
+                <button
+                  onClick={() => setShowAllHistory(!showAllHistory)}
+                  className="text-theme-link hover:text-theme-link-hover text-sm font-medium"
+                >
+                  {showAllHistory ? 'Show Less' : `Show All (${subscriptionHistory.total_events})`}
+                </button>
+              )}
+            </div>
+          </div>
+          <div className="p-6">
           {historyLoading ? (
             <div className="flex items-center justify-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-theme-link"></div>
@@ -460,6 +466,7 @@ export const SubscriptionsPage: React.FC = () => {
               </p>
             </div>
           )}
+          </div>
         </div>
       </div>
 
@@ -473,6 +480,6 @@ export const SubscriptionsPage: React.FC = () => {
         onCancel={handleCancel}
         loading={loading}
       />
-    </div>
+    </PageContainer>
   );
 };

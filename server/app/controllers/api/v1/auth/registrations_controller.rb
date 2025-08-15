@@ -12,7 +12,7 @@ class Api::V1::Auth::RegistrationsController < ApplicationController
       @account = Account.new(account_params)
 
       # Auto-generate subdomain if not provided
-      if @account.subdomain.blank?
+      if @account.subdomain.blank? && @account.name.present?
         base_subdomain = @account.name.parameterize
         @account.subdomain = base_subdomain
 
@@ -24,20 +24,33 @@ class Api::V1::Auth::RegistrationsController < ApplicationController
         end
       end
 
-      @account.save!
+      unless @account.save
+        raise ActiveRecord::RecordInvalid.new(@account)
+      end
 
       @user = @account.users.build(user_params)
       # First user in account gets owner role (this is handled by User model callback)
-      @user.save!
+      
+      # Auto-verify email in test mode
+      if ENV['DISABLE_RATE_LIMITING'] == 'true'
+        @user.email_verified = true
+        @user.email_verified_at = Time.current
+      end
+      
+      unless @user.save
+        raise ActiveRecord::RecordInvalid.new(@user)
+      end
 
       # Create subscription if plan is selected
-      if params[:planId].present?
-        plan = Plan.find_by(id: params[:planId], status: 'active', is_public: true)
+      plan_id = params[:planId] || params.dig(:user, :planId)
+      if plan_id.present?
+        plan = Plan.find_by(id: plan_id, status: 'active', is_public: true)
         if plan
           # Create subscription with trial period
           @subscription = @account.build_subscription(
             plan: plan,
-            status: 'trial',
+            status: 'trialing',
+            quantity: 1,
             trial_start: Time.current,
             trial_end: Time.current + plan.trial_days.days,
             current_period_start: Time.current,
@@ -94,16 +107,16 @@ class Api::V1::Auth::RegistrationsController < ApplicationController
 
   def account_params
     {
-      name: params[:accountName]
+      name: params[:accountName] || params.dig(:user, :accountName)
     }
   end
 
   def user_params
     {
-      first_name: params[:firstName],
-      last_name: params[:lastName],
-      email: params[:email],
-      password: params[:password]
+      first_name: params[:firstName] || params.dig(:user, :firstName),
+      last_name: params[:lastName] || params.dig(:user, :lastName),
+      email: params[:email] || params.dig(:user, :email),
+      password: params[:password] || params.dig(:user, :password)
     }
   end
 

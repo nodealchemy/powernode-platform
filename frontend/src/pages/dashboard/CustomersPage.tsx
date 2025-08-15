@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useCustomerWebSocket } from '../../hooks/useCustomerWebSocket';
 import { customersApi } from '../../services/customersApi';
+import { PageContainer, PageAction } from '../../components/layout/PageContainer';
+import { Users } from 'lucide-react';
 
 export const CustomersPage: React.FC = () => {
   const [customers, setCustomers] = useState<any[]>([]);
@@ -150,56 +152,68 @@ export const CustomersPage: React.FC = () => {
     );
   };
 
+  const pageActions: PageAction[] = [
+    {
+      id: 'add-customer',
+      label: 'Add Customer',
+      onClick: () => {
+        // TODO: Implement add customer modal/functionality
+        alert('Add customer functionality coming soon!');
+      },
+      variant: 'primary',
+      icon: Users
+    }
+  ];
+
+  const breadcrumbs = [
+    { label: 'Dashboard', href: '/dashboard', icon: '🏠' },
+    { label: 'Customers', icon: '👥' }
+  ];
+
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-theme-primary">Customers</h1>
-          <p className="text-theme-secondary">
-            Manage your customer accounts and their subscriptions.
-          </p>
-        </div>
-        <button className="btn-theme btn-theme-primary">
-          Add Customer
-        </button>
-      </div>
+    <PageContainer
+      title="Customers"
+      description="Manage your customer accounts and their subscriptions."
+      breadcrumbs={breadcrumbs}
+      actions={pageActions}
+    >
+      <div className="space-y-6">
+        {error && (
+          <div className="alert-theme alert-theme-error">
+            <p className="text-sm">{error}</p>
+          </div>
+        )}
 
-      {error && (
-        <div className="alert-theme alert-theme-error">
-          <p className="text-sm">{error}</p>
-        </div>
-      )}
-
-      {/* Customer Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-6">
+        {/* Customer Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-6">
         <div className="card-theme p-6">
           <h3 className="text-sm font-medium text-theme-secondary">Total Customers</h3>
-          <p className="text-2xl font-bold text-theme-primary">{formatNumber(stats.total_customers)}</p>
+          <p className="text-2xl font-bold text-theme-primary">{formatNumber(stats?.total_customers || 0)}</p>
           <p className="text-xs text-theme-secondary mt-1">All time</p>
         </div>
         <div className="card-theme p-6">
           <h3 className="text-sm font-medium text-theme-secondary">Active Customers</h3>
-          <p className="text-2xl font-bold text-theme-primary">{formatNumber(stats.active_customers)}</p>
+          <p className="text-2xl font-bold text-theme-primary">{formatNumber(stats?.active_customers || 0)}</p>
           <p className="text-xs text-theme-success mt-1">Currently active</p>
         </div>
         <div className="card-theme p-6">
           <h3 className="text-sm font-medium text-theme-secondary">Active Subscriptions</h3>
-          <p className="text-2xl font-bold text-theme-primary">{formatNumber(stats.active_subscriptions)}</p>
+          <p className="text-2xl font-bold text-theme-primary">{formatNumber(stats?.active_subscriptions || 0)}</p>
           <p className="text-xs text-theme-success mt-1">Paying customers</p>
         </div>
         <div className="card-theme p-6">
           <h3 className="text-sm font-medium text-theme-secondary">New This Month</h3>
-          <p className="text-2xl font-bold text-theme-primary">{formatNumber(stats.new_this_month)}</p>
+          <p className="text-2xl font-bold text-theme-primary">{formatNumber(stats?.new_this_month || 0)}</p>
           <p className="text-xs text-theme-info mt-1">New customers</p>
         </div>
         <div className="card-theme p-6">
           <h3 className="text-sm font-medium text-theme-secondary">Total MRR</h3>
-          <p className="text-2xl font-bold text-theme-primary">{customersApi.formatCurrency(stats.total_mrr)}</p>
+          <p className="text-2xl font-bold text-theme-primary">{customersApi.formatCurrency(stats?.total_mrr || 0)}</p>
           <p className="text-xs text-theme-success mt-1">Monthly recurring</p>
         </div>
         <div className="card-theme p-6">
           <h3 className="text-sm font-medium text-theme-secondary">Churn Rate</h3>
-          <p className="text-2xl font-bold text-theme-primary">{stats.churn_rate.toFixed(1)}%</p>
+          <p className="text-2xl font-bold text-theme-primary">{(stats?.churn_rate || 0).toFixed(1)}%</p>
           <p className="text-xs text-theme-secondary mt-1">This month</p>
         </div>
       </div>
@@ -371,6 +385,7 @@ export const CustomersPage: React.FC = () => {
           </table>
         </div>
       </div>
-    </div>
+      </div>
+    </PageContainer>
   );
 };

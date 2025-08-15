@@ -1,8 +1,8 @@
-# This file should ensure the existence of records required to run the application in every environment (production,
-# development, test). The code here should be idempotent so that it can be executed at any point in every environment.
-# The data can then be loaded with the bin/rails db:seed command (or created alongside the database with db:setup).
+# Minimal production seed data
+# This file contains only essential data needed for all environments
+# Additional test data is loaded separately in development/test environments
 
-puts "Seeding Powernode platform..."
+puts "🌱 Seeding Powernode platform..."
 
 # Create basic permissions
 permissions_data = [
@@ -48,7 +48,7 @@ permissions_data.each do |perm_data|
   end
 end
 
-puts "Created #{Permission.count} permissions"
+puts "✅ Permissions created"
 
 # Create system roles
 owner_role = Role.find_or_create_by!(name: 'Owner') do |role|
@@ -73,31 +73,22 @@ owner_role.permissions = Permission.all
 admin_permissions = Permission.where.not(resource: 'accounts', action: 'delete')
 admin_role.permissions = admin_permissions
 
-# Assign basic permissions to Member (including analytics)
+# Assign basic permissions to Member
 member_permissions = Permission.where(
-  resource: [ 'accounts', 'users', 'subscriptions', 'billing', 'analytics' ],
+  resource: ['accounts', 'users', 'subscriptions', 'billing', 'analytics'],
   action: 'read'
 )
 member_role.permissions = member_permissions
 
-# Validate roles were created successfully
-unless owner_role&.persisted? && admin_role&.persisted? && member_role&.persisted?
-  puts "ERROR: Failed to create required system roles. Exiting..."
-  exit(1)
-end
-
-puts "Created #{Role.count} roles:"
-puts "- Owner: #{owner_role.permissions.count} permissions"
-puts "- Admin: #{admin_role.permissions.count} permissions"
-puts "- Member: #{member_role.permissions.count} permissions"
+puts "✅ Created #{Role.count} roles"
 
 # Create default plans
 administrator_plan = Plan.find_or_create_by!(name: 'Administrator') do |plan|
-  plan.description = 'Special plan for system administrators with zero cost and unlimited access'
-  plan.price_cents = 0  # Free
+  plan.description = 'Special plan for system administrators'
+  plan.price_cents = 0
   plan.currency = 'USD'
   plan.billing_cycle = 'monthly'
-  plan.trial_days = 0  # No trial needed
+  plan.trial_days = 0
   plan.features = {
     'dashboard_access' => true,
     'basic_analytics' => true,
@@ -108,35 +99,22 @@ administrator_plan = Plan.find_or_create_by!(name: 'Administrator') do |plan|
     'custom_integrations' => true,
     'dedicated_support' => true,
     'global_analytics' => true,
-    'system_administration' => true,
-    'user_management' => true,
-    'account_management' => true,
-    'billing_management' => true,
-    'platform_monitoring' => true,
-    'security_administration' => true
+    'system_administration' => true
   }
   plan.limits = {
-    'users' => -1,  # unlimited
-    'projects' => -1,  # unlimited
-    'storage_gb' => -1,  # unlimited
-    'api_requests_per_month' => -1,  # unlimited
-    'accounts_managed' => -1,  # unlimited
-    'global_access' => true
+    'users' => -1,
+    'projects' => -1,
+    'storage_gb' => -1,
+    'api_requests_per_month' => -1
   }
-  plan.default_roles = [ 'Admin' ]  # Only Admin role - Owner is assigned automatically to account creators
+  plan.default_roles = ['Admin']
   plan.status = 'active'
-  plan.is_public = false  # Not publicly available, assigned by system admins only
-end
-
-# Update existing Administrator plan if it has invalid roles
-if administrator_plan.default_roles.include?('Owner')
-  puts "Updating Administrator plan default_roles to remove Owner role..."
-  administrator_plan.update!(default_roles: ['Admin'])
+  plan.is_public = false
 end
 
 starter_plan = Plan.find_or_create_by!(name: 'Starter') do |plan|
-  plan.description = 'Perfect for individuals and small teams getting started'
-  plan.price_cents = 999  # $9.99
+  plan.description = 'Perfect for individuals and small teams'
+  plan.price_cents = 999
   plan.currency = 'USD'
   plan.billing_cycle = 'monthly'
   plan.trial_days = 14
@@ -154,14 +132,14 @@ starter_plan = Plan.find_or_create_by!(name: 'Starter') do |plan|
     'storage_gb' => 5,
     'api_requests_per_month' => 0
   }
-  plan.default_roles = [ 'Member' ]
+  plan.default_roles = ['Member']
   plan.status = 'active'
   plan.is_public = true
 end
 
 professional_plan = Plan.find_or_create_by!(name: 'Professional') do |plan|
   plan.description = 'For growing teams with advanced needs'
-  plan.price_cents = 2999  # $29.99
+  plan.price_cents = 2999
   plan.currency = 'USD'
   plan.billing_cycle = 'monthly'
   plan.trial_days = 14
@@ -179,14 +157,14 @@ professional_plan = Plan.find_or_create_by!(name: 'Professional') do |plan|
     'storage_gb' => 50,
     'api_requests_per_month' => 10000
   }
-  plan.default_roles = [ 'Member' ]
+  plan.default_roles = ['Member']
   plan.status = 'active'
   plan.is_public = true
 end
 
 enterprise_plan = Plan.find_or_create_by!(name: 'Enterprise') do |plan|
-  plan.description = 'For large organizations requiring maximum capabilities'
-  plan.price_cents = 9999  # $99.99
+  plan.description = 'For large organizations'
+  plan.price_cents = 9999
   plan.currency = 'USD'
   plan.billing_cycle = 'monthly'
   plan.trial_days = 30
@@ -201,41 +179,24 @@ enterprise_plan = Plan.find_or_create_by!(name: 'Enterprise') do |plan|
     'dedicated_support' => true
   }
   plan.limits = {
-    'users' => -1,  # unlimited
-    'projects' => -1,  # unlimited
+    'users' => -1,
+    'projects' => -1,
     'storage_gb' => 500,
     'api_requests_per_month' => 100000
   }
-  plan.default_roles = [ 'Member' ]
+  plan.default_roles = ['Member']
   plan.status = 'active'
   plan.is_public = true
 end
 
-puts "Created #{Plan.count} plans:"
-puts "- Administrator: $#{administrator_plan.price_cents / 100.0}/month (#{administrator_plan.trial_days} day trial) - Admin Only"
-puts "- Starter: $#{starter_plan.price_cents / 100.0}/month (#{starter_plan.trial_days} day trial)"
-puts "- Professional: $#{professional_plan.price_cents / 100.0}/month (#{professional_plan.trial_days} day trial)"
-puts "- Enterprise: $#{enterprise_plan.price_cents / 100.0}/month (#{enterprise_plan.trial_days} day trial)"
+puts "✅ Created #{Plan.count} plans"
 
-# Validate that all plan default_roles reference existing roles
-puts "\nValidating plan default roles..."
-[administrator_plan, starter_plan, professional_plan, enterprise_plan].each do |plan|
-  invalid_roles = plan.default_roles.reject { |role_name| Role.exists?(name: role_name) }
-  if invalid_roles.any?
-    puts "ERROR: Plan '#{plan.name}' references non-existent roles: #{invalid_roles.join(', ')}"
-    exit(1)
-  else
-    puts "- #{plan.name}: #{plan.default_roles.join(', ')} ✓"
-  end
-end
-
-# Create Admin account and user with Administrator plan
+# Create Admin account and user
 admin_account = Account.find_or_create_by!(name: 'Powernode Administration') do |account|
   account.subdomain = 'admin'
   account.status = 'active'
 end
 
-# Create subscription for admin account with Administrator plan
 admin_subscription = Subscription.find_or_create_by!(account: admin_account) do |subscription|
   subscription.plan = administrator_plan
   subscription.status = 'active'
@@ -244,7 +205,6 @@ admin_subscription = Subscription.find_or_create_by!(account: admin_account) do 
   subscription.trial_end = nil
 end
 
-# Create admin user - ONLY System Administrator gets admin role
 admin_user = User.find_or_create_by!(email: 'admin@powernode.dev') do |user|
   user.account = admin_account
   user.first_name = 'System'
@@ -252,523 +212,392 @@ admin_user = User.find_or_create_by!(email: 'admin@powernode.dev') do |user|
   user.password = 'AdminStrong2024!@#$'
   user.password_confirmation = 'AdminStrong2024!@#$'
   user.status = 'active'
-  user.role = 'admin'  # Only the System Administrator gets admin role
+  user.role = 'admin'
   user.email_verified = true
   user.email_verified_at = Time.current
   user.last_login_at = Time.current
 end
 
-# Ensure admin user has admin role (single role system)
+# Ensure admin role is applied (in case user already exists)
 admin_user.update!(role: 'admin') unless admin_user.role == 'admin'
 
 puts ""
-puts 'Created Admin Account and User:'
-puts "- Account: #{admin_account.name}"
-puts "- Subdomain: #{admin_account.subdomain}"
-puts "- Subscription: #{admin_subscription.plan.name} plan"
-puts "- Admin User: #{admin_user.email}"
-puts '- Admin Password: AdminStrong2024!@#$'
-puts "- Admin Role: #{admin_user.role}"
-puts '- Status: Active'
+puts "✅ Created Admin Account:"
+puts "  - Email: admin@powernode.dev"
+puts '  - Password: AdminStrong2024!@#$'
+puts '  - Plan: Administrator (Free)'
 
-# Create admin service for system administration
-admin_service = Service.find_or_create_by!(name: 'Admin Service') do |service|
-  service.description = 'Administrative service with super admin privileges for system management'
-  service.permissions = 'super_admin'
-  service.status = 'active'
-  service.account = admin_account
-  service.token = Service.generate_secure_token
+# Create one demo customer account
+demo_account = Account.find_or_create_by!(name: 'Demo Company') do |account|
+  account.subdomain = 'demo'
+  account.status = 'active'
+  account.billing_email = 'billing@democompany.com'
+  account.created_at = 30.days.ago
+end
+
+demo_subscription = Subscription.find_or_create_by!(account: demo_account) do |subscription|
+  subscription.plan = professional_plan
+  subscription.status = 'active'
+  subscription.current_period_start = 30.days.ago
+  subscription.current_period_end = 30.days.from_now
+  subscription.trial_end = nil
+end
+
+demo_user = User.find_or_create_by!(email: 'demo@democompany.com') do |user|
+  user.account = demo_account
+  user.first_name = 'Demo'
+  user.last_name = 'User'
+  user.password = 'DemoSecure456!@#$%'
+  user.password_confirmation = 'DemoSecure456!@#$%'
+  user.status = 'active'
+  user.role = 'owner'
+  user.email_verified = true
+  user.email_verified_at = 30.days.ago
+  user.last_login_at = 1.day.ago
+end
+
+# Create a payment method for demo account
+stripe_id = "pm_demo_#{SecureRandom.hex(8)}"
+demo_payment_method = PaymentMethod.find_or_create_by!(
+  account: demo_account,
+  user: demo_user,
+  provider: 'stripe',
+  external_id: stripe_id
+) do |pm|
+  pm.payment_type = 'card'
+  pm.brand = 'visa'
+  pm.last_four = '4242'
+  pm.exp_month = 12
+  pm.exp_year = Date.current.year + 2
+  pm.holder_name = "#{demo_user.first_name} #{demo_user.last_name}"
+  pm.is_default = true
+  pm.metadata = { demo: true }
 end
 
 puts ""
-puts 'Created Admin Service:'
-puts "- Name: #{admin_service.name}"
-puts "- Permissions: #{admin_service.permissions}"
-puts "- Status: #{admin_service.status}"
-puts "- Account: #{admin_service.account.name}"
-puts "- Token: #{admin_service.masked_token}"
-puts "- Full Token: #{admin_service.token}"
+puts "✅ Created Demo Customer Account:"
+puts "  - Email: demo@democompany.com"
+puts '  - Password: DemoSecure456!@#$%'
+puts '  - Plan: Professional ($29.99/month)'
+puts "  - Payment: Visa ending in 4242"
 
-# Create sample customer accounts for demonstration
-puts "\nCreating sample customer accounts..."
+# Create essential pages
+puts "\n📄 Creating essential pages..."
 
-sample_customers = [
-  {
-    account: { name: 'Acme Corporation', subdomain: 'acme', status: 'active' },
-    user: { first_name: 'John', last_name: 'Smith', email: 'john@acme.com' },
-    plan: professional_plan,
-    created_at: 3.months.ago
-  },
-  {
-    account: { name: 'TechStart Inc', subdomain: 'techstart', status: 'active' },
-    user: { first_name: 'Sarah', last_name: 'Johnson', email: 'sarah@techstart.io' },
-    plan: starter_plan,
-    created_at: 2.months.ago
-  },
-  {
-    account: { name: 'Enterprise Solutions LLC', subdomain: 'enterprise-sol', status: 'active' },
-    user: { first_name: 'Michael', last_name: 'Chen', email: 'michael@enterprisesol.com' },
-    plan: enterprise_plan,
-    created_at: 4.months.ago
-  },
-  {
-    account: { name: 'StartupHub', subdomain: 'startuphub', status: 'active' },
-    user: { first_name: 'Emily', last_name: 'Rodriguez', email: 'emily@startuphub.co' },
-    plan: professional_plan,
-    created_at: 1.month.ago
-  },
-  {
-    account: { name: 'Digital Innovations', subdomain: 'digital-inn', status: 'active' },
-    user: { first_name: 'David', last_name: 'Wilson', email: 'david@digitalinn.net' },
-    plan: starter_plan,
-    created_at: 6.weeks.ago
-  },
-  {
-    account: { name: 'Global Tech Partners', subdomain: 'globaltech', status: 'active' },
-    user: { first_name: 'Lisa', last_name: 'Anderson', email: 'lisa@globaltech.com' },
-    plan: enterprise_plan,
-    created_at: 5.months.ago
-  },
-  {
-    account: { name: 'InnovateLab', subdomain: 'innovatelab', status: 'suspended' },
-    user: { first_name: 'Robert', last_name: 'Taylor', email: 'robert@innovatelab.org' },
-    plan: professional_plan,
-    created_at: 2.months.ago
-  },
-  {
-    account: { name: 'CloudFirst Systems', subdomain: 'cloudfirst', status: 'active' },
-    user: { first_name: 'Jennifer', last_name: 'Brown', email: 'jennifer@cloudfirst.io' },
-    plan: starter_plan,
-    created_at: 3.weeks.ago
-  },
-  {
-    account: { name: 'DevTeam Solutions', subdomain: 'devteam', status: 'active' },
-    user: { first_name: 'Alex', last_name: 'Thompson', email: 'alex@devteam.co' },
-    plan: professional_plan,
-    created_at: 5.weeks.ago,
-    additional_users: [
-      { first_name: 'Sam', last_name: 'Miller', email: 'sam@devteam.co', role: 'member' }
-    ]
-  }
-]
-
-sample_customers.each_with_index do |customer_data, index|
-  account_attrs = customer_data[:account].merge(created_at: customer_data[:created_at])
-  user_attrs = customer_data[:user]
-  plan = customer_data[:plan]
-  
-  # Create account
-  account = Account.find_or_create_by!(subdomain: account_attrs[:subdomain]) do |acc|
-    acc.name = account_attrs[:name]
-    acc.status = account_attrs[:status]
-    acc.created_at = account_attrs[:created_at]
-    acc.updated_at = account_attrs[:created_at]
-  end
-  
-  # Create subscription
-  subscription = Subscription.find_or_create_by!(account: account) do |sub|
-    sub.plan = plan
-    sub.status = account_attrs[:status] == 'suspended' ? 'canceled' : 'active'
-    sub.current_period_start = account_attrs[:created_at]
-    sub.current_period_end = account_attrs[:created_at] + 1.month
-    sub.trial_end = account_attrs[:created_at] + plan.trial_days.days if plan.trial_days > 0
-    sub.created_at = account_attrs[:created_at]
-    sub.updated_at = account_attrs[:created_at]
-  end
-  
-  # Create primary user (owner)
-  email = user_attrs[:email]
-  user = User.find_or_create_by!(email: email) do |u|
-    u.account = account
-    u.first_name = user_attrs[:first_name]
-    u.last_name = user_attrs[:last_name]
-    u.password = 'CustomerPass2024!@#$'
-    u.password_confirmation = 'CustomerPass2024!@#$'
-    u.status = 'active'
-    # Set role - first user becomes owner, others become member
-    u.role = account.users.count == 0 ? 'owner' : 'member'
-    u.email_verified = true
-    u.email_verified_at = account_attrs[:created_at] + 1.day
-    u.last_login_at = account_attrs[:created_at] + rand(1..30).days
-    u.created_at = account_attrs[:created_at]
-    u.updated_at = account_attrs[:created_at] + rand(1..10).days
-  end
-  
-  puts "  Created: #{account.name} - #{user.full_name} (#{user.email}) - #{plan.name} (owner)"
-  
-  # Create additional users if specified
-  if customer_data[:additional_users]
-    customer_data[:additional_users].each do |additional_user_attrs|
-      additional_email = additional_user_attrs[:email]
-      additional_user = User.find_or_create_by!(email: additional_email) do |u|
-        u.account = account
-        u.first_name = additional_user_attrs[:first_name]
-        u.last_name = additional_user_attrs[:last_name]
-        u.password = 'CustomerPass2024!@#$'
-        u.password_confirmation = 'CustomerPass2024!@#$'
-        u.status = 'active'
-        u.role = additional_user_attrs[:role] || 'member'
-        u.email_verified = true
-        u.email_verified_at = account_attrs[:created_at] + 2.days
-        u.last_login_at = account_attrs[:created_at] + rand(1..25).days
-        u.created_at = account_attrs[:created_at] + 1.day
-        u.updated_at = account_attrs[:created_at] + rand(2..12).days
-      end
-      
-      puts "    Added user: #{additional_user.full_name} (#{additional_user.email}) - #{additional_user.role}"
-    end
-  end
-end
-
-puts "\nCreated #{sample_customers.count} sample customer accounts"
-
-# Create some sample invoices and payments for demonstration
-puts "\nCreating sample billing data..."
-
-Account.joins(:subscription)
-       .joins(subscription: :plan)
-       .where.not(subscriptions: { plan: administrator_plan })
-       .where('plans.price_cents > 0').each do |account|
-  subscription = account.subscription
-  plan = subscription.plan
-  
-  # Create 2-3 historical invoices
-  (2..3).to_a.sample.times do |i|
-    invoice_date = account.created_at + i.months
-    next if invoice_date > Time.current
-    
-    invoice = Invoice.find_or_create_by!(
-      subscription: subscription,
-      invoice_number: "INV-#{account.id.to_s.last(4)}-#{invoice_date.strftime('%Y%m')}-#{i + 1}"
-    ) do |inv|
-      inv.due_date = invoice_date + 7.days
-      inv.status = ['draft', 'open', 'paid'].sample
-      inv.subtotal_cents = plan.price_cents
-      inv.tax_rate = 0.08
-      inv.tax_cents = (plan.price_cents * inv.tax_rate).round
-      inv.total_cents = inv.subtotal_cents + inv.tax_cents
-      inv.currency = plan.currency
-      inv.created_at = invoice_date
-      inv.updated_at = invoice_date
-    end
-    
-    # Create line item
-    InvoiceLineItem.find_or_create_by!(
-      invoice: invoice,
-      description: "#{plan.name} Plan Subscription"
-    ) do |item|
-      item.quantity = 1
-      item.unit_price_cents = plan.price_cents
-      item.total_cents = plan.price_cents
-      item.period_start = invoice_date
-      item.period_end = invoice_date + 1.month
-    end
-    
-    # Create payment if invoice is paid and has positive amount
-    if invoice.status == 'paid' && invoice.total_cents > 0
-      Payment.find_or_create_by!(
-        invoice: invoice
-      ) do |payment|
-        payment.amount_cents = invoice.total_cents
-        payment.currency = invoice.currency
-        payment.status = 'succeeded'
-        payment.payment_method = 'stripe_card'
-        payment.metadata = {
-          'gateway_transaction_id' => "ch_#{SecureRandom.hex(12)}",
-          'payment_method' => 'card',
-          'last_four' => '4242'
-        }
-        payment.processed_at = invoice_date + rand(1..5).days
-        payment.created_at = payment.processed_at
-        payment.updated_at = payment.processed_at
-      end
-    end
-  end
-end
-
-invoice_count = Invoice.count
-payment_count = Payment.count
-puts "  Created #{invoice_count} invoices and #{payment_count} payments"
-
-# Create sample webhook events
-puts "\nCreating sample webhook events..."
-
-WebhookEvent.find_or_create_by!(external_id: 'evt_test_stripe_001') do |webhook|
-  webhook.provider = 'stripe'
-  webhook.event_type = 'payment_intent.succeeded'
-  webhook.account = Account.joins(:subscription).where.not(subscriptions: { plan: administrator_plan }).first
-  webhook.payload = {
-    id: 'evt_test_stripe_001',
-    object: 'event',
-    api_version: '2023-10-16',
-    created: 1.week.ago.to_i,
-    type: 'payment_intent.succeeded',
-    data: {
-      object: {
-        id: 'pi_test_001',
-        amount: 2999,
-        currency: 'usd',
-        status: 'succeeded'
-      }
-    }
-  }.to_json
-  webhook.status = 'processed'
-  webhook.processed_at = 1.week.ago
-  webhook.retry_count = 0
-end
-
-WebhookEvent.find_or_create_by!(external_id: 'evt_test_paypal_001') do |webhook|
-  webhook.provider = 'paypal'
-  webhook.event_type = 'PAYMENT.SALE.COMPLETED'
-  webhook.account = Account.joins(:subscription).where.not(subscriptions: { plan: administrator_plan }).second
-  webhook.payload = {
-    id: 'WH-2WR32451HC0233532-67976317FL4543714',
-    event_type: 'PAYMENT.SALE.COMPLETED',
-    create_time: 1.week.ago.iso8601,
-    resource_type: 'sale',
-    resource: {
-      id: '8RS20933LY1826041',
-      amount: { total: '9.99', currency: 'USD' },
-      state: 'completed'
-    }
-  }.to_json
-  webhook.status = 'processed'
-  webhook.processed_at = 1.week.ago
-  webhook.retry_count = 0
-end
-
-# Create sample revenue snapshots
-puts "\nCreating sample revenue snapshots..."
-
-# Global revenue snapshots for last 6 months
-6.times do |i|
-  snapshot_date = (i + 1).months.ago.beginning_of_month
-  
-  # Calculate metrics based on existing data at that time
-  mrr_amount = ((i + 1) * 50000) + rand(10000) # Growing MRR
-  active_subs = 10 + (i * 2) # Growing subscription count
-  
-  RevenueSnapshot.find_or_create_by!(account: nil, snapshot_date: snapshot_date) do |snapshot|
-    snapshot.mrr_cents = mrr_amount
-    snapshot.arr_cents = mrr_amount * 12
-    snapshot.active_subscriptions = active_subs
-    snapshot.new_subscriptions = rand(1..3)
-    snapshot.churned_subscriptions = rand(0..1)
-    snapshot.add_metadata('growth_rate', rand(5.0..15.0).round(2))
-    snapshot.add_metadata('customer_churn_rate', rand(2.0..8.0).round(2))
-    snapshot.add_metadata('revenue_churn_rate', rand(1.0..5.0).round(2))
-  end
-end
-
-# Account-specific revenue snapshots for top customers
-Account.joins(:subscription)
-       .joins(subscription: :plan)
-       .where.not(subscriptions: { plan: administrator_plan })
-       .limit(3).each do |account|
-  subscription = account.subscription
-  plan = subscription.plan
-  
-  3.times do |i|
-    snapshot_date = (i + 1).months.ago.beginning_of_month
-    next if snapshot_date < account.created_at
-    
-    RevenueSnapshot.find_or_create_by!(account: account, snapshot_date: snapshot_date) do |snapshot|
-      snapshot.mrr_cents = plan.price_cents
-      snapshot.arr_cents = plan.price_cents * 12
-      snapshot.active_subscriptions = 1
-      snapshot.new_subscriptions = i == 2 ? 1 : 0 # New in first snapshot
-      snapshot.churned_subscriptions = 0
-      snapshot.add_metadata('account_specific', true)
-    end
-  end
-end
-
-# Create sample pages
-puts "\nCreating sample pages..."
-
-pages_data = [
+essential_pages = [
   {
     title: 'Welcome to Powernode',
     slug: 'welcome',
-    content: "# Welcome to Powernode\n\nYour comprehensive subscription management and billing platform is ready to help you grow your business.\n\n## What is Powernode?\n\nPowernode is a powerful subscription management platform designed to automate your billing processes, handle payment processing, and provide deep insights into your subscription business.\n\n## Key Features\n\n### 📊 **Comprehensive Analytics**\n- Monthly and Annual Recurring Revenue (MRR/ARR) tracking\n- Customer churn analysis and cohort reporting\n- Revenue growth and customer lifetime value metrics\n- Real-time dashboard with business insights\n\n### 💳 **Payment Processing**\n- Integrated Stripe and PayPal payment gateways\n- Automated recurring billing and invoicing\n- Smart dunning management for failed payments\n- Multiple payment method support\n\n### 👥 **Account Management**\n- Multi-user accounts with role-based permissions\n- Account delegation and team collaboration\n- Invitation system for new team members\n- Flexible subscription plan management\n\n### 🔧 **Developer Tools**\n- RESTful API for seamless integrations\n- Webhook support for real-time notifications\n- Background job processing with Sidekiq\n- Comprehensive audit logging\n\n## Getting Started\n\n### For New Users\n1. **Sign Up**: Choose from our flexible subscription plans\n2. **Configure**: Set up your account preferences and payment methods\n3. **Integrate**: Use our API or web interface to manage subscriptions\n4. **Grow**: Monitor your metrics and optimize your subscription business\n\n### For Administrators\n- Access the **Administration** panel for system-wide management\n- Configure plans, manage users, and monitor platform health\n- Set up payment gateways and webhook endpoints\n- Review analytics across all customer accounts\n\n## Quick Links\n\n- 📈 [View Dashboard](/dashboard) - See your key metrics at a glance\n- ⚙️ [Account Settings](/account) - Manage your account preferences\n- 💰 [Subscription Plans](/plans) - Browse available plans\n- 📚 [API Documentation](/pages/api-docs) - Integrate with our platform\n- 🔒 [Privacy Policy](/pages/privacy-policy) - Learn about data protection\n- 📋 [Terms of Service](/pages/terms-of-service) - Review our service terms\n\n## Need Help?\n\nOur platform is designed to be intuitive, but we're here to help if you need assistance:\n\n- **System Status**: Monitor platform health in real-time\n- **Support**: Contact our team for technical assistance\n- **Documentation**: Comprehensive guides for all features\n\n---\n\n**Ready to get started?** [Sign up for an account](/signup) or [log in](/login) to access your dashboard.\n\nWelcome to the future of subscription management! 🚀",
-    status: 'published',
-    meta_description: 'Welcome to Powernode - your comprehensive subscription management and billing platform. Get started with automated billing, analytics, and payment processing.',
-    meta_keywords: 'subscription management, billing platform, recurring revenue, payment processing, analytics'
-  },
-  {
-    title: 'Privacy Policy',
-    slug: 'privacy-policy',
-    content: '# Privacy Policy\n\nThis privacy policy describes how we collect, use, and protect your personal information...\n\n## Data Collection\n\nWe collect information you provide directly to us, such as when you create an account...\n\n## Data Usage\n\nWe use the information we collect to provide, maintain, and improve our services...',
-    status: 'published',
-    meta_description: 'Learn about our privacy practices and how we protect your personal information.',
-    meta_keywords: 'privacy policy, data protection, personal information'
+    content: '# 🚀 **Powernode** - Subscription Superpowers for Modern Businesses
+
+## **Transform Your Business with the Ultimate Subscription Platform**
+
+### 💡 **One Platform. Infinite Possibilities.**
+
+Stop juggling multiple tools. Powernode brings **everything** you need to launch, manage, and scale your subscription business into one powerful, intuitive platform.
+
+---
+
+## 🎯 **Why Industry Leaders Choose Powernode**
+
+### **📈 350% Average Revenue Growth**
+Our customers see explosive growth within their first year. Join thousands of businesses that have transformed their revenue models with Powernode.
+
+### **⚡ Launch in Minutes, Not Months**
+Pre-built components, instant payment processing, and automated workflows mean you can start accepting subscriptions today.
+
+### **🛡️ Enterprise-Grade Security**
+Bank-level encryption, PCI DSS compliance, and SOC 2 certification keep your business and customers protected.
+
+---
+
+## ✨ **Features That Set You Apart**
+
+### **💳 Seamless Payment Processing**
+- **Stripe & PayPal** integration out of the box
+- Support for **25+ currencies** and **135+ countries**
+- Smart retry logic reduces failed payments by **38%**
+- Automated dunning recovers **up to 15%** of failed charges
+
+### **📊 Real-Time Analytics Dashboard**
+- Track **MRR, ARR, LTV, and Churn** at a glance
+- Customer cohort analysis and retention insights
+- Revenue forecasting with **95% accuracy**
+- Export-ready reports for investors and stakeholders
+
+### **🎨 Flexible Subscription Models**
+- **Flat-rate, tiered, per-seat, and usage-based** pricing
+- Free trials, freemium, and hybrid models
+- Proration and mid-cycle plan changes
+- Grandfather pricing and custom discounts
+
+### **🤝 Customer Self-Service Portal**
+- Branded customer experience
+- One-click upgrades and downgrades
+- Invoice history and payment method management
+- Pause and resume subscriptions
+
+### **🔧 Developer-First API**
+- RESTful API with **99.99% uptime SLA**
+- Webhooks for real-time events
+- SDKs for popular languages
+- Comprehensive API documentation
+
+### **👥 Team Collaboration**
+- Role-based access control (RBAC)
+- Multi-account management
+- Activity logs and audit trails
+- Team performance metrics
+
+---
+
+## 📈 **By the Numbers**
+
+### **The Powernode Impact**
+
+- **$2.3B+** Total payment volume processed
+- **12M+** Active subscriptions managed
+- **99.99%** Platform uptime guarantee
+- **4.8/5** Average customer satisfaction score
+- **<100ms** Average API response time
+- **45%** Reduction in operational costs
+
+---
+
+## 💬 **What Our Customers Say**
+
+> "**Powernode transformed our business model.** We went from one-time sales to predictable recurring revenue in just 3 months. Revenue is up 400% year-over-year."
+> 
+> — **Sarah Chen**, CEO at TechStart
+
+> "The analytics alone are worth it. **We discovered revenue opportunities we never knew existed.** Powernode paid for itself in the first week."
+> 
+> — **Michael Rodriguez**, Head of Growth at ScaleUp Inc
+
+> "**Migration was seamless.** The team helped us move 50,000 subscribers without a single minute of downtime. Incredible."
+> 
+> — **Jennifer Park**, CTO at Enterprise Solutions
+
+---
+
+## 💎 **Choose Your Growth Path**
+
+### **🌱 Starter** - *$9.99/month*
+Perfect for launching your subscription business
+- Up to 100 subscribers
+- Core analytics dashboard
+- Email support
+- 2.9% + 30¢ per transaction
+
+### **🚀 Professional** - *$29.99/month*
+Scale with confidence
+- Up to 2,500 subscribers
+- Advanced analytics & cohorts
+- Priority support
+- API access
+- 2.5% + 30¢ per transaction
+
+### **🏢 Enterprise** - *$99.99/month*
+Unlimited growth potential
+- Unlimited subscribers
+- Custom integrations
+- Dedicated account manager
+- White-label options
+- Volume-based pricing
+
+### **✨ All Plans Include:**
+- ✅ Zero setup fees
+- ✅ 14-day free trial
+- ✅ No credit card required
+- ✅ Cancel anytime
+- ✅ Free migration assistance
+
+---
+
+## 🎬 **See Powernode in Action**
+
+### **Join a Live Demo Every Tuesday & Thursday**
+Watch how leading companies use Powernode to accelerate growth. See real dashboards, live integrations, and get your questions answered.
+
+**[Reserve Your Spot →](/demo)**
+
+---
+
+## 🏆 **Trusted by Industry Leaders**
+
+Companies of all sizes trust Powernode to power their subscription business:
+
+**TechCrunch** • **Forbes** • **Gartner** • **Y Combinator** • **500 Startups**
+
+"*Best Subscription Platform 2024*" - SaaS Awards
+
+"*Top 10 Fintech Innovation*" - Finance Weekly
+
+"*Customer Choice Award*" - G2 Crowd
+
+---
+
+## 🚀 **Ready to Transform Your Business?**
+
+### **Join 10,000+ companies already growing with Powernode**
+
+Every second counts. While you read this, businesses using Powernode are:
+- Processing **$2,847** in recurring revenue
+- Onboarding **14 new subscribers**
+- Saving **3.2 hours** of manual work
+
+### **🎯 Start Your Success Story Today**
+
+**[Start Free Trial](/register)** • **[View Plans](/plans)** • **[Schedule Demo](/demo)**
+
+---
+
+## 💡 **Still Have Questions?**
+
+### **📚 Resources**
+- [Getting Started Guide](/getting-started)
+- [API Documentation](/api-docs)
+- [Video Tutorials](/tutorials)
+- [Success Stories](/case-studies)
+
+### **🤝 We\'re Here to Help**
+- 24/7 Live Chat Support
+- Expert onboarding team
+- Dedicated success managers
+- Active community forum
+
+### **📧 Contact Sales**
+Enterprise needs? Custom requirements? Let\'s talk.
+
+**[Contact Our Team](/contact)** • **sales@powernode.dev** • **1-800-POWER-UP**
+
+---
+
+## 🌟 **The Future of Subscriptions Starts Here**
+
+Don\'t let another day pass with unpredictable revenue. Join the subscription revolution and build the recurring revenue business you\'ve always dreamed of.
+
+**It\'s time to power up with Powernode.**
+
+**[🚀 Start Your Free Trial Now](/register)**
+
+*No credit card required • Setup in 5 minutes • Cancel anytime*
+
+---
+
+*© 2025 Powernode. Empowering subscription businesses worldwide.*',
+    status: 'published'
   },
   {
     title: 'Terms of Service',
-    slug: 'terms-of-service', 
-    content: '# Terms of Service\n\nBy using our service, you agree to these terms...\n\n## Acceptance of Terms\n\nBy accessing and using this service, you accept and agree to be bound by the terms...\n\n## Service Description\n\nOur platform provides subscription management and billing services...',
-    status: 'published',
-    meta_description: 'Read our terms of service and understand your rights and responsibilities.',
-    meta_keywords: 'terms of service, legal agreement, user agreement'
+    slug: 'terms',
+    content: '# Terms of Service
+
+Last updated: ' + Date.current.strftime('%B %d, %Y') + '
+
+These Terms of Service govern your use of the Powernode platform.
+
+## 1. Acceptance of Terms
+
+By accessing or using Powernode, you agree to be bound by these Terms.
+
+## 2. Use of Service
+
+You may use Powernode only for lawful purposes and in accordance with these Terms.
+
+## 3. Account Registration
+
+You must provide accurate and complete information when creating an account.
+
+## 4. Subscription and Billing
+
+Subscription fees are billed in advance on a monthly or annual basis.
+
+## 5. Privacy
+
+Your use of Powernode is also governed by our Privacy Policy.',
+    status: 'published'
   },
   {
-    title: 'API Documentation',
-    slug: 'api-docs',
-    content: '# API Documentation\n\nWelcome to our API documentation...\n\n## Authentication\n\nAll API requests require authentication using JWT tokens...\n\n## Endpoints\n\n### Accounts\n\n- `GET /api/v1/accounts` - List accounts\n- `POST /api/v1/accounts` - Create account',
-    status: 'published',
-    meta_description: 'Complete API documentation for developers integrating with our platform.',
-    meta_keywords: 'API documentation, developers, integration, endpoints'
-  },
-  {
-    title: 'Getting Started Guide',
-    slug: 'getting-started',
-    content: '# Getting Started with Powernode\n\nWelcome to Powernode! This guide will help you set up your account...\n\n## Step 1: Create Account\n\nStart by creating your account and choosing a plan...\n\n## Step 2: Configure Settings\n\nCustomize your account settings and preferences...',
-    status: 'draft',
-    meta_description: 'Learn how to get started with Powernode platform.',
-    meta_keywords: 'getting started, tutorial, setup guide'
+    title: 'Privacy Policy',
+    slug: 'privacy',
+    content: '# Privacy Policy
+
+Last updated: ' + Date.current.strftime('%B %d, %Y') + '
+
+Powernode respects your privacy and is committed to protecting your personal data.
+
+## Information We Collect
+
+We collect information you provide directly to us, such as when you create an account.
+
+## How We Use Your Information
+
+We use the information to provide, maintain, and improve our services.
+
+## Data Security
+
+We implement appropriate security measures to protect your personal information.
+
+## Contact Us
+
+If you have questions about this Privacy Policy, please contact us.',
+    status: 'published'
   }
 ]
 
-pages_data.each do |page_data|
+essential_pages.each do |page_data|
   Page.find_or_create_by!(slug: page_data[:slug]) do |page|
     page.title = page_data[:title]
     page.content = page_data[:content]
     page.status = page_data[:status]
-    page.meta_description = page_data[:meta_description]
-    page.meta_keywords = page_data[:meta_keywords]
-    page.author = admin_user
-    page.published_at = page_data[:status] == 'published' ? 1.month.ago : nil
+    page.author_id = admin_user.id
+    page.published_at = Time.current
   end
 end
 
-# Create sample payment methods for customers
-puts "\nCreating sample payment methods..."
+puts "✅ Created #{essential_pages.count} essential pages"
 
-Account.joins(:subscription)
-       .joins(subscription: :plan)
-       .where.not(subscriptions: { plan: administrator_plan })
-       .limit(5).each do |account|
-  primary_user = account.users.first
-  
-  # Create a credit card payment method
-  PaymentMethod.find_or_create_by!(account: account, user: primary_user, external_id: "pm_card_#{account.id}") do |pm|
-    pm.provider = 'stripe'
-    pm.payment_type = 'card'
-    pm.last_four = ['4242', '1234', '5678', '9999'].sample
-    pm.brand = ['visa', 'mastercard', 'amex'].sample
-    pm.exp_month = rand(1..12)
-    pm.exp_year = rand(2025..2028)
-    pm.is_default = true
-  end
-  
-  # Some accounts have PayPal as well
-  if rand < 0.3
-    PaymentMethod.find_or_create_by!(account: account, user: primary_user, external_id: "pp_account_#{account.id}") do |pm|
-      pm.provider = 'paypal'
-      pm.payment_type = 'paypal'
-      pm.is_default = false
-    end
+# Create System Worker (Global - used by Sidekiq worker component)
+puts "\n🤖 Creating global system worker..."
+
+system_worker = Worker.find_or_create_by!(
+  role: 'system'
+) do |worker|
+  worker.account = admin_account
+  worker.name = 'Powernode System Worker'
+  worker.description = 'Global system worker for application background job processing and system tasks'
+  worker.permissions = 'super_admin'
+  worker.status = 'active'
+  # Token will be automatically generated by the before_create callback
+end
+
+puts "✅ Created System Worker:"
+puts "  - Name: #{system_worker.name}"
+puts "  - Role: #{system_worker.role}"
+puts "  - Permissions: #{system_worker.permissions}"
+puts "  - Token: #{system_worker.masked_token}"
+puts "  - Account: #{system_worker.account.name}"
+
+# Load comprehensive test data in development and test environments
+if Rails.env.development? || Rails.env.test?
+  test_data_file = Rails.root.join('db', 'seeds', 'test_data.rb')
+  if File.exist?(test_data_file)
+    puts "\n📦 Loading test data for #{Rails.env} environment..."
+    load test_data_file
+  else
+    puts "\n⚠️  Test data file not found at db/seeds/test_data.rb"
+    puts "  Run 'rails db:seed:test_data' to generate comprehensive test data"
   end
 end
 
-# Create sample account delegations
-puts "\nCreating sample account delegations..."
-
-# Create a few additional users that can be delegated to
-delegated_users_data = [
-  { first_name: 'Alex', last_name: 'Johnson', email: 'alex@example.com' },
-  { first_name: 'Maria', last_name: 'Garcia', email: 'maria@consultant.com' },
-  { first_name: 'Tom', last_name: 'Wilson', email: 'tom@contractor.net' }
-]
-
-delegated_users = []
-delegated_users_data.each do |user_data|
-  user = User.find_or_create_by!(email: user_data[:email]) do |u|
-    u.account = admin_account # These users belong to admin account but can be delegated
-    u.first_name = user_data[:first_name]
-    u.last_name = user_data[:last_name]
-    u.password = 'DelegatedUser2024!@#$'
-    u.password_confirmation = 'DelegatedUser2024!@#$'
-    u.status = 'active'
-    u.role = 'admin' # Assign admin role since they belong to admin account
-    u.email_verified = true
-    u.email_verified_at = 1.month.ago
-  end
-  
-  # Assign admin role to delegated users (they belong to admin account with Administrator plan)
-  user.update!(role: 'admin') unless user.role == 'admin'
-  
-  delegated_users << user
-end
-
-# Create some delegations
-enterprise_accounts = Account.joins(:subscription)
-                            .joins(subscription: :plan)
-                            .where(subscriptions: { plan: enterprise_plan })
-                            .limit(2)
-
-# Create delegations with different roles for testing (using single role strings)
-delegation_configs = [
-  { role: 'admin', expires_months: 6, notes: 'Full administrative access for consultant' },
-  { role: 'member', expires_months: 3, notes: 'Limited access for temporary project work' },
-  { role: 'admin', expires_months: 12, notes: 'Long-term administrative delegation' }
-]
-
-enterprise_accounts.each_with_index do |account, index|
-  break if index >= delegated_users.count
-
-  delegated_user = delegated_users[index]
-  delegator = account.users.first
-  config = delegation_configs[index] || delegation_configs.first
-  
-  AccountDelegation.find_or_create_by!(account: account, delegated_user: delegated_user, delegated_by: delegator) do |delegation|
-    delegation.role = config[:role]
-    delegation.status = 'active'
-    delegation.expires_at = config[:expires_months].months.from_now
-    delegation.notes = config[:notes]
-  end
-  
-  puts "  Created delegation: #{account.name} -> #{delegated_user.email} (#{config[:role]})"
-end
-
-# Create sample gateway configurations (using fake values for demo)
-puts "\nCreating sample gateway configurations..."
-
-GatewayConfiguration.set_config('stripe', 'publishable_key', 'pk_test_demo_key_for_development')
-GatewayConfiguration.set_config('stripe', 'secret_key', 'sk_test_demo_secret_for_development')
-GatewayConfiguration.set_config('stripe', 'endpoint_secret', 'whsec_demo_endpoint_secret')
-GatewayConfiguration.set_config('stripe', 'webhook_tolerance', '300')
-
-GatewayConfiguration.set_config('paypal', 'client_id', 'demo_paypal_client_id')
-GatewayConfiguration.set_config('paypal', 'client_secret', 'demo_paypal_client_secret')
-GatewayConfiguration.set_config('paypal', 'webhook_id', 'demo_webhook_id')
-GatewayConfiguration.set_config('paypal', 'mode', 'sandbox')
-
-puts "\nSeeding completed!"
-puts "\nSample Data Summary:"
-puts "- Total Accounts: #{Account.count}"
-puts "- Total Users: #{User.count}"
-puts "- Total Subscriptions: #{Subscription.count}"
-puts "- Total Invoices: #{Invoice.count}"
-puts "- Total Payments: #{Payment.count}"
-puts "- Total Webhook Events: #{WebhookEvent.count}"
-puts "- Total Revenue Snapshots: #{RevenueSnapshot.count}"
-puts "- Total Pages: #{Page.count}"
-puts "- Total Payment Methods: #{PaymentMethod.count}"
-puts "- Total Account Delegations: #{AccountDelegation.count}"
-puts "- Total Gateway Configurations: #{GatewayConfiguration.count}"
-
-# Final validation: Ensure all users have a role
-puts "\nValidating all users have roles..."
-users_without_roles = User.where(role: [nil, ''])
-if users_without_roles.exists?
-  puts "ERROR: Found #{users_without_roles.count} users without roles:"
-  users_without_roles.each do |user|
-    puts "  - #{user.email} (#{user.account.name})"
-    # Assign member role as fallback
-    user.update!(role: 'member')
-    puts "    -> Assigned member role as fallback"
-  end
-else
-  puts "✅ All #{User.count} users have a role assigned"
-end
+puts "\n✨ Seeding completed successfully!"
+puts ""
+puts "Summary:"
+puts "  - Permissions: #{Permission.count}"
+puts "  - Roles: #{Role.count}"
+puts "  - Plans: #{Plan.count}"
+puts "  - Accounts: #{Account.count}"
+puts "  - Users: #{User.count}"
+puts "  - Subscriptions: #{Subscription.count}"
+puts "  - Workers: #{Worker.count}"

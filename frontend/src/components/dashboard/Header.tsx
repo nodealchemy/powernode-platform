@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { User } from '../../store/slices/authSlice';
 import { WebSocketStatusIndicator } from '../common/WebSocketStatusIndicator';
 import { ThemeToggle } from '../common/ThemeToggle';
-import { NotificationContainer } from '../common/NotificationContainer';
 
 interface HeaderProps {
   user: User | null;
@@ -56,9 +55,8 @@ export const Header: React.FC<HeaderProps> = ({ user, onLogout, onToggleSidebar 
           </button>
         </div>
 
-        {/* Center - Notifications */}
+        {/* Center - empty space for balance */}
         <div className="flex justify-center">
-          <NotificationContainer />
         </div>
 
         {/* Right side */}

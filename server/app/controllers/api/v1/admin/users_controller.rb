@@ -37,8 +37,8 @@ class Api::V1::Admin::UsersController < ApplicationController
     @user.password_confirmation = temp_password
     
     if @user.save
-      # Send welcome email with login instructions
-      UserMailer.welcome_user(@user, temp_password).deliver_later
+      # Send welcome email with login instructions via worker service
+      WorkerJobService.enqueue_welcome_email(@user.id, temp_password)
       
       AuditLog.create!(
         account: @account,

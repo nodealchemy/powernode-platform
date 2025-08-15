@@ -1,6 +1,6 @@
 import React from 'react';
 import { format, parseISO } from 'date-fns';
-import { useChartColors } from '../../hooks/useThemeColors';
+// import { useChartColors } from '../../hooks/useThemeColors';
 
 interface CohortChartProps {
   data: Array<{
@@ -26,7 +26,7 @@ export const CohortChart: React.FC<CohortChartProps> = ({
   title
 }) => {
   // Use theme-aware colors that update automatically
-  const colors = useChartColors();
+  // const colors = useChartColors();
   const formatDate = (dateString: string) => {
     try {
       return format(parseISO(dateString + '-01'), 'MMM yyyy');

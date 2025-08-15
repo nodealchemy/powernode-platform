@@ -26,12 +26,14 @@ class AuditLog < ApplicationRecord
       audit_log_cleanup audit_log_export
       security_alert fraud_detection suspicious_activity
       gdpr_request ccpa_request data_deletion data_anonymization
+      test_email_sent test_email_failed email_sent email_failed
+      email_settings_refreshed notification_sent notification_failed
     ]
   }
   validates :resource_type, presence: true
   validates :resource_id, presence: true
   validates :source, presence: true, inclusion: { 
-    in: %w[web api system webhook admin_panel mobile_app integration automation scheduler] 
+    in: %w[web api system webhook admin_panel mobile_app integration automation scheduler worker] 
   }
   # Note: severity and risk_level columns don't exist in database schema
   # validates :severity, inclusion: { in: %w[low medium high critical] }, allow_nil: true

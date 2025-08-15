@@ -4,6 +4,7 @@ require 'bundler/setup' if File.exist?(ENV['BUNDLE_GEMFILE'])
 
 # Load core Ruby extensions
 require 'active_support/all'
+require 'action_mailer'
 
 # Load all application files
 $LOAD_PATH.unshift(File.expand_path('../app', __dir__))

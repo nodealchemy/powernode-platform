@@ -8,7 +8,7 @@ class Account < ApplicationRecord
   has_many :payment_methods, dependent: :destroy
   has_many :webhook_events, dependent: :destroy
   has_many :revenue_snapshots, dependent: :destroy
-  has_many :services, dependent: :destroy
+  has_many :workers, dependent: :destroy
 
   # Subscription-related associations
   has_many :invoices, through: :subscription
@@ -68,6 +68,14 @@ class Account < ApplicationRecord
     subscription&.on_trial? || false
   end
 
+  def system_worker_token
+    Worker.system_worker&.token
+  end
+
+  def has_system_worker?
+    Worker.system_worker.present?
+  end
+
   private
 
   def normalize_subdomain
@@ -99,7 +107,8 @@ class Account < ApplicationRecord
     }
     
     # Find all admin accounts that should receive this update
-    admin_accounts = Account.joins(:users).where(users: { role: ['owner', 'admin'] }).distinct
+    admin_account_ids = User.joins(:account).where(role: ['owner', 'admin']).distinct.pluck(:account_id)
+    admin_accounts = Account.where(id: admin_account_ids)
     
     admin_accounts.each do |admin_account|
       ActionCable.server.broadcast("customer_updates_#{admin_account.id}", data)

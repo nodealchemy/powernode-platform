@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_08_12_165028) do
+ActiveRecord::Schema[8.0].define(version: 2025_08_13_222801) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -574,40 +574,6 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_12_165028) do
     t.index ["user_id"], name: "index_scheduled_reports_on_user_id"
   end
 
-  create_table "service_activities", id: :string, force: :cascade do |t|
-    t.string "service_id", null: false
-    t.string "action", limit: 100
-    t.json "details"
-    t.datetime "performed_at"
-    t.string "ip_address"
-    t.text "user_agent"
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.index ["action"], name: "index_service_activities_on_action"
-    t.index ["performed_at"], name: "index_service_activities_on_performed_at"
-    t.index ["service_id", "performed_at"], name: "index_service_activities_on_service_id_and_performed_at"
-    t.index ["service_id"], name: "index_service_activities_on_service_id"
-  end
-
-  create_table "services", id: :string, force: :cascade do |t|
-    t.string "name", null: false
-    t.text "description"
-    t.string "token", null: false
-    t.string "permissions", default: "standard", null: false
-    t.string "status", default: "active", null: false
-    t.string "account_id"
-    t.datetime "last_seen_at"
-    t.integer "request_count", default: 0
-    t.datetime "token_regenerated_at"
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.index ["account_id"], name: "index_services_on_account_id"
-    t.index ["last_seen_at"], name: "index_services_on_last_seen_at"
-    t.index ["permissions"], name: "index_services_on_permissions"
-    t.index ["status"], name: "index_services_on_status"
-    t.index ["token"], name: "index_services_on_token", unique: true
-  end
-
   create_table "subscriptions", id: { type: :string, limit: 36 }, force: :cascade do |t|
     t.string "account_id", limit: 36, null: false
     t.string "plan_id", limit: 36, null: false
@@ -742,6 +708,42 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_12_165028) do
     t.index ["status"], name: "index_webhook_events_on_status"
   end
 
+  create_table "worker_activities", id: :string, force: :cascade do |t|
+    t.string "worker_id", null: false
+    t.string "action", limit: 100
+    t.json "details"
+    t.datetime "performed_at"
+    t.string "ip_address"
+    t.text "user_agent"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["action"], name: "index_worker_activities_on_action"
+    t.index ["performed_at"], name: "index_worker_activities_on_performed_at"
+    t.index ["worker_id", "performed_at"], name: "index_worker_activities_on_worker_id_and_performed_at"
+    t.index ["worker_id"], name: "index_worker_activities_on_worker_id"
+  end
+
+  create_table "workers", id: :string, force: :cascade do |t|
+    t.string "name", null: false
+    t.text "description"
+    t.string "token", null: false
+    t.string "permissions", default: "standard", null: false
+    t.string "status", default: "active", null: false
+    t.string "account_id"
+    t.datetime "last_seen_at"
+    t.integer "request_count", default: 0
+    t.datetime "token_regenerated_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.string "role", default: "account", null: false
+    t.index ["account_id"], name: "index_workers_on_account_id"
+    t.index ["last_seen_at"], name: "index_workers_on_last_seen_at"
+    t.index ["permissions"], name: "index_workers_on_permissions"
+    t.index ["role"], name: "index_workers_on_system_role_unique", unique: true, where: "((role)::text = 'system'::text)"
+    t.index ["status"], name: "index_workers_on_status"
+    t.index ["token"], name: "index_workers_on_token", unique: true
+  end
+
   add_foreign_key "account_delegations", "accounts"
   add_foreign_key "account_delegations", "roles", on_delete: :nullify
   add_foreign_key "account_delegations", "users", column: "delegated_by_id"
@@ -778,12 +780,12 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_12_165028) do
   add_foreign_key "role_permissions", "roles"
   add_foreign_key "scheduled_reports", "accounts"
   add_foreign_key "scheduled_reports", "users"
-  add_foreign_key "service_activities", "services"
-  add_foreign_key "services", "accounts"
   add_foreign_key "subscriptions", "accounts"
   add_foreign_key "subscriptions", "plans"
   add_foreign_key "users", "accounts"
   add_foreign_key "webhook_deliveries", "webhook_endpoints"
   add_foreign_key "webhook_endpoints", "users", column: "created_by_id"
   add_foreign_key "webhook_events", "accounts", on_delete: :nullify
+  add_foreign_key "worker_activities", "workers"
+  add_foreign_key "workers", "accounts"
 end

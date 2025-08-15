@@ -9,6 +9,7 @@
 :queues:
   - [critical, 3]
   - [billing, 2]  
+  - [email, 2]
   - [reports, 2]
   - [webhooks, 1]
   - [default, 1]

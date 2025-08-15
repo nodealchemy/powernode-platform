@@ -1,7 +1,5 @@
 # Service for enqueueing jobs in the standalone worker service
-# Replaces direct ActiveJob calls with API requests to the worker
-require 'net/http'
-
+# Communicates with worker via HTTP API
 class WorkerJobService
   include HTTParty
   
@@ -54,14 +52,49 @@ class WorkerJobService
       enqueue_job('Analytics::UpdateRevenueSnapshotsJob', [date.iso8601, period_type], delay: delay)
     end
     
+    # Email jobs
+    def enqueue_notification_email(email_type, params = {}, delay: nil)
+      enqueue_job('SendNotificationEmailJob', [{ type: email_type, params: params }], delay: delay, queue: 'email')
+    end
+    
+    def enqueue_password_reset_email(user_id, delay: nil)
+      enqueue_job('SendNotificationEmailJob', [{ 'type' => 'password_reset', 'params' => { 'user_id' => user_id } }], delay: delay, queue: 'email')
+    end
+    
+    def enqueue_refresh_email_settings(delay: nil)
+      enqueue_job('RefreshEmailSettingsJob', [], delay: delay, queue: 'email')
+    end
+    
+    def enqueue_test_email(email, delay: nil)
+      enqueue_job('TestEmailJob', [{ email: email }], delay: delay, queue: 'email')
+    end
+    
+    # Advanced email jobs for notification system
+    def enqueue_email_delivery(email_data, delay: nil)
+      enqueue_job('Notifications::EmailDeliveryJob', [email_data], delay: delay, queue: 'email')
+    end
+    
+    def enqueue_bulk_email(bulk_email_data, delay: nil)
+      enqueue_job('Notifications::BulkEmailJob', [bulk_email_data], delay: delay, queue: 'email')
+    end
+    
+    def enqueue_transactional_email(email_data, delay: nil)
+      enqueue_job('Notifications::TransactionalEmailJob', [email_data], delay: delay, queue: 'email')
+    end
+    
+    def enqueue_welcome_email(user_id, temp_password, delay: nil)
+      enqueue_job('SendNotificationEmailJob', [{ 'type' => 'welcome_user', 'params' => { 'user_id' => user_id, 'temp_password' => temp_password } }], delay: delay, queue: 'email')
+    end
+    
     private
     
-    def enqueue_job(job_class, args = [], options: {}, delay: nil)
+    def enqueue_job(job_class, args = [], options: {}, delay: nil, queue: nil)
       job_data = {
         job_class: job_class,
         args: args,
         options: options,
-        delay: delay
+        delay: delay,
+        queue: queue
       }.compact
       
       begin
@@ -95,7 +128,17 @@ class WorkerJobService
     def service_token
       Rails.application.credentials.worker_service_token ||
         ENV['WORKER_SERVICE_TOKEN'] ||
-        raise(ConfigurationError, 'Worker service token not configured')
+        generate_service_token
+    end
+    
+    def generate_service_token
+      # Generate a service token for worker communication
+      payload = {
+        service: 'backend',
+        type: 'service',
+        exp: 24.hours.from_now.to_i
+      }
+      JWT.encode(payload, Rails.application.config.jwt_secret_key, 'HS256')
     end
   end
   

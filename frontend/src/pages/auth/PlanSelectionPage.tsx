@@ -3,9 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { plansApi, Plan } from '../../services/plansApi';
 import { 
   CheckIcon, 
-  SparklesIcon,
   ArrowRightIcon,
-  StarIcon,
   ShieldCheckIcon,
   ClockIcon,
   ScaleIcon,
@@ -182,7 +180,7 @@ export const PlanSelectionPage: React.FC = () => {
       <div className="bg-theme-surface shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
+            <Link to="/" className="flex items-center space-x-4 hover:opacity-80 transition-opacity">
               <div className="w-10 h-10 bg-theme-interactive-primary rounded-xl flex items-center justify-center">
                 <span className="text-white font-bold text-lg">P</span>
               </div>
@@ -190,7 +188,7 @@ export const PlanSelectionPage: React.FC = () => {
                 <h1 className="text-2xl font-bold text-theme-primary">Powernode</h1>
                 <p className="text-sm text-theme-secondary">Choose your plan</p>
               </div>
-            </div>
+            </Link>
             <div className="flex items-center space-x-4">
               {plansToCompare.length >= 2 && (
                 <button

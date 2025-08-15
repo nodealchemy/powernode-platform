@@ -13,7 +13,7 @@ export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   
-  const { isLoading, error } = useSelector((state: RootState) => state.auth);
+  const { error } = useSelector((state: RootState) => state.auth);
   
   const [formData, setFormData] = useState({
     email: '',
@@ -126,9 +126,11 @@ export const LoginPage: React.FC = () => {
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         {/* Logo and Title */}
         <div className="text-center">
-          <div className="mx-auto w-16 h-16 bg-theme-interactive-primary rounded-2xl flex items-center justify-center mb-6 shadow-lg">
-            <span className="text-white font-bold text-2xl">P</span>
-          </div>
+          <Link to="/welcome" className="inline-block">
+            <div className="mx-auto w-16 h-16 bg-theme-interactive-primary rounded-2xl flex items-center justify-center mb-6 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105">
+              <span className="text-white font-bold text-2xl">P</span>
+            </div>
+          </Link>
           <h1 className="text-3xl font-bold text-theme-primary mb-2">Powernode</h1>
           <p className="text-theme-secondary">Welcome back</p>
         </div>

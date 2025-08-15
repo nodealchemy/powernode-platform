@@ -89,7 +89,7 @@ export const MobileTabNavigation: React.FC<MobileTabNavigationProps> = ({
   const location = useLocation();
   const currentPath = location.pathname;
   const currentTab = tabs.find(tab => currentPath === tab.path || currentPath.startsWith(`${tab.path}/`));
-  const displayLabel = currentTabLabel || currentTab?.label || 'Select';
+  // const displayLabel = currentTabLabel || currentTab?.label || 'Select';
 
   return (
     <div className={`sm:hidden ${className}`}>

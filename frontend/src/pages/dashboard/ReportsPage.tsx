@@ -4,6 +4,8 @@ import { RootState } from '../../store';
 import { reportsService } from '../../services/reportsService';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { DateRangeFilter } from '../../components/analytics/DateRangeFilter';
+import { PageContainer, PageAction } from '../../components/layout/PageContainer';
+import { RefreshCw } from 'lucide-react';
 
 export interface ReportRequest {
   id: string;
@@ -190,72 +192,107 @@ export const ReportsPage: React.FC = () => {
     { id: 'analytics', label: 'Analytics', icon: '📊' }
   ] as const;
 
-  if (loading) {
-    return <LoadingSpinner size="lg" message="Loading reports..." />;
-  }
+  const pageActions: PageAction[] = [
+    {
+      id: 'refresh',
+      label: 'Refresh',
+      onClick: loadData,
+      variant: 'secondary',
+      icon: RefreshCw,
+      disabled: loading
+    }
+  ];
 
-  if (error) {
-    return (
-      <div className="min-h-screen bg-theme-background-secondary p-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="alert-theme alert-theme-error">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <span className="text-xl">⚠️</span>
-              </div>
-              <div className="ml-3">
-                <h3 className="text-sm font-medium">Error Loading Reports</h3>
-                <p className="mt-1 text-sm">{error}</p>
-                <button
-                  onClick={loadData}
-                  className="mt-2 btn-theme btn-theme-primary text-sm"
-                >
-                  Try Again
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const getBreadcrumbs = () => {
+    const baseBreadcrumbs = [
+      { label: 'Dashboard', href: '/dashboard', icon: '🏠' },
+      { label: 'Reports', icon: '📄' }
+    ];
+    
+    // Add active tab to breadcrumbs
+    const activeTabInfo = tabs.find(tab => tab.id === activeTab);
+    if (activeTabInfo && activeTab !== 'builder') {
+      baseBreadcrumbs.push({
+        label: activeTabInfo.label,
+        icon: activeTabInfo.icon
+      });
+    }
+    
+    return baseBreadcrumbs;
+  };
+
+  // Handle tab changes
+  const handleTabChange = (tabId: string) => {
+    setActiveTab(tabId as 'builder' | 'library' | 'queue' | 'scheduled' | 'analytics');
+  };
+
+  const getPageDescription = () => {
+    if (loading) return "Loading reports...";
+    if (error) return "Error loading reports";
+    return `Generate and manage business reports for ${user?.account?.name || 'your account'}`;
+  };
+
+  const getPageActions = () => {
+    if (error) {
+      return [{
+        id: 'retry',
+        label: 'Try Again',
+        onClick: loadData,
+        variant: 'primary' as const
+      }];
+    }
+    return pageActions;
+  };
 
   return (
-    <div className="min-h-screen bg-theme-background-secondary">
-      {/* Header */}
-      <div className="card-theme shadow-sm border-b border-theme">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between py-4">
-            <div>
-              <h1 className="text-2xl font-bold text-theme-primary">Reports</h1>
-              <p className="text-sm text-theme-secondary">
-                Generate and manage business reports for {user?.account?.name || 'your account'}
-              </p>
+    <PageContainer
+      title="Reports"
+      description={getPageDescription()}
+      breadcrumbs={getBreadcrumbs()}
+      actions={getPageActions()}
+    >
+      {loading && (
+        <LoadingSpinner size="lg" message="Loading reports..." />
+      )}
+      
+      {error && (
+        <div className="alert-theme alert-theme-error">
+          <div className="flex items-center">
+            <div className="flex-shrink-0">
+              <span className="text-xl">⚠️</span>
+            </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium">Error Loading Reports</h3>
+              <p className="mt-1 text-sm">{error}</p>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {!loading && !error && (
+        <>
+          {/* Navigation Tabs */}
+          <div className="border-b border-theme mb-6">
+            <div className="flex space-x-8 -mb-px">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => handleTabChange(tab.id)}
+                  className={`flex items-center space-x-2 py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
+                    activeTab === tab.id
+                      ? 'border-theme-link text-theme-link'
+                      : 'border-transparent text-theme-secondary hover:text-theme-primary hover:border-theme'
+                  }`}
+                >
+                  <span>{tab.icon}</span>
+                  <span>{tab.label}</span>
+                </button>
+              ))}
             </div>
           </div>
 
-          {/* Navigation Tabs */}
-          <div className="flex space-x-8 -mb-px">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center space-x-2 py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
-                  activeTab === tab.id
-                    ? 'border-theme-link text-theme-link'
-                    : 'border-transparent text-theme-secondary hover:text-theme-primary hover:border-theme'
-                }`}
-              >
-                <span>{tab.icon}</span>
-                <span>{tab.label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          {/* Tab Content */}
+          <div>
         {activeTab === 'builder' && (
           <div className="space-y-6">
             {/* Builder Progress */}
@@ -733,6 +770,8 @@ export const ReportsPage: React.FC = () => {
           </div>
         )}
       </div>
+        </>
+      )}
 
       {/* Report Request Modal */}
       {showRequestModal && selectedTemplate && (
@@ -867,6 +906,6 @@ export const ReportsPage: React.FC = () => {
           </div>
         </>
       )}
-    </div>
+    </PageContainer>
   );
 };

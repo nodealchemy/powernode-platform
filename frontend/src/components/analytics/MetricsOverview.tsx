@@ -1,5 +1,5 @@
 import React from 'react';
-import { AnalyticsData } from '../../pages/dashboard/AnalyticsPage';
+import { AnalyticsData } from '../../pages/analytics/AnalyticsPage';
 
 interface MetricsOverviewProps {
   data: AnalyticsData;
@@ -43,57 +43,57 @@ export const MetricsOverview: React.FC<MetricsOverviewProps> = ({ data }) => {
   const metrics = [
     {
       title: 'Monthly Recurring Revenue',
-      value: formatCurrency(data.revenue.current_metrics.mrr),
-      change: data.revenue.current_metrics.growth_rate,
+      value: data.revenue?.current_metrics ? formatCurrency(data.revenue.current_metrics.mrr) : '$0',
+      change: data.revenue?.current_metrics?.growth_rate || 0,
       icon: '💰',
       description: 'MRR from active subscriptions'
     },
     {
       title: 'Annual Recurring Revenue',
-      value: formatCurrency(data.revenue.current_metrics.arr),
-      change: data.revenue.current_metrics.growth_rate * 12,
+      value: data.revenue?.current_metrics ? formatCurrency(data.revenue.current_metrics.arr) : '$0',
+      change: data.revenue?.current_metrics ? data.revenue.current_metrics.growth_rate * 12 : 0,
       icon: '📈',
       description: 'Projected annual revenue'
     },
     {
       title: 'Active Customers',
-      value: data.customers.current_metrics.total_customers.toLocaleString(),
+      value: data.customers?.current_metrics?.total_customers?.toLocaleString() || '0',
       change: null,
       icon: '👥',
       description: 'Total active customers'
     },
     {
       title: 'Average Revenue Per User',
-      value: formatCurrency(data.customers.current_metrics.arpu),
+      value: data.customers?.current_metrics ? formatCurrency(data.customers.current_metrics.arpu) : '$0',
       change: null,
       icon: '💵',
       description: 'Monthly ARPU'
     },
     {
       title: 'Customer Lifetime Value',
-      value: formatCurrency(data.customers.current_metrics.ltv),
+      value: data.customers?.current_metrics ? formatCurrency(data.customers.current_metrics.ltv) : '$0',
       change: null,
       icon: '⭐',
       description: 'Average customer LTV'
     },
     {
       title: 'Customer Churn Rate',
-      value: formatPercentage(data.churn.current_metrics.customer_churn_rate),
+      value: data.churn?.current_metrics ? formatPercentage(data.churn.current_metrics.customer_churn_rate) : '0%',
       change: null,
       icon: '📉',
       description: 'Monthly customer churn',
-      risk: data.churn.insights.churn_risk_level
+      risk: data.churn?.insights?.churn_risk_level || 'low'
     },
     {
       title: 'Revenue Retention',
-      value: formatPercentage(data.churn.current_metrics.customer_retention_rate),
+      value: data.churn?.current_metrics ? formatPercentage(data.churn.current_metrics.customer_retention_rate) : '0%',
       change: null,
       icon: '🔒',
       description: 'Customer retention rate'
     },
     {
       title: 'Growth Rate',
-      value: formatPercentage(data.growth.compound_monthly_growth_rate),
+      value: data.growth ? formatPercentage(data.growth.compound_monthly_growth_rate) : '0%',
       change: null,
       icon: '🚀',
       description: 'Compound monthly growth'

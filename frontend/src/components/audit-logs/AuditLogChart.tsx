@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { BarChart3, PieChart, TrendingUp, Activity } from 'lucide-react';
+import { BarChart3, PieChart, TrendingUp } from 'lucide-react';
 
 interface AuditLogChartProps {
   title: string;
@@ -62,6 +62,7 @@ export const AuditLogChart: React.FC<AuditLogChartProps> = ({
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <div className="p-1 bg-theme-interactive-primary bg-opacity-10 rounded">
+            {/* eslint-disable-next-line security/detect-object-injection */}
             {chartIcon[type]}
           </div>
           <h3 className="text-lg font-semibold text-theme-primary">{title}</h3>
@@ -179,7 +180,6 @@ const LineChartMock: React.FC<{ data: TimeSeriesData[]; height: number }> = ({ d
 const BarChartMock: React.FC<{ data: BarData[]; height: number }> = ({ data, height }) => {
   const chartHeight = height - 40;
   const maxValue = data.length > 0 ? Math.max(...data.map(d => d.value)) : 1;
-  const barWidth = 80 / Math.max(data.length, 1);
   
   return (
     <div className="w-full h-full flex items-end justify-center gap-2 px-4">

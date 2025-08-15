@@ -28,6 +28,10 @@ export const DateRangeFilter: React.FC<DateRangeFilterProps> = ({ dateRange, onC
     }
   };
 
+  const handleRangeChange = (newRange: { startDate: Date; endDate: Date }) => {
+    onChange(newRange);
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center space-x-2">
@@ -39,7 +43,8 @@ export const DateRangeFilter: React.FC<DateRangeFilterProps> = ({ dateRange, onC
         endDate={dateRange.endDate}
         onStartDateChange={handleStartDateChange}
         onEndDateChange={handleEndDateChange}
-        maxDate={new Date()} // Don't allow future dates for analytics
+        onRangeChange={handleRangeChange}
+        maxDate={new Date()}
         showPresets={true}
         className="analytics-date-range"
       />

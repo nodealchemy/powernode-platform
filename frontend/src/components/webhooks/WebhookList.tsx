@@ -8,15 +8,9 @@ import {
   Globe,
   Clock,
   CheckCircle,
-  AlertTriangle,
   Search,
-  Filter,
   MoreVertical,
-  ExternalLink,
-  Calendar,
-  Activity,
-  TrendingUp,
-  TrendingDown
+  ExternalLink
 } from 'lucide-react';
 import webhooksApi, { WebhookEndpoint } from '../../services/webhooksApi';
 import Pagination from '../common/Pagination';

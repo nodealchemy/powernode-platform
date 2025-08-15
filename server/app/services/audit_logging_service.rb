@@ -328,7 +328,8 @@ class AuditLoggingService
 
   def queue_analysis(audit_log)
     # Queue background job for detailed analysis
-    AuditLogAnalysisJob.perform_later(audit_log.id)
+    # Note: AuditLogAnalysisJob should be moved to worker service if needed
+    # WorkerJobService.enqueue_audit_analysis(audit_log.id)
   end
 
   def check_alert_conditions(audit_log)

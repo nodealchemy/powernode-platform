@@ -11,6 +11,7 @@ class PowernodeWorker
     load_environment
     setup_sidekiq
     setup_logging
+    setup_action_mailer
     setup_service_authentication
   end
 
@@ -69,6 +70,19 @@ class PowernodeWorker
     
     # Note: Sidekiq 7+ doesn't support setting logger directly
     # Sidekiq will use its own logger configuration
+  end
+
+  def setup_action_mailer
+    # Configure ActionMailer for standalone worker
+    ActionMailer::Base.view_paths = [File.join(@root, 'app', 'views')]
+    ActionMailer::Base.logger = @logger
+    
+    # Set delivery method to test for now (no actual email sending in worker testing)
+    ActionMailer::Base.delivery_method = :test
+    ActionMailer::Base.perform_deliveries = true
+    ActionMailer::Base.raise_delivery_errors = true
+    
+    @logger.info "ActionMailer configured for worker service"
   end
 
   def setup_service_authentication

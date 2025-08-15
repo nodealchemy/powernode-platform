@@ -6,6 +6,8 @@ import { addNotification } from '../../store/slices/uiSlice';
 import { pagesApi, Page } from '../../services/pagesApi';
 import { PageEditor } from '../../components/pages/PageEditor';
 import { hasAdminAccess } from '../../utils/permissionUtils';
+import { PageContainer, PageAction } from '../../components/layout/PageContainer';
+import { Plus, RefreshCw } from 'lucide-react';
 
 export const PagesPage: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -47,6 +49,35 @@ export const PagesPage: React.FC = () => {
     }
   }, [filters.currentPage, filters.status, filters.search, dispatch]);
 
+  const handleCreatePage = () => {
+    setSelectedPage(null);
+    setIsCreating(true);
+    setShowEditor(true);
+  };
+
+  const pageActions: PageAction[] = [
+    {
+      id: 'refresh',
+      label: 'Refresh',
+      onClick: loadPages,
+      variant: 'secondary',
+      icon: RefreshCw,
+      disabled: loading
+    },
+    ...(isAdmin ? [{
+      id: 'create-page',
+      label: 'Create Page',
+      onClick: handleCreatePage,
+      variant: 'primary' as const,
+      icon: Plus
+    }] : [])
+  ];
+
+  const breadcrumbs = [
+    { label: 'Dashboard', href: '/dashboard', icon: '🏠' },
+    { label: 'Pages', icon: '📄' }
+  ];
+
   useEffect(() => {
     if (isAdmin) {
       loadPages();
@@ -65,12 +96,6 @@ export const PagesPage: React.FC = () => {
       type: 'error',
       message
     }));
-  };
-
-  const handleCreatePage = () => {
-    setSelectedPage(null);
-    setIsCreating(true);
-    setShowEditor(true);
   };
 
   const handleEditPage = async (page: Page) => {
@@ -157,19 +182,7 @@ export const PagesPage: React.FC = () => {
     );
   };
 
-  if (!hasAdminAccess) {
-    return (
-      <div className="text-center py-12">
-        <div className="text-theme-error text-lg font-medium">
-          🚫 Access Denied
-        </div>
-        <p className="text-theme-secondary mt-2">
-          You need administrator privileges to manage pages.
-        </p>
-      </div>
-    );
-  }
-
+  // Handle special cases first
   if (showEditor) {
     return (
       <PageEditor
@@ -187,27 +200,38 @@ export const PagesPage: React.FC = () => {
     return <Navigate to="/dashboard" replace />;
   }
 
+  const getPageDescription = () => {
+    if (!hasAdminAccess) return "Access denied";
+    return "Manage your website pages and content.";
+  };
+
+  const getPageActions = () => {
+    if (!hasAdminAccess) return [];
+    return pageActions;
+  };
+
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-theme-primary">Pages</h1>
-          <p className="text-theme-secondary">
-            Manage your website pages and content.
+    <PageContainer
+      title="Pages"
+      description={getPageDescription()}
+      breadcrumbs={breadcrumbs}
+      actions={getPageActions()}
+    >
+      {!hasAdminAccess ? (
+        <div className="text-center py-12">
+          <div className="text-theme-error text-lg font-medium">
+            🚫 Access Denied
+          </div>
+          <p className="text-theme-secondary mt-2">
+            You need administrator privileges to manage pages.
           </p>
         </div>
-        <button
-          onClick={handleCreatePage}
-          className="btn-theme btn-theme-primary"
-        >
-          Create Page
-        </button>
-      </div>
-
-      {/* Filters */}
-      <div className="card-theme p-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
+      ) : (
+        <>
+          {/* Filters */}
+          <div className="card-theme p-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
             <label className="label-theme">Search</label>
             <input
               type="text"
@@ -362,7 +386,9 @@ export const PagesPage: React.FC = () => {
             </div>
           </div>
         )}
-      </div>
-    </div>
+          </div>
+        </>
+      )}
+    </PageContainer>
   );
 };

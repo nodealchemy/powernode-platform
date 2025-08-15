@@ -8,7 +8,7 @@ class JobsController
     request = Rack::Request.new(env)
     
     case [request.request_method, request.path_info]
-    when ['POST', '/'], ['POST', '']
+    when ['POST', '/'], ['POST', ''], ['POST', '/api/v1/jobs']
       enqueue_job(request)
     else
       not_found_response
@@ -43,6 +43,7 @@ class JobsController
     args = job_data['args'] || []
     options = job_data['options'] || {}
     delay = job_data['delay']
+    queue = job_data['queue']
 
     # Validate job class exists
     unless valid_job_class?(job_class)
@@ -53,13 +54,21 @@ class JobsController
       # Get the actual job class
       klass = Object.const_get(job_class)
       
-      # Enqueue the job
+      # Enqueue the job with proper queue handling
       if delay
         # Parse delay (seconds, time string, or duration)
         delay_time = parse_delay(delay)
-        job = klass.perform_in(delay_time, *args, **options.symbolize_keys)
+        if queue
+          job = klass.set(queue: queue).perform_in(delay_time, *args, **options.symbolize_keys)
+        else
+          job = klass.perform_in(delay_time, *args, **options.symbolize_keys)
+        end
       else
-        job = klass.perform_async(*args, **options.symbolize_keys)
+        if queue
+          job = klass.set(queue: queue).perform_async(*args, **options.symbolize_keys)
+        else
+          job = klass.perform_async(*args, **options.symbolize_keys)
+        end
       end
 
       PowernodeWorker.application.logger.info "Enqueued job #{job_class} with ID: #{job}"
@@ -90,21 +99,12 @@ class JobsController
     token = auth_header.sub(/^Bearer /, '')
     return false if token.empty?
 
-    # Verify token with backend API
-    api_client = BackendApiClient.new
-    # Override token temporarily for verification
-    config = api_client.instance_variable_get(:@config)
-    original_token = config.service_token
-    config.instance_variable_set(:@service_token, token)
-
     begin
-      response = api_client.verify_service_token
-      response['valid'] == true
-    rescue BackendApiClient::ApiError
+      # Verify JWT token directly
+      payload = JWT.decode(token, jwt_secret_key, true, algorithm: 'HS256').first
+      payload['service'] == 'backend' && payload['type'] == 'service'
+    rescue JWT::DecodeError, JWT::ExpiredSignature
       false
-    ensure
-      # Restore original token
-      config.instance_variable_set(:@service_token, original_token)
     end
   end
 
@@ -120,7 +120,13 @@ class JobsController
       'Reports::ScheduledReportJob',
       'Webhooks::ProcessWebhookJob',
       'Analytics::RecalculateAnalyticsJob',
-      'Analytics::UpdateRevenueSnapshotsJob'
+      'Analytics::UpdateRevenueSnapshotsJob',
+      'SendNotificationEmailJob',
+      'TestEmailJob',
+      'RefreshEmailSettingsJob',
+      'Notifications::EmailDeliveryJob',
+      'Notifications::BulkEmailJob',
+      'Notifications::TransactionalEmailJob'
     ]
 
     allowed_jobs.include?(job_class)
@@ -158,5 +164,9 @@ class JobsController
 
   def not_found_response
     error_response(404, 'Not found')
+  end
+  
+  def jwt_secret_key
+    ENV['JWT_SECRET_KEY'] || 'development_jwt_secret_key_that_persists_across_restarts_and_is_secure_enough_for_local_development_only'
   end
 end

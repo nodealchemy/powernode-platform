@@ -15,8 +15,8 @@ class ApiClient
   end
 
   def initialize(base_url: nil, service_token: nil)
-    @base_url = base_url || PowernodeWorkerAgent.application.config.backend_api_url
-    @service_token = service_token || PowernodeWorkerAgent.application.config.service_token
+    @base_url = base_url || PowernodeWorker.application.config.backend_api_url
+    @service_token = service_token || PowernodeWorker.application.config.service_token
     @client = build_client
   end
 
@@ -97,6 +97,15 @@ class ApiClient
     })
   end
 
+  # Internal API endpoints for mailer data
+  def get_user(user_id)
+    get("/api/v1/internal/users/#{user_id}")
+  end
+
+  def get_account(account_id)
+    get("/api/v1/internal/accounts/#{account_id}")
+  end
+
   def generate_pdf_report(report_type, account_id: nil, start_date: nil, end_date: nil, user_id: nil)
     post('/api/v1/reports/generate', {
       reports: [{
@@ -108,22 +117,6 @@ class ApiClient
       end_date: end_date,
       user_id: user_id
     })
-  end
-
-  private
-
-  def build_client
-    Faraday.new(url: @base_url) do |f|
-      f.request :json
-      f.request :retry, max: 3, interval: 0.5, backoff_factor: 2
-      f.response :json, content_type: 'application/json', parser_options: { symbolize_names: true }
-      
-      f.headers['Authorization'] = "Bearer #{@service_token}"
-      f.headers['User-Agent'] = 'PowernodeWorkerAgent/1.0'
-      f.headers['Accept'] = 'application/json'
-      
-      f.adapter Faraday.default_adapter
-    end
   end
 
   def get(path, params = {})
@@ -147,6 +140,22 @@ class ApiClient
   def delete(path)
     handle_response do
       @client.delete(path)
+    end
+  end
+
+  private
+
+  def build_client
+    Faraday.new(url: @base_url) do |f|
+      f.request :json
+      f.request :retry, max: 3, interval: 0.5, backoff_factor: 2
+      f.response :json, content_type: 'application/json', parser_options: { symbolize_names: true }
+      
+      f.headers['Authorization'] = "Bearer #{@service_token}"
+      f.headers['User-Agent'] = 'PowernodeWorkerAgent/1.0'
+      f.headers['Accept'] = 'application/json'
+      
+      f.adapter Faraday.default_adapter
     end
   end
 

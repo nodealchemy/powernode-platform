@@ -181,13 +181,13 @@ class Api::V1::BillingController < ApplicationController
   private
 
   def outstanding_amount
-    current_account.invoices.where(status: ['sent', 'overdue']).sum(:total_amount_cents)
+    current_account.invoices.where(status: ['sent', 'overdue']).sum(:total_cents)
   end
 
   def this_month_amount
     current_account.invoices.where(
       created_at: Date.current.beginning_of_month..Date.current.end_of_month
-    ).sum(:total_amount_cents)
+    ).sum(:total_cents)
   end
 
   def all_time_collected

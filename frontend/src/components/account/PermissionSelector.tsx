@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Check, X, Shield, Lock, Eye, Settings, Search } from 'lucide-react';
+import React, { useState } from 'react';
+import { Check, Shield, Lock, Eye, Settings, Search } from 'lucide-react';
 
 interface Permission {
   id: string;

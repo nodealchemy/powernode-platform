@@ -3,10 +3,7 @@ import {
   Download,
   FileText,
   Table,
-  Calendar,
-  Filter,
   X,
-  CheckCircle,
   AlertCircle,
   Loader
 } from 'lucide-react';
@@ -107,19 +104,7 @@ export const AuditLogExport: React.FC<AuditLogExportProps> = ({ filters, onClose
         });
       }, 200);
 
-      // Prepare export parameters
-      const exportParams = {
-        format: exportOptions.format,
-        scope: exportOptions.scope,
-        include_metadata: exportOptions.includeMetadata,
-        include_sensitive: exportOptions.includeSensitiveData,
-        max_records: exportOptions.maxRecords,
-        filters: exportOptions.scope === 'all' ? {} : filters,
-        date_range: exportOptions.customDateRange.enabled ? {
-          start: exportOptions.customDateRange.startDate,
-          end: exportOptions.customDateRange.endDate
-        } : undefined
-      };
+      // TODO: Implement actual export API call with parameters
 
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 2000));

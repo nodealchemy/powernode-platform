@@ -8,7 +8,7 @@ set -e
 # Configuration
 RAILS_PORT=3000
 RAILS_HOST="0.0.0.0"
-PROJECT_ROOT="/home/rett/Projects/powernode-platform"
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BACKEND_DIR="$PROJECT_ROOT/server"
 PID_FILE="$PROJECT_ROOT/.pids/backend.pid"
 LOG_FILE="$PROJECT_ROOT/logs/backend.log"
@@ -173,7 +173,7 @@ start() {
     
     # Use screen with immediate detachment
     cd "$BACKEND_DIR"
-    screen -dmS powernode-backend bash -c "exec bundle exec rails server -p $RAILS_PORT -b $RAILS_HOST > '$LOG_FILE' 2>&1"
+    screen -dmS powernode-backend bash -c "DISABLE_RATE_LIMITING=true exec bundle exec rails server -p $RAILS_PORT -b $RAILS_HOST > '$LOG_FILE' 2>&1"
     
     success "Rails server started in screen session 'powernode-backend'"
     log "View logs: screen -r powernode-backend"

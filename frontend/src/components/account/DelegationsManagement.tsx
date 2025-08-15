@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, Calendar, Shield, AlertCircle, Plus, Edit, Trash2, UserCheck, UserX } from 'lucide-react';
+import { User, Calendar, Shield, AlertCircle, Plus, Trash2, UserCheck, UserX } from 'lucide-react';
 
 interface DelegatedUser {
   id: string;
@@ -38,7 +38,7 @@ interface DelegationFormData {
 export const DelegationsManagement: React.FC = () => {
   const [delegations, setDelegations] = useState<Delegation[]>([]);
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [editingDelegation, setEditingDelegation] = useState<Delegation | null>(null);
+  // const [editingDelegation] = useState<Delegation | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
@@ -114,29 +114,30 @@ export const DelegationsManagement: React.FC = () => {
     }
   };
 
-  const handleUpdateDelegation = async (delegationId: string, updates: Partial<DelegationFormData>) => {
-    try {
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch(`/api/v1/accounts/current/delegations/${delegationId}`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ delegation: updates })
-      });
-      
-      if (response.ok) {
-        setEditingDelegation(null);
-        loadDelegations();
-      } else {
-        setError('Failed to update delegation');
-      }
-    } catch (err) {
-      setError('Error updating delegation');
-      console.error('Error updating delegation:', err);
-    }
-  };
+  // TODO: Implement update delegation UI
+  // const handleUpdateDelegation = async (delegationId: string, updates: Partial<DelegationFormData>) => {
+  //   try {
+  //     const token = localStorage.getItem('auth_token');
+  //     const response = await fetch(`/api/v1/accounts/current/delegations/${delegationId}`, {
+  //       method: 'PATCH',
+  //       headers: {
+  //         'Authorization': `Bearer ${token}`,
+  //         'Content-Type': 'application/json'
+  //       },
+  //       body: JSON.stringify({ delegation: updates })
+  //     });
+  //     
+  //     if (response.ok) {
+  //       // setEditingDelegation(null);
+  //       loadDelegations();
+  //     } else {
+  //       setError('Failed to update delegation');
+  //     }
+  //   } catch (err) {
+  //     setError('Error updating delegation');
+  //     console.error('Error updating delegation:', err);
+  //   }
+  // };
 
   const handleDelegationAction = async (delegationId: string, action: 'activate' | 'deactivate' | 'revoke') => {
     try {
@@ -387,16 +388,10 @@ export const DelegationsManagement: React.FC = () => {
                       )}
                       {delegation.status !== 'revoked' && (
                         <>
-                          <button
-                            onClick={() => setEditingDelegation(delegation)}
-                            className="text-theme-link hover:text-theme-link-hover"
-                            title="Edit"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
+                          {/* TODO: Implement edit delegation functionality */}
                           <button
                             onClick={() => handleDelegationAction(delegation.id, 'revoke')}
-                            className="text-red-600 hover:text-red-800"
+                            className="text-theme-error hover:text-theme-error"
                             title="Revoke"
                           >
                             <Trash2 className="w-4 h-4" />

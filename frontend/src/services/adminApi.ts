@@ -126,23 +126,48 @@ export interface AdminLog {
 }
 
 export interface AdminSettingsData {
-  system_settings: SystemSettings;
-  platform_stats: PlatformStats;
-  user_management: UserManagementData;
-  security_settings: SecuritySettingsData;
-  global_analytics: any;
+  settings_summary: SystemSettings;
+  metrics: PlatformStats;
+  recent_users: any[];
+  recent_accounts: any[];
+  recent_logs: any[];
+  payment_gateways: any;
 }
 
 export interface AdminSettingsUpdateRequest {
+  // Access Control
   maintenance_mode?: boolean;
   registration_enabled?: boolean;
   email_verification_required?: boolean;
+  allow_account_deletion?: boolean;
+  
+  // Security & Authentication
   password_complexity_level?: 'low' | 'medium' | 'high';
   session_timeout_minutes?: number;
   max_failed_login_attempts?: number;
   account_lockout_duration?: number;
+  
+  // Business Settings
+  trial_period_days?: number;
+  payment_retry_attempts?: number;
+  webhook_timeout_seconds?: number;
+  
+  // Rate Limiting
+  rate_limiting?: {
+    enabled?: boolean;
+    api_requests_per_minute?: number;
+    impersonation_attempts_per_hour?: number;
+    login_attempts_per_hour?: number;
+    password_reset_attempts_per_hour?: number;
+    registration_attempts_per_hour?: number;
+    webhook_requests_per_minute?: number;
+    websocket_connections_per_minute?: number;
+    email_verification_attempts_per_hour?: number;
+    authenticated_requests_per_hour?: number;
+  };
+  
+  // System Features
   system_notifications?: Record<string, any>;
-  rate_limiting?: Record<string, any>;
   feature_flags?: Record<string, boolean>;
 }
 

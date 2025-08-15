@@ -31,7 +31,7 @@ export const PageEditor: React.FC<PageEditorProps> = ({
   });
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<'editor' | 'preview' | 'seo'>('editor');
-  const [previewContent, setPreviewContent] = useState('');
+  // const [previewContent, setPreviewContent] = useState('');
 
   useEffect(() => {
     if (page) {

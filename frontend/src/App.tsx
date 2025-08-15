@@ -9,17 +9,19 @@ import { isTokenInvalidError, isValidJWTFormat } from './utils/tokenUtils';
 
 // Theme Provider
 import { ThemeProvider } from './contexts/ThemeContext';
+import { BreadcrumbProvider } from './contexts/BreadcrumbContext';
 
 // Components
 import { ProtectedRoute } from './components/common/ProtectedRoute';
 import { PublicRoute } from './components/common/PublicRoute';
 import { LoadingSpinner } from './components/ui/LoadingSpinner';
+import { NotificationContainer } from './components/common/NotificationContainer';
 
 // Pages
 import { LoginPage } from './pages/auth/LoginPage';
 import { RegisterPage } from './pages/auth/RegisterPage';
 import { PlanSelectionPage } from './pages/auth/PlanSelectionPage';
-import { DashboardPage } from './pages/dashboard/DashboardPage';
+import { DashboardPage } from './pages/dashboard';
 import { ForgotPasswordPage } from './pages/auth/ForgotPasswordPage';
 import { ResetPasswordPage } from './pages/auth/ResetPasswordPage';
 import { VerifyEmailPage } from './pages/auth/VerifyEmailPage';
@@ -136,7 +138,7 @@ const AppContent: React.FC = () => {
     };
 
     initializeAuth();
-  }, [dispatch, accessToken, refreshToken]);
+  }, [dispatch, accessToken, refreshToken, user]);
 
   const handleAuthFallback = () => {
     dispatch(clearAuth());
@@ -264,6 +266,9 @@ const AppContent: React.FC = () => {
           {/* Catch all route */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        
+        {/* Global notification container */}
+        <NotificationContainer />
       </div>
     </Router>
   );
@@ -273,7 +278,9 @@ function App() {
   return (
     <Provider store={store}>
       <ThemeProvider>
-        <AppContent />
+        <BreadcrumbProvider>
+          <AppContent />
+        </BreadcrumbProvider>
       </ThemeProvider>
     </Provider>
   );

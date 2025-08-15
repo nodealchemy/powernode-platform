@@ -36,9 +36,11 @@ export const ForgotPasswordPage: React.FC = () => {
     <div className="min-h-screen flex items-center justify-center bg-theme-background-secondary py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         <div>
-          <div className="mx-auto h-12 w-12 flex items-center justify-center rounded-xl bg-theme-interactive-primary">
-            <span className="text-white font-bold text-xl">P</span>
-          </div>
+          <Link to="/welcome" className="inline-block mx-auto">
+            <div className="mx-auto h-12 w-12 flex items-center justify-center rounded-xl bg-theme-interactive-primary hover:shadow-lg transition-all duration-200 hover:scale-105">
+              <span className="text-white font-bold text-xl">P</span>
+            </div>
+          </Link>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-theme-primary">
             Reset your password
           </h2>

@@ -30,11 +30,7 @@ const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
     return response.data;
   } catch (error: any) {
     // Re-throw with better error context
-    throw {
-      message: error.response?.data?.error || error.message || 'API request failed',
-      status: error.response?.status,
-      data: error.response?.data
-    };
+    throw new Error(error.response?.data?.error || error.message || 'API request failed');
   }
 };
 

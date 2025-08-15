@@ -203,6 +203,41 @@ quick_status() {
     fi
 }
 
+# Function to stop all servers
+stop_all() {
+    log "Stopping all development servers..."
+    
+    # Stop backend
+    if "$BACKEND_MANAGER" status > /dev/null 2>&1; then
+        log "Stopping backend server..."
+        "$BACKEND_MANAGER" stop
+        success "Backend server stopped"
+    else
+        log "Backend server already stopped"
+    fi
+    
+    # Stop worker and web interface
+    if "$WORKER_MANAGER" status 2>&1 | grep -q "RUNNING"; then
+        log "Stopping worker service and web interface..."
+        "$WORKER_MANAGER" stop-web > /dev/null 2>&1
+        "$WORKER_MANAGER" stop
+        success "Worker service stopped"
+    else
+        log "Worker service already stopped"
+    fi
+    
+    # Stop frontend
+    if "$FRONTEND_MANAGER" status > /dev/null 2>&1; then
+        log "Stopping frontend server..."
+        "$FRONTEND_MANAGER" stop
+        success "Frontend server stopped"
+    else
+        log "Frontend server already stopped"
+    fi
+    
+    success "All development servers stopped"
+}
+
 # Function to restart all servers
 restart_all() {
     log "Restarting development environment..."
@@ -242,6 +277,9 @@ case "${1:-ensure}" in
     restart)
         restart_all
         ;;
+    stop)
+        stop_all
+        ;;
     check)
         if check_dev_environment; then
             success "Development environment is healthy"
@@ -252,7 +290,7 @@ case "${1:-ensure}" in
         fi
         ;;
     *)
-        echo "Usage: $0 {ensure|backend|worker|frontend|status|restart|check}"
+        echo "Usage: $0 {ensure|backend|worker|frontend|status|restart|stop|check}"
         echo ""
         echo "Commands:"
         echo "  ensure    - Automatically start all servers if needed (default)"
@@ -261,6 +299,7 @@ case "${1:-ensure}" in
         echo "  frontend  - Ensure only frontend is running"
         echo "  status    - Show quick status of all servers"
         echo "  restart   - Restart all servers"
+        echo "  stop      - Stop all servers"
         echo "  check     - Check if environment is healthy (exit code based)"
         echo ""
         echo "This script is designed for Claude to automatically manage"

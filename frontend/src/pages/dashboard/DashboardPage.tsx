@@ -7,27 +7,29 @@ import { paymentGatewaysApi } from '../../services/paymentGatewaysApi';
 import { DashboardLayout } from '../../components/dashboard/DashboardLayout';
 
 // Import all dashboard pages
-import { AnalyticsPage } from './AnalyticsPage';
-import { ReportsPage } from './ReportsPage';
+import { AnalyticsPage } from '../analytics/AnalyticsPage';
 import { SubscriptionsPage } from './SubscriptionsPage';
-import { CustomersPage } from './CustomersPage';
+import { ReportsPage } from './ReportsPage';
 import { PlansPage } from './PlansPage';
-import { BillingPage } from './BillingPage';
 import { SettingsPage } from './SettingsPage';
-import { AdminSettingsPage } from './AdminSettingsPage';
-import PaymentGatewaysPage from './PaymentGatewaysPage';
-import { ServicesPage } from './ServicesPage';
+import { PaymentGatewaysPage } from './PaymentGatewaysPage';
+import { WorkersPage } from './WorkersPage';
 import { PagesPage } from './PagesPage';
-import { AdminSettingsOverviewPage } from './AdminSettingsOverviewPage';
-import UsersPage from './UsersPage';
-import AccountsPage from './AccountsPage';
-import { AdminUsersPage } from './AdminUsersPage';
+import { UsersPage } from './UsersPage';
+import { AdminSettingsPage } from '../admin';
+import { AuditLogsPage } from './AuditLogsPage';
+import { ApiKeysPage } from './ApiKeysPage';
+import { MetricsPage } from './MetricsPage';
+import { PageContainer, PageAction } from '../../components/layout/PageContainer';
+import { BarChart3, Users, CreditCard, Settings } from 'lucide-react';
 
-// Import consolidated management pages
-import { AccountManagementPage } from './AccountManagementPage';
-import { BusinessManagementPage } from './BusinessManagementPage';
-import { SystemManagementPage } from './SystemManagementPage';
-import { AnalyticsManagementPage } from './AnalyticsManagementPage';
+// Import individual pages directly (no more management page groupings)
+import { CustomersPage } from './CustomersPage';
+import { BillingPage } from './BillingPage';
+
+// Import system pages
+import WebhookManagementPage from '../system/WebhookManagementPage';
+import { AuditLogsPage as SystemAuditLogsPage } from '../system/AuditLogsPage';
 
 // Dashboard overview page
 const DashboardOverview: React.FC = () => {
@@ -74,20 +76,51 @@ const DashboardOverview: React.FC = () => {
   const completedCount = completedTasks.filter(Boolean).length;
   const totalTasks = completedTasks.length;
   
-  return (
-    <div className="space-y-6">
-      {/* Header Section */}
-      <div className="bg-theme-background-secondary p-6 rounded-xl border border-theme-light">
-        <h1 className="text-3xl font-bold text-theme-primary mb-2">
-          Welcome back, {user?.firstName}! 👋
-        </h1>
-        <p className="text-theme-secondary text-lg">
-          Here's an overview of your account activity and system status.
-        </p>
-      </div>
+  const pageActions: PageAction[] = [
+    {
+      id: 'analytics',
+      label: 'Analytics',
+      onClick: () => navigate('/dashboard/analytics'),
+      variant: 'secondary',
+      icon: BarChart3
+    },
+    {
+      id: 'customers',
+      label: 'Customers',
+      onClick: () => navigate('/dashboard/customers'),
+      variant: 'secondary',
+      icon: Users
+    },
+    {
+      id: 'payment-gateways',
+      label: 'Payment Setup',
+      onClick: () => navigate('/dashboard/payment-gateways'),
+      variant: 'secondary',
+      icon: CreditCard
+    },
+    {
+      id: 'settings',
+      label: 'Settings',
+      onClick: () => navigate('/dashboard/settings'),
+      variant: 'primary',
+      icon: Settings
+    }
+  ];
 
-      {/* Key Metrics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+  const breadcrumbs = [
+    { label: 'Dashboard', icon: '🏠' }
+  ];
+  
+  return (
+    <PageContainer
+      title={`Welcome back, ${user?.firstName}! 👋`}
+      description="Here's an overview of your account activity and system status."
+      breadcrumbs={breadcrumbs}
+      actions={pageActions}
+    >
+      <div className="space-y-6">
+        {/* Key Metrics Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="card-theme p-6 transition-theme-fast hover:shadow-theme-md">
           <div className="flex items-center justify-between">
             <div>
@@ -332,42 +365,61 @@ const DashboardOverview: React.FC = () => {
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </PageContainer>
   );
 };
 
-export const DashboardPage: React.FC = () => {
+const DashboardPage: React.FC = () => {
+  
   return (
     <DashboardLayout>
       <Routes>
         {/* Dashboard Overview */}
         <Route path="/" element={<DashboardOverview />} />
         
-        {/* Consolidated Management Areas */}
-        <Route path="/account/*" element={<AccountManagementPage />} />
-        <Route path="/analytics/*" element={<AnalyticsManagementPage />} />
-        <Route path="/business/*" element={<BusinessManagementPage />} />
-        <Route path="/system/*" element={<SystemManagementPage />} />
+        {/* Individual Pages - No More Management Page Groupings */}
         
-        {/* Admin routes */}
-        <Route path="/admin/users" element={<AdminUsersPage />} />
+        {/* Business Pages */}
+        <Route path="/customers" element={<CustomersPage />} />
+        <Route path="/subscriptions" element={<SubscriptionsPage />} />
+        <Route path="/billing" element={<BillingPage />} />
         
-        {/* Legacy individual pages (for backward compatibility) */}
+        {/* Core Pages */}
+        <Route path="/pages" element={<PagesPage />} />
+        <Route path="/plans" element={<PlansPage />} />
+        <Route path="/plans/new" element={<PlansPage />} />
+        
+        {/* Admin Settings (Tabbed Version Only) */}
+        <Route path="/admin-settings/*" element={<AdminSettingsPage />} />
+        
+        {/* Analytics Pages */}
         <Route path="/analytics" element={<AnalyticsPage />} />
         <Route path="/reports" element={<ReportsPage />} />
-        <Route path="/subscriptions" element={<SubscriptionsPage />} />
-        <Route path="/customers" element={<CustomersPage />} />
-        <Route path="/plans" element={<PlansPage />} />
-        <Route path="/billing" element={<BillingPage />} />
+        
+        {/* System Pages */}
         <Route path="/settings" element={<SettingsPage />} />
-        <Route path="/admin-settings" element={<AdminSettingsPage />} />
-        <Route path="/admin-settings-overview" element={<AdminSettingsOverviewPage />} />
         <Route path="/payment-gateways" element={<PaymentGatewaysPage />} />
-        <Route path="/services" element={<ServicesPage />} />
-        <Route path="/pages" element={<PagesPage />} />
+        <Route path="/workers" element={<WorkersPage />} />
+        <Route path="/audit-logs" element={<AuditLogsPage />} />
+        <Route path="/api-keys" element={<ApiKeysPage />} />
+        
+        {/* System Management Pages */}
+        <Route path="/system/webhooks" element={<WebhookManagementPage />} />
+        <Route path="/system/audit-logs" element={<SystemAuditLogsPage />} />
+        
+        {/* Additional Analytics Pages */}
+        <Route path="/metrics" element={<MetricsPage />} />
+        
+        {/* Account Management - Profile and Settings */}
+        <Route path="/profile" element={<SettingsPage />} />
+        <Route path="/account/*" element={<SettingsPage />} />
+        
+        {/* Admin routes - consistent with navigation */}
         <Route path="/users" element={<UsersPage />} />
-        <Route path="/accounts" element={<AccountsPage />} />
       </Routes>
     </DashboardLayout>
   );
 };
+
+export { DashboardPage };

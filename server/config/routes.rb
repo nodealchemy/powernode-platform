@@ -12,6 +12,12 @@ Rails.application.routes.draw do
       # Public endpoints (no authentication required)
       get 'public/plans', to: 'plans#public_index'
       
+      # Internal API for worker service
+      namespace :internal do
+        resources :users, only: [:show]
+        resources :accounts, only: [:show]
+      end
+      
       # Authentication and registration endpoints
       namespace :auth do
         post :register, to: "registrations#create"
@@ -78,6 +84,11 @@ Rails.application.routes.draw do
         get :system_logs, on: :member
         post :suspend_account, on: :member
         post :activate_account, on: :member
+      end
+      
+      # Email Settings endpoints (for worker service)
+      resource :email_settings, only: [ :show, :update ] do
+        post :test, on: :member
       end
 
       # Payment Gateways management (admin only)
@@ -172,13 +183,6 @@ Rails.application.routes.draw do
         end
       end
 
-      # Service authentication endpoint for worker
-      namespace :service do
-        match :verify, via: [:get, :post]
-        post :authenticate_user
-        post :verify_session
-        get :health
-      end
 
       # Billing endpoints for worker service
       namespace :billing do
@@ -233,7 +237,7 @@ Rails.application.routes.draw do
       end
 
       # System Management endpoints (admin only)
-      resources :audit_logs, only: [:index, :show] do
+      resources :audit_logs, only: [:index, :show, :create] do
         collection do
           get :stats
           post :export
@@ -296,7 +300,7 @@ Rails.application.routes.draw do
           end
         end
         
-        resources :services do
+        resources :workers do
           member do
             post :regenerate_token
             post :suspend
@@ -304,12 +308,6 @@ Rails.application.routes.draw do
             post :revoke
           end
           
-          resources :service_activities, path: 'activities' do
-            collection do
-              get :summary
-              delete :cleanup
-            end
-          end
         end
       end
     end

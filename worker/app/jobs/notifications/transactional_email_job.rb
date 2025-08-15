@@ -1,7 +1,7 @@
 require_relative '../base_job'
 
 class Notifications::TransactionalEmailJob < BaseJob
-  sidekiq_options queue: 'emails', retry: 3, backtrace: true
+  sidekiq_options queue: 'email', retry: 3, backtrace: true
 
   def execute(email_data)
     validate_required_params(email_data, 'email_type', 'recipient')

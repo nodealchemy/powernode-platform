@@ -98,7 +98,7 @@ class Reports::GenerateReportJob < BaseJob
   
   # Build download URL for the generated report
   def build_download_url(report_request_id)
-    "#{ENV['BACKEND_BASE_URL'] || 'http://localhost:3000'}/api/v1/reports/requests/#{report_request_id}/download"
+    "#{ENV['BACKEND_API_URL'] || 'http://localhost:3000'}/api/v1/reports/requests/#{report_request_id}/download"
   end
   
   # Generate PDF report using backend API data

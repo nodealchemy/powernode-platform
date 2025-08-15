@@ -16,6 +16,9 @@ gem 'dotenv', '~> 3.0'
 # Core Ruby extensions (needed for time helpers like .day, .hours, etc.)
 gem 'activesupport', '~> 7.1'
 
+# Email functionality
+gem 'actionmailer', '~> 7.1'
+
 # JSON handling
 gem 'oj', '~> 3.16'
 
