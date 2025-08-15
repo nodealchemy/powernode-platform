@@ -121,20 +121,204 @@ find . -name "*.tmp" -o -name ".DS_Store" -o -name "Thumbs.db" -o -name "*.swp" 
 
 ## Versioning & Git Flow
 
-### Versions
-- **Current**: `0.0.1-dev` (develop branch)
-- **Format**: `MAJOR.MINOR.PATCH[-alpha|-beta|-rc]`
-- **Branching**: Git-Flow (main, develop, feature/*, release/*, hotfix/*)
+**MANDATORY**: Strict Git-Flow release model with semantic versioning enforcement.
 
-### Commit Format (Conventional)
-```
-<type>(<scope>): <description>
-```
-**Types**: feat, fix, docs, style, refactor, test, chore, ci
+### Current Version
+- **Current**: `0.0.1-dev` (develop branch)
+- **Next Release**: `0.1.0` (first minor release)
+
+### Semantic Versioning (SemVer 2.0.0)
+
+**Format**: `MAJOR.MINOR.PATCH[-PRERELEASE][+BUILD]`
+
+**Version Increment Rules**:
+- **MAJOR** (X.0.0): Breaking changes, API incompatibility
+- **MINOR** (0.X.0): New features, backward compatible
+- **PATCH** (0.0.X): Bug fixes, backward compatible
+
+**Pre-release Tags**:
+- `alpha`: Early development, unstable
+- `beta`: Feature complete, testing phase
+- `rc`: Release candidate, production ready
 
 **Examples**:
-- `feat(auth): implement JWT authentication`
-- `fix(billing): resolve renewal issue`
+- `1.0.0` - Major release
+- `1.2.3` - Patch release
+- `2.0.0-alpha.1` - Alpha pre-release
+- `1.5.0-beta.2` - Beta pre-release
+- `1.4.0-rc.1` - Release candidate
+
+### Git-Flow Branch Model (ENFORCED)
+
+**Protected Branches**:
+- `main` - Production releases only
+- `develop` - Integration branch for features
+
+**Branch Naming Conventions**:
+```bash
+feature/ISSUE-short-description    # New features
+release/v1.2.0                    # Release preparation
+hotfix/v1.2.1-critical-bug       # Production fixes
+support/v1.x                      # Long-term support
+```
+
+**Workflow Commands**:
+```bash
+# Feature development
+git flow feature start ISSUE-feature-name
+git flow feature finish ISSUE-feature-name
+
+# Release process
+git flow release start v1.2.0
+git flow release finish v1.2.0
+
+# Hotfix process
+git flow hotfix start v1.2.1-critical-fix
+git flow hotfix finish v1.2.1-critical-fix
+```
+
+### Release Process (MANDATORY)
+
+**1. Pre-Release Checklist**:
+- [ ] All features merged to develop
+- [ ] All tests passing (backend + frontend)
+- [ ] Security audit completed
+- [ ] Performance benchmarks met
+- [ ] Documentation updated
+- [ ] CHANGELOG.md updated
+
+**2. Release Branch Creation**:
+```bash
+git flow release start v1.2.0
+# Update version in package.json, Gemfile, etc.
+# Final testing and bug fixes only
+git flow release finish v1.2.0
+```
+
+**3. Release Tagging**:
+```bash
+git tag -a v1.2.0 -m "Release version 1.2.0
+
+Features:
+- New payment gateway integration
+- Enhanced user management
+- Performance improvements
+
+Breaking Changes:
+- API endpoint restructuring
+
+Migration Guide:
+- Update API calls to new endpoints
+"
+```
+
+**4. Post-Release**:
+- [ ] Deploy to production
+- [ ] Monitor for issues
+- [ ] Update documentation
+- [ ] Announce release
+
+### Version Bumping Rules
+
+**Automatic Bumping**:
+- **PATCH**: Bug fixes, security patches, documentation
+- **MINOR**: New features, non-breaking API changes, deprecations
+- **MAJOR**: Breaking changes, API removals, architectural changes
+
+**Change Classification**:
+```bash
+# PATCH (0.0.X) - Backward compatible fixes
+fix(auth): resolve login validation bug
+fix(payment): correct invoice calculation
+docs(api): update endpoint documentation
+
+# MINOR (0.X.0) - Backward compatible features  
+feat(billing): add subscription pause feature
+feat(api): add new optional parameters
+feat(dashboard): add analytics export
+
+# MAJOR (X.0.0) - Breaking changes
+feat!: redesign authentication API
+feat(api)!: remove deprecated endpoints
+refactor!: restructure database schema
+```
+
+### Commit Format (Conventional Commits 1.0.0)
+
+**Format**: `<type>[optional scope][!]: <description>`
+
+**Required Types**:
+- `feat`: New feature
+- `fix`: Bug fix
+- `docs`: Documentation changes
+- `style`: Code style changes (formatting, semicolons, etc.)
+- `refactor`: Code refactoring without feature/fix
+- `test`: Adding or updating tests
+- `chore`: Maintenance tasks, dependency updates
+- `ci`: CI/CD pipeline changes
+- `perf`: Performance improvements
+- `revert`: Revert previous commit
+
+**Breaking Change Indicator**: `!` after type/scope
+**Examples**:
+```bash
+feat(auth): implement OAuth2 integration
+fix(billing): resolve subscription renewal bug
+feat!: redesign user authentication system
+docs(api): add webhook endpoint documentation
+chore(deps): update Rails to 8.0.3
+```
+
+### Branch Protection Rules
+
+**main branch**:
+- Require pull request reviews (2 minimum)
+- Require status checks (all tests must pass)
+- Require up-to-date branches
+- No direct pushes allowed
+- No force pushes allowed
+
+**develop branch**:
+- Require pull request reviews (1 minimum)
+- Require status checks (all tests must pass)
+- Allow squash merging only
+
+### Release Automation
+
+**Version Management**:
+```bash
+# Check current version
+git describe --tags --abbrev=0
+
+# Bump version (use npm version for consistency)
+npm version patch   # 1.0.0 → 1.0.1
+npm version minor   # 1.0.0 → 1.1.0  
+npm version major   # 1.0.0 → 2.0.0
+
+# Pre-release versions
+npm version prerelease --preid=alpha  # 1.0.0 → 1.0.1-alpha.0
+npm version prerelease --preid=beta   # 1.0.0 → 1.0.1-beta.0
+npm version prerelease --preid=rc     # 1.0.0 → 1.0.1-rc.0
+```
+
+**Changelog Generation**:
+- Use conventional commits for automatic changelog
+- Categorize changes by type and breaking changes
+- Include migration guides for major versions
+
+### Deployment Strategy
+
+**Environment Mapping**:
+- `main` → Production
+- `develop` → Staging  
+- `feature/*` → Development/Preview
+- `release/*` → Pre-production testing
+
+**Deployment Gates**:
+- All tests must pass
+- Security scans must pass
+- Performance benchmarks must meet thresholds
+- Manual approval required for production
 
 ### Multi-Agent Development
 **18 Specialized Agents**:
