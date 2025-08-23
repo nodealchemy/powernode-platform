@@ -2,7 +2,7 @@
 
 class Api::V1::ImpersonationsController < ApplicationController
   skip_before_action :authenticate_request, only: [:validate_token]
-  before_action :require_admin!, except: [:validate_token]
+  before_action :require_permission('admin.access'), except: [:validate_token]
   before_action :require_permission, only: [:create, :destroy]
   before_action :find_target_user, only: [:create]
   before_action :rate_limit_impersonation, only: [:create]
@@ -112,7 +112,7 @@ class Api::V1::ImpersonationsController < ApplicationController
   # GET /api/v1/impersonation/users
   def impersonatable_users
     # System Administrators can impersonate users from any account
-    if current_user.admin?
+    if current_user.has_permission?('admin.access')
       users = User.includes(:account)
                   .active
                   .where.not(id: current_user.id)
@@ -128,7 +128,7 @@ class Api::V1::ImpersonationsController < ApplicationController
                             .order(:first_name, :last_name)
 
       # Filter out owners if current user is not owner
-      users = users.where.not(role: 'owner') unless current_user.owner?
+      users = users.where.not(role: 'owner') unless current_user.has_permission?('account.manage')
     end
 
     render json: {
@@ -214,7 +214,7 @@ class Api::V1::ImpersonationsController < ApplicationController
   private
 
   def require_permission
-    unless current_user.has_permission?('users.impersonate') || current_user.owner? || current_user.admin?
+    unless current_user.has_permission?('users.impersonate') || current_user.has_permission?('account.manage') || current_user.has_permission?('admin.access')
       render_forbidden('You do not have permission to manage impersonation')
     end
   end
@@ -224,7 +224,7 @@ class Api::V1::ImpersonationsController < ApplicationController
     return render_bad_request('User ID required') unless user_id
 
     # System Administrators can impersonate users from any account
-    if current_user.admin?
+    if current_user.has_permission?('admin.access')
       @target_user = User.find(user_id)
       
       # System admins cannot impersonate other system admins
@@ -241,7 +241,7 @@ class Api::V1::ImpersonationsController < ApplicationController
   rescue ActiveRecord::RecordNotFound
     render json: {
       success: false,
-      error: current_user.admin? ? 'User not found' : 'User not found in your account'
+      error: current_user.has_permission?('admin.access') ? 'User not found' : 'User not found in your account'
     }, status: :not_found
   end
 
@@ -260,7 +260,7 @@ class Api::V1::ImpersonationsController < ApplicationController
     base_summary = user_summary(user)
     
     # Add account information for system admins
-    if current_user.admin? && user.account
+    if current_user.has_permission?('admin.access') && user.account
       base_summary[:account] = {
         id: user.account.id,
         name: user.account.name,

@@ -39,6 +39,9 @@
     "stripe",
     "paypal"
   ],
-  "author": "Powernode Team",
-  "license": "MIT"
+  "author": "Everett C. Haimes III",
+  "license": "GPL-3.0-or-later",
+  "dependencies": {
+    "ws": "^8.18.3"
+  }
 }

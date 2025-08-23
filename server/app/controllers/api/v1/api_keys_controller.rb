@@ -43,7 +43,7 @@ class Api::V1::ApiKeysController < ApplicationController
   def create
     api_key = ApiKey.new(api_key_params)
     api_key.created_by = current_user
-    api_key.account = current_user.account unless current_user.admin?
+    api_key.account = current_user.account unless current_user.has_permission?('admin.access')
 
     if api_key.save
       # Log API key creation
@@ -225,7 +225,7 @@ class Api::V1::ApiKeysController < ApplicationController
   private
 
   def require_admin_access
-    unless current_user.owner? || current_user.admin?
+    unless current_user.has_permission?('account.manage') || current_user.has_permission?('admin.access')
       render json: {
         success: false,
         error: "Access denied: Admin privileges required"
@@ -237,7 +237,7 @@ class Api::V1::ApiKeysController < ApplicationController
     @api_key = ApiKey.find(params[:id])
     
     # Non-admin users can only manage their account's API keys
-    unless current_user.admin? || @api_key.account == current_user.account
+    unless current_user.has_permission?('admin.access') || @api_key.account == current_user.account
       render json: {
         success: false,
         error: 'Access denied: You can only manage your account\'s API keys'

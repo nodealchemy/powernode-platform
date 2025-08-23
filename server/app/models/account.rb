@@ -49,7 +49,15 @@ class Account < ApplicationRecord
   end
 
   def owner
-    users.where(role: "owner").first
+    # Find the first user with owner role in this account
+    # Check for both possible role name formats
+    users.joins(:user_roles => :role)
+         .where(roles: { name: ['owner', 'account.owner'] })
+         .first
+  end
+
+  def managers
+    users.joins(:user_roles => :role).where(roles: { name: 'manager' })
   end
 
   def current_subscription
@@ -107,7 +115,9 @@ class Account < ApplicationRecord
     }
     
     # Find all admin accounts that should receive this update
-    admin_account_ids = User.joins(:account).where(role: ['owner', 'admin']).distinct.pluck(:account_id)
+    admin_account_ids = User.joins(:account, :user_roles => :role)
+                            .where(roles: { name: ['system.admin', 'account.manager'] })
+                            .distinct.pluck(:account_id)
     admin_accounts = Account.where(id: admin_account_ids)
     
     admin_accounts.each do |admin_account|

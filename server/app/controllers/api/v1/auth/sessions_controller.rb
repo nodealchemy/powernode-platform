@@ -2,6 +2,7 @@
 
 class Api::V1::Auth::SessionsController < ApplicationController
   include RateLimiting unless Rails.env.development?
+  include UserSerialization
 
   skip_before_action :authenticate_request, only: [ :create, :refresh ]
 
@@ -51,7 +52,7 @@ class Api::V1::Auth::SessionsController < ApplicationController
 
         # Normal login without 2FA
         tokens = JwtService.generate_tokens(user)
-        # record_login! is now called in authenticate method
+        user.record_login!
 
         # Create audit log entry
         AuditLog.create!(
@@ -279,29 +280,7 @@ class Api::V1::Auth::SessionsController < ApplicationController
     end
   end
 
-  def user_data(user)
-    {
-      id: user.id,
-      email: user.email,
-      firstName: user.first_name,
-      lastName: user.last_name,
-      fullName: user.full_name,
-      role: user.role,
-      status: user.status,
-      emailVerified: user.email_verified?,
-      lastLoginAt: user.last_login_at,
-      account: account_data(user.account)
-    }
-  end
-
-  def account_data(account)
-    {
-      id: account.id,
-      name: account.name,
-      subdomain: account.subdomain,
-      status: account.status
-    }
-  end
+  # user_data and account_data methods are now provided by UserSerialization concern
 
   # Rate limiting configuration
   def should_rate_limit?

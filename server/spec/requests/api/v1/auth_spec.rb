@@ -43,9 +43,9 @@ RSpec.describe 'Api::V1::Auth', type: :request do
           'success' => true,
           'user' => hash_including(
             'email' => 'newuser@example.com',
-            'firstName' => 'John',
-            'lastName' => 'Doe',
-            'role' => 'owner'
+            'first_name' => 'John',
+            'last_name' => 'Doe',
+            'roles' => ['owner']
           )
         )
         expect(response_data).to have_key('access_token')
@@ -56,7 +56,7 @@ RSpec.describe 'Api::V1::Auth', type: :request do
         post '/api/v1/auth/register', params: valid_params, as: :json
 
         new_user = User.find_by(email: 'newuser@example.com')
-        expect(new_user.role).to eq('owner')
+        expect(new_user.has_role?('owner')).to be true
       end
     end
 
@@ -82,6 +82,7 @@ RSpec.describe 'Api::V1::Auth', type: :request do
 
         post '/api/v1/auth/register', params: weak_params, as: :json
 
+        # The API returns the first validation error (length requirement is checked first)
         expect_error_response('Password Password must be at least 12 characters long', 422)
       end
     end
@@ -177,7 +178,7 @@ RSpec.describe 'Api::V1::Auth', type: :request do
         expect_success_response
         response_data = json_response
 
-        expect(response_data['user']['emailVerified']).to be false
+        expect(response_data['user']['email_verified']).to be false
         expect(response_data['warning']).to include('email verification')
       end
     end
@@ -288,9 +289,9 @@ RSpec.describe 'Api::V1::Auth', type: :request do
       expect(response_data['user']).to include(
         'id' => user.id,
         'email' => user.email,
-        'firstName' => user.first_name,
-        'lastName' => user.last_name,
-        'role' => user.role || 'member',
+        'first_name' => user.first_name,
+        'last_name' => user.last_name,
+        'roles' => user.role_names,
         'account' => hash_including(
           'id' => user.account.id,
           'name' => user.account.name

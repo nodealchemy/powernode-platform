@@ -213,7 +213,7 @@ class Api::V1::Admin::PagesController < ApplicationController
   end
 
   def ensure_admin_access!
-    unless current_user.admin? || current_user.owner?
+    unless current_user.has_permission?('admin.access')
       render json: {
         error: "Access denied",
         message: "You don't have permission to access this resource"

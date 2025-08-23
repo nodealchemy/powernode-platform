@@ -1,7 +1,10 @@
 # Admin Workers Controller
 # Manages worker authentication tokens and permissions
 class Api::V1::Admin::WorkersController < ApplicationController
-  before_action :require_admin!
+  before_action -> { require_permission('system.workers.view') }, only: [:index, :show]
+  before_action -> { require_permission('system.workers.create') }, only: [:create]
+  before_action -> { require_permission('system.workers.edit') }, only: [:update, :regenerate_token, :suspend, :activate, :revoke]
+  before_action -> { require_permission('system.workers.delete') }, only: [:destroy]
   before_action :set_worker, only: [ :show, :update, :destroy, :regenerate_token, :suspend, :activate, :revoke ]
 
   # GET /api/v1/admin/workers
@@ -34,9 +37,8 @@ class Api::V1::Admin::WorkersController < ApplicationController
     @worker = Worker.create_worker!(
       name: worker_params[:name],
       description: worker_params[:description],
-      permissions: worker_params[:permissions] || "standard",
       account: current_account,
-      role: worker_params[:role] || 'account'
+      role_names: worker_params[:roles] || ['worker.standard']
     )
 
     @worker.record_activity!("worker_created", {

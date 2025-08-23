@@ -1,85 +1,16 @@
+# frozen_string_literal: true
+
 # Minimal production seed data
 # This file contains only essential data needed for all environments
-# Additional test data is loaded separately in development/test environments
 
 puts "🌱 Seeding Powernode platform..."
 
-# Create basic permissions
-permissions_data = [
-  # Account management
-  { resource: 'accounts', action: 'read', description: 'View account details' },
-  { resource: 'accounts', action: 'update', description: 'Update account settings' },
-  { resource: 'accounts', action: 'delete', description: 'Delete account' },
+# Sync permissions and roles from configuration
+puts "📝 Creating permissions and roles from configuration..."
+Permission.sync_from_config!
+puts "✅ Created #{Permission.count} permissions"
 
-  # User management
-  { resource: 'users', action: 'read', description: 'View users' },
-  { resource: 'users', action: 'create', description: 'Create new users' },
-  { resource: 'users', action: 'update', description: 'Update user information' },
-  { resource: 'users', action: 'delete', description: 'Delete users' },
-
-  # Role management
-  { resource: 'roles', action: 'read', description: 'View roles' },
-  { resource: 'roles', action: 'create', description: 'Create new roles' },
-  { resource: 'roles', action: 'update', description: 'Update roles' },
-  { resource: 'roles', action: 'delete', description: 'Delete roles' },
-
-  # Subscription management
-  { resource: 'subscriptions', action: 'read', description: 'View subscriptions' },
-  { resource: 'subscriptions', action: 'create', description: 'Create subscriptions' },
-  { resource: 'subscriptions', action: 'update', description: 'Update subscriptions' },
-  { resource: 'subscriptions', action: 'delete', description: 'Cancel subscriptions' },
-
-  # Billing management
-  { resource: 'billing', action: 'read', description: 'View billing information' },
-  { resource: 'billing', action: 'update', description: 'Update billing settings' },
-
-  # Analytics access
-  { resource: 'analytics', action: 'read', description: 'View analytics and reports' },
-  { resource: 'analytics', action: 'export', description: 'Export analytics data' },
-  { resource: 'analytics', action: 'global', description: 'View global analytics across all accounts' }
-]
-
-permissions_data.each do |perm_data|
-  Permission.find_or_create_by!(
-    resource: perm_data[:resource],
-    action: perm_data[:action]
-  ) do |permission|
-    permission.description = perm_data[:description]
-  end
-end
-
-puts "✅ Permissions created"
-
-# Create system roles
-owner_role = Role.find_or_create_by!(name: 'Owner') do |role|
-  role.description = 'Account owner with full access to all features'
-  role.system_role = true
-end
-
-admin_role = Role.find_or_create_by!(name: 'Admin') do |role|
-  role.description = 'Administrator with management access'
-  role.system_role = true
-end
-
-member_role = Role.find_or_create_by!(name: 'Member') do |role|
-  role.description = 'Basic member with limited access'
-  role.system_role = true
-end
-
-# Assign all permissions to Owner
-owner_role.permissions = Permission.all
-
-# Assign most permissions to Admin (except account deletion)
-admin_permissions = Permission.where.not(resource: 'accounts', action: 'delete')
-admin_role.permissions = admin_permissions
-
-# Assign basic permissions to Member
-member_permissions = Permission.where(
-  resource: ['accounts', 'users', 'subscriptions', 'billing', 'analytics'],
-  action: 'read'
-)
-member_role.permissions = member_permissions
-
+Role.sync_from_config!
 puts "✅ Created #{Role.count} roles"
 
 # Create default plans
@@ -98,22 +29,17 @@ administrator_plan = Plan.find_or_create_by!(name: 'Administrator') do |plan|
     'api_access' => true,
     'custom_integrations' => true,
     'dedicated_support' => true,
-    'global_analytics' => true,
-    'system_administration' => true
+    'white_label' => true,
+    'sso_integration' => true,
+    'max_users' => 9999,
+    'storage_gb' => 10000
   }
-  plan.limits = {
-    'users' => -1,
-    'projects' => -1,
-    'storage_gb' => -1,
-    'api_requests_per_month' => -1
-  }
-  plan.default_roles = ['Admin']
   plan.status = 'active'
-  plan.is_public = false
+  plan.stripe_price_id = nil # No Stripe for admin plan
 end
 
-starter_plan = Plan.find_or_create_by!(name: 'Starter') do |plan|
-  plan.description = 'Perfect for individuals and small teams'
+basic_plan = Plan.find_or_create_by!(name: 'Basic') do |plan|
+  plan.description = 'Essential features for small teams'
   plan.price_cents = 999
   plan.currency = 'USD'
   plan.billing_cycle = 'monthly'
@@ -121,24 +47,29 @@ starter_plan = Plan.find_or_create_by!(name: 'Starter') do |plan|
   plan.features = {
     'dashboard_access' => true,
     'basic_analytics' => true,
-    'email_support' => true,
-    'api_access' => false,
     'advanced_analytics' => false,
-    'priority_support' => false
+    'email_support' => true,
+    'priority_support' => false,
+    'api_access' => false,
+    'custom_integrations' => false,
+    'dedicated_support' => false,
+    'white_label' => false,
+    'sso_integration' => false,
+    'max_users' => 5,
+    'storage_gb' => 10
   }
-  plan.limits = {
-    'users' => 5,
-    'projects' => 10,
-    'storage_gb' => 5,
-    'api_requests_per_month' => 0
-  }
-  plan.default_roles = ['Member']
   plan.status = 'active'
-  plan.is_public = true
+  plan.required_roles = ['member']
+  plan.stripe_price_id = 'price_basic_monthly' # Will be created via Stripe
+  # Add promotional discount
+  plan.has_promotional_discount = true
+  plan.promotional_discount_percent = 15.0
+  plan.promotional_discount_start = Time.current
+  plan.promotional_discount_end = 30.days.from_now
 end
 
 professional_plan = Plan.find_or_create_by!(name: 'Professional') do |plan|
-  plan.description = 'For growing teams with advanced needs'
+  plan.description = 'Advanced tools for growing businesses'
   plan.price_cents = 2999
   plan.currency = 'USD'
   plan.billing_cycle = 'monthly'
@@ -146,24 +77,27 @@ professional_plan = Plan.find_or_create_by!(name: 'Professional') do |plan|
   plan.features = {
     'dashboard_access' => true,
     'basic_analytics' => true,
-    'email_support' => true,
-    'api_access' => true,
     'advanced_analytics' => true,
-    'priority_support' => false
+    'email_support' => true,
+    'priority_support' => true,
+    'api_access' => true,
+    'custom_integrations' => false,
+    'dedicated_support' => false,
+    'white_label' => false,
+    'sso_integration' => false,
+    'max_users' => 25,
+    'storage_gb' => 100
   }
-  plan.limits = {
-    'users' => 25,
-    'projects' => 100,
-    'storage_gb' => 50,
-    'api_requests_per_month' => 10000
-  }
-  plan.default_roles = ['Member']
   plan.status = 'active'
-  plan.is_public = true
+  plan.required_roles = ['member']
+  plan.stripe_price_id = 'price_professional_monthly'
+  # Add annual discount
+  plan.has_annual_discount = true
+  plan.annual_discount_percent = 20.0
 end
 
 enterprise_plan = Plan.find_or_create_by!(name: 'Enterprise') do |plan|
-  plan.description = 'For large organizations'
+  plan.description = 'Complete solution for large organizations'
   plan.price_cents = 9999
   plan.currency = 'USD'
   plan.billing_cycle = 'monthly'
@@ -171,433 +105,533 @@ enterprise_plan = Plan.find_or_create_by!(name: 'Enterprise') do |plan|
   plan.features = {
     'dashboard_access' => true,
     'basic_analytics' => true,
-    'email_support' => true,
-    'api_access' => true,
     'advanced_analytics' => true,
+    'email_support' => true,
     'priority_support' => true,
+    'api_access' => true,
     'custom_integrations' => true,
-    'dedicated_support' => true
+    'dedicated_support' => true,
+    'white_label' => true,
+    'sso_integration' => true,
+    'max_users' => 9999,
+    'storage_gb' => 1000
   }
-  plan.limits = {
-    'users' => -1,
-    'projects' => -1,
-    'storage_gb' => 500,
-    'api_requests_per_month' => 100000
-  }
-  plan.default_roles = ['Member']
   plan.status = 'active'
-  plan.is_public = true
+  plan.required_roles = ['member', 'manager']
+  plan.stripe_price_id = 'price_enterprise_monthly'
+  # Add annual discount
+  plan.has_annual_discount = true
+  plan.annual_discount_percent = 25.0
 end
 
 puts "✅ Created #{Plan.count} plans"
 
-# Create Admin account and user
-admin_account = Account.find_or_create_by!(name: 'Powernode Administration') do |account|
-  account.subdomain = 'admin'
-  account.status = 'active'
-end
-
-admin_subscription = Subscription.find_or_create_by!(account: admin_account) do |subscription|
-  subscription.plan = administrator_plan
-  subscription.status = 'active'
-  subscription.current_period_start = Time.current
-  subscription.current_period_end = 1.year.from_now
-  subscription.trial_end = nil
-end
-
-admin_user = User.find_or_create_by!(email: 'admin@powernode.dev') do |user|
-  user.account = admin_account
-  user.first_name = 'System'
-  user.last_name = 'Administrator'
-  user.password = 'AdminStrong2024!@#$'
-  user.password_confirmation = 'AdminStrong2024!@#$'
-  user.status = 'active'
-  user.role = 'admin'
-  user.email_verified = true
-  user.email_verified_at = Time.current
-  user.last_login_at = Time.current
-end
-
-# Ensure admin role is applied (in case user already exists)
-admin_user.update!(role: 'admin') unless admin_user.role == 'admin'
-
-puts ""
-puts "✅ Created Admin Account:"
-puts "  - Email: admin@powernode.dev"
-puts '  - Password: AdminStrong2024!@#$'
-puts '  - Plan: Administrator (Free)'
-
-# Create one demo customer account
-demo_account = Account.find_or_create_by!(name: 'Demo Company') do |account|
-  account.subdomain = 'demo'
-  account.status = 'active'
-  account.billing_email = 'billing@democompany.com'
-  account.created_at = 30.days.ago
-end
-
-demo_subscription = Subscription.find_or_create_by!(account: demo_account) do |subscription|
-  subscription.plan = professional_plan
-  subscription.status = 'active'
-  subscription.current_period_start = 30.days.ago
-  subscription.current_period_end = 30.days.from_now
-  subscription.trial_end = nil
-end
-
-demo_user = User.find_or_create_by!(email: 'demo@democompany.com') do |user|
-  user.account = demo_account
-  user.first_name = 'Demo'
-  user.last_name = 'User'
-  user.password = 'DemoSecure456!@#$%'
-  user.password_confirmation = 'DemoSecure456!@#$%'
-  user.status = 'active'
-  user.role = 'owner'
-  user.email_verified = true
-  user.email_verified_at = 30.days.ago
-  user.last_login_at = 1.day.ago
-end
-
-# Create a payment method for demo account
-stripe_id = "pm_demo_#{SecureRandom.hex(8)}"
-demo_payment_method = PaymentMethod.find_or_create_by!(
-  account: demo_account,
-  user: demo_user,
-  provider: 'stripe',
-  external_id: stripe_id
-) do |pm|
-  pm.payment_type = 'card'
-  pm.brand = 'visa'
-  pm.last_four = '4242'
-  pm.exp_month = 12
-  pm.exp_year = Date.current.year + 2
-  pm.holder_name = "#{demo_user.first_name} #{demo_user.last_name}"
-  pm.is_default = true
-  pm.metadata = { demo: true }
-end
-
-puts ""
-puts "✅ Created Demo Customer Account:"
-puts "  - Email: demo@democompany.com"
-puts '  - Password: DemoSecure456!@#$%'
-puts '  - Plan: Professional ($29.99/month)'
-puts "  - Payment: Visa ending in 4242"
-
-# Create essential pages
-puts "\n📄 Creating essential pages..."
-
-essential_pages = [
-  {
-    title: 'Welcome to Powernode',
-    slug: 'welcome',
-    content: '# 🚀 **Powernode** - Subscription Superpowers for Modern Businesses
-
-## **Transform Your Business with the Ultimate Subscription Platform**
-
-### 💡 **One Platform. Infinite Possibilities.**
-
-Stop juggling multiple tools. Powernode brings **everything** you need to launch, manage, and scale your subscription business into one powerful, intuitive platform.
-
----
-
-## 🎯 **Why Industry Leaders Choose Powernode**
-
-### **📈 350% Average Revenue Growth**
-Our customers see explosive growth within their first year. Join thousands of businesses that have transformed their revenue models with Powernode.
-
-### **⚡ Launch in Minutes, Not Months**
-Pre-built components, instant payment processing, and automated workflows mean you can start accepting subscriptions today.
-
-### **🛡️ Enterprise-Grade Security**
-Bank-level encryption, PCI DSS compliance, and SOC 2 certification keep your business and customers protected.
-
----
-
-## ✨ **Features That Set You Apart**
-
-### **💳 Seamless Payment Processing**
-- **Stripe & PayPal** integration out of the box
-- Support for **25+ currencies** and **135+ countries**
-- Smart retry logic reduces failed payments by **38%**
-- Automated dunning recovers **up to 15%** of failed charges
-
-### **📊 Real-Time Analytics Dashboard**
-- Track **MRR, ARR, LTV, and Churn** at a glance
-- Customer cohort analysis and retention insights
-- Revenue forecasting with **95% accuracy**
-- Export-ready reports for investors and stakeholders
-
-### **🎨 Flexible Subscription Models**
-- **Flat-rate, tiered, per-seat, and usage-based** pricing
-- Free trials, freemium, and hybrid models
-- Proration and mid-cycle plan changes
-- Grandfather pricing and custom discounts
-
-### **🤝 Customer Self-Service Portal**
-- Branded customer experience
-- One-click upgrades and downgrades
-- Invoice history and payment method management
-- Pause and resume subscriptions
-
-### **🔧 Developer-First API**
-- RESTful API with **99.99% uptime SLA**
-- Webhooks for real-time events
-- SDKs for popular languages
-- Comprehensive API documentation
-
-### **👥 Team Collaboration**
-- Role-based access control (RBAC)
-- Multi-account management
-- Activity logs and audit trails
-- Team performance metrics
-
----
-
-## 📈 **By the Numbers**
-
-### **The Powernode Impact**
-
-- **$2.3B+** Total payment volume processed
-- **12M+** Active subscriptions managed
-- **99.99%** Platform uptime guarantee
-- **4.8/5** Average customer satisfaction score
-- **<100ms** Average API response time
-- **45%** Reduction in operational costs
-
----
-
-## 💬 **What Our Customers Say**
-
-> "**Powernode transformed our business model.** We went from one-time sales to predictable recurring revenue in just 3 months. Revenue is up 400% year-over-year."
-> 
-> — **Sarah Chen**, CEO at TechStart
-
-> "The analytics alone are worth it. **We discovered revenue opportunities we never knew existed.** Powernode paid for itself in the first week."
-> 
-> — **Michael Rodriguez**, Head of Growth at ScaleUp Inc
-
-> "**Migration was seamless.** The team helped us move 50,000 subscribers without a single minute of downtime. Incredible."
-> 
-> — **Jennifer Park**, CTO at Enterprise Solutions
-
----
-
-## 💎 **Choose Your Growth Path**
-
-### **🌱 Starter** - *$9.99/month*
-Perfect for launching your subscription business
-- Up to 100 subscribers
-- Core analytics dashboard
-- Email support
-- 2.9% + 30¢ per transaction
-
-### **🚀 Professional** - *$29.99/month*
-Scale with confidence
-- Up to 2,500 subscribers
-- Advanced analytics & cohorts
-- Priority support
-- API access
-- 2.5% + 30¢ per transaction
-
-### **🏢 Enterprise** - *$99.99/month*
-Unlimited growth potential
-- Unlimited subscribers
-- Custom integrations
-- Dedicated account manager
-- White-label options
-- Volume-based pricing
-
-### **✨ All Plans Include:**
-- ✅ Zero setup fees
-- ✅ 14-day free trial
-- ✅ No credit card required
-- ✅ Cancel anytime
-- ✅ Free migration assistance
-
----
-
-## 🎬 **See Powernode in Action**
-
-### **Join a Live Demo Every Tuesday & Thursday**
-Watch how leading companies use Powernode to accelerate growth. See real dashboards, live integrations, and get your questions answered.
-
-**[Reserve Your Spot →](/demo)**
-
----
-
-## 🏆 **Trusted by Industry Leaders**
-
-Companies of all sizes trust Powernode to power their subscription business:
-
-**TechCrunch** • **Forbes** • **Gartner** • **Y Combinator** • **500 Startups**
-
-"*Best Subscription Platform 2024*" - SaaS Awards
-
-"*Top 10 Fintech Innovation*" - Finance Weekly
-
-"*Customer Choice Award*" - G2 Crowd
-
----
-
-## 🚀 **Ready to Transform Your Business?**
-
-### **Join 10,000+ companies already growing with Powernode**
-
-Every second counts. While you read this, businesses using Powernode are:
-- Processing **$2,847** in recurring revenue
-- Onboarding **14 new subscribers**
-- Saving **3.2 hours** of manual work
-
-### **🎯 Start Your Success Story Today**
-
-**[Start Free Trial](/register)** • **[View Plans](/plans)** • **[Schedule Demo](/demo)**
-
----
-
-## 💡 **Still Have Questions?**
-
-### **📚 Resources**
-- [Getting Started Guide](/getting-started)
-- [API Documentation](/api-docs)
-- [Video Tutorials](/tutorials)
-- [Success Stories](/case-studies)
-
-### **🤝 We\'re Here to Help**
-- 24/7 Live Chat Support
-- Expert onboarding team
-- Dedicated success managers
-- Active community forum
-
-### **📧 Contact Sales**
-Enterprise needs? Custom requirements? Let\'s talk.
-
-**[Contact Our Team](/contact)** • **sales@powernode.dev** • **1-800-POWER-UP**
-
----
-
-## 🌟 **The Future of Subscriptions Starts Here**
-
-Don\'t let another day pass with unpredictable revenue. Join the subscription revolution and build the recurring revenue business you\'ve always dreamed of.
-
-**It\'s time to power up with Powernode.**
-
-**[🚀 Start Your Free Trial Now](/register)**
-
-*No credit card required • Setup in 5 minutes • Cancel anytime*
-
----
-
-*© 2025 Powernode. Empowering subscription businesses worldwide.*',
-    status: 'published'
-  },
-  {
-    title: 'Terms of Service',
-    slug: 'terms',
-    content: '# Terms of Service
-
-Last updated: ' + Date.current.strftime('%B %d, %Y') + '
-
-These Terms of Service govern your use of the Powernode platform.
-
-## 1. Acceptance of Terms
-
-By accessing or using Powernode, you agree to be bound by these Terms.
-
-## 2. Use of Service
-
-You may use Powernode only for lawful purposes and in accordance with these Terms.
-
-## 3. Account Registration
-
-You must provide accurate and complete information when creating an account.
-
-## 4. Subscription and Billing
-
-Subscription fees are billed in advance on a monthly or annual basis.
-
-## 5. Privacy
-
-Your use of Powernode is also governed by our Privacy Policy.',
-    status: 'published'
-  },
-  {
-    title: 'Privacy Policy',
-    slug: 'privacy',
-    content: '# Privacy Policy
-
-Last updated: ' + Date.current.strftime('%B %d, %Y') + '
-
-Powernode respects your privacy and is committed to protecting your personal data.
-
-## Information We Collect
-
-We collect information you provide directly to us, such as when you create an account.
-
-## How We Use Your Information
-
-We use the information to provide, maintain, and improve our services.
-
-## Data Security
-
-We implement appropriate security measures to protect your personal information.
-
-## Contact Us
-
-If you have questions about this Privacy Policy, please contact us.',
-    status: 'published'
-  }
-]
-
-essential_pages.each do |page_data|
-  Page.find_or_create_by!(slug: page_data[:slug]) do |page|
-    page.title = page_data[:title]
-    page.content = page_data[:content]
-    page.status = page_data[:status]
-    page.author_id = admin_user.id
-    page.published_at = Time.current
-  end
-end
-
-puts "✅ Created #{essential_pages.count} essential pages"
-
-# Create System Worker (Global - used by Sidekiq worker component)
-puts "\n🤖 Creating global system worker..."
-
-system_worker = Worker.find_or_create_by!(
-  role: 'system'
-) do |worker|
-  worker.account = admin_account
-  worker.name = 'Powernode System Worker'
-  worker.description = 'Global system worker for application background job processing and system tasks'
-  worker.permissions = 'super_admin'
+# Create system worker (required for worker-backend communication)
+system_worker = Worker.find_or_create_by!(name: 'Powernode System Worker') do |worker|
   worker.status = 'active'
-  # Token will be automatically generated by the before_create callback
+  worker.description = 'Primary system background job processor'
+  worker.last_seen_at = Time.current
+  # Token is generated automatically by before_create callback
 end
 
-puts "✅ Created System Worker:"
-puts "  - Name: #{system_worker.name}"
-puts "  - Role: #{system_worker.role}"
-puts "  - Permissions: #{system_worker.permissions}"
-puts "  - Token: #{system_worker.masked_token}"
-puts "  - Account: #{system_worker.account.name}"
+# Assign system_worker role to the system worker
+if system_worker.roles.empty?
+  system_worker_role = Role.find_by(name: 'system_worker')
+  system_worker.roles << system_worker_role if system_worker_role
+end
 
-# Load comprehensive test data in development and test environments
+puts "✅ System worker created with token: #{system_worker.token[0..10]}..."
+puts "   ⚠️  Make sure to update worker/.env with WORKER_TOKEN=#{system_worker.token}"
+
+# Only create admin account in development/test environments
 if Rails.env.development? || Rails.env.test?
-  test_data_file = Rails.root.join('db', 'seeds', 'test_data.rb')
-  if File.exist?(test_data_file)
-    puts "\n📦 Loading test data for #{Rails.env} environment..."
-    load test_data_file
-  else
-    puts "\n⚠️  Test data file not found at db/seeds/test_data.rb"
-    puts "  Run 'rails db:seed:test_data' to generate comprehensive test data"
+  puts "\n🏢 Creating development/test accounts..."
+  
+  # Create admin account and user
+  admin_account = Account.find_or_create_by!(
+    name: 'Powernode Admin',
+    subdomain: 'admin'
+  ) do |account|
+    account.status = 'active'
+    account.settings = { timezone: 'UTC', locale: 'en' }
   end
+
+  # Create subscription for admin account
+  admin_subscription = Subscription.find_or_create_by!(
+    account: admin_account,
+    plan: administrator_plan
+  ) do |subscription|
+    subscription.status = 'active'
+    subscription.current_period_start = Time.current
+    subscription.current_period_end = 100.years.from_now
+    subscription.stripe_subscription_id = nil
+  end
+
+  # Create admin user
+  admin_user = User.find_or_create_by!(
+    email: 'admin@powernode.org'
+  ) do |user|
+    user.account = admin_account
+    user.first_name = 'System'
+    user.last_name = 'Admin'
+    user.password = 'P0w3rN0d3Admin!@&'
+    user.password_confirmation = 'P0w3rN0d3Admin!@&'
+    user.status = 'active'
+    user.email_verified = true
+    user.email_verified_at = Time.current
+  end
+  
+  # Ensure admin user has super_admin role
+  super_admin_role = Role.find_by(name: 'super_admin')
+  if super_admin_role && !admin_user.roles.include?(super_admin_role)
+    admin_user.roles.clear  # Remove any existing roles
+    admin_user.roles << super_admin_role
+  end
+
+  # Create demo account
+  demo_account = Account.find_or_create_by!(
+    name: 'Demo Company',
+    subdomain: 'demo'
+  ) do |account|
+    account.status = 'active'
+    account.settings = { timezone: 'America/New_York', locale: 'en' }
+  end
+
+  # Create subscription for demo account
+  demo_subscription = Subscription.find_or_create_by!(
+    account: demo_account,
+    plan: professional_plan
+  ) do |subscription|
+    subscription.status = 'active'
+    subscription.current_period_start = Time.current.beginning_of_month
+    subscription.current_period_end = Time.current.end_of_month
+    subscription.stripe_subscription_id = "sub_demo_#{SecureRandom.hex(8)}"
+  end
+
+  # Create demo users
+  demo_manager = User.find_or_create_by!(
+    email: 'manager@powernode.org'
+  ) do |user|
+    user.account = demo_account
+    user.first_name = 'Demo'
+    user.last_name = 'Manager'
+    user.password = 'D3m0U$er2024!@&'
+    user.password_confirmation = 'D3m0U$er2024!@&'
+    user.status = 'active'
+    user.email_verified = true
+    user.email_verified_at = Time.current
+  end
+  
+  # Assign manager role
+  if demo_manager.roles.empty?
+    manager_role = Role.find_by(name: 'manager')
+    demo_manager.roles << manager_role if manager_role
+  end
+
+  demo_member = User.find_or_create_by!(
+    email: 'member@powernode.org'
+  ) do |user|
+    user.account = demo_account
+    user.first_name = 'Demo'
+    user.last_name = 'Member'
+    user.password = 'D3m0U$er2024!@*'
+    user.password_confirmation = 'D3m0U$er2024!@*'
+    user.status = 'active'
+    user.email_verified = true
+    user.email_verified_at = Time.current
+  end
+  
+  # Assign member role
+  if demo_member.roles.empty?
+    member_role = Role.find_by(name: 'member')
+    demo_member.roles << member_role if member_role
+  end
+
+  puts "✅ Created #{Account.count} accounts and #{User.count} users"
+  puts "\n📧 Test login credentials:"
+  puts "   Admin: admin@powernode.org / P0w3rN0d3Admin!@&"
+  puts "   Manager: manager@powernode.org / D3m0U$er2024!@&"
+  puts "   Member: member@powernode.org / D3m0U$er2024!@*"
 end
 
-puts "\n✨ Seeding completed successfully!"
-puts ""
-puts "Summary:"
-puts "  - Permissions: #{Permission.count}"
-puts "  - Roles: #{Role.count}"
-puts "  - Plans: #{Plan.count}"
-puts "  - Accounts: #{Account.count}"
-puts "  - Users: #{User.count}"
-puts "  - Subscriptions: #{Subscription.count}"
-puts "  - Workers: #{Worker.count}"
+# 📄 Create public pages
+puts "\n📄 Creating public pages..."
+
+# Get admin user as author
+admin_user = User.find_by(email: 'admin@powernode.org')
+
+# Welcome page
+Page.find_or_create_by!(slug: 'welcome') do |page|
+  page.title = 'Welcome to Powernode'
+  page.author = admin_user
+  page.status = 'published'
+  page.meta_description = 'Streamline your subscription business with automated billing, analytics, and customer lifecycle management.'
+  page.meta_keywords = 'subscription management, billing automation, recurring revenue, SaaS platform'
+  page.content = <<~MARKDOWN
+    # Welcome to Powernode
+
+    ## Streamline Your Subscription Business
+
+    Powernode is a comprehensive subscription management platform designed to help businesses automate billing, track analytics, and manage customer lifecycles with ease.
+
+    ### 🚀 Key Features
+
+    - **Automated Billing**: Seamless subscription billing and invoicing
+    - **Real-time Analytics**: Track revenue, churn, and customer metrics
+    - **Customer Management**: Complete subscriber lifecycle management
+    - **Multiple Payment Gateways**: Support for Stripe, PayPal, and more
+    - **API-First Architecture**: Integrate with your existing tools
+    - **Enterprise Security**: PCI compliance and data protection
+
+    ### 💼 Perfect for Growing Businesses
+
+    Whether you're a startup launching your first subscription product or an established company looking to optimize your recurring revenue, Powernode provides the tools you need to succeed.
+
+    ### 🎯 Get Started Today
+
+    Ready to transform your subscription business? [Sign up for free](/register) and start your journey with Powernode.
+
+    ---
+
+    *Questions? Visit our [help center](/help) or [contact our team](/contact).*
+  MARKDOWN
+end
+
+
+# Terms of Service page
+Page.find_or_create_by!(slug: 'terms') do |page|
+  page.title = 'Terms of Service'
+  page.author = admin_user
+  page.status = 'published'
+  page.meta_description = 'Terms of Service for Powernode subscription management platform.'
+  page.meta_keywords = 'terms of service, legal, agreement, user agreement'
+  page.content = <<~MARKDOWN
+    # Terms of Service
+
+    **Last updated: #{Date.current.strftime('%B %d, %Y')}**
+
+    ## 1. Acceptance of Terms
+
+    By accessing and using Powernode ("Service"), you accept and agree to be bound by the terms and provision of this agreement.
+
+    ## 2. Use License
+
+    Permission is granted to temporarily access Powernode for personal, non-commercial transitory viewing only. This is the grant of a license, not a transfer of title, and under this license you may not:
+
+    - Modify or copy the materials
+    - Use the materials for any commercial purpose or for any public display
+    - Attempt to reverse engineer any software contained on the website
+    - Remove any copyright or other proprietary notations from the materials
+
+    ## 3. Subscription Services
+
+    ### 3.1 Service Availability
+    We strive to maintain 99.9% uptime but do not guarantee uninterrupted service availability.
+
+    ### 3.2 Billing and Payment
+    - Subscription fees are billed in advance on a monthly or annual basis
+    - All payments are non-refundable except as required by law
+    - We reserve the right to change pricing with 30 days notice
+
+    ### 3.3 Account Termination
+    We may terminate accounts that violate these terms or engage in fraudulent activity.
+
+    ## 4. Privacy
+
+    Your privacy is important to us. Please review our Privacy Policy, which also governs your use of the Service.
+
+    ## 5. Data Security
+
+    We implement industry-standard security measures to protect your data. However, no method of transmission over the Internet is 100% secure.
+
+    ## 6. Limitation of Liability
+
+    In no event shall Powernode be liable for any damages arising out of the use or inability to use the Service.
+
+    ## 7. Governing Law
+
+    These terms shall be governed by and construed in accordance with the laws of [Jurisdiction], without regard to its conflict of law provisions.
+
+    ## 8. Changes to Terms
+
+    We reserve the right to modify these terms at any time. Users will be notified of significant changes.
+
+    ## Contact Information
+
+    Questions about these Terms of Service should be sent to: legal@powernode.com
+  MARKDOWN
+end
+
+# Privacy Policy page
+Page.find_or_create_by!(slug: 'privacy') do |page|
+  page.title = 'Privacy Policy'
+  page.author = admin_user
+  page.status = 'published'
+  page.meta_description = 'Privacy Policy for Powernode - learn how we collect, use, and protect your personal information.'
+  page.meta_keywords = 'privacy policy, data protection, GDPR, personal information, cookies'
+  page.content = <<~MARKDOWN
+    # Privacy Policy
+
+    **Last updated: #{Date.current.strftime('%B %d, %Y')}**
+
+    ## Introduction
+
+    Powernode ("we," "our," or "us") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our subscription management platform.
+
+    ## Information We Collect
+
+    ### Personal Information
+    - Name and contact information
+    - Billing and payment information
+    - Account credentials
+    - Usage data and analytics
+
+    ### Automatically Collected Information
+    - IP addresses and device information
+    - Browser type and operating system
+    - Pages visited and time spent
+    - Cookies and similar technologies
+
+    ## How We Use Your Information
+
+    We use your information to:
+    - Provide and maintain our services
+    - Process payments and billing
+    - Send important account notifications
+    - Improve our platform and user experience
+    - Comply with legal obligations
+
+    ## Information Sharing
+
+    We do not sell your personal information. We may share information with:
+    - Service providers and business partners
+    - Legal authorities when required by law
+    - In connection with business transfers or mergers
+
+    ## Data Security
+
+    We implement appropriate technical and organizational measures to protect your information against unauthorized access, alteration, disclosure, or destruction.
+
+    ### Security Measures Include:
+    - Encryption in transit and at rest
+    - Regular security audits and updates
+    - Access controls and authentication
+    - PCI DSS compliance for payment data
+
+    ## Your Rights
+
+    Depending on your location, you may have the following rights:
+    - Access your personal information
+    - Correct inaccurate information
+    - Delete your information
+    - Data portability
+    - Opt-out of marketing communications
+
+    ## Cookies and Tracking
+
+    We use cookies and similar technologies to enhance your experience. You can control cookie preferences through your browser settings.
+
+    ## International Transfers
+
+    Your information may be processed in countries other than your own. We ensure appropriate safeguards are in place for such transfers.
+
+    ## Children's Privacy
+
+    Our services are not directed to children under 13. We do not knowingly collect personal information from children under 13.
+
+    ## Changes to Privacy Policy
+
+    We may update this Privacy Policy from time to time. We will notify you of any significant changes.
+
+    ## Contact Us
+
+    Questions about this Privacy Policy should be directed to:
+    - Email: privacy@powernode.com
+    - Address: [Your Company Address]
+
+    For EU residents: You may also contact our Data Protection Officer at dpo@powernode.com
+  MARKDOWN
+end
+
+# Help/Support page
+Page.find_or_create_by!(slug: 'help') do |page|
+  page.title = 'Help & Support'
+  page.author = admin_user
+  page.status = 'published'
+  page.meta_description = 'Get help with Powernode - find answers to common questions and learn how to use our subscription management platform.'
+  page.meta_keywords = 'help, support, FAQ, documentation, guides, customer support'
+  page.content = <<~MARKDOWN
+    # Help & Support
+
+    ## Get the Most Out of Powernode
+
+    Welcome to our Help Center! Find answers to common questions and learn how to maximize your subscription business with Powernode.
+
+    ## 🚀 Getting Started
+
+    ### Quick Setup Guide
+    1. **Create Your Account** - Sign up and verify your email
+    2. **Set Up Billing** - Configure your payment gateway
+    3. **Create Your First Plan** - Define your subscription offerings
+    4. **Invite Team Members** - Collaborate with your team
+    5. **Launch Your Service** - Start accepting subscribers
+
+    ### Essential Features
+    - **Dashboard Overview** - Monitor key metrics at a glance
+    - **Subscription Management** - Create and manage subscription plans
+    - **Customer Portal** - Self-service options for subscribers
+    - **Analytics & Reporting** - Track performance and growth
+
+    ## 📖 Frequently Asked Questions
+
+    ### Account & Billing
+    **Q: How do I change my subscription plan?**
+    A: Visit your account settings and select "Change Plan" to upgrade or downgrade.
+
+    **Q: When am I charged for my subscription?**
+    A: Billing occurs on your subscription anniversary date each month or year.
+
+    **Q: Can I cancel my subscription anytime?**
+    A: Yes, you can cancel anytime from your account settings. No long-term contracts.
+
+    ### Technical Support
+    **Q: How do I integrate Powernode with my existing website?**
+    A: Use our REST API or JavaScript SDK. Check our developer documentation for details.
+
+    **Q: What payment gateways do you support?**
+    A: We support Stripe, PayPal, and other major payment processors.
+
+    **Q: Is my data secure?**
+    A: Yes, we use enterprise-grade security including encryption, PCI compliance, and regular audits.
+
+    ## 🛠️ Advanced Features
+
+    ### API Integration
+    - REST API for custom integrations
+    - Webhooks for real-time notifications
+    - SDKs for popular programming languages
+
+    ### Analytics & Reporting
+    - Revenue tracking and forecasting
+    - Customer lifecycle analysis
+    - Churn prediction and prevention
+    - Custom report generation
+
+    ### Team Collaboration
+    - Role-based access control
+    - Team member invitations
+    - Audit logs and activity tracking
+
+    ## 📞 Contact Support
+
+    Can't find what you're looking for? Our support team is here to help!
+
+    ### Support Channels
+    - **Email Support**: support@powernode.com
+    - **Live Chat**: Available 24/7 for paid plans
+    - **Phone Support**: Available for Business and Enterprise plans
+    - **Help Desk**: Submit a ticket through your dashboard
+
+    ### Response Times
+    - **Starter Plan**: 48 hours
+    - **Professional Plan**: 24 hours
+    - **Business Plan**: 12 hours
+    - **Enterprise Plan**: 2 hours
+
+    ## 📚 Additional Resources
+
+    - [API Documentation](/docs/api)
+    - [Video Tutorials](/tutorials)
+    - [Developer Guides](/docs/guides)
+    - [Status Page](/status)
+    - [Community Forum](/community)
+
+    ---
+
+    **Still need help?** [Contact our support team](mailto:support@powernode.com) - we're here to ensure your success!
+  MARKDOWN
+end
+
+# About page
+Page.find_or_create_by!(slug: 'about') do |page|
+  page.title = 'About Powernode'
+  page.author = admin_user
+  page.status = 'published'
+  page.meta_description = 'Learn about Powernode - our mission to simplify subscription management for businesses of all sizes.'
+  page.meta_keywords = 'about, company, mission, team, subscription management, SaaS'
+  page.content = <<~MARKDOWN
+    # About Powernode
+
+    ## Simplifying Subscription Management for Everyone
+
+    Founded with the mission to democratize subscription business management, Powernode provides powerful tools that help businesses of all sizes build, manage, and scale their recurring revenue streams.
+
+    ## Our Mission
+
+    **To empower businesses to focus on what they do best while we handle the complexity of subscription management.**
+
+    We believe that every business should have access to enterprise-grade subscription tools, regardless of their size or technical expertise.
+
+    ## Our Story
+
+    Powernode was born from the frustration of managing subscriptions across multiple platforms, dealing with complex billing scenarios, and lacking actionable insights into customer behavior. 
+
+    We set out to build a platform that would:
+    - Simplify subscription billing and management
+    - Provide clear, actionable analytics
+    - Scale with businesses as they grow
+    - Integrate seamlessly with existing tools
+
+    ## What Sets Us Apart
+
+    ### 🎯 Customer-Centric Design
+    Every feature is built with the end-user in mind, ensuring intuitive experiences for both businesses and their customers.
+
+    ### 🔧 Developer-Friendly
+    Comprehensive APIs, webhooks, and SDKs make integration straightforward for technical teams.
+
+    ### 📈 Growth-Oriented
+    Our platform grows with your business, from first subscriber to IPO and beyond.
+
+    ### 🛡️ Security-First
+    Enterprise-grade security and compliance built into every aspect of our platform.
+
+    ## Our Values
+
+    **Transparency** - Clear pricing, open communication, and honest business practices.
+
+    **Innovation** - Continuously improving our platform based on customer feedback and industry trends.
+
+    **Reliability** - Building robust, scalable infrastructure that businesses can depend on.
+
+    **Support** - Providing exceptional customer service and resources for success.
+
+    ## The Team
+
+    Our diverse team combines expertise in subscription business models, financial technology, and user experience design. We're passionate about helping businesses succeed in the subscription economy.
+
+    ## Join Our Journey
+
+    Whether you're launching your first subscription product or optimizing an established business, we're here to support your success.
+
+    [Start your free trial today](/register) and discover how Powernode can transform your subscription business.
+
+    ---
+
+    **Questions about our company or platform?** [Contact us](/contact) - we'd love to hear from you!
+  MARKDOWN
+end
+
+puts "✅ Created #{Page.count} public pages"
+
+puts "\n🎉 Seeding complete!"
+puts "   Permissions: #{Permission.count}"
+puts "   Roles: #{Role.count}"
+puts "   Plans: #{Plan.count}"
+puts "   Workers: #{Worker.count}"
+
+if Rails.env.development? || Rails.env.test?
+  puts "   Accounts: #{Account.count}"
+  puts "   Users: #{User.count}"
+  puts "   Subscriptions: #{Subscription.count}"
+end

@@ -1,36 +1,36 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Provider } from 'react-redux';
-import { store } from './store';
+import { store } from '@/shared/services';
 import { useDispatch, useSelector } from 'react-redux';
-import { RootState, AppDispatch } from './store';
-import { getCurrentUser, refreshAccessToken, clearAuth, forceTokenClear, checkImpersonationStatus } from './store/slices/authSlice';
-import { isTokenInvalidError, isValidJWTFormat } from './utils/tokenUtils';
+import { RootState, AppDispatch } from '@/shared/services';
+import { getCurrentUser, refreshAccessToken, clearAuth, forceTokenClear, checkImpersonationStatus } from '@/shared/services/slices/authSlice';
+import { isTokenInvalidError, isValidJWTFormat } from '@/shared/utils/tokenUtils';
 
 // Theme Provider
-import { ThemeProvider } from './contexts/ThemeContext';
-import { BreadcrumbProvider } from './contexts/BreadcrumbContext';
+import { ThemeProvider } from '@/shared/hooks/ThemeContext';
+import { BreadcrumbProvider } from '@/shared/hooks/BreadcrumbContext';
 
 // Components
-import { ProtectedRoute } from './components/common/ProtectedRoute';
-import { PublicRoute } from './components/common/PublicRoute';
-import { LoadingSpinner } from './components/ui/LoadingSpinner';
-import { NotificationContainer } from './components/common/NotificationContainer';
+import { ProtectedRoute } from '@/shared/components/ui/ProtectedRoute';
+import { PublicRoute } from '@/shared/components/ui/PublicRoute';
+import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
+import { NotificationContainer } from '@/shared/components/ui/NotificationContainer';
 
 // Pages
-import { LoginPage } from './pages/auth/LoginPage';
-import { RegisterPage } from './pages/auth/RegisterPage';
-import { PlanSelectionPage } from './pages/auth/PlanSelectionPage';
-import { DashboardPage } from './pages/dashboard';
-import { ForgotPasswordPage } from './pages/auth/ForgotPasswordPage';
-import { ResetPasswordPage } from './pages/auth/ResetPasswordPage';
-import { VerifyEmailPage } from './pages/auth/VerifyEmailPage';
-import { UnauthorizedPage } from './pages/auth/UnauthorizedPage';
-import { WelcomePage } from './pages/WelcomePage';
-import { AcceptInvitationPage } from './pages/auth/AcceptInvitationPage';
+import { LoginPage } from '@/pages/public/LoginPage';
+import { RegisterPage } from '@/pages/public/RegisterPage';
+import { PlanSelectionPage } from '@/pages/public/PlanSelectionPage';
+import { DashboardPage } from '@/pages/app/DashboardPage';
+import { ForgotPasswordPage } from '@/pages/public/ForgotPasswordPage';
+import { ResetPasswordPage } from '@/pages/public/ResetPasswordPage';
+import { VerifyEmailPage } from '@/pages/public/VerifyEmailPage';
+import { UnauthorizedPage } from '@/pages/public/UnauthorizedPage';
+import { WelcomePage } from '@/pages/public/WelcomePage';
+import { AcceptInvitationPage } from '@/pages/public/AcceptInvitationPage';
 
 import './App.css';
-import './styles/themes.css';
+import '@/assets/styles/themes.css';
 
 const AppContent: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -218,9 +218,13 @@ const AppContent: React.FC = () => {
             }
           />
 
-          {/* Protected routes */}
+          {/* Legacy dashboard redirect */}
           <Route
             path="/dashboard/*"
+            element={<Navigate to="/app" replace />}
+          />
+          <Route
+            path="/app/*"
             element={
               <ProtectedRoute requireEmailVerification>
                 <DashboardPage />
@@ -256,11 +260,15 @@ const AppContent: React.FC = () => {
             path="/"
             element={
               isAuthenticated ? (
-                <Navigate to="/dashboard" replace />
+                <Navigate to="/app" replace />
               ) : (
                 <Navigate to="/welcome" replace />
               )
             }
+          />
+          <Route
+            path="/dashboard"
+            element={<Navigate to="/app" replace />}
           />
 
           {/* Catch all route */}

@@ -1,0 +1,305 @@
+// Navigation Configuration
+import { 
+  Home, BarChart3, Users, User, Settings, CreditCard, 
+  FileText, Package, Wrench, UserCheck,
+  HelpCircle, LogOut
+} from 'lucide-react';
+import { NavigationConfig } from '../types/navigation';
+
+export const defaultNavigationConfig: NavigationConfig = {
+  items: [
+    {
+      id: 'dashboard',
+      name: 'Dashboard',
+      href: '/app',
+      icon: Home,
+      description: 'Overview and quick actions',
+      permissions: [],
+      order: 1
+    },
+    {
+      id: 'profile',
+      name: 'My Profile',
+      href: '/app/profile',
+      icon: User,
+      description: 'Personal information and preferences',
+      permissions: [],
+      order: 2
+    }
+  ],
+  
+  sections: [
+    {
+      id: 'business',
+      name: 'Business',
+      items: [
+        {
+          id: 'analytics',
+          name: 'Analytics',
+          href: '/app/business/analytics',
+          icon: BarChart3,
+          description: 'Revenue and growth metrics',
+          permissions: [],
+          order: 1
+        },
+        {
+          id: 'customers',
+          name: 'Customers',
+          href: '/app/business/customers',
+          icon: Users,
+          description: 'Customer management and insights',
+          permissions: [],
+          order: 2
+        },
+        {
+          id: 'subscriptions',
+          name: 'Subscriptions',
+          href: '/app/business/subscriptions',
+          icon: CreditCard,
+          description: 'Subscription management and renewals',
+          permissions: [],
+          order: 3
+        },
+        {
+          id: 'plans',
+          name: 'Plans',
+          href: '/app/business/plans',
+          icon: Package,
+          description: 'Manage pricing and subscription tiers',
+          permissions: [],
+          order: 4
+        },
+        {
+          id: 'billing',
+          name: 'Billing',
+          href: '/app/business/billing',
+          icon: CreditCard,
+          description: 'Invoices and payment processing',
+          permissions: ['admin.billing.view'],
+          order: 5
+        },
+        {
+          id: 'reports',
+          name: 'Reports',
+          href: '/app/business/reports',
+          icon: FileText,
+          description: 'Financial and usage reports',
+          permissions: ['analytics.view'],
+          order: 6
+        }
+      ],
+      collapsible: true,
+      defaultExpanded: true,
+      order: 10
+    },
+    {
+      id: 'content',
+      name: 'Content',
+      items: [
+        {
+          id: 'pages',
+          name: 'Pages',
+          href: '/app/content/pages',
+          icon: FileText,
+          description: 'Manage content pages and documentation',
+          permissions: ['page.view'],
+          order: 1
+        }
+      ],
+      permissions: ['page.view'],
+      collapsible: true,
+      defaultExpanded: true,
+      order: 15
+    }
+  ],
+  
+  userMenuItems: [
+    {
+      id: 'profile',
+      name: 'My Profile',
+      href: '/app/profile',
+      icon: User,
+      description: 'Personal information and preferences'
+    },
+    {
+      id: 'account-settings',
+      name: 'Account Settings',
+      href: '/app/profile',
+      icon: Settings,
+      description: 'Account configuration and security'
+    },
+    {
+      id: 'billing-center',
+      name: 'Billing Center',
+      href: '/app/business/billing',
+      icon: CreditCard,
+      description: 'Subscription and payment details'
+    },
+    {
+      id: 'help-support',
+      name: 'Help & Support',
+      href: 'mailto:support@powernode.com',
+      icon: HelpCircle,
+      description: 'Get help and contact support',
+      isExternal: true
+    },
+    {
+      id: 'logout',
+      name: 'Sign Out',
+      href: '#logout',
+      icon: LogOut,
+      description: 'Sign out of your account'
+    }
+  ],
+  
+  quickActions: [
+    {
+      id: 'create-plan',
+      name: 'Create Plan',
+      href: '/app/business/plans/new',
+      icon: Package,
+      description: 'Set up a new subscription plan'
+    },
+    {
+      id: 'invite-team',
+      name: 'Invite Team Member',
+      href: '/app/users',
+      icon: UserCheck,
+      description: 'Add someone to your team'
+    },
+    {
+      id: 'view-analytics',
+      name: 'View Analytics',
+      href: '/app/business/analytics',
+      icon: BarChart3,
+      description: 'Check your latest metrics'
+    },
+    {
+      id: 'configure-payments',
+      name: 'Configure Payments',
+      href: '/app/admin/settings/payment-gateways',
+      icon: CreditCard,
+      description: 'Set up payment processing',
+      permissions: ['admin.billing.manage_gateways']
+    }
+  ]
+};
+
+// Admin-specific navigation overrides
+export const adminNavigationOverrides = {
+  sections: [
+    {
+      id: 'system',
+      name: 'System',
+      items: [
+        {
+          id: 'api-keys',
+          name: 'API Keys',
+          href: '/app/api-keys',
+          icon: '🔑',
+          description: 'Manage API keys and access tokens',
+          permissions: ['api.manage_keys'],
+          order: 1
+        },
+        {
+          id: 'audit-logs',
+          name: 'Audit Logs',
+          href: '/app/system/audit-logs',
+          icon: '📋',
+          description: 'System audit and activity logs',
+          permissions: ['admin.audit.view'],
+          order: 2
+        },
+        {
+          id: 'webhooks',
+          name: 'Webhooks',
+          href: '/app/system/webhooks',
+          icon: '🔗',
+          description: 'Manage webhook endpoints and events',
+          permissions: ['webhook.view'],
+          order: 3
+        },
+        {
+          id: 'workers',
+          name: 'Workers',
+          href: '/app/system/workers',
+          icon: '🤖',
+          description: 'Manage background workers and job processing',
+          permissions: ['system.workers.view'],
+          order: 4
+        }
+      ],
+      permissions: ['webhook.view', 'admin.audit.view', 'api.manage_keys', 'system.workers.view'],
+      collapsible: true,
+      defaultExpanded: false,
+      order: 18
+    },
+    {
+      id: 'administration',
+      name: 'Administration',
+      items: [
+        {
+          id: 'admin-users',
+          name: 'All Users',
+          href: '/app/admin/users',
+          icon: Users,
+          description: 'Manage all system users',
+          permissions: ['admin.user.view'],
+          order: 1
+        },
+        {
+          id: 'maintenance',
+          name: 'Maintenance',
+          href: '/app/admin/maintenance',
+          icon: '🔧',
+          description: 'System maintenance and health monitoring',
+          permissions: ['admin.maintenance.backup', 'admin.maintenance.cleanup'],
+          order: 2
+        },
+        {
+          id: 'roles',
+          name: 'Roles & Permissions',
+          href: '/app/admin/roles',
+          icon: UserCheck,
+          description: 'Manage roles and permission assignments',
+          permissions: ['admin.role.view'],
+          order: 3
+        },
+        {
+          id: 'settings',
+          name: 'Settings',
+          href: '/app/admin/settings',
+          icon: Settings,
+          description: 'Platform configuration and settings',
+          permissions: ['admin.settings.view'],
+          order: 4
+        }
+      ],
+      permissions: ['admin.access'],
+      collapsible: true,
+      defaultExpanded: false,
+      order: 20
+    },
+    {
+      id: 'account',
+      name: 'Account',
+      items: [
+        {
+          id: 'account-users',
+          name: 'Team Members',
+          href: '/app/users',
+          icon: Users,
+          description: 'Manage your team members',
+          permissions: ['team.view'],
+          order: 1
+        }
+      ],
+      permissions: [],
+      collapsible: true,
+      defaultExpanded: false,
+      order: 5
+    }
+  ]
+};
+
+export default defaultNavigationConfig;

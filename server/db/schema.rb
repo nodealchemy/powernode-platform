@@ -10,11 +10,11 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_08_13_222801) do
+ActiveRecord::Schema[8.0].define(version: 2025_08_22_024100) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
-  create_table "account_delegations", id: { type: :string, limit: 36 }, force: :cascade do |t|
+  create_table "account_delegations", id: { type: :string, limit: 36, default: -> { "gen_random_uuid()" } }, force: :cascade do |t|
     t.string "account_id", limit: 36, null: false
     t.string "delegated_user_id", limit: 36, null: false
     t.string "delegated_by_id", limit: 36, null: false
@@ -35,7 +35,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_13_222801) do
     t.index ["status"], name: "index_account_delegations_on_status"
   end
 
-  create_table "accounts", id: { type: :string, limit: 36 }, force: :cascade do |t|
+  create_table "accounts", id: { type: :string, limit: 36, default: -> { "gen_random_uuid()" } }, force: :cascade do |t|
     t.string "name", limit: 100, null: false
     t.string "subdomain", limit: 30
     t.string "status", limit: 20, default: "active", null: false
@@ -52,7 +52,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_13_222801) do
     t.index ["subdomain"], name: "index_accounts_on_subdomain", unique: true, where: "((subdomain IS NOT NULL) AND ((subdomain)::text <> ''::text))"
   end
 
-  create_table "admin_settings", id: :string, force: :cascade do |t|
+  create_table "admin_settings", id: :string, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.string "key", null: false
     t.text "value"
     t.datetime "created_at", null: false
@@ -60,7 +60,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_13_222801) do
     t.index ["key"], name: "index_admin_settings_on_key", unique: true
   end
 
-  create_table "api_key_usages", id: :string, force: :cascade do |t|
+  create_table "api_key_usages", id: :string, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.string "api_key_id", null: false
     t.string "endpoint", limit: 500, null: false
     t.string "http_method", limit: 10, null: false
@@ -81,7 +81,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_13_222801) do
     t.index ["status_code"], name: "index_api_key_usages_on_status_code"
   end
 
-  create_table "api_keys", id: :string, force: :cascade do |t|
+  create_table "api_keys", id: :string, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.string "name", limit: 100, null: false
     t.text "description"
     t.string "key_hash", limit: 64, null: false
@@ -110,7 +110,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_13_222801) do
     t.index ["usage_count"], name: "index_api_keys_on_usage_count"
   end
 
-  create_table "audit_logs", id: { type: :string, limit: 36 }, force: :cascade do |t|
+  create_table "audit_logs", id: { type: :string, limit: 36, default: -> { "gen_random_uuid()" } }, force: :cascade do |t|
     t.string "user_id", limit: 36
     t.string "account_id", limit: 36, null: false
     t.string "action", limit: 50, null: false
@@ -133,7 +133,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_13_222801) do
     t.index ["user_id"], name: "index_audit_logs_on_user_id"
   end
 
-  create_table "blacklisted_tokens", id: { type: :string, limit: 36 }, force: :cascade do |t|
+  create_table "blacklisted_tokens", id: { type: :string, limit: 36, default: -> { "gen_random_uuid()" } }, force: :cascade do |t|
     t.string "user_id", limit: 36, null: false
     t.string "token", null: false
     t.string "reason", default: "logout"
@@ -144,7 +144,43 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_13_222801) do
     t.index ["user_id"], name: "index_blacklisted_tokens_on_user_id"
   end
 
-  create_table "delegation_permissions", id: :string, force: :cascade do |t|
+  create_table "database_backups", id: { type: :string, limit: 36, default: -> { "gen_random_uuid()" } }, force: :cascade do |t|
+    t.string "filename", null: false
+    t.string "backup_type", null: false
+    t.string "status", default: "pending", null: false
+    t.text "description"
+    t.text "file_path"
+    t.bigint "file_size"
+    t.integer "duration_seconds"
+    t.text "error_message"
+    t.datetime "started_at", precision: nil
+    t.datetime "completed_at", precision: nil
+    t.string "user_id", limit: 36, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["backup_type"], name: "index_database_backups_on_backup_type"
+    t.index ["created_at"], name: "index_database_backups_on_created_at"
+    t.index ["status"], name: "index_database_backups_on_status"
+    t.index ["user_id"], name: "index_database_backups_on_user_id"
+  end
+
+  create_table "database_restores", id: { type: :string, limit: 36, default: -> { "gen_random_uuid()" } }, force: :cascade do |t|
+    t.string "database_backup_id", limit: 36, null: false
+    t.string "status", default: "pending", null: false
+    t.integer "duration_seconds"
+    t.text "error_message"
+    t.datetime "started_at", precision: nil
+    t.datetime "completed_at", precision: nil
+    t.string "user_id", limit: 36, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["created_at"], name: "index_database_restores_on_created_at"
+    t.index ["database_backup_id"], name: "index_database_restores_on_database_backup_id"
+    t.index ["status"], name: "index_database_restores_on_status"
+    t.index ["user_id"], name: "index_database_restores_on_user_id"
+  end
+
+  create_table "delegation_permissions", id: :string, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.string "account_delegation_id", null: false
     t.string "permission_id", null: false
     t.datetime "created_at", null: false
@@ -154,7 +190,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_13_222801) do
     t.index ["permission_id"], name: "index_delegation_permissions_on_permission_id"
   end
 
-  create_table "email_deliveries", id: { type: :string, limit: 36 }, force: :cascade do |t|
+  create_table "email_deliveries", id: { type: :string, limit: 36, default: -> { "gen_random_uuid()" } }, force: :cascade do |t|
     t.string "recipient_email", null: false
     t.string "subject", null: false
     t.string "email_type", limit: 50, null: false
@@ -180,7 +216,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_13_222801) do
     t.index ["user_id"], name: "index_email_deliveries_on_user_id"
   end
 
-  create_table "gateway_configurations", id: :string, force: :cascade do |t|
+  create_table "gateway_configurations", id: :string, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.string "provider", null: false
     t.string "key_name", null: false
     t.text "encrypted_value", null: false
@@ -190,7 +226,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_13_222801) do
     t.index ["provider"], name: "index_gateway_configurations_on_provider"
   end
 
-  create_table "impersonation_sessions", id: { type: :string, limit: 36 }, force: :cascade do |t|
+  create_table "impersonation_sessions", id: { type: :string, limit: 36, default: -> { "gen_random_uuid()" } }, force: :cascade do |t|
     t.string "impersonator_id", limit: 36, null: false
     t.string "impersonated_user_id", limit: 36, null: false
     t.string "account_id", limit: 36, null: false
@@ -211,7 +247,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_13_222801) do
     t.check_constraint "impersonator_id::text <> impersonated_user_id::text", name: "prevent_self_impersonation"
   end
 
-  create_table "invitations", id: { type: :string, limit: 36 }, force: :cascade do |t|
+  create_table "invitations", id: { type: :string, limit: 36, default: -> { "gen_random_uuid()" } }, force: :cascade do |t|
     t.string "account_id", limit: 36, null: false
     t.string "inviter_id", limit: 36, null: false
     t.string "email", limit: 255, null: false
@@ -225,17 +261,17 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_13_222801) do
     t.text "message"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.string "role", limit: 20, null: false
+    t.jsonb "role_names", default: ["member"]
     t.index ["account_id"], name: "index_invitations_on_account_id"
     t.index ["email"], name: "index_invitations_on_email"
     t.index ["expires_at"], name: "index_invitations_on_expires_at"
     t.index ["inviter_id"], name: "index_invitations_on_inviter_id"
-    t.index ["role"], name: "index_invitations_on_role"
+    t.index ["role_names"], name: "index_invitations_on_role_names", using: :gin
     t.index ["status"], name: "index_invitations_on_status"
     t.index ["token"], name: "index_invitations_on_token", unique: true
   end
 
-  create_table "invoice_line_items", id: { type: :string, limit: 36 }, force: :cascade do |t|
+  create_table "invoice_line_items", id: { type: :string, limit: 36, default: -> { "gen_random_uuid()" } }, force: :cascade do |t|
     t.string "invoice_id", limit: 36, null: false
     t.string "description", limit: 500, null: false
     t.integer "quantity", default: 1, null: false
@@ -253,7 +289,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_13_222801) do
     t.index ["period_start"], name: "index_invoice_line_items_on_period_start"
   end
 
-  create_table "invoices", id: { type: :string, limit: 36 }, force: :cascade do |t|
+  create_table "invoices", id: { type: :string, limit: 36, default: -> { "gen_random_uuid()" } }, force: :cascade do |t|
     t.string "subscription_id", limit: 36, null: false
     t.string "invoice_number", limit: 50, null: false
     t.bigint "subtotal_cents", default: 0, null: false
@@ -299,7 +335,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_13_222801) do
     t.index ["status"], name: "index_missing_payment_logs_on_status"
   end
 
-  create_table "pages", id: { type: :string, limit: 36 }, force: :cascade do |t|
+  create_table "pages", id: { type: :string, limit: 36, default: -> { "gen_random_uuid()" } }, force: :cascade do |t|
     t.string "title", limit: 200, null: false
     t.string "slug", limit: 150, null: false
     t.text "content", null: false
@@ -319,7 +355,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_13_222801) do
     t.index ["status"], name: "index_pages_on_status"
   end
 
-  create_table "password_histories", id: { type: :string, limit: 36 }, force: :cascade do |t|
+  create_table "password_histories", id: { type: :string, limit: 36, default: -> { "gen_random_uuid()" } }, force: :cascade do |t|
     t.string "user_id", limit: 36, null: false
     t.string "password_digest", null: false
     t.datetime "created_at", null: false
@@ -327,7 +363,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_13_222801) do
     t.index ["user_id"], name: "index_password_histories_on_user_id"
   end
 
-  create_table "payment_methods", id: { type: :string, limit: 36 }, force: :cascade do |t|
+  create_table "payment_methods", id: { type: :string, limit: 36, default: -> { "gen_random_uuid()" } }, force: :cascade do |t|
     t.string "account_id", limit: 36, null: false
     t.string "user_id", limit: 36, null: false
     t.string "provider", limit: 20, null: false
@@ -350,7 +386,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_13_222801) do
     t.index ["user_id"], name: "index_payment_methods_on_user_id"
   end
 
-  create_table "payments", id: { type: :string, limit: 36 }, force: :cascade do |t|
+  create_table "payments", id: { type: :string, limit: 36, default: -> { "gen_random_uuid()" } }, force: :cascade do |t|
     t.string "invoice_id", limit: 36, null: false
     t.bigint "amount_cents", null: false
     t.string "currency", limit: 3, default: "USD", null: false
@@ -377,20 +413,21 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_13_222801) do
     t.index ["status"], name: "index_payments_on_status"
   end
 
-  create_table "permissions", id: { type: :string, limit: 36 }, force: :cascade do |t|
-    t.string "name", limit: 100
+  create_table "permissions", id: { type: :string, limit: 36, default: -> { "gen_random_uuid()" } }, force: :cascade do |t|
+    t.string "name", limit: 100, null: false
+    t.string "category", limit: 20, null: false
     t.string "resource", limit: 50, null: false
     t.string "action", limit: 50, null: false
-    t.string "description", limit: 255
+    t.text "description"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.index ["action"], name: "index_permissions_on_action"
-    t.index ["name"], name: "index_permissions_on_name", unique: true, where: "(name IS NOT NULL)"
-    t.index ["resource", "action"], name: "index_permissions_on_resource_and_action", unique: true
-    t.index ["resource"], name: "index_permissions_on_resource"
+    t.index ["category"], name: "index_permissions_on_category"
+    t.index ["name"], name: "index_permissions_on_name", unique: true
+    t.index ["resource", "action"], name: "index_permissions_on_resource_and_action"
+    t.check_constraint "category::text = ANY (ARRAY['resource'::character varying::text, 'admin'::character varying::text, 'system'::character varying::text])", name: "check_permission_category"
   end
 
-  create_table "plans", id: { type: :string, limit: 36 }, force: :cascade do |t|
+  create_table "plans", id: { type: :string, limit: 36, default: -> { "gen_random_uuid()" } }, force: :cascade do |t|
     t.string "name", limit: 100, null: false
     t.string "description", limit: 500
     t.bigint "price_cents", default: 0, null: false
@@ -416,6 +453,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_13_222801) do
     t.json "metadata", default: {}
     t.json "default_roles", default: []
     t.json "volume_discount_tiers", default: []
+    t.text "required_roles", comment: "JSON array of role names that are required for users on this plan"
     t.index ["billing_cycle"], name: "index_plans_on_billing_cycle"
     t.index ["currency"], name: "index_plans_on_currency"
     t.index ["has_annual_discount"], name: "index_plans_on_has_annual_discount"
@@ -492,7 +530,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_13_222801) do
     t.index ["reconciliation_type"], name: "index_reconciliation_reports_on_reconciliation_type"
   end
 
-  create_table "report_requests", id: :string, force: :cascade do |t|
+  create_table "report_requests", id: :string, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.string "account_id", null: false
     t.string "user_id", null: false
     t.string "name", null: false
@@ -516,7 +554,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_13_222801) do
     t.index ["user_id"], name: "index_report_requests_on_user_id"
   end
 
-  create_table "revenue_snapshots", id: { type: :string, limit: 36 }, force: :cascade do |t|
+  create_table "revenue_snapshots", id: { type: :string, limit: 36, default: -> { "gen_random_uuid()" } }, force: :cascade do |t|
     t.string "account_id", limit: 36
     t.date "snapshot_date", null: false
     t.bigint "mrr_cents", default: 0, null: false
@@ -536,27 +574,29 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_13_222801) do
     t.index ["snapshot_date"], name: "index_revenue_snapshots_on_snapshot_date"
   end
 
-  create_table "role_permissions", id: { type: :string, limit: 36 }, force: :cascade do |t|
+  create_table "role_permissions", id: false, force: :cascade do |t|
     t.string "role_id", limit: 36, null: false
     t.string "permission_id", limit: 36, null: false
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
+    t.datetime "created_at", precision: nil, default: -> { "CURRENT_TIMESTAMP" }, null: false
     t.index ["permission_id"], name: "index_role_permissions_on_permission_id"
     t.index ["role_id", "permission_id"], name: "index_role_permissions_on_role_id_and_permission_id", unique: true
-    t.index ["role_id"], name: "index_role_permissions_on_role_id"
   end
 
-  create_table "roles", id: { type: :string, limit: 36 }, force: :cascade do |t|
+  create_table "roles", id: { type: :string, limit: 36, default: -> { "gen_random_uuid()" } }, force: :cascade do |t|
     t.string "name", limit: 50, null: false
-    t.string "description", limit: 255
-    t.boolean "system_role", default: false, null: false
+    t.string "display_name", limit: 100, null: false
+    t.text "description"
+    t.string "role_type", limit: 20, null: false
+    t.boolean "is_system", default: false, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.index ["is_system"], name: "index_roles_on_is_system"
     t.index ["name"], name: "index_roles_on_name", unique: true
-    t.index ["system_role"], name: "index_roles_on_system_role"
+    t.index ["role_type"], name: "index_roles_on_role_type"
+    t.check_constraint "role_type::text = ANY (ARRAY['user'::character varying::text, 'admin'::character varying::text, 'system'::character varying::text])", name: "check_role_type"
   end
 
-  create_table "scheduled_reports", id: :string, force: :cascade do |t|
+  create_table "scheduled_reports", id: :string, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.string "report_type", null: false
     t.string "frequency", null: false
     t.text "recipients"
@@ -574,7 +614,24 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_13_222801) do
     t.index ["user_id"], name: "index_scheduled_reports_on_user_id"
   end
 
-  create_table "subscriptions", id: { type: :string, limit: 36 }, force: :cascade do |t|
+  create_table "scheduled_tasks", id: { type: :string, limit: 36, default: -> { "gen_random_uuid()" } }, force: :cascade do |t|
+    t.string "name", null: false
+    t.string "description"
+    t.string "task_type", null: false
+    t.string "cron_schedule", null: false
+    t.boolean "enabled", default: true
+    t.text "command"
+    t.json "parameters"
+    t.string "user_id", limit: 36, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["enabled"], name: "index_scheduled_tasks_on_enabled"
+    t.index ["name"], name: "index_scheduled_tasks_on_name", unique: true
+    t.index ["task_type"], name: "index_scheduled_tasks_on_task_type"
+    t.index ["user_id"], name: "index_scheduled_tasks_on_user_id"
+  end
+
+  create_table "subscriptions", id: { type: :string, limit: 36, default: -> { "gen_random_uuid()" } }, force: :cascade do |t|
     t.string "account_id", limit: 36, null: false
     t.string "plan_id", limit: 36, null: false
     t.integer "quantity", default: 1, null: false
@@ -603,7 +660,66 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_13_222801) do
     t.index ["trial_end"], name: "index_subscriptions_on_trial_end"
   end
 
-  create_table "users", id: { type: :string, limit: 36 }, force: :cascade do |t|
+  create_table "system_health_checks", id: { type: :string, limit: 36, default: -> { "gen_random_uuid()" } }, force: :cascade do |t|
+    t.string "check_type", null: false
+    t.string "overall_status", null: false
+    t.json "health_data", null: false
+    t.integer "response_time_ms"
+    t.datetime "checked_at", precision: nil, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["check_type"], name: "index_system_health_checks_on_check_type"
+    t.index ["checked_at"], name: "index_system_health_checks_on_checked_at"
+    t.index ["overall_status"], name: "index_system_health_checks_on_overall_status"
+  end
+
+  create_table "system_operations", id: { type: :string, limit: 36, default: -> { "gen_random_uuid()" } }, force: :cascade do |t|
+    t.string "operation_type", null: false
+    t.string "status", null: false
+    t.json "parameters"
+    t.json "result"
+    t.text "error_message"
+    t.datetime "started_at", precision: nil
+    t.datetime "completed_at", precision: nil
+    t.string "user_id", limit: 36, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["operation_type"], name: "index_system_operations_on_operation_type"
+    t.index ["started_at"], name: "index_system_operations_on_started_at"
+    t.index ["status"], name: "index_system_operations_on_status"
+    t.index ["user_id"], name: "index_system_operations_on_user_id"
+  end
+
+  create_table "task_executions", id: { type: :string, limit: 36, default: -> { "gen_random_uuid()" } }, force: :cascade do |t|
+    t.string "scheduled_task_id", limit: 36, null: false
+    t.string "status", default: "pending", null: false
+    t.string "triggered_by", default: "scheduled", null: false
+    t.text "output"
+    t.text "error_message"
+    t.datetime "started_at", precision: nil
+    t.datetime "completed_at", precision: nil
+    t.string "user_id", limit: 36
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["created_at"], name: "index_task_executions_on_created_at"
+    t.index ["scheduled_task_id"], name: "index_task_executions_on_scheduled_task_id"
+    t.index ["status"], name: "index_task_executions_on_status"
+    t.index ["triggered_by"], name: "index_task_executions_on_triggered_by"
+    t.index ["user_id"], name: "index_task_executions_on_user_id"
+  end
+
+  create_table "user_roles", id: false, force: :cascade do |t|
+    t.string "user_id", limit: 36, null: false
+    t.string "role_id", limit: 36, null: false
+    t.string "granted_by", limit: 36
+    t.datetime "granted_at", precision: nil, default: -> { "CURRENT_TIMESTAMP" }, null: false
+    t.index ["granted_by"], name: "index_user_roles_on_granted_by"
+    t.index ["role_id"], name: "index_user_roles_on_role_id"
+    t.index ["user_id", "role_id"], name: "index_user_roles_on_user_id_and_role_id", unique: true
+    t.index ["user_id"], name: "index_user_roles_on_user_id"
+  end
+
+  create_table "users", id: { type: :string, limit: 36, default: -> { "gen_random_uuid()" } }, force: :cascade do |t|
     t.string "account_id", limit: 36, null: false
     t.string "email", limit: 255, null: false
     t.string "password_digest", null: false
@@ -625,7 +741,6 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_13_222801) do
     t.datetime "updated_at", null: false
     t.text "preferences"
     t.text "notification_preferences"
-    t.string "role", limit: 20, null: false
     t.boolean "two_factor_enabled", default: false, null: false
     t.string "two_factor_secret"
     t.text "backup_codes"
@@ -635,12 +750,11 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_13_222801) do
     t.index ["email"], name: "index_users_on_email", unique: true
     t.index ["email_verification_token"], name: "index_users_on_email_verification_token", unique: true, where: "(email_verification_token IS NOT NULL)"
     t.index ["reset_token_digest"], name: "index_users_on_reset_token_digest", unique: true, where: "(reset_token_digest IS NOT NULL)"
-    t.index ["role"], name: "index_users_on_role"
     t.index ["status"], name: "index_users_on_status"
     t.index ["two_factor_enabled"], name: "index_users_on_two_factor_enabled"
   end
 
-  create_table "webhook_deliveries", id: :string, force: :cascade do |t|
+  create_table "webhook_deliveries", id: :string, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.string "webhook_endpoint_id", null: false
     t.string "event_type", limit: 100, null: false
     t.string "status", limit: 30, default: "pending", null: false
@@ -665,7 +779,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_13_222801) do
     t.index ["webhook_endpoint_id"], name: "index_webhook_deliveries_on_webhook_endpoint_id"
   end
 
-  create_table "webhook_endpoints", id: :string, force: :cascade do |t|
+  create_table "webhook_endpoints", id: :string, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.string "url", limit: 2000, null: false
     t.string "description", limit: 500
     t.string "status", limit: 20, default: "active", null: false
@@ -688,7 +802,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_13_222801) do
     t.index ["url"], name: "index_webhook_endpoints_on_url"
   end
 
-  create_table "webhook_events", id: { type: :string, limit: 36 }, force: :cascade do |t|
+  create_table "webhook_events", id: { type: :string, limit: 36, default: -> { "gen_random_uuid()" } }, force: :cascade do |t|
     t.string "account_id", limit: 36
     t.string "provider", limit: 20, null: false
     t.string "event_type", limit: 100, null: false
@@ -708,7 +822,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_13_222801) do
     t.index ["status"], name: "index_webhook_events_on_status"
   end
 
-  create_table "worker_activities", id: :string, force: :cascade do |t|
+  create_table "worker_activities", id: :string, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.string "worker_id", null: false
     t.string "action", limit: 100
     t.json "details"
@@ -723,11 +837,19 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_13_222801) do
     t.index ["worker_id"], name: "index_worker_activities_on_worker_id"
   end
 
-  create_table "workers", id: :string, force: :cascade do |t|
+  create_table "worker_roles", id: false, force: :cascade do |t|
+    t.string "worker_id", limit: 36, null: false
+    t.string "role_id", limit: 36, null: false
+    t.datetime "granted_at", precision: nil, default: -> { "CURRENT_TIMESTAMP" }, null: false
+    t.index ["role_id"], name: "index_worker_roles_on_role_id"
+    t.index ["worker_id", "role_id"], name: "index_worker_roles_on_worker_id_and_role_id", unique: true
+    t.index ["worker_id"], name: "index_worker_roles_on_worker_id"
+  end
+
+  create_table "workers", id: :string, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.string "name", null: false
     t.text "description"
     t.string "token", null: false
-    t.string "permissions", default: "standard", null: false
     t.string "status", default: "active", null: false
     t.string "account_id"
     t.datetime "last_seen_at"
@@ -735,17 +857,14 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_13_222801) do
     t.datetime "token_regenerated_at"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.string "role", default: "account", null: false
+    t.string "legacy_role"
     t.index ["account_id"], name: "index_workers_on_account_id"
     t.index ["last_seen_at"], name: "index_workers_on_last_seen_at"
-    t.index ["permissions"], name: "index_workers_on_permissions"
-    t.index ["role"], name: "index_workers_on_system_role_unique", unique: true, where: "((role)::text = 'system'::text)"
     t.index ["status"], name: "index_workers_on_status"
     t.index ["token"], name: "index_workers_on_token", unique: true
   end
 
   add_foreign_key "account_delegations", "accounts"
-  add_foreign_key "account_delegations", "roles", on_delete: :nullify
   add_foreign_key "account_delegations", "users", column: "delegated_by_id"
   add_foreign_key "account_delegations", "users", column: "delegated_user_id"
   add_foreign_key "api_key_usages", "api_keys"
@@ -754,8 +873,10 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_13_222801) do
   add_foreign_key "audit_logs", "accounts"
   add_foreign_key "audit_logs", "users", on_delete: :nullify
   add_foreign_key "blacklisted_tokens", "users"
+  add_foreign_key "database_backups", "users"
+  add_foreign_key "database_restores", "database_backups"
+  add_foreign_key "database_restores", "users"
   add_foreign_key "delegation_permissions", "account_delegations"
-  add_foreign_key "delegation_permissions", "permissions"
   add_foreign_key "email_deliveries", "accounts"
   add_foreign_key "email_deliveries", "users"
   add_foreign_key "impersonation_sessions", "accounts"
@@ -780,12 +901,21 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_13_222801) do
   add_foreign_key "role_permissions", "roles"
   add_foreign_key "scheduled_reports", "accounts"
   add_foreign_key "scheduled_reports", "users"
+  add_foreign_key "scheduled_tasks", "users"
   add_foreign_key "subscriptions", "accounts"
   add_foreign_key "subscriptions", "plans"
+  add_foreign_key "system_operations", "users"
+  add_foreign_key "task_executions", "scheduled_tasks"
+  add_foreign_key "task_executions", "users"
+  add_foreign_key "user_roles", "roles"
+  add_foreign_key "user_roles", "users"
+  add_foreign_key "user_roles", "users", column: "granted_by"
   add_foreign_key "users", "accounts"
   add_foreign_key "webhook_deliveries", "webhook_endpoints"
   add_foreign_key "webhook_endpoints", "users", column: "created_by_id"
   add_foreign_key "webhook_events", "accounts", on_delete: :nullify
   add_foreign_key "worker_activities", "workers"
+  add_foreign_key "worker_roles", "roles"
+  add_foreign_key "worker_roles", "workers"
   add_foreign_key "workers", "accounts"
 end

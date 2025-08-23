@@ -1,13 +1,23 @@
 class Api::V1::PaymentGatewaysController < ApplicationController
-  before_action :require_admin!
+  before_action -> { require_permission('admin.billing.manage_gateways') }
   
   def index
-    render json: {
-      gateways: gateway_configurations,
-      status: gateway_statuses,
-      recent_transactions: recent_transactions_data,
-      statistics: gateway_statistics
-    }
+    begin
+      render json: {
+        gateways: gateway_configurations,
+        status: gateway_statuses,
+        recent_transactions: recent_transactions_data,
+        statistics: gateway_statistics
+      }
+    rescue => e
+      Rails.logger.error "Payment gateways overview error: #{e.message}"
+      Rails.logger.error e.backtrace.first(5).join("\n")
+      
+      render json: {
+        error: "Failed to load payment gateways overview",
+        details: Rails.env.development? ? e.message : "Internal server error"
+      }, status: :internal_server_error
+    end
   end
 
   def show
@@ -171,34 +181,50 @@ class Api::V1::PaymentGatewaysController < ApplicationController
     case gateway
     when 'stripe'
       stored_config = GatewayConfiguration.stripe_config
-      env_config = Rails.application.config.stripe
+      env_config = safe_config(:stripe)
+      
+      enabled_stored = stored_config[:enabled]
+      enabled_env = env_config[:secret_key].present?
+      test_mode_stored = stored_config[:test_mode]
       
       {
         provider: 'stripe',
         name: 'Stripe',
-        enabled: (stored_config[:enabled] == 'true') || env_config[:secret_key].present?,
-        test_mode: (stored_config[:test_mode] == 'true') || !Rails.env.production?,
+        enabled: (enabled_stored == 'true') || enabled_env,
+        test_mode: (test_mode_stored == 'true') || !Rails.env.production?,
         publishable_key_present: stored_config[:publishable_key].present? || env_config[:publishable_key].present?,
         secret_key_present: stored_config[:secret_key].present? || env_config[:secret_key].present?,
         endpoint_secret_present: stored_config[:endpoint_secret].present? || env_config[:endpoint_secret].present?,
-        webhook_tolerance: stored_config[:webhook_tolerance] || env_config[:webhook_tolerance],
-        api_version: Stripe.api_version,
+        webhook_tolerance: stored_config[:webhook_tolerance] || env_config[:webhook_tolerance] || 300,
+        api_version: get_stripe_api_version,
         supported_methods: %w[card bank apple_pay google_pay]
       }
     when 'paypal'
       stored_config = GatewayConfiguration.paypal_config
-      env_config = Rails.application.config.paypal
+      env_config = safe_config(:paypal)
+      
+      enabled_stored = stored_config[:enabled]
+      enabled_env = env_config[:client_id].present?
+      mode = stored_config[:mode] || env_config[:mode] || 'sandbox'
+      test_mode_stored = stored_config[:test_mode]
       
       {
         provider: 'paypal',
         name: 'PayPal',
-        enabled: (stored_config[:enabled] == 'true') || env_config[:client_id].present?,
-        test_mode: (stored_config[:test_mode] == 'true') || stored_config[:mode] == 'sandbox' || env_config[:mode] == 'sandbox',
+        enabled: (enabled_stored == 'true') || enabled_env,
+        test_mode: (test_mode_stored == 'true') || mode == 'sandbox',
         client_id_present: stored_config[:client_id].present? || env_config[:client_id].present?,
         client_secret_present: stored_config[:client_secret].present? || env_config[:client_secret].present?,
         webhook_id_present: stored_config[:webhook_id].present? || env_config[:webhook_id].present?,
-        mode: stored_config[:mode] || env_config[:mode],
+        mode: mode,
         supported_methods: %w[paypal]
+      }
+    else
+      {
+        provider: gateway,
+        name: gateway.capitalize,
+        enabled: false,
+        error: 'Unsupported gateway'
       }
     end
   end
@@ -215,46 +241,76 @@ class Api::V1::PaymentGatewaysController < ApplicationController
       case gateway
       when 'stripe'
         stored_config = GatewayConfiguration.stripe_config
-        env_config = Rails.application.config.stripe
+        env_config = safe_config(:stripe)
         secret_key = stored_config[:secret_key] || env_config[:secret_key]
         
         if secret_key.present?
           # Quick Stripe API test
-          Stripe.api_key = secret_key
-          Stripe::Account.retrieve
-          { status: 'connected', message: 'Connected and operational', last_checked: Time.current }
+          begin
+            Stripe.api_key = secret_key
+            account = Stripe::Account.retrieve
+            { 
+              status: 'connected', 
+              message: 'Connected and operational', 
+              last_checked: Time.current,
+              account_id: account.id
+            }
+          rescue Stripe::AuthenticationError
+            { status: 'authentication_failed', message: 'Invalid API key', last_checked: Time.current }
+          rescue Stripe::StripeError => e
+            { status: 'error', message: e.message, last_checked: Time.current }
+          end
         else
           { status: 'not_configured', message: 'Secret key not configured', last_checked: Time.current }
         end
       when 'paypal'
         stored_config = GatewayConfiguration.paypal_config
-        env_config = Rails.application.config.paypal
+        env_config = safe_config(:paypal)
         client_id = stored_config[:client_id] || env_config[:client_id]
+        client_secret = stored_config[:client_secret] || env_config[:client_secret]
         
-        if client_id.present?
+        if client_id.present? && client_secret.present?
           { status: 'configured', message: 'Configuration present', last_checked: Time.current }
+        elsif client_id.present?
+          { status: 'partial', message: 'Client ID configured, secret missing', last_checked: Time.current }
         else
-          { status: 'not_configured', message: 'Client ID not configured', last_checked: Time.current }
+          { status: 'not_configured', message: 'Client credentials not configured', last_checked: Time.current }
         end
+      else
+        { status: 'unsupported', message: 'Gateway not supported', last_checked: Time.current }
       end
     rescue => e
-      { status: 'error', message: e.message, last_checked: Time.current }
+      Rails.logger.error "Gateway status check failed for #{gateway}: #{e.message}"
+      { status: 'error', message: 'Status check failed', last_checked: Time.current }
     end
   end
 
   def recent_transactions_data
-    Payment.includes(:invoice)
-           .order(created_at: :desc)
-           .limit(10)
-           .map do |payment|
-      {
-        id: payment.id,
-        amount: payment.amount.to_s,
-        currency: payment.currency,
-        status: payment.status,
-        provider: payment.provider,
-        created_at: payment.created_at
-      }
+    begin
+      unless defined?(Payment) && Payment.respond_to?(:includes)
+        return []
+      end
+      
+      query = Payment.order(created_at: :desc).limit(10)
+      
+      # Only include invoice if the association exists
+      if Payment.reflect_on_association(:invoice)
+        query = query.includes(:invoice)
+      end
+      
+      query.map do |payment|
+        {
+          id: payment.id,
+          amount: safe_get_amount(payment),
+          currency: payment.respond_to?(:currency) ? payment.currency : 'USD',
+          status: payment.status,
+          provider: payment.respond_to?(:provider) ? payment.provider : 'unknown',
+          created_at: payment.created_at
+        }
+      end
+    rescue => e
+      Rails.logger.error "Recent transactions error: #{e.message}"
+      []
     end
   end
 
@@ -267,63 +323,104 @@ class Api::V1::PaymentGatewaysController < ApplicationController
   end
 
   def statistics_for_gateway(gateway)
-    methods = gateway_payment_methods(gateway)
-    payments = Payment.where(payment_method: methods)
-    
-    {
-      total_transactions: payments.count,
-      successful_transactions: payments.succeeded.count,
-      failed_transactions: payments.failed.count,
-      total_volume: payments.succeeded.sum(:amount_cents),
-      total_fees: payments.succeeded.sum(:gateway_fee_cents) || 0,
-      success_rate: calculate_success_rate(payments),
-      last_30_days: {
-        transactions: payments.where(created_at: 30.days.ago..Time.current).count,
-        volume: payments.succeeded.where(created_at: 30.days.ago..Time.current).sum(:amount_cents)
+    begin
+      methods = gateway_payment_methods(gateway)
+      return empty_statistics if methods.empty?
+      
+      # Check if Payment model exists and has required methods
+      unless defined?(Payment) && Payment.respond_to?(:where)
+        return empty_statistics
+      end
+      
+      payments = Payment.where(payment_method: methods)
+      
+      {
+        total_transactions: payments.count,
+        successful_transactions: count_by_status(payments, 'succeeded'),
+        failed_transactions: count_by_status(payments, 'failed'),
+        total_volume: sum_amount_for_status(payments, 'succeeded'),
+        total_fees: sum_fees_for_status(payments, 'succeeded'),
+        success_rate: calculate_success_rate(payments),
+        last_30_days: {
+          transactions: payments.where(created_at: 30.days.ago..Time.current).count,
+          volume: sum_amount_for_status(payments.where(created_at: 30.days.ago..Time.current), 'succeeded')
+        }
       }
-    }
+    rescue => e
+      Rails.logger.error "Statistics error for #{gateway}: #{e.message}"
+      empty_statistics
+    end
   end
 
   def overall_statistics
-    payments = Payment.all
-    {
-      total_transactions: payments.count,
-      successful_transactions: payments.succeeded.count,
-      failed_transactions: payments.failed.count,
-      total_volume: payments.succeeded.sum(:amount_cents),
-      success_rate: calculate_success_rate(payments)
-    }
+    begin
+      unless defined?(Payment) && Payment.respond_to?(:all)
+        return empty_statistics
+      end
+      
+      payments = Payment.all
+      {
+        total_transactions: payments.count,
+        successful_transactions: count_by_status(payments, 'succeeded'),
+        failed_transactions: count_by_status(payments, 'failed'),
+        total_volume: sum_amount_for_status(payments, 'succeeded'),
+        success_rate: calculate_success_rate(payments)
+      }
+    rescue => e
+      Rails.logger.error "Overall statistics error: #{e.message}"
+      empty_statistics
+    end
   end
 
   def transactions_for_gateway(gateway)
-    methods = gateway_payment_methods(gateway)
-    Payment.where(payment_method: methods)
-           .order(created_at: :desc)
-           .limit(20)
-           .map do |payment|
-      {
-        id: payment.id,
-        amount: payment.amount.to_s,
-        currency: payment.currency,
-        status: payment.status,
-        created_at: payment.created_at,
-        gateway_transaction_id: payment.gateway_transaction_id
-      }
+    begin
+      methods = gateway_payment_methods(gateway)
+      return [] if methods.empty?
+      
+      unless defined?(Payment) && Payment.respond_to?(:where)
+        return []
+      end
+      
+      Payment.where(payment_method: methods)
+             .order(created_at: :desc)
+             .limit(20)
+             .map do |payment|
+        {
+          id: payment.id,
+          amount: safe_get_amount(payment),
+          currency: payment.respond_to?(:currency) ? payment.currency : 'USD',
+          status: payment.status,
+          created_at: payment.created_at,
+          gateway_transaction_id: payment.respond_to?(:gateway_transaction_id) ? payment.gateway_transaction_id : nil
+        }
+      end
+    rescue => e
+      Rails.logger.error "Transactions error for #{gateway}: #{e.message}"
+      []
     end
   end
 
   def webhooks_for_gateway(gateway)
-    WebhookEvent.where(provider: gateway)
-                .order(created_at: :desc)
-                .limit(20)
-                .map do |event|
-      {
-        id: event.id,
-        event_type: event.event_type,
-        status: event.status,
-        created_at: event.created_at,
-        processed_at: event.processed_at
-      }
+    begin
+      unless defined?(WebhookEvent) && WebhookEvent.respond_to?(:where)
+        return []
+      end
+      
+      WebhookEvent.where(provider: gateway)
+                  .order(created_at: :desc)
+                  .limit(20)
+                  .map do |event|
+        {
+          id: event.id,
+          event_type: event.respond_to?(:event_type) ? event.event_type : 'unknown',
+          status: event.respond_to?(:status) ? event.status : 'unknown',
+          created_at: event.created_at,
+          processed_at: event.respond_to?(:processed_at) ? event.processed_at : nil
+        }
+      end
+    rescue => e
+      Rails.logger.error "Webhooks error for #{gateway}: #{e.message}"
+      []
     end
   end
 
@@ -479,5 +576,114 @@ class Api::V1::PaymentGatewaysController < ApplicationController
     end
     
     raise errors.join(", ") unless errors.empty?
+  end
+  
+  # Helper methods for safe configuration access
+  def safe_config(provider)
+    case provider
+    when :stripe
+      Rails.application.config.respond_to?(:stripe) ? Rails.application.config.stripe : {}
+    when :paypal
+      Rails.application.config.respond_to?(:paypal) ? Rails.application.config.paypal : {}
+    else
+      {}
+    end
+  rescue => e
+    Rails.logger.warn "Failed to access #{provider} config: #{e.message}"
+    {}
+  end
+  
+  def get_stripe_api_version
+    defined?(Stripe) ? Stripe.api_version : 'unknown'
+  rescue => e
+    Rails.logger.warn "Failed to get Stripe API version: #{e.message}"
+    'unknown'
+  end
+  
+  # Statistics helper methods
+  def empty_statistics
+    {
+      total_transactions: 0,
+      successful_transactions: 0,
+      failed_transactions: 0,
+      total_volume: 0,
+      total_fees: 0,
+      success_rate: 0.0,
+      last_30_days: {
+        transactions: 0,
+        volume: 0
+      }
+    }
+  end
+  
+  def count_by_status(payments, status)
+    if payments.respond_to?(status.to_sym)
+      payments.public_send(status.to_sym).count
+    else
+      payments.where(status: status).count
+    end
+  rescue => e
+    Rails.logger.warn "Failed to count payments by status #{status}: #{e.message}"
+    0
+  end
+  
+  def sum_amount_for_status(payments, status)
+    target_payments = if payments.respond_to?(status.to_sym)
+      payments.public_send(status.to_sym)
+    else
+      payments.where(status: status)
+    end
+    
+    # Try different amount column names
+    %w[amount_cents amount].each do |column|
+      if target_payments.column_names.include?(column)
+        return target_payments.sum(column) || 0
+      end
+    end
+    
+    0
+  rescue => e
+    Rails.logger.warn "Failed to sum amounts for status #{status}: #{e.message}"
+    0
+  end
+  
+  def sum_fees_for_status(payments, status)
+    target_payments = if payments.respond_to?(status.to_sym)
+      payments.public_send(status.to_sym)
+    else
+      payments.where(status: status)
+    end
+    
+    # Try different fee column names
+    %w[gateway_fee_cents gateway_fee fee_cents fee].each do |column|
+      if target_payments.column_names.include?(column)
+        return target_payments.sum(column) || 0
+      end
+    end
+    
+    0
+  rescue => e
+    Rails.logger.warn "Failed to sum fees for status #{status}: #{e.message}"
+    0
+  end
+  
+  def safe_get_amount(payment)
+    # Try different amount attribute names and methods
+    %w[amount amount_cents].each do |attr|
+      if payment.respond_to?(attr)
+        value = payment.public_send(attr)
+        return value.respond_to?(:to_s) ? value.to_s : value.to_i.to_s
+      end
+    end
+    
+    # Try accessing as Money object
+    if payment.respond_to?(:amount) && payment.amount.respond_to?(:cents)
+      return payment.amount.cents.to_s
+    end
+    
+    '0'
+  rescue => e
+    Rails.logger.warn "Failed to get amount for payment #{payment.id}: #{e.message}"
+    '0'
   end
 end
