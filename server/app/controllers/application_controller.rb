@@ -17,9 +17,11 @@ class ApplicationController < ActionController::API
   end
 
   def render_validation_errors(exception)
+    errors = exception.record.errors.full_messages
     render json: {
-      error: "Validation failed",
-      details: exception.record.errors.full_messages
+      success: false,
+      error: errors.first,
+      details: errors
     }, status: :unprocessable_content
   end
 

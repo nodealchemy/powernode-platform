@@ -168,10 +168,10 @@ RSpec.describe Plan, type: :model do
   end
 
   describe "#assign_default_roles_to_user" do
-    let(:plan) { create(:plan, default_roles: [ "User", "Member" ]) }
+    let(:plan) { create(:plan, default_roles: [ "test_user", "test_member" ]) }
     let(:user) { create(:user) }
-    let!(:user_role) { create(:role, name: "User") }
-    let!(:member_role) { create(:role, name: "Member") }
+    let!(:user_role) { create(:role, name: "test_user") }
+    let!(:member_role) { create(:role, name: "test_member") }
 
     it "assigns default roles to user" do
       expect(user).to receive(:assign_role).with(user_role)

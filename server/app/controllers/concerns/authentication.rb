@@ -64,24 +64,8 @@ module Authentication
     end
   end
 
-  def require_permission(permission_name)
-    render_forbidden("Permission denied") unless current_user&.has_permission?(permission_name)
-  end
-
-  def require_role(role_name)
-    render_forbidden("Insufficient role") unless current_user&.has_role?(role_name)
-  end
-
-  def require_admin!
-    render_forbidden("Admin access required") unless current_user&.admin? || current_user&.owner?
-  end
-
   def render_unauthorized(message = "Unauthorized")
     render json: { success: false, error: message }, status: :unauthorized
-  end
-
-  def render_forbidden(message = "Forbidden")
-    render json: { success: false, error: message }, status: :forbidden
   end
 
   def should_record_login?
@@ -132,5 +116,48 @@ module Authentication
 
   def impersonation_session
     @impersonation_session
+  end
+
+  # Permission checking methods (NEVER use roles for access control)
+  def require_permission(permission_name)
+    unless current_user&.has_permission?(permission_name)
+      render_forbidden("Permission denied: #{permission_name}")
+    end
+  end
+
+  def require_any_permission(*permission_names)
+    unless permission_names.any? { |p| current_user&.has_permission?(p) }
+      render_forbidden("Permission denied: requires one of #{permission_names.join(', ')}")
+    end
+  end
+
+  def require_all_permissions(*permission_names)
+    unless permission_names.all? { |p| current_user&.has_permission?(p) }
+      render_forbidden("Permission denied: requires all of #{permission_names.join(', ')}")
+    end
+  end
+  
+  # Deprecated: Use permission checks instead
+  def require_admin!
+    # Legacy method - redirects to permission check
+    require_any_permission('admin.access', 'system.admin')
+  end
+
+  # Check if user has permission without rendering error
+  def can?(permission_name)
+    current_user&.has_permission?(permission_name) || false
+  end
+
+  # Check if user can access a resource action
+  def can_access?(resource, action)
+    can?("#{resource}.#{action}")
+  end
+
+  # Render forbidden response
+  def render_forbidden(message = "Access denied")
+    render json: {
+      success: false,
+      error: message
+    }, status: :forbidden
   end
 end

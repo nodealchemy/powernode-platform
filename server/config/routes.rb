@@ -58,8 +58,21 @@ Rails.application.routes.draw do
           end
         end
       end
-      resources :users
-      resources :roles
+      resources :users do
+        collection do
+          get :stats
+        end
+      end
+      resources :roles do
+        collection do
+          get :assignable
+        end
+        member do
+          get :users
+          post 'assign_to_user/:user_id', action: :assign_to_user
+          delete 'remove_from_user/:user_id', action: :remove_from_user
+        end
+      end
       resources :permissions, only: [ :index, :show ]
 
       # Plans management (admin only for create/update/delete)
@@ -292,6 +305,28 @@ Rails.application.routes.draw do
           end
         end
         
+        # Maintenance endpoints
+        namespace :maintenance do
+          get :status, to: 'maintenance#status'
+          get :health, to: 'maintenance#health'
+          get :metrics, to: 'maintenance#metrics'
+          
+          # Backup management
+          get :backups, to: 'maintenance#backups'
+          post :backups, to: 'maintenance#create_backup'
+          delete 'backups/:id', to: 'maintenance#delete_backup'
+          post 'backups/:id/restore', to: 'maintenance#restore_backup'
+          
+          # Cleanup operations
+          get 'cleanup/stats', to: 'maintenance#cleanup_stats'
+          post 'cleanup/run', to: 'maintenance#run_cleanup'
+          
+          # Scheduled maintenance
+          get :schedules, to: 'maintenance#schedules'
+          post :schedules, to: 'maintenance#create_schedule'
+          delete 'schedules/:id', to: 'maintenance#delete_schedule'
+        end
+        
         resources :pages do
           member do
             post :publish
@@ -308,6 +343,44 @@ Rails.application.routes.draw do
             post :revoke
           end
           
+        end
+
+        # Maintenance endpoints
+        namespace :maintenance do
+          # Maintenance mode
+          get :mode, to: 'maintenance#show_mode'
+          post :mode, to: 'maintenance#update_mode'
+          
+          # System health
+          get :health, to: 'maintenance#system_health'
+          get 'health/detailed', to: 'maintenance#detailed_health'
+          post 'health/check', to: 'maintenance#trigger_health_check'
+          
+          # Database backups
+          get :backups, to: 'maintenance#list_backups'
+          post :backups, to: 'maintenance#create_backup'
+          delete 'backups/:id', to: 'maintenance#delete_backup'
+          post 'backups/:id/restore', to: 'maintenance#restore_backup'
+          
+          # Data cleanup
+          get :cleanup, to: 'maintenance#cleanup_stats'
+          post 'cleanup/audit_logs', to: 'maintenance#cleanup_audit_logs'
+          post 'cleanup/sessions', to: 'maintenance#cleanup_sessions'
+          post 'cleanup/temp_files', to: 'maintenance#cleanup_temp_files'
+          post 'cleanup/cache', to: 'maintenance#clear_cache'
+          
+          # System operations
+          get :operations, to: 'maintenance#system_operations'
+          post 'operations/restart', to: 'maintenance#restart_services'
+          post 'operations/reindex', to: 'maintenance#reindex_database'
+          post 'operations/optimize', to: 'maintenance#optimize_database'
+          
+          # Scheduled tasks
+          get :tasks, to: 'maintenance#list_tasks'
+          post :tasks, to: 'maintenance#create_task'
+          patch 'tasks/:id', to: 'maintenance#update_task'
+          delete 'tasks/:id', to: 'maintenance#delete_task'
+          post 'tasks/:id/execute', to: 'maintenance#execute_task'
         end
       end
     end

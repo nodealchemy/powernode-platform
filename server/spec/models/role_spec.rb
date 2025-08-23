@@ -4,7 +4,7 @@ RSpec.describe Role, type: :model do
   let(:role) { build(:role) }
 
   describe "associations" do
-    it { should have_many(:role_permissions).dependent(:destroy) }
+    it { should have_many(:role_permissions).dependent(:delete_all) }
     it { should have_many(:permissions).through(:role_permissions) }
   end
 
@@ -14,15 +14,17 @@ RSpec.describe Role, type: :model do
     it { should validate_presence_of(:name) }
     # Skip due to normalization callback interfering - tested separately below
     # it { should validate_uniqueness_of(:name).case_insensitive }
-    it { should validate_length_of(:name).is_at_least(2).is_at_most(50) }
-    it { should validate_length_of(:description).is_at_most(255) }
+    # Name format is validated with regex, not length
+    it { should validate_presence_of(:display_name) }
+    it { should validate_presence_of(:role_type) }
+    it { should validate_inclusion_of(:role_type).in_array(%w[user admin system]) }
     it { should allow_value("").for(:description) }
     it { should allow_value(nil).for(:description) }
 
-    describe "name uniqueness with normalization" do
-      it "validates uniqueness after normalization" do
-        create(:role, name: "Test Role")
-        duplicate = build(:role, name: "test role") # Different case but will normalize to same
+    describe "name uniqueness" do
+      it "validates uniqueness" do
+        create(:role, name: "test_role")
+        duplicate = build(:role, name: "test_role")
 
         expect(duplicate).not_to be_valid
         expect(duplicate.errors[:name]).to include("has already been taken")
@@ -31,84 +33,83 @@ RSpec.describe Role, type: :model do
   end
 
   describe "scopes" do
-    let!(:system_role) { create(:role, system_role: true) }
-    let!(:custom_role1) { create(:role, system_role: false) }
-    let!(:custom_role2) { create(:role, system_role: false) }
+    let!(:user_role) { create(:role, name: 'test_user_role', role_type: 'user') }
+    let!(:admin_role) { create(:role, name: 'test_admin_role', role_type: 'admin') }
+    let!(:system_role) { create(:role, name: 'test_system_role', role_type: 'system', is_system: true) }
+    let!(:non_system_role) { create(:role, name: 'test_non_system_role', is_system: false) }
+
+    describe ".user_roles" do
+      it "returns only user roles" do
+        expect(Role.user_roles).to include(user_role)
+        expect(Role.user_roles).not_to include(admin_role, system_role)
+      end
+    end
+
+    describe ".admin_roles" do
+      it "returns only admin roles" do
+        expect(Role.admin_roles).to include(admin_role)
+        expect(Role.admin_roles).not_to include(user_role, system_role)
+      end
+    end
 
     describe ".system_roles" do
       it "returns only system roles" do
         expect(Role.system_roles).to include(system_role)
-        expect(Role.system_roles).not_to include(custom_role1, custom_role2)
+        expect(Role.system_roles).not_to include(user_role, admin_role)
       end
     end
 
-    describe ".custom_roles" do
-      it "returns only custom roles" do
-        expect(Role.custom_roles).to include(custom_role1, custom_role2)
-        expect(Role.custom_roles).not_to include(system_role)
-      end
-    end
-  end
-
-  describe "callbacks" do
-    describe "#normalize_name" do
-      it "normalizes name by stripping whitespace and titleizing" do
-        role.name = "  admin role  "
-        role.valid?
-
-        expect(role.name).to eq("Admin Role")
-      end
-
-      it "titleizes lowercase names" do
-        role.name = "manager"
-        role.valid?
-
-        expect(role.name).to eq("Manager")
-      end
-
-      it "titleizes uppercase names" do
-        role.name = "SUPER_ADMIN"
-        role.valid?
-
-        expect(role.name).to eq("Super Admin")
-      end
-
-      it "handles mixed case names" do
-        role.name = "cusTom_UsEr"
-        role.valid?
-
-        expect(role.name).to eq("Cus Tom Us Er")
-      end
-
-      it "handles names with special characters" do
-        role.name = "role-name_with-special"
-        role.valid?
-
-        expect(role.name).to eq("Role Name With Special")
-      end
-
-      it "handles nil name gracefully" do
-        role.name = nil
-
-        expect { role.valid? }.not_to raise_error
+    describe ".non_system" do
+      it "returns only non-system roles" do
+        expect(Role.non_system).to include(non_system_role, user_role, admin_role)
+        expect(Role.non_system).not_to include(system_role)
       end
     end
   end
 
-  describe "#system_role?" do
-    it "returns true when system_role is true" do
-      role.system_role = true
-      expect(role.system_role?).to be true
+  describe "name format validation" do
+    it "allows lowercase letters and underscores" do
+      role.name = "admin_user"
+      expect(role).to be_valid
     end
 
-    it "returns false when system_role is false" do
-      role.system_role = false
+    it "rejects uppercase letters" do
+      role.name = "Admin_User"
+      expect(role).not_to be_valid
+      expect(role.errors[:name]).to include("must be lowercase with underscores or dots only")
+    end
+
+    it "rejects spaces" do
+      role.name = "admin user"
+      expect(role).not_to be_valid
+    end
+
+    it "rejects special characters" do
+      role.name = "admin-user"
+      expect(role).not_to be_valid
+    end
+  end
+
+  describe "role type methods" do
+    it "#user_role? returns true for user roles" do
+      role.role_type = 'user'
+      expect(role.user_role?).to be true
+      expect(role.admin_role?).to be false
       expect(role.system_role?).to be false
     end
 
-    it "returns false when system_role is nil" do
-      role.system_role = nil
-      expect(role.system_role?).to be_falsy
+    it "#admin_role? returns true for admin roles" do
+      role.role_type = 'admin'
+      expect(role.admin_role?).to be true
+      expect(role.user_role?).to be false
+      expect(role.system_role?).to be false
+    end
+
+    it "#system_role? returns true for system roles" do
+      role.role_type = 'system'
+      expect(role.system_role?).to be true
+      expect(role.user_role?).to be false
+      expect(role.admin_role?).to be false
     end
   end
 
@@ -143,38 +144,37 @@ RSpec.describe Role, type: :model do
 
   describe "#add_permission" do
     let(:role) { create(:role) }
-    let(:permission) { create(:permission) }
+    let(:permission) { create(:permission, name: "test.permission") }
 
     it "adds permission to role when not already present" do
       expect {
-        role.add_permission(permission)
+        role.add_permission("test.permission")
       }.to change { role.permissions.count }.by(1)
 
-      expect(role.permissions).to include(permission)
+      expect(role.has_permission?("test.permission")).to be true
     end
 
     it "does not add duplicate permission" do
       role.permissions << permission
 
       expect {
-        role.add_permission(permission)
+        role.add_permission("test.permission")
       }.not_to change { role.permissions.count }
     end
 
-    it "uses has_permission? to check for duplicates" do
-      role.permissions << permission
-      allow(role).to receive(:has_permission?).with(permission.name).and_return(true)
-
+    it "creates permission if it doesn't exist" do
       expect {
-        role.add_permission(permission)
-      }.not_to change { role.permissions.count }
+        role.add_permission("new.permission")
+      }.to change { Permission.count }.by(1)
+
+      expect(role.has_permission?("new.permission")).to be true
     end
   end
 
   describe "#remove_permission" do
     let(:role) { create(:role) }
-    let(:permission1) { create(:permission) }
-    let(:permission2) { create(:permission) }
+    let(:permission1) { create(:permission, name: "perm.one") }
+    let(:permission2) { create(:permission, name: "perm.two") }
 
     before do
       role.permissions << permission1
@@ -183,28 +183,31 @@ RSpec.describe Role, type: :model do
 
     it "removes permission from role" do
       expect {
-        role.remove_permission(permission1)
+        role.remove_permission("perm.one")
       }.to change { role.permissions.count }.by(-1)
 
-      expect(role.permissions).not_to include(permission1)
-      expect(role.permissions).to include(permission2)
+      expect(role.has_permission?("perm.one")).to be false
+      expect(role.has_permission?("perm.two")).to be true
     end
 
     it "does nothing when permission is not present" do
-      new_permission = create(:permission)
-
       expect {
-        role.remove_permission(new_permission)
+        role.remove_permission("nonexistent.permission")
       }.not_to change { role.permissions.count }
     end
   end
 
   describe "integration scenarios" do
-    it "creates role with normalized name" do
-      role = Role.create!(name: "  content_manager  ", description: "Manages content")
+    it "creates role with valid name format" do
+      role = Role.create!(
+        name: "content_manager",
+        display_name: "Content Manager",
+        description: "Manages content",
+        role_type: "user"
+      )
 
       expect(role).to be_persisted
-      expect(role.name).to eq("Content Manager")
+      expect(role.name).to eq("content_manager")
     end
 
     it "manages permissions correctly" do
@@ -213,85 +216,68 @@ RSpec.describe Role, type: :model do
       permission2 = create(:permission, name: "posts.edit")
 
       # Add permissions
-      role.add_permission(permission1)
-      role.add_permission(permission2)
+      role.add_permission(permission1.name)
+      role.add_permission(permission2.name)
 
       expect(role.has_permission?("posts.create")).to be true
       expect(role.has_permission?("posts.edit")).to be true
 
       # Remove permission
-      role.remove_permission(permission1)
+      role.remove_permission(permission1.name)
 
       expect(role.has_permission?("posts.create")).to be false
       expect(role.has_permission?("posts.edit")).to be true
     end
 
     it "prevents duplicate role names" do
-      Role.create!(name: "Admin")
-      duplicate = Role.new(name: "admin") # Different case
+      Role.create!(name: "admin_test", display_name: "Admin Test", role_type: "admin")
+      duplicate = Role.new(name: "admin_test", display_name: "Admin Test", role_type: "admin")
 
       expect(duplicate).not_to be_valid
       expect(duplicate.errors[:name]).to include("has already been taken")
     end
 
     it "handles system vs custom roles" do
-      system_role = create(:role, name: "System Admin", system_role: true)
-      custom_role = create(:role, name: "Custom Manager", system_role: false)
+      system_role = create(:role, name: "system_admin_test", display_name: "System Admin", role_type: "system", is_system: true)
+      custom_role = create(:role, name: "custom_manager_test", display_name: "Custom Manager", role_type: "user", is_system: false)
 
       expect(system_role.system_role?).to be true
       expect(custom_role.system_role?).to be false
 
       expect(Role.system_roles).to include(system_role)
-      expect(Role.custom_roles).to include(custom_role)
+      expect(Role.non_system).to include(custom_role)
     end
   end
 
   describe "edge cases" do
-    it "handles extremely long valid names" do
-      long_name = "a" * 50
-      role = build(:role, name: long_name)
-
+    it "handles valid role names with underscores" do
+      role = build(:role, name: "super_long_role_name_with_underscores")
       expect(role).to be_valid
     end
 
-    it "handles extremely long valid descriptions" do
-      long_description = "a" * 255
-      role = build(:role, description: long_description)
-
-      expect(role).to be_valid
+    it "rejects names with uppercase letters" do
+      role = build(:role, name: "Admin_Role")
+      expect(role).not_to be_valid
+      expect(role.errors[:name]).to include("must be lowercase with underscores or dots only")
     end
 
-    it "handles minimum length valid names" do
-      role = build(:role, name: "ab")
-
-      expect(role).to be_valid
-      # Will be titleized after validation
+    it "rejects names with spaces" do
+      role = build(:role, name: "admin role")
+      expect(role).not_to be_valid
     end
 
-    it "titleizes minimum length names correctly" do
-      role = build(:role, name: "ab")
-      role.valid?
-
-      expect(role.name).to eq("Ab")
+    it "rejects names with dashes" do
+      role = build(:role, name: "admin-role")
+      expect(role).not_to be_valid
     end
 
     it "handles names with numbers" do
-      role = build(:role, name: "admin_level_2")
-      role.valid?
-
-      expect(role.name).to eq("Admin Level 2")
+      role = build(:role, name: "admin2")
+      expect(role).not_to be_valid # numbers not allowed in format
     end
 
-    it "handles single character after normalization" do
-      role = build(:role, name: "a")
-
-      expect(role).not_to be_valid
-      expect(role.errors[:name]).to include("is too short (minimum is 2 characters)")
-    end
-
-    it "handles empty name after normalization" do
-      role = build(:role, name: "  ")
-
+    it "handles empty name" do
+      role = build(:role, name: "")
       expect(role).not_to be_valid
       expect(role.errors[:name]).to include("can't be blank")
     end
@@ -310,7 +296,7 @@ RSpec.describe Role, type: :model do
 
     it "can manage multiple permissions efficiently" do
       # Add multiple permissions
-      permissions.each { |p| role.add_permission(p) }
+      permissions.each { |p| role.add_permission(p.name) }
 
       expect(role.permissions.count).to eq(4)
       permissions.each do |permission|
@@ -318,8 +304,8 @@ RSpec.describe Role, type: :model do
       end
 
       # Remove some permissions
-      role.remove_permission(permissions[0])
-      role.remove_permission(permissions[2])
+      role.remove_permission(permissions[0].name)
+      role.remove_permission(permissions[2].name)
 
       expect(role.permissions.count).to eq(2)
       expect(role.has_permission?(permissions[1].name)).to be true

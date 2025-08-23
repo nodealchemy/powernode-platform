@@ -2,7 +2,7 @@
 
 class Api::V1::PlansController < ApplicationController
   before_action :authenticate_request, except: [:public_index]
-  before_action :require_admin_access, except: [:index, :show, :public_index]
+  before_action :require_plan_management_permission, except: [:index, :show, :public_index]
   before_action :set_plan, only: [:show, :update, :destroy]
 
   # GET /api/v1/public/plans (public endpoint for registration)
@@ -20,8 +20,8 @@ class Api::V1::PlansController < ApplicationController
 
   # GET /api/v1/plans
   def index
-    @plans = if current_user.admin? || current_user.owner?
-               # Admins can see all plans
+    @plans = if can?('plans.manage') || can?('admin.billing.view')
+               # Users with manage permission can see all plans
                Plan.includes(:subscriptions).order(:created_at)
              else
                # Regular users only see public, active plans
@@ -242,11 +242,11 @@ class Api::V1::PlansController < ApplicationController
     }, status: :not_found
   end
 
-  def require_admin_access
-    unless current_user.admin? || current_user.owner?
+  def require_plan_management_permission
+    unless current_user.has_permission?('plans.manage') || current_user.has_permission?('admin.billing.view')
       render json: {
         success: false,
-        error: "Access denied: Admin privileges required"
+        error: "Permission denied: requires plans.manage or admin.billing.view"
       }, status: :forbidden
     end
   end
@@ -274,6 +274,7 @@ class Api::V1::PlansController < ApplicationController
       features: {},
       limits: {},
       default_roles: [],
+      required_roles: [],
       metadata: {},
       volume_discount_tiers: []
     )
@@ -305,6 +306,7 @@ class Api::V1::PlansController < ApplicationController
       features: plan.features,
       limits: plan.limits,
       default_roles: plan.default_roles,
+      required_roles: plan.required_roles || ['account.member'],
       metadata: plan.metadata || {},
       stripe_price_id: plan.stripe_price_id,
       paypal_plan_id: plan.paypal_plan_id,
@@ -335,6 +337,18 @@ class Api::V1::PlansController < ApplicationController
       trial_days: plan.trial_days,
       formatted_price: plan.price.format,
       monthly_price: plan.monthly_price.format,
+      # Include discount information for frontend badges
+      has_annual_discount: plan.has_annual_discount?,
+      annual_discount_percent: plan.annual_discount_percent || 0,
+      has_promotional_discount: plan.has_promotional_discount?,
+      promotional_discount_percent: plan.promotional_discount_percent || 0,
+      promotional_discount_start: plan.promotional_discount_start,
+      promotional_discount_end: plan.promotional_discount_end,
+      promotional_discount_code: plan.promotional_discount_code,
+      has_volume_discount: plan.has_volume_discount?,
+      volume_discount_tiers: plan.volume_discount_tiers || [],
+      annual_savings_amount: plan.annual_savings_amount.format,
+      annual_savings_percentage: plan.annual_savings_percentage,
       created_at: plan.created_at,
       updated_at: plan.updated_at
     }

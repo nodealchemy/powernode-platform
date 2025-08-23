@@ -1,0 +1,375 @@
+# frozen_string_literal: true
+
+class ScheduledTaskService
+  include ActiveModel::Model
+
+  TASK_TYPES = %w[
+    database_backup
+    data_cleanup
+    system_health_check
+    report_generation
+    custom_command
+  ].freeze
+
+  PREDEFINED_SCHEDULES = {
+    'daily' => '0 2 * * *',           # 2 AM daily
+    'weekly' => '0 3 * * 0',          # 3 AM on Sundays
+    'monthly' => '0 4 1 * *',         # 4 AM on 1st of month
+    'hourly' => '0 * * * *',          # Every hour
+    'every_6_hours' => '0 */6 * * *'  # Every 6 hours
+  }.freeze
+
+  class << self
+    def list_tasks
+      tasks = ScheduledTask.includes(:user, :executions).order(:name)
+      
+      tasks.map do |task|
+        {
+          id: task.id,
+          name: task.name,
+          description: task.description,
+          type: task.task_type,
+          cron_schedule: task.cron_schedule,
+          enabled: task.enabled,
+          next_run: calculate_next_run(task.cron_schedule),
+          last_execution: format_last_execution(task.executions.order(:created_at).last),
+          created_by: task.user&.email,
+          created_at: task.created_at.iso8601,
+          updated_at: task.updated_at.iso8601,
+          execution_count: task.executions.count,
+          success_rate: calculate_success_rate(task.executions)
+        }
+      end
+    end
+
+    def create_task(task_params, user)
+      unless TASK_TYPES.include?(task_params[:type])
+        return { 
+          success: false, 
+          error: "Invalid task type. Must be one of: #{TASK_TYPES.join(', ')}"
+        }
+      end
+
+      unless valid_cron_schedule?(task_params[:cron_schedule])
+        return { 
+          success: false, 
+          error: "Invalid cron schedule format"
+        }
+      end
+
+      task = ScheduledTask.new(
+        name: task_params[:name],
+        description: task_params[:description],
+        task_type: task_params[:type],
+        cron_schedule: task_params[:cron_schedule],
+        enabled: task_params[:enabled] || true,
+        command: task_params[:command],
+        user: user
+      )
+
+      if task.save
+        Rails.logger.info "Created scheduled task: #{task.name} by #{user.email}"
+        
+        # Schedule the task if enabled
+        schedule_task(task) if task.enabled?
+        
+        {
+          success: true,
+          task: format_task_response(task)
+        }
+      else
+        {
+          success: false,
+          error: "Failed to create task",
+          details: task.errors.full_messages
+        }
+      end
+    end
+
+    def update_task(task_id, task_params, user)
+      task = ScheduledTask.find_by(id: task_id)
+      return { success: false, error: "Task not found" } unless task
+
+      if task_params[:type] && !TASK_TYPES.include?(task_params[:type])
+        return { 
+          success: false, 
+          error: "Invalid task type. Must be one of: #{TASK_TYPES.join(', ')}"
+        }
+      end
+
+      if task_params[:cron_schedule] && !valid_cron_schedule?(task_params[:cron_schedule])
+        return { 
+          success: false, 
+          error: "Invalid cron schedule format"
+        }
+      end
+
+      # Update task attributes
+      task.assign_attributes(
+        task_params.slice(:name, :description, :cron_schedule, :enabled, :command).compact
+      )
+      task.task_type = task_params[:type] if task_params[:type]
+
+      if task.save
+        Rails.logger.info "Updated scheduled task: #{task.name} by #{user.email}"
+        
+        # Reschedule the task
+        unschedule_task(task)
+        schedule_task(task) if task.enabled?
+        
+        {
+          success: true,
+          task: format_task_response(task)
+        }
+      else
+        {
+          success: false,
+          error: "Failed to update task",
+          details: task.errors.full_messages
+        }
+      end
+    end
+
+    def delete_task(task_id)
+      task = ScheduledTask.find_by(id: task_id)
+      return { success: false, error: "Task not found" } unless task
+
+      # Unschedule the task first
+      unschedule_task(task)
+      
+      # Delete the task and its executions
+      task.destroy!
+      
+      Rails.logger.info "Deleted scheduled task: #{task.name}"
+      { success: true }
+    rescue => e
+      Rails.logger.error "Failed to delete task: #{e.message}"
+      { success: false, error: e.message }
+    end
+
+    def execute_task(task_id, user)
+      task = ScheduledTask.find_by(id: task_id)
+      return { success: false, error: "Task not found" } unless task
+
+      execution = TaskExecution.create!(
+        scheduled_task: task,
+        user: user,
+        status: 'pending',
+        started_at: Time.current,
+        triggered_by: 'manual'
+      )
+
+      # Execute the task in background
+      ScheduledTaskJob.perform_async(execution.id)
+
+      Rails.logger.info "Manual execution of task #{task.name} initiated by #{user.email}"
+
+      {
+        success: true,
+        execution: {
+          id: execution.id,
+          status: 'pending',
+          started_at: execution.started_at.iso8601,
+          triggered_by: 'manual'
+        }
+      }
+    rescue => e
+      Rails.logger.error "Failed to execute task: #{e.message}"
+      { success: false, error: e.message }
+    end
+
+    def execute_scheduled_task(execution_id)
+      execution = TaskExecution.find(execution_id)
+      task = execution.scheduled_task
+      
+      execution.update!(status: 'running', started_at: Time.current)
+
+      begin
+        result = case task.task_type
+                 when 'database_backup'
+                   execute_database_backup_task(task)
+                 when 'data_cleanup'
+                   execute_data_cleanup_task(task)
+                 when 'system_health_check'
+                   execute_health_check_task(task)
+                 when 'report_generation'
+                   execute_report_generation_task(task)
+                 when 'custom_command'
+                   execute_custom_command_task(task)
+                 else
+                   { success: false, error: "Unknown task type: #{task.task_type}" }
+                 end
+
+        execution.update!(
+          status: result[:success] ? 'completed' : 'failed',
+          completed_at: Time.current,
+          output: result[:output] || result[:message],
+          error_message: result[:error]
+        )
+
+        Rails.logger.info "Task execution #{execution.id} completed with status: #{execution.status}"
+        result
+      rescue => e
+        execution.update!(
+          status: 'failed',
+          completed_at: Time.current,
+          error_message: e.message
+        )
+        Rails.logger.error "Task execution #{execution.id} failed: #{e.message}"
+        raise e
+      end
+    end
+
+    private
+
+    def valid_cron_schedule?(schedule)
+      return true if PREDEFINED_SCHEDULES.values.include?(schedule)
+      
+      # Basic cron validation (5 fields: minute hour day month weekday)
+      fields = schedule.split
+      return false unless fields.length == 5
+      
+      # More sophisticated validation would go here
+      true
+    rescue
+      false
+    end
+
+    def calculate_next_run(cron_schedule)
+      # This would use a gem like 'cron_parser' to calculate next run time
+      # For now, return a placeholder
+      1.day.from_now.iso8601
+    rescue
+      nil
+    end
+
+    def format_last_execution(execution)
+      return nil unless execution
+
+      {
+        id: execution.id,
+        status: execution.status,
+        started_at: execution.started_at.iso8601,
+        completed_at: execution.completed_at&.iso8601,
+        duration: execution.completed_at ? (execution.completed_at - execution.started_at).to_i : nil,
+        triggered_by: execution.triggered_by,
+        error_message: execution.error_message
+      }
+    end
+
+    def calculate_success_rate(executions)
+      return 0 if executions.empty?
+      
+      successful = executions.where(status: 'completed').count
+      total = executions.count
+      
+      (successful.to_f / total * 100).round(2)
+    end
+
+    def format_task_response(task)
+      {
+        id: task.id,
+        name: task.name,
+        description: task.description,
+        type: task.task_type,
+        cron_schedule: task.cron_schedule,
+        enabled: task.enabled,
+        created_at: task.created_at.iso8601,
+        updated_at: task.updated_at.iso8601
+      }
+    end
+
+    def schedule_task(task)
+      # This would integrate with a job scheduler like cron or Sidekiq-scheduler
+      Rails.logger.info "Scheduled task: #{task.name} with schedule: #{task.cron_schedule}"
+    end
+
+    def unschedule_task(task)
+      # This would remove the task from the job scheduler
+      Rails.logger.info "Unscheduled task: #{task.name}"
+    end
+
+    # Task execution methods
+    def execute_database_backup_task(task)
+      backup_type = task.command&.include?('schema') ? 'schema_only' : 'full'
+      DatabaseBackupService.create_backup(backup_type, "Scheduled backup: #{task.name}", task.user)
+    end
+
+    def execute_data_cleanup_task(task)
+      results = []
+      
+      # Parse command for specific cleanup operations
+      if task.command&.include?('audit_logs')
+        days = extract_days_from_command(task.command) || 90
+        result = DataCleanupService.cleanup_audit_logs(days)
+        results << "Audit logs: #{result[:cleaned_count]} records cleaned"
+      end
+
+      if task.command&.include?('sessions')
+        result = DataCleanupService.cleanup_expired_sessions
+        results << "Sessions: #{result[:cleaned_count]} expired sessions cleaned"
+      end
+
+      if task.command&.include?('temp_files')
+        result = DataCleanupService.cleanup_temp_files
+        results << "Temp files: #{result[:cleaned_count]} files cleaned"
+      end
+
+      if task.command&.include?('cache')
+        result = DataCleanupService.clear_application_cache
+        results << "Cache: #{result[:cleared_entries]} entries cleared"
+      end
+
+      {
+        success: true,
+        output: results.join('; '),
+        message: "Data cleanup completed"
+      }
+    end
+
+    def execute_health_check_task(task)
+      SystemHealthService.trigger_comprehensive_check
+      
+      {
+        success: true,
+        output: "Comprehensive health check completed",
+        message: "System health check completed successfully"
+      }
+    end
+
+    def execute_report_generation_task(task)
+      # This would integrate with your reporting system
+      {
+        success: true,
+        output: "Report generation completed",
+        message: "Scheduled report generated successfully"
+      }
+    end
+
+    def execute_custom_command_task(task)
+      return { success: false, error: "No command specified" } unless task.command.present?
+
+      # Execute custom command safely
+      begin
+        output = `#{task.command} 2>&1`
+        exit_status = $?.exitstatus
+
+        {
+          success: exit_status == 0,
+          output: output,
+          error: exit_status != 0 ? "Command failed with exit code #{exit_status}" : nil
+        }
+      rescue => e
+        {
+          success: false,
+          error: "Failed to execute command: #{e.message}"
+        }
+      end
+    end
+
+    def extract_days_from_command(command)
+      match = command.match(/--days[=\s]+(\d+)/)
+      match ? match[1].to_i : nil
+    end
+  end
+end

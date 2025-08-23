@@ -1,12 +1,6 @@
 class ApplicationRecord < ActiveRecord::Base
   primary_abstract_class
 
-  # Set up UUIDv7 generation for new records
-  before_create :generate_uuid7_id, if: -> { id.blank? }
-
-  private
-
-  def generate_uuid7_id
-    self.id = UUID7.generate
-  end
+  # UUID generation is handled by the database using gen_random_uuid()
+  # No need for manual UUID generation
 end

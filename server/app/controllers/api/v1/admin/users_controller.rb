@@ -1,7 +1,11 @@
 # frozen_string_literal: true
 
 class Api::V1::Admin::UsersController < ApplicationController
-  before_action :require_admin!
+  before_action -> { require_permission('admin.user.view') }, only: [:index, :show]
+  before_action -> { require_permission('admin.user.create') }, only: [:create]
+  before_action -> { require_permission('admin.user.edit') }, only: [:update]
+  before_action -> { require_permission('admin.user.delete') }, only: [:destroy]
+  before_action -> { require_permission('admin.user.impersonate') }, only: [:impersonate]
   before_action :find_user, only: [:show, :update, :destroy, :impersonate]
   before_action :find_account, only: [:create]
   before_action :rate_limit_impersonation, only: [:impersonate]
@@ -28,8 +32,7 @@ class Api::V1::Admin::UsersController < ApplicationController
   def create
     @user = @account.users.build(user_params)
     
-    # Set default role if not specified
-    @user.role ||= @account.plan&.default_role || 'member'
+    # Default role will be assigned by User model callback
     
     # Generate temporary password
     temp_password = SecureRandom.alphanumeric(12)
@@ -43,9 +46,16 @@ class Api::V1::Admin::UsersController < ApplicationController
       AuditLog.create!(
         account: @account,
         user: current_user,
-        action: 'user.created',
-        details: "Created user #{@user.email} in account #{@account.name}",
-        ip_address: request.remote_ip
+        action: 'create',
+        resource_type: 'User',
+        resource_id: @user.id,
+        source: 'admin_panel',
+        ip_address: request.remote_ip,
+        metadata: {
+          user_email: @user.email,
+          account_name: @account.name,
+          details: "Created user #{@user.email} in account #{@account.name}"
+        }
       )
       
       render json: {
@@ -64,40 +74,145 @@ class Api::V1::Admin::UsersController < ApplicationController
 
   # PATCH/PUT /api/v1/admin/users/:id
   def update
-    # System admins can update any user's basic info but not change admin status
     update_params = user_params
+    roles_to_assign = update_params.delete(:roles) # Remove roles from params for separate handling
     
-    # Prevent system admin role changes unless super admin
-    if update_params[:role] == 'admin' && !current_user.super_admin?
-      return render json: {
-        success: false,
-        error: 'You do not have permission to assign admin role'
-      }, status: :forbidden
-    end
+    Rails.logger.info "Update params after role removal: #{update_params.inspect}"
+    Rails.logger.info "Roles to assign: #{roles_to_assign.inspect}"
     
-    # Prevent users from removing their own admin status
-    if @user.id == current_user.id && update_params[:role] && update_params[:role] != 'admin'
-      return render json: {
-        success: false,
-        error: 'You cannot change your own role'
-      }, status: :forbidden
-    end
-
+    # Update basic user attributes first
     if @user.update(update_params)
-      AuditLog.create!(
-        account: @user.account,
-        user: current_user,
-        action: 'user.updated',
-        details: "Updated user #{@user.email}",
-        ip_address: request.remote_ip
-      )
+      Rails.logger.info "User update successful"
       
-      render json: {
-        success: true,
-        message: 'User updated successfully',
-        data: user_summary(@user)
-      }
+      # Handle role assignments if provided
+      if roles_to_assign.present?
+        begin
+          Rails.logger.info "Attempting to assign roles: #{roles_to_assign.inspect}"
+          # Validate roles exist
+          valid_roles = Role.where(name: roles_to_assign)
+          Rails.logger.info "Found valid roles: #{valid_roles.pluck(:name, :id).inspect}"
+          
+          # Validate user has permission to assign these roles
+          unauthorized_roles = valid_roles.reject { |role| can_assign_role?(role) }
+          if unauthorized_roles.any?
+            return render json: {
+              success: false,
+              error: "You do not have permission to assign the following roles: #{unauthorized_roles.pluck(:name).join(', ')}"
+            }, status: :forbidden
+          end
+          
+          if valid_roles.count != roles_to_assign.count
+            invalid_roles = roles_to_assign - valid_roles.pluck(:name)
+            return render json: {
+              success: false,
+              error: "Invalid roles: #{invalid_roles.join(', ')}"
+            }, status: :unprocessable_content
+          end
+          
+          # Check if user is trying to modify their own system admin role
+          current_user_roles = @user.roles.pluck(:name)
+          if @user.id == current_user.id && 
+             current_user_roles.include?('system.admin') && 
+             !roles_to_assign.include?('system.admin')
+            return render json: {
+              success: false,
+              error: 'You cannot remove your own system admin role'
+            }, status: :forbidden
+          end
+          
+          # Update user roles - handle existing roles properly
+          current_role_ids = @user.roles.pluck(:id)
+          new_role_ids = valid_roles.pluck(:id)
+          
+          # Remove roles that are no longer assigned
+          roles_to_remove = current_role_ids - new_role_ids
+          @user.user_roles.where(role_id: roles_to_remove).destroy_all if roles_to_remove.any?
+          
+          # Add new roles that aren't already assigned
+          roles_to_add = new_role_ids - current_role_ids
+          if roles_to_add.any?
+            Rails.logger.info "Adding roles with IDs: #{roles_to_add.inspect}"
+            roles_to_add.each do |role_id|
+              Rails.logger.info "Creating user_role for role_id: #{role_id}"
+              user_role = @user.user_roles.create(role_id: role_id, assigned_by: current_user)
+              unless user_role.persisted?
+                Rails.logger.error "Failed to create user_role for role #{role_id}: #{user_role.errors.full_messages.join(', ')}"
+                raise "Failed to create user role: #{user_role.errors.full_messages.join(', ')}"
+              end
+            end
+          end
+          
+          audit_log = AuditLog.create(
+            account: @user.account,
+            user: current_user,
+            action: 'role_change',
+            resource_type: 'User',
+            resource_id: @user.id,
+            source: 'admin_panel',
+            ip_address: request.remote_ip,
+            metadata: {
+              updated_roles: roles_to_assign,
+              user_email: @user.email,
+              details: "Updated roles for user #{@user.email} to: #{roles_to_assign.join(', ')}"
+            }
+          )
+          
+          unless audit_log.persisted?
+            Rails.logger.error "Failed to create audit log: #{audit_log.errors.full_messages.join(', ')}"
+          end
+        rescue => e
+          return render json: {
+            success: false,
+            error: "Failed to update roles: #{e.message}"
+          }, status: :unprocessable_content
+        end
+      end
+      
+      # Log general user update
+      begin
+        general_audit_log = AuditLog.create(
+          account: @user.account,
+          user: current_user,
+          action: 'update',
+          resource_type: 'User',
+          resource_id: @user.id,
+          source: 'admin_panel',
+          ip_address: request.remote_ip,
+          metadata: {
+            user_email: @user.email,
+            details: "Updated user #{@user.email}"
+          }
+        )
+        
+        unless general_audit_log.persisted?
+          Rails.logger.error "Failed to create general user audit log: #{general_audit_log.errors.full_messages.join(', ')}"
+        end
+      rescue => e
+        Rails.logger.error "Failed to create audit log: #{e.message}"
+        # Don't fail the request if audit logging fails
+      end
+      
+      Rails.logger.info "User role update completed successfully"
+      
+      begin
+        Rails.logger.info "Generating user summary data"
+        user_data = user_summary(@user)
+        Rails.logger.info "User summary generated successfully"
+        render json: {
+          success: true,
+          message: 'User updated successfully',
+          data: user_data
+        }
+      rescue => e
+        Rails.logger.error "Failed to generate user summary: #{e.message}"
+        render json: {
+          success: true,
+          message: 'User updated successfully (summary generation failed)',
+          data: { id: @user.id, email: @user.email }
+        }
+      end
     else
+      Rails.logger.error "User update failed: #{@user.errors.full_messages.join(', ')}"
       render json: {
         success: false,
         error: 'Failed to update user',
@@ -134,9 +249,15 @@ class Api::V1::Admin::UsersController < ApplicationController
       AuditLog.create!(
         account: account,
         user: current_user,
-        action: 'user.deleted',
-        details: "Deleted user #{user_email}",
-        ip_address: request.remote_ip
+        action: 'delete',
+        resource_type: 'User',
+        resource_id: @user.id,
+        source: 'admin_panel',
+        ip_address: request.remote_ip,
+        metadata: {
+          user_email: user_email,
+          details: "Deleted user #{user_email}"
+        }
       )
       
       render json: {
@@ -211,8 +332,8 @@ class Api::V1::Admin::UsersController < ApplicationController
 
   def user_params
     params.require(:user).permit(
-      :email, :first_name, :last_name, :role, :phone_number,
-      :timezone, :status
+      :email, :first_name, :last_name, :phone, :timezone, :status, 
+      roles: []
     )
   end
 
@@ -233,20 +354,44 @@ class Api::V1::Admin::UsersController < ApplicationController
     Rails.cache.write(cache_key, attempts + 1, expires_in: 1.hour)
   end
 
+
   def user_summary(user)
     {
       id: user.id,
       email: user.email,
+      first_name: user.first_name,
+      last_name: user.last_name,
       full_name: "#{user.first_name} #{user.last_name}".strip,
-      role: user.role,
+      roles: user.role_names,  # Use multi-role system
+      permissions: user.permissions.pluck(:name),
       status: user.status,
       email_verified: user.email_verified?,
+      locked: user.locked?,
+      failed_login_attempts: user.failed_login_attempts,
       last_login_at: user.last_login_at&.iso8601,
       created_at: user.created_at.iso8601,
+      updated_at: user.updated_at.iso8601,
+      preferences: user.preferences || {},
       account: {
         id: user.account.id,
-        name: user.account.name
+        name: user.account.name,
+        status: user.account.status
       }
     }
+  end
+
+  # Check if current user can assign a specific role
+  def can_assign_role?(role)
+    # System admins and regular admins can assign any role
+    return true if current_user.has_permission?('system.admin') || current_user.has_permission?('admin.access')
+    
+    # System roles cannot be assigned by non-admin users
+    return false if role.system_role?
+    
+    # Non-admin users can only assign roles that have permissions they also have
+    user_permissions = current_user.permission_names
+    role_permissions = role.permissions.pluck(:name)
+    
+    role_permissions.all? { |perm| user_permissions.include?(perm) }
   end
 end

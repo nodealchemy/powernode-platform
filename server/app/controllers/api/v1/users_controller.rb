@@ -1,8 +1,12 @@
 # frozen_string_literal: true
 
 class Api::V1::UsersController < ApplicationController
+  include UserSerialization
+  
   before_action :set_user, only: [ :show, :update, :destroy ]
-  before_action :require_permission, only: [ :index, :create, :destroy ]
+  before_action -> { require_permission('admin.user.view') }, only: [:index, :stats]
+  before_action -> { require_permission('admin.user.create') }, only: [:create]
+  before_action -> { require_permission('admin.user.delete') }, only: [:destroy]
 
   # GET /api/v1/users
   def index
@@ -84,6 +88,24 @@ class Api::V1::UsersController < ApplicationController
     end
   end
 
+  # GET /api/v1/users/stats
+  def stats
+    users = current_account.users
+    
+    stats_data = {
+      total_users: users.count,
+      active_users: users.where(status: 'active').count,
+      suspended_users: users.where(status: 'suspended').count,
+      unverified_users: users.where(email_verified_at: nil).count,
+      recent_logins: users.where('last_login_at >= ?', 7.days.ago).count
+    }
+
+    render json: {
+      success: true,
+      data: stats_data
+    }, status: :ok
+  end
+
   private
 
   def set_user
@@ -111,9 +133,6 @@ class Api::V1::UsersController < ApplicationController
     }, status: :not_found
   end
 
-  def require_permission
-    require_permission("users.create")  # For index and create actions
-  end
 
   def user_params
     params.require(:user).permit(:email, :first_name, :last_name, :password, :password_confirmation)
@@ -137,20 +156,8 @@ class Api::V1::UsersController < ApplicationController
     params.require(:user).permit(permitted_params)
   end
 
-  def user_data(user)
-    {
-      id: user.id,
-      email: user.email,
-      first_name: user.first_name,
-      last_name: user.last_name,
-      active: user.active,
-      email_verified: user.email_verified,
-      last_login_at: user.last_login_at,
-      created_at: user.created_at,
-      updated_at: user.updated_at,
-      role: user.role
-    }
-  end
+  # Remove this method to use the one from UserSerialization concern
+  # The concern's user_data method properly handles permissions
 
   def assign_default_roles(user)
     return unless current_account.subscription&.plan

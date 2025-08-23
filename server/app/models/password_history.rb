@@ -29,11 +29,17 @@ class PasswordHistory < ApplicationRecord
   def self.password_recently_used?(user, password)
     return false unless user.persisted?
 
-    recent_passwords = for_user(user)
+    # Get the 12 most recent password history entries, ordered by created_at desc
+    recent_histories = for_user(user)
                         .recent
                         .limit(12)
-                        .pluck(:password_digest)
+                        .to_a  # Load into array to ensure proper ordering
 
-    recent_passwords.any? { |digest| BCrypt::Password.new(digest) == password }
+    # Check each history entry with early termination
+    recent_histories.each do |history|
+      return true if BCrypt::Password.new(history.password_digest) == password
+    end
+
+    false
   end
 end

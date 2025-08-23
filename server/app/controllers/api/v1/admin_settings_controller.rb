@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 class Api::V1::AdminSettingsController < ApplicationController
-  before_action :require_admin_access
+  before_action -> { require_permission('admin.settings.view') }
 
   # GET /api/v1/admin_settings
   def show
@@ -217,7 +217,7 @@ class Api::V1::AdminSettingsController < ApplicationController
           name: user.account.name,
           status: user.account.status
         },
-        role: user.role
+        roles: user.roles
       }
     end
   end
@@ -227,7 +227,7 @@ class Api::V1::AdminSettingsController < ApplicationController
            .order(created_at: :desc)
            .limit(10)
            .map do |account|
-      owner = account.users.where(role: 'owner').first || account.users.first
+      owner = account.users.first
       
       {
         id: account.id,
@@ -297,7 +297,7 @@ class Api::V1::AdminSettingsController < ApplicationController
   end
 
   def require_admin_access
-    unless current_user.owner? || current_user.admin?
+    unless current_user.has_permission?('account.manage') || current_user.has_permission?('admin.access')
       render json: {
         success: false,
         error: "Access denied: Admin privileges required"
@@ -372,11 +372,27 @@ class Api::V1::AdminSettingsController < ApplicationController
   def user_management_data
     {
       total_users: User.count,
-      users_by_role: User.group(:role).count,
+      users_by_roles: user_role_distribution,
       users_by_status: User.group(:status).count,
       recent_registrations: User.where(created_at: 7.days.ago..Time.current).count,
       email_verification_pending: User.where(email_verified_at: nil).count
     }
+  end
+
+  def user_role_distribution
+    # Count users by their roles in the new permission system
+    role_counts = {}
+    
+    User.includes(:user_roles => :role).each do |user|
+      user_roles = user.user_roles.map { |ur| ur.role.name }
+      user_roles = ['no_role'] if user_roles.empty?
+      
+      user_roles.each do |role_name|
+        role_counts[role_name] = (role_counts[role_name] || 0) + 1
+      end
+    end
+    
+    role_counts
   end
 
   def security_settings_data
@@ -414,7 +430,7 @@ class Api::V1::AdminSettingsController < ApplicationController
       email: user.email,
       full_name: user.full_name,
       status: user.status,
-      role: user.role,
+      roles: user.roles,
       account: {
         id: user.account.id,
         name: user.account.name,

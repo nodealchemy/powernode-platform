@@ -142,9 +142,9 @@ start_worker() {
     fi
     
     # Check for required environment variables
-    if [[ -z "${SERVICE_TOKEN:-}" ]]; then
-        error "SERVICE_TOKEN environment variable is not set"
-        error "Please set SERVICE_TOKEN in your environment or .env file"
+    if [[ -z "${WORKER_TOKEN:-}" ]]; then
+        error "WORKER_TOKEN environment variable is not set"
+        error "Please set WORKER_TOKEN in your environment or .env file"
         return 1
     fi
     
@@ -162,7 +162,7 @@ start_worker() {
         export WORKER_ENV=\${WORKER_ENV:-development}
         export REDIS_URL=\${REDIS_URL:-redis://localhost:6379/1}
         export BACKEND_API_URL=\${BACKEND_API_URL:-http://localhost:3000}
-        export SERVICE_TOKEN='$SERVICE_TOKEN'
+        export SERVICE_TOKEN='$WORKER_TOKEN'
         
         echo 'Starting Sidekiq worker...' | tee -a '$LOG_FILE'
         exec bundle exec sidekiq -r ./config/application.rb -C ./config/sidekiq.yml 2>&1 | tee -a '$LOG_FILE'
@@ -209,9 +209,9 @@ start_web_interface() {
     cd "$WORKER_DIR"
     
     # Check for required environment variables
-    if [[ -z "${SERVICE_TOKEN:-}" ]]; then
-        error "SERVICE_TOKEN environment variable is not set"
-        error "Please set SERVICE_TOKEN in your environment or .env file"
+    if [[ -z "${WORKER_TOKEN:-}" ]]; then
+        error "WORKER_TOKEN environment variable is not set"
+        error "Please set WORKER_TOKEN in your environment or .env file"
         return 1
     fi
     
@@ -229,7 +229,7 @@ start_web_interface() {
         export WORKER_ENV=\${WORKER_ENV:-development}
         export REDIS_URL=\${REDIS_URL:-redis://localhost:6379/1}
         export BACKEND_API_URL=\${BACKEND_API_URL:-http://localhost:3001}
-        export SERVICE_TOKEN='$SERVICE_TOKEN'
+        export SERVICE_TOKEN='$WORKER_TOKEN'
         export SIDEKIQ_WEB_HOST=\${SIDEKIQ_WEB_HOST:-0.0.0.0}
         export SIDEKIQ_WEB_PORT=\${SIDEKIQ_WEB_PORT:-4567}
         

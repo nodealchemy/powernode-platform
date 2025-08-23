@@ -218,7 +218,7 @@ class Api::V1::DelegationsController < ApplicationController
     @account = current_user.account
     
     # Allow admins to manage delegations for other accounts
-    if params[:account_id] && current_user.admin?
+    if params[:account_id] && current_user.has_permission?('admin.access')
       @account = Account.find(params[:account_id])
     end
   end
@@ -228,13 +228,13 @@ class Api::V1::DelegationsController < ApplicationController
   end
 
   def authorize_delegation_management!
-    unless current_user.owner? || current_user.admin?
+    unless current_user.has_permission?('account.manage') || current_user.has_permission?('admin.access')
       render json: { error: "Insufficient permissions to manage delegations" }, status: :forbidden
     end
   end
 
   def authorize_delegation_view!
-    unless current_user.owner? || current_user.admin? || @delegation.delegated_user == current_user
+    unless current_user.has_permission?('account.manage') || current_user.has_permission?('admin.access') || @delegation.delegated_user == current_user
       render json: { error: "Insufficient permissions to view this delegation" }, status: :forbidden
     end
   end

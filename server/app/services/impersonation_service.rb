@@ -146,7 +146,7 @@ class ImpersonationService
 
   def validate_impersonation_request!(target_user)
     # Check if current user has impersonation permission
-    unless @current_user.has_permission?('users.impersonate') || @current_user.owner? || @current_user.admin?
+    unless @current_user.has_permission?('admin.users.impersonate') || @current_user.owner? || @current_user.admin?
       raise PermissionDeniedError, 'You do not have permission to impersonate other users'
     end
 

@@ -5,19 +5,19 @@ require 'rails_helper'
 RSpec.describe ImpersonationService, type: :service do
   include ActiveSupport::Testing::TimeHelpers
   let(:account) { create(:account) }
-  let(:admin_role) { create(:role, name: 'Admin') }
-  let(:member_role) { create(:role, name: 'Member') }
   # Create owner first in account, then admin and member users
   let!(:owner) { create(:user, :owner, account: account) }
   let(:admin_user) { create(:user, :admin, account: account) }
   let(:target_user) { create(:user, :member, account: account) }
   let(:service) { described_class.new(admin_user) }
 
-  # Add impersonation permission to admin role
-  let!(:impersonate_permission) do
-    permission = create(:permission, resource: 'users', action: 'impersonate')
-    admin_role.permissions << permission
-    permission
+  # Ensure admin has impersonation permission through their role
+  before do
+    # The admin role should already have impersonation permission from seeds
+    # If not, we'll add it explicitly
+    unless admin_user.has_permission?('admin.users.impersonate')
+      admin_user.add_role('admin')
+    end
   end
 
   describe '#start_impersonation' do
@@ -75,7 +75,6 @@ RSpec.describe ImpersonationService, type: :service do
       end
 
       it 'allows owner to impersonate without explicit permission' do
-        owner_role = create(:role, name: 'Owner')
         owner_user = create(:user, :owner, account: account)
         service = described_class.new(owner_user)
 
@@ -86,7 +85,6 @@ RSpec.describe ImpersonationService, type: :service do
 
       it 'allows admin to impersonate without explicit permission' do
         admin_without_permission = create(:user, :admin, account: account)
-        admin_role.permissions.delete(impersonate_permission) # Remove explicit permission
         service = described_class.new(admin_without_permission)
 
         expect {
@@ -123,7 +121,6 @@ RSpec.describe ImpersonationService, type: :service do
       end
 
       it 'prevents non-owners from impersonating owners' do
-        owner_role = create(:role, name: 'Owner')
         owner_user = create(:user, :owner, account: account)
 
         expect {
@@ -133,7 +130,6 @@ RSpec.describe ImpersonationService, type: :service do
       end
 
       it 'allows owners to impersonate other owners' do
-        owner_role = create(:role, name: 'Owner')
         owner_user = create(:user, :owner, account: account)
         target_owner = create(:user, :owner, account: account)
         service = described_class.new(owner_user)

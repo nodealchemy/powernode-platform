@@ -32,5 +32,12 @@ module Server
 
     # Track boot time for uptime calculations
     config.boot_time = Time.current
+
+    # Configure Redis for caching and session store
+    if Rails.env.production? || ENV['REDIS_URL']
+      config.cache_store = :redis_cache_store, { url: ENV.fetch('REDIS_URL', 'redis://localhost:6379/0') }
+    else
+      config.cache_store = :memory_store
+    end
   end
 end
