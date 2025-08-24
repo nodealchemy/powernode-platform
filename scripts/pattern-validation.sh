@@ -111,7 +111,7 @@ check_pattern "Permission method implementation" \
     "positive" "1"
 
 check_pattern "Model concern usage" \
-    "grep -r 'include.*Security\|include.*Concern' server/app/models/ | wc -l" \
+    "grep -r 'include.*\\(PasswordSecurity\\|Auditable\\)' server/app/models/ | wc -l" \
     "positive" "2"
 
 echo ""
@@ -186,8 +186,8 @@ check_pattern "Worker frozen_string_literal compliance" \
 
 # Debug Code (should be empty)
 check_pattern "Backend debug code (should be empty)" \
-    "grep -r 'puts \|p \|print ' server/app/ | wc -l" \
-    "empty"
+    "find server/app -name '*.rb' -exec grep -l '^[[:space:]]*\\(puts\\|p\\|print\\)[[:space:]]' {} \\; | wc -l" \
+    "negative" "0"
 
 check_pattern "Frontend debug code (should be empty)" \
     "grep -r 'console.log' frontend/src/ | wc -l" \

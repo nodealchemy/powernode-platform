@@ -113,7 +113,7 @@ AppDetailsModal.displayName = 'AppDetailsModal';
             </Badge>
             <span className="text-sm text-theme-tertiary">Version {app.version}</span>
             <div className="flex items-center space-x-1">
-              <Star className="w-4 h-4 text-yellow-400 fill-current" />
+              <Star className="w-4 h-4 text-theme-warning fill-current" />
               <span className="text-sm font-medium">{averageRating.toFixed(1)}</span>
               <span className="text-sm text-theme-tertiary">({mockReviews.length} reviews)</span>
             </div>
@@ -274,7 +274,7 @@ AppDetailsModal.displayName = 'AppDetailsModal';
                 key={star}
                 className={`w-4 h-4 ${
                   star <= Math.round(averageRating)
-                    ? 'text-yellow-400 fill-current'
+                    ? 'text-theme-warning fill-current'
                     : 'text-theme-muted'
                 }`}
               />
@@ -301,7 +301,7 @@ AppDetailsModal.displayName = 'AppDetailsModal';
                         key={star}
                         className={`w-3 h-3 ${
                           star <= review.rating
-                            ? 'text-yellow-400 fill-current'
+                            ? 'text-theme-warning fill-current'
                             : 'text-theme-muted'
                         }`}
                       />

@@ -94,7 +94,7 @@ CategoryNavigation.displayName = 'CategoryNavigation';
         name: 'Other',
         categories: ungroupedCategories,
         icon: '📦',
-        color: 'bg-gray-500'
+        color: 'bg-theme-secondary'
       });
     }
 
