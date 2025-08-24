@@ -73,15 +73,15 @@ echo -e "${BLUE}## Backend Pattern Compliance${NC}"
 
 # API Response Format Compliance
 check_pattern "API response format compliance" \
-    "grep -r 'render json:' server/app/controllers/ | grep -c '\"success\":' 2>/dev/null" \
+    "grep -r 'render_success\\|render_error\\|render_created' server/app/controllers/ | wc -l" \
     "positive" "10"
 
 check_pattern "Success response usage" \
-    "grep -r 'success: true' server/app/controllers/ | wc -l" \
+    "grep -r 'render_success' server/app/controllers/ | wc -l" \
     "positive" "5"
 
 check_pattern "Error response usage" \
-    "grep -r 'success: false' server/app/controllers/ | wc -l" \
+    "grep -r 'render_error\\|render_validation_error\\|render_not_found' server/app/controllers/ | wc -l" \
     "positive" "5"
 
 # Controller Pattern Compliance
@@ -165,8 +165,8 @@ check_pattern "Execute method usage" \
     "positive" "5"
 
 check_pattern "Forbidden perform method overrides (should be empty)" \
-    "grep -r 'def perform' worker/app/jobs/ | grep -v BaseJob | wc -l" \
-    "empty"
+    "find worker/app/jobs -name '*.rb' -exec grep -l 'def perform' {} \\; | grep -v base_job.rb | wc -l" \
+    "negative" "0"
 
 check_pattern "Forbidden ActiveRecord usage (should be empty)" \
     "grep -r 'ActiveRecord' worker/app/ | grep -v 'comments\|# ActiveRecord' | wc -l" \

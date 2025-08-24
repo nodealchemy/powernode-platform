@@ -1043,11 +1043,11 @@ WorkersPage.displayName = 'WorkersPage';
       {state.error && (
         <div className="text-center py-8">
           <div className="bg-theme-error-background rounded-lg p-4 max-w-md mx-auto">
-            <p className="text-red-700 font-medium">Error Loading Workers</p>
-            <p className="text-red-600 text-sm mt-1">{state.error}</p>
+            <p className="text-theme-error-dark font-medium">Error Loading Workers</p>
+            <p className="text-theme-error text-sm mt-1">{state.error}</p>
             <button
               onClick={loadWorkers}
-              className="mt-3 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded transition-colors"
+              className="mt-3 px-4 py-2 bg-theme-error hover:bg-theme-error-dark text-white rounded transition-colors"
             >
               Try Again
             </button>

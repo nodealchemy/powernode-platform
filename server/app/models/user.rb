@@ -7,6 +7,7 @@ class User < ApplicationRecord
   
   # Include concerns - must come after has_secure_password
   include PasswordSecurity
+  include Auditable
 
   # Attributes
   attr_reader :reset_token

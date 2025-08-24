@@ -57,7 +57,7 @@ const CATEGORY_GROUPS: CategoryGroup[] = [
     name: 'Security',
     categories: [],
     icon: '🛡️',
-    color: 'bg-red-500'
+    color: 'bg-theme-error'
   }
 ];
 

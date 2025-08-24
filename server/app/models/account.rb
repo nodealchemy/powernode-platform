@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 class Account < ApplicationRecord
+  include Auditable
+  
   # Associations
   has_many :users, dependent: :destroy
   has_one :subscription, dependent: :destroy

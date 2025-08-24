@@ -83,7 +83,7 @@ VersionDisplay.displayName = 'VersionDisplay';
 
   if (error && showBackend) {
     return (
-      <div className={`text-xs text-red-600 ${className}`}>
+      <div className={`text-xs text-theme-error ${className}`}>
         Version unavailable
       </div>
     );
@@ -220,7 +220,7 @@ VersionDisplay.displayName = 'VersionDisplay';
             <div className="grid grid-cols-2 gap-4 text-xs">
               <div className="flex justify-between">
                 <span className="text-theme-secondary">Status:</span>
-                <span className={`${health.status === 'healthy' ? 'text-green-600' : 'text-red-600'}`}>
+                <span className={`${health.status === 'healthy' ? 'text-theme-success' : 'text-theme-error'}`}>
                   {health.status}
                 </span>
               </div>
