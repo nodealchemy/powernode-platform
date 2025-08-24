@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/shared/components/ui/Button';
-import { FormField } from '@/shared/components/ui/FormField';
+// Removed unused FormField import
 import { 
   Key, Plus, Copy, Eye, Trash2, RotateCcw, 
   Shield, Clock, Activity, AlertTriangle,
@@ -221,9 +221,9 @@ const CreateApiKeyModal: React.FC<CreateApiKeyModalProps> = ({
                           {apiKeysApi.getScopeCategory(scope)}
                         </span>
                       </div>
-                      {scopeDescriptions[scope] && (
+                      {scopeDescriptions && Object.prototype.hasOwnProperty.call(scopeDescriptions, scope) && scopeDescriptions[scope as keyof typeof scopeDescriptions] && (
                         <p className="text-sm text-theme-secondary mt-1">
-                          {scopeDescriptions[scope]}
+                          {Object.prototype.hasOwnProperty.call(scopeDescriptions, scope) ? scopeDescriptions[scope as keyof typeof scopeDescriptions] : ''}
                         </p>
                       )}
                     </div>
@@ -493,11 +493,7 @@ export const ApiKeysManager: React.FC<ApiKeysManagerProps> = ({
   const { showNotification } = useNotification();
   const perPage = 20;
 
-  useEffect(() => {
-    loadApiKeys();
-  }, [currentPage]);
-
-  const loadApiKeys = async () => {
+  const loadApiKeys = useCallback(async () => {
     try {
       setLoading(true);
       const response = await apiKeysApi.getApiKeys(currentPage, perPage);
@@ -516,7 +512,11 @@ export const ApiKeysManager: React.FC<ApiKeysManagerProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentPage, perPage, showStats, showNotification]);
+
+  useEffect(() => {
+    loadApiKeys();
+  }, [loadApiKeys]);
 
   const handleAction = async (action: string, apiKeyId: string) => {
     try {

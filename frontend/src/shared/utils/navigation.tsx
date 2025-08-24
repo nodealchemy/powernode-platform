@@ -1,7 +1,7 @@
 // Navigation Configuration
 import { 
   Home, BarChart3, Users, User, Settings, CreditCard, 
-  FileText, Package, Wrench, UserCheck,
+  FileText, Package, UserCheck, Store, Smartphone,
   HelpCircle, LogOut
 } from 'lucide-react';
 import { NavigationConfig } from '../types/navigation';
@@ -25,6 +25,15 @@ export const defaultNavigationConfig: NavigationConfig = {
       description: 'Personal information and preferences',
       permissions: [],
       order: 2
+    },
+    {
+      id: 'marketplace',
+      name: 'Marketplace',
+      href: '/app/marketplace',
+      icon: Store,
+      description: 'Browse apps, manage subscriptions, and create your own',
+      permissions: [],
+      order: 3
     }
   ],
   
@@ -109,7 +118,7 @@ export const defaultNavigationConfig: NavigationConfig = {
       permissions: ['page.view'],
       collapsible: true,
       defaultExpanded: true,
-      order: 15
+      order: 16
     }
   ],
   
@@ -173,6 +182,14 @@ export const defaultNavigationConfig: NavigationConfig = {
       href: '/app/business/analytics',
       icon: BarChart3,
       description: 'Check your latest metrics'
+    },
+    {
+      id: 'create-app',
+      name: 'Create App',
+      href: '/app/marketplace/my-apps',
+      icon: Smartphone,
+      description: 'Build a new marketplace app',
+      permissions: ['app.create']
     },
     {
       id: 'configure-payments',
@@ -266,13 +283,22 @@ export const adminNavigationOverrides = {
           order: 3
         },
         {
+          id: 'marketplace-admin',
+          name: 'Marketplace',
+          href: '/app/admin/marketplace',
+          icon: Store,
+          description: 'Manage marketplace apps and listings',
+          permissions: ['admin.marketplace.view'],
+          order: 4
+        },
+        {
           id: 'settings',
           name: 'Settings',
           href: '/app/admin/settings',
           icon: Settings,
           description: 'Platform configuration and settings',
           permissions: ['admin.settings.view'],
-          order: 4
+          order: 5
         }
       ],
       permissions: ['admin.access'],

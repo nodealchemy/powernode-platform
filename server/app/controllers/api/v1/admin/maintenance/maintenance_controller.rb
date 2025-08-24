@@ -2,9 +2,9 @@
 
 class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
   include Authentication
-  
+
   before_action :require_admin_maintenance_permission
-  
+
   # Maintenance Mode endpoints
   def show_mode
     render json: {
@@ -47,7 +47,7 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
   # System Health endpoints
   def system_health
     health_data = SystemHealthService.check_basic_health
-    
+
     render json: {
       success: true,
       data: health_data
@@ -56,7 +56,7 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
 
   def detailed_health
     detailed_data = SystemHealthService.check_detailed_health
-    
+
     render json: {
       success: true,
       data: detailed_data
@@ -65,7 +65,7 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
 
   def trigger_health_check
     SystemHealthService.trigger_comprehensive_check
-    
+
     render json: {
       success: true,
       message: "Comprehensive health check triggered"
@@ -75,7 +75,7 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
   # Database Backup endpoints
   def list_backups
     backups = DatabaseBackupService.list_backups
-    
+
     render json: {
       success: true,
       data: backups
@@ -83,11 +83,11 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
   end
 
   def create_backup
-    backup_type = params[:type] || 'full'
+    backup_type = params[:type] || "full"
     description = params[:description]
-    
+
     backup_job = DatabaseBackupService.create_backup(backup_type, description, current_user)
-    
+
     render json: {
       success: true,
       data: backup_job,
@@ -98,7 +98,7 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
   def delete_backup
     backup_id = params[:id]
     result = DatabaseBackupService.delete_backup(backup_id)
-    
+
     if result[:success]
       render json: {
         success: true,
@@ -115,7 +115,7 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
   def restore_backup
     backup_id = params[:id]
     result = DatabaseBackupService.restore_backup(backup_id, current_user)
-    
+
     if result[:success]
       render json: {
         success: true,
@@ -132,7 +132,7 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
   # Data Cleanup endpoints
   def cleanup_stats
     stats = DataCleanupService.get_cleanup_stats
-    
+
     render json: {
       success: true,
       data: stats
@@ -142,7 +142,7 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
   def cleanup_audit_logs
     days_old = params[:days_old] || 90
     result = DataCleanupService.cleanup_audit_logs(days_old.to_i)
-    
+
     render json: {
       success: true,
       data: result,
@@ -152,7 +152,7 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
 
   def cleanup_sessions
     result = DataCleanupService.cleanup_expired_sessions
-    
+
     render json: {
       success: true,
       data: result,
@@ -162,7 +162,7 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
 
   def cleanup_temp_files
     result = DataCleanupService.cleanup_temp_files
-    
+
     render json: {
       success: true,
       data: result,
@@ -172,7 +172,7 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
 
   def clear_cache
     result = DataCleanupService.clear_application_cache
-    
+
     render json: {
       success: true,
       data: result,
@@ -183,7 +183,7 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
   # System Operations endpoints
   def system_operations
     operations = SystemOperationsService.get_available_operations
-    
+
     render json: {
       success: true,
       data: operations
@@ -191,9 +191,9 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
   end
 
   def restart_services
-    services = params[:services] || ['all']
+    services = params[:services] || [ "all" ]
     result = SystemOperationsService.restart_services(services)
-    
+
     render json: {
       success: true,
       data: result,
@@ -203,7 +203,7 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
 
   def reindex_database
     result = SystemOperationsService.reindex_database
-    
+
     render json: {
       success: true,
       data: result,
@@ -213,7 +213,7 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
 
   def optimize_database
     result = SystemOperationsService.optimize_database
-    
+
     render json: {
       success: true,
       data: result,
@@ -224,7 +224,7 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
   # Scheduled Tasks endpoints
   def list_tasks
     tasks = ScheduledTaskService.list_tasks
-    
+
     render json: {
       success: true,
       data: tasks
@@ -234,7 +234,7 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
   def create_task
     task_params = params.require(:task).permit(:name, :description, :cron_schedule, :enabled, :command, :type)
     result = ScheduledTaskService.create_task(task_params, current_user)
-    
+
     if result[:success]
       render json: {
         success: true,
@@ -254,7 +254,7 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
     task_id = params[:id]
     task_params = params.require(:task).permit(:name, :description, :cron_schedule, :enabled, :command, :type)
     result = ScheduledTaskService.update_task(task_id, task_params, current_user)
-    
+
     if result[:success]
       render json: {
         success: true,
@@ -273,7 +273,7 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
   def delete_task
     task_id = params[:id]
     result = ScheduledTaskService.delete_task(task_id)
-    
+
     if result[:success]
       render json: {
         success: true,
@@ -290,7 +290,7 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
   def execute_task
     task_id = params[:id]
     result = ScheduledTaskService.execute_task(task_id, current_user)
-    
+
     if result[:success]
       render json: {
         success: true,
@@ -330,9 +330,9 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
       memory_usage: check_memory_usage,
       cpu_usage: check_cpu_usage
     }
-    
-    overall_status = health_check.values.all? { |v| v[:status] == 'healthy' } ? 'healthy' : 'degraded'
-    
+
+    overall_status = health_check.values.all? { |v| v[:status] == "healthy" } ? "healthy" : "degraded"
+
     render json: {
       success: true,
       data: {
@@ -376,7 +376,7 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
   # Backups endpoint
   def backups
     backups = DatabaseBackup.order(created_at: :desc).limit(20)
-    
+
     render json: {
       success: true,
       data: backups.map { |backup|
@@ -403,25 +403,25 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
   def create_backup
     backup_job = DatabaseBackupJob.perform_later(
       initiated_by: current_user.id,
-      backup_type: params[:type] || 'manual'
+      backup_type: params[:type] || "manual"
     )
-    
+
     render json: {
       success: true,
       data: { job_id: backup_job.job_id },
-      message: 'Backup initiated'
+      message: "Backup initiated"
     }
   rescue => e
     render json: {
       success: false,
-      error: 'Backup service unavailable'
+      error: "Backup service unavailable"
     }
   end
 
   # Schedules endpoint
   def schedules
-    schedules = ScheduledTask.where(category: 'maintenance').order(:name)
-    
+    schedules = ScheduledTask.where(category: "maintenance").order(:name)
+
     render json: {
       success: true,
       data: schedules.map { |schedule|
@@ -447,7 +447,7 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
   private
 
   def require_admin_maintenance_permission
-    unless current_user&.has_any_permission?('admin.maintenance.mode', 'admin.maintenance.backup', 'admin.maintenance.restore', 'admin.maintenance.cleanup', 'admin.maintenance.tasks', 'system.admin')
+    unless current_user&.has_any_permission?("admin.maintenance.mode", "admin.maintenance.backup", "admin.maintenance.restore", "admin.maintenance.cleanup", "admin.maintenance.tasks", "system.admin")
       render json: {
         success: false,
         error: "Permission denied: requires admin maintenance permissions"
@@ -456,15 +456,15 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
   end
 
   def require_permission
-    require_any_permission('admin.maintenance.mode', 'admin.maintenance.backup', 'admin.maintenance.restore', 'admin.maintenance.cleanup', 'admin.maintenance.tasks', 'system.admin')
+    require_any_permission("admin.maintenance.mode", "admin.maintenance.backup", "admin.maintenance.restore", "admin.maintenance.cleanup", "admin.maintenance.tasks", "system.admin")
   end
 
   def require_health_permission
-    require_any_permission('admin.maintenance.mode', 'admin.maintenance.backup', 'system.admin', 'system.health')
+    require_any_permission("admin.maintenance.mode", "admin.maintenance.backup", "system.admin", "system.health")
   end
 
   def maintenance_mode_enabled?
-    Rails.application.config.respond_to?(:maintenance_mode) && 
+    Rails.application.config.respond_to?(:maintenance_mode) &&
     Rails.application.config.maintenance_mode == true
   end
 
@@ -474,16 +474,16 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
     Rails.application.config.maintenance_enabled_at = Time.current
     Rails.application.config.maintenance_estimated_completion = estimated_completion
     Rails.application.config.maintenance_bypass_ips = bypass_ips
-    
+
     # Write maintenance file for web server
     write_maintenance_file(message, estimated_completion)
-    
+
     # Log maintenance mode activation
     AuditLog.create!(
       user: current_user,
       account: current_account,
-      action: 'maintenance_mode_enabled',
-      resource_type: 'System',
+      action: "maintenance_mode_enabled",
+      resource_type: "System",
       details: {
         message: message,
         estimated_completion: estimated_completion,
@@ -498,28 +498,28 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
     Rails.application.config.maintenance_enabled_at = nil
     Rails.application.config.maintenance_estimated_completion = nil
     Rails.application.config.maintenance_bypass_ips = nil
-    
+
     # Remove maintenance file
     remove_maintenance_file
-    
+
     # Log maintenance mode deactivation
     AuditLog.create!(
       user: current_user,
       account: current_account,
-      action: 'maintenance_mode_disabled',
-      resource_type: 'System',
+      action: "maintenance_mode_disabled",
+      resource_type: "System",
       details: {}
     )
   end
 
   def write_maintenance_file(message, estimated_completion)
-    maintenance_file = Rails.root.join('public', 'maintenance.html')
+    maintenance_file = Rails.root.join("public", "maintenance.html")
     content = generate_maintenance_page_content(message, estimated_completion)
     File.write(maintenance_file, content)
   end
 
   def remove_maintenance_file
-    maintenance_file = Rails.root.join('public', 'maintenance.html')
+    maintenance_file = Rails.root.join("public", "maintenance.html")
     File.delete(maintenance_file) if File.exist?(maintenance_file)
   end
 
@@ -554,21 +554,21 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
 
   # Helper methods for status checks
   def check_database_status
-    ActiveRecord::Base.connection.active? ? 'connected' : 'disconnected'
+    ActiveRecord::Base.connection.active? ? "connected" : "disconnected"
   rescue
-    'error'
+    "error"
   end
 
   def check_redis_status
-    Redis.current.ping == 'PONG' ? 'connected' : 'disconnected'
+    Redis.current.ping == "PONG" ? "connected" : "disconnected"
   rescue
-    'unavailable'
+    "unavailable"
   end
 
   def check_sidekiq_status
-    Sidekiq::Stats.new.processes_size > 0 ? 'running' : 'stopped'
+    Sidekiq::Stats.new.processes_size > 0 ? "running" : "stopped"
   rescue
-    'unavailable'
+    "unavailable"
   end
 
   def get_last_backup_info
@@ -588,47 +588,47 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
 
   def check_database_health
     start = Time.current
-    ActiveRecord::Base.connection.execute('SELECT 1')
+    ActiveRecord::Base.connection.execute("SELECT 1")
     response_time = ((Time.current - start) * 1000).round(2)
-    
-    { status: 'healthy', response_time_ms: response_time }
+
+    { status: "healthy", response_time_ms: response_time }
   rescue => e
-    { status: 'unhealthy', error: e.message }
+    { status: "unhealthy", error: e.message }
   end
 
   def check_redis_health
     start = Time.current
     Redis.current.ping
     response_time = ((Time.current - start) * 1000).round(2)
-    
-    { status: 'healthy', response_time_ms: response_time }
+
+    { status: "healthy", response_time_ms: response_time }
   rescue => e
-    { status: 'unhealthy', error: e.message }
+    { status: "unhealthy", error: e.message }
   end
 
   def check_sidekiq_health
     stats = Sidekiq::Stats.new
-    { 
-      status: 'healthy',
+    {
+      status: "healthy",
       processed: stats.processed,
       failed: stats.failed,
       queues: stats.queues
     }
   rescue => e
-    { status: 'unhealthy', error: e.message }
+    { status: "unhealthy", error: e.message }
   end
 
   def check_disk_space
     stat = Sys::Filesystem.stat("/")
     used_percentage = ((1 - (stat.bytes_free.to_f / stat.bytes_total)) * 100).round(2)
-    
+
     {
-      status: used_percentage < 80 ? 'healthy' : 'warning',
+      status: used_percentage < 80 ? "healthy" : "warning",
       used_percentage: used_percentage,
       free_gb: (stat.bytes_free / 1.gigabyte).round(2)
     }
   rescue
-    { status: 'unknown' }
+    { status: "unknown" }
   end
 
   def check_memory_usage
@@ -636,15 +636,15 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
     total = memory_info[1].to_f
     used = memory_info[2].to_f
     used_percentage = ((used / total) * 100).round(2)
-    
+
     {
-      status: used_percentage < 80 ? 'healthy' : 'warning',
+      status: used_percentage < 80 ? "healthy" : "warning",
       used_percentage: used_percentage,
       used_mb: used.round,
       total_mb: total.round
     }
   rescue
-    { status: 'unknown' }
+    { status: "unknown" }
   end
 
   def check_cpu_usage
@@ -652,16 +652,16 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
     if load_average
       one_min = load_average[1].to_f
       {
-        status: one_min < 2.0 ? 'healthy' : 'warning',
+        status: one_min < 2.0 ? "healthy" : "warning",
         load_1min: one_min,
         load_5min: load_average[2].to_f,
         load_15min: load_average[3].to_f
       }
     else
-      { status: 'unknown' }
+      { status: "unknown" }
     end
   rescue
-    { status: 'unknown' }
+    { status: "unknown" }
   end
 
   def get_total_records_count
@@ -688,27 +688,27 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
   end
 
   def calculate_uploads_size
-    Dir.glob(Rails.root.join('storage', '**', '*')).sum { |f| File.size(f) if File.file?(f) }.to_i / 1.megabyte rescue 0
+    Dir.glob(Rails.root.join("storage", "**", "*")).sum { |f| File.size(f) if File.file?(f) }.to_i / 1.megabyte rescue 0
   end
 
   def calculate_logs_size
-    Dir.glob(Rails.root.join('log', '**', '*.log')).sum { |f| File.size(f) }.to_i / 1.megabyte rescue 0
+    Dir.glob(Rails.root.join("log", "**", "*.log")).sum { |f| File.size(f) }.to_i / 1.megabyte rescue 0
   end
 
   def calculate_cache_size
-    Dir.glob(Rails.root.join('tmp', 'cache', '**', '*')).sum { |f| File.size(f) if File.file?(f) }.to_i / 1.megabyte rescue 0
+    Dir.glob(Rails.root.join("tmp", "cache", "**", "*")).sum { |f| File.size(f) if File.file?(f) }.to_i / 1.megabyte rescue 0
   end
 
   def format_duration(seconds)
     days = (seconds / 86400).to_i
     hours = ((seconds % 86400) / 3600).to_i
     minutes = ((seconds % 3600) / 60).to_i
-    
+
     parts = []
     parts << "#{days}d" if days > 0
     parts << "#{hours}h" if hours > 0
     parts << "#{minutes}m" if minutes > 0 || parts.empty?
-    
-    parts.join(' ')
+
+    parts.join(" ")
   end
 end

@@ -134,7 +134,7 @@ export const TabContainer: React.FC<TabContainerProps> = ({
   return (
     <div className={className}>
       {/* Tab Navigation */}
-      <div className={`${getContainerClass()} ${fullWidth ? 'w-full' : ''} overflow-x-auto`}>
+      <div className={`${getContainerClass()} ${fullWidth ? 'w-full' : ''} overflow-x-auto scrollbar-hide`}>
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
           

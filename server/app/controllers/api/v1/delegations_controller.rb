@@ -1,5 +1,5 @@
 class Api::V1::DelegationsController < ApplicationController
-  before_action :authenticate_user!
+  # Authentication is handled by ApplicationController's before_action :authenticate_request
   before_action :set_account
   before_action :set_delegation, only: [:show, :update, :destroy, :activate, :deactivate, :revoke]
   before_action :authorize_delegation_management!, except: [:show]

@@ -17,7 +17,6 @@ export const AnalyticsExport: React.FC<AnalyticsExportProps> = ({ dateRange, onE
   
   // Use external isOpen if provided, otherwise use internal state
   const isOpen = externalIsOpen !== undefined ? externalIsOpen : internalIsOpen;
-  const setIsOpen = onClose ? onClose : setInternalIsOpen;
 
   const handleExport = async (format: 'csv' | 'pdf', reportType: string) => {
     try {

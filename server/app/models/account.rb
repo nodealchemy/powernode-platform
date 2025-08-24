@@ -9,6 +9,8 @@ class Account < ApplicationRecord
   has_many :webhook_events, dependent: :destroy
   has_many :revenue_snapshots, dependent: :destroy
   has_many :workers, dependent: :destroy
+  has_many :apps, dependent: :destroy
+  has_many :app_subscriptions, dependent: :destroy
 
   # Subscription-related associations
   has_many :invoices, through: :subscription

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Routes, Route, useNavigate, Navigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/shared/services';
@@ -28,12 +28,16 @@ import { BillingPage } from './business/BillingPage';
 import WebhookManagementPage from '@/pages/app/WebhookManagementPage';
 import { AuditLogsPage as SystemAuditLogsPage } from '@/pages/app/AuditLogsPage';
 
+// Import marketplace pages
+import { MarketplacePage, AppDetailPage } from '@/pages/app/marketplace';
+
 // Import admin pages
 import { AdminSettingsPage } from '@/pages/app/admin/AdminSettingsPage';
 import { AdminUsersPage } from '@/pages/app/admin/AdminUsersPage';
 import { AdminRolesPage } from '@/pages/app/admin/AdminRolesPage';
 import { WorkersPage as SystemWorkersPage } from '@/pages/app/system/WorkersPage';
 import { AdminMaintenancePage } from '@/pages/app/admin/AdminMaintenancePage';
+import { AdminMarketplacePage } from '@/pages/app/admin/AdminMarketplacePage';
 
 // Test page
 import { TestWebSocket } from '@/pages/app/TestWebSocket';
@@ -45,6 +49,9 @@ const DashboardOverview: React.FC = () => {
   const [hasPlans, setHasPlans] = useState(false);
   const [hasPaymentGateways, setHasPaymentGateways] = useState(false);
   const [loading, setLoading] = useState(true);
+  
+  // StrictMode-safe: prevent duplicate API calls
+  const hasCheckedStatusRef = useRef(false);
 
   useEffect(() => {
     let mounted = true; // Track if component is still mounted
@@ -76,13 +83,19 @@ const DashboardOverview: React.FC = () => {
       }
     };
     
-    checkSetupStatus();
+    // Only check status once to prevent duplicate API calls in StrictMode
+    if (!hasCheckedStatusRef.current) {
+      hasCheckedStatusRef.current = true;
+      checkSetupStatus();
+    }
     
     // Cleanup function to prevent state updates on unmounted component
     return () => {
       mounted = false;
     };
-  }, [user]);
+    // StrictMode-safe: removed user dependency to prevent double calls
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Calculate completion status
   const completedTasks = [
@@ -402,6 +415,13 @@ const DashboardPage: React.FC = () => {
         <Route path="/business/analytics/*" element={<AnalyticsPage />} />
         <Route path="/metrics" element={<MetricsPage />} />
         
+        {/* Marketplace Pages */}
+        <Route path="/marketplace" element={<MarketplacePage />} />
+        <Route path="/marketplace/subscriptions" element={<MarketplacePage />} />
+        <Route path="/marketplace/my-apps" element={<MarketplacePage />} />
+        <Route path="/marketplace/reviews" element={<MarketplacePage />} />
+        <Route path="/marketplace/apps/:appId" element={<AppDetailPage />} />
+        
         {/* Admin routes - consistent with navigation */}
         <Route path="/users" element={<UsersPage />} />
         
@@ -409,6 +429,7 @@ const DashboardPage: React.FC = () => {
         <Route path="/admin/settings/*" element={<AdminSettingsPage />} />
         <Route path="/admin/users" element={<AdminUsersPage />} />
         <Route path="/admin/roles" element={<AdminRolesPage />} />
+        <Route path="/admin/marketplace" element={<AdminMarketplacePage />} />
         <Route path="/system/workers" element={<SystemWorkersPage />} />
         <Route path="/admin/maintenance/*" element={<AdminMaintenancePage />} />
         <Route path="/admin" element={<Navigate to="/app/admin/settings" replace />} />

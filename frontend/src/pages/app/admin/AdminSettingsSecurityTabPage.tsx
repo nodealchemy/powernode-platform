@@ -5,7 +5,7 @@ import { adminApi, SystemSettings } from '@/features/admin/services/adminApi';
 import { useNotification } from '@/shared/hooks/useNotification';
 import { ToggleSwitch, SettingsCard } from '@/features/admin/components/settings/SettingsComponents';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
-import { Shield, Lock, Users, Clock, Settings, Eye, EyeOff, AlertTriangle, CheckCircle, Key, FileText, Activity } from 'lucide-react';
+import { Shield, Lock, Users, Clock, Settings, AlertTriangle } from 'lucide-react';
 import { RootState } from '@/shared/services';
 import { hasPermissions } from '@/shared/utils/permissionUtils';
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
 import { Badge } from '@/shared/components/ui/Badge';
@@ -30,21 +30,13 @@ export const UserRolesModal: React.FC<UserRolesModalProps> = ({
     toRemove: string[];
   }>({ toAdd: [], toRemove: [] });
 
-  // Load user roles and available roles
-  useEffect(() => {
-    if (user && isOpen) {
-      loadUserRoles();
-      loadAvailableRoles();
-    }
-  }, [user, isOpen]);
-
-  const loadUserRoles = () => {
+  const loadUserRoles = useCallback(() => {
     if (user) {
       setUserRoles([...user.roles]);
     }
-  };
+  }, [user]);
 
-  const loadAvailableRoles = async () => {
+  const loadAvailableRoles = useCallback(async () => {
     try {
       setLoading(true);
       const roles = await usersApi.getAvailableRoles();
@@ -55,7 +47,15 @@ export const UserRolesModal: React.FC<UserRolesModalProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [showNotification]);
+
+  // Load user roles and available roles
+  useEffect(() => {
+    if (user && isOpen) {
+      loadUserRoles();
+      loadAvailableRoles();
+    }
+  }, [user, isOpen, loadUserRoles, loadAvailableRoles]);
 
   const toggleRole = (roleValue: string) => {
     const role = availableRoles.find(r => r.value === roleValue);

@@ -35,7 +35,7 @@ const CreateWebhookModal: React.FC<CreateWebhookModalProps> = ({
   onWebhookCreated
 }) => {
   const [formData, setFormData] = useState<WebhookFormData>(webhooksApi.getDefaultFormData());
-  const [availableEvents, setAvailableEvents] = useState<string[]>([]);
+  // Removed unused availableEvents state
   const [eventCategories, setEventCategories] = useState<{ [key: string]: string[] }>({});
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
@@ -53,7 +53,6 @@ const CreateWebhookModal: React.FC<CreateWebhookModalProps> = ({
     try {
       const response = await webhooksApi.getAvailableEvents();
       if (response.success && response.data) {
-        setAvailableEvents(response.data.events);
         setEventCategories(response.data.categories);
       }
     } catch (error) {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
 import { FormField } from '@/shared/components/ui/FormField';

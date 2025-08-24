@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useLocation } from 'react-router-dom';
 import { RootState, AppDispatch } from '@/shared/services';
@@ -351,7 +351,15 @@ export const SettingsPage: React.FC = () => {
     }
   ];
 
-  const getBreadcrumbs = () => {
+  const tabs = useMemo(() => [
+    { id: 'profile', label: 'Profile', icon: '👤', path: '/' },
+    { id: 'account', label: 'Account', icon: '🏢', path: '/account' },
+    { id: 'preferences', label: 'Preferences', icon: '⚙️', path: '/preferences' },
+    { id: 'notifications', label: 'Notifications', icon: '🔔', path: '/notifications' },
+    { id: 'security', label: 'Security', icon: '🔒', path: '/security' }
+  ], []);
+
+  const breadcrumbs = useMemo(() => {
     const baseBreadcrumbs = [
       { label: 'Dashboard', href: '/app', icon: '🏠' },
       { label: 'Profile', icon: '👤' }
@@ -367,18 +375,11 @@ export const SettingsPage: React.FC = () => {
     }
     
     return baseBreadcrumbs;
-  };
-
-  const tabs = [
-    { id: 'profile', label: 'Profile', icon: '👤', path: '/' },
-    { id: 'account', label: 'Account', icon: '🏢', path: '/account' },
-    { id: 'preferences', label: 'Preferences', icon: '⚙️', path: '/preferences' },
-    { id: 'notifications', label: 'Notifications', icon: '🔔', path: '/notifications' },
-    { id: 'security', label: 'Security', icon: '🔒', path: '/security' }
-  ];
+  }, [activeTab, tabs]);
 
   
   // Update active tab when URL changes
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     const newActiveTab = getActiveTabFromPath();
     console.log('🔄 useEffect - pathname changed:', location.pathname, 'newTab:', newActiveTab, 'currentTab:', activeTab);
@@ -386,7 +387,7 @@ export const SettingsPage: React.FC = () => {
       console.log('📍 Setting active tab to:', newActiveTab);
       setActiveTab(newActiveTab);
     }
-  }, [location.pathname, getActiveTabFromPath, activeTab]);
+  }, [location.pathname]); // Remove getActiveTabFromPath and activeTab dependencies
 
   const getPageDescription = () => {
     if (loading) return "Loading profile...";
@@ -397,7 +398,7 @@ export const SettingsPage: React.FC = () => {
     <PageContainer
       title="My Profile"
       description={getPageDescription()}
-      breadcrumbs={getBreadcrumbs()}
+      breadcrumbs={breadcrumbs}
       actions={loading ? [] : pageActions}
     >
       {loading ? (

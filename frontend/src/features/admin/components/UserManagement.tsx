@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import { adminApi } from '../services/adminApi';
-import { useNotification } from '@/shared/hooks/useNotification';
 
 const UserManagement: React.FC = () => {
   const [usersData, setUsersData] = useState<{
@@ -11,10 +10,8 @@ const UserManagement: React.FC = () => {
     inactive_count: number;
     suspended_count: number;
   } | null>(null);
-  const [loading, setLoading] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const { showNotification } = useNotification();
   const user = useSelector((state: any) => state.auth.user);
 
   useEffect(() => {
@@ -23,8 +20,7 @@ const UserManagement: React.FC = () => {
 
   const loadUsers = async (statusFilter?: string) => {
     try {
-      const params = statusFilter ? { status: statusFilter } : undefined;
-      const data = await adminApi.getUsers();
+      const data = await adminApi.getUsers(statusFilter ? { status: statusFilter } : undefined);
       setUsersData(data);
     } catch (error) {
       console.error('Failed to load users', error);

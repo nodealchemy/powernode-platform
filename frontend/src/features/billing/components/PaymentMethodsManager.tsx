@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { CreditCard, Plus, Trash2, Check, AlertTriangle, Star } from 'lucide-react';
 import { paymentMethodsApi, PaymentMethod } from '@/shared/services/paymentMethodsApi';
 import { useNotification } from '@/shared/hooks/useNotification';
@@ -25,11 +25,7 @@ export const PaymentMethodsManager: React.FC<PaymentMethodsManagerProps> = ({
   
   const { showNotification } = useNotification();
 
-  useEffect(() => {
-    loadPaymentMethods();
-  }, []);
-
-  const loadPaymentMethods = async () => {
+  const loadPaymentMethods = useCallback(async () => {
     try {
       setLoading(true);
       const response = await paymentMethodsApi.getPaymentMethods();
@@ -44,7 +40,11 @@ export const PaymentMethodsManager: React.FC<PaymentMethodsManagerProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [showNotification]);
+
+  useEffect(() => {
+    loadPaymentMethods();
+  }, [loadPaymentMethods]);
 
   const handleAddPaymentMethod = async () => {
     try {

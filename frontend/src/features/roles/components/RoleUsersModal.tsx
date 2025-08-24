@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
 import { Badge } from '@/shared/components/ui/Badge';
@@ -31,7 +31,7 @@ export const RoleUsersModal: React.FC<RoleUsersModalProps> = ({
 
   const canManageUsers = hasPermissions(currentUser, ['users.update']);
 
-  const loadUsers = async () => {
+  const loadUsers = useCallback(async () => {
     try {
       setLoading(true);
       
@@ -56,11 +56,11 @@ export const RoleUsersModal: React.FC<RoleUsersModalProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [role.id, showNotification]);
 
   useEffect(() => {
     loadUsers();
-  }, [role.id]);
+  }, [loadUsers]);
 
   const handleRemoveUser = async (userId: string) => {
     if (!canManageUsers) {

@@ -6,8 +6,7 @@ import {
   Activity,
   Download,
   RefreshCw,
-  Filter,
-  BarChart3
+  Filter
 } from 'lucide-react';
 import { AuditLogFilters } from '@/features/audit-logs/components/AuditLogFilters';
 import { AuditLogTable } from '@/features/audit-logs/components/AuditLogTable';

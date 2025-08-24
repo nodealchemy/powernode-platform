@@ -68,7 +68,7 @@ const fixFile = (filePath: string) => {
   // Fix 7: Fix template literals that are broken
   content = content.replace(
     /\$\{([^}]*)\n([^}]*)\}/g,
-    '${$1$2}'
+    String.raw`\${$1$2}`
   );
   
   // Fix 8: Ensure all Button onClick handlers have proper syntax

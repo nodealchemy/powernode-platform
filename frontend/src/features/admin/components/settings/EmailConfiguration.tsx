@@ -39,6 +39,7 @@ export const EmailConfiguration: React.FC = () => {
   
   const { showNotification } = useNotification();
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const loadSettings = useCallback(async () => {
     try {
       setLoading(true);
@@ -57,6 +58,7 @@ export const EmailConfiguration: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Remove showNotification from dependencies to prevent refresh loop
 
   useEffect(() => {
