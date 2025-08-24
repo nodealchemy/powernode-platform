@@ -132,3 +132,4 @@ node_modules/
 # Payment processor test keys (ensure no real keys are committed)
 stripe_test_*
 paypal_test_*
+/config/credentials/development.key
