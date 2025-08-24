@@ -66,6 +66,7 @@ interface AdminSettingsTabsProps {
 }
 
 export const AdminSettingsTabs: React.FC<AdminSettingsTabsProps> = ({ className = '' }) => {
+AdminSettingsTabs.displayName = 'AdminSettingsTabs';
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useSelector((state: RootState) => state.auth);

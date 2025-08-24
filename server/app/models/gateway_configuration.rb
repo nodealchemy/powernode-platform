@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class GatewayConfiguration < ApplicationRecord
   validates :provider, presence: true, inclusion: { in: %w[stripe paypal] }
   validates :key_name, presence: true

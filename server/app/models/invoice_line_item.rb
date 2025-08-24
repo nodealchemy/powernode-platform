@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class InvoiceLineItem < ApplicationRecord
   # Associations
   belongs_to :invoice

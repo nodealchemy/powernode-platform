@@ -21,6 +21,7 @@ interface CohortChartProps {
 }
 
 export const CohortChart: React.FC<CohortChartProps> = ({ 
+CohortChart.displayName = 'CohortChart';
   data, 
   summary,
   title

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # Proxy job class for enqueueing report generation to worker service
 # The actual job implementation lives in the worker service
 class GenerateReportJob < ApplicationJob

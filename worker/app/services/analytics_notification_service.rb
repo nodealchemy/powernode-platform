@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class AnalyticsNotificationService < BaseWorkerService
   # Notification thresholds and configurations
   NOTIFICATION_THRESHOLDS = {

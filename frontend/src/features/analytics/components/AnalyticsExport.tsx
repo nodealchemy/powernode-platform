@@ -12,6 +12,7 @@ interface AnalyticsExportProps {
 }
 
 export const AnalyticsExport: React.FC<AnalyticsExportProps> = ({ dateRange, onExport, onClose, isOpen: externalIsOpen }) => {
+AnalyticsExport.displayName = 'AnalyticsExport';
   const [internalIsOpen, setInternalIsOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   

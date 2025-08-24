@@ -5,6 +5,7 @@ interface WorkerActivityListProps {
 }
 
 export const WorkerActivityList: React.FC<WorkerActivityListProps> = ({ workerId }) => {
+WorkerActivityList.displayName = 'WorkerActivityList';
   return (
     <div className="space-y-4">
       <div className="text-center py-8">

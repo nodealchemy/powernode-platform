@@ -64,7 +64,7 @@ export const useCustomerWebSocket = ({
   }, [subscribe, handleMessage, handleError]);
 
   // Search customers
-  const searchCustomers = useCallback(async (query: string, filters: any = {}) => {
+  const searchCustomers = useCallback(async (query: string, filters: unknown = {}) => {
     if (!isConnected) {
       console.warn('Cannot search customers: WebSocket not connected');
       return;
@@ -87,7 +87,7 @@ export const useCustomerWebSocket = ({
   }, [isConnected, sendMessage]);
 
   // Load customers list
-  const loadCustomers = useCallback(async (filters: any = {}) => {
+  const loadCustomers = useCallback(async (filters: unknown = {}) => {
     if (!isConnected) {
       console.warn('Cannot load customers: WebSocket not connected');
       return;

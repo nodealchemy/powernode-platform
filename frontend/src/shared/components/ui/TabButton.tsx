@@ -13,6 +13,7 @@ export interface TabButtonProps {
 }
 
 export const TabButton: React.FC<TabButtonProps> = ({
+TabButton.displayName = 'TabButton';
   id,
   label,
   icon,

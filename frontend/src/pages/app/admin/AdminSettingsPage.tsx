@@ -15,6 +15,7 @@ import { AdminSettingsSecurityTabPage } from './AdminSettingsSecurityTabPage';
 import { AdminSettingsPerformanceTabPage } from './AdminSettingsPerformanceTabPage';
 
 export const AdminSettingsPage: React.FC = () => {
+AdminSettingsPage.displayName = 'AdminSettingsPage';
   const { user } = useSelector((state: RootState) => state.auth);
   
   // Check if user has admin settings permission

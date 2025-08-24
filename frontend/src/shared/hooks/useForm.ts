@@ -252,7 +252,7 @@ export function useForm<T extends Record<string, any>>(
     (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
       const { name, value, type } = e.target;
       
-      let processedValue: any = value;
+      let processedValue: unknown = value;
       
       // Handle different input types
       if (type === 'checkbox') {

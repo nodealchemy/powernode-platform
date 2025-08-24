@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # Billing Service - Delegates complex operations to worker service
 class BillingService
   include ActiveModel::Model

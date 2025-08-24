@@ -27,6 +27,7 @@ interface AdminMarketplacePageProps {
 }
 
 export const AdminMarketplacePage: React.FC<AdminMarketplacePageProps> = ({ className = '' }) => {
+AdminMarketplacePage.displayName = 'AdminMarketplacePage';
   const [activeTab, setActiveTab] = useState<'apps' | 'listings' | 'reviews' | 'analytics'>('apps');
   const [apps, setApps] = useState<App[]>([]);
   const [listings, setListings] = useState<MarketplaceListing[]>([]);

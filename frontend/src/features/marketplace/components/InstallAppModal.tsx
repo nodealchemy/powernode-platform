@@ -16,6 +16,7 @@ interface InstallAppModalProps {
 }
 
 export const InstallAppModal: React.FC<InstallAppModalProps> = ({
+InstallAppModal.displayName = 'InstallAppModal';
   isOpen,
   onClose,
   app,

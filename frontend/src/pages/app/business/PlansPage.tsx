@@ -16,6 +16,7 @@ import { useNotification } from '@/shared/hooks/useNotification';
 import { Plus, RefreshCw } from 'lucide-react';
 
 export const PlansPage: React.FC = () => {
+PlansPage.displayName = 'PlansPage';
   const { user } = useSelector((state: RootState) => state.auth);
   const { showNotification } = useNotification();
   const notificationRef = useRef(showNotification);

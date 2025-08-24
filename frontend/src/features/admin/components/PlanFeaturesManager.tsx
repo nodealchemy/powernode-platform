@@ -441,6 +441,7 @@ const LimitModal: React.FC<LimitModalProps> = ({ isOpen, plan, feature, currentL
 };
 
 export const PlanFeaturesManager: React.FC<PlanFeaturesManagerProps> = ({
+PlanFeaturesManager.displayName = 'PlanFeaturesManager';
   showComparison = true,
   allowEditing = true
 }) => {

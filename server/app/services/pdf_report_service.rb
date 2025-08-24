@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # PDF Report Service - Delegates to worker service
 class PdfReportService
   REPORT_TYPES = %w[

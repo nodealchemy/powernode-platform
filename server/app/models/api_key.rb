@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class ApiKey < ApplicationRecord
   # Associations
   belongs_to :created_by, class_name: 'User', optional: true

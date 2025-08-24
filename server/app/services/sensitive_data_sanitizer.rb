@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # Sensitive Data Sanitizer for PCI Compliance
 # Prevents logging or storing sensitive payment data
 class SensitiveDataSanitizer

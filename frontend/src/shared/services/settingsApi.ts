@@ -50,7 +50,7 @@ export interface SecuritySettings {
   email_verified?: boolean;
   password_last_changed?: string;
   two_factor_enabled?: boolean;
-  login_history?: any[];
+  login_history?: unknown[];
   failed_attempts?: number;
   account_locked?: boolean;
 }

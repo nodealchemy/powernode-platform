@@ -17,6 +17,7 @@ interface MarketplaceSearchProps {
 }
 
 export const MarketplaceSearch: React.FC<MarketplaceSearchProps> = ({
+MarketplaceSearch.displayName = 'MarketplaceSearch';
   filters,
   facets,
   onFiltersChange,

@@ -41,6 +41,7 @@ const PLAN_HIGHLIGHTS: Record<string, PlanHighlight> = {
 };
 
 export const PlanComparisonModal: React.FC<PlanComparisonModalProps> = ({
+PlanComparisonModal.displayName = 'PlanComparisonModal';
   isOpen,
   onClose,
   app,

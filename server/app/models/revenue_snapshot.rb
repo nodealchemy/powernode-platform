@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class RevenueSnapshot < ApplicationRecord
   belongs_to :account, optional: true
 

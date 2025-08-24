@@ -31,6 +31,7 @@ export interface PageContainerProps {
 }
 
 export const PageContainer: React.FC<PageContainerProps> = ({
+PageContainer.displayName = 'PageContainer';
   title,
   description,
   breadcrumbs,

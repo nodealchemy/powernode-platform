@@ -15,6 +15,7 @@ interface EndpointCardProps {
 }
 
 export const EndpointCard: React.FC<EndpointCardProps> = ({
+EndpointCard.displayName = 'EndpointCard';
   endpoint,
   onEdit,
   onToggleStatus,

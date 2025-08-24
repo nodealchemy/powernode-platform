@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # PCI Compliance Security Headers Middleware
 class PciSecurityHeaders
   def initialize(app)

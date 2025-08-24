@@ -15,6 +15,7 @@ interface RoleFormModalProps {
 }
 
 export const RoleFormModal: React.FC<RoleFormModalProps> = ({
+RoleFormModal.displayName = 'RoleFormModal';
   role,
   permissions,
   onSave,

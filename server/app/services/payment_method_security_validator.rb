@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # Payment Method Security Validator
 # Implements fraud detection and validation for payment methods
 class PaymentMethodSecurityValidator

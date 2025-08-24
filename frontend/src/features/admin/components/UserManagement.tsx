@@ -4,7 +4,7 @@ import { adminApi } from '../services/adminApi';
 
 const UserManagement: React.FC = () => {
   const [usersData, setUsersData] = useState<{
-    users: any[];
+    users: unknown[];
     total_count: number;
     active_count: number;
     inactive_count: number;

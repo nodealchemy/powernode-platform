@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class PasswordHistory < ApplicationRecord
   belongs_to :user
 

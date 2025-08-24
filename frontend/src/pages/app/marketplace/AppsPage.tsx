@@ -6,6 +6,7 @@ import { App } from '@/features/marketplace/types';
 import { RefreshCw, Plus } from 'lucide-react';
 
 export const AppsPage: React.FC = () => {
+AppsPage.displayName = 'AppsPage';
   const navigate = useNavigate();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);

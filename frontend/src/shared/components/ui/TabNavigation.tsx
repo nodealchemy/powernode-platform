@@ -17,6 +17,7 @@ interface TabNavigationProps {
 }
 
 export const TabNavigation: React.FC<TabNavigationProps> = ({ tabs, basePath, className = '' }) => {
+TabNavigation.displayName = 'TabNavigation';
   const location = useLocation();
   const currentPath = location.pathname;
 
@@ -89,6 +90,7 @@ interface MobileTabNavigationProps {
 }
 
 export const MobileTabNavigation: React.FC<MobileTabNavigationProps> = ({ 
+TabNavigation.displayName = 'TabNavigation';
   tabs, 
   basePath, 
   currentTabLabel,

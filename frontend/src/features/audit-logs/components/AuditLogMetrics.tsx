@@ -27,6 +27,7 @@ const colorMap = {
 // };
 
 export const AuditLogMetrics: React.FC<AuditLogMetricsProps> = ({
+AuditLogMetrics.displayName = 'AuditLogMetrics';
   title,
   value,
   icon,

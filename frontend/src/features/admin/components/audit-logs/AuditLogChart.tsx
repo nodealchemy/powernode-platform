@@ -27,6 +27,7 @@ interface PieData {
 type ChartData = TimeSeriesData[] | BarData[] | PieData[];
 
 export const AuditLogChart: React.FC<AuditLogChartProps> = ({
+AuditLogChart.displayName = 'AuditLogChart';
   title,
   type,
   timeRange,

@@ -11,6 +11,7 @@ interface ProtectedRouteProps {
 }
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
+ProtectedRoute.displayName = 'ProtectedRoute';
   children,
   requiredPermissions = [],
   requireEmailVerification = false,

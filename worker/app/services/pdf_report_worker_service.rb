@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require_relative 'base_worker_service'
 require 'prawn'
 require 'prawn/table'

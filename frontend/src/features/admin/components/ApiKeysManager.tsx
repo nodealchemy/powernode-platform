@@ -475,6 +475,7 @@ const ApiKeyDetailsModal: React.FC<ApiKeyDetailsModalProps> = ({
 };
 
 export const ApiKeysManager: React.FC<ApiKeysManagerProps> = ({
+ApiKeysManager.displayName = 'ApiKeysManager';
   showStats = true,
   showFilters = true
 }) => {

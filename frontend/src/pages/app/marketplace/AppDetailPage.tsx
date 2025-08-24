@@ -15,6 +15,7 @@ import { AppStatus } from '@/features/marketplace/types';
 import { Settings, Globe, Calendar, Code, Webhook, RefreshCw, Upload, EyeOff } from 'lucide-react';
 
 export const AppDetailPage: React.FC = () => {
+AppDetailPage.displayName = 'AppDetailPage';
   const { appId } = useParams<{ appId: string }>();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'overview' | 'endpoints' | 'webhooks' | 'analytics'>('overview');

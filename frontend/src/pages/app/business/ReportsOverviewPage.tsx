@@ -33,6 +33,7 @@ interface RecentReport {
 }
 
 export const ReportsOverviewPage: React.FC = () => {
+ReportsOverviewPage.displayName = 'ReportsOverviewPage';
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState<ReportsStats | null>(null);

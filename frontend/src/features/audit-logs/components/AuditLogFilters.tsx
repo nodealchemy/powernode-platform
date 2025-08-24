@@ -20,6 +20,7 @@ interface AuditLogFiltersProps {
 }
 
 export const AuditLogFilters: React.FC<AuditLogFiltersProps> = ({
+AuditLogFilters.displayName = 'AuditLogFilters';
   filters,
   onFiltersChange,
   onClearFilters,

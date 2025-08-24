@@ -28,6 +28,7 @@ export interface InvoiceFormData {
 }
 
 export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
+CreateInvoiceModal.displayName = 'CreateInvoiceModal';
   isOpen,
   onClose,
   onSubmit,

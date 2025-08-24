@@ -22,6 +22,7 @@ interface CreateDelegationModalProps {
 // }
 
 export const CreateDelegationModal: React.FC<CreateDelegationModalProps> = ({ onClose, onCreate }) => {
+CreateDelegationModal.displayName = 'CreateDelegationModal';
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
     delegated_user_email: '',

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require_relative '../mailers/notification_mailer'
 require_relative '../services/email_configuration_service'
 require_relative '../services/api_client'

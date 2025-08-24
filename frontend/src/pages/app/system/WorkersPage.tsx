@@ -405,6 +405,7 @@ const CreateWorkerModal: React.FC<CreateWorkerModalProps> = ({ onClose, onCreate
 };
 
 export const WorkersPage: React.FC = () => {
+WorkersPage.displayName = 'WorkersPage';
   const { user } = useSelector((state: RootState) => state.auth);
 
   // Check if user has permission to view system workers

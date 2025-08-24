@@ -32,6 +32,7 @@ interface SubscriptionCardProps {
 }
 
 export const SubscriptionCard: React.FC<SubscriptionCardProps> = ({
+SubscriptionCard.displayName = 'SubscriptionCard';
   subscription,
   onPause,
   onResume,

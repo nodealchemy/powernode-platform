@@ -6,6 +6,7 @@ import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { RefreshCw } from 'lucide-react';
 
 export const TestWebSocket: React.FC = () => {
+TestWebSocket.displayName = 'TestWebSocket';
   const { user, accessToken } = useSelector((state: RootState) => state.auth);
   const { isConnected, error, lastConnected } = useWebSocket();
   

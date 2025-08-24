@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class PageService
   def self.generate_slug(title)
     # Convert title to slug format

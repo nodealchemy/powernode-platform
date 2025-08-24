@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require_relative '../base_job'
 
 # Job for generating reports via the backend API

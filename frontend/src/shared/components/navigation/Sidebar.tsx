@@ -12,6 +12,7 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
+Sidebar.displayName = 'Sidebar';
   const { config, state, updateState } = useNavigation();
   const [copyrightText, setCopyrightText] = React.useState<string>('');
   const [scrollState, setScrollState] = React.useState({

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # This file is kept for Rails compatibility
 # All mailer functionality has been moved to the worker service
 class ApplicationMailer < ActionMailer::Base

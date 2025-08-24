@@ -1,6 +1,7 @@
 import React from 'react';
 
 export const AdminSettingsPerformanceTabPage: React.FC = () => {
+AdminSettingsPerformanceTabPage.displayName = 'AdminSettingsPerformanceTabPage';
   return (
     <div className="bg-theme-surface rounded-lg border border-theme">
       <div className="p-6">

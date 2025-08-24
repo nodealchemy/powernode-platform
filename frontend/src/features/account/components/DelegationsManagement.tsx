@@ -36,6 +36,7 @@ interface DelegationFormData {
 }
 
 export const DelegationsManagement: React.FC = () => {
+DelegationsManagement.displayName = 'DelegationsManagement';
   const [delegations, setDelegations] = useState<Delegation[]>([]);
   const [showCreateForm, setShowCreateForm] = useState(false);
   // const [editingDelegation] = useState<Delegation | null>(null);

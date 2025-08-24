@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # Jobs API controller for receiving job enqueue requests from the backend
 class JobsController
   def self.call(env)

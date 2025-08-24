@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # Worker Activity Model
 # Tracks activity and usage of workers
 class WorkerActivity < ApplicationRecord

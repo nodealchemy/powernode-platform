@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # ApplicationJob - Legacy job base class
 # 
 # NOTE: All background jobs have been migrated to the standalone worker service

@@ -13,6 +13,7 @@ interface BreadcrumbProps {
 }
 
 export const Breadcrumb: React.FC<BreadcrumbProps> = ({ items, className = '' }) => {
+Breadcrumb.displayName = 'Breadcrumb';
   return (
     <nav className={`flex ${className}`} aria-label="Breadcrumb">
       <ol className="flex items-center space-x-2">

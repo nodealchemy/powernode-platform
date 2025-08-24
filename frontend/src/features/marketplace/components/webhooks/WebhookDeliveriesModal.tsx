@@ -23,6 +23,7 @@ interface DeliveryFilters {
 }
 
 export const WebhookDeliveriesModal: React.FC<WebhookDeliveriesModalProps> = ({
+WebhookDeliveriesModal.displayName = 'WebhookDeliveriesModal';
   isOpen,
   onClose,
   appId,

@@ -32,6 +32,7 @@ interface ExportOptions {
 }
 
 export const AuditLogExport: React.FC<AuditLogExportProps> = ({ filters, onClose }) => {
+AuditLogExport.displayName = 'AuditLogExport';
   const [exportOptions, setExportOptions] = useState<ExportOptions>({
     format: 'csv',
     scope: 'filtered',

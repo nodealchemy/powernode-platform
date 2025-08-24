@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class Page < ApplicationRecord
   # Associations
   belongs_to :user, foreign_key: 'author_id'

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class DelegationPermission < ApplicationRecord
   # Associations
   belongs_to :account_delegation

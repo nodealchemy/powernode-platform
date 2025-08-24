@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class ReconciliationFlag < ApplicationRecord
   include AASM
   

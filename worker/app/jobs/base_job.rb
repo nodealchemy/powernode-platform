@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'sidekiq'
 
 # Base job class for all Powernode worker jobs

@@ -25,6 +25,7 @@ interface SelectFieldProps {
  * Provides consistent styling, validation display, and accessibility
  */
 export const SelectField: React.FC<SelectFieldProps> = ({
+SelectField.displayName = 'SelectField';
   label,
   name,
   options,

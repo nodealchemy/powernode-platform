@@ -24,6 +24,7 @@ interface ComplianceMetric {
 }
 
 export const ComplianceMetrics: React.FC<ComplianceMetricsProps> = ({ timeRange }) => {
+ComplianceMetrics.displayName = 'ComplianceMetrics';
   const complianceData: ComplianceMetric[] = [
     {
       regulation: 'GDPR',

@@ -18,6 +18,7 @@ interface ExampleFormProps {
  * This serves as a reference implementation for other forms in the application
  */
 export const ExampleForm: React.FC<ExampleFormProps> = ({ 
+ExampleForm.displayName = 'ExampleForm';
   onSubmit = async (data) => {
     // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 1000));

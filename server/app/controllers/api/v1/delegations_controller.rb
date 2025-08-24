@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class Api::V1::DelegationsController < ApplicationController
   # Authentication is handled by ApplicationController's before_action :authenticate_request
   before_action :set_account

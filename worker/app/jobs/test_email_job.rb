@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require_relative '../mailers/notification_mailer'
 
 class TestEmailJob < BaseJob

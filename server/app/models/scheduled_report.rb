@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class ScheduledReport < ApplicationRecord
 
   belongs_to :account, optional: true

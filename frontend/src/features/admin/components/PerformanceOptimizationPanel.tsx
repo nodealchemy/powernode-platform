@@ -93,6 +93,7 @@ const ActionCard: React.FC<ActionCardProps> = ({ action, onExecute, executing })
 };
 
 export const PerformanceOptimizationPanel: React.FC<PerformanceOptimizationPanelProps> = ({
+PerformanceOptimizationPanel.displayName = 'PerformanceOptimizationPanel';
   onOptimizationComplete
 }) => {
   const [actions, setActions] = useState<OptimizationAction[]>([]);

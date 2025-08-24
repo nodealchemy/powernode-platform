@@ -25,6 +25,7 @@ interface DateRangePreset {
 }
 
 export const DateRangePicker: React.FC<DateRangePickerProps> = ({
+DateRangePicker.displayName = 'DateRangePicker';
   startDate,
   endDate,
   onStartDateChange,

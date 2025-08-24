@@ -16,14 +16,14 @@ This document provides comprehensive statistics about architectural pattern usag
 - **Models using security concerns**: 1
 - **Models with permission methods**: 8
 - **Service objects**: 28
-- **Files with frozen_string_literal**: 95
+- **Files with frozen_string_literal**: 153
 
 ## Frontend Patterns
 
 - **Components using permission-based access**: 105
 - **Components using theme-aware classes**: 6480
 - **Components with forwardRef**: 11
-- **Components with displayName**: 6
+- **Components with displayName**: 182
 - **TypeScript interface definitions**: 261
 - **Custom hooks (useXxx)**: 18
 - **API service files**: 33
@@ -37,11 +37,11 @@ This document provides comprehensive statistics about architectural pattern usag
 
 ## Code Quality
 
-- **Backend files missing frozen_string_literal**: 58
-- **Worker files missing frozen_string_literal**: 46
+- **Backend files missing frozen_string_literal**: 0
+- **Worker files missing frozen_string_literal**: 0
 - **Debug statements in backend (should be 0)**: 370
-- **Console.log statements in frontend (should be 0)**: 48
-- **TypeScript any types**: 333
+- **Console.log statements in frontend (should be 0)**: 47
+- **TypeScript any types**: 320
 
 ## Anti-Patterns (Should be Zero)
 

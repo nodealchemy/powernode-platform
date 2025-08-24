@@ -11,6 +11,7 @@ interface NavigationSectionProps {
 }
 
 export const NavigationSection: React.FC<NavigationSectionProps> = ({ 
+NavigationSection.displayName = 'NavigationSection';
   section, 
   isCollapsed = false 
 }) => {
@@ -45,7 +46,6 @@ export const NavigationSection: React.FC<NavigationSectionProps> = ({
       
       // Track manual user interaction for better UX
       const action = isExpanded ? 'collapsed' : 'expanded';
-      console.debug(`Navigation section "${section.name}" ${action} by user`);
     }
   };
 

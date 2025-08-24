@@ -5,6 +5,7 @@ import { PageContainer, PageAction } from '@/shared/components/layout/PageContai
 import { Key, RefreshCw } from 'lucide-react';
 
 export const ApiKeysPage: React.FC = () => {
+ApiKeysPage.displayName = 'ApiKeysPage';
   const [apiKeys, setApiKeys] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # Service for enqueueing jobs in the standalone worker service
 # Communicates with worker via HTTP API
 class WorkerJobService

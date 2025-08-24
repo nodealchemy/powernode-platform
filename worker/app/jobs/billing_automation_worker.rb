@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require_relative 'base_job'
 
 # Job for handling billing automation tasks

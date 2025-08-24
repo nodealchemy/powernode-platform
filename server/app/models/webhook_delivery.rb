@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class WebhookDelivery < ApplicationRecord
   # Associations
   belongs_to :webhook_endpoint

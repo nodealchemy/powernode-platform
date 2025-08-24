@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class Api::V1::Admin::PagesController < ApplicationController
   # Admin endpoints - authentication required
   before_action :ensure_admin_access!

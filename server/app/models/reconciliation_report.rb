@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class ReconciliationReport < ApplicationRecord
   validates :reconciliation_date, presence: true
   validates :reconciliation_type, presence: true, inclusion: { in: %w[daily weekly monthly custom] }

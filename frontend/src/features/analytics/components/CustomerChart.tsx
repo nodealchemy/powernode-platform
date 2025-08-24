@@ -49,6 +49,7 @@ interface CustomerChartProps {
 }
 
 export const CustomerChart: React.FC<CustomerChartProps> = ({ 
+CustomerChart.displayName = 'CustomerChart';
   data, 
   currentMetrics,
   segmentation,

@@ -7,6 +7,7 @@ interface AnnualSavingsCalculatorProps {
 }
 
 export const AnnualSavingsCalculator: React.FC<AnnualSavingsCalculatorProps> = ({ 
+AnnualSavingsCalculator.displayName = 'AnnualSavingsCalculator';
   plan, 
   className = '' 
 }) => {

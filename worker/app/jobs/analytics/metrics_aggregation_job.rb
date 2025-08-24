@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class Analytics::MetricsAggregationJob < BaseJob
   sidekiq_options queue: 'analytics'
   

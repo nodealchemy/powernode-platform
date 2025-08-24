@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class ApiKeyUsage < ApplicationRecord
   # Associations
   belongs_to :api_key

@@ -18,6 +18,7 @@ interface PlatformSettings {
 }
 
 export const PlatformConfiguration: React.FC = () => {
+PlatformConfiguration.displayName = 'PlatformConfiguration';
   const [settings, setSettings] = useState<PlatformSettings>({
     system_name: 'Powernode Platform',
     copyright_text: '© {year} Powernode Platform. All rights reserved.',

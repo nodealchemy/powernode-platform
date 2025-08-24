@@ -128,9 +128,9 @@ export interface AdminLog {
 export interface AdminSettingsData {
   settings_summary: SystemSettings;
   metrics: PlatformStats;
-  recent_users: any[];
-  recent_accounts: any[];
-  recent_logs: any[];
+  recent_users: unknown[];
+  recent_accounts: unknown[];
+  recent_logs: unknown[];
   payment_gateways: any;
 }
 

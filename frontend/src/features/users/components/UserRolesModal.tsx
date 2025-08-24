@@ -15,6 +15,7 @@ interface UserRolesModalProps {
 }
 
 export const UserRolesModal: React.FC<UserRolesModalProps> = ({
+UserRolesModal.displayName = 'UserRolesModal';
   user,
   isOpen,
   onClose,

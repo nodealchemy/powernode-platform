@@ -19,6 +19,7 @@ import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { Button } from '@/shared/components/ui/Button';
 
 export const MarketplacePageEnhanced: React.FC = () => {
+MarketplacePageEnhanced.displayName = 'MarketplacePageEnhanced';
   const navigate = useNavigate();
   const location = useLocation();
   

@@ -9,6 +9,7 @@ export interface LoadingSpinnerProps {
 }
 
 export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
+LoadingSpinner.displayName = 'LoadingSpinner';
   size = 'md',
   className = '',
   message,

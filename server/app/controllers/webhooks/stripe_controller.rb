@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class Webhooks::StripeController < ApplicationController
   skip_before_action :authenticate_request
   before_action :verify_stripe_signature

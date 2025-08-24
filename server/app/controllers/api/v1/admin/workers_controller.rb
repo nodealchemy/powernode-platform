@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # Admin Workers Controller
 # Manages worker authentication tokens and permissions
 class Api::V1::Admin::WorkersController < ApplicationController

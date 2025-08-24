@@ -10,6 +10,7 @@ import { RootState } from '@/shared/services';
 import { hasPermissions } from '@/shared/utils/permissionUtils';
 
 export const AdminSettingsSecurityTabPage: React.FC = () => {
+AdminSettingsSecurityTabPage.displayName = 'AdminSettingsSecurityTabPage';
   const { user } = useSelector((state: RootState) => state.auth);
   const { showNotification } = useNotification();
   const [systemSettings, setSystemSettings] = useState<Partial<SystemSettings>>({});

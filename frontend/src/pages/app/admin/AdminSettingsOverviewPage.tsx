@@ -88,6 +88,7 @@ const SystemStatusCard: React.FC<SystemStatusCardProps> = ({
 
 
 export const AdminSettingsOverviewPage: React.FC = () => {
+AdminSettingsOverviewPage.displayName = 'AdminSettingsOverviewPage';
   const [data, setData] = useState<AdminOverviewData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

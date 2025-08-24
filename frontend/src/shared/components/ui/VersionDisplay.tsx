@@ -10,6 +10,7 @@ interface VersionDisplayProps {
 }
 
 export const VersionDisplay: React.FC<VersionDisplayProps> = ({
+VersionDisplay.displayName = 'VersionDisplay';
   show = 'simple',
   showFrontend = true,
   showBackend = true,

@@ -12,6 +12,7 @@ interface ServiceDetailsProps {
 }
 
 export const ServiceDetails: React.FC<ServiceDetailsProps> = ({
+ServiceDetails.displayName = 'ServiceDetails';
   service,
   onServiceUpdate,
   onTokenRegenerate,

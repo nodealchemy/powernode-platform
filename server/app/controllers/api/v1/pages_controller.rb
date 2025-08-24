@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class Api::V1::PagesController < ApplicationController
   # Public endpoint - no authentication required for viewing published pages
   skip_before_action :authenticate_request, only: [:index, :show]

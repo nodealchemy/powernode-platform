@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class Api::V1::PaymentGatewaysController < ApplicationController
   before_action -> { require_permission('admin.billing.manage_gateways') }
   

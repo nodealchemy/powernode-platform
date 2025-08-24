@@ -206,7 +206,7 @@ export const useAppWebhook = (appId: string, webhookId: string) => {
     }
   };
 
-  const getDeliveries = async (filters: any = {}) => {
+  const getDeliveries = async (filters: unknown = {}) => {
     try {
       return await appWebhooksApi.getWebhookDeliveries(appId, webhookId, filters);
     } catch (err) {

@@ -5,6 +5,7 @@ import { DelegationDetailsModal } from './DelegationDetailsModal';
 import { DelegationRequestModal } from './DelegationRequestModal';
 
 export const DelegationsManagement: React.FC = () => {
+DelegationsManagement.displayName = 'DelegationsManagement';
   const [activeDelegations, setActiveDelegations] = useState<Delegation[]>([]);
   const [pendingRequests, setPendingRequests] = useState<DelegationRequest[]>([]);
   const [selectedDelegation, setSelectedDelegation] = useState<Delegation | null>(null);

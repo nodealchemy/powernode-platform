@@ -5,6 +5,7 @@ import { SubscriptionsList } from '@/features/marketplace/components/Subscriptio
 import { RefreshCw, Store } from 'lucide-react';
 
 export const SubscriptionsPage: React.FC = () => {
+SubscriptionsPage.displayName = 'SubscriptionsPage';
   const navigate = useNavigate();
   const [refreshKey, setRefreshKey] = useState(0);
 

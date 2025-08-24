@@ -269,7 +269,7 @@ export const delegationApi = {
   },
 
   // Search accounts (placeholder - implement based on backend)
-  async searchAccounts(query: string): Promise<{ accounts: any[] }> {
+  async searchAccounts(query: string): Promise<{ accounts: unknown[] }> {
     return apiRequest(`/api/v1/accounts/search?q=${encodeURIComponent(query)}`);
   },
 

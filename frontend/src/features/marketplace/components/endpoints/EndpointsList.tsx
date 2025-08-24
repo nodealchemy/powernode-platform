@@ -20,6 +20,7 @@ interface EndpointsListProps {
 const httpMethods: HttpMethod[] = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'];
 
 export const EndpointsList: React.FC<EndpointsListProps> = ({
+EndpointsList.displayName = 'EndpointsList';
   appId,
   className = '',
   showCreateButton = true,

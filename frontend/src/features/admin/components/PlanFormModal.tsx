@@ -15,6 +15,7 @@ interface PlanFormModalProps {
 }
 
 export const PlanFormModal: React.FC<PlanFormModalProps> = ({
+PlanFormModal.displayName = 'PlanFormModal';
   isOpen,
   onClose,
   onSaved,

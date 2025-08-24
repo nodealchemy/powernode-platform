@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # PayPal Webhook Signature Verification Service
 class PaypalWebhookVerifier
   include ActiveModel::Model

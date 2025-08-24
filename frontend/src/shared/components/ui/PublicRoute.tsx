@@ -9,6 +9,7 @@ interface PublicRouteProps {
 }
 
 export const PublicRoute: React.FC<PublicRouteProps> = ({
+PublicRoute.displayName = 'PublicRoute';
   children,
   redirectTo = '/app',
 }) => {

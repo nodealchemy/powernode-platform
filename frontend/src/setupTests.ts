@@ -6,7 +6,7 @@ import '@testing-library/jest-dom';
 
 // Suppress testing-related console warnings that don't affect functionality
 const originalError = console.error;
-console.error = (...args: any[]) => {
+console.error = (...args: unknown[]) => {
   if (
     typeof args[0] === 'string' &&
     (args[0].includes('The current testing environment is not configured to support act') ||

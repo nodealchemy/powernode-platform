@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class PageSerializer
   def initialize(page, options = {})
     @page = page

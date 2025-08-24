@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require_relative '../base_job'
 
 # Converted from SubscriptionLifecycleJob to use API-only connectivity

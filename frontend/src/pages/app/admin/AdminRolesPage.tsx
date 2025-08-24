@@ -14,6 +14,7 @@ import { RoleFormModal } from '@/features/roles/components/RoleFormModal';
 import { RoleUsersModal } from '@/features/roles/components/RoleUsersModal';
 
 export const AdminRolesPage: React.FC = () => {
+AdminRolesPage.displayName = 'AdminRolesPage';
   const { user } = useSelector((state: RootState) => state.auth);
   const { showNotification } = useNotification();
   const [roles, setRoles] = useState<Role[]>([]);

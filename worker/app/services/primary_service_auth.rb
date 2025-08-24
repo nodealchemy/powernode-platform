@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # Primary Service Authentication Service
 # Manages authentication using the primary service token for an account
 class PrimaryServiceAuth

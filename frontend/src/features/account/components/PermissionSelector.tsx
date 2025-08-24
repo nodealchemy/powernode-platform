@@ -28,6 +28,7 @@ interface PermissionSelectorProps {
 }
 
 export const PermissionSelector: React.FC<PermissionSelectorProps> = ({
+PermissionSelector.displayName = 'PermissionSelector';
   selectedRoleId,
   selectedPermissionIds,
   onPermissionChange,

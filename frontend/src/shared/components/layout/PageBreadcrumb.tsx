@@ -13,6 +13,7 @@ interface PageBreadcrumbProps {
 }
 
 export const PageBreadcrumb: React.FC<PageBreadcrumbProps> = ({ items, className = "mb-4" }) => {
+PageBreadcrumb.displayName = 'PageBreadcrumb';
   return <Breadcrumb items={items} className={className} />;
 };
 

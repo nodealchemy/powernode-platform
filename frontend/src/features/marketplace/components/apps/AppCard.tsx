@@ -30,6 +30,7 @@ interface AppCardProps {
 }
 
 export const AppCard: React.FC<AppCardProps> = ({
+AppCard.displayName = 'AppCard';
   app,
   isOwner = false,
   showSubscription = false,

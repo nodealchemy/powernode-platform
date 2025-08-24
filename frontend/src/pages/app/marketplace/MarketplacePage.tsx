@@ -14,6 +14,7 @@ import { App, MarketplaceFilters, AppFilters } from '@/features/marketplace/type
 import { RefreshCw, Plus } from 'lucide-react';
 
 export const MarketplacePage: React.FC = () => {
+MarketplacePage.displayName = 'MarketplacePage';
   const navigate = useNavigate();
   const location = useLocation();
   const [filters] = useState<MarketplaceFilters>({ 

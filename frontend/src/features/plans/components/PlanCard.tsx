@@ -12,6 +12,7 @@ interface PlanCardProps {
 }
 
 export const PlanCard: React.FC<PlanCardProps> = ({
+PlanCard.displayName = 'PlanCard';
   plan,
   billingCycle,
   isSelected = false,

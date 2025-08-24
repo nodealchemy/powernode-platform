@@ -16,6 +16,7 @@ interface WebhookFormModalProps {
 }
 
 export const WebhookFormModal: React.FC<WebhookFormModalProps> = ({
+WebhookFormModal.displayName = 'WebhookFormModal';
   isOpen,
   onClose,
   appId,

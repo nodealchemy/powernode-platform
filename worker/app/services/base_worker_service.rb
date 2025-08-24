@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require_relative '../clients/backend_api_client'
 
 class BaseWorkerService
