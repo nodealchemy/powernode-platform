@@ -170,7 +170,7 @@ export const AppCard: React.FC<AppCardProps> = ({
                       <Star
                         key={star}
                         className={`w-3 h-3 ${
-                          star <= review.rating ? 'text-yellow-400 fill-current' : 'text-gray-300'
+                          star <= review.rating ? 'text-theme-warning fill-current' : 'text-theme-muted'
                         }`}
                       />
                     ))}

@@ -87,8 +87,8 @@ class PowernodeWorker
 
   def setup_service_authentication
     # Ensure service token is available
-    unless config.service_token
-      @logger.error "SERVICE_TOKEN not configured - worker cannot authenticate with backend"
+    unless config.worker_token
+      @logger.error "WORKER_TOKEN not configured - worker cannot authenticate with backend"
       exit 1
     end
     
@@ -99,13 +99,13 @@ class PowernodeWorker
   class Configuration
     def initialize
       @backend_api_url = ENV.fetch('BACKEND_API_URL', 'http://localhost:3000')
-      @service_token = ENV['SERVICE_TOKEN']
+      @worker_token = ENV['WORKER_TOKEN']
       @sidekiq_web_port = ENV.fetch('SIDEKIQ_WEB_PORT', '4567')
       @worker_concurrency = ENV.fetch('WORKER_CONCURRENCY', '5').to_i
       @worker_queues = ENV.fetch('WORKER_QUEUES', 'default,reports,billing,webhooks').split(',')
     end
 
-    attr_reader :backend_api_url, :service_token, :sidekiq_web_port, 
+    attr_reader :backend_api_url, :worker_token, :sidekiq_web_port, 
                 :worker_concurrency, :worker_queues
 
     def api_timeout

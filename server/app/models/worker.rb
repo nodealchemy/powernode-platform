@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # Worker Authentication Model
 # Manages individual workers with their own tokens and permissions
 class Worker < ApplicationRecord

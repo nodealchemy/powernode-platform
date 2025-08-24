@@ -65,7 +65,6 @@ export const LiveMetricsOverview: React.FC<LiveMetricsOverviewProps> = ({
 
   // Stable callbacks to prevent WebSocket reconnections
   const handleAnalyticsUpdate = useCallback((data: any) => {
-    console.log('Live metrics update received:', data);
     if (data.current_metrics) {
       // Always clear errors when we receive valid data
       setError(null);
@@ -145,7 +144,6 @@ export const LiveMetricsOverview: React.FC<LiveMetricsOverviewProps> = ({
 
   // Monitor WebSocket connection status
   useEffect(() => {
-    console.log('WebSocket connection status changed:', isConnected ? 'Connected' : 'Disconnected');
     if (!isConnected) {
       setIsLive(false);
     }

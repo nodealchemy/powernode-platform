@@ -536,5 +536,9 @@ Rails.application.routes.draw do
   mount ActionCable.server => '/cable'
 
   # Root route for API
-  root to: proc { [ 200, {}, [ "Powernode API - Version 1.0" ] ] }
+  root to: proc { 
+    version = File.exist?(Rails.root.join('..', 'VERSION')) ? 
+              File.read(Rails.root.join('..', 'VERSION')).strip : '0.0.1'
+    [ 200, {}, [ "Powernode API - Version #{version}" ] ] 
+  }
 end

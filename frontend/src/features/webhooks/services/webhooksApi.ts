@@ -125,7 +125,7 @@ export const webhooksApi = {
     try {
       const response = await api.get(`/webhooks?page=${page}&per_page=${perPage}`);
       return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch webhooks:', error);
       return {
         success: false,
@@ -156,7 +156,7 @@ export const webhooksApi = {
     try {
       const response = await api.get(`/webhooks/${id}`);
       return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch webhook:', error);
       return {
         success: false,
@@ -170,7 +170,7 @@ export const webhooksApi = {
     try {
       const response = await api.post('/webhooks', { webhook: webhookData });
       return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to create webhook:', error);
       return {
         success: false,
@@ -184,7 +184,7 @@ export const webhooksApi = {
     try {
       const response = await api.put(`/webhooks/${id}`, { webhook: webhookData });
       return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to update webhook:', error);
       return {
         success: false,
@@ -198,7 +198,7 @@ export const webhooksApi = {
     try {
       const response = await api.delete(`/webhooks/${id}`);
       return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to delete webhook:', error);
       return {
         success: false,
@@ -212,7 +212,7 @@ export const webhooksApi = {
     try {
       const response = await api.post(`/webhooks/${id}/test`, { event_type: eventType });
       return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to test webhook:', error);
       return {
         success: false,
@@ -226,7 +226,7 @@ export const webhooksApi = {
     try {
       const response = await api.post(`/webhooks/${id}/toggle_status`);
       return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to toggle webhook status:', error);
       return {
         success: false,
@@ -240,7 +240,7 @@ export const webhooksApi = {
     try {
       const response = await api.get('/webhooks/available_events');
       return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch available events:', error);
       return {
         success: false,
@@ -275,7 +275,7 @@ export const webhooksApi = {
 
       const response = await api.get(`/webhooks/deliveries?${params}`);
       return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch delivery history:', error);
       return {
         success: false,
@@ -289,7 +289,7 @@ export const webhooksApi = {
     try {
       const response = await api.get('/webhooks/stats');
       return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch webhook stats:', error);
       return {
         success: false,
@@ -303,7 +303,7 @@ export const webhooksApi = {
     try {
       const response = await api.post('/webhooks/retry_failed');
       return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to retry failed webhooks:', error);
       return {
         success: false,

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class AccountDelegation < ApplicationRecord
   # Associations
   belongs_to :account

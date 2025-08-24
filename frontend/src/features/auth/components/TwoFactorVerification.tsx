@@ -2,11 +2,12 @@ import React, { useState } from 'react';
 import { twoFactorApi } from '@/shared/services/twoFactorApi';
 import { Button } from '@/shared/components/ui/Button';
 import { FormField } from '@/shared/components/ui/FormField';
+import { AuthResponse } from '@/features/auth/services/authAPI';
 import { Lock } from 'lucide-react';
 
 interface TwoFactorVerificationProps {
   verificationToken: string;
-  onSuccess: (data: any) => void;
+  onSuccess: (data: AuthResponse) => void;
   onError: (error: string) => void;
   onCancel?: () => void;
 }

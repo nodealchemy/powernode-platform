@@ -274,7 +274,7 @@ export const AppDetailsModal: React.FC<AppDetailsModalProps> = ({
                 className={`w-4 h-4 ${
                   star <= Math.round(averageRating)
                     ? 'text-yellow-400 fill-current'
-                    : 'text-gray-300'
+                    : 'text-theme-muted'
                 }`}
               />
             ))}
@@ -301,7 +301,7 @@ export const AppDetailsModal: React.FC<AppDetailsModalProps> = ({
                         className={`w-3 h-3 ${
                           star <= review.rating
                             ? 'text-yellow-400 fill-current'
-                            : 'text-gray-300'
+                            : 'text-theme-muted'
                         }`}
                       />
                     ))}

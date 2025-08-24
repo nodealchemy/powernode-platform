@@ -27,13 +27,13 @@ const CATEGORY_GROUPS: CategoryGroup[] = [
     name: 'Developer Tools',
     categories: [],
     icon: '🔧',
-    color: 'bg-blue-500'
+    color: 'bg-theme-primary'
   },
   {
     name: 'Business Apps',
     categories: [],
     icon: '💼', 
-    color: 'bg-green-500'
+    color: 'bg-theme-success'
   },
   {
     name: 'Marketing',
