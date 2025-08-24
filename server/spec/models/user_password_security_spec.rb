@@ -85,7 +85,7 @@ RSpec.describe User, 'Password Security', type: :model do
 
       user.password = 'old_password_1!'
       expect(user).not_to be_valid
-      expect(user.errors[:password]).to include('cannot be the same as any of your last 12 passwords')
+      expect(user.errors[:password]).to include('cannot be one of your last 12 passwords')
     end
 
     it 'allows passwords not in history' do
@@ -101,14 +101,14 @@ RSpec.describe User, 'Password Security', type: :model do
   describe 'password history tracking' do
     it 'saves password to history after update' do
       user.save!
-      original_password = 'UncommonStr0ngP@ssw0rd#99' # Factory password
+      original_password = 'UncommonStr0ngP@ssw0rd99!' # Factory password
 
       expect {
         user.update!(password: 'NewSecurePhrase789!')
       }.to change { user.password_histories.count }.by(1)
 
       history_entry = user.password_histories.last
-      expect(BCrypt::Password.new(history_entry.password_digest)).to eq(original_password)
+      expect(BCrypt::Password.new(history_entry.password_digest) == original_password).to be true
     end
 
     it 'cleans up old password history entries' do

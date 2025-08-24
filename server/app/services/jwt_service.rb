@@ -22,7 +22,8 @@ class JwtService
         user_id: user.id,
         account_id: user.account_id,
         email: user.email,
-        role: user.role || 'member',
+        roles: user.role_names,
+        permissions: user.permission_names,
         type: "access"
       }
 
@@ -59,7 +60,8 @@ class JwtService
         user_id: user.id,
         account_id: user.account_id,
         email: user.email,
-        role: user.role || 'member',
+        roles: user.role_names,
+        permissions: user.permission_names,
         type: "2fa_required",
         requires_2fa: true
       }

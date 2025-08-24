@@ -59,6 +59,13 @@ RSpec.configure do |config|
   # Database cleaner configuration
   config.before(:suite) do
     DatabaseCleaner.clean_with(:truncation)
+    
+    # Load permissions configuration
+    require Rails.root.join('config', 'permissions')
+    
+    # Sync all roles from the Permissions module configuration
+    # This ensures all standardized roles exist in test database
+    Role.sync_from_config!
   end
 
   config.before(:each) do

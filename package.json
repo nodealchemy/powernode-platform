@@ -1,6 +1,6 @@
 {
   "name": "powernode-platform",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Subscription management platform with Rails 8 API and React TypeScript frontend",
   "private": true,
   "scripts": {
@@ -39,6 +39,9 @@
     "stripe",
     "paypal"
   ],
-  "author": "Powernode Team",
-  "license": "MIT"
+  "author": "Everett C. Haimes III",
+  "license": "GPL-3.0-or-later",
+  "dependencies": {
+    "ws": "^8.18.3"
+  }
 }

@@ -2,6 +2,7 @@
 
 class Api::V1::Auth::RegistrationsController < ApplicationController
   include RateLimiting
+  include UserSerialization
   
   skip_before_action :authenticate_request, only: [:create]
   after_action :increment_rate_limit_count, only: [:create], if: -> { response.status >= 400 }
@@ -120,27 +121,7 @@ class Api::V1::Auth::RegistrationsController < ApplicationController
     }
   end
 
-  def user_data(user)
-    {
-      id: user.id,
-      email: user.email,
-      firstName: user.first_name,
-      lastName: user.last_name,
-      fullName: user.full_name,
-      role: user.role || 'member',
-      status: user.status,
-      emailVerified: user.email_verified?
-    }
-  end
-
-  def account_data(account)
-    {
-      id: account.id,
-      name: account.name,
-      subdomain: account.subdomain,
-      status: account.status
-    }
-  end
+  # user_data and account_data methods are provided by UserSerialization concern
 
   def subscription_data(subscription)
     {

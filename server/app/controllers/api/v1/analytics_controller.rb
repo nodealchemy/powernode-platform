@@ -422,13 +422,13 @@ class Api::V1::AnalyticsController < ApplicationController
   private
 
   def check_analytics_permission
-    unless current_user.has_permission?("analytics.read") || current_user.has_permission?("analytics.global")
+    unless current_user.has_permission?("analytics.view") || current_user.has_permission?("admin.access")
       render json: { success: false, error: "Analytics permission required" }, status: 403
     end
   end
 
   def can_export_analytics?
-    current_user.has_permission?("analytics.export") || current_user.has_permission?("analytics.global")
+    current_user.has_permission?("analytics.export") || current_user.has_permission?("admin.access")
   end
 
   def set_date_range
@@ -449,10 +449,10 @@ class Api::V1::AnalyticsController < ApplicationController
   end
 
   def set_account_scope
-    # If user has global analytics permission, allow querying all accounts
-    if current_user.has_permission?("analytics.global") && params[:account_id].blank?
+    # If user has admin access, allow querying all accounts or specific accounts
+    if current_user.has_permission?("admin.access") && params[:account_id].blank?
       @account_scope = nil # Global analytics
-    elsif params[:account_id].present? && current_user.has_permission?("analytics.global")
+    elsif params[:account_id].present? && current_user.has_permission?("admin.access")
       @account_scope = Account.find(params[:account_id])
     else
       # Regular users can only see their own account's analytics

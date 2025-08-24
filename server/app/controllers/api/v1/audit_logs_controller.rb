@@ -2,7 +2,9 @@
 
 class Api::V1::AuditLogsController < ApplicationController
   skip_before_action :authenticate_request, only: [:create]
-  before_action :require_admin_access, except: [:create] 
+  before_action -> { require_permission('audit_logs.read') }, only: [:index, :show, :stats] 
+  before_action -> { require_permission('audit_logs.export') }, only: [:export]
+  before_action -> { require_permission('audit_logs.delete') }, only: [:destroy, :bulk_delete]
   before_action :authenticate_service_or_admin, only: [:create]
 
   # GET /api/v1/audit_logs
@@ -222,7 +224,7 @@ class Api::V1::AuditLogsController < ApplicationController
   private
 
   def require_admin_access
-    unless current_user.owner? || current_user.admin?
+    unless current_user.has_permission?('account.manage') || current_user.has_permission?('admin.access')
       render json: {
         success: false,
         error: "Access denied: Admin privileges required"
@@ -232,7 +234,7 @@ class Api::V1::AuditLogsController < ApplicationController
   
   def authenticate_service_or_admin
     # Allow admin users or valid service tokens
-    return if current_user&.admin? || current_user&.owner?
+    return if current_user&.has_permission?('admin.access')
     
     # Check for service token authentication
     auth_header = request.headers['Authorization']

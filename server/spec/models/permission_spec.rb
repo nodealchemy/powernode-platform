@@ -4,7 +4,7 @@ RSpec.describe Permission, type: :model do
   let(:permission) { build(:permission) }
 
   describe "associations" do
-    it { should have_many(:role_permissions).dependent(:destroy) }
+    it { should have_many(:role_permissions).dependent(:delete_all) }
     it { should have_many(:roles).through(:role_permissions) }
   end
 
@@ -18,14 +18,14 @@ RSpec.describe Permission, type: :model do
 
     describe "name validation with auto-generation" do
       it "allows blank name when resource and action are present (auto-generates)" do
-        permission = build(:permission, name: "", resource: "users", action: "create")
+        permission = build(:permission, name: "", resource: "test_users", action: "test_create")
         expect(permission).to be_valid
-        expect(permission.name).to eq("users.create")
+        expect(permission.name).to eq("test_users.test_create")
       end
 
       it "validates uniqueness of name" do
-        create(:permission, name: "unique_name", resource: "test", action: "action")
-        duplicate = build(:permission, name: "unique_name", resource: "other", action: "action")
+        create(:permission, name: "unique_test_name", resource: "test", action: "action")
+        duplicate = build(:permission, name: "unique_test_name", resource: "other", action: "action")
 
         expect(duplicate).not_to be_valid
         expect(duplicate.errors[:name]).to include("has already been taken")
@@ -50,23 +50,28 @@ RSpec.describe Permission, type: :model do
     it { should allow_value(nil).for(:description) }
 
     describe "resource and action uniqueness" do
-      let!(:existing_permission) { create(:permission, resource: "users", action: "create") }
+      let!(:existing_permission) { 
+        Permission.find_or_create_by!(resource: "test_unique", action: "test_create") do |p|
+          p.name = "test_unique.test_create"
+          p.category = "resource"
+        end
+      }
 
       it "validates uniqueness of resource scoped to action" do
-        duplicate = build(:permission, resource: "users", action: "create")
+        duplicate = build(:permission, resource: "test_unique", action: "test_create")
 
         expect(duplicate).not_to be_valid
         expect(duplicate.errors[:resource]).to include("has already been taken")
       end
 
       it "allows same resource with different action" do
-        different_action = build(:permission, resource: "users", action: "read")
+        different_action = build(:permission, resource: "test_unique", action: "test_read")
 
         expect(different_action).to be_valid
       end
 
       it "allows different resource with same action" do
-        different_resource = build(:permission, resource: "roles", action: "create")
+        different_resource = build(:permission, resource: "test_other", action: "test_create")
 
         expect(different_resource).to be_valid
       end
@@ -74,9 +79,24 @@ RSpec.describe Permission, type: :model do
   end
 
   describe "scopes" do
-    let!(:user_create) { create(:permission, resource: "users", action: "create") }
-    let!(:user_read) { create(:permission, resource: "users", action: "read") }
-    let!(:role_create) { create(:permission, resource: "roles", action: "create") }
+    let!(:user_create) { 
+      Permission.find_or_create_by!(resource: "users", action: "create") do |p|
+        p.name = "users.create"
+        p.category = "resource"
+      end
+    }
+    let!(:user_read) { 
+      Permission.find_or_create_by!(resource: "users", action: "read") do |p|
+        p.name = "users.read"
+        p.category = "resource"
+      end
+    }
+    let!(:role_create) { 
+      Permission.find_or_create_by!(resource: "roles", action: "create") do |p|
+        p.name = "roles.create"
+        p.category = "resource"
+      end
+    }
 
     describe ".for_resource" do
       it "returns permissions for specific resource" do
@@ -195,8 +215,11 @@ RSpec.describe Permission, type: :model do
     end
 
     it "prevents duplicate permissions based on resource and action" do
-      Permission.create!(resource: "billing", action: "view")
-      duplicate = Permission.new(resource: "billing", action: "view")
+      Permission.find_or_create_by!(resource: "test_billing", action: "test_view") do |p|
+        p.name = "test_billing.test_view"
+        p.category = "resource"
+      end
+      duplicate = Permission.new(resource: "test_billing", action: "test_view")
 
       expect(duplicate).not_to be_valid
       expect(duplicate.errors[:resource]).to be_present
