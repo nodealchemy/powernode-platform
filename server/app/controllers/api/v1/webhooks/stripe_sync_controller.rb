@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class Api::V1::Webhooks::StripeSyncController < ApplicationController
   before_action :authenticate_service_request
   
@@ -40,7 +42,7 @@ class Api::V1::Webhooks::StripeSyncController < ApplicationController
     render json: { success: true, message: 'Invoice payment processed' }
   rescue => e
     Rails.logger.error "Stripe invoice payment processing failed: #{e.message}"
-    render json: { success: false, error: e.message }, status: 422
+    render_error(e.message, status: :422)
   end
 
   # Handle invoice payment failure
@@ -88,7 +90,7 @@ class Api::V1::Webhooks::StripeSyncController < ApplicationController
     render json: { success: true, message: 'Invoice payment failure processed' }
   rescue => e
     Rails.logger.error "Stripe invoice failure processing failed: #{e.message}"
-    render json: { success: false, error: e.message }, status: 422
+    render_error(e.message, status: :422)
   end
 
   # Handle subscription updates from Stripe
@@ -123,7 +125,7 @@ class Api::V1::Webhooks::StripeSyncController < ApplicationController
     render json: { success: true, message: 'Subscription synchronized' }
   rescue => e
     Rails.logger.error "Stripe subscription update failed: #{e.message}"
-    render json: { success: false, error: e.message }, status: 422
+    render_error(e.message, status: :422)
   end
 
   # Handle subscription cancellation
@@ -154,7 +156,7 @@ class Api::V1::Webhooks::StripeSyncController < ApplicationController
     render json: { success: true, message: 'Subscription cancellation processed' }
   rescue => e
     Rails.logger.error "Stripe subscription cancellation failed: #{e.message}"
-    render json: { success: false, error: e.message }, status: 422
+    render_error(e.message, status: :422)
   end
 
   # Handle successful payments
@@ -170,7 +172,7 @@ class Api::V1::Webhooks::StripeSyncController < ApplicationController
     render json: { success: true, message: 'Payment success processed' }
   rescue => e
     Rails.logger.error "Stripe payment success processing failed: #{e.message}"
-    render json: { success: false, error: e.message }, status: 422
+    render_error(e.message, status: :422)
   end
 
   # Handle failed payments
@@ -186,7 +188,7 @@ class Api::V1::Webhooks::StripeSyncController < ApplicationController
     render json: { success: true, message: 'Payment failure processed' }
   rescue => e
     Rails.logger.error "Stripe payment failure processing failed: #{e.message}"
-    render json: { success: false, error: e.message }, status: 422
+    render_error(e.message, status: :422)
   end
 
   # Handle successful setup intents
@@ -363,7 +365,7 @@ class Api::V1::Webhooks::StripeSyncController < ApplicationController
   end
 
   def render_not_found(message)
-    render json: { success: false, error: message }, status: 404
+    render_error(message, status: :404)
   end
 
   def authenticate_service_request

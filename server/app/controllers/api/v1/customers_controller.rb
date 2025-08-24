@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class Api::V1::CustomersController < ApplicationController
   before_action :authenticate_request
 
@@ -129,7 +131,7 @@ class Api::V1::CustomersController < ApplicationController
     # Broadcast customer deletion/deactivation
     broadcast_customer_change('deactivated', account)
     
-    render json: { success: true }
+    render_success
   end
 
   def stats

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class Api::V1::ReportsController < ApplicationController
   before_action :check_reports_permission
   before_action :set_date_range
@@ -34,7 +36,7 @@ class Api::V1::ReportsController < ApplicationController
     end
   rescue => e
     Rails.logger.error "Report generation failed: #{e.message}"
-    render json: { success: false, error: e.message }, status: 500
+    render_error(e.message, status: :500)
   end
 
   # GET /api/v1/reports
@@ -213,7 +215,7 @@ class Api::V1::ReportsController < ApplicationController
       }
     }
   rescue ActiveRecord::RecordNotFound
-    render json: { success: false, error: "Report request not found" }, status: 404
+    render_error("Report request not found", status: :404)
   end
 
   # POST /api/v1/reports/requests
@@ -226,7 +228,7 @@ class Api::V1::ReportsController < ApplicationController
     # Validate template exists
     template_ids = ['revenue_analytics', 'customer_analytics', 'churn_analysis', 'growth_analytics', 'cohort_analysis', 'comprehensive_report']
     unless template_ids.include?(template_id)
-      render json: { success: false, error: "Invalid template ID" }, status: 400
+      render_error("Invalid template ID", status: :400)
       return
     end
 
@@ -255,7 +257,7 @@ class Api::V1::ReportsController < ApplicationController
     }
   rescue => e
     Rails.logger.error "Failed to create report request: #{e.message}"
-    render json: { success: false, error: e.message }, status: 500
+    render_error(e.message, status: :500)
   end
 
   # PATCH /api/v1/reports/requests/:id
@@ -275,10 +277,10 @@ class Api::V1::ReportsController < ApplicationController
       }
     }
   rescue ActiveRecord::RecordNotFound
-    render json: { success: false, error: "Report request not found" }, status: 404
+    render_error("Report request not found", status: :404)
   rescue => e
     Rails.logger.error "Failed to update report request: #{e.message}"
-    render json: { success: false, error: e.message }, status: 500
+    render_error(e.message, status: :500)
   end
 
   # DELETE /api/v1/reports/requests/:id
@@ -286,20 +288,20 @@ class Api::V1::ReportsController < ApplicationController
     request = ReportRequest.for_account(@account_scope).find(params[:id])
     
     if request.status == 'completed'
-      render json: { success: false, error: "Cannot cancel completed request" }, status: 400
+      render_error("Cannot cancel completed request", status: :400)
       return
     end
 
     if request.status == 'failed'
-      render json: { success: false, error: "Cannot cancel failed request" }, status: 400
+      render_error("Cannot cancel failed request", status: :400)
       return
     end
 
     request.update!(status: 'cancelled')
 
-    render json: { success: true }
+    render_success
   rescue ActiveRecord::RecordNotFound
-    render json: { success: false, error: "Report request not found" }, status: 404
+    render_error("Report request not found", status: :404)
   end
 
   # GET /api/v1/reports/requests/:id/download
@@ -307,7 +309,7 @@ class Api::V1::ReportsController < ApplicationController
     request = ReportRequest.for_account(@account_scope).find(params[:id])
     
     unless request.status == 'completed' && request.file_url
-      render json: { success: false, error: "Report not ready for download" }, status: 404
+      render_error("Report not ready for download", status: :404)
       return
     end
 
@@ -319,10 +321,10 @@ class Api::V1::ReportsController < ApplicationController
                 type: request.content_type,
                 disposition: 'attachment'
     else
-      render json: { success: false, error: "Report file not found" }, status: 404
+      render_error("Report file not found", status: :404)
     end
   rescue ActiveRecord::RecordNotFound
-    render json: { success: false, error: "Report request not found" }, status: 404
+    render_error("Report request not found", status: :404)
   end
 
   # GET /api/v1/reports/scheduled  
@@ -356,7 +358,7 @@ class Api::V1::ReportsController < ApplicationController
     report_requests = params[:reports] || []
     
     if report_requests.empty?
-      render json: { success: false, error: "No reports requested" }, status: 400
+      render_error("No reports requested", status: :400)
       return
     end
 
@@ -425,7 +427,7 @@ class Api::V1::ReportsController < ApplicationController
     format = params[:format] || 'pdf'
 
     unless REPORT_TYPES.include?(report_type)
-      render json: { success: false, error: "Invalid report type" }, status: 400
+      render_error("Invalid report type", status: :400)
       return
     end
 
@@ -457,7 +459,7 @@ class Api::V1::ReportsController < ApplicationController
       }
     }
   rescue => e
-    render json: { success: false, error: e.message }, status: 500
+    render_error(e.message, status: :500)
   end
 
   # GET /api/v1/reports/scheduled
@@ -489,14 +491,14 @@ class Api::V1::ReportsController < ApplicationController
 
     render json: { success: true, message: "Scheduled report cancelled" }
   rescue ActiveRecord::RecordNotFound
-    render json: { success: false, error: "Scheduled report not found" }, status: 404
+    render_error("Scheduled report not found", status: :404)
   end
 
   private
 
   def check_reports_permission
     unless current_user.has_permission?("analytics.export") || current_user.has_permission?("analytics.global")
-      render json: { success: false, error: "Report generation permission required" }, status: 403
+      render_error("Report generation permission required", status: :403)
     end
   end
 
@@ -506,13 +508,13 @@ class Api::V1::ReportsController < ApplicationController
 
     # Validate date range
     if @start_date > @end_date
-      render json: { success: false, error: "Start date must be before end date" }, status: 400
+      render_error("Start date must be before end date", status: :400)
       return
     end
 
     # Limit to reasonable range (2 years max)
     if @end_date - @start_date > 2.years
-      render json: { success: false, error: "Date range too large (max 2 years)" }, status: 400
+      render_error("Date range too large (max 2 years)", status: :400)
       return
     end
   end

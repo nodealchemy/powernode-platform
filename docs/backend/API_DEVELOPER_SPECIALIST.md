@@ -23,51 +23,102 @@ The API Developer specializes in creating RESTful API endpoints with proper seri
 ### 1. Standard API Response Format (CRITICAL)
 
 #### Mandatory Response Structure
-All API endpoints MUST use this standardized response format discovered in platform analysis:
+All API endpoints MUST use the standardized `ApiResponse` concern for consistent response formatting:
 
 ```ruby
 # Success Response Format
 {
   success: true,
   data: object_or_array,           # Required: actual response data
-  message?: "Optional success message"
+  meta?: { pagination: {...} }     # Optional: metadata (pagination, etc.)
 }
 
 # Error Response Format  
 {
   success: false,
   error: "Primary error message",  # Required: user-friendly error
-  details?: ["Additional context"], # Optional: detailed error info
-  code?: "ERROR_CODE"             # Optional: machine-readable code
+  code?: "ERROR_CODE",            # Optional: machine-readable code
+  details?: { errors: [...] }     # Optional: detailed error info
 }
 ```
 
-#### Implementation in Controllers
-```ruby
-# Standard success response pattern (from platform analysis)
-def index
-  users = current_account.users
-  render json: { success: true, data: users.map { |u| user_data(u) } }, status: :ok
-end
+#### Using ApiResponse Concern (MANDATORY)
+All controllers inherit from `ApplicationController` which includes `ApiResponse` concern:
 
-def create
-  if @user.save
-    render json: { 
-      success: true, 
-      data: user_data(@user), 
-      message: "User created successfully" 
-    }, status: :created
-  else
-    render json: { 
-      success: false, 
-      error: "Validation failed", 
-      details: @user.errors.full_messages 
-    }, status: :unprocessable_entity
+```ruby
+class Api::V1::UsersController < ApplicationController
+  # ApiResponse concern is automatically included
+
+  def index
+    users = current_account.users.page(pagination_params[:page])
+                                .per(pagination_params[:per_page])
+    
+    # Use standardized response methods
+    render_paginated(users, serializer: UserSerializer)
+  end
+
+  def show
+    user = current_account.users.find(params[:id])
+    render_success(UserSerializer.new(user).as_json)
+  rescue ActiveRecord::RecordNotFound
+    render_not_found("User")
+  end
+
+  def create
+    user = current_account.users.build(user_params)
+    
+    if user.save
+      render_created(UserSerializer.new(user).as_json)
+    else
+      render_validation_error(user.errors)
+    end
+  end
+
+  def update  
+    user = current_account.users.find(params[:id])
+    
+    if user.update(user_params)
+      render_success(UserSerializer.new(user).as_json)
+    else
+      render_validation_error(user.errors)
+    end
+  end
+
+  def destroy
+    user = current_account.users.find(params[:id])
+    user.destroy!
+    render_no_content
+  end
+
+  private
+
+  def user_params
+    params.require(:user).permit(:email, :first_name, :last_name)
   end
 end
 ```
 
-**CRITICAL**: Never deviate from this response format. Frontend code depends on consistent `success` boolean and `data` structure.
+#### ApiResponse Methods Reference
+```ruby
+# Success responses
+render_success(data = nil, status: :ok, meta: nil)
+render_created(data = nil, location: nil)
+render_no_content
+
+# Error responses  
+render_error(message, status: :bad_request, code: nil, details: nil)
+render_validation_error(errors)
+render_not_found(resource = "Resource")
+render_unauthorized(message = "Authentication required")
+render_forbidden(message = "Access denied")
+render_internal_error(message = "Internal server error", exception: nil)
+
+# Specialized responses
+render_paginated(collection, serializer: nil)
+render_bulk_response(successful = [], failed = [])
+```
+
+**CRITICAL**: Always use `ApiResponse` concern methods. Never manually create `render json:` responses. Frontend code depends on consistent `success` boolean and `data` structure.
 
 ### 2. Controller Architecture (MANDATORY)
 

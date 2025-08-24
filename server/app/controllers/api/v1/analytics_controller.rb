@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require "csv"
 
 class Api::V1::AnalyticsController < ApplicationController
@@ -14,7 +16,7 @@ class Api::V1::AnalyticsController < ApplicationController
     
     if cached_data && params[:force_refresh] != 'true'
       Rails.logger.debug "Returning cached live analytics for account: #{@account_scope&.id}"
-      render json: { success: true, data: cached_data }
+      render_success(cached_data)
       return
     end
 
@@ -55,7 +57,7 @@ class Api::V1::AnalyticsController < ApplicationController
     # Cache the results for 2 minutes for live data
     Rails.cache.write(cache_key, data, expires_in: 2.minutes)
 
-    render json: { success: true, data: data }
+    render_success(data)
 
     # Broadcast update to WebSocket channel if requested
     if params[:broadcast] == 'true'
@@ -65,8 +67,7 @@ class Api::V1::AnalyticsController < ApplicationController
     # Trigger analytics notifications check in background
     schedule_analytics_notification_check(data)
   rescue => e
-    Rails.logger.error "Live analytics error: #{e.message}"
-    render json: { success: false, error: e.message }, status: 500
+    render_internal_error("Live analytics error", exception: e)
   end
 
   # GET /api/v1/analytics/revenue
@@ -112,9 +113,9 @@ class Api::V1::AnalyticsController < ApplicationController
       }
     }
 
-    render json: { success: true, data: data }
+    render_success(data)
   rescue => e
-    render json: { success: false, error: e.message }, status: 500
+    render_error(e.message, status: :500)
   end
 
   # GET /api/v1/analytics/growth
@@ -187,9 +188,9 @@ class Api::V1::AnalyticsController < ApplicationController
       }
     }
 
-    render json: { success: true, data: data }
+    render_success(data)
   rescue => e
-    render json: { success: false, error: e.message }, status: 500
+    render_error(e.message, status: :500)
   end
 
   # GET /api/v1/analytics/churn
@@ -250,9 +251,9 @@ class Api::V1::AnalyticsController < ApplicationController
       }
     }
 
-    render json: { success: true, data: data }
+    render_success(data)
   rescue => e
-    render json: { success: false, error: e.message }, status: 500
+    render_error(e.message, status: :500)
   end
 
   # GET /api/v1/analytics/cohorts
@@ -290,9 +291,9 @@ class Api::V1::AnalyticsController < ApplicationController
       }
     }
 
-    render json: { success: true, data: data }
+    render_success(data)
   rescue => e
-    render json: { success: false, error: e.message }, status: 500
+    render_error(e.message, status: :500)
   end
 
   # GET /api/v1/analytics/customers
@@ -348,9 +349,9 @@ class Api::V1::AnalyticsController < ApplicationController
       }
     }
 
-    render json: { success: true, data: data }
+    render_success(data)
   rescue => e
-    render json: { success: false, error: e.message }, status: 500
+    render_error(e.message, status: :500)
   end
 
   # GET/POST /api/v1/analytics/export
@@ -360,7 +361,7 @@ class Api::V1::AnalyticsController < ApplicationController
     report_type = params[:report_type] || "revenue"
 
     unless can_export_analytics?
-      render json: { success: false, error: "Export permission required" }, status: 403
+      render_error("Export permission required", status: :403)
       return
     end
 
@@ -413,17 +414,17 @@ class Api::V1::AnalyticsController < ApplicationController
         }
       end
     else
-      render json: { success: false, error: "Unsupported export format" }, status: 400
+      render_error("Unsupported export format", status: :400)
     end
   rescue => e
-    render json: { success: false, error: e.message }, status: 500
+    render_error(e.message, status: :500)
   end
 
   private
 
   def check_analytics_permission
     unless current_user.has_permission?("analytics.view") || current_user.has_permission?("admin.access")
-      render json: { success: false, error: "Analytics permission required" }, status: 403
+      render_error("Analytics permission required", status: :403)
     end
   end
 
@@ -437,13 +438,13 @@ class Api::V1::AnalyticsController < ApplicationController
 
     # Validate date range
     if @start_date > @end_date
-      render json: { success: false, error: "Start date must be before end date" }, status: 400
+      render_error("Start date must be before end date", status: :400)
       return
     end
 
     # Limit to reasonable range (2 years max)
     if @end_date - @start_date > 2.years
-      render json: { success: false, error: "Date range too large (max 2 years)" }, status: 400
+      render_error("Date range too large (max 2 years)", status: :400)
       nil
     end
   end

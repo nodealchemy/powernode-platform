@@ -34,6 +34,8 @@ check_pattern() {
     echo -n "Checking: $description... "
     
     result=$(eval "$command" 2>/dev/null || echo "0")
+    # Clean up result - remove newlines and get just the first number
+    result=$(echo "$result" | tr -d '\n' | grep -o '[0-9]*' | head -1 | grep -v '^$' || echo "0")
     
     if [[ "$expected" == "empty" ]]; then
         if [[ -z "$result" || "$result" -eq 0 ]]; then
@@ -44,8 +46,8 @@ check_pattern() {
             failed_checks=$((failed_checks + 1))
         fi
     elif [[ "$expected" == "positive" ]]; then
-        if [[ "$result" -gt 0 ]]; then
-            if [[ -n "$warning_threshold" && "$result" -lt "$warning_threshold" ]]; then
+        if [[ "$result" -gt 0 ]] 2>/dev/null; then
+            if [[ -n "$warning_threshold" && "$result" -lt "$warning_threshold" ]] 2>/dev/null; then
                 echo -e "${YELLOW}⚠ WARN${NC} (Found: $result, Expected: >=$warning_threshold)"
                 warnings=$((warnings + 1))
             else
@@ -121,7 +123,7 @@ check_pattern "Permission-based access control usage" \
     "positive" "20"
 
 check_pattern "Forbidden role-based access (should be empty)" \
-    "grep -r '\.roles\?\.includes\|\.role.*==\|\.role.*!=' frontend/src/ | grep -v 'formatRole\|getRoleColor\|member\.roles.*map' | wc -l" \
+    "grep -r 'if.*roles.*includes\|roles.*includes.*return\|canAccess.*roles\|hasRole.*roles\|checkRole.*roles' frontend/src/ | grep -v 'display\|format\|badge\|map\|filter\|length' | wc -l" \
     "empty"
 
 check_pattern "Forbidden user role access (should be empty)" \

@@ -42,34 +42,24 @@ class Api::V1::[Resource]Controller < ApplicationController
   def index
     resources = current_account.[resources].includes(:associated_models)
     
-    render json: {
-      success: true,
-      data: resources.map { |resource| [resource]_data(resource) }
-    }, status: :ok
+    # Use ApiResponse concern method
+    render_success(resources.map { |resource| [resource]_data(resource) })
   end
   
   def show
-    render json: {
-      success: true,
-      data: [resource]_data(@[resource])
-    }, status: :ok
+    # Use ApiResponse concern method  
+    render_success([resource]_data(@[resource]))
   end
   
   def create
     @[resource] = current_account.[resources].build([resource]_params)
     
     if @[resource].save
-      render json: {
-        success: true,
-        data: [resource]_data(@[resource]),
-        message: "[Resource] created successfully"
-      }, status: :created
+      # Use ApiResponse concern method for 201 Created response
+      render_created([resource]_data(@[resource]))
     else
-      render json: {
-        success: false,
-        error: "[Resource] creation failed",
-        details: @[resource].errors.full_messages
-      }, status: :unprocessable_content
+      # Use ApiResponse concern method for validation errors
+      render_validation_error(@[resource].errors)
     end
   end
   
@@ -281,32 +271,32 @@ end
 # app/controllers/application_controller.rb
 class ApplicationController < ActionController::API
   include Authentication
+  include ApiResponse  # CRITICAL: Standard API response concern
 
-  # Global exception handling
-  rescue_from ActiveRecord::RecordNotFound, with: :render_not_found
-  rescue_from ActiveRecord::RecordInvalid, with: :render_validation_errors
-  rescue_from StandardError, with: :render_internal_error
+  # ApiResponse concern handles all exception responses automatically
+  # No manual rescue_from needed - concern provides:
+  # - ActiveRecord::RecordNotFound → render_not_found
+  # - ActiveRecord::RecordInvalid → render_validation_error  
+  # - StandardError → render_internal_error
 
-  private
-
-  def render_not_found(exception = nil)
-    render json: {
-      success: false,
-      error: "Resource not found",
-      message: exception&.message || "The requested resource could not be found",
-      code: "NOT_FOUND"
-    }, status: :not_found
+  # Standard pagination parameters helper
+  def pagination_params
+    {
+      page: [ params[:page]&.to_i || 1, 1 ].max,
+      per_page: [ [ params[:per_page]&.to_i || 20, 1 ].max, 100 ].min
+    }
   end
+end
+```
 
-  def render_validation_errors(exception)
-    errors = exception.record.errors.full_messages
-    render json: {
-      success: false,
-      error: errors.first,
-      details: errors,
-      code: "VALIDATION_ERROR"
-    }, status: :unprocessable_content
-  end
+#### ApiResponse Concern Benefits
+- **Consistent Response Format**: All endpoints use standardized JSON structure
+- **Automatic Error Handling**: Built-in exception rescue and formatting
+- **HTTP Status Codes**: Proper status codes for different response types  
+- **Pagination Support**: Built-in paginated response helper
+- **Extensible**: Easy to add new response patterns
+
+### 5. API Response Examples
 
   def render_internal_error(exception)
     Rails.logger.error "Internal error: #{exception.message}"
