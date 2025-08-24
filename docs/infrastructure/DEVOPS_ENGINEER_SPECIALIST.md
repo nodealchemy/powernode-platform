@@ -928,6 +928,17 @@ find $POWERNODE_ROOT -name "*.tmp" -o -name ".DS_Store" -o -name "Thumbs.db" -o 
 
 **Commit Pattern**: Complete work → Run cleanup → Test/lint → Commit
 
+### Commit Preparation Protocol (CRITICAL)
+**MANDATORY BEHAVIOR**: When preparing git commits, follow this exact sequence:
+
+1. **Analyze Changes**: Check git status and examine staged/unstaged changes
+2. **Stage Appropriate Files**: Add relevant files to staging area using `git add`
+3. **Draft Commit Message**: Prepare conventional commit message following project standards
+4. **Present for Approval**: Show proposed commit message and staged changes to user
+5. **Wait for Confirmation**: **NEVER execute `git commit` automatically**
+
+**ABSOLUTE RULE**: When user says "prepare for git commit", do NOT automatically commit. Only execute `git commit` when explicitly asked to "commit" or "create the commit".
+
 ## Quick Reference
 
 ### Essential Commands
