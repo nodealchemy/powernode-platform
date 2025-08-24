@@ -16,6 +16,7 @@ export interface PageAction {
   icon?: React.ComponentType<any> | string;
   disabled?: boolean;
   size?: 'sm' | 'md' | 'lg';
+  permission?: string;
 }
 
 export interface PageContainerProps {
@@ -104,8 +105,8 @@ export const PageContainer: React.FC<PageContainerProps> = ({
       )}
 
       {/* Page Header */}
-      <div className="flex justify-between items-start">
-        <div className="flex-1">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
+        <div className="flex-1 min-w-0">
           <h1 className="text-2xl font-bold text-theme-primary">{title}</h1>
           {description && (
             <p className="text-theme-secondary mt-1">
@@ -116,7 +117,7 @@ export const PageContainer: React.FC<PageContainerProps> = ({
         
         {/* Page Actions */}
         {actions && actions.length > 0 && (
-          <div className="flex items-center space-x-3 ml-6">
+          <div className="flex items-center gap-3 flex-shrink-0">
             {actions.map((action) => (
               <button
                 key={action.id}

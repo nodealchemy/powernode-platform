@@ -211,7 +211,7 @@ export const LiveMetricsOverview: React.FC<LiveMetricsOverviewProps> = ({
     };
 
     loadInitialData();
-  }, [accountId]);
+  }, [accountId, metrics]);
 
   // Connection status indicator
   useEffect(() => {

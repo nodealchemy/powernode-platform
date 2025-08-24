@@ -185,14 +185,15 @@ class AdminApiService {
   }
 
   // Get users for admin management
-  async getUsers(): Promise<{
+  async getUsers(filters?: { status?: string }): Promise<{
     users: AdminUser[];
     total_count: number;
     active_count: number;
     inactive_count: number;
     suspended_count: number;
   }> {
-    const response = await api.get('/admin_settings/users');
+    const params = filters ? new URLSearchParams(filters).toString() : '';
+    const response = await api.get(`/admin_settings/users${params ? `?${params}` : ''}`);
     return response.data;
   }
 

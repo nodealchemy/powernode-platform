@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { DatePicker } from '@/shared/components/ui/DatePicker';
 import { Button } from '@/shared/components/ui/Button';
 import { Calendar, ChevronDown, RotateCcw, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -21,56 +21,8 @@ export const DateRangeFilter: React.FC<DateRangeFilterProps> = ({ dateRange, onC
   const [showDropdown, setShowDropdown] = useState(false);
   const [showCustomInputs, setShowCustomInputs] = useState(false);
 
-  // Keyboard shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.ctrlKey || e.metaKey) {
-        switch (e.key) {
-          case '1':
-            e.preventDefault();
-            handlePresetClick(presets.find(p => p.value === '7d')!);
-            break;
-          case '2':
-            e.preventDefault();
-            handlePresetClick(presets.find(p => p.value === '30d')!);
-            break;
-          case '3':
-            e.preventDefault();
-            handlePresetClick(presets.find(p => p.value === 'thisMonth')!);
-            break;
-          case '4':
-            e.preventDefault();
-            handlePresetClick(presets.find(p => p.value === 'thisQuarter')!);
-            break;
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
-
-  const shiftDateRange = (direction: 'prev' | 'next') => {
-    const days = getDaysInRange();
-    const shift = direction === 'prev' ? -days : days;
-    
-    const newStartDate = new Date(dateRange.startDate);
-    const newEndDate = new Date(dateRange.endDate);
-    
-    newStartDate.setDate(newStartDate.getDate() + shift);
-    newEndDate.setDate(newEndDate.getDate() + shift);
-    
-    onChange({ startDate: newStartDate, endDate: newEndDate });
-  };
-
-  const resetToDefault = () => {
-    const defaultPreset = presets.find(p => p.value === '30d');
-    if (defaultPreset) {
-      handlePresetClick(defaultPreset);
-    }
-  };
-
-  const presets: DateRangePreset[] = [
+  // Define presets first to avoid use-before-define warnings
+  const presets: DateRangePreset[] = useMemo(() => [
     {
       label: 'Today',
       value: 'today',
@@ -93,7 +45,7 @@ export const DateRangeFilter: React.FC<DateRangeFilterProps> = ({ dateRange, onC
       value: '7d',
       getDateRange: () => {
         const today = new Date();
-        const lastWeek = new Date(today.getTime() - 6 * 24 * 60 * 60 * 1000); // 6 days ago + today = 7 days
+        const lastWeek = new Date(today.getTime() - 6 * 24 * 60 * 60 * 1000);
         return { startDate: lastWeek, endDate: today };
       },
     },
@@ -102,7 +54,7 @@ export const DateRangeFilter: React.FC<DateRangeFilterProps> = ({ dateRange, onC
       value: '30d',
       getDateRange: () => {
         const today = new Date();
-        const lastMonth = new Date(today.getTime() - 29 * 24 * 60 * 60 * 1000); // 29 days ago + today = 30 days
+        const lastMonth = new Date(today.getTime() - 29 * 24 * 60 * 60 * 1000);
         return { startDate: lastMonth, endDate: today };
       },
     },
@@ -111,7 +63,7 @@ export const DateRangeFilter: React.FC<DateRangeFilterProps> = ({ dateRange, onC
       value: '90d',
       getDateRange: () => {
         const today = new Date();
-        const last90Days = new Date(today.getTime() - 89 * 24 * 60 * 60 * 1000); // 89 days ago + today = 90 days
+        const last90Days = new Date(today.getTime() - 89 * 24 * 60 * 60 * 1000);
         return { startDate: last90Days, endDate: today };
       },
     },
@@ -204,14 +156,66 @@ export const DateRangeFilter: React.FC<DateRangeFilterProps> = ({ dateRange, onC
         return { startDate: lastYear, endDate: today };
       },
     }
-  ];
+  ], []);
 
-  const handlePresetClick = (preset: DateRangePreset) => {
+  // Define handlePresetClick before useEffect to avoid use-before-define warning
+  const handlePresetClick = useCallback((preset: DateRangePreset) => {
     const { startDate, endDate } = preset.getDateRange();
     onChange({ startDate, endDate });
     setShowDropdown(false);
     setShowCustomInputs(false);
+  }, [onChange]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        switch (e.key) {
+          case '1':
+            e.preventDefault();
+            handlePresetClick(presets.find(p => p.value === '7d')!);
+            break;
+          case '2':
+            e.preventDefault();
+            handlePresetClick(presets.find(p => p.value === '30d')!);
+            break;
+          case '3':
+            e.preventDefault();
+            handlePresetClick(presets.find(p => p.value === 'thisMonth')!);
+            break;
+          case '4':
+            e.preventDefault();
+            handlePresetClick(presets.find(p => p.value === 'thisQuarter')!);
+            break;
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handlePresetClick, presets]);
+
+  const shiftDateRange = (direction: 'prev' | 'next') => {
+    const days = getDaysInRange();
+    const shift = direction === 'prev' ? -days : days;
+    
+    const newStartDate = new Date(dateRange.startDate);
+    const newEndDate = new Date(dateRange.endDate);
+    
+    newStartDate.setDate(newStartDate.getDate() + shift);
+    newEndDate.setDate(newEndDate.getDate() + shift);
+    
+    onChange({ startDate: newStartDate, endDate: newEndDate });
   };
+
+  const resetToDefault = () => {
+    const defaultPreset = presets.find(p => p.value === '30d');
+    if (defaultPreset) {
+      handlePresetClick(defaultPreset);
+    }
+  };
+
+  // Presets and handlePresetClick already defined above
 
   const handleStartDateChange = (startDate: Date | null) => {
     if (startDate) {
@@ -349,7 +353,6 @@ export const DateRangeFilter: React.FC<DateRangeFilterProps> = ({ dateRange, onC
                 <h5 className="text-xs font-medium text-theme-secondary mb-2 uppercase tracking-wide">Recent</h5>
                 <div className="space-y-1">
                   {presets.slice(0, 2).map((preset) => {
-                    const isActive = activePreset?.value === preset.value;
                     return (
                       <Button
                         key={preset.value}

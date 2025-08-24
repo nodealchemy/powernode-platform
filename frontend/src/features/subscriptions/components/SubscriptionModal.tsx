@@ -3,7 +3,6 @@ import { Subscription, Plan } from '@/features/subscriptions/services/subscripti
 import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
 import { Badge } from '@/shared/components/ui/Badge';
-import { Card } from '@/shared/components/ui/Card';
 import { CreditCard, TrendingUp, AlertCircle } from 'lucide-react';
 
 interface SubscriptionModalProps {

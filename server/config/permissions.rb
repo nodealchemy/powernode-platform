@@ -56,7 +56,38 @@ module Permissions
     
     # Audit Logs
     'audit.view' => 'View audit logs',
-    'audit.export' => 'Export audit logs'
+    'audit.export' => 'Export audit logs',
+    
+    # Marketplace - Apps
+    'app.view' => 'View marketplace apps',
+    'app.create' => 'Create marketplace apps',
+    'app.edit' => 'Edit own apps',
+    'app.delete' => 'Delete own apps',
+    'app.publish' => 'Publish own apps',
+    'app.manage_features' => 'Manage app features',
+    'app.manage_plans' => 'Manage app plans',
+    'app.view_analytics' => 'View app analytics',
+    
+    # Marketplace - App Subscriptions
+    'subscription.view' => 'View app subscriptions',
+    'subscription.create' => 'Subscribe to apps',
+    'subscription.manage' => 'Manage subscriptions',
+    'subscription.cancel' => 'Cancel subscriptions',
+    'subscription.upgrade' => 'Upgrade subscriptions',
+    'subscription.view_usage' => 'View subscription usage',
+    
+    # Marketplace - Reviews
+    'review.view' => 'View app reviews',
+    'review.create' => 'Write app reviews',
+    'review.edit' => 'Edit own reviews',
+    'review.delete' => 'Delete own reviews',
+    'review.moderate' => 'Moderate reviews',
+    
+    # Marketplace - Listings
+    'listing.view' => 'View marketplace listings',
+    'listing.create' => 'Create marketplace listings',
+    'listing.edit' => 'Edit own listings',
+    'listing.delete' => 'Delete own listings'
   }.freeze
 
   # Admin Permissions - Administrative operations
@@ -119,7 +150,27 @@ module Permissions
     'admin.worker.create' => 'Create workers',
     'admin.worker.edit' => 'Edit workers',
     'admin.worker.delete' => 'Delete workers',
-    'admin.worker.suspend' => 'Suspend workers'
+    'admin.worker.suspend' => 'Suspend workers',
+    
+    # Marketplace Administration
+    'admin.marketplace.view' => 'View marketplace management',
+    'admin.marketplace.manage' => 'Manage marketplace settings',
+    'admin.marketplace.export' => 'Export marketplace data',
+    'admin.app.view' => 'View all apps',
+    'admin.app.edit' => 'Edit any app',
+    'admin.app.delete' => 'Delete any app',
+    'admin.app.approve' => 'Approve apps for publication',
+    'admin.app.suspend' => 'Suspend apps',
+    'admin.listing.view' => 'View all listings',
+    'admin.listing.edit' => 'Edit any listing',
+    'admin.listing.delete' => 'Delete any listing',
+    'admin.listing.approve' => 'Approve listings',
+    'admin.listing.feature' => 'Feature listings',
+    'admin.review.view' => 'View all reviews',
+    'admin.review.moderate' => 'Moderate reviews',
+    'admin.review.delete' => 'Delete reviews',
+    'admin.subscription.view' => 'View all subscriptions',
+    'admin.subscription.manage' => 'Manage any subscription'
   }.freeze
 
   # System Permissions - Worker & automation operations
@@ -206,7 +257,13 @@ module Permissions
         'api.read',
         'webhook.view',
         'invoice.view',
-        'audit.view'
+        'audit.view',
+        # Marketplace permissions
+        'app.view',
+        'listing.view',
+        'subscription.view', 'subscription.create', 'subscription.manage', 'subscription.cancel',
+        'subscription.view_usage',
+        'review.view'
       ]
     },
 
@@ -227,7 +284,14 @@ module Permissions
         'api.read', 'api.write', 'api.manage_keys',
         'webhook.view', 'webhook.create', 'webhook.edit', 'webhook.delete',
         'invoice.view', 'invoice.download',
-        'audit.view', 'audit.export'
+        'audit.view', 'audit.export',
+        # Marketplace permissions
+        'app.view', 'app.create', 'app.edit', 'app.delete', 'app.publish',
+        'app.manage_features', 'app.manage_plans', 'app.view_analytics',
+        'listing.view', 'listing.create', 'listing.edit', 'listing.delete',
+        'subscription.view', 'subscription.create', 'subscription.manage', 
+        'subscription.cancel', 'subscription.upgrade', 'subscription.view_usage',
+        'review.view', 'review.create', 'review.edit', 'review.delete', 'review.moderate'
       ]
     },
 
@@ -247,6 +311,33 @@ module Permissions
         'admin.billing.view', 'admin.billing.override',
         'admin.billing.refund', 'admin.billing.credit',
         'audit.view'
+      ]
+    },
+
+    # App developer with marketplace focus
+    'developer' => {
+      display_name: 'App Developer',
+      description: 'App developer with marketplace publishing capabilities',
+      role_type: 'user',
+      permissions: [
+        'user.view', 'user.edit_self',
+        'team.view',
+        'billing.view', 'billing.update',
+        'plans.view',
+        'page.view',
+        'analytics.view', 'analytics.export',
+        'report.view', 'report.generate',
+        'api.read', 'api.write', 'api.manage_keys',
+        'webhook.view', 'webhook.create', 'webhook.edit',
+        'invoice.view', 'invoice.download',
+        'audit.view',
+        # Full marketplace permissions
+        'app.view', 'app.create', 'app.edit', 'app.delete', 'app.publish',
+        'app.manage_features', 'app.manage_plans', 'app.view_analytics',
+        'listing.view', 'listing.create', 'listing.edit', 'listing.delete',
+        'subscription.view', 'subscription.create', 'subscription.manage',
+        'subscription.cancel', 'subscription.upgrade', 'subscription.view_usage',
+        'review.view', 'review.create', 'review.edit', 'review.delete', 'review.moderate'
       ]
     },
 

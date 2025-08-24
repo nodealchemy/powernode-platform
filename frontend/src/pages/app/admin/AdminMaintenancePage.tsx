@@ -4,8 +4,6 @@ import { useNotification } from '@/shared/hooks/useNotification';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { 
-  MaintenanceModeControl, 
-  SystemHealthMonitor, 
   DatabaseBackupManager, 
   DataCleanupManager 
 } from '@/features/admin/components/system/MaintenanceComponents';
@@ -18,9 +16,9 @@ import {
   MaintenanceSystemMetrics,
   MaintenanceSchedule
 } from '@/shared/services/maintenanceApi';
-import { SettingsCard, ToggleSwitch, Input, Select, SectionHeader, StatsCard } from '@/features/admin/components/SettingsComponents';
+import { SettingsCard, ToggleSwitch, StatsCard } from '@/features/admin/components/SettingsComponents';
 import { FormField } from '@/shared/components/ui/FormField';
-import { RefreshCw, Plus, Play, Pause, RotateCcw, Database, HardDrive, Activity, Settings, Clock, Trash2 } from 'lucide-react';
+import { RefreshCw, Plus, Trash2 } from 'lucide-react';
 
 type MaintenanceTab = 'mode' | 'health' | 'backups' | 'cleanup' | 'operations' | 'schedules';
 
@@ -61,7 +59,7 @@ export const AdminMaintenancePage: React.FC = () => {
   const [backups, setBackups] = useState<BackupInfo[]>([]);
   const [cleanupStats, setCleanupStats] = useState<CleanupStats | null>(null);
   const [schedules, setSchedules] = useState<MaintenanceSchedule[]>([]);
-  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  // Removed unused showScheduleModal state
 
   // Tab definitions
   const tabs = [
@@ -221,7 +219,7 @@ export const AdminMaintenancePage: React.FC = () => {
     <PageContainer title="System Maintenance" breadcrumbs={getBreadcrumbs()} actions={getPageActions()}>
       {/* Tab Navigation */}
       <div className="border-b border-theme mb-6">
-        <div className="flex space-x-8 -mb-px overflow-x-auto">
+        <div className="flex space-x-8 -mb-px overflow-x-auto scrollbar-hide">
           {tabs.map((tab) => (
             <button
               key={tab.id}
@@ -466,10 +464,10 @@ const DatabaseBackupsTab: React.FC<{
   onRegisterActions: (actions: MaintenancePageActions) => void;
 }> = ({ backups, onRefresh, onRegisterActions }) => {
   const { showNotification } = useNotification();
-  const [creating, setCreating] = useState(false);
+  // const [creating, setCreating] = useState(false); // TODO: Use for button loading state
 
   const handleCreateBackup = async () => {
-    setCreating(true);
+    // setCreating(true); // TODO: Show loading state
     try {
       await maintenanceApi.createBackup();
       showNotification('Backup created successfully', 'success');
@@ -477,7 +475,7 @@ const DatabaseBackupsTab: React.FC<{
     } catch (error: any) {
       showNotification('Failed to create backup', 'error');
     } finally {
-      setCreating(false);
+      // setCreating(false); // TODO: Hide loading state
     }
   };
 
@@ -499,10 +497,10 @@ const DataCleanupTab: React.FC<{
   onRegisterActions: (actions: MaintenancePageActions) => void;
 }> = ({ stats, onRefresh, onRegisterActions }) => {
   const { showNotification } = useNotification();
-  const [running, setRunning] = useState(false);
+  // const [running, setRunning] = useState(false); // TODO: Use for button loading state
 
   const handleRunCleanup = async () => {
-    setRunning(true);
+    // setRunning(true); // TODO: Show loading state
     try {
       const result = await maintenanceApi.runCleanup({
         old_logs: true,
@@ -515,7 +513,7 @@ const DataCleanupTab: React.FC<{
     } catch (error: any) {
       showNotification('Failed to run cleanup', 'error');
     } finally {
-      setRunning(false);
+      // setRunning(false); // TODO: Hide loading state
     }
   };
 
@@ -678,7 +676,7 @@ const ScheduledTasksTab: React.FC<{
   onRegisterActions: (actions: MaintenancePageActions) => void;
 }> = ({ schedules, onRefresh, onRegisterActions }) => {
   const { showNotification } = useNotification();
-  const [showModal, setShowModal] = useState(false);
+  const [showModal, setShowModal] = useState(false); // TODO: Use for modal display
 
   const handleCreateSchedule = () => {
     setShowModal(true);

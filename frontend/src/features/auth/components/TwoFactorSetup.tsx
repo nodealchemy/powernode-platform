@@ -3,7 +3,7 @@ import { twoFactorApi } from '@/shared/services/twoFactorApi';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { Button } from '@/shared/components/ui/Button';
 import { FormField } from '@/shared/components/ui/FormField';
-import { Copy, Check, AlertTriangle } from 'lucide-react';
+import { Copy, Check } from 'lucide-react';
 
 interface TwoFactorSetupProps {
   onComplete?: () => void;

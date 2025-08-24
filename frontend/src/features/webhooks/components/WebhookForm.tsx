@@ -6,7 +6,6 @@ import {
   Settings, 
   Clock, 
   RefreshCw, 
-  AlertTriangle,
   Info,
   CheckCircle
 } from 'lucide-react';

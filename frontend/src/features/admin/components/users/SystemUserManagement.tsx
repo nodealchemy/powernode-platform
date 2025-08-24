@@ -101,7 +101,6 @@ export const SystemUserManagement: React.FC = () => {
     };
 
     if (user.roles && user.roles.length > 0) {
-      const primaryRole = user.roles[0];
       const formatRoleName = (role: string) => role.replace('.', ' ').replace(/\b\w/g, l => l.toUpperCase());
       
       return (

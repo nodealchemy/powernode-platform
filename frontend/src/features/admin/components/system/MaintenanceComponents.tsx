@@ -21,7 +21,7 @@ import {
   MaintenanceSystemMetrics,
   MaintenanceStatus
 } from '@/shared/services/maintenanceApi';
-import { SettingsCard, ToggleSwitch, Input } from '../settings/SettingsComponents';
+import { SettingsCard, ToggleSwitch } from '../settings/SettingsComponents';
 import { FormField } from '@/shared/components/ui/FormField';
 import { useNotification } from '@/shared/hooks/useNotification';
 

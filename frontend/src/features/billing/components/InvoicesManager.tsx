@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/shared/components/ui/Button';
 import { 
   FileText, Download, Send, DollarSign, AlertTriangle, 
@@ -37,14 +37,7 @@ export const InvoicesManager: React.FC<InvoicesManagerProps> = ({
   const { showNotification } = useNotification();
   const perPage = 20;
 
-  useEffect(() => {
-    loadInvoices();
-    if (showStats) {
-      loadStats();
-    }
-  }, [currentPage, filters]);
-
-  const loadInvoices = async () => {
+  const loadInvoices = useCallback(async () => {
     try {
       setLoading(true);
       const response = await invoicesApi.getInvoices(currentPage, perPage, filters);
@@ -60,7 +53,7 @@ export const InvoicesManager: React.FC<InvoicesManagerProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentPage, perPage, filters, showNotification]);
 
   const loadStats = async () => {
     try {
@@ -70,6 +63,13 @@ export const InvoicesManager: React.FC<InvoicesManagerProps> = ({
       console.error('Failed to load invoice stats:', error);
     }
   };
+
+  useEffect(() => {
+    loadInvoices();
+    if (showStats) {
+      loadStats();
+    }
+  }, [currentPage, filters, loadInvoices, showStats]);
 
   const handleAction = async (action: string, invoiceId: string, data?: any) => {
     try {

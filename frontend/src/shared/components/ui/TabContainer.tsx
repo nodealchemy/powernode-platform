@@ -78,9 +78,10 @@ export const TabContainer: React.FC<TabContainerProps> = ({
       lg: 'text-base py-2.5 px-5'
     };
     
+    const sizeClass = Object.prototype.hasOwnProperty.call(sizeClasses, size) ? sizeClasses[size as keyof typeof sizeClasses] : sizeClasses.md;
     const baseClasses = cn(
       'inline-flex items-center gap-2 font-medium transition-colors',
-      sizeClasses[size],
+      sizeClass,
       tab.disabled && 'opacity-50 cursor-not-allowed'
     );
     

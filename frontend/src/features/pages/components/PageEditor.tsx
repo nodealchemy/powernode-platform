@@ -133,7 +133,7 @@ export const PageEditor: React.FC<PageEditorProps> = ({
           </div>
 
           {/* Tabs */}
-          <div className="flex space-x-8 mt-4 -mb-px">
+          <div className="flex space-x-8 mt-4 -mb-px overflow-x-auto scrollbar-hide">
             {(['editor', 'preview', 'seo'] as const).map((tab) => (
               <button
                 key={tab}

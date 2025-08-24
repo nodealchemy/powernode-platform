@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_08_22_024100) do
+ActiveRecord::Schema[8.0].define(version: 2025_08_24_040830) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -108,6 +108,235 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_22_024100) do
     t.index ["status", "expires_at"], name: "index_api_keys_on_status_and_expires_at"
     t.index ["status"], name: "index_api_keys_on_status"
     t.index ["usage_count"], name: "index_api_keys_on_usage_count"
+  end
+
+  create_table "app_analytics", id: { type: :string, limit: 36, default: -> { "gen_random_uuid()" } }, force: :cascade do |t|
+    t.string "app_id", limit: 36, null: false
+    t.string "metric_name", limit: 100, null: false
+    t.decimal "metric_value", precision: 15, scale: 2
+    t.datetime "recorded_at", precision: nil, default: -> { "CURRENT_TIMESTAMP" }
+    t.jsonb "metadata", default: {}
+    t.index ["app_id"], name: "index_app_analytics_on_app_id"
+    t.index ["metric_name"], name: "index_app_analytics_on_metric_name"
+    t.index ["recorded_at"], name: "index_app_analytics_on_recorded_at"
+  end
+
+  create_table "app_endpoint_calls", id: { type: :string, limit: 36, default: -> { "gen_random_uuid()" } }, force: :cascade do |t|
+    t.string "app_endpoint_id", limit: 36, null: false
+    t.string "account_id", limit: 36
+    t.string "request_id", limit: 100
+    t.integer "status_code"
+    t.integer "response_time_ms"
+    t.bigint "request_size_bytes"
+    t.bigint "response_size_bytes"
+    t.string "user_agent", limit: 500
+    t.string "ip_address", limit: 45
+    t.jsonb "request_headers", default: {}
+    t.jsonb "response_headers", default: {}
+    t.text "error_message"
+    t.datetime "called_at", precision: nil, default: -> { "CURRENT_TIMESTAMP" }
+    t.index ["account_id"], name: "index_app_endpoint_calls_on_account_id"
+    t.index ["app_endpoint_id"], name: "index_app_endpoint_calls_on_app_endpoint_id"
+    t.index ["called_at"], name: "index_app_endpoint_calls_on_called_at"
+    t.index ["request_id"], name: "index_app_endpoint_calls_on_request_id"
+    t.index ["status_code"], name: "index_app_endpoint_calls_on_status_code"
+    t.check_constraint "response_time_ms >= 0", name: "valid_response_time"
+    t.check_constraint "status_code >= 100 AND status_code <= 599", name: "valid_status_code"
+  end
+
+  create_table "app_endpoints", id: { type: :string, limit: 36, default: -> { "gen_random_uuid()" } }, force: :cascade do |t|
+    t.string "app_id", limit: 36, null: false
+    t.string "name", limit: 255, null: false
+    t.string "slug", limit: 255, null: false
+    t.text "description"
+    t.string "http_method", limit: 10, null: false
+    t.string "path", limit: 500, null: false
+    t.text "request_schema"
+    t.text "response_schema"
+    t.jsonb "headers", default: {}
+    t.jsonb "parameters", default: {}
+    t.jsonb "authentication", default: {}
+    t.jsonb "rate_limits", default: {}
+    t.boolean "requires_auth", default: true
+    t.boolean "is_public", default: false
+    t.boolean "is_active", default: true
+    t.string "version", limit: 20, default: "v1"
+    t.jsonb "metadata", default: {}
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["app_id", "http_method", "path"], name: "index_app_endpoints_on_app_id_and_http_method_and_path", unique: true
+    t.index ["app_id", "slug"], name: "index_app_endpoints_on_app_id_and_slug", unique: true
+    t.index ["app_id"], name: "index_app_endpoints_on_app_id"
+    t.index ["http_method"], name: "index_app_endpoints_on_http_method"
+    t.index ["is_active"], name: "index_app_endpoints_on_is_active"
+    t.index ["is_public"], name: "index_app_endpoints_on_is_public"
+    t.index ["version"], name: "index_app_endpoints_on_version"
+    t.check_constraint "http_method::text = ANY (ARRAY['GET'::character varying::text, 'POST'::character varying::text, 'PUT'::character varying::text, 'PATCH'::character varying::text, 'DELETE'::character varying::text, 'HEAD'::character varying::text, 'OPTIONS'::character varying::text])", name: "valid_http_method"
+  end
+
+  create_table "app_features", id: { type: :string, limit: 36, default: -> { "gen_random_uuid()" } }, force: :cascade do |t|
+    t.string "app_id", limit: 36, null: false
+    t.string "name", limit: 255, null: false
+    t.string "slug", limit: 255, null: false
+    t.text "description"
+    t.string "feature_type", limit: 50
+    t.boolean "default_enabled", default: false
+    t.jsonb "configuration", default: {}
+    t.jsonb "dependencies", default: []
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["app_id", "slug"], name: "index_app_features_on_app_id_and_slug", unique: true
+    t.index ["app_id"], name: "index_app_features_on_app_id"
+    t.index ["feature_type"], name: "index_app_features_on_feature_type"
+  end
+
+  create_table "app_plans", id: { type: :string, limit: 36, default: -> { "gen_random_uuid()" } }, force: :cascade do |t|
+    t.string "app_id", limit: 36, null: false
+    t.string "name", limit: 255, null: false
+    t.string "slug", limit: 255, null: false
+    t.text "description"
+    t.integer "price_cents", default: 0
+    t.string "billing_interval", limit: 20, default: "monthly"
+    t.boolean "is_public", default: true
+    t.boolean "is_active", default: true
+    t.jsonb "features", default: []
+    t.jsonb "permissions", default: []
+    t.jsonb "limits", default: {}
+    t.jsonb "metadata", default: {}
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["app_id", "slug"], name: "index_app_plans_on_app_id_and_slug", unique: true
+    t.index ["app_id"], name: "index_app_plans_on_app_id"
+    t.index ["is_active"], name: "index_app_plans_on_is_active"
+    t.index ["is_public"], name: "index_app_plans_on_is_public"
+    t.check_constraint "billing_interval::text = ANY (ARRAY['monthly'::character varying::text, 'yearly'::character varying::text, 'one_time'::character varying::text])", name: "valid_billing_interval"
+  end
+
+  create_table "app_reviews", id: { type: :string, limit: 36, default: -> { "gen_random_uuid()" } }, force: :cascade do |t|
+    t.string "app_id", limit: 36, null: false
+    t.string "account_id", limit: 36, null: false
+    t.integer "rating", null: false
+    t.string "title", limit: 255
+    t.text "content"
+    t.integer "helpful_count", default: 0
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_app_reviews_on_account_id"
+    t.index ["app_id", "account_id"], name: "index_app_reviews_on_app_id_and_account_id", unique: true
+    t.index ["app_id"], name: "index_app_reviews_on_app_id"
+    t.index ["created_at"], name: "index_app_reviews_on_created_at"
+    t.index ["rating"], name: "index_app_reviews_on_rating"
+    t.check_constraint "rating >= 1 AND rating <= 5", name: "rating_range"
+  end
+
+  create_table "app_subscriptions", id: { type: :string, limit: 36, default: -> { "gen_random_uuid()" } }, force: :cascade do |t|
+    t.string "account_id", limit: 36, null: false
+    t.string "app_id", limit: 36, null: false
+    t.string "app_plan_id", limit: 36, null: false
+    t.string "status", limit: 50, default: "active"
+    t.datetime "subscribed_at", precision: nil, default: -> { "CURRENT_TIMESTAMP" }
+    t.datetime "cancelled_at", precision: nil
+    t.datetime "next_billing_at", precision: nil
+    t.jsonb "configuration", default: {}
+    t.jsonb "usage_metrics", default: {}
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "app_id"], name: "index_app_subscriptions_on_account_id_and_app_id", unique: true
+    t.index ["account_id"], name: "index_app_subscriptions_on_account_id"
+    t.index ["app_id"], name: "index_app_subscriptions_on_app_id"
+    t.index ["app_plan_id"], name: "index_app_subscriptions_on_app_plan_id"
+    t.index ["next_billing_at"], name: "index_app_subscriptions_on_next_billing_at"
+    t.index ["status"], name: "index_app_subscriptions_on_status"
+    t.check_constraint "status::text = ANY (ARRAY['active'::character varying::text, 'paused'::character varying::text, 'cancelled'::character varying::text, 'expired'::character varying::text])", name: "valid_subscription_status"
+  end
+
+  create_table "app_webhook_deliveries", id: { type: :string, limit: 36, default: -> { "gen_random_uuid()" } }, force: :cascade do |t|
+    t.string "app_webhook_id", limit: 36, null: false
+    t.string "delivery_id", limit: 100
+    t.string "event_id", limit: 100
+    t.string "status", limit: 20, default: "pending"
+    t.integer "status_code"
+    t.integer "response_time_ms"
+    t.integer "attempt_number", default: 1
+    t.text "request_body"
+    t.text "response_body"
+    t.jsonb "request_headers", default: {}
+    t.jsonb "response_headers", default: {}
+    t.text "error_message"
+    t.datetime "delivered_at", precision: nil
+    t.datetime "next_retry_at", precision: nil
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["app_webhook_id"], name: "index_app_webhook_deliveries_on_app_webhook_id"
+    t.index ["delivered_at"], name: "index_app_webhook_deliveries_on_delivered_at"
+    t.index ["delivery_id"], name: "index_app_webhook_deliveries_on_delivery_id", unique: true
+    t.index ["event_id"], name: "index_app_webhook_deliveries_on_event_id"
+    t.index ["next_retry_at"], name: "index_app_webhook_deliveries_on_next_retry_at"
+    t.index ["status"], name: "index_app_webhook_deliveries_on_status"
+    t.check_constraint "attempt_number > 0", name: "valid_attempt_number"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'delivered'::character varying::text, 'failed'::character varying::text, 'cancelled'::character varying::text])", name: "valid_delivery_status"
+  end
+
+  create_table "app_webhooks", id: { type: :string, limit: 36, default: -> { "gen_random_uuid()" } }, force: :cascade do |t|
+    t.string "app_id", limit: 36, null: false
+    t.string "name", limit: 255, null: false
+    t.string "slug", limit: 255, null: false
+    t.text "description"
+    t.string "event_type", limit: 100, null: false
+    t.string "url", limit: 1000, null: false
+    t.string "http_method", limit: 10, default: "POST"
+    t.jsonb "headers", default: {}
+    t.jsonb "payload_template", default: {}
+    t.jsonb "authentication", default: {}
+    t.jsonb "retry_config", default: {}
+    t.boolean "is_active", default: true
+    t.string "secret_token", limit: 255
+    t.integer "timeout_seconds", default: 30
+    t.integer "max_retries", default: 3
+    t.string "content_type", limit: 100, default: "application/json"
+    t.jsonb "metadata", default: {}
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["app_id", "event_type"], name: "index_app_webhooks_on_app_id_and_event_type"
+    t.index ["app_id", "slug"], name: "index_app_webhooks_on_app_id_and_slug", unique: true
+    t.index ["app_id"], name: "index_app_webhooks_on_app_id"
+    t.index ["event_type"], name: "index_app_webhooks_on_event_type"
+    t.index ["is_active"], name: "index_app_webhooks_on_is_active"
+    t.check_constraint "http_method::text = ANY (ARRAY['POST'::character varying::text, 'PUT'::character varying::text, 'PATCH'::character varying::text])", name: "valid_webhook_http_method"
+    t.check_constraint "max_retries >= 0 AND max_retries <= 10", name: "valid_max_retries"
+    t.check_constraint "timeout_seconds > 0 AND timeout_seconds <= 300", name: "valid_timeout_seconds"
+  end
+
+  create_table "apps", id: { type: :string, limit: 36, default: -> { "gen_random_uuid()" } }, force: :cascade do |t|
+    t.string "account_id", limit: 36, null: false
+    t.string "name", limit: 255, null: false
+    t.string "slug", limit: 255, null: false
+    t.text "description"
+    t.text "long_description"
+    t.string "category", limit: 100
+    t.string "version", limit: 50, default: "1.0.0"
+    t.string "status", limit: 50, default: "draft"
+    t.jsonb "metadata", default: {}
+    t.jsonb "configuration", default: {}
+    t.datetime "published_at", precision: nil
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.text "short_description"
+    t.string "icon"
+    t.jsonb "tags", default: []
+    t.string "homepage_url"
+    t.string "documentation_url"
+    t.string "support_url"
+    t.string "repository_url"
+    t.string "license"
+    t.string "privacy_policy_url"
+    t.string "terms_of_service_url"
+    t.index ["account_id"], name: "index_apps_on_account_id"
+    t.index ["category"], name: "index_apps_on_category"
+    t.index ["published_at"], name: "index_apps_on_published_at"
+    t.index ["slug"], name: "index_apps_on_slug", unique: true
+    t.index ["status"], name: "index_apps_on_status"
+    t.check_constraint "status::text = ANY (ARRAY['draft'::character varying::text, 'review'::character varying::text, 'published'::character varying::text, 'inactive'::character varying::text])", name: "valid_app_status"
   end
 
   create_table "audit_logs", id: { type: :string, limit: 36, default: -> { "gen_random_uuid()" } }, force: :cascade do |t|
@@ -313,6 +542,45 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_22_024100) do
     t.index ["status"], name: "index_invoices_on_status"
     t.index ["stripe_invoice_id"], name: "index_invoices_on_stripe_invoice_id", unique: true, where: "(stripe_invoice_id IS NOT NULL)"
     t.index ["subscription_id"], name: "index_invoices_on_subscription_id"
+  end
+
+  create_table "marketplace_categories", id: { type: :string, limit: 36, default: -> { "gen_random_uuid()" } }, force: :cascade do |t|
+    t.string "name", limit: 255, null: false
+    t.string "slug", limit: 255, null: false
+    t.text "description"
+    t.string "icon", limit: 100
+    t.integer "sort_order", default: 0
+    t.boolean "is_active", default: true
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["is_active"], name: "index_marketplace_categories_on_is_active"
+    t.index ["slug"], name: "index_marketplace_categories_on_slug", unique: true
+    t.index ["sort_order"], name: "index_marketplace_categories_on_sort_order"
+  end
+
+  create_table "marketplace_listings", id: { type: :string, limit: 36, default: -> { "gen_random_uuid()" } }, force: :cascade do |t|
+    t.string "app_id", limit: 36, null: false
+    t.string "title", limit: 255, null: false
+    t.string "short_description", limit: 500
+    t.text "long_description"
+    t.string "category", limit: 100
+    t.jsonb "tags", default: []
+    t.jsonb "screenshots", default: []
+    t.string "documentation_url", limit: 500
+    t.string "support_url", limit: 500
+    t.string "homepage_url", limit: 500
+    t.boolean "featured", default: false
+    t.string "review_status", limit: 50, default: "pending"
+    t.text "review_notes"
+    t.datetime "published_at", precision: nil
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["app_id"], name: "index_marketplace_listings_on_app_id", unique: true
+    t.index ["category"], name: "index_marketplace_listings_on_category"
+    t.index ["featured"], name: "index_marketplace_listings_on_featured"
+    t.index ["published_at"], name: "index_marketplace_listings_on_published_at"
+    t.index ["review_status"], name: "index_marketplace_listings_on_review_status"
+    t.check_constraint "review_status::text = ANY (ARRAY['pending'::character varying::text, 'approved'::character varying::text, 'rejected'::character varying::text])", name: "valid_review_status"
   end
 
   create_table "missing_payment_logs", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -870,6 +1138,20 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_22_024100) do
   add_foreign_key "api_key_usages", "api_keys"
   add_foreign_key "api_keys", "accounts"
   add_foreign_key "api_keys", "users", column: "created_by_id"
+  add_foreign_key "app_analytics", "apps", on_delete: :cascade
+  add_foreign_key "app_endpoint_calls", "accounts"
+  add_foreign_key "app_endpoint_calls", "app_endpoints", on_delete: :cascade
+  add_foreign_key "app_endpoints", "apps", on_delete: :cascade
+  add_foreign_key "app_features", "apps", on_delete: :cascade
+  add_foreign_key "app_plans", "apps", on_delete: :cascade
+  add_foreign_key "app_reviews", "accounts"
+  add_foreign_key "app_reviews", "apps", on_delete: :cascade
+  add_foreign_key "app_subscriptions", "accounts"
+  add_foreign_key "app_subscriptions", "app_plans"
+  add_foreign_key "app_subscriptions", "apps"
+  add_foreign_key "app_webhook_deliveries", "app_webhooks", on_delete: :cascade
+  add_foreign_key "app_webhooks", "apps", on_delete: :cascade
+  add_foreign_key "apps", "accounts"
   add_foreign_key "audit_logs", "accounts"
   add_foreign_key "audit_logs", "users", on_delete: :nullify
   add_foreign_key "blacklisted_tokens", "users"
@@ -886,6 +1168,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_22_024100) do
   add_foreign_key "invitations", "users", column: "inviter_id"
   add_foreign_key "invoice_line_items", "invoices"
   add_foreign_key "invoices", "subscriptions"
+  add_foreign_key "marketplace_listings", "apps", on_delete: :cascade
   add_foreign_key "missing_payment_logs", "payments", column: "associated_payment_id"
   add_foreign_key "pages", "users", column: "author_id"
   add_foreign_key "password_histories", "users"

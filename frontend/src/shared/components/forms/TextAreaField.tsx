@@ -39,12 +39,13 @@ export const TextAreaField: React.FC<TextAreaFieldProps> = ({
   const value = fieldProps.value || '';
   const characterCount = typeof value === 'string' ? value.length : 0;
 
-  const resizeClass = {
+  const resizeClasses = {
     none: 'resize-none',
     both: 'resize',
     horizontal: 'resize-x',
     vertical: 'resize-y'
-  }[resize];
+  };
+  const resizeClass = Object.prototype.hasOwnProperty.call(resizeClasses, resize) ? resizeClasses[resize as keyof typeof resizeClasses] : 'resize-none';
 
   return (
     <div className={className}>

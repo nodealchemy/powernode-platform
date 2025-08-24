@@ -38,6 +38,7 @@ const AppContent: React.FC = () => {
   const [initializing, setInitializing] = React.useState(true);
   const [showAuthFallback, setShowAuthFallback] = React.useState(false);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     // Try to restore user session if we have a token
     const initializeAuth = async () => {
@@ -138,7 +139,8 @@ const AppContent: React.FC = () => {
     };
 
     initializeAuth();
-  }, [dispatch, accessToken, refreshToken, user]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dispatch]); // Remove accessToken, refreshToken, user to prevent infinite loop
 
   const handleAuthFallback = () => {
     dispatch(clearAuth());

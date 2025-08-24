@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/shared/components/ui/Button';
 import { 
   Plus, Edit, Trash2, Save, X, Settings, Filter,
@@ -462,11 +462,7 @@ export const PlanFeaturesManager: React.FC<PlanFeaturesManagerProps> = ({
 
   const { showNotification } = useNotification();
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       const [featuresResponse, plansResponse, comparisonResponse] = await Promise.all([
@@ -493,7 +489,11 @@ export const PlanFeaturesManager: React.FC<PlanFeaturesManagerProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [showComparison, selectedPlan, showNotification]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const handleCreateFeature = async (data: FeatureFormData) => {
     try {

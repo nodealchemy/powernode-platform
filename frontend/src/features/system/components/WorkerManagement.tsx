@@ -1,15 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import { workerAPI, WorkerListResponse } from '@/features/workers/services/workerApi';
-import { useNotification } from '@/shared/hooks/useNotification';
 
 const WorkerManagement: React.FC = () => {
   const [workers, setWorkers] = useState<WorkerListResponse | null>(null);
   const [stats, setStats] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
-  const { showNotification } = useNotification();
   const user = useSelector((state: any) => state.auth.user);
 
   useEffect(() => {
@@ -42,13 +38,7 @@ const WorkerManagement: React.FC = () => {
     }
   };
 
-  const handleDownloadPDF = (id: string) => {
-    console.log('Download PDF for', id);
-  };
-
-  const handleAction = (action: string, id: string) => {
-    console.log('Action', action, 'for', id);
-  };
+  // Removed unused handlers - functionality not implemented yet
 
   const hasPermission = (permission: string) => {
     return user?.permissions?.includes(permission);

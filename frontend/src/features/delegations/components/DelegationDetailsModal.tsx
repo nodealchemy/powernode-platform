@@ -8,13 +8,7 @@ interface DelegationDetailsModalProps {
   onUpdate: () => void;
 }
 
-interface User {
-  id: string;
-  email: string;
-  first_name: string;
-  last_name: string;
-  roles: string[];
-}
+// Removed unused User interface
 
 interface DelegationUser {
   id: string;

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Button } from '@/shared/components/ui/Button';
 import { 
   Zap, RefreshCw, Trash2, HardDrive, Database, 
@@ -102,11 +102,7 @@ export const PerformanceOptimizationPanel: React.FC<PerformanceOptimizationPanel
   
   const { showNotification } = useNotification();
 
-  React.useEffect(() => {
-    loadOptimizationActions();
-  }, []);
-
-  const loadOptimizationActions = async () => {
+  const loadOptimizationActions = useCallback(async () => {
     try {
       setLoading(true);
       const response = await performanceApi.getOptimizationActions();
@@ -119,7 +115,11 @@ export const PerformanceOptimizationPanel: React.FC<PerformanceOptimizationPanel
     } finally {
       setLoading(false);
     }
-  };
+  }, [showNotification]);
+
+  React.useEffect(() => {
+    loadOptimizationActions();
+  }, [loadOptimizationActions]);
 
   const executeOptimization = async (actionId: string) => {
     const action = actions.find(a => a.id === actionId);
