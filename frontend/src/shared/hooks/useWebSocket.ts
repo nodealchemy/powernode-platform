@@ -111,7 +111,6 @@ export const useWebSocket = (): UseWebSocketReturn => {
       
       try {
         wsRef.current.send(JSON.stringify(subscribeMessage));
-        console.log(`📡 Subscribed to ${channel}`);
       } catch (error) {
         console.error(`Failed to subscribe to ${channel}:`, error);
         onError?.('Failed to subscribe to channel');
@@ -133,7 +132,6 @@ export const useWebSocket = (): UseWebSocketReturn => {
         
         try {
           wsRef.current.send(JSON.stringify(unsubscribeMessage));
-          console.log(`📡 Unsubscribed from ${channel}`);
         } catch (error) {
           console.error(`Failed to unsubscribe from ${channel}:`, error);
         }
@@ -177,16 +175,10 @@ export const useWebSocket = (): UseWebSocketReturn => {
 
     // Debounce connection attempts to handle StrictMode
     connectionDebounceRef.current = setTimeout(() => {
-      console.log('⏱️ Debounce timer fired, checking conditions...');
       if (!mountedRef.current || !user?.account?.id || !accessToken) {
-        console.log('❌ Connection aborted in debounce:');
-        console.log('  - Mounted:', mountedRef.current);
-        console.log('  - User account:', user?.account?.id || 'Missing');
-        console.log('  - Token:', accessToken ? 'Present' : 'Missing');
         return;
       }
 
-      console.log('✅ All conditions met in debounce, creating WebSocket...');
       connectingRef.current = true;
 
       // Clear any existing reconnect timeout
@@ -203,10 +195,6 @@ export const useWebSocket = (): UseWebSocketReturn => {
 
       try {
         const wsUrl = getWebSocketUrl();
-        console.log('🔌 Connecting to WebSocket:', wsUrl.replace(/token=[^&]+/, 'token=***'));
-        console.log('User account ID:', user?.account?.id);
-        console.log('Access token present:', !!accessToken);
-        console.log('WebSocket URL host:', new URL(wsUrl.replace(/\?.*/, '')).host);
         
         wsRef.current = new WebSocket(wsUrl);
 
@@ -214,7 +202,6 @@ export const useWebSocket = (): UseWebSocketReturn => {
         if (!mountedRef.current) return;
         
         connectingRef.current = false;
-        console.log('✅ WebSocket connected');
         setState({
           isConnected: true,
           error: null,
@@ -233,7 +220,6 @@ export const useWebSocket = (): UseWebSocketReturn => {
           
           try {
             wsRef.current?.send(JSON.stringify(subscribeMessage));
-            console.log(`🔄 Re-subscribed to ${channel}`);
           } catch (error) {
             console.error(`Failed to re-subscribe to ${channel}:`, error);
           }
@@ -251,16 +237,13 @@ export const useWebSocket = (): UseWebSocketReturn => {
 
           // Handle disconnect (authentication failure)
           if (data.type === 'disconnect' && data.reason === 'unauthorized') {
-            console.log('🔄 WebSocket unauthorized - attempting token refresh...');
             dispatch(refreshAccessToken())
               .unwrap()
               .then(() => {
-                console.log('✅ Token refreshed, reconnecting...');
                 setTimeout(connect, 1000);
               })
               .catch((error) => {
                 console.error('❌ Token refresh failed:', error);
-                console.log('🔑 Please logout and login again to get a fresh token');
                 setState(prev => ({
                   ...prev,
                   error: 'Authentication failed - please login again'
@@ -271,7 +254,6 @@ export const useWebSocket = (): UseWebSocketReturn => {
 
           // Handle confirmation and rejection
           if (data.type === 'confirm_subscription') {
-            console.log('✅ Subscription confirmed:', data.identifier);
             return;
           }
 
@@ -303,7 +285,6 @@ export const useWebSocket = (): UseWebSocketReturn => {
         connectingRef.current = false;
         if (!mountedRef.current) return;
         
-        console.log('❌ WebSocket disconnected:', event.code, event.reason || 'No reason');
         
         // Check for specific error codes
         let errorMessage: string | null = null;
@@ -323,16 +304,12 @@ export const useWebSocket = (): UseWebSocketReturn => {
 
         // Auto-reconnect after 3 seconds if not a normal closure and user is still authenticated
         if (event.code !== 1000 && accessToken && user?.account?.id && mountedRef.current) {
-          console.log('🔄 Scheduling reconnect in 3 seconds...');
           reconnectTimeoutRef.current = setTimeout(() => {
             if (mountedRef.current) {
               connect();
             }
           }, 3000);
         } else if (event.code !== 1000) {
-          console.log('⚠️ Not reconnecting - missing auth or account data');
-          console.log('  - Access Token:', accessToken ? 'Present' : 'Missing');
-          console.log('  - Account ID:', user?.account?.id || 'Missing');
         }
       };
 
@@ -404,17 +381,10 @@ export const useWebSocket = (): UseWebSocketReturn => {
 
   // Auto-connect/disconnect based on auth state
   useEffect(() => {
-    console.log('🔍 WebSocket useEffect triggered');
-    console.log('  - User:', user?.email);
-    console.log('  - Account ID:', user?.account?.id);
-    console.log('  - Access Token:', accessToken ? 'Present' : 'Missing');
-    console.log('  - Mounted:', mountedRef.current);
     
     if (user?.account?.id && accessToken) {
-      console.log('📡 Conditions met, calling connect()');
       connect();
     } else {
-      console.log('❌ Conditions not met, calling disconnect()');
       disconnect();
     }
 

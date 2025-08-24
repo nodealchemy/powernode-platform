@@ -31,7 +31,6 @@ const getAPIBaseURL = (): string => {
 
 // Log the API base URL in development
 if (process.env.NODE_ENV === 'development') {
-  console.log('API Base URL:', getAPIBaseURL());
 }
 
 class APIClient {

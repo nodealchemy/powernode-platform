@@ -43,17 +43,13 @@ class EmailConfigurationService
         @settings = symbolize_keys(data['data'])
         @last_fetched = Time.now
         
-        puts "[EmailConfigurationService] Email settings fetched successfully from backend"
         configure_action_mailer!
         
         @settings
       else
-        puts "[EmailConfigurationService] Failed to fetch email settings: HTTP #{response.code} - #{response.body}"
         use_fallback_settings
       end
     rescue StandardError => e
-      puts "[EmailConfigurationService] Error fetching email settings: #{e.message}"
-      puts e.backtrace.join("\n") if ENV['DEBUG']
       use_fallback_settings
     end
   end
@@ -72,7 +68,6 @@ class EmailConfigurationService
     when 'mailgun'
       configure_mailgun!
     else
-      puts "[EmailConfigurationService] WARNING: Unknown email provider: #{@settings[:provider]}"
     end
     
     # Set default from address
@@ -101,7 +96,6 @@ class EmailConfigurationService
       read_timeout: 10
     }.compact
     
-    puts "[EmailConfigurationService] SMTP configuration applied: #{@settings[:smtp_host]}:#{@settings[:smtp_port]}"
   end
   
   def configure_sendgrid!
@@ -116,9 +110,7 @@ class EmailConfigurationService
         authentication: :plain,
         enable_starttls_auto: true
       }
-      puts "[EmailConfigurationService] SendGrid configuration applied"
     else
-      puts "[EmailConfigurationService] ERROR: SendGrid API key not configured"
       use_fallback_settings
     end
   end
@@ -137,9 +129,7 @@ class EmailConfigurationService
         authentication: :plain,
         enable_starttls_auto: true
       }
-      puts "[EmailConfigurationService] AWS SES configuration applied for region: #{@settings[:ses_region]}"
     else
-      puts "[EmailConfigurationService] ERROR: AWS SES credentials not configured"
       use_fallback_settings
     end
   end
@@ -156,9 +146,7 @@ class EmailConfigurationService
         authentication: :plain,
         enable_starttls_auto: true
       }
-      puts "[EmailConfigurationService] Mailgun configuration applied for domain: #{@settings[:mailgun_domain]}"
     else
-      puts "[EmailConfigurationService] ERROR: Mailgun API key or domain not configured"
       use_fallback_settings
     end
   end
@@ -192,7 +180,6 @@ class EmailConfigurationService
       smtp_domain: ENV['SMTP_DOMAIN'] || 'powernode.dev'
     }
     
-    puts "[EmailConfigurationService] Using fallback email settings"
     configure_action_mailer!
     
     @settings

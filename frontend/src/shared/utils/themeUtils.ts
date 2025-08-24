@@ -6,7 +6,6 @@ export const validateThemeClasses = () => {
   const root = document.documentElement;
   const currentTheme = root.classList.contains('dark') ? 'dark' : 'light';
   
-  console.log('Current theme:', currentTheme);
   
   // Test CSS custom properties
   const style = getComputedStyle(root);
@@ -18,10 +17,8 @@ export const validateThemeClasses = () => {
     '--color-border'
   ];
   
-  console.log('Theme CSS Properties:');
   themeProperties.forEach(prop => {
     const value = style.getPropertyValue(prop);
-    console.log(`${prop}: ${value}`);
   });
   
   return {
@@ -43,7 +40,6 @@ export const testThemeToggle = () => {
   // Update data attribute
   root.setAttribute('data-theme', wasLight ? 'dark' : 'light');
   
-  console.log('Theme toggled to:', wasLight ? 'dark' : 'light');
   
   return validateThemeClasses();
 };
@@ -91,12 +87,10 @@ export const validateThemeConsistency = () => {
     'card-theme': document.querySelectorAll('[class*="card-theme"]').length
   };
   
-  console.log('Theme class usage statistics:', themeElements);
   
   if (issues.length > 0) {
     console.warn('Theme consistency issues found:', issues);
   } else {
-    console.log('✅ Theme consistency validation passed!');
   }
   
   return {
@@ -123,7 +117,6 @@ export const testFormTheming = () => {
     totalThemeElements: inputs.length + buttons.length + cards.length
   };
   
-  console.log('Form theming test results:', results);
   
   return results;
 };

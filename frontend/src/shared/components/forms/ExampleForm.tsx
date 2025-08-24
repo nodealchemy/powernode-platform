@@ -20,7 +20,6 @@ interface ExampleFormProps {
 export const ExampleForm: React.FC<ExampleFormProps> = ({ 
   onSubmit = async (data) => {
     // Simulate API call
-    console.log('Form submitted:', data);
     await new Promise(resolve => setTimeout(resolve, 1000));
   },
   className = ''

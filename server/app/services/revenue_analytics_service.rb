@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # Revenue Analytics Service - Delegates to worker service
 class RevenueAnalyticsService
   include ActiveModel::Model

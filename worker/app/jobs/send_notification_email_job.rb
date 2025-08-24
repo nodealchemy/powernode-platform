@@ -10,11 +10,9 @@ class SendNotificationEmailJob < BaseJob
     params = args['params'] || args[:params] || {}
     
     unless email_type.present?
-      puts "SendNotificationEmailJob: No email type provided"
       return
     end
     
-    puts "Sending #{email_type} email with params: #{params.inspect}"
     
     # Ensure we have the latest email configuration
     EmailConfigurationService.instance.fetch_settings
@@ -41,11 +39,9 @@ class SendNotificationEmailJob < BaseJob
         params['end_date']
       ).deliver_now
     else
-      puts "Unknown email type: #{email_type}"
       return
     end
     
-    puts "#{email_type} email sent successfully"
     
     # Log to backend for tracking
     api_client.post("/api/v1/notifications", {
@@ -56,8 +52,6 @@ class SendNotificationEmailJob < BaseJob
       timestamp: Time.current
     })
   rescue StandardError => e
-    puts "Failed to send #{email_type} email: #{e.message}"
-    puts e.backtrace.join("\n")
     
     # Report failure to backend
     api_client.post("/api/v1/notifications", {

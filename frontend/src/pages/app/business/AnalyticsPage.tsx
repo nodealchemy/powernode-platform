@@ -315,15 +315,12 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
       const startDate = dateRange.startDate.toISOString().split('T')[0];
       const endDate = dateRange.endDate.toISOString().split('T')[0];
 
-      console.log('Loading analytics data for date range:', { startDate, endDate });
 
       // Try to fetch each analytics endpoint individually to identify issues
       let analyticsData: any = {};
       
       try {
-        console.log('Fetching revenue analytics...');
         const revenue = await analyticsService.getRevenueAnalytics(startDate, endDate);
-        console.log('Revenue response:', revenue);
         analyticsData.revenue = revenue.data;
       } catch (revenueError) {
         console.error('Revenue analytics failed:', revenueError);
@@ -334,9 +331,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
       }
 
       try {
-        console.log('Fetching growth analytics...');
         const growth = await analyticsService.getGrowthAnalytics(startDate, endDate);
-        console.log('Growth response:', growth);
         analyticsData.growth = growth.data;
       } catch (growthError) {
         console.error('Growth analytics failed:', growthError);
@@ -346,9 +341,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
       }
 
       try {
-        console.log('Fetching churn analytics...');
         const churn = await analyticsService.getChurnAnalytics(startDate, endDate);
-        console.log('Churn response:', churn);
         analyticsData.churn = churn.data;
       } catch (churnError) {
         console.error('Churn analytics failed:', churnError);
@@ -358,9 +351,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
       }
 
       try {
-        console.log('Fetching customer analytics...');
         const customers = await analyticsService.getCustomerAnalytics(startDate, endDate);
-        console.log('Customer response:', customers);
         analyticsData.customers = customers.data;
       } catch (customerError) {
         console.error('Customer analytics failed:', customerError);
@@ -370,9 +361,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
       }
 
       try {
-        console.log('Fetching cohort analytics...');
         const cohorts = await analyticsService.getCohortAnalytics();
-        console.log('Cohort response:', cohorts);
         analyticsData.cohorts = cohorts.data;
       } catch (cohortError) {
         console.error('Cohort analytics failed:', cohortError);
@@ -383,7 +372,6 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
 
       setData(analyticsData);
       // setLastUpdated(new Date()); // TODO: Display last updated timestamp
-      console.log('Analytics data loaded successfully:', analyticsData);
     } catch (err) {
       console.error('Failed to load analytics data:', err);
       setError(err instanceof Error ? err.message : 'Failed to load analytics data');
@@ -401,14 +389,12 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
   // Auto-refresh analytics data when WebSocket is connected
   useEffect(() => {
     if (isConnected && data) {
-      console.log('Starting auto-refresh interval for analytics data');
       const interval = setInterval(() => {
         // Request real-time analytics update via WebSocket
         requestAnalyticsUpdate();
       }, 30000); // Request update every 30 seconds
 
       return () => {
-        console.log('Clearing auto-refresh interval');
         clearInterval(interval);
       };
     }

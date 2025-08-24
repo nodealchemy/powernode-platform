@@ -270,7 +270,6 @@ export const AdminSettingsOverviewPage: React.FC = () => {
           description={settings_summary?.maintenance_mode ? 'Users cannot access system' : 'System fully accessible'}
           action={settings_summary?.maintenance_mode ? {
             label: 'Disable Maintenance',
-            onClick: () => console.log('Toggle maintenance mode')
           } : undefined}
         />
 

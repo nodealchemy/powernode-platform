@@ -9,20 +9,16 @@ export const SubscriptionsPage: React.FC = () => {
   const [refreshKey, setRefreshKey] = useState(0);
 
   const handleSubscriptionAction = (action: string, subscriptionId: string) => {
-    console.log(`Subscription action: ${action} for ${subscriptionId}`);
     
     switch (action) {
       case 'view-usage':
         // TODO: Navigate to usage details or show modal
-        console.log('View usage for subscription:', subscriptionId);
         break;
       case 'view-analytics':
         // TODO: Navigate to analytics details or show modal
-        console.log('View analytics for subscription:', subscriptionId);
         break;
       case 'configure':
         // TODO: Show configuration modal
-        console.log('Configure subscription:', subscriptionId);
         break;
       default:
         // Refresh list for other actions (pause, resume, cancel, etc.)

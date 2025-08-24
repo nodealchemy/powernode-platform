@@ -108,14 +108,12 @@ class NotificationMailer < ApplicationMailer
   def fetch_user(user_id)
     api_client.get_user(user_id)
   rescue StandardError => e
-    puts "Failed to fetch user #{user_id}: #{e.message}"
     nil
   end
   
   def fetch_account(account_id)
     api_client.get_account(account_id)
   rescue StandardError => e
-    puts "Failed to fetch account #{account_id}: #{e.message}"
     nil
   end
   

@@ -48,7 +48,6 @@ export const BillingPage: React.FC = () => {
     try {
       setLoading(true);
       // In a real implementation, this would call the billing API
-      console.log('Creating invoice:', invoiceData);
       
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 1000));

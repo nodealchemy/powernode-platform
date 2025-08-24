@@ -45,12 +45,10 @@ export const NavigationItem: React.FC<NavigationItemProps> = ({
   // Handle special actions and provide fallback navigation
   const handleClick = (e: React.MouseEvent) => {
     // Debug logging for navigation issues
-    console.log('Navigation item clicked:', item.name, 'href:', item.href);
     
     if (item.id === 'logout') {
       e.preventDefault();
       // Handle logout logic here
-      console.log('Logout clicked');
       return;
     }
 
@@ -60,7 +58,6 @@ export const NavigationItem: React.FC<NavigationItemProps> = ({
       e.preventDefault();
       
       // Use programmatic navigation as a more reliable method
-      console.log('Using programmatic navigation to:', item.href);
       navigate(item.href);
     }
   };

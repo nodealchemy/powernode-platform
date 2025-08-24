@@ -23,7 +23,6 @@ export const SettingsPage: React.FC = () => {
   // Get active tab from URL path
   const getActiveTabFromPath = useCallback(() => {
     const path = location.pathname;
-    console.log('🔍 getActiveTabFromPath - current path:', path);
     
     // Check for exact matches first to avoid conflicts
     if (path === '/app/profile') return 'profile';
@@ -133,7 +132,6 @@ export const SettingsPage: React.FC = () => {
     onPreferencesUpdate: handlePreferencesUpdate,
     onNotificationsUpdate: handleNotificationsUpdate,
     onProfileUpdate: (data) => {
-      console.log('Profile updated:', data);
       // Handle profile updates if needed
     },
     onError: (error) => {
@@ -382,9 +380,7 @@ export const SettingsPage: React.FC = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     const newActiveTab = getActiveTabFromPath();
-    console.log('🔄 useEffect - pathname changed:', location.pathname, 'newTab:', newActiveTab, 'currentTab:', activeTab);
     if (newActiveTab !== activeTab) {
-      console.log('📍 Setting active tab to:', newActiveTab);
       setActiveTab(newActiveTab);
     }
   }, [location.pathname]); // Remove getActiveTabFromPath and activeTab dependencies

@@ -33,12 +33,10 @@ export const AppDetailPage: React.FC = () => {
 
   const handlePublish = async () => {
     // TODO: Implement publish functionality
-    console.log('Publishing app:', appId);
   };
 
   const handleUnpublish = async () => {
     // TODO: Implement unpublish functionality
-    console.log('Unpublishing app:', appId);
   };
 
   const getBreadcrumbs = () => [
@@ -50,7 +48,6 @@ export const AppDetailPage: React.FC = () => {
 
 
   const handleWebhookAction = (action: string, webhookId: string) => {
-    console.log(`Webhook action: ${action} for webhook: ${webhookId}`);
     // Refresh webhooks when needed
     if (['create', 'update', 'delete', 'toggle-status'].includes(action)) {
       refreshWebhooks();

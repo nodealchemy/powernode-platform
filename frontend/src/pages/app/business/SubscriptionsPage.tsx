@@ -152,20 +152,16 @@ export const SubscriptionsPage: React.FC = () => {
   const { checkSubscriptionStatus, getDaysUntilExpiry } = useSubscriptionLifecycle();
   useSubscriptionWebSocket({
     onSubscriptionUpdate: (data) => {
-      console.log('Subscription updated:', data);
       // Refresh subscriptions when updates are received
       dispatch(fetchSubscriptions());
     },
     onSubscriptionCancelled: (data) => {
-      console.log('Subscription cancelled:', data);
       dispatch(fetchSubscriptions());
     },
     onPaymentProcessed: (data) => {
-      console.log('Payment processed:', data);
       dispatch(fetchSubscriptions());
     },
     onTrialEnding: (data) => {
-      console.log('Trial ending:', data);
       // Could show a notification here
     },
     onError: (error) => {

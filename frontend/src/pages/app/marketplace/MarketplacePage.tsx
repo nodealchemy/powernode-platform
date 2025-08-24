@@ -92,7 +92,6 @@ export const MarketplacePage: React.FC = () => {
         {} // Empty configuration for now
       );
       
-      console.log('Subscription created successfully:', subscription);
       
       // Refresh subscriptions list if on that tab
       if (subscriptionsRefreshRef.current) {
@@ -183,17 +182,13 @@ export const MarketplacePage: React.FC = () => {
   }, [activeTab, refresh, refreshApps, subscriptionsRefreshRef]);
 
   const handleSubscriptionAction = (action: string, subscriptionId: string) => {
-    console.log(`Marketplace subscription action: ${action} for ${subscriptionId}`);
     
     switch (action) {
       case 'view-usage':
-        console.log('View usage for subscription:', subscriptionId);
         break;
       case 'view-analytics':
-        console.log('View analytics for subscription:', subscriptionId);
         break;
       case 'configure':
-        console.log('Configure subscription:', subscriptionId);
         break;
       default:
         break;

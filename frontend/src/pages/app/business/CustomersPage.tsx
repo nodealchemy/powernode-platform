@@ -16,7 +16,6 @@ export const CustomersPage: React.FC = () => {
     error
   } = useCustomerWebSocket({
     onCustomerUpdate: (data) => {
-      console.log('Customer updated:', data);
       // Handle customer updates
       if (data.customer) {
         setCustomers(prev => prev.map(c => 
@@ -28,7 +27,6 @@ export const CustomersPage: React.FC = () => {
       }
     },
     onSearchResults: (data) => {
-      console.log('Search results:', data);
       if (data.results) {
         setSearchResults(data.results);
         setShowSearchResults(true);

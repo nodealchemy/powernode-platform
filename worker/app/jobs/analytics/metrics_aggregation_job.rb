@@ -7,7 +7,6 @@ class Analytics::MetricsAggregationJob < BaseJob
     cron_expression = "*/5 * * * *"
     
     # This would be handled by a cron scheduler like sidekiq-scheduler
-    puts "Scheduling recurring metrics aggregation job with cron: #{cron_expression}"
   end
 
   def execute(time_period: 'current', account_ids: nil)

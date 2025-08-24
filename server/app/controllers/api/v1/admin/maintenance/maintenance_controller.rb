@@ -535,7 +535,6 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
           body { font-family: Arial, sans-serif; margin: 0; padding: 40px; background: #f5f5f5; color: #333; }
           .container { max-width: 600px; margin: 0 auto; background: white; padding: 40px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; }
           h1 { color: #e74c3c; margin-bottom: 20px; }
-          p { line-height: 1.6; margin-bottom: 20px; }
           .icon { font-size: 48px; margin-bottom: 20px; }
         </style>
       </head>

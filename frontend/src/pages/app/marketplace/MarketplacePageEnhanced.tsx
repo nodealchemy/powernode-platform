@@ -134,13 +134,11 @@ export const MarketplacePageEnhanced: React.FC = () => {
 
   // Enhanced handlers
   const handleSearch = (query: string) => {
-    console.log('Searching for:', query);
     // In real implementation, trigger search API call
   };
 
   const handleFiltersChange = (filters: SearchFilters) => {
     setSearchFilters(filters);
-    console.log('Filters changed:', filters);
     // In real implementation, trigger filtered search API call
   };
 
@@ -162,7 +160,6 @@ export const MarketplacePageEnhanced: React.FC = () => {
         {}
       );
       
-      console.log('Subscription created successfully:', subscription);
       
       // Refresh subscriptions list if on that tab
       if (subscriptionsRefreshRef.current) {
@@ -279,7 +276,6 @@ export const MarketplacePageEnhanced: React.FC = () => {
   }, [activeTab, refresh, refreshApps, subscriptionsRefreshRef, showSidebar]);
 
   const handleSubscriptionAction = (action: string, subscriptionId: string) => {
-    console.log(`Marketplace subscription action: ${action} for ${subscriptionId}`);
   };
 
   // Commented out - functionality handled by pageActions

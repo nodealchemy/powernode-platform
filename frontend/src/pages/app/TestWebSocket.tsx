@@ -10,14 +10,6 @@ export const TestWebSocket: React.FC = () => {
   const { isConnected, error, lastConnected } = useWebSocket();
   
   useEffect(() => {
-    console.log('🧪 TestWebSocket Component Mounted');
-    console.log('Redux State:');
-    console.log('  - User:', user);
-    console.log('  - Access Token:', accessToken ? `${accessToken.substring(0, 30)}...` : 'Missing');
-    console.log('WebSocket State:');
-    console.log('  - Connected:', isConnected);
-    console.log('  - Error:', error);
-    console.log('  - Last Connected:', lastConnected);
   }, [user, accessToken, isConnected, error, lastConnected]);
   
   const getBreadcrumbs = () => [
