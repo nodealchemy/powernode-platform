@@ -44,24 +44,20 @@ RSpec.describe User, type: :model do
       end
     end
 
-    describe '.owners' do
-      it 'returns only owner users' do
-        expect(User.owners).to include(owner)
-        expect(User.owners).not_to include(admin, member)
+    describe '.with_role' do
+      it 'returns users with owner role' do
+        expect(User.with_role('owner')).to include(owner)
+        expect(User.with_role('owner')).not_to include(admin, member)
       end
-    end
 
-    describe '.admins' do
-      it 'returns only admin users' do
-        expect(User.admins).to include(admin)
-        expect(User.admins).not_to include(owner, member)
+      it 'returns users with admin role' do
+        expect(User.with_role('admin')).to include(admin)
+        expect(User.with_role('admin')).not_to include(owner, member)
       end
-    end
 
-    describe '.members' do
-      it 'returns only member users' do
-        expect(User.members).to include(member)
-        expect(User.members).not_to include(owner, admin)
+      it 'returns users with member role' do
+        expect(User.with_role('member')).to include(member)
+        expect(User.with_role('member')).not_to include(owner, admin)
       end
     end
 
@@ -95,14 +91,18 @@ RSpec.describe User, type: :model do
       it 'assigns owner role to first user in account' do
         user = build(:user, account: account)
         user.save
-        expect(user.role).to eq('owner')
+        expect(user.has_role?('owner')).to be true
       end
 
-      it 'does not assign owner role for subsequent users' do
-        create(:user, :owner, account: account)
-        user = build(:user, account: account)
-        user.save
-        expect(user.role).not_to eq('owner')
+      it 'assigns member role to subsequent users' do
+        # Create first user (will be owner)
+        first_user = create(:user, account: account)
+        
+        # Create second user (should be member)
+        second_user = build(:user, account: account)
+        second_user.save
+        expect(second_user.has_role?('member')).to be true
+        expect(second_user.has_role?('owner')).to be false
       end
     end
   end
@@ -157,15 +157,15 @@ RSpec.describe User, type: :model do
       end
     end
 
-    describe '#email_verified?' do
+    describe '#verified?' do
       it 'returns true when email_verified_at is present' do
         user.email_verified_at = 1.day.ago
-        expect(user.email_verified?).to be true
+        expect(user.verified?).to be true
       end
 
       it 'returns false when email_verified_at is nil' do
         user.email_verified_at = nil
-        expect(user.email_verified?).to be false
+        expect(user.verified?).to be false
       end
     end
 
@@ -184,31 +184,27 @@ RSpec.describe User, type: :model do
 
     describe '#has_role?' do
       it 'returns true when user has the role' do
-        user.role = 'custom role'
-        expect(user.has_role?('Custom Role')).to be true
+        user.add_role('manager')
+        expect(user.has_role?('manager')).to be true
       end
 
       it 'returns false when user does not have the role' do
-        user.role = 'custom role'
-        expect(user.has_role?('Other Role')).to be false
+        user.add_role('member')
+        expect(user.has_role?('manager')).to be false
       end
     end
 
     describe '#has_permission?' do
-      let(:permission) { create(:permission, resource: 'accounts', action: 'read') }
-      let(:role_record) { create(:role, name: 'Admin') }  # Use valid role name
-
       before do
-        role_record.permissions << permission
-        user.update!(role: 'admin')  # Use valid role directly
+        user.add_role('manager')  # Manager role has team permissions
       end
 
       it 'returns true when user has permission through role' do
-        expect(user.has_permission?('accounts.read')).to be true
+        expect(user.has_permission?('team.invite')).to be true
       end
 
       it 'returns false when user does not have permission' do
-        expect(user.has_permission?('accounts.delete')).to be false
+        expect(user.has_permission?('system.admin')).to be false
       end
     end
 
@@ -219,16 +215,15 @@ RSpec.describe User, type: :model do
 
       describe 'analytics permissions' do
         it 'allows admins to view analytics' do
-          expect(user.can?(:view_analytics)).to be true
+          expect(user.can?('analytics.view')).to be true
         end
 
         it 'allows admins to export analytics' do
-          expect(user.can?(:export_analytics)).to be true
+          expect(user.can?('analytics.export')).to be true
         end
 
-        it 'only allows owners to view global analytics' do
-          expect(user.can?(:view_global_analytics)).to be false
-          expect(owner.can?(:view_global_analytics)).to be true
+        it 'allows owners to view analytics' do
+          expect(owner.can?('analytics.view')).to be true
         end
       end
     end

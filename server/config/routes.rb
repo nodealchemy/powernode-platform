@@ -58,8 +58,21 @@ Rails.application.routes.draw do
           end
         end
       end
-      resources :users
-      resources :roles
+      resources :users do
+        collection do
+          get :stats
+        end
+      end
+      resources :roles do
+        collection do
+          get :assignable
+        end
+        member do
+          get :users
+          post 'assign_to_user/:user_id', action: :assign_to_user
+          delete 'remove_from_user/:user_id', action: :remove_from_user
+        end
+      end
       resources :permissions, only: [ :index, :show ]
 
       # Plans management (admin only for create/update/delete)
@@ -236,6 +249,146 @@ Rails.application.routes.draw do
         end
       end
 
+      # Marketplace endpoints
+      resources :apps do
+        collection do
+          get :analytics, to: 'apps#analytics'
+        end
+        member do
+          post :publish
+          post :unpublish
+          post :submit_for_review
+          get :analytics
+        end
+        
+        # Nested resources for app management
+        resources :app_plans, except: [:index] do
+          collection do
+            get :index, to: 'app_plans#index'
+            post :reorder
+            get :compare
+            get :analytics
+          end
+          member do
+            post :activate
+            post :deactivate
+          end
+        end
+        
+        resources :app_features, except: [:index] do
+          collection do
+            get :index, to: 'app_features#index'
+            get :types
+            get :dependencies
+            post :validate_dependencies
+            get :usage_report
+          end
+          member do
+            post :enable_by_default
+            post :disable_by_default
+            post :duplicate
+          end
+        end
+
+        resources :app_endpoints, except: [:index] do
+          collection do
+            get :index, to: 'app_endpoints#index'
+          end
+          member do
+            post :activate
+            post :deactivate
+            post :test
+            get :analytics
+          end
+        end
+
+        resources :app_webhooks, except: [:index] do
+          collection do
+            get :index, to: 'app_webhooks#index'
+          end
+          member do
+            post :activate
+            post :deactivate
+            post :test
+            post :regenerate_secret
+            get :deliveries
+            get :analytics
+          end
+        end
+        
+        resource :marketplace_listing, except: [] do
+          member do
+            post :submit
+            post :approve
+            post :reject
+            post :feature
+            post :unfeature
+            get :analytics
+            post :screenshots
+            delete :screenshots
+            patch :screenshots
+          end
+        end
+      end
+      
+      # Public marketplace endpoints (no authentication required)
+      resources :marketplace_listings, only: [:index, :show] do
+        collection do
+          get :categories
+        end
+      end
+      
+      # App Subscriptions (user subscriptions to apps)
+      resources :app_subscriptions, only: [:index, :show, :create, :update, :destroy] do
+        member do
+          post :pause
+          post :resume
+          post :cancel
+          post :upgrade_plan
+          post :downgrade_plan
+          get :usage
+          get :analytics
+        end
+        
+        collection do
+          get :active
+          get :cancelled
+          get :expired
+        end
+      end
+      
+      # App Reviews and Ratings
+      resources :app_reviews, only: [:index, :show, :create, :update, :destroy] do
+        member do
+          post :mark_helpful
+          post :mark_unhelpful
+          post :flag_for_review
+          post :approve_after_review
+          post :remove_after_review
+        end
+        
+        collection do
+          get :by_app
+          get :by_rating
+          get :sentiment_analysis
+          get :moderation_queue
+        end
+      end
+      
+      # Marketplace Categories (admin management)
+      resources :marketplace_categories do
+        member do
+          post :activate
+          post :deactivate
+          post :reorder
+        end
+        
+        collection do
+          get :analytics
+          post :bulk_reorder
+        end
+      end
+
       # System Management endpoints (admin only)
       resources :audit_logs, only: [:index, :show, :create] do
         collection do
@@ -292,6 +445,28 @@ Rails.application.routes.draw do
           end
         end
         
+        # Maintenance endpoints
+        namespace :maintenance do
+          get :status, to: 'maintenance#status'
+          get :health, to: 'maintenance#health'
+          get :metrics, to: 'maintenance#metrics'
+          
+          # Backup management
+          get :backups, to: 'maintenance#backups'
+          post :backups, to: 'maintenance#create_backup'
+          delete 'backups/:id', to: 'maintenance#delete_backup'
+          post 'backups/:id/restore', to: 'maintenance#restore_backup'
+          
+          # Cleanup operations
+          get 'cleanup/stats', to: 'maintenance#cleanup_stats'
+          post 'cleanup/run', to: 'maintenance#run_cleanup'
+          
+          # Scheduled maintenance
+          get :schedules, to: 'maintenance#schedules'
+          post :schedules, to: 'maintenance#create_schedule'
+          delete 'schedules/:id', to: 'maintenance#delete_schedule'
+        end
+        
         resources :pages do
           member do
             post :publish
@@ -308,6 +483,44 @@ Rails.application.routes.draw do
             post :revoke
           end
           
+        end
+
+        # Maintenance endpoints
+        namespace :maintenance do
+          # Maintenance mode
+          get :mode, to: 'maintenance#show_mode'
+          post :mode, to: 'maintenance#update_mode'
+          
+          # System health
+          get :health, to: 'maintenance#system_health'
+          get 'health/detailed', to: 'maintenance#detailed_health'
+          post 'health/check', to: 'maintenance#trigger_health_check'
+          
+          # Database backups
+          get :backups, to: 'maintenance#list_backups'
+          post :backups, to: 'maintenance#create_backup'
+          delete 'backups/:id', to: 'maintenance#delete_backup'
+          post 'backups/:id/restore', to: 'maintenance#restore_backup'
+          
+          # Data cleanup
+          get :cleanup, to: 'maintenance#cleanup_stats'
+          post 'cleanup/audit_logs', to: 'maintenance#cleanup_audit_logs'
+          post 'cleanup/sessions', to: 'maintenance#cleanup_sessions'
+          post 'cleanup/temp_files', to: 'maintenance#cleanup_temp_files'
+          post 'cleanup/cache', to: 'maintenance#clear_cache'
+          
+          # System operations
+          get :operations, to: 'maintenance#system_operations'
+          post 'operations/restart', to: 'maintenance#restart_services'
+          post 'operations/reindex', to: 'maintenance#reindex_database'
+          post 'operations/optimize', to: 'maintenance#optimize_database'
+          
+          # Scheduled tasks
+          get :tasks, to: 'maintenance#list_tasks'
+          post :tasks, to: 'maintenance#create_task'
+          patch 'tasks/:id', to: 'maintenance#update_task'
+          delete 'tasks/:id', to: 'maintenance#delete_task'
+          post 'tasks/:id/execute', to: 'maintenance#execute_task'
         end
       end
     end

@@ -1,7 +1,11 @@
 # frozen_string_literal: true
 
 class Api::V1::WebhooksController < ApplicationController
-  before_action :require_admin_access
+  before_action -> { require_permission('webhook.view') }, only: [:index, :show]
+  before_action -> { require_permission('webhook.create') }, only: [:create]
+  before_action -> { require_permission('webhook.edit') }, only: [:update, :toggle_status]
+  before_action -> { require_permission('webhook.delete') }, only: [:destroy]
+  before_action -> { require_permission('webhook.view') }, only: [:test, :health_test]
   before_action :find_webhook, only: [:show, :update, :destroy, :test, :toggle_status, :health_test]
 
   # GET /api/v1/webhooks
@@ -13,8 +17,7 @@ class Api::V1::WebhooksController < ApplicationController
     total_count = WebhookEndpoint.count
     total_pages = (total_count.to_f / per_page).ceil
 
-    webhooks = WebhookEndpoint.includes(:webhook_events)
-                              .order(:created_at)
+    webhooks = WebhookEndpoint.order(:created_at)
                               .limit(per_page)
                               .offset(offset)
 
@@ -284,7 +287,7 @@ class Api::V1::WebhooksController < ApplicationController
   private
 
   def require_admin_access
-    unless current_user.owner? || current_user.admin?
+    unless current_user.has_permission?('account.manage') || current_user.has_permission?('admin.access')
       render json: {
         success: false,
         error: "Access denied: Admin privileges required"

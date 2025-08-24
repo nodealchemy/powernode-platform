@@ -12,7 +12,7 @@ class Invitation < ApplicationRecord
   validates :expires_at, presence: true
   validates :first_name, presence: true
   validates :last_name, presence: true
-  validates :role, presence: true, inclusion: { in: %w[admin owner member], message: "must be admin, owner, or member" }
+  validate :validate_role_names
   validate :inviter_can_send_invitations
 
   # Scopes
@@ -68,14 +68,44 @@ class Invitation < ApplicationRecord
 
   def set_defaults
     self.status = 'pending' if status.blank?
-    self.role = 'member' if role.blank? # Default to member role if not specified
+    self.role_names ||= ['member'] # Default to member role if not specified
+  end
+
+  def validate_role_names
+    return if role_names.blank?
+    
+    unless role_names.is_a?(Array)
+      errors.add(:role_names, "must be an array")
+      return
+    end
+    
+    invalid_roles = role_names - Role.pluck(:name)
+    if invalid_roles.any?
+      errors.add(:role_names, "contains invalid roles: #{invalid_roles.join(', ')}")
+    end
+  end
+
+  # Helper methods for role management
+  def add_role(role_name)
+    self.role_names ||= []
+    self.role_names << role_name unless self.role_names.include?(role_name)
+    self.role_names.uniq!
+  end
+
+  def remove_role(role_name)
+    self.role_names ||= []
+    self.role_names.delete(role_name)
+  end
+
+  def has_role?(role_name)
+    role_names&.include?(role_name) || false
   end
 
   def inviter_can_send_invitations
     return if inviter.blank?
     
-    unless inviter.admin_or_owner?
-      errors.add(:inviter, "must be an admin or owner to send invitations")
+    unless inviter.has_permission?('team.invite') || inviter.has_permission?('users.create')
+      errors.add(:inviter, "does not have permission to send invitations")
     end
   end
 end

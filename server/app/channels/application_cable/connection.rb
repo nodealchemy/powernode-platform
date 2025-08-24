@@ -20,6 +20,7 @@ module ApplicationCable
           user = User.find(decoded_token["user_id"])
 
           if user&.active?
+            Rails.logger.info "ActionCable: Authentication successful for #{user.email}"
             user
           else
             reject_unauthorized_connection

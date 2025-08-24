@@ -7,23 +7,20 @@ class Worker < ApplicationRecord
   # Validations
   validates :name, presence: true, length: { minimum: 3, maximum: 50 }
   validates :description, length: { maximum: 255 }
-  validates :token, presence: true, uniqueness: true
-  validates :permissions, presence: true
+  validates :token, presence: true, uniqueness: true, on: :update
+  validates :token, uniqueness: true, allow_blank: true, on: :create
+  # Permissions now handled through roles
   validates :status, presence: true
-  validates :role, presence: true, inclusion: { in: %w[system account] }
+  # Role field will be deprecated - roles now handled through worker_roles association
   validate :only_one_system_worker_globally
   
   # Associations
-  belongs_to :account
+  belongs_to :account, optional: true  # System workers don't belong to an account
+  has_many :worker_roles, dependent: :destroy
+  has_many :roles, through: :worker_roles
   has_many :worker_activities, dependent: :destroy
   
-  # Enums
-  enum :permissions, {
-    readonly: 'readonly',           # Can only read data via API
-    standard: 'standard',           # Can process jobs and read/write data
-    admin: 'admin',                 # Can manage jobs and access admin functions
-    super_admin: 'super_admin'      # Full access including service management
-  }, prefix: :permission
+  # Permissions are now inherited through roles, not directly assigned
   
   # State machine for status
   aasm column: 'status' do
@@ -95,22 +92,57 @@ class Worker < ApplicationRecord
     find_by(role: 'system')
   end
   
-  # Instance methods
+  # Permission checking methods (similar to User model)
+  def has_role?(role_name)
+    roles.joins(:worker_roles).where('worker_roles.expires_at IS NULL OR worker_roles.expires_at > ?', Time.current)
+         .exists?(name: role_name)
+  end
+  
+  def has_permission?(permission_name)
+    # Check permissions through all active roles
+    worker_roles.active.includes(role: :permissions).any? do |worker_role|
+      worker_role.role.has_permission?(permission_name)
+    end
+  end
+  
+  def assign_role(role_or_name, assigned_by: nil, expires_at: nil)
+    role = role_or_name.is_a?(Role) ? role_or_name : Role.find_by!(name: role_or_name)
+    
+    worker_roles.create!(
+      role: role,
+      assigned_by: assigned_by,
+      expires_at: expires_at
+    )
+  end
+  
+  def remove_role(role_or_name)
+    role = role_or_name.is_a?(Role) ? role_or_name : Role.find_by!(name: role_or_name)
+    worker_roles.where(role: role).destroy_all
+  end
+  
+  def all_permissions
+    # Aggregate permissions from all active roles
+    Permission.joins(role_permissions: { role: :worker_roles })
+             .where(worker_roles: { worker_id: id })
+             .where('worker_roles.expires_at IS NULL OR worker_roles.expires_at > ?', Time.current)
+             .distinct
+  end
+  
+  def active_roles
+    worker_roles.active.includes(:role)
+  end
+  
+  def role_names
+    roles.joins(:worker_roles).where('worker_roles.expires_at IS NULL OR worker_roles.expires_at > ?', Time.current)
+         .pluck(:name)
+  end
+  
   def can_access?(resource_type, action = :read)
     return false unless active?
     
-    case permissions.to_sym
-    when :readonly
-      action == :read
-    when :standard
-      [:read, :write, :process_jobs].include?(action.to_sym)
-    when :admin
-      [:read, :write, :process_jobs, :manage_jobs, :admin_functions].include?(action.to_sym)
-    when :super_admin
-      true # Full access
-    else
-      false
-    end
+    # Check through permission system
+    permission_name = "#{resource_type}.#{action}"
+    has_permission?(permission_name)
   end
   
   def regenerate_token!
@@ -150,11 +182,11 @@ class Worker < ApplicationRecord
   end
   
   def system?
-    role == 'system'
+    has_role?('system_worker') || has_role?('super_admin')
   end
   
   def account?
-    role == 'account'
+    !system?
   end
   
   private
@@ -172,6 +204,9 @@ class Worker < ApplicationRecord
   end
   
   def log_creation
+    # Only log if account exists (system workers might not have an account)
+    return unless account.present?
+    
     AuditLog.create!(
       user: nil, # System created
       account: account,
@@ -181,12 +216,10 @@ class Worker < ApplicationRecord
       source: 'system',
       new_values: {
         name: name,
-        permissions: permissions,
-        role: role
+        status: status
       },
       metadata: {
-        worker_type: 'authentication_worker',
-        role: role
+        worker_type: 'authentication_worker'
       }
     )
   end
@@ -209,6 +242,8 @@ class Worker < ApplicationRecord
   end
   
   def log_token_regeneration
+    return unless account.present?
+    
     AuditLog.create!(
       user: nil,
       account: account,
@@ -226,11 +261,16 @@ class Worker < ApplicationRecord
   end
   
   def only_one_system_worker_globally
-    return unless role == 'system'
+    # Check if this worker has or will have system_worker role
+    return unless name == 'Powernode System Worker'
     
-    existing_system = Worker.where(role: 'system').where.not(id: id).first
+    # Check through the roles association
+    system_worker_role = Role.find_by(name: 'system_worker')
+    return unless system_worker_role
+    
+    existing_system = Worker.joins(:roles).where(roles: { id: system_worker_role.id }).where.not(id: id).first
     if existing_system
-      errors.add(:role, "Only one system worker is allowed globally")
+      errors.add(:base, "Only one system worker is allowed globally")
     end
   end
 end

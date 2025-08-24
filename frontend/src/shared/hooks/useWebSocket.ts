@@ -1,0 +1,433 @@
+import { useEffect, useRef, useCallback, useState } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
+import { RootState, AppDispatch } from '@/shared/services';
+import { refreshAccessToken } from '../services/slices/authSlice';
+
+// Simplified WebSocket connection state
+interface WebSocketState {
+  isConnected: boolean;
+  error: string | null;
+  lastConnected: Date | null;
+}
+
+// Simple channel subscription
+interface ChannelSubscription {
+  channel: string;
+  onMessage?: (data: any) => void;
+  onError?: (error: string) => void;
+}
+
+interface UseWebSocketReturn {
+  isConnected: boolean;
+  error: string | null;
+  lastConnected: Date | null;
+  subscribe: (subscription: ChannelSubscription) => () => void;
+  sendMessage: (channel: string, action: string, data?: any) => Promise<boolean>;
+}
+
+export const useWebSocket = (): UseWebSocketReturn => {
+  const { user, accessToken } = useSelector((state: RootState) => state.auth);
+  const dispatch = useDispatch<AppDispatch>();
+  
+  const wsRef = useRef<WebSocket | null>(null);
+  const subscriptionsRef = useRef<Map<string, ChannelSubscription>>(new Map());
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const connectingRef = useRef<boolean>(false);
+  const mountedRef = useRef<boolean>(true);
+  const connectionDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  
+  const [state, setState] = useState<WebSocketState>({
+    isConnected: false,
+    error: null,
+    lastConnected: null,
+  });
+
+  // Get WebSocket URL with authentication
+  const getWebSocketUrl = useCallback(() => {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    
+    // Use environment-aware host resolution
+    let host = window.location.hostname;
+    let port = ':3000';
+    
+    // Handle different development environments
+    if (host === 'localhost' || host === '127.0.0.1') {
+      // Local development
+      port = ':3000';
+    } else if (host.includes('ipnode.net')) {
+      // Development server environment - use the backend port
+      port = ':3000';
+    } else {
+      // Production or other environments
+      port = window.location.port ? `:${window.location.port}` : '';
+    }
+    
+    const baseUrl = `${protocol}//${host}${port}/cable`;
+    
+    return accessToken ? `${baseUrl}?token=${encodeURIComponent(accessToken)}` : baseUrl;
+  }, [accessToken]);
+
+  // Send message safely
+  const sendMessage = useCallback(async (channel: string, action: string, data?: any): Promise<boolean> => {
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+      console.warn('WebSocket not connected');
+      return false;
+    }
+
+    const message = {
+      command: 'message',
+      identifier: JSON.stringify({ 
+        channel, 
+        account_id: user?.account?.id 
+      }),
+      data: JSON.stringify({ action, ...data })
+    };
+
+    try {
+      wsRef.current.send(JSON.stringify(message));
+      return true;
+    } catch (error) {
+      console.error('Failed to send WebSocket message:', error);
+      return false;
+    }
+  }, [user?.account?.id]);
+
+  // Subscribe to a channel
+  const subscribe = useCallback((subscription: ChannelSubscription) => {
+    const { channel, onError } = subscription;
+    
+    // Store subscription
+    subscriptionsRef.current.set(channel, subscription);
+
+    // Subscribe if connected
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      const subscribeMessage = {
+        command: 'subscribe',
+        identifier: JSON.stringify({ 
+          channel, 
+          account_id: user?.account?.id 
+        })
+      };
+      
+      try {
+        wsRef.current.send(JSON.stringify(subscribeMessage));
+        console.log(`📡 Subscribed to ${channel}`);
+      } catch (error) {
+        console.error(`Failed to subscribe to ${channel}:`, error);
+        onError?.('Failed to subscribe to channel');
+      }
+    }
+
+    // Return unsubscribe function
+    return () => {
+      subscriptionsRef.current.delete(channel);
+      
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        const unsubscribeMessage = {
+          command: 'unsubscribe',
+          identifier: JSON.stringify({ 
+            channel, 
+            account_id: user?.account?.id 
+          })
+        };
+        
+        try {
+          wsRef.current.send(JSON.stringify(unsubscribeMessage));
+          console.log(`📡 Unsubscribed from ${channel}`);
+        } catch (error) {
+          console.error(`Failed to unsubscribe from ${channel}:`, error);
+        }
+      }
+    };
+  }, [user?.account?.id]);
+
+  // Connect to WebSocket with debouncing
+  const connect = useCallback(() => {
+    if (!user?.account?.id || !accessToken || !mountedRef.current) {
+      // This is expected when user is not logged in or during component unmount
+      if (!mountedRef.current) {
+        // Component unmounted, no need to log
+        return;
+      }
+      if (!user?.account?.id && !accessToken) {
+        // User not logged in - this is normal, no need to log
+        return;
+      }
+      // Only log if we have partial auth state (which might indicate an issue)
+      if (user && !user.account?.id) {
+        console.warn('WebSocket: User is logged in but missing account information');
+      } else if (!accessToken && user) {
+        console.warn('WebSocket: User is present but access token is missing');
+      }
+      return;
+    }
+
+    // Prevent overlapping connection attempts
+    if (connectingRef.current || 
+        wsRef.current?.readyState === WebSocket.CONNECTING || 
+        wsRef.current?.readyState === WebSocket.OPEN) {
+      return;
+    }
+
+    // Clear any existing debounce timeout
+    if (connectionDebounceRef.current) {
+      clearTimeout(connectionDebounceRef.current);
+      connectionDebounceRef.current = null;
+    }
+
+    // Debounce connection attempts to handle StrictMode
+    connectionDebounceRef.current = setTimeout(() => {
+      console.log('⏱️ Debounce timer fired, checking conditions...');
+      if (!mountedRef.current || !user?.account?.id || !accessToken) {
+        console.log('❌ Connection aborted in debounce:');
+        console.log('  - Mounted:', mountedRef.current);
+        console.log('  - User account:', user?.account?.id || 'Missing');
+        console.log('  - Token:', accessToken ? 'Present' : 'Missing');
+        return;
+      }
+
+      console.log('✅ All conditions met in debounce, creating WebSocket...');
+      connectingRef.current = true;
+
+      // Clear any existing reconnect timeout
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
+      }
+
+      // Close any existing connection before creating new one
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
+
+      try {
+        const wsUrl = getWebSocketUrl();
+        console.log('🔌 Connecting to WebSocket:', wsUrl.replace(/token=[^&]+/, 'token=***'));
+        console.log('User account ID:', user?.account?.id);
+        console.log('Access token present:', !!accessToken);
+        console.log('WebSocket URL host:', new URL(wsUrl.replace(/\?.*/, '')).host);
+        
+        wsRef.current = new WebSocket(wsUrl);
+
+      wsRef.current.onopen = () => {
+        if (!mountedRef.current) return;
+        
+        connectingRef.current = false;
+        console.log('✅ WebSocket connected');
+        setState({
+          isConnected: true,
+          error: null,
+          lastConnected: new Date()
+        });
+
+        // Re-subscribe to all channels
+        subscriptionsRef.current.forEach((subscription, channel) => {
+          const subscribeMessage = {
+            command: 'subscribe',
+            identifier: JSON.stringify({ 
+              channel, 
+              account_id: user.account?.id 
+            })
+          };
+          
+          try {
+            wsRef.current?.send(JSON.stringify(subscribeMessage));
+            console.log(`🔄 Re-subscribed to ${channel}`);
+          } catch (error) {
+            console.error(`Failed to re-subscribe to ${channel}:`, error);
+          }
+        });
+      };
+
+      wsRef.current.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          
+          // Handle system messages
+          if (data.type === 'welcome' || data.type === 'ping') {
+            return;
+          }
+
+          // Handle disconnect (authentication failure)
+          if (data.type === 'disconnect' && data.reason === 'unauthorized') {
+            console.log('🔄 WebSocket unauthorized - attempting token refresh...');
+            dispatch(refreshAccessToken())
+              .unwrap()
+              .then(() => {
+                console.log('✅ Token refreshed, reconnecting...');
+                setTimeout(connect, 1000);
+              })
+              .catch((error) => {
+                console.error('❌ Token refresh failed:', error);
+                console.log('🔑 Please logout and login again to get a fresh token');
+                setState(prev => ({
+                  ...prev,
+                  error: 'Authentication failed - please login again'
+                }));
+              });
+            return;
+          }
+
+          // Handle confirmation and rejection
+          if (data.type === 'confirm_subscription') {
+            console.log('✅ Subscription confirmed:', data.identifier);
+            return;
+          }
+
+          if (data.type === 'reject_subscription') {
+            console.error('❌ Subscription rejected:', data.identifier);
+            return;
+          }
+
+          // Route messages to channel handlers
+          if (data.identifier) {
+            try {
+              const identifier = JSON.parse(data.identifier);
+              const subscription = subscriptionsRef.current.get(identifier.channel);
+              
+              if (subscription?.onMessage && data.message) {
+                subscription.onMessage(data.message);
+              }
+            } catch (error) {
+              console.error('Error parsing message identifier:', error);
+            }
+          }
+
+        } catch (error) {
+          console.error('Error parsing WebSocket message:', error);
+        }
+      };
+
+      wsRef.current.onclose = (event) => {
+        connectingRef.current = false;
+        if (!mountedRef.current) return;
+        
+        console.log('❌ WebSocket disconnected:', event.code, event.reason || 'No reason');
+        
+        // Check for specific error codes
+        let errorMessage: string | null = null;
+        if (event.code === 1006) {
+          errorMessage = 'Connection lost unexpectedly - check network';
+        } else if (event.code === 1008) {
+          errorMessage = 'Connection closed due to policy violation';
+        } else if (event.code !== 1000) {
+          errorMessage = `Connection closed: ${event.reason || 'Connection lost'}`;
+        }
+        
+        setState(prev => ({
+          ...prev,
+          isConnected: false,
+          error: errorMessage
+        }));
+
+        // Auto-reconnect after 3 seconds if not a normal closure and user is still authenticated
+        if (event.code !== 1000 && accessToken && user?.account?.id && mountedRef.current) {
+          console.log('🔄 Scheduling reconnect in 3 seconds...');
+          reconnectTimeoutRef.current = setTimeout(() => {
+            if (mountedRef.current) {
+              connect();
+            }
+          }, 3000);
+        } else if (event.code !== 1000) {
+          console.log('⚠️ Not reconnecting - missing auth or account data');
+          console.log('  - Access Token:', accessToken ? 'Present' : 'Missing');
+          console.log('  - Account ID:', user?.account?.id || 'Missing');
+        }
+      };
+
+      wsRef.current.onerror = (error) => {
+        connectingRef.current = false;
+        if (!mountedRef.current) return;
+        
+        console.error('💥 WebSocket error:', error);
+        setState(prev => ({
+          ...prev,
+          isConnected: false,
+          error: 'WebSocket connection error'
+        }));
+        
+        // Close the connection to prevent "closed before connection established" errors
+        if (wsRef.current && wsRef.current.readyState !== WebSocket.CLOSED) {
+          wsRef.current.close();
+          wsRef.current = null;
+        }
+      };
+
+    } catch (error) {
+      connectingRef.current = false;
+      console.error('Failed to create WebSocket:', error);
+      setState(prev => ({
+        ...prev,
+        isConnected: false,
+        error: `Failed to create WebSocket: ${error}`
+      }));
+    }
+    }, 100); // 100ms debounce to handle StrictMode double invocation
+  }, [user, accessToken, getWebSocketUrl, dispatch]);
+
+  // Disconnect WebSocket
+  const disconnect = useCallback(() => {
+    connectingRef.current = false;
+    
+    // Clear all timeouts
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+    }
+    
+    if (connectionDebounceRef.current) {
+      clearTimeout(connectionDebounceRef.current);
+      connectionDebounceRef.current = null;
+    }
+
+    if (wsRef.current) {
+      wsRef.current.close(1000, 'User disconnect');
+      wsRef.current = null;
+    }
+
+    subscriptionsRef.current.clear();
+    setState({
+      isConnected: false,
+      error: null,
+      lastConnected: null
+    });
+  }, []);
+
+  // Set mounted state
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  // Auto-connect/disconnect based on auth state
+  useEffect(() => {
+    console.log('🔍 WebSocket useEffect triggered');
+    console.log('  - User:', user?.email);
+    console.log('  - Account ID:', user?.account?.id);
+    console.log('  - Access Token:', accessToken ? 'Present' : 'Missing');
+    console.log('  - Mounted:', mountedRef.current);
+    
+    if (user?.account?.id && accessToken) {
+      console.log('📡 Conditions met, calling connect()');
+      connect();
+    } else {
+      console.log('❌ Conditions not met, calling disconnect()');
+      disconnect();
+    }
+
+    return () => {
+      disconnect();
+    };
+  }, [user?.account?.id, accessToken, connect, disconnect]);
+
+  return {
+    isConnected: state.isConnected,
+    error: state.error,
+    lastConnected: state.lastConnected,
+    subscribe,
+    sendMessage
+  };
+};

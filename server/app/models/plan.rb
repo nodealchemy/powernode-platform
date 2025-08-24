@@ -15,8 +15,11 @@ class Plan < ApplicationRecord
   validate :validate_promotional_discount_dates
   validate :validate_volume_discount_tiers
 
-  # Note: features, limits, default_roles, volume_discount_tiers are now native JSON columns
+  # Note: features, limits, default_roles, required_roles, volume_discount_tiers are now native JSON columns
   # No explicit serialization needed in Rails 8
+  
+  # Serialize required_roles as JSON
+  serialize :required_roles, coder: JSON
 
   # Scopes
   scope :active, -> { where(status: "active") }
@@ -141,6 +144,44 @@ class Plan < ApplicationRecord
     has_annual_discount? ? annual_discount_percent : 0.0
   end
 
+  # Discount checking methods
+  def has_annual_discount?
+    annual_discount_percent.present? && annual_discount_percent > 0
+  end
+
+  def has_promotional_discount?
+    promotional_discount_percent.present? && promotional_discount_percent > 0
+  end
+
+  def has_volume_discount?
+    volume_discount_tiers.present? && volume_discount_tiers.any?
+  end
+  
+  # Get the required roles for this plan
+  def get_required_roles
+    required_roles || ['member']
+  end
+  
+  # Check if a role is required for this plan
+  def role_required?(role_name)
+    get_required_roles.include?(role_name)
+  end
+  
+  # Ensure user has required roles for this plan
+  def assign_required_roles_to_user(user)
+    return unless user
+    
+    get_required_roles.each do |role_name|
+      role = Role.find_by(name: role_name)
+      next unless role
+      
+      # Assign role if user doesn't have it
+      unless user.has_role?(role_name)
+        user.roles << role
+      end
+    end
+  end
+
   private
 
   def normalize_name
@@ -151,6 +192,7 @@ class Plan < ApplicationRecord
     self.features ||= {}
     self.limits ||= {}
     self.default_roles ||= []
+    self.required_roles ||= ['member']
     self.volume_discount_tiers ||= []
   end
 

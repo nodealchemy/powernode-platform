@@ -1,0 +1,270 @@
+import { User } from '../services/slices/authSlice';
+import { PERMISSIONS, Permission } from '../constants/permissions';
+
+/**
+ * Check if a user has specific permissions using the new permission-based system
+ * Supports wildcard permissions (e.g., 'users.*' matches 'users.create', 'users.read', etc.)
+ */
+export const hasPermissions = (user: User | null, requiredPermissions?: string[]): boolean => {
+  if (!user) return false;
+  if (!requiredPermissions || requiredPermissions.length === 0) return true;
+  
+  // Check if user has the required permissions
+  return requiredPermissions.some(required => {
+    // Direct permission check
+    if (user.permissions?.includes(required)) return true;
+    
+    // Check for wildcard permissions
+    const requiredParts = required.split('.');
+    if (requiredParts.length === 2) {
+      const wildcardPermission = `${requiredParts[0]}.*`;
+      if (user.permissions?.includes(wildcardPermission)) return true;
+      
+      // Check for all permissions wildcard
+      if (user.permissions?.includes('*')) return true;
+    }
+    
+    return false;
+  });
+};
+
+
+/**
+ * Comprehensive access check - user must satisfy permission requirements
+ * This is the primary access control function for the platform
+ */
+export const hasAccess = (
+  user: User | null, 
+  requiredPermissions?: string[]
+): boolean => {
+  if (!user) return false;
+  
+  // Check permission requirements
+  if (requiredPermissions && requiredPermissions.length > 0) {
+    return hasPermissions(user, requiredPermissions);
+  }
+  
+  // If no requirements specified, allow access
+  return true;
+};
+
+/**
+ * Get all permissions for a user
+ */
+export const getUserPermissions = (user: User | null): string[] => {
+  if (!user) return [];
+  return user.permissions || [];
+};
+
+/**
+ * Check if user can access admin features (system-wide)
+ */
+export const hasAdminAccess = (user: User | null): boolean => {
+  return hasPermissions(user, ['admin.access']);
+};
+
+/**
+ * Check if user can manage their account's team
+ */
+export const hasTeamManagementAccess = (user: User | null): boolean => {
+  return hasPermissions(user, ['users.manage']) || hasPermissions(user, ['users.create']);
+};
+
+/**
+ * Check if user has account management permissions
+ */
+export const isAccountManager = (user: User | null): boolean => {
+  if (!user) return false;
+  return hasPermissions(user, ['users.manage']) && hasPermissions(user, ['team.manage']);
+};
+
+/**
+ * Check if user can access billing features
+ */
+export const hasBillingAccess = (user: User | null): boolean => {
+  return hasPermissions(user, ['billing.read']);
+};
+
+/**
+ * Check if user can access analytics features
+ */
+export const hasAnalyticsAccess = (user: User | null): boolean => {
+  return hasPermissions(user, ['analytics.read']);
+};
+
+/**
+ * Check if user can access advanced analytics features
+ */
+export const hasAdvancedAnalyticsAccess = (user: User | null): boolean => {
+  return hasPermissions(user, ['analytics.export']) || hasPermissions(user, ['analytics.manage']);
+};
+
+/**
+ * Debug utility - Get user roles and permissions information
+ */
+export const getUserRolesInfo = (user: User | null) => {
+  if (!user) return { hasUser: false };
+  
+  return {
+    hasUser: true,
+    email: user.email,
+    roles: user.roles || [],
+    permissions: user.permissions || [],
+    isAdmin: hasAdminAccess(user),
+    isManager: isAccountManager(user),
+    canManageTeam: hasTeamManagementAccess(user),
+    canAccessBilling: hasBillingAccess(user),
+    canAccessAnalytics: hasAnalyticsAccess(user)
+  };
+};
+
+/**
+ * Check if user has permission for a specific action on a resource
+ * @param user The current user
+ * @param resource The resource name (e.g., 'users', 'billing')
+ * @param action The action name (e.g., 'create', 'read', 'update', 'delete')
+ */
+export const canPerformAction = (
+  user: User | null,
+  resource: string,
+  action: string
+): boolean => {
+  if (!user) return false;
+  
+  const permission = `${resource}.${action}`;
+  return hasPermissions(user, [permission]);
+};
+
+/**
+ * Get all permissions for a specific resource
+ */
+export const getResourcePermissions = (
+  user: User | null,
+  resource: string
+): string[] => {
+  if (!user || !user.permissions) return [];
+  
+  return user.permissions.filter(permission => {
+    return permission.startsWith(`${resource}.`) || permission === `${resource}.*`;
+  });
+};
+
+/**
+ * Check if user has any permission for a resource
+ */
+export const hasResourceAccess = (
+  user: User | null,
+  resource: string
+): boolean => {
+  return getResourcePermissions(user, resource).length > 0;
+};
+
+// ========================================
+// Enhanced Permission Utilities with Constants
+// ========================================
+
+/**
+ * Check if user can manage users (create, update, delete)
+ */
+export const canManageUsers = (user: User | null): boolean => {
+  return hasPermissions(user, [PERMISSIONS.USERS.MANAGE]);
+};
+
+/**
+ * Check if user can manage team (invite, remove, manage roles)
+ */
+export const canManageTeam = (user: User | null): boolean => {
+  return hasPermissions(user, [PERMISSIONS.TEAM.MANAGE]);
+};
+
+/**
+ * Check if user can access system administration
+ */
+export const canAccessSystemAdmin = (user: User | null): boolean => {
+  return hasPermissions(user, [PERMISSIONS.SYSTEM.ADMIN]);
+};
+
+/**
+ * Check if user can manage content (pages, content)
+ */
+export const canManageContent = (user: User | null): boolean => {
+  return hasPermissions(user, [PERMISSIONS.CONTENT.CONTENT_MANAGE]);
+};
+
+/**
+ * Check if user can manage billing
+ */
+export const canManageBilling = (user: User | null): boolean => {
+  return hasPermissions(user, [PERMISSIONS.BILLING.MANAGE]);
+};
+
+/**
+ * Check if user can manage infrastructure (workers, volumes)
+ */
+export const canManageInfrastructure = (user: User | null): boolean => {
+  return hasPermissions(user, [PERMISSIONS.INFRASTRUCTURE.WORKERS_MANAGE]) ||
+         hasPermissions(user, [PERMISSIONS.INFRASTRUCTURE.VOLUMES_MANAGE]);
+};
+
+/**
+ * Check if user can export analytics
+ */
+export const canExportAnalytics = (user: User | null): boolean => {
+  return hasPermissions(user, [PERMISSIONS.ANALYTICS.EXPORT]);
+};
+
+/**
+ * Check if user can access audit logs
+ */
+export const canAccessAuditLogs = (user: User | null): boolean => {
+  return hasPermissions(user, [PERMISSIONS.SECURITY.AUDIT_READ]);
+};
+
+/**
+ * Get user's permission level for a specific resource
+ * Returns an object indicating what actions they can perform
+ */
+export const getResourcePermissionLevel = (
+  user: User | null,
+  resource: 'users' | 'team' | 'billing' | 'content' | 'analytics' | 'infrastructure'
+) => {
+  if (!user) return { read: false, create: false, update: false, delete: false, manage: false };
+  
+  const permissions = user.permissions || [];
+  
+  switch (resource) {
+    case 'users':
+      return {
+        read: permissions.includes(PERMISSIONS.USERS.READ),
+        create: permissions.includes(PERMISSIONS.USERS.CREATE),
+        update: permissions.includes(PERMISSIONS.USERS.UPDATE),
+        delete: permissions.includes(PERMISSIONS.USERS.DELETE),
+        manage: permissions.includes(PERMISSIONS.USERS.MANAGE)
+      };
+    case 'team':
+      return {
+        read: permissions.includes(PERMISSIONS.USERS.READ),
+        invite: permissions.includes(PERMISSIONS.TEAM.INVITE),
+        remove: permissions.includes(PERMISSIONS.TEAM.REMOVE),
+        manage: permissions.includes(PERMISSIONS.TEAM.MANAGE),
+        roles: permissions.includes(PERMISSIONS.TEAM.ROLES)
+      };
+    case 'billing':
+      return {
+        read: permissions.includes(PERMISSIONS.BILLING.READ),
+        update: permissions.includes(PERMISSIONS.BILLING.UPDATE),
+        manage: permissions.includes(PERMISSIONS.BILLING.MANAGE),
+        invoices: permissions.includes(PERMISSIONS.BILLING.INVOICES),
+        payments: permissions.includes(PERMISSIONS.BILLING.PAYMENTS)
+      };
+    default:
+      return { read: false, create: false, update: false, delete: false, manage: false };
+  }
+};
+
+/**
+ * Check if user has permission using type-safe constants
+ */
+export const hasPermissionConstant = (user: User | null, permission: Permission): boolean => {
+  return hasPermissions(user, [permission]);
+};

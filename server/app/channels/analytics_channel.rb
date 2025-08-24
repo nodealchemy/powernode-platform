@@ -9,7 +9,7 @@ class AnalyticsChannel < ApplicationCable::Channel
       if account_id
         stream_for_account_analytics(account_id)
       else
-        stream_for_global_analytics if current_user.has_permission?('analytics.global')
+        stream_for_global_analytics if current_user.has_permission?("admin.access")
       end
 
       Rails.logger.info "User #{current_user.id} subscribed to analytics for account #{account_id || 'global'}"
@@ -81,11 +81,11 @@ class AnalyticsChannel < ApplicationCable::Channel
       account = Account.find_by(id: account_id)
       return false unless account
 
-      current_user.has_permission?('analytics.read') &&
-        (current_user.account_id == account.id || current_user.has_permission?('analytics.global'))
+      current_user.has_permission?("analytics.view") &&
+        (current_user.account_id == account.id || current_user.has_permission?("admin.access"))
     else
-      # Global analytics - user must have global analytics permission
-      current_user.has_permission?('analytics.global')
+      # Global analytics - user must have admin access permission
+      current_user.has_permission?("admin.access")
     end
   end
 
