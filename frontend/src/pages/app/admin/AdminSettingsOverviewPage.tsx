@@ -88,7 +88,6 @@ const SystemStatusCard: React.FC<SystemStatusCardProps> = ({
 
 
 export const AdminSettingsOverviewPage: React.FC = () => {
-AdminSettingsOverviewPage.displayName = 'AdminSettingsOverviewPage';
   const [data, setData] = useState<AdminOverviewData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -271,6 +270,7 @@ AdminSettingsOverviewPage.displayName = 'AdminSettingsOverviewPage';
           description={settings_summary?.maintenance_mode ? 'Users cannot access system' : 'System fully accessible'}
           action={settings_summary?.maintenance_mode ? {
             label: 'Disable Maintenance',
+            onClick: () => console.log('Disable maintenance mode')
           } : undefined}
         />
 

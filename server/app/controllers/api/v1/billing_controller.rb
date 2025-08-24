@@ -56,7 +56,7 @@ class Api::V1::BillingController < ApplicationController
         }
       }
     else
-      render_error(result[:error], status: :):unprocessable_entity
+      render_error(result[:error], status: :unprocessable_entity)
     end
   end
 
@@ -79,7 +79,7 @@ class Api::V1::BillingController < ApplicationController
         payment_intent_id: result[:payment_intent].id
       }
     else
-      render_error(result[:error], status: :):unprocessable_entity
+      render_error(result[:error], status: :unprocessable_entity)
     end
   end
 
@@ -156,7 +156,7 @@ class Api::V1::BillingController < ApplicationController
     subscription = current_account.subscription
     
     if subscription.blank?
-      render_error('No active subscription', status: :):not_found
+      render_error('No active subscription', status: :not_found)
       return
     end
 

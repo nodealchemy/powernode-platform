@@ -11,7 +11,7 @@ export interface GridContainerProps {
   autoFit?: boolean; // grid-cols-[minmax(250px,1fr)]
   autoFill?: boolean; // grid-cols-[minmax(250px,auto)]
   className?: string;
-  as?: keyof JSX.IntrinsicElements;
+  as?: keyof React.JSX.IntrinsicElements;
 }
 
 const colClasses = {
@@ -102,10 +102,9 @@ export const GridContainer: React.FC<GridContainerProps> = ({
     className
   ].filter(Boolean).join(' ');
 
-  return <Component className={classes}>{children}</Component>;
+  return React.createElement(Component, { className: classes }, children);
 };
 
-GridContainer.displayName = 'GridContainer';
 
 // Commonly used variations as convenience exports
 export const GridCols2: React.FC<Omit<GridContainerProps, 'cols'>> = (props) => (
@@ -124,15 +123,10 @@ export const GridAutoFit: React.FC<Omit<GridContainerProps, 'autoFit'>> = (props
   <GridContainer autoFit {...props} />
 );
 
-export const GridResponsive: React.FC<Omit<GridContainerProps, 'className'>> = ({ className = '', ...props }) => (
+export const GridResponsive: React.FC<GridContainerProps> = ({ className = '', ...props }) => (
   <GridContainer 
     className={`grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 ${className}`} 
     {...props} 
   />
 );
 
-GridCols2.displayName = 'GridCols2';
-GridCols3.displayName = 'GridCols3';
-GridCols4.displayName = 'GridCols4';
-GridAutoFit.displayName = 'GridAutoFit';
-GridResponsive.displayName = 'GridResponsive';

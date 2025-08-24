@@ -248,8 +248,13 @@ The backend architecture follows Rails 8 API patterns with a separate Sidekiq wo
 12. **NO ApplicationJob inheritance**: Worker jobs inherit from BaseJob
 13. **NO perform method in worker**: Use execute method instead
 14. **NO unstructured API responses**: Use {success, data, error} format
-15. **NO manual server starts**: Use management scripts only
+15. **NO manual service commands**: NEVER use `rails server`, `sidekiq`, `npm start` directly
 16. **NO Claude attribution**: Clean commit messages only
+
+**Service Management**:
+17. **NO manual service starts**: Use `scripts/auto-dev.sh` or delegate to MCP specialists
+18. **NO direct service commands**: Use automated scripts for all service operations
+19. **NO service troubleshooting without MCP**: Delegate service issues to appropriate specialists
 
 ### ✅ MANDATORY PATTERNS
 **Frontend**:
@@ -276,10 +281,52 @@ The backend architecture follows Rails 8 API patterns with a separate Sidekiq wo
 17. **Conventional Commits & Git-Flow**: See [DevOps Engineer](docs/infrastructure/DEVOPS_ENGINEER_SPECIALIST.md#git-workflow--release-management)
 18. **Permission-Based Authorization**: Use permissions, not roles, for access control
 
-### 🔧 Quick Commands
+### 🔧 Service Management (MANDATORY)
+
+**CRITICAL**: Service management MUST use automated scripts and MCP specialists - NEVER manual service commands.
+
+#### Primary Service Management
 ```bash
-# Development - See DevOps Engineer specialist for complete commands
-$POWERNODE_ROOT/scripts/auto-dev.sh ensure                    # Start all services
+# ALWAYS use auto-dev.sh for service orchestration
+$POWERNODE_ROOT/scripts/auto-dev.sh ensure     # Start all services (preferred method)
+$POWERNODE_ROOT/scripts/auto-dev.sh status     # Check service status  
+$POWERNODE_ROOT/scripts/auto-dev.sh stop       # Stop all services
+$POWERNODE_ROOT/scripts/auto-dev.sh restart    # Restart all services
+$POWERNODE_ROOT/scripts/auto-dev.sh health     # Health check all services
+```
+
+#### MCP Service Management
+**When service management is needed, delegate to appropriate MCP specialist:**
+- **[DevOps Engineer](docs/infrastructure/DEVOPS_ENGINEER_SPECIALIST.md)**: Service orchestration, deployment, monitoring
+- **[Rails Architect](docs/backend/RAILS_ARCHITECT_SPECIALIST.md)**: Backend service configuration and troubleshooting  
+- **[Background Job Engineer](docs/backend/BACKGROUND_JOB_ENGINEER_SPECIALIST.md)**: Worker service management
+- **[React Architect](docs/frontend/REACT_ARCHITECT_SPECIALIST.md)**: Frontend development server issues
+
+#### Individual Service Scripts (When auto-dev.sh insufficient)
+```bash
+# Backend service
+./server/bin/dev                               # Start Rails server  
+./server/scripts/service-health.sh            # Backend health check
+
+# Worker service  
+./worker/bin/dev                               # Start Sidekiq worker
+./worker/scripts/worker-status.sh             # Worker status check
+
+# Frontend service
+./frontend/scripts/dev-server.sh               # Start React dev server
+./frontend/scripts/build-check.sh             # Build verification
+```
+
+#### Service Management Rules
+1. **NEVER use manual commands** like `rails server`, `sidekiq`, or `npm start` directly
+2. **ALWAYS prefer scripts/auto-dev.sh** for multi-service operations
+3. **Use MCP specialists** for complex service issues or configuration
+4. **Individual scripts only** when auto-dev.sh cannot resolve specific service issues
+5. **Reference DevOps Engineer** for service architecture and deployment concerns
+
+### 🔧 Development Commands
+```bash
+# Database operations
 cd $POWERNODE_ROOT/server && rails db:migrate db:seed         # Database setup
 cd $POWERNODE_ROOT/server && bundle exec rspec                # Run backend tests
 

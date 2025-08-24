@@ -8,7 +8,7 @@ export interface FlexContainerProps {
   wrap?: 'wrap' | 'nowrap' | 'wrap-reverse';
   gap?: 'none' | 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl';
   className?: string;
-  as?: keyof JSX.IntrinsicElements;
+  as?: keyof React.JSX.IntrinsicElements;
 }
 
 const directionClasses = {
@@ -71,10 +71,9 @@ export const FlexContainer: React.FC<FlexContainerProps> = ({
     className
   ].filter(Boolean).join(' ');
 
-  return <Component className={classes}>{children}</Component>;
+  return React.createElement(Component, { className: classes }, children);
 };
 
-FlexContainer.displayName = 'FlexContainer';
 
 // Commonly used variations as convenience exports
 export const FlexRow: React.FC<Omit<FlexContainerProps, 'direction'>> = (props) => (
@@ -98,8 +97,3 @@ export const FlexItemsCenter: React.FC<Omit<FlexContainerProps, 'align'>> = (pro
   <FlexContainer align="center" gap="sm" {...props} />
 );
 
-FlexRow.displayName = 'FlexRow';
-FlexCol.displayName = 'FlexCol';
-FlexCentered.displayName = 'FlexCentered';
-FlexBetween.displayName = 'FlexBetween';
-FlexItemsCenter.displayName = 'FlexItemsCenter';

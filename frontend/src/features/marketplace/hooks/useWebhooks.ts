@@ -206,7 +206,13 @@ export const useAppWebhook = (appId: string, webhookId: string) => {
     }
   };
 
-  const getDeliveries = async (filters: unknown = {}) => {
+  const getDeliveries = async (filters: {
+    days?: number;
+    status?: string;
+    event_id?: string;
+    page?: number;
+    per_page?: number;
+  } = {}) => {
     try {
       return await appWebhooksApi.getWebhookDeliveries(appId, webhookId, filters);
     } catch (err) {

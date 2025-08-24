@@ -115,7 +115,7 @@ class Api::V1::AnalyticsController < ApplicationController
 
     render_success(data)
   rescue => e
-    render_error(e.message, status: :500)
+    render_error(e.message, status: :internal_server_error)
   end
 
   # GET /api/v1/analytics/growth
@@ -190,7 +190,7 @@ class Api::V1::AnalyticsController < ApplicationController
 
     render_success(data)
   rescue => e
-    render_error(e.message, status: :500)
+    render_error(e.message, status: :internal_server_error)
   end
 
   # GET /api/v1/analytics/churn
@@ -253,7 +253,7 @@ class Api::V1::AnalyticsController < ApplicationController
 
     render_success(data)
   rescue => e
-    render_error(e.message, status: :500)
+    render_error(e.message, status: :internal_server_error)
   end
 
   # GET /api/v1/analytics/cohorts
@@ -293,7 +293,7 @@ class Api::V1::AnalyticsController < ApplicationController
 
     render_success(data)
   rescue => e
-    render_error(e.message, status: :500)
+    render_error(e.message, status: :internal_server_error)
   end
 
   # GET /api/v1/analytics/customers
@@ -351,7 +351,7 @@ class Api::V1::AnalyticsController < ApplicationController
 
     render_success(data)
   rescue => e
-    render_error(e.message, status: :500)
+    render_error(e.message, status: :internal_server_error)
   end
 
   # GET/POST /api/v1/analytics/export
@@ -361,7 +361,7 @@ class Api::V1::AnalyticsController < ApplicationController
     report_type = params[:report_type] || "revenue"
 
     unless can_export_analytics?
-      render_error("Export permission required", status: :403)
+      render_error("Export permission required", status: :forbidden)
       return
     end
 
@@ -414,17 +414,17 @@ class Api::V1::AnalyticsController < ApplicationController
         }
       end
     else
-      render_error("Unsupported export format", status: :400)
+      render_error("Unsupported export format", status: :bad_request)
     end
   rescue => e
-    render_error(e.message, status: :500)
+    render_error(e.message, status: :internal_server_error)
   end
 
   private
 
   def check_analytics_permission
     unless current_user.has_permission?("analytics.view") || current_user.has_permission?("admin.access")
-      render_error("Analytics permission required", status: :403)
+      render_error("Analytics permission required", status: :forbidden)
     end
   end
 
@@ -438,13 +438,13 @@ class Api::V1::AnalyticsController < ApplicationController
 
     # Validate date range
     if @start_date > @end_date
-      render_error("Start date must be before end date", status: :400)
+      render_error("Start date must be before end date", status: :bad_request)
       return
     end
 
     # Limit to reasonable range (2 years max)
     if @end_date - @start_date > 2.years
-      render_error("Date range too large (max 2 years)", status: :400)
+      render_error("Date range too large (max 2 years)", status: :bad_request)
       nil
     end
   end

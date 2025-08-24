@@ -7,7 +7,6 @@ interface ServiceActivityListProps {
 }
 
 export const ServiceActivityList: React.FC<ServiceActivityListProps> = ({ service }) => {
-ServiceActivityList.displayName = 'ServiceActivityList';
   const [activities, setActivities] = useState<ServiceActivity[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -30,7 +29,14 @@ ServiceActivityList.displayName = 'ServiceActivityList';
       setLoading(true);
       setError(null);
       
-      const params: unknown = {
+      const params: {
+        page: number;
+        per_page: number;
+        action?: string;
+        status?: 'success' | 'failed';
+        from?: string;
+        to?: string;
+      } = {
         page: pagination.page,
         per_page: pagination.per_page
       };

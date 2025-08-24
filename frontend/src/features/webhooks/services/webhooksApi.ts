@@ -127,6 +127,9 @@ export const webhooksApi = {
       return response.data;
     } catch (error: unknown) {
       console.error('Failed to fetch webhooks:', error);
+      const errorMessage = error && typeof error === 'object' && 'response' in error 
+        ? (error as any).response?.data?.error || 'Failed to fetch webhooks'
+        : 'Failed to fetch webhooks';
       return {
         success: false,
         data: {
@@ -146,7 +149,7 @@ export const webhooksApi = {
             failed_deliveries_today: 0
           }
         },
-        error: error.response?.data?.error || 'Failed to fetch webhooks'
+        error: errorMessage
       };
     }
   },
@@ -158,9 +161,12 @@ export const webhooksApi = {
       return response.data;
     } catch (error: unknown) {
       console.error('Failed to fetch webhook:', error);
+      const errorMessage = error && typeof error === 'object' && 'response' in error 
+        ? (error as any).response?.data?.error || 'Failed to fetch webhook'
+        : 'Failed to fetch webhook';
       return {
         success: false,
-        error: error.response?.data?.error || 'Failed to fetch webhook'
+        error: errorMessage
       };
     }
   },
@@ -172,9 +178,12 @@ export const webhooksApi = {
       return response.data;
     } catch (error: unknown) {
       console.error('Failed to create webhook:', error);
+      const errorMessage = error && typeof error === 'object' && 'response' in error 
+        ? (error as any).response?.data?.error || 'Failed to create webhook'
+        : 'Failed to create webhook';
       return {
         success: false,
-        error: error.response?.data?.error || 'Failed to create webhook'
+        error: errorMessage
       };
     }
   },
@@ -186,9 +195,12 @@ export const webhooksApi = {
       return response.data;
     } catch (error: unknown) {
       console.error('Failed to update webhook:', error);
+      const errorMessage = error && typeof error === 'object' && 'response' in error 
+        ? (error as any).response?.data?.error || 'Failed to update webhook'
+        : 'Failed to update webhook';
       return {
         success: false,
-        error: error.response?.data?.error || 'Failed to update webhook'
+        error: errorMessage
       };
     }
   },
@@ -200,9 +212,12 @@ export const webhooksApi = {
       return response.data;
     } catch (error: unknown) {
       console.error('Failed to delete webhook:', error);
+      const errorMessage = error && typeof error === 'object' && 'response' in error 
+        ? (error as any).response?.data?.error || 'Failed to delete webhook'
+        : 'Failed to delete webhook';
       return {
         success: false,
-        error: error.response?.data?.error || 'Failed to delete webhook'
+        error: errorMessage
       };
     }
   },
@@ -214,9 +229,12 @@ export const webhooksApi = {
       return response.data;
     } catch (error: unknown) {
       console.error('Failed to test webhook:', error);
+      const errorMessage = error && typeof error === 'object' && 'response' in error 
+        ? (error as any).response?.data?.error || 'Failed to test webhook'
+        : 'Failed to test webhook';
       return {
         success: false,
-        error: error.response?.data?.error || 'Failed to test webhook'
+        error: errorMessage
       };
     }
   },
@@ -228,9 +246,12 @@ export const webhooksApi = {
       return response.data;
     } catch (error: unknown) {
       console.error('Failed to toggle webhook status:', error);
+      const errorMessage = error && typeof error === 'object' && 'response' in error 
+        ? (error as any).response?.data?.error || 'Failed to toggle webhook status'
+        : 'Failed to toggle webhook status';
       return {
         success: false,
-        error: error.response?.data?.error || 'Failed to toggle webhook status'
+        error: errorMessage
       };
     }
   },
@@ -242,9 +263,12 @@ export const webhooksApi = {
       return response.data;
     } catch (error: unknown) {
       console.error('Failed to fetch available events:', error);
+      const errorMessage = error && typeof error === 'object' && 'response' in error 
+        ? (error as any).response?.data?.error || 'Failed to fetch available events'
+        : 'Failed to fetch available events';
       return {
         success: false,
-        error: error.response?.data?.error || 'Failed to fetch available events'
+        error: errorMessage
       };
     }
   },
@@ -277,9 +301,12 @@ export const webhooksApi = {
       return response.data;
     } catch (error: unknown) {
       console.error('Failed to fetch delivery history:', error);
+      const errorMessage = error && typeof error === 'object' && 'response' in error 
+        ? (error as any).response?.data?.error || 'Failed to fetch delivery history'
+        : 'Failed to fetch delivery history';
       return {
         success: false,
-        error: error.response?.data?.error || 'Failed to fetch delivery history'
+        error: errorMessage
       };
     }
   },
@@ -291,9 +318,12 @@ export const webhooksApi = {
       return response.data;
     } catch (error: unknown) {
       console.error('Failed to fetch webhook stats:', error);
+      const errorMessage = error && typeof error === 'object' && 'response' in error 
+        ? (error as any).response?.data?.error || 'Failed to fetch webhook stats'
+        : 'Failed to fetch webhook stats';
       return {
         success: false,
-        error: error.response?.data?.error || 'Failed to fetch webhook stats'
+        error: errorMessage
       };
     }
   },
@@ -305,9 +335,12 @@ export const webhooksApi = {
       return response.data;
     } catch (error: unknown) {
       console.error('Failed to retry failed webhooks:', error);
+      const errorMessage = error && typeof error === 'object' && 'response' in error 
+        ? (error as any).response?.data?.error || 'Failed to retry failed webhooks'
+        : 'Failed to retry failed webhooks';
       return {
         success: false,
-        error: error.response?.data?.error || 'Failed to retry failed webhooks'
+        error: errorMessage
       };
     }
   },

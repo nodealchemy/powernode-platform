@@ -70,7 +70,6 @@ export const StatusIndicator: React.FC<StatusIndicatorProps> = ({
   );
 };
 
-StatusIndicator.displayName = 'StatusIndicator';
 
 // Convenience components for common statuses
 export const ActiveStatus: React.FC<Omit<StatusIndicatorProps, 'status'>> = (props) => (
@@ -89,7 +88,3 @@ export const ErrorStatus: React.FC<Omit<StatusIndicatorProps, 'status'>> = (prop
   <StatusIndicator status="error" {...props} />
 );
 
-ActiveStatus.displayName = 'ActiveStatus';
-InactiveStatus.displayName = 'InactiveStatus';
-LoadingStatus.displayName = 'LoadingStatus';
-ErrorStatus.displayName = 'ErrorStatus';

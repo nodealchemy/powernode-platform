@@ -36,7 +36,7 @@ class Api::V1::ReportsController < ApplicationController
     end
   rescue => e
     Rails.logger.error "Report generation failed: #{e.message}"
-    render_error(e.message, status: :500)
+    render_error(e.message, status: :internal_server_error)
   end
 
   # GET /api/v1/reports
@@ -215,7 +215,7 @@ class Api::V1::ReportsController < ApplicationController
       }
     }
   rescue ActiveRecord::RecordNotFound
-    render_error("Report request not found", status: :404)
+    render_error("Report request not found", status: :internal_server_error)
   end
 
   # POST /api/v1/reports/requests
@@ -228,7 +228,7 @@ class Api::V1::ReportsController < ApplicationController
     # Validate template exists
     template_ids = ['revenue_analytics', 'customer_analytics', 'churn_analysis', 'growth_analytics', 'cohort_analysis', 'comprehensive_report']
     unless template_ids.include?(template_id)
-      render_error("Invalid template ID", status: :400)
+      render_error("Invalid template ID", status: :internal_server_error)
       return
     end
 
@@ -257,7 +257,7 @@ class Api::V1::ReportsController < ApplicationController
     }
   rescue => e
     Rails.logger.error "Failed to create report request: #{e.message}"
-    render_error(e.message, status: :500)
+    render_error(e.message, status: :internal_server_error)
   end
 
   # PATCH /api/v1/reports/requests/:id
@@ -277,10 +277,10 @@ class Api::V1::ReportsController < ApplicationController
       }
     }
   rescue ActiveRecord::RecordNotFound
-    render_error("Report request not found", status: :404)
+    render_error("Report request not found", status: :internal_server_error)
   rescue => e
     Rails.logger.error "Failed to update report request: #{e.message}"
-    render_error(e.message, status: :500)
+    render_error(e.message, status: :internal_server_error)
   end
 
   # DELETE /api/v1/reports/requests/:id
@@ -288,12 +288,12 @@ class Api::V1::ReportsController < ApplicationController
     request = ReportRequest.for_account(@account_scope).find(params[:id])
     
     if request.status == 'completed'
-      render_error("Cannot cancel completed request", status: :400)
+      render_error("Cannot cancel completed request", status: :internal_server_error)
       return
     end
 
     if request.status == 'failed'
-      render_error("Cannot cancel failed request", status: :400)
+      render_error("Cannot cancel failed request", status: :internal_server_error)
       return
     end
 
@@ -301,7 +301,7 @@ class Api::V1::ReportsController < ApplicationController
 
     render_success
   rescue ActiveRecord::RecordNotFound
-    render_error("Report request not found", status: :404)
+    render_error("Report request not found", status: :internal_server_error)
   end
 
   # GET /api/v1/reports/requests/:id/download
@@ -309,7 +309,7 @@ class Api::V1::ReportsController < ApplicationController
     request = ReportRequest.for_account(@account_scope).find(params[:id])
     
     unless request.status == 'completed' && request.file_url
-      render_error("Report not ready for download", status: :404)
+      render_error("Report not ready for download", status: :internal_server_error)
       return
     end
 
@@ -321,10 +321,10 @@ class Api::V1::ReportsController < ApplicationController
                 type: request.content_type,
                 disposition: 'attachment'
     else
-      render_error("Report file not found", status: :404)
+      render_error("Report file not found", status: :internal_server_error)
     end
   rescue ActiveRecord::RecordNotFound
-    render_error("Report request not found", status: :404)
+    render_error("Report request not found", status: :internal_server_error)
   end
 
   # GET /api/v1/reports/scheduled  
@@ -358,7 +358,7 @@ class Api::V1::ReportsController < ApplicationController
     report_requests = params[:reports] || []
     
     if report_requests.empty?
-      render_error("No reports requested", status: :400)
+      render_error("No reports requested", status: :internal_server_error)
       return
     end
 
@@ -427,7 +427,7 @@ class Api::V1::ReportsController < ApplicationController
     format = params[:format] || 'pdf'
 
     unless REPORT_TYPES.include?(report_type)
-      render_error("Invalid report type", status: :400)
+      render_error("Invalid report type", status: :internal_server_error)
       return
     end
 
@@ -459,7 +459,7 @@ class Api::V1::ReportsController < ApplicationController
       }
     }
   rescue => e
-    render_error(e.message, status: :500)
+    render_error(e.message, status: :internal_server_error)
   end
 
   # GET /api/v1/reports/scheduled
@@ -491,14 +491,14 @@ class Api::V1::ReportsController < ApplicationController
 
     render json: { success: true, message: "Scheduled report cancelled" }
   rescue ActiveRecord::RecordNotFound
-    render_error("Scheduled report not found", status: :404)
+    render_error("Scheduled report not found", status: :internal_server_error)
   end
 
   private
 
   def check_reports_permission
     unless current_user.has_permission?("analytics.export") || current_user.has_permission?("analytics.global")
-      render_error("Report generation permission required", status: :403)
+      render_error("Report generation permission required", status: :internal_server_error)
     end
   end
 
@@ -508,13 +508,13 @@ class Api::V1::ReportsController < ApplicationController
 
     # Validate date range
     if @start_date > @end_date
-      render_error("Start date must be before end date", status: :400)
+      render_error("Start date must be before end date", status: :internal_server_error)
       return
     end
 
     # Limit to reasonable range (2 years max)
     if @end_date - @start_date > 2.years
-      render_error("Date range too large (max 2 years)", status: :400)
+      render_error("Date range too large (max 2 years)", status: :internal_server_error)
       return
     end
   end

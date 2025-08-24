@@ -232,7 +232,6 @@ const generateFallbackCohortData = () => {
 };
 
 export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
-AnalyticsPage.displayName = 'AnalyticsPage';
   const { user } = useSelector((state: RootState) => state.auth);
   const location = useLocation();
   
@@ -318,7 +317,7 @@ AnalyticsPage.displayName = 'AnalyticsPage';
 
 
       // Try to fetch each analytics endpoint individually to identify issues
-      let analyticsData: unknown = {};
+      let analyticsData: any = {};
       
       try {
         const revenue = await analyticsService.getRevenueAnalytics(startDate, endDate);
