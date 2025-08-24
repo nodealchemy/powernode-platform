@@ -8,7 +8,7 @@ class Api::V1::Auth::PasswordsController < ApplicationController
 
   # POST /api/v1/passwords/forgot
   def forgot
-    return render_error("Email is required", status: :):bad_request if params[:email].blank?
+    return render_error("Email is required", status: :bad_request) if params[:email].blank?
 
     user = User.find_by(email: params[:email]&.downcase)
 
@@ -35,8 +35,8 @@ class Api::V1::Auth::PasswordsController < ApplicationController
 
   # POST /api/v1/passwords/reset
   def reset
-    return render_error("Reset token is required", status: :):bad_request if params[:token].blank?
-    return render_error("New password is required", status: :):bad_request if params[:password].blank?
+    return render_error("Reset token is required", status: :bad_request) if params[:token].blank?
+    return render_error("New password is required", status: :bad_request) if params[:password].blank?
 
     begin
       payload = JWT.decode(params[:token], Rails.application.config.jwt_secret_key, true, algorithm: "HS256").first

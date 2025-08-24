@@ -3,6 +3,8 @@ import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Card } from '@/shared/components/ui/Card';
+import { FlexItemsCenter, FlexBetween, FlexCol } from '@/shared/components/ui/FlexContainer';
+import { GridCols2 } from '@/shared/components/ui/GridContainer';
 import { App } from '../../types';
 import { 
   Globe, 
@@ -112,11 +114,11 @@ AppDetailsModal.displayName = 'AppDetailsModal';
               {formatStatus(app.status)}
             </Badge>
             <span className="text-sm text-theme-tertiary">Version {app.version}</span>
-            <div className="flex items-center space-x-1">
+            <FlexItemsCenter gap="xs">
               <Star className="w-4 h-4 text-theme-warning fill-current" />
               <span className="text-sm font-medium">{averageRating.toFixed(1)}</span>
               <span className="text-sm text-theme-tertiary">({mockReviews.length} reviews)</span>
-            </div>
+            </FlexItemsCenter>
           </div>
         </div>
       </div>
