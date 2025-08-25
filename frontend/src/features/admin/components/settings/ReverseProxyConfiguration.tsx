@@ -943,10 +943,10 @@ const AdvancedConfiguration: React.FC<{
                   Allowed Origins (one per line)
                 </label>
                 <textarea
-                  value={config.cors_config.allowed_origins.join('\n')}
+                  value={config?.cors_config?.allowed_origins?.join('\n') || ''}
                   onChange={(e) => updateConfig({ 
                     cors_config: { 
-                      ...config.cors_config, 
+                      ...config?.cors_config, 
                       allowed_origins: e.target.value.split('\n').filter(o => o.trim()) 
                     }
                   })}
@@ -967,12 +967,12 @@ const AdvancedConfiguration: React.FC<{
                 </div>
                 <Button
                   onClick={() => updateConfig({ 
-                    cors_config: { ...config.cors_config, credentials: !config.cors_config.credentials }
+                    cors_config: { ...config?.cors_config, credentials: !config?.cors_config?.credentials }
                   })}
-                  variant={config.cors_config.credentials ? 'success' : 'secondary'}
+                  variant={config?.cors_config?.credentials ? 'success' : 'secondary'}
                   size="sm"
                 >
-                  {config.cors_config.credentials ? 'Yes' : 'No'}
+                  {config?.cors_config?.credentials ? 'Yes' : 'No'}
                 </Button>
               </FlexBetween>
             </div>

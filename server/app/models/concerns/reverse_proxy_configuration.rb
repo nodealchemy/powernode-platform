@@ -181,10 +181,55 @@ module ReverseProxyConfiguration
         'current_environment' => Rails.env,
         'environments' => {},
         'url_mappings' => [],
-        'load_balancing' => { 'enabled' => false },
-        'ssl_config' => { 'enabled' => false },
-        'cors_config' => { 'enabled' => true },
-        'headers' => { 'security_headers' => { 'enabled' => true } }
+        'load_balancing' => { 
+          'enabled' => false,
+          'algorithm' => 'round_robin',
+          'health_check_interval' => 30,
+          'failover_enabled' => true
+        },
+        'ssl_config' => { 
+          'enabled' => false,
+          'enforce_https' => false,
+          'certificate_path' => '/etc/ssl/certs/powernode.crt',
+          'private_key_path' => '/etc/ssl/private/powernode.key',
+          'protocols' => ['TLSv1.2', 'TLSv1.3'],
+          'ciphers' => 'ECDHE+AESGCM:ECDHE+AES256:!aNULL:!MD5:!DSS',
+          'hsts_enabled' => true,
+          'hsts_max_age' => 31536000
+        },
+        'cors_config' => { 
+          'enabled' => true,
+          'allowed_origins' => ['*'],
+          'allowed_methods' => ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+          'allowed_headers' => ['Content-Type', 'Authorization', 'X-Requested-With'],
+          'exposed_headers' => [],
+          'credentials' => true,
+          'max_age' => 86400
+        },
+        'headers' => { 
+          'security_headers' => { 
+            'enabled' => true,
+            'x_frame_options' => 'SAMEORIGIN',
+            'x_content_type_options' => 'nosniff',
+            'x_xss_protection' => '1; mode=block',
+            'referrer_policy' => 'strict-origin-when-cross-origin'
+          },
+          'custom_headers' => {
+            'request' => [],
+            'response' => []
+          }
+        },
+        'rate_limiting' => {
+          'enabled' => false,
+          'default_limit' => 1000,
+          'window_size' => 3600,
+          'burst_limit' => 100
+        },
+        'compression' => {
+          'enabled' => true,
+          'types' => ['text/html', 'text/css', 'text/javascript', 'application/json'],
+          'level' => 6
+        }
       }
     end
 
