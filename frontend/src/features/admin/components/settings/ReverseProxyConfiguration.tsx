@@ -9,10 +9,12 @@ import { Modal } from '@/shared/components/ui/Modal';
 import { StatusIndicator } from '@/shared/components/ui/StatusIndicator';
 import { TabContainer } from '@/shared/components/ui/TabContainer';
 import { useNotification } from '@/shared/hooks/useNotification';
-import { reverseProxyApi, ReverseProxyConfig, URLMapping, HealthStatus } from '../../services/reverseProxyApi';
+import { reverseProxyApi, ReverseProxyConfig, URLMapping, HealthStatus, ServiceDiscoveryConfig } from '../../services/reverseProxyApi';
 import { URLMappingModal } from './URLMappingModal';
 import { TestConfigurationModal } from './TestConfigurationModal';
 import { ExportConfigurationModal } from './ExportConfigurationModal';
+import { ServiceDiscoveryModal } from './ServiceDiscoveryModal';
+import { HealthMonitoringDashboard } from './HealthMonitoringDashboard';
 import { 
   Settings, 
   Globe, 
@@ -36,7 +38,7 @@ interface ReverseProxyConfigurationProps {
   className?: string;
 }
 
-type TabType = 'basic' | 'services' | 'mappings' | 'advanced';
+type TabType = 'basic' | 'services' | 'mappings' | 'advanced' | 'monitoring' | 'discovery';
 
 const ReverseProxyConfiguration: React.FC<ReverseProxyConfigurationProps> = ({ className = '' }) => {
   const { showNotification } = useNotification();
@@ -51,7 +53,9 @@ const ReverseProxyConfiguration: React.FC<ReverseProxyConfigurationProps> = ({ c
   const [showURLMappingModal, setShowURLMappingModal] = useState(false);
   const [showTestModal, setShowTestModal] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
+  const [showServiceDiscoveryModal, setShowServiceDiscoveryModal] = useState(false);
   const [editingMapping, setEditingMapping] = useState<URLMapping | null>(null);
+  const [serviceDiscoveryConfig, setServiceDiscoveryConfig] = useState<ServiceDiscoveryConfig | null>(null);
   
   // Form states
 
@@ -76,6 +80,7 @@ const ReverseProxyConfiguration: React.FC<ReverseProxyConfigurationProps> = ({ c
       const data = await reverseProxyApi.getConfiguration();
       setConfig(data.reverse_proxy_config);
       setHealthStatus(data.health_status);
+      setServiceDiscoveryConfig(data.service_discovery_config);
     } catch (error) {
       console.error('Failed to load reverse proxy configuration:', error);
       showNotification('Failed to load reverse proxy configuration', 'error');
@@ -91,6 +96,18 @@ const ReverseProxyConfiguration: React.FC<ReverseProxyConfigurationProps> = ({ c
     } catch (error) {
       console.error('Failed to refresh health status:', error);
       showNotification('Failed to refresh health status', 'error');
+    }
+  };
+
+  const updateServiceDiscoveryConfig = async (newConfig: ServiceDiscoveryConfig) => {
+    try {
+      await reverseProxyApi.updateConfiguration('service_discovery_config', newConfig);
+      setServiceDiscoveryConfig(newConfig);
+      showNotification('Service discovery configuration updated successfully', 'success');
+    } catch (error) {
+      console.error('Failed to update service discovery configuration:', error);
+      showNotification('Failed to update service discovery configuration', 'error');
+      throw error;
     }
   };
 
@@ -270,7 +287,7 @@ const ReverseProxyConfiguration: React.FC<ReverseProxyConfigurationProps> = ({ c
           </Button>
           
           <Button 
-            onClick={generateProxyConfig}
+            onClick={() => setShowExportModal(true)}
             variant="secondary"
             size="sm"
           >
@@ -394,6 +411,63 @@ const ReverseProxyConfiguration: React.FC<ReverseProxyConfigurationProps> = ({ c
                 updateConfig={updateConfig}
               />
             ) : null
+          },
+          {
+            id: 'monitoring',
+            label: 'Health Monitoring',
+            icon: <Activity className="w-4 h-4" />,
+            content: healthStatus ? (
+              <HealthMonitoringDashboard
+                healthStatus={healthStatus}
+                onRefresh={refreshHealthStatus}
+                refreshing={false}
+              />
+            ) : null
+          },
+          {
+            id: 'discovery',
+            label: 'Service Discovery',
+            icon: <Zap className="w-4 h-4" />,
+            content: serviceDiscoveryConfig ? (
+              <div className="space-y-4">
+                <FlexBetween>
+                  <div>
+                    <h3 className="text-lg font-medium text-theme-primary">Service Discovery</h3>
+                    <p className="text-sm text-theme-secondary">
+                      Automatically discover and configure services in your environment
+                    </p>
+                  </div>
+                  <Button
+                    onClick={() => setShowServiceDiscoveryModal(true)}
+                    variant="primary"
+                    size="sm"
+                  >
+                    <Settings className="w-4 h-4 mr-2" />
+                    Configure Discovery
+                  </Button>
+                </FlexBetween>
+                <Card className="p-6">
+                  <div className="grid grid-cols-2 gap-6">
+                    <div>
+                      <h4 className="font-medium text-theme-primary mb-2">Status</h4>
+                      <Badge variant={serviceDiscoveryConfig.enabled ? 'success' : 'secondary'}>
+                        {serviceDiscoveryConfig.enabled ? 'Enabled' : 'Disabled'}
+                      </Badge>
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-theme-primary mb-2">Discovery Methods</h4>
+                      <div className="flex flex-wrap gap-1">
+                        {serviceDiscoveryConfig.methods?.map((method: string) => (
+                          <Badge key={method} variant="info" size="sm">
+                            {method.replace('_', ' ')}
+                          </Badge>
+                        )) || <span className="text-theme-secondary text-sm">None configured</span>}
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              </div>
+            ) : null
           }
         ]}
         activeTab={activeTab}
@@ -407,6 +481,37 @@ const ReverseProxyConfiguration: React.FC<ReverseProxyConfigurationProps> = ({ c
         isOpen={showExportModal}
         onClose={() => setShowExportModal(false)}
       />
+
+      {/* Service Discovery Modal */}
+      {serviceDiscoveryConfig && (
+        <ServiceDiscoveryModal
+          isOpen={showServiceDiscoveryModal}
+          onClose={() => setShowServiceDiscoveryModal(false)}
+          config={serviceDiscoveryConfig}
+          onConfigUpdate={updateServiceDiscoveryConfig}
+        />
+      )}
+
+      {/* URL Mapping Modal */}
+      <URLMappingModal
+        isOpen={showURLMappingModal}
+        onClose={() => {
+          setShowURLMappingModal(false);
+          setEditingMapping(null);
+        }}
+        onSave={handleSaveURLMapping}
+        mapping={editingMapping}
+        availableServices={getAvailableServices()}
+      />
+
+      {/* Test Configuration Modal */}
+      {config && (
+        <TestConfigurationModal
+          isOpen={showTestModal}
+          onClose={() => setShowTestModal(false)}
+          config={config}
+        />
+      )}
     </div>
   );
 };
@@ -974,27 +1079,6 @@ const AdvancedConfiguration: React.FC<{
           )}
         </div>
       </Card>
-
-      {/* URL Mapping Modal */}
-      <URLMappingModal
-        isOpen={showURLMappingModal}
-        onClose={() => {
-          setShowURLMappingModal(false);
-          setEditingMapping(null);
-        }}
-        onSave={handleSaveURLMapping}
-        mapping={editingMapping}
-        availableServices={getAvailableServices()}
-      />
-
-      {/* Test Configuration Modal */}
-      {config && (
-        <TestConfigurationModal
-          isOpen={showTestModal}
-          onClose={() => setShowTestModal(false)}
-          config={config}
-        />
-      )}
     </div>
   );
 };

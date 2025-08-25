@@ -271,5 +271,81 @@ export const reverseProxyApi = {
       enabled
     });
     return response.data.data;
+  },
+
+  // Service Discovery
+  async getDiscoveredServices(): Promise<Array<{
+    name: string;
+    host: string;
+    port: number;
+    protocol: string;
+    health_check_path: string;
+    status: 'healthy' | 'unhealthy' | 'unreachable';
+    discovered_method: string;
+    last_seen: string;
+  }>> {
+    const response = await api.get('/reverse_proxy/discovered_services');
+    return response.data.data;
+  },
+
+  async runServiceDiscovery(): Promise<{
+    services: Array<{
+      name: string;
+      host: string;
+      port: number;
+      protocol: string;
+      health_check_path: string;
+      status: 'healthy' | 'unhealthy' | 'unreachable';
+      discovered_method: string;
+      last_seen: string;
+    }>;
+    message: string;
+  }> {
+    const response = await api.post('/reverse_proxy/service_discovery');
+    return response.data.data;
+  },
+
+  async addDiscoveredService(service: {
+    name: string;
+    host: string;
+    port: number;
+    protocol: string;
+    health_check_path: string;
+    status: string;
+    discovered_method: string;
+    last_seen: string;
+  }): Promise<{ message: string }> {
+    const response = await api.post('/reverse_proxy/add_discovered_service', {
+      service
+    });
+    return response.data.data;
+  },
+
+  // Health Monitoring
+  async getServiceHealthHistory(serviceName: string, hours: number = 24): Promise<{
+    service: string;
+    timeframe: string;
+    data_points: Array<{
+      timestamp: string;
+      status: 'healthy' | 'unhealthy' | 'unreachable';
+      response_time: number;
+      response_code: number | null;
+      error: string | null;
+    }>;
+  }> {
+    const response = await api.get(`/reverse_proxy/health_history/${serviceName}?hours=${hours}`);
+    return response.data.data;
+  },
+
+  async updateHealthCheckConfig(serviceName: string, config: {
+    interval: number;
+    timeout: number;
+    health_check_path: string;
+    expected_codes: number[];
+  }): Promise<{ message: string }> {
+    const response = await api.put(`/reverse_proxy/health_config/${serviceName}`, {
+      health_config: config
+    });
+    return response.data.data;
   }
 };

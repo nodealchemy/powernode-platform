@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
-import { TextAreaField, SelectField } from '@/shared/components/forms';
 import { useNotification } from '@/shared/hooks/useNotification';
 import { URLMapping } from '../../services/reverseProxyApi';
 
@@ -147,15 +146,20 @@ export const URLMappingModal: React.FC<URLMappingModalProps> = ({
         <div className="grid grid-cols-2 gap-4">
           {/* Target Service */}
           <div>
-            <SelectField
-              label="Target Service *"
+            <label className="block text-sm font-medium text-theme-primary mb-2">
+              Target Service *
+            </label>
+            <select
               value={formData.target_service}
-              onChange={(value) => updateFormData('target_service', value)}
-              options={availableServices.map(service => ({
-                value: service,
-                label: service.charAt(0).toUpperCase() + service.slice(1)
-              }))}
-            />
+              onChange={(e) => updateFormData('target_service', e.target.value)}
+              className="w-full p-3 border border-theme rounded-lg bg-theme-surface text-theme-primary"
+            >
+              {availableServices.map(service => (
+                <option key={service} value={service}>
+                  {service.charAt(0).toUpperCase() + service.slice(1)}
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Priority */}
@@ -198,13 +202,18 @@ export const URLMappingModal: React.FC<URLMappingModalProps> = ({
         </div>
 
         {/* Description */}
-        <TextAreaField
-          label="Description"
-          value={formData.description}
-          onChange={(e) => updateFormData('description', e.target.value)}
-          placeholder="Optional description for this URL mapping..."
-          rows={3}
-        />
+        <div>
+          <label className="block text-sm font-medium text-theme-primary mb-2">
+            Description
+          </label>
+          <textarea
+            value={formData.description}
+            onChange={(e) => updateFormData('description', e.target.value)}
+            placeholder="Optional description for this URL mapping..."
+            rows={3}
+            className="w-full p-3 border border-theme rounded-lg bg-theme-surface text-theme-primary resize-vertical"
+          />
+        </div>
 
         {/* Enabled Toggle */}
         <div className="flex items-center justify-between">
