@@ -12,6 +12,7 @@ import { useNotification } from '@/shared/hooks/useNotification';
 import { reverseProxyApi, ReverseProxyConfig, URLMapping, HealthStatus } from '../../services/reverseProxyApi';
 import { URLMappingModal } from './URLMappingModal';
 import { TestConfigurationModal } from './TestConfigurationModal';
+import { ExportConfigurationModal } from './ExportConfigurationModal';
 import { 
   Settings, 
   Globe, 
@@ -53,13 +54,21 @@ const ReverseProxyConfiguration: React.FC<ReverseProxyConfigurationProps> = ({ c
   const [editingMapping, setEditingMapping] = useState<URLMapping | null>(null);
   
   // Form states
-  const [testResults, setTestResults] = useState<any>(null);
-  const [exportConfig, setExportConfig] = useState<string>('');
-  const [exportType, setExportType] = useState<'nginx' | 'apache' | 'traefik'>('nginx');
 
   useEffect(() => {
     loadConfiguration();
   }, []);
+
+  // Auto-refresh health status every 30 seconds
+  useEffect(() => {
+    if (!config?.enabled) return;
+
+    const interval = setInterval(() => {
+      refreshHealthStatus();
+    }, 30000); // 30 seconds
+
+    return () => clearInterval(interval);
+  }, [config?.enabled]);
 
   const loadConfiguration = async () => {
     try {
@@ -105,16 +114,6 @@ const ReverseProxyConfiguration: React.FC<ReverseProxyConfigurationProps> = ({ c
     setShowTestModal(true);
   };
 
-  const generateProxyConfig = async () => {
-    try {
-      const generated = await reverseProxyApi.generateConfig(exportType);
-      setExportConfig(generated.config);
-      setShowExportModal(true);
-    } catch (error) {
-      console.error('Failed to generate configuration:', error);
-      showNotification('Failed to generate configuration', 'error');
-    }
-  };
 
   const updateConfig = (updates: Partial<ReverseProxyConfig>) => {
     if (config) {
@@ -403,59 +402,11 @@ const ReverseProxyConfiguration: React.FC<ReverseProxyConfigurationProps> = ({ c
       />
 
 
-      {/* Export Config Modal */}
-      {showExportModal && (
-        <Modal
-          isOpen={showExportModal}
-          onClose={() => setShowExportModal(false)}
-          title="Export Proxy Configuration"
-          maxWidth="lg"
-        >
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-theme-primary mb-2">
-                Proxy Type
-              </label>
-              <select 
-                value={exportType}
-                onChange={(e) => setExportType(e.target.value as any)}
-                className="w-full p-2 border border-theme rounded-lg bg-theme-surface text-theme-primary"
-              >
-                <option value="nginx">Nginx</option>
-                <option value="apache">Apache</option>
-                <option value="traefik">Traefik</option>
-              </select>
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-theme-primary mb-2">
-                Configuration
-              </label>
-              <textarea
-                value={exportConfig}
-                readOnly
-                rows={20}
-                className="w-full p-3 border border-theme rounded-lg bg-theme-surface text-theme-primary font-mono text-sm resize-none"
-              />
-            </div>
-            
-            <FlexItemsCenter justify="end" gap="sm">
-              <Button 
-                onClick={() => {
-                  navigator.clipboard.writeText(exportConfig);
-                  showNotification('Configuration copied to clipboard', 'success');
-                }}
-                variant="secondary"
-              >
-                Copy to Clipboard
-              </Button>
-              <Button onClick={() => setShowExportModal(false)}>
-                Close
-              </Button>
-            </FlexItemsCenter>
-          </div>
-        </Modal>
-      )}
+      {/* Export Configuration Modal */}
+      <ExportConfigurationModal
+        isOpen={showExportModal}
+        onClose={() => setShowExportModal(false)}
+      />
     </div>
   );
 };
