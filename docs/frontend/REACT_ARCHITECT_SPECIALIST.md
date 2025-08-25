@@ -345,6 +345,39 @@ export interface PaginationMeta {
 #### MANDATORY Pattern: Permission-Only Access Control
 **ABSOLUTE RULE**: Frontend access control MUST use permissions ONLY - NEVER roles. This pattern was discovered as consistently implemented across the entire platform.
 
+#### Page Container Structure Requirements (CRITICAL)
+**MANDATORY**: Admin settings pages must follow strict container hierarchy to prevent duplicate navigation structures.
+
+```tsx
+// ❌ FORBIDDEN: Admin tab page with duplicate containers
+const AdminSettingsRateLimitingTabPage: React.FC = () => {
+  return (
+    <PageContainer title="Rate Limiting Settings">
+      <AdminSettingsTabs />
+      <RateLimitingSettings />
+    </PageContainer>
+  );
+};
+
+// ✅ CORRECT: Tab page returns component directly
+const AdminSettingsRateLimitingTabPage: React.FC = () => {
+  const { user } = useSelector((state: RootState) => state.auth);
+  const canManageRateLimiting = hasPermissions(user, ['admin.settings.security']);
+  
+  if (!canManageRateLimiting) {
+    return <Navigate to="/app/admin/settings" replace />;
+  }
+  
+  return <RateLimitingSettings />;
+};
+```
+
+**Container Hierarchy Rules**:
+1. **Parent page** (AdminSettingsPage) provides PageContainer + AdminSettingsTabs
+2. **Child tab pages** return component content directly - NO containers  
+3. **Permission validation** at tab page level with appropriate redirects
+4. **Navigation state** managed by parent component
+
 ```typescript
 // ✅ CORRECT: Permission-based access control
 const { hasPermission } = usePermissions();
@@ -441,6 +474,48 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
 #### Standard Permission Naming Convention
 Based on platform analysis, permissions follow `resource.action` format:
 
+#### Admin Settings Navigation Pattern
+```tsx
+// Parent AdminSettingsPage.tsx - Container provider
+export const AdminSettingsPage: React.FC = () => {
+  return (
+    <PageContainer 
+      title="Admin Settings"
+      subtitle="Configure system-wide settings and security options"
+      breadcrumb={[
+        { label: 'Admin Dashboard', href: '/app/admin' },
+        { label: 'Settings' }
+      ]}
+    >
+      {/* Tab navigation - rendered once at parent level */}
+      <AdminSettingsTabs />
+      
+      {/* Tab content area */}
+      <div className="mt-6">
+        <Outlet /> {/* Child tab pages render here */}
+      </div>
+    </PageContainer>
+  );
+};
+
+// Child AdminSettingsGeneralTabPage.tsx - Content only
+export const AdminSettingsGeneralTabPage: React.FC = () => {
+  return <GeneralSettings />; // Direct component return
+};
+
+// Child AdminSettingsRateLimitingTabPage.tsx - Permission check + content
+export const AdminSettingsRateLimitingTabPage: React.FC = () => {
+  const { user } = useSelector((state: RootState) => state.auth);
+  const canManageRateLimiting = hasPermissions(user, ['admin.settings.security']);
+  
+  if (!canManageRateLimiting) {
+    return <Navigate to="/app/admin/settings" replace />;
+  }
+  
+  return <RateLimitingSettings />;
+};
+```
+
 ```typescript
 // Permission constants
 export const PERMISSIONS = {
@@ -515,6 +590,10 @@ grep -r "currentUser.*roles\?\." frontend/src/ | grep -v "display\|format\|badge
 
 # Count permission-based access checks (should be > 0) 
 grep -r "hasPermission\|permissions.*includes" frontend/src/ | wc -l
+
+# Page container structure validation
+grep -r "<PageContainer" src/pages/app/admin/ | grep -v "AdminSettingsPage.tsx"  # Should be empty
+grep -r "<AdminSettingsTabs" src/pages/app/admin/ | grep -v "AdminSettingsPage.tsx"  # Should be empty
 ```
 
 ### 4. Routing and Navigation (MANDATORY)
@@ -1424,5 +1503,84 @@ import { Button } from '@/shared/components/ui/Button';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { userApi } from '@/features/users/services/userApi';
 ```
+
+## Architecture Validation Commands
+
+### Component Structure Audits
+```bash
+# Page container hierarchy validation
+grep -r "<PageContainer" src/pages/app/admin/ | wc -l
+grep -r "return <PageContainer" src/pages/app/admin/AdminSettingsPage.tsx | wc -l  # Should be 1
+grep -r "return.*<.*Settings.*/>" src/pages/app/admin/ | wc -l  # Tab pages direct returns
+
+# Permission-based routing validation
+grep -r "hasPermissions(user" src/pages/app/admin/ | wc -l
+grep -r "<Navigate.*replace" src/pages/app/admin/ | wc -l
+
+# Theme-aware component structure
+grep -r "theme-.*" src/shared/components/ | wc -l
+grep -r "bg-red-\|bg-blue-\|bg-green-\|bg-yellow-" src/ | grep -v "text-white" | wc -l  # Should be 0
+```
+
+### TypeScript Architecture Validation
+```bash
+# Type safety verification
+find src/ -name "*.tsx" -o -name "*.ts" | xargs grep -l "any" | wc -l  # Should be minimal
+grep -r "interface.*Props" src/shared/components/ | wc -l
+grep -r "forwardRef<HTML.*Props>" src/shared/components/ | wc -l
+
+# Import path alias usage
+grep -r "@/shared/" src/ | wc -l
+grep -r "@/features/" src/ | wc -l
+grep -r "\.\.\./\.\.\./" src/ | wc -l  # Should be minimal
+```
+
+### State Management Validation
+```bash
+# Permission hook usage
+grep -r "usePermissions()" src/ | wc -l
+grep -r "hasPermission(" src/ | wc -l
+
+# Context usage validation
+grep -r "useAuth()" src/ | wc -l
+grep -r "useTheme()" src/ | wc -l
+grep -r "useNotification()" src/ | wc -l
+```
+
+### Performance Pattern Validation
+```bash
+# React.memo usage
+grep -r "React.memo" src/shared/components/ | wc -l
+grep -r "useMemo\|useCallback" src/shared/components/ | wc -l
+
+# Lazy loading implementation
+grep -r "lazy(() =>" src/pages/ | wc -l
+grep -r "Suspense" src/ | wc -l
+```
+
+## React Architecture Critical Requirements
+
+### 1. ABSOLUTE PROHIBITIONS
+- ❌ **NO duplicate PageContainer** in admin tab pages
+- ❌ **NO role-based access control** - permissions only
+- ❌ **NO hardcoded colors** except `text-white` on colored backgrounds  
+- ❌ **NO relative imports** beyond one level - use path aliases
+- ❌ **NO any types** in component props or state
+- ❌ **NO uncontrolled re-renders** - proper memo/callback usage
+
+### 2. MANDATORY PATTERNS
+- ✅ **Feature-based directory structure** with consistent organization
+- ✅ **Permission-based access control** using `hasPermissions()` hook
+- ✅ **Theme-aware styling** with `theme-*` classes exclusively
+- ✅ **TypeScript strict mode** with proper interface definitions
+- ✅ **Path alias imports** for all cross-feature dependencies
+- ✅ **Container hierarchy** respecting parent/child relationships
+
+### 3. ARCHITECTURAL VALIDATIONS
+- Component structure follows established patterns
+- Permission system used correctly throughout
+- Type safety maintained across all components
+- Performance optimizations properly implemented
+- Theme integration consistent and complete
 
 **ALWAYS REFERENCE TODO.md FOR CURRENT TASKS AND PRIORITIES**

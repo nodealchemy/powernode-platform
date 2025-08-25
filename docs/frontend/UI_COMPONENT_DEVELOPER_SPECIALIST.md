@@ -1188,13 +1188,318 @@ export const Component = forwardRef<HTMLDivElement, ComponentProps>(({
 Component.displayName = 'Component';
 ```
 
-### Accessibility Checklist
-- ✅ Proper semantic HTML elements
-- ✅ ARIA labels and roles
-- ✅ Keyboard navigation support
-- ✅ Focus management
-- ✅ Color contrast compliance
-- ✅ Screen reader compatibility
-- ✅ Responsive touch targets (44px minimum)
+## Critical Styling Standards (MANDATORY)
+
+### 1. Theme-Aware Styling Requirements (ABSOLUTE)
+
+**CRITICAL PROHIBITION**: Hardcoded color classes are FORBIDDEN across all components except `text-white` on colored backgrounds.
+
+#### Standard Theme Class Mapping
+```typescript
+// ❌ FORBIDDEN: Hardcoded color usage
+const FORBIDDEN_CLASSES = [
+  'bg-yellow-100', 'bg-yellow-400', 'text-yellow-800',
+  'bg-red-500', 'bg-red-600', 'border-red-300',
+  'bg-green-50', 'bg-green-200', 'text-green-600',
+  'bg-blue-500', 'text-blue-600', 'border-blue-400',
+  'bg-gray-100', 'text-gray-900', 'border-gray-300'
+];
+
+// ✅ MANDATORY: Theme-aware replacements
+const THEME_CLASSES = {
+  // Background colors
+  surface: 'bg-theme-surface',
+  background: 'bg-theme-background',
+  surfaceHover: 'bg-theme-surface-hover',
+  surfaceSubtle: 'bg-theme-surface-subtle',
+  
+  // Primary colors
+  primary: 'bg-theme-primary',
+  primaryHover: 'bg-theme-primary-hover',
+  primaryDark: 'bg-theme-primary-dark',
+  
+  // State colors
+  error: 'bg-theme-error',
+  errorBackground: 'bg-theme-error-background',
+  warning: 'bg-theme-warning',
+  warningBackground: 'bg-theme-warning-background',
+  success: 'bg-theme-success', 
+  successBackground: 'bg-theme-success-background',
+  
+  // Text colors
+  textPrimary: 'text-theme-primary',
+  textSecondary: 'text-theme-secondary',
+  textTertiary: 'text-theme-tertiary',
+  textError: 'text-theme-error',
+  textErrorDark: 'text-theme-error-dark',
+  textWarning: 'text-theme-warning',
+  textWarningDark: 'text-theme-warning-dark',
+  textSuccess: 'text-theme-success',
+  textSuccessDark: 'text-theme-success-dark',
+  
+  // Borders
+  border: 'border-theme',
+  borderError: 'border-theme-error',
+  borderWarning: 'border-theme-warning',
+  borderSuccess: 'border-theme-success',
+  
+  // Interactive elements
+  interactivePrimary: 'bg-theme-interactive-primary',
+  link: 'text-theme-link',
+  
+  // Special case - only exception
+  textWhite: 'text-white' // ONLY on colored backgrounds
+} as const;
+```
+
+#### Component Theme Integration Pattern
+```tsx
+// ✅ CORRECT: Theme-aware button with consistent variants
+const Button = forwardRef<HTMLButtonElement, ButtonProps>(({ variant, size, className, ...props }, ref) => {
+  const themeClasses = cn(
+    // Base theme-aware styles
+    'inline-flex items-center justify-center font-medium transition-colors rounded-md',
+    'bg-theme-surface text-theme-primary border border-theme',
+    'hover:bg-theme-surface-hover focus:ring-2 focus:ring-theme-primary focus:ring-offset-2',
+    'disabled:opacity-50 disabled:pointer-events-none',
+    
+    // Variant-specific theme classes
+    {
+      'bg-theme-interactive-primary text-white hover:bg-theme-primary-hover': variant === 'primary',
+      'bg-theme-surface text-theme-primary hover:bg-theme-background': variant === 'secondary', 
+      'bg-theme-error text-white hover:bg-theme-error/90': variant === 'danger',
+      'bg-theme-warning text-white hover:bg-theme-warning/90': variant === 'warning',
+      'bg-theme-success text-white hover:bg-theme-success/90': variant === 'success'
+    },
+    
+    className
+  );
+  
+  return <button ref={ref} className={themeClasses} {...props} />;
+});
+```
+
+### 2. Accessibility Standards (WCAG AA MANDATORY)
+
+#### Contrast Compliance (CRITICAL)
+**ABSOLUTE REQUIREMENT**: All interactive elements must meet WCAG AA contrast standards.
+
+```tsx
+// ✅ CORRECT: Form input with sufficient contrast
+const Input = forwardRef<HTMLInputElement, InputProps>(({ error, className, ...props }, ref) => {
+  const inputClasses = cn(
+    // Base contrast-compliant styling
+    'w-full px-3 py-2 rounded-md border transition-colors',
+    'bg-theme-surface text-theme-primary placeholder:text-theme-tertiary',
+    'border-theme focus:border-theme-primary focus:ring-2 focus:ring-theme-primary focus:ring-offset-0',
+    
+    // Error state with proper contrast
+    error && 'border-theme-error focus:border-theme-error focus:ring-theme-error',
+    
+    // Disabled state maintains readability  
+    'disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-theme-background',
+    
+    className
+  );
+  
+  return <input ref={ref} className={inputClasses} {...props} />;
+});
+```
+
+#### Emergency Controls Pattern (CRITICAL)
+```tsx
+// ✅ CORRECT: Emergency control with theme-aware danger styling
+const EmergencyControl: React.FC = () => {
+  return (
+    <div className="p-4 border border-theme bg-theme-warning-background rounded-lg">
+      <h4 className="font-medium text-theme-warning mb-2">Temporarily Disable</h4>
+      <p className="text-sm text-theme-warning-dark mb-3">Emergency maintenance control</p>
+      
+      <div className="flex items-center gap-3">
+        <input
+          type="number"
+          min="1"
+          max="480"
+          className="w-20 px-3 py-2 border border-theme rounded-md bg-theme-surface text-theme-primary focus:ring-2 focus:ring-theme-warning focus:border-theme-warning text-sm font-medium"
+        />
+        <span className="text-sm text-theme-warning-dark font-medium">minutes</span>
+        
+        <Button variant="warning" size="sm" className="ml-auto">
+          <Ban className="w-4 h-4 mr-1" />
+          Disable
+        </Button>
+      </div>
+    </div>
+  );
+};
+```
+
+#### Status Indicators with Theme Awareness
+```tsx
+// ✅ CORRECT: Status indicators using theme classes
+const StatusIndicator: React.FC<{ status: 'error' | 'warning' | 'success' }> = ({ status }) => {
+  const statusConfig = {
+    error: {
+      bg: 'bg-theme-error-background',
+      border: 'border-theme-error', 
+      text: 'text-theme-error',
+      icon: 'text-theme-error'
+    },
+    warning: {
+      bg: 'bg-theme-warning-background',
+      border: 'border-theme-warning',
+      text: 'text-theme-warning-dark', 
+      icon: 'text-theme-warning'
+    },
+    success: {
+      bg: 'bg-theme-success-background',
+      border: 'border-theme-success',
+      text: 'text-theme-success-dark',
+      icon: 'text-theme-success'
+    }
+  };
+  
+  const config = statusConfig[status];
+  
+  return (
+    <div className={cn('p-4 border rounded-lg', config.bg, config.border)}>
+      <div className="flex items-center gap-3">
+        <AlertTriangle className={cn('w-5 h-5', config.icon)} />
+        <div className={cn('font-medium', config.text)}>
+          Status: {status}
+        </div>
+      </div>
+    </div>
+  );
+};
+```
+
+### 3. Form Component Standards (MANDATORY)
+
+#### Standard Button Component Usage
+**CRITICAL**: ALL interactive elements must use the standard Button component.
+
+```tsx
+// ❌ FORBIDDEN: Custom button implementations
+<button
+  onClick={handleRefresh}
+  className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md"
+>
+  Refresh
+</button>
+
+// ✅ MANDATORY: Standard Button component
+<Button
+  onClick={handleRefresh}
+  variant="secondary"
+  size="sm"
+>
+  <RefreshIcon className="w-4 h-4 mr-2" />
+  Refresh
+</Button>
+```
+
+#### Button Variant Standards
+```tsx
+// Action type mapping for consistent UX
+const BUTTON_USAGE = {
+  // Primary actions - main user flows
+  primary: ['Save Changes', 'Create User', 'Submit', 'Continue'],
+  
+  // Secondary actions - supporting actions
+  secondary: ['Cancel', 'Back', 'Refresh Stats', 'Show/Hide'],
+  
+  // Danger actions - destructive operations
+  danger: ['Delete', 'Remove', 'Permanently Delete'],
+  
+  // Warning actions - potentially risky
+  warning: ['Disable', 'Suspend', 'Temporarily Disable'],
+  
+  // Success actions - positive confirmations
+  success: ['Enable', 'Activate', 'Re-enable', 'Approve']
+} as const;
+
+// ✅ CORRECT: Proper button variant usage
+<Button variant="primary" loading={saving}>
+  <Save className="w-5 h-5 mr-2" />
+  Save Rate Limiting Settings
+</Button>
+
+<Button variant="warning" size="sm">
+  <Ban className="w-4 h-4 mr-1" /> 
+  Temporarily Disable
+</Button>
+
+<Button variant="success" size="sm">
+  <Play className="w-4 h-4 mr-1" />
+  Re-enable
+</Button>
+```
+
+### 4. Component Validation Commands
+
+#### Theme Compliance Audits
+```bash
+# Critical hardcoded color detection (should return empty)
+grep -r "bg-red-\|bg-green-\|bg-yellow-\|bg-blue-\|bg-gray-" src/shared/components/ | grep -v "text-white"
+grep -r "text-red-\|text-green-\|text-yellow-\|text-blue-" src/shared/components/ | grep -v "text-white"
+grep -r "border-red-\|border-green-\|border-yellow-\|border-blue-" src/shared/components/
+
+# Theme class usage verification (should be substantial)
+grep -r "bg-theme-\|text-theme-\|border-theme" src/shared/components/ | wc -l
+
+# Button component standardization
+grep -r "<button[^>]*className=" src/shared/components/ | wc -l  # Should be minimal
+grep -r "<Button" src/shared/components/ | wc -l                # Should be primary
+
+# Accessibility features verification
+grep -r "aria-label\|aria-describedby\|htmlFor" src/shared/components/ | wc -l
+grep -r "focus:ring-2.*focus:ring-theme-" src/shared/components/ | wc -l
+```
+
+#### Component Pattern Validation
+```bash
+# Standard component structure verification
+grep -r "forwardRef<HTML.*Props>" src/shared/components/ | wc -l
+grep -r "displayName = " src/shared/components/ | wc -l
+
+# Theme integration pattern
+grep -r "variant.*primary\|secondary\|danger\|warning\|success" src/shared/components/ | wc -l
+
+# Proper className composition
+grep -r "cn(" src/shared/components/ | wc -l
+```
+
+#### Form Component Standards
+```bash
+# Form input contrast compliance
+grep -r "bg-theme-surface.*text-theme-primary" src/shared/components/forms/ | wc -l
+
+# Focus state implementation
+grep -r "focus:border-theme-primary" src/shared/components/forms/ | wc -l
+
+# Error state styling
+grep -r "border-theme-error.*focus:ring-theme-error" src/shared/components/forms/ | wc -l
+```
+
+### Accessibility Checklist (WCAG AA COMPLIANCE)
+- ✅ **Contrast ratios**: 4.5:1 normal text, 3:1 large text
+- ✅ **Theme-aware colors**: NO hardcoded colors except `text-white`
+- ✅ **Focus indicators**: Visible 2px focus rings with theme colors
+- ✅ **Semantic HTML**: Proper heading hierarchy, form labels
+- ✅ **ARIA attributes**: Labels, descriptions, roles where needed
+- ✅ **Keyboard navigation**: Tab order, escape key handling
+- ✅ **Screen reader support**: Descriptive text, status announcements
+- ✅ **Touch targets**: Minimum 44px for interactive elements
+- ✅ **Form validation**: Clear error messages, field associations
+- ✅ **Loading states**: Accessible progress indicators
+
+### Component Standards Enforcement
+- ✅ **Standard Button component**: ALL interactive elements
+- ✅ **Theme integration**: Consistent variant mapping
+- ✅ **Proper sizing**: xs, sm, md, lg with appropriate spacing
+- ✅ **Loading states**: Built-in spinner and disabled states
+- ✅ **Icon integration**: Consistent positioning and sizing
+- ✅ **Accessibility props**: ARIA labels, keyboard support
 
 **ALWAYS REFERENCE TODO.md FOR CURRENT TASKS AND PRIORITIES**

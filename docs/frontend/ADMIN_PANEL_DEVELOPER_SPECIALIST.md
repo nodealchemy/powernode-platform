@@ -20,7 +20,250 @@ The Admin Panel Developer specializes in creating comprehensive administrative i
 
 ## Admin Panel Architecture Standards
 
-### 1. Admin Layout Structure (MANDATORY)
+### 1. Page Layout Requirements (CRITICAL)
+
+**ABSOLUTE PROHIBITION**: Admin tab pages MUST NOT create duplicate PageContainer or TabContainer structures.
+
+#### Mandatory Page Structure Pattern
+```tsx
+// ❌ FORBIDDEN: Admin tab page with duplicate containers
+const AdminSettingsTabPage: React.FC = () => {
+  return (
+    <PageContainer title="Settings">
+      <AdminSettingsTabs />
+      <SettingsComponent />
+    </PageContainer>
+  );
+};
+
+// ✅ CORRECT: Admin tab page returns component directly
+const AdminSettingsTabPage: React.FC = () => {
+  const { user } = useSelector((state: RootState) => state.auth);
+  const canAccessSettings = hasPermissions(user, ['admin.settings.manage']);
+  
+  if (!canAccessSettings) {
+    return <Navigate to="/app/admin" replace />;
+  }
+  
+  return <SettingsComponent />;
+};
+```
+
+**Page Layout Enforcement Rules**:
+1. **Parent AdminSettingsPage** provides PageContainer and AdminSettingsTabs
+2. **Child tab pages** return component content directly - NO containers
+3. **Permission checks** must be performed at tab level
+4. **Navigation redirects** for unauthorized access
+
+#### Admin Settings Tab Structure (MANDATORY)
+```tsx
+// Parent AdminSettingsPage.tsx - ONLY place for containers
+export const AdminSettingsPage: React.FC = () => {
+  return (
+    <PageContainer 
+      title="Admin Settings"
+      breadcrumb={[
+        { label: 'Admin', href: '/app/admin' },
+        { label: 'Settings' }
+      ]}
+    >
+      <AdminSettingsTabs /> {/* Navigation tabs */}
+      <div className="mt-6">
+        <Outlet /> {/* Tab content rendered here */}
+      </div>
+    </PageContainer>
+  );
+};
+
+// Child tab pages - NO containers, direct component return
+export const AdminSettingsGeneralTabPage: React.FC = () => {
+  return <GeneralSettings />;
+};
+
+export const AdminSettingsSecurityTabPage: React.FC = () => {
+  return <SecuritySettings />;
+};
+
+export const AdminSettingsRateLimitingTabPage: React.FC = () => {
+  const { user } = useSelector((state: RootState) => state.auth);
+  const canManageRateLimiting = hasPermissions(user, ['admin.settings.security']);
+  
+  if (!canManageRateLimiting) {
+    return <Navigate to="/app/admin/settings" replace />;
+  }
+  
+  return <RateLimitingSettings />;
+};
+```
+
+### 2. Component Standards (MANDATORY)
+
+#### Standard Button Component Usage
+**CRITICAL**: All interactive elements MUST use the standard Button component from `@/shared/components/ui/Button`.
+
+```tsx
+// ❌ FORBIDDEN: Custom button implementations
+<button
+  onClick={handleAction}
+  className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+>
+  Save Settings
+</button>
+
+// ✅ CORRECT: Standard Button component
+<Button
+  onClick={handleAction}
+  variant="primary"
+  size="lg"
+  loading={saving}
+>
+  <Save className="w-5 h-5 mr-2" />
+  Save Settings
+</Button>
+```
+
+#### Button Variant Standards
+```tsx
+// Primary actions
+<Button variant="primary">Save Changes</Button>
+<Button variant="primary" loading={saving}>Processing...</Button>
+
+// Secondary actions  
+<Button variant="secondary">Cancel</Button>
+<Button variant="secondary" size="sm">Refresh</Button>
+
+// Danger actions
+<Button variant="danger">Delete Item</Button>
+<Button variant="warning">Temporarily Disable</Button>
+
+// Success actions
+<Button variant="success">Re-enable</Button>
+<Button variant="success" size="sm">Activate</Button>
+```
+
+### 3. Theme-Aware Styling (CRITICAL)
+
+#### MANDATORY Theme Classes
+**ABSOLUTE PROHIBITION**: Hardcoded color classes are FORBIDDEN except `text-white` on colored backgrounds.
+
+```tsx
+// ❌ FORBIDDEN: Hardcoded colors
+className="bg-yellow-100 border-yellow-400 text-yellow-800"
+className="bg-red-500 text-white border-red-600"
+className="bg-green-50 border-green-200"
+
+// ✅ CORRECT: Theme-aware classes
+className="bg-theme-warning-background border-theme-warning text-theme-warning-dark"
+className="bg-theme-error border-theme-error text-white"
+className="bg-theme-success-background border-theme-success"
+```
+
+#### Standard Theme Color Mapping
+```typescript
+const THEME_CLASSES = {
+  // Backgrounds
+  surface: 'bg-theme-surface',
+  background: 'bg-theme-background', 
+  surfaceSubtle: 'bg-theme-surface-subtle',
+  
+  // State backgrounds
+  warningBg: 'bg-theme-warning-background',
+  errorBg: 'bg-theme-error-background',
+  successBg: 'bg-theme-success-background',
+  
+  // Text colors
+  primary: 'text-theme-primary',
+  secondary: 'text-theme-secondary',
+  tertiary: 'text-theme-tertiary',
+  
+  // State text colors
+  error: 'text-theme-error',
+  errorDark: 'text-theme-error-dark',
+  warning: 'text-theme-warning', 
+  warningDark: 'text-theme-warning-dark',
+  success: 'text-theme-success',
+  successDark: 'text-theme-success-dark',
+  
+  // Borders
+  border: 'border-theme',
+  errorBorder: 'border-theme-error',
+  warningBorder: 'border-theme-warning',
+  successBorder: 'border-theme-success'
+} as const;
+```
+
+#### Form Input Standards (ACCESSIBILITY CRITICAL)
+**MANDATORY**: All form inputs must provide sufficient contrast and theme-aware styling.
+
+```tsx
+// ✅ CORRECT: Theme-aware form input with accessibility
+<input
+  type="number"
+  className="w-full px-3 py-2 border border-theme rounded-md bg-theme-surface text-theme-primary focus:ring-2 focus:ring-theme-primary focus:border-theme-primary"
+  value={value}
+  onChange={handleChange}
+  aria-label="Input description"
+/>
+
+// ✅ CORRECT: Emergency control input with proper contrast
+<input
+  type="number"
+  className="w-20 px-3 py-2 border border-theme rounded-md bg-theme-surface text-theme-primary focus:ring-2 focus:ring-theme-warning focus:border-theme-warning text-sm font-medium"
+  min="1"
+  max="480"
+/>
+```
+
+### 4. Accessibility Compliance (WCAG AA MANDATORY)
+
+#### Contrast Requirements
+- **Text contrast ratio**: Minimum 4.5:1 for normal text, 3:1 for large text
+- **Interactive elements**: Minimum 3:1 contrast for focus states
+- **Form inputs**: Must have sufficient contrast between text and background
+
+#### ARIA and Semantic HTML
+```tsx
+// ✅ CORRECT: Proper ARIA labels and semantic structure
+<section aria-labelledby="settings-title">
+  <h2 id="settings-title" className="text-xl font-semibold text-theme-primary">
+    Rate Limiting Settings
+  </h2>
+  
+  <div role="group" aria-labelledby="emergency-controls-title">
+    <h3 id="emergency-controls-title" className="font-medium text-theme-warning mb-2">
+      Emergency Controls
+    </h3>
+    
+    <label htmlFor="disable-duration" className="block text-sm font-medium">
+      Duration (minutes)
+    </label>
+    <input
+      id="disable-duration"
+      type="number"
+      min="1"
+      max="480"
+      aria-describedby="disable-help"
+      className="..."
+    />
+    <p id="disable-help" className="text-sm text-theme-secondary">
+      Temporarily disable rate limiting for maintenance
+    </p>
+  </div>
+</section>
+```
+
+#### Focus Management
+```tsx
+// ✅ CORRECT: Visible focus states with theme awareness
+className="focus:ring-2 focus:ring-theme-primary focus:ring-offset-2 focus:outline-none"
+
+// ✅ CORRECT: Focus trap in modals
+const focusableElements = modalRef.current?.querySelectorAll(
+  'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+);
+```
+
+### 5. Admin Layout Structure (MANDATORY)
 
 #### Admin-Specific Layout Component
 ```tsx
@@ -1074,5 +1317,95 @@ if (!hasPermission('admin.users.manage')) {
 
 return <UserManagementInterface />;
 ```
+
+## Page Layout Validation Commands
+
+### Structure Compliance Audits
+```bash
+# Check for duplicate PageContainer usage in admin tab pages
+grep -r "<PageContainer" src/pages/app/admin/ | grep -v "AdminSettingsPage.tsx"
+
+# Find admin tab pages that incorrectly include AdminSettingsTabs
+grep -r "<AdminSettingsTabs" src/pages/app/admin/ | grep -v "AdminSettingsPage.tsx"
+
+# Verify standard Button component usage
+grep -r "<button[^>]*className=" src/features/admin/ | wc -l  # Should be minimal
+grep -r "<Button" src/features/admin/ | wc -l                # Should be high
+
+# Check for hardcoded colors (should return minimal results)
+grep -r "bg-yellow-\|bg-red-\|bg-green-\|text-yellow-\|text-red-" src/features/admin/ | grep -v "text-white"
+
+# Count theme-aware classes (should be substantial)
+grep -r "bg-theme-\|text-theme-\|border-theme" src/features/admin/ | wc -l
+
+# Verify accessibility - ARIA labels and semantic HTML
+grep -r "aria-label\|aria-describedby\|aria-labelledby" src/features/admin/ | wc -l
+grep -r "role=\|id=.*title\|htmlFor=" src/features/admin/ | wc -l
+```
+
+### Component Standards Verification
+```bash
+# Check for custom button implementations (should be minimal)
+grep -r "onClick.*className.*px-.*py-" src/features/admin/ | wc -l
+
+# Verify Button component props usage
+grep -r "variant=\"primary\|variant=\"secondary\|variant=\"danger" src/features/admin/ | wc -l
+
+# Check loading prop usage
+grep -r "loading={.*}" src/features/admin/ | wc -l
+
+# Verify icon usage in buttons
+grep -r "<.*Icon.*className=\"w-.*h-.* mr-" src/features/admin/ | wc -l
+```
+
+### Accessibility Compliance Checks
+```bash
+# Verify contrast-compliant input fields
+grep -r "bg-theme-surface.*text-theme-primary" src/features/admin/ | grep "input\|textarea" | wc -l
+
+# Check focus ring implementations
+grep -r "focus:ring-2.*focus:ring-theme-" src/features/admin/ | wc -l
+
+# Verify semantic HTML usage
+grep -r "<section\|<article\|<nav\|<main\|<header\|<footer" src/features/admin/ | wc -l
+
+# Check for proper form labels
+grep -r "htmlFor=\|<label.*for=" src/features/admin/ | wc -l
+```
+
+### Theme Consistency Validation
+```bash
+# Emergency Controls theme validation
+grep -A10 -B5 "Emergency Controls" src/features/admin/ | grep -E "theme-warning|theme-error|theme-success"
+
+# Recent Violations theme validation  
+grep -A10 -B5 "Recent Violations" src/features/admin/ | grep -E "theme-error"
+
+# Form input theme validation
+grep -r "className=.*input" src/features/admin/ | grep -E "bg-theme-surface.*text-theme-primary"
+```
+
+## Admin Panel Developer Critical Requirements
+
+### 1. ABSOLUTE PROHIBITIONS
+- ❌ **NO duplicate PageContainer** in admin tab pages
+- ❌ **NO duplicate AdminSettingsTabs** in child components  
+- ❌ **NO custom button implementations** - use standard Button component
+- ❌ **NO hardcoded color classes** except `text-white` on colored backgrounds
+- ❌ **NO insufficient contrast** in form inputs or interactive elements
+
+### 2. MANDATORY PATTERNS
+- ✅ **Admin tab pages return components directly** - no containers
+- ✅ **Standard Button component** for all interactive elements
+- ✅ **Theme-aware styling** using `theme-*` classes exclusively
+- ✅ **Permission-based access control** with proper redirects
+- ✅ **WCAG AA accessibility compliance** with proper ARIA labels
+
+### 3. CRITICAL VALIDATIONS
+- Page structure follows parent/child container pattern
+- All buttons use standard component with appropriate variants
+- Color usage exclusively through theme classes
+- Form inputs meet contrast requirements
+- Accessibility features properly implemented
 
 **ALWAYS REFERENCE TODO.md FOR CURRENT TASKS AND PRIORITIES**
