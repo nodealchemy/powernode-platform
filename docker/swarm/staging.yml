@@ -1,0 +1,299 @@
+# Docker Swarm stack configuration for Powernode Platform - Staging
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB_FILE=/run/secrets/staging_db_name
+      - POSTGRES_USER_FILE=/run/secrets/staging_db_user
+      - POSTGRES_PASSWORD_FILE=/run/secrets/staging_db_password
+    volumes:
+      - postgres_staging_data:/var/lib/postgresql/data
+    secrets:
+      - staging_db_name
+      - staging_db_user
+      - staging_db_password
+    networks:
+      - backend
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.environment == staging
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.3'
+        reservations:
+          memory: 256M
+          cpus: '0.1'
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$(cat /run/secrets/staging_db_user) -d $$(cat /run/secrets/staging_db_name)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    command: redis-server --requirepass $$(cat /run/secrets/staging_redis_password)
+    secrets:
+      - staging_redis_password
+    volumes:
+      - redis_staging_data:/data
+    networks:
+      - backend
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.2'
+        reservations:
+          memory: 128M
+          cpus: '0.05'
+      restart_policy:
+        condition: on-failure
+    healthcheck:
+      test: ["CMD", "redis-cli", "--no-auth-warning", "-a", "$$(cat /run/secrets/staging_redis_password)", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # Rails Backend API
+  backend:
+    image: ${REGISTRY_URL}/powernode-backend:${VERSION:-latest}
+    environment:
+      - RAILS_ENV=staging
+      - DATABASE_URL=postgresql://$$(cat /run/secrets/staging_db_user):$$(cat /run/secrets/staging_db_password)@postgres:5432/$$(cat /run/secrets/staging_db_name)
+      - REDIS_URL=redis://:$$(cat /run/secrets/staging_redis_password)@redis:6379/0
+      - RAILS_MASTER_KEY_FILE=/run/secrets/staging_rails_master_key
+      - JWT_SECRET_KEY_FILE=/run/secrets/staging_jwt_secret
+      - RAILS_LOG_LEVEL=debug
+      - WEB_CONCURRENCY=1
+      - RAILS_MAX_THREADS=3
+      # Staging-specific settings
+      - RAILS_SERVE_STATIC_FILES=true
+      - FORCE_SSL=false
+    secrets:
+      - staging_db_name
+      - staging_db_user
+      - staging_db_password
+      - staging_redis_password
+      - staging_rails_master_key
+      - staging_jwt_secret
+    networks:
+      - backend
+      - frontend
+    depends_on:
+      - postgres
+      - redis
+    deploy:
+      replicas: 1
+      update_config:
+        parallelism: 1
+        delay: 15s
+        failure_action: rollback
+        order: start-first
+      rollback_config:
+        parallelism: 1
+        delay: 15s
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.3'
+        reservations:
+          memory: 256M
+          cpus: '0.1'
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.staging-api.rule=Host(`${STAGING_DOMAIN}`) && PathPrefix(`/api`)
+        - traefik.http.routers.staging-api.entrypoints=websecure
+        - traefik.http.routers.staging-api.tls.certresolver=letsencrypt
+        - traefik.http.services.staging-api.loadbalancer.server.port=3000
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Sidekiq Worker
+  worker:
+    image: ${REGISTRY_URL}/powernode-worker:${VERSION:-latest}
+    environment:
+      - RAILS_ENV=staging
+      - DATABASE_URL=postgresql://$$(cat /run/secrets/staging_db_user):$$(cat /run/secrets/staging_db_password)@postgres:5432/$$(cat /run/secrets/staging_db_name)
+      - REDIS_URL=redis://:$$(cat /run/secrets/staging_redis_password)@redis:6379/0
+      - BACKEND_API_URL=http://backend:3000
+      - SIDEKIQ_CONCURRENCY=5
+    secrets:
+      - staging_db_name
+      - staging_db_user
+      - staging_db_password
+      - staging_redis_password
+    networks:
+      - backend
+    depends_on:
+      - postgres
+      - redis
+      - backend
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.3'
+        reservations:
+          memory: 256M
+          cpus: '0.1'
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4567/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # React Frontend
+  frontend:
+    image: ${REGISTRY_URL}/powernode-frontend:${VERSION:-latest}
+    networks:
+      - frontend
+    depends_on:
+      - backend
+    deploy:
+      replicas: 1
+      update_config:
+        parallelism: 1
+        delay: 5s
+        failure_action: rollback
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.2'
+        reservations:
+          memory: 64M
+          cpus: '0.05'
+      restart_policy:
+        condition: on-failure
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.staging-frontend.rule=Host(`${STAGING_DOMAIN}`)
+        - traefik.http.routers.staging-frontend.entrypoints=websecure
+        - traefik.http.routers.staging-frontend.tls.certresolver=letsencrypt
+        - traefik.http.services.staging-frontend.loadbalancer.server.port=80
+        # Add staging banner header
+        - traefik.http.routers.staging-frontend.middlewares=staging-headers
+        - traefik.http.middlewares.staging-headers.headers.customRequestHeaders.X-Environment=staging
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # Reverse Proxy / Load Balancer
+  proxy:
+    image: traefik:v3.0
+    command:
+      - --api.dashboard=true
+      - --api.insecure=false
+      - --providers.docker.swarmMode=true
+      - --providers.docker.exposedbydefault=false
+      - --providers.docker.network=frontend
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      - --certificatesresolvers.letsencrypt.acme.httpchallenge=true
+      - --certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web
+      - --certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL}
+      - --certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json
+      - --certificatesresolvers.letsencrypt.acme.caserver=https://acme-staging-v02.api.letsencrypt.org/directory
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8081:8080"  # Different port for staging dashboard
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - letsencrypt_staging:/letsencrypt
+    networks:
+      - frontend
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.2'
+      restart_policy:
+        condition: on-failure
+
+  # Staging-specific services
+  # Database seeding service (runs once)
+  db_seed:
+    image: ${REGISTRY_URL}/powernode-backend:${VERSION:-latest}
+    environment:
+      - RAILS_ENV=staging
+      - DATABASE_URL=postgresql://$$(cat /run/secrets/staging_db_user):$$(cat /run/secrets/staging_db_password)@postgres:5432/$$(cat /run/secrets/staging_db_name)
+    command: ["bundle", "exec", "rails", "db:seed"]
+    secrets:
+      - staging_db_name
+      - staging_db_user
+      - staging_db_password
+      - staging_rails_master_key
+    networks:
+      - backend
+    depends_on:
+      - postgres
+      - backend
+    deploy:
+      restart_policy:
+        condition: none
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.1'
+
+networks:
+  frontend:
+    driver: overlay
+    attachable: true
+  backend:
+    driver: overlay
+    internal: true
+
+volumes:
+  postgres_staging_data:
+    driver: local
+  redis_staging_data:
+    driver: local
+  letsencrypt_staging:
+    driver: local
+
+secrets:
+  staging_db_name:
+    external: true
+  staging_db_user:
+    external: true
+  staging_db_password:
+    external: true
+  staging_redis_password:
+    external: true
+  staging_rails_master_key:
+    external: true
+  staging_jwt_secret:
+    external: true

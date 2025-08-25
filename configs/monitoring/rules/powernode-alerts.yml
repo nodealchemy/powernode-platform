@@ -1,0 +1,309 @@
+# Powernode Platform Alert Rules
+groups:
+  - name: powernode.infrastructure
+    interval: 30s
+    rules:
+      # High-level service availability
+      - alert: ServiceDown
+        expr: up{job=~"powernode-.*"} == 0
+        for: 30s
+        labels:
+          severity: critical
+          component: application
+        annotations:
+          summary: "Powernode service {{ $labels.job }} is down"
+          description: "Service {{ $labels.job }} on instance {{ $labels.instance }} has been down for more than 30 seconds."
+          runbook_url: "https://runbooks.powernode.io/service-down"
+
+      - alert: HighErrorRate
+        expr: |
+          (
+            rate(http_requests_total{job="powernode-backend",status=~"5.."}[5m]) /
+            rate(http_requests_total{job="powernode-backend"}[5m])
+          ) * 100 > 5
+        for: 5m
+        labels:
+          severity: critical
+          component: application
+        annotations:
+          summary: "High error rate detected in Powernode backend"
+          description: "Error rate is {{ $value }}% for the last 5 minutes, which is above the 5% threshold."
+          runbook_url: "https://runbooks.powernode.io/high-error-rate"
+
+      - alert: SlowResponseTime
+        expr: |
+          histogram_quantile(0.95,
+            rate(http_request_duration_seconds_bucket{job="powernode-backend"}[5m])
+          ) > 2
+        for: 5m
+        labels:
+          severity: warning
+          component: application
+        annotations:
+          summary: "Slow response time in Powernode backend"
+          description: "95th percentile response time is {{ $value }}s, which is above the 2s threshold."
+          runbook_url: "https://runbooks.powernode.io/slow-response"
+
+  - name: powernode.resources
+    interval: 30s
+    rules:
+      # Memory alerts
+      - alert: HighMemoryUsage
+        expr: |
+          (
+            (container_memory_usage_bytes{name=~"powernode.*"} / 
+             container_spec_memory_limit_bytes{name=~"powernode.*"}) * 100
+          ) > 80
+        for: 5m
+        labels:
+          severity: warning
+          component: infrastructure
+        annotations:
+          summary: "High memory usage in {{ $labels.name }}"
+          description: "Memory usage is {{ $value }}% of limit for container {{ $labels.name }}."
+          runbook_url: "https://runbooks.powernode.io/high-memory"
+
+      - alert: CriticalMemoryUsage
+        expr: |
+          (
+            (container_memory_usage_bytes{name=~"powernode.*"} / 
+             container_spec_memory_limit_bytes{name=~"powernode.*"}) * 100
+          ) > 95
+        for: 1m
+        labels:
+          severity: critical
+          component: infrastructure
+        annotations:
+          summary: "Critical memory usage in {{ $labels.name }}"
+          description: "Memory usage is {{ $value }}% of limit for container {{ $labels.name }}. Service may be killed."
+          runbook_url: "https://runbooks.powernode.io/critical-memory"
+
+      # CPU alerts
+      - alert: HighCPUUsage
+        expr: |
+          (
+            rate(container_cpu_usage_seconds_total{name=~"powernode.*"}[5m]) * 100
+          ) > 80
+        for: 10m
+        labels:
+          severity: warning
+          component: infrastructure
+        annotations:
+          summary: "High CPU usage in {{ $labels.name }}"
+          description: "CPU usage is {{ $value }}% for container {{ $labels.name }} for more than 10 minutes."
+
+      # Disk space alerts
+      - alert: LowDiskSpace
+        expr: |
+          (
+            (node_filesystem_avail_bytes{fstype!="tmpfs"} / 
+             node_filesystem_size_bytes{fstype!="tmpfs"}) * 100
+          ) < 20
+        for: 5m
+        labels:
+          severity: warning
+          component: infrastructure
+        annotations:
+          summary: "Low disk space on {{ $labels.instance }}"
+          description: "Disk space is {{ $value }}% available on {{ $labels.mountpoint }}."
+
+      - alert: CriticalDiskSpace
+        expr: |
+          (
+            (node_filesystem_avail_bytes{fstype!="tmpfs"} / 
+             node_filesystem_size_bytes{fstype!="tmpfs"}) * 100
+          ) < 10
+        for: 1m
+        labels:
+          severity: critical
+          component: infrastructure
+        annotations:
+          summary: "Critical disk space on {{ $labels.instance }}"
+          description: "Only {{ $value }}% disk space available on {{ $labels.mountpoint }}."
+
+  - name: powernode.database
+    interval: 30s
+    rules:
+      # PostgreSQL alerts
+      - alert: PostgreSQLDown
+        expr: pg_up == 0
+        for: 30s
+        labels:
+          severity: critical
+          component: database
+        annotations:
+          summary: "PostgreSQL is down"
+          description: "PostgreSQL database is not responding."
+          runbook_url: "https://runbooks.powernode.io/postgresql-down"
+
+      - alert: PostgreSQLTooManyConnections
+        expr: |
+          (
+            pg_stat_database_numbackends / 
+            pg_settings_max_connections * 100
+          ) > 80
+        for: 5m
+        labels:
+          severity: warning
+          component: database
+        annotations:
+          summary: "PostgreSQL has too many connections"
+          description: "PostgreSQL is using {{ $value }}% of max connections."
+
+      - alert: PostgreSQLSlowQueries
+        expr: |
+          rate(pg_stat_database_tup_returned[5m]) /
+          rate(pg_stat_database_tup_fetched[5m]) < 0.1
+        for: 5m
+        labels:
+          severity: warning
+          component: database
+        annotations:
+          summary: "PostgreSQL has slow queries"
+          description: "Query efficiency is {{ $value }}, indicating slow queries."
+
+      - alert: PostgreSQLReplicationLag
+        expr: |
+          (pg_stat_replication_pg_wal_lsn_diff > 1000000)
+        for: 5m
+        labels:
+          severity: warning
+          component: database
+        annotations:
+          summary: "PostgreSQL replication lag"
+          description: "Replication lag is {{ $value }} bytes."
+
+  - name: powernode.redis
+    interval: 30s
+    rules:
+      # Redis alerts
+      - alert: RedisDown
+        expr: redis_up == 0
+        for: 30s
+        labels:
+          severity: critical
+          component: cache
+        annotations:
+          summary: "Redis is down"
+          description: "Redis cache server is not responding."
+          runbook_url: "https://runbooks.powernode.io/redis-down"
+
+      - alert: RedisHighMemoryUsage
+        expr: |
+          (
+            redis_memory_used_bytes / 
+            redis_config_maxmemory * 100
+          ) > 80
+        for: 5m
+        labels:
+          severity: warning
+          component: cache
+        annotations:
+          summary: "Redis high memory usage"
+          description: "Redis memory usage is {{ $value }}% of max memory."
+
+      - alert: RedisSlowlog
+        expr: increase(redis_slowlog_length[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+          component: cache
+        annotations:
+          summary: "Redis has slow commands"
+          description: "Redis slowlog has {{ $value }} new entries in the last 5 minutes."
+
+  - name: powernode.sidekiq
+    interval: 30s
+    rules:
+      # Sidekiq worker alerts
+      - alert: SidekiqQueueSize
+        expr: sidekiq_queue_size > 1000
+        for: 5m
+        labels:
+          severity: warning
+          component: worker
+        annotations:
+          summary: "Sidekiq queue is large"
+          description: "Sidekiq queue {{ $labels.queue }} has {{ $value }} jobs waiting."
+
+      - alert: SidekiqJobsRetrying
+        expr: sidekiq_jobs_retry_count > 50
+        for: 5m
+        labels:
+          severity: warning
+          component: worker
+        annotations:
+          summary: "Many Sidekiq jobs retrying"
+          description: "{{ $value }} Sidekiq jobs are currently retrying."
+
+      - alert: SidekiqJobsFailing
+        expr: increase(sidekiq_jobs_failed_total[10m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+          component: worker
+        annotations:
+          summary: "Sidekiq jobs failing"
+          description: "{{ $value }} Sidekiq jobs have failed in the last 10 minutes."
+
+  - name: powernode.security
+    interval: 60s
+    rules:
+      # Security alerts
+      - alert: TooManyFailedLogins
+        expr: increase(powernode_failed_login_attempts_total[5m]) > 50
+        for: 1m
+        labels:
+          severity: warning
+          component: security
+        annotations:
+          summary: "Too many failed login attempts"
+          description: "{{ $value }} failed login attempts in the last 5 minutes."
+
+      - alert: UnauthorizedAPIAccess
+        expr: increase(powernode_unauthorized_api_requests_total[5m]) > 100
+        for: 1m
+        labels:
+          severity: warning
+          component: security
+        annotations:
+          summary: "High unauthorized API access"
+          description: "{{ $value }} unauthorized API requests in the last 5 minutes."
+
+      - alert: SSLCertificateExpiring
+        expr: (ssl_certificate_expiry_seconds - time()) / 86400 < 30
+        for: 1h
+        labels:
+          severity: warning
+          component: security
+        annotations:
+          summary: "SSL certificate expiring soon"
+          description: "SSL certificate for {{ $labels.instance }} expires in {{ $value }} days."
+
+  - name: powernode.business
+    interval: 300s
+    rules:
+      # Business metric alerts
+      - alert: LowUserRegistrations
+        expr: increase(powernode_user_registrations_total[1h]) < 5
+        for: 2h
+        labels:
+          severity: info
+          component: business
+        annotations:
+          summary: "Low user registration rate"
+          description: "Only {{ $value }} user registrations in the last hour."
+
+      - alert: HighAPIErrorRate
+        expr: |
+          (
+            increase(powernode_api_errors_total[1h]) /
+            increase(powernode_api_requests_total[1h]) * 100
+          ) > 1
+        for: 30m
+        labels:
+          severity: warning
+          component: business
+        annotations:
+          summary: "High API error rate affecting users"
+          description: "API error rate is {{ $value }}% over the last hour."

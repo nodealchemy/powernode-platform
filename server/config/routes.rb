@@ -20,6 +20,21 @@ Rails.application.routes.draw do
         # Background job tracking
         resources :jobs, only: [:show, :update]
         
+        # Metrics tracking for worker jobs
+        namespace :metrics do
+          post :jobs
+          post :errors
+          post :custom
+        end
+        
+        # Worker status and health
+        resources :workers, only: [:index, :show] do
+          member do
+            post :ping
+            get :status
+          end
+        end
+        
         # Reverse proxy internal operations
         namespace :reverse_proxy do
           post :validate, to: 'reverse_proxy#validate_config'
@@ -562,6 +577,15 @@ Rails.application.routes.draw do
           get :usage, to: 'api_keys#usage_stats'
           get :scopes, to: 'api_keys#available_scopes'
           post :validate, to: 'api_keys#validate_key'
+        end
+      end
+
+      # Metrics endpoints
+      resources :metrics, only: [] do
+        collection do
+          get :prometheus
+          get :health
+          get :application
         end
       end
 

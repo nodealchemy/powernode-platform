@@ -1,0 +1,185 @@
+# AlertManager configuration for Powernode Platform
+global:
+  # SMTP configuration for email alerts
+  smtp_smarthost: '${SMTP_HOST:-localhost:587}'
+  smtp_from: '${ALERT_FROM_EMAIL:-alerts@powernode.io}'
+  smtp_auth_username: '${SMTP_USERNAME:-}'
+  smtp_auth_password: '${SMTP_PASSWORD:-}'
+  smtp_require_tls: true
+
+# Routing rules
+route:
+  group_by: ['alertname', 'cluster', 'service']
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 12h
+  receiver: 'default'
+  routes:
+    # Critical alerts - immediate notification
+    - match:
+        severity: critical
+      receiver: 'critical-alerts'
+      group_wait: 0s
+      repeat_interval: 5m
+      routes:
+        # Database alerts
+        - match:
+            component: database
+          receiver: 'database-critical'
+        # Application alerts  
+        - match:
+            component: application
+          receiver: 'application-critical'
+    
+    # Warning alerts - less frequent notifications
+    - match:
+        severity: warning
+      receiver: 'warning-alerts'
+      group_wait: 30s
+      repeat_interval: 1h
+    
+    # Info alerts - daily digest
+    - match:
+        severity: info
+      receiver: 'info-alerts'
+      group_wait: 5m
+      repeat_interval: 24h
+
+# Inhibition rules - prevent alert spam
+inhibit_rules:
+  # Silence warning if critical is firing
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'instance']
+  
+  # Silence individual service alerts if overall health is down
+  - source_match:
+      alertname: 'ServiceDown'
+    target_match_re:
+      alertname: '(HighErrorRate|SlowResponseTime|HighMemoryUsage)'
+    equal: ['service']
+
+# Notification receivers
+receivers:
+  # Default receiver
+  - name: 'default'
+    email_configs:
+      - to: '${DEFAULT_EMAIL:-admin@powernode.io}'
+        subject: '[Powernode] {{ .GroupLabels.alertname }} - {{ .Status | title }}'
+        body: |
+          {{ range .Alerts }}
+          **Alert:** {{ .Annotations.summary }}
+          **Description:** {{ .Annotations.description }}
+          **Severity:** {{ .Labels.severity }}
+          **Service:** {{ .Labels.service }}
+          **Instance:** {{ .Labels.instance }}
+          **Started:** {{ .StartsAt }}
+          {{ if .GeneratorURL }}**Source:** {{ .GeneratorURL }}{{ end }}
+          {{ end }}
+
+  # Critical alerts - multiple channels
+  - name: 'critical-alerts'
+    email_configs:
+      - to: '${CRITICAL_EMAIL:-oncall@powernode.io}'
+        subject: '🚨 [CRITICAL] Powernode Alert: {{ .GroupLabels.alertname }}'
+        body: |
+          **CRITICAL ALERT**
+          
+          {{ range .Alerts }}
+          **Alert:** {{ .Annotations.summary }}
+          **Description:** {{ .Annotations.description }}
+          **Service:** {{ .Labels.service }}
+          **Instance:** {{ .Labels.instance }}
+          **Started:** {{ .StartsAt }}
+          **Runbook:** {{ .Annotations.runbook_url }}
+          {{ end }}
+          
+          Please respond immediately.
+    # Slack configuration (optional)
+    # slack_configs:
+    #   - api_url: '${SLACK_WEBHOOK_URL}'
+    #     channel: '#alerts'
+    #     title: 'Critical Alert: {{ .GroupLabels.alertname }}'
+    #     text: '{{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'
+    #     send_resolved: true
+
+  # Database critical alerts
+  - name: 'database-critical'
+    email_configs:
+      - to: '${DBA_EMAIL:-dba@powernode.io}'
+        subject: '🗄️ [DATABASE CRITICAL] {{ .GroupLabels.alertname }}'
+        body: |
+          **DATABASE CRITICAL ALERT**
+          
+          {{ range .Alerts }}
+          **Alert:** {{ .Annotations.summary }}
+          **Description:** {{ .Annotations.description }}
+          **Database:** {{ .Labels.database }}
+          **Instance:** {{ .Labels.instance }}
+          **Started:** {{ .StartsAt }}
+          
+          **Immediate Actions Required:**
+          1. Check database connectivity
+          2. Verify storage space
+          3. Review recent schema changes
+          4. Check backup status
+          {{ end }}
+
+  # Application critical alerts
+  - name: 'application-critical'
+    email_configs:
+      - to: '${DEV_EMAIL:-dev@powernode.io}'
+        subject: '⚠️ [APPLICATION CRITICAL] {{ .GroupLabels.alertname }}'
+        body: |
+          **APPLICATION CRITICAL ALERT**
+          
+          {{ range .Alerts }}
+          **Alert:** {{ .Annotations.summary }}
+          **Description:** {{ .Annotations.description }}
+          **Service:** {{ .Labels.service }}
+          **Instance:** {{ .Labels.instance }}
+          **Started:** {{ .StartsAt }}
+          
+          **Quick Debug Steps:**
+          1. Check service logs: docker service logs {{ .Labels.service }}
+          2. Check service status: docker service ps {{ .Labels.service }}
+          3. Verify health endpoints
+          4. Check recent deployments
+          {{ end }}
+
+  # Warning alerts
+  - name: 'warning-alerts'
+    email_configs:
+      - to: '${WARNING_EMAIL:-ops@powernode.io}'
+        subject: '[WARNING] Powernode: {{ .GroupLabels.alertname }}'
+        body: |
+          **Warning Alert**
+          
+          {{ range .Alerts }}
+          **Alert:** {{ .Annotations.summary }}
+          **Description:** {{ .Annotations.description }}
+          **Service:** {{ .Labels.service }}
+          **Instance:** {{ .Labels.instance }}
+          **Started:** {{ .StartsAt }}
+          {{ end }}
+
+  # Info alerts - daily digest
+  - name: 'info-alerts'
+    email_configs:
+      - to: '${INFO_EMAIL:-logs@powernode.io}'
+        subject: '[INFO] Daily Powernode Report - {{ .GroupLabels.alertname }}'
+        body: |
+          **Daily Information Report**
+          
+          {{ range .Alerts }}
+          **Event:** {{ .Annotations.summary }}
+          **Details:** {{ .Annotations.description }}
+          **Service:** {{ .Labels.service }}
+          **Time:** {{ .StartsAt }}
+          {{ end }}
+
+# Template definitions
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'

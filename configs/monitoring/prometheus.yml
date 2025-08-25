@@ -1,0 +1,209 @@
+# Prometheus configuration for Powernode Platform monitoring
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+  external_labels:
+    cluster: 'powernode'
+    environment: '${ENVIRONMENT:-production}'
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+# Load alerting rules
+rule_files:
+  - "/etc/prometheus/rules/*.yml"
+
+# Scrape configurations
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+    scrape_interval: 15s
+    metrics_path: /metrics
+
+  # Docker Swarm service discovery
+  - job_name: 'dockerswarm'
+    dockerswarm_sd_configs:
+      - host: unix:///var/run/docker.sock
+        role: services
+        port: 9090
+    relabel_configs:
+      # Only scrape services with prometheus label
+      - source_labels: [__meta_dockerswarm_service_label_prometheus_scrape]
+        regex: 'true'
+        action: keep
+      # Use custom metrics path if specified
+      - source_labels: [__meta_dockerswarm_service_label_prometheus_path]
+        target_label: __metrics_path__
+        regex: (.+)
+      # Use custom port if specified
+      - source_labels: [__meta_dockerswarm_service_label_prometheus_port]
+        target_label: __address__
+        regex: (.+)
+        replacement: '${1}'
+      # Set job name from service name
+      - source_labels: [__meta_dockerswarm_service_name]
+        target_label: job
+      # Add service labels
+      - source_labels: [__meta_dockerswarm_service_label_prometheus_job]
+        target_label: job
+        regex: (.+)
+      - source_labels: [__meta_dockerswarm_service_name]
+        target_label: service_name
+      - source_labels: [__meta_dockerswarm_service_id]
+        target_label: service_id
+
+  # Node Exporter - System metrics
+  - job_name: 'node-exporter'
+    dockerswarm_sd_configs:
+      - host: unix:///var/run/docker.sock
+        role: services
+        port: 9100
+    relabel_configs:
+      - source_labels: [__meta_dockerswarm_service_name]
+        regex: '.*node.*exporter.*'
+        action: keep
+      - source_labels: [__meta_dockerswarm_service_name]
+        target_label: job
+        replacement: 'node-exporter'
+
+  # cAdvisor - Container metrics
+  - job_name: 'cadvisor'
+    dockerswarm_sd_configs:
+      - host: unix:///var/run/docker.sock
+        role: services
+        port: 8080
+    relabel_configs:
+      - source_labels: [__meta_dockerswarm_service_name]
+        regex: '.*cadvisor.*'
+        action: keep
+      - source_labels: [__meta_dockerswarm_service_name]
+        target_label: job
+        replacement: 'cadvisor'
+
+  # Powernode Backend API
+  - job_name: 'powernode-backend'
+    dockerswarm_sd_configs:
+      - host: unix:///var/run/docker.sock
+        role: services
+        port: 3000
+    relabel_configs:
+      - source_labels: [__meta_dockerswarm_service_name]
+        regex: '.*backend.*'
+        action: keep
+      - source_labels: [__meta_dockerswarm_service_name]
+        target_label: service_name
+      - target_label: __metrics_path__
+        replacement: '/api/v1/metrics'
+      - target_label: job
+        replacement: 'powernode-backend'
+
+  # Powernode Worker
+  - job_name: 'powernode-worker'
+    dockerswarm_sd_configs:
+      - host: unix:///var/run/docker.sock
+        role: services
+        port: 4567
+    relabel_configs:
+      - source_labels: [__meta_dockerswarm_service_name]
+        regex: '.*worker.*'
+        action: keep
+      - source_labels: [__meta_dockerswarm_service_name]
+        target_label: service_name
+      - target_label: __metrics_path__
+        replacement: '/metrics'
+      - target_label: job
+        replacement: 'powernode-worker'
+
+  # Redis Exporter
+  - job_name: 'redis-exporter'
+    dockerswarm_sd_configs:
+      - host: unix:///var/run/docker.sock
+        role: services
+        port: 9121
+    relabel_configs:
+      - source_labels: [__meta_dockerswarm_service_name]
+        regex: '.*redis.*exporter.*'
+        action: keep
+      - target_label: job
+        replacement: 'redis'
+
+  # PostgreSQL Exporter
+  - job_name: 'postgres-exporter'
+    dockerswarm_sd_configs:
+      - host: unix:///var/run/docker.sock
+        role: services
+        port: 9187
+    relabel_configs:
+      - source_labels: [__meta_dockerswarm_service_name]
+        regex: '.*postgres.*exporter.*'
+        action: keep
+      - target_label: job
+        replacement: 'postgresql'
+
+  # Blackbox Exporter - HTTP probes
+  - job_name: 'blackbox-http'
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+        - ${FRONTEND_URL:-http://frontend}/health
+        - ${BACKEND_URL:-http://backend:3000}/api/v1/health
+        - ${WORKER_URL:-http://worker:4567}/health
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox_exporter:9115
+
+  # Blackbox Exporter - HTTPS probes
+  - job_name: 'blackbox-https'
+    metrics_path: /probe
+    params:
+      module: [https_2xx]
+    static_configs:
+      - targets:
+        - ${PRODUCTION_URL:-https://powernode.io}
+        - ${STAGING_URL:-https://staging.powernode.io}
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox_exporter:9115
+
+  # Grafana monitoring
+  - job_name: 'grafana'
+    static_configs:
+      - targets: ['grafana:3000']
+    metrics_path: /metrics
+    scrape_interval: 30s
+
+  # AlertManager monitoring  
+  - job_name: 'alertmanager'
+    static_configs:
+      - targets: ['alertmanager:9093']
+    metrics_path: /metrics
+    scrape_interval: 30s
+
+# Storage retention
+storage:
+  tsdb:
+    retention.time: 30d
+    retention.size: 10GB
+
+# Remote write configuration (optional - for long-term storage)
+# remote_write:
+#   - url: "https://prometheus-remote-storage.example.com/api/v1/write"
+#     basic_auth:
+#       username: username
+#       password: password
