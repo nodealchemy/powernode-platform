@@ -71,12 +71,16 @@ export const ServiceDiscoveryModal: React.FC<ServiceDiscoveryModalProps> = ({
     try {
       setDiscovering(true);
       const result = await reverseProxyApi.runServiceDiscovery();
-      setDiscoveredServices(result.services);
-      showNotification(`Discovery completed: ${result.services.length} services found`, 'success');
+      // For now, just show the job was started - in a full implementation,
+      // we would use JobProgressModal to track the async job
+      showNotification('Service discovery started', 'info');
+      setDiscovering(false);
+      
+      // TODO: Implement JobProgressModal for service discovery
+      // This is a placeholder until the full async integration is complete
     } catch (error) {
       console.error('Service discovery failed:', error);
       showNotification('Service discovery failed', 'error');
-    } finally {
       setDiscovering(false);
     }
   };

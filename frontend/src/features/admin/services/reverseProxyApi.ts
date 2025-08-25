@@ -208,10 +208,11 @@ export const reverseProxyApi = {
     return response.data.data;
   },
 
-  // Test configuration before applying
+  // Test configuration before applying (now asynchronous)
   async testConfiguration(testConfig?: Partial<ReverseProxyConfig>): Promise<{
-    validation: ConfigValidationResult;
-    connectivity: ConnectivityTestResult;
+    job_id: string;
+    sidekiq_jid: string;
+    status: 'started';
     message: string;
   }> {
     const response = await api.post('/reverse_proxy/test_configuration', {
@@ -220,8 +221,14 @@ export const reverseProxyApi = {
     return response.data.data;
   },
 
-  // Generate proxy configuration file
-  async generateConfig(proxyType: 'nginx' | 'apache' | 'traefik'): Promise<GeneratedConfig> {
+  // Generate proxy configuration file (now asynchronous)
+  async generateConfig(proxyType: 'nginx' | 'apache' | 'traefik'): Promise<{
+    job_id: string;
+    sidekiq_jid: string;
+    status: 'started';
+    proxy_type: string;
+    message: string;
+  }> {
     const response = await api.post('/reverse_proxy/generate_config', {
       proxy_type: proxyType
     });
@@ -289,16 +296,10 @@ export const reverseProxyApi = {
   },
 
   async runServiceDiscovery(): Promise<{
-    services: Array<{
-      name: string;
-      host: string;
-      port: number;
-      protocol: string;
-      health_check_path: string;
-      status: 'healthy' | 'unhealthy' | 'unreachable';
-      discovered_method: string;
-      last_seen: string;
-    }>;
+    job_id: string;
+    sidekiq_jid: string;
+    status: 'started';
+    methods: string[];
     message: string;
   }> {
     const response = await api.post('/reverse_proxy/service_discovery');
@@ -425,5 +426,84 @@ export const reverseProxyApi = {
       services
     });
     return response.data.data;
+  },
+
+  // Job tracking methods for async operations
+  async getJobStatus(jobId: string): Promise<{
+    job_id: string;
+    job_type: string;
+    status: 'pending' | 'in_progress' | 'completed' | 'failed' | 'cancelled';
+    progress: number;
+    parameters?: any;
+    result?: any;
+    error_message?: string;
+    error_details?: any;
+    duration?: number;
+    created_at: string;
+    started_at?: string;
+    completed_at?: string;
+  }> {
+    const response = await api.get(`/admin/jobs/${jobId}`);
+    return response.data.data;
+  },
+
+  async listJobs(status?: string, jobType?: string): Promise<{
+    jobs: Array<{
+      job_id: string;
+      job_type: string;
+      status: string;
+      progress: number;
+      duration?: number;
+      created_at: string;
+      completed_at?: string;
+      has_result: boolean;
+      has_error: boolean;
+    }>;
+    pagination: {
+      count: number;
+      limit: number;
+    };
+  }> {
+    const params = new URLSearchParams();
+    if (status) params.append('status', status);
+    if (jobType) params.append('job_type', jobType);
+    
+    const response = await api.get(`/admin/jobs?${params}`);
+    return response.data.data;
+  },
+
+  // Helper method to poll job status until completion
+  async pollJobUntilComplete(
+    jobId: string, 
+    onProgress?: (status: string, progress: number, result?: any) => void,
+    maxAttempts: number = 60,
+    intervalMs: number = 1000
+  ): Promise<any> {
+    let attempts = 0;
+    
+    return new Promise((resolve, reject) => {
+      const poll = async () => {
+        try {
+          attempts++;
+          const job = await this.getJobStatus(jobId);
+          
+          onProgress?.(job.status, job.progress, job.result);
+          
+          if (job.status === 'completed') {
+            resolve(job.result);
+          } else if (job.status === 'failed' || job.status === 'cancelled') {
+            reject(new Error(job.error_message || 'Job failed'));
+          } else if (attempts >= maxAttempts) {
+            reject(new Error('Job polling timeout'));
+          } else {
+            setTimeout(poll, intervalMs);
+          }
+        } catch (error) {
+          reject(error);
+        }
+      };
+      
+      poll();
+    });
   }
 };

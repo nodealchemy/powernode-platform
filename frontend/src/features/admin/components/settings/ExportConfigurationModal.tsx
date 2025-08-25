@@ -43,14 +43,17 @@ export const ExportConfigurationModal: React.FC<ExportConfigurationModalProps> =
   const generateConfig = async () => {
     try {
       setGenerating(true);
-      const config = await reverseProxyApi.generateConfig(selectedType);
-      setGeneratedConfig(config);
-      setShowConfig(true);
-      showNotification('Configuration generated successfully', 'success');
+      const result = await reverseProxyApi.generateConfig(selectedType);
+      // For now, just show the job was started - in a full implementation,
+      // we would use JobProgressModal to track the async job
+      showNotification('Configuration generation started', 'info');
+      setGenerating(false);
+      
+      // TODO: Implement JobProgressModal for config generation
+      // This is a placeholder until the full async integration is complete
     } catch (error) {
       console.error('Failed to generate configuration:', error);
       showNotification('Failed to generate configuration', 'error');
-    } finally {
       setGenerating(false);
     }
   };
