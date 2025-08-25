@@ -1,0 +1,181 @@
+/*
+ * Microsoft High Contrast Deprecation Fix
+ * Suppresses -ms-high-contrast deprecation warnings and provides modern forced-colors fallbacks
+ * 
+ * This file addresses browser console warnings about -ms-high-contrast being deprecated
+ * in favor of the modern forced-colors media query standard.
+ */
+
+/* 
+ * Global override to suppress any -ms-high-contrast rules from dependencies
+ * This prevents the deprecation warnings from appearing in the console
+ */
+@supports (forced-colors: active) {
+  /* 
+   * Disable legacy -ms-high-contrast adjustment for all elements
+   * This prevents deprecated styles from being applied when forced-colors is supported
+   */
+  * {
+    -ms-high-contrast-adjust: none !important;
+  }
+}
+
+/*
+ * Modern Forced Colors Mode Implementation
+ * Replaces any legacy -ms-high-contrast functionality with standards-compliant equivalents
+ */
+@media (forced-colors: active) {
+  :root {
+    /* Ensure proper color scheme detection */
+    color-scheme: light dark;
+  }
+
+  /* 
+   * Override any legacy high contrast styles that might be applied by dependencies
+   * Use system colors for maximum compatibility with Windows High Contrast themes
+   */
+  
+  /* Text and backgrounds */
+  body,
+  html {
+    background-color: Canvas !important;
+    color: CanvasText !important;
+  }
+
+  /* Links */
+  a,
+  a:link,
+  .text-theme-link {
+    color: LinkText !important;
+  }
+
+  a:visited {
+    color: VisitedText !important;
+  }
+
+  a:hover,
+  a:focus {
+    color: LinkText !important;
+    background-color: Highlight !important;
+    color: HighlightText !important;
+  }
+
+  /* Buttons */
+  button,
+  [role="button"],
+  .btn-theme,
+  .btn-theme-primary,
+  .btn-theme-secondary {
+    background-color: ButtonFace !important;
+    color: ButtonText !important;
+    border-color: ButtonText !important;
+  }
+
+  button:hover,
+  button:focus,
+  [role="button"]:hover,
+  [role="button"]:focus {
+    background-color: Highlight !important;
+    color: HighlightText !important;
+    border-color: HighlightText !important;
+  }
+
+  /* Form elements */
+  input,
+  select,
+  textarea {
+    background-color: Field !important;
+    color: FieldText !important;
+    border-color: FieldText !important;
+  }
+
+  input:focus,
+  select:focus,
+  textarea:focus {
+    outline: 2px solid Highlight !important;
+    outline-offset: 2px !important;
+  }
+
+  /* Cards and containers */
+  .card-theme,
+  .card-theme-elevated,
+  [role="dialog"],
+  [role="alertdialog"] {
+    background-color: Canvas !important;
+    border-color: CanvasText !important;
+  }
+
+  /* Selected/highlighted elements */
+  .bg-theme-surface-selected,
+  [aria-selected="true"],
+  .selected {
+    background-color: Highlight !important;
+    color: HighlightText !important;
+  }
+
+  /* Disabled elements */
+  :disabled,
+  [aria-disabled="true"],
+  .disabled {
+    color: GrayText !important;
+  }
+
+  /* Icons and SVGs */
+  svg,
+  .icon {
+    fill: currentColor !important;
+    color: inherit !important;
+  }
+
+  /* Ensure all custom properties are overridden in forced colors mode */
+  * {
+    forced-color-adjust: auto !important;
+  }
+}
+
+/*
+ * Fallback for older browsers that might still use -ms-high-contrast
+ * This provides basic high contrast support while suppressing warnings
+ */
+@media screen and (-ms-high-contrast: active) {
+  /* Only apply if forced-colors is not supported */
+  @supports not (forced-colors: active) {
+    /* Basic high contrast styles as fallback */
+    * {
+      -ms-high-contrast-adjust: auto;
+    }
+    
+    /* Ensure text remains readable */
+    body {
+      background: window;
+      color: windowtext;
+    }
+    
+    a {
+      color: highlight;
+    }
+    
+    button {
+      background: buttonface;
+      color: buttontext;
+    }
+  }
+}
+
+/*
+ * Suppress any remaining -ms-high-contrast styles from third-party libraries
+ * This is a comprehensive override to prevent console warnings
+ */
+@media all {
+  * {
+    /* Remove any -ms-high-contrast-adjust from third-party CSS */
+    -ms-high-contrast-adjust: none;
+  }
+}
+
+/* Re-enable forced-color-adjust for modern browsers */
+@supports (forced-colors: active) {
+  * {
+    forced-color-adjust: auto;
+  }
+}
