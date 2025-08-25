@@ -1,10 +1,6 @@
 # frozen_string_literal: true
 
-require 'sidekiq'
-
 class Api::V1::Admin::ReverseProxyController < ApplicationController
-  include ApiResponse
-  
   before_action :authenticate_request
   before_action :require_system_admin_permission
 
@@ -34,7 +30,7 @@ class Api::V1::Admin::ReverseProxyController < ApplicationController
     render_success({
       reverse_proxy_config: AdminSetting.reverse_proxy_config,
       service_discovery_config: AdminSetting.service_discovery_config,
-      proxy_templates: AdminSetting.proxy_templates,
+      service_templates: AdminSetting.service_templates,
       health_status: AdminSetting.proxy_health_status
     })
   rescue => e
@@ -51,8 +47,8 @@ class Api::V1::Admin::ReverseProxyController < ApplicationController
       AdminSetting.update_reverse_proxy_config(reverse_proxy_params.to_h)
     when 'service_discovery_config'
       AdminSetting.update_service_discovery_config(service_discovery_params.to_h)
-    when 'proxy_templates'
-      AdminSetting.update_proxy_templates(proxy_templates_params.to_h)
+    when 'service_templates'
+      AdminSetting.update_service_templates(service_templates_params.to_h)
     else
       return render_error('Invalid configuration type', status: :bad_request)
     end
@@ -679,8 +675,8 @@ class Api::V1::Admin::ReverseProxyController < ApplicationController
     )
   end
 
-  def proxy_templates_params
-    params.require(:proxy_templates).permit(
+  def service_templates_params
+    params.require(:service_templates).permit(
       nginx: [:enabled, :config_path, :reload_command, :test_command],
       apache: [:enabled, :config_path, :reload_command, :test_command],
       traefik: [:enabled, :config_path, :reload_command, :test_command]

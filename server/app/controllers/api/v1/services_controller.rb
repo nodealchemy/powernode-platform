@@ -30,7 +30,7 @@ class Api::V1::ServicesController < ApplicationController
     render_success({
       service_config: AdminSetting.reverse_proxy_config,
       service_discovery_config: AdminSetting.service_discovery_config,
-      service_templates: AdminSetting.proxy_templates,
+      service_templates: AdminSetting.service_templates,
       health_status: AdminSetting.proxy_health_status
     })
   rescue => e
@@ -48,7 +48,7 @@ class Api::V1::ServicesController < ApplicationController
     when 'service_discovery_config'
       AdminSetting.update_service_discovery_config(service_discovery_params.to_h)
     when 'service_templates'
-      AdminSetting.update_proxy_templates(service_templates_params.to_h)
+      AdminSetting.update_service_templates(service_templates_params.to_h)
     else
       return render_error('Invalid configuration type', status: :bad_request)
     end

@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-class AddReverseProxyDefaultConfig < ActiveRecord::Migration[8.0]
+class AddServiceDefaultConfig < ActiveRecord::Migration[8.0]
   def up
     # Add default reverse proxy configuration
     default_config = {
@@ -183,8 +183,8 @@ class AddReverseProxyDefaultConfig < ActiveRecord::Migration[8.0]
       setting.value = service_discovery_config
     end
 
-    # Proxy-specific templates
-    proxy_templates = {
+    # Service-specific templates
+    service_templates = {
       nginx: {
         enabled: true,
         config_path: "/etc/nginx/sites-available/powernode",
@@ -205,12 +205,12 @@ class AddReverseProxyDefaultConfig < ActiveRecord::Migration[8.0]
       }
     }
     
-    AdminSetting.find_or_create_by(key: 'proxy_templates') do |setting|
-      setting.value = proxy_templates
+    AdminSetting.find_or_create_by(key: 'service_templates') do |setting|
+      setting.value = service_templates
     end
   end
 
   def down
-    AdminSetting.where(key: ['reverse_proxy_config', 'service_discovery_config', 'proxy_templates']).destroy_all
+    AdminSetting.where(key: ['reverse_proxy_config', 'service_discovery_config', 'service_templates']).destroy_all
   end
 end

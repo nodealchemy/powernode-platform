@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 class AdminSetting < ApplicationRecord
-  include ReverseProxyConfiguration
+  include ServiceConfiguration
   
   validates :key, presence: true, uniqueness: true
 
