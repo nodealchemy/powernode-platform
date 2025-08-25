@@ -347,5 +347,83 @@ export const reverseProxyApi = {
       health_config: config
     });
     return response.data.data;
+  },
+
+  // Service Management APIs
+  async testServiceConnection(environment: string, serviceName: string): Promise<{
+    status: 'healthy' | 'unhealthy' | 'unreachable';
+    response_code?: number;
+    response_time?: number;
+    error?: string;
+  }> {
+    const response = await api.post('/reverse_proxy/test_service', {
+      environment,
+      service_name: serviceName
+    });
+    return response.data.data;
+  },
+
+  async validateServiceConfig(serviceConfig: {
+    host: string;
+    port: number;
+    protocol: string;
+    health_check_path: string;
+  }): Promise<{
+    valid: boolean;
+    errors: string[];
+    warnings: string[];
+  }> {
+    const response = await api.post('/reverse_proxy/validate_service', {
+      service_config: serviceConfig
+    });
+    return response.data.data;
+  },
+
+  async getServiceTemplates(): Promise<Array<{
+    name: string;
+    type: string;
+    description: string;
+    config: {
+      host: string;
+      port: number;
+      protocol: string;
+      health_check_path: string;
+      base_url: string;
+    };
+  }>> {
+    const response = await api.get('/reverse_proxy/service_templates');
+    return response.data.data;
+  },
+
+  async duplicateService(environment: string, serviceName: string, newName: string): Promise<{ message: string }> {
+    const response = await api.post('/reverse_proxy/duplicate_service', {
+      environment,
+      service_name: serviceName,
+      new_name: newName
+    });
+    return response.data.data;
+  },
+
+  async exportServices(environment: string): Promise<{
+    environment: string;
+    services: Record<string, any>;
+    export_format: string;
+    filename: string;
+  }> {
+    const response = await api.get(`/reverse_proxy/export_services/${environment}`);
+    return response.data.data;
+  },
+
+  async importServices(environment: string, services: Record<string, any>): Promise<{
+    imported_count: number;
+    skipped_count: number;
+    errors: string[];
+    message: string;
+  }> {
+    const response = await api.post('/reverse_proxy/import_services', {
+      environment,
+      services
+    });
+    return response.data.data;
   }
 };
