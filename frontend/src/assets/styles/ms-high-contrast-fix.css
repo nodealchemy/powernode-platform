@@ -10,15 +10,7 @@
  * Global override to suppress any -ms-high-contrast rules from dependencies
  * This prevents the deprecation warnings from appearing in the console
  */
-@supports (forced-colors: active) {
-  /* 
-   * Disable legacy -ms-high-contrast adjustment for all elements
-   * This prevents deprecated styles from being applied when forced-colors is supported
-   */
-  * {
-    -ms-high-contrast-adjust: none !important;
-  }
-}
+/* No legacy adjustments needed when forced-colors is supported */
 
 /*
  * Modern Forced Colors Mode Implementation
@@ -140,12 +132,7 @@
 @media screen and (-ms-high-contrast: active) {
   /* Only apply if forced-colors is not supported */
   @supports not (forced-colors: active) {
-    /* Basic high contrast styles as fallback */
-    * {
-      -ms-high-contrast-adjust: auto;
-    }
-    
-    /* Ensure text remains readable */
+    /* Basic high contrast styles as fallback - no deprecated properties */
     body {
       background: window;
       color: windowtext;
@@ -162,18 +149,7 @@
   }
 }
 
-/*
- * Suppress any remaining -ms-high-contrast styles from third-party libraries
- * This is a comprehensive override to prevent console warnings
- */
-@media all {
-  * {
-    /* Remove any -ms-high-contrast-adjust from third-party CSS */
-    -ms-high-contrast-adjust: none;
-  }
-}
-
-/* Re-enable forced-color-adjust for modern browsers */
+/* Re-enable forced-color-adjust for modern browsers only */
 @supports (forced-colors: active) {
   * {
     forced-color-adjust: auto;

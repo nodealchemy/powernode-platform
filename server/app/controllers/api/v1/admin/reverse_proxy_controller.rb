@@ -25,11 +25,11 @@ class Api::V1::Admin::ReverseProxyController < ApplicationController
     
     case config_type
     when 'reverse_proxy_config'
-      AdminSetting.update_reverse_proxy_config(reverse_proxy_params)
+      AdminSetting.update_reverse_proxy_config(reverse_proxy_params.to_h)
     when 'service_discovery_config'
-      AdminSetting.update_service_discovery_config(service_discovery_params)
+      AdminSetting.update_service_discovery_config(service_discovery_params.to_h)
     when 'proxy_templates'
-      AdminSetting.update_proxy_templates(proxy_templates_params)
+      AdminSetting.update_proxy_templates(proxy_templates_params.to_h)
     else
       return render_error('Invalid configuration type', status: :bad_request)
     end
@@ -596,7 +596,7 @@ class Api::V1::Admin::ReverseProxyController < ApplicationController
       environments: {},
       url_mappings: [:id, :name, :pattern, :target_service, :priority, :enabled, :description, methods: []],
       load_balancing: [:enabled, :algorithm, :health_check_interval, :failover_enabled],
-      ssl_config: [:enabled, :enforce_https, :certificate_path, :private_key_path, :hsts_enabled, :hsts_max_age, protocols: [], ciphers: []],
+      ssl_config: [:enabled, :enforce_https, :certificate_path, :private_key_path, :hsts_enabled, :hsts_max_age, :ciphers, protocols: []],
       cors_config: [:enabled, :credentials, :max_age, allowed_origins: [], allowed_methods: [], allowed_headers: [], exposed_headers: []],
       headers: {
         security_headers: [:enabled, :x_frame_options, :x_content_type_options, :x_xss_protection, :referrer_policy],
