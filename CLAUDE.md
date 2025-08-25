@@ -247,9 +247,10 @@ The backend architecture follows Rails 8 API patterns with a separate Sidekiq wo
 11. **NO missing frozen_string_literal**: All Ruby files must include pragma
 12. **NO ApplicationJob inheritance**: Worker jobs inherit from BaseJob
 13. **NO perform method in worker**: Use execute method instead
-14. **NO unstructured API responses**: Use {success, data, error} format
-15. **NO manual service commands**: NEVER use `rails server`, `sidekiq`, `npm start` directly
-16. **NO Claude attribution**: Clean commit messages only
+14. **NO manual JSON responses**: MANDATORY use ApiResponse methods (`render_success`, `render_error`, etc.)
+15. **NO including ApiResponse concern**: ApplicationController already includes it - inheritance is automatic
+16. **NO manual service commands**: NEVER use `rails server`, `sidekiq`, `npm start` directly
+17. **NO Claude attribution**: Clean commit messages only
 
 **Service Management**:
 17. **NO manual service starts**: Use `scripts/auto-dev.sh` or delegate to MCP specialists
@@ -268,14 +269,14 @@ The backend architecture follows Rails 8 API patterns with a separate Sidekiq wo
 8. **File Organization**: Feature-based structure - see [React Architect](docs/frontend/REACT_ARCHITECT_SPECIALIST.md#1-project-structure-mandatory)
 
 **Backend**:
-9. **Controller Pattern**: `Api::V1` namespace, standard response format, include concerns
-10. **Model Structure**: Associations → Validations → Scopes → Callbacks → Methods
-11. **Service Delegation**: Complex operations delegated to worker service
-12. **Worker Jobs**: Inherit BaseJob, use execute method, API-only communication
-13. **API Responses**: `{success: boolean, data: object, error?: string}` format
+9. **Controller Pattern**: `Api::V1` namespace, inherit from ApplicationController (includes ApiResponse automatically)
+10. **API Responses**: MANDATORY use `render_success()`, `render_error()`, `render_validation_error()` methods (inherited from ApiResponse concern)
+11. **Model Structure**: Associations → Validations → Scopes → Callbacks → Methods
+12. **Service Delegation**: Complex operations delegated to worker service
+13. **Worker Jobs**: Inherit BaseJob, use execute method, API-only communication
 14. **UUID Strategy**: All models use UUID primary keys (string, limit: 36)
 15. **Frozen Strings**: All Ruby files start with `# frozen_string_literal: true`
-16. **Error Handling**: Structured responses with user-friendly messages
+16. **Error Handling**: Use ApiResponse methods only - never manual JSON responses
 
 **Universal**:
 17. **Conventional Commits & Git-Flow**: See [DevOps Engineer](docs/infrastructure/DEVOPS_ENGINEER_SPECIALIST.md#git-workflow--release-management)

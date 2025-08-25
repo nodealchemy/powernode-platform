@@ -126,13 +126,13 @@
 }
 
 /*
- * Fallback for older browsers that might still use -ms-high-contrast
- * This provides basic high contrast support while suppressing warnings
+ * Legacy browser support without deprecated media queries
+ * Provides high contrast support for browsers that don't support forced-colors
+ * Uses feature detection instead of deprecated media queries
  */
-@media screen and (-ms-high-contrast: active) {
-  /* Only apply if forced-colors is not supported */
-  @supports not (forced-colors: active) {
-    /* Basic high contrast styles as fallback - no deprecated properties */
+@supports not (forced-colors: active) {
+  /* Basic high contrast detection using color scheme preference */
+  @media (prefers-contrast: high) {
     body {
       background: window;
       color: windowtext;
@@ -153,5 +153,30 @@
 @supports (forced-colors: active) {
   * {
     forced-color-adjust: auto;
+  }
+  
+  /* Override deprecated rules from w-md-editor dependency */
+  .w-md-editor-text-input {
+    color: FieldText !important;
+  }
+  
+  .w-md-editor-text-input::selection {
+    background-color: Highlight !important;
+    color: HighlightText !important;
+  }
+}
+
+/*
+ * Modern override for w-md-editor dependency deprecation fix
+ * Overrides legacy -ms-high-contrast rules with modern forced-colors equivalents
+ */
+@media (forced-colors: active) {
+  .w-md-editor-text-input {
+    color: FieldText !important;
+  }
+  
+  .w-md-editor-text-input::selection {
+    background-color: Highlight !important;
+    color: HighlightText !important;
   }
 }

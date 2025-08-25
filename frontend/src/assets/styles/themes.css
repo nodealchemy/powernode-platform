@@ -2047,12 +2047,12 @@
 /* ===== LEGACY HIGH CONTRAST COMPATIBILITY LAYER ===== */
 /* Suppress -ms-high-contrast deprecation warnings by providing modern equivalents */
 
-/* Override any legacy -ms-high-contrast rules that may exist in dependencies */
+/* Modern forced colors mode support without deprecated properties */
 @supports (forced-colors: active) {
-  /* Modern forced colors mode takes precedence over legacy -ms-high-contrast */
+  /* Use modern forced-color-adjust instead of deprecated -ms-high-contrast-adjust */
   * {
-    /* Reset any legacy high contrast styles that might be applied */
-    -ms-high-contrast-adjust: none;
+    /* Allow forced-color-adjust to work naturally */
+    forced-color-adjust: auto;
   }
 }
 

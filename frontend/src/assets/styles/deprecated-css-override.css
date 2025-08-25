@@ -1,0 +1,95 @@
+/*
+ * Comprehensive override for deprecated CSS properties from third-party dependencies
+ * This file addresses deprecation warnings from dependencies like @uiw/react-md-editor
+ * by providing modern equivalents using !important to override library styles.
+ */
+
+/* 
+ * Override all -ms-high-contrast media queries from dependencies
+ * Replace with modern forced-colors media queries
+ */
+
+/* Override w-md-editor dependency deprecated styles */
+@media (forced-colors: active) {
+  .w-md-editor,
+  .w-md-editor *,
+  .w-md-editor-text-input,
+  .w-md-editor-text-input *,
+  .w-md-editor-text-textarea,
+  .w-md-editor-text-textarea *,
+  .w-md-editor-text,
+  .w-md-editor-text * {
+    /* Use modern forced colors system colors */
+    color: FieldText !important;
+    background-color: Field !important;
+    border-color: ButtonBorder !important;
+  }
+  
+  .w-md-editor-text-input::selection,
+  .w-md-editor-text-textarea::selection {
+    background-color: Highlight !important;
+    color: HighlightText !important;
+  }
+  
+  /* Override button and interactive elements */
+  .w-md-editor-text-input button,
+  .w-md-editor-text-textarea button,
+  .w-md-editor button {
+    background-color: ButtonFace !important;
+    color: ButtonText !important;
+    border-color: ButtonBorder !important;
+  }
+  
+  /* Override focus states */
+  .w-md-editor-text-input:focus,
+  .w-md-editor-text-textarea:focus {
+    outline: 2px solid Highlight !important;
+    outline-offset: 2px !important;
+  }
+}
+
+/*
+ * Prevent any legacy -ms-high-contrast styles from being applied
+ * This is a catch-all override for any dependency styles
+ */
+@supports (forced-colors: active) {
+  /* Reset any potential -ms-high-contrast-adjust properties */
+  *,
+  *::before,
+  *::after {
+    /* Modern forced-color-adjust instead of deprecated -ms-high-contrast-adjust */
+    forced-color-adjust: auto !important;
+  }
+  
+  /* Ensure no legacy high contrast properties remain */
+  [data-ms-high-contrast="true"],
+  [data-ms-high-contrast="black-on-white"],
+  [data-ms-high-contrast="white-on-black"] {
+    /* Override any data-attribute based styling with modern forced colors */
+    color: FieldText !important;
+    background-color: Field !important;
+  }
+}
+
+/*
+ * Additional overrides for common dependency patterns that might use deprecated CSS
+ */
+@media (prefers-contrast: high) {
+  /* Provide high contrast alternatives for dependencies that might rely on deprecated properties */
+  .w-md-editor,
+  .w-md-editor-text-input,
+  .w-md-editor-text-textarea {
+    color: #000000 !important;
+    background-color: #ffffff !important;
+    border: 2px solid #000000 !important;
+  }
+  
+  /* Dark theme high contrast */
+  [data-theme="dark"] .w-md-editor,
+  [data-theme="dark"] .w-md-editor-text-input,
+  [data-theme="dark"] .w-md-editor-text-textarea {
+    color: #ffffff !important;
+    background-color: #000000 !important;
+    border: 2px solid #ffffff !important;
+  }
+}
