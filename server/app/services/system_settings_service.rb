@@ -39,6 +39,14 @@ class SystemSettingsService
       get_setting('rate_limiting.enabled', true)
     end
 
+    def email_verification_required?
+      # Check both environment variable and admin settings
+      return false if ENV['DISABLE_EMAIL_VERIFICATION'] == 'true'
+      return false if Rails.env.test?
+      
+      get_setting('require_email_verification', true)
+    end
+
     def clear_cache
       Rails.cache.delete(CACHE_KEY)
     end

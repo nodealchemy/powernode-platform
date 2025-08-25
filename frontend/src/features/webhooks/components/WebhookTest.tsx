@@ -25,7 +25,7 @@ interface WebhookTestProps {
 interface TestResult {
   success: boolean;
   webhook_id: string;
-  test_payload: any;
+  test_payload: Record<string, unknown>;
   response: {
     status: number;
     response_time: number;
@@ -55,7 +55,7 @@ const WebhookTest: React.FC<WebhookTestProps> = ({
           setAvailableEvents(response.data.events);
         }
       } catch (err) {
-        console.error('Failed to load available events:', err);
+        // Error handled silently - events are optional
       }
     };
 

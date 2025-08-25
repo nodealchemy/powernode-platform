@@ -134,8 +134,7 @@ export const apiKeysApi = {
     try {
       const response = await api.get(`/api_keys?page=${page}&per_page=${perPage}`);
       return response.data;
-    } catch (error: any) {
-      console.error('Failed to fetch API keys:', error);
+    } catch (error) {
       return {
         success: false,
         data: {
@@ -155,7 +154,7 @@ export const apiKeysApi = {
             most_used_keys: {}
           }
         },
-        error: error.response?.data?.error || 'Failed to fetch API keys'
+        error: (error as any).response?.data?.error || 'Failed to fetch API keys'
       };
     }
   },
@@ -165,11 +164,10 @@ export const apiKeysApi = {
     try {
       const response = await api.get(`/api_keys/${id}`);
       return response.data;
-    } catch (error: any) {
-      console.error('Failed to fetch API key:', error);
+    } catch (error) {
       return {
         success: false,
-        error: error.response?.data?.error || 'Failed to fetch API key'
+        error: (error as any).response?.data?.error || 'Failed to fetch API key'
       };
     }
   },
@@ -179,11 +177,10 @@ export const apiKeysApi = {
     try {
       const response = await api.post('/api_keys', { api_key: apiKeyData });
       return response.data;
-    } catch (error: any) {
-      console.error('Failed to create API key:', error);
+    } catch (error) {
       return {
         success: false,
-        error: error.response?.data?.error || 'Failed to create API key'
+        error: (error as any).response?.data?.error || 'Failed to create API key'
       };
     }
   },
@@ -193,11 +190,10 @@ export const apiKeysApi = {
     try {
       const response = await api.put(`/api_keys/${id}`, { api_key: apiKeyData });
       return response.data;
-    } catch (error: any) {
-      console.error('Failed to update API key:', error);
+    } catch (error) {
       return {
         success: false,
-        error: error.response?.data?.error || 'Failed to update API key'
+        error: (error as any).response?.data?.error || 'Failed to update API key'
       };
     }
   },
@@ -207,11 +203,10 @@ export const apiKeysApi = {
     try {
       const response = await api.delete(`/api_keys/${id}`);
       return response.data;
-    } catch (error: any) {
-      console.error('Failed to delete API key:', error);
+    } catch (error) {
       return {
         success: false,
-        error: error.response?.data?.error || 'Failed to delete API key'
+        error: (error as any).response?.data?.error || 'Failed to delete API key'
       };
     }
   },
@@ -221,11 +216,10 @@ export const apiKeysApi = {
     try {
       const response = await api.post(`/api_keys/${id}/regenerate`);
       return response.data;
-    } catch (error: any) {
-      console.error('Failed to regenerate API key:', error);
+    } catch (error) {
       return {
         success: false,
-        error: error.response?.data?.error || 'Failed to regenerate API key'
+        error: (error as any).response?.data?.error || 'Failed to regenerate API key'
       };
     }
   },
@@ -235,11 +229,10 @@ export const apiKeysApi = {
     try {
       const response = await api.post(`/api_keys/${id}/toggle_status`);
       return response.data;
-    } catch (error: any) {
-      console.error('Failed to toggle API key status:', error);
+    } catch (error) {
       return {
         success: false,
-        error: error.response?.data?.error || 'Failed to toggle API key status'
+        error: (error as any).response?.data?.error || 'Failed to toggle API key status'
       };
     }
   },
@@ -258,8 +251,7 @@ export const apiKeysApi = {
 
       const response = await api.get(`/api_keys/usage?${params}`);
       return response.data;
-    } catch (error: any) {
-      console.error('Failed to fetch usage stats:', error);
+    } catch (error) {
       return {
         success: false,
         data: {
@@ -270,7 +262,7 @@ export const apiKeysApi = {
             date_range: {}
           }
         },
-        error: error.response?.data?.error || 'Failed to fetch usage stats'
+        error: (error as any).response?.data?.error || 'Failed to fetch usage stats'
       };
     }
   },
@@ -280,15 +272,14 @@ export const apiKeysApi = {
     try {
       const response = await api.get('/api_keys/scopes');
       return response.data;
-    } catch (error: any) {
-      console.error('Failed to fetch available scopes:', error);
+    } catch (error) {
       return {
         success: false,
         data: {
           scopes: [],
           scope_descriptions: {}
         },
-        error: error.response?.data?.error || 'Failed to fetch available scopes'
+        error: (error as any).response?.data?.error || 'Failed to fetch available scopes'
       };
     }
   },
@@ -298,12 +289,11 @@ export const apiKeysApi = {
     try {
       const response = await api.post('/api_keys/validate', { key });
       return response.data;
-    } catch (error: any) {
-      console.error('Failed to validate API key:', error);
+    } catch (error) {
       return {
         success: false,
         valid: false,
-        error: error.response?.data?.error || 'Failed to validate API key'
+        error: (error as any).response?.data?.error || 'Failed to validate API key'
       };
     }
   },

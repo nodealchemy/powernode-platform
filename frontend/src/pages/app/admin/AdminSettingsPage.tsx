@@ -12,8 +12,8 @@ import { AdminSettingsOverviewTabPage } from './AdminSettingsOverviewTabPage';
 import { AdminSettingsPaymentGatewaysTabPage } from './AdminSettingsPaymentGatewaysTabPage';
 import { AdminSettingsEmailTabPage } from './AdminSettingsEmailTabPage';
 import { AdminSettingsSecurityTabPage } from './AdminSettingsSecurityTabPage';
+import AdminSettingsRateLimitingTabPage from './AdminSettingsRateLimitingTabPage';
 import { AdminSettingsPerformanceTabPage } from './AdminSettingsPerformanceTabPage';
-import { AdminSettingsReverseProxyTabPage } from './AdminSettingsReverseProxyTabPage';
 
 export const AdminSettingsPage: React.FC = () => {
   const { user } = useSelector((state: RootState) => state.auth);
@@ -52,8 +52,8 @@ export const AdminSettingsPage: React.FC = () => {
           <Route path="/payment-gateways" element={<AdminSettingsPaymentGatewaysTabPage />} />
           <Route path="/email" element={<AdminSettingsEmailTabPage />} />
           <Route path="/security" element={<AdminSettingsSecurityTabPage />} />
+          <Route path="/rate-limiting" element={<AdminSettingsRateLimitingTabPage />} />
           <Route path="/performance" element={<AdminSettingsPerformanceTabPage />} />
-          <Route path="/reverse-proxy" element={<AdminSettingsReverseProxyTabPage />} />
           
           {/* Legacy redirects */}
           <Route path="/admin/*" element={<Navigate to="/app/admin/settings" replace />} />

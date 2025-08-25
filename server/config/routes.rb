@@ -42,6 +42,8 @@ Rails.application.routes.draw do
         post "reset-password", to: "passwords#reset"
         put "change-password", to: "passwords#change"
         post "verify-2fa", to: "sessions#verify_2fa"
+        post "verify-email", to: "email_verifications#verify"
+        post "resend-verification", to: "email_verifications#resend"
       end
 
       # Two-Factor Authentication endpoints (require authentication)
@@ -112,8 +114,8 @@ Rails.application.routes.draw do
         post :activate_account, on: :member
       end
 
-      # Reverse Proxy Configuration (admin only)
-      resource :reverse_proxy, only: [ :show, :update ], controller: 'admin/reverse_proxy' do
+      # Services Configuration (system-level)
+      resource :services, only: [ :show, :update ], controller: 'services' do
         post :test_configuration, on: :member
         post :generate_config, on: :member
         get :health_check, on: :member
@@ -123,20 +125,105 @@ Rails.application.routes.draw do
         get :discovered_services, on: :member
         post :service_discovery, on: :member
         post :add_discovered_service, on: :member
-        get 'health_history/:service_name', to: 'admin/reverse_proxy#health_history', on: :member
-        put 'health_config/:service_name', to: 'admin/reverse_proxy#update_health_config', on: :member
+        get 'health_history/:service_name', to: 'services#health_history', on: :member
+        put 'health_config/:service_name', to: 'services#update_health_config', on: :member
         
         # Service Management endpoints
         post :test_service, on: :member
         post :validate_service, on: :member
         get :service_templates, on: :member
         post :duplicate_service, on: :member
-        get 'export_services/:environment', to: 'admin/reverse_proxy#export_services', on: :member
+        get 'export_services/:environment', to: 'services#export_services', on: :member
         post :import_services, on: :member
         
-        resources :url_mappings, only: [ :create, :destroy ], controller: 'admin/reverse_proxy' do
+        resources :url_mappings, only: [ :create, :destroy ] do
           put :update_url_mapping, on: :member
           patch :toggle, on: :member
+        end
+      end
+
+      # Admin endpoints (restricted to admin permissions)
+      namespace :admin do
+        # Background job tracking
+        resources :jobs, only: [:index, :show]
+        
+        # User management
+        resources :users do
+          member do
+            post :impersonate
+          end
+        end
+        
+        # Page management
+        resources :pages do
+          member do
+            post :publish
+            post :unpublish
+            post :duplicate
+          end
+        end
+        
+        # Worker management
+        resources :workers do
+          member do
+            post :regenerate_token
+            post :suspend
+            post :activate
+            post :revoke
+          end
+        end
+
+        # Maintenance endpoints
+        namespace :maintenance do
+          get :status, to: 'maintenance#status'
+          get :health, to: 'maintenance#health'
+          get :metrics, to: 'maintenance#metrics'
+          
+          # Backup management
+          get :backups, to: 'maintenance#backups'
+          post :backups, to: 'maintenance#create_backup'
+          delete 'backups/:id', to: 'maintenance#delete_backup'
+          post 'backups/:id/restore', to: 'maintenance#restore_backup'
+          
+          # Cleanup operations
+          get 'cleanup/stats', to: 'maintenance#cleanup_stats'
+          post 'cleanup/run', to: 'maintenance#run_cleanup'
+          
+          # Scheduled maintenance
+          get :schedules, to: 'maintenance#schedules'
+          post :schedules, to: 'maintenance#create_schedule'
+          delete 'schedules/:id', to: 'maintenance#delete_schedule'
+          
+          # Maintenance mode
+          get :mode, to: 'maintenance#show_mode'
+          post :mode, to: 'maintenance#update_mode'
+          
+          # System health
+          get 'health/detailed', to: 'maintenance#detailed_health'
+          get 'health/services', to: 'maintenance#service_health'
+          
+          # Database operations
+          get 'database/stats', to: 'maintenance#database_stats'
+          post 'database/analyze', to: 'maintenance#analyze_database'
+          post 'operations/optimize', to: 'maintenance#optimize_database'
+          
+          # Scheduled tasks
+          get :tasks, to: 'maintenance#list_tasks'
+          post :tasks, to: 'maintenance#create_task'
+          patch 'tasks/:id', to: 'maintenance#update_task'
+          delete 'tasks/:id', to: 'maintenance#delete_task'
+          post 'tasks/:id/execute', to: 'maintenance#execute_task'
+        end
+
+        # Rate Limiting management
+        namespace :rate_limiting do
+          get :statistics, to: 'rate_limiting#statistics'
+          get :violations, to: 'rate_limiting#violations'
+          get :status, to: 'rate_limiting#status'
+          get 'limits/:identifier', to: 'rate_limiting#user_limits'
+          delete 'limits/:identifier', to: 'rate_limiting#clear_user_limits'
+          post :disable, to: 'rate_limiting#disable_temporarily'
+          post :enable, to: 'rate_limiting#enable'
         end
       end
       
@@ -478,95 +565,6 @@ Rails.application.routes.draw do
         end
       end
 
-      # Admin services management
-      namespace :admin do
-        # Background job tracking
-        resources :jobs, only: [:index, :show]
-        
-        resources :users do
-          member do
-            post :impersonate
-          end
-        end
-        
-        # Maintenance endpoints
-        namespace :maintenance do
-          get :status, to: 'maintenance#status'
-          get :health, to: 'maintenance#health'
-          get :metrics, to: 'maintenance#metrics'
-          
-          # Backup management
-          get :backups, to: 'maintenance#backups'
-          post :backups, to: 'maintenance#create_backup'
-          delete 'backups/:id', to: 'maintenance#delete_backup'
-          post 'backups/:id/restore', to: 'maintenance#restore_backup'
-          
-          # Cleanup operations
-          get 'cleanup/stats', to: 'maintenance#cleanup_stats'
-          post 'cleanup/run', to: 'maintenance#run_cleanup'
-          
-          # Scheduled maintenance
-          get :schedules, to: 'maintenance#schedules'
-          post :schedules, to: 'maintenance#create_schedule'
-          delete 'schedules/:id', to: 'maintenance#delete_schedule'
-        end
-        
-        resources :pages do
-          member do
-            post :publish
-            post :unpublish
-            post :duplicate
-          end
-        end
-        
-        resources :workers do
-          member do
-            post :regenerate_token
-            post :suspend
-            post :activate
-            post :revoke
-          end
-          
-        end
-
-        # Maintenance endpoints
-        namespace :maintenance do
-          # Maintenance mode
-          get :mode, to: 'maintenance#show_mode'
-          post :mode, to: 'maintenance#update_mode'
-          
-          # System health
-          get :health, to: 'maintenance#system_health'
-          get 'health/detailed', to: 'maintenance#detailed_health'
-          post 'health/check', to: 'maintenance#trigger_health_check'
-          
-          # Database backups
-          get :backups, to: 'maintenance#list_backups'
-          post :backups, to: 'maintenance#create_backup'
-          delete 'backups/:id', to: 'maintenance#delete_backup'
-          post 'backups/:id/restore', to: 'maintenance#restore_backup'
-          
-          # Data cleanup
-          get :cleanup, to: 'maintenance#cleanup_stats'
-          post 'cleanup/audit_logs', to: 'maintenance#cleanup_audit_logs'
-          post 'cleanup/sessions', to: 'maintenance#cleanup_sessions'
-          post 'cleanup/temp_files', to: 'maintenance#cleanup_temp_files'
-          post 'cleanup/cache', to: 'maintenance#clear_cache'
-          
-          # System operations
-          get :operations, to: 'maintenance#system_operations'
-          post 'operations/restart', to: 'maintenance#restart_services'
-          post 'operations/reindex', to: 'maintenance#reindex_database'
-          post 'operations/optimize', to: 'maintenance#optimize_database'
-          
-          # Scheduled tasks
-          get :tasks, to: 'maintenance#list_tasks'
-          post :tasks, to: 'maintenance#create_task'
-          patch 'tasks/:id', to: 'maintenance#update_task'
-          delete 'tasks/:id', to: 'maintenance#delete_task'
-          post 'tasks/:id/execute', to: 'maintenance#execute_task'
-        end
-      end
     end
   end
 

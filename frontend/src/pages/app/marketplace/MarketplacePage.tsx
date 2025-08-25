@@ -1,5 +1,7 @@
 import React, { useState, useRef, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useSelector } from 'react-redux';
+import { RootState } from '@/shared/services';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
 import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
 import { AppCard } from '@/features/marketplace/components/apps/AppCard';
@@ -16,6 +18,8 @@ import { RefreshCw, Plus } from 'lucide-react';
 export const MarketplacePage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useSelector((state: RootState) => state.auth);
+  
   const [filters] = useState<MarketplaceFilters>({ 
     page: 1, 
     per_page: 20,
@@ -56,6 +60,24 @@ export const MarketplacePage: React.FC = () => {
   const { 
     refresh: refreshApps 
   } = useApps(appFilters);
+
+  // Helper function to determine ownership
+  const isUserAppOwner = (app: App, activeTabContext: string): boolean => {
+    // For "My Apps" tab, user is always the owner
+    if (activeTabContext === 'my-apps') {
+      return true;
+    }
+    
+    // For other tabs (browse, subscriptions, reviews), check if user can manage
+    // In a real implementation, this would check if user has ownership or management permissions for the app
+    // For now, we'll assume users don't own apps from the marketplace browse view
+    if (activeTabContext === 'browse') {
+      return false;
+    }
+    
+    // For subscriptions and reviews, users don't own the apps but may have subscriptions
+    return false;
+  };
 
   // Convert listings to apps for the AppsList component
   const apps: App[] = listings.map(listing => ({
@@ -317,9 +339,10 @@ export const MarketplacePage: React.FC = () => {
                   <div className="w-full">
                     <AppCard
                       app={apps.find(app => app.id === expandedAppId)!}
-                      isOwner={false}
-                      showSubscription={true}
+                      isOwner={isUserAppOwner(apps.find(app => app.id === expandedAppId)!, activeTab)}
+                      showSubscription={activeTab === 'browse'}
                       onSubscribe={handleSubscribeApp}
+                      onManage={handleManageApp}
                       expanded={true}
                       onToggleExpansion={handleToggleExpansion}
                     />
@@ -332,9 +355,10 @@ export const MarketplacePage: React.FC = () => {
                     <AppCard
                       key={app.id}
                       app={app}
-                      isOwner={false}
-                      showSubscription={true}
+                      isOwner={isUserAppOwner(app, activeTab)}
+                      showSubscription={activeTab === 'browse'}
                       onSubscribe={handleSubscribeApp}
+                      onManage={handleManageApp}
                       expanded={false}
                       onToggleExpansion={handleToggleExpansion}
                     />

@@ -6,7 +6,7 @@ import {
   Shield, Clock, Activity, AlertTriangle,
   Search
 } from 'lucide-react';
-import { apiKeysApi, ApiKey, DetailedApiKey, ApiKeyFormData } from '@/features/api-keys/services/apiKeysApi';
+import { apiKeysApi, ApiKey, DetailedApiKey, ApiKeyFormData, ApiKeyStats } from '@/features/api-keys/services/apiKeysApi';
 import { useNotification } from '@/shared/hooks/useNotification';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 
@@ -81,7 +81,7 @@ const CreateApiKeyModal: React.FC<CreateApiKeyModalProps> = ({
       } else {
         setErrors([response.error || 'Failed to create API key']);
       }
-    } catch (error: any) {
+    } catch (error) {
       setErrors(['Failed to create API key']);
     } finally {
       setLoading(false);
@@ -281,7 +281,7 @@ const ApiKeyDetailsModal: React.FC<ApiKeyDetailsModalProps> = ({
   apiKey,
   isOpen,
   onClose,
-  onApiKeyUpdated
+  onApiKeyUpdated: _onApiKeyUpdated
 }) => {
   if (!isOpen || !apiKey) return null;
 
@@ -476,12 +476,12 @@ const ApiKeyDetailsModal: React.FC<ApiKeyDetailsModalProps> = ({
 
 export const ApiKeysManager: React.FC<ApiKeysManagerProps> = ({
   showStats = true,
-  showFilters = true
+  showFilters: _showFilters = true
 }) => {
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
-  const [stats, setStats] = useState<any>(null);
+  const [stats, setStats] = useState<ApiKeyStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [actionLoading, setActionLoading] = useState<{ [key: string]: boolean }>({});
+  const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
@@ -507,7 +507,7 @@ export const ApiKeysManager: React.FC<ApiKeysManagerProps> = ({
       } else {
         showNotification(response.error || 'Failed to load API keys', 'error');
       }
-    } catch (error: any) {
+    } catch (error) {
       showNotification('Failed to load API keys', 'error');
     } finally {
       setLoading(false);

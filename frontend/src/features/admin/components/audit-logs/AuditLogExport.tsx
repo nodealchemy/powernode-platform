@@ -7,7 +7,7 @@ import {
   AlertCircle,
   Loader
 } from 'lucide-react';
-import { AuditLogFilters as FilterType } from '@/features/audit-logs/services/auditLogsApi';
+import { AuditLogFilters as FilterType, auditLogsApi } from '@/features/audit-logs/services/auditLogsApi';
 import { useNotification } from '@/shared/hooks/useNotification';
 
 interface AuditLogExportProps {
@@ -104,32 +104,53 @@ export const AuditLogExport: React.FC<AuditLogExportProps> = ({ filters, onClose
         });
       }, 200);
 
-      // TODO: Implement actual export API call with parameters:
+      // Prepare export options with current filters
+      const exportParams = {
+        ...exportOptions,
+        filters: exportOptions.scope === 'filtered' ? filters : undefined
+      };
 
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Make actual API call
+      const response = await auditLogsApi.exportLogs(exportParams);
       
       clearInterval(progressInterval);
-      setExportProgress(100);
       
-      // Simulate file download
-      const timestamp = new Date().toISOString().split('T')[0];
-      const filename = `audit-logs-${timestamp}.${exportOptions.format}`;
-      
-      // In a real implementation, this would be an actual file download
-      showNotification(`Export completed: ${filename}`, 'success');
-      
-      setTimeout(() => {
-        setIsExporting(false);
-        setExportProgress(0);
-        onClose();
-      }, 1000);
+      if (response.success && response.data) {
+        setExportProgress(100);
+        
+        // Handle file download
+        if (response.data.download_url) {
+          // Create download link and trigger download
+          const link = document.createElement('a');
+          link.href = response.data.download_url;
+          link.download = response.data.filename || `audit-logs-${new Date().toISOString().split('T')[0]}.${exportOptions.format}`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        }
+        
+        showNotification(
+          `Export completed: ${response.data.filename || 'audit-logs'}. ${response.data.record_count || 0} records exported.`, 
+          'success'
+        );
+        
+        setTimeout(() => {
+          setIsExporting(false);
+          setExportProgress(0);
+          onClose();
+        }, 1000);
+      } else {
+        throw new Error(response.error || 'Export failed');
+      }
       
     } catch (error) {
-      console.error('Export failed:', error);
+      // Error handled by notification
       setIsExporting(false);
       setExportProgress(0);
-      showNotification('Export failed. Please try again.', 'error');
+      showNotification(
+        error instanceof Error ? error.message : 'Export failed. Please try again.', 
+        'error'
+      );
     }
   };
 

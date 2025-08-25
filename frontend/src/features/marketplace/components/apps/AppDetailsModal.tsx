@@ -3,8 +3,7 @@ import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Card } from '@/shared/components/ui/Card';
-import { FlexItemsCenter, FlexBetween, FlexCol } from '@/shared/components/ui/FlexContainer';
-import { GridCols2 } from '@/shared/components/ui/GridContainer';
+import { FlexItemsCenter } from '@/shared/components/ui/FlexContainer';
 import { App } from '../../types';
 import { 
   Globe, 

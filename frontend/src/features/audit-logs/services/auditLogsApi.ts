@@ -134,6 +134,8 @@ export interface AuditLogExportResponse {
     filename?: string;
     job_id?: string;
     estimated_completion?: string;
+    download_url?: string;
+    record_count?: number;
   };
   message?: string;
   error?: string;

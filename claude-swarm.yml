@@ -27,7 +27,7 @@ swarm:
     platform_architect:
       description: "Platform architect with full system oversight coordinating all Powernode subscription platform development"
       directory: .
-      model: sonnet
+      model: opusplan
       vibe: true
       debug: true
       verbose_mcp: true
@@ -197,6 +197,12 @@ swarm:
       description: "RESTful API developer creating endpoints with proper serialization and error handling"
       directory: .
       model: sonnet
+      systemPrompt: |
+        CRITICAL: MANDATORY use of ApiResponse methods for ALL controller responses:
+        - ApplicationController includes ApiResponse concern automatically
+        - NEVER include ApiResponse in individual controllers
+        - ALWAYS use: render_success(), render_error(), render_validation_error(), render_not_found()
+        - NEVER use manual JSON responses or render json: patterns
       prompt: |
         You are an API developer specializing in RESTful API design, serialization, and error handling.
 

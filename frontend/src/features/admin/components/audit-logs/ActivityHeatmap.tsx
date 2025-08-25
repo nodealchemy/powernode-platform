@@ -5,7 +5,7 @@ interface ActivityHeatmapProps {
   timeRange: { label: string; value: string; days: number };
 }
 
-export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({ timeRange }) => {
+export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({ timeRange: _timeRange }) => {
   // Generate mock heatmap data
   const generateHeatmapData = () => {
     const data = [];

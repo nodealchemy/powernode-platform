@@ -34,87 +34,116 @@ interface ThreatIndicator {
 }
 
 export const RiskAssessment: React.FC<RiskAssessmentProps> = ({ metrics, timeRange }) => {
+  // Calculate risk level from score
+  const calculateRiskLevel = (score: number): 'low' | 'medium' | 'high' | 'critical' => {
+    if (score >= 80) return 'critical';
+    if (score >= 60) return 'high';
+    if (score >= 40) return 'medium';
+    return 'low';
+  };
+
   const riskFactors: RiskFactor[] = [
     {
       name: 'Authentication Failures',
-      level: 'medium',
-      score: 65,
-      trend: +12,
+      level: calculateRiskLevel(metrics?.failed_logins || 0),
+      score: Math.min(100, (metrics?.failed_logins || 0) * 5), // Scale failed logins to risk score
+      trend: metrics?.failed_logins_change || 0,
       description: 'Failed login attempts and authentication errors',
       icon: <Lock className="w-5 h-5" />
     },
     {
       name: 'Privilege Escalation',
-      level: 'high',
-      score: 78,
-      trend: -5,
+      level: calculateRiskLevel(metrics?.privilege_escalation_score || 0),
+      score: metrics?.privilege_escalation_score || 0,
+      trend: metrics?.privilege_escalation_change || 0,
       description: 'Unauthorized access to elevated permissions',
       icon: <Shield className="w-5 h-5" />
     },
     {
       name: 'Data Access Anomalies',
-      level: 'medium',
-      score: 58,
-      trend: +8,
+      level: calculateRiskLevel(metrics?.data_access_anomalies || 0),
+      score: metrics?.data_access_anomalies || 0,
+      trend: metrics?.data_access_change || 0,
       description: 'Unusual patterns in data access and retrieval',
       icon: <Eye className="w-5 h-5" />
     },
     {
       name: 'External Threats',
-      level: 'low',
-      score: 35,
-      trend: -15,
+      level: calculateRiskLevel(metrics?.external_threats || 0),
+      score: metrics?.external_threats || 0,
+      trend: metrics?.external_threats_change || 0,
       description: 'Attacks from external IP addresses',
       icon: <Globe className="w-5 h-5" />
     },
     {
       name: 'Off-hours Activity',
-      level: 'medium',
-      score: 42,
-      trend: +3,
+      level: calculateRiskLevel(metrics?.off_hours_activity || 0),
+      score: metrics?.off_hours_activity || 0,
+      trend: metrics?.off_hours_change || 0,
       description: 'System access during unusual hours',
       icon: <Clock className="w-5 h-5" />
     },
     {
       name: 'Account Compromise',
-      level: 'critical',
-      score: 85,
-      trend: +25,
+      level: calculateRiskLevel(metrics?.account_compromise_score || 0),
+      score: metrics?.account_compromise_score || 0,
+      trend: metrics?.account_compromise_change || 0,
       description: 'Indicators of compromised user accounts',
       icon: <Users className="w-5 h-5" />
     }
   ];
 
+  // Calculate threat severity from count
+  const calculateSeverity = (count: number): 'low' | 'medium' | 'high' | 'critical' => {
+    if (count >= 20) return 'critical';
+    if (count >= 10) return 'high';
+    if (count >= 5) return 'medium';
+    return 'low';
+  };
+
+  const formatLastOccurrence = (timestamp: string): string => {
+    if (!timestamp) return 'No recent activity';
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
+    
+    if (diffMinutes < 60) return `${diffMinutes} minutes ago`;
+    const diffHours = Math.floor(diffMinutes / 60);
+    if (diffHours < 24) return `${diffHours} hours ago`;
+    const diffDays = Math.floor(diffHours / 24);
+    return `${diffDays} days ago`;
+  };
+
   const threatIndicators: ThreatIndicator[] = [
     {
       type: 'Brute Force Attack',
-      severity: 'high',
-      count: 23,
-      lastOccurrence: '2 hours ago',
-      mitigation: 'Rate limiting activated'
+      severity: calculateSeverity(metrics?.brute_force_attempts || 0),
+      count: metrics?.brute_force_attempts || 0,
+      lastOccurrence: formatLastOccurrence(metrics?.brute_force_last_occurrence),
+      mitigation: metrics?.brute_force_attempts > 0 ? 'Rate limiting activated' : 'No recent activity'
     },
     {
       type: 'SQL Injection Attempt',
-      severity: 'critical',
-      count: 5,
-      lastOccurrence: '6 hours ago',
-      mitigation: 'Input validation enhanced'
+      severity: calculateSeverity(metrics?.sql_injection_attempts || 0),
+      count: metrics?.sql_injection_attempts || 0,
+      lastOccurrence: formatLastOccurrence(metrics?.sql_injection_last_occurrence),
+      mitigation: metrics?.sql_injection_attempts > 0 ? 'Input validation enhanced' : 'No recent activity'
     },
     {
       type: 'Suspicious User Agent',
-      severity: 'medium',
-      count: 15,
-      lastOccurrence: '1 hour ago',
-      mitigation: 'Monitoring activated'
+      severity: calculateSeverity(metrics?.suspicious_user_agents || 0),
+      count: metrics?.suspicious_user_agents || 0,
+      lastOccurrence: formatLastOccurrence(metrics?.suspicious_user_agents_last_occurrence),
+      mitigation: metrics?.suspicious_user_agents > 0 ? 'Monitoring activated' : 'No recent activity'
     },
     {
       type: 'Geo-location Anomaly',
-      severity: 'medium',
-      count: 8,
-      lastOccurrence: '4 hours ago',
-      mitigation: 'Location verification required'
+      severity: calculateSeverity(metrics?.geo_anomalies || 0),
+      count: metrics?.geo_anomalies || 0,
+      lastOccurrence: formatLastOccurrence(metrics?.geo_anomalies_last_occurrence),
+      mitigation: metrics?.geo_anomalies > 0 ? 'Location verification required' : 'No recent activity'
     }
-  ];
+  ].filter(indicator => indicator.count > 0); // Only show active threats
 
   const getRiskColor = (level: string) => {
     switch (level) {

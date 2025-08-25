@@ -7,8 +7,8 @@ export { AdminSettingsPlatformTabPage } from './AdminSettingsPlatformTabPage';
 export { AdminSettingsEmailTabPage } from './AdminSettingsEmailTabPage';
 // export { AdminSettingsMaintenanceTabPage } from './AdminSettingsMaintenanceTabPage'; // File doesn't exist
 export { AdminSettingsSecurityTabPage } from './AdminSettingsSecurityTabPage';
+export { default as AdminSettingsRateLimitingTabPage } from './AdminSettingsRateLimitingTabPage';
 export { AdminSettingsPerformanceTabPage } from './AdminSettingsPerformanceTabPage';
-export { AdminSettingsReverseProxyTabPage } from './AdminSettingsReverseProxyTabPage';
 export { AdminSettingsPaymentGatewaysTabPage } from './AdminSettingsPaymentGatewaysTabPage';
 
 // Admin User Management

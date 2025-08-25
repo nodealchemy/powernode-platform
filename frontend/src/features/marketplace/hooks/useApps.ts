@@ -31,7 +31,7 @@ export const useApps = (filters: AppFilters = {}) => {
       }
     } catch (err) {
       setError('Failed to load apps');
-      console.error('Error loading apps:', err);
+      // Error handled by state
     } finally {
       setLoading(false);
     }
@@ -66,7 +66,7 @@ export const useApps = (filters: AppFilters = {}) => {
       }
     } catch (err) {
       showNotification('Failed to create app', 'error');
-      console.error('Error creating app:', err);
+      // Error handled by notification
       return null;
     }
   };
@@ -85,7 +85,7 @@ export const useApps = (filters: AppFilters = {}) => {
       }
     } catch (err) {
       showNotification('Failed to update app', 'error');
-      console.error('Error updating app:', err);
+      // Error handled by notification
       return null;
     }
   };
@@ -104,7 +104,7 @@ export const useApps = (filters: AppFilters = {}) => {
       }
     } catch (err) {
       showNotification('Failed to delete app', 'error');
-      console.error('Error deleting app:', err);
+      // Error handled by notification
       return false;
     }
   };
@@ -123,7 +123,7 @@ export const useApps = (filters: AppFilters = {}) => {
       }
     } catch (err) {
       showNotification('Failed to publish app', 'error');
-      console.error('Error publishing app:', err);
+      // Error handled by notification
       return null;
     }
   };
@@ -142,7 +142,7 @@ export const useApps = (filters: AppFilters = {}) => {
       }
     } catch (err) {
       showNotification('Failed to unpublish app', 'error');
-      console.error('Error unpublishing app:', err);
+      // Error handled by notification
       return null;
     }
   };
@@ -161,7 +161,7 @@ export const useApps = (filters: AppFilters = {}) => {
       }
     } catch (err) {
       showNotification('Failed to submit app for review', 'error');
-      console.error('Error submitting app for review:', err);
+      // Error handled by notification
       return null;
     }
   };
@@ -206,7 +206,7 @@ export const useApp = (id: string) => {
       }
     } catch (err) {
       setError('Failed to load app');
-      console.error('Error loading app:', err);
+      // Error handled by state
     } finally {
       setLoading(false);
     }
@@ -236,7 +236,7 @@ export const useApp = (id: string) => {
       }
     } catch (err) {
       showNotification('Failed to update app', 'error');
-      console.error('Error updating app:', err);
+      // Error handled by notification
       return null;
     }
   };

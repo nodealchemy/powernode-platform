@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { adminSettingsApi, AdminOverviewData } from '@/features/admin/services/adminSettingsApi';
+import { servicesApi, HealthStatus } from '@/features/admin/services/servicesApi';
 import { ActionCard, MetricCard as StandardMetricCard } from '@/shared/components/ui/Card';
 
 
@@ -92,15 +93,22 @@ export const AdminSettingsOverviewPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [servicesHealth, setServicesHealth] = useState<HealthStatus | null>(null);
 
   const loadOverviewData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const overviewData = await adminSettingsApi.getOverview();
+      
+      // Load overview data and services health in parallel
+      const [overviewData, healthStatus] = await Promise.all([
+        adminSettingsApi.getOverview(),
+        servicesApi.getHealthStatus().catch(() => null) // Don't fail if services API is unavailable
+      ]);
+      
       setData(overviewData);
+      setServicesHealth(healthStatus);
     } catch (error: any) {
-      console.error('Failed to load admin overview:', error);
       setError(error.message || 'Failed to load admin overview data');
     } finally {
       setLoading(false);
@@ -183,11 +191,34 @@ export const AdminSettingsOverviewPage: React.FC = () => {
 
   const { metrics, recent_users, recent_accounts, recent_logs, payment_gateways, settings_summary } = data;
 
-  // Determine system status
+  // Determine service status from health data
+  const getServiceStatus = () => {
+    if (!servicesHealth) {
+      return { status: 'warning' as const, message: 'Services status unavailable' };
+    }
+    
+    const serviceStatuses = Object.values(servicesHealth.services || {});
+    const hasUnhealthyServices = serviceStatuses.some(service => service.status === 'unhealthy' || service.status === 'unreachable');
+    
+    if (hasUnhealthyServices) {
+      return { status: 'warning' as const, message: 'Some services are experiencing issues' };
+    }
+    
+    return { status: 'healthy' as const, message: 'All services operational' };
+  };
+
+  // Determine overall system status
   const getSystemStatus = () => {
     if (settings_summary?.maintenance_mode) return { status: 'maintenance' as const, message: 'System in maintenance mode' };
     if (metrics.system_health === 'error') return { status: 'error' as const, message: 'System experiencing errors' };
     if (metrics.system_health === 'warning') return { status: 'warning' as const, message: 'System has warnings' };
+    
+    // Check services health as well
+    const serviceStatus = getServiceStatus();
+    if (serviceStatus.status === 'warning') {
+      return { status: 'warning' as const, message: 'System has service warnings' };
+    }
+    
     return { status: 'healthy' as const, message: 'All systems operational' };
   };
 
@@ -282,10 +313,10 @@ export const AdminSettingsOverviewPage: React.FC = () => {
         />
 
         <SystemStatusCard
-          title="Security Level"
-          status="healthy"
-          value="High"
-          description={`Email verification ${settings_summary?.require_email_verification ? 'required' : 'optional'}`}
+          title="Services Health"
+          status={getServiceStatus().status}
+          value={servicesHealth ? `${Object.keys(servicesHealth.services || {}).length} Services` : 'Checking...'}
+          description={servicesHealth ? `Overall: ${servicesHealth.overall_status}` : 'Loading services status...'}
         />
       </div>
 
@@ -490,6 +521,90 @@ export const AdminSettingsOverviewPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Services Health Status */}
+      {servicesHealth && (
+        <div>
+          <h2 className="text-xl font-semibold text-theme-primary mb-6 flex items-center gap-2">
+            <span>🔧</span>
+            <span>Services Health Status</span>
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {Object.entries(servicesHealth.services || {}).map(([serviceName, serviceData]) => (
+              <div key={serviceName} className="group bg-theme-surface rounded-xl p-4 border border-theme hover:bg-theme-surface-hover transition-all duration-200">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-3 h-3 rounded-full ${
+                      serviceData.status === 'healthy' ? 'bg-theme-success' :
+                      serviceData.status === 'unhealthy' ? 'bg-theme-warning' :
+                      'bg-theme-error'
+                    } shadow-sm`} />
+                    <h3 className="font-semibold text-theme-primary capitalize">{serviceName.replace('_', ' ')}</h3>
+                  </div>
+                  <span className={`px-2 py-1 rounded text-xs font-medium ${
+                    serviceData.status === 'healthy' 
+                      ? 'bg-theme-success-background text-theme-success' 
+                      : serviceData.status === 'unhealthy'
+                      ? 'bg-theme-warning-background text-theme-warning'
+                      : 'bg-theme-error-background text-theme-error'
+                  }`}>
+                    {serviceData.status}
+                  </span>
+                </div>
+                <div className="space-y-2 text-sm">
+                  {serviceData.url && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-theme-secondary">URL</span>
+                      <span className="text-theme-primary text-xs truncate max-w-32" title={serviceData.url}>
+                        {serviceData.url}
+                      </span>
+                    </div>
+                  )}
+                  {serviceData.response_time && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-theme-secondary">Response Time</span>
+                      <span className="text-theme-primary">{serviceData.response_time}ms</span>
+                    </div>
+                  )}
+                  {serviceData.response_code && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-theme-secondary">Status Code</span>
+                      <span className={`font-medium ${
+                        serviceData.response_code === '200' ? 'text-theme-success' : 'text-theme-warning'
+                      }`}>
+                        {serviceData.response_code}
+                      </span>
+                    </div>
+                  )}
+                  {serviceData.error && (
+                    <div className="mt-2 p-2 bg-theme-error-background rounded text-xs text-theme-error">
+                      {serviceData.error}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+          
+          {/* Services Summary */}
+          <div className="mt-4 p-4 bg-theme-background rounded-lg border border-theme">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-theme-secondary">Last checked:</span>
+                <span className="text-theme-primary">{servicesHealth.last_checked || 'Unknown'}</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-theme-secondary">Overall status:</span>
+                <span className={`font-medium ${
+                  servicesHealth.overall_status === 'healthy' ? 'text-theme-success' : 'text-theme-warning'
+                }`}>
+                  {servicesHealth.overall_status}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Payment Gateway Status */}
       <div>

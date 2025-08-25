@@ -31,7 +31,7 @@ export const useMarketplaceListings = (filters: MarketplaceFilters = {}) => {
       }
     } catch (err) {
       setError('Failed to load marketplace listings');
-      console.error('Error loading marketplace listings:', err);
+      // Error handled by state
     } finally {
       setLoading(false);
     }
@@ -83,7 +83,7 @@ export const useMarketplaceListing = (id: string) => {
       }
     } catch (err) {
       setError('Failed to load marketplace listing');
-      console.error('Error loading marketplace listing:', err);
+      // Error handled by state
     } finally {
       setLoading(false);
     }
@@ -109,7 +109,7 @@ export const useMarketplaceListing = (id: string) => {
       }
     } catch (err) {
       showNotification('Failed to submit listing for review', 'error');
-      console.error('Error submitting listing for review:', err);
+      // Error handled by notification
       return null;
     }
   };
@@ -128,7 +128,7 @@ export const useMarketplaceListing = (id: string) => {
       }
     } catch (err) {
       showNotification('Failed to approve listing', 'error');
-      console.error('Error approving listing:', err);
+      // Error handled by notification
       return null;
     }
   };
@@ -147,7 +147,7 @@ export const useMarketplaceListing = (id: string) => {
       }
     } catch (err) {
       showNotification('Failed to reject listing', 'error');
-      console.error('Error rejecting listing:', err);
+      // Error handled by notification
       return null;
     }
   };
@@ -166,7 +166,7 @@ export const useMarketplaceListing = (id: string) => {
       }
     } catch (err) {
       showNotification('Failed to feature listing', 'error');
-      console.error('Error featuring listing:', err);
+      // Error handled by notification
       return null;
     }
   };
@@ -185,7 +185,7 @@ export const useMarketplaceListing = (id: string) => {
       }
     } catch (err) {
       showNotification('Failed to unfeature listing', 'error');
-      console.error('Error unfeaturing listing:', err);
+      // Error handled by notification
       return null;
     }
   };
@@ -224,7 +224,7 @@ export const useMarketplaceCategories = () => {
       }
     } catch (err) {
       setError('Failed to load categories');
-      console.error('Error loading categories:', err);
+      // Error handled by state
     } finally {
       setLoading(false);
     }

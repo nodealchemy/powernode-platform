@@ -34,87 +34,116 @@ interface ThreatIndicator {
 }
 
 export const RiskAssessment: React.FC<RiskAssessmentProps> = ({ metrics, timeRange }) => {
+  // Calculate risk factors from real metrics data
+  const calculateRiskLevel = (score: number): 'low' | 'medium' | 'high' | 'critical' => {
+    if (score >= 80) return 'critical';
+    if (score >= 60) return 'high';
+    if (score >= 40) return 'medium';
+    return 'low';
+  };
+
   const riskFactors: RiskFactor[] = [
     {
       name: 'Authentication Failures',
-      level: 'medium',
-      score: 65,
-      trend: +12,
+      level: calculateRiskLevel(metrics?.failed_logins || 0),
+      score: Math.min(100, (metrics?.failed_logins || 0) * 5), // Scale failed logins to risk score
+      trend: metrics?.failed_logins_change || 0,
       description: 'Failed login attempts and authentication errors',
       icon: <Lock className="w-5 h-5" />
     },
     {
       name: 'Privilege Escalation',
-      level: 'high',
-      score: 78,
-      trend: -5,
+      level: calculateRiskLevel(metrics?.privilege_escalation_score || 0),
+      score: metrics?.privilege_escalation_score || 0,
+      trend: metrics?.privilege_escalation_change || 0,
       description: 'Unauthorized access to elevated permissions',
       icon: <Shield className="w-5 h-5" />
     },
     {
       name: 'Data Access Anomalies',
-      level: 'medium',
-      score: 58,
-      trend: +8,
+      level: calculateRiskLevel(metrics?.data_access_anomalies || 0),
+      score: metrics?.data_access_anomalies || 0,
+      trend: metrics?.data_access_change || 0,
       description: 'Unusual patterns in data access and retrieval',
       icon: <Eye className="w-5 h-5" />
     },
     {
       name: 'External Threats',
-      level: 'low',
-      score: 35,
-      trend: -15,
+      level: calculateRiskLevel(metrics?.external_threats || 0),
+      score: metrics?.external_threats || 0,
+      trend: metrics?.external_threats_change || 0,
       description: 'Attacks from external IP addresses',
       icon: <Globe className="w-5 h-5" />
     },
     {
       name: 'Off-hours Activity',
-      level: 'medium',
-      score: 42,
-      trend: +3,
+      level: calculateRiskLevel(metrics?.off_hours_activity || 0),
+      score: metrics?.off_hours_activity || 0,
+      trend: metrics?.off_hours_change || 0,
       description: 'System access during unusual hours',
       icon: <Clock className="w-5 h-5" />
     },
     {
       name: 'Account Compromise',
-      level: 'critical',
-      score: 85,
-      trend: +25,
+      level: calculateRiskLevel(metrics?.account_compromise_score || 0),
+      score: metrics?.account_compromise_score || 0,
+      trend: metrics?.account_compromise_change || 0,
       description: 'Indicators of compromised user accounts',
       icon: <Users className="w-5 h-5" />
     }
   ];
 
+  // Calculate threat indicators from real metrics data
+  const calculateSeverity = (count: number): 'low' | 'medium' | 'high' | 'critical' => {
+    if (count >= 20) return 'critical';
+    if (count >= 10) return 'high';
+    if (count >= 5) return 'medium';
+    return 'low';
+  };
+
+  const formatLastOccurrence = (timestamp: string): string => {
+    if (!timestamp) return 'No recent activity';
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
+    
+    if (diffMinutes < 60) return `${diffMinutes} minutes ago`;
+    const diffHours = Math.floor(diffMinutes / 60);
+    if (diffHours < 24) return `${diffHours} hours ago`;
+    const diffDays = Math.floor(diffHours / 24);
+    return `${diffDays} days ago`;
+  };
+
   const threatIndicators: ThreatIndicator[] = [
     {
       type: 'Brute Force Attack',
-      severity: 'high',
-      count: 23,
-      lastOccurrence: '2 hours ago',
-      mitigation: 'Rate limiting activated'
+      severity: calculateSeverity(metrics?.brute_force_attempts || 0),
+      count: metrics?.brute_force_attempts || 0,
+      lastOccurrence: formatLastOccurrence(metrics?.brute_force_last_occurrence),
+      mitigation: metrics?.brute_force_attempts > 0 ? 'Rate limiting activated' : 'No recent activity'
     },
     {
       type: 'SQL Injection Attempt',
-      severity: 'critical',
-      count: 5,
-      lastOccurrence: '6 hours ago',
-      mitigation: 'Input validation enhanced'
+      severity: calculateSeverity(metrics?.sql_injection_attempts || 0),
+      count: metrics?.sql_injection_attempts || 0,
+      lastOccurrence: formatLastOccurrence(metrics?.sql_injection_last_occurrence),
+      mitigation: metrics?.sql_injection_attempts > 0 ? 'Input validation enhanced' : 'No recent activity'
     },
     {
       type: 'Suspicious User Agent',
-      severity: 'medium',
-      count: 15,
-      lastOccurrence: '1 hour ago',
-      mitigation: 'Monitoring activated'
+      severity: calculateSeverity(metrics?.suspicious_user_agents || 0),
+      count: metrics?.suspicious_user_agents || 0,
+      lastOccurrence: formatLastOccurrence(metrics?.suspicious_user_agents_last_occurrence),
+      mitigation: metrics?.suspicious_user_agents > 0 ? 'Monitoring activated' : 'No recent activity'
     },
     {
       type: 'Geo-location Anomaly',
-      severity: 'medium',
-      count: 8,
-      lastOccurrence: '4 hours ago',
-      mitigation: 'Location verification required'
+      severity: calculateSeverity(metrics?.geo_anomalies || 0),
+      count: metrics?.geo_anomalies || 0,
+      lastOccurrence: formatLastOccurrence(metrics?.geo_anomalies_last_occurrence),
+      mitigation: metrics?.geo_anomalies > 0 ? 'Location verification required' : 'No recent activity'
     }
-  ];
+  ].filter(indicator => indicator.count > 0); // Only show active threats
 
   const getRiskColor = (level: string) => {
     switch (level) {
@@ -264,44 +293,105 @@ export const RiskAssessment: React.FC<RiskAssessmentProps> = ({ metrics, timeRan
         <h3 className="text-lg font-semibold text-theme-primary mb-4">Risk Mitigation Recommendations</h3>
         
         <div className="space-y-4">
-          <div className="flex items-start gap-3 p-4 bg-theme-status-error-background rounded-lg border border-theme-status-error">
-            <AlertTriangle className="w-5 h-5 text-theme-status-error mt-0.5" />
-            <div>
-              <div className="font-medium text-theme-status-error">Critical: Account Compromise Detection</div>
-              <div className="text-sm text-theme-status-error mb-2">
-                Multiple indicators suggest potential account compromise. Immediate action required.
-              </div>
-              <div className="text-xs text-theme-status-error">
-                Recommended: Force password reset for affected accounts, enable 2FA, review access logs
-              </div>
-            </div>
-          </div>
+          {/* Generate recommendations based on actual risk factors */}
+          {riskFactors
+            .filter(factor => factor.level === 'critical' || factor.level === 'high')
+            .sort((a, b) => {
+              const levelPriority = { critical: 4, high: 3, medium: 2, low: 1 };
+              return levelPriority[b.level] - levelPriority[a.level];
+            })
+            .map((factor, index) => {
+              const isCritical = factor.level === 'critical';
+              const bgColor = isCritical ? 'bg-theme-status-error-background' : 'bg-theme-status-warning-background';
+              const borderColor = isCritical ? 'border-theme-status-error' : 'border-theme-status-warning';
+              const textColor = isCritical ? 'text-theme-status-error' : 'text-theme-status-warning';
+              
+              const getRecommendation = (name: string) => {
+                switch (name) {
+                  case 'Authentication Failures':
+                    return {
+                      title: 'Authentication Security Enhancement',
+                      description: 'Multiple authentication failures detected. Strengthen access controls.',
+                      action: 'Recommended: Implement account lockout policies, enable 2FA, review authentication logs'
+                    };
+                  case 'Privilege Escalation':
+                    return {
+                      title: 'Privilege Escalation Monitoring',
+                      description: 'Unauthorized privilege escalation attempts detected.',
+                      action: 'Recommended: Implement role-based access controls, audit admin permissions regularly'
+                    };
+                  case 'Data Access Anomalies':
+                    return {
+                      title: 'Data Access Monitoring',
+                      description: 'Unusual data access patterns require investigation.',
+                      action: 'Recommended: Implement behavioral analytics, review data access logs'
+                    };
+                  case 'External Threats':
+                    return {
+                      title: 'External Threat Protection',
+                      description: 'External threat activity requires enhanced security measures.',
+                      action: 'Recommended: Review firewall rules, implement IP blocking, enhance monitoring'
+                    };
+                  case 'Off-hours Activity':
+                    return {
+                      title: 'Off-hours Access Control',
+                      description: 'Unusual off-hours system access detected.',
+                      action: 'Recommended: Implement time-based access controls, review access patterns'
+                    };
+                  case 'Account Compromise':
+                    return {
+                      title: 'Account Compromise Response',
+                      description: 'Potential account compromise indicators detected. Immediate action required.',
+                      action: 'Recommended: Force password reset for affected accounts, enable 2FA, review access logs'
+                    };
+                  default:
+                    return {
+                      title: 'Security Enhancement Required',
+                      description: 'High risk factor detected requiring attention.',
+                      action: 'Recommended: Review security policies and implement additional controls'
+                    };
+                }
+              };
+
+              const recommendation = getRecommendation(factor.name);
+              return (
+                <div key={index} className={`flex items-start gap-3 p-4 rounded-lg border ${bgColor} ${borderColor}`}>
+                  {isCritical ? (
+                    <AlertTriangle className={`w-5 h-5 mt-0.5 ${textColor}`} />
+                  ) : (
+                    <Shield className={`w-5 h-5 mt-0.5 ${textColor}`} />
+                  )}
+                  <div>
+                    <div className={`font-medium ${textColor}`}>
+                      {isCritical ? 'Critical' : 'High'}: {recommendation.title}
+                    </div>
+                    <div className={`text-sm mb-2 ${textColor}`}>
+                      {recommendation.description}
+                    </div>
+                    <div className={`text-xs ${textColor}`}>
+                      {recommendation.action}
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          }
           
-          <div className="flex items-start gap-3 p-4 bg-theme-status-warning-background rounded-lg border border-theme-status-warning">
-            <Shield className="w-5 h-5 text-theme-status-warning mt-0.5" />
-            <div>
-              <div className="font-medium text-theme-status-warning">High: Privilege Escalation Monitoring</div>
-              <div className="text-sm text-theme-status-warning mb-2">
-                Increase monitoring for unauthorized privilege escalation attempts.
-              </div>
-              <div className="text-xs text-theme-status-warning">
-                Recommended: Implement role-based access controls, audit admin permissions
-              </div>
-            </div>
-          </div>
-          
-          <div className="flex items-start gap-3 p-4 bg-theme-status-warning-background rounded-lg border border-theme-status-warning">
-            <Eye className="w-5 h-5 text-theme-status-warning mt-0.5" />
-            <div>
-              <div className="font-medium text-theme-status-warning">Medium: Enhanced Monitoring</div>
-              <div className="text-sm text-theme-status-warning mb-2">
-                Strengthen monitoring for authentication failures and data access patterns.
-              </div>
-              <div className="text-xs text-theme-status-warning">
-                Recommended: Tune alert thresholds, implement behavioral analytics
+          {/* Show default message if no high-risk factors */}
+          {riskFactors.filter(factor => factor.level === 'critical' || factor.level === 'high').length === 0 && (
+            <div className="flex items-start gap-3 p-4 bg-theme-status-success-background rounded-lg border border-theme-status-success">
+              <Shield className="w-5 h-5 text-theme-status-success mt-0.5" />
+              <div>
+                <div className="font-medium text-theme-status-success">Security Status: Good</div>
+                <div className="text-sm text-theme-status-success mb-2">
+                  No critical or high-risk security factors detected for {timeRange.label.toLowerCase()}.
+                </div>
+                <div className="text-xs text-theme-status-success">
+                  Continue monitoring and maintain current security practices.
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>

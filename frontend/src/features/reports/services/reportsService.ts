@@ -187,7 +187,7 @@ class ReportsService {
           clearInterval(intervalId);
         }
       } catch (error) {
-        console.error('Failed to poll request status:', error);
+        // Polling error - stop polling
         clearInterval(intervalId);
       }
     }, 2000); // Poll every 2 seconds

@@ -237,16 +237,25 @@ export const adminNavigationOverrides = {
           order: 3
         },
         {
+          id: 'services',
+          name: 'Services',
+          href: '/app/system/services',
+          icon: '🌐',
+          description: 'Configure service routing, load balancing, and proxy settings',
+          permissions: ['admin.settings.edit'],
+          order: 4
+        },
+        {
           id: 'workers',
           name: 'Workers',
           href: '/app/system/workers',
           icon: '🤖',
           description: 'Manage background workers and job processing',
           permissions: ['system.workers.view'],
-          order: 4
+          order: 5
         }
       ],
-      permissions: ['webhook.view', 'admin.audit.view', 'api.manage_keys', 'system.workers.view'],
+      permissions: ['webhook.view', 'admin.audit.view', 'api.manage_keys', 'admin.settings.edit', 'system.workers.view'],
       collapsible: true,
       defaultExpanded: false,
       order: 18

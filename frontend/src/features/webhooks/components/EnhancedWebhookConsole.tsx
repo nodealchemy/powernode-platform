@@ -27,6 +27,7 @@ interface WebhookDetailsModalProps {
   isOpen: boolean;
   onClose: () => void;
   onWebhookUpdated: () => void;
+  showDeliveryHistory?: boolean;
 }
 
 const CreateWebhookModal: React.FC<CreateWebhookModalProps> = ({
@@ -56,7 +57,7 @@ const CreateWebhookModal: React.FC<CreateWebhookModalProps> = ({
         setEventCategories(response.data.categories);
       }
     } catch (error) {
-      console.error('Failed to load available events:', error);
+      // Error handled silently - not critical for UI
     }
   };
 
@@ -284,7 +285,8 @@ const WebhookDetailsModal: React.FC<WebhookDetailsModalProps> = ({
   webhook,
   isOpen,
   onClose,
-  onWebhookUpdated
+  onWebhookUpdated: _onWebhookUpdated,
+  showDeliveryHistory = true
 }) => {
   const [activeTab, setActiveTab] = useState<'details' | 'deliveries'>('details');
   const [deliveries, setDeliveries] = useState<WebhookDelivery[]>([]);
@@ -352,15 +354,17 @@ const WebhookDetailsModal: React.FC<WebhookDetailsModalProps> = ({
             >
               Details
             </Button>
-            <Button variant="outline" onClick={() => setActiveTab('deliveries')}
-              className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'deliveries'
-                  ? 'border-theme-interactive-primary text-theme-interactive-primary'
-                  : 'border-transparent text-theme-secondary hover:text-theme-primary'
-              }`}
-            >
-              Delivery History
-            </Button>
+{showDeliveryHistory && (
+              <Button variant="outline" onClick={() => setActiveTab('deliveries')}
+                className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === 'deliveries'
+                    ? 'border-theme-interactive-primary text-theme-interactive-primary'
+                    : 'border-transparent text-theme-secondary hover:text-theme-primary'
+                }`}
+              >
+                Delivery History
+              </Button>
+            )}
           </div>
         </div>
 
@@ -462,7 +466,7 @@ const WebhookDetailsModal: React.FC<WebhookDetailsModalProps> = ({
             </div>
           )}
 
-          {activeTab === 'deliveries' && (
+          {showDeliveryHistory && activeTab === 'deliveries' && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h4 className="font-medium text-theme-primary">Recent Deliveries</h4>
@@ -581,7 +585,7 @@ export const EnhancedWebhookConsole: React.FC<EnhancedWebhookConsoleProps> = ({
         setStats(response.data);
       }
     } catch (error) {
-      console.error('Failed to load webhook stats:', error);
+      // Error handled silently - stats are optional
     }
   };
 
@@ -943,6 +947,7 @@ export const EnhancedWebhookConsole: React.FC<EnhancedWebhookConsoleProps> = ({
           loadWebhooks();
           if (showStats) loadStats();
         }}
+        showDeliveryHistory={showDeliveryHistory}
       />
     </div>
   );

@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 class Api::V1::Auth::SessionsController < ApplicationController
-  include RateLimiting unless Rails.env.development?
+  # Rate limiting is now included in ApplicationController
   include UserSerialization
 
   skip_before_action :authenticate_request, only: [ :create, :refresh ]

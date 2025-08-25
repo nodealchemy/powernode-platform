@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 class Api::V1::Auth::RegistrationsController < ApplicationController
-  include RateLimiting
+  # Rate limiting is now included in ApplicationController
   include UserSerialization
   
   skip_before_action :authenticate_request, only: [:create]
@@ -32,9 +32,11 @@ class Api::V1::Auth::RegistrationsController < ApplicationController
       @user = @account.users.build(user_params)
       # First user in account gets owner role (this is handled by User model callback)
       
-      # Auto-verify email in test mode
-      if ENV['DISABLE_RATE_LIMITING'] == 'true'
-        @user.email_verified = true
+      # Handle email verification based on system settings
+      if SystemSettingsService.email_verification_required?
+        # Generate verification token for production/development
+        @user.generate_email_verification_token
+      else
         @user.email_verified_at = Time.current
       end
       
@@ -66,7 +68,26 @@ class Api::V1::Auth::RegistrationsController < ApplicationController
       tokens = JwtService.generate_tokens(@user)
       @user.record_login!
 
-      render json: {
+      # Send verification email if not auto-verified
+      unless @user.verified?
+        begin
+          WorkerJobService.enqueue_notification_email(
+            'email_verification',
+            {
+              user_id: @user.id,
+              email: @user.email,
+              verification_token: @user.email_verification_token,
+              user_name: @user.full_name,
+              smtp_settings: SystemSettingsService.get_setting('smtp_settings')
+            }
+          )
+        rescue StandardError => e
+          Rails.logger.error "Failed to send verification email during registration: #{e.message}"
+          # Don't fail registration if email fails
+        end
+      end
+
+      response_data = {
         success: true,
         user: user_data(@user),
         account: account_data(@account),
@@ -75,7 +96,14 @@ class Api::V1::Auth::RegistrationsController < ApplicationController
         refresh_token: tokens[:refresh_token],
         expires_at: tokens[:expires_at],
         message: "Account created successfully"
-      }, status: :created
+      }
+
+      # Add verification reminder if email is not verified
+      unless @user.verified?
+        response_data[:warning] = "Please check your email and verify your account to secure access"
+      end
+
+      render json: response_data, status: :created
     end
   rescue ActiveRecord::RecordInvalid => e
     # Use the first validation error as the main error message

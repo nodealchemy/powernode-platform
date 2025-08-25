@@ -472,19 +472,19 @@ export const PlanFeaturesManager: React.FC<PlanFeaturesManagerProps> = ({
       ]);
 
       if (featuresResponse.success) {
-        setFeatures(featuresResponse.data!);
+        setFeatures(featuresResponse.data || []);
       }
       if (plansResponse.success) {
-        setPlans(plansResponse.data!);
-        if (plansResponse.data!.length > 0 && !selectedPlan) {
-          setSelectedPlan(plansResponse.data![0].id);
+        setPlans(plansResponse.data || []);
+        if (plansResponse.data && plansResponse.data.length > 0 && !selectedPlan) {
+          setSelectedPlan(plansResponse.data[0].id);
         }
       }
       if (comparisonResponse.success && 'data' in comparisonResponse && comparisonResponse.data) {
         setComparison(comparisonResponse.data);
       }
     } catch (error) {
-      console.error('Failed to load plan features data:', error);
+      // Error handled by notification
       showNotification('Failed to load plan features data', 'error');
     } finally {
       setLoading(false);

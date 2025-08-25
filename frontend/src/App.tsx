@@ -31,6 +31,7 @@ import { AcceptInvitationPage } from '@/pages/public/AcceptInvitationPage';
 
 import './App.css';
 import '@/assets/styles/themes.css';
+import '@/assets/styles/deprecated-css-override.css';
 
 const AppContent: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -114,7 +115,7 @@ const AppContent: React.FC = () => {
                 
                 // If no valid impersonation, get regular user
                 await dispatch(getCurrentUser()).unwrap();
-              } catch (refreshError: any) {
+              } catch (refreshError) {
                 
                 // Check if this is a token invalidity error
                 if (isTokenInvalidError(refreshError)) {

@@ -36,6 +36,7 @@ import { AdminSettingsPage } from '@/pages/app/admin/AdminSettingsPage';
 import { AdminUsersPage } from '@/pages/app/admin/AdminUsersPage';
 import { AdminRolesPage } from '@/pages/app/admin/AdminRolesPage';
 import { WorkersPage as SystemWorkersPage } from '@/pages/app/system/WorkersPage';
+import { ServicesPage } from '@/pages/app/system/ServicesPage';
 import { AdminMaintenancePage } from '@/pages/app/admin/AdminMaintenancePage';
 import { AdminMarketplacePage } from '@/pages/app/admin/AdminMarketplacePage';
 
@@ -408,6 +409,7 @@ const DashboardPage: React.FC = () => {
         <Route path="/api-keys" element={<ApiKeysPage />} />
         
         {/* System Management Pages */}
+        <Route path="/system/services" element={<ServicesPage />} />
         <Route path="/system/webhooks" element={<WebhookManagementPage />} />
         <Route path="/system/audit-logs" element={<SystemAuditLogsPage />} />
         
@@ -433,6 +435,9 @@ const DashboardPage: React.FC = () => {
         <Route path="/system/workers" element={<SystemWorkersPage />} />
         <Route path="/admin/maintenance/*" element={<AdminMaintenancePage />} />
         <Route path="/admin" element={<Navigate to="/app/admin/settings" replace />} />
+        
+        {/* Redirect old admin settings to new services page */}
+        <Route path="/admin/settings/reverse-proxy" element={<Navigate to="/app/system/services" replace />} />
         
         {/* Test route */}
         <Route path="/test-websocket" element={<TestWebSocket />} />

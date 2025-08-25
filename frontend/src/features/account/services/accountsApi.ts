@@ -25,7 +25,7 @@ export interface Account {
     full_name: string;
     email: string;
   };
-  settings: Record<string, any>;
+  settings: Record<string, unknown>;
 }
 
 export interface AccountFormData {
@@ -34,7 +34,7 @@ export interface AccountFormData {
   billing_email?: string;
   phone?: string;
   timezone: string;
-  settings?: Record<string, any>;
+  settings?: Record<string, unknown>;
 }
 
 export interface AccountStats {
@@ -122,7 +122,7 @@ class AccountsApiService {
   }
 
   // Get account usage (for current account)
-  async getAccountUsage(): Promise<{ success: boolean; data: any }> {
+  async getAccountUsage(): Promise<{ success: boolean; data: Record<string, unknown> }> {
     const response = await api.get('/accounts/usage');
     return response.data;
   }

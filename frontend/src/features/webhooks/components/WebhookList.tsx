@@ -33,7 +33,7 @@ interface WebhookListProps {
     status: string;
     search: string;
   };
-  onFiltersChange: (filters: any) => void;
+  onFiltersChange: (filters: { status: string; search: string }) => void;
 }
 
 const WebhookList: React.FC<WebhookListProps> = ({
