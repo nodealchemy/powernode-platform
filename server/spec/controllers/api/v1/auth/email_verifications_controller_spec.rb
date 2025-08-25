@@ -17,8 +17,8 @@ RSpec.describe Api::V1::Auth::EmailVerificationsController, type: :controller do
         
         expect(response).to have_http_status(:ok)
         expect(json_response['success']).to be true
-        expect(json_response['message']).to eq('Email verified successfully')
-        expect(json_response['user']['email_verified']).to be true
+        expect(json_response['data']['message']).to eq('Email verified successfully')
+        expect(json_response['data']['user']['email_verified']).to be true
         
         user.reload
         expect(user.verified?).to be true
@@ -79,7 +79,7 @@ RSpec.describe Api::V1::Auth::EmailVerificationsController, type: :controller do
         
         expect(response).to have_http_status(:ok)
         expect(json_response['success']).to be true
-        expect(json_response['message']).to eq('Email is already verified')
+        expect(json_response['data']['message']).to eq('Email is already verified')
       end
     end
 
@@ -110,7 +110,7 @@ RSpec.describe Api::V1::Auth::EmailVerificationsController, type: :controller do
         
         expect(response).to have_http_status(:ok)
         expect(json_response['success']).to be true
-        expect(json_response['message']).to eq('Verification email sent successfully')
+        expect(json_response['data']['message']).to eq('Verification email sent successfully')
         
         expect(WorkerJobService).to have_received(:enqueue_notification_email).with(
           'email_verification',
@@ -151,7 +151,7 @@ RSpec.describe Api::V1::Auth::EmailVerificationsController, type: :controller do
         
         expect(response).to have_http_status(:unauthorized)
         expect(json_response['success']).to be false
-        expect(json_response['error']).to eq('Authentication required')
+        expect(json_response['error']).to eq('Access token required')
       end
     end
 

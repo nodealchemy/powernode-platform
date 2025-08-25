@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_08_25_023356) do
+ActiveRecord::Schema[8.0].define(version: 2025_08_25_162209) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -1033,6 +1033,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_25_023356) do
     t.text "backup_codes"
     t.datetime "two_factor_backup_codes_generated_at"
     t.datetime "two_factor_enabled_at"
+    t.datetime "email_verification_sent_at"
     t.index ["account_id"], name: "index_users_on_account_id"
     t.index ["email"], name: "index_users_on_email", unique: true
     t.index ["email_verification_token"], name: "index_users_on_email_verification_token", unique: true, where: "(email_verification_token IS NOT NULL)"

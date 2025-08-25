@@ -2,7 +2,6 @@
 
 # Service class for delegating work to the worker service via API
 class WorkerJobService
-  include ApiResponse
 
   # Base URL for worker service API calls
   WORKER_API_BASE = ENV['WORKER_API_URL'] || 'http://localhost:4000/api/v1'
@@ -37,6 +36,13 @@ class WorkerJobService
       make_worker_request('POST', '/reports/generate', {
         report_type: report_type,
         data: data
+      })
+    end
+
+    # Enqueue password reset email job
+    def enqueue_password_reset_email(user_id)
+      make_worker_request('POST', '/notifications/password_reset', {
+        user_id: user_id
       })
     end
 

@@ -37,6 +37,9 @@ gem "httparty"
 gem "prawn"
 gem "prawn-table"
 
+# Prometheus metrics
+gem "prometheus_exporter"
+
 # Markdown processing
 gem "redcarpet"
 

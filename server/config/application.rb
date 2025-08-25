@@ -1,7 +1,38 @@
 require_relative "boot"
 require_relative "version"
 
-require "rails/all"
+# Only require necessary Rails components for API-only application
+require "rails"
+
+# Core components needed for API functionality
+require "active_record/railtie"
+require "action_controller/railtie" 
+require "action_mailer/railtie"
+require "active_job/railtie"
+require "rails/test_unit/railtie"
+
+# ActionCable needed for real-time broadcasting functionality
+begin
+  require "action_cable/engine"
+rescue LoadError
+  # ActionCable not available, create stub for tests
+  module ActionCable
+    class Connection
+      class Base; end
+    end
+    class Channel
+      class Base; end
+    end
+    def self.server
+      @server ||= Object.new.tap do |obj|
+        def obj.broadcast(channel, data); end
+      end
+    end
+  end
+end
+
+# Skip ActionText, ActionMailbox, ActionView, and ActiveStorage  
+# These are not needed for API-only applications
 
 # Require the gems listed in Gemfile, including any gems
 # you've limited to :test, :development, or :production.
