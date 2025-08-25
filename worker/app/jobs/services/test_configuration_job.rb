@@ -2,28 +2,28 @@
 
 require_relative '../base_job'
 
-# Asynchronous reverse proxy configuration testing
-# Tests proxy configuration validity and service connectivity
-class ReverseProxy::TestConfigurationJob < BaseJob
-  sidekiq_options queue: 'reverse_proxy',
+# Asynchronous services configuration testing
+# Tests services configuration validity and service connectivity
+class Services::TestConfigurationJob < BaseJob
+  sidekiq_options queue: 'services',
                   retry: 1
 
   def execute(test_config, job_id: nil)
-    logger.info "Starting reverse proxy configuration test (job: #{job_id})"
+    logger.info "Starting services configuration test (job: #{job_id})"
 
     start_time = Time.current
 
     begin
       # Validate configuration structure via API
       validation_result = with_api_retry do
-        api_client.post('/api/v1/internal/reverse_proxy/validate', {
+        api_client.post('/api/v1/internal/services/validate', {
           config: test_config
         })
       end
 
       # Test service connectivity via API
       connectivity_result = with_api_retry do
-        api_client.post('/api/v1/internal/reverse_proxy/test_connectivity', {
+        api_client.post('/api/v1/internal/services/test_connectivity', {
           config: test_config
         })
       end

@@ -4,8 +4,8 @@ require_relative '../base_job'
 
 # Asynchronous service configuration validation
 # Validates service configurations for connectivity and compliance
-class ReverseProxy::ServiceValidationJob < BaseJob
-  sidekiq_options queue: 'reverse_proxy',
+class Services::ServiceValidationJob < BaseJob
+  sidekiq_options queue: 'services',
                   retry: 1
 
   def execute(service_configs, job_id: nil)
@@ -19,7 +19,7 @@ class ReverseProxy::ServiceValidationJob < BaseJob
 
       # Validate services via API
       validation_result = with_api_retry do
-        api_client.post('/api/v1/internal/reverse_proxy/validate_services', {
+        api_client.post('/api/v1/internal/services/validate_services', {
           services: service_configs
         })
       end

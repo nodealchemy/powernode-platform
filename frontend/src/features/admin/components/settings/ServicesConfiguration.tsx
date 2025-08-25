@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { FlexBetween, FlexItemsCenter, FlexCol } from '@/shared/components/ui/FlexContainer';
+import React, { useState, useEffect, useCallback } from 'react';
+import { FlexBetween, FlexItemsCenter } from '@/shared/components/ui/FlexContainer';
 import { GridCols2 } from '@/shared/components/ui/GridContainer';
 import { Button } from '@/shared/components/ui/Button';
 import { Card } from '@/shared/components/ui/Card';
@@ -9,7 +9,7 @@ import { Modal } from '@/shared/components/ui/Modal';
 import { StatusIndicator } from '@/shared/components/ui/StatusIndicator';
 import { TabContainer } from '@/shared/components/ui/TabContainer';
 import { useNotification } from '@/shared/hooks/useNotification';
-import { reverseProxyApi, ReverseProxyConfig, URLMapping, HealthStatus, ServiceDiscoveryConfig } from '../../services/reverseProxyApi';
+import { servicesApi, ServiceConfig, URLMapping, HealthStatus, ServiceDiscoveryConfig } from '../../services/servicesApi';
 import { URLMappingModal } from './URLMappingModal';
 import { TestConfigurationModal } from './TestConfigurationModal';
 import { ExportConfigurationModal } from './ExportConfigurationModal';
@@ -37,18 +37,18 @@ import {
   Save
 } from 'lucide-react';
 
-interface ReverseProxyConfigurationProps {
+interface ServicesConfigurationProps {
   className?: string;
 }
 
 type TabType = 'basic' | 'services' | 'mappings' | 'advanced' | 'monitoring' | 'discovery';
 
-const ReverseProxyConfiguration: React.FC<ReverseProxyConfigurationProps> = ({ className = '' }) => {
+const ServicesConfiguration: React.FC<ServicesConfigurationProps> = ({ className = '' }) => {
   const { showNotification } = useNotification();
   const [activeTab, setActiveTab] = useState<TabType>('basic');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [config, setConfig] = useState<ReverseProxyConfig | null>(null);
+  const [config, setConfig] = useState<ServiceConfig | null>(null);
   const [healthStatus, setHealthStatus] = useState<HealthStatus | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
   
@@ -62,9 +62,36 @@ const ReverseProxyConfiguration: React.FC<ReverseProxyConfigurationProps> = ({ c
   
   // Form states
 
+  const loadConfiguration = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await servicesApi.getConfiguration();
+      setConfig(data.service_config);
+      setHealthStatus(data.health_status);
+      setServiceDiscoveryConfig(data.service_discovery_config);
+    } catch (error) {
+      // Error handled by notification
+      showNotification('Failed to load services configuration', 'error');
+    } finally {
+      setLoading(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const refreshHealthStatus = useCallback(async () => {
+    try {
+      const health = await servicesApi.getHealthStatus();
+      setHealthStatus(health);
+    } catch (error) {
+      // Error handled by notification
+      showNotification('Failed to refresh health status', 'error');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     loadConfiguration();
-  }, []);
+  }, [loadConfiguration]);
 
   // Auto-refresh health status every 30 seconds
   useEffect(() => {
@@ -75,36 +102,11 @@ const ReverseProxyConfiguration: React.FC<ReverseProxyConfigurationProps> = ({ c
     }, 30000); // 30 seconds
 
     return () => clearInterval(interval);
-  }, [config?.enabled]);
-
-  const loadConfiguration = async () => {
-    try {
-      setLoading(true);
-      const data = await reverseProxyApi.getConfiguration();
-      setConfig(data.reverse_proxy_config);
-      setHealthStatus(data.health_status);
-      setServiceDiscoveryConfig(data.service_discovery_config);
-    } catch (error) {
-      console.error('Failed to load reverse proxy configuration:', error);
-      showNotification('Failed to load reverse proxy configuration', 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const refreshHealthStatus = async () => {
-    try {
-      const health = await reverseProxyApi.getHealthStatus();
-      setHealthStatus(health);
-    } catch (error) {
-      console.error('Failed to refresh health status:', error);
-      showNotification('Failed to refresh health status', 'error');
-    }
-  };
+  }, [config?.enabled, refreshHealthStatus]);
 
   const updateServiceDiscoveryConfig = async (newConfig: ServiceDiscoveryConfig) => {
     try {
-      await reverseProxyApi.updateConfiguration('service_discovery_config', newConfig);
+      await servicesApi.updateConfiguration('service_discovery_config', newConfig);
       setServiceDiscoveryConfig(newConfig);
       showNotification('Service discovery configuration updated successfully', 'success');
     } catch (error) {
@@ -119,9 +121,9 @@ const ReverseProxyConfiguration: React.FC<ReverseProxyConfigurationProps> = ({ c
 
     try {
       setSaving(true);
-      await reverseProxyApi.updateConfiguration('reverse_proxy_config', config);
+      await servicesApi.updateConfiguration('service_config', config);
       setHasChanges(false);
-      showNotification('Reverse proxy configuration saved successfully', 'success');
+      showNotification('Services configuration saved successfully', 'success');
     } catch (error) {
       console.error('Failed to save configuration:', error);
       showNotification('Failed to save configuration', 'error');
@@ -135,7 +137,7 @@ const ReverseProxyConfiguration: React.FC<ReverseProxyConfigurationProps> = ({ c
   };
 
 
-  const updateConfig = (updates: Partial<ReverseProxyConfig>) => {
+  const updateConfig = (updates: Partial<ServiceConfig>) => {
     if (config) {
       setConfig({ ...config, ...updates });
       setHasChanges(true);
@@ -149,7 +151,7 @@ const ReverseProxyConfiguration: React.FC<ReverseProxyConfigurationProps> = ({ c
     if (!mapping) return;
 
     try {
-      await reverseProxyApi.toggleURLMapping(mappingId, !mapping.enabled);
+      await servicesApi.toggleURLMapping(mappingId, !mapping.enabled);
       
       const updatedMappings = config.url_mappings.map(m => 
         m.id === mappingId ? { ...m, enabled: !m.enabled } : m
@@ -167,7 +169,7 @@ const ReverseProxyConfiguration: React.FC<ReverseProxyConfigurationProps> = ({ c
     if (!config) return;
 
     try {
-      await reverseProxyApi.deleteURLMapping(mappingId);
+      await servicesApi.deleteURLMapping(mappingId);
       
       const updatedMappings = config.url_mappings.filter(m => m.id !== mappingId);
       updateConfig({ url_mappings: updatedMappings });
@@ -184,14 +186,14 @@ const ReverseProxyConfiguration: React.FC<ReverseProxyConfigurationProps> = ({ c
     try {
       if (editingMapping) {
         // Update existing mapping
-        await reverseProxyApi.updateURLMapping(mapping.id, mapping);
+        await servicesApi.updateURLMapping(mapping.id, mapping);
         const updatedMappings = config.url_mappings.map(m => 
           m.id === mapping.id ? mapping : m
         );
         updateConfig({ url_mappings: updatedMappings });
       } else {
         // Create new mapping
-        const response = await reverseProxyApi.createURLMapping(mapping);
+        const response = await servicesApi.createURLMapping(mapping);
         const newMapping = response.mapping;
         updateConfig({ 
           url_mappings: [...config.url_mappings, newMapping] 
@@ -236,7 +238,7 @@ const ReverseProxyConfiguration: React.FC<ReverseProxyConfigurationProps> = ({ c
     return (
       <FlexItemsCenter justify="center" className="py-12">
         <LoadingSpinner size="lg" />
-        <span className="ml-3 text-theme-secondary">Loading reverse proxy configuration...</span>
+        <span className="ml-3 text-theme-secondary">Loading services configuration...</span>
       </FlexItemsCenter>
     );
   }
@@ -249,7 +251,7 @@ const ReverseProxyConfiguration: React.FC<ReverseProxyConfigurationProps> = ({ c
           Configuration Not Available
         </h3>
         <p className="text-theme-secondary mb-4">
-          Unable to load reverse proxy configuration.
+          Unable to load services configuration.
         </p>
         <Button onClick={loadConfiguration} variant="primary">
           <RefreshCw className="w-4 h-4 mr-2" />
@@ -264,9 +266,9 @@ const ReverseProxyConfiguration: React.FC<ReverseProxyConfigurationProps> = ({ c
       {/* Header */}
       <FlexBetween>
         <div>
-          <h2 className="text-xl font-semibold text-theme-primary">Reverse Proxy Configuration</h2>
+          <h2 className="text-xl font-semibold text-theme-primary">Services Configuration</h2>
           <p className="text-theme-secondary">
-            Configure load balancing, routing, and service discovery
+            Configure service routing, load balancing, and discovery
           </p>
         </div>
         
@@ -325,7 +327,7 @@ const ReverseProxyConfiguration: React.FC<ReverseProxyConfigurationProps> = ({ c
           
           <GridCols2 gap="md">
             {Object.entries(healthStatus.services).map(([serviceName, service]) => {
-              const statusInfo = getServiceStatus(serviceName);
+              const _statusInfo = getServiceStatus(serviceName);
               return (
                 <FlexItemsCenter key={serviceName} className="p-3 bg-theme-surface rounded-lg">
                   <StatusIndicator 
@@ -376,7 +378,7 @@ const ReverseProxyConfiguration: React.FC<ReverseProxyConfigurationProps> = ({ c
             label: 'Services',
             icon: <Server className="w-4 h-4" />,
             content: config ? (
-              <ServicesConfiguration 
+              <ServicesListComponent 
                 config={config}
                 healthStatus={healthStatus}
                 updateConfig={updateConfig}
@@ -521,8 +523,8 @@ const ReverseProxyConfiguration: React.FC<ReverseProxyConfigurationProps> = ({ c
 
 // Basic Configuration Component
 const BasicConfiguration: React.FC<{
-  config: ReverseProxyConfig;
-  updateConfig: (updates: Partial<ReverseProxyConfig>) => void;
+  config: ServiceConfig;
+  updateConfig: (updates: Partial<ServiceConfig>) => void;
 }> = ({ config, updateConfig }) => {
   return (
     <div className="space-y-6">
@@ -533,10 +535,10 @@ const BasicConfiguration: React.FC<{
           <FlexBetween>
             <div>
               <label className="block text-sm font-medium text-theme-primary">
-                Enable Reverse Proxy
+                Enable Services Proxy
               </label>
               <p className="text-sm text-theme-secondary">
-                Enable reverse proxy functionality for load balancing and routing
+                Enable service proxy functionality for load balancing and routing
               </p>
             </div>
             <Button
@@ -573,10 +575,10 @@ const BasicConfiguration: React.FC<{
   );
 };
 
-// Services Configuration Component
-const ServicesConfiguration: React.FC<{
-  config: ReverseProxyConfig;
-  updateConfig: (updates: Partial<ReverseProxyConfig>) => void;
+// Services List Component
+const ServicesListComponent: React.FC<{
+  config: ServiceConfig;
+  updateConfig: (updates: Partial<ServiceConfig>) => void;
   healthStatus: HealthStatus | null;
 }> = ({ config, updateConfig, healthStatus }) => {
   const { showNotification } = useNotification();
@@ -657,7 +659,7 @@ const ServicesConfiguration: React.FC<{
       }
     },
     {
-      name: 'External Reverse Proxy',
+      name: 'External Load Balancer',
       type: 'external_proxy',
       config: {
         host: 'proxy.example.com',
@@ -767,7 +769,7 @@ const ServicesConfiguration: React.FC<{
 
   const testServiceConnection = async (serviceName: string) => {
     try {
-      const result = await reverseProxyApi.testServiceConnection(selectedEnvironment, serviceName);
+      const result = await servicesApi.testServiceConnection(selectedEnvironment, serviceName);
       
       if (result.status === 'healthy') {
         showNotification(`${serviceName} is healthy (${result.response_time}ms)`, 'success');
@@ -903,7 +905,7 @@ const ServicesConfiguration: React.FC<{
             No Services Configured
           </h3>
           <p className="text-theme-secondary mb-6">
-            Add services to configure reverse proxy routing for the {selectedEnvironment} environment
+            Add services to configure routing for the {selectedEnvironment} environment
           </p>
           <div className="flex justify-center space-x-3">
             <Button
@@ -1069,7 +1071,7 @@ const ServicesConfiguration: React.FC<{
                       <Button
                         onClick={async () => {
                           try {
-                            await reverseProxyApi.updateConfiguration('reverse_proxy_config', config);
+                            await servicesApi.updateConfiguration('service_config', config);
                             showNotification('Service configuration saved successfully', 'success');
                             setEditingService(null);
                           } catch (error) {
@@ -1215,8 +1217,8 @@ const ServicesConfiguration: React.FC<{
 
 // URL Mappings Configuration Component
 const URLMappingsConfiguration: React.FC<{
-  config: ReverseProxyConfig;
-  updateConfig: (updates: Partial<ReverseProxyConfig>) => void;
+  config: ServiceConfig;
+  updateConfig: (updates: Partial<ServiceConfig>) => void;
   onToggleMapping: (id: string) => void;
   onDeleteMapping: (id: string) => void;
   onEditMapping: (mapping: URLMapping) => void;
@@ -1327,8 +1329,8 @@ const URLMappingsConfiguration: React.FC<{
 
 // Advanced Configuration Component
 const AdvancedConfiguration: React.FC<{
-  config: ReverseProxyConfig;
-  updateConfig: (updates: Partial<ReverseProxyConfig>) => void;
+  config: ServiceConfig;
+  updateConfig: (updates: Partial<ServiceConfig>) => void;
 }> = ({ config, updateConfig }) => {
   return (
     <div className="space-y-6">
@@ -1872,5 +1874,5 @@ const AddServiceModal: React.FC<AddServiceModalProps> = ({
   );
 };
 
-export { ReverseProxyConfiguration };
-export default ReverseProxyConfiguration;
+export { ServicesConfiguration };
+export default ServicesConfiguration;

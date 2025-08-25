@@ -1,6 +1,6 @@
 import { api } from '@/shared/services/api';
 
-export interface ReverseProxyConfig {
+export interface ServiceConfig {
   enabled: boolean;
   current_environment: string;
   environments: {
@@ -126,7 +126,7 @@ export interface ServiceDiscoveryConfig {
   };
 }
 
-export interface ProxyTemplates {
+export interface ServiceTemplates {
   nginx: {
     enabled: boolean;
     config_path: string;
@@ -184,24 +184,24 @@ export interface GeneratedConfig {
   instructions: string;
 }
 
-export const reverseProxyApi = {
-  // Get all reverse proxy configuration
+export const servicesApi = {
+  // Get all services configuration
   async getConfiguration(): Promise<{
-    reverse_proxy_config: ReverseProxyConfig;
+    service_config: ServiceConfig;
     service_discovery_config: ServiceDiscoveryConfig;
-    proxy_templates: ProxyTemplates;
+    service_templates: ServiceTemplates;
     health_status: HealthStatus;
   }> {
-    const response = await api.get('/reverse_proxy');
+    const response = await api.get('/services');
     return response.data.data;
   },
 
-  // Update reverse proxy configuration
+  // Update services configuration
   async updateConfiguration(
-    configType: 'reverse_proxy_config' | 'service_discovery_config' | 'proxy_templates',
-    config: Partial<ReverseProxyConfig | ServiceDiscoveryConfig | ProxyTemplates>
+    configType: 'service_config' | 'service_discovery_config' | 'service_templates',
+    config: Partial<ServiceConfig | ServiceDiscoveryConfig | ServiceTemplates>
   ): Promise<{ message: string }> {
-    const response = await api.put('/reverse_proxy', {
+    const response = await api.put('/services', {
       config_type: configType,
       [configType]: config
     });
@@ -209,13 +209,13 @@ export const reverseProxyApi = {
   },
 
   // Test configuration before applying (now asynchronous)
-  async testConfiguration(testConfig?: Partial<ReverseProxyConfig>): Promise<{
+  async testConfiguration(testConfig?: Partial<ServiceConfig>): Promise<{
     job_id: string;
     sidekiq_jid: string;
     status: 'started';
     message: string;
   }> {
-    const response = await api.post('/reverse_proxy/test_configuration', {
+    const response = await api.post('/services/test_configuration', {
       test_config: testConfig
     });
     return response.data.data;
@@ -229,7 +229,7 @@ export const reverseProxyApi = {
     proxy_type: string;
     message: string;
   }> {
-    const response = await api.post('/reverse_proxy/generate_config', {
+    const response = await api.post('/services/generate_config', {
       proxy_type: proxyType
     });
     return response.data.data;
@@ -237,7 +237,7 @@ export const reverseProxyApi = {
 
   // Get health check status
   async getHealthStatus(): Promise<HealthStatus> {
-    const response = await api.get('/reverse_proxy/health_check');
+    const response = await api.get('/services/health_check');
     return response.data.data;
   },
 
@@ -249,32 +249,32 @@ export const reverseProxyApi = {
     services_configured: string[];
     last_updated: string;
   }> {
-    const response = await api.get('/reverse_proxy/status');
+    const response = await api.get('/services/status');
     return response.data.data;
   },
 
   // URL Mapping management
   async createURLMapping(mapping: Omit<URLMapping, 'id'>): Promise<{ message: string; mapping: URLMapping }> {
-    const response = await api.post('/reverse_proxy/url_mappings', {
+    const response = await api.post('/services/url_mappings', {
       url_mapping: mapping
     });
     return response.data.data;
   },
 
   async updateURLMapping(id: string, mapping: Partial<URLMapping>): Promise<{ message: string }> {
-    const response = await api.put(`/reverse_proxy/url_mappings/${id}/update_url_mapping`, {
+    const response = await api.put(`/services/url_mappings/${id}/update_url_mapping`, {
       url_mapping: mapping
     });
     return response.data.data;
   },
 
   async deleteURLMapping(id: string): Promise<{ message: string }> {
-    const response = await api.delete(`/reverse_proxy/url_mappings/${id}`);
+    const response = await api.delete(`/services/url_mappings/${id}`);
     return response.data.data;
   },
 
   async toggleURLMapping(id: string, enabled: boolean): Promise<{ message: string }> {
-    const response = await api.patch(`/reverse_proxy/url_mappings/${id}/toggle`, {
+    const response = await api.patch(`/services/url_mappings/${id}/toggle`, {
       enabled
     });
     return response.data.data;
@@ -291,7 +291,7 @@ export const reverseProxyApi = {
     discovered_method: string;
     last_seen: string;
   }>> {
-    const response = await api.get('/reverse_proxy/discovered_services');
+    const response = await api.get('/services/discovered_services');
     return response.data.data;
   },
 
@@ -302,7 +302,7 @@ export const reverseProxyApi = {
     methods: string[];
     message: string;
   }> {
-    const response = await api.post('/reverse_proxy/service_discovery');
+    const response = await api.post('/services/service_discovery');
     return response.data.data;
   },
 
@@ -316,7 +316,7 @@ export const reverseProxyApi = {
     discovered_method: string;
     last_seen: string;
   }): Promise<{ message: string }> {
-    const response = await api.post('/reverse_proxy/add_discovered_service', {
+    const response = await api.post('/services/add_discovered_service', {
       service
     });
     return response.data.data;
@@ -334,7 +334,7 @@ export const reverseProxyApi = {
       error: string | null;
     }>;
   }> {
-    const response = await api.get(`/reverse_proxy/health_history/${serviceName}?hours=${hours}`);
+    const response = await api.get(`/services/health_history/${serviceName}?hours=${hours}`);
     return response.data.data;
   },
 
@@ -344,7 +344,7 @@ export const reverseProxyApi = {
     health_check_path: string;
     expected_codes: number[];
   }): Promise<{ message: string }> {
-    const response = await api.put(`/reverse_proxy/health_config/${serviceName}`, {
+    const response = await api.put(`/services/health_config/${serviceName}`, {
       health_config: config
     });
     return response.data.data;
@@ -357,7 +357,7 @@ export const reverseProxyApi = {
     response_time?: number;
     error?: string;
   }> {
-    const response = await api.post('/reverse_proxy/test_service', {
+    const response = await api.post('/services/test_service', {
       environment,
       service_name: serviceName
     });
@@ -374,7 +374,7 @@ export const reverseProxyApi = {
     errors: string[];
     warnings: string[];
   }> {
-    const response = await api.post('/reverse_proxy/validate_service', {
+    const response = await api.post('/services/validate_service', {
       service_config: serviceConfig
     });
     return response.data.data;
@@ -392,12 +392,12 @@ export const reverseProxyApi = {
       base_url: string;
     };
   }>> {
-    const response = await api.get('/reverse_proxy/service_templates');
+    const response = await api.get('/services/service_templates');
     return response.data.data;
   },
 
   async duplicateService(environment: string, serviceName: string, newName: string): Promise<{ message: string }> {
-    const response = await api.post('/reverse_proxy/duplicate_service', {
+    const response = await api.post('/services/duplicate_service', {
       environment,
       service_name: serviceName,
       new_name: newName
@@ -411,7 +411,7 @@ export const reverseProxyApi = {
     export_format: string;
     filename: string;
   }> {
-    const response = await api.get(`/reverse_proxy/export_services/${environment}`);
+    const response = await api.get(`/services/export_services/${environment}`);
     return response.data.data;
   },
 
@@ -421,7 +421,7 @@ export const reverseProxyApi = {
     errors: string[];
     message: string;
   }> {
-    const response = await api.post('/reverse_proxy/import_services', {
+    const response = await api.post('/services/import_services', {
       environment,
       services
     });

@@ -2,10 +2,10 @@
 
 require_relative '../base_job'
 
-# Asynchronous health checking for reverse proxy services
+# Asynchronous health checking for configured services
 # Performs health checks across all configured services
-class ReverseProxy::HealthCheckJob < BaseJob
-  sidekiq_options queue: 'reverse_proxy',
+class Services::HealthCheckJob < BaseJob
+  sidekiq_options queue: 'services',
                   retry: 1
 
   def execute(environment = nil, specific_service = nil, job_id: nil)
@@ -17,7 +17,7 @@ class ReverseProxy::HealthCheckJob < BaseJob
     begin
       # Perform health checks via API
       health_result = with_api_retry do
-        api_client.post('/api/v1/internal/reverse_proxy/health_check', {
+        api_client.post('/api/v1/internal/services/health_check', {
           environment: environment,
           service: specific_service
         })

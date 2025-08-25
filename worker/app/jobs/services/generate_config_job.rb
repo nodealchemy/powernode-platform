@@ -2,10 +2,10 @@
 
 require_relative '../base_job'
 
-# Asynchronous proxy configuration file generation
+# Asynchronous services configuration file generation
 # Generates Nginx, Apache, or Traefik configuration files
-class ReverseProxy::GenerateConfigJob < BaseJob
-  sidekiq_options queue: 'reverse_proxy',
+class Services::GenerateConfigJob < BaseJob
+  sidekiq_options queue: 'services',
                   retry: 2
 
   def execute(proxy_type, config, job_id: nil)
@@ -18,7 +18,7 @@ class ReverseProxy::GenerateConfigJob < BaseJob
 
       # Generate configuration via API
       generation_result = with_api_retry do
-        api_client.post('/api/v1/internal/reverse_proxy/generate_config', {
+        api_client.post('/api/v1/internal/services/generate_config', {
           proxy_type: proxy_type,
           config: config
         })

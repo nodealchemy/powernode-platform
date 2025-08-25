@@ -2,10 +2,10 @@
 
 require_relative '../base_job'
 
-# Asynchronous service discovery for reverse proxy
+# Asynchronous service discovery
 # Discovers services via DNS, Consul, port scanning, or Kubernetes
-class ReverseProxy::ServiceDiscoveryJob < BaseJob
-  sidekiq_options queue: 'reverse_proxy',
+class Services::ServiceDiscoveryJob < BaseJob
+  sidekiq_options queue: 'services',
                   retry: 2
 
   def execute(discovery_config, job_id: nil)
@@ -19,7 +19,7 @@ class ReverseProxy::ServiceDiscoveryJob < BaseJob
 
       # Run service discovery via API
       discovery_result = with_api_retry do
-        api_client.post('/api/v1/internal/reverse_proxy/service_discovery', {
+        api_client.post('/api/v1/internal/services/service_discovery', {
           discovery_config: discovery_config
         })
       end
