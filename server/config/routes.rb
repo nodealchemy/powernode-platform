@@ -113,7 +113,16 @@ Rails.application.routes.draw do
         get 'health_history/:service_name', to: 'admin/reverse_proxy#health_history', on: :member
         put 'health_config/:service_name', to: 'admin/reverse_proxy#update_health_config', on: :member
         
-        resources :url_mappings, only: [ :create, :update, :destroy ], controller: 'admin/reverse_proxy' do
+        # Service Management endpoints
+        post :test_service, on: :member
+        post :validate_service, on: :member
+        get :service_templates, on: :member
+        post :duplicate_service, on: :member
+        get 'export_services/:environment', to: 'admin/reverse_proxy#export_services', on: :member
+        post :import_services, on: :member
+        
+        resources :url_mappings, only: [ :create, :destroy ], controller: 'admin/reverse_proxy' do
+          put :update_url_mapping, on: :member
           patch :toggle, on: :member
         end
       end

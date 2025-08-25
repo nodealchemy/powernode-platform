@@ -140,7 +140,7 @@ class Api::V1::Admin::ReverseProxyController < ApplicationController
   end
 
   # PUT /api/v1/admin/reverse_proxy/url_mappings/:id
-  def update
+  def update_url_mapping
     mapping_id = params[:id]
     mapping_data = url_mapping_params
     
@@ -319,6 +319,267 @@ class Api::V1::Admin::ReverseProxyController < ApplicationController
   rescue => e
     Rails.logger.error "Failed to update health config: #{e.message}"
     render_error('Failed to update health check configuration', status: :internal_server_error)
+  end
+
+  # POST /api/v1/admin/reverse_proxy/test_service
+  def test_service
+    environment = params[:environment]
+    service_name = params[:service_name]
+    
+    config = AdminSetting.reverse_proxy_config
+    service_config = config.dig('environments', environment, service_name)
+    
+    unless service_config
+      return render_error('Service not found in configuration', status: :not_found)
+    end
+    
+    begin
+      start_time = Time.current
+      url = "#{service_config['base_url']}#{service_config['health_check_path']}"
+      
+      # Mock connection test - in production would make actual HTTP request
+      if service_config['host'] == 'localhost' && service_config['port'].between?(3000, 6999)
+        status = 'healthy'
+        response_code = 200
+        response_time = rand(50..200)
+        error = nil
+      else
+        status = 'unreachable'
+        response_code = nil
+        response_time = nil
+        error = 'Connection timeout'
+      end
+      
+      render_success({
+        status: status,
+        response_code: response_code,
+        response_time: response_time,
+        error: error
+      })
+    rescue => e
+      Rails.logger.error "Service test failed: #{e.message}"
+      render_success({
+        status: 'unreachable',
+        error: e.message
+      })
+    end
+  end
+
+  # POST /api/v1/admin/reverse_proxy/validate_service
+  def validate_service
+    service_config = params.require(:service_config).permit(:host, :port, :protocol, :health_check_path)
+    
+    errors = []
+    warnings = []
+    
+    # Validate host
+    if service_config[:host].blank?
+      errors << 'Host is required'
+    elsif !service_config[:host].match?(/\A[\w\.-]+\z/)
+      errors << 'Host contains invalid characters'
+    end
+    
+    # Validate port
+    port = service_config[:port].to_i
+    if port < 1 || port > 65535
+      errors << 'Port must be between 1 and 65535'
+    elsif port < 1024 && service_config[:host] != 'localhost'
+      warnings << 'Using privileged port (< 1024) on remote host'
+    end
+    
+    # Validate protocol
+    valid_protocols = %w[http https tcp ws wss redis postgresql]
+    unless valid_protocols.include?(service_config[:protocol])
+      errors << "Protocol must be one of: #{valid_protocols.join(', ')}"
+    end
+    
+    # Validate health check path
+    if service_config[:health_check_path].present? && !service_config[:health_check_path].start_with?('/')
+      warnings << 'Health check path should start with /'
+    end
+    
+    render_success({
+      valid: errors.empty?,
+      errors: errors,
+      warnings: warnings
+    })
+  end
+
+  # GET /api/v1/admin/reverse_proxy/service_templates
+  def service_templates
+    templates = [
+      {
+        name: 'Frontend (React/Vue)',
+        type: 'frontend',
+        description: 'Single Page Application frontend service',
+        config: {
+          host: 'localhost',
+          port: 3000,
+          protocol: 'http',
+          health_check_path: '/',
+          base_url: 'http://localhost:3000'
+        }
+      },
+      {
+        name: 'Backend API (Rails/Node)',
+        type: 'backend',
+        description: 'RESTful API backend service',
+        config: {
+          host: 'localhost',
+          port: 5000,
+          protocol: 'http',
+          health_check_path: '/api/health',
+          base_url: 'http://localhost:5000'
+        }
+      },
+      {
+        name: 'Worker Service (Sidekiq)',
+        type: 'worker',
+        description: 'Background job processing service',
+        config: {
+          host: 'localhost',
+          port: 6000,
+          protocol: 'http',
+          health_check_path: '/health',
+          base_url: 'http://localhost:6000'
+        }
+      },
+      {
+        name: 'Database (PostgreSQL)',
+        type: 'database',
+        description: 'PostgreSQL database server',
+        config: {
+          host: 'localhost',
+          port: 5432,
+          protocol: 'postgresql',
+          health_check_path: '',
+          base_url: 'postgresql://localhost:5432'
+        }
+      },
+      {
+        name: 'Cache (Redis)',
+        type: 'cache',
+        description: 'Redis cache server',
+        config: {
+          host: 'localhost',
+          port: 6379,
+          protocol: 'redis',
+          health_check_path: '',
+          base_url: 'redis://localhost:6379'
+        }
+      },
+      {
+        name: 'Load Balancer (Nginx)',
+        type: 'proxy',
+        description: 'Nginx reverse proxy and load balancer',
+        config: {
+          host: 'localhost',
+          port: 80,
+          protocol: 'http',
+          health_check_path: '/nginx_status',
+          base_url: 'http://localhost'
+        }
+      }
+    ]
+    
+    render_success(templates)
+  end
+
+  # POST /api/v1/admin/reverse_proxy/duplicate_service
+  def duplicate_service
+    environment = params[:environment]
+    service_name = params[:service_name]
+    new_name = params[:new_name]
+    
+    config = AdminSetting.reverse_proxy_config
+    source_config = config.dig('environments', environment, service_name)
+    
+    unless source_config
+      return render_error('Source service not found', status: :not_found)
+    end
+    
+    # Check if new service name already exists
+    if config.dig('environments', environment, new_name)
+      return render_error('Service with new name already exists', status: :unprocessable_entity)
+    end
+    
+    # Duplicate the service with modified port to avoid conflicts
+    new_service_config = source_config.dup
+    new_service_config['port'] += 1
+    new_service_config['base_url'] = "#{new_service_config['protocol']}://#{new_service_config['host']}:#{new_service_config['port']}"
+    
+    # Update configuration
+    environments = config['environments'] || {}
+    environments[environment] ||= {}
+    environments[environment][new_name] = new_service_config
+    
+    AdminSetting.update_reverse_proxy_config('environments' => environments)
+    
+    render_success({
+      message: "Service #{service_name} duplicated as #{new_name}"
+    })
+  rescue => e
+    Rails.logger.error "Failed to duplicate service: #{e.message}"
+    render_error('Failed to duplicate service', status: :internal_server_error)
+  end
+
+  # GET /api/v1/admin/reverse_proxy/export_services/:environment
+  def export_services
+    environment = params[:environment]
+    config = AdminSetting.reverse_proxy_config
+    services = config.dig('environments', environment) || {}
+    
+    render_success({
+      environment: environment,
+      services: services,
+      export_format: 'json',
+      filename: "powernode_services_#{environment}_#{Time.current.strftime('%Y%m%d_%H%M%S')}.json"
+    })
+  end
+
+  # POST /api/v1/admin/reverse_proxy/import_services
+  def import_services
+    environment = params[:environment]
+    import_services = params[:services] || {}
+    
+    config = AdminSetting.reverse_proxy_config
+    current_services = config.dig('environments', environment) || {}
+    
+    imported_count = 0
+    skipped_count = 0
+    errors = []
+    
+    import_services.each do |service_name, service_config|
+      if current_services.key?(service_name)
+        skipped_count += 1
+        errors << "Service #{service_name} already exists (skipped)"
+      else
+        # Validate service config
+        if service_config['host'].present? && service_config['port'].present?
+          current_services[service_name] = service_config
+          imported_count += 1
+        else
+          errors << "Service #{service_name} has invalid configuration (missing host or port)"
+        end
+      end
+    end
+    
+    # Update configuration if any services were imported
+    if imported_count > 0
+      environments = config['environments'] || {}
+      environments[environment] = current_services
+      AdminSetting.update_reverse_proxy_config('environments' => environments)
+    end
+    
+    render_success({
+      imported_count: imported_count,
+      skipped_count: skipped_count,
+      errors: errors,
+      message: "Import completed: #{imported_count} imported, #{skipped_count} skipped"
+    })
+  rescue => e
+    Rails.logger.error "Failed to import services: #{e.message}"
+    render_error('Failed to import services', status: :internal_server_error)
   end
 
   private

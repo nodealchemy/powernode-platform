@@ -255,7 +255,7 @@ export const reverseProxyApi = {
   },
 
   async updateURLMapping(id: string, mapping: Partial<URLMapping>): Promise<{ message: string }> {
-    const response = await api.put(`/reverse_proxy/url_mappings/${id}`, {
+    const response = await api.put(`/reverse_proxy/url_mappings/${id}/update_url_mapping`, {
       url_mapping: mapping
     });
     return response.data.data;
