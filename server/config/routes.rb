@@ -16,6 +16,19 @@ Rails.application.routes.draw do
       namespace :internal do
         resources :users, only: [:show]
         resources :accounts, only: [:show]
+        
+        # Background job tracking
+        resources :jobs, only: [:show, :update]
+        
+        # Reverse proxy internal operations
+        namespace :reverse_proxy do
+          post :validate, to: 'reverse_proxy#validate_config'
+          post :test_connectivity, to: 'reverse_proxy#test_connectivity'
+          post :generate_config, to: 'reverse_proxy#generate_config'
+          post :service_discovery, to: 'reverse_proxy#service_discovery'
+          post :health_check, to: 'reverse_proxy#health_check'
+          post :validate_services, to: 'reverse_proxy#validate_services'
+        end
       end
       
       # Authentication and registration endpoints
@@ -467,6 +480,9 @@ Rails.application.routes.draw do
 
       # Admin services management
       namespace :admin do
+        # Background job tracking
+        resources :jobs, only: [:index, :show]
+        
         resources :users do
           member do
             post :impersonate

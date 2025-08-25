@@ -1,10 +1,33 @@
 # frozen_string_literal: true
 
+require 'sidekiq'
+
 class Api::V1::Admin::ReverseProxyController < ApplicationController
   include ApiResponse
   
   before_action :authenticate_request
   before_action :require_system_admin_permission
+
+  # Worker job classes - load them dynamically to avoid circular dependencies
+  def self.job_classes
+    @job_classes ||= {
+      test_configuration: 'ReverseProxy::TestConfigurationJob',
+      generate_config: 'ReverseProxy::GenerateConfigJob', 
+      service_discovery: 'ReverseProxy::ServiceDiscoveryJob',
+      health_check: 'ReverseProxy::HealthCheckJob',
+      service_validation: 'ReverseProxy::ServiceValidationJob'
+    }
+  end
+
+  def get_job_class(job_type)
+    class_name = self.class.job_classes[job_type]
+    return nil unless class_name
+    
+    class_name.constantize
+  rescue NameError => e
+    Rails.logger.error "Job class not found: #{class_name} - #{e.message}"
+    nil
+  end
 
   # GET /api/v1/admin/reverse_proxy
   def show
@@ -46,24 +69,39 @@ class Api::V1::Admin::ReverseProxyController < ApplicationController
     test_config = params[:test_config] || AdminSetting.reverse_proxy_config
     
     begin
-      # Validate configuration structure
+      # Quick synchronous validation first
       validation_result = validate_proxy_config(test_config)
       unless validation_result[:valid]
         return render_error("Configuration validation failed: #{validation_result[:errors].join(', ')}", 
                           status: :unprocessable_entity)
       end
 
-      # Test service connectivity
-      connectivity_result = test_service_connectivity(test_config)
+      # Delegate to worker for full testing
+      job_id = SecureRandom.uuid
+      job_class = get_job_class(:test_configuration)
       
+      unless job_class
+        return render_error('Test configuration worker not available', status: :service_unavailable)
+      end
+      
+      sidekiq_jid = job_class.perform_async(test_config, job_id: job_id)
+      
+      # Track the job
+      job = BackgroundJob.create_for_sidekiq_job(
+        sidekiq_jid,
+        'reverse_proxy_test_configuration',
+        { test_config: test_config }
+      )
+
       render_success({
-        validation: validation_result,
-        connectivity: connectivity_result,
-        message: 'Configuration test completed'
+        job_id: job_id,
+        sidekiq_jid: sidekiq_jid,
+        status: 'started',
+        message: 'Configuration test started. Use job_id to check progress.'
       })
     rescue => e
-      Rails.logger.error "Configuration test failed: #{e.message}"
-      render_error('Configuration test failed', status: :internal_server_error)
+      Rails.logger.error "Failed to start configuration test: #{e.message}"
+      render_error('Failed to start configuration test', status: :internal_server_error)
     end
   end
 
@@ -73,26 +111,40 @@ class Api::V1::Admin::ReverseProxyController < ApplicationController
     config = AdminSetting.reverse_proxy_config
     
     begin
-      case proxy_type.downcase
-      when 'nginx'
-        generated_config = generate_nginx_config(config)
-      when 'apache'
-        generated_config = generate_apache_config(config)
-      when 'traefik'
-        generated_config = generate_traefik_config(config)
-      else
-        return render_error('Unsupported proxy type', status: :bad_request)
+      # Validate proxy type
+      valid_types = %w[nginx apache traefik]
+      unless valid_types.include?(proxy_type.downcase)
+        return render_error("Unsupported proxy type: #{proxy_type}. Valid types: #{valid_types.join(', ')}", 
+                          status: :bad_request)
       end
 
+      # Delegate to worker for config generation
+      job_id = SecureRandom.uuid
+      job_class = get_job_class(:generate_config)
+      
+      unless job_class
+        return render_error('Config generation worker not available', status: :service_unavailable)
+      end
+      
+      sidekiq_jid = job_class.perform_async(proxy_type, config, job_id: job_id)
+      
+      # Track the job
+      job = BackgroundJob.create_for_sidekiq_job(
+        sidekiq_jid,
+        'reverse_proxy_generate_config',
+        { proxy_type: proxy_type, config_size: config.to_s.length }
+      )
+
       render_success({
+        job_id: job_id,
+        sidekiq_jid: sidekiq_jid,
+        status: 'started',
         proxy_type: proxy_type,
-        config: generated_config,
-        filename: "powernode_#{proxy_type}.conf",
-        instructions: proxy_installation_instructions(proxy_type)
+        message: "#{proxy_type.capitalize} configuration generation started. Use job_id to check progress."
       })
     rescue => e
-      Rails.logger.error "Config generation failed: #{e.message}"
-      render_error('Failed to generate proxy configuration', status: :internal_server_error)
+      Rails.logger.error "Failed to start config generation: #{e.message}"
+      render_error('Failed to start config generation', status: :internal_server_error)
     end
   end
 
@@ -216,32 +268,39 @@ class Api::V1::Admin::ReverseProxyController < ApplicationController
   def service_discovery
     config = AdminSetting.service_discovery_config
     
-    unless config['enabled']
-      return render_error('Service discovery is not enabled', status: :unprocessable_entity)
-    end
-
-    discovered_services = []
-    
-    config['methods'].each do |method|
-      case method
-      when 'dns'
-        discovered_services.concat(discover_via_dns(config['dns_config']))
-      when 'consul'
-        discovered_services.concat(discover_via_consul(config['consul_config']))
-      when 'port_scan'
-        discovered_services.concat(discover_via_port_scan(config['port_scan_config']))
-      when 'kubernetes'
-        discovered_services.concat(discover_via_kubernetes(config['kubernetes_config']))
+    begin
+      unless config['enabled']
+        return render_error('Service discovery is not enabled', status: :unprocessable_entity)
       end
-    end
 
-    render_success({
-      services: discovered_services,
-      message: "Discovered #{discovered_services.length} services"
-    })
-  rescue => e
-    Rails.logger.error "Service discovery failed: #{e.message}"
-    render_error('Service discovery failed', status: :internal_server_error)
+      # Delegate to worker for service discovery
+      job_id = SecureRandom.uuid
+      job_class = get_job_class(:service_discovery)
+      
+      unless job_class
+        return render_error('Service discovery worker not available', status: :service_unavailable)
+      end
+      
+      sidekiq_jid = job_class.perform_async(config, job_id: job_id)
+      
+      # Track the job
+      job = BackgroundJob.create_for_sidekiq_job(
+        sidekiq_jid,
+        'reverse_proxy_service_discovery',
+        { methods: config['methods'], enabled_methods_count: config['methods']&.length || 0 }
+      )
+
+      render_success({
+        job_id: job_id,
+        sidekiq_jid: sidekiq_jid,
+        status: 'started',
+        methods: config['methods'],
+        message: 'Service discovery started. Use job_id to check progress and results.'
+      })
+    rescue => e
+      Rails.logger.error "Failed to start service discovery: #{e.message}"
+      render_error('Failed to start service discovery', status: :internal_server_error)
+    end
   end
 
   # POST /api/v1/admin/reverse_proxy/add_discovered_service

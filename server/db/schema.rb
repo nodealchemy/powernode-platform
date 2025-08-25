@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_08_25_013158) do
+ActiveRecord::Schema[8.0].define(version: 2025_08_25_023356) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -360,6 +360,25 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_25_013158) do
     t.index ["resource_type"], name: "index_audit_logs_on_resource_type"
     t.index ["source"], name: "index_audit_logs_on_source"
     t.index ["user_id"], name: "index_audit_logs_on_user_id"
+  end
+
+  create_table "background_jobs", id: { type: :string, limit: 36, default: -> { "(gen_random_uuid())::character varying" } }, force: :cascade do |t|
+    t.string "job_id", limit: 50, null: false
+    t.string "job_type", limit: 100, null: false
+    t.string "status", limit: 20, default: "pending", null: false
+    t.json "parameters"
+    t.json "result"
+    t.text "error_message"
+    t.json "error_details"
+    t.datetime "started_at"
+    t.datetime "completed_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["created_at"], name: "index_background_jobs_on_created_at"
+    t.index ["job_id"], name: "index_background_jobs_on_job_id", unique: true
+    t.index ["job_type", "status"], name: "index_background_jobs_on_job_type_and_status"
+    t.index ["job_type"], name: "index_background_jobs_on_job_type"
+    t.index ["status"], name: "index_background_jobs_on_status"
   end
 
   create_table "blacklisted_tokens", id: { type: :string, limit: 36, default: -> { "gen_random_uuid()" } }, force: :cascade do |t|
