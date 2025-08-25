@@ -654,6 +654,17 @@ const ServicesConfiguration: React.FC<{
         health_check_path: '/nginx_status',
         base_url: 'http://localhost'
       }
+    },
+    {
+      name: 'External Reverse Proxy',
+      type: 'external_proxy',
+      config: {
+        host: 'proxy.example.com',
+        port: 443,
+        protocol: 'https',
+        health_check_path: '/health',
+        base_url: 'https://proxy.example.com'
+      }
     }
   ];
 
