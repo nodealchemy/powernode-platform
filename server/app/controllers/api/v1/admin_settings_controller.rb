@@ -509,7 +509,7 @@ class Api::V1::AdminSettingsController < ApplicationController
       },
       {
         type: 'unusual_api_activity',
-        count: 0 # TODO: Implement API rate monitoring
+        count: check_unusual_api_activity
       }
     ]
   end
@@ -524,6 +524,55 @@ class Api::V1::AdminSettingsController < ApplicationController
 
     return 0 if active_subscriptions.zero?
     (cancelled_this_month / active_subscriptions.to_f * 100).round(2)
+  end
+
+  def check_unusual_api_activity
+    # Check for rate limit violations in the last hour
+    rate_limit_violations = 0
+    
+    # Examine rate limit cache keys to find violations
+    cache_keys = Rails.cache.redis.keys("rate_limit:*")
+    current_time = Time.current
+    
+    cache_keys.each do |key|
+      current_count = Rails.cache.read(key) || 0
+      
+      # Extract controller and limit type from key
+      parts = key.split(':')
+      next if parts.length < 4
+      
+      controller_name = parts[1]
+      action_name = parts[2]
+      
+      # Get expected limit for this endpoint type
+      limit_type = determine_limit_type_for_controller(controller_name)
+      expected_limit = SystemSettingsService.rate_limit_setting(limit_type)
+      
+      # Consider it suspicious if they're at 80% or more of the limit
+      if expected_limit && current_count >= (expected_limit * 0.8).to_i
+        rate_limit_violations += 1
+      end
+    end
+    
+    rate_limit_violations
+  rescue => e
+    Rails.logger.error "Error checking API activity: #{e.message}"
+    0
+  end
+
+  def determine_limit_type_for_controller(controller_name)
+    case controller_name
+    when 'sessions'
+      'login_attempts_per_hour'
+    when 'registrations'
+      'registration_attempts_per_hour'
+    when 'passwords'
+      'password_reset_attempts_per_hour'
+    when 'webhooks'
+      'webhook_requests_per_minute'
+    else
+      'api_requests_per_minute'
+    end
   end
 
   def calculate_customer_growth

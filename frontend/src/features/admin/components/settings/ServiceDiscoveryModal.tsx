@@ -6,7 +6,8 @@ import { Badge } from '@/shared/components/ui/Badge';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { FlexBetween, FlexItemsCenter } from '@/shared/components/ui/FlexContainer';
 import { useNotification } from '@/shared/hooks/useNotification';
-import { reverseProxyApi, ServiceDiscoveryConfig } from '../../services/reverseProxyApi';
+import { servicesApi, ServiceDiscoveryConfig } from '../../services/servicesApi';
+import { JobProgressModal } from './JobProgressModal';
 import { 
   Search, 
   Server,
@@ -49,6 +50,8 @@ export const ServiceDiscoveryModal: React.FC<ServiceDiscoveryModalProps> = ({
   const [discoveredServices, setDiscoveredServices] = useState<DiscoveredService[]>([]);
   const [activeTab, setActiveTab] = useState<'config' | 'discovered'>('config');
   const [formConfig, setFormConfig] = useState<ServiceDiscoveryConfig>(config);
+  const [jobId, setJobId] = useState<string | null>(null);
+  const [showJobProgress, setShowJobProgress] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -59,7 +62,7 @@ export const ServiceDiscoveryModal: React.FC<ServiceDiscoveryModalProps> = ({
 
   const loadDiscoveredServices = async () => {
     try {
-      const services = await reverseProxyApi.getDiscoveredServices();
+      const services = await servicesApi.getDiscoveredServices();
       setDiscoveredServices(services);
     } catch (error) {
       console.error('Failed to load discovered services:', error);
@@ -70,19 +73,32 @@ export const ServiceDiscoveryModal: React.FC<ServiceDiscoveryModalProps> = ({
   const runServiceDiscovery = async () => {
     try {
       setDiscovering(true);
-      const result = await reverseProxyApi.runServiceDiscovery();
-      // For now, just show the job was started - in a full implementation,
-      // we would use JobProgressModal to track the async job
+      const result = await servicesApi.runServiceDiscovery();
+      
+      // Start job progress tracking
+      setJobId(result.job_id);
+      setShowJobProgress(true);
       showNotification('Service discovery started', 'info');
       setDiscovering(false);
-      
-      // TODO: Implement JobProgressModal for service discovery
-      // This is a placeholder until the full async integration is complete
     } catch (error) {
-      console.error('Service discovery failed:', error);
-      showNotification('Service discovery failed', 'error');
+      showNotification('Failed to start service discovery', 'error');
       setDiscovering(false);
     }
+  };
+
+  const handleJobComplete = (result: any) => {
+    if (result && result.services) {
+      setDiscoveredServices(result.services);
+      setActiveTab('discovered');
+    }
+    setShowJobProgress(false);
+    showNotification(`Service discovery completed: ${result?.services_count || 0} services discovered`, 'success');
+    loadDiscoveredServices(); // Refresh the list
+  };
+
+  const handleJobError = (error: string) => {
+    setShowJobProgress(false);
+    showNotification(error || 'Service discovery failed', 'error');
   };
 
   const handleConfigSave = async () => {
@@ -112,7 +128,7 @@ export const ServiceDiscoveryModal: React.FC<ServiceDiscoveryModalProps> = ({
 
   const addServiceToConfig = async (service: DiscoveredService) => {
     try {
-      await reverseProxyApi.addDiscoveredService(service);
+      await servicesApi.addDiscoveredService(service);
       showNotification(`Added ${service.name} to configuration`, 'success');
       loadDiscoveredServices();
     } catch (error) {
@@ -159,12 +175,13 @@ export const ServiceDiscoveryModal: React.FC<ServiceDiscoveryModalProps> = ({
   };
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title="Service Discovery & Health Monitoring"
-      maxWidth="2xl"
-    >
+    <>
+      <Modal
+        isOpen={isOpen}
+        onClose={onClose}
+        title="Service Discovery & Health Monitoring"
+        maxWidth="2xl"
+      >
       <div className="space-y-6">
         {/* Tab Navigation */}
         <div className="flex space-x-1 bg-theme-surface rounded-lg p-1">
@@ -576,5 +593,19 @@ export const ServiceDiscoveryModal: React.FC<ServiceDiscoveryModalProps> = ({
         </div>
       </div>
     </Modal>
+
+      {/* Job Progress Modal */}
+      {jobId && (
+        <JobProgressModal
+          isOpen={showJobProgress}
+          onClose={() => setShowJobProgress(false)}
+          jobId={jobId}
+          jobType="services_service_discovery"
+          title="Running Service Discovery"
+          onComplete={handleJobComplete}
+          onError={handleJobError}
+        />
+      )}
+    </>
   );
 };

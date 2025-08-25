@@ -2,14 +2,14 @@ import React, { useState } from 'react';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
 import { useNotification } from '@/shared/hooks/useNotification';
-import { reverseProxyApi, ReverseProxyConfig } from '../../services/reverseProxyApi';
+import { servicesApi, ServiceConfig } from '../../services/servicesApi';
 import { JobProgressModal } from './JobProgressModal';
 import { TestTube } from 'lucide-react';
 
 interface TestConfigurationModalProps {
   isOpen: boolean;
   onClose: () => void;
-  config: ReverseProxyConfig;
+  config: ServiceConfig;
 }
 
 export const TestConfigurationModal: React.FC<TestConfigurationModalProps> = ({
@@ -23,7 +23,7 @@ export const TestConfigurationModal: React.FC<TestConfigurationModalProps> = ({
 
   const runConfigurationTest = async () => {
     try {
-      const result = await reverseProxyApi.testConfiguration(config);
+      const result = await servicesApi.testConfiguration(config);
       setJobId(result.job_id);
       setShowProgress(true);
       showNotification('Configuration test started', 'info');
@@ -66,7 +66,7 @@ export const TestConfigurationModal: React.FC<TestConfigurationModalProps> = ({
             <TestTube className="w-12 h-12 text-theme-primary mx-auto mb-4" />
             <h3 className="text-lg font-medium text-theme-primary mb-2">Configuration Testing</h3>
             <p className="text-sm text-theme-secondary mb-6">
-              Test your reverse proxy configuration for validity and service connectivity.
+              Test your services configuration for validity and service connectivity.
               This process will validate the configuration structure and check if all services are reachable.
             </p>
           </div>
@@ -88,7 +88,7 @@ export const TestConfigurationModal: React.FC<TestConfigurationModalProps> = ({
           isOpen={showProgress}
           onClose={handleCloseProgress}
           jobId={jobId}
-          jobType="reverse_proxy_test_configuration"
+          jobType="services_test_configuration"
           title="Testing Configuration"
           onComplete={handleJobComplete}
           onError={handleJobError}

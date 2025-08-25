@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
 import { Badge } from '@/shared/components/ui/Badge';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { FlexBetween, FlexItemsCenter } from '@/shared/components/ui/FlexContainer';
 import { useNotification } from '@/shared/hooks/useNotification';
-import { reverseProxyApi, HealthStatus } from '../../services/reverseProxyApi';
+import { servicesApi, HealthStatus } from '../../services/servicesApi';
 import { 
   Heart,
   TrendingUp,
@@ -52,24 +52,24 @@ export const HealthMonitoringDashboard: React.FC<HealthMonitoringDashboardProps>
 
   const serviceNames = Object.keys(healthStatus.services || {});
 
-  useEffect(() => {
-    if (selectedService && !healthHistory) {
-      loadHealthHistory(selectedService, timeframe);
-    }
-  }, [selectedService]);
-
-  const loadHealthHistory = async (serviceName: string, hours: number) => {
+  const loadHealthHistory = useCallback(async (serviceName: string, hours: number) => {
     try {
       setLoadingHistory(true);
-      const history = await reverseProxyApi.getServiceHealthHistory(serviceName, hours);
+      const history = await servicesApi.getServiceHealthHistory(serviceName, hours);
       setHealthHistory(history);
     } catch (error) {
-      console.error('Failed to load health history:', error);
+      // Error handled by notification
       showNotification('Failed to load health history', 'error');
     } finally {
       setLoadingHistory(false);
     }
-  };
+  }, [showNotification]);
+
+  useEffect(() => {
+    if (selectedService && !healthHistory) {
+      loadHealthHistory(selectedService, timeframe);
+    }
+  }, [selectedService, healthHistory, loadHealthHistory, timeframe]);
 
   const getStatusIcon = (status: string, size: string = 'w-4 h-4') => {
     const className = `${size} mr-2`;

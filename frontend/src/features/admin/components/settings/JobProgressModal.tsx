@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Clock, CheckCircle, XCircle, Loader } from 'lucide-react';
-import { reverseProxyApi } from '../../services/reverseProxyApi';
+import { servicesApi } from '../../services/servicesApi';
 
 interface JobProgressModalProps {
   isOpen: boolean;
@@ -36,7 +36,7 @@ export const JobProgressModal: React.FC<JobProgressModalProps> = ({
 
     const pollJob = async () => {
       try {
-        const jobData = await reverseProxyApi.pollJobUntilComplete(
+        const jobData = await servicesApi.pollJobUntilComplete(
           jobId,
           (currentStatus, currentProgress, currentResult) => {
             if (!isMounted) return;
@@ -139,7 +139,7 @@ export const JobProgressModal: React.FC<JobProgressModalProps> = ({
     if (!result) return null;
 
     switch (jobType) {
-      case 'reverse_proxy_test_configuration':
+      case 'services_test_configuration':
         return (
           <div className="space-y-3">
             {result.validation && (
@@ -195,7 +195,7 @@ export const JobProgressModal: React.FC<JobProgressModalProps> = ({
           </div>
         );
 
-      case 'reverse_proxy_generate_config':
+      case 'services_generate_config':
         return (
           <div className="space-y-3">
             <div>
@@ -222,7 +222,7 @@ export const JobProgressModal: React.FC<JobProgressModalProps> = ({
           </div>
         );
 
-      case 'reverse_proxy_service_discovery':
+      case 'services_service_discovery':
         return (
           <div className="space-y-3">
             <div>

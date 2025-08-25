@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
 import { useNotification } from '@/shared/hooks/useNotification';
-import { URLMapping } from '../../services/reverseProxyApi';
+import { URLMapping } from '../../services/servicesApi';
 
 interface URLMappingModalProps {
   isOpen: boolean;

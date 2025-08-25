@@ -318,6 +318,44 @@ class AdminSettingsApi {
     return new Intl.NumberFormat().format(num);
   }
 
+  // Rate Limiting Management
+  async getRateLimitingStatistics() {
+    const response = await api.get('/admin/rate_limiting/statistics');
+    return response.data;
+  }
+
+  async getRateLimitingViolations() {
+    const response = await api.get('/admin/rate_limiting/violations');
+    return response.data;
+  }
+
+  async getRateLimitingStatus() {
+    const response = await api.get('/admin/rate_limiting/status');
+    return response.data;
+  }
+
+  async getUserRateLimits(identifier: string) {
+    const response = await api.get(`/admin/rate_limiting/limits/${encodeURIComponent(identifier)}`);
+    return response.data;
+  }
+
+  async clearUserRateLimits(identifier: string) {
+    const response = await api.delete(`/admin/rate_limiting/limits/${encodeURIComponent(identifier)}`);
+    return response.data;
+  }
+
+  async disableRateLimitingTemporarily(durationMinutes: number = 60) {
+    const response = await api.post('/admin/rate_limiting/disable', {
+      duration_minutes: durationMinutes
+    });
+    return response.data;
+  }
+
+  async enableRateLimiting() {
+    const response = await api.post('/admin/rate_limiting/enable');
+    return response.data;
+  }
+
   getStatusColor(status: string): 'green' | 'yellow' | 'red' | 'blue' | 'gray' {
     switch (status.toLowerCase()) {
       case 'healthy':

@@ -4,7 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { 
   CreditCard, Mail, Shield, 
-  Zap, BarChart3, Globe
+  Zap, BarChart3, Activity
 } from 'lucide-react';
 import { RootState } from '@/shared/services';
 import { hasPermissions } from '@/shared/utils/permissionUtils';
@@ -52,20 +52,20 @@ const adminSettingsTabs: AdminSettingsTab[] = [
     requiredPermissions: ['admin.settings.security']
   },
   {
+    id: 'rate-limiting',
+    label: 'Rate Limiting',
+    href: '/app/admin/settings/rate-limiting',
+    icon: Activity,
+    description: 'Configure API rate limits and monitor usage patterns',
+    requiredPermissions: ['admin.settings.security']
+  },
+  {
     id: 'performance',
     label: 'Performance',
     href: '/app/admin/settings/performance',
     icon: Zap,
     description: 'Monitor and optimize system performance',
     requiredPermissions: ['admin.settings.view'] // Basic permission for now
-  },
-  {
-    id: 'reverse-proxy',
-    label: 'Reverse Proxy',
-    href: '/app/admin/settings/reverse-proxy',
-    icon: Globe,
-    description: 'Configure reverse proxy for URL mapping and load balancing',
-    requiredPermissions: ['admin.settings.edit']
   }
 ];
 
