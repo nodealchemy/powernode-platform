@@ -33,7 +33,8 @@ import {
   AlertTriangle,
   CheckCircle,
   Copy,
-  XCircle
+  XCircle,
+  Save
 } from 'lucide-react';
 
 interface ReverseProxyConfigurationProps {
@@ -1054,6 +1055,34 @@ const ServicesConfiguration: React.FC<{
                           placeholder="/health"
                         />
                       </div>
+                    </div>
+
+                    {/* Save Actions */}
+                    <div className="flex justify-end space-x-3 pt-4 border-t border-theme">
+                      <Button
+                        onClick={() => setEditingService(null)}
+                        variant="secondary"
+                        size="sm"
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={async () => {
+                          try {
+                            await reverseProxyApi.updateConfiguration('reverse_proxy_config', config);
+                            showNotification('Service configuration saved successfully', 'success');
+                            setEditingService(null);
+                          } catch (error) {
+                            console.error('Failed to save service configuration:', error);
+                            showNotification('Failed to save service configuration', 'error');
+                          }
+                        }}
+                        variant="primary"
+                        size="sm"
+                      >
+                        <Save className="w-4 h-4 mr-2" />
+                        Save Changes
+                      </Button>
                     </div>
 
                     {/* Service Actions */}
