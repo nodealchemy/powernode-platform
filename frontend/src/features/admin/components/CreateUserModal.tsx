@@ -18,7 +18,6 @@ interface CreateUserFormData extends UserFormData {
 }
 
 export const CreateUserModal: React.FC<CreateUserModalProps> = ({
-CreateUserModal.displayName = 'CreateUserModal';
   isOpen,
   onClose,
   onSuccess,

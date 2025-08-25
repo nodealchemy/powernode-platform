@@ -18,7 +18,6 @@ interface DateRangePreset {
 }
 
 export const DateRangeFilter: React.FC<DateRangeFilterProps> = ({ dateRange, onChange }) => {
-DateRangeFilter.displayName = 'DateRangeFilter';
   const [showDropdown, setShowDropdown] = useState(false);
   const [showCustomInputs, setShowCustomInputs] = useState(false);
 

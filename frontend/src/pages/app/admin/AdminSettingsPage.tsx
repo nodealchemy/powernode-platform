@@ -13,9 +13,9 @@ import { AdminSettingsPaymentGatewaysTabPage } from './AdminSettingsPaymentGatew
 import { AdminSettingsEmailTabPage } from './AdminSettingsEmailTabPage';
 import { AdminSettingsSecurityTabPage } from './AdminSettingsSecurityTabPage';
 import { AdminSettingsPerformanceTabPage } from './AdminSettingsPerformanceTabPage';
+import { AdminSettingsReverseProxyTabPage } from './AdminSettingsReverseProxyTabPage';
 
 export const AdminSettingsPage: React.FC = () => {
-AdminSettingsPage.displayName = 'AdminSettingsPage';
   const { user } = useSelector((state: RootState) => state.auth);
   
   // Check if user has admin settings permission
@@ -53,6 +53,7 @@ AdminSettingsPage.displayName = 'AdminSettingsPage';
           <Route path="/email" element={<AdminSettingsEmailTabPage />} />
           <Route path="/security" element={<AdminSettingsSecurityTabPage />} />
           <Route path="/performance" element={<AdminSettingsPerformanceTabPage />} />
+          <Route path="/reverse-proxy" element={<AdminSettingsReverseProxyTabPage />} />
           
           {/* Legacy redirects */}
           <Route path="/admin/*" element={<Navigate to="/app/admin/settings" replace />} />

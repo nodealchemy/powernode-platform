@@ -18,7 +18,6 @@ interface DelegationUser {
 }
 
 export const DelegationDetailsModal: React.FC<DelegationDetailsModalProps> = ({
-DelegationDetailsModal.displayName = 'DelegationDetailsModal';
   delegation,
   onClose,
   onRevoke,

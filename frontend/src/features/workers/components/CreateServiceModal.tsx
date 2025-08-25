@@ -12,7 +12,6 @@ interface CreateServiceModalProps {
 }
 
 export const CreateServiceModal: React.FC<CreateServiceModalProps> = ({ isOpen, onClose, onCreate }) => {
-CreateServiceModal.displayName = 'CreateServiceModal';
   const defaultValues: CreateServiceData = {
     name: '',
     description: '',

@@ -20,7 +20,6 @@ interface BreadcrumbAwareTabNavigationProps {
 }
 
 export const BreadcrumbAwareTabNavigation: React.FC<BreadcrumbAwareTabNavigationProps> = ({ 
-BreadcrumbAwareTabNavigation.displayName = 'BreadcrumbAwareTabNavigation';
   pageId,
   tabs, 
   basePath, 

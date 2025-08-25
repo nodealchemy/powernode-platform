@@ -10,7 +10,6 @@ interface PricingComparisonProps {
 }
 
 export const PricingComparison: React.FC<PricingComparisonProps> = ({
-PricingComparison.displayName = 'PricingComparison';
   plans,
   billingCycle,
   selectedPlanId,

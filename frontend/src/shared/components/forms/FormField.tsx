@@ -19,7 +19,6 @@ interface FormFieldProps {
  * Provides consistent styling, validation display, and accessibility
  */
 export const FormField: React.FC<FormFieldProps> = ({
-FormField.displayName = 'FormField';
   label,
   name,
   type = 'text',

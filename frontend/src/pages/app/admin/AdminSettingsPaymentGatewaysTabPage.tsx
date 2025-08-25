@@ -186,7 +186,6 @@ const GatewayCard: React.FC<GatewayCardProps> = ({
 };
 
 export const AdminSettingsPaymentGatewaysTabPage: React.FC = () => {
-AdminSettingsPaymentGatewaysTabPage.displayName = 'AdminSettingsPaymentGatewaysTabPage';
   const { user } = useSelector((state: RootState) => state.auth);
   const [overview, setOverview] = useState<PaymentGatewaysOverview | null>(null);
   const [loading, setLoading] = useState(true);

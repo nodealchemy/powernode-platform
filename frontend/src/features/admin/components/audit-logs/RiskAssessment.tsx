@@ -34,7 +34,6 @@ interface ThreatIndicator {
 }
 
 export const RiskAssessment: React.FC<RiskAssessmentProps> = ({ metrics, timeRange }) => {
-RiskAssessment.displayName = 'RiskAssessment';
   const riskFactors: RiskFactor[] = [
     {
       name: 'Authentication Failures',

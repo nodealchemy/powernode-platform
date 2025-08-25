@@ -35,7 +35,6 @@ interface GrowthChartProps {
 }
 
 export const GrowthChart: React.FC<GrowthChartProps> = ({ 
-GrowthChart.displayName = 'GrowthChart';
   data, 
   compoundGrowthRate,
   forecasting,

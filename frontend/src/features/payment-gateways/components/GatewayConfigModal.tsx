@@ -35,7 +35,6 @@ interface PayPalConfig {
 type GatewayConfig = StripeConfig | PayPalConfig;
 
 export const GatewayConfigModal: React.FC<GatewayConfigModalProps> = ({
-GatewayConfigModal.displayName = 'GatewayConfigModal';
   isOpen,
   onClose,
   gateway,

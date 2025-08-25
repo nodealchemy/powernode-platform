@@ -4,7 +4,6 @@ import { RootState, AppDispatch } from '@/shared/services';
 import { removeNotification } from '@/shared/services/slices/uiSlice';
 
 export const NotificationContainer: React.FC = () => {
-NotificationContainer.displayName = 'NotificationContainer';
   const dispatch = useDispatch<AppDispatch>();
   const notifications = useSelector((state: RootState) => state.ui.notifications);
 

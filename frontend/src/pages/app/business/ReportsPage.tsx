@@ -48,7 +48,6 @@ interface ReportTemplate {
 }
 
 export const ReportsPage: React.FC = () => {
-ReportsPage.displayName = 'ReportsPage';
   const { user } = useSelector((state: RootState) => state.auth);
   const location = useLocation();
   const navigate = useNavigate();

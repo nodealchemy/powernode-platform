@@ -23,7 +23,6 @@ interface AuditLogTableProps {
 }
 
 export const AuditLogTable: React.FC<AuditLogTableProps> = ({
-AuditLogTable.displayName = 'AuditLogTable';
   logs,
   loading = false,
   onLogSelect,

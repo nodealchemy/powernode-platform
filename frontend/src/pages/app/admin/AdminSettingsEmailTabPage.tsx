@@ -6,7 +6,6 @@ import { RootState } from '@/shared/services';
 import { hasPermissions } from '@/shared/utils/permissionUtils';
 
 export const AdminSettingsEmailTabPage: React.FC = () => {
-AdminSettingsEmailTabPage.displayName = 'AdminSettingsEmailTabPage';
   const { user } = useSelector((state: RootState) => state.auth);
   
   // Check if user has email settings permission

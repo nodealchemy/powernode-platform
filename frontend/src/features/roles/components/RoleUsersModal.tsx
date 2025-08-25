@@ -17,7 +17,6 @@ interface RoleUsersModalProps {
 }
 
 export const RoleUsersModal: React.FC<RoleUsersModalProps> = ({
-RoleUsersModal.displayName = 'RoleUsersModal';
   role,
   onClose
 }) => {

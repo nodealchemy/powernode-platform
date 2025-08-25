@@ -38,7 +38,6 @@ interface ChurnChartProps {
 }
 
 export const ChurnChart: React.FC<ChurnChartProps> = ({ 
-ChurnChart.displayName = 'ChurnChart';
   data, 
   currentMetrics,
   insights,

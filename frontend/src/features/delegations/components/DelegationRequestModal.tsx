@@ -9,7 +9,6 @@ interface DelegationRequestModalProps {
 }
 
 export const DelegationRequestModal: React.FC<DelegationRequestModalProps> = ({
-DelegationRequestModal.displayName = 'DelegationRequestModal';
   request,
   onClose,
   onApprove,

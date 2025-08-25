@@ -39,7 +39,6 @@ const timeRanges: TimeRange[] = [
 ];
 
 export const AuditLogAnalytics: React.FC<AuditLogAnalyticsProps> = ({
-AuditLogAnalytics.displayName = 'AuditLogAnalytics';
   metrics,
   filters,
   onFiltersChange,

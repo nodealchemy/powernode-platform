@@ -4,7 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { 
   CreditCard, Mail, Shield, 
-  Zap, BarChart3 
+  Zap, BarChart3, Globe
 } from 'lucide-react';
 import { RootState } from '@/shared/services';
 import { hasPermissions } from '@/shared/utils/permissionUtils';
@@ -58,6 +58,14 @@ const adminSettingsTabs: AdminSettingsTab[] = [
     icon: Zap,
     description: 'Monitor and optimize system performance',
     requiredPermissions: ['admin.settings.view'] // Basic permission for now
+  },
+  {
+    id: 'reverse-proxy',
+    label: 'Reverse Proxy',
+    href: '/app/admin/settings/reverse-proxy',
+    icon: Globe,
+    description: 'Configure reverse proxy for URL mapping and load balancing',
+    requiredPermissions: ['admin.settings.edit']
   }
 ];
 
@@ -66,7 +74,6 @@ interface AdminSettingsTabsProps {
 }
 
 export const AdminSettingsTabs: React.FC<AdminSettingsTabsProps> = ({ className = '' }) => {
-AdminSettingsTabs.displayName = 'AdminSettingsTabs';
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useSelector((state: RootState) => state.auth);

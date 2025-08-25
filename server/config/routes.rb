@@ -98,6 +98,18 @@ Rails.application.routes.draw do
         post :suspend_account, on: :member
         post :activate_account, on: :member
       end
+
+      # Reverse Proxy Configuration (admin only)
+      resource :reverse_proxy, only: [ :show, :update ], controller: 'admin/reverse_proxy' do
+        post :test_configuration, on: :member
+        post :generate_config, on: :member
+        get :health_check, on: :member
+        get :status, on: :member
+        
+        resources :url_mappings, only: [ :create, :update, :destroy ], controller: 'admin/reverse_proxy' do
+          patch :toggle, on: :member
+        end
+      end
       
       # Email Settings endpoints (for worker service)
       resource :email_settings, only: [ :show, :update ] do

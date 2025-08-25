@@ -94,7 +94,6 @@ const formatAppPlanForModal = (plan: any): ModalPlan => ({
 });
 
 export const AppSubscriptionModal: React.FC<AppSubscriptionModalProps> = ({
-AppSubscriptionModal.displayName = 'AppSubscriptionModal';
   isOpen,
   onClose,
   app,

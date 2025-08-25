@@ -7,7 +7,6 @@ interface WebSocketStatusIndicatorProps {
 }
 
 export const WebSocketStatusIndicator: React.FC<WebSocketStatusIndicatorProps> = ({ 
-WebSocketStatusIndicator.displayName = 'WebSocketStatusIndicator';
   showDetails = false, 
   className = "" 
 }) => {

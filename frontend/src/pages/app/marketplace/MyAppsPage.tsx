@@ -7,7 +7,6 @@ import { useApps } from '@/features/marketplace/hooks/useApps';
 import { App, AppFilters } from '@/features/marketplace/types';
 
 export const MyAppsPage: React.FC = () => {
-MyAppsPage.displayName = 'MyAppsPage';
   const navigate = useNavigate();
   const [filters] = useState<AppFilters>({ page: 1, per_page: 20 });
   const [showCreateModal, setShowCreateModal] = useState(false);

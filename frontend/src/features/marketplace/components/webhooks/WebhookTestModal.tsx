@@ -26,7 +26,6 @@ interface TestResult {
 }
 
 export const WebhookTestModal: React.FC<WebhookTestModalProps> = ({
-WebhookTestModal.displayName = 'WebhookTestModal';
   isOpen,
   onClose,
   appId,

@@ -138,7 +138,6 @@ const mockPlans: Plan[] = [
 ];
 
 export const SubscriptionsPage: React.FC = () => {
-SubscriptionsPage.displayName = 'SubscriptionsPage';
   const dispatch = useDispatch<AppDispatch>();
   const { showNotification } = useNotification();
   const { subscriptions, currentSubscription, availablePlans, loading, error } = useSelector((state: RootState) => state.subscription);

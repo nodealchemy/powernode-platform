@@ -12,7 +12,6 @@ import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer'
 import { Save, RefreshCw } from 'lucide-react';
 
 export const SettingsPage: React.FC = () => {
-SettingsPage.displayName = 'SettingsPage';
   const dispatch = useDispatch<AppDispatch>();
   const location = useLocation();
   const { user } = useSelector((state: RootState) => state.auth);

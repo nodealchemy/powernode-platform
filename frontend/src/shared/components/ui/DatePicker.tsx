@@ -38,7 +38,6 @@ const CustomInput = forwardRef<HTMLInputElement, any>(({ value, onClick, placeho
   />
 ));
 
-CustomInput.displayName = 'CustomInput';
 
 export const DatePicker: React.FC<DatePickerProps> = ({
   selected,

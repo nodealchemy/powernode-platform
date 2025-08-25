@@ -13,7 +13,6 @@ interface PerformanceMetricsCardProps {
 }
 
 export const PerformanceMetricsCard: React.FC<PerformanceMetricsCardProps> = ({
-PerformanceMetricsCard.displayName = 'PerformanceMetricsCard';
   title,
   value,
   unit,

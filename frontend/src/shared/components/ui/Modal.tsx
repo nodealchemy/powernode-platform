@@ -19,7 +19,6 @@ export interface ModalProps {
 }
 
 export const Modal: React.FC<ModalProps> = ({
-Modal.displayName = 'Modal';
   isOpen,
   onClose,
   title,

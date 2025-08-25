@@ -32,7 +32,6 @@ interface WorkerDetailsProps {
 }
 
 export const WorkerDetails: React.FC<WorkerDetailsProps> = ({
-WorkerDetails.displayName = 'WorkerDetails';
   worker,
   editMode = false,
   onWorkerUpdate,

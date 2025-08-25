@@ -13,7 +13,6 @@ interface NavigationItemProps {
 }
 
 export const NavigationItem: React.FC<NavigationItemProps> = ({ 
-NavigationItem.displayName = 'NavigationItem';
   item, 
   level = 0, 
   isCollapsed = false,

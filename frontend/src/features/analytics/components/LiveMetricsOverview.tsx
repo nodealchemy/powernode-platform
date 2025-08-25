@@ -50,7 +50,6 @@ interface LiveMetricsOverviewProps {
 }
 
 export const LiveMetricsOverview: React.FC<LiveMetricsOverviewProps> = ({
-LiveMetricsOverview.displayName = 'LiveMetricsOverview';
   className = '',
   accountId,
   showTodayActivity = true,

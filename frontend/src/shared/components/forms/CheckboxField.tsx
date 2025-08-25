@@ -17,7 +17,6 @@ interface CheckboxFieldProps {
  * Provides consistent styling, validation display, and accessibility
  */
 export const CheckboxField: React.FC<CheckboxFieldProps> = ({
-CheckboxField.displayName = 'CheckboxField';
   label,
   name,
   form,

@@ -11,7 +11,6 @@ interface WorkerEditFormProps {
 }
 
 export const WorkerEditForm: React.FC<WorkerEditFormProps> = ({ worker, onUpdate, onCancel }) => {
-WorkerEditForm.displayName = 'WorkerEditForm';
   const defaultValues: UpdateWorkerData = {
     name: worker.name,
     description: worker.description || '',

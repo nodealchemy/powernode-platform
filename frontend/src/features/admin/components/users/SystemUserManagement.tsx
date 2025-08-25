@@ -7,7 +7,6 @@ import ImpersonateUserModal from './ImpersonateUserModal';
 import CreateUserModal from './CreateUserModal';
 
 export const SystemUserManagement: React.FC = () => {
-SystemUserManagement.displayName = 'SystemUserManagement';
   const { user: currentUser } = useSelector((state: RootState) => state.auth);
   const [users, setUsers] = useState<User[]>([]);
   const [accounts, setAccounts] = useState<AdminAccount[]>([]);

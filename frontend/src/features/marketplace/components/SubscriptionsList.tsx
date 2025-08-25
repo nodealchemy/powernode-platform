@@ -248,4 +248,3 @@ export const SubscriptionsList = forwardRef<SubscriptionsListRef, SubscriptionsL
 });
 
 // Add display name for debugging
-SubscriptionsList.displayName = 'SubscriptionsList';

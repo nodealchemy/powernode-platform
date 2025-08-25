@@ -35,7 +35,6 @@ interface PlanDiscountConfigProps {
 }
 
 export const PlanDiscountConfig: React.FC<PlanDiscountConfigProps> = ({
-PlanDiscountConfig.displayName = 'PlanDiscountConfig';
   hasAnnualDiscount,
   annualDiscountPercent,
   hasVolumeDiscount,

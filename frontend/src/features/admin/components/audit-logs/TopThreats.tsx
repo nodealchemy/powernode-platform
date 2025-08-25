@@ -26,7 +26,6 @@ interface ThreatData {
 }
 
 export const TopThreats: React.FC<TopThreatsProps> = ({ timeRange }) => {
-TopThreats.displayName = 'TopThreats';
   const threatData: ThreatData[] = [
     {
       type: 'Brute Force Attacks',

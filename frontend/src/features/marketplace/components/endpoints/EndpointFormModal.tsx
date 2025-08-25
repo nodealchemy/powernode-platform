@@ -35,7 +35,6 @@ const initialFormData: AppEndpointFormData = {
 };
 
 export const EndpointFormModal: React.FC<EndpointFormModalProps> = ({
-EndpointFormModal.displayName = 'EndpointFormModal';
   isOpen,
   onClose,
   onSubmit,

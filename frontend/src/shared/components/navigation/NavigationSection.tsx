@@ -11,7 +11,6 @@ interface NavigationSectionProps {
 }
 
 export const NavigationSection: React.FC<NavigationSectionProps> = ({ 
-NavigationSection.displayName = 'NavigationSection';
   section, 
   isCollapsed = false 
 }) => {

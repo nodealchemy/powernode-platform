@@ -31,7 +31,6 @@ interface WebhookAnalytics {
 }
 
 export const WebhookAnalyticsModal: React.FC<WebhookAnalyticsModalProps> = ({
-WebhookAnalyticsModal.displayName = 'WebhookAnalyticsModal';
   isOpen,
   onClose,
   appId,

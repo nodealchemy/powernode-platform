@@ -84,7 +84,6 @@ const getFeatureList = (features: Record<string, any>, limits?: Record<string, a
 };
 
 export const SubscriptionPlanCard: React.FC<SubscriptionPlanCardProps> = ({
-SubscriptionPlanCard.displayName = 'SubscriptionPlanCard';
   plan,
   isActive = false,
   onSubscribe,

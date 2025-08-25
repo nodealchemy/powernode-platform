@@ -16,7 +16,6 @@ interface SharedBreadcrumbsProps {
 }
 
 export const SharedBreadcrumbs: React.FC<SharedBreadcrumbsProps> = ({ 
-SharedBreadcrumbs.displayName = 'SharedBreadcrumbs';
   items = [], 
   className = '',
   showHome = true 

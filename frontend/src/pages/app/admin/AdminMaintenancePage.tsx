@@ -30,7 +30,6 @@ interface MaintenancePageActions {
 }
 
 export const AdminMaintenancePage: React.FC = () => {
-AdminMaintenancePage.displayName = 'AdminMaintenancePage';
   const navigate = useNavigate();
   const location = useLocation();
   const { showNotification } = useNotification();

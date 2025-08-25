@@ -12,7 +12,6 @@ interface UserMenuProps {
 }
 
 export const UserMenu: React.FC<UserMenuProps> = ({ className = '' }) => {
-UserMenu.displayName = 'UserMenu';
   const dispatch = useDispatch<AppDispatch>();
   const { user } = useSelector((state: RootState) => state.auth);
   const { config } = useNavigation();

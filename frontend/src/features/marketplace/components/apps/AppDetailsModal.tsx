@@ -30,7 +30,6 @@ interface AppDetailsModalProps {
 }
 
 export const AppDetailsModal: React.FC<AppDetailsModalProps> = ({
-AppDetailsModal.displayName = 'AppDetailsModal';
   isOpen,
   onClose,
   app,

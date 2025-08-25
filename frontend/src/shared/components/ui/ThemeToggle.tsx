@@ -11,7 +11,6 @@ interface ThemeToggleProps {
 }
 
 export const ThemeToggle: React.FC<ThemeToggleProps> = ({ 
-ThemeToggle.displayName = 'ThemeToggle';
   className = '', 
   showLabel = false 
 }) => {

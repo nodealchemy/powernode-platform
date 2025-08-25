@@ -32,7 +32,6 @@ const getStatusColor = (status: number): string => {
 };
 
 export const EndpointTestModal: React.FC<EndpointTestModalProps> = ({
-EndpointTestModal.displayName = 'EndpointTestModal';
   isOpen,
   onClose,
   endpoint,

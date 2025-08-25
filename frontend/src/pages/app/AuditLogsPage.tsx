@@ -38,7 +38,6 @@ interface SecurityMetrics {
 }
 
 export const AuditLogsPage: React.FC = () => {
-AuditLogsPage.displayName = 'AuditLogsPage';
   const [activeTab, setActiveTab] = useState<'table' | 'analytics'>('table');
   
   // Handle tab changes with proper type casting

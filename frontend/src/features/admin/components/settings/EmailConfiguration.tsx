@@ -5,7 +5,6 @@ import { useNotification } from '@/shared/hooks/useNotification';
 import { emailSettingsApi, EmailSettings } from '@/shared/services/emailSettingsApi';
 
 export const EmailConfiguration: React.FC = () => {
-EmailConfiguration.displayName = 'EmailConfiguration';
   const [emailSettings, setEmailSettings] = useState<EmailSettings>({
     email_provider: 'smtp',
     smtp_enabled: false,

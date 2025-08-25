@@ -11,7 +11,6 @@ import { Button } from '@/shared/components/ui/Button';
 import { Plus, RefreshCw, Edit2, Eye, EyeOff, Copy, Trash2 } from 'lucide-react';
 
 export const PagesPage: React.FC = () => {
-PagesPage.displayName = 'PagesPage';
   const dispatch = useDispatch<AppDispatch>();
   const { user } = useSelector((state: RootState) => state.auth);
   const [pages, setPages] = useState<Page[]>([]);

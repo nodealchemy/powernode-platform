@@ -29,7 +29,6 @@ export interface TabContainerProps {
 }
 
 export const TabContainer: React.FC<TabContainerProps> = ({
-TabContainer.displayName = 'TabContainer';
   tabs,
   activeTab: controlledActiveTab,
   onTabChange,

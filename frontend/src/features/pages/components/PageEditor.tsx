@@ -14,7 +14,6 @@ interface PageEditorProps {
 }
 
 export const PageEditor: React.FC<PageEditorProps> = ({
-PageEditor.displayName = 'PageEditor';
   page,
   isCreating,
   onClose,

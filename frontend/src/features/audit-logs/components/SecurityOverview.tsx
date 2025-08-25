@@ -17,7 +17,6 @@ interface SecurityOverviewProps {
 }
 
 export const SecurityOverview: React.FC<SecurityOverviewProps> = ({ metrics, timeRange }) => {
-SecurityOverview.displayName = 'SecurityOverview';
   const securityMetrics = [
     {
       label: 'Failed Login Attempts',

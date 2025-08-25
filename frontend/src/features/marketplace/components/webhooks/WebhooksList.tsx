@@ -20,7 +20,6 @@ interface WebhooksListProps {
 }
 
 export const WebhooksList: React.FC<WebhooksListProps> = ({ 
-WebhooksList.displayName = 'WebhooksList';
   appId,
   onWebhookAction,
   showCreateButton = true,

@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 class AdminSetting < ApplicationRecord
+  include ReverseProxyConfiguration
+  
   validates :key, presence: true, uniqueness: true
 
   # Get a setting value by key

@@ -106,7 +106,6 @@ const MetricCard: React.FC<MetricCardProps> = ({
 };
 
 export const LiveAnalyticsDashboard: React.FC<LiveAnalyticsDashboardProps> = ({
-LiveAnalyticsDashboard.displayName = 'LiveAnalyticsDashboard';
   accountId,
   autoRefresh = true,
   refreshInterval = 30

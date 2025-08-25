@@ -25,7 +25,6 @@ export interface TabContainerProps {
 }
 
 export const TabContainer: React.FC<TabContainerProps> = ({
-TabContainer.displayName = 'TabContainer';
   tabs,
   activeTab: controlledActiveTab,
   onTabChange,
@@ -176,7 +175,6 @@ TabContainer.displayName = 'TabContainer';
 
 // Mobile-optimized tab navigation
 export const MobileTabContainer: React.FC<TabContainerProps> = (props) => {
-TabContainer.displayName = 'TabContainer';
   return (
     <div className="sm:hidden">
       <select

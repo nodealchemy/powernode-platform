@@ -2,7 +2,6 @@ import React from 'react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 
 export const MetricsPage: React.FC = () => {
-MetricsPage.displayName = 'MetricsPage';
   const breadcrumbs = [
     { label: 'Dashboard', href: '/app', icon: '🏠' },
     { label: 'Metrics', icon: '📈' }

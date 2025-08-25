@@ -11,7 +11,6 @@ interface WorkerListProps {
 }
 
 export const WorkerList: React.FC<WorkerListProps> = ({
-WorkerList.displayName = 'WorkerList';
   workers,
   selectedWorker,
   onWorkerSelect,

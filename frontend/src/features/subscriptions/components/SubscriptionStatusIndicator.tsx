@@ -8,7 +8,6 @@ interface SubscriptionStatusIndicatorProps {
 }
 
 export const SubscriptionStatusIndicator: React.FC<SubscriptionStatusIndicatorProps> = ({
-SubscriptionStatusIndicator.displayName = 'SubscriptionStatusIndicator';
   subscription,
   showDetails = false,
 }) => {

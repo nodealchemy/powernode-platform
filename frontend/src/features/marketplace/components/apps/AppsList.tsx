@@ -17,7 +17,6 @@ interface AppsListProps {
 }
 
 export const AppsList: React.FC<AppsListProps> = ({
-AppsList.displayName = 'AppsList';
   onCreateApp,
   onEditApp,
   onViewApp,

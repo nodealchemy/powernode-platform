@@ -37,7 +37,6 @@ interface RevenueChartProps {
 }
 
 export const RevenueChart: React.FC<RevenueChartProps> = ({ 
-RevenueChart.displayName = 'RevenueChart';
   data, 
   currentMetrics, 
   title, 

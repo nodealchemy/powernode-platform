@@ -16,7 +16,6 @@ interface InvoicesManagerProps {
 }
 
 export const InvoicesManager: React.FC<InvoicesManagerProps> = ({
-InvoicesManager.displayName = 'InvoicesManager';
   customerId,
   subscriptionId,
   showFilters = true,

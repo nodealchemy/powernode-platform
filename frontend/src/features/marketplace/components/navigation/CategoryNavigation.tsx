@@ -62,7 +62,6 @@ const CATEGORY_GROUPS: CategoryGroup[] = [
 ];
 
 export const CategoryNavigation: React.FC<CategoryNavigationProps> = ({
-CategoryNavigation.displayName = 'CategoryNavigation';
   categories,
   selectedCategories,
   onCategorySelect,

@@ -16,7 +16,6 @@ interface WebhookCardProps {
 }
 
 export const WebhookCard: React.FC<WebhookCardProps> = ({
-WebhookCard.displayName = 'WebhookCard';
   webhook,
   onEdit,
   onToggleStatus,

@@ -14,7 +14,6 @@ interface InviteTeamMemberModalProps {
 }
 
 export const InviteTeamMemberModal: React.FC<InviteTeamMemberModalProps> = ({
-InviteTeamMemberModal.displayName = 'InviteTeamMemberModal';
   isOpen,
   onClose,
   onInviteSent,

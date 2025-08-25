@@ -215,7 +215,6 @@ const ServiceItem: React.FC<ServiceItemProps> = ({
 };
 
 export const ServiceList: React.FC<ServiceListProps> = ({
-ServiceList.displayName = 'ServiceList';
   services,
   selectedService,
   onServiceSelect,

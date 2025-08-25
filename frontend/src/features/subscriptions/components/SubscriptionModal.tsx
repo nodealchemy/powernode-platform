@@ -16,7 +16,6 @@ interface SubscriptionModalProps {
 }
 
 export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
-SubscriptionModal.displayName = 'SubscriptionModal';
   isOpen,
   onClose,
   subscription,

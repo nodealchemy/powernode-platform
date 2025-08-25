@@ -532,7 +532,6 @@ const WebhookDetailsModal: React.FC<WebhookDetailsModalProps> = ({
 };
 
 export const EnhancedWebhookConsole: React.FC<EnhancedWebhookConsoleProps> = ({
-EnhancedWebhookConsole.displayName = 'EnhancedWebhookConsole';
   showStats = true,
   showDeliveryHistory = true
 }) => {

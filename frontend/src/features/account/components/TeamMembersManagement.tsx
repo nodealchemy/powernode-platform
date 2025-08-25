@@ -8,7 +8,6 @@ interface TeamMembersManagementProps {
 }
 
 export const TeamMembersManagement: React.FC<TeamMembersManagementProps> = ({ accountId }) => {
-TeamMembersManagement.displayName = 'TeamMembersManagement';
   const { user: currentUser } = useSelector((state: RootState) => state.auth);
   const [teamMembers, setTeamMembers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);

@@ -9,7 +9,6 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
-Header.displayName = 'Header';
   return (
     <header className="bg-theme-surface h-16 border-b border-theme">
       <div className="grid grid-cols-3 items-center px-4 sm:px-6 lg:px-8 h-full">

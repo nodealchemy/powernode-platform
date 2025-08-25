@@ -37,7 +37,6 @@ const formatDate = (dateStr: string): string => {
 };
 
 export const EndpointAnalyticsModal: React.FC<EndpointAnalyticsModalProps> = ({
-EndpointAnalyticsModal.displayName = 'EndpointAnalyticsModal';
   isOpen,
   onClose,
   endpoint,

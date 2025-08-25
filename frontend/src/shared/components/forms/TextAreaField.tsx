@@ -21,7 +21,6 @@ interface TextAreaFieldProps {
  * Provides consistent styling, validation display, character counting, and accessibility
  */
 export const TextAreaField: React.FC<TextAreaFieldProps> = ({
-TextAreaField.displayName = 'TextAreaField';
   label,
   name,
   placeholder,

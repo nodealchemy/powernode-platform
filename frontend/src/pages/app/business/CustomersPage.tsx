@@ -5,7 +5,6 @@ import { PageContainer, PageAction } from '@/shared/components/layout/PageContai
 import { Users } from 'lucide-react';
 
 export const CustomersPage: React.FC = () => {
-CustomersPage.displayName = 'CustomersPage';
   const [customers, setCustomers] = useState<any[]>([]);
   const [stats, setStats] = useState<any>(null);
   const [searchResults, setSearchResults] = useState<any[]>([]);

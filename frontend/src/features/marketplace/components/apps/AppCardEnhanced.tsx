@@ -21,7 +21,6 @@ interface AppCardEnhancedProps {
 }
 
 export const AppCardEnhanced: React.FC<AppCardEnhancedProps> = ({
-AppCardEnhanced.displayName = 'AppCardEnhanced';
   app,
   viewMode = 'grid',
   showSubscription = false,

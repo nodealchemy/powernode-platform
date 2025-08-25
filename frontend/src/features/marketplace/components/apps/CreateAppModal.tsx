@@ -13,7 +13,6 @@ interface CreateAppModalProps {
 }
 
 export const CreateAppModal: React.FC<CreateAppModalProps> = ({
-CreateAppModal.displayName = 'CreateAppModal';
   isOpen,
   onClose,
   onSuccess

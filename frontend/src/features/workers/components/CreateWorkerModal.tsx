@@ -12,7 +12,6 @@ interface CreateWorkerModalProps {
 }
 
 export const CreateWorkerModal: React.FC<CreateWorkerModalProps> = ({ isOpen, onClose, onCreate }) => {
-CreateWorkerModal.displayName = 'CreateWorkerModal';
   const defaultValues: CreateWorkerData = {
     name: '',
     description: '',

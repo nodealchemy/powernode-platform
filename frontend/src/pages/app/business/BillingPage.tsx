@@ -13,7 +13,6 @@ import { Button } from '@/shared/components/ui/Button';
 import { MetricCard, ActionCard } from '@/shared/components/ui/Card';
 
 export const BillingPage: React.FC = () => {
-BillingPage.displayName = 'BillingPage';
   const { user } = useSelector((state: RootState) => state.auth);
   const location = useLocation();
   const [overview, setOverview] = useState<BillingOverview | null>(null);

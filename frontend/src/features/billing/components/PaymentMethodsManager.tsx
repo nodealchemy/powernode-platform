@@ -12,7 +12,6 @@ interface PaymentMethodsManagerProps {
 }
 
 export const PaymentMethodsManager: React.FC<PaymentMethodsManagerProps> = ({
-PaymentMethodsManager.displayName = 'PaymentMethodsManager';
   onMethodAdded,
   onMethodDeleted,
   showAddButton = true

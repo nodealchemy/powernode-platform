@@ -25,7 +25,6 @@ export interface UserProfileData {
 }
 
 export const UserProfileForm: React.FC<UserProfileFormProps> = ({
-UserProfileForm.displayName = 'UserProfileForm';
   initialData,
   onSubmit,
   onCancel,
