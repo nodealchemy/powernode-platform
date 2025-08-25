@@ -10,6 +10,8 @@ import { StatusIndicator } from '@/shared/components/ui/StatusIndicator';
 import { TabContainer } from '@/shared/components/ui/TabContainer';
 import { useNotification } from '@/shared/hooks/useNotification';
 import { reverseProxyApi, ReverseProxyConfig, URLMapping, HealthStatus } from '../../services/reverseProxyApi';
+import { URLMappingModal } from './URLMappingModal';
+import { TestConfigurationModal } from './TestConfigurationModal';
 import { 
   Settings, 
   Globe, 
@@ -99,17 +101,8 @@ const ReverseProxyConfiguration: React.FC<ReverseProxyConfigurationProps> = ({ c
     }
   };
 
-  const testConfiguration = async () => {
-    if (!config) return;
-
-    try {
-      const results = await reverseProxyApi.testConfiguration(config);
-      setTestResults(results);
-      setShowTestModal(true);
-    } catch (error) {
-      console.error('Failed to test configuration:', error);
-      showNotification('Failed to test configuration', 'error');
-    }
+  const testConfiguration = () => {
+    setShowTestModal(true);
   };
 
   const generateProxyConfig = async () => {
@@ -164,6 +157,40 @@ const ReverseProxyConfiguration: React.FC<ReverseProxyConfigurationProps> = ({ c
       console.error('Failed to delete URL mapping:', error);
       showNotification('Failed to delete URL mapping', 'error');
     }
+  };
+
+  const handleSaveURLMapping = async (mapping: URLMapping) => {
+    if (!config) return;
+
+    try {
+      if (editingMapping) {
+        // Update existing mapping
+        await reverseProxyApi.updateURLMapping(mapping.id, mapping);
+        const updatedMappings = config.url_mappings.map(m => 
+          m.id === mapping.id ? mapping : m
+        );
+        updateConfig({ url_mappings: updatedMappings });
+      } else {
+        // Create new mapping
+        const response = await reverseProxyApi.createURLMapping(mapping);
+        const newMapping = response.mapping;
+        updateConfig({ 
+          url_mappings: [...config.url_mappings, newMapping] 
+        });
+      }
+      
+      setShowURLMappingModal(false);
+      setEditingMapping(null);
+    } catch (error) {
+      console.error('Failed to save URL mapping:', error);
+      throw error; // Re-throw to let modal handle the error
+    }
+  };
+
+  const getAvailableServices = (): string[] => {
+    if (!config) return [];
+    const currentEnv = config.current_environment || 'development';
+    return Object.keys(config.environments[currentEnv] || {});
   };
 
   const getServiceStatus = (serviceName: string) => {
@@ -375,53 +402,6 @@ const ReverseProxyConfiguration: React.FC<ReverseProxyConfigurationProps> = ({ c
         variant="underline"
       />
 
-      {/* Test Results Modal */}
-      {showTestModal && testResults && (
-        <Modal
-          isOpen={showTestModal}
-          onClose={() => setShowTestModal(false)}
-          title="Configuration Test Results"
-          maxWidth="lg"
-        >
-          <div className="space-y-4">
-            <div>
-              <h4 className="font-medium text-theme-primary mb-2">Validation</h4>
-              <FlexItemsCenter>
-                {testResults.validation.valid ? (
-                  <CheckCircle className="w-5 h-5 text-theme-success mr-2" />
-                ) : (
-                  <AlertTriangle className="w-5 h-5 text-theme-danger mr-2" />
-                )}
-                <span className={testResults.validation.valid ? 'text-theme-success' : 'text-theme-danger'}>
-                  {testResults.validation.valid ? 'Configuration is valid' : 'Configuration has errors'}
-                </span>
-              </FlexItemsCenter>
-              
-              {!testResults.validation.valid && testResults.validation.errors.length > 0 && (
-                <div className="mt-2 p-3 bg-theme-danger/10 rounded-lg">
-                  <ul className="text-sm text-theme-danger space-y-1">
-                    {testResults.validation.errors.map((error: string, index: number) => (
-                      <li key={index}>• {error}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-            
-            <div>
-              <h4 className="font-medium text-theme-primary mb-2">Connectivity</h4>
-              <div className="space-y-2">
-                {Object.entries(testResults.connectivity).map(([service, result]: [string, any]) => (
-                  <FlexBetween key={service} className="p-2 bg-theme-surface rounded">
-                    <span className="font-medium capitalize">{service}</span>
-                    <StatusIndicator status={result.status} />
-                  </FlexBetween>
-                ))}
-              </div>
-            </div>
-          </div>
-        </Modal>
-      )}
 
       {/* Export Config Modal */}
       {showExportModal && (
@@ -1043,6 +1023,27 @@ const AdvancedConfiguration: React.FC<{
           )}
         </div>
       </Card>
+
+      {/* URL Mapping Modal */}
+      <URLMappingModal
+        isOpen={showURLMappingModal}
+        onClose={() => {
+          setShowURLMappingModal(false);
+          setEditingMapping(null);
+        }}
+        onSave={handleSaveURLMapping}
+        mapping={editingMapping}
+        availableServices={getAvailableServices()}
+      />
+
+      {/* Test Configuration Modal */}
+      {config && (
+        <TestConfigurationModal
+          isOpen={showTestModal}
+          onClose={() => setShowTestModal(false)}
+          config={config}
+        />
+      )}
     </div>
   );
 };
