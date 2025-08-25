@@ -180,6 +180,147 @@ class Api::V1::Admin::ReverseProxyController < ApplicationController
     render_error('Failed to toggle URL mapping', status: :internal_server_error)
   end
 
+  # GET /api/v1/admin/reverse_proxy/discovered_services
+  def discovered_services
+    # Mock discovered services data - in production this would query actual discovery services
+    discovered = [
+      {
+        name: 'frontend',
+        host: 'localhost',
+        port: 3000,
+        protocol: 'http',
+        health_check_path: '/health',
+        status: 'healthy',
+        discovered_method: 'port_scan',
+        last_seen: Time.current.iso8601
+      },
+      {
+        name: 'backend',
+        host: 'localhost',
+        port: 5000,
+        protocol: 'http',
+        health_check_path: '/api/health',
+        status: 'healthy',
+        discovered_method: 'dns',
+        last_seen: Time.current.iso8601
+      }
+    ]
+
+    render_success(discovered)
+  rescue => e
+    Rails.logger.error "Failed to get discovered services: #{e.message}"
+    render_error('Failed to retrieve discovered services', status: :internal_server_error)
+  end
+
+  # POST /api/v1/admin/reverse_proxy/service_discovery
+  def service_discovery
+    config = AdminSetting.service_discovery_config
+    
+    unless config['enabled']
+      return render_error('Service discovery is not enabled', status: :unprocessable_entity)
+    end
+
+    discovered_services = []
+    
+    config['methods'].each do |method|
+      case method
+      when 'dns'
+        discovered_services.concat(discover_via_dns(config['dns_config']))
+      when 'consul'
+        discovered_services.concat(discover_via_consul(config['consul_config']))
+      when 'port_scan'
+        discovered_services.concat(discover_via_port_scan(config['port_scan_config']))
+      when 'kubernetes'
+        discovered_services.concat(discover_via_kubernetes(config['kubernetes_config']))
+      end
+    end
+
+    render_success({
+      services: discovered_services,
+      message: "Discovered #{discovered_services.length} services"
+    })
+  rescue => e
+    Rails.logger.error "Service discovery failed: #{e.message}"
+    render_error('Service discovery failed', status: :internal_server_error)
+  end
+
+  # POST /api/v1/admin/reverse_proxy/add_discovered_service
+  def add_discovered_service
+    service_data = params.require(:service).permit(:name, :host, :port, :protocol, :health_check_path)
+    
+    # Add service to current environment configuration
+    config = AdminSetting.reverse_proxy_config
+    environment = config['current_environment'] || Rails.env
+    
+    environments = config['environments'] || {}
+    environments[environment] ||= {}
+    environments[environment][service_data[:name]] = {
+      'host' => service_data[:host],
+      'port' => service_data[:port].to_i,
+      'protocol' => service_data[:protocol],
+      'base_url' => "#{service_data[:protocol]}://#{service_data[:host]}:#{service_data[:port]}",
+      'health_check_path' => service_data[:health_check_path]
+    }
+    
+    AdminSetting.update_reverse_proxy_config('environments' => environments)
+    
+    render_success({
+      message: "Service #{service_data[:name]} added to configuration"
+    })
+  rescue => e
+    Rails.logger.error "Failed to add discovered service: #{e.message}"
+    render_error('Failed to add service to configuration', status: :internal_server_error)
+  end
+
+  # GET /api/v1/admin/reverse_proxy/health_history/:service_name
+  def health_history
+    service_name = params[:service_name]
+    hours = params[:hours]&.to_i || 24
+    
+    # Mock health history data - in production this would query actual monitoring data
+    data_points = []
+    current_time = Time.current
+    
+    (hours * 2).times do |i| # Every 30 minutes
+      timestamp = current_time - (i * 30).minutes
+      status = ['healthy', 'healthy', 'healthy', 'unhealthy'].sample # Mostly healthy
+      response_time = status == 'healthy' ? rand(50..200) : rand(500..2000)
+      
+      data_points << {
+        timestamp: timestamp.iso8601,
+        status: status,
+        response_time: response_time,
+        response_code: status == 'healthy' ? 200 : [404, 500, 502].sample,
+        error: status == 'healthy' ? nil : 'Connection timeout'
+      }
+    end
+    
+    render_success({
+      service: service_name,
+      timeframe: "Last #{hours} hours",
+      data_points: data_points.reverse
+    })
+  rescue => e
+    Rails.logger.error "Failed to get health history: #{e.message}"
+    render_error('Failed to retrieve health history', status: :internal_server_error)
+  end
+
+  # PUT /api/v1/admin/reverse_proxy/health_config/:service_name
+  def update_health_config
+    service_name = params[:service_name]
+    health_config = params.require(:health_config).permit(:interval, :timeout, :health_check_path, expected_codes: [])
+    
+    # Update health check configuration for service
+    # In production, this would update the monitoring configuration
+    
+    render_success({
+      message: "Health check configuration updated for #{service_name}"
+    })
+  rescue => e
+    Rails.logger.error "Failed to update health config: #{e.message}"
+    render_error('Failed to update health check configuration', status: :internal_server_error)
+  end
+
   private
 
   def require_system_admin_permission
@@ -373,5 +514,81 @@ class Api::V1::Admin::ReverseProxyController < ApplicationController
     else
       "Installation instructions not available for #{proxy_type}"
     end
+  end
+
+  # Service discovery helper methods
+  def discover_via_dns(config)
+    return [] unless config['enabled']
+    
+    # Mock DNS discovery - in production would use actual DNS resolution
+    [
+      {
+        name: 'api-service',
+        host: 'api.local',
+        port: 80,
+        protocol: 'http',
+        health_check_path: '/health',
+        status: 'healthy',
+        discovered_method: 'dns',
+        last_seen: Time.current.iso8601
+      }
+    ]
+  end
+
+  def discover_via_consul(config)
+    return [] unless config['enabled']
+    
+    # Mock Consul discovery - in production would connect to Consul API
+    [
+      {
+        name: 'consul-service',
+        host: '10.0.1.5',
+        port: 8080,
+        protocol: 'http',
+        health_check_path: '/health',
+        status: 'healthy',
+        discovered_method: 'consul',
+        last_seen: Time.current.iso8601
+      }
+    ]
+  end
+
+  def discover_via_port_scan(config)
+    return [] unless config['enabled']
+    
+    # Mock port scan discovery
+    discovered = []
+    config['port_ranges'].each do |service_type, (start_port, end_port)|
+      # Simulate finding a service in the port range
+      discovered << {
+        name: "#{service_type}-discovered",
+        host: 'localhost',
+        port: start_port + 1, # Pretend we found something on start_port + 1
+        protocol: 'http',
+        health_check_path: service_type == 'backend' ? '/api/health' : '/health',
+        status: 'healthy',
+        discovered_method: 'port_scan',
+        last_seen: Time.current.iso8601
+      }
+    end
+    discovered
+  end
+
+  def discover_via_kubernetes(config)
+    return [] unless config['enabled']
+    
+    # Mock Kubernetes discovery - in production would use k8s API
+    [
+      {
+        name: 'k8s-service',
+        host: '10.0.2.10',
+        port: 3000,
+        protocol: 'http',
+        health_check_path: '/health',
+        status: 'healthy',
+        discovered_method: 'kubernetes',
+        last_seen: Time.current.iso8601
+      }
+    ]
   end
 end

@@ -236,8 +236,33 @@ module ReverseProxyConfiguration
     def default_service_discovery_config
       {
         'enabled' => false,
-        'methods' => ['dns'],
-        'dns_config' => { 'enabled' => true, 'timeout' => 5 }
+        'methods' => [],
+        'dns_config' => {
+          'enabled' => true,
+          'timeout' => 5,
+          'retries' => 3
+        },
+        'consul_config' => {
+          'enabled' => false,
+          'host' => 'localhost',
+          'port' => 8500,
+          'token' => nil,
+          'datacenter' => 'dc1'
+        },
+        'port_scan_config' => {
+          'enabled' => false,
+          'port_ranges' => {
+            'frontend' => [3000, 3010],
+            'backend' => [5000, 5010],
+            'worker' => [6000, 6010]
+          },
+          'timeout' => 5
+        },
+        'kubernetes_config' => {
+          'enabled' => false,
+          'namespace' => 'default',
+          'label_selector' => 'app=service'
+        }
       }
     end
 

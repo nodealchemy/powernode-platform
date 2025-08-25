@@ -106,6 +106,13 @@ Rails.application.routes.draw do
         get :health_check, on: :member
         get :status, on: :member
         
+        # Service Discovery endpoints
+        get :discovered_services, on: :member
+        post :service_discovery, on: :member
+        post :add_discovered_service, on: :member
+        get 'health_history/:service_name', to: 'admin/reverse_proxy#health_history', on: :member
+        put 'health_config/:service_name', to: 'admin/reverse_proxy#update_health_config', on: :member
+        
         resources :url_mappings, only: [ :create, :update, :destroy ], controller: 'admin/reverse_proxy' do
           patch :toggle, on: :member
         end
