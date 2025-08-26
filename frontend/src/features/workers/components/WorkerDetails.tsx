@@ -5,6 +5,18 @@ import { WorkerEditForm } from './WorkerEditForm';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { copyToClipboard } from '@/shared/utils/clipboard';
 
+interface WorkerHealthCheckResult {
+  status: 'healthy' | 'warning' | 'error';
+  checks: {
+    connectivity: 'pass' | 'fail';
+    authentication: 'pass' | 'fail';
+    rate_limiting: 'pass' | 'fail';
+    monitoring: 'pass' | 'fail';
+  };
+  response_time_ms: number;
+  details: string[];
+}
+
 // Helper function to format masked tokens with appropriate asterisks
 const formatMaskedToken = (maskedToken: string): string => {
   // If token looks like "swt_****...****" format, keep it as is
@@ -46,6 +58,9 @@ export const WorkerDetails: React.FC<WorkerDetailsProps> = ({
   const [showToken, setShowToken] = useState(false);
   const [newToken, setNewToken] = useState<string | null>(null);
   const [showConfirmRevoke, setShowConfirmRevoke] = useState(false);
+  const [testingWorker, setTestingWorker] = useState(false);
+  const [testResults, setTestResults] = useState<WorkerHealthCheckResult | null>(null);
+  const [showTestResults, setShowTestResults] = useState(false);
 
   const loadWorkerDetails = useCallback(async () => {
     try {
@@ -84,6 +99,31 @@ export const WorkerDetails: React.FC<WorkerDetailsProps> = ({
       }
     } catch (err: any) {
       console.error('Failed to change worker status:', err);
+    }
+  };
+
+  const handleTestWorker = async () => {
+    try {
+      setTestingWorker(true);
+      setTestResults(null);
+      const results = await workerAPI.testWorkerHealth(worker.id);
+      setTestResults(results);
+      setShowTestResults(true);
+    } catch (err: any) {
+      setTestResults({
+        status: 'error',
+        checks: {
+          connectivity: 'fail',
+          authentication: 'fail',
+          rate_limiting: 'fail',
+          monitoring: 'fail'
+        },
+        response_time_ms: 0,
+        details: [err.message || 'Failed to test worker health']
+      });
+      setShowTestResults(true);
+    } finally {
+      setTestingWorker(false);
     }
   };
 
@@ -164,12 +204,22 @@ export const WorkerDetails: React.FC<WorkerDetailsProps> = ({
               <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(currentWorker.status)}`}>
                 {currentWorker.status}
               </span>
-              <span className={`px-3 py-1 rounded-full text-sm font-medium ${getPermissionColor(currentWorker.permissions)}`}>
-                {currentWorker.permissions}
-              </span>
-              <span className={`px-3 py-1 rounded-full text-sm font-medium ${getRoleColor(currentWorker.role)}`}>
-                {currentWorker.role}
-              </span>
+              <div className="flex flex-wrap gap-1">
+                {currentWorker.permissions.slice(0, 4).map((permission, index) => (
+                  <span 
+                    key={index}
+                    className="px-2 py-1 rounded-full text-xs font-medium bg-theme-surface text-theme-primary"
+                    title={permission}
+                  >
+                    {permission.split('.').pop()}
+                  </span>
+                ))}
+                {currentWorker.permissions.length > 4 && (
+                  <span className="px-2 py-1 rounded-full text-xs font-medium bg-theme-info-background text-theme-info">
+                    +{currentWorker.permissions.length - 4} more
+                  </span>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -212,12 +262,30 @@ export const WorkerDetails: React.FC<WorkerDetailsProps> = ({
                     <p className="text-theme-primary">{currentWorker.account_name}</p>
                   </div>
                   <div>
-                    <span className="text-theme-secondary text-sm">Role:</span>
-                    <p className="text-theme-primary">{currentWorker.role}</p>
+                    <span className="text-theme-secondary text-sm">Assigned Roles ({currentWorker.roles.length}):</span>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {currentWorker.roles.map((role, index) => (
+                        <span 
+                          key={index}
+                          className="px-2 py-1 rounded-full text-xs font-medium bg-theme-warning-background text-theme-warning"
+                        >
+                          {role}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                   <div>
-                    <span className="text-theme-secondary text-sm">Permissions:</span>
-                    <p className="text-theme-primary">{currentWorker.permissions}</p>
+                    <span className="text-theme-secondary text-sm">Inherited Permissions ({currentWorker.permissions.length}):</span>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {currentWorker.permissions.map((permission, index) => (
+                        <span 
+                          key={index}
+                          className="px-2 py-1 rounded-full text-xs font-medium bg-theme-surface text-theme-primary"
+                        >
+                          {permission}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                   <div>
                     <span className="text-theme-secondary text-sm">Status:</span>
@@ -314,6 +382,27 @@ export const WorkerDetails: React.FC<WorkerDetailsProps> = ({
             <div className="space-y-4">
               <h3 className="text-lg font-semibold text-theme-primary">Actions</h3>
               <div className="flex flex-wrap gap-2">
+                {/* Test Worker Button - Available for active workers */}
+                {currentWorker.status === 'active' && (
+                  <button
+                    onClick={handleTestWorker}
+                    disabled={testingWorker}
+                    className="px-4 py-2 bg-theme-info-background text-theme-info rounded hover:bg-theme-info-background/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    {testingWorker ? (
+                      <>
+                        <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Testing...
+                      </>
+                    ) : (
+                      'Test Worker'
+                    )}
+                  </button>
+                )}
+                
                 {currentWorker.status === 'active' && (
                   <button
                     onClick={() => handleStatusChange('suspend')}
@@ -388,6 +477,96 @@ export const WorkerDetails: React.FC<WorkerDetailsProps> = ({
                 className="px-4 py-2 bg-theme-error-background text-theme-error rounded hover:bg-theme-error-background/80 transition-colors"
               >
                 Revoke Worker
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Test Results Modal */}
+      {showTestResults && testResults && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-theme-surface rounded-lg p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-semibold text-theme-primary">Worker Health Test Results</h3>
+              <button
+                onClick={() => setShowTestResults(false)}
+                className="text-theme-secondary hover:text-theme-primary transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Overall Status */}
+            <div className="mb-6">
+              <div className="flex items-center gap-3 mb-2">
+                <span className="text-theme-secondary">Overall Status:</span>
+                <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                  testResults.status === 'healthy' 
+                    ? 'bg-theme-success-background text-theme-success'
+                    : testResults.status === 'warning'
+                    ? 'bg-theme-warning-background text-theme-warning'
+                    : 'bg-theme-error-background text-theme-error'
+                }`}>
+                  {testResults.status.toUpperCase()}
+                </span>
+              </div>
+              <div className="text-theme-secondary text-sm">
+                Response Time: {testResults.response_time_ms}ms
+              </div>
+            </div>
+
+            {/* Health Checks */}
+            <div className="mb-6">
+              <h4 className="font-medium text-theme-primary mb-3">Health Checks</h4>
+              <div className="space-y-2">
+                {Object.entries(testResults.checks).map(([check, status]) => (
+                  <div key={check} className="flex items-center justify-between py-2 px-3 bg-theme-background rounded">
+                    <span className="text-theme-primary capitalize">
+                      {check.replace('_', ' ')}
+                    </span>
+                    <span className={`px-2 py-1 rounded text-xs font-medium ${
+                      status === 'pass'
+                        ? 'bg-theme-success-background text-theme-success'
+                        : 'bg-theme-error-background text-theme-error'
+                    }`}>
+                      {status.toUpperCase()}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Details */}
+            {testResults.details && testResults.details.length > 0 && (
+              <div className="mb-6">
+                <h4 className="font-medium text-theme-primary mb-3">Details</h4>
+                <div className="bg-theme-background rounded p-4 space-y-2">
+                  {testResults.details.map((detail: string, index: number) => (
+                    <div key={index} className="text-theme-secondary text-sm">
+                      • {detail}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setShowTestResults(false)}
+                className="px-4 py-2 border border-theme rounded text-theme-secondary hover:text-theme-primary transition-colors"
+              >
+                Close
+              </button>
+              <button
+                onClick={handleTestWorker}
+                disabled={testingWorker}
+                className="px-4 py-2 bg-theme-info-background text-theme-info rounded hover:bg-theme-info-background/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {testingWorker ? 'Testing...' : 'Test Again'}
               </button>
             </div>
           </div>

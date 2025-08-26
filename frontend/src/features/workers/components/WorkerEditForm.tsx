@@ -14,7 +14,7 @@ export const WorkerEditForm: React.FC<WorkerEditFormProps> = ({ worker, onUpdate
   const defaultValues: UpdateWorkerData = {
     name: worker.name,
     description: worker.description || '',
-    permissions: worker.permissions
+    roles: worker.roles
   };
 
   const validationRules: FormValidationRules = {
@@ -26,7 +26,7 @@ export const WorkerEditForm: React.FC<WorkerEditFormProps> = ({ worker, onUpdate
     description: {
       maxLength: 500,
     },
-    permissions: {
+    roles: {
       required: true,
     }
   };
@@ -88,21 +88,41 @@ export const WorkerEditForm: React.FC<WorkerEditFormProps> = ({ worker, onUpdate
 
         <div>
           <label className="label-theme">
-            Permissions *
+            Roles *
           </label>
-          <select
-            {...form.getFieldProps('permissions')}
-            className={`select-theme ${form.errors.permissions ? 'border-theme-error' : ''}`}
-            disabled={form.isSubmitting}
-            required
-          >
-            <option value="readonly">Read Only - Can only read data</option>
-            <option value="standard">Standard - Can process jobs and read/write data</option>
-            <option value="admin">Admin - Can manage jobs and access admin functions</option>
-            <option value="super_admin">Super Admin - Full access including service management</option>
-          </select>
-          {form.errors.permissions && (
-            <p className="text-theme-error text-sm mt-1">{form.errors.permissions}</p>
+          <div className="space-y-2">
+            <div className="text-sm text-theme-secondary">Select applicable roles (permissions are inherited from roles):</div>
+            <div className="space-y-2 max-h-48 overflow-y-auto border border-theme rounded p-3 bg-theme-background">
+              {[
+                { name: 'member', display: 'Member' },
+                { name: 'developer', display: 'App Developer' },
+                { name: 'billing_admin', display: 'Billing Administrator' },
+                { name: 'admin', display: 'Administrator' },
+                { name: 'super_admin', display: 'Super Administrator' },
+                { name: 'system_worker', display: 'System Worker' },
+                { name: 'task_worker', display: 'Task Worker' }
+              ].map((role) => (
+                <label key={role.name} className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    checked={form.values.roles?.includes(role.name) || false}
+                    onChange={(e) => {
+                      const currentRoles = form.values.roles || [];
+                      const newRoles = e.target.checked
+                        ? [...currentRoles, role.name]
+                        : currentRoles.filter(r => r !== role.name);
+                      form.setValue('roles', newRoles);
+                    }}
+                    className="rounded border-theme text-theme-interactive-primary focus:ring-theme-interactive-primary"
+                    disabled={form.isSubmitting}
+                  />
+                  <span className="text-sm text-theme-primary">{role.display}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+          {form.errors.roles && (
+            <p className="text-theme-error text-sm mt-1">{form.errors.roles}</p>
           )}
         </div>
 
