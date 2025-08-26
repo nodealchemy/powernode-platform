@@ -3,11 +3,21 @@ Rails.application.routes.draw do
   # Can be used by load balancers and uptime monitors to verify that the app is live.
   get "up" => "rails/health#show", as: :rails_health_check
 
+  # Health check endpoint (global, outside API namespace)
+  get :health, to: 'health#index'
+
   # API Routes
   namespace :api do
     namespace :v1 do
       # Health check endpoint for load balancers
       get :health, to: proc { [200, {}, [{status: 'ok'}.to_json]] }
+      
+      # Worker test endpoints
+      post 'worker/ping', to: 'worker_test#ping'
+      post 'worker/process_job', to: 'worker_test#process_job'
+      
+      # CSRF token endpoint for authenticated users
+      get :csrf_token, to: 'csrf#token'
       
       # Public endpoints (no authentication required)
       get 'public/plans', to: 'plans#public_index'
@@ -127,6 +137,15 @@ Rails.application.routes.draw do
         get :system_logs, on: :member
         post :suspend_account, on: :member
         post :activate_account, on: :member
+        get :metrics, on: :member
+        get :health, on: :member
+        
+        # Security configuration endpoints
+        get :security, on: :member
+        put :security, on: :member, action: :update_security_config
+        post 'security/test', on: :member, action: :test_security_config
+        post 'security/regenerate_jwt_secret', on: :member, action: :regenerate_jwt_secret
+        delete 'security/blacklisted_tokens', on: :member, action: :clear_blacklisted_tokens
       end
 
       # Services Configuration (system-level)
@@ -178,15 +197,6 @@ Rails.application.routes.draw do
           end
         end
         
-        # Worker management
-        resources :workers do
-          member do
-            post :regenerate_token
-            post :suspend
-            post :activate
-            post :revoke
-          end
-        end
 
         # Maintenance endpoints
         namespace :maintenance do
@@ -353,6 +363,9 @@ Rails.application.routes.draw do
         post :reactivate_suspended_accounts
       end
 
+      # Jobs endpoint for worker service communication
+      resources :jobs, only: [:create]
+      
       # Notifications endpoint for worker service
       resources :notifications, only: [:create]
 
@@ -586,6 +599,26 @@ Rails.application.routes.draw do
           get :prometheus
           get :health
           get :application
+        end
+      end
+
+      # Worker management
+      resources :workers do
+        member do
+          post :regenerate_token
+          post :suspend
+          post :activate
+          post :revoke
+          post :test_worker
+          post :health_check
+        end
+        
+        # Nested activities routes
+        resources :activities, only: [:index, :show] do
+          collection do
+            get :summary
+            delete :cleanup
+          end
         end
       end
 
