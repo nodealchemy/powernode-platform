@@ -113,6 +113,34 @@ class BackendApiClient
     get("/api/v1/health")
   end
 
+  def make_request(method, path, data = {})
+    response = @connection.send(method) do |req|
+      req.url path
+      req.headers['Authorization'] = "Bearer #{@config.worker_token}"
+      req.headers['Content-Type'] = 'application/json'
+      req.headers['Accept'] = 'application/json'
+      req.headers['User-Agent'] = 'PowernodeWorker/1.0'
+      
+      case method
+      when :get, :delete
+        req.params = data if data.any?
+      else
+        req.body = data if data.any?
+      end
+    end
+
+    handle_response(response)
+  rescue Faraday::TimeoutError => e
+    @logger.error "API request timeout: #{e.message}"
+    raise ApiError.new("Request timeout: #{e.message}", 408)
+  rescue Faraday::ConnectionFailed => e
+    @logger.error "API connection failed: #{e.message}"
+    raise ApiError.new("Connection failed: #{e.message}", 503)
+  rescue Faraday::Error => e
+    @logger.error "API request failed: #{e.message}"
+    raise ApiError.new("Request failed: #{e.message}")
+  end
+
   private
 
   def build_connection
@@ -164,33 +192,7 @@ class BackendApiClient
     make_request(:delete, path)
   end
 
-  def make_request(method, path, data = {})
-    response = @connection.send(method) do |req|
-      req.url path
-      req.headers['Authorization'] = "Bearer #{@config.service_token}"
-      req.headers['Content-Type'] = 'application/json'
-      req.headers['Accept'] = 'application/json'
-      req.headers['User-Agent'] = 'PowernodeWorker/1.0'
-      
-      case method
-      when :get, :delete
-        req.params = data if data.any?
-      else
-        req.body = data if data.any?
-      end
-    end
-
-    handle_response(response)
-  rescue Faraday::TimeoutError => e
-    @logger.error "API request timeout: #{e.message}"
-    raise ApiError.new("Request timeout: #{e.message}", 408)
-  rescue Faraday::ConnectionFailed => e
-    @logger.error "API connection failed: #{e.message}"
-    raise ApiError.new("Connection failed: #{e.message}", 503)
-  rescue Faraday::Error => e
-    @logger.error "API request failed: #{e.message}"
-    raise ApiError.new("Request failed: #{e.message}")
-  end
+  private
 
   def handle_response(response)
     case response.status
