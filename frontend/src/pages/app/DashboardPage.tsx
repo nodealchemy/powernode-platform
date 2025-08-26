@@ -432,7 +432,7 @@ const DashboardPage: React.FC = () => {
         <Route path="/admin/users" element={<AdminUsersPage />} />
         <Route path="/admin/roles" element={<AdminRolesPage />} />
         <Route path="/admin/marketplace" element={<AdminMarketplacePage />} />
-        <Route path="/system/workers" element={<SystemWorkersPage />} />
+        <Route path="/system/workers/*" element={<SystemWorkersPage />} />
         <Route path="/admin/maintenance/*" element={<AdminMaintenancePage />} />
         <Route path="/admin" element={<Navigate to="/app/admin/settings" replace />} />
         
