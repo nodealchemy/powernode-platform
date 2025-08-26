@@ -28,7 +28,9 @@ class WorkerActivity < ApplicationRecord
     token_regenerated: 'token_regenerated',
     service_suspended: 'service_suspended',
     service_activated: 'service_activated',
-    service_revoked: 'service_revoked'
+    service_revoked: 'service_revoked',
+    ping_test: 'ping_test',
+    job_processing_test: 'job_processing_test'
   }, prefix: :action
   
   # Scopes
@@ -41,9 +43,9 @@ class WorkerActivity < ApplicationRecord
   before_create :set_performed_at
   
   # Class methods
-  def self.log_activity(service, action, details = {})
+  def self.log_activity(worker, action, details = {})
     create!(
-      service: service,
+      worker: worker,
       action: action,
       details: details.merge(logged_at: Time.current.iso8601),
       performed_at: Time.current,

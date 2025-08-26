@@ -145,12 +145,7 @@ module Permissions
     'admin.maintenance.cleanup' => 'Run cleanup operations',
     'admin.maintenance.tasks' => 'Manage scheduled tasks',
     
-    # Worker Management
-    'admin.worker.view' => 'View workers',
-    'admin.worker.create' => 'Create workers',
-    'admin.worker.edit' => 'Edit workers',
-    'admin.worker.delete' => 'Delete workers',
-    'admin.worker.suspend' => 'Suspend workers',
+    # Worker Management - consolidated under system.workers namespace
     
     # Marketplace Administration
     'admin.marketplace.view' => 'View marketplace management',

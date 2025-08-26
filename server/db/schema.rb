@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_08_25_162209) do
+ActiveRecord::Schema[8.0].define(version: 2025_08_25_175203) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -1145,9 +1145,10 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_25_162209) do
     t.datetime "token_regenerated_at"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.string "legacy_role"
+    t.jsonb "permissions", default: []
     t.index ["account_id"], name: "index_workers_on_account_id"
     t.index ["last_seen_at"], name: "index_workers_on_last_seen_at"
+    t.index ["permissions"], name: "index_workers_on_permissions", using: :gin
     t.index ["status"], name: "index_workers_on_status"
     t.index ["token"], name: "index_workers_on_token", unique: true
   end

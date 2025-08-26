@@ -478,21 +478,5 @@ class PermissionMatrixService
 
     private
 
-    # Map legacy roles to new standardized roles
-    def map_legacy_role(legacy_role)
-      case legacy_role
-      when 'admin'
-        'super_admin'
-      when 'owner'
-        'manager'
-      when 'member'
-        'member'
-      when 'manager'
-        'manager'
-      else
-        # If already in new format or unknown, keep as is
-        legacy_role
-      end
-    end
   end
 end

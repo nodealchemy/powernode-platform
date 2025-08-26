@@ -8,6 +8,9 @@ class WorkerRole < ApplicationRecord
   belongs_to :worker
   belongs_to :role
   
+  # Scopes
+  scope :active, -> { where('expires_at IS NULL OR expires_at > ?', Time.current) }
+  
   # Validations
   validates :worker_id, uniqueness: { scope: :role_id, message: 'already has this role' }
   

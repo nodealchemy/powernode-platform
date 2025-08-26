@@ -18,11 +18,11 @@ class Worker < ApplicationRecord
   
   # Associations
   belongs_to :account, optional: true  # System workers don't belong to an account
+  has_many :worker_activities, dependent: :destroy
   has_many :worker_roles, dependent: :destroy
   has_many :roles, through: :worker_roles
-  has_many :worker_activities, dependent: :destroy
   
-  # Permissions are now inherited through roles, not directly assigned
+  # Permissions are derived from assigned roles
   
   # State machine for status
   aasm column: 'status' do
@@ -55,9 +55,9 @@ class Worker < ApplicationRecord
   # Scopes
   scope :active, -> { where(status: 'active') }
   scope :for_account, ->(account) { where(account: account) }
-  scope :by_permission, ->(perm) { where(permissions: perm) }
-  scope :system_worker, -> { where(role: 'system') }
-  scope :account_workers, -> { where(role: 'account') }
+  scope :with_permission, ->(perm) { joins(roles: :permissions).where(permissions: { name: perm }) }
+  scope :system_workers, -> { where(account_id: nil) }
+  scope :account_workers, -> { where.not(account_id: nil) }
   
   # Callbacks
   before_create :generate_token
@@ -76,68 +76,120 @@ class Worker < ApplicationRecord
     worker
   end
   
-  def self.create_worker!(name:, description: nil, permissions: 'standard', account: nil, role: 'account')
+  def self.create_worker!(name:, description: nil, roles: [], account: nil)
     worker = create!(
       name: name,
       description: description,
-      permissions: permissions,
       account: account,
       token: generate_secure_token,
-      status: 'active',
-      role: role
+      status: 'active'
     )
+    
+    # Assign roles if provided, with validation
+    Array(roles).each do |role_name|
+      unless worker.assign_role(role_name)
+        worker.errors.add(:roles, "Role '#{role_name}' is not compatible with #{worker.system? ? 'system' : 'account'} workers")
+        worker.destroy! # Clean up if role assignment fails
+        raise ActiveRecord::RecordInvalid.new(worker)
+      end
+    end
     
     worker
   end
   
   def self.system_worker
-    find_by(role: 'system')
+    system_workers.first
   end
   
-  # Permission checking methods (similar to User model)
+  # Permission checking methods - role-based permissions
   def has_role?(role_name)
-    roles.joins(:worker_roles).where('worker_roles.expires_at IS NULL OR worker_roles.expires_at > ?', Time.current)
-         .exists?(name: role_name)
+    roles.exists?(name: role_name.to_s)
   end
   
   def has_permission?(permission_name)
-    # Check permissions through all active roles
-    worker_roles.active.includes(role: :permissions).any? do |worker_role|
-      worker_role.role.has_permission?(permission_name)
-    end
-  end
-  
-  def assign_role(role_or_name, assigned_by: nil, expires_at: nil)
-    role = role_or_name.is_a?(Role) ? role_or_name : Role.find_by!(name: role_or_name)
+    return false unless active?
     
-    worker_roles.create!(
-      role: role,
-      assigned_by: assigned_by,
-      expires_at: expires_at
-    )
+    # Get all permissions from all assigned roles
+    roles.joins(:permissions)
+         .where(permissions: { name: permission_name.to_s })
+         .exists?
   end
   
-  def remove_role(role_or_name)
-    role = role_or_name.is_a?(Role) ? role_or_name : Role.find_by!(name: role_or_name)
+  def assign_role(role_name)
+    role = Role.find_by(name: role_name.to_s)
+    return false unless role
+    
+    # Validate role type is appropriate for workers
+    unless valid_worker_role?(role)
+      Rails.logger.warn "Invalid role assignment: #{role_name} (#{role.role_type}) cannot be assigned to worker"
+      return false
+    end
+    
+    worker_roles.find_or_create_by(role: role)
+    true
+  end
+
+  def assign_roles(role_names)
+    Array(role_names).each { |role_name| assign_role(role_name) }
+  end
+  
+  def remove_role(role_name)
+    role = Role.find_by(name: role_name.to_s)
+    return false unless role
+    
     worker_roles.where(role: role).destroy_all
+    true
+  end
+
+  def remove_roles(role_names)
+    Array(role_names).each { |role_name| remove_role(role_name) }
   end
   
   def all_permissions
-    # Aggregate permissions from all active roles
-    Permission.joins(role_permissions: { role: :worker_roles })
-             .where(worker_roles: { worker_id: id })
-             .where('worker_roles.expires_at IS NULL OR worker_roles.expires_at > ?', Time.current)
-             .distinct
+    # Get unique permissions from all roles
+    roles.joins(:permissions)
+         .pluck('permissions.name')
+         .uniq
+         .sort
   end
   
-  def active_roles
-    worker_roles.active.includes(:role)
+  def permission_names
+    all_permissions
   end
   
   def role_names
-    roles.joins(:worker_roles).where('worker_roles.expires_at IS NULL OR worker_roles.expires_at > ?', Time.current)
-         .pluck(:name)
+    roles.pluck(:name)
   end
+  
+  def valid_worker_role?(role)
+    # Role assignments are based on worker type: system workers vs account workers
+    case role.role_type
+    when 'system'
+      # System roles only valid for system workers (no account_id)
+      system?
+    when 'user'
+      # User roles only valid for account workers (has account_id)
+      # Only specific user roles are allowed for management interface access
+      system? ? false : ['member', 'manager', 'billing_admin', 'developer', 'owner'].include?(role.name)
+    when 'admin'
+      # Admin roles only for system workers
+      system?
+    else
+      false
+    end
+  end
+  
+  def assignable_roles
+    # Return roles that can be assigned to this worker based on type
+    if system?
+      # System workers can have system and admin roles
+      Role.where(role_type: ['system', 'admin'])
+    else
+      # Account workers can only have specific user roles for management interface
+      Role.where(role_type: 'user').where(name: ['member', 'manager', 'billing_admin', 'developer', 'owner'])
+    end
+  end
+  
   
   def can_access?(resource_type, action = :read)
     return false unless active?
@@ -184,7 +236,7 @@ class Worker < ApplicationRecord
   end
   
   def system?
-    has_role?('system_worker') || has_role?('super_admin')
+    account_id.nil?
   end
   
   def account?
@@ -263,14 +315,10 @@ class Worker < ApplicationRecord
   end
   
   def only_one_system_worker_globally
-    # Check if this worker has or will have system_worker role
-    return unless name == 'Powernode System Worker'
+    # Check if this worker is a system worker (no account_id)
+    return unless account_id.nil?
     
-    # Check through the roles association
-    system_worker_role = Role.find_by(name: 'system_worker')
-    return unless system_worker_role
-    
-    existing_system = Worker.joins(:roles).where(roles: { id: system_worker_role.id }).where.not(id: id).first
+    existing_system = Worker.system_workers.where.not(id: id).first
     if existing_system
       errors.add(:base, "Only one system worker is allowed globally")
     end
