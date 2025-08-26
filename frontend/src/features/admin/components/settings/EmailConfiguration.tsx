@@ -39,6 +39,7 @@ export const EmailConfiguration: React.FC = () => {
   
   const { showNotification } = useNotification();
 
+
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const loadSettings = useCallback(async () => {
     try {
@@ -104,15 +105,17 @@ export const EmailConfiguration: React.FC = () => {
       return;
     }
     
-    setTesting(true);
     try {
+      setTesting(true);
       const response = await emailSettingsApi.testEmail(testEmail);
       showNotification(response.message || `Test email sent to ${testEmail}`, 'success');
     } catch (error: any) {
-      showNotification(
-        error.response?.data?.error || 'Failed to send test email',
-        'error'
-      );
+      console.log('Email test error:', error);
+      const errorMessage = error.response?.data?.error || 
+                          error.response?.data?.message || 
+                          error.message || 
+                          'Failed to send test email';
+      showNotification(errorMessage, 'error');
     } finally {
       setTesting(false);
     }

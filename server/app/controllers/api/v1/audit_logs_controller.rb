@@ -117,7 +117,7 @@ class Api::V1::AuditLogsController < ApplicationController
         return render json: {
           success: false,
           error: 'Action is required'
-        }, status: :unprocessable_entity
+        }, status: :unprocessable_content
       end
       
       # Set defaults for worker requests
@@ -144,7 +144,7 @@ class Api::V1::AuditLogsController < ApplicationController
         return render json: {
           success: false,
           error: 'No account found for audit log'
-        }, status: :unprocessable_entity
+        }, status: :unprocessable_content
       end
       
       # Create audit log
@@ -176,7 +176,7 @@ class Api::V1::AuditLogsController < ApplicationController
         success: false,
         error: 'Invalid audit log data',
         details: e.record.errors.full_messages
-      }, status: :unprocessable_entity
+      }, status: :unprocessable_content
     rescue StandardError => e
       Rails.logger.error "Failed to create audit log: #{e.message}"
       render json: {

@@ -5,44 +5,41 @@ class Api::V1::PaymentGatewaysController < ApplicationController
   
   def index
     begin
-      render json: {
+      render_success({
         gateways: gateway_configurations,
         status: gateway_statuses,
         recent_transactions: recent_transactions_data,
         statistics: gateway_statistics
-      }
+      })
     rescue => e
       Rails.logger.error "Payment gateways overview error: #{e.message}"
       Rails.logger.error e.backtrace.first(5).join("\n")
       
-      render json: {
-        error: "Failed to load payment gateways overview",
-        details: Rails.env.development? ? e.message : "Internal server error"
-      }, status: :internal_server_error
+      render_internal_error("Failed to load payment gateways overview", exception: e)
     end
   end
 
   def show
     gateway = params[:id]
     unless valid_gateway?(gateway)
-      render json: { error: "Invalid gateway" }, status: :not_found
+      render_error("Invalid gateway", status: :not_found)
       return
     end
 
-    render json: {
+    render_success({
       gateway: gateway,
       configuration: gateway_configuration_for(gateway),
       status: gateway_status_for(gateway),
       transactions: transactions_for_gateway(gateway),
       webhooks: webhooks_for_gateway(gateway),
       statistics: statistics_for_gateway(gateway)
-    }
+    })
   end
 
   def update
     gateway = params[:id]
     unless valid_gateway?(gateway)
-      render json: { error: "Invalid gateway" }, status: :not_found
+      render_error("Invalid gateway", status: :not_found)
       return
     end
 
@@ -55,14 +52,14 @@ class Api::V1::PaymentGatewaysController < ApplicationController
         configuration: gateway_configuration_for(gateway)
       }
     rescue => e
-      render json: { error: e.message }, status: :unprocessable_entity
+      render_error(e.message, status: :unprocessable_content)
     end
   end
 
   def test_connection
     gateway = params[:id]
     unless valid_gateway?(gateway)
-      render json: { error: "Invalid gateway" }, status: :not_found
+      render_error("Invalid gateway", status: :not_found)
       return
     end
 

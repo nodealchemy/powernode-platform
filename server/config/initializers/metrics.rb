@@ -134,7 +134,7 @@ else
 
     # Update business metrics
     def self.update_subscription_metrics
-      Subscription.group(:status, :plan_name).count.each do |(status, plan_name), count|
+      Subscription.joins(:plan).group(:status, 'plans.name').count.each do |(status, plan_name), count|
         subscription_gauge.observe(count, status: status, plan_name: plan_name || 'unknown')
       end
     end
@@ -150,7 +150,7 @@ else
       monthly_revenue = Subscription.active
                                    .joins(:plan)
                                    .group('plans.name')
-                                   .sum('plans.price')
+                                   .sum('plans.price_cents')
       
       monthly_revenue.each do |plan_name, revenue|
         subscription_revenue_gauge.observe(

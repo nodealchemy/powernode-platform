@@ -61,7 +61,7 @@ class Api::V1::ApiKeysController < ApplicationController
         success: false,
         error: 'Failed to create API key',
         details: api_key.errors.full_messages
-      }, status: :unprocessable_entity
+      }, status: :unprocessable_content
     end
   end
 
@@ -80,7 +80,7 @@ class Api::V1::ApiKeysController < ApplicationController
         success: false,
         error: 'Failed to update API key',
         details: @api_key.errors.full_messages
-      }, status: :unprocessable_entity
+      }, status: :unprocessable_content
     end
   end
 
@@ -100,7 +100,7 @@ class Api::V1::ApiKeysController < ApplicationController
         success: false,
         error: 'Failed to delete API key',
         details: @api_key.errors.full_messages
-      }, status: :unprocessable_entity
+      }, status: :unprocessable_content
     end
   end
 
@@ -125,7 +125,7 @@ class Api::V1::ApiKeysController < ApplicationController
         success: false,
         error: 'Failed to regenerate API key',
         details: @api_key.errors.full_messages
-      }, status: :unprocessable_entity
+      }, status: :unprocessable_content
     end
   end
 
@@ -149,7 +149,7 @@ class Api::V1::ApiKeysController < ApplicationController
         success: false,
         error: 'Failed to update API key status',
         details: @api_key.errors.full_messages
-      }, status: :unprocessable_entity
+      }, status: :unprocessable_content
     end
   end
 

@@ -8,54 +8,71 @@ class Api::V1::EmailSettingsController < ApplicationController
   def show
     email_settings = fetch_email_settings
     
-    render json: {
-      data: email_settings,
-      status: 'success'
-    }
+    render_success(email_settings)
   end
   
   # PUT /api/v1/email_settings
   # Update email configuration
   def update
     begin
-      email_params = params.require(:email_settings).permit(
-        :email_provider, :smtp_enabled, :smtp_host, :smtp_port, :smtp_username, 
-        :smtp_password, :smtp_encryption, :smtp_authentication, :smtp_from_address, 
-        :smtp_from_name, :smtp_domain, :sendgrid_api_key, :ses_access_key, 
-        :ses_secret_key, :ses_region, :mailgun_api_key, :mailgun_domain,
-        :email_verification_expiry_hours, :password_reset_expiry_hours,
-        :max_email_retries, :email_retry_delay_seconds
-      )
+      # Handle nested parameter structure from frontend
+      email_data = params[:email_settings] || params[:email_setting]&.fetch(:email_settings, nil) || {}
       
-      # Update each setting
-      email_params.each do |key, value|
-        if key.ends_with?('_password') || key.ends_with?('_api_key') || key.ends_with?('_secret_key')
+      # Convert to hash and then permit parameters
+      permitted_params = if email_data.is_a?(ActionController::Parameters)
+        email_data.permit(
+          :email_provider, :provider, :smtp_enabled, :smtp_host, :smtp_port, :smtp_username, 
+          :smtp_password, :smtp_encryption, :smtp_authentication, :smtp_from_address, 
+          :smtp_from_name, :smtp_domain, :sendgrid_api_key, :ses_access_key, 
+          :ses_secret_key, :ses_region, :mailgun_api_key, :mailgun_domain,
+          :email_verification_expiry_hours, :password_reset_expiry_hours,
+          :max_email_retries, :email_retry_delay_seconds
+        )
+      else
+        ActionController::Parameters.new(email_data).permit(
+          :email_provider, :provider, :smtp_enabled, :smtp_host, :smtp_port, :smtp_username, 
+          :smtp_password, :smtp_encryption, :smtp_authentication, :smtp_from_address, 
+          :smtp_from_name, :smtp_domain, :sendgrid_api_key, :ses_access_key, 
+          :ses_secret_key, :ses_region, :mailgun_api_key, :mailgun_domain,
+          :email_verification_expiry_hours, :password_reset_expiry_hours,
+          :max_email_retries, :email_retry_delay_seconds
+        )
+      end
+      
+      # Update each setting (handle both provider and email_provider)
+      permitted_params.each do |key, value|
+        # Normalize provider key
+        setting_key = key == 'provider' ? 'email_provider' : key
+        
+        if setting_key.ends_with?('_password') || setting_key.ends_with?('_api_key') || setting_key.ends_with?('_secret_key')
           # Encrypt sensitive values
-          AdminSetting.set("#{key}_encrypted", encrypt_password(value))
+          AdminSetting.set("#{setting_key}_encrypted", encrypt_password(value))
         else
-          AdminSetting.set(key, value)
+          AdminSetting.set(setting_key, value)
         end
       end
       
-      # Trigger email settings refresh in worker
+      # Trigger email settings refresh in worker (async operation)
       begin
         WorkerJobService.enqueue_refresh_email_settings
       rescue WorkerJobService::WorkerServiceError => e
         Rails.logger.warn "Failed to notify worker of email settings change: #{e.message}"
         # Continue - don't fail the update if worker notification fails
+        # The worker service will pick up changes on next polling cycle
+      rescue StandardError => e
+        Rails.logger.error "Unexpected error notifying worker service: #{e.message}"
+        # Continue - worker service unavailability shouldn't block settings updates
       end
       
-      render json: {
-        message: 'Email settings updated successfully',
-        status: 'success'
-      }
+      render_success({
+        message: 'Email settings updated successfully'
+      })
     rescue StandardError => e
       Rails.logger.error "Failed to update email settings: #{e.message}"
-      render json: {
-        error: 'Failed to update email settings',
-        details: e.message,
-        status: 'error'
-      }, status: :unprocessable_entity
+      render_error(
+        'Failed to update email settings',
+        status: :unprocessable_content
+      )
     end
   end
 
@@ -65,7 +82,7 @@ class Api::V1::EmailSettingsController < ApplicationController
     test_email = params[:email]
     
     unless test_email.present?
-      render json: { error: 'Email address is required' }, status: :unprocessable_entity
+      render_error('Email address is required', status: :unprocessable_content)
       return
     end
     
@@ -74,22 +91,21 @@ class Api::V1::EmailSettingsController < ApplicationController
       # Use WorkerJobService to enqueue the test email job
       WorkerJobService.enqueue_test_email(test_email)
       
-      render json: {
-        message: "Test email queued for delivery to #{test_email}",
-        status: 'success'
-      }
+      render_success({
+        message: "Test email queued for delivery to #{test_email}"
+      })
     rescue WorkerJobService::WorkerServiceError => e
       Rails.logger.error "Failed to queue test email: #{e.message}"
-      render json: {
-        error: 'Failed to queue test email. Please check worker service status.',
-        status: 'error'
-      }, status: :service_unavailable
+      render_error(
+        'Failed to queue test email. Please check worker service status.',
+        status: :service_unavailable
+      )
     rescue StandardError => e
       Rails.logger.error "Failed to queue test email: #{e.message}"
-      render json: {
-        error: 'Failed to queue test email. Please check worker service status.',
-        status: 'error'
-      }, status: :service_unavailable
+      render_error(
+        'Failed to queue test email. Please check worker service status.',
+        status: :service_unavailable
+      )
     end
   end
   
@@ -162,6 +178,6 @@ class Api::V1::EmailSettingsController < ApplicationController
       end
     end
     
-    render json: { error: 'Unauthorized' }, status: :unauthorized
+    render_error('Unauthorized', status: :unauthorized)
   end
 end

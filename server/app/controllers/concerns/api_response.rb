@@ -54,7 +54,7 @@ module ApiResponse
 
     render_error(
       message,
-      status: :unprocessable_entity,
+      status: :unprocessable_content,
       code: "VALIDATION_ERROR",
       details: { errors: error_details }
     )

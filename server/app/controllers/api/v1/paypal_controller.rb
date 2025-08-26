@@ -43,7 +43,7 @@ class Api::V1::PaypalController < ApplicationController
         success: false,
         error: result[:error],
         details: result[:details]
-      }, status: :unprocessable_entity
+      }, status: :unprocessable_content
     end
   rescue => e
     Rails.logger.error "PayPal payment creation error: #{e.message}"
@@ -81,7 +81,7 @@ class Api::V1::PaypalController < ApplicationController
       render json: {
         success: false,
         error: result[:error]
-      }, status: :unprocessable_entity
+      }, status: :unprocessable_content
     end
   rescue => e
     Rails.logger.error "PayPal payment execution error: #{e.message}"
@@ -118,7 +118,7 @@ class Api::V1::PaypalController < ApplicationController
         success: false,
         error: result[:error],
         details: result[:details]
-      }, status: :unprocessable_entity
+      }, status: :unprocessable_content
     end
   rescue => e
     Rails.logger.error "PayPal subscription plan creation error: #{e.message}"
@@ -169,14 +169,14 @@ class Api::V1::PaypalController < ApplicationController
           success: false,
           error: "Failed to create subscription record",
           details: subscription.errors.full_messages
-        }, status: :unprocessable_entity
+        }, status: :unprocessable_content
       end
     else
       render json: {
         success: false,
         error: result[:error],
         details: result[:details]
-      }, status: :unprocessable_entity
+      }, status: :unprocessable_content
     end
   rescue => e
     Rails.logger.error "PayPal subscription creation error: #{e.message}"
@@ -216,7 +216,7 @@ class Api::V1::PaypalController < ApplicationController
         success: false,
         error: result[:error],
         details: result[:details]
-      }, status: :unprocessable_entity
+      }, status: :unprocessable_content
     end
   rescue => e
     Rails.logger.error "PayPal subscription execution error: #{e.message}"
@@ -258,7 +258,7 @@ class Api::V1::PaypalController < ApplicationController
         success: false,
         error: result[:error],
         details: result[:details]
-      }, status: :unprocessable_entity
+      }, status: :unprocessable_content
     end
   rescue => e
     Rails.logger.error "PayPal subscription cancellation error: #{e.message}"
@@ -298,7 +298,7 @@ class Api::V1::PaypalController < ApplicationController
         success: false,
         error: result[:error],
         details: result[:details]
-      }, status: :unprocessable_entity
+      }, status: :unprocessable_content
     end
   rescue => e
     Rails.logger.error "PayPal refund creation error: #{e.message}"

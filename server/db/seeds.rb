@@ -134,10 +134,11 @@ system_worker = Worker.find_or_create_by!(name: 'Powernode System Worker') do |w
   # Token is generated automatically by before_create callback
 end
 
-# Assign system_worker role to the system worker
-if system_worker.roles.empty?
-  system_worker_role = Role.find_by(name: 'system_worker')
-  system_worker.roles << system_worker_role if system_worker_role
+# Assign system_worker role to system worker
+system_worker_role = Role.find_by(name: 'system_worker')
+if system_worker_role && !system_worker.has_role?('system_worker')
+  system_worker.assign_role('system_worker')
+  puts "✅ Assigned system_worker role to system worker"
 end
 
 puts "✅ System worker created with token: #{system_worker.token[0..10]}..."

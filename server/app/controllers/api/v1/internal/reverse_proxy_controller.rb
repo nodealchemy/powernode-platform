@@ -61,7 +61,7 @@ class Api::V1::Internal::ReverseProxyController < ApplicationController
     discovery_config = params.require(:discovery_config)
     
     unless discovery_config['enabled']
-      return render_error('Service discovery is not enabled', status: :unprocessable_entity)
+      return render_error('Service discovery is not enabled', status: :unprocessable_content)
     end
 
     discovered_services = []

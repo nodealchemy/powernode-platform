@@ -24,7 +24,7 @@ class Api::V1::Auth::EmailVerificationsController < ApplicationController
     end
 
     if user.email_verification_expired?
-      render_error("Verification token has expired. Please request a new one.", status: :unprocessable_entity)
+      render_error("Verification token has expired. Please request a new one.", status: :unprocessable_content)
       return
     end
 
@@ -80,7 +80,7 @@ class Api::V1::Auth::EmailVerificationsController < ApplicationController
     end
 
     if current_user.verified?
-      render_error("Email is already verified", status: :unprocessable_entity)
+      render_error("Email is already verified", status: :unprocessable_content)
       return
     end
 

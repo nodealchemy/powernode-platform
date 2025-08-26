@@ -60,7 +60,7 @@ RSpec.describe Api::V1::Auth::EmailVerificationsController, type: :controller do
       it 'returns expired token error' do
         post :verify, params: { token: user.email_verification_token }
         
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         expect(json_response['success']).to be false
         expect(json_response['error']).to include('expired')
       end
@@ -139,7 +139,7 @@ RSpec.describe Api::V1::Auth::EmailVerificationsController, type: :controller do
       it 'returns already verified error' do
         post :resend
         
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         expect(json_response['success']).to be false
         expect(json_response['error']).to eq('Email is already verified')
       end

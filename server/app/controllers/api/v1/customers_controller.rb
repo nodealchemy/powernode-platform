@@ -84,7 +84,7 @@ class Api::V1::CustomersController < ApplicationController
     render json: {
       success: false,
       errors: e.record.errors.full_messages
-    }, status: :unprocessable_entity
+    }, status: :unprocessable_content
   end
 
   def update
@@ -121,7 +121,7 @@ class Api::V1::CustomersController < ApplicationController
     render json: {
       success: false,
       errors: e.record.errors.full_messages
-    }, status: :unprocessable_entity
+    }, status: :unprocessable_content
   end
 
   def destroy

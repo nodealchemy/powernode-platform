@@ -55,7 +55,7 @@ class Api::V1::DelegationsController < ApplicationController
       render json: { 
         errors: result[:errors],
         message: "Failed to create delegation"
-      }, status: :unprocessable_entity
+      }, status: :unprocessable_content
     end
   end
 
@@ -80,7 +80,7 @@ class Api::V1::DelegationsController < ApplicationController
       render json: { 
         errors: result[:errors],
         message: "Failed to update delegation"
-      }, status: :unprocessable_entity
+      }, status: :unprocessable_content
     end
   end
 
@@ -96,7 +96,7 @@ class Api::V1::DelegationsController < ApplicationController
       render json: { 
         errors: result[:errors],
         message: "Failed to revoke delegation"
-      }, status: :unprocessable_entity
+      }, status: :unprocessable_content
     end
   end
 
@@ -115,7 +115,7 @@ class Api::V1::DelegationsController < ApplicationController
       render json: { 
         errors: result[:errors],
         message: "Failed to activate delegation"
-      }, status: :unprocessable_entity
+      }, status: :unprocessable_content
     end
   end
 
@@ -134,7 +134,7 @@ class Api::V1::DelegationsController < ApplicationController
       render json: { 
         errors: result[:errors],
         message: "Failed to deactivate delegation"
-      }, status: :unprocessable_entity
+      }, status: :unprocessable_content
     end
   end
 
@@ -153,7 +153,7 @@ class Api::V1::DelegationsController < ApplicationController
       render json: { 
         errors: result[:errors],
         message: "Failed to revoke delegation"
-      }, status: :unprocessable_entity
+      }, status: :unprocessable_content
     end
   end
 
@@ -188,7 +188,7 @@ class Api::V1::DelegationsController < ApplicationController
       render json: { 
         errors: result[:errors],
         message: "Failed to add permission"
-      }, status: :unprocessable_entity
+      }, status: :unprocessable_content
     end
   end
 
@@ -210,7 +210,7 @@ class Api::V1::DelegationsController < ApplicationController
       render json: { 
         errors: result[:errors],
         message: "Failed to remove permission"
-      }, status: :unprocessable_entity
+      }, status: :unprocessable_content
     end
   end
 
@@ -231,13 +231,13 @@ class Api::V1::DelegationsController < ApplicationController
 
   def authorize_delegation_management!
     unless current_user.has_permission?('account.manage') || current_user.has_permission?('admin.access')
-      render json: { error: "Insufficient permissions to manage delegations" }, status: :forbidden
+      render_error("Insufficient permissions to manage delegations", status: :forbidden)
     end
   end
 
   def authorize_delegation_view!
     unless current_user.has_permission?('account.manage') || current_user.has_permission?('admin.access') || @delegation.delegated_user == current_user
-      render json: { error: "Insufficient permissions to view this delegation" }, status: :forbidden
+      render_error("Insufficient permissions to view this delegation", status: :forbidden)
     end
   end
 

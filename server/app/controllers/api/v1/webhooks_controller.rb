@@ -63,7 +63,7 @@ class Api::V1::WebhooksController < ApplicationController
         success: false,
         error: 'Failed to create webhook endpoint',
         details: webhook.errors.full_messages
-      }, status: :unprocessable_entity
+      }, status: :unprocessable_content
     end
   end
 
@@ -82,7 +82,7 @@ class Api::V1::WebhooksController < ApplicationController
         success: false,
         error: 'Failed to update webhook endpoint',
         details: @webhook.errors.full_messages
-      }, status: :unprocessable_entity
+      }, status: :unprocessable_content
     end
   end
 
@@ -102,7 +102,7 @@ class Api::V1::WebhooksController < ApplicationController
         success: false,
         error: 'Failed to delete webhook endpoint',
         details: @webhook.errors.full_messages
-      }, status: :unprocessable_entity
+      }, status: :unprocessable_content
     end
   end
 
@@ -140,7 +140,7 @@ class Api::V1::WebhooksController < ApplicationController
         success: false,
         error: 'Webhook test failed',
         details: e.message
-      }, status: :unprocessable_entity
+      }, status: :unprocessable_content
     end
   end
 
@@ -164,7 +164,7 @@ class Api::V1::WebhooksController < ApplicationController
         success: false,
         error: 'Failed to update webhook status',
         details: @webhook.errors.full_messages
-      }, status: :unprocessable_entity
+      }, status: :unprocessable_content
     end
   end
 

@@ -70,5 +70,16 @@ module Server
     else
       config.cache_store = :memory_store
     end
+
+    # CSRF Protection Configuration for API
+    config.x.csrf_protection_enabled = false # Disabled by default, can be enabled via admin settings
+    config.x.csrf_token_expiry = 2.hours
+    config.x.csrf_token_header_name = 'X-CSRF-Token'
+    config.x.csrf_allow_parameter = false # API should use headers only
+    config.x.csrf_require_ssl = Rails.env.production? # Require HTTPS in production
+    
+    # Add worker activity tracking middleware
+    require Rails.root.join('app/middleware/worker_activity_tracker')
+    config.middleware.use WorkerActivityTracker
   end
 end

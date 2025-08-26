@@ -37,7 +37,8 @@ export const emailSettingsApi = {
     const response = await api.put('/email_settings', {
       email_settings: settings
     });
-    return response.data;
+    // Handle standardized API response format: {success: true, data: {...}}
+    return response.data.data || { message: 'Settings updated successfully', status: 'success' };
   },
 
   async testEmail(email: string): Promise<{
@@ -45,6 +46,14 @@ export const emailSettingsApi = {
     status: string;
   }> {
     const response = await api.post('/email_settings/test', { email });
-    return response.data;
+    // Handle standardized API response format: {success: true, data: {...}}
+    if (response.data.success && response.data.data) {
+      return {
+        message: response.data.data.message || 'Test email queued successfully',
+        status: 'success'
+      };
+    }
+    // Fallback for backward compatibility
+    return response.data.data || response.data || { message: 'Test email queued successfully', status: 'success' };
   }
 };

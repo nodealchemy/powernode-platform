@@ -25,7 +25,7 @@ class Api::V1::Internal::AccountsController < ApplicationController
       }
     }
   rescue ActiveRecord::RecordNotFound
-    render json: { error: 'Account not found' }, status: :not_found
+    render_error('Account not found', status: :not_found)
   end
   
   private
@@ -34,7 +34,7 @@ class Api::V1::Internal::AccountsController < ApplicationController
     token = request.headers['Authorization']&.split(' ')&.last
     
     unless token.present?
-      render json: { error: 'Service token required' }, status: :unauthorized
+      render_error('Service token required', status: :unauthorized)
       return
     end
     
@@ -42,12 +42,12 @@ class Api::V1::Internal::AccountsController < ApplicationController
       payload = JWT.decode(token, Rails.application.config.jwt_secret_key, true, algorithm: 'HS256').first
       
       unless payload['service'] == 'worker' && payload['type'] == 'service'
-        render json: { error: 'Invalid service token' }, status: :unauthorized
+        render_error('Invalid service token', status: :unauthorized)
         return
       end
       
     rescue JWT::DecodeError, JWT::ExpiredSignature
-      render json: { error: 'Invalid service token' }, status: :unauthorized
+      render_error('Invalid service token', status: :unauthorized)
     end
   end
 end

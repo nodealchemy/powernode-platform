@@ -5,7 +5,7 @@ module Authentication
 
   included do
     before_action :authenticate_request
-    attr_reader :current_user, :current_account
+    attr_reader :current_user, :current_account, :current_worker
   end
 
   private
@@ -159,5 +159,41 @@ module Authentication
       success: false,
       error: message
     }, status: :forbidden
+  end
+
+  # Worker authentication methods
+  def authenticate_worker_request!
+    worker_token = extract_worker_token
+    return render_unauthorized("Worker token required") unless worker_token
+
+    @current_worker = Worker.authenticate(worker_token)
+    return render_unauthorized("Invalid or inactive worker token") unless @current_worker
+
+    true
+  end
+
+  def authenticate_worker_optional
+    worker_token = extract_worker_token
+    return unless worker_token
+
+    begin
+      @current_worker = Worker.authenticate(worker_token)
+    rescue StandardError
+      @current_worker = nil
+    end
+  end
+
+  def extract_worker_token
+    auth_header = request.headers['Authorization']
+    return nil unless auth_header&.start_with?('Bearer ')
+    
+    token = auth_header.split(' ', 2).last
+    # Worker tokens start with 'swt_'
+    token if token&.start_with?('swt_')
+  end
+
+  # Check if current request is from a worker
+  def worker_authenticated?
+    @current_worker.present?
   end
 end

@@ -69,7 +69,7 @@ class Api::V1::Admin::ReverseProxyController < ApplicationController
       validation_result = validate_proxy_config(test_config)
       unless validation_result[:valid]
         return render_error("Configuration validation failed: #{validation_result[:errors].join(', ')}", 
-                          status: :unprocessable_entity)
+                          status: :unprocessable_content)
       end
 
       # Delegate to worker for full testing
@@ -266,7 +266,7 @@ class Api::V1::Admin::ReverseProxyController < ApplicationController
     
     begin
       unless config['enabled']
-        return render_error('Service discovery is not enabled', status: :unprocessable_entity)
+        return render_error('Service discovery is not enabled', status: :unprocessable_content)
       end
 
       # Delegate to worker for service discovery
@@ -555,7 +555,7 @@ class Api::V1::Admin::ReverseProxyController < ApplicationController
     
     # Check if new service name already exists
     if config.dig('environments', environment, new_name)
-      return render_error('Service with new name already exists', status: :unprocessable_entity)
+      return render_error('Service with new name already exists', status: :unprocessable_content)
     end
     
     # Duplicate the service with modified port to avoid conflicts

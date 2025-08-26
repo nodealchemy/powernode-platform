@@ -4,25 +4,19 @@ class Api::V1::SettingsController < ApplicationController
   skip_before_action :authenticate_request, only: [:public]
   # GET /api/v1/settings/public
   def public
-    render json: {
-      success: true,
-      data: {
-        copyright_text: formatted_copyright_text
-      }
-    }, status: :ok
+    render_success({
+      copyright_text: formatted_copyright_text
+    })
   end
 
   # GET /api/v1/settings
   def show
-    render json: {
-      success: true,
-      data: {
-        user_preferences: current_user_preferences,
-        account_settings: current_account_settings,
-        notification_preferences: current_notification_preferences,
-        security_settings: current_security_settings
-      }
-    }, status: :ok
+    render_success({
+      user_preferences: current_user_preferences,
+      account_settings: current_account_settings,
+      notification_preferences: current_notification_preferences,
+      security_settings: current_security_settings
+    })
   end
 
   # PUT /api/v1/settings
@@ -34,26 +28,20 @@ class Api::V1::SettingsController < ApplicationController
     ).call
 
     if result[:success]
-      render json: {
-        success: true,
-        data: result[:data],
+      render_success(result[:data].merge({
         message: "Settings updated successfully"
-      }, status: :ok
+      }))
     else
-      render json: {
-        success: false,
-        error: "Settings update failed",
+      render_error("Settings update failed", 
+        status: :unprocessable_content,
         details: result[:errors]
-      }, status: :unprocessable_content
+      )
     end
   end
 
   # GET /api/v1/settings/notifications
   def notifications
-    render json: {
-      success: true,
-      data: current_notification_preferences
-    }, status: :ok
+    render_success(current_notification_preferences)
   end
 
   # PUT /api/v1/settings/notifications
@@ -62,26 +50,20 @@ class Api::V1::SettingsController < ApplicationController
       # Broadcast the notification preferences update to all user's sessions
       broadcast_settings_update('notifications_updated', current_notification_preferences)
       
-      render json: {
-        success: true,
-        data: current_notification_preferences,
+      render_success(current_notification_preferences.merge({
         message: "Notification preferences updated"
-      }, status: :ok
+      }))
     else
-      render json: {
-        success: false,
-        error: "Failed to update notification preferences",
-        details: current_user.errors.full_messages
-      }, status: :unprocessable_content
+      render_error("Failed to update notification preferences",
+        status: :unprocessable_content,
+        details: { errors: current_user.errors.full_messages }
+      )
     end
   end
 
   # GET /api/v1/settings/preferences
   def preferences
-    render json: {
-      success: true,
-      data: current_user_preferences
-    }, status: :ok
+    render_success(current_user_preferences)
   end
 
   # PUT /api/v1/settings/preferences
@@ -90,17 +72,14 @@ class Api::V1::SettingsController < ApplicationController
       # Broadcast the preferences update to all user's sessions
       broadcast_settings_update('preferences_updated', current_user_preferences)
       
-      render json: {
-        success: true,
-        data: current_user_preferences,
+      render_success(current_user_preferences.merge({
         message: "User preferences updated"
-      }, status: :ok
+      }))
     else
-      render json: {
-        success: false,
-        error: "Failed to update preferences",
-        details: current_user.errors.full_messages
-      }, status: :unprocessable_content
+      render_error("Failed to update preferences",
+        status: :unprocessable_content,
+        details: { errors: current_user.errors.full_messages }
+      )
     end
   end
 

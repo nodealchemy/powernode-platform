@@ -356,6 +356,77 @@ class AdminSettingsApi {
     return response.data;
   }
 
+  // Security Configuration Management
+  async getSecurityConfig(): Promise<{
+    csrf: {
+      enabled: boolean;
+      token_name: string;
+      protection_method: string;
+      require_ssl: boolean;
+    };
+    jwt: {
+      access_token_ttl: number;
+      refresh_token_ttl: number;
+      algorithm: string;
+      blacklist_enabled: boolean;
+      require_fresh_tokens_for_sensitive_operations: boolean;
+    };
+    authentication: {
+      max_failed_attempts: number;
+      lockout_duration: number;
+      require_2fa_for_admin: boolean;
+      session_timeout: number;
+    };
+    api_security: {
+      rate_limiting_enabled: boolean;
+      cors_enabled: boolean;
+      allowed_origins: string[];
+      require_api_key_for_write_operations: boolean;
+    };
+  }> {
+    const response = await api.get('/admin_settings/security');
+    return response.data;
+  }
+
+  async updateSecurityConfig(config: any): Promise<{
+    success: boolean;
+    message: string;
+    config: any;
+  }> {
+    const response = await api.put('/admin_settings/security', { security_config: config });
+    return response.data;
+  }
+
+  async testSecurityConfiguration(): Promise<{
+    csrf_protection: 'working' | 'error';
+    jwt_validation: 'working' | 'error';
+    authentication_flow: 'working' | 'error';
+    api_security: 'working' | 'error';
+    overall_status: 'healthy' | 'warning' | 'error';
+    details: string[];
+  }> {
+    const response = await api.post('/admin_settings/security/test');
+    return response.data;
+  }
+
+  async regenerateJwtSecret(): Promise<{
+    success: boolean;
+    message: string;
+    warning: string;
+  }> {
+    const response = await api.post('/admin_settings/security/regenerate_jwt_secret');
+    return response.data;
+  }
+
+  async clearBlacklistedTokens(): Promise<{
+    success: boolean;
+    message: string;
+    cleared_count: number;
+  }> {
+    const response = await api.delete('/admin_settings/security/blacklisted_tokens');
+    return response.data;
+  }
+
   getStatusColor(status: string): 'green' | 'yellow' | 'red' | 'blue' | 'gray' {
     switch (status.toLowerCase()) {
       case 'healthy':
