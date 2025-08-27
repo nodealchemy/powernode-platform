@@ -91,6 +91,9 @@ const DashboardOverview: React.FC = () => {
     if (!hasCheckedStatusRef.current) {
       hasCheckedStatusRef.current = true;
       checkSetupStatus();
+    } else {
+      // If we've already checked status, immediately set loading to false
+      setLoading(false);
     }
     
     // Cleanup function to prevent state updates on unmounted component
