@@ -386,9 +386,10 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dateRange]); // Only depend on dateRange, not loadAnalyticsData to avoid circular dependency
 
-  // Auto-refresh analytics data when WebSocket is connected
+  // Auto-refresh analytics data when WebSocket is connected - but only for overview tab
   useEffect(() => {
-    if (isConnected && data) {
+    // Only enable WebSocket auto-refresh for overview tab, let LiveMetricsOverview handle live tab
+    if (isConnected && data && activeTab === 'overview') {
       const interval = setInterval(() => {
         // Request real-time analytics update via WebSocket
         requestAnalyticsUpdate();
@@ -398,7 +399,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
         clearInterval(interval);
       };
     }
-  }, [isConnected, data, requestAnalyticsUpdate]);
+  }, [isConnected, data, requestAnalyticsUpdate, activeTab]);
 
   const handleDateRangeChange = (newDateRange: { startDate: Date; endDate: Date }) => {
     setDateRange(newDateRange);
@@ -581,7 +582,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
               accountId={user?.account?.id}
               showTodayActivity={true}
               showWeeklyTrend={true}
-              updateInterval={15000}
+              updateInterval={30000}
             />
           </div>
         </TabPanel>

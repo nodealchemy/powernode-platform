@@ -37,7 +37,7 @@ export const useAnalyticsWebSocket = ({
     onErrorRef.current?.(errorMessage);
   }, []);
 
-  // Subscribe to analytics channel
+  // Subscribe to analytics channel - memoize to prevent recreations
   const subscribeToAnalytics = useCallback(() => {
     if (unsubscribeRef.current) {
       unsubscribeRef.current();
@@ -49,7 +49,7 @@ export const useAnalyticsWebSocket = ({
       onError: handleError
     });
     
-  }, [subscribe, handleMessage, handleError]);
+  }, [subscribe]); // Remove handleMessage, handleError to prevent recreations
 
   // Request analytics update
   const requestAnalyticsUpdate = useCallback(async () => {
@@ -61,7 +61,7 @@ export const useAnalyticsWebSocket = ({
     await sendMessage('AnalyticsChannel', 'request_analytics');
   }, [isConnected, sendMessage]);
 
-  // Auto-subscribe when connected
+  // Auto-subscribe when connected - but only once
   useEffect(() => {
     if (isConnected) {
       subscribeToAnalytics();
@@ -73,7 +73,7 @@ export const useAnalyticsWebSocket = ({
         unsubscribeRef.current = null;
       }
     };
-  }, [isConnected, subscribeToAnalytics]);
+  }, [isConnected]); // Remove subscribeToAnalytics dependency to prevent recreation
 
   // Handle connection errors
   useEffect(() => {

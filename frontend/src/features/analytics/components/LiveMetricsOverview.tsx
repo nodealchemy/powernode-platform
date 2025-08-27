@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Button } from '@/shared/components/ui/Button';
 import { 
   DollarSign, 
@@ -62,10 +62,18 @@ export const LiveMetricsOverview: React.FC<LiveMetricsOverviewProps> = ({
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [isLive, setIsLive] = useState(false);
   const [isReconnecting, setIsReconnecting] = useState(false);
+  const lastUpdateTimeRef = useRef<number>(0);
 
   // Stable callbacks to prevent WebSocket reconnections
   const handleAnalyticsUpdate = useCallback((data: any) => {
     if (data.current_metrics) {
+      // Throttle updates to prevent excessive re-renders
+      const now = Date.now();
+      if (now - lastUpdateTimeRef.current < 5000) { // Minimum 5 second gap between updates
+        return;
+      }
+      lastUpdateTimeRef.current = now;
+      
       // Always clear errors when we receive valid data
       setError(null);
       setLastUpdated(new Date());
@@ -149,18 +157,18 @@ export const LiveMetricsOverview: React.FC<LiveMetricsOverviewProps> = ({
     }
   }, [isConnected]);
 
-  // Auto-request analytics updates when connected
+  // Auto-request analytics updates when connected - but only if we have metrics already
   useEffect(() => {
-    if (!isConnected) return;
+    if (!isConnected || !metrics) return;
     
     const interval = setInterval(() => {
       requestAnalyticsUpdate();
     }, updateInterval);
     
     return () => clearInterval(interval);
-  }, [isConnected, requestAnalyticsUpdate, updateInterval]);
+  }, [isConnected, requestAnalyticsUpdate, updateInterval, metrics]);
 
-  // Initial data load
+  // Initial data load - only run once on mount
   useEffect(() => {
     const loadInitialData = async () => {
       try {
@@ -181,7 +189,6 @@ export const LiveMetricsOverview: React.FC<LiveMetricsOverviewProps> = ({
         console.error('Failed to load live metrics:', err);
         
         // Provide more specific error messages for API failures
-        // But don't show the error immediately - wait to see if WebSocket provides data
         let userError = 'Failed to load live metrics';
         if (err instanceof Error) {
           if (err.message.includes('401') || err.message.includes('unauthorized')) {
@@ -197,19 +204,17 @@ export const LiveMetricsOverview: React.FC<LiveMetricsOverviewProps> = ({
           }
         }
         
-        // Set error but give WebSocket a chance to provide data
-        setTimeout(() => {
-          if (!metrics) {
-            setError(userError);
-          }
-        }, 2000); // Wait 2 seconds for WebSocket data before showing error
+        setError(userError);
       } finally {
         setLoading(false);
       }
     };
 
-    loadInitialData();
-  }, [accountId, metrics]);
+    // Only load on mount when we don't have metrics data
+    if (!metrics) {
+      loadInitialData();
+    }
+  }, [accountId]); // Remove metrics dependency to prevent loop
 
   // Connection status indicator
   useEffect(() => {
