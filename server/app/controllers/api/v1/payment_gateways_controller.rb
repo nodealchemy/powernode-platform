@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 class Api::V1::PaymentGatewaysController < ApplicationController
-  before_action -> { require_permission('admin.billing.manage_gateways') }
+  before_action -> { require_permission('admin.settings.payment') }
   
   def index
     begin
@@ -191,9 +191,9 @@ class Api::V1::PaymentGatewaysController < ApplicationController
         name: 'Stripe',
         enabled: (enabled_stored == 'true') || enabled_env,
         test_mode: (test_mode_stored == 'true') || !Rails.env.production?,
-        publishable_key_present: stored_config[:publishable_key].present? || env_config[:publishable_key].present?,
-        secret_key_present: stored_config[:secret_key].present? || env_config[:secret_key].present?,
-        endpoint_secret_present: stored_config[:endpoint_secret].present? || env_config[:endpoint_secret].present?,
+        publishable_key_present: stored_config[:publishable_key].present? || is_real_config_value?(env_config[:publishable_key]),
+        secret_key_present: stored_config[:secret_key].present? || is_real_config_value?(env_config[:secret_key]),
+        endpoint_secret_present: stored_config[:endpoint_secret].present? || is_real_config_value?(env_config[:endpoint_secret]),
         webhook_tolerance: stored_config[:webhook_tolerance] || env_config[:webhook_tolerance] || 300,
         api_version: get_stripe_api_version,
         supported_methods: %w[card bank apple_pay google_pay]
@@ -212,9 +212,9 @@ class Api::V1::PaymentGatewaysController < ApplicationController
         name: 'PayPal',
         enabled: (enabled_stored == 'true') || enabled_env,
         test_mode: (test_mode_stored == 'true') || mode == 'sandbox',
-        client_id_present: stored_config[:client_id].present? || env_config[:client_id].present?,
-        client_secret_present: stored_config[:client_secret].present? || env_config[:client_secret].present?,
-        webhook_id_present: stored_config[:webhook_id].present? || env_config[:webhook_id].present?,
+        client_id_present: stored_config[:client_id].present? || is_real_config_value?(env_config[:client_id]),
+        client_secret_present: stored_config[:client_secret].present? || is_real_config_value?(env_config[:client_secret]),
+        webhook_id_present: stored_config[:webhook_id].present? || is_real_config_value?(env_config[:webhook_id]),
         mode: mode,
         supported_methods: %w[paypal]
       }
@@ -241,9 +241,12 @@ class Api::V1::PaymentGatewaysController < ApplicationController
       when 'stripe'
         stored_config = GatewayConfiguration.stripe_config
         env_config = safe_config(:stripe)
+        
+        # Use same placeholder detection logic
+        secret_key_present = stored_config[:secret_key].present? || is_real_config_value?(env_config[:secret_key])
         secret_key = stored_config[:secret_key] || env_config[:secret_key]
         
-        if secret_key.present?
+        if secret_key_present
           # Quick Stripe API test
           begin
             Stripe.api_key = secret_key
@@ -265,12 +268,14 @@ class Api::V1::PaymentGatewaysController < ApplicationController
       when 'paypal'
         stored_config = GatewayConfiguration.paypal_config
         env_config = safe_config(:paypal)
-        client_id = stored_config[:client_id] || env_config[:client_id]
-        client_secret = stored_config[:client_secret] || env_config[:client_secret]
         
-        if client_id.present? && client_secret.present?
+        # Use same logic as configuration presence flags
+        client_id_present = stored_config[:client_id].present? || is_real_config_value?(env_config[:client_id])
+        client_secret_present = stored_config[:client_secret].present? || is_real_config_value?(env_config[:client_secret])
+        
+        if client_id_present && client_secret_present
           { status: 'configured', message: 'Configuration present', last_checked: Time.current }
-        elsif client_id.present?
+        elsif client_id_present
           { status: 'partial', message: 'Client ID configured, secret missing', last_checked: Time.current }
         else
           { status: 'not_configured', message: 'Client credentials not configured', last_checked: Time.current }
@@ -684,5 +689,35 @@ class Api::V1::PaymentGatewaysController < ApplicationController
   rescue => e
     Rails.logger.warn "Failed to get amount for payment #{payment.id}: #{e.message}"
     '0'
+  end
+
+  # Check if a configuration value is real vs placeholder
+  def is_real_config_value?(value)
+    return false unless value.present?
+    
+    # Common placeholder values that shouldn't be considered "configured"
+    placeholder_values = [
+      'your_paypal_client_id',
+      'your_paypal_client_secret', 
+      'your_paypal_webhook_id',
+      'your_stripe_publishable_key',
+      'your_stripe_secret_key',
+      'your_stripe_webhook_secret',
+      'placeholder',
+      'change_me',
+      'update_this',
+      'your_key_here',
+      'sk_test_placeholder',
+      'pk_test_placeholder'
+    ]
+    
+    # Check if the value is a known placeholder
+    return false if placeholder_values.include?(value.to_s.downcase)
+    
+    # Check for generic placeholder patterns
+    return false if value.to_s.match?(/^your_\w+|placeholder|change.?me|update.?this|key.?here$/i)
+    
+    # If it passes all checks, consider it a real configuration value
+    true
   end
 end
