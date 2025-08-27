@@ -11,6 +11,9 @@
 /* Import MS High Contrast deprecation fix */
 @import './assets/styles/ms-high-contrast-fix.css';
 
+/* Import highlight.js theme for code syntax highlighting */
+@import 'highlight.js/styles/github.css';
+
 body {
   margin: 0;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',

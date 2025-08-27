@@ -5,6 +5,7 @@ import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { adminSettingsApi, AdminOverviewData } from '@/features/admin/services/adminSettingsApi';
 import { servicesApi, HealthStatus } from '@/features/admin/services/servicesApi';
 import { ActionCard, MetricCard as StandardMetricCard } from '@/shared/components/ui/Card';
+import { useNotification } from '@/shared/hooks/useNotification';
 
 
 interface SystemStatusCardProps {
@@ -94,6 +95,7 @@ export const AdminSettingsOverviewPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [servicesHealth, setServicesHealth] = useState<HealthStatus | null>(null);
+  const { showNotification } = useNotification();
 
   const loadOverviewData = useCallback(async () => {
     try {
@@ -301,7 +303,15 @@ export const AdminSettingsOverviewPage: React.FC = () => {
           description={settings_summary?.maintenance_mode ? 'Users cannot access system' : 'System fully accessible'}
           action={settings_summary?.maintenance_mode ? {
             label: 'Disable Maintenance',
-            onClick: () => console.log('Disable maintenance mode')
+            onClick: async () => {
+              try {
+                await adminSettingsApi.updateSettings({ maintenance_mode: false });
+                showNotification('Maintenance mode disabled successfully', 'success');
+                await loadOverviewData(); // Refresh the data
+              } catch (error) {
+                showNotification('Failed to disable maintenance mode', 'error');
+              }
+            }
           } : undefined}
         />
 

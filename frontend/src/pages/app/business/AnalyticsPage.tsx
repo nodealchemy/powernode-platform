@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useSelector } from 'react-redux';
 import { useLocation } from 'react-router-dom';
 import { RootState } from '@/shared/services';
@@ -276,6 +276,10 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
     onError: handleWebSocketError
   });
   
+  // Refs to track loading state and prevent double-loading in StrictMode
+  const isInitialLoad = useRef(true);
+  const refreshInterval = useRef<NodeJS.Timeout | null>(null);
+
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -295,20 +299,27 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
   // Active tab state
   const [activeTab, setActiveTab] = useState(() => getActiveTabFromPath());
   
-  // Update active tab when URL changes
+  // Update active tab when URL changes (with debouncing)
   useEffect(() => {
-    const newActiveTab = getActiveTabFromPath();
-    if (newActiveTab !== activeTab) {
-      setActiveTab(newActiveTab);
-    }
-  }, [location.pathname, getActiveTabFromPath, activeTab]);
-
-  // Load analytics data
-  const loadAnalyticsData = useCallback(async (showLoading = true) => {
-    try {
-      if (showLoading) {
-        setLoading(true);
+    const timeoutId = setTimeout(() => {
+      const newActiveTab = getActiveTabFromPath();
+      if (newActiveTab !== activeTab) {
+        setActiveTab(newActiveTab);
       }
+    }, 50);
+
+    return () => clearTimeout(timeoutId);
+  }, [location.pathname, getActiveTabFromPath]);
+
+  // Load analytics data with StrictMode protection
+  const loadAnalyticsData = useCallback(async (force = false) => {
+    // Prevent double-loading in React.StrictMode during initial mount
+    if (isInitialLoad.current && !force && data && !usingFallbackData) {
+      return;
+    }
+
+    try {
+      setLoading(true);
       setError(null);
       setUsingFallbackData(false);
 
@@ -371,6 +382,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
       }
 
       setData(analyticsData);
+      isInitialLoad.current = false;
       // setLastUpdated(new Date()); // TODO: Display last updated timestamp
     } catch (err) {
       console.error('Failed to load analytics data:', err);
@@ -378,27 +390,35 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
     } finally {
       setLoading(false);
     }
-  }, [dateRange]);
+  }, [dateRange, data, usingFallbackData]);
 
-  // Initial data load
+  // Initial data load with StrictMode protection
   useEffect(() => {
-    loadAnalyticsData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dateRange]); // Only depend on dateRange, not loadAnalyticsData to avoid circular dependency
+    const timeoutId = setTimeout(() => {
+      loadAnalyticsData();
+    }, 0);
+    return () => clearTimeout(timeoutId);
+  }, [dateRange]);
 
   // Auto-refresh analytics data when WebSocket is connected - but only for overview tab
   useEffect(() => {
-    // Only enable WebSocket auto-refresh for overview tab, let LiveMetricsOverview handle live tab
-    if (isConnected && data && activeTab === 'overview') {
-      const interval = setInterval(() => {
-        // Request real-time analytics update via WebSocket
-        requestAnalyticsUpdate();
-      }, 30000); // Request update every 30 seconds
-
-      return () => {
-        clearInterval(interval);
-      };
+    // Don't start auto-refresh until initial load is complete
+    if (isInitialLoad.current || !isConnected || !data || activeTab !== 'overview') {
+      return;
     }
+
+    // Only enable WebSocket auto-refresh for overview tab, let LiveMetricsOverview handle live tab
+    refreshInterval.current = setInterval(() => {
+      // Request real-time analytics update via WebSocket
+      requestAnalyticsUpdate();
+    }, 30000); // Request update every 30 seconds
+
+    return () => {
+      if (refreshInterval.current) {
+        clearInterval(refreshInterval.current);
+        refreshInterval.current = null;
+      }
+    };
   }, [isConnected, data, requestAnalyticsUpdate, activeTab]);
 
   const handleDateRangeChange = (newDateRange: { startDate: Date; endDate: Date }) => {
@@ -420,7 +440,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
     {
       id: 'refresh',
       label: 'Refresh',
-      onClick: () => loadAnalyticsData(),
+      onClick: () => loadAnalyticsData(true), // Force refresh when manually triggered
       variant: 'secondary',
       icon: RefreshCw,
       disabled: loading
@@ -462,7 +482,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
                 <h3 className="text-sm font-medium text-theme-error">Error Loading Analytics</h3>
                 <p className="mt-1 text-sm text-theme-error">{error}</p>
                 <button
-                  onClick={() => loadAnalyticsData()}
+                  onClick={() => loadAnalyticsData(true)}
                   className="mt-2 px-3 py-1 bg-theme-error text-theme-error-contrast rounded text-sm hover:opacity-80"
                 >
                   Try Again
@@ -528,7 +548,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
             </div>
             <div className="ml-auto pl-3">
               <button
-                onClick={() => loadAnalyticsData()}
+                onClick={() => loadAnalyticsData(true)}
                 className="text-sm font-medium text-theme-warning underline hover:no-underline"
               >
                 Retry

@@ -721,7 +721,6 @@ export const WorkerDetailsPanel: React.FC<WorkerDetailsPanelProps> = ({
               worker={worker}
               onUpdate={async (workerId, config) => {
                 // Handle worker configuration updates
-                console.log('Worker config update:', { workerId, config });
                 // In a real implementation, this would call the worker settings API
                 // For now, just show a success message
               }}

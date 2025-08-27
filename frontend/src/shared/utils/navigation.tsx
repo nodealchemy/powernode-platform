@@ -113,6 +113,15 @@ export const defaultNavigationConfig: NavigationConfig = {
           description: 'Manage content pages and documentation',
           permissions: ['page.view'],
           order: 1
+        },
+        {
+          id: 'knowledge-base',
+          name: 'Knowledge Base',
+          href: '/app/content/kb',
+          icon: HelpCircle,
+          description: 'Browse articles, guides, and documentation',
+          permissions: [],
+          order: 2
         }
       ],
       permissions: ['page.view'],
