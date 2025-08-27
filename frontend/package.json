@@ -44,6 +44,7 @@
     "lint:security": "eslint src --ext .ts,.tsx --config .eslintrc.security.js",
     "lint:production": "eslint src --ext .ts,.tsx --config .eslintrc.production.js",
     "lint:check": "eslint --print-config .eslintrc.js",
+    "typecheck": "tsc --noEmit",
     "cypress:open": "cypress open",
     "cypress:run": "cypress run"
   },
