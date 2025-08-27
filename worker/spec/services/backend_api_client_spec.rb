@@ -373,7 +373,7 @@ RSpec.describe BackendApiClient, type: :service do
     describe 'error message extraction' do
       it 'extracts error from message field' do
         error_body = { 'message' => 'Custom error message' }
-        url = 'http://test-backend.local/api/v1/test'
+        url = 'http://localhost:3000/api/v1/test'
         
         WebMock.stub_request(:get, url)
           .to_return(status: 400, body: error_body.to_json, headers: { 'Content-Type' => 'application/json' })
@@ -385,7 +385,7 @@ RSpec.describe BackendApiClient, type: :service do
 
       it 'extracts error from error field' do
         error_body = { 'error' => 'Another error message' }
-        url = 'http://test-backend.local/api/v1/test'
+        url = 'http://localhost:3000/api/v1/test'
         
         WebMock.stub_request(:get, url)
           .to_return(status: 422, body: error_body.to_json, headers: { 'Content-Type' => 'application/json' })
@@ -397,7 +397,7 @@ RSpec.describe BackendApiClient, type: :service do
 
       it 'extracts nested error messages' do
         error_body = { 'errors' => { 'message' => 'Nested error' } }
-        url = 'http://test-backend.local/api/v1/test'
+        url = 'http://localhost:3000/api/v1/test'
         
         WebMock.stub_request(:get, url)
           .to_return(status: 400, body: error_body.to_json, headers: { 'Content-Type' => 'application/json' })
@@ -409,7 +409,7 @@ RSpec.describe BackendApiClient, type: :service do
 
       it 'extracts first error from array' do
         error_body = { 'errors' => ['First error', 'Second error'] }
-        url = 'http://test-backend.local/api/v1/test'
+        url = 'http://localhost:3000/api/v1/test'
         
         WebMock.stub_request(:get, url)
           .to_return(status: 422, body: error_body.to_json, headers: { 'Content-Type' => 'application/json' })
@@ -421,7 +421,7 @@ RSpec.describe BackendApiClient, type: :service do
 
       it 'uses default message when no error found' do
         error_body = { 'other_field' => 'not an error' }
-        url = 'http://test-backend.local/api/v1/test'
+        url = 'http://localhost:3000/api/v1/test'
         
         WebMock.stub_request(:get, url)
           .to_return(status: 404, body: error_body.to_json, headers: { 'Content-Type' => 'application/json' })
@@ -439,7 +439,7 @@ RSpec.describe BackendApiClient, type: :service do
       
       client.get('/api/v1/test')
       
-      expect(WebMock).to have_been_requested(:get, 'http://test-backend.local/api/v1/test')
+      expect(WebMock).to have_been_requested(:get, 'http://localhost:3000/api/v1/test')
         .with(headers: {
           'Authorization' => 'Bearer test-service-token-456',
           'Content-Type' => 'application/json',

@@ -136,7 +136,7 @@ module ApiTestHelpers
   # Request verification helpers
   def expect_api_request(method, path, with_body: nil)
     url = build_api_url(path)
-    request_stub = WebMock.should_have_been_requested(method, url)
+    request_stub = have_been_requested(method, url)
       .with(headers: expected_request_headers)
     
     if with_body
@@ -182,7 +182,7 @@ module ApiTestHelpers
   private
 
   def build_api_url(path)
-    base_url = 'http://test-backend.local'
+    base_url = 'http://localhost:3000'
     "#{base_url}#{path}"
   end
 

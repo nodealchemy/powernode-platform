@@ -4,7 +4,7 @@ module WorkerTestHelpers
   # Test configuration helpers
   def test_config
     @test_config ||= {
-      backend_api_url: 'http://test-backend.local',
+      backend_api_url: 'http://localhost:3000',
       worker_token: 'test-worker-token-123',
       service_token: 'test-service-token-456',
       api_timeout: 10,

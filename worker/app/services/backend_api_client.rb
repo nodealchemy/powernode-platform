@@ -95,7 +95,7 @@ class BackendApiClient
 
   # User authentication for web interface access
   def authenticate_user(email, password)
-    post("/api/v1/service/authenticate_user", {
+    post("/api/v1/worker_auth/authenticate_user", {
       email: email,
       password: password
     })
@@ -103,7 +103,7 @@ class BackendApiClient
 
   # Session verification for authenticated users
   def verify_session(session_token)
-    post("/api/v1/service/verify_session", {
+    post("/api/v1/worker_auth/verify_session", {
       session_token: session_token
     })
   end
@@ -171,6 +171,9 @@ class BackendApiClient
       conn.adapter Faraday.default_adapter
     end
   end
+
+  # HTTP methods - made public for testing and API flexibility
+  public
 
   def get(path, params = {})
     make_request(:get, path, params)

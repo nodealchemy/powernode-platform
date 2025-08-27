@@ -130,11 +130,11 @@ class SidekiqWebAuth
       # Authenticate user with backend
       response = @api_client.authenticate_user(email, password)
       
-      if response['valid']
+      if response['success'] && response['data'] && response['data']['valid']
         # Store session token
-        session['session_token'] = response['session_token']
-        session['user_email'] = response['user_email']
-        session['expires_at'] = response['expires_at']
+        session['session_token'] = response['data']['session_token']
+        session['user_email'] = response['data']['user_email']
+        session['expires_at'] = response['data']['expires_at']
         
         @logger.info "User #{email} successfully authenticated for worker web interface"
         
@@ -159,7 +159,7 @@ class SidekiqWebAuth
     
     begin
       response = @api_client.verify_session(session_token)
-      response['valid'] == true
+      response['success'] == true && response['data'] && response['data']['valid'] == true
     rescue BackendApiClient::ApiError => e
       @logger.debug "Session verification failed: #{e.message}"
       false
