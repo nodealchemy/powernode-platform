@@ -33,6 +33,32 @@ warn() {
     echo -e "${YELLOW}[$(date +'%H:%M:%S')] ⚠${NC} $1"
 }
 
+# Function to wait for a service to become healthy with progress indicator
+wait_for_service_health() {
+    local service_name="$1"
+    local health_url="$2"
+    local max_wait="${3:-30}"
+    local check_interval="${4:-2}"
+    
+    log "Waiting for $service_name to become healthy..."
+    
+    local elapsed=0
+    while [ $elapsed -lt $max_wait ]; do
+        if curl -s -f --max-time 3 "$health_url" > /dev/null 2>&1; then
+            success "$service_name is now healthy (took ${elapsed}s)"
+            return 0
+        fi
+        
+        printf "\r${BLUE}[$(date +'%H:%M:%S')]${NC} Waiting for $service_name... ${elapsed}s/${max_wait}s"
+        sleep $check_interval
+        elapsed=$((elapsed + check_interval))
+    done
+    
+    printf "\n"
+    error "$service_name failed to become healthy within ${max_wait}s"
+    return 1
+}
+
 # Function to check if all servers are running and healthy
 check_dev_environment() {
     local backend_running=false
@@ -65,6 +91,80 @@ check_dev_environment() {
     fi
 }
 
+# Comprehensive health check function with detailed reporting
+detailed_health_check() {
+    local verbose="${1:-false}"
+    local backend_healthy=false
+    local worker_healthy=false
+    local worker_web_healthy=false
+    local frontend_healthy=false
+    
+    if [ "$verbose" = "true" ]; then
+        log "Running comprehensive health check..."
+    fi
+    
+    # Check backend health endpoint
+    if curl -s -f --max-time 5 "http://localhost:3000/api/v1/health" > /dev/null 2>&1; then
+        backend_healthy=true
+        if [ "$verbose" = "true" ]; then
+            success "Backend API health endpoint responsive"
+        fi
+    else
+        if [ "$verbose" = "true" ]; then
+            error "Backend API health endpoint not responsive"
+        fi
+    fi
+    
+    # Check worker process status
+    if "$WORKER_MANAGER" status 2>&1 | grep -q "Worker: RUNNING"; then
+        worker_healthy=true
+        if [ "$verbose" = "true" ]; then
+            success "Worker process is running"
+        fi
+    else
+        if [ "$verbose" = "true" ]; then
+            error "Worker process is not running"
+        fi
+    fi
+    
+    # Check worker web interface
+    if "$WORKER_MANAGER" status 2>&1 | grep -q "Web Interface: RUNNING" && curl -s -f --max-time 3 "http://localhost:4567" > /dev/null 2>&1; then
+        worker_web_healthy=true
+        if [ "$verbose" = "true" ]; then
+            success "Worker web interface is accessible"
+        fi
+    else
+        if [ "$verbose" = "true" ]; then
+            error "Worker web interface is not accessible"
+        fi
+    fi
+    
+    # Check frontend
+    if curl -s -f --max-time 5 "http://localhost:3001" > /dev/null 2>&1; then
+        frontend_healthy=true
+        if [ "$verbose" = "true" ]; then
+            success "Frontend application is accessible"
+        fi
+    else
+        if [ "$verbose" = "true" ]; then
+            error "Frontend application is not accessible"
+        fi
+    fi
+    
+    # Return overall health status
+    if $backend_healthy && $worker_healthy && $worker_web_healthy && $frontend_healthy; then
+        if [ "$verbose" = "true" ]; then
+            success "All services are healthy"
+        fi
+        return 0
+    else
+        if [ "$verbose" = "true" ]; then
+            warn "Some services are not healthy"
+        fi
+        return 1
+    fi
+}
+
 # Function to automatically ensure development environment is running
 ensure_dev_environment() {
     log "Checking development environment status..."
@@ -83,8 +183,11 @@ ensure_dev_environment() {
         return 1
     fi
     
-    # Wait for backend to be ready
-    sleep 3
+    # Wait for backend to be ready with proper health checking
+    if ! wait_for_service_health "Backend" "http://localhost:3000/api/v1/health" 45 3; then
+        error "Backend failed to start within timeout"
+        return 1
+    fi
     
     # Start worker second
     log "Ensuring worker is running..."
@@ -93,11 +196,20 @@ ensure_dev_environment() {
         return 1
     fi
     
+    # Wait for worker to be ready
+    log "Waiting for worker process to initialize..."
+    sleep 5
+    
     # Start worker web interface
     log "Ensuring worker web interface is running..."
     if ! "$WORKER_MANAGER" start-web; then
         error "Failed to start worker web interface"
         return 1
+    fi
+    
+    # Wait for worker web interface to be ready
+    if ! wait_for_service_health "Worker Web Interface" "http://localhost:4567" 30 2; then
+        warn "Worker web interface may not be fully ready, but continuing..."
     fi
     
     # Start frontend third
@@ -107,16 +219,25 @@ ensure_dev_environment() {
         return 1
     fi
     
-    # Final verification
-    if check_dev_environment; then
+    # Wait for frontend to be ready with proper health checking
+    if ! wait_for_service_health "Frontend" "http://localhost:3001" 60 3; then
+        error "Frontend failed to start within timeout"
+        return 1
+    fi
+    
+    # Final comprehensive verification
+    log "Running final health verification..."
+    if detailed_health_check false; then
         success "Development environment is now fully operational!"
-        log "Available at:"
+        echo ""
+        log "🚀 All services are healthy and ready:"
         log "  • Backend API:  http://localhost:3000 (external: http://[HOST_IP]:3000)"
         log "  • Worker Web:   http://localhost:4567 (external: http://[HOST_IP]:4567)"
         log "  • Frontend App: http://localhost:3001 (external: http://[HOST_IP]:3001)"
         return 0
     else
-        error "Development environment failed to start properly"
+        error "Development environment failed final health check"
+        log "Run with 'health' command for detailed diagnostics"
         return 1
     fi
 }
@@ -257,6 +378,52 @@ restart_all() {
     fi
 }
 
+# Enhanced help function with detailed documentation
+show_help() {
+    echo "Powernode Development Environment Manager"
+    echo "========================================="
+    echo ""
+    echo "USAGE:"
+    echo "  $0 [COMMAND]"
+    echo ""
+    echo "COMMANDS:"
+    echo "  ensure     Start all services if needed (default command)"
+    echo "  start      Alias for 'ensure'"
+    echo "  backend    Ensure only backend service is running"
+    echo "  worker     Ensure only worker service is running"
+    echo "  frontend   Ensure only frontend service is running"
+    echo "  status     Show quick status overview of all services"
+    echo "  health     Run comprehensive health check with detailed diagnostics"
+    echo "  check      Silent health check (exit code based, for scripts)"
+    echo "  restart    Restart all services"
+    echo "  stop       Stop all services"
+    echo "  help       Show this help message"
+    echo ""
+    echo "SERVICE ENDPOINTS:"
+    echo "  Backend API:  http://localhost:3000 (Rails API server)"
+    echo "  Worker Web:   http://localhost:4567 (Sidekiq web interface)"
+    echo "  Frontend App: http://localhost:3001 (React development server)"
+    echo ""
+    echo "EXAMPLES:"
+    echo "  $0                    # Start all services (default)"
+    echo "  $0 ensure             # Start all services explicitly"
+    echo "  $0 status             # Check service status"
+    echo "  $0 health             # Detailed health diagnostics"
+    echo "  $0 restart            # Restart all services"
+    echo "  $0 backend            # Start only backend service"
+    echo ""
+    echo "TROUBLESHOOTING:"
+    echo "  • If services fail to start, try: $0 stop && $0 ensure"
+    echo "  • For detailed diagnostics, use: $0 health"
+    echo "  • View individual service logs with screen commands:"
+    echo "    - Backend:  screen -r powernode-backend"
+    echo "    - Worker:   screen -r powernode-worker"
+    echo "    - Frontend: screen -r powernode-frontend"
+    echo ""
+    echo "This script manages the complete Powernode development environment"
+    echo "including Rails API backend, Sidekiq worker service, and React frontend."
+}
+
 # Main command handling
 case "${1:-ensure}" in
     ensure|start)
@@ -277,6 +444,26 @@ case "${1:-ensure}" in
     restart)
         restart_all
         ;;
+    health)
+        if detailed_health_check true; then
+            success "All services are healthy"
+            echo ""
+            echo "🚀 Development environment is fully operational!"
+            echo "  • Backend API:  http://localhost:3000"
+            echo "  • Worker Web:   http://localhost:4567"
+            echo "  • Frontend App: http://localhost:3001"
+            exit 0
+        else
+            error "Some services are not healthy"
+            echo ""
+            echo "💡 Try running: $0 ensure"
+            exit 1
+        fi
+        ;;
+    help|--help|-h)
+        show_help
+        exit 0
+        ;;
     stop)
         stop_all
         ;;
@@ -290,20 +477,14 @@ case "${1:-ensure}" in
         fi
         ;;
     *)
-        echo "Usage: $0 {ensure|backend|worker|frontend|status|restart|stop|check}"
+        echo "Usage: $0 {ensure|backend|worker|frontend|status|restart|stop|check|health|help}"
         echo ""
-        echo "Commands:"
-        echo "  ensure    - Automatically start all servers if needed (default)"
-        echo "  backend   - Ensure only backend is running"
-        echo "  worker    - Ensure only worker service is running"
-        echo "  frontend  - Ensure only frontend is running"
-        echo "  status    - Show quick status of all servers"
-        echo "  restart   - Restart all servers"
-        echo "  stop      - Stop all servers"
-        echo "  check     - Check if environment is healthy (exit code based)"
+        echo "❌ Unknown command: '$1'"
         echo ""
-        echo "This script is designed for Claude to automatically manage"
-        echo "the full development environment including worker service."
+        echo "Available commands:"
+        echo "  ensure, backend, worker, frontend, status, restart, stop, check, health, help"
+        echo ""
+        echo "💡 For detailed help and examples, run: $0 help"
         exit 1
         ;;
 esac
