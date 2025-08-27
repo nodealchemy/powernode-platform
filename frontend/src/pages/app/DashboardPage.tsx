@@ -3,6 +3,7 @@ import { Routes, Route, useNavigate, Navigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/shared/services';
 import { plansApi } from '@/features/plans/services/plansApi';
+import { paymentGatewaysApi } from '@/features/payment-gateways/services/paymentGatewaysApi';
 import { DashboardLayout } from '@/shared/components/layout/DashboardLayout';
 import { MetricCard } from '@/shared/components/ui/Card';
 
@@ -22,6 +23,7 @@ import { MetricsPage } from './MetricsPage';
 import { AnalyticsPage } from './business/AnalyticsPage';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
 import { BarChart3, Users, CreditCard, Settings } from 'lucide-react';
+import { Button } from '@/shared/components/ui/Button';
 
 // Import individual pages directly (no more management page groupings)
 import { CustomersPage } from './business/CustomersPage';
@@ -65,13 +67,26 @@ const DashboardOverview: React.FC = () => {
         // Check plans using public endpoint (no auth required)
         const plansResponse = await plansApi.getPublicPlans();
         
+        // Check payment gateway status (requires admin.settings.payment permission)
+        let hasConfiguredGateways = false;
+        try {
+          const gatewaysOverview = await paymentGatewaysApi.getOverview();
+          // Consider gateways configured if either Stripe or PayPal is connected/configured
+          const stripeConfigured = gatewaysOverview.gateways.stripe.enabled && 
+            ['connected', 'configured'].includes(gatewaysOverview.status.stripe.status);
+          const paypalConfigured = gatewaysOverview.gateways.paypal.enabled && 
+            ['connected', 'configured'].includes(gatewaysOverview.status.paypal.status);
+          hasConfiguredGateways = stripeConfigured || paypalConfigured;
+        } catch (gatewayError) {
+          // If user doesn't have permission or API fails, assume no gateways configured
+          console.warn('Failed to check payment gateway status:', gatewayError);
+          hasConfiguredGateways = false;
+        }
+        
         // Only update state if component is still mounted
         if (mounted) {
           setHasPlans(plansResponse.data.plans.length > 0);
-          
-          // Skip payment gateway check for now due to API issues
-          // TODO: Re-enable when payment gateway API is fixed
-          setHasPaymentGateways(false);
+          setHasPaymentGateways(hasConfiguredGateways);
         }
       } catch (error) {
         if (mounted) {
@@ -129,13 +144,14 @@ const DashboardOverview: React.FC = () => {
       variant: 'secondary',
       icon: Users
     },
-    {
+    // Only show Payment Setup button if payment setup is required
+    ...((!hasPaymentGateways && !loading) ? [{
       id: 'payment-gateways',
       label: 'Payment Setup',
-      onClick: () => navigate('/admin/settings/payment-gateways'),
-      variant: 'secondary',
+      onClick: () => navigate('/app/admin/settings/payment-gateways'),
+      variant: 'secondary' as const,
       icon: CreditCard
-    },
+    }] : []),
     {
       id: 'settings',
       label: 'Settings',
@@ -234,12 +250,14 @@ const DashboardOverview: React.FC = () => {
                   {user?.email_verified ? 'Your email address has been verified' : 'Please verify your email address'}
                 </p>
                 {!user?.email_verified && (
-                  <button 
+                  <Button 
                     onClick={() => navigate('/verify-email')}
-                    className="btn-theme btn-theme-primary mt-2 text-xs px-3 py-1"
+                    variant="primary"
+                    size="xs"
+                    className="mt-2"
                   >
                     Verify Email
-                  </button>
+                  </Button>
                 )}
               </div>
             </div>
@@ -262,12 +280,14 @@ const DashboardOverview: React.FC = () => {
                   {hasPlans ? 'You have plans ready for customers' : 'Create plans to start accepting payments'}
                 </p>
                 {!hasPlans && (
-                  <button 
+                  <Button 
                     onClick={() => navigate('/app/business/plans')}
-                    className="btn-theme btn-theme-primary mt-2 text-xs px-3 py-1"
+                    variant="primary"
+                    size="xs"
+                    className="mt-2"
                   >
                     Create Plan
-                  </button>
+                  </Button>
                 )}
               </div>
             </div>
@@ -290,12 +310,14 @@ const DashboardOverview: React.FC = () => {
                   {hasPaymentGateways ? 'Stripe or PayPal is ready for payments' : 'Set up Stripe or PayPal integration'}
                 </p>
                 {!hasPaymentGateways && (
-                  <button 
+                  <Button 
                     onClick={() => navigate('/app/admin/settings/payment-gateways')}
-                    className="btn-theme btn-theme-primary mt-2 text-xs px-3 py-1"
+                    variant="primary"
+                    size="xs"
+                    className="mt-2"
                   >
                     Configure Payments
-                  </button>
+                  </Button>
                 )}
               </div>
             </div>
@@ -309,61 +331,68 @@ const DashboardOverview: React.FC = () => {
           </h3>
           
           <div className="grid grid-cols-1 gap-3">
-            <button 
+            <Button 
               onClick={() => navigate('/app/business/customers')}
-              className="btn-theme btn-theme-secondary flex items-center justify-between p-4 text-left hover:bg-theme-surface-hover"
+              variant="secondary"
+              className="flex items-center justify-between p-4 text-left hover:bg-theme-surface-hover w-full"
             >
               <div className="flex items-center space-x-3">
                 <span className="text-2xl">👥</span>
-                <div>
+                <div className="text-left">
                   <p className="font-medium text-theme-primary">Manage Customers</p>
                   <p className="text-xs text-theme-tertiary">View and organize your customer base</p>
                 </div>
               </div>
               <span className="text-theme-tertiary">→</span>
-            </button>
+            </Button>
 
-            <button 
+            <Button 
               onClick={() => navigate('/app/business/analytics')}
-              className="btn-theme btn-theme-secondary flex items-center justify-between p-4 text-left hover:bg-theme-surface-hover"
+              variant="secondary"
+              className="flex items-center justify-between p-4 text-left hover:bg-theme-surface-hover w-full"
             >
               <div className="flex items-center space-x-3">
                 <span className="text-2xl">📊</span>
-                <div>
+                <div className="text-left">
                   <p className="font-medium text-theme-primary">View Analytics</p>
                   <p className="text-xs text-theme-tertiary">Track revenue and growth metrics</p>
                 </div>
               </div>
               <span className="text-theme-tertiary">→</span>
-            </button>
+            </Button>
 
-            <button 
-              onClick={() => navigate('/app/admin/settings/payment-gateways')}
-              className="btn-theme btn-theme-secondary flex items-center justify-between p-4 text-left hover:bg-theme-surface-hover"
-            >
-              <div className="flex items-center space-x-3">
-                <span className="text-2xl">💳</span>
-                <div>
-                  <p className="font-medium text-theme-primary">Payment Gateways</p>
-                  <p className="text-xs text-theme-tertiary">Configure Stripe and PayPal</p>
+            {/* Only show Payment Gateways button in Quick Actions if setup is needed */}
+            {!hasPaymentGateways && !loading && (
+              <Button 
+                onClick={() => navigate('/app/admin/settings/payment-gateways')}
+                variant="secondary"
+                className="flex items-center justify-between p-4 text-left hover:bg-theme-surface-hover w-full"
+              >
+                <div className="flex items-center space-x-3">
+                  <span className="text-2xl">💳</span>
+                  <div className="text-left">
+                    <p className="font-medium text-theme-primary">Payment Gateways</p>
+                    <p className="text-xs text-theme-tertiary">Configure Stripe and PayPal</p>
+                  </div>
                 </div>
-              </div>
-              <span className="text-theme-tertiary">→</span>
-            </button>
+                <span className="text-theme-tertiary">→</span>
+              </Button>
+            )}
 
-            <button 
+            <Button 
               onClick={() => navigate('/app/profile')}
-              className="btn-theme btn-theme-secondary flex items-center justify-between p-4 text-left hover:bg-theme-surface-hover"
+              variant="secondary"
+              className="flex items-center justify-between p-4 text-left hover:bg-theme-surface-hover w-full"
             >
               <div className="flex items-center space-x-3">
                 <span className="text-2xl">⚙️</span>
-                <div>
+                <div className="text-left">
                   <p className="font-medium text-theme-primary">Account Settings</p>
                   <p className="text-xs text-theme-tertiary">Customize your account preferences</p>
                 </div>
               </div>
               <span className="text-theme-tertiary">→</span>
-            </button>
+            </Button>
           </div>
         </div>
       </div>
