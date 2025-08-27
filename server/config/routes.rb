@@ -609,6 +609,123 @@ Rails.application.routes.draw do
         end
       end
 
+      # Knowledge Base public endpoints
+      namespace :kb do
+        resources :categories, only: [:index, :show]
+        resources :articles, only: [:index, :show] do
+          collection do
+            get :search
+          end
+          resources :comments, only: [:index, :create]
+        end
+        resources :tags, only: [:index] do
+          member do
+            get :articles
+          end
+        end
+        resources :comments, only: [:show]
+      end
+
+      # Knowledge Base admin endpoints
+      namespace :admin do
+        # Background job tracking
+        resources :jobs, only: [:index, :show]
+        
+        # User management
+        resources :users do
+          member do
+            post :impersonate
+          end
+        end
+        
+        # Page management
+        resources :pages do
+          member do
+            post :publish
+            post :unpublish
+            post :duplicate
+          end
+        end
+        
+        # Knowledge Base admin management
+        namespace :kb do
+          resources :categories do
+            collection do
+              get :tree
+            end
+          end
+          resources :articles do
+            member do
+              post :publish
+              post :unpublish
+            end
+            collection do
+              get :analytics
+            end
+          end
+          resources :comments do
+            member do
+              post :approve
+              post :reject
+              post :spam
+            end
+          end
+        end
+
+        # Maintenance endpoints
+        namespace :maintenance do
+          get :status, to: 'maintenance#status'
+          get :health, to: 'maintenance#health'
+          get :metrics, to: 'maintenance#metrics'
+          
+          # Backup management
+          get :backups, to: 'maintenance#backups'
+          post :backups, to: 'maintenance#create_backup'
+          delete 'backups/:id', to: 'maintenance#delete_backup'
+          post 'backups/:id/restore', to: 'maintenance#restore_backup'
+          
+          # Cleanup operations
+          get 'cleanup/stats', to: 'maintenance#cleanup_stats'
+          post 'cleanup/run', to: 'maintenance#run_cleanup'
+          
+          # Scheduled maintenance
+          get :schedules, to: 'maintenance#schedules'
+          post :schedules, to: 'maintenance#create_schedule'
+          delete 'schedules/:id', to: 'maintenance#delete_schedule'
+          
+          # Maintenance mode
+          get :mode, to: 'maintenance#show_mode'
+          post :mode, to: 'maintenance#update_mode'
+          
+          # System health
+          get 'health/detailed', to: 'maintenance#detailed_health'
+          get 'health/services', to: 'maintenance#service_health'
+          
+          # Database operations
+          get 'database/stats', to: 'maintenance#database_stats'
+          post 'database/analyze', to: 'maintenance#analyze_database'
+          post 'operations/optimize', to: 'maintenance#optimize_database'
+          
+          # Scheduled tasks
+          get :tasks, to: 'maintenance#list_tasks'
+          post :tasks, to: 'maintenance#create_task'
+          patch 'tasks/:id', to: 'maintenance#update_task'
+          delete 'tasks/:id', to: 'maintenance#delete_task'
+          post 'tasks/:id/execute', to: 'maintenance#execute_task'
+        end
+
+        # Rate Limiting management
+        namespace :rate_limiting do
+          get :statistics, to: 'rate_limiting#statistics'
+          get :violations, to: 'rate_limiting#violations'
+          get :status, to: 'rate_limiting#status'
+          get 'limits/:identifier', to: 'rate_limiting#user_limits'
+          delete 'limits/:identifier', to: 'rate_limiting#clear_user_limits'
+          post :disable, to: 'rate_limiting#disable_temporarily'
+          post :enable, to: 'rate_limiting#enable'
+        end
+      end
+
       # Worker management
       resources :workers do
         member do

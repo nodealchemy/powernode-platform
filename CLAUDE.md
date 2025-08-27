@@ -5,10 +5,10 @@ Development guidance for **Powernode** subscription platform.
 ## Project Overview & Architecture
 
 **Powernode** - Subscription lifecycle management platform:
-- **Backend**: Rails 8 API (`./server`) - JWT auth, UUID keys, audit logging
+- **Backend**: Rails 8 API (`./server`) - JWT auth, UUIDv7 primary keys, audit logging
 - **Frontend**: React TypeScript (`./frontend`) - Theme-aware, Tailwind CSS
 - **Worker**: Sidekiq standalone service (`./worker`) - API-only communication
-- **Database**: PostgreSQL with consolidated schema
+- **Database**: PostgreSQL with native UUID schema, UUIDv7 generation
 - **Payments**: Stripe, PayPal with PCI compliance
 - **Testing**: RSpec (203+ tests), Jest/Cypress
 
@@ -18,6 +18,7 @@ Development guidance for **Powernode** subscription platform.
 - **Account** → User (many), Subscription (one)
 - **Subscription** → Plan, Payments, Invoices  
 - **User** → Roles (`resource.action` format), Permissions, Invitations
+- **UUID Strategy**: All models use UUIDv7 format for chronologically sortable, globally unique identifiers
 
 ### Git & Release Management
 - **IMPORTANT**: Clean commit messages without Claude attribution
@@ -215,9 +216,16 @@ The backend architecture follows Rails 8 API patterns with a separate Sidekiq wo
 ### Key Architectural Principles
 - **API-First**: Rails API backend with structured JSON responses
 - **Worker Delegation**: Complex operations handled by Sidekiq workers
-- **UUID Strategy**: All models use UUID primary keys
+- **UUIDv7 Strategy**: All models use UUIDv7 primary keys for chronological ordering
 - **Service Layer**: Business logic in service objects
 - **API-Only Workers**: Workers communicate via API calls, no direct database access
+
+### UUIDv7 System Architecture
+- **Default Behavior**: All models inherit UUIDv7 generation from ApplicationRecord
+- **Database Schema**: Native PostgreSQL UUID types (not string-based)
+- **Performance Benefits**: Chronologically sortable, optimal B-tree index performance
+- **Platform Coverage**: 64/64 models use UUIDv7 format automatically
+- **Documentation**: See [UUID System Implementation](docs/platform/UUID_SYSTEM_IMPLEMENTATION.md)
 
 
 
@@ -274,9 +282,10 @@ The backend architecture follows Rails 8 API patterns with a separate Sidekiq wo
 11. **Model Structure**: Associations → Validations → Scopes → Callbacks → Methods
 12. **Service Delegation**: Complex operations delegated to worker service
 13. **Worker Jobs**: Inherit BaseJob, use execute method, API-only communication
-14. **UUID Strategy**: All models use UUID primary keys (string, limit: 36)
-15. **Frozen Strings**: All Ruby files start with `# frozen_string_literal: true`
-16. **Error Handling**: Use ApiResponse methods only - never manual JSON responses
+14. **UUIDv7 Strategy**: All models automatically inherit UUIDv7 generation from ApplicationRecord
+15. **Database Schema**: Use native PostgreSQL UUID types, `type: :uuid` for foreign keys
+16. **Frozen Strings**: All Ruby files start with `# frozen_string_literal: true`
+17. **Error Handling**: Use ApiResponse methods only - never manual JSON responses
 
 **Universal**:
 17. **Conventional Commits & Git-Flow**: See [DevOps Engineer](docs/infrastructure/DEVOPS_ENGINEER_SPECIALIST.md#git-workflow--release-management)

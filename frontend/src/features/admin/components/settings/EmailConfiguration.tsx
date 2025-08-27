@@ -110,7 +110,6 @@ export const EmailConfiguration: React.FC = () => {
       const response = await emailSettingsApi.testEmail(testEmail);
       showNotification(response.message || `Test email sent to ${testEmail}`, 'success');
     } catch (error: any) {
-      console.log('Email test error:', error);
       const errorMessage = error.response?.data?.error || 
                           error.response?.data?.message || 
                           error.message || 

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_08_25_175203) do
+ActiveRecord::Schema[8.0].define(version: 2025_08_27_210010) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -561,6 +561,137 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_25_175203) do
     t.index ["status"], name: "index_invoices_on_status"
     t.index ["stripe_invoice_id"], name: "index_invoices_on_stripe_invoice_id", unique: true, where: "(stripe_invoice_id IS NOT NULL)"
     t.index ["subscription_id"], name: "index_invoices_on_subscription_id"
+  end
+
+  create_table "knowledge_base_article_tags", id: { type: :string, limit: 36, default: -> { "gen_random_uuid()" } }, force: :cascade do |t|
+    t.string "article_id", limit: 36, null: false
+    t.string "tag_id", limit: 36, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["article_id", "tag_id"], name: "index_knowledge_base_article_tags_on_article_id_and_tag_id", unique: true
+    t.index ["tag_id"], name: "index_knowledge_base_article_tags_on_tag_id"
+  end
+
+  create_table "knowledge_base_article_views", id: { type: :string, limit: 36, default: -> { "gen_random_uuid()" } }, force: :cascade do |t|
+    t.string "article_id", limit: 36, null: false
+    t.string "user_id", limit: 36
+    t.string "session_id"
+    t.string "ip_address"
+    t.string "user_agent"
+    t.json "metadata", default: {}
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["article_id", "created_at"], name: "idx_on_article_id_created_at_45a5b082d8"
+    t.index ["article_id"], name: "index_knowledge_base_article_views_on_article_id"
+    t.index ["created_at"], name: "index_knowledge_base_article_views_on_created_at"
+    t.index ["session_id"], name: "index_knowledge_base_article_views_on_session_id"
+    t.index ["user_id"], name: "index_knowledge_base_article_views_on_user_id"
+  end
+
+  create_table "knowledge_base_articles", id: { type: :string, limit: 36, default: -> { "gen_random_uuid()" } }, force: :cascade do |t|
+    t.string "title", null: false
+    t.string "slug", null: false
+    t.text "content", null: false
+    t.text "excerpt"
+    t.string "category_id", limit: 36, null: false
+    t.string "author_id", limit: 36, null: false
+    t.string "status", default: "draft", null: false
+    t.boolean "is_public", default: true
+    t.boolean "is_featured", default: false
+    t.integer "sort_order", default: 0
+    t.integer "views_count", default: 0
+    t.integer "likes_count", default: 0
+    t.json "metadata", default: {}
+    t.tsvector "search_vector"
+    t.datetime "published_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["author_id"], name: "index_knowledge_base_articles_on_author_id"
+    t.index ["category_id", "sort_order"], name: "index_knowledge_base_articles_on_category_id_and_sort_order"
+    t.index ["category_id"], name: "index_knowledge_base_articles_on_category_id"
+    t.index ["is_featured"], name: "index_knowledge_base_articles_on_is_featured"
+    t.index ["is_public"], name: "index_knowledge_base_articles_on_is_public"
+    t.index ["published_at"], name: "index_knowledge_base_articles_on_published_at"
+    t.index ["search_vector"], name: "index_knowledge_base_articles_on_search_vector", using: :gin
+    t.index ["slug"], name: "index_knowledge_base_articles_on_slug", unique: true
+    t.index ["status", "is_public", "published_at"], name: "idx_on_status_is_public_published_at_09e0b0fd64"
+    t.index ["status"], name: "index_knowledge_base_articles_on_status"
+  end
+
+  create_table "knowledge_base_attachments", id: { type: :string, limit: 36, default: -> { "gen_random_uuid()" } }, force: :cascade do |t|
+    t.string "article_id", limit: 36, null: false
+    t.string "filename", null: false
+    t.string "content_type", null: false
+    t.bigint "file_size", null: false
+    t.string "storage_key", null: false
+    t.text "description"
+    t.integer "download_count", default: 0
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["article_id"], name: "index_knowledge_base_attachments_on_article_id"
+    t.index ["storage_key"], name: "index_knowledge_base_attachments_on_storage_key", unique: true
+  end
+
+  create_table "knowledge_base_categories", id: { type: :string, limit: 36, default: -> { "gen_random_uuid()" } }, force: :cascade do |t|
+    t.string "name", null: false
+    t.string "slug", null: false
+    t.text "description"
+    t.string "parent_id", limit: 36
+    t.integer "sort_order", default: 0
+    t.boolean "is_public", default: true
+    t.json "metadata", default: {}
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["is_public"], name: "index_knowledge_base_categories_on_is_public"
+    t.index ["parent_id", "sort_order"], name: "index_knowledge_base_categories_on_parent_id_and_sort_order"
+    t.index ["parent_id"], name: "index_knowledge_base_categories_on_parent_id"
+    t.index ["slug"], name: "index_knowledge_base_categories_on_slug", unique: true
+  end
+
+  create_table "knowledge_base_comments", id: { type: :string, limit: 36, default: -> { "gen_random_uuid()" } }, force: :cascade do |t|
+    t.string "article_id", limit: 36, null: false
+    t.string "user_id", limit: 36, null: false
+    t.text "content", null: false
+    t.string "status", default: "pending", null: false
+    t.string "parent_id", limit: 36
+    t.integer "likes_count", default: 0
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["article_id", "status", "created_at"], name: "idx_on_article_id_status_created_at_fae9a172b7"
+    t.index ["article_id"], name: "index_knowledge_base_comments_on_article_id"
+    t.index ["parent_id"], name: "index_knowledge_base_comments_on_parent_id"
+    t.index ["status"], name: "index_knowledge_base_comments_on_status"
+    t.index ["user_id"], name: "index_knowledge_base_comments_on_user_id"
+  end
+
+  create_table "knowledge_base_tags", id: { type: :string, limit: 36, default: -> { "gen_random_uuid()" } }, force: :cascade do |t|
+    t.string "name", null: false
+    t.string "slug", null: false
+    t.text "description"
+    t.string "color", default: "#3B82F6"
+    t.integer "usage_count", default: 0
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["name"], name: "index_knowledge_base_tags_on_name"
+    t.index ["slug"], name: "index_knowledge_base_tags_on_slug", unique: true
+  end
+
+  create_table "knowledge_base_workflows", id: { type: :string, limit: 36, default: -> { "gen_random_uuid()" } }, force: :cascade do |t|
+    t.string "article_id", limit: 36, null: false
+    t.string "user_id", limit: 36, null: false
+    t.string "workflow_type", null: false
+    t.string "status", default: "pending", null: false
+    t.text "notes"
+    t.datetime "due_date"
+    t.json "workflow_data", default: {}
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["article_id"], name: "index_knowledge_base_workflows_on_article_id"
+    t.index ["due_date"], name: "index_knowledge_base_workflows_on_due_date"
+    t.index ["status", "due_date"], name: "index_knowledge_base_workflows_on_status_and_due_date"
+    t.index ["status"], name: "index_knowledge_base_workflows_on_status"
+    t.index ["user_id"], name: "index_knowledge_base_workflows_on_user_id"
+    t.index ["workflow_type"], name: "index_knowledge_base_workflows_on_workflow_type"
   end
 
   create_table "marketplace_categories", id: { type: :string, limit: 36, default: -> { "gen_random_uuid()" } }, force: :cascade do |t|
@@ -1189,6 +1320,19 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_25_175203) do
   add_foreign_key "invitations", "users", column: "inviter_id"
   add_foreign_key "invoice_line_items", "invoices"
   add_foreign_key "invoices", "subscriptions"
+  add_foreign_key "knowledge_base_article_tags", "knowledge_base_articles", column: "article_id", on_delete: :cascade
+  add_foreign_key "knowledge_base_article_tags", "knowledge_base_tags", column: "tag_id", on_delete: :cascade
+  add_foreign_key "knowledge_base_article_views", "knowledge_base_articles", column: "article_id", on_delete: :cascade
+  add_foreign_key "knowledge_base_article_views", "users", on_delete: :cascade
+  add_foreign_key "knowledge_base_articles", "knowledge_base_categories", column: "category_id", on_delete: :cascade
+  add_foreign_key "knowledge_base_articles", "users", column: "author_id", on_delete: :cascade
+  add_foreign_key "knowledge_base_attachments", "knowledge_base_articles", column: "article_id", on_delete: :cascade
+  add_foreign_key "knowledge_base_categories", "knowledge_base_categories", column: "parent_id", on_delete: :cascade
+  add_foreign_key "knowledge_base_comments", "knowledge_base_articles", column: "article_id", on_delete: :cascade
+  add_foreign_key "knowledge_base_comments", "knowledge_base_comments", column: "parent_id", on_delete: :cascade
+  add_foreign_key "knowledge_base_comments", "users", on_delete: :cascade
+  add_foreign_key "knowledge_base_workflows", "knowledge_base_articles", column: "article_id", on_delete: :cascade
+  add_foreign_key "knowledge_base_workflows", "users", on_delete: :cascade
   add_foreign_key "marketplace_listings", "apps", on_delete: :cascade
   add_foreign_key "missing_payment_logs", "payments", column: "associated_payment_id"
   add_foreign_key "pages", "users", column: "author_id"

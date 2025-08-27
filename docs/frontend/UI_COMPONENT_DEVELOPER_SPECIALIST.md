@@ -38,9 +38,10 @@ src/shared/components/
 │   ├── CheckboxField.tsx
 │   └── index.ts
 ├── layout/                 # Layout components
-│   ├── PageContainer.tsx
+│   ├── PageContainer.tsx   # MANDATORY: Standard page wrapper
 │   ├── Header.tsx
 │   ├── Sidebar.tsx
+│   ├── TabContainer.tsx
 │   └── index.ts
 ├── data-display/          # Data visualization
 │   ├── Table.tsx
@@ -1494,7 +1495,175 @@ grep -r "border-theme-error.*focus:ring-theme-error" src/shared/components/forms
 - ✅ **Form validation**: Clear error messages, field associations
 - ✅ **Loading states**: Accessible progress indicators
 
+### 6. Page Layout Standards (MANDATORY)
+
+#### PageContainer - Standard Page Wrapper
+**CRITICAL**: ALL application pages MUST use PageContainer for consistent layout and navigation.
+
+```tsx
+// src/shared/components/layout/PageContainer.tsx
+import { PageContainer, BreadcrumbItem, PageAction } from '@/shared/components/layout/PageContainer';
+
+// MANDATORY Pattern for ALL Pages
+export function MyPage() {
+  const breadcrumbs: BreadcrumbItem[] = [
+    {
+      label: 'Dashboard',
+      href: '/app',
+      icon: HomeIcon
+    },
+    {
+      label: 'Section Name',
+      href: '/app/section'
+    },
+    {
+      label: 'Current Page'  // No href for current page
+    }
+  ];
+
+  const actions: PageAction[] = [
+    {
+      id: 'create',
+      label: 'Create New',
+      onClick: handleCreate,
+      variant: 'primary',
+      icon: PlusIcon
+    }
+  ];
+
+  return (
+    <PageContainer
+      title="Page Title"
+      description="Clear description of page purpose"
+      breadcrumbs={breadcrumbs}
+      actions={actions}
+    >
+      {/* Page content */}
+    </PageContainer>
+  );
+}
+```
+
+#### Breadcrumb System Integration
+**REQUIRED**: Use hierarchical breadcrumbs following this pattern:
+- **Dashboard** → **Section** → **Category/Filter** → **Current Page**
+- **Clickable navigation** back to parent levels
+- **Icon support** for visual hierarchy
+- **Theme-aware styling** using SharedBreadcrumbs component
+
+#### Page Action Standards
+```tsx
+// Standard action patterns
+const actions: PageAction[] = [
+  {
+    id: 'back',           // Navigation actions
+    label: 'Back',
+    onClick: () => navigate(-1),
+    variant: 'outline',
+    icon: ArrowLeftIcon
+  },
+  {
+    id: 'edit',           // Modification actions
+    label: 'Edit',
+    onClick: handleEdit,
+    variant: 'secondary',
+    icon: PencilIcon
+  },
+  {
+    id: 'create',         // Primary actions
+    label: 'Create New',
+    onClick: handleCreate,
+    variant: 'primary',   // Always right-most
+    icon: PlusIcon
+  }
+];
+```
+
+#### Content Organization Patterns
+```tsx
+// Standard content structure within PageContainer
+<PageContainer title="..." breadcrumbs={...} actions={...}>
+  {/* 1. Filters/Search (if applicable) */}
+  <div className="bg-theme-surface rounded-lg border border-theme p-6">
+    <SearchAndFilters />
+  </div>
+
+  {/* 2. Main Content Grid */}
+  <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <div className="lg:col-span-2">
+      <MainContent />
+    </div>
+    <div className="sidebar space-y-6">
+      <Sidebar />
+    </div>
+  </div>
+
+  {/* 3. Additional Sections */}
+  <div className="space-y-6">
+    <RelatedContent />
+  </div>
+</PageContainer>
+```
+
+#### Loading and Error States
+```tsx
+// MANDATORY: Consistent loading/error patterns
+if (loading) {
+  return (
+    <PageContainer
+      title="Loading..."
+      breadcrumbs={baseBreadcrumbs}
+    >
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-theme-primary"></div>
+      </div>
+    </PageContainer>
+  );
+}
+
+if (error) {
+  return (
+    <PageContainer
+      title="Error"
+      breadcrumbs={baseBreadcrumbs}
+      actions={[{ id: 'back', label: 'Go Back', onClick: () => navigate(-1), variant: 'primary' }]}
+    >
+      <div className="text-center py-12">
+        <h3 className="text-lg font-medium text-theme-primary mb-2">{error}</h3>
+      </div>
+    </PageContainer>
+  );
+}
+```
+
+#### Text Rendering Standards
+**CRITICAL**: For displaying user content that may contain markdown:
+
+```tsx
+import { stripMarkdown } from '@/shared/utils/markdownUtils';
+
+// Card previews and excerpts - ALWAYS strip markdown
+<p className="text-theme-secondary line-clamp-2">
+  {stripMarkdown(article.excerpt)}
+</p>
+
+// Full content areas - Render markdown with ReactMarkdown
+<ReactMarkdown
+  remarkPlugins={[remarkGfm, remarkBreaks]}
+  rehypePlugins={[rehypeHighlight, rehypeRaw]}
+  components={markdownComponents}
+>
+  {article.content}
+</ReactMarkdown>
+```
+
 ### Component Standards Enforcement
+- ✅ **PageContainer wrapper**: MANDATORY for ALL application pages
+- ✅ **Hierarchical breadcrumbs**: Dashboard → Section → Current
+- ✅ **Consistent page actions**: Primary actions right-aligned
+- ✅ **Standard loading states**: Spinner with breadcrumb hierarchy
+- ✅ **Error state handling**: Breadcrumbs + back navigation
+- ✅ **Text rendering**: stripMarkdown() for previews, ReactMarkdown for content
 - ✅ **Standard Button component**: ALL interactive elements
 - ✅ **Theme integration**: Consistent variant mapping
 - ✅ **Proper sizing**: xs, sm, md, lg with appropriate spacing

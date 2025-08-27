@@ -51,14 +51,14 @@ export const TabContainer: React.FC<TabContainerProps> = ({
     if (basePath && location.pathname.startsWith(basePath)) {
       const pathSegment = location.pathname.replace(basePath, '').split('/')[1] || '';
       const matchingTab = tabs.find(tab => tab.path === `/${pathSegment}` || (pathSegment === '' && tab.path === '/'));
-      if (matchingTab) {
+      if (matchingTab && matchingTab.id !== localActiveTab) {
         setLocalActiveTab(matchingTab.id);
       }
     }
-  }, [location.pathname, basePath, tabs]);
+  }, [location.pathname, basePath, tabs, localActiveTab]);
 
   const handleTabClick = (tab: Tab) => {
-    if (tab.disabled) return;
+    if (tab.disabled || tab.id === activeTab) return;
 
     // Update local state
     setLocalActiveTab(tab.id);
@@ -68,10 +68,12 @@ export const TabContainer: React.FC<TabContainerProps> = ({
       onTabChange(tab.id);
     }
 
-    // Handle routing if path is provided
+    // Handle routing if path is provided (avoid redundant navigation)
     if (basePath && tab.path) {
       const targetPath = tab.path === '/' ? basePath : `${basePath}${tab.path}`;
-      navigate(targetPath);
+      if (location.pathname !== targetPath) {
+        navigate(targetPath);
+      }
     }
   };
 

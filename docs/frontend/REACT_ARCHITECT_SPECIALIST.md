@@ -596,7 +596,193 @@ grep -r "<PageContainer" src/pages/app/admin/ | grep -v "AdminSettingsPage.tsx" 
 grep -r "<AdminSettingsTabs" src/pages/app/admin/ | grep -v "AdminSettingsPage.tsx"  # Should be empty
 ```
 
-### 4. Routing and Navigation (MANDATORY)
+### 4. Page Layout Architecture (MANDATORY)
+
+#### PageContainer - Universal Page Wrapper
+**CRITICAL**: ALL application pages MUST use PageContainer for consistent layout, navigation, and user experience.
+
+```tsx
+// Standard page pattern - MANDATORY for ALL pages
+import { PageContainer, BreadcrumbItem, PageAction } from '@/shared/components/layout/PageContainer';
+
+export function StandardPage() {
+  // Dynamic breadcrumbs based on navigation hierarchy
+  const breadcrumbs: BreadcrumbItem[] = [
+    {
+      label: 'Dashboard',
+      href: '/app',
+      icon: HomeIcon
+    },
+    {
+      label: 'Section Name',
+      href: '/app/section'
+    },
+    {
+      label: 'Current Page'  // No href for current page
+    }
+  ];
+
+  // Consolidated actions in page header
+  const actions: PageAction[] = [
+    {
+      id: 'back',
+      label: 'Back',
+      onClick: () => navigate(-1),
+      variant: 'outline',
+      icon: ArrowLeftIcon
+    },
+    {
+      id: 'create',
+      label: 'Create New',
+      onClick: handleCreate,
+      variant: 'primary',
+      icon: PlusIcon
+    }
+  ];
+
+  return (
+    <PageContainer
+      title="Page Title"
+      description="Clear description of page purpose"
+      breadcrumbs={breadcrumbs}
+      actions={actions}
+    >
+      {/* Page content follows standard patterns */}
+      <div className="space-y-6">
+        <ContentSection />
+      </div>
+    </PageContainer>
+  );
+}
+```
+
+#### Breadcrumb System Standards
+**REQUIRED**: Follow hierarchical navigation patterns:
+- **Dashboard** → **Section** → **Category/Filter** → **Current Page**
+- **Clickable navigation** back to any parent level
+- **Dynamic updates** for filters, search, or category selections
+- **Icon integration** for visual hierarchy
+
+#### Loading and Error State Patterns
+```tsx
+// MANDATORY: Consistent loading/error patterns with breadcrumbs
+if (loading) {
+  return (
+    <PageContainer
+      title="Loading..."
+      breadcrumbs={baseBreadcrumbs}
+    >
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-theme-primary"></div>
+      </div>
+    </PageContainer>
+  );
+}
+
+if (error) {
+  return (
+    <PageContainer
+      title="Error"
+      breadcrumbs={baseBreadcrumbs}
+      actions={[{ 
+        id: 'back', 
+        label: 'Go Back', 
+        onClick: () => navigate(-1), 
+        variant: 'primary',
+        icon: ArrowLeftIcon
+      }]}
+    >
+      <div className="text-center py-12">
+        <h3 className="text-lg font-medium text-theme-primary mb-2">{error}</h3>
+      </div>
+    </PageContainer>
+  );
+}
+```
+
+#### Content Organization Standards
+```tsx
+// Standard content structure within PageContainer
+<PageContainer title="..." breadcrumbs={breadcrumbs} actions={actions}>
+  {/* 1. Search/Filters Section */}
+  <div className="bg-theme-surface rounded-lg border border-theme p-6">
+    <SearchAndFilters />
+  </div>
+
+  {/* 2. Main Content Area */}
+  <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <div className="lg:col-span-2">
+      <MainContent />
+    </div>
+    <div className="space-y-6">
+      <SidebarContent />
+    </div>
+  </div>
+
+  {/* 3. Related/Additional Sections */}
+  <div className="space-y-6">
+    <RelatedContent />
+  </div>
+</PageContainer>
+```
+
+#### Admin Settings Container Hierarchy (CRITICAL)
+**Special case for admin settings with tabs**: Follow strict container hierarchy to prevent duplicate navigation structures.
+
+```tsx
+// ✅ CORRECT: Parent page provides PageContainer + TabContainer
+export const AdminSettingsPage: React.FC = () => {
+  return (
+    <PageContainer 
+      title="Admin Settings"
+      breadcrumbs={[
+        { label: 'Dashboard', href: '/app' },
+        { label: 'Admin Settings' }
+      ]}
+    >
+      <AdminSettingsTabs />
+      <div className="mt-6">
+        <Outlet /> {/* Child tab pages render here */}
+      </div>
+    </PageContainer>
+  );
+};
+
+// ✅ CORRECT: Tab page returns component content directly - NO containers
+export const AdminSettingsGeneralTabPage: React.FC = () => {
+  const { user } = useSelector((state: RootState) => state.auth);
+  const canAccessGeneral = user?.permissions?.includes('admin.settings.general');
+  
+  if (!canAccessGeneral) {
+    return <Navigate to="/app/admin/settings" replace />;
+  }
+  
+  return <GeneralSettings />; // Direct component return
+};
+```
+
+#### Text Rendering Standards
+**CRITICAL**: Handle user content that may contain markdown appropriately:
+
+```tsx
+import { stripMarkdown } from '@/shared/utils/markdownUtils';
+
+// For card previews and excerpts - STRIP markdown
+<p className="text-theme-secondary line-clamp-2">
+  {stripMarkdown(content.excerpt)}
+</p>
+
+// For full content areas - RENDER markdown with ReactMarkdown
+<ReactMarkdown
+  remarkPlugins={[remarkGfm, remarkBreaks]}
+  rehypePlugins={[rehypeHighlight, rehypeRaw]}
+  components={customMarkdownComponents}
+>
+  {content.full_text}
+</ReactMarkdown>
+```
+
+### 5. Routing and Navigation (MANDATORY)
 
 #### React Router Setup
 ```tsx

@@ -625,11 +625,19 @@ end
 
 puts "✅ Created #{Page.count} public pages"
 
+# Load Knowledge Base data
+puts "\n📚 Loading Knowledge Base content..."
+load Rails.root.join('db', 'seeds', 'knowledge_base_permissions.rb')
+load Rails.root.join('db', 'seeds', 'knowledge_base_articles.rb')
+
 puts "\n🎉 Seeding complete!"
 puts "   Permissions: #{Permission.count}"
 puts "   Roles: #{Role.count}"
 puts "   Plans: #{Plan.count}"
 puts "   Workers: #{Worker.count}"
+puts "   Public Pages: #{Page.count}"
+puts "   KB Categories: #{KnowledgeBaseCategory.count}"
+puts "   KB Articles: #{KnowledgeBaseArticle.count}"
 
 if Rails.env.development? || Rails.env.test?
   puts "   Accounts: #{Account.count}"

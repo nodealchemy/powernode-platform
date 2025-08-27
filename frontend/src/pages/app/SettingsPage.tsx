@@ -403,19 +403,13 @@ export const SettingsPage: React.FC = () => {
         </div>
       ) : (
         <div>
-          {/* Real-time status indicator */}
+          {/* Real-time status indicator - simplified without badges */}
           <div className="flex justify-end items-center space-x-3 mb-6">
             <WebSocketStatusIndicator showDetails={false} />
             {isReceivingUpdate && (
               <div className="flex items-center space-x-2 px-3 py-1 bg-theme-info text-theme-info rounded-md">
                 <div className="animate-pulse w-2 h-2 bg-theme-info rounded-full"></div>
                 <span className="text-sm">Syncing...</span>
-              </div>
-            )}
-            {isConnected && (
-              <div className="flex items-center space-x-2 px-3 py-1 bg-theme-success text-theme-success rounded-md">
-                <div className="w-2 h-2 bg-theme-success rounded-full"></div>
-                <span className="text-sm">Live</span>
               </div>
             )}
           </div>

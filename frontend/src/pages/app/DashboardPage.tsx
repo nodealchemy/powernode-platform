@@ -12,6 +12,9 @@ import { ReportsPage } from './business/ReportsPage';
 import { PlansPage } from './business/PlansPage';
 import { SettingsPage } from './SettingsPage';
 import { PagesPage } from './content/PagesPage';
+import KnowledgeBasePage from './content/KnowledgeBasePage';
+import KnowledgeBaseArticlePage from './content/KnowledgeBaseArticlePage';
+import KnowledgeBaseAdminPage from './content/KnowledgeBaseAdminPage';
 import { UsersPage } from './UsersPage';
 import { AuditLogsPage } from './AuditLogsPage';
 import { ApiKeysPage } from './ApiKeysPage';
@@ -396,6 +399,11 @@ const DashboardPage: React.FC = () => {
         
         {/* Core Pages */}
         <Route path="/content/pages" element={<PagesPage />} />
+        
+        {/* Knowledge Base Pages */}
+        <Route path="/content/kb" element={<KnowledgeBasePage />} />
+        <Route path="/content/kb/articles/:id" element={<KnowledgeBaseArticlePage />} />
+        <Route path="/content/kb/admin/*" element={<KnowledgeBaseAdminPage />} />
         <Route path="/business/plans/*" element={<PlansPage />} />
         
         
