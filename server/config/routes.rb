@@ -83,6 +83,13 @@ Rails.application.routes.draw do
         end
       end
 
+      # Worker authentication endpoints (for worker service)
+      namespace :worker_auth do
+        post :verify
+        post :authenticate_user
+        post :verify_session
+      end
+
       # Protected resources (will be added later)
       resources :accounts, only: [ :show, :update ] do
         resources :delegations, only: [:index, :create, :show, :update, :destroy] do
