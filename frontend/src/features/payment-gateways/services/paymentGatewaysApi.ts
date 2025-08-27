@@ -112,13 +112,13 @@ class PaymentGatewaysApi {
   // Get overview of all payment gateways
   async getOverview(): Promise<PaymentGatewaysOverview> {
     const response = await api.get('/payment_gateways');
-    return response.data;
+    return response.data.data;
   }
 
   // Get detailed information for a specific gateway
   async getGatewayDetails(gateway: 'stripe' | 'paypal'): Promise<GatewayDetails> {
     const response = await api.get(`/payment_gateways/${gateway}`);
-    return response.data;
+    return response.data.data;
   }
 
   // Update gateway configuration
