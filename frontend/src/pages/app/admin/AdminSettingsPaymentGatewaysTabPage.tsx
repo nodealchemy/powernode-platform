@@ -105,29 +105,29 @@ const GatewayCard: React.FC<GatewayCardProps> = ({
       </div>
 
       {/* Stats Grid */}
-      {isConfigured && (
+      {isConfigured && stats && (
         <div className="grid grid-cols-2 gap-4 mb-6 p-4 bg-theme-background-secondary rounded-lg">
           <div className="text-center">
             <div className="text-2xl font-bold text-theme-primary">
-              {stats.total_transactions.toLocaleString()}
+              {(stats.total_transactions || 0).toLocaleString()}
             </div>
             <div className="text-xs text-theme-secondary mt-1">Total Transactions</div>
           </div>
           <div className="text-center">
             <div className="text-2xl font-bold text-theme-success">
-              {paymentGatewaysApi.formatSuccessRate(stats.success_rate)}
+              {paymentGatewaysApi.formatSuccessRate(stats.success_rate || 0)}
             </div>
             <div className="text-xs text-theme-secondary mt-1">Success Rate</div>
           </div>
           <div className="text-center">
             <div className="text-lg font-semibold text-theme-primary">
-              {paymentGatewaysApi.formatCurrency(stats.last_30_days.volume)}
+              {paymentGatewaysApi.formatCurrency(stats.last_30_days?.volume || 0)}
             </div>
             <div className="text-xs text-theme-secondary mt-1">30-Day Volume</div>
           </div>
           <div className="text-center">
             <div className="text-lg font-semibold text-theme-primary">
-              {stats.last_30_days.transactions.toLocaleString()}
+              {(stats.last_30_days?.transactions || 0).toLocaleString()}
             </div>
             <div className="text-xs text-theme-secondary mt-1">30-Day Count</div>
           </div>
@@ -197,7 +197,10 @@ export const AdminSettingsPaymentGatewaysTabPage: React.FC = () => {
   });
 
   // Check if user has payment gateway management permission
-  const canManagePaymentGateways = hasPermissions(user, ['admin.billing.manage_gateways']);
+  // Allow access with either payment-specific or general admin settings permissions
+  const canManagePaymentGateways = hasPermissions(user, ['admin.settings.payment']) || 
+                                   hasPermissions(user, ['admin.settings.view']) ||
+                                   hasPermissions(user, ['admin.billing.view']);
 
   useEffect(() => {
     if (canManagePaymentGateways) {
@@ -207,7 +210,18 @@ export const AdminSettingsPaymentGatewaysTabPage: React.FC = () => {
   
   // Redirect if user doesn't have permission
   if (!canManagePaymentGateways) {
-    return <Navigate to="/app/admin/settings" replace />;
+    return (
+      <div className="bg-theme-surface rounded-lg border border-theme p-6">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold text-theme-primary mb-4">Access Denied</h2>
+          <p className="text-theme-secondary mb-4">You don't have permission to access payment gateways settings.</p>
+          <p className="text-sm text-theme-tertiary">Required permissions: admin.settings.payment, admin.settings.view, or admin.billing.view</p>
+          <div className="mt-4 p-4 bg-theme-background-secondary rounded">
+            <p className="text-xs text-theme-tertiary">User permissions: {user?.permissions?.join(', ') || 'None'}</p>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   const loadOverview = async () => {
@@ -273,7 +287,7 @@ export const AdminSettingsPaymentGatewaysTabPage: React.FC = () => {
         <div className="space-y-6">
 
       {/* Overview Stats */}
-      {overview && (
+      {overview && overview.statistics?.overall && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="bg-theme-surface border border-theme rounded-xl p-6 text-center">
             <div className="w-12 h-12 bg-theme-info rounded-lg flex items-center justify-center mx-auto mb-4">
@@ -283,10 +297,10 @@ export const AdminSettingsPaymentGatewaysTabPage: React.FC = () => {
             </div>
             <h3 className="text-lg font-semibold text-theme-primary mb-2">Total Transactions</h3>
             <div className="text-3xl font-bold text-theme-interactive-primary mb-1">
-              {overview.statistics.overall.total_transactions.toLocaleString()}
+              {(overview.statistics?.overall?.total_transactions || 0).toLocaleString()}
             </div>
             <div className="text-sm text-theme-secondary">
-              {overview.statistics.overall.successful_transactions.toLocaleString()} successful
+              {(overview.statistics?.overall?.successful_transactions || 0).toLocaleString()} successful
             </div>
           </div>
           
@@ -298,7 +312,7 @@ export const AdminSettingsPaymentGatewaysTabPage: React.FC = () => {
             </div>
             <h3 className="text-lg font-semibold text-theme-primary mb-2">Success Rate</h3>
             <div className="text-3xl font-bold text-theme-success mb-1">
-              {paymentGatewaysApi.formatSuccessRate(overview.statistics.overall.success_rate)}
+              {paymentGatewaysApi.formatSuccessRate(overview.statistics?.overall?.success_rate || 0)}
             </div>
             <div className="text-sm text-theme-secondary">Overall performance</div>
           </div>
@@ -311,7 +325,7 @@ export const AdminSettingsPaymentGatewaysTabPage: React.FC = () => {
             </div>
             <h3 className="text-lg font-semibold text-theme-primary mb-2">Total Volume</h3>
             <div className="text-3xl font-bold text-purple-600 mb-1">
-              {paymentGatewaysApi.formatCurrency(overview.statistics.overall.total_volume)}
+              {paymentGatewaysApi.formatCurrency(overview.statistics?.overall?.total_volume || 0)}
             </div>
             <div className="text-sm text-theme-secondary">All-time processed</div>
           </div>
@@ -319,13 +333,13 @@ export const AdminSettingsPaymentGatewaysTabPage: React.FC = () => {
       )}
 
       {/* Gateway Cards */}
-      {overview && (
+      {overview && overview.gateways && overview.status && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <GatewayCard
             gateway="stripe"
             config={overview.gateways.stripe}
             status={overview.status.stripe}
-            stats={overview.statistics.stripe}
+            stats={overview.statistics?.stripe}
             onTestConnection={handleTestConnection}
             onViewDetails={handleViewDetails}
             onConfigure={handleConfigureGateway}
@@ -335,7 +349,7 @@ export const AdminSettingsPaymentGatewaysTabPage: React.FC = () => {
             gateway="paypal"
             config={overview.gateways.paypal}
             status={overview.status.paypal}
-            stats={overview.statistics.paypal}
+            stats={overview.statistics?.paypal}
             onTestConnection={handleTestConnection}
             onViewDetails={handleViewDetails}
             onConfigure={handleConfigureGateway}
