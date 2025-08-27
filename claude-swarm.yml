@@ -5,23 +5,23 @@ version: 1
 swarm:
   name: "subscription-platform-swarm"
   main: "platform_architect"
-  # Verbose MCP connection output configuration
+  # MCP connection configuration
   logging:
-    level: debug
-    verbose: true
-    mcp_debug: true
-    connection_verbose: true
+    level: info
+    verbose: false
+    mcp_debug: false
+    connection_verbose: false
   debug:
-    enabled: true
-    mcp_connections: true
-    tool_calls: true
-    responses: true
+    enabled: false
+    mcp_connections: false
+    tool_calls: false
+    responses: false
   before:
     - "echo 'Starting subscription platform development swarm...'"
-    - "echo 'MCP Debug Mode: ENABLED - Verbose connection output active'"
+    - "echo 'MCP Debug Mode: DISABLED - Clean output mode active'"
   after:
     - "echo 'Swarm session complete. Check TODO.md for progress.'"
-    - "echo 'MCP connection logs available in console output'"
+    - "echo 'MCP debugging disabled for clean output'"
   instances:
 
     platform_architect:
@@ -29,8 +29,8 @@ swarm:
       directory: .
       model: opusplan
       vibe: true
-      debug: true
-      verbose_mcp: true
+      debug: false
+      verbose_mcp: false
       connections:
         - rails_architect
         - data_modeler
@@ -88,8 +88,8 @@ swarm:
       description: "Rails 8 API architect specializing in setup, configuration, and architectural decisions"
       directory: .
       model: sonnet
-      debug: true
-      verbose_mcp: true
+      debug: false
+      verbose_mcp: false
       prompt: |
         You are a Rails 8 API architect specializing in Rails 8 API architecture, authentication, and WebSocket integration.
 
@@ -116,8 +116,8 @@ swarm:
       description: "Database designer and ActiveRecord model specialist for subscription platform data layer"
       directory: .
       model: sonnet
-      debug: true
-      verbose_mcp: true
+      debug: false
+      verbose_mcp: false
       prompt: |
         You are a database architect specializing in database architecture, ActiveRecord patterns, and schema design.
 
@@ -255,8 +255,8 @@ swarm:
       description: "React application architect setting up TypeScript structure, routing, and state management"
       directory: ./frontend
       model: sonnet
-      debug: true
-      verbose_mcp: true
+      debug: false
+      verbose_mcp: false
       prompt: |
         You are a React architect specializing in TypeScript architecture, routing, and state management.
 
