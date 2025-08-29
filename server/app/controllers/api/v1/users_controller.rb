@@ -28,6 +28,12 @@ class Api::V1::UsersController < ApplicationController
 
   # POST /api/v1/users
   def create
+    # Check usage limit before creating user
+    unless UsageLimitService.can_add_user?(current_account)
+      render_error('User limit reached for your current plan', status: :forbidden)
+      return
+    end
+
     @user = current_account.users.build(user_params)
 
     if @user.save
