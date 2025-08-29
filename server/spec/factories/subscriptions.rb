@@ -43,6 +43,10 @@ FactoryBot.define do
       ended_at { 1.day.ago }
     end
 
+    trait :without_plan do
+      plan { nil }
+    end
+
     trait :with_stripe do
       stripe_subscription_id { "sub_#{SecureRandom.hex(12)}" }
     end

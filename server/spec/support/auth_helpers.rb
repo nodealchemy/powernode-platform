@@ -47,6 +47,11 @@ module AuthHelpers
 
     response_data
   end
+
+  # Controller test authentication helper
+  def sign_in_as_user(user)
+    request.headers['Authorization'] = "Bearer #{jwt_token_for(user)}"
+  end
 end
 
 RSpec.configure do |config|
