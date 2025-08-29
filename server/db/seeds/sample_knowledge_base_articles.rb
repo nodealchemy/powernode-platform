@@ -546,7 +546,7 @@ The Knowledge Base uses a role-based content management system:
 
 To work with Knowledge Base content, you need these permissions:
 
-- `kb.read` - View published articles
+- `kb.view` - View published articles
 - `kb.write` - Create and edit articles  
 - `kb.manage` - Full content management access
 - `kb.admin` - System administration features

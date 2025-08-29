@@ -85,7 +85,6 @@ export default function KnowledgeBasePage() {
       setArticles(articlesResponse.data.data.articles);
       setFeaturedArticles(featuredResponse.data.data.articles);
     } catch (error) {
-      console.error('Failed to load knowledge base data:', error);
     } finally {
       setIsLoading(false);
     }
@@ -96,7 +95,6 @@ export default function KnowledgeBasePage() {
       const response = await knowledgeBaseApi.getArticles({ per_page: 20 });
       setArticles(response.data.data.articles);
     } catch (error) {
-      console.error('Failed to load articles:', error);
     }
   };
 
@@ -130,7 +128,6 @@ export default function KnowledgeBasePage() {
       if (selectedCategory) params.set('category', selectedCategory);
       setSearchParams(params);
     } catch (error) {
-      console.error('Failed to search articles:', error);
     }
   };
 

@@ -33,7 +33,7 @@ const WebhookManagementPage: React.FC = () => {
   const { user } = useSelector((state: RootState) => state.auth);
   
   // Check webhook permissions (matching backend controller)
-  const canReadWebhooks = hasPermissions(user, ['webhook.view']) || hasPermissions(user, ['webhook.create', 'webhook.edit', 'webhook.delete']);
+  const canReadWebhooks = hasPermissions(user, ['webhook.read']) || hasPermissions(user, ['webhook.create', 'webhook.edit', 'webhook.delete']);
   const canCreateWebhooks = hasPermissions(user, ['webhook.create']);
   const canEditWebhooks = hasPermissions(user, ['webhook.edit']);
   const canDeleteWebhooks = hasPermissions(user, ['webhook.delete']);
@@ -100,7 +100,6 @@ const WebhookManagementPage: React.FC = () => {
         setDetailedStats(response.data);
       }
     } catch (err) {
-      console.error('Failed to load detailed stats:', err);
     }
   }, [canReadWebhooks]);
 

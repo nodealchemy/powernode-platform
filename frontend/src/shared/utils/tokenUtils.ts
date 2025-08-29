@@ -5,16 +5,26 @@
 /**
  * Checks if an error indicates token invalidity that requires immediate clearing
  */
-export const isTokenInvalidError = (error: any): boolean => {
+export const isTokenInvalidError = (error: unknown): boolean => {
   if (!error) return false;
   
   // Check for 401 status code first
-  if (error.response?.status === 401) return true;
+  if (error && typeof error === 'object' && 'response' in error && 
+      error.response && typeof error.response === 'object' && 'status' in error.response &&
+      (error.response as any).status === 401) {
+    return true;
+  }
   
-  const errorMessage = error.response?.data?.error || 
-                      error.response?.data?.message || 
-                      error.message || 
-                      String(error);
+  // Extract error message safely
+  let errorMessage = String(error);
+  if (error instanceof Error) {
+    errorMessage = error.message;
+  } else if (error && typeof error === 'object' && 'response' in error && 
+             error.response && typeof error.response === 'object' && 'data' in error.response &&
+             error.response.data && typeof error.response.data === 'object') {
+    const responseData = error.response.data as any;
+    errorMessage = responseData.error || responseData.message || errorMessage;
+  }
   
   const invalidTokenPatterns = [
     'Signature verification failed',

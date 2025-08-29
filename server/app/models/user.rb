@@ -82,6 +82,9 @@ class User < ApplicationRecord
 
   # NEW: Permission-based access control methods
   def has_permission?(permission_name)
+    # Super admin has all permissions programmatically
+    return true if super_admin?
+    
     # Check if user has permission through any of their roles
     permissions.exists?(name: permission_name)
   end
@@ -95,12 +98,22 @@ class User < ApplicationRecord
   end
 
   def permissions
-    # Get all permissions through roles
-    Permission.joins(:roles).where(roles: { id: role_ids })
+    # Super admin has programmatic access to all permissions
+    if super_admin?
+      Permission.all
+    else
+      # Get all permissions through roles
+      Permission.joins(:roles).where(roles: { id: role_ids })
+    end
   end
 
   def permission_names
-    permissions.pluck(:name).uniq.sort
+    # Super admin has programmatic access to all permissions
+    if super_admin?
+      Permission.pluck(:name).sort
+    else
+      permissions.pluck(:name).uniq.sort
+    end
   end
 
   # Role checking methods

@@ -19,7 +19,7 @@ export const AdminSettingsPage: React.FC = () => {
   const { user } = useSelector((state: RootState) => state.auth);
   
   // Check if user has admin settings permission
-  const canAccessAdminSettings = hasPermissions(user, ['admin.settings.view']);
+  const canAccessAdminSettings = hasPermissions(user, ['admin.settings.read']);
   
   // Redirect if user doesn't have permission
   if (!canAccessAdminSettings) {

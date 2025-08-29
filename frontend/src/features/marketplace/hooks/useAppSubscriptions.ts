@@ -50,8 +50,9 @@ export const useAppSubscriptions = (status?: string, initialLoad = true): UseApp
       }
       
       setPagination(response.pagination);
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.error || 'Failed to load subscriptions';
+    } catch (err: unknown) {
+      const httpError = err as { response?: { data?: { error?: string } } };
+      const errorMessage = httpError.response?.data?.error || 'Failed to load subscriptions';
       setError(errorMessage);
       showNotification(errorMessage, 'error');
     } finally {
@@ -78,8 +79,9 @@ export const useAppSubscriptions = (status?: string, initialLoad = true): UseApp
       
       showNotification('Successfully subscribed to app', 'success');
       return newSubscription;
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.error || 'Failed to create subscription';
+    } catch (err: unknown) {
+      const httpError = err as { response?: { data?: { error?: string } } };
+      const errorMessage = httpError.response?.data?.error || 'Failed to create subscription';
       showNotification(errorMessage, 'error');
       return null;
     } finally {
@@ -98,8 +100,9 @@ export const useAppSubscriptions = (status?: string, initialLoad = true): UseApp
       
       showNotification('Subscription updated successfully', 'success');
       return updatedSubscription;
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.error || 'Failed to update subscription';
+    } catch (err: unknown) {
+      const httpError = err as { response?: { data?: { error?: string } } };
+      const errorMessage = httpError.response?.data?.error || 'Failed to update subscription';
       showNotification(errorMessage, 'error');
       return null;
     } finally {
@@ -115,8 +118,9 @@ export const useAppSubscriptions = (status?: string, initialLoad = true): UseApp
       setSubscriptions(prev => prev.filter(sub => sub.id !== id));
       showNotification('Subscription deleted successfully', 'success');
       return true;
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.error || 'Failed to delete subscription';
+    } catch (err: unknown) {
+      const httpError = err as { response?: { data?: { error?: string } } };
+      const errorMessage = httpError.response?.data?.error || 'Failed to delete subscription';
       showNotification(errorMessage, 'error');
       return false;
     } finally {
@@ -135,8 +139,9 @@ export const useAppSubscriptions = (status?: string, initialLoad = true): UseApp
       
       showNotification('Subscription paused successfully', 'success');
       return pausedSubscription;
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.error || 'Failed to pause subscription';
+    } catch (err: unknown) {
+      const httpError = err as { response?: { data?: { error?: string } } };
+      const errorMessage = httpError.response?.data?.error || 'Failed to pause subscription';
       showNotification(errorMessage, 'error');
       return null;
     } finally {
@@ -155,8 +160,9 @@ export const useAppSubscriptions = (status?: string, initialLoad = true): UseApp
       
       showNotification('Subscription resumed successfully', 'success');
       return resumedSubscription;
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.error || 'Failed to resume subscription';
+    } catch (err: unknown) {
+      const httpError = err as { response?: { data?: { error?: string } } };
+      const errorMessage = httpError.response?.data?.error || 'Failed to resume subscription';
       showNotification(errorMessage, 'error');
       return null;
     } finally {
@@ -175,8 +181,9 @@ export const useAppSubscriptions = (status?: string, initialLoad = true): UseApp
       
       showNotification('Subscription cancelled successfully', 'success');
       return cancelledSubscription;
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.error || 'Failed to cancel subscription';
+    } catch (err: unknown) {
+      const httpError = err as { response?: { data?: { error?: string } } };
+      const errorMessage = httpError.response?.data?.error || 'Failed to cancel subscription';
       showNotification(errorMessage, 'error');
       return null;
     } finally {
@@ -195,8 +202,9 @@ export const useAppSubscriptions = (status?: string, initialLoad = true): UseApp
       
       showNotification('Plan upgraded successfully', 'success');
       return upgradedSubscription;
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.error || 'Failed to upgrade plan';
+    } catch (err: unknown) {
+      const httpError = err as { response?: { data?: { error?: string } } };
+      const errorMessage = httpError.response?.data?.error || 'Failed to upgrade plan';
       showNotification(errorMessage, 'error');
       return null;
     } finally {
@@ -215,8 +223,9 @@ export const useAppSubscriptions = (status?: string, initialLoad = true): UseApp
       
       showNotification('Plan downgraded successfully', 'success');
       return downgradedSubscription;
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.error || 'Failed to downgrade plan';
+    } catch (err: unknown) {
+      const httpError = err as { response?: { data?: { error?: string } } };
+      const errorMessage = httpError.response?.data?.error || 'Failed to downgrade plan';
       showNotification(errorMessage, 'error');
       return null;
     } finally {
@@ -272,8 +281,9 @@ export const useSubscriptionUsage = (subscriptionId: string | null) => {
       setError(null);
       const usageData = await appSubscriptionsApi.getUsage(subscriptionId);
       setUsage(usageData);
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.error || 'Failed to load usage data';
+    } catch (err: unknown) {
+      const httpError = err as { response?: { data?: { error?: string } } };
+      const errorMessage = httpError.response?.data?.error || 'Failed to load usage data';
       setError(errorMessage);
       showNotification(errorMessage, 'error');
     } finally {
@@ -314,8 +324,9 @@ export const useSubscriptionAnalytics = (subscriptionId: string | null) => {
       setError(null);
       const analyticsData = await appSubscriptionsApi.getAnalytics(subscriptionId);
       setAnalytics(analyticsData);
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.error || 'Failed to load analytics data';
+    } catch (err: unknown) {
+      const httpError = err as { response?: { data?: { error?: string } } };
+      const errorMessage = httpError.response?.data?.error || 'Failed to load analytics data';
       setError(errorMessage);
       showNotification(errorMessage, 'error');
     } finally {

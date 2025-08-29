@@ -46,24 +46,27 @@ const WebhookForm: React.FC<WebhookFormProps> = ({
       pattern: /^https?:\/\/.+/,
     },
     event_types: {
-      custom: (value: string[]) => {
-        if (!value || value.length === 0) {
+      custom: (value: unknown) => {
+        const events = value as string[];
+        if (!events || events.length === 0) {
           return 'At least one event type must be selected';
         }
         return null;
       }
     },
     timeout_seconds: {
-      custom: (value: number) => {
-        if (value < 1 || value > 300) {
+      custom: (value: unknown) => {
+        const timeout = value as number;
+        if (timeout < 1 || timeout > 300) {
           return 'Timeout must be between 1 and 300 seconds';
         }
         return null;
       }
     },
     retry_limit: {
-      custom: (value: number) => {
-        if (value < 0 || value > 10) {
+      custom: (value: unknown) => {
+        const limit = value as number;
+        if (limit < 0 || limit > 10) {
           return 'Retry limit must be between 0 and 10';
         }
         return null;

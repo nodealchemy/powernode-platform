@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Worker, UpdateWorkerData } from '@/features/workers/services/workerApi';
-import { WorkerDetailsPanel } from './WorkerDetailsPanel';
 import { 
   Eye, 
   Edit, 
@@ -10,11 +9,8 @@ import {
   Activity, 
   Calendar,
   Key,
-  Building,
   Copy,
-  Check,
-  ChevronRight,
-  X
+  Check
 } from 'lucide-react';
 import { copyToClipboard } from '@/shared/utils/clipboard';
 
@@ -38,10 +34,9 @@ export const WorkerCard: React.FC<WorkerCardProps> = ({
   onView,
   onEdit,
   onDelete,
-  isExpanded,
-  onUpdateWorker,
-  onDeleteWorker,
-  onCloseExpanded
+  onUpdateWorker: _onUpdateWorker,
+  onDeleteWorker: _onDeleteWorker,
+  onCloseExpanded: _onCloseExpanded
 }) => {
   const [showActions, setShowActions] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -112,7 +107,6 @@ export const WorkerCard: React.FC<WorkerCardProps> = ({
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (error) {
-      console.error('Failed to copy token:', error);
     }
   };
 

@@ -45,9 +45,11 @@ export const AppsPage: React.FC = () => {
     navigate(`/app/marketplace/apps/${app.id}`);
   };
 
-  const handleCreateSuccess = (app: App) => {
+  const handleCreateSuccess = (app: unknown) => {
     setRefreshKey(prev => prev + 1);
-    navigate(`/app/marketplace/apps/${app.id}`);
+    if (app && typeof app === 'object' && 'id' in app) {
+      navigate(`/app/marketplace/apps/${(app as any).id}`);
+    }
   };
 
   return (

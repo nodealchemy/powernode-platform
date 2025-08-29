@@ -19,10 +19,24 @@ export const AppDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'overview' | 'endpoints' | 'webhooks' | 'analytics'>('overview');
 
-  const { app, loading, error, refresh } = useApp(appId!);
-  const { endpoints, loading: endpointsLoading } = useAppEndpoints(appId!, {});
-  const { webhooks, refresh: refreshWebhooks } = useAppWebhooks(appId!, {});
+  // Always call hooks at the top level - use empty string as fallback to avoid conditional calls
+  const { app, loading, error, refresh } = useApp(appId || '');
+  const { endpoints, loading: endpointsLoading } = useAppEndpoints(appId || '', {});
+  const { webhooks, refresh: refreshWebhooks } = useAppWebhooks(appId || '', {});
   const { subscriptions } = useAppSubscriptions(undefined, false);
+
+  // Handle missing appId in render logic
+  if (!appId) {
+    return (
+      <PageContainer title="App Not Found" description="The requested app could not be found.">
+        <div className="text-center py-12">
+          <h3 className="text-lg font-medium text-theme-primary mb-2">App Not Found</h3>
+          <p className="text-theme-secondary mb-4">The app you're looking for doesn't exist or you don't have access to it.</p>
+          <Button onClick={() => navigate('/app/marketplace')}>Back to Marketplace</Button>
+        </div>
+      </PageContainer>
+    );
+  }
 
   // Check if user is already subscribed to this app
   const existingSubscription = subscriptions.find(sub => sub.app.id === appId && sub.status === 'active');

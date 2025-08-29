@@ -9,7 +9,7 @@ import { X } from 'lucide-react';
 interface CreateAppModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess?: (app: any) => void;
+  onSuccess?: (app: unknown) => void;
 }
 
 export const CreateAppModal: React.FC<CreateAppModalProps> = ({
@@ -103,7 +103,6 @@ export const CreateAppModal: React.FC<CreateAppModalProps> = ({
         resetForm();
       }
     } catch (error) {
-      console.error('Error creating app:', error);
     } finally {
       setSubmitting(false);
     }

@@ -24,11 +24,13 @@ export const MyAppsPage: React.FC = () => {
     setShowCreateModal(true);
   };
 
-  const handleAppCreated = (app: App) => {
+  const handleAppCreated = (app: unknown) => {
     setShowCreateModal(false);
     refresh();
-    // Navigate to the new app's management page
-    navigate(`/app/marketplace/apps/${app.id}`);
+    // Navigate to the new app's management page if app has an ID
+    if (app && typeof app === 'object' && 'id' in app) {
+      navigate(`/app/marketplace/apps/${(app as any).id}`);
+    }
   };
 
   const handleManageApp = (app: App) => {

@@ -6,7 +6,7 @@ export interface FormValidationRule {
   minLength?: number;
   maxLength?: number;
   pattern?: RegExp;
-  custom?: (value: any) => string | null;
+  custom?: (value: unknown) => string | null;
 }
 
 export interface FormValidationRules {
@@ -320,11 +320,9 @@ export function useForm<T extends Record<string, any>>(
         if (resetAfterSubmit) {
           reset();
         }
-      } catch (error: any) {
-        showNotification(
-          error?.message || 'An error occurred while submitting the form',
-          'error'
-        );
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'An error occurred while submitting the form';
+        showNotification(errorMessage, 'error');
       } finally {
         setIsSubmitting(false);
       }

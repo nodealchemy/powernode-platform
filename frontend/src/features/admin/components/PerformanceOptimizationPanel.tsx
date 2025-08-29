@@ -110,7 +110,6 @@ export const PerformanceOptimizationPanel: React.FC<PerformanceOptimizationPanel
         setActions(response.data);
       }
     } catch (error) {
-      console.error('Failed to load optimization actions:', error);
       showNotification('Failed to load optimization actions', 'error');
     } finally {
       setLoading(false);
@@ -150,7 +149,6 @@ export const PerformanceOptimizationPanel: React.FC<PerformanceOptimizationPanel
         showNotification(response.error || `Failed to execute ${action.name}`, 'error');
       }
     } catch (error) {
-      console.error('Failed to execute optimization:', error);
       showNotification(`Failed to execute ${action.name}`, 'error');
     } finally {
       setExecutingActions(prev => {

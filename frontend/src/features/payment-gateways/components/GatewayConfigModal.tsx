@@ -73,9 +73,10 @@ export const GatewayConfigModal: React.FC<GatewayConfigModalProps> = ({
       return {
         publishable_key: {
           required: true,
-          custom: (value: string) => {
-            if (!value) return null; // Required validation is handled separately
-            if (!/^pk_(test_|live_)[a-zA-Z0-9_]{20,}$/.test(value)) {
+          custom: (value: unknown) => {
+            const keyValue = value as string;
+            if (!keyValue) return null; // Required validation is handled separately
+            if (!/^pk_(test_|live_)[a-zA-Z0-9_]{20,}$/.test(keyValue)) {
               return 'Publishable key must start with pk_test_ or pk_live_ followed by at least 20 characters';
             }
             return null;
@@ -83,25 +84,28 @@ export const GatewayConfigModal: React.FC<GatewayConfigModalProps> = ({
         },
         secret_key: {
           required: true,
-          custom: (value: string) => {
-            if (!value) return null; // Required validation is handled separately
-            if (!/^sk_(test_|live_)[a-zA-Z0-9_]{20,}$/.test(value)) {
+          custom: (value: unknown) => {
+            const keyValue = value as string;
+            if (!keyValue) return null; // Required validation is handled separately
+            if (!/^sk_(test_|live_)[a-zA-Z0-9_]{20,}$/.test(keyValue)) {
               return 'Secret key must start with sk_test_ or sk_live_ followed by at least 20 characters';
             }
             return null;
           }
         },
         endpoint_secret: {
-          custom: (value: string) => {
-            if (value && !/^whsec_[a-zA-Z0-9]+$/.test(value)) {
+          custom: (value: unknown) => {
+            const secretValue = value as string;
+            if (secretValue && !/^whsec_[a-zA-Z0-9]+$/.test(secretValue)) {
               return 'Webhook endpoint secret must start with whsec_ if provided';
             }
             return null;
           }
         },
         webhook_tolerance: {
-          custom: (value: number) => {
-            if (value < 1 || value > 3600) {
+          custom: (value: unknown) => {
+            const numValue = value as number;
+            if (numValue < 1 || numValue > 3600) {
               return 'Webhook tolerance must be between 1 and 3600 seconds';
             }
             return null;
@@ -119,8 +123,9 @@ export const GatewayConfigModal: React.FC<GatewayConfigModalProps> = ({
           minLength: 10
         },
         mode: {
-          custom: (value: string) => {
-            if (value && !['sandbox', 'live'].includes(value)) {
+          custom: (value: unknown) => {
+            const modeValue = value as string;
+            if (modeValue && !['sandbox', 'live'].includes(modeValue)) {
               return 'Mode must be either sandbox or live';
             }
             return null;
@@ -152,11 +157,12 @@ export const GatewayConfigModal: React.FC<GatewayConfigModalProps> = ({
       showNotification(`${gateway.charAt(0).toUpperCase() + gateway.slice(1)} configuration updated successfully`, 'success');
       onConfigured();
       onClose();
-    } catch (error: any) {
+    } catch (error: unknown) {
       let errorMessage = `Failed to update ${gateway} configuration`;
       
-      if (error?.response?.data?.error) {
-        const backendError = error.response.data.error;
+      const httpError = error as { response?: { data?: { error?: string }; status?: number } };
+      if (httpError?.response?.data?.error) {
+        const backendError = httpError.response.data.error;
         if (typeof backendError === 'string') {
           errorMessage = backendError.split(', ').join('\n• ');
           if (backendError.includes(',')) {
@@ -165,14 +171,14 @@ export const GatewayConfigModal: React.FC<GatewayConfigModalProps> = ({
         } else {
           errorMessage = backendError;
         }
-      } else if (error?.response?.status === 401) {
+      } else if (httpError?.response?.status === 401) {
         errorMessage = 'Authentication required. Please refresh the page and try again.';
-      } else if (error?.response?.status === 403) {
+      } else if (httpError?.response?.status === 403) {
         errorMessage = 'You do not have permission to update payment gateway settings.';
-      } else if (error?.response?.status === 422) {
+      } else if (httpError?.response?.status === 422) {
         errorMessage = 'Invalid configuration data. Please check your input and try again.';
-      } else if (error?.message) {
-        errorMessage = error.message;
+      } else if ((error as Error)?.message) {
+        errorMessage = (error as Error).message;
       }
       
       throw new Error(errorMessage);

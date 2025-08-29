@@ -1,17 +1,29 @@
 import React, { useState, useEffect } from 'react';
+import { useSelector } from 'react-redux';
+import { RootState } from '@/shared/services';
 import { MetricsOverview } from './MetricsOverview';
 import { analyticsService } from '../services/analyticsService';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
+import { hasPermissions } from '@/shared/utils/permissionUtils';
+import { Lock } from 'lucide-react';
 
 // Default component for tests
 const MetricsOverviewWrapper: React.FC = () => {
+  const { user } = useSelector((state: RootState) => state.auth);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [metrics, setMetrics] = useState<any>(null);
+  
+  // Check permissions before loading analytics
+  const canViewAnalytics = hasPermissions(user, ['analytics.read']);
 
   useEffect(() => {
-    loadMetrics();
-  }, []);
+    if (canViewAnalytics) {
+      loadMetrics();
+    } else {
+      setLoading(false);
+    }
+  }, [canViewAnalytics]);
 
   const loadMetrics = async () => {
     try {
@@ -52,6 +64,19 @@ const MetricsOverviewWrapper: React.FC = () => {
       setLoading(false);
     }
   };
+
+  // Show access denied if user doesn't have permission
+  if (!canViewAnalytics) {
+    return (
+      <div>
+        <h1>Analytics Overview</h1>
+        <div className="flex items-center justify-center gap-3 text-theme-secondary p-8">
+          <Lock className="w-5 h-5" />
+          <span>Analytics access requires proper permissions</span>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (

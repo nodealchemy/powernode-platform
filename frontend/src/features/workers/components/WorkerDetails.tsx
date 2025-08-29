@@ -86,7 +86,6 @@ export const WorkerDetails: React.FC<WorkerDetailsProps> = ({
       setShowToken(true);
       await loadWorkerDetails();
     } catch (err: any) {
-      console.error('Failed to regenerate token:', err);
     }
   };
 
@@ -98,7 +97,6 @@ export const WorkerDetails: React.FC<WorkerDetailsProps> = ({
         setShowConfirmRevoke(false);
       }
     } catch (err: any) {
-      console.error('Failed to change worker status:', err);
     }
   };
 
@@ -132,7 +130,6 @@ export const WorkerDetails: React.FC<WorkerDetailsProps> = ({
       await copyToClipboard(token);
       // Could add a toast notification here
     } catch (err) {
-      console.error('Failed to copy token:', err);
     }
   };
 

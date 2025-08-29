@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Shield, Key, Clock, AlertTriangle, CheckCircle, XCircle, RefreshCw } from 'lucide-react';
 import { SettingsCard, ToggleSettingItem, FormField, Input, Select, SectionHeader } from './SettingsComponents';
 import { useNotification } from '@/shared/hooks/useNotification';
@@ -66,22 +66,21 @@ export const SecuritySettings: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const { showNotification } = useNotification();
 
-  useEffect(() => {
-    loadSecurityConfig();
-  }, []);
-
-  const loadSecurityConfig = async () => {
+  const loadSecurityConfig = useCallback(async () => {
     setLoading(true);
     try {
       const response = await adminSettingsApi.getSecurityConfig();
       setConfig(response);
     } catch (error) {
       showNotification('Failed to load security configuration', 'error');
-      console.error('Security config load error:', error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [showNotification]);
+
+  useEffect(() => {
+    loadSecurityConfig();
+  }, [loadSecurityConfig]);
 
   const saveSecurityConfig = async () => {
     setSaving(true);
@@ -90,13 +89,12 @@ export const SecuritySettings: React.FC = () => {
       showNotification(response.message || 'Security configuration updated successfully', 'success');
     } catch (error) {
       showNotification('Failed to save security configuration', 'error');
-      console.error('Security config save error:', error);
     } finally {
       setSaving(false);
     }
   };
 
-  const updateConfig = (section: keyof SecurityConfig, key: string, value: any) => {
+  const updateConfig = (section: keyof SecurityConfig, key: string, value: string | number | boolean) => {
     setConfig(prev => ({
       ...prev,
       [section]: {
@@ -141,7 +139,6 @@ export const SecuritySettings: React.FC = () => {
       }
     } catch (error) {
       showNotification('Failed to test security configuration', 'error');
-      console.error('Security test error:', error);
     } finally {
       setLoading(false);
     }

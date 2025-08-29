@@ -215,7 +215,7 @@ RSpec.describe User, type: :model do
 
       describe 'analytics permissions' do
         it 'allows admins to view analytics' do
-          expect(user.can?('analytics.view')).to be true
+          expect(user.can?('analytics.read')).to be true
         end
 
         it 'allows admins to export analytics' do
@@ -223,7 +223,7 @@ RSpec.describe User, type: :model do
         end
 
         it 'allows owners to view analytics' do
-          expect(owner.can?('analytics.view')).to be true
+          expect(owner.can?('analytics.read')).to be true
         end
       end
     end

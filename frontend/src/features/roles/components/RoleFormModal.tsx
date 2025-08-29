@@ -38,8 +38,9 @@ export const RoleFormModal: React.FC<RoleFormModalProps> = ({
       maxLength: 500,
     },
     permission_ids: {
-      custom: (value: string[]) => {
-        if (!value || value.length === 0) {
+      custom: (value: unknown) => {
+        const permissions = value as string[];
+        if (!permissions || permissions.length === 0) {
           return 'At least one permission must be selected';
         }
         return null;

@@ -123,14 +123,15 @@ export const WebhookTestModal: React.FC<WebhookTestModalProps> = ({
       const result = await testWebhook(webhook.id, testData);
       setTestResult(result as TestResult);
       showNotification('Test webhook sent successfully!', 'success');
-    } catch (error: any) {
-      showNotification(`Failed to test webhook: ${error.message}`, 'error');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      showNotification(`Failed to test webhook: ${errorMessage}`, 'error');
       setTestResult({
         delivery_id: '',
         event_id: '',
         status: 'failed',
         payload: {},
-        error_message: error.message
+        error_message: errorMessage
       });
     } finally {
       setTesting(false);
@@ -333,7 +334,7 @@ export const WebhookTestModal: React.FC<WebhookTestModalProps> = ({
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => handleCopyPayload(testResult.response_body!)}
+                          onClick={() => testResult.response_body && handleCopyPayload(testResult.response_body)}
                         >
                           <Copy className="w-4 h-4" />
                         </Button>

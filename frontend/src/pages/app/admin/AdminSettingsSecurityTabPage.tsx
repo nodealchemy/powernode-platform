@@ -55,9 +55,8 @@ export const AdminSettingsSecurityTabPage: React.FC = () => {
       
       // Calculate security scores based on current settings
       calculateSecurityScores(response.settings_summary || {});
-    } catch (err: any) {
-      console.error('Failed to load settings:', err);
-      setError(err.message || 'Failed to load security settings');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to load security settings');
       showNotification('Failed to load security settings', 'error');
     } finally {
       setLoading(false);
@@ -95,7 +94,6 @@ export const AdminSettingsSecurityTabPage: React.FC = () => {
       calculateSecurityScores(updatedSettings);
       showNotification('Security settings updated successfully', 'success');
     } catch (error) {
-      console.error('Failed to update settings:', error);
       showNotification('Failed to update security settings', 'error');
     } finally {
       setSaving(false);

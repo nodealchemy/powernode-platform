@@ -106,7 +106,6 @@ export const ReportsPage: React.FC = () => {
       setRequests(requestsResponse.data);
       isInitialLoad.current = false;
     } catch (err) {
-      console.error('Failed to load reports data:', err);
       setError(err instanceof Error ? err.message : 'Failed to load reports data');
     } finally {
       setLoading(false);
@@ -132,7 +131,6 @@ export const ReportsPage: React.FC = () => {
           const response = await reportsService.getRequests();
           setRequests(response.data);
         } catch (error) {
-          console.error('Failed to refresh requests:', error);
         }
       }, 10000); // Refresh every 10 seconds
     };
@@ -177,7 +175,6 @@ export const ReportsPage: React.FC = () => {
       setSelectedTemplate(null);
       
     } catch (err) {
-      console.error('Failed to submit report request:', err);
       setError(err instanceof Error ? err.message : 'Failed to submit report request');
     } finally {
       setIsSubmitting(false);
@@ -190,7 +187,6 @@ export const ReportsPage: React.FC = () => {
     try {
       await reportsService.downloadReport(request.id);
     } catch (err) {
-      console.error('Failed to download report:', err);
     }
   };
 
@@ -202,7 +198,6 @@ export const ReportsPage: React.FC = () => {
       const response = await reportsService.getRequests();
       setRequests(response.data);
     } catch (err) {
-      console.error('Failed to cancel request:', err);
     }
   };
 

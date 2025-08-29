@@ -91,8 +91,8 @@ export const AdminMarketplacePage: React.FC<AdminMarketplacePageProps> = ({ clas
         const response = await marketplaceListingsApi.getMarketplaceListings({ page: 1, per_page: 50 });
         setListings(response.data || []);
       }
-    } catch (error: any) {
-      showNotification(error.response?.data?.error || 'Failed to load data', 'error');
+    } catch (error: unknown) {
+      showNotification(error instanceof Error ? error.message : 'Failed to load data', 'error');
     } finally {
       setLoading(false);
     }
@@ -126,8 +126,8 @@ export const AdminMarketplacePage: React.FC<AdminMarketplacePageProps> = ({ clas
       }
       
       await loadData();
-    } catch (error: any) {
-      showNotification(error.response?.data?.error || `Failed to ${action} app`, 'error');
+    } catch (error: unknown) {
+      showNotification(error instanceof Error ? error.message : `Failed to ${action} app`, 'error');
     } finally {
       setLoading(false);
     }
@@ -157,8 +157,8 @@ export const AdminMarketplacePage: React.FC<AdminMarketplacePageProps> = ({ clas
       }
       
       await loadData();
-    } catch (error: any) {
-      showNotification(error.response?.data?.error || `Failed to ${action} listing`, 'error');
+    } catch (error: unknown) {
+      showNotification(error instanceof Error ? error.message : `Failed to ${action} listing`, 'error');
     } finally {
       setLoading(false);
     }

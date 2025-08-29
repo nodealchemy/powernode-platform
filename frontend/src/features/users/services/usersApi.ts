@@ -231,35 +231,43 @@ class UsersApiService {
     try {
       const response = await api.get('/roles/assignable');
       if (response.data.success) {
-        return response.data.data.map((role: any) => ({
-          value: role.name || role.value,
-          label: role.label || role.name.split('.').map((part: string) => 
-            part.charAt(0).toUpperCase() + part.slice(1)
-          ).join(' '),
-          description: role.description,
-          canAssign: true // All roles from assignable endpoint can be assigned
-        }));
+        return response.data.data.map((role: unknown) => {
+          const roleData = role as { name?: string; value?: string; label?: string; description?: string };
+          const roleName = roleData.name || roleData.value || '';
+          return {
+            value: roleName,
+            label: roleData.label || roleName.split('.').map((part: string) => 
+              part.charAt(0).toUpperCase() + part.slice(1)
+            ).join(' '),
+            description: roleData.description || '',
+            canAssign: true // All roles from assignable endpoint can be assigned
+          };
+        });
       }
       return this.getFallbackRoles();
     } catch (error) {
-      console.error('Failed to fetch assignable roles from API:', error);
       // Fallback to all roles but mark permission restrictions
       try {
         const allRolesResponse = await api.get('/roles');
         if (allRolesResponse.data.success) {
           return allRolesResponse.data.data
-            .filter((role: any) => !role.system_role)
-            .map((role: any) => ({
-              value: role.name,
-              label: role.name.split('.').map((part: string) => 
-                part.charAt(0).toUpperCase() + part.slice(1)
-              ).join(' '),
-              description: role.description,
-              canAssign: false // Mark as restricted since assignable endpoint failed
-            }));
+            .filter((role: unknown) => {
+              const roleData = role as { system_role?: boolean };
+              return !roleData.system_role;
+            })
+            .map((role: unknown) => {
+              const roleData = role as { name: string; description?: string };
+              return {
+                value: roleData.name,
+                label: roleData.name.split('.').map((part: string) => 
+                  part.charAt(0).toUpperCase() + part.slice(1)
+                ).join(' '),
+                description: roleData.description || '',
+                canAssign: false // Mark as restricted since assignable endpoint failed
+              };
+            });
         }
       } catch (fallbackError) {
-        console.error('Fallback role fetch also failed:', fallbackError);
       }
       return this.getFallbackRoles();
     }
@@ -284,7 +292,7 @@ class UsersApiService {
         description: 'Specialized role for billing and payment management' 
       },
       { 
-        value: 'content.manager', 
+        value: 'content_manager', 
         label: 'Content Manager', 
         description: 'Content management role for pages and documentation' 
       },
@@ -328,11 +336,11 @@ class UsersApiService {
       return 'bg-theme-interactive-primary bg-opacity-10 text-theme-interactive-primary border border-theme-interactive-primary border-opacity-20';
     }
     // Content and support roles - info
-    else if (primaryRole.includes('content.manager') || primaryRole.includes('support.agent')) {
+    else if (primaryRole.includes('content_manager') || primaryRole.includes('support.agent')) {
       return 'bg-theme-info bg-opacity-10 text-theme-info border border-theme-info border-opacity-20';
     }
     // Analytics and API roles - warning
-    else if (primaryRole.includes('analytics.viewer') || primaryRole.includes('api.developer')) {
+    else if (primaryRole.includes('analytics.reader') || primaryRole.includes('api.developer')) {
       return 'bg-theme-warning bg-opacity-10 text-theme-warning border border-theme-warning border-opacity-20';
     }
     // Worker roles - surface

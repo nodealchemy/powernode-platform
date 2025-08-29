@@ -48,7 +48,6 @@ export const CreateDelegationModal: React.FC<CreateDelegationModalProps> = ({ on
       setAvailableRoles(rolesData);
       setAvailablePermissions(permissionsData);
     } catch (error) {
-      console.error('Failed to load initial data:', error);
     } finally {
       setLoading(false);
     }

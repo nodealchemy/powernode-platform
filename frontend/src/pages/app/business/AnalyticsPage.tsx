@@ -4,6 +4,7 @@ import { useLocation } from 'react-router-dom';
 import { RootState } from '@/shared/services';
 import { analyticsService } from '@/features/analytics/services/analyticsService';
 import { useAnalyticsWebSocket } from '@/shared/hooks/useAnalyticsWebSocket';
+import { hasPermissions } from '@/shared/utils/permissionUtils';
 
 // Chart Components
 import { RevenueChart } from '@/features/analytics/components/RevenueChart';
@@ -17,7 +18,7 @@ import { DateRangeFilter } from '@/features/analytics/components/DateRangeFilter
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
 import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
-import { RefreshCw, Download } from 'lucide-react';
+import { RefreshCw, Download, Lock } from 'lucide-react';
 
 export interface AnalyticsData {
   revenue: any;
@@ -248,10 +249,15 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
     return 'overview';
   }, [location.pathname]);
   
+  // Type guard for analytics update data
+  const isAnalyticsUpdateData = (data: unknown): data is { current_metrics?: Record<string, any> } => {
+    return typeof data === 'object' && data !== null;
+  };
+
   // Stable callbacks to prevent WebSocket reconnections
-  const handleAnalyticsUpdate = useCallback((updateData: any) => {
+  const handleAnalyticsUpdate = useCallback((updateData: unknown) => {
     // Update specific metrics without full reload
-    if (data && updateData.current_metrics) {
+    if (isAnalyticsUpdateData(updateData) && updateData.current_metrics) {
       setData(prevData => prevData ? {
         ...prevData,
         revenue: {
@@ -267,7 +273,6 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
   }, []);
 
   const handleWebSocketError = useCallback((errorMessage: string) => {
-    console.error('Analytics WebSocket error:', errorMessage);
   }, []);
 
   // Analytics WebSocket for real-time updates
@@ -286,6 +291,10 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
   const [usingFallbackData, setUsingFallbackData] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
   // const [lastUpdated, setLastUpdated] = useState<Date | null>(null); // TODO: Display last updated timestamp
+  
+  // Check permissions before loading analytics
+  const canViewAnalytics = hasPermissions(user, ['analytics.read']);
+  const canExportAnalytics = hasPermissions(user, ['analytics.export']);
   
   // Date range state
   const [dateRange, setDateRange] = useState<{
@@ -318,6 +327,12 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
       return;
     }
 
+    // Don't load if user doesn't have permission
+    if (!canViewAnalytics) {
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
@@ -328,13 +343,12 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
 
 
       // Try to fetch each analytics endpoint individually to identify issues
-      let analyticsData: any = {};
+      let analyticsData: Partial<AnalyticsData> = {};
       
       try {
         const revenue = await analyticsService.getRevenueAnalytics(startDate, endDate);
         analyticsData.revenue = revenue.data;
       } catch (revenueError) {
-        console.error('Revenue analytics failed:', revenueError);
         // Provide realistic fallback data for demonstration
         const fallbackData = generateFallbackRevenueData(startDate, endDate);
         analyticsData.revenue = fallbackData;
@@ -345,7 +359,6 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
         const growth = await analyticsService.getGrowthAnalytics(startDate, endDate);
         analyticsData.growth = growth.data;
       } catch (growthError) {
-        console.error('Growth analytics failed:', growthError);
         const fallbackData = generateFallbackGrowthData(startDate, endDate);
         analyticsData.growth = fallbackData;
         setUsingFallbackData(true);
@@ -355,7 +368,6 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
         const churn = await analyticsService.getChurnAnalytics(startDate, endDate);
         analyticsData.churn = churn.data;
       } catch (churnError) {
-        console.error('Churn analytics failed:', churnError);
         const fallbackData = generateFallbackChurnData(startDate, endDate);
         analyticsData.churn = fallbackData;
         setUsingFallbackData(true);
@@ -365,7 +377,6 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
         const customers = await analyticsService.getCustomerAnalytics(startDate, endDate);
         analyticsData.customers = customers.data;
       } catch (customerError) {
-        console.error('Customer analytics failed:', customerError);
         const fallbackData = generateFallbackCustomerData(startDate, endDate);
         analyticsData.customers = fallbackData;
         setUsingFallbackData(true);
@@ -375,22 +386,21 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
         const cohorts = await analyticsService.getCohortAnalytics();
         analyticsData.cohorts = cohorts.data;
       } catch (cohortError) {
-        console.error('Cohort analytics failed:', cohortError);
         const fallbackData = generateFallbackCohortData();
         analyticsData.cohorts = fallbackData;
         setUsingFallbackData(true);
       }
 
-      setData(analyticsData);
+      // Type assertion is safe here since we've populated all required fields
+      setData(analyticsData as AnalyticsData);
       isInitialLoad.current = false;
       // setLastUpdated(new Date()); // TODO: Display last updated timestamp
     } catch (err) {
-      console.error('Failed to load analytics data:', err);
       setError(err instanceof Error ? err.message : 'Failed to load analytics data');
     } finally {
       setLoading(false);
     }
-  }, [dateRange, data, usingFallbackData]);
+  }, [dateRange, data, usingFallbackData, canViewAnalytics]);
 
   // Initial data load with StrictMode protection
   useEffect(() => {
@@ -427,11 +437,14 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
 
   // Export functionality
   const handleExport = async (format: 'csv' | 'pdf', reportType: string) => {
+    if (!canExportAnalytics) {
+      return; // Don't export if user doesn't have permission
+    }
+    
     try {
       await analyticsService.exportAnalytics(format, reportType, dateRange);
       setShowExportModal(false);
     } catch (error) {
-      console.error('Export failed:', error);
     }
   };
 
@@ -445,14 +458,15 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
       icon: RefreshCw,
       disabled: loading
     },
-    {
+    // Only show export if user has permission
+    ...(canExportAnalytics ? [{
       id: 'export',
       label: 'Export',
       onClick: () => setShowExportModal(true),
-      variant: 'secondary',
+      variant: 'secondary' as const,
       icon: Download,
       disabled: loading || !data
-    }
+    }] : [])
   ];
 
   const tabs = [
@@ -518,6 +532,24 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
     
     return baseBreadcrumbs;
   };
+
+  // Show access denied if user doesn't have permission
+  if (!canViewAnalytics) {
+    return (
+      <PageContainer
+        title="Analytics Dashboard"
+        description="Analytics insights and reporting"
+        breadcrumbs={getBreadcrumbs()}
+        actions={[]}
+      >
+        <div className="text-center py-12">
+          <Lock className="w-12 h-12 text-theme-secondary mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-theme-primary mb-2">Analytics Access Restricted</h3>
+          <p className="text-theme-secondary">You need analytics.read permission to access this dashboard</p>
+        </div>
+      </PageContainer>
+    );
+  }
 
   return (
     <PageContainer

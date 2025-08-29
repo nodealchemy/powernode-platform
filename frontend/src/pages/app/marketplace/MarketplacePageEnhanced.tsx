@@ -168,7 +168,6 @@ export const MarketplacePageEnhanced: React.FC = () => {
       
       return Promise.resolve();
     } catch (error: any) {
-      console.error('Subscription creation failed:', error);
       throw new Error(error.response?.data?.error || 'Failed to create subscription');
     }
   };
@@ -283,10 +282,12 @@ export const MarketplacePageEnhanced: React.FC = () => {
   //   setShowCreateModal(true);
   // };
 
-  const handleAppCreated = (app: App) => {
+  const handleAppCreated = (app: unknown) => {
     setShowCreateModal(false);
     refreshApps();
-    navigate(`/app/marketplace/apps/${app.id}`);
+    if (app && typeof app === 'object' && 'id' in app) {
+      navigate(`/app/marketplace/apps/${(app as any).id}`);
+    }
   };
 
   // Wrapper component for subscriptions with ref

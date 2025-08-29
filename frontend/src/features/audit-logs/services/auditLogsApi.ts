@@ -154,7 +154,8 @@ export const auditLogsApi = {
 
       const response = await api.get(`/audit_logs?${params}`);
       return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const httpError = error as { response?: { data?: { error?: string } } };
       return {
         success: false,
         data: [],
@@ -164,7 +165,7 @@ export const auditLogsApi = {
           total_pages: 0,
           total: 0
         },
-        error: error.response?.data?.error || 'Failed to fetch audit logs'
+        error: httpError.response?.data?.error || 'Failed to fetch audit logs'
       };
     }
   },
@@ -175,8 +176,7 @@ export const auditLogsApi = {
       const params = timeRange ? `?time_range=${timeRange}` : '';
       const response = await api.get(`/audit_logs/security_summary${params}`);
       return response.data;
-    } catch (error: any) {
-      console.error('Failed to fetch security summary:', error);
+    } catch (error: unknown) {
       return {
         totalEvents: 0,
         securityEvents: 0,
@@ -198,8 +198,7 @@ export const auditLogsApi = {
       const params = timeRange ? `?time_range=${timeRange}` : '';
       const response = await api.get(`/audit_logs/compliance_summary${params}`);
       return response.data;
-    } catch (error: any) {
-      console.error('Failed to fetch compliance summary:', error);
+    } catch (error: unknown) {
       return {
         totalComplianceEvents: 0,
         gdprRequests: 0,
@@ -218,8 +217,7 @@ export const auditLogsApi = {
     try {
       const response = await api.get(`/audit_logs/activity_timeline?limit=${limit}`);
       return response.data;
-    } catch (error: any) {
-      console.error('Failed to fetch activity timeline:', error);
+    } catch (error: unknown) {
       return [];
     }
   },
@@ -230,8 +228,7 @@ export const auditLogsApi = {
       const params = timeRange ? `?time_range=${timeRange}` : '';
       const response = await api.get(`/audit_logs/risk_analysis${params}`);
       return response.data;
-    } catch (error: any) {
-      console.error('Failed to fetch risk analysis:', error);
+    } catch (error: unknown) {
       return {
         averageRiskScore: 0,
         highRiskPercentage: 0,
@@ -246,11 +243,12 @@ export const auditLogsApi = {
     try {
       const response = await api.get(`/audit_logs/${id}`);
       return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const httpError = error as { response?: { data?: { error?: string } } };
       return {
         success: false,
         data: {} as DetailedAuditLog,
-        error: error.response?.data?.error || 'Failed to fetch audit log'
+        error: httpError.response?.data?.error || 'Failed to fetch audit log'
       };
     }
   },
@@ -260,11 +258,12 @@ export const auditLogsApi = {
     try {
       const response = await api.get('/audit_logs/stats');
       return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const httpError = error as { response?: { data?: { error?: string } } };
       return {
         success: false,
         data: {} as DetailedAuditLogStats,
-        error: error.response?.data?.error || 'Failed to fetch audit log stats'
+        error: httpError.response?.data?.error || 'Failed to fetch audit log stats'
       };
     }
   },
@@ -288,11 +287,12 @@ export const auditLogsApi = {
     try {
       const response = await api.post('/audit_logs/export', exportOptions);
       return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const httpError = error as { response?: { data?: { error?: string } } };
       return {
         success: false,
         data: { format: exportOptions.format },
-        error: error.response?.data?.error || 'Failed to export audit logs'
+        error: httpError.response?.data?.error || 'Failed to export audit logs'
       };
     }
   },
@@ -306,10 +306,11 @@ export const auditLogsApi = {
         }
       });
       return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const httpError = error as { response?: { data?: { error?: string } } };
       return {
         success: false,
-        error: error.response?.data?.error || 'Failed to cleanup audit logs'
+        error: httpError.response?.data?.error || 'Failed to cleanup audit logs'
       };
     }
   },

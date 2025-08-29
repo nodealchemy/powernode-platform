@@ -91,9 +91,8 @@ export const AdminMaintenancePage: React.FC = () => {
       setBackups(backupList);
       setCleanupStats(cleanup);
       setSchedules(scheduleList);
-    } catch (err: any) {
-      console.error('Failed to load maintenance data:', err);
-      setError(err.message || 'Failed to load maintenance data');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to load maintenance data');
       showNotification('Failed to load maintenance data', 'error');
     } finally {
       setLoading(false);
@@ -268,7 +267,7 @@ const MaintenanceModeTab: React.FC<{
         'success'
       );
       onUpdate();
-    } catch (error: any) {
+    } catch (error: unknown) {
       showNotification('Failed to update maintenance mode', 'error');
     } finally {
       setSubmitting(false);
@@ -285,7 +284,7 @@ const MaintenanceModeTab: React.FC<{
       );
       showNotification('Maintenance mode scheduled successfully', 'success');
       onUpdate();
-    } catch (error: any) {
+    } catch (error: unknown) {
       showNotification('Failed to schedule maintenance mode', 'error');
     } finally {
       setSubmitting(false);
@@ -472,7 +471,7 @@ const DatabaseBackupsTab: React.FC<{
       await maintenanceApi.createBackup();
       showNotification('Backup created successfully', 'success');
       onRefresh();
-    } catch (error: any) {
+    } catch (error: unknown) {
       showNotification('Failed to create backup', 'error');
     } finally {
       // setCreating(false); // TODO: Hide loading state
@@ -510,7 +509,7 @@ const DataCleanupTab: React.FC<{
       });
       showNotification(`Cleanup completed. ${result.cleaned_items} items cleaned`, 'success');
       onRefresh();
-    } catch (error: any) {
+    } catch (error: unknown) {
       showNotification('Failed to run cleanup', 'error');
     } finally {
       // setRunning(false); // TODO: Hide loading state
@@ -554,7 +553,7 @@ const SystemOperationsTab: React.FC<{
       await maintenanceApi.flushCache();
       showNotification('Cache flushed successfully', 'success');
       onRefresh();
-    } catch (error: any) {
+    } catch (error: unknown) {
       showNotification('Failed to flush cache', 'error');
     } finally {
       setOperations(prev => ({ ...prev, flushingCache: false }));
@@ -567,7 +566,7 @@ const SystemOperationsTab: React.FC<{
       const result = await maintenanceApi.optimizeDatabase();
       showNotification(`Database optimized. ${result.tables_optimized} tables optimized`, 'success');
       onRefresh();
-    } catch (error: any) {
+    } catch (error: unknown) {
       showNotification('Failed to optimize database', 'error');
     } finally {
       setOperations(prev => ({ ...prev, optimizingDb: false }));
@@ -580,7 +579,7 @@ const SystemOperationsTab: React.FC<{
       await maintenanceApi.restartService(serviceName);
       showNotification(`${serviceName} service restarted successfully`, 'success');
       onRefresh();
-    } catch (error: any) {
+    } catch (error: unknown) {
       showNotification(`Failed to restart ${serviceName} service`, 'error');
     } finally {
       setOperations(prev => ({ ...prev, restartingService: false }));
@@ -691,7 +690,7 @@ const ScheduledTasksTab: React.FC<{
       await maintenanceApi.runScheduledTask(scheduleId);
       showNotification('Scheduled task executed successfully', 'success');
       onRefresh();
-    } catch (error: any) {
+    } catch (error: unknown) {
       showNotification('Failed to execute scheduled task', 'error');
     }
   };

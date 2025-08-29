@@ -52,7 +52,6 @@ export const SystemAlertsPanel: React.FC<SystemAlertsPanelProps> = ({
         setAlerts(response.data);
       }
     } catch (error) {
-      console.error('Failed to load alerts:', error);
     } finally {
       setLoading(false);
     }

@@ -70,7 +70,6 @@ export const EndpointTestModal: React.FC<EndpointTestModalProps> = ({
       setTestResult(result);
       showNotification('Test completed successfully', 'success');
     } catch (error) {
-      console.error('Test failed:', error);
       showNotification('Test failed', 'error');
     } finally {
       setTesting(false);

@@ -164,11 +164,12 @@ export const WebhookFormModal: React.FC<WebhookFormModalProps> = ({
       if (result) {
         onSuccess(result);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       showNotification(
         webhook 
-          ? `Failed to update webhook: ${error.message}`
-          : `Failed to create webhook: ${error.message}`,
+          ? `Failed to update webhook: ${errorMessage}`
+          : `Failed to create webhook: ${errorMessage}`,
         'error'
       );
     } finally {
@@ -187,8 +188,9 @@ export const WebhookFormModal: React.FC<WebhookFormModalProps> = ({
       if (result) {
         showNotification(`Test webhook sent successfully. Event ID: ${result.event_id}`, 'success');
       }
-    } catch (error: any) {
-      showNotification(`Failed to test webhook: ${error.message}`, 'error');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      showNotification(`Failed to test webhook: ${errorMessage}`, 'error');
     }
   };
 

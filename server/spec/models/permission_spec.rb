@@ -61,7 +61,7 @@ RSpec.describe Permission, type: :model do
         duplicate = build(:permission, resource: "test_unique", action: "test_create")
 
         expect(duplicate).not_to be_valid
-        expect(duplicate.errors[:resource]).to include("has already been taken")
+        expect(duplicate.errors[:resource]).to include("and action combination has already been taken for this category")
       end
 
       it "allows same resource with different action" do

@@ -2,10 +2,10 @@ import { useCallback, useRef, useEffect } from 'react';
 import { useWebSocket } from './useWebSocket';
 
 interface SubscriptionWebSocketOptions {
-  onSubscriptionUpdate?: (data: any) => void;
-  onSubscriptionCancelled?: (data: any) => void;
-  onPaymentProcessed?: (data: any) => void;
-  onTrialEnding?: (data: any) => void;
+  onSubscriptionUpdate?: (data: unknown) => void;
+  onSubscriptionCancelled?: (data: unknown) => void;
+  onPaymentProcessed?: (data: unknown) => void;
+  onTrialEnding?: (data: unknown) => void;
   onError?: (error: string) => void;
 }
 
@@ -32,8 +32,15 @@ export const useSubscriptionWebSocket = ({
   onTrialEndingRef.current = onTrialEnding;
   onErrorRef.current = onError;
 
+  // Type guard for WebSocket message data
+  const isWebSocketMessage = (data: unknown): data is { type: string; data?: any; message?: string } => {
+    return typeof data === 'object' && data !== null && 'type' in data;
+  };
+
   // Handle incoming messages
-  const handleMessage = useCallback((data: any) => {
+  const handleMessage = useCallback((data: unknown) => {
+    if (!isWebSocketMessage(data)) return;
+    
     switch (data.type) {
       case 'subscription_updated':
         onSubscriptionUpdateRef.current?.(data);
@@ -59,7 +66,6 @@ export const useSubscriptionWebSocket = ({
 
   // Handle channel errors
   const handleError = useCallback((errorMessage: string) => {
-    console.error('❌ Subscription channel error:', errorMessage);
     onErrorRef.current?.(errorMessage);
   }, []);
 
@@ -80,7 +86,6 @@ export const useSubscriptionWebSocket = ({
   // Request subscription updates
   const requestSubscriptionUpdate = useCallback(async (subscriptionId?: string) => {
     if (!isConnected) {
-      console.warn('Cannot request subscription update: WebSocket not connected');
       return;
     }
     
@@ -92,7 +97,6 @@ export const useSubscriptionWebSocket = ({
   // Monitor subscription status
   const monitorSubscription = useCallback(async (subscriptionId: string) => {
     if (!isConnected) {
-      console.warn('Cannot monitor subscription: WebSocket not connected');
       return;
     }
     

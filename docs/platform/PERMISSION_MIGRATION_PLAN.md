@@ -59,7 +59,7 @@ This document outlines the migration from role-based access control (RBAC) to a 
      'account.member' => ['users.read', 'billing.read', 'analytics.read'],
      'billing.manager' => ['billing.*', 'payments.*', 'plans.read'],
      'support.agent' => ['users.read', 'users.suspend', 'accounts.read', 'audit_logs.read'],
-     'content.manager' => ['pages.*', 'reports.create', 'reports.read'],
+     'content_manager' => ['pages.*', 'reports.create', 'reports.read'],
      'analytics.viewer' => ['analytics.read', 'reports.read', 'reports.export']
    }
    ```

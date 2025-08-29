@@ -89,7 +89,6 @@ export const validateThemeConsistency = () => {
   
   
   if (issues.length > 0) {
-    console.warn('Theme consistency issues found:', issues);
   } else {
   }
   

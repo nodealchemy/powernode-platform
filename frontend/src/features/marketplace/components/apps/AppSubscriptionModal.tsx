@@ -82,16 +82,30 @@ const mockPlans: ModalPlan[] = [
 ];
 
 // Helper function to format app plan data for the modal
-const formatAppPlanForModal = (plan: any): ModalPlan => ({
-  id: plan.id,
-  name: plan.name,
-  price: plan.formatted_price || `$${(plan.price_cents / 100).toFixed(2)}`,
-  billing: plan.billing_interval || 'per month',
-  description: plan.description || 'App subscription plan',
-  features: plan.features || ['Full app access', 'API integration', 'Support included'],
-  popular: plan.is_popular || false,
-  disabled: !plan.is_active
-});
+const formatAppPlanForModal = (plan: unknown): ModalPlan => {
+  const appPlan = plan as {
+    id?: string;
+    name?: string;
+    formatted_price?: string;
+    price_cents?: number;
+    billing_interval?: string;
+    description?: string;
+    features?: string[];
+    is_popular?: boolean;
+    is_active?: boolean;
+  };
+  
+  return {
+    id: appPlan.id || '',
+    name: appPlan.name || '',
+    price: appPlan.formatted_price || `$${((appPlan.price_cents || 0) / 100).toFixed(2)}`,
+    billing: appPlan.billing_interval || 'per month',
+    description: appPlan.description || 'App subscription plan',
+    features: appPlan.features || ['Full app access', 'API integration', 'Support included'],
+    popular: appPlan.is_popular || false,
+    disabled: !appPlan.is_active
+  };
+};
 
 export const AppSubscriptionModal: React.FC<AppSubscriptionModalProps> = ({
   isOpen,
@@ -117,8 +131,9 @@ export const AppSubscriptionModal: React.FC<AppSubscriptionModalProps> = ({
       await onSubscribe?.(app, selectedPlanId);
       showNotification(`Successfully subscribed to ${app.name}!`, 'success');
       onClose();
-    } catch (error: any) {
-      showNotification(error.message || 'Failed to subscribe to app', 'error');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to subscribe to app';
+      showNotification(errorMessage, 'error');
     } finally {
       setSubscribing(false);
     }

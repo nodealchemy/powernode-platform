@@ -125,7 +125,7 @@ const FeatureModal: React.FC<FeatureModalProps> = ({ isOpen, feature, onClose, o
               </label>
               <select
                 value={formData.category}
-                onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value as any }))}
+                onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value as 'core' | 'advanced' | 'integrations' | 'support' | 'analytics' }))}
                 className="w-full px-3 py-2 border border-theme rounded-md bg-theme-background text-theme-primary focus:outline-none focus:border-theme-focus"
                 required
               >
@@ -162,7 +162,7 @@ const FeatureModal: React.FC<FeatureModalProps> = ({ isOpen, feature, onClose, o
                 value={formData.type}
                 onChange={(e) => setFormData(prev => ({ 
                   ...prev, 
-                  type: e.target.value as any,
+                  type: e.target.value as 'boolean' | 'numeric' | 'text' | 'enum',
                   default_value: e.target.value === 'boolean' ? false : e.target.value === 'numeric' ? 0 : ''
                 }))}
                 className="w-full px-3 py-2 border border-theme rounded-md bg-theme-background text-theme-primary focus:outline-none focus:border-theme-focus"
@@ -499,7 +499,10 @@ export const PlanFeaturesManager: React.FC<PlanFeaturesManagerProps> = ({
     try {
       const response = await planFeaturesApi.createFeature(data);
       if (response.success) {
-        setFeatures(prev => [...prev, response.data!]);
+        if (response.data) {
+          const newFeature = response.data;
+          setFeatures(prev => [...prev, newFeature]);
+        }
         showNotification('Feature created successfully', 'success');
         loadData(); // Reload to get updated comparison
       } else {
@@ -514,7 +517,10 @@ export const PlanFeaturesManager: React.FC<PlanFeaturesManagerProps> = ({
     try {
       const response = await planFeaturesApi.updateFeature(featureId, data);
       if (response.success) {
-        setFeatures(prev => prev.map(f => f.id === featureId ? response.data! : f));
+        if (response.data) {
+          const updatedFeature = response.data;
+          setFeatures(prev => prev.map(f => f.id === featureId ? updatedFeature : f));
+        }
         showNotification('Feature updated successfully', 'success');
         loadData(); // Reload to get updated comparison
       } else {
@@ -553,7 +559,9 @@ export const PlanFeaturesManager: React.FC<PlanFeaturesManagerProps> = ({
           if (plan.id === planId) {
             const updatedLimits = plan.limits.filter(l => l.feature_id !== featureId);
             if (data.is_enabled) {
-              updatedLimits.push(response.data!);
+              if (response.data) {
+                updatedLimits.push(response.data);
+              }
             }
             return { ...plan, limits: updatedLimits };
           }
@@ -889,7 +897,7 @@ export const PlanFeaturesManager: React.FC<PlanFeaturesManagerProps> = ({
         feature={featureModal.feature}
         onClose={() => setFeatureModal({ isOpen: false })}
         onSave={featureModal.feature ? 
-          (data) => handleUpdateFeature(featureModal.feature!.id, data) :
+          (data) => featureModal.feature ? handleUpdateFeature(featureModal.feature.id, data) : undefined :
           handleCreateFeature
         }
       />
@@ -901,7 +909,7 @@ export const PlanFeaturesManager: React.FC<PlanFeaturesManagerProps> = ({
           feature={limitModal.feature}
           currentLimit={limitModal.currentLimit}
           onClose={() => setLimitModal({ isOpen: false })}
-          onSave={(data) => handleUpdateLimit(limitModal.plan!.id, limitModal.feature!.id, data)}
+          onSave={(data) => limitModal.plan && limitModal.feature ? handleUpdateLimit(limitModal.plan.id, limitModal.feature.id, data) : undefined}
         />
       )}
     </div>

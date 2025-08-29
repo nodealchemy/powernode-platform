@@ -163,7 +163,6 @@ export const settingsApi = {
         return response.data.copyright_text;
       }
     } catch (error) {
-      console.warn('Failed to fetch copyright from server, using cached version');
     }
     
     return this.getCachedCopyright();

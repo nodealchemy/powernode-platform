@@ -222,7 +222,7 @@ class PermissionMatrixService
       ],
       system_role: false
     },
-    'content.manager' => {
+    'content_manager' => {
       description: 'Content management role for pages and documentation',
       permissions: [
         'accounts.read',

@@ -43,49 +43,49 @@ export const WorkerPermissionsView: React.FC<WorkerPermissionsViewProps> = ({
   const permissionGroups: PermissionGroup[] = useMemo(() => [
     {
       category: 'User & Team Management',
-      permissions: ['user.view', 'user.edit_self', 'user.delete_self', 'team.view', 'team.invite', 'team.remove', 'team.assign_roles'],
+      permissions: ['user.read', 'user.edit_self', 'user.delete_self', 'team.read', 'team.invite', 'team.remove', 'team.assign_roles'],
       description: 'User profiles and team collaboration',
       color: 'bg-theme-info-background text-theme-info'
     },
     {
       category: 'Billing & Subscriptions',
-      permissions: ['billing.view', 'billing.update', 'billing.cancel', 'plans.view', 'plans.create', 'plans.manage', 'invoice.view', 'invoice.download'],
+      permissions: ['billing.read', 'billing.update', 'billing.cancel', 'plans.read', 'plans.create', 'plans.manage', 'invoice.read', 'invoice.download'],
       description: 'Subscription management and billing',
       color: 'bg-theme-warning-background text-theme-warning'
     },
     {
       category: 'Content & Pages',
-      permissions: ['page.create', 'page.view', 'page.edit', 'page.delete', 'page.publish'],
+      permissions: ['page.create', 'page.read', 'page.edit', 'page.delete', 'page.publish'],
       description: 'Content creation and management',
       color: 'bg-theme-success-background text-theme-success'
     },
     {
       category: 'Analytics & Reports',
-      permissions: ['analytics.view', 'analytics.export', 'report.view', 'report.generate', 'report.export'],
+      permissions: ['analytics.read', 'analytics.export', 'report.read', 'report.generate', 'report.export'],
       description: 'Data insights and reporting',
       color: 'bg-theme-surface text-theme-primary'
     },
     {
       category: 'API & Webhooks',
-      permissions: ['api.read', 'api.write', 'api.manage_keys', 'webhook.view', 'webhook.create', 'webhook.edit', 'webhook.delete'],
+      permissions: ['api.read', 'api.write', 'api.manage_keys', 'webhook.read', 'webhook.create', 'webhook.edit', 'webhook.delete'],
       description: 'API access and webhook management',
       color: 'bg-theme-interactive-primary/10 text-theme-interactive-primary'
     },
     {
       category: 'Marketplace',
-      permissions: ['app.view', 'app.create', 'app.edit', 'app.delete', 'app.publish', 'app.manage_features', 'app.manage_plans', 'listing.view', 'listing.create', 'subscription.view', 'subscription.create', 'review.view'],
+      permissions: ['app.read', 'app.create', 'app.edit', 'app.delete', 'app.publish', 'app.manage_features', 'app.manage_plans', 'listing.read', 'listing.create', 'subscription.read', 'subscription.create', 'review.read'],
       description: 'Marketplace apps and subscriptions',
       color: 'bg-theme-success-background/50 text-theme-success'
     },
     {
       category: 'Admin Operations',
-      permissions: ['admin.access', 'admin.user.view', 'admin.user.create', 'admin.account.view', 'admin.billing.view', 'admin.settings.view', 'admin.audit.view'],
+      permissions: ['admin.access', 'admin.user.read', 'admin.user.create', 'admin.account.read', 'admin.billing.read', 'admin.settings.read', 'admin.audit.read'],
       description: 'Administrative functions and oversight',
       color: 'bg-theme-error-background text-theme-error'
     },
     {
       category: 'System & Workers',
-      permissions: ['system.workers.view', 'system.workers.create', 'system.worker.register', 'system.jobs.process', 'system.health.check', 'system.database.read'],
+      permissions: ['system.workers.read', 'system.workers.create', 'system.worker.register', 'system.jobs.process', 'system.health.check', 'system.database.read'],
       description: 'System operations and worker management',
       color: 'bg-theme-surface border border-theme text-theme-secondary'
     }
@@ -156,45 +156,45 @@ export const WorkerPermissionsView: React.FC<WorkerPermissionsViewProps> = ({
     // Role-permission mappings synced with backend Permissions::ROLES
     const rolePermissionMap: Record<string, string[]> = {
       'member': [
-        'user.view', 'user.edit_self', 'team.view', 'billing.view', 'page.view', 'analytics.view',
-        'report.view', 'api.read', 'webhook.view', 'invoice.view', 'audit.view',
-        'app.view', 'listing.view', 'subscription.view', 'subscription.create', 'subscription.manage',
-        'subscription.cancel', 'subscription.view_usage', 'review.view'
+        'user.read', 'user.edit_self', 'team.read', 'billing.read', 'page.read', 'analytics.read',
+        'report.read', 'api.read', 'webhook.read', 'invoice.read', 'audit.read',
+        'app.read', 'listing.read', 'subscription.read', 'subscription.create', 'subscription.manage',
+        'subscription.cancel', 'subscription.read_usage', 'review.read'
       ],
       'manager': [
-        'user.view', 'user.edit_self', 'team.view', 'team.invite', 'team.remove', 'team.assign_roles',
-        'billing.view', 'billing.update', 'plans.view', 'plans.manage',
-        'page.view', 'page.create', 'page.edit', 'page.delete', 'page.publish',
-        'analytics.view', 'analytics.export', 'report.view', 'report.generate', 'report.export',
-        'api.read', 'api.write', 'api.manage_keys', 'webhook.view', 'webhook.create', 'webhook.edit', 'webhook.delete',
-        'invoice.view', 'invoice.download', 'audit.view', 'audit.export',
-        'app.view', 'app.create', 'app.edit', 'app.delete', 'app.publish', 'app.manage_features', 'app.manage_plans', 'app.view_analytics',
-        'listing.view', 'listing.create', 'listing.edit', 'listing.delete',
-        'subscription.view', 'subscription.create', 'subscription.manage', 'subscription.cancel', 'subscription.upgrade', 'subscription.view_usage',
-        'review.view', 'review.create', 'review.edit', 'review.delete', 'review.moderate'
+        'user.read', 'user.edit_self', 'team.read', 'team.invite', 'team.remove', 'team.assign_roles',
+        'billing.read', 'billing.update', 'plans.read', 'plans.manage',
+        'page.read', 'page.create', 'page.edit', 'page.delete', 'page.publish',
+        'analytics.read', 'analytics.export', 'report.read', 'report.generate', 'report.export',
+        'api.read', 'api.write', 'api.manage_keys', 'webhook.read', 'webhook.create', 'webhook.edit', 'webhook.delete',
+        'invoice.read', 'invoice.download', 'audit.read', 'audit.export',
+        'app.read', 'app.create', 'app.edit', 'app.delete', 'app.publish', 'app.manage_features', 'app.manage_plans', 'app.read_analytics',
+        'listing.read', 'listing.create', 'listing.edit', 'listing.delete',
+        'subscription.read', 'subscription.create', 'subscription.manage', 'subscription.cancel', 'subscription.upgrade', 'subscription.read_usage',
+        'review.read', 'review.create', 'review.edit', 'review.delete', 'review.moderate'
       ],
       'billing_admin': [
-        'user.view', 'user.edit_self', 'team.view', 'billing.view', 'billing.update', 'billing.cancel',
-        'plans.view', 'plans.create', 'plans.manage', 'invoice.view', 'invoice.download',
-        'analytics.view', 'report.view', 'report.generate', 'admin.billing.view', 'admin.billing.override',
-        'admin.billing.refund', 'admin.billing.credit', 'audit.view'
+        'user.read', 'user.edit_self', 'team.read', 'billing.read', 'billing.update', 'billing.cancel',
+        'plans.read', 'plans.create', 'plans.manage', 'invoice.read', 'invoice.download',
+        'analytics.read', 'report.read', 'report.generate', 'admin.billing.read', 'admin.billing.override',
+        'admin.billing.refund', 'admin.billing.credit', 'audit.read'
       ],
       'developer': [
-        'user.view', 'user.edit_self', 'team.view', 'billing.view', 'billing.update', 'plans.view',
-        'page.view', 'analytics.view', 'analytics.export', 'report.view', 'report.generate',
-        'api.read', 'api.write', 'api.manage_keys', 'webhook.view', 'webhook.create', 'webhook.edit',
-        'invoice.view', 'invoice.download', 'audit.view',
-        'app.view', 'app.create', 'app.edit', 'app.delete', 'app.publish', 'app.manage_features', 'app.manage_plans', 'app.view_analytics',
-        'listing.view', 'listing.create', 'listing.edit', 'listing.delete',
-        'subscription.view', 'subscription.create', 'subscription.manage', 'subscription.cancel', 'subscription.upgrade', 'subscription.view_usage',
-        'review.view', 'review.create', 'review.edit', 'review.delete', 'review.moderate'
+        'user.read', 'user.edit_self', 'team.read', 'billing.read', 'billing.update', 'plans.read',
+        'page.read', 'analytics.read', 'analytics.export', 'report.read', 'report.generate',
+        'api.read', 'api.write', 'api.manage_keys', 'webhook.read', 'webhook.create', 'webhook.edit',
+        'invoice.read', 'invoice.download', 'audit.read',
+        'app.read', 'app.create', 'app.edit', 'app.delete', 'app.publish', 'app.manage_features', 'app.manage_plans', 'app.read_analytics',
+        'listing.read', 'listing.create', 'listing.edit', 'listing.delete',
+        'subscription.read', 'subscription.create', 'subscription.manage', 'subscription.cancel', 'subscription.upgrade', 'subscription.read_usage',
+        'review.read', 'review.create', 'review.edit', 'review.delete', 'review.moderate'
       ],
       'owner': [
         // All resource permissions + selected admin permissions
         ...allPermissions.filter(p => !p.startsWith('system.')), // All non-system permissions
-        'admin.user.view', 'admin.user.create', 'admin.user.edit', 'admin.user.suspend',
-        'admin.role.view', 'admin.role.assign', 'admin.billing.view', 'admin.billing.override',
-        'admin.settings.view', 'admin.settings.edit', 'admin.audit.view', 'admin.audit.export'
+        'admin.user.read', 'admin.user.create', 'admin.user.edit', 'admin.user.suspend',
+        'admin.role.read', 'admin.role.assign', 'admin.billing.read', 'admin.billing.override',
+        'admin.settings.read', 'admin.settings.edit', 'admin.audit.read', 'admin.audit.export'
       ],
       'admin': [
         // All resource permissions + most admin permissions (except maintenance)

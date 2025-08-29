@@ -59,7 +59,6 @@ export const PlatformConfiguration: React.FC = () => {
       setOriginalSettings({ ...platformSettings });
       setHasChanges(false);
     } catch (error) {
-      console.error('Failed to load platform settings:', error);
       showNotification('Failed to load platform settings', 'error');
     } finally {
       setLoading(false);
@@ -97,7 +96,6 @@ export const PlatformConfiguration: React.FC = () => {
         }, 1000);
       }
     } catch (error: any) {
-      console.error('Failed to update platform settings:', error);
       showNotification(
         error.response?.data?.error || 'Failed to update platform configuration',
         'error'

@@ -59,8 +59,9 @@ export const ExportConfigurationModal: React.FC<ExportConfigurationModalProps> =
     }
   };
 
-  const handleJobComplete = (result: GeneratedConfig) => {
-    setGeneratedConfig(result);
+  const handleJobComplete = (result: unknown) => {
+    const generatedConfig = result as GeneratedConfig;
+    setGeneratedConfig(generatedConfig);
     setShowJobProgress(false);
     showNotification('Configuration generated successfully', 'success');
   };
@@ -77,7 +78,6 @@ export const ExportConfigurationModal: React.FC<ExportConfigurationModalProps> =
       await navigator.clipboard.writeText(generatedConfig.config);
       showNotification('Configuration copied to clipboard', 'success');
     } catch (error) {
-      console.error('Failed to copy to clipboard:', error);
       showNotification('Failed to copy to clipboard', 'error');
     }
   };

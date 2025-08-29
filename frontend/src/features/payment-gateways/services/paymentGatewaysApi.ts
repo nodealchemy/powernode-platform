@@ -13,7 +13,11 @@ export interface PaymentGatewayConfig {
   enabled: boolean;
   test_mode: boolean;
   supported_methods: string[];
-  [key: string]: any; // Additional provider-specific fields
+  publishable_key?: string;
+  webhook_secret?: string;
+  client_id?: string;
+  client_secret?: string;
+  environment?: 'sandbox' | 'production';
 }
 
 export interface PaymentGatewaysOverview {

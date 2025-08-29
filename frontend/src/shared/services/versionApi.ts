@@ -55,7 +55,6 @@ export const versionApi = {
       return response.data;
     } catch (error: any) {
       // Log network errors as warnings, not errors
-      console.warn('Version API unavailable:', error.message || error);
       return {
         success: false,
         data: {} as VersionInfo,
@@ -70,7 +69,6 @@ export const versionApi = {
       const response = await api.get('/version/full');
       return response.data;
     } catch (error: any) {
-      console.warn('Full version API unavailable:', error.message || error);
       return {
         success: false,
         data: {} as FullVersionInfo,
@@ -85,7 +83,6 @@ export const versionApi = {
       const response = await api.get('/version/health');
       return response.data;
     } catch (error: any) {
-      console.warn('Health API unavailable:', error.message || error);
       return {
         success: false,
         data: {} as HealthInfo,

@@ -85,7 +85,6 @@ export const EndpointFormModal: React.FC<EndpointFormModalProps> = ({
       await onSubmit(formData);
       onClose();
     } catch (error) {
-      console.error('Error submitting form:', error);
     } finally {
       setSubmitting(false);
     }

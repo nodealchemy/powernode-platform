@@ -32,7 +32,6 @@ export const TeamMembersManagement: React.FC<TeamMembersManagementProps> = ({ ac
         setTeamMembers(response.data);
       }
     } catch (error) {
-      console.error('Failed to load team members:', error);
     } finally {
       setLoading(false);
     }
@@ -51,7 +50,6 @@ export const TeamMembersManagement: React.FC<TeamMembersManagementProps> = ({ ac
       setSelectedMember(null);
       setSelectedRole('');
     } catch (error) {
-      console.error('Failed to update user role:', error);
     }
   };
 
@@ -66,7 +64,6 @@ export const TeamMembersManagement: React.FC<TeamMembersManagementProps> = ({ ac
         await usersApi.removeFromAccount(userId, accountId || currentUser?.account?.id);
         loadTeamMembers();
       } catch (error) {
-        console.error('Failed to remove team member:', error);
       }
     }
   };

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_08_27_210010) do
+ActiveRecord::Schema[8.0].define(version: 2025_08_29_031744) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -1008,6 +1008,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_27_210010) do
     t.boolean "is_system", default: false, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.boolean "immutable", default: false, null: false
     t.index ["is_system"], name: "index_roles_on_is_system"
     t.index ["name"], name: "index_roles_on_name", unique: true
     t.index ["role_type"], name: "index_roles_on_role_type"
@@ -1047,6 +1048,19 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_27_210010) do
     t.index ["name"], name: "index_scheduled_tasks_on_name", unique: true
     t.index ["task_type"], name: "index_scheduled_tasks_on_task_type"
     t.index ["user_id"], name: "index_scheduled_tasks_on_user_id"
+  end
+
+  create_table "site_settings", id: :string, force: :cascade do |t|
+    t.string "key", null: false
+    t.text "value"
+    t.text "description"
+    t.string "setting_type", null: false
+    t.boolean "is_public", default: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["is_public"], name: "index_site_settings_on_is_public"
+    t.index ["key"], name: "index_site_settings_on_key", unique: true
+    t.index ["setting_type"], name: "index_site_settings_on_setting_type"
   end
 
   create_table "subscriptions", id: { type: :string, limit: 36, default: -> { "gen_random_uuid()" } }, force: :cascade do |t|

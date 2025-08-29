@@ -25,7 +25,7 @@ export const AppCardEnhanced: React.FC<AppCardEnhancedProps> = ({
   viewMode = 'grid',
   showSubscription = false,
   showManagement = false,
-  isOwner = false,
+  isOwner: _isOwner = false,
   onSubscribe,
   onViewDetails,
   onManage,

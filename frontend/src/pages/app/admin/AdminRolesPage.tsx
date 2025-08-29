@@ -39,8 +39,7 @@ export const AdminRolesPage: React.FC = () => {
       ]);
       setRoles(rolesResponse.data || []);
       setPermissions(permissionsResponse.data || []);
-    } catch (error: any) {
-      console.error('Failed to load roles:', error);
+    } catch (error: unknown) {
       showNotificationRef.current('Failed to load roles', 'error');
     } finally {
       setLoading(false);
@@ -53,7 +52,7 @@ export const AdminRolesPage: React.FC = () => {
 
   // Check if user has role management permissions
   const canManageRoles = hasPermissions(user, ['admin.role.create', 'admin.role.edit', 'admin.role.delete']);
-  const canReadRoles = hasPermissions(user, ['admin.role.view']);
+  const canReadRoles = hasPermissions(user, ['admin.role.read']);
 
   // Redirect if user doesn't have permission to view roles
   if (!canReadRoles) {
@@ -104,9 +103,8 @@ export const AdminRolesPage: React.FC = () => {
       await rolesApi.deleteRole(role.id);
       showNotification('Role deleted successfully', 'success');
       loadRoles();
-    } catch (error: any) {
-      console.error('Failed to delete role:', error);
-      showNotification(error?.response?.data?.error || 'Failed to delete role', 'error');
+    } catch (error: unknown) {
+      showNotification(error instanceof Error ? error.message : 'Failed to delete role', 'error');
     }
   };
 

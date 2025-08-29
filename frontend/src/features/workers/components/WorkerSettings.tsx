@@ -96,7 +96,6 @@ export const WorkerSettings: React.FC<WorkerSettingsProps> = ({
       setConfig(workerConfig);
     } catch (error) {
       showNotification('Failed to load worker configuration', 'error');
-      console.error('Worker config load error:', error);
     } finally {
       setLoading(false);
     }
@@ -112,7 +111,6 @@ export const WorkerSettings: React.FC<WorkerSettingsProps> = ({
       showNotification('Worker settings saved successfully', 'success');
     } catch (error) {
       showNotification('Failed to save worker settings', 'error');
-      console.error('Worker config save error:', error);
     } finally {
       setSaving(false);
     }
@@ -160,7 +158,6 @@ export const WorkerSettings: React.FC<WorkerSettingsProps> = ({
       showNotification('Worker health check passed', 'success');
     } catch (error) {
       showNotification('Worker health check failed', 'error');
-      console.error('Health check error:', error);
     } finally {
       setLoading(false);
     }

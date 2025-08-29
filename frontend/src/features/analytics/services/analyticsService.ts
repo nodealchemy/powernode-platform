@@ -233,7 +233,7 @@ class AnalyticsService {
   }
 
   // Real-time analytics updates via WebSocket (fallback to polling)
-  subscribeToAnalyticsUpdates(callback: (data: any) => void, useWebSocket = true) {
+  subscribeToAnalyticsUpdates(callback: (data: unknown) => void, useWebSocket = true) {
     if (useWebSocket) {
       // WebSocket integration handled by unified WebSocket connection
       return null;
@@ -248,7 +248,6 @@ class AnalyticsService {
           data: liveData.data
         });
       } catch (error) {
-        console.error('Failed to fetch real-time analytics:', error);
       }
     }, 30000); // Update every 30 seconds
   }

@@ -2,8 +2,8 @@ import { useCallback, useRef, useEffect } from 'react';
 import { useWebSocket } from './useWebSocket';
 
 interface CustomerWebSocketOptions {
-  onCustomerUpdate?: (data: any) => void;
-  onSearchResults?: (data: any) => void;
+  onCustomerUpdate?: (data: unknown) => void;
+  onSearchResults?: (data: unknown) => void;
   onError?: (error: string) => void;
 }
 
@@ -24,8 +24,15 @@ export const useCustomerWebSocket = ({
   onSearchResultsRef.current = onSearchResults;
   onErrorRef.current = onError;
 
+  // Type guard for WebSocket message data
+  const isWebSocketMessage = (data: unknown): data is { type: string; data?: any; message?: string } => {
+    return typeof data === 'object' && data !== null && 'type' in data;
+  };
+
   // Handle incoming messages
-  const handleMessage = useCallback((data: any) => {
+  const handleMessage = useCallback((data: unknown) => {
+    if (!isWebSocketMessage(data)) return;
+    
     switch (data.type) {
       case 'customer_updated':
       case 'customer_created':
@@ -45,7 +52,6 @@ export const useCustomerWebSocket = ({
 
   // Handle channel errors
   const handleError = useCallback((errorMessage: string) => {
-    console.error('❌ Customer channel error:', errorMessage);
     onErrorRef.current?.(errorMessage);
   }, []);
 
@@ -66,7 +72,6 @@ export const useCustomerWebSocket = ({
   // Search customers
   const searchCustomers = useCallback(async (query: string, filters: unknown = {}) => {
     if (!isConnected) {
-      console.warn('Cannot search customers: WebSocket not connected');
       return;
     }
     
@@ -76,7 +81,6 @@ export const useCustomerWebSocket = ({
   // Update customer status
   const updateCustomerStatus = useCallback(async (customerId: string, status: string) => {
     if (!isConnected) {
-      console.warn('Cannot update customer: WebSocket not connected');
       return;
     }
     
@@ -89,7 +93,6 @@ export const useCustomerWebSocket = ({
   // Load customers list
   const loadCustomers = useCallback(async (filters: unknown = {}) => {
     if (!isConnected) {
-      console.warn('Cannot load customers: WebSocket not connected');
       return;
     }
     

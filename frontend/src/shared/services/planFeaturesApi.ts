@@ -104,7 +104,6 @@ export const planFeaturesApi = {
       const response = await api.get('/admin/plan_features');
       return response.data;
     } catch (error: any) {
-      console.error('Failed to fetch plan features:', error);
       return {
         success: false,
         error: error.response?.data?.error || 'Failed to fetch plan features'
@@ -117,7 +116,6 @@ export const planFeaturesApi = {
       const response = await api.post('/admin/plan_features', { feature: featureData });
       return response.data;
     } catch (error: any) {
-      console.error('Failed to create plan feature:', error);
       return {
         success: false,
         error: error.response?.data?.error || 'Failed to create plan feature'
@@ -130,7 +128,6 @@ export const planFeaturesApi = {
       const response = await api.put(`/admin/plan_features/${featureId}`, { feature: featureData });
       return response.data;
     } catch (error: any) {
-      console.error('Failed to update plan feature:', error);
       return {
         success: false,
         error: error.response?.data?.error || 'Failed to update plan feature'
@@ -143,7 +140,6 @@ export const planFeaturesApi = {
       const response = await api.delete(`/admin/plan_features/${featureId}`);
       return response.data;
     } catch (error: any) {
-      console.error('Failed to delete plan feature:', error);
       return {
         success: false,
         error: error.response?.data?.error || 'Failed to delete plan feature'
@@ -157,7 +153,6 @@ export const planFeaturesApi = {
       const response = await api.get('/admin/plans');
       return response.data;
     } catch (error: any) {
-      console.error('Failed to fetch plans:', error);
       return {
         success: false,
         error: error.response?.data?.error || 'Failed to fetch plans'
@@ -170,7 +165,6 @@ export const planFeaturesApi = {
       const response = await api.get(`/admin/plans/${planId}`);
       return response.data;
     } catch (error: any) {
-      console.error('Failed to fetch plan:', error);
       return {
         success: false,
         error: error.response?.data?.error || 'Failed to fetch plan'
@@ -184,7 +178,6 @@ export const planFeaturesApi = {
       const response = await api.put(`/admin/plans/${planId}/limits/${featureId}`, { limit: limitData });
       return response.data;
     } catch (error: any) {
-      console.error('Failed to update plan limit:', error);
       return {
         success: false,
         error: error.response?.data?.error || 'Failed to update plan limit'
@@ -197,7 +190,6 @@ export const planFeaturesApi = {
       const response = await api.put(`/admin/plans/${planId}/limits`, { limits });
       return response.data;
     } catch (error: any) {
-      console.error('Failed to bulk update plan limits:', error);
       return {
         success: false,
         error: error.response?.data?.error || 'Failed to bulk update plan limits'
@@ -211,7 +203,6 @@ export const planFeaturesApi = {
       const response = await api.get('/admin/plan_templates');
       return response.data;
     } catch (error: any) {
-      console.error('Failed to fetch plan templates:', error);
       return {
         success: false,
         error: error.response?.data?.error || 'Failed to fetch plan templates'
@@ -224,7 +215,6 @@ export const planFeaturesApi = {
       const response = await api.post(`/admin/plans/${planId}/apply_template`, { template_id: templateId });
       return response.data;
     } catch (error: any) {
-      console.error('Failed to apply plan template:', error);
       return {
         success: false,
         error: error.response?.data?.error || 'Failed to apply plan template'
@@ -238,7 +228,6 @@ export const planFeaturesApi = {
       const response = await api.get('/admin/plans/comparison');
       return response.data;
     } catch (error: any) {
-      console.error('Failed to fetch plan comparison:', error);
       return {
         success: false,
         error: error.response?.data?.error || 'Failed to fetch plan comparison'
@@ -253,7 +242,6 @@ export const planFeaturesApi = {
       const response = await api.get(`/admin/feature_usage${params}`);
       return response.data;
     } catch (error: any) {
-      console.error('Failed to fetch feature usage:', error);
       return {
         success: false,
         error: error.response?.data?.error || 'Failed to fetch feature usage'
@@ -267,7 +255,6 @@ export const planFeaturesApi = {
       const response = await api.post(`/admin/plan_features/${featureId}/validate`, { value });
       return response.data;
     } catch (error: any) {
-      console.error('Failed to validate feature value:', error);
       return {
         success: false,
         error: error.response?.data?.error || 'Failed to validate feature value'

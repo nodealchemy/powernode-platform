@@ -29,7 +29,6 @@ export const SystemUserManagement: React.FC = () => {
 
   useEffect(() => {
     if (!isAdmin) {
-      console.error('Unauthorized access to system user management');
       return;
     }
     loadSystemData();
@@ -51,7 +50,6 @@ export const SystemUserManagement: React.FC = () => {
         setAccounts(accountsResponse.data?.accounts || []);
       }
     } catch (error) {
-      console.error('Failed to load system data:', error);
     } finally {
       setLoading(false);
     }
@@ -64,7 +62,6 @@ export const SystemUserManagement: React.FC = () => {
       await usersApi.suspendUser(userId);
       loadSystemData();
     } catch (error) {
-      console.error('Failed to suspend user:', error);
     }
   };
 
@@ -73,7 +70,6 @@ export const SystemUserManagement: React.FC = () => {
       await usersApi.activateUser(userId);
       loadSystemData();
     } catch (error) {
-      console.error('Failed to activate user:', error);
     }
   };
 
@@ -84,7 +80,6 @@ export const SystemUserManagement: React.FC = () => {
       await usersApi.deleteUser(userId);
       loadSystemData();
     } catch (error) {
-      console.error('Failed to delete user:', error);
     }
   };
 

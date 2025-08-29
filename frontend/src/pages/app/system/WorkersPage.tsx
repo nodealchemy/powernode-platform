@@ -16,7 +16,6 @@ import { WorkerGrid } from '@/features/workers/components/WorkerGrid';
 import { WorkerTable } from '@/features/workers/components/WorkerTable';
 import { WorkerActions } from '@/features/workers/components/WorkerActions';
 import { CreateWorkerModal } from '@/features/workers/components/CreateWorkerModal';
-import { WorkerDetailsPanel } from '@/features/workers/components/WorkerDetailsPanel';
 import { 
   Users, 
   Settings, 
@@ -135,7 +134,7 @@ export const WorkersPage: React.FC = () => {
   });
 
   // Permission checks
-  const canViewWorkers = hasPermissions(user, ['system.workers.view']);
+  const canViewWorkers = hasPermissions(user, ['system.workers.read']);
   const canManageWorkers = hasPermissions(user, [
     'system.workers.create', 
     'system.workers.edit', 
@@ -173,10 +172,11 @@ export const WorkersPage: React.FC = () => {
         }
       }));
       setStats(workerStats);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load workers';
       setState(prev => ({
         ...prev,
-        error: error.message || 'Failed to load workers',
+        error: errorMessage,
         workers: [],
         loading: false
       }));
@@ -322,13 +322,14 @@ export const WorkersPage: React.FC = () => {
     });
   }, []);
 
-  const handleCreateWorker = useCallback(async (workerData: any) => {
+  const handleCreateWorker = useCallback(async (workerData: unknown) => {
     try {
-      await workerAPI.createWorker(workerData);
+      await workerAPI.createWorker(workerData as any);
       await loadWorkers();
       setState(prev => ({ ...prev, showCreateModal: false }));
-    } catch (error: any) {
-      throw new Error(error.message || 'Failed to create worker');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create worker';
+      throw new Error(errorMessage);
     }
   }, [loadWorkers]);
 
@@ -348,8 +349,9 @@ export const WorkersPage: React.FC = () => {
       }
       await loadWorkers();
       setState(prev => ({ ...prev, selectedWorkers: new Set() }));
-    } catch (error: any) {
-      setState(prev => ({ ...prev, error: error.message || 'Failed to perform bulk action' }));
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to perform bulk action';
+      setState(prev => ({ ...prev, error: errorMessage }));
     }
   }, [loadWorkers]);
 

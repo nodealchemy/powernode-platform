@@ -23,7 +23,6 @@ const UserManagement: React.FC = () => {
       const data = await adminApi.getUsers(statusFilter ? { status: statusFilter } : undefined);
       setUsersData(data);
     } catch (error) {
-      console.error('Failed to load users', error);
     }
   };
 

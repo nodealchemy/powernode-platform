@@ -10,7 +10,6 @@ import {
   Save, 
   Trash2, 
   RefreshCw, 
-  Key, 
   Shield, 
   Activity, 
   Settings,
@@ -18,7 +17,6 @@ import {
   EyeOff,
   Copy,
   Check,
-  Calendar,
   Building,
   AlertTriangle
 } from 'lucide-react';
@@ -148,7 +146,6 @@ export const WorkerDetailsPanel: React.FC<WorkerDetailsPanelProps> = ({
       setNewToken(response.new_token);
       setShowToken(true);
     } catch (error) {
-      console.error('Failed to regenerate token:', error);
     } finally {
       setLoading(false);
     }
@@ -169,7 +166,6 @@ export const WorkerDetailsPanel: React.FC<WorkerDetailsPanelProps> = ({
           break;
       }
     } catch (error) {
-      console.error('Failed to change worker status:', error);
     } finally {
       setLoading(false);
     }
@@ -181,7 +177,6 @@ export const WorkerDetailsPanel: React.FC<WorkerDetailsPanelProps> = ({
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (error) {
-      console.error('Failed to copy token:', error);
     }
   };
 
@@ -192,7 +187,6 @@ export const WorkerDetailsPanel: React.FC<WorkerDetailsPanelProps> = ({
       setShowDeleteConfirm(false);
       onClose();
     } catch (error) {
-      console.error('Failed to delete worker:', error);
     } finally {
       setLoading(false);
     }
@@ -245,7 +239,7 @@ export const WorkerDetailsPanel: React.FC<WorkerDetailsPanelProps> = ({
           const healthResults = await workerAPI.testWorkerHealth(worker.id);
           setTestResults(healthResults);
           setTestJobStatus('completed');
-        } catch (healthErr: any) {
+        } catch (healthErr: unknown) {
           setTestResults({
             status: 'error',
             checks: {
@@ -257,7 +251,7 @@ export const WorkerDetailsPanel: React.FC<WorkerDetailsPanelProps> = ({
             response_time_ms: 0,
             details: [
               '❌ Test job completed but health check failed',
-              `Error: ${healthErr?.message || 'Health check after test job failed'}`
+              `Error: ${healthErr instanceof Error ? healthErr.message : 'Health check after test job failed'}`
             ]
           });
           setTestJobStatus('failed');
@@ -266,7 +260,7 @@ export const WorkerDetailsPanel: React.FC<WorkerDetailsPanelProps> = ({
         }
       }, 30000); // 30 seconds as per API response
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       setTestResults({
         status: 'error',
         checks: {
@@ -278,7 +272,7 @@ export const WorkerDetailsPanel: React.FC<WorkerDetailsPanelProps> = ({
         response_time_ms: 0,
         details: [
           '❌ Failed to enqueue test job',
-          `Error: ${err?.message || 'Failed to enqueue test job'}`
+          `Error: ${err instanceof Error ? err.message : 'Failed to enqueue test job'}`
         ]
       });
       setShowTestResults(true);
@@ -719,7 +713,7 @@ export const WorkerDetailsPanel: React.FC<WorkerDetailsPanelProps> = ({
           {activeTab === 'settings' && (
             <WorkerSettings
               worker={worker}
-              onUpdate={async (workerId, config) => {
+              onUpdate={async (_workerId, _config) => {
                 // Handle worker configuration updates
                 // In a real implementation, this would call the worker settings API
                 // For now, just show a success message

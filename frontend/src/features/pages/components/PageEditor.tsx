@@ -4,6 +4,7 @@ import '@uiw/react-md-editor/markdown-editor.css';
 import '@uiw/react-markdown-preview/markdown.css';
 import { Page, PageFormData, pagesApi } from '@/features/pages/services/pagesApi';
 import { useTheme } from '@/shared/hooks/ThemeContext';
+import { MarkdownRenderer } from '@/shared/components/ui/MarkdownRenderer';
 
 interface PageEditorProps {
   page?: Page | null;
@@ -39,7 +40,7 @@ export const PageEditor: React.FC<PageEditorProps> = ({
         content: page.content,
         meta_description: page.meta_description || '',
         meta_keywords: page.meta_keywords || '',
-        status: page.status
+        status: page.status === 'published' ? 'published' : 'draft'
       });
     }
   }, [page]);
@@ -77,9 +78,9 @@ export const PageEditor: React.FC<PageEditorProps> = ({
       }
       
       onClose();
-    } catch (error: any) {
-      console.error('Failed to save page:', error);
-      onError(error.response?.data?.error || 'Failed to save page');
+    } catch (error: unknown) {
+      const httpError = error as { response?: { data?: { error?: string } } };
+      onError(httpError.response?.data?.error || 'Failed to save page');
     } finally {
       setSaving(false);
     }
@@ -237,16 +238,11 @@ export const PageEditor: React.FC<PageEditorProps> = ({
             </div>
             <div className="p-6">
               {formData.content ? (
-                <div data-color-mode={theme} className="w-full markdown-preview">
-                  <MDEditor.Markdown 
-                    source={formData.content} 
-                    data-color-mode={theme}
-                    style={{ 
-                      backgroundColor: 'transparent',
-                      color: 'var(--color-text-primary)'
-                    }}
-                  />
-                </div>
+                <MarkdownRenderer
+                  content={formData.content}
+                  variant="preview"
+                  className="w-full"
+                />
               ) : (
                 <div className="text-center py-12">
                   <p className="text-theme-secondary">No content to preview. Add some content in the editor tab.</p>

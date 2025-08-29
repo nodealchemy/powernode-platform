@@ -31,9 +31,8 @@ export const BillingPage: React.FC = () => {
       setError(null);
       const data = await billingApi.getOverview();
       setOverview(data);
-    } catch (err: any) {
-      console.error('Error loading billing data:', err);
-      const errorMsg = err?.response?.data?.error || err?.message || 'Failed to load billing data';
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : 'Failed to load billing data';
       setError(errorMsg);
     } finally {
       setLoading(false);
@@ -55,7 +54,6 @@ export const BillingPage: React.FC = () => {
       setShowCreateInvoice(false);
       await loadBillingData(); // Refresh data
     } catch (error) {
-      console.error('Error creating invoice:', error);
     } finally {
       setLoading(false);
     }

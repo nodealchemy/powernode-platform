@@ -21,107 +21,239 @@ administrator_plan = Plan.find_or_create_by!(name: 'Administrator') do |plan|
   plan.billing_cycle = 'monthly'
   plan.trial_days = 0
   plan.features = {
+    # Core Features (all included for admin)
+    'community_access' => true,
     'dashboard_access' => true,
+    'mobile_responsive' => true,
+    'email_notifications' => true,
+    'basic_reporting' => true,
+    'standard_support' => true,
     'basic_analytics' => true,
-    'advanced_analytics' => true,
+    # Advanced Features (all included for admin)
     'email_support' => true,
+    'advanced_analytics' => true,
     'priority_support' => true,
     'api_access' => true,
+    'custom_branding' => true,
+    'data_export' => true,
+    'team_collaboration' => true,
+    'webhook_integrations' => true,
+    # Enterprise Features (all included for admin)
+    'custom_fields' => true,
+    'advanced_filters' => true,
     'custom_integrations' => true,
     'dedicated_support' => true,
     'white_label' => true,
     'sso_integration' => true,
-    'max_users' => 9999,
-    'storage_gb' => 10000
+    'advanced_security' => true,
+    'audit_logs' => true,
+    'sla_guarantees' => true
   }
-  plan.status = 'active'
+  plan.limits = {
+    'max_users' => 9999,
+    'max_api_keys' => 100,
+    'max_webhooks' => 100,  
+    'max_workers' => 100
+  }
+  plan.status = 'hidden' # Hidden from public view
+  plan.required_roles = ['super_admin', 'system_admin', 'account_manager', 'account_member', 'content_manager', 'billing_manager', 'support_agent', 'developer', 'system_worker'] # All roles
   plan.stripe_price_id = nil # No Stripe for admin plan
 end
 
-basic_plan = Plan.find_or_create_by!(name: 'Basic') do |plan|
-  plan.description = 'Essential features for small teams'
-  plan.price_cents = 999
+# Add Free plan
+free_plan = Plan.find_or_create_by!(name: 'Free') do |plan|
+  plan.description = 'Perfect for individuals and small teams getting started'
+  plan.price_cents = 0
   plan.currency = 'USD'
   plan.billing_cycle = 'monthly'
-  plan.trial_days = 14
+  plan.trial_days = 0
   plan.features = {
+    # Core Features
+    'community_access' => true,
     'dashboard_access' => true,
+    'mobile_responsive' => true,
+    'email_notifications' => true,
+    'basic_reporting' => true,
+    'standard_support' => true,
     'basic_analytics' => true,
+    # Advanced Features (limited for free)
+    'email_support' => false,
     'advanced_analytics' => false,
-    'email_support' => true,
     'priority_support' => false,
     'api_access' => false,
+    'custom_branding' => false,
+    'data_export' => false,
+    'team_collaboration' => false,
+    'webhook_integrations' => false,
+    # Enterprise Features (none for free)
+    'custom_fields' => false,
+    'advanced_filters' => false,
     'custom_integrations' => false,
     'dedicated_support' => false,
     'white_label' => false,
     'sso_integration' => false,
-    'max_users' => 5,
-    'storage_gb' => 10
+    'advanced_security' => false,
+    'audit_logs' => false,
+    'sla_guarantees' => false
+  }
+  plan.limits = {
+    'max_users' => 3,
+    'max_api_keys' => 2,
+    'max_webhooks' => 2,
+    'max_workers' => 1
+  }
+  plan.status = 'active'
+  plan.required_roles = ['member']
+  plan.stripe_price_id = nil # No Stripe for free plan
+end
+
+basic_plan = Plan.find_or_create_by!(name: 'Basic') do |plan|
+  plan.description = 'Essential features for growing teams and small businesses'
+  plan.price_cents = 1500
+  plan.currency = 'USD'
+  plan.billing_cycle = 'monthly'
+  plan.trial_days = 14
+  plan.features = {
+    # Core Features
+    'community_access' => true,
+    'dashboard_access' => true,
+    'mobile_responsive' => true,
+    'email_notifications' => true,
+    'basic_reporting' => true,
+    'standard_support' => true,
+    'basic_analytics' => true,
+    # Advanced Features (some included)
+    'email_support' => true,
+    'advanced_analytics' => false,
+    'priority_support' => false,
+    'api_access' => true,
+    'custom_branding' => false,
+    'data_export' => true,
+    'team_collaboration' => true,
+    'webhook_integrations' => false,
+    # Enterprise Features (none for basic)
+    'custom_fields' => false,
+    'advanced_filters' => false,
+    'custom_integrations' => false,
+    'dedicated_support' => false,
+    'white_label' => false,
+    'sso_integration' => false,
+    'advanced_security' => false,
+    'audit_logs' => false,
+    'sla_guarantees' => false
+  }
+  plan.limits = {
+    'max_users' => 10,
+    'max_api_keys' => 10,
+    'max_webhooks' => 10,
+    'max_workers' => 5
   }
   plan.status = 'active'
   plan.required_roles = ['member']
   plan.stripe_price_id = 'price_basic_monthly' # Will be created via Stripe
   # Add promotional discount
   plan.has_promotional_discount = true
-  plan.promotional_discount_percent = 15.0
+  plan.promotional_discount_percent = 20.0
   plan.promotional_discount_start = Time.current
   plan.promotional_discount_end = 30.days.from_now
 end
 
 professional_plan = Plan.find_or_create_by!(name: 'Professional') do |plan|
-  plan.description = 'Advanced tools for growing businesses'
-  plan.price_cents = 2999
+  plan.description = 'Advanced tools and integrations for scaling businesses'
+  plan.price_cents = 4900
   plan.currency = 'USD'
   plan.billing_cycle = 'monthly'
   plan.trial_days = 14
   plan.features = {
+    # Core Features (all included)
+    'community_access' => true,
     'dashboard_access' => true,
+    'mobile_responsive' => true,
+    'email_notifications' => true,
+    'basic_reporting' => true,
+    'standard_support' => true,
     'basic_analytics' => true,
-    'advanced_analytics' => true,
+    # Advanced Features (most included)
     'email_support' => true,
+    'advanced_analytics' => true,
     'priority_support' => true,
     'api_access' => true,
+    'custom_branding' => true,
+    'data_export' => true,
+    'team_collaboration' => true,
+    'webhook_integrations' => true,
+    # Enterprise Features (some included)
+    'custom_fields' => true,
+    'advanced_filters' => true,
     'custom_integrations' => false,
     'dedicated_support' => false,
     'white_label' => false,
     'sso_integration' => false,
-    'max_users' => 25,
-    'storage_gb' => 100
+    'advanced_security' => false,
+    'audit_logs' => true,
+    'sla_guarantees' => false
+  }
+  plan.limits = {
+    'max_users' => 50,
+    'max_api_keys' => 25,
+    'max_webhooks' => 25,
+    'max_workers' => 15
   }
   plan.status = 'active'
   plan.required_roles = ['member']
   plan.stripe_price_id = 'price_professional_monthly'
   # Add annual discount
   plan.has_annual_discount = true
-  plan.annual_discount_percent = 20.0
+  plan.annual_discount_percent = 25.0
 end
 
 enterprise_plan = Plan.find_or_create_by!(name: 'Enterprise') do |plan|
-  plan.description = 'Complete solution for large organizations'
-  plan.price_cents = 9999
+  plan.description = 'Complete solution with enterprise security and dedicated support'
+  plan.price_cents = 15000
   plan.currency = 'USD'
   plan.billing_cycle = 'monthly'
   plan.trial_days = 30
   plan.features = {
+    # Core Features (all included)
+    'community_access' => true,
     'dashboard_access' => true,
+    'mobile_responsive' => true,
+    'email_notifications' => true,
+    'basic_reporting' => true,
+    'standard_support' => true,
     'basic_analytics' => true,
-    'advanced_analytics' => true,
+    # Advanced Features (all included)
     'email_support' => true,
+    'advanced_analytics' => true,
     'priority_support' => true,
     'api_access' => true,
+    'custom_branding' => true,
+    'data_export' => true,
+    'team_collaboration' => true,
+    'webhook_integrations' => true,
+    # Enterprise Features (all included)
+    'custom_fields' => true,
+    'advanced_filters' => true,
     'custom_integrations' => true,
     'dedicated_support' => true,
     'white_label' => true,
     'sso_integration' => true,
+    'advanced_security' => true,
+    'audit_logs' => true,
+    'sla_guarantees' => true
+  }
+  plan.limits = {
     'max_users' => 9999,
-    'storage_gb' => 1000
+    'max_api_keys' => 100,
+    'max_webhooks' => 100,
+    'max_workers' => 50
   }
   plan.status = 'active'
   plan.required_roles = ['member', 'manager']
   plan.stripe_price_id = 'price_enterprise_monthly'
   # Add annual discount
   plan.has_annual_discount = true
-  plan.annual_discount_percent = 25.0
+  plan.annual_discount_percent = 30.0
 end
 
 puts "✅ Created #{Plan.count} plans"
@@ -182,11 +314,12 @@ if Rails.env.development? || Rails.env.test?
     user.email_verified_at = Time.current
   end
   
-  # Ensure admin user has super_admin role
+  # Ensure admin user has super_admin role with ALL permissions
   super_admin_role = Role.find_by(name: 'super_admin')
   if super_admin_role && !admin_user.roles.include?(super_admin_role)
     admin_user.roles.clear  # Remove any existing roles
     admin_user.roles << super_admin_role
+    puts "✅ Assigned super_admin role to admin user (#{super_admin_role.permissions.count} permissions)"
   end
 
   # Create demo account
@@ -639,8 +772,43 @@ puts "   Public Pages: #{Page.count}"
 puts "   KB Categories: #{KnowledgeBaseCategory.count}"
 puts "   KB Articles: #{KnowledgeBaseArticle.count}"
 
+# 🔧 Create default site settings
+puts "\n🔧 Creating default site settings..."
+
+# Site information
+SiteSetting.set('site_name', 'Powernode', description: 'Name of the site', setting_type: 'string', is_public: true)
+SiteSetting.set('footer_description', 'Powerful subscription management platform designed to help businesses grow. Trusted by thousands of companies worldwide.', description: 'Footer description text', setting_type: 'text', is_public: true)
+
+# Copyright information  
+SiteSetting.set('copyright_text', 'All rights reserved.', description: 'Copyright text displayed in footer', setting_type: 'string', is_public: true)
+SiteSetting.set('copyright_year', Date.current.year.to_s, description: 'Copyright year', setting_type: 'string', is_public: true)
+
+# Contact information
+SiteSetting.set('contact_email', 'hello@powernode.org', description: 'Main contact email', setting_type: 'string', is_public: true)
+SiteSetting.set('contact_phone', '+1 (555) 123-4567', description: 'Contact phone number', setting_type: 'string', is_public: true)
+SiteSetting.set('company_address', '123 Innovation Drive, Tech City, TC 12345', description: 'Company address', setting_type: 'string', is_public: true)
+
+# Social media links
+SiteSetting.set('social_twitter', '', description: 'Twitter/X profile URL', setting_type: 'string', is_public: true)
+SiteSetting.set('social_linkedin', '', description: 'LinkedIn profile URL', setting_type: 'string', is_public: true)
+SiteSetting.set('social_facebook', '', description: 'Facebook page URL', setting_type: 'string', is_public: true)
+SiteSetting.set('social_instagram', '', description: 'Instagram profile URL', setting_type: 'string', is_public: true)
+SiteSetting.set('social_youtube', '', description: 'YouTube channel URL', setting_type: 'string', is_public: true)
+
+# Admin-only settings
+SiteSetting.set('maintenance_mode', 'false', description: 'Enable maintenance mode', setting_type: 'boolean', is_public: false)
+SiteSetting.set('analytics_tracking_id', '', description: 'Google Analytics tracking ID', setting_type: 'string', is_public: false)
+SiteSetting.set('seo_default_title', 'Powernode - Subscription Management Platform', description: 'Default SEO title', setting_type: 'string', is_public: false)
+SiteSetting.set('seo_default_description', 'Streamline your subscription business with automated billing, analytics, and customer lifecycle management.', description: 'Default SEO description', setting_type: 'text', is_public: false)
+
+# Footer caching
+SiteSetting.set('footer_cache_enabled', 'true', description: 'Enable caching for footer data to improve performance', setting_type: 'boolean', is_public: false)
+
+puts "✅ Created #{SiteSetting.count} site settings"
+
 if Rails.env.development? || Rails.env.test?
   puts "   Accounts: #{Account.count}"
   puts "   Users: #{User.count}"
   puts "   Subscriptions: #{Subscription.count}"
+  puts "   Site Settings: #{SiteSetting.count}"
 end

@@ -86,7 +86,6 @@ export const URLMappingModal: React.FC<URLMappingModalProps> = ({
       onClose();
       showNotification(`URL mapping ${mapping ? 'updated' : 'created'} successfully`, 'success');
     } catch (error) {
-      console.error('Failed to save URL mapping:', error);
       showNotification(`Failed to ${mapping ? 'update' : 'create'} URL mapping`, 'error');
     } finally {
       setSaving(false);

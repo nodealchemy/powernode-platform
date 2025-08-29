@@ -1,5 +1,21 @@
 import { api } from '@/shared/services/api';
 
+// Helper function to safely extract error information
+const getErrorInfo = (error: unknown, defaultMessage: string) => {
+  let errorMessage = defaultMessage;
+  let errors = null;
+  
+  if (error && typeof error === 'object' && 'response' in error && error.response && 
+      typeof error.response === 'object' && 'data' in error.response && error.response.data &&
+      typeof error.response.data === 'object') {
+    const responseData = error.response.data as any;
+    errorMessage = responseData.message || errorMessage;
+    errors = responseData.errors;
+  }
+  
+  return { errorMessage, errors };
+};
+
 export interface Invitation {
   id: string;
   email: string;
@@ -42,12 +58,23 @@ class InvitationsApi {
         success: true,
         data: response.data
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
+      let errorMessage = 'Failed to fetch invitations';
+      let errors = null;
+      
+      if (error && typeof error === 'object' && 'response' in error && error.response && 
+          typeof error.response === 'object' && 'data' in error.response && error.response.data &&
+          typeof error.response.data === 'object') {
+        const responseData = error.response.data as any;
+        errorMessage = responseData.message || errorMessage;
+        errors = responseData.errors;
+      }
+      
       return {
         success: false,
         data: [],
-        message: error.response?.data?.message || 'Failed to fetch invitations',
-        errors: error.response?.data?.errors
+        message: errorMessage,
+        errors
       };
     }
   }
@@ -67,12 +94,13 @@ class InvitationsApi {
         data: response.data,
         message: 'Invitation sent successfully'
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const { errorMessage, errors } = getErrorInfo(error, 'Failed to send invitation');
       return {
         success: false,
         data: {} as Invitation,
-        message: error.response?.data?.message || 'Failed to send invitation',
-        errors: error.response?.data?.errors
+        message: errorMessage,
+        errors
       };
     }
   }
@@ -88,12 +116,13 @@ class InvitationsApi {
         data: response.data,
         message: 'Invitation resent successfully'
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const { errorMessage, errors } = getErrorInfo(error, 'Failed to resend invitation');
       return {
         success: false,
         data: {} as Invitation,
-        message: error.response?.data?.message || 'Failed to resend invitation',
-        errors: error.response?.data?.errors
+        message: errorMessage,
+        errors
       };
     }
   }
@@ -109,12 +138,13 @@ class InvitationsApi {
         data: true,
         message: 'Invitation canceled successfully'
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const { errorMessage, errors } = getErrorInfo(error, 'Failed to cancel invitation');
       return {
         success: false,
         data: false,
-        message: error.response?.data?.message || 'Failed to cancel invitation',
-        errors: error.response?.data?.errors
+        message: errorMessage,
+        errors
       };
     }
   }
@@ -135,12 +165,13 @@ class InvitationsApi {
         data: response.data,
         message: 'Invitation accepted successfully'
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const { errorMessage, errors } = getErrorInfo(error, 'Failed to accept invitation');
       return {
         success: false,
         data: null,
-        message: error.response?.data?.message || 'Failed to accept invitation',
-        errors: error.response?.data?.errors
+        message: errorMessage,
+        errors
       };
     }
   }
@@ -155,12 +186,14 @@ class InvitationsApi {
         success: true,
         data: response.data
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       return {
         success: false,
         data: {} as Invitation,
-        message: error.response?.data?.message || 'Invitation not found or expired',
-        errors: error.response?.data?.errors
+        ...(() => {
+          const { errorMessage, errors } = getErrorInfo(error, 'Invitation not found or expired');
+          return { message: errorMessage, errors };
+        })()
       };
     }
   }
@@ -176,12 +209,14 @@ class InvitationsApi {
         data: response.data,
         message: 'Invitation updated successfully'
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       return {
         success: false,
         data: {} as Invitation,
-        message: error.response?.data?.message || 'Failed to update invitation',
-        errors: error.response?.data?.errors
+        ...(() => {
+          const { errorMessage, errors } = getErrorInfo(error, 'Failed to update invitation');
+          return { message: errorMessage, errors };
+        })()
       };
     }
   }

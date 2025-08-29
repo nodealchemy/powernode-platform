@@ -199,15 +199,16 @@ RSpec.describe Role, type: :model do
 
   describe "integration scenarios" do
     it "creates role with valid name format" do
+      unique_suffix = Array.new(8) { ('a'..'z').to_a.sample }.join
       role = Role.create!(
-        name: "content_manager",
-        display_name: "Content Manager",
+        name: "test_content_manager_#{unique_suffix}",
+        display_name: "Test Content Manager #{unique_suffix}",
         description: "Manages content",
         role_type: "user"
       )
 
       expect(role).to be_persisted
-      expect(role.name).to eq("content_manager")
+      expect(role.name).to eq("test_content_manager_#{unique_suffix}")
     end
 
     it "manages permissions correctly" do

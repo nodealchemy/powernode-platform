@@ -337,6 +337,9 @@ class Api::V1::PlansController < ApplicationController
       trial_days: plan.trial_days,
       formatted_price: plan.price.format,
       monthly_price: plan.monthly_price.format,
+      # Include features and limits for plan cards
+      features: plan.features || {},
+      limits: plan.limits || {},
       # Include discount information for frontend badges
       has_annual_discount: plan.has_annual_discount?,
       annual_discount_percent: plan.annual_discount_percent || 0,

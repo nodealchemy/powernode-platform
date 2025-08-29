@@ -11,6 +11,11 @@ import { PageContainer, PageAction } from '@/shared/components/layout/PageContai
 import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
 import { Save, RefreshCw } from 'lucide-react';
 
+// Type guard for settings update data
+const isSettingsUpdateData = (data: unknown): data is Partial<UserSettings> => {
+  return typeof data === 'object' && data !== null;
+};
+
 export const SettingsPage: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const location = useLocation();
@@ -65,7 +70,9 @@ export const SettingsPage: React.FC = () => {
   const [isReceivingUpdate, setIsReceivingUpdate] = useState(false);
 
   // Real-time settings update handlers
-  const handleSettingsUpdate = useCallback((updatedData: Partial<UserSettings>) => {
+  const handleSettingsUpdate = useCallback((updatedData: unknown) => {
+    if (!isSettingsUpdateData(updatedData)) return;
+    
     setIsReceivingUpdate(true);
     
     if (updatedData.user_preferences) {
@@ -91,7 +98,8 @@ export const SettingsPage: React.FC = () => {
     }
     
     if (updatedData.account_settings) {
-      setSettings(prev => prev ? { ...prev, account_settings: updatedData.account_settings! } : null);
+      const accountSettings = updatedData.account_settings;
+      setSettings(prev => prev ? { ...prev, account_settings: accountSettings } : null);
       dispatch(addNotification({
         type: 'success',
         message: 'Account settings updated from another session'
@@ -102,7 +110,9 @@ export const SettingsPage: React.FC = () => {
     setIsReceivingUpdate(false);
   }, [theme, setTheme, dispatch]);
 
-  const handlePreferencesUpdate = useCallback((updatedPreferences: Partial<UserSettings>) => {
+  const handlePreferencesUpdate = useCallback((updatedPreferences: unknown) => {
+    if (!isSettingsUpdateData(updatedPreferences)) return;
+    
     setPreferences(prev => ({ ...prev, ...updatedPreferences }));
     
     // If theme was updated from another session, apply it locally
@@ -117,7 +127,9 @@ export const SettingsPage: React.FC = () => {
     }));
   }, [theme, setTheme, dispatch]);
 
-  const handleNotificationsUpdate = useCallback((updatedNotifications: Partial<UserSettings>) => {
+  const handleNotificationsUpdate = useCallback((updatedNotifications: unknown) => {
+    if (!isSettingsUpdateData(updatedNotifications)) return;
+    
     setNotifications(prev => ({ ...prev, ...updatedNotifications }));
     setLastUpdated(new Date());
     dispatch(addNotification({
@@ -135,7 +147,6 @@ export const SettingsPage: React.FC = () => {
       // Handle profile updates if needed
     },
     onError: (error) => {
-      console.error('Settings WebSocket error:', error);
     }
   });
 
@@ -159,7 +170,6 @@ export const SettingsPage: React.FC = () => {
       setPreferences({ user_preferences: settingsData.user_preferences || {} });
       setNotifications({ notification_preferences: settingsData.notification_preferences || {} });
     } catch (error) {
-      console.error('Failed to load settings:', error);
       dispatch(addNotification({
         type: 'error',
         message: 'Failed to load settings'
@@ -261,8 +271,8 @@ export const SettingsPage: React.FC = () => {
         email: profileForm.email
       });
       showSuccess('Profile updated successfully');
-    } catch (error: any) {
-      const errorMsg = error?.response?.data?.error || error?.message || 'Failed to update profile';
+    } catch (error: unknown) {
+      const errorMsg = error instanceof Error ? error.message : 'Failed to update profile';
       showError(errorMsg);
     } finally {
       setSaving(false);
@@ -303,8 +313,8 @@ export const SettingsPage: React.FC = () => {
       await settingsApi.changePassword(passwordForm);
       setPasswordForm({ current_password: '', password: '', password_confirmation: '' });
       showSuccess('Password changed successfully');
-    } catch (error: any) {
-      const errorMsg = error?.response?.data?.error || error?.message || 'Failed to change password';
+    } catch (error: unknown) {
+      const errorMsg = error instanceof Error ? error.message : 'Failed to change password';
       showError(errorMsg);
     } finally {
       setSaving(false);

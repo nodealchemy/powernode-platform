@@ -1,10 +1,16 @@
 // Common types used across the application
 
-export interface APIResponse<T = any> {
+export interface APIResponse<T = unknown> {
   success: boolean;
   data?: T;
   error?: string;
   message?: string;
+}
+
+export interface APIError {
+  message: string;
+  status?: number;
+  code?: string;
 }
 
 export interface PaginatedResponse<T> {
@@ -47,7 +53,7 @@ export interface SubscriptionPlan {
   currency: string;
   billing_cycle: 'monthly' | 'quarterly' | 'yearly';
   trial_days: number;
-  features: Record<string, any>;
+  features: Record<string, boolean | string | number>;
   limits: Record<string, number>;
   status: 'active' | 'inactive' | 'archived';
 }
@@ -84,4 +90,43 @@ export interface PaymentMethod {
   exp_year?: number;
   is_default: boolean;
   created_at: string;
+}
+
+// Additional shared interfaces for common patterns
+export interface PaymentGatewayConfig {
+  id: string;
+  gateway_type: 'stripe' | 'paypal';
+  is_enabled: boolean;
+  is_default: boolean;
+  configuration: {
+    publishable_key?: string;
+    webhook_secret?: string;
+    client_id?: string;
+    client_secret?: string;
+    environment?: 'sandbox' | 'production';
+  };
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SiteSetting {
+  id: string;
+  key: string;
+  value: string;
+  parsed_value: string | number | boolean | object;
+  setting_type: 'string' | 'number' | 'boolean' | 'json';
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WorkerJobData {
+  job_id?: string;
+  action: string;
+  parameters: Record<string, unknown>;
+  priority?: 'low' | 'normal' | 'high' | 'critical';
+}
+
+export interface FormErrorState {
+  message: string;
+  field?: string;
 }

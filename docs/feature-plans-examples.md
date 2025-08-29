@@ -67,7 +67,7 @@ limits:
 #### Included Roles:
 - `account.member` (default)
 - `team.collaborator`
-- `content.manager`
+- `content_manager`
 - `analytics.analyst`
 
 #### Available Features:
@@ -100,7 +100,7 @@ roles:
       - api.write
     description: "Team collaboration and content management"
     
-  content.manager:
+  content_manager:
     permissions:
       - page.create
       - page.edit
@@ -147,7 +147,7 @@ limits:
 - `account.member` (default)
 - `team.manager`
 - `billing.manager`
-- `content.manager`
+- `content_manager`
 - `api.developer`
 - `support.agent`
 
@@ -195,7 +195,7 @@ roles:
       - user.view
     description: "Billing and subscription management"
     
-  content.manager:
+  content_manager:
     permissions:
       - page.create
       - page.edit
@@ -262,7 +262,7 @@ limits:
 - `account.manager`
 - `team.manager`
 - `billing.manager`
-- `content.manager`
+- `content_manager`
 - `api.developer`
 - `support.agent`
 - `security.officer`
@@ -345,7 +345,7 @@ roles:
       - report.view
     description: "Complete billing and financial management"
     
-  content.manager:
+  content_manager:
     permissions:
       - page.create
       - page.edit
@@ -428,7 +428,7 @@ limits:
 ```yaml
 team_setup:
   - name: "Sarah (Agency Owner)"
-    roles: [account.member, team.collaborator, content.manager, analytics.analyst]
+    roles: [account.member, team.collaborator, content_manager, analytics.analyst]
     
   - name: "Mike (Content Writer)"
     roles: [account.member, team.collaborator]
@@ -447,10 +447,10 @@ team_setup:
     roles: [account.member, team.manager, billing.manager]
     
   - name: "Emma (Marketing Director)"
-    roles: [account.member, content.manager, analytics.analyst]
+    roles: [account.member, content_manager, analytics.analyst]
     
   - name: "David (Lead Developer)"
-    roles: [account.member, api.developer, content.manager]
+    roles: [account.member, api.developer, content_manager]
     
   - name: "Sophie (Customer Support)"
     roles: [account.member, support.agent]
@@ -472,7 +472,7 @@ team_setup:
     roles: [account.member, billing.manager]
     
   - name: "Kevin (Team Lead)"
-    roles: [account.member, team.manager, content.manager]
+    roles: [account.member, team.manager, content_manager]
     
   - name: "Jennifer (Security Analyst)"
     roles: [account.member, security.officer]

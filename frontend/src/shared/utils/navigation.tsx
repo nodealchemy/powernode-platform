@@ -84,7 +84,7 @@ export const defaultNavigationConfig: NavigationConfig = {
           href: '/app/business/billing',
           icon: CreditCard,
           description: 'Invoices and payment processing',
-          permissions: ['admin.billing.view'],
+          permissions: ['admin.billing.read'],
           order: 5
         },
         {
@@ -93,7 +93,7 @@ export const defaultNavigationConfig: NavigationConfig = {
           href: '/app/business/reports',
           icon: FileText,
           description: 'Financial and usage reports',
-          permissions: ['analytics.view'],
+          permissions: ['analytics.read'],
           order: 6
         }
       ],
@@ -111,7 +111,7 @@ export const defaultNavigationConfig: NavigationConfig = {
           href: '/app/content/pages',
           icon: FileText,
           description: 'Manage content pages and documentation',
-          permissions: ['page.view'],
+          permissions: ['page.read'],
           order: 1
         },
         {
@@ -120,11 +120,11 @@ export const defaultNavigationConfig: NavigationConfig = {
           href: '/app/content/kb',
           icon: HelpCircle,
           description: 'Browse articles, guides, and documentation',
-          permissions: [],
+          permissions: ['kb.read'],
           order: 2
         }
       ],
-      permissions: ['page.view'],
+      permissions: ['page.read', 'kb.read'],
       collapsible: true,
       defaultExpanded: true,
       order: 16
@@ -233,7 +233,7 @@ export const adminNavigationOverrides = {
           href: '/app/system/audit-logs',
           icon: '📋',
           description: 'System audit and activity logs',
-          permissions: ['admin.audit.view'],
+          permissions: ['admin.audit.read'],
           order: 2
         },
         {
@@ -242,7 +242,7 @@ export const adminNavigationOverrides = {
           href: '/app/system/webhooks',
           icon: '🔗',
           description: 'Manage webhook endpoints and events',
-          permissions: ['webhook.view'],
+          permissions: ['webhook.read'],
           order: 3
         },
         {
@@ -260,11 +260,11 @@ export const adminNavigationOverrides = {
           href: '/app/system/workers',
           icon: '🤖',
           description: 'Manage background workers and job processing',
-          permissions: ['system.workers.view'],
+          permissions: ['system.workers.read'],
           order: 5
         }
       ],
-      permissions: ['webhook.view', 'admin.audit.view', 'api.manage_keys', 'admin.settings.edit', 'system.workers.view'],
+      permissions: ['webhook.read', 'admin.audit.read', 'api.manage_keys', 'admin.settings.edit', 'system.workers.read'],
       collapsible: true,
       defaultExpanded: false,
       order: 18
@@ -279,7 +279,7 @@ export const adminNavigationOverrides = {
           href: '/app/admin/users',
           icon: Users,
           description: 'Manage all system users',
-          permissions: ['admin.user.view'],
+          permissions: ['admin.user.read'],
           order: 1
         },
         {
@@ -297,7 +297,7 @@ export const adminNavigationOverrides = {
           href: '/app/admin/roles',
           icon: UserCheck,
           description: 'Manage roles and permission assignments',
-          permissions: ['admin.role.view'],
+          permissions: ['admin.role.read'],
           order: 3
         },
         {
@@ -306,7 +306,7 @@ export const adminNavigationOverrides = {
           href: '/app/admin/marketplace',
           icon: Store,
           description: 'Manage marketplace apps and listings',
-          permissions: ['admin.marketplace.view'],
+          permissions: ['admin.marketplace.read'],
           order: 4
         },
         {
@@ -315,7 +315,7 @@ export const adminNavigationOverrides = {
           href: '/app/admin/settings',
           icon: Settings,
           description: 'Platform configuration and settings',
-          permissions: ['admin.settings.view'],
+          permissions: ['admin.settings.read'],
           order: 5
         }
       ],
@@ -334,7 +334,7 @@ export const adminNavigationOverrides = {
           href: '/app/users',
           icon: Users,
           description: 'Manage your team members',
-          permissions: ['team.view'],
+          permissions: ['team.read'],
           order: 1
         }
       ],

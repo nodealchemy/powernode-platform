@@ -35,8 +35,8 @@ export const ExampleForm: React.FC<ExampleFormProps> = ({
       email: {
         required: true,
         pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-        custom: (value) => {
-          if (value && value.includes('test@')) {
+        custom: (value: unknown) => {
+          if (typeof value === 'string' && value.includes('test@')) {
             return 'Test emails are not allowed';
           }
           return null;

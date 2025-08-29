@@ -54,7 +54,6 @@ export const EmailConfiguration: React.FC = () => {
       setOriginalSettings({ ...normalizedSettings });
       setHasChanges(false);
     } catch (error) {
-      console.error('Failed to load email settings:', error);
       showNotification('Failed to load email settings', 'error');
     } finally {
       setLoading(false);
@@ -81,12 +80,9 @@ export const EmailConfiguration: React.FC = () => {
       setOriginalSettings({ ...emailSettings });
       setHasChanges(false);
       showNotification('Email settings updated successfully', 'success');
-    } catch (error: any) {
-      console.error('Failed to update email settings:', error);
-      showNotification(
-        error.response?.data?.error || 'Failed to update email settings',
-        'error'
-      );
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to update email settings';
+      showNotification(message, 'error');
     } finally {
       setSaving(false);
     }
@@ -109,11 +105,8 @@ export const EmailConfiguration: React.FC = () => {
       setTesting(true);
       const response = await emailSettingsApi.testEmail(testEmail);
       showNotification(response.message || `Test email sent to ${testEmail}`, 'success');
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.error || 
-                          error.response?.data?.message || 
-                          error.message || 
-                          'Failed to send test email';
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to send test email';
       showNotification(errorMessage, 'error');
     } finally {
       setTesting(false);

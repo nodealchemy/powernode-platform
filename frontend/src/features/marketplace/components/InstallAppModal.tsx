@@ -56,7 +56,6 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({
         onClose();
       }
     } catch (error) {
-      console.error('Failed to install app:', error);
     } finally {
       setInstalling(false);
     }

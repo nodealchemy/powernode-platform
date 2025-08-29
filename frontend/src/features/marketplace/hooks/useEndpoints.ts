@@ -29,7 +29,6 @@ export const useAppEndpoints = (appId: string, filters: AppEndpointFilters = {})
       setPagination(response.pagination);
     } catch (err) {
       setError('Failed to load API endpoints');
-      console.error('Error loading endpoints:', err);
     } finally {
       setLoading(false);
     }
@@ -54,7 +53,6 @@ export const useAppEndpoints = (appId: string, filters: AppEndpointFilters = {})
       return endpoint;
     } catch (err) {
       showNotification('Failed to create API endpoint', 'error');
-      console.error('Error creating endpoint:', err);
       return null;
     }
   };
@@ -67,7 +65,6 @@ export const useAppEndpoints = (appId: string, filters: AppEndpointFilters = {})
       return endpoint;
     } catch (err) {
       showNotification('Failed to update API endpoint', 'error');
-      console.error('Error updating endpoint:', err);
       return null;
     }
   };
@@ -80,7 +77,6 @@ export const useAppEndpoints = (appId: string, filters: AppEndpointFilters = {})
       return true;
     } catch (err) {
       showNotification('Failed to delete API endpoint', 'error');
-      console.error('Error deleting endpoint:', err);
       return false;
     }
   };
@@ -93,7 +89,6 @@ export const useAppEndpoints = (appId: string, filters: AppEndpointFilters = {})
       return true;
     } catch (err) {
       showNotification('Failed to activate API endpoint', 'error');
-      console.error('Error activating endpoint:', err);
       return false;
     }
   };
@@ -106,7 +101,6 @@ export const useAppEndpoints = (appId: string, filters: AppEndpointFilters = {})
       return true;
     } catch (err) {
       showNotification('Failed to deactivate API endpoint', 'error');
-      console.error('Error deactivating endpoint:', err);
       return false;
     }
   };
@@ -118,7 +112,6 @@ export const useAppEndpoints = (appId: string, filters: AppEndpointFilters = {})
       return result;
     } catch (err) {
       showNotification('Failed to test API endpoint', 'error');
-      console.error('Error testing endpoint:', err);
       return null;
     }
   };
@@ -159,7 +152,6 @@ export const useAppEndpoint = (appId: string, endpointId: string) => {
       setEndpoint(data);
     } catch (err) {
       setError('Failed to load API endpoint');
-      console.error('Error loading endpoint:', err);
     } finally {
       setLoading(false);
     }
@@ -177,7 +169,6 @@ export const useAppEndpoint = (appId: string, endpointId: string) => {
       return updatedEndpoint;
     } catch (err) {
       showNotification('Failed to update API endpoint', 'error');
-      console.error('Error updating endpoint:', err);
       return null;
     }
   };
@@ -187,7 +178,6 @@ export const useAppEndpoint = (appId: string, endpointId: string) => {
       return await appEndpointsApi.getEndpointAnalytics(appId, endpointId, days);
     } catch (err) {
       showNotification('Failed to load endpoint analytics', 'error');
-      console.error('Error loading analytics:', err);
       return null;
     }
   };

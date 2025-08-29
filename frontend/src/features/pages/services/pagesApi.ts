@@ -8,7 +8,7 @@ export interface Page {
   rendered_content?: string;
   meta_description?: string;
   meta_keywords?: string;
-  status: 'draft' | 'published';
+  status: 'draft' | 'published' | '' | undefined;
   published_at?: string;
   word_count?: number;
   estimated_read_time?: number;
@@ -116,11 +116,13 @@ class PagesApi {
   }
 
   // Helper methods
-  formatStatus(status: string): string {
+  formatStatus(status: string | undefined | null): string {
+    if (!status) return 'Draft';
     return status.charAt(0).toUpperCase() + status.slice(1);
   }
 
-  getStatusColor(status: string): 'green' | 'yellow' | 'gray' {
+  getStatusColor(status: string | undefined | null): 'green' | 'yellow' | 'gray' {
+    if (!status) return 'yellow';
     switch (status) {
       case 'published':
         return 'green';

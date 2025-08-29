@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { appsApi } from '../services/marketplaceApi';
-import { App, AppFilters } from '../types';
+import { App, AppFilters, AppFormData } from '../types';
 import { useNotification } from '@/shared/hooks/useNotification';
 
 export const useApps = (filters: AppFilters = {}) => {
@@ -52,9 +52,9 @@ export const useApps = (filters: AppFilters = {}) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters.status, filters.search, filters.sort, filters.page]);
 
-  const createApp = async (data: any) => {
+  const createApp = async (data: unknown) => {
     try {
-      const response = await appsApi.createApp(data);
+      const response = await appsApi.createApp(data as AppFormData);
       
       if (response.success) {
         showNotification(response.message || 'App created successfully', 'success');
@@ -222,9 +222,9 @@ export const useApp = (id: string) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  const updateApp = async (data: any) => {
+  const updateApp = async (data: unknown) => {
     try {
-      const response = await appsApi.updateApp(id, data);
+      const response = await appsApi.updateApp(id, data as Partial<AppFormData>);
       
       if (response.success) {
         showNotification(response.message || 'App updated successfully', 'success');

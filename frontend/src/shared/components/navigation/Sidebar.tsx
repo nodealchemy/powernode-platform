@@ -136,7 +136,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
         const copyright = await settingsApi.getCopyright();
         setCopyrightText(copyright);
       } catch (error) {
-        console.warn('Failed to load copyright text, using fallback');
         setCopyrightText(`© ${new Date().getFullYear()} Powernode Platform. All rights reserved.`);
       }
     };

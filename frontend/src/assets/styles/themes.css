@@ -2044,6 +2044,115 @@
   transition: box-shadow 0.2s ease-out;
 }
 
+/* ===== KNOWLEDGE BASE ARTICLE STYLING ===== */
+/* Professional business-like styling for KB content */
+
+.kb-article-content {
+  line-height: 1.7;
+  font-size: 1.125rem; /* 18px for better readability */
+}
+
+.kb-article-content h1,
+.kb-article-content h2,
+.kb-article-content h3,
+.kb-article-content h4,
+.kb-article-content h5,
+.kb-article-content h6 {
+  scroll-margin-top: 2rem;
+}
+
+.kb-article-content h1:hover,
+.kb-article-content h2:hover,
+.kb-article-content h3:hover,
+.kb-article-content h4:hover,
+.kb-article-content h5:hover,
+.kb-article-content h6:hover {
+  position: relative;
+}
+
+.kb-article-content h1:hover::before,
+.kb-article-content h2:hover::before,
+.kb-article-content h3:hover::before,
+.kb-article-content h4:hover::before,
+.kb-article-content h5:hover::before,
+.kb-article-content h6:hover::before {
+  content: "🔗";
+  position: absolute;
+  left: -1.5rem;
+  opacity: 0.6;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+/* Professional table styling */
+.kb-article-content table {
+  font-size: 0.875rem;
+}
+
+.kb-article-content table th {
+  letter-spacing: 0.025em;
+}
+
+.kb-article-content table tbody tr:nth-child(even) {
+  background-color: rgba(var(--color-surface), 0.3);
+}
+
+/* Enhanced code blocks */
+.kb-article-content pre {
+  position: relative;
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+.kb-article-content pre code {
+  background: none !important;
+  border: none !important;
+  padding: 0 !important;
+}
+
+/* List improvements */
+.kb-article-content ul,
+.kb-article-content ol {
+  padding-left: 1.5rem;
+}
+
+.kb-article-content ol {
+  counter-reset: list-item;
+}
+
+.kb-article-content ol li {
+  counter-increment: list-item;
+}
+
+/* Image styling for professional appearance */
+.kb-article-content img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  margin: 2rem 0;
+}
+
+/* Dark mode specific enhancements */
+.dark .kb-article-content img {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+}
+
+.dark .kb-article-content table tbody tr:nth-child(even) {
+  background-color: rgba(255, 255, 255, 0.02);
+}
+
+/* Professional spacing for content sections */
+.kb-article-content > * + * {
+  margin-top: 1.5rem;
+}
+
+.kb-article-content > h1 + *,
+.kb-article-content > h2 + *,
+.kb-article-content > h3 + * {
+  margin-top: 1rem;
+}
+
 /* ===== LEGACY HIGH CONTRAST COMPATIBILITY LAYER ===== */
 /* Suppress -ms-high-contrast deprecation warnings by providing modern equivalents */
 

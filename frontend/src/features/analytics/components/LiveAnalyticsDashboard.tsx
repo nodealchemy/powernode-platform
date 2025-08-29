@@ -1,12 +1,15 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useSelector } from 'react-redux';
+import { RootState } from '@/shared/services';
 import { Button } from '@/shared/components/ui/Button';
 import { 
   TrendingUp, TrendingDown, DollarSign, Users, 
   BarChart3, Activity, Download, 
-  RefreshCw, AlertTriangle, Target, Zap
+  RefreshCw, AlertTriangle, Target, Zap, Lock
 } from 'lucide-react';
 import { analyticsService, RevenueData, GrowthData, ChurnData, CustomerData } from '@/features/analytics/services/analyticsService';
 import { useNotification } from '@/shared/hooks/useNotification';
+import { hasPermissions } from '@/shared/utils/permissionUtils';
 
 interface LiveAnalyticsDashboardProps {
   accountId?: string;
@@ -110,6 +113,7 @@ export const LiveAnalyticsDashboard: React.FC<LiveAnalyticsDashboardProps> = ({
   autoRefresh = true,
   refreshInterval = 30
 }) => {
+  const { user } = useSelector((state: RootState) => state.auth);
   const [liveMetrics, setLiveMetrics] = useState<LiveMetric | null>(null);
   const [revenueData, setRevenueData] = useState<RevenueData | null>(null);
   const [growthData, setGrowthData] = useState<GrowthData | null>(null);
@@ -122,6 +126,10 @@ export const LiveAnalyticsDashboard: React.FC<LiveAnalyticsDashboardProps> = ({
   const [error, setError] = useState<string | null>(null);
   
   const { showNotification } = useNotification();
+  
+  // Check permissions before loading analytics
+  const canViewAnalytics = hasPermissions(user, ['analytics.read']);
+  const canExportAnalytics = hasPermissions(user, ['analytics.export']);
 
   const getDateRange = useCallback((range: string) => {
     const endDate = new Date();
@@ -151,6 +159,13 @@ export const LiveAnalyticsDashboard: React.FC<LiveAnalyticsDashboardProps> = ({
   }, []);
 
   const loadAnalyticsData = useCallback(async (showSpinner = true) => {
+    // Don't load if user doesn't have permission
+    if (!canViewAnalytics) {
+      setLoading(false);
+      setIsRefreshing(false);
+      return;
+    }
+    
     try {
       if (showSpinner) setLoading(true);
       setIsRefreshing(!showSpinner);
@@ -185,14 +200,13 @@ export const LiveAnalyticsDashboard: React.FC<LiveAnalyticsDashboardProps> = ({
 
       setLastUpdated(new Date());
     } catch (error: any) {
-      console.error('Failed to load analytics data:', error);
       setError('Failed to load analytics data');
       showNotification('Failed to load analytics data', 'error');
     } finally {
       setLoading(false);
       setIsRefreshing(false);
     }
-  }, [accountId, selectedTimeRange, getDateRange, showNotification]);
+  }, [accountId, selectedTimeRange, getDateRange, showNotification, canViewAnalytics]);
 
   // Auto-refresh effect
   useEffect(() => {
@@ -208,6 +222,11 @@ export const LiveAnalyticsDashboard: React.FC<LiveAnalyticsDashboardProps> = ({
   }, [loadAnalyticsData, autoRefresh, refreshInterval]);
 
   const handleExport = async (format: 'csv' | 'pdf') => {
+    if (!canExportAnalytics) {
+      showNotification('You do not have permission to export analytics', 'error');
+      return;
+    }
+    
     try {
       const { startDate, endDate } = getDateRange(selectedTimeRange);
       await analyticsService.exportAnalytics(
@@ -235,6 +254,17 @@ export const LiveAnalyticsDashboard: React.FC<LiveAnalyticsDashboardProps> = ({
     }
     return `${value.toFixed(2)}%`;
   };
+
+  // Show access denied if user doesn't have permission
+  if (!canViewAnalytics) {
+    return (
+      <div className="text-center py-12">
+        <Lock className="w-12 h-12 text-theme-secondary mx-auto mb-4" />
+        <h3 className="text-lg font-medium text-theme-primary mb-2">Analytics Access Restricted</h3>
+        <p className="text-theme-secondary">You need analytics.read permission to access this dashboard</p>
+      </div>
+    );
+  }
 
   if (error && !liveMetrics) {
     return (

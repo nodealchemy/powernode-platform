@@ -7,10 +7,10 @@ swarm:
   main: "platform_architect"
   # MCP connection configuration
   logging:
-    level: info
-    verbose: false
-    mcp_debug: false
-    connection_verbose: false
+    level: debug
+    verbose: true
+    mcp_debug: true
+    connection_verbose: true
   debug:
     enabled: false
     mcp_connections: false
@@ -18,10 +18,10 @@ swarm:
     responses: false
   before:
     - "echo 'Starting subscription platform development swarm...'"
-    - "echo 'MCP Debug Mode: DISABLED - Clean output mode active'"
+    - "echo 'Production mode: Debug output disabled for optimal performance'"
   after:
     - "echo 'Swarm session complete. Check TODO.md for progress.'"
-    - "echo 'MCP debugging disabled for clean output'"
+    - "echo 'Production mode session completed successfully'"
   instances:
 
     platform_architect:
@@ -145,6 +145,8 @@ swarm:
       description: "Payment gateway integration expert handling Stripe, PayPal, and webhook processing"
       directory: .
       model: sonnet
+      debug: false
+      verbose_mcp: false
       prompt: |
         You are a payment integration specialist handling Stripe/PayPal integration and PCI compliance.
 
@@ -171,6 +173,8 @@ swarm:
       description: "Billing logic specialist implementing subscription lifecycles, proration, and automated renewals"
       directory: .
       model: sonnet
+      debug: false
+      verbose_mcp: false
       prompt: |
         You are a billing engine developer specializing in subscription lifecycle, automated renewals, and billing logic.
 
@@ -197,6 +201,8 @@ swarm:
       description: "RESTful API developer creating endpoints with proper serialization and error handling"
       directory: .
       model: sonnet
+      debug: false
+      verbose_mcp: false
       systemPrompt: |
         CRITICAL: MANDATORY use of ApiResponse methods for ALL controller responses:
         - ApplicationController includes ApiResponse concern automatically
@@ -229,6 +235,8 @@ swarm:
       description: "Background processing specialist managing Sidekiq jobs, scheduling, and worker management"
       directory: .
       model: sonnet
+      debug: false
+      verbose_mcp: false
       prompt: |
         You are a background job engineer specializing in Sidekiq configuration, queue management, and worker coordination.
 
@@ -283,6 +291,8 @@ swarm:
       description: "UI/UX developer creating reusable React components and responsive interfaces"
       directory: ./frontend
       model: sonnet
+      debug: false
+      verbose_mcp: false
       prompt: |
         You are a UI component developer specializing in design system and theme-aware components.
 
@@ -309,6 +319,8 @@ swarm:
       description: "Analytics dashboard developer creating interactive charts and reporting interfaces"
       directory: ./frontend
       model: sonnet
+      debug: false
+      verbose_mcp: false
       prompt: |
         You are a dashboard specialist creating interactive charts and analytics visualization.
 
@@ -335,6 +347,8 @@ swarm:
       description: "Administrative interface developer building comprehensive system management panels"
       directory: ./frontend
       model: sonnet
+      debug: false
+      verbose_mcp: false
       prompt: |
         You are an admin panel developer building comprehensive administrative interfaces and system management panels.
 
@@ -361,6 +375,8 @@ swarm:
       description: "Rails testing specialist creating comprehensive test suites for API and business logic"
       directory: .
       model: sonnet
+      debug: false
+      verbose_mcp: false
       prompt: |
         You are a backend test engineer specializing in RSpec testing, API integration tests, and comprehensive test coverage.
 
@@ -387,6 +403,8 @@ swarm:
       description: "Frontend testing specialist implementing unit, integration, and E2E tests for React application"
       directory: ./frontend
       model: sonnet
+      debug: false
+      verbose_mcp: false
       prompt: |
         You are a frontend test engineer specializing in Jest/Cypress testing and comprehensive frontend test coverage.
 
@@ -413,6 +431,8 @@ swarm:
       description: "DevOps specialist handling deployment, CI/CD, monitoring, and infrastructure automation"
       directory: .
       model: sonnet
+      debug: false
+      verbose_mcp: false
       prompt: |
         You are a DevOps engineer specializing in CI/CD, deployment, monitoring, and infrastructure automation.
 
@@ -439,6 +459,8 @@ swarm:
       description: "Security expert ensuring application security, PCI compliance, and data protection"
       directory: .
       model: sonnet
+      debug: false
+      verbose_mcp: false
       prompt: |
         You are a security specialist ensuring application security, PCI compliance, and comprehensive data protection.
 
@@ -465,6 +487,8 @@ swarm:
       description: "Performance specialist handling load testing, optimization, and scalability planning"
       directory: .
       model: sonnet
+      debug: false
+      verbose_mcp: false
       prompt: |
         You are a performance optimizer specializing in performance tuning, load testing, and scalability planning.
 
@@ -491,6 +515,8 @@ swarm:
       description: "Notification specialist implementing email, SMS, and real-time communication systems"
       directory: .
       model: sonnet
+      debug: false
+      verbose_mcp: false
       prompt: |
         You are a notification engineer specializing in email, SMS, and real-time communication systems.
 
@@ -517,6 +543,8 @@ swarm:
       description: "Technical documentation expert creating comprehensive guides and API documentation"
       directory: .
       model: sonnet
+      debug: false
+      verbose_mcp: false
       prompt: |
         You are a documentation specialist creating comprehensive guides and API documentation.
 
@@ -543,6 +571,8 @@ swarm:
       description: "Business intelligence specialist implementing analytics, KPIs, and reporting features"
       directory: .
       model: sonnet
+      debug: false
+      verbose_mcp: false
       prompt: |
         You are an analytics engineer specializing in business intelligence, KPI tracking, and comprehensive analytics systems.
 

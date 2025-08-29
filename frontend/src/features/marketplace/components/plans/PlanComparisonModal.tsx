@@ -76,7 +76,10 @@ export const PlanComparisonModal: React.FC<PlanComparisonModalProps> = ({
               planAvailability: {}
             });
           }
-          featureMap.get(key)!.planAvailability[plan.id] = true; // If feature is included in plan, it's available
+          const featureItem = featureMap.get(key);
+          if (featureItem) {
+            featureItem.planAvailability[plan.id] = true; // If feature is included in plan, it's available
+          }
         });
       }
 
@@ -92,7 +95,10 @@ export const PlanComparisonModal: React.FC<PlanComparisonModalProps> = ({
               planAvailability: {}
             });
           }
-          featureMap.get(key)!.planAvailability[plan.id] = limitValue;
+          const featureItem = featureMap.get(key);
+          if (featureItem) {
+            featureItem.planAvailability[plan.id] = limitValue;
+          }
         });
       }
     });

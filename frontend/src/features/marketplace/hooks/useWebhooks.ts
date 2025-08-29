@@ -29,7 +29,6 @@ export const useAppWebhooks = (appId: string, filters: AppWebhookFilters = {}) =
       setPagination(response.pagination);
     } catch (err) {
       setError('Failed to load webhooks');
-      console.error('Error loading webhooks:', err);
     } finally {
       setLoading(false);
     }
@@ -54,7 +53,6 @@ export const useAppWebhooks = (appId: string, filters: AppWebhookFilters = {}) =
       return webhook;
     } catch (err) {
       showNotification('Failed to create webhook', 'error');
-      console.error('Error creating webhook:', err);
       return null;
     }
   };
@@ -67,7 +65,6 @@ export const useAppWebhooks = (appId: string, filters: AppWebhookFilters = {}) =
       return webhook;
     } catch (err) {
       showNotification('Failed to update webhook', 'error');
-      console.error('Error updating webhook:', err);
       return null;
     }
   };
@@ -80,7 +77,6 @@ export const useAppWebhooks = (appId: string, filters: AppWebhookFilters = {}) =
       return true;
     } catch (err) {
       showNotification('Failed to delete webhook', 'error');
-      console.error('Error deleting webhook:', err);
       return false;
     }
   };
@@ -93,7 +89,6 @@ export const useAppWebhooks = (appId: string, filters: AppWebhookFilters = {}) =
       return true;
     } catch (err) {
       showNotification('Failed to activate webhook', 'error');
-      console.error('Error activating webhook:', err);
       return false;
     }
   };
@@ -106,7 +101,6 @@ export const useAppWebhooks = (appId: string, filters: AppWebhookFilters = {}) =
       return true;
     } catch (err) {
       showNotification('Failed to deactivate webhook', 'error');
-      console.error('Error deactivating webhook:', err);
       return false;
     }
   };
@@ -118,7 +112,6 @@ export const useAppWebhooks = (appId: string, filters: AppWebhookFilters = {}) =
       return result;
     } catch (err) {
       showNotification('Failed to test webhook', 'error');
-      console.error('Error testing webhook:', err);
       return null;
     }
   };
@@ -131,7 +124,6 @@ export const useAppWebhooks = (appId: string, filters: AppWebhookFilters = {}) =
       return result;
     } catch (err) {
       showNotification('Failed to regenerate webhook secret', 'error');
-      console.error('Error regenerating secret:', err);
       return null;
     }
   };
@@ -173,7 +165,6 @@ export const useAppWebhook = (appId: string, webhookId: string) => {
       setWebhook(data);
     } catch (err) {
       setError('Failed to load webhook');
-      console.error('Error loading webhook:', err);
     } finally {
       setLoading(false);
     }
@@ -191,7 +182,6 @@ export const useAppWebhook = (appId: string, webhookId: string) => {
       return updatedWebhook;
     } catch (err) {
       showNotification('Failed to update webhook', 'error');
-      console.error('Error updating webhook:', err);
       return null;
     }
   };
@@ -201,7 +191,6 @@ export const useAppWebhook = (appId: string, webhookId: string) => {
       return await appWebhooksApi.getWebhookAnalytics(appId, webhookId, days);
     } catch (err) {
       showNotification('Failed to load webhook analytics', 'error');
-      console.error('Error loading analytics:', err);
       return null;
     }
   };
@@ -217,7 +206,6 @@ export const useAppWebhook = (appId: string, webhookId: string) => {
       return await appWebhooksApi.getWebhookDeliveries(appId, webhookId, filters);
     } catch (err) {
       showNotification('Failed to load webhook deliveries', 'error');
-      console.error('Error loading deliveries:', err);
       return null;
     }
   };

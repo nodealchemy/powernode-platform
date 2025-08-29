@@ -44,8 +44,7 @@ export const CreateWorkerModal: React.FC<CreateWorkerModalProps> = ({ isOpen, on
         .then((response) => {
           setAllRoles(response.data || []);
         })
-        .catch((error: any) => {
-          console.error('Failed to load roles:', error);
+        .catch((_error: unknown) => {
         })
         .finally(() => {
           setRolesLoading(false);

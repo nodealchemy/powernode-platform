@@ -22,7 +22,7 @@ import { ApiKeysPage } from './ApiKeysPage';
 import { MetricsPage } from './MetricsPage';
 import { AnalyticsPage } from './business/AnalyticsPage';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
-import { BarChart3, Users, CreditCard, Settings } from 'lucide-react';
+import { BarChart3, Users, CreditCard } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 
 // Import individual pages directly (no more management page groupings)
@@ -79,7 +79,6 @@ const DashboardOverview: React.FC = () => {
           hasConfiguredGateways = stripeConfigured || paypalConfigured;
         } catch (gatewayError) {
           // If user doesn't have permission or API fails, assume no gateways configured
-          console.warn('Failed to check payment gateway status:', gatewayError);
           hasConfiguredGateways = false;
         }
         
@@ -90,7 +89,6 @@ const DashboardOverview: React.FC = () => {
         }
       } catch (error) {
         if (mounted) {
-          console.error('Failed to check setup status:', error);
           // Assume no setup on error
           setHasPlans(false);
           setHasPaymentGateways(false);
@@ -151,14 +149,7 @@ const DashboardOverview: React.FC = () => {
       onClick: () => navigate('/app/admin/settings/payment-gateways'),
       variant: 'secondary' as const,
       icon: CreditCard
-    }] : []),
-    {
-      id: 'settings',
-      label: 'Settings',
-      onClick: () => navigate('/app/profile'),
-      variant: 'primary',
-      icon: Settings
-    }
+    }] : [])
   ];
 
   const breadcrumbs = [

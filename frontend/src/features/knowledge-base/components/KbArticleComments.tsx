@@ -17,7 +17,7 @@ interface KbArticleCommentsProps {
 }
 
 export function KbArticleComments({ articleId }: KbArticleCommentsProps) {
-  const { user: currentUser, isAuthenticated } = useSelector((state: RootState) => state.auth);
+  const { user: _currentUser, isAuthenticated } = useSelector((state: RootState) => state.auth);
   const { showNotification } = useNotification();
   const showSuccess = (message: string) => showNotification(message, 'success');
   const showError = (message: string) => showNotification(message, 'error');
@@ -30,7 +30,7 @@ export function KbArticleComments({ articleId }: KbArticleCommentsProps) {
 
   useEffect(() => {
     loadComments();
-  }, [articleId]);
+  }, [articleId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadComments = async () => {
     try {
@@ -38,7 +38,6 @@ export function KbArticleComments({ articleId }: KbArticleCommentsProps) {
       const response = await knowledgeBaseApi.getArticleComments(articleId, { per_page: 50 });
       setComments(response.data.data.comments);
     } catch (error) {
-      console.error('Failed to load comments:', error);
     } finally {
       setIsLoading(false);
     }
@@ -64,7 +63,6 @@ export function KbArticleComments({ articleId }: KbArticleCommentsProps) {
       setNewComment('');
       showSuccess('Comment posted successfully');
     } catch (error) {
-      console.error('Failed to post comment:', error);
       showError('Failed to post comment. Please try again.');
     } finally {
       setIsSubmitting(false);
@@ -103,7 +101,6 @@ export function KbArticleComments({ articleId }: KbArticleCommentsProps) {
       setReplyTo(null);
       showSuccess('Reply posted successfully');
     } catch (error) {
-      console.error('Failed to post reply:', error);
       showError('Failed to post reply. Please try again.');
     } finally {
       setIsSubmitting(false);

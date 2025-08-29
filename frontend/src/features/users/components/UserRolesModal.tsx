@@ -42,7 +42,6 @@ export const UserRolesModal: React.FC<UserRolesModalProps> = ({
       const roles = await usersApi.getAvailableRoles();
       setAvailableRoles(roles);
     } catch (error) {
-      console.error('Failed to load available roles:', error);
       showNotification('Failed to load available roles', 'error');
     } finally {
       setLoading(false);
@@ -143,7 +142,6 @@ export const UserRolesModal: React.FC<UserRolesModalProps> = ({
         showNotification(response.message || 'Failed to update user roles', 'error');
       }
     } catch (error) {
-      console.error('Failed to update user roles:', error);
       showNotification('Failed to update user roles', 'error');
     } finally {
       setSaving(false);

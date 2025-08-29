@@ -50,8 +50,7 @@ export const RoleUsersModal: React.FC<RoleUsersModalProps> = ({
       
       setUsers(roleUsers as UserWithRoles[]);
       setAvailableUsers(usersWithoutRole as UserWithRoles[]);
-    } catch (error: any) {
-      console.error('Failed to load users:', error);
+    } catch (error: unknown) {
       showNotification('Failed to load users', 'error');
     } finally {
       setLoading(false);
@@ -73,9 +72,9 @@ export const RoleUsersModal: React.FC<RoleUsersModalProps> = ({
       await rolesApi.removeRoleFromUser(role.id, userId);
       showNotification('User removed from role successfully', 'success');
       loadUsers();
-    } catch (error: any) {
-      console.error('Failed to remove user from role:', error);
-      showNotification(error?.response?.data?.error || 'Failed to remove user from role', 'error');
+    } catch (error: unknown) {
+      const httpError = error as { response?: { data?: { error?: string } } };
+      showNotification(httpError?.response?.data?.error || 'Failed to remove user from role', 'error');
     } finally {
       setActionInProgress(null);
     }
@@ -94,9 +93,9 @@ export const RoleUsersModal: React.FC<RoleUsersModalProps> = ({
       setShowAddUser(false);
       setSearchTerm('');
       loadUsers();
-    } catch (error: any) {
-      console.error('Failed to add user to role:', error);
-      showNotification(error?.response?.data?.error || 'Failed to add user to role', 'error');
+    } catch (error: unknown) {
+      const httpError = error as { response?: { data?: { error?: string } } };
+      showNotification(httpError?.response?.data?.error || 'Failed to add user to role', 'error');
     } finally {
       setActionInProgress(null);
     }

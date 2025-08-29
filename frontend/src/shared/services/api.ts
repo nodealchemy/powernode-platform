@@ -37,8 +37,8 @@ class APIClient {
   private client: AxiosInstance;
   private isRefreshing = false;
   private failedQueue: Array<{
-    resolve: (value: any) => void;
-    reject: (error: any) => void;
+    resolve: (value: unknown) => void;
+    reject: (error: unknown) => void;
   }> = [];
 
   constructor(baseURL: string) {

@@ -57,8 +57,9 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
       required: true,
     },
     roles: {
-      custom: (value: string[]) => {
-        if (!value || value.length === 0) {
+      custom: (value: unknown) => {
+        const roles = value as string[];
+        if (!roles || roles.length === 0) {
           return 'At least one role must be selected';
         }
         return null;
@@ -91,7 +92,6 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
           const roles = await usersApi.getAvailableRoles();
           setAvailableRoles(roles);
         } catch (error) {
-          console.error('Failed to load roles:', error);
           setAvailableRoles([]);
         } finally {
           setRolesLoading(false);

@@ -323,7 +323,6 @@ const CreateWorkerModal: React.FC<CreateWorkerModalProps> = ({ onClose, onCreate
       await onCreate(formData);
       onClose();
     } catch (error) {
-      console.error('Failed to create worker:', error);
     } finally {
       setLoading(false);
     }
@@ -431,7 +430,7 @@ export const WorkersPage: React.FC = () => {
   const { user } = useSelector((state: RootState) => state.auth);
 
   // Check if user has permission to view system workers
-  const canViewWorkers = hasPermissions(user, ['system.workers.view']);
+  const canViewWorkers = hasPermissions(user, ['system.workers.read']);
   const canManageWorkers = hasPermissions(user, ['system.workers.create', 'system.workers.edit', 'system.workers.delete']);
 
   const [state, setState] = useState<WorkersPageState>({
@@ -662,7 +661,6 @@ export const WorkersPage: React.FC = () => {
       await loadWorkers();
       setState(prev => ({ ...prev, showDeleteModal: false, selectedWorker: null }));
     } catch (error: any) {
-      console.error('Failed to delete worker:', error);
     }
   };
 
@@ -681,7 +679,6 @@ export const WorkersPage: React.FC = () => {
       }
       await loadWorkers();
     } catch (error: any) {
-      console.error('Failed to change worker status:', error);
     }
   };
 
@@ -693,7 +690,6 @@ export const WorkersPage: React.FC = () => {
       // Show the new token to the user
       alert(`New token generated: ${response.new_token}`);
     } catch (error: any) {
-      console.error('Failed to regenerate token:', error);
     }
   };
 

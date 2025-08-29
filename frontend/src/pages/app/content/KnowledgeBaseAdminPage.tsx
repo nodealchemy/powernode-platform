@@ -69,7 +69,6 @@ export default function KnowledgeBaseAdminPage() {
       setStats(articlesResponse.data.data.stats);
       setCategories(categoriesResponse.data.data.categories);
     } catch (error) {
-      console.error('Failed to load admin data:', error);
     } finally {
       setIsLoading(false);
     }

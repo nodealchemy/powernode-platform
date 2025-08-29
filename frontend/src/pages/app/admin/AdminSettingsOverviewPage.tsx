@@ -110,8 +110,8 @@ export const AdminSettingsOverviewPage: React.FC = () => {
       
       setData(overviewData);
       setServicesHealth(healthStatus);
-    } catch (error: any) {
-      setError(error.message || 'Failed to load admin overview data');
+    } catch (error: unknown) {
+      setError(error instanceof Error ? error.message : 'Failed to load admin overview data');
     } finally {
       setLoading(false);
     }

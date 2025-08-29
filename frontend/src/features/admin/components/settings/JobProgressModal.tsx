@@ -8,7 +8,7 @@ interface JobProgressModalProps {
   jobId: string;
   jobType: string;
   title: string;
-  onComplete?: (result: any) => void;
+  onComplete?: (result: unknown) => void;
   onError?: (error: string) => void;
 }
 
@@ -57,9 +57,9 @@ export const JobProgressModal: React.FC<JobProgressModalProps> = ({
           setStatus('completed');
           onComplete?.(jobData);
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         if (isMounted) {
-          const errorMessage = err.message || 'Job failed';
+          const errorMessage = err instanceof Error ? err.message : 'Job failed';
           setError(errorMessage);
           setStatus('failed');
           onError?.(errorMessage);

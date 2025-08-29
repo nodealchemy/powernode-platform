@@ -25,7 +25,7 @@ const adminSettingsTabs: AdminSettingsTab[] = [
     href: '/app/admin/settings',
     icon: BarChart3,
     description: 'System overview and quick admin actions'
-    // No specific permissions required - covered by parent admin.settings.view
+    // No specific permissions required - covered by parent admin.settings.read
   },
   {
     id: 'payment-gateways',
@@ -65,7 +65,7 @@ const adminSettingsTabs: AdminSettingsTab[] = [
     href: '/app/admin/settings/performance',
     icon: Zap,
     description: 'Monitor and optimize system performance',
-    requiredPermissions: ['admin.settings.view'] // Basic permission for now
+    requiredPermissions: ['admin.settings.read'] // Basic permission for now
   }
 ];
 

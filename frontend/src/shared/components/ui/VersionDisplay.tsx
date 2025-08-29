@@ -58,12 +58,10 @@ export const VersionDisplay: React.FC<VersionDisplayProps> = ({
             }
           } catch (err) {
             // Silently fail version fetching - it's not critical to app functionality
-            console.warn('Version fetch failed (non-critical):', err);
           }
         }
       } catch (err) {
         // Only log warnings for version fetching failures
-        console.warn('Version information unavailable:', err);
       } finally {
         setLoading(false);
       }

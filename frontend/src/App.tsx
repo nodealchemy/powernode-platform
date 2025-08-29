@@ -10,6 +10,7 @@ import { isTokenInvalidError, isValidJWTFormat } from '@/shared/utils/tokenUtils
 // Theme Provider
 import { ThemeProvider } from '@/shared/hooks/ThemeContext';
 import { BreadcrumbProvider } from '@/shared/hooks/BreadcrumbContext';
+import { FooterProvider } from '@/shared/contexts/FooterContext';
 
 // Components
 import { ProtectedRoute } from '@/shared/components/ui/ProtectedRoute';
@@ -28,9 +29,11 @@ import { VerifyEmailPage } from '@/pages/public/VerifyEmailPage';
 import { UnauthorizedPage } from '@/pages/public/UnauthorizedPage';
 import { WelcomePage } from '@/pages/public/WelcomePage';
 import { AcceptInvitationPage } from '@/pages/public/AcceptInvitationPage';
+import { PageViewPage } from '@/pages/public/PageViewPage';
 
 import './App.css';
 import '@/assets/styles/themes.css';
+import '@/assets/styles/public-theme.css';
 import '@/assets/styles/deprecated-css-override.css';
 
 const AppContent: React.FC = () => {
@@ -258,6 +261,12 @@ const AppContent: React.FC = () => {
             }
           />
 
+          {/* Public page viewing route */}
+          <Route
+            path="/pages/:slug"
+            element={<PageViewPage />}
+          />
+
           {/* Default redirects */}
           <Route
             path="/"
@@ -290,7 +299,9 @@ function App() {
     <Provider store={store}>
       <ThemeProvider>
         <BreadcrumbProvider>
-          <AppContent />
+          <FooterProvider>
+            <AppContent />
+          </FooterProvider>
         </BreadcrumbProvider>
       </ThemeProvider>
     </Provider>

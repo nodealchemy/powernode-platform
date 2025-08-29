@@ -1083,7 +1083,7 @@ System-level access and configuration:
 ### Content Management Permissions
 Knowledge Base and content operations:
 
-- `kb.read` - View knowledge base articles
+- `kb.view` - View knowledge base articles
 - `kb.write` - Create and edit knowledge base content
 - `kb.manage` - Full knowledge base management
 - `kb.admin` - Knowledge base system administration
@@ -1157,7 +1157,7 @@ Data access and reporting capabilities:
 - `users.read` - View team members
 - `billing.read` - View billing information
 - `subscriptions.read` - View subscriptions
-- `kb.read` - Access knowledge base
+- `kb.view` - Access knowledge base
 
 **Use Cases**:
 - General platform usage
@@ -1299,7 +1299,7 @@ Implementation Project:
 Customer Onboarding:
   Success Manager: account.manager
   Billing Specialist: billing.manager
-  Support Agent: users.read + kb.read
+  Support Agent: users.read + kb.view
 ```
 
 ### Permission Auditing

@@ -2,7 +2,7 @@ import { useCallback, useRef, useEffect } from 'react';
 import { useWebSocket } from './useWebSocket';
 
 interface AnalyticsWebSocketOptions {
-  onAnalyticsUpdate?: (data: any) => void;
+  onAnalyticsUpdate?: (data: unknown) => void;
   onError?: (error: string) => void;
   accountId?: string;
 }
@@ -22,8 +22,15 @@ export const useAnalyticsWebSocket = ({
   onAnalyticsUpdateRef.current = onAnalyticsUpdate;
   onErrorRef.current = onError;
 
+  // Type guard for WebSocket message data
+  const isWebSocketMessage = (data: unknown): data is { type: string; data?: any; message?: string } => {
+    return typeof data === 'object' && data !== null && 'type' in data;
+  };
+
   // Handle incoming messages
-  const handleMessage = useCallback((data: any) => {
+  const handleMessage = useCallback((data: unknown) => {
+    if (!isWebSocketMessage(data)) return;
+    
     if (data.type === 'analytics_update' && data.data) {
       onAnalyticsUpdateRef.current?.(data.data);
     } else if (data.type === 'error') {
@@ -33,7 +40,6 @@ export const useAnalyticsWebSocket = ({
 
   // Handle channel errors
   const handleError = useCallback((errorMessage: string) => {
-    console.error('❌ Analytics channel error:', errorMessage);
     onErrorRef.current?.(errorMessage);
   }, []);
 
@@ -54,7 +60,6 @@ export const useAnalyticsWebSocket = ({
   // Request analytics update
   const requestAnalyticsUpdate = useCallback(async () => {
     if (!isConnected) {
-      console.warn('Cannot request analytics: WebSocket not connected');
       return;
     }
     

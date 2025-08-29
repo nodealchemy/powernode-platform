@@ -54,7 +54,6 @@ export const copyToClipboard = async (text: string, options?: {
       }
     }
   } catch (error) {
-    console.error('Failed to copy to clipboard:', error);
     
     // Last resort: show the text in a prompt for manual copying
     const result = window.prompt('Unable to copy automatically. Please copy this text manually:', text);

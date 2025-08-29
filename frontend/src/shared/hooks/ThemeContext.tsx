@@ -53,7 +53,6 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
           applyThemeToDocument('light');
         }
       } catch (error) {
-        console.error('Failed to load theme preference:', error);
         if (isAuthenticated) {
           // Fall back to system preference or default for authenticated users
           const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
@@ -104,7 +103,6 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
   const setTheme = async (newTheme: Theme) => {
     // Prevent theme changes when logged out
     if (!isAuthenticated) {
-      console.warn('Cannot change theme when logged out - forced to light theme');
       return;
     }
 
@@ -116,7 +114,6 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
       // Update user preferences
       await settingsApi.updateUserSettings({ user_preferences: { theme: newTheme } });
     } catch (error) {
-      console.error('Failed to update theme preference:', error);
       // Revert on error
       setThemeState(theme);
       applyThemeToDocument(theme);

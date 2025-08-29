@@ -53,11 +53,12 @@ class SubscriptionService {
     try {
       const response = await api.get<SubscriptionResponse>('/subscriptions');
       return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const httpError = error as { response?: { data?: { error?: string; details?: any[] } } };
       return {
         success: false,
-        error: error.response?.data?.error || 'Failed to fetch subscriptions',
-        details: error.response?.data?.details || []
+        error: httpError.response?.data?.error || 'Failed to fetch subscriptions',
+        details: httpError.response?.data?.details || []
       };
     }
   }
@@ -66,11 +67,12 @@ class SubscriptionService {
     try {
       const response = await api.get<SubscriptionResponse>(`/subscriptions/${id}`);
       return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const httpError = error as { response?: { data?: { error?: string; details?: any[] } } };
       return {
         success: false,
-        error: error.response?.data?.error || 'Failed to fetch subscription',
-        details: error.response?.data?.details || []
+        error: httpError.response?.data?.error || 'Failed to fetch subscription',
+        details: httpError.response?.data?.details || []
       };
     }
   }
@@ -79,11 +81,12 @@ class SubscriptionService {
     try {
       const response = await api.post<SubscriptionResponse>('/subscriptions', { subscription: data });
       return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const httpError = error as { response?: { data?: { error?: string; details?: any[] } } };
       return {
         success: false,
-        error: error.response?.data?.error || 'Failed to create subscription',
-        details: error.response?.data?.details || []
+        error: httpError.response?.data?.error || 'Failed to create subscription',
+        details: httpError.response?.data?.details || []
       };
     }
   }
@@ -92,11 +95,12 @@ class SubscriptionService {
     try {
       const response = await api.patch<SubscriptionResponse>(`/subscriptions/${id}`, { subscription: data });
       return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const httpError = error as { response?: { data?: { error?: string; details?: any[] } } };
       return {
         success: false,
-        error: error.response?.data?.error || 'Failed to update subscription',
-        details: error.response?.data?.details || []
+        error: httpError.response?.data?.error || 'Failed to update subscription',
+        details: httpError.response?.data?.details || []
       };
     }
   }
@@ -105,11 +109,12 @@ class SubscriptionService {
     try {
       const response = await api.delete<SubscriptionResponse>(`/subscriptions/${id}`);
       return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const httpError = error as { response?: { data?: { error?: string; details?: any[] } } };
       return {
         success: false,
-        error: error.response?.data?.error || 'Failed to cancel subscription',
-        details: error.response?.data?.details || []
+        error: httpError.response?.data?.error || 'Failed to cancel subscription',
+        details: httpError.response?.data?.details || []
       };
     }
   }

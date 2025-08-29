@@ -21,7 +21,7 @@ const availableRoles = [
 
 const commonPermissions = [
   'admin.access',
-  'system.workers.view',
+  'system.workers.read',
   'system.workers.create',
   'system.workers.edit',
   'system.workers.delete',

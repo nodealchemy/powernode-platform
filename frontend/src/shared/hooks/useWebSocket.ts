@@ -13,7 +13,7 @@ interface WebSocketState {
 // Simple channel subscription
 interface ChannelSubscription {
   channel: string;
-  onMessage?: (data: any) => void;
+  onMessage?: (data: unknown) => void;
   onError?: (error: string) => void;
 }
 
@@ -70,7 +70,6 @@ export const useWebSocket = (): UseWebSocketReturn => {
   // Send message safely
   const sendMessage = useCallback(async (channel: string, action: string, data?: any): Promise<boolean> => {
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
-      console.warn('WebSocket not connected');
       return false;
     }
 
@@ -87,7 +86,6 @@ export const useWebSocket = (): UseWebSocketReturn => {
       wsRef.current.send(JSON.stringify(message));
       return true;
     } catch (error) {
-      console.error('Failed to send WebSocket message:', error);
       return false;
     }
   }, [user?.account?.id]);
@@ -112,7 +110,6 @@ export const useWebSocket = (): UseWebSocketReturn => {
       try {
         wsRef.current.send(JSON.stringify(subscribeMessage));
       } catch (error) {
-        console.error(`Failed to subscribe to ${channel}:`, error);
         onError?.('Failed to subscribe to channel');
       }
     }
@@ -133,7 +130,6 @@ export const useWebSocket = (): UseWebSocketReturn => {
         try {
           wsRef.current.send(JSON.stringify(unsubscribeMessage));
         } catch (error) {
-          console.error(`Failed to unsubscribe from ${channel}:`, error);
         }
       }
     };
@@ -153,9 +149,7 @@ export const useWebSocket = (): UseWebSocketReturn => {
       }
       // Only log if we have partial auth state (which might indicate an issue)
       if (user && !user.account?.id) {
-        console.warn('WebSocket: User is logged in but missing account information');
       } else if (!accessToken && user) {
-        console.warn('WebSocket: User is present but access token is missing');
       }
       return;
     }
@@ -221,7 +215,6 @@ export const useWebSocket = (): UseWebSocketReturn => {
           try {
             wsRef.current?.send(JSON.stringify(subscribeMessage));
           } catch (error) {
-            console.error(`Failed to re-subscribe to ${channel}:`, error);
           }
         });
       };
@@ -243,7 +236,6 @@ export const useWebSocket = (): UseWebSocketReturn => {
                 setTimeout(connect, 1000);
               })
               .catch((error) => {
-                console.error('❌ Token refresh failed:', error);
                 setState(prev => ({
                   ...prev,
                   error: 'Authentication failed - please login again'
@@ -258,7 +250,6 @@ export const useWebSocket = (): UseWebSocketReturn => {
           }
 
           if (data.type === 'reject_subscription') {
-            console.error('❌ Subscription rejected:', data.identifier);
             return;
           }
 
@@ -272,12 +263,10 @@ export const useWebSocket = (): UseWebSocketReturn => {
                 subscription.onMessage(data.message);
               }
             } catch (error) {
-              console.error('Error parsing message identifier:', error);
             }
           }
 
         } catch (error) {
-          console.error('Error parsing WebSocket message:', error);
         }
       };
 
@@ -317,7 +306,6 @@ export const useWebSocket = (): UseWebSocketReturn => {
         connectingRef.current = false;
         if (!mountedRef.current) return;
         
-        console.error('💥 WebSocket error:', error);
         setState(prev => ({
           ...prev,
           isConnected: false,
@@ -333,7 +321,6 @@ export const useWebSocket = (): UseWebSocketReturn => {
 
     } catch (error) {
       connectingRef.current = false;
-      console.error('Failed to create WebSocket:', error);
       setState(prev => ({
         ...prev,
         isConnected: false,

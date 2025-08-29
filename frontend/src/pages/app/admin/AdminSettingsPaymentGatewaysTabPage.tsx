@@ -199,8 +199,8 @@ export const AdminSettingsPaymentGatewaysTabPage: React.FC = () => {
   // Check if user has payment gateway management permission
   // Allow access with either payment-specific or general admin settings permissions
   const canManagePaymentGateways = hasPermissions(user, ['admin.settings.payment']) || 
-                                   hasPermissions(user, ['admin.settings.view']) ||
-                                   hasPermissions(user, ['admin.billing.view']);
+                                   hasPermissions(user, ['admin.settings.read']) ||
+                                   hasPermissions(user, ['admin.billing.read']);
 
   useEffect(() => {
     if (canManagePaymentGateways) {
@@ -215,7 +215,7 @@ export const AdminSettingsPaymentGatewaysTabPage: React.FC = () => {
         <div className="text-center">
           <h2 className="text-xl font-semibold text-theme-primary mb-4">Access Denied</h2>
           <p className="text-theme-secondary mb-4">You don't have permission to access payment gateways settings.</p>
-          <p className="text-sm text-theme-tertiary">Required permissions: admin.settings.payment, admin.settings.view, or admin.billing.view</p>
+          <p className="text-sm text-theme-tertiary">Required permissions: admin.settings.payment, admin.settings.read, or admin.billing.read</p>
           <div className="mt-4 p-4 bg-theme-background-secondary rounded">
             <p className="text-xs text-theme-tertiary">User permissions: {user?.permissions?.join(', ') || 'None'}</p>
           </div>
@@ -230,7 +230,6 @@ export const AdminSettingsPaymentGatewaysTabPage: React.FC = () => {
       const data = await paymentGatewaysApi.getOverview();
       setOverview(data);
     } catch (error) {
-      console.error('Error loading payment gateways overview:', error);
     } finally {
       setLoading(false);
     }
@@ -245,7 +244,6 @@ export const AdminSettingsPaymentGatewaysTabPage: React.FC = () => {
       // Reload overview to get updated status
       await loadOverview();
     } catch (error) {
-      console.error(`Error testing ${gateway} connection:`, error);
     } finally {
       setTesting(null);
     }

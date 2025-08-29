@@ -9,6 +9,15 @@ export const CustomersPage: React.FC = () => {
   const [stats, setStats] = useState<any>(null);
   const [searchResults, setSearchResults] = useState<any[]>([]);
 
+  // Type guards for WebSocket data
+  const isCustomerUpdateData = (data: unknown): data is { customer?: any; stats?: any } => {
+    return typeof data === 'object' && data !== null;
+  };
+
+  const isSearchResultData = (data: unknown): data is { results?: any[] } => {
+    return typeof data === 'object' && data !== null && 'results' in data;
+  };
+
   const {
     searchCustomers,
     updateCustomerStatus,
@@ -16,6 +25,8 @@ export const CustomersPage: React.FC = () => {
     error
   } = useCustomerWebSocket({
     onCustomerUpdate: (data) => {
+      if (!isCustomerUpdateData(data)) return;
+      
       // Handle customer updates
       if (data.customer) {
         setCustomers(prev => prev.map(c => 
@@ -27,13 +38,14 @@ export const CustomersPage: React.FC = () => {
       }
     },
     onSearchResults: (data) => {
+      if (!isSearchResultData(data)) return;
+      
       if (data.results) {
         setSearchResults(data.results);
         setShowSearchResults(true);
       }
     },
     onError: (errorMessage) => {
-      console.error('Customer WebSocket error:', errorMessage);
     }
   });
 
@@ -50,7 +62,6 @@ export const CustomersPage: React.FC = () => {
         setLoading(true);
         await loadCustomers({ page: 1, per_page: 50 });
       } catch (error) {
-        console.error('Failed to load customers:', error);
       } finally {
         setLoading(false);
       }

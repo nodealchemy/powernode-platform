@@ -35,7 +35,7 @@ const tabs: TabConfig[] = [
 
 export const AdminSettingsLayoutPage: React.FC = () => {
   const { user } = useSelector((state: RootState) => state.auth);
-  const canAccessSettings = hasPermissions(user, ['admin.settings.view']);
+  const canAccessSettings = hasPermissions(user, ['admin.settings.read']);
   const location = useLocation();
   const navigate = useNavigate();
 

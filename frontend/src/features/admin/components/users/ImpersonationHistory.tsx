@@ -47,7 +47,6 @@ const ImpersonationHistory: React.FC = () => {
         throw new Error(response.error || 'Failed to load history');
       }
     } catch (error: any) {
-      console.error('Failed to load impersonation history:', error);
       setError(error.message || 'Failed to load impersonation history');
     } finally {
       setLoading(false);

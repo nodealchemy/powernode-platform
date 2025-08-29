@@ -388,7 +388,7 @@ class AdminSettingsApi {
     return response.data;
   }
 
-  async updateSecurityConfig(config: any): Promise<{
+  async updateSecurityConfig(config: unknown): Promise<{
     success: boolean;
     message: string;
     config: any;

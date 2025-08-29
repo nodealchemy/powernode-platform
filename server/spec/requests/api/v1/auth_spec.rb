@@ -31,10 +31,7 @@ RSpec.describe 'Api::V1::Auth', type: :request do
       it 'returns success with user data and tokens' do
         post '/api/v1/auth/register', params: valid_params, as: :json
 
-        if response.status != 201
-          puts "Response status: #{response.status}"
-          puts "Response body: #{response.body}"
-        end
+        # Debug helper removed - use proper test expectations instead
 
         expect(response).to have_http_status(:created)
         response_data = json_response

@@ -18,16 +18,21 @@ class Role < ApplicationRecord
   }
   validates :display_name, presence: true
   validates :role_type, presence: true, inclusion: { in: %w[user admin system] }
+  validates :immutable, inclusion: { in: [true, false] }
   
   # Scopes
   scope :user_roles, -> { where(role_type: 'user') }
   scope :admin_roles, -> { where(role_type: 'admin') }
   scope :system_roles, -> { where(role_type: 'system') }
   scope :non_system, -> { where(is_system: false) }
+  scope :mutable, -> { where(immutable: false) }
+  scope :immutable, -> { where(immutable: true) }
   
   # Callbacks
   # Disabled to prevent conflicts during seeding
   # after_create :sync_permissions_from_config
+  before_destroy :prevent_super_admin_deletion
+  before_update :prevent_super_admin_modification
   
   # Class methods
   class << self
@@ -37,16 +42,20 @@ class Role < ApplicationRecord
           r.display_name = config[:display_name]
           r.description = config[:description]
           r.role_type = config[:role_type]
-          r.is_system = config[:role_type] == 'system'
+          r.is_system = config[:is_system] || config[:role_type] == 'system'
+          r.immutable = config[:immutable] || false
         end
         
-        # Update attributes if they've changed
-        role.update!(
-          display_name: config[:display_name],
-          description: config[:description],
-          role_type: config[:role_type],
-          is_system: config[:role_type] == 'system'
-        )
+        # Update attributes if they've changed (skip immutable roles)
+        unless role.immutable?
+          role.update!(
+            display_name: config[:display_name],
+            description: config[:description],
+            role_type: config[:role_type],
+            is_system: config[:is_system] || config[:role_type] == 'system',
+            immutable: config[:immutable] || false
+          )
+        end
         
         # Sync permissions
         role.sync_permissions!(config[:permissions])
@@ -71,6 +80,14 @@ class Role < ApplicationRecord
     role_type == 'system'
   end
   
+  def super_admin?
+    name == 'super_admin'
+  end
+  
+  def immutable?
+    immutable || super_admin?
+  end
+  
   def add_permission(permission_name)
     permission = Permission.find_or_create_from_name!(permission_name)
     permissions << permission unless permissions.include?(permission)
@@ -82,15 +99,24 @@ class Role < ApplicationRecord
   end
   
   def has_permission?(permission_name)
+    # Super admin has all permissions programmatically
+    return true if super_admin?
+    
     permissions.exists?(name: permission_name)
   end
   
   def permission_names
+    # Super admin has all permissions programmatically
+    return Permissions::ALL_PERMISSIONS.keys.sort if super_admin?
+    
     permissions.pluck(:name).sort
   end
   
   def sync_permissions!(permission_names)
     return unless permission_names.is_a?(Array)
+    
+    # Skip permission sync for super_admin - it has all permissions programmatically
+    return if super_admin?
     
     # Get or create all permissions
     new_permissions = permission_names.uniq.map do |name|
@@ -135,5 +161,25 @@ class Role < ApplicationRecord
     
     config = Permissions::ROLES[name]
     sync_permissions!(config[:permissions]) if config[:permissions]
+  end
+  
+  def prevent_super_admin_deletion
+    if super_admin?
+      errors.add(:base, 'Super admin role cannot be deleted')
+      throw :abort
+    end
+    
+    # Ensure at least one super_admin user exists before allowing deletion
+    if name == 'super_admin' && User.joins(:roles).where(roles: { name: 'super_admin' }).count <= 1
+      errors.add(:base, 'Cannot delete super_admin role - at least one super admin user must exist')
+      throw :abort
+    end
+  end
+  
+  def prevent_super_admin_modification
+    if immutable? && (changed? - ['updated_at'])
+      errors.add(:base, 'Immutable role cannot be modified')
+      throw :abort
+    end
   end
 end

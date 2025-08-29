@@ -45,8 +45,8 @@ class Permission < ApplicationRecord
       category = determine_category(parts)
       resource, action = extract_resource_action(parts, category)
       
-      # Try to find by resource and action
-      permission = find_by(resource: resource, action: action)
+      # Try to find by resource, action AND category to avoid conflicts
+      permission = find_by(resource: resource, action: action, category: category)
       if permission
         # Update the name if it doesn't match
         permission.update!(name: name) if permission.name != name
@@ -141,12 +141,13 @@ class Permission < ApplicationRecord
   end
   
   def validate_resource_action_uniqueness
-    if resource.present? && action.present?
-      existing = Permission.where(resource: resource, action: action)
+    if resource.present? && action.present? && category.present?
+      # Allow same resource/action combination if categories are different
+      existing = Permission.where(resource: resource, action: action, category: category)
       existing = existing.where.not(id: id) if persisted?
       if existing.exists?
-        errors.add(:resource, 'has already been taken')
-        errors.add(:base, 'Permission with this resource and action already exists')
+        errors.add(:resource, 'and action combination has already been taken for this category')
+        errors.add(:base, 'Permission with this resource, action, and category already exists')
       end
     end
   end

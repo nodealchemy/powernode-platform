@@ -75,7 +75,6 @@ export const DelegationsManagement: React.FC = () => {
       }
     } catch (err) {
       setError('Error loading delegations');
-      console.error('Error loading delegations:', err);
     } finally {
       setLoading(false);
     }
@@ -110,7 +109,6 @@ export const DelegationsManagement: React.FC = () => {
       }
     } catch (err) {
       setError('Error creating delegation');
-      console.error('Error creating delegation:', err);
     }
   };
 
@@ -135,7 +133,6 @@ export const DelegationsManagement: React.FC = () => {
   //     }
   //   } catch (err) {
   //     setError('Error updating delegation');
-  //     console.error('Error updating delegation:', err);
   //   }
   // };
 
@@ -157,7 +154,6 @@ export const DelegationsManagement: React.FC = () => {
       }
     } catch (err) {
       setError(`Error ${action}ing delegation`);
-      console.error(`Error ${action}ing delegation:`, err);
     }
   };
 

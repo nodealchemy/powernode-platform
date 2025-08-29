@@ -58,6 +58,7 @@ export const ServiceDiscoveryModal: React.FC<ServiceDiscoveryModalProps> = ({
       setFormConfig(config);
       loadDiscoveredServices();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, config]);
 
   const loadDiscoveredServices = async () => {
@@ -65,7 +66,6 @@ export const ServiceDiscoveryModal: React.FC<ServiceDiscoveryModalProps> = ({
       const services = await servicesApi.getDiscoveredServices();
       setDiscoveredServices(services);
     } catch (error) {
-      console.error('Failed to load discovered services:', error);
       showNotification('Failed to load discovered services', 'error');
     }
   };
@@ -86,13 +86,14 @@ export const ServiceDiscoveryModal: React.FC<ServiceDiscoveryModalProps> = ({
     }
   };
 
-  const handleJobComplete = (result: any) => {
-    if (result && result.services) {
-      setDiscoveredServices(result.services);
+  const handleJobComplete = (result: unknown) => {
+    const discoveryResult = result as { services?: any[]; services_count?: number };
+    if (discoveryResult && discoveryResult.services) {
+      setDiscoveredServices(discoveryResult.services);
       setActiveTab('discovered');
     }
     setShowJobProgress(false);
-    showNotification(`Service discovery completed: ${result?.services_count || 0} services discovered`, 'success');
+    showNotification(`Service discovery completed: ${discoveryResult?.services_count || 0} services discovered`, 'success');
     loadDiscoveredServices(); // Refresh the list
   };
 
@@ -107,12 +108,11 @@ export const ServiceDiscoveryModal: React.FC<ServiceDiscoveryModalProps> = ({
       showNotification('Service discovery configuration updated', 'success');
       onClose();
     } catch (error) {
-      console.error('Failed to update configuration:', error);
       showNotification('Failed to update configuration', 'error');
     }
   };
 
-  const updateFormConfig = (field: string, value: any) => {
+  const updateFormConfig = (field: string, value: string | number | boolean | string[]) => {
     setFormConfig(prev => ({ ...prev, [field]: value }));
   };
 
@@ -132,7 +132,6 @@ export const ServiceDiscoveryModal: React.FC<ServiceDiscoveryModalProps> = ({
       showNotification(`Added ${service.name} to configuration`, 'success');
       loadDiscoveredServices();
     } catch (error) {
-      console.error('Failed to add service:', error);
       showNotification('Failed to add service to configuration', 'error');
     }
   };

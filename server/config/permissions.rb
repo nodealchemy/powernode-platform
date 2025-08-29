@@ -9,37 +9,37 @@ module Permissions
   # Resource Permissions - User-facing operations
   RESOURCE_PERMISSIONS = {
     # User Management
-    'user.view' => 'View user profiles',
+    'user.read' => 'View user profiles',
     'user.edit_self' => 'Edit own profile',
     'user.delete_self' => 'Delete own account',
     
     # Team Management
-    'team.view' => 'View team members',
+    'team.read' => 'View team members',
     'team.invite' => 'Invite team members',
     'team.remove' => 'Remove team members',
     'team.assign_roles' => 'Assign roles to team members',
     
     # Billing & Subscriptions
-    'billing.view' => 'View billing information',
+    'billing.read' => 'View billing information',
     'billing.update' => 'Update payment methods',
     'billing.cancel' => 'Cancel subscriptions',
-    'plans.view' => 'View subscription plans',
+    'plans.read' => 'View subscription plans',
     'plans.create' => 'Create subscription plans',
     'plans.manage' => 'Manage subscription plans',
-    'invoice.view' => 'View invoices',
+    'invoice.read' => 'View invoices',
     'invoice.download' => 'Download invoices',
     
     # Content Management
     'page.create' => 'Create pages',
-    'page.view' => 'View pages',
+    'page.read' => 'View pages',
     'page.edit' => 'Edit pages',
     'page.delete' => 'Delete pages',
     'page.publish' => 'Publish pages',
     
     # Analytics & Reports
-    'analytics.view' => 'View analytics dashboard',
+    'analytics.read' => 'View analytics dashboard',
     'analytics.export' => 'Export analytics data',
-    'report.view' => 'View reports',
+    'report.read' => 'View reports',
     'report.generate' => 'Generate reports',
     'report.export' => 'Export reports',
     
@@ -49,42 +49,52 @@ module Permissions
     'api.manage_keys' => 'Manage API keys',
     
     # Webhooks
-    'webhook.view' => 'View webhooks',
+    'webhook.read' => 'View webhooks',
     'webhook.create' => 'Create webhooks',
     'webhook.edit' => 'Edit webhooks',
     'webhook.delete' => 'Delete webhooks',
     
     # Audit Logs
-    'audit.view' => 'View audit logs',
+    'audit.read' => 'View audit logs',
     'audit.export' => 'Export audit logs',
+    'audit.manage' => 'Manage audit logs',
+    
+    # Knowledge Base
+    'kb.read' => 'View published knowledge base articles',
+    'kb.create' => 'Create knowledge base articles',
+    'kb.edit' => 'Edit knowledge base articles',
+    'kb.delete' => 'Delete knowledge base articles',
+    'kb.publish' => 'Publish knowledge base articles',
+    'kb.manage_categories' => 'Manage knowledge base categories',
+    'kb.moderate_comments' => 'Moderate knowledge base comments',
     
     # Marketplace - Apps
-    'app.view' => 'View marketplace apps',
+    'app.read' => 'View marketplace apps',
     'app.create' => 'Create marketplace apps',
     'app.edit' => 'Edit own apps',
     'app.delete' => 'Delete own apps',
     'app.publish' => 'Publish own apps',
     'app.manage_features' => 'Manage app features',
     'app.manage_plans' => 'Manage app plans',
-    'app.view_analytics' => 'View app analytics',
+    'app.read_analytics' => 'View app analytics',
     
     # Marketplace - App Subscriptions
-    'subscription.view' => 'View app subscriptions',
+    'subscription.read' => 'View app subscriptions',
     'subscription.create' => 'Subscribe to apps',
     'subscription.manage' => 'Manage subscriptions',
     'subscription.cancel' => 'Cancel subscriptions',
     'subscription.upgrade' => 'Upgrade subscriptions',
-    'subscription.view_usage' => 'View subscription usage',
+    'subscription.read_usage' => 'View subscription usage',
     
     # Marketplace - Reviews
-    'review.view' => 'View app reviews',
+    'review.read' => 'View app reviews',
     'review.create' => 'Write app reviews',
     'review.edit' => 'Edit own reviews',
     'review.delete' => 'Delete own reviews',
     'review.moderate' => 'Moderate reviews',
     
     # Marketplace - Listings
-    'listing.view' => 'View marketplace listings',
+    'listing.read' => 'View marketplace listings',
     'listing.create' => 'Create marketplace listings',
     'listing.edit' => 'Edit own listings',
     'listing.delete' => 'Delete own listings'
@@ -96,7 +106,7 @@ module Permissions
     'admin.access' => 'Access admin panel and features',
     
     # User Administration
-    'admin.user.view' => 'View all users',
+    'admin.user.read' => 'View all users',
     'admin.user.create' => 'Create users',
     'admin.user.edit' => 'Edit any user',
     'admin.user.delete' => 'Delete users',
@@ -104,38 +114,39 @@ module Permissions
     'admin.user.suspend' => 'Suspend users',
     
     # Account Administration
-    'admin.account.view' => 'View all accounts',
+    'admin.account.read' => 'View all accounts',
     'admin.account.create' => 'Create accounts',
     'admin.account.edit' => 'Edit accounts',
     'admin.account.delete' => 'Delete accounts',
     'admin.account.suspend' => 'Suspend accounts',
     
     # Role & Permission Management
-    'admin.role.view' => 'View roles',
+    'admin.role.read' => 'View roles',
     'admin.role.create' => 'Create roles',
     'admin.role.edit' => 'Edit roles',
     'admin.role.delete' => 'Delete roles',
     'admin.role.assign' => 'Assign roles',
     
     # Billing Administration
-    'admin.billing.view' => 'View all billing',
+    'admin.billing.read' => 'View all billing',
     'admin.billing.override' => 'Override billing',
     'admin.billing.refund' => 'Process refunds',
     'admin.billing.credit' => 'Issue credits',
     'admin.billing.manage_gateways' => 'Manage payment gateways',
     
     # System Settings
-    'admin.settings.view' => 'View settings',
+    'admin.settings.read' => 'View settings',
     'admin.settings.edit' => 'Edit settings',
     'admin.settings.security' => 'Security settings',
     'admin.settings.email' => 'Email settings',
     'admin.settings.payment' => 'Payment gateway settings',
     
     # Audit & Compliance
-    'admin.audit.view' => 'View all audit logs',
+    'admin.audit.read' => 'View all audit logs',
     'admin.audit.export' => 'Export audit logs',
     'admin.audit.delete' => 'Delete audit logs',
-    'admin.compliance.view' => 'View compliance',
+    'admin.audit.manage' => 'Manage audit system',
+    'admin.compliance.read' => 'View compliance',
     'admin.compliance.report' => 'Generate compliance reports',
     
     # Maintenance Operations
@@ -145,26 +156,33 @@ module Permissions
     'admin.maintenance.cleanup' => 'Run cleanup operations',
     'admin.maintenance.tasks' => 'Manage scheduled tasks',
     
+    # Knowledge Base Administration
+    'admin.kb.read' => 'View all knowledge base content',
+    'admin.kb.manage' => 'Manage knowledge base system',
+    'admin.kb.moderate' => 'Moderate all content and comments',
+    'admin.kb.analytics' => 'Access knowledge base analytics',
+    'admin.kb.settings' => 'Configure knowledge base settings',
+    
     # Worker Management - consolidated under system.workers namespace
     
     # Marketplace Administration
-    'admin.marketplace.view' => 'View marketplace management',
+    'admin.marketplace.read' => 'View marketplace management',
     'admin.marketplace.manage' => 'Manage marketplace settings',
     'admin.marketplace.export' => 'Export marketplace data',
-    'admin.app.view' => 'View all apps',
+    'admin.app.read' => 'View all apps',
     'admin.app.edit' => 'Edit any app',
     'admin.app.delete' => 'Delete any app',
     'admin.app.approve' => 'Approve apps for publication',
     'admin.app.suspend' => 'Suspend apps',
-    'admin.listing.view' => 'View all listings',
+    'admin.listing.read' => 'View all listings',
     'admin.listing.edit' => 'Edit any listing',
     'admin.listing.delete' => 'Delete any listing',
     'admin.listing.approve' => 'Approve listings',
     'admin.listing.feature' => 'Feature listings',
-    'admin.review.view' => 'View all reviews',
+    'admin.review.read' => 'View all reviews',
     'admin.review.moderate' => 'Moderate reviews',
     'admin.review.delete' => 'Delete reviews',
-    'admin.subscription.view' => 'View all subscriptions',
+    'admin.subscription.read' => 'View all subscriptions',
     'admin.subscription.manage' => 'Manage any subscription'
   }.freeze
 
@@ -177,7 +195,7 @@ module Permissions
     'system.worker.execute' => 'Execute jobs',
     
     # Worker Management (for frontend admin interface)
-    'system.workers.view' => 'View worker management interface',
+    'system.workers.read' => 'View worker management interface',
     'system.workers.create' => 'Create new workers',
     'system.workers.edit' => 'Edit worker configurations',
     'system.workers.delete' => 'Delete workers',
@@ -243,22 +261,23 @@ module Permissions
       description: 'Basic account member with standard access',
       role_type: 'user',
       permissions: [
-        'user.view', 'user.edit_self',
-        'team.view',
-        'billing.view',
-        'page.view',
-        'analytics.view',
-        'report.view',
+        'user.read', 'user.edit_self',
+        'team.read',
+        'billing.read',
+        'page.read',
+        'analytics.read',
+        'report.read',
         'api.read',
-        'webhook.view',
-        'invoice.view',
-        'audit.view',
+        'webhook.read',
+        'invoice.read',
+        'audit.read',
+        'kb.read',
         # Marketplace permissions
-        'app.view',
-        'listing.view',
-        'subscription.view', 'subscription.create', 'subscription.manage', 'subscription.cancel',
-        'subscription.view_usage',
-        'review.view'
+        'app.read',
+        'listing.read',
+        'subscription.read', 'subscription.create', 'subscription.manage', 'subscription.cancel',
+        'subscription.read_usage',
+        'review.read'
       ]
     },
 
@@ -269,24 +288,26 @@ module Permissions
       role_type: 'user',
       permissions: [
         # All member permissions
-        'user.view', 'user.edit_self',
-        'team.view', 'team.invite', 'team.remove', 'team.assign_roles',
-        'billing.view', 'billing.update',
-        'plans.view', 'plans.manage',
-        'page.view', 'page.create', 'page.edit', 'page.delete', 'page.publish',
-        'analytics.view', 'analytics.export',
-        'report.view', 'report.generate', 'report.export',
+        'user.read', 'user.edit_self',
+        'team.read', 'team.invite', 'team.remove', 'team.assign_roles',
+        'billing.read', 'billing.update',
+        'plans.read', 'plans.manage',
+        'page.read', 'page.create', 'page.edit', 'page.delete', 'page.publish',
+        'analytics.read', 'analytics.export',
+        'report.read', 'report.generate', 'report.export',
         'api.read', 'api.write', 'api.manage_keys',
-        'webhook.view', 'webhook.create', 'webhook.edit', 'webhook.delete',
-        'invoice.view', 'invoice.download',
-        'audit.view', 'audit.export',
+        'webhook.read', 'webhook.create', 'webhook.edit', 'webhook.delete',
+        'invoice.read', 'invoice.download',
+        'audit.read', 'audit.export', 'audit.manage',
+        # Knowledge base permissions
+        'kb.read', 'kb.create', 'kb.edit', 'kb.publish', 'kb.manage_categories',
         # Marketplace permissions
-        'app.view', 'app.create', 'app.edit', 'app.delete', 'app.publish',
-        'app.manage_features', 'app.manage_plans', 'app.view_analytics',
-        'listing.view', 'listing.create', 'listing.edit', 'listing.delete',
-        'subscription.view', 'subscription.create', 'subscription.manage', 
-        'subscription.cancel', 'subscription.upgrade', 'subscription.view_usage',
-        'review.view', 'review.create', 'review.edit', 'review.delete', 'review.moderate'
+        'app.read', 'app.create', 'app.edit', 'app.delete', 'app.publish',
+        'app.manage_features', 'app.manage_plans', 'app.read_analytics',
+        'listing.read', 'listing.create', 'listing.edit', 'listing.delete',
+        'subscription.read', 'subscription.create', 'subscription.manage', 
+        'subscription.cancel', 'subscription.upgrade', 'subscription.read_usage',
+        'review.read', 'review.create', 'review.edit', 'review.delete', 'review.moderate'
       ]
     },
 
@@ -296,16 +317,16 @@ module Permissions
       description: 'Manages billing, subscriptions, and financial operations',
       role_type: 'user',
       permissions: [
-        'user.view', 'user.edit_self',
-        'team.view',
-        'billing.view', 'billing.update', 'billing.cancel',
-        'plans.view', 'plans.create', 'plans.manage',
-        'invoice.view', 'invoice.download',
-        'analytics.view',
-        'report.view', 'report.generate',
-        'admin.billing.view', 'admin.billing.override',
+        'user.read', 'user.edit_self',
+        'team.read',
+        'billing.read', 'billing.update', 'billing.cancel',
+        'plans.read', 'plans.create', 'plans.manage',
+        'invoice.read', 'invoice.download',
+        'analytics.read',
+        'report.read', 'report.generate',
+        'admin.billing.read', 'admin.billing.override',
         'admin.billing.refund', 'admin.billing.credit',
-        'audit.view'
+        'audit.read'
       ]
     },
 
@@ -315,24 +336,46 @@ module Permissions
       description: 'App developer with marketplace publishing capabilities',
       role_type: 'user',
       permissions: [
-        'user.view', 'user.edit_self',
-        'team.view',
-        'billing.view', 'billing.update',
-        'plans.view',
-        'page.view',
-        'analytics.view', 'analytics.export',
-        'report.view', 'report.generate',
+        'user.read', 'user.edit_self',
+        'team.read',
+        'billing.read', 'billing.update',
+        'plans.read',
+        'page.read',
+        'analytics.read', 'analytics.export',
+        'report.read', 'report.generate',
         'api.read', 'api.write', 'api.manage_keys',
-        'webhook.view', 'webhook.create', 'webhook.edit',
-        'invoice.view', 'invoice.download',
-        'audit.view',
+        'webhook.read', 'webhook.create', 'webhook.edit', 'webhook.delete',
+        # Knowledge base permissions
+        'kb.read', 'kb.create', 'kb.edit', 'kb.publish', 'kb.manage_categories',
+        'invoice.read', 'invoice.download',
+        'audit.read',
         # Full marketplace permissions
-        'app.view', 'app.create', 'app.edit', 'app.delete', 'app.publish',
-        'app.manage_features', 'app.manage_plans', 'app.view_analytics',
-        'listing.view', 'listing.create', 'listing.edit', 'listing.delete',
-        'subscription.view', 'subscription.create', 'subscription.manage',
-        'subscription.cancel', 'subscription.upgrade', 'subscription.view_usage',
-        'review.view', 'review.create', 'review.edit', 'review.delete', 'review.moderate'
+        'app.read', 'app.create', 'app.edit', 'app.delete', 'app.publish',
+        'app.manage_features', 'app.manage_plans', 'app.read_analytics',
+        'listing.read', 'listing.create', 'listing.edit', 'listing.delete',
+        'subscription.read', 'subscription.create', 'subscription.manage',
+        'subscription.cancel', 'subscription.upgrade', 'subscription.read_usage',
+        'review.read', 'review.create', 'review.edit', 'review.delete', 'review.moderate'
+      ]
+    },
+
+    # Content manager with knowledge base focus
+    'content_manager' => {
+      display_name: 'Content Manager',
+      description: 'Manages knowledge base content and documentation',
+      role_type: 'user',
+      permissions: [
+        'user.read', 'user.edit_self',
+        'team.read',
+        'billing.read',
+        'page.read', 'page.create', 'page.edit', 'page.publish',
+        'analytics.read',
+        'report.read',
+        'api.read',
+        'audit.read',
+        # Full knowledge base permissions
+        'kb.read', 'kb.create', 'kb.edit', 'kb.delete', 'kb.publish',
+        'kb.manage_categories', 'kb.moderate_comments'
       ]
     },
 
@@ -345,11 +388,12 @@ module Permissions
         # All resource permissions
         *RESOURCE_PERMISSIONS.keys,
         # Selected admin permissions for account management
-        'admin.user.view', 'admin.user.create', 'admin.user.edit', 'admin.user.suspend',
-        'admin.role.view', 'admin.role.assign',
-        'admin.billing.view', 'admin.billing.override',
-        'admin.settings.view', 'admin.settings.edit',
-        'admin.audit.view', 'admin.audit.export'
+        'admin.user.read', 'admin.user.create', 'admin.user.edit', 'admin.user.suspend',
+        'admin.role.read', 'admin.role.assign',
+        'admin.billing.read', 'admin.billing.override',
+        'admin.settings.read', 'admin.settings.edit',
+        'admin.audit.read', 'admin.audit.export', 'admin.audit.manage',
+        'admin.kb.read', 'admin.kb.manage', 'admin.kb.analytics'
       ]
     },
 
@@ -366,21 +410,14 @@ module Permissions
       ]
     },
 
-    # Super administrator with system access
+    # Super administrator - special system role with programmatic access to all permissions
     'super_admin' => {
       display_name: 'Super Administrator',
-      description: 'Super administrator with full system access',
+      description: 'Special system role with programmatic access to ALL permissions. Cannot be edited or deleted.',
       role_type: 'admin',
-      permissions: [
-        # All resource permissions
-        *RESOURCE_PERMISSIONS.keys,
-        # All admin permissions
-        *ADMIN_PERMISSIONS.keys,
-        # System worker management permissions
-        'system.workers.view', 'system.workers.create', 'system.workers.edit',
-        'system.workers.delete', 'system.workers.suspend', 'system.workers.activate',
-        'system.workers.regenerate'
-      ]
+      permissions: [], # No explicit permissions - grants all programmatically
+      is_system: true,
+      immutable: true # Cannot be edited or deleted
     },
 
     # System worker role

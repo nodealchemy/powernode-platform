@@ -55,7 +55,6 @@ const CreateApiKeyModal: React.FC<CreateApiKeyModalProps> = ({
         setScopeDescriptions(response.data.scope_descriptions);
       }
     } catch (error) {
-      console.error('Failed to load scopes:', error);
     }
   };
 
@@ -552,7 +551,7 @@ export const ApiKeysManager: React.FC<ApiKeysManagerProps> = ({
       } else {
         showNotification(response.error || 'Action failed', 'error');
       }
-    } catch (error: any) {
+    } catch (error) {
       showNotification('Action failed', 'error');
     } finally {
       setActionLoading(prev => ({ ...prev, [apiKeyId]: false }));

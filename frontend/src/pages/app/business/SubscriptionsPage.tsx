@@ -148,24 +148,28 @@ export const SubscriptionsPage: React.FC = () => {
   const [showAllHistory, setShowAllHistory] = useState(false);
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
 
+  // Type guard for plan data
+  const isPlan = (plan: unknown): plan is Plan => {
+    return typeof plan === 'object' && plan !== null && 'id' in plan && 'is_public' in plan;
+  };
+
   // Use lifecycle management and real-time updates
   const { checkSubscriptionStatus, getDaysUntilExpiry } = useSubscriptionLifecycle();
   useSubscriptionWebSocket({
-    onSubscriptionUpdate: (data) => {
+    onSubscriptionUpdate: (data: unknown) => {
       // Refresh subscriptions when updates are received
       dispatch(fetchSubscriptions());
     },
-    onSubscriptionCancelled: (data) => {
+    onSubscriptionCancelled: (data: unknown) => {
       dispatch(fetchSubscriptions());
     },
-    onPaymentProcessed: (data) => {
+    onPaymentProcessed: (data: unknown) => {
       dispatch(fetchSubscriptions());
     },
-    onTrialEnding: (data) => {
+    onTrialEnding: (data: unknown) => {
       // Could show a notification here
     },
-    onError: (error) => {
-      console.error('Subscription WebSocket error:', error);
+    onError: (error: string) => {
     }
   }); // Maintain realtime updates without displaying status
 
@@ -175,7 +179,6 @@ export const SubscriptionsPage: React.FC = () => {
       const historyData = await subscriptionHistoryApi.getHistory();
       setSubscriptionHistory(historyData);
     } catch (error) {
-      console.error('Failed to load subscription history:', error);
     } finally {
       setHistoryLoading(false);
     }
@@ -418,7 +421,7 @@ export const SubscriptionsPage: React.FC = () => {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {(availablePlans as any[]).filter((plan: any) => plan.is_public).map((plan: any, index: number) => {
+                {(availablePlans as unknown[]).filter(isPlan).filter((plan) => plan.is_public).map((plan, index: number) => {
                   const subscription = getSubscriptionForPlan(plan.id);
                   const isActive = !!subscription;
                   
@@ -427,7 +430,7 @@ export const SubscriptionsPage: React.FC = () => {
                     ? (plan.annual_discount_percent || 0)
                     : (plan.has_promotional_discount ? (plan.promotional_discount_percent || 0) : 0);
                   
-                  const allDiscounts = (availablePlans as any[]).filter((p: any) => p.is_public).map((p: any) => {
+                  const allDiscounts = (availablePlans as unknown[]).filter(isPlan).filter((p) => p.is_public).map((p) => {
                     if (billingCycle === 'yearly' && p.has_annual_discount) {
                       return p.annual_discount_percent || 0;
                     }

@@ -36,7 +36,6 @@ export const ApiKeysPage: React.FC = () => {
       }
     } catch (err) {
       setError('Failed to load API keys');
-      console.error('API keys error:', err);
     } finally {
       setLoading(false);
     }
@@ -60,7 +59,6 @@ export const ApiKeysPage: React.FC = () => {
       }
     } catch (err) {
       alert('Failed to regenerate API key');
-      console.error('Regenerate API key error:', err);
     }
   };
 
@@ -74,7 +72,6 @@ export const ApiKeysPage: React.FC = () => {
       }
     } catch (err) {
       alert('Failed to update API key status');
-      console.error('Toggle status error:', err);
     }
   };
 

@@ -121,10 +121,15 @@ export const MarketplacePage: React.FC = () => {
       }
       
       return Promise.resolve();
-    } catch (error: any) {
-      console.error('Subscription creation failed:', error);
+    } catch (error: unknown) {
       // Re-throw the error so the modal can handle it
-      throw new Error(error.response?.data?.error || 'Failed to create subscription');
+      let errorMessage = 'Failed to create subscription';
+      if (error && typeof error === 'object' && 'response' in error && error.response && 
+          typeof error.response === 'object' && 'data' in error.response && error.response.data &&
+          typeof error.response.data === 'object' && 'error' in error.response.data) {
+        errorMessage = (error.response.data as any).error || errorMessage;
+      }
+      throw new Error(errorMessage);
     }
   };
 
@@ -221,11 +226,13 @@ export const MarketplacePage: React.FC = () => {
     setShowCreateModal(true);
   };
 
-  const handleAppCreated = (app: App) => {
+  const handleAppCreated = (app: unknown) => {
     setShowCreateModal(false);
     refreshApps();
-    // Navigate to the new app's management page
-    navigate(`/app/marketplace/apps/${app.id}`);
+    // Navigate to the new app's management page if app has an ID
+    if (app && typeof app === 'object' && 'id' in app) {
+      navigate(`/app/marketplace/apps/${(app as any).id}`);
+    }
   };
 
   // Wrapper component to expose refresh function to parent

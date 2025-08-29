@@ -28,15 +28,15 @@ export const TestConfigurationModal: React.FC<TestConfigurationModalProps> = ({
       setShowProgress(true);
       showNotification('Configuration test started', 'info');
     } catch (error) {
-      console.error('Failed to start configuration test:', error);
       showNotification('Failed to start configuration test', 'error');
     }
   };
 
-  const handleJobComplete = (result: any) => {
-    if (result.validation?.valid && 
-        result.connectivity && 
-        Object.values(result.connectivity).every((status: any) => status.status === 'healthy')) {
+  const handleJobComplete = (result: unknown) => {
+    const testResult = result as { validation?: { valid?: boolean }; connectivity?: Record<string, { status?: string }> };
+    if (testResult.validation?.valid && 
+        testResult.connectivity && 
+        Object.values(testResult.connectivity).every((status: unknown) => (status as { status?: string }).status === 'healthy')) {
       showNotification('Configuration test passed successfully', 'success');
     } else {
       showNotification('Configuration test completed with issues', 'warning');

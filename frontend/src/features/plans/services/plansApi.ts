@@ -29,19 +29,8 @@ export interface Plan {
   annual_savings_amount?: string;
   annual_savings_percentage?: number;
   // Features and limits for plan comparison
-  features?: {
-    api_access?: boolean;
-    advanced_analytics?: boolean;
-    basic_analytics?: boolean;
-    dedicated_support?: boolean;
-    priority_support?: boolean;
-    basic_support?: boolean;
-  };
-  limits?: {
-    users?: number;
-    projects?: number;
-    storage?: number;
-  };
+  features?: Record<string, any>;
+  limits?: Record<string, any>;
   created_at: string;
   updated_at: string;
 }

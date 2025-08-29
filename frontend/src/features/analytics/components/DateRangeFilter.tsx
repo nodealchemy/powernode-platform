@@ -173,19 +173,23 @@ export const DateRangeFilter: React.FC<DateRangeFilterProps> = ({ dateRange, onC
         switch (e.key) {
           case '1':
             e.preventDefault();
-            handlePresetClick(presets.find(p => p.value === '7d')!);
+            const preset1 = presets.find(p => p.value === '7d');
+            if (preset1) handlePresetClick(preset1);
             break;
           case '2':
             e.preventDefault();
-            handlePresetClick(presets.find(p => p.value === '30d')!);
+            const preset2 = presets.find(p => p.value === '30d');
+            if (preset2) handlePresetClick(preset2);
             break;
           case '3':
             e.preventDefault();
-            handlePresetClick(presets.find(p => p.value === 'thisMonth')!);
+            const preset3 = presets.find(p => p.value === 'thisMonth');
+            if (preset3) handlePresetClick(preset3);
             break;
           case '4':
             e.preventDefault();
-            handlePresetClick(presets.find(p => p.value === 'thisQuarter')!);
+            const preset4 = presets.find(p => p.value === 'thisQuarter');
+            if (preset4) handlePresetClick(preset4);
             break;
         }
       }

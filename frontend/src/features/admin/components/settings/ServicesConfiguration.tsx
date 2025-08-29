@@ -110,7 +110,6 @@ const ServicesConfiguration: React.FC<ServicesConfigurationProps> = ({ className
       setServiceDiscoveryConfig(newConfig);
       showNotification('Service discovery configuration updated successfully', 'success');
     } catch (error) {
-      console.error('Failed to update service discovery configuration:', error);
       showNotification('Failed to update service discovery configuration', 'error');
       throw error;
     }
@@ -125,7 +124,6 @@ const ServicesConfiguration: React.FC<ServicesConfigurationProps> = ({ className
       setHasChanges(false);
       showNotification('Services configuration saved successfully', 'success');
     } catch (error) {
-      console.error('Failed to save configuration:', error);
       showNotification('Failed to save configuration', 'error');
     } finally {
       setSaving(false);
@@ -160,7 +158,6 @@ const ServicesConfiguration: React.FC<ServicesConfigurationProps> = ({ className
       updateConfig({ url_mappings: updatedMappings });
       showNotification(`URL mapping ${!mapping.enabled ? 'enabled' : 'disabled'}`, 'success');
     } catch (error) {
-      console.error('Failed to toggle URL mapping:', error);
       showNotification('Failed to toggle URL mapping', 'error');
     }
   };
@@ -175,7 +172,6 @@ const ServicesConfiguration: React.FC<ServicesConfigurationProps> = ({ className
       updateConfig({ url_mappings: updatedMappings });
       showNotification('URL mapping deleted successfully', 'success');
     } catch (error) {
-      console.error('Failed to delete URL mapping:', error);
       showNotification('Failed to delete URL mapping', 'error');
     }
   };
@@ -203,7 +199,6 @@ const ServicesConfiguration: React.FC<ServicesConfigurationProps> = ({ className
       setShowURLMappingModal(false);
       setEditingMapping(null);
     } catch (error) {
-      console.error('Failed to save URL mapping:', error);
       throw error; // Re-throw to let modal handle the error
     }
   };
@@ -779,7 +774,6 @@ const ServicesListComponent: React.FC<{
         showNotification(`${serviceName} is unreachable: ${result.error}`, 'error');
       }
     } catch (error) {
-      console.error('Service test failed:', error);
       showNotification(`Failed to test ${serviceName}`, 'error');
     }
   };
@@ -1075,7 +1069,6 @@ const ServicesListComponent: React.FC<{
                             showNotification('Service configuration saved successfully', 'success');
                             setEditingService(null);
                           } catch (error) {
-                            console.error('Failed to save service configuration:', error);
                             showNotification('Failed to save service configuration', 'error');
                           }
                         }}

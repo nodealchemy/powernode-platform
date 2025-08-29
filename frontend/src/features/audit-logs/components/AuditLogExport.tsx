@@ -31,7 +31,7 @@ interface ExportOptions {
   };
 }
 
-export const AuditLogExport: React.FC<AuditLogExportProps> = ({ filters, onClose }) => {
+export const AuditLogExport: React.FC<AuditLogExportProps> = ({ filters: _filters, onClose }) => {
   const [exportOptions, setExportOptions] = useState<ExportOptions>({
     format: 'csv',
     scope: 'filtered',
@@ -92,12 +92,15 @@ export const AuditLogExport: React.FC<AuditLogExportProps> = ({ filters, onClose
     setIsExporting(true);
     setExportProgress(0);
 
+    // Fixed: Ensure interval is properly cleaned up in all scenarios
+    let progressInterval: NodeJS.Timeout | null = null;
+
     try {
       // Simulate export progress
-      const progressInterval = setInterval(() => {
+      progressInterval = setInterval(() => {
         setExportProgress(prev => {
           if (prev >= 90) {
-            clearInterval(progressInterval);
+            if (progressInterval) clearInterval(progressInterval);
             return 90;
           }
           return prev + 10;
@@ -109,7 +112,7 @@ export const AuditLogExport: React.FC<AuditLogExportProps> = ({ filters, onClose
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 2000));
       
-      clearInterval(progressInterval);
+      if (progressInterval) clearInterval(progressInterval);
       setExportProgress(100);
       
       // Simulate file download
@@ -126,7 +129,8 @@ export const AuditLogExport: React.FC<AuditLogExportProps> = ({ filters, onClose
       }, 1000);
       
     } catch (error) {
-      console.error('Export failed:', error);
+      // Fixed: Clear interval in error scenario to prevent memory leak
+      if (progressInterval) clearInterval(progressInterval);
       setIsExporting(false);
       setExportProgress(0);
       showNotification('Export failed. Please try again.', 'error');

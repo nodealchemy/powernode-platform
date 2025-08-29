@@ -115,8 +115,9 @@ export const WebhooksList: React.FC<WebhooksListProps> = ({
         showNotification(`Webhook "${webhook.name}" activated`, 'success');
       }
       onWebhookAction?.('toggle-status', webhook.id);
-    } catch (error: any) {
-      showNotification(`Failed to toggle webhook status: ${error.message}`, 'error');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      showNotification(`Failed to toggle webhook status: ${errorMessage}`, 'error');
     }
   };
 
@@ -129,8 +130,9 @@ export const WebhooksList: React.FC<WebhooksListProps> = ({
       await regenerateSecret(webhook.id);
       showNotification(`Secret regenerated for "${webhook.name}". Update your endpoint with the new secret.`, 'warning');
       onWebhookAction?.('regenerate-secret', webhook.id);
-    } catch (error: any) {
-      showNotification(`Failed to regenerate secret: ${error.message}`, 'error');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      showNotification(`Failed to regenerate secret: ${errorMessage}`, 'error');
     }
   };
 

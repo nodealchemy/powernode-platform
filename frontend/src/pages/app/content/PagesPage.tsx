@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { RootState, AppDispatch } from '@/shared/services';
 import { addNotification } from '@/shared/services/slices/uiSlice';
 import { pagesApi, Page } from '@/features/pages/services/pagesApi';
@@ -13,6 +13,7 @@ import { Plus, RefreshCw, Edit2, Eye, EyeOff, Copy, Trash2 } from 'lucide-react'
 export const PagesPage: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const { user } = useSelector((state: RootState) => state.auth);
+  const navigate = useNavigate();
   const [pages, setPages] = useState<Page[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedPage, setSelectedPage] = useState<Page | null>(null);
@@ -39,8 +40,7 @@ export const PagesPage: React.FC = () => {
       });
       setPages(response.data);
       setTotalPages(response.meta.total_pages);
-    } catch (error: any) {
-      console.error('Failed to load pages:', error);
+    } catch (error: unknown) {
       dispatch(addNotification({
         type: 'error',
         message: 'Failed to load pages'
@@ -49,6 +49,7 @@ export const PagesPage: React.FC = () => {
       setLoading(false);
     }
   }, [filters.currentPage, filters.status, filters.search, dispatch]);
+
 
   const handleCreatePage = () => {
     setSelectedPage(null);
@@ -83,6 +84,7 @@ export const PagesPage: React.FC = () => {
 
   useEffect(() => {
     if (canManagePages) {
+      // Load the pages list (for admin users)
       loadPages();
     }
   }, [canManagePages, filters, loadPages]);
@@ -101,6 +103,11 @@ export const PagesPage: React.FC = () => {
     }));
   };
 
+  const handleViewPage = async (page: Page) => {
+    // Open the public page in a new tab
+    window.open(`/pages/${page.slug}`, '_blank');
+  };
+
   const handleEditPage = async (page: Page) => {
     try {
       // Fetch the full page data including content
@@ -109,7 +116,6 @@ export const PagesPage: React.FC = () => {
       setIsCreating(false);
       setShowEditor(true);
     } catch (error) {
-      console.error('Failed to load page for editing:', error);
       showError('Failed to load page for editing');
     }
   };
@@ -120,6 +126,7 @@ export const PagesPage: React.FC = () => {
     setIsCreating(false);
     loadPages(); // Refresh the list
   };
+
 
   const handlePublishToggle = async (page: Page) => {
     try {
@@ -160,7 +167,7 @@ export const PagesPage: React.FC = () => {
     }
   };
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: string | undefined) => {
     const colorClass = pagesApi.getStatusColor(status);
     
     let colorClassValue: string;
@@ -185,7 +192,7 @@ export const PagesPage: React.FC = () => {
     );
   };
 
-  // Handle special cases first
+
   if (showEditor) {
     return (
       <PageEditor
@@ -198,7 +205,7 @@ export const PagesPage: React.FC = () => {
     );
   }
   
-  // Redirect non-admins to dashboard after hooks
+  // Redirect non-admins from the pages list
   if (!canManagePages) {
     return <Navigate to="/app" replace />;
   }
@@ -314,11 +321,27 @@ export const PagesPage: React.FC = () => {
               </thead>
               <tbody className="bg-theme-surface divide-y divide-theme">
                 {pages.map((page) => (
-                  <tr key={page.id} className="hover:bg-theme-surface-hover">
+                  <tr 
+                    key={page.id} 
+                    className="hover:bg-theme-surface-hover transition-colors"
+                  >
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div>
-                        <div className="text-sm font-medium text-theme-primary">{page.title}</div>
-                        <div className="text-sm text-theme-secondary">/{page.slug}</div>
+                        <div className="text-sm font-medium text-theme-primary hover:text-theme-link">{page.title}</div>
+                        <div className="text-xs text-theme-tertiary mt-1">
+                          <a 
+                            href={`/pages/${page.slug}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-theme-link hover:text-theme-link-hover underline font-mono inline-flex items-center gap-1"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            /pages/{page.slug}
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                            </svg>
+                          </a>
+                        </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -331,9 +354,27 @@ export const PagesPage: React.FC = () => {
                       {page.word_count || 0} words
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex items-center space-x-1">
+                      <div 
+                        className="flex items-center space-x-1"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <Button
-                          onClick={() => handleEditPage(page)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleViewPage(page);
+                          }}
+                          variant="outline"
+                          size="sm"
+                          iconOnly
+                          title="View public page"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEditPage(page);
+                          }}
                           variant="secondary"
                           size="sm"
                           iconOnly
@@ -342,7 +383,10 @@ export const PagesPage: React.FC = () => {
                           <Edit2 className="w-4 h-4" />
                         </Button>
                         <Button
-                          onClick={() => handlePublishToggle(page)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handlePublishToggle(page);
+                          }}
                           variant={page.status === 'published' ? 'warning' : 'success'}
                           size="sm"
                           iconOnly
@@ -351,7 +395,10 @@ export const PagesPage: React.FC = () => {
                           {page.status === 'published' ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                         </Button>
                         <Button
-                          onClick={() => handleDuplicatePage(page)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDuplicatePage(page);
+                          }}
                           variant="outline"
                           size="sm"
                           iconOnly
@@ -360,7 +407,10 @@ export const PagesPage: React.FC = () => {
                           <Copy className="w-4 h-4" />
                         </Button>
                         <Button
-                          onClick={() => handleDeletePage(page)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeletePage(page);
+                          }}
                           variant="danger"
                           size="sm"
                           iconOnly

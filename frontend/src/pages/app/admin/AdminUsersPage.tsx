@@ -57,7 +57,6 @@ const AdminUsersPage: React.FC<AdminUsersPageProps> = () => {
       const roles = await usersApi.getAvailableRoles();
       setAvailableRoles(roles);
     } catch (error) {
-      console.error('Failed to load available roles:', error);
       setAvailableRoles([]);
     } finally {
       setRolesLoading(false);
@@ -84,11 +83,9 @@ const AdminUsersPage: React.FC<AdminUsersPageProps> = () => {
       if (statsResponse.success) {
         setUserStats(statsResponse.data);
       } else {
-        console.warn('Failed to load user stats, using defaults');
         setUserStats(null);
       }
     } catch (err) {
-      console.error('Error loading users:', err);
       setError('Failed to load users. Please check your connection and try again.');
     } finally {
       setLoading(false);
@@ -227,7 +224,6 @@ const AdminUsersPage: React.FC<AdminUsersPageProps> = () => {
       await loadData();
       setSelectedUsers(new Set());
     } catch (err) {
-      console.error(`Error performing bulk ${action}:`, err);
       setError(`Failed to ${action} selected users. Please try again.`);
     } finally {
       setActionLoading(false);
@@ -279,7 +275,6 @@ const AdminUsersPage: React.FC<AdminUsersPageProps> = () => {
         setError(response.message || 'Failed to impersonate user');
       }
     } catch (err) {
-      console.error('Error impersonating user:', err);
       setError('Failed to impersonate user. Please try again.');
     } finally {
       setActionLoading(false);
@@ -306,7 +301,6 @@ const AdminUsersPage: React.FC<AdminUsersPageProps> = () => {
         setFormErrors([response.message || 'Failed to create user']);
       }
     } catch (err) {
-      console.error('Error creating user:', err);
       setFormErrors(['Failed to create user. Please try again.']);
     } finally {
       setActionLoading(false);
@@ -338,7 +332,6 @@ const AdminUsersPage: React.FC<AdminUsersPageProps> = () => {
         setFormErrors([response.message || 'Failed to update user']);
       }
     } catch (err) {
-      console.error('Error updating user:', err);
       setFormErrors(['Failed to update user. Please try again.']);
     } finally {
       setActionLoading(false);
@@ -361,7 +354,6 @@ const AdminUsersPage: React.FC<AdminUsersPageProps> = () => {
         setError(response.message || 'Failed to delete user');
       }
     } catch (err) {
-      console.error('Error deleting user:', err);
       setError('Failed to delete user. Please try again.');
     } finally {
       setActionLoading(false);
@@ -398,7 +390,6 @@ const AdminUsersPage: React.FC<AdminUsersPageProps> = () => {
         setError(response.message || `Failed to ${action} user`);
       }
     } catch (err) {
-      console.error(`Error ${action} user:`, err);
       setError(`Failed to ${action} user. Please try again.`);
     } finally {
       setActionLoading(false);

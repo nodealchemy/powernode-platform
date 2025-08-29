@@ -26,7 +26,6 @@ export const DelegationsManagement: React.FC = () => {
       const data = await delegationApi.getDelegations();
       setActiveDelegations(data.delegations || []);
     } catch (error) {
-      console.error('Failed to load delegations:', error);
     } finally {
       setLoading(false);
     }
@@ -37,7 +36,6 @@ export const DelegationsManagement: React.FC = () => {
       const data = await delegationApi.getDelegationRequests('pending');
       setPendingRequests(data.requests || []);
     } catch (error) {
-      console.error('Failed to load delegation requests:', error);
     }
   };
 
@@ -47,7 +45,6 @@ export const DelegationsManagement: React.FC = () => {
       loadDelegations();
       setShowCreateModal(false);
     } catch (error) {
-      console.error('Failed to create delegation:', error);
     }
   };
 
@@ -58,7 +55,6 @@ export const DelegationsManagement: React.FC = () => {
         loadDelegations();
         setShowDetailsModal(false);
       } catch (error) {
-        console.error('Failed to revoke delegation:', error);
       }
     }
   };
@@ -70,7 +66,6 @@ export const DelegationsManagement: React.FC = () => {
       loadDelegations();
       setShowRequestModal(false);
     } catch (error) {
-      console.error('Failed to approve request:', error);
     }
   };
 
@@ -80,7 +75,6 @@ export const DelegationsManagement: React.FC = () => {
       loadRequests();
       setShowRequestModal(false);
     } catch (error) {
-      console.error('Failed to reject request:', error);
     }
   };
 

@@ -5,7 +5,6 @@ class PasswordHistory < ApplicationRecord
 
   # Validations
   validates :password_digest, presence: true
-  validates :created_at, presence: true
 
   # Scopes
   scope :recent, -> { order(created_at: :desc) }

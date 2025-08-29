@@ -18,7 +18,6 @@ const WorkerManagement: React.FC = () => {
       const data = await workerAPI.getWorkers();
       setWorkers(data);
     } catch (error) {
-      console.error('Failed to load workers', error);
     }
   };
 
@@ -34,7 +33,6 @@ const WorkerManagement: React.FC = () => {
         queue_depth: 0
       });
     } catch (error) {
-      console.error('Failed to load stats', error);
     }
   };
 

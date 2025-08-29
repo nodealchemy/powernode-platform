@@ -36,7 +36,6 @@ export const DelegationDetailsModal: React.FC<DelegationDetailsModalProps> = ({
       const data = await delegationApi.getDelegationActivity(delegation.id);
       setActivityLog(data.activities || []);
     } catch (error) {
-      console.error('Failed to load activity log:', error);
     } finally {
       setLoading(false);
     }
@@ -54,7 +53,6 @@ export const DelegationDetailsModal: React.FC<DelegationDetailsModalProps> = ({
       const currentUserIds = delegation.users?.map(u => u.userId) || [];
       setAvailableUsers(data.users.filter((u: DelegationUser) => !currentUserIds.includes(u.id)));
     } catch (error) {
-      console.error('Failed to load available users:', error);
     }
   };
 
@@ -67,7 +65,6 @@ export const DelegationDetailsModal: React.FC<DelegationDetailsModalProps> = ({
       setSelectedUsers([]);
       onUpdate();
     } catch (error) {
-      console.error('Failed to add users:', error);
     }
   };
 
@@ -77,7 +74,6 @@ export const DelegationDetailsModal: React.FC<DelegationDetailsModalProps> = ({
         await delegationApi.removeUserFromDelegation(delegation.id, userId);
         onUpdate();
       } catch (error) {
-        console.error('Failed to remove user:', error);
       }
     }
   };

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Button } from '@/shared/components/ui/Button';
 import { FormField } from '@/shared/components/ui/FormField';
 import { 
@@ -294,6 +294,19 @@ const WebhookDetailsModal: React.FC<WebhookDetailsModalProps> = ({
   
   const { showNotification } = useNotification();
 
+  // Fixed: Memoized date formatting functions to prevent excessive Date object creation
+  const formatCreatedAt = useCallback((timestamp: string) => {
+    return new Date(timestamp).toLocaleString();
+  }, []);
+
+  const formatRetryTime = useCallback((timestamp: string) => {
+    return new Date(timestamp).toLocaleString();
+  }, []);
+
+  const formatLastDelivery = useCallback((timestamp: string) => {
+    return new Date(timestamp).toLocaleDateString();
+  }, []);
+
   useEffect(() => {
     if (isOpen && webhook && activeTab === 'deliveries') {
       loadDeliveries();
@@ -497,7 +510,7 @@ const WebhookDetailsModal: React.FC<WebhookDetailsModalProps> = ({
                           <span className="text-sm text-theme-secondary">{webhooksApi.formatEventType(delivery.event_type)}</span>
                         </div>
                         <div className="text-right text-sm text-theme-secondary">
-                          <div>{new Date(delivery.created_at).toLocaleString()}</div>
+                          <div>{formatCreatedAt(delivery.created_at)}</div>
                           {delivery.response_time_ms && (
                             <div>{delivery.response_time_ms}ms</div>
                           )}
@@ -514,7 +527,7 @@ const WebhookDetailsModal: React.FC<WebhookDetailsModalProps> = ({
                         <span>Attempt {delivery.attempt_count}</span>
                         {delivery.http_status && <span>HTTP {delivery.http_status}</span>}
                         {delivery.next_retry_at && (
-                          <span>Next retry: {new Date(delivery.next_retry_at).toLocaleString()}</span>
+                          <span>Next retry: {formatRetryTime(delivery.next_retry_at)}</span>
                         )}
                       </div>
                     </div>
@@ -552,6 +565,11 @@ export const EnhancedWebhookConsole: React.FC<EnhancedWebhookConsoleProps> = ({
   
   const { showNotification } = useNotification();
   const perPage = 20;
+
+  // Fixed: Memoized date formatting function to prevent excessive Date object creation
+  const formatLastDelivery = useCallback((timestamp: string) => {
+    return new Date(timestamp).toLocaleDateString();
+  }, []);
 
   useEffect(() => {
     loadWebhooks();
@@ -654,12 +672,17 @@ export const EnhancedWebhookConsole: React.FC<EnhancedWebhookConsoleProps> = ({
     }
   };
 
-  const filteredWebhooks = webhooks.filter(webhook =>
-    searchTerm === '' || 
-    webhook.url.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    webhook.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    webhook.event_types.some(event => event.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  // Fixed: Memoized webhook filtering to prevent expensive operations on every render
+  const filteredWebhooks = useMemo(() => {
+    if (searchTerm === '') return webhooks;
+    
+    const lowerSearchTerm = searchTerm.toLowerCase();
+    return webhooks.filter(webhook =>
+      webhook.url.toLowerCase().includes(lowerSearchTerm) ||
+      webhook.description?.toLowerCase().includes(lowerSearchTerm) ||
+      webhook.event_types.some(event => event.toLowerCase().includes(lowerSearchTerm))
+    );
+  }, [webhooks, searchTerm]);
 
   return (
     <div className="space-y-6">
@@ -848,7 +871,7 @@ export const EnhancedWebhookConsole: React.FC<EnhancedWebhookConsoleProps> = ({
                     
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-theme-secondary">
                       {webhook.last_delivery_at 
-                        ? new Date(webhook.last_delivery_at).toLocaleDateString()
+                        ? formatLastDelivery(webhook.last_delivery_at)
                         : 'Never'
                       }
                     </td>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSelector } from 'react-redux';
 import { 
   Shield, 
   Eye, 
@@ -17,6 +18,8 @@ import { auditLogsApi, AuditLog, AuditLogFilters as FilterType } from '@/feature
 import { useNotification } from '@/shared/hooks/useNotification';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
 import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
+import { hasPermissions } from '@/shared/utils/permissionUtils';
+import { RootState } from '@/shared/services';
 
 interface AuditLogsState {
   logs: AuditLog[];
@@ -38,7 +41,12 @@ interface SecurityMetrics {
 }
 
 export const AuditLogsPage: React.FC = () => {
+  const { user } = useSelector((state: RootState) => state.auth);
   const [activeTab, setActiveTab] = useState<'table' | 'analytics'>('table');
+  
+  // Check if user has audit log permissions
+  const canReadAuditLogs = hasPermissions(user, ['audit.read']);
+  const canExportAuditLogs = hasPermissions(user, ['audit.export']);
   
   // Handle tab changes with proper type casting
   const handleTabChange = (tabId: string) => {
@@ -86,7 +94,6 @@ export const AuditLogsPage: React.FC = () => {
       }));
       
     } catch (error) {
-      console.error('Failed to load audit logs:', error);
       setState(prev => ({
         ...prev,
         loading: false,
@@ -102,7 +109,6 @@ export const AuditLogsPage: React.FC = () => {
       const response = await auditLogsApi.getSecuritySummary();
       setMetrics(response);
     } catch (error) {
-      console.error('Failed to load security metrics:', error);
     }
   };
 
@@ -152,8 +158,11 @@ export const AuditLogsPage: React.FC = () => {
 
   // Load data on component mount
   useEffect(() => {
-    loadAuditLogs();
-    loadMetrics();
+    // Only load data if user has audit read permissions
+    if (canReadAuditLogs) {
+      loadAuditLogs();
+      loadMetrics();
+    }
     
     // Cleanup interval on unmount
     return () => {
@@ -161,7 +170,7 @@ export const AuditLogsPage: React.FC = () => {
         clearInterval(refreshInterval);
       }
     };
-  }, []);
+  }, [canReadAuditLogs]);
 
   // Calculate summary stats
   const summaryStats = {
@@ -172,37 +181,48 @@ export const AuditLogsPage: React.FC = () => {
   };
 
   // Get page actions
-  const getPageActions = (): PageAction[] => [
-    {
-      id: 'filters',
-      label: 'Filters',
-      onClick: () => setShowFilters(!showFilters),
-      variant: showFilters ? 'primary' : 'secondary',
-      icon: Filter
-    },
-    {
-      id: 'export',
-      label: 'Export',
-      onClick: () => setShowExport(!showExport),
-      variant: 'secondary',
-      icon: Download
-    },
-    {
-      id: 'auto-refresh',
-      label: refreshInterval ? 'Auto-refresh ON' : 'Auto-refresh OFF',
-      onClick: toggleAutoRefresh,
-      variant: refreshInterval ? 'success' : 'secondary',
-      icon: Activity
-    },
-    {
-      id: 'refresh',
-      label: 'Refresh',
-      onClick: handleRefresh,
-      variant: 'primary',
-      icon: RefreshCw,
-      disabled: state.loading
+  const getPageActions = (): PageAction[] => {
+    // No actions if user can't read audit logs
+    if (!canReadAuditLogs) return [];
+    
+    const actions: PageAction[] = [
+      {
+        id: 'filters',
+        label: 'Filters',
+        onClick: () => setShowFilters(!showFilters),
+        variant: showFilters ? 'primary' : 'secondary',
+        icon: Filter
+      },
+      {
+        id: 'auto-refresh',
+        label: refreshInterval ? 'Auto-refresh ON' : 'Auto-refresh OFF',
+        onClick: toggleAutoRefresh,
+        variant: refreshInterval ? 'success' : 'secondary',
+        icon: Activity
+      },
+      {
+        id: 'refresh',
+        label: 'Refresh',
+        onClick: handleRefresh,
+        variant: 'primary',
+        icon: RefreshCw,
+        disabled: state.loading
+      }
+    ];
+
+    // Add export action only if user has export permission
+    if (canExportAuditLogs) {
+      actions.splice(1, 0, {
+        id: 'export',
+        label: 'Export',
+        onClick: () => setShowExport(!showExport),
+        variant: 'secondary',
+        icon: Download
+      });
     }
-  ];
+
+    return actions;
+  };
 
   // Define tabs
   const tabs = [
@@ -236,8 +256,23 @@ export const AuditLogsPage: React.FC = () => {
       breadcrumbs={getBreadcrumbs()}
       actions={getPageActions()}
     >
-
-      {/* Content */}
+      {/* Permission Check */}
+      {!canReadAuditLogs ? (
+        <div className="text-center py-16">
+          <div className="mx-auto w-24 h-24 bg-theme-warning/10 rounded-full flex items-center justify-center mb-6">
+            <Shield className="w-12 h-12 text-theme-warning" />
+          </div>
+          <h3 className="text-xl font-semibold text-theme-primary mb-2">Access Restricted</h3>
+          <p className="text-theme-secondary mb-4 max-w-md mx-auto">
+            You don't have permission to view audit logs. Contact your system administrator to request access.
+          </p>
+          <p className="text-sm text-theme-tertiary">
+            Required permission: <code className="px-2 py-1 bg-theme-background-secondary rounded">audit.read</code>
+          </p>
+        </div>
+      ) : (
+        <>
+          {/* Content */}
       <div className="px-4 sm:px-6 lg:px-8 py-6">
         {/* Quick Metrics */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -363,6 +398,8 @@ export const AuditLogsPage: React.FC = () => {
           </TabPanel>
         </TabContainer>
       </div>
+        </>
+      )}
     </PageContainer>
   );
 };

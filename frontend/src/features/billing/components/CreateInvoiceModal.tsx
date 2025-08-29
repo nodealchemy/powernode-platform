@@ -49,8 +49,9 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
     },
     dueDate: {
       required: true,
-      custom: (value: Date | null) => {
-        if (value && value < new Date()) {
+      custom: (value: unknown) => {
+        const date = value as Date | null;
+        if (date && date < new Date()) {
           return 'Due date cannot be in the past';
         }
         return null;
@@ -60,8 +61,9 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
       required: true,
     },
     amount: {
-      custom: (value: number) => {
-        if (value <= 0) {
+      custom: (value: unknown) => {
+        const amount = value as number;
+        if (amount <= 0) {
           return 'Amount must be greater than 0';
         }
         return null;
@@ -100,7 +102,7 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
     onClose();
   };
 
-  const updateLineItem = (index: number, field: string, value: any) => {
+  const updateLineItem = (index: number, field: 'description' | 'quantity' | 'unitPrice', value: string | number) => {
     const newItems = [...form.values.lineItems];
     const currentItem = newItems.at(index);
     
@@ -110,11 +112,11 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
     
     // Type-safe property assignment
     if (field === 'description') {
-      item.description = value;
+      item.description = value as string;
     } else if (field === 'quantity') {
-      item.quantity = value;
+      item.quantity = value as number;
     } else if (field === 'unitPrice') {
-      item.unitPrice = value;
+      item.unitPrice = value as number;
     }
     
     newItems.splice(index, 1, item);
@@ -203,12 +205,12 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
             </div>
 
             <div>
-              <label className="label-theme">
+              <label className="block text-sm font-medium text-theme-primary mb-1">
                 Currency
               </label>
               <select
                 {...form.getFieldProps('currency')}
-                className="select-theme"
+                className="w-full px-3 py-2 text-sm bg-theme-surface border border-theme rounded-md shadow-sm text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-interactive-primary focus:border-theme-interactive-primary disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={form.isSubmitting}
               >
                 <option value="USD">USD</option>
@@ -222,7 +224,7 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
           {/* Dates */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="label-theme">
+              <label className="block text-sm font-medium text-theme-primary mb-1">
                 Issue Date *
               </label>
               <DatePicker
@@ -232,6 +234,7 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
                 maxDate={new Date()}
                 disabled={form.isSubmitting}
                 required
+                useNativeInput={false}
                 className={form.errors.issueDate ? 'border-theme-error' : ''}
               />
               {form.errors.issueDate && (
@@ -240,7 +243,7 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
             </div>
 
             <div>
-              <label className="label-theme">
+              <label className="block text-sm font-medium text-theme-primary mb-1">
                 Due Date *
               </label>
               <DatePicker
@@ -250,6 +253,7 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
                 minDate={new Date()}
                 disabled={form.isSubmitting}
                 required
+                useNativeInput={false}
                 className={form.errors.dueDate ? 'border-theme-error' : ''}
               />
               {form.errors.dueDate && (
@@ -260,12 +264,12 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
 
           {/* Description */}
           <div>
-            <label className="label-theme">
+            <label className="block text-sm font-medium text-theme-primary mb-1">
               Description *
             </label>
             <textarea
               {...form.getFieldProps('description')}
-              className={`input-theme ${form.errors.description ? 'border-theme-error' : ''}`}
+              className={`w-full px-3 py-2 text-sm bg-theme-surface border border-theme rounded-md shadow-sm placeholder-theme-tertiary text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-interactive-primary focus:border-theme-interactive-primary disabled:opacity-50 disabled:cursor-not-allowed resize-y ${form.errors.description ? 'border-theme-error' : ''}`}
               rows={3}
               placeholder="Invoice description..."
               disabled={form.isSubmitting}
@@ -279,7 +283,7 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
           {/* Line Items */}
           <div>
             <div className="flex justify-between items-center mb-4">
-              <label className="label-theme">Line Items</label>
+              <label className="block text-sm font-medium text-theme-primary mb-1">Line Items</label>
               <Button
                 type="button"
                 onClick={addLineItem}
@@ -300,7 +304,7 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
                       type="text"
                       value={item.description}
                       onChange={(e) => updateLineItem(index, 'description', e.target.value)}
-                      className="input-theme text-sm"
+                      className="w-full px-3 py-2 text-sm bg-theme-surface border border-theme rounded-md shadow-sm placeholder-theme-tertiary text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-interactive-primary focus:border-theme-interactive-primary disabled:opacity-50"
                       placeholder="Item description"
                       disabled={form.isSubmitting}
                     />
@@ -311,7 +315,7 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
                       min="1"
                       value={item.quantity}
                       onChange={(e) => updateLineItem(index, 'quantity', parseInt(e.target.value) || 1)}
-                      className="input-theme text-sm"
+                      className="w-full px-3 py-2 text-sm bg-theme-surface border border-theme rounded-md shadow-sm placeholder-theme-tertiary text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-interactive-primary focus:border-theme-interactive-primary disabled:opacity-50"
                       placeholder="Qty"
                       disabled={form.isSubmitting}
                     />
@@ -323,7 +327,7 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
                       step="0.01"
                       value={item.unitPrice}
                       onChange={(e) => updateLineItem(index, 'unitPrice', parseFloat(e.target.value) || 0)}
-                      className="input-theme text-sm"
+                      className="w-full px-3 py-2 text-sm bg-theme-surface border border-theme rounded-md shadow-sm placeholder-theme-tertiary text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-interactive-primary focus:border-theme-interactive-primary disabled:opacity-50"
                       placeholder="Unit price"
                       disabled={form.isSubmitting}
                     />

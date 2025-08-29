@@ -25,7 +25,7 @@ Phase 1 has been completed successfully with all core infrastructure in place fo
 - **account.member**: 6 permissions (basic user access)
 - **billing.manager**: 9 permissions (billing specialist)
 - **volume.manager**: 7 permissions (infrastructure focus)
-- **content.manager**: 6 permissions (content specialist)
+- **content_manager**: 6 permissions (content specialist)
 - **support.agent**: 6 permissions (customer support)
 
 ### 2. **User Serialization System** (`server/app/controllers/concerns/user_serialization.rb`)

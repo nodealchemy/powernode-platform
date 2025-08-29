@@ -60,7 +60,6 @@ export const InvoicesManager: React.FC<InvoicesManagerProps> = ({
       const statsData = await invoicesApi.getInvoiceStats();
       setStats(statsData);
     } catch (error: any) {
-      console.error('Failed to load invoice stats:', error);
     }
   };
 

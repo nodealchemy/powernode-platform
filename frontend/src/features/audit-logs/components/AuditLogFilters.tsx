@@ -23,7 +23,7 @@ export const AuditLogFilters: React.FC<AuditLogFiltersProps> = ({
   filters,
   onFiltersChange,
   onClearFilters,
-  isLoading = false
+  isLoading: _isLoading
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [localFilters, setLocalFilters] = useState<FilterType>(filters);

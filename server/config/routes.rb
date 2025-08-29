@@ -21,6 +21,7 @@ Rails.application.routes.draw do
       
       # Public endpoints (no authentication required)
       get 'public/plans', to: 'plans#public_index'
+      get 'public/footer', to: 'site_settings#public_footer'
       
       # Internal API for worker service
       namespace :internal do
@@ -127,6 +128,14 @@ Rails.application.routes.draw do
         member do
           post :duplicate
           put :toggle_status
+        end
+      end
+      
+      # Site settings management (admin only)
+      resources :site_settings do
+        collection do
+          get :footer
+          put :bulk_update
         end
       end
 
