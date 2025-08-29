@@ -325,7 +325,7 @@ export const CustomerChart: React.FC<CustomerChartProps> = ({
                   <XAxis dataKey="segment" />
                   <YAxis />
                   <Tooltip 
-                    formatter={(value: any) => [value.toLocaleString(), 'Customers']}
+                    formatter={(value: unknown) => [(typeof value === 'number' ? value : 0).toLocaleString(), 'Customers']}
                     labelStyle={{ color: 'var(--theme-primary)' }}
                   />
                   <Bar dataKey="customers" fill={colors.info} opacity={0.8} />

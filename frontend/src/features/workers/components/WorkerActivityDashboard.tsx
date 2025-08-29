@@ -2,7 +2,6 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Worker, workerAPI } from '@/features/workers/services/workerApi';
 import { 
   Activity, 
-  Calendar, 
   TrendingUp, 
   TrendingDown,
   Clock,
@@ -14,8 +13,7 @@ import {
   CheckCircle,
   XCircle,
   RefreshCw,
-  Download,
-  Filter
+  Download
 } from 'lucide-react';
 
 export interface WorkerActivityDashboardProps {
@@ -64,7 +62,6 @@ export const WorkerActivityDashboard: React.FC<WorkerActivityDashboardProps> = (
           setRealActivityStats(response.summary);
         }
       } catch (error) {
-        console.error('Failed to fetch activity stats:', error);
       } finally {
         setLoading(false);
       }
