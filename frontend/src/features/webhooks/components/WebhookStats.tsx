@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { 
   BarChart3,
   TrendingUp,
@@ -27,6 +27,14 @@ const WebhookStats: React.FC<WebhookStatsProps> = ({
   detailedStats,
   loading
 }) => {
+  // Fixed: Move useMemo to top to comply with Rules of Hooks (no hooks after early returns)
+  const { totalDeliveries, successRate } = useMemo(() => {
+    if (!stats) return { totalDeliveries: 0, successRate: 0 };
+    const total = stats.successful_deliveries_today + stats.failed_deliveries_today;
+    const rate = total === 0 ? 0 : Math.round((stats.successful_deliveries_today / total) * 100);
+    return { totalDeliveries: total, successRate: rate };
+  }, [stats?.successful_deliveries_today, stats?.failed_deliveries_today]);
+
   if (loading) {
     return (
       <div className="bg-theme-surface rounded-lg border border-theme p-8">
@@ -48,10 +56,6 @@ const WebhookStats: React.FC<WebhookStatsProps> = ({
       </div>
     );
   }
-
-  // Calculate success rate
-  const totalDeliveries = stats.successful_deliveries_today + stats.failed_deliveries_today;
-  const successRate = totalDeliveries === 0 ? 0 : Math.round((stats.successful_deliveries_today / totalDeliveries) * 100);
 
   return (
     <div className="space-y-6">

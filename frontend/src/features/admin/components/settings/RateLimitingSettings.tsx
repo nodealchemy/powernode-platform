@@ -1,5 +1,5 @@
 // Rate Limiting Configuration and Management
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Shield, 
   Activity, 
@@ -44,13 +44,13 @@ interface RateLimitStats {
   }>;
 }
 
-interface RateLimitEntry {
-  endpoint: string;
-  current: number;
-  limit: number;
-  remaining: number;
-  reset_in: number;
-}
+// interface RateLimitEntry {
+//   endpoint: string;
+//   current: number;
+//   limit: number;
+//   remaining: number;
+//   reset_in: number;
+// }
 
 const RateLimitingSettings: React.FC = () => {
   const { showNotification } = useNotification();
@@ -70,58 +70,11 @@ const RateLimitingSettings: React.FC = () => {
   });
 
   // Rate limit monitoring
-  const [userLimitDetails, setUserLimitDetails] = useState<Record<string, RateLimitEntry[]>>({});
   const [showAdvancedMonitoring, setShowAdvancedMonitoring] = useState(false);
   const [isRefreshingStats, setIsRefreshingStats] = useState(false);
-  const [selectedUser, setSelectedUser] = useState<string>('');
   const [tempDisableMinutes, setTempDisableMinutes] = useState<number>(30);
 
-  useEffect(() => {
-    loadRateLimitingData();
-    
-    // Auto-refresh stats every 30 seconds when advanced monitoring is open
-    let interval: NodeJS.Timeout;
-    if (showAdvancedMonitoring) {
-      interval = setInterval(() => {
-        loadRateLimitingStats();
-      }, 30000);
-    }
-    
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [showAdvancedMonitoring]);
-
-  const loadRateLimitingData = async () => {
-    try {
-      setLoading(true);
-      const [settingsResponse, statsResponse] = await Promise.all([
-        adminSettingsApi.getOverview(),
-        loadRateLimitingStats()
-      ]);
-      
-      if (settingsResponse.settings_summary.rate_limiting) {
-        const rateLimitingSettings = settingsResponse.settings_summary.rate_limiting;
-        setConfig({
-          enabled: rateLimitingSettings.enabled ?? true,
-          api_requests_per_minute: rateLimitingSettings.api_requests_per_minute || 60,
-          authenticated_requests_per_hour: rateLimitingSettings.authenticated_requests_per_hour || 200,
-          login_attempts_per_hour: rateLimitingSettings.login_attempts_per_hour || 10,
-          registration_attempts_per_hour: rateLimitingSettings.registration_attempts_per_hour || 5,
-          password_reset_attempts_per_hour: rateLimitingSettings.password_reset_attempts_per_hour || 3,
-          email_verification_attempts_per_hour: rateLimitingSettings.email_verification_attempts_per_hour || 10,
-          webhook_requests_per_minute: rateLimitingSettings.webhook_requests_per_minute || 100,
-          impersonation_attempts_per_hour: rateLimitingSettings.impersonation_attempts_per_hour || 5,
-        });
-      }
-    } catch (error: any) {
-      showNotification('Failed to load rate limiting data', 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadRateLimitingStats = async () => {
+  const loadOriginalStats = useCallback(async () => {
     try {
       const [statsResponse, violationsResponse, statusResponse] = await Promise.all([
         adminSettingsApi.getRateLimitingStatistics().catch(() => ({ current_violations: 0, active_limits: 0, configuration: config })),
@@ -138,7 +91,7 @@ const RateLimitingSettings: React.FC = () => {
       };
       
       setStats(combinedStats);
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Fallback to basic stats if API not available
       const basicStats: RateLimitStats = {
         enabled: config.enabled,
@@ -150,11 +103,72 @@ const RateLimitingSettings: React.FC = () => {
       setStats(basicStats);
       
       // Only show error notification for unexpected errors
-      if (error.response?.status !== 404) {
+      const httpError = error as { response?: { status?: number } };
+      if (httpError.response?.status !== 404) {
         showNotification('Rate limiting monitoring may be limited - some features unavailable', 'warning');
       }
     }
-  };
+  }, [config, showNotification]);
+
+  const loadRateLimitingStats = useCallback(async () => {
+    try {
+      setIsRefreshingStats(true);
+      await loadOriginalStats();
+    } catch (error: unknown) {
+      showNotification('Failed to load rate limiting stats', 'error');
+    } finally {
+      setIsRefreshingStats(false);
+    }
+  }, [loadOriginalStats, showNotification]);
+
+  const loadRateLimitingData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const settingsResponse = await adminSettingsApi.getOverview();
+      
+      if (settingsResponse.settings_summary.rate_limiting) {
+        const rateLimitingSettings = settingsResponse.settings_summary.rate_limiting;
+        setConfig({
+          enabled: rateLimitingSettings.enabled ?? true,
+          api_requests_per_minute: rateLimitingSettings.api_requests_per_minute || 60,
+          authenticated_requests_per_hour: rateLimitingSettings.authenticated_requests_per_hour || 200,
+          login_attempts_per_hour: rateLimitingSettings.login_attempts_per_hour || 10,
+          registration_attempts_per_hour: rateLimitingSettings.registration_attempts_per_hour || 5,
+          password_reset_attempts_per_hour: rateLimitingSettings.password_reset_attempts_per_hour || 3,
+          email_verification_attempts_per_hour: rateLimitingSettings.email_verification_attempts_per_hour || 10,
+          webhook_requests_per_minute: rateLimitingSettings.webhook_requests_per_minute || 100,
+          impersonation_attempts_per_hour: rateLimitingSettings.impersonation_attempts_per_hour || 5,
+        });
+      }
+      
+      // Load stats separately to avoid circular dependency
+      loadOriginalStats();
+    } catch (error: unknown) {
+      showNotification('Failed to load rate limiting data', 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, [showNotification, loadOriginalStats]);
+
+  useEffect(() => {
+    loadRateLimitingData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount
+
+  useEffect(() => {
+    // Auto-refresh stats every 30 seconds when advanced monitoring is open
+    let interval: NodeJS.Timeout;
+    if (showAdvancedMonitoring) {
+      interval = setInterval(() => {
+        loadRateLimitingStats();
+      }, 30000);
+    }
+    
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [showAdvancedMonitoring, loadRateLimitingStats]);
+
 
   const handleConfigChange = (key: keyof RateLimitConfig, value: number | boolean) => {
     setConfig(prev => ({
@@ -171,8 +185,8 @@ const RateLimitingSettings: React.FC = () => {
       });
       
       showNotification('Rate limiting settings saved successfully', 'success');
-      await loadRateLimitingStats();
-    } catch (error: any) {
+      await loadOriginalStats();
+    } catch (error: unknown) {
       showNotification('Failed to save rate limiting settings', 'error');
     } finally {
       setSaving(false);
@@ -180,9 +194,7 @@ const RateLimitingSettings: React.FC = () => {
   };
 
   const refreshStats = async () => {
-    setIsRefreshingStats(true);
     await loadRateLimitingStats();
-    setIsRefreshingStats(false);
     showNotification('Rate limiting statistics refreshed', 'success');
   };
 
@@ -190,12 +202,13 @@ const RateLimitingSettings: React.FC = () => {
     try {
       const response = await adminSettingsApi.clearUserRateLimits(identifier);
       showNotification(response.message || `Rate limits cleared for ${identifier}`, 'success');
-      await loadRateLimitingStats();
-    } catch (error: any) {
-      if (error.response?.status === 404) {
+      await loadOriginalStats();
+    } catch (error: unknown) {
+      const httpError = error as { response?: { status?: number; data?: { error?: string } } };
+      if (httpError.response?.status === 404) {
         showNotification('Rate limiting management features are not yet fully available', 'info');
       } else {
-        showNotification(error.response?.data?.error || 'Failed to clear rate limits', 'error');
+        showNotification(httpError.response?.data?.error || 'Failed to clear rate limits', 'error');
       }
     }
   };
@@ -204,12 +217,13 @@ const RateLimitingSettings: React.FC = () => {
     try {
       const response = await adminSettingsApi.disableRateLimitingTemporarily(tempDisableMinutes);
       showNotification(response.message || `Rate limiting disabled for ${tempDisableMinutes} minutes`, 'warning');
-      await loadRateLimitingStats();
-    } catch (error: any) {
-      if (error.response?.status === 404) {
+      await loadOriginalStats();
+    } catch (error: unknown) {
+      const httpError = error as { response?: { status?: number; data?: { error?: string } } };
+      if (httpError.response?.status === 404) {
         showNotification('Emergency rate limiting controls are not yet fully available', 'info');
       } else {
-        showNotification(error.response?.data?.error || 'Failed to disable rate limiting', 'error');
+        showNotification(httpError.response?.data?.error || 'Failed to disable rate limiting', 'error');
       }
     }
   };
@@ -218,12 +232,13 @@ const RateLimitingSettings: React.FC = () => {
     try {
       const response = await adminSettingsApi.enableRateLimiting();
       showNotification(response.message || 'Rate limiting re-enabled', 'success');
-      await loadRateLimitingStats();
-    } catch (error: any) {
-      if (error.response?.status === 404) {
+      await loadOriginalStats();
+    } catch (error: unknown) {
+      const httpError = error as { response?: { status?: number; data?: { error?: string } } };
+      if (httpError.response?.status === 404) {
         showNotification('Emergency rate limiting controls are not yet fully available', 'info');
       } else {
-        showNotification(error.response?.data?.error || 'Failed to re-enable rate limiting', 'error');
+        showNotification(httpError.response?.data?.error || 'Failed to re-enable rate limiting', 'error');
       }
     }
   };

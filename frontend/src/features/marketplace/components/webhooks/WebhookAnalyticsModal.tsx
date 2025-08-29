@@ -42,25 +42,35 @@ export const WebhookAnalyticsModal: React.FC<WebhookAnalyticsModalProps> = ({
 
   const { getAnalytics } = useAppWebhook(appId, webhook.id);
 
-  const loadAnalytics = useCallback(async () => {
+  // Fixed: Separate callback without dayRange dependency to prevent circular dependency
+  const loadAnalytics = useCallback(async (range?: number) => {
     setLoading(true);
     try {
-      const data = await getAnalytics(dayRange);
+      const data = await getAnalytics(range || dayRange);
       if (data) {
         setAnalytics(data);
       }
     } catch (error) {
-      console.error('Failed to load analytics:', error);
     } finally {
       setLoading(false);
     }
   }, [getAnalytics, dayRange]);
 
+  // Fixed: Split useEffect to prevent circular dependencies
   useEffect(() => {
     if (isOpen) {
       loadAnalytics();
     }
-  }, [isOpen, dayRange, loadAnalytics]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]); // Only run when modal opens
+
+  useEffect(() => {
+    // When dayRange changes, reload analytics with new range
+    if (isOpen) {
+      loadAnalytics(dayRange);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dayRange]); // Only depend on dayRange
 
   const formatResponseTime = (ms: number) => {
     if (ms < 1000) return `${ms.toFixed(0)}ms`;
@@ -135,7 +145,7 @@ export const WebhookAnalyticsModal: React.FC<WebhookAnalyticsModalProps> = ({
               <option value={30}>Last 30 days</option>
               <option value={90}>Last 90 days</option>
             </select>
-            <Button variant="outline" size="sm" onClick={loadAnalytics}>
+            <Button variant="outline" size="sm" onClick={() => loadAnalytics()}>
               <RefreshCw className="w-4 h-4" />
             </Button>
           </div>
@@ -152,7 +162,7 @@ export const WebhookAnalyticsModal: React.FC<WebhookAnalyticsModalProps> = ({
           ) : !analytics ? (
             <div className="text-center py-12">
               <div className="text-theme-error mb-4">⚠️ Failed to load analytics</div>
-              <Button onClick={loadAnalytics} variant="primary">
+              <Button onClick={() => loadAnalytics()} variant="primary">
                 Try Again
               </Button>
             </div>
