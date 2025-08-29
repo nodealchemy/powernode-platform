@@ -3,14 +3,14 @@
 class Plan < ApplicationRecord
   
   # Associations
-  has_many :subscriptions, dependent: :restrict_with_error
+  has_many :subscriptions, dependent: :nullify
 
   # Validations
   validates :name, presence: true, uniqueness: { case_sensitive: false }, length: { minimum: 2, maximum: 100 }
   validates :price_cents, presence: true, numericality: { greater_than_or_equal_to: 0 }
   validates :currency, presence: true, inclusion: { in: %w[USD EUR GBP] }
   validates :billing_cycle, presence: true, inclusion: { in: %w[monthly yearly quarterly] }
-  validates :status, presence: true, inclusion: { in: %w[active inactive archived] }
+  validates :status, presence: true, inclusion: { in: %w[active inactive archived hidden] }
   validates :trial_days, presence: true, numericality: { greater_than_or_equal_to: 0, less_than_or_equal_to: 365 }
   validates :annual_discount_percent, numericality: { greater_than_or_equal_to: 0, less_than_or_equal_to: 100 }
   validates :promotional_discount_percent, numericality: { greater_than_or_equal_to: 0, less_than_or_equal_to: 100 }
@@ -26,6 +26,8 @@ class Plan < ApplicationRecord
 
   # Scopes
   scope :active, -> { where(status: "active") }
+  scope :visible, -> { where.not(status: "hidden") }
+  scope :hidden, -> { where(status: "hidden") }
   scope :public_plans, -> { where(is_public: true) }
   scope :by_billing_cycle, ->(cycle) { where(billing_cycle: cycle) }
   scope :by_currency, ->(currency) { where(currency: currency) }
@@ -45,6 +47,14 @@ class Plan < ApplicationRecord
 
   def archived?
     status == "archived"
+  end
+
+  def hidden?
+    status == "hidden"
+  end
+
+  def visible?
+    !hidden?
   end
 
   def price
@@ -197,6 +207,23 @@ class Plan < ApplicationRecord
     self.default_roles ||= []
     self.required_roles ||= ['member']
     self.volume_discount_tiers ||= []
+    
+    # Set default usage limits structure
+    set_default_usage_limits
+  end
+
+  def set_default_usage_limits
+    default_limits = {
+      'max_users' => 2,
+      'max_api_keys' => 5,
+      'max_webhooks' => 5,
+      'max_workers' => 3
+    }
+    
+    # Only set defaults for missing keys to preserve existing values
+    default_limits.each do |key, value|
+      self.limits[key] ||= value
+    end
   end
 
   def validate_promotional_discount_dates

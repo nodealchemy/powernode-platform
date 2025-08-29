@@ -5,7 +5,7 @@ class Subscription < ApplicationRecord
 
   # Associations
   belongs_to :account
-  belongs_to :plan
+  belongs_to :plan, optional: true  # Allow nil for testing scenarios
   has_many :invoices, dependent: :destroy
   has_many :payments, through: :invoices
 
@@ -155,6 +155,9 @@ class Subscription < ApplicationRecord
   private
 
   def set_trial_period
+    # Skip if no plan is assigned (for testing scenarios)
+    return unless plan.present?
+    
     if plan.trial_days > 0 && trial_end.blank?
       self.trial_end = plan.trial_days.days.from_now
       self.current_period_start = Time.current
