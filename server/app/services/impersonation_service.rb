@@ -1,11 +1,55 @@
 # frozen_string_literal: true
 
 class ImpersonationService
-  class Error < StandardError; end
-  class PermissionDeniedError < Error; end
-  class InvalidUserError < Error; end
-  class SessionNotFoundError < Error; end
-  class SelfImpersonationError < Error; end
+  class Error < StandardError
+    def error_code
+      'impersonation_error'
+    end
+    
+    def http_status
+      :bad_request
+    end
+  end
+  
+  class PermissionDeniedError < Error
+    def error_code
+      'permission_denied'
+    end
+    
+    def http_status
+      :forbidden
+    end
+  end
+  
+  class InvalidUserError < Error
+    def error_code
+      'invalid_user'
+    end
+    
+    def http_status
+      :unprocessable_content
+    end
+  end
+  
+  class SessionNotFoundError < Error
+    def error_code
+      'session_not_found'
+    end
+    
+    def http_status
+      :not_found
+    end
+  end
+  
+  class SelfImpersonationError < Error
+    def error_code
+      'self_impersonation_not_allowed'
+    end
+    
+    def http_status
+      :forbidden
+    end
+  end
 
   def initialize(current_user)
     @current_user = current_user
@@ -146,12 +190,12 @@ class ImpersonationService
 
   def validate_impersonation_request!(target_user)
     # Check if current user has impersonation permission
-    unless @current_user.has_permission?('admin.users.impersonate') || @current_user.owner? || @current_user.admin?
+    unless @current_user.has_permission?('admin.user.impersonate') || @current_user.owner? || @current_user.admin?
       raise PermissionDeniedError, 'You do not have permission to impersonate other users'
     end
 
-    # Check if target user exists and is in the same account
-    unless target_user.account == @current_user.account
+    # Check if target user exists and is in the same account (unless user is system admin)
+    unless target_user.account == @current_user.account || @current_user.has_permission?('system.admin')
       raise InvalidUserError, 'You can only impersonate users in your own account'
     end
 
@@ -165,8 +209,8 @@ class ImpersonationService
       raise InvalidUserError, 'Cannot impersonate inactive user'
     end
 
-    # Prevent impersonating owners if current user is not owner
-    if target_user.owner? && !@current_user.owner?
+    # Prevent impersonating owners if current user is not owner (unless system admin)
+    if target_user.owner? && !@current_user.owner? && !@current_user.has_permission?('system.admin')
       raise PermissionDeniedError, 'Only owners can impersonate other owners'
     end
 

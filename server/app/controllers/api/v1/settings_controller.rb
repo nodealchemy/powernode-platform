@@ -11,6 +11,14 @@ class Api::V1::SettingsController < ApplicationController
 
   # GET /api/v1/settings
   def show
+    # Check if user is authenticated
+    unless current_user
+      return render json: {
+        success: false,
+        error: 'Authentication required'
+      }, status: :unauthorized
+    end
+    
     render_success({
       user_preferences: current_user_preferences,
       account_settings: current_account_settings,

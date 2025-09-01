@@ -3,7 +3,6 @@
 class ApplicationController < ActionController::API
   include Authentication
   include ApiResponse
-  include RateLimiting
 
   # Standard pagination parameters helper
   def pagination_params

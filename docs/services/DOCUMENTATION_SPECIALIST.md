@@ -1405,4 +1405,4 @@ cd $POWERNODE_ROOT/server && rails generate:changelog             # Generate cha
 - **Missing Content**: Check content pipeline, verify auto-generation scripts
 - **Style Violations**: Run linting tools, fix formatting, update style guide
 
-**ALWAYS REFERENCE TODO.md FOR CURRENT TASKS AND PRIORITIES**
+**ALWAYS REFERENCE ../TODO.md FOR CURRENT TASKS AND PRIORITIES**

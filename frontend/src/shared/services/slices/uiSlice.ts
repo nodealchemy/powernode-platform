@@ -44,10 +44,15 @@ const uiSlice = createSlice({
       state.loading = action.payload;
     },
     addNotification: (state, action: PayloadAction<Omit<UIState['notifications'][0], 'id' | 'timestamp'>>) => {
+      const timestamp = Date.now();
+      // Use counter-based ID in test environment to ensure uniqueness, timestamp + random in production
+      const id = process.env.NODE_ENV === 'test' ? 
+        `${timestamp}_${state.notifications.length}` : 
+        `${timestamp}_${Math.random().toString(36).substr(2, 9)}`;
       const notification = {
         ...action.payload,
-        id: Date.now().toString(),
-        timestamp: Date.now(),
+        id,
+        timestamp,
       };
       state.notifications.push(notification);
     },

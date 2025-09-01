@@ -1316,4 +1316,4 @@ cd $POWERNODE_ROOT/server && rails runner "NotificationProviders.health_check"
 - **SMS Failures**: Validate phone numbers, check Twilio balance, verify message content
 - **Push Not Delivered**: Check subscription status, verify certificates, test endpoints
 
-**ALWAYS REFERENCE TODO.md FOR CURRENT TASKS AND PRIORITIES**
+**ALWAYS REFERENCE ../TODO.md FOR CURRENT TASKS AND PRIORITIES**

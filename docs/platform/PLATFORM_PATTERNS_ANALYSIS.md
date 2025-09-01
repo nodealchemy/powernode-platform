@@ -464,4 +464,4 @@ console.error('[API Error]', error.response?.data);
 4. **Team Review**: Present findings to development team for validation
 5. **Iterative Implementation**: Roll out standardization incrementally
 
-**ALWAYS REFERENCE TODO.md FOR CURRENT TASKS AND PRIORITIES**
+**ALWAYS REFERENCE ../TODO.md FOR CURRENT TASKS AND PRIORITIES**

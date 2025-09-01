@@ -235,9 +235,18 @@ class BackendApiClient
   def extract_error_message(response_body)
     return nil unless response_body.is_a?(Hash)
     
-    response_body['message'] || 
-    response_body['error'] ||
-    response_body.dig('errors', 'message') ||
-    (response_body['errors'].is_a?(Array) ? response_body['errors'].first : nil)
+    # Try standard message fields first
+    return response_body['message'] if response_body['message']
+    return response_body['error'] if response_body['error']
+    
+    # Handle 'errors' field which can be a hash or array
+    errors = response_body['errors']
+    if errors.is_a?(Hash)
+      return errors['message'] if errors['message']
+    elsif errors.is_a?(Array) && errors.any?
+      return errors.first
+    end
+    
+    nil
   end
 end

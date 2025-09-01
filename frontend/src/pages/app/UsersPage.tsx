@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useSelector } from 'react-redux';
-import { RootState } from '@/shared/services';
+import { useSelector, useDispatch } from 'react-redux';
+import { RootState, AppDispatch } from '@/shared/services';
+import { startImpersonation } from '@/shared/services/slices/authSlice';
 import { usersApi, User, UserFormData, UserStats } from '@/features/users/services/usersApi';
 import { Button } from '@/shared/components/ui/Button';
 import { FormField } from '@/shared/components/ui/FormField';
@@ -14,6 +15,7 @@ import { UserPlus, RefreshCw, Search, Filter, Download, UserCheck, Shield, Setti
 interface UsersPageProps {}
 
 const UsersPage: React.FC<UsersPageProps> = () => {
+  const dispatch = useDispatch<AppDispatch>();
   const { user: currentUser } = useSelector((state: RootState) => state.auth);
   const [users, setUsers] = useState<User[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
@@ -270,16 +272,15 @@ const UsersPage: React.FC<UsersPageProps> = () => {
 
     try {
       setActionLoading(true);
-      const response = await usersApi.impersonateUser(user.id);
-      if (response.success) {
-        // Store impersonation token and redirect
-        localStorage.setItem('impersonationToken', 'temp_token'); // This should come from the API response
-        window.location.href = '/app';
-      } else {
-        setError(response.message || 'Failed to impersonate user');
-      }
-    } catch (err) {
-      setError('Failed to impersonate user. Please try again.');
+      const response = await dispatch(startImpersonation({ 
+        user_id: user.id, 
+        reason: 'Admin impersonation' 
+      })).unwrap();
+      
+      // The Redux action automatically handles token storage
+      window.location.href = '/app';
+    } catch (err: any) {
+      setError(err || 'Failed to impersonate user. Please try again.');
     } finally {
       setActionLoading(false);
     }

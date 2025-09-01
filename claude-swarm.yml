@@ -20,7 +20,7 @@ swarm:
     - "echo 'Starting subscription platform development swarm...'"
     - "echo 'Production mode: Debug output disabled for optimal performance'"
   after:
-    - "echo 'Swarm session complete. Check TODO.md for progress.'"
+    - "echo 'Swarm session complete. Check docs/TODO.md for progress.'"
     - "echo 'Production mode session completed successfully'"
   instances:
 
@@ -71,7 +71,7 @@ swarm:
         - Guide testing strategy across the full stack
         - Plan deployment and monitoring architecture
 
-        Reference TODO.md for overall project status, prioritize tasks across development phases, and coordinate work between all specialized agents.
+        Reference docs/TODO.md for overall project status, prioritize tasks across development phases, and coordinate work between all specialized agents.
 
         Use your connections to delegate specialized work while maintaining overall system coherence and architectural best practices.
 
@@ -104,7 +104,7 @@ swarm:
         This file contains detailed architectural patterns, code examples, configuration standards, and integration points.
 
         When implementing Rails architecture, follow the patterns and standards defined in your specialist documentation.
-        Reference TODO.md for current Rails architecture tasks and coordinate with platform_architect for system-wide decisions.
+        Reference docs/TODO.md for current Rails architecture tasks and coordinate with platform_architect for system-wide decisions.
       
       allowed_tools:
         - bash
@@ -133,7 +133,7 @@ swarm:
 
         Focus on the core subscription models: Account, User, Subscription, Plan, Payment, Invoice.
         Follow the UUID strategy and model organization patterns defined in your specialist documentation.
-        Reference TODO.md for current data modeling tasks and coordinate with platform_architect for schema decisions.
+        Reference docs/TODO.md for current data modeling tasks and coordinate with platform_architect for schema decisions.
       
       allowed_tools:
         - bash
@@ -161,7 +161,7 @@ swarm:
         This file contains detailed payment gateway patterns, webhook handling, PCI compliance requirements, and security implementations.
 
         Follow PCI DSS standards and secure payment processing patterns defined in your specialist documentation.
-        Reference TODO.md for payment integration tasks and coordinate with platform_architect for payment system architecture.
+        Reference docs/TODO.md for payment integration tasks and coordinate with platform_architect for payment system architecture.
       
       allowed_tools:
         - bash
@@ -189,7 +189,7 @@ swarm:
         This file contains detailed billing engine patterns, subscription state management, automated renewal logic, and dunning processes.
 
         Implement subscription business logic following the patterns and state machines defined in your specialist documentation.
-        Reference TODO.md for billing engine tasks and coordinate with platform_architect for billing system architecture.
+        Reference docs/TODO.md for billing engine tasks and coordinate with platform_architect for billing system architecture.
       
       allowed_tools:
         - bash
@@ -223,7 +223,7 @@ swarm:
         This file contains detailed API design patterns, serialization standards, error handling frameworks, and documentation guidelines.
 
         Follow RESTful design principles and serialization patterns defined in your specialist documentation.
-        Reference TODO.md for API development tasks and coordinate with platform_architect for API architecture decisions.
+        Reference docs/TODO.md for API development tasks and coordinate with platform_architect for API architecture decisions.
       
       allowed_tools:
         - bash
@@ -251,7 +251,7 @@ swarm:
         This file contains detailed Sidekiq configurations, job patterns, worker service architecture, and monitoring strategies.
 
         Implement background processing following the worker service patterns and queue configurations in your specialist documentation.
-        Reference TODO.md for background job tasks and coordinate with platform_architect for worker architecture decisions.
+        Reference docs/TODO.md for background job tasks and coordinate with platform_architect for worker architecture decisions.
       
       allowed_tools:
         - bash
@@ -279,7 +279,7 @@ swarm:
         This file contains detailed React architecture patterns, TypeScript configurations, routing strategies, and state management approaches.
 
         Follow the React architecture patterns and TypeScript standards defined in your specialist documentation.
-        Reference TODO.md for React architecture tasks and coordinate with platform_architect for frontend system design.
+        Reference docs/TODO.md for React architecture tasks and coordinate with platform_architect for frontend system design.
       
       allowed_tools:
         - bash
@@ -307,7 +307,7 @@ swarm:
         This file contains detailed component patterns, design system standards, theme implementation, and accessibility guidelines.
 
         Build components following the design system patterns and theme-aware standards in your specialist documentation.
-        Reference TODO.md for UI component tasks and coordinate with platform_architect for design system architecture.
+        Reference docs/TODO.md for UI component tasks and coordinate with platform_architect for design system architecture.
       
       allowed_tools:
         - bash
@@ -335,7 +335,7 @@ swarm:
         This file contains detailed chart implementation patterns, real-time data integration, dashboard optimization techniques, and KPI visualization standards.
 
         Create dashboards following the visualization patterns and performance optimization strategies in your specialist documentation.
-        Reference TODO.md for dashboard tasks and coordinate with platform_architect for analytics system integration.
+        Reference docs/TODO.md for dashboard tasks and coordinate with platform_architect for analytics system integration.
       
       allowed_tools:
         - bash
@@ -363,7 +363,7 @@ swarm:
         This file contains detailed admin interface patterns, data table implementations, system monitoring components, and bulk operation handling.
 
         Build admin interfaces following the patterns and permission-based access control standards in your specialist documentation.
-        Reference TODO.md for admin panel tasks and coordinate with platform_architect for administrative system architecture.
+        Reference docs/TODO.md for admin panel tasks and coordinate with platform_architect for administrative system architecture.
       
       allowed_tools:
         - bash
@@ -391,7 +391,7 @@ swarm:
         This file contains detailed RSpec patterns, testing strategies, factory configurations, and payment testing approaches.
 
         Implement testing following the RSpec patterns and TDD practices defined in your specialist documentation.
-        Reference TODO.md for backend testing tasks and coordinate with platform_architect for testing strategy.
+        Reference docs/TODO.md for backend testing tasks and coordinate with platform_architect for testing strategy.
       
       allowed_tools:
         - bash
@@ -419,7 +419,7 @@ swarm:
         This file contains detailed Jest configurations, Cypress patterns, testing strategies, and frontend testing best practices.
 
         Implement frontend testing following the Jest and Cypress patterns defined in your specialist documentation.
-        Reference TODO.md for frontend testing tasks and coordinate with platform_architect for testing strategy.
+        Reference docs/TODO.md for frontend testing tasks and coordinate with platform_architect for testing strategy.
       
       allowed_tools:
         - bash
@@ -447,7 +447,7 @@ swarm:
         This file contains detailed CI/CD configurations, container patterns, infrastructure automation, and monitoring strategies.
 
         Implement DevOps practices following the pipeline configurations and deployment strategies in your specialist documentation.
-        Reference TODO.md for DevOps tasks and coordinate with platform_architect for infrastructure decisions.
+        Reference docs/TODO.md for DevOps tasks and coordinate with platform_architect for infrastructure decisions.
       
       allowed_tools:
         - bash
@@ -475,7 +475,7 @@ swarm:
         This file contains detailed security implementations, PCI compliance requirements, vulnerability management processes, and incident response procedures.
 
         Implement security measures following the OWASP and PCI DSS standards defined in your specialist documentation.
-        Reference TODO.md for security tasks and coordinate with platform_architect for security architecture decisions.
+        Reference docs/TODO.md for security tasks and coordinate with platform_architect for security architecture decisions.
       
       allowed_tools:
         - bash
@@ -503,7 +503,7 @@ swarm:
         This file contains detailed performance monitoring strategies, optimization techniques, load testing procedures, and scalability planning approaches.
 
         Implement performance optimizations following the monitoring and tuning strategies in your specialist documentation.
-        Reference TODO.md for performance tasks and coordinate with platform_architect for performance architecture decisions.
+        Reference docs/TODO.md for performance tasks and coordinate with platform_architect for performance architecture decisions.
       
       allowed_tools:
         - bash
@@ -531,7 +531,7 @@ swarm:
         This file contains detailed notification system architectures, email/SMS integration patterns, template management, and real-time communication implementations.
 
         Build notification systems following the multi-channel communication patterns in your specialist documentation.
-        Reference TODO.md for notification tasks and coordinate with platform_architect for communication system architecture.
+        Reference docs/TODO.md for notification tasks and coordinate with platform_architect for communication system architecture.
       
       allowed_tools:
         - bash
@@ -559,7 +559,7 @@ swarm:
         This file contains detailed documentation frameworks, API documentation patterns, knowledge base systems, and documentation automation strategies.
 
         Create documentation following the comprehensive documentation standards and automation patterns in your specialist documentation.
-        Reference TODO.md for documentation tasks and coordinate with platform_architect for documentation system architecture.
+        Reference docs/TODO.md for documentation tasks and coordinate with platform_architect for documentation system architecture.
       
       allowed_tools:
         - bash
@@ -587,7 +587,7 @@ swarm:
         This file contains detailed analytics frameworks, KPI calculation methods, reporting systems, predictive analytics approaches, and A/B testing implementations.
 
         Implement analytics systems following the business intelligence patterns and KPI tracking strategies in your specialist documentation.
-        Reference TODO.md for analytics tasks and coordinate with platform_architect for analytics system architecture.
+        Reference docs/TODO.md for analytics tasks and coordinate with platform_architect for analytics system architecture.
       
       allowed_tools:
         - bash

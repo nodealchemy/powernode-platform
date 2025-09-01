@@ -1,10 +1,7 @@
 # frozen_string_literal: true
 
 class Api::V1::Auth::PasswordsController < ApplicationController
-  # Rate limiting is now included in ApplicationController
-  
   skip_before_action :authenticate_request, only: [ :forgot, :reset ]
-  after_action :increment_rate_limit_count, only: [:forgot, :reset], if: -> { response.status >= 400 }
 
   # POST /api/v1/passwords/forgot
   def forgot
@@ -116,18 +113,6 @@ class Api::V1::Auth::PasswordsController < ApplicationController
   end
 
   private
-
-  def should_rate_limit?
-    true # Always rate limit password reset attempts
-  end
-
-  def rate_limit_max_attempts
-    3 # Allow only 3 password reset attempts per IP per 15 minutes
-  end
-
-  def rate_limit_window_seconds
-    900 # 15 minutes
-  end
 
   def change_params
     params.require(:password).permit(:current_password, :new_password, :password_confirmation)

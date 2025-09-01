@@ -35,12 +35,21 @@ export function isErrorWithResponse(error: unknown): error is ErrorWithResponse 
 
 // Get error message from unknown error
 export function getErrorMessage(error: unknown): string {
-  if (isErrorWithMessage(error)) {
-    return error.message;
+  // Check for response data first to prioritize API error messages
+  if (isErrorWithResponse(error)) {
+    const responseMessage = error.response?.data?.message || error.response?.data?.error;
+    if (responseMessage) {
+      return responseMessage;
+    }
+    // Fall back to main message if response data doesn't have message/error
+    if (error.message) {
+      return error.message;
+    }
+    return 'An error occurred';
   }
   
-  if (isErrorWithResponse(error)) {
-    return error.response?.data?.message || error.response?.data?.error || error.message || 'An error occurred';
+  if (isErrorWithMessage(error)) {
+    return error.message;
   }
 
   if (typeof error === 'string') {

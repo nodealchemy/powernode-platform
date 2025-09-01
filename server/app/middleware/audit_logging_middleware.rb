@@ -220,21 +220,9 @@ class AuditLoggingMiddleware
   end
 
   def determine_api_action(method, endpoint, status)
-    # Map HTTP methods to audit actions
-    base_action = case method.upcase
-                  when 'GET' then 'api_read'
-                  when 'POST' then 'api_create'
-                  when 'PUT', 'PATCH' then 'api_update'
-                  when 'DELETE' then 'api_delete'
-                  else 'api_request'
-                  end
-    
-    # Add status information for failed requests
-    if status >= 400
-      "#{base_action}_failed"
-    else
-      base_action
-    end
+    # Use 'api_request' for all API calls since that's a valid AuditLog action
+    # The HTTP method and endpoint details are captured in metadata
+    status >= 400 ? 'api_request_failed' : 'api_request'
   end
 
   def create_api_resource(endpoint, request)

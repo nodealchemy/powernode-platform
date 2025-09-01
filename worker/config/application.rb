@@ -77,12 +77,20 @@ class PowernodeWorker
     ActionMailer::Base.view_paths = [File.join(@root, 'app', 'views')]
     ActionMailer::Base.logger = @logger
     
-    # Set delivery method to test for now (no actual email sending in worker testing)
-    ActionMailer::Base.delivery_method = :test
-    ActionMailer::Base.perform_deliveries = true
-    ActionMailer::Base.raise_delivery_errors = true
-    
-    @logger.info "ActionMailer configured for worker service"
+    # Configure delivery method based on environment
+    if env == 'test'
+      # In test environment, use test delivery method (emails stored in memory, not sent)
+      ActionMailer::Base.delivery_method = :test
+      ActionMailer::Base.perform_deliveries = true
+      ActionMailer::Base.raise_delivery_errors = false
+      @logger.info "ActionMailer configured for test environment (delivery simulation)"
+    else
+      # In development/production, emails will be sent via configured provider
+      ActionMailer::Base.delivery_method = :smtp # This will be overridden by EmailConfigurationService
+      ActionMailer::Base.perform_deliveries = true
+      ActionMailer::Base.raise_delivery_errors = true
+      @logger.info "ActionMailer configured for #{env} environment (real email delivery)"
+    end
   end
 
   def setup_service_authentication

@@ -46,15 +46,25 @@ export const isTokenInvalidError = (error: unknown): boolean => {
  * Clears all authentication tokens from localStorage
  */
 export const clearStoredTokens = (): void => {
-  localStorage.removeItem('accessToken');
-  localStorage.removeItem('refreshToken');
+  try {
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+  } catch (error) {
+    // Silently handle localStorage errors (e.g., when storage is disabled)
+    console.warn('Failed to clear stored tokens:', error);
+  }
 };
 
 /**
  * Checks if tokens exist in localStorage
  */
 export const hasStoredTokens = (): boolean => {
-  return !!(localStorage.getItem('accessToken') || localStorage.getItem('refreshToken'));
+  try {
+    return !!(localStorage.getItem('accessToken') || localStorage.getItem('refreshToken'));
+  } catch (error) {
+    // Handle localStorage errors gracefully
+    return false;
+  }
 };
 
 /**
@@ -74,9 +84,12 @@ export const getTokenExpiry = (token: string): Date | null => {
     if (!isValidJWTFormat(token)) return null;
     
     const payload = JSON.parse(atob(token.split('.')[1]));
-    if (!payload.exp) return null;
+    if (!payload.hasOwnProperty('exp') || payload.exp === null || payload.exp === undefined) return null;
     
-    return new Date(payload.exp * 1000);
+    const expNumber = Number(payload.exp);
+    if (isNaN(expNumber)) return null;
+    
+    return new Date(expNumber * 1000);
   } catch {
     return null;
   }

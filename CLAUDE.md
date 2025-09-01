@@ -12,7 +12,7 @@ Development guidance for **Powernode** subscription platform.
 - **Payments**: Stripe, PayPal with PCI compliance
 - **Testing**: RSpec (203+ tests), Jest/Cypress
 
-**ALWAYS REFERENCE TODO.md FOR CURRENT PROGRESS AND STATUS**
+**ALWAYS REFERENCE docs/TODO.md FOR CURRENT PROGRESS AND STATUS**
 
 ### Core Models & Relations
 - **Account** → User (many), Subscription (one)
@@ -21,6 +21,7 @@ Development guidance for **Powernode** subscription platform.
 - **UUID Strategy**: All models use UUIDv7 format for chronologically sortable, globally unique identifiers
 
 ### Git & Release Management
+- **CRITICAL**: **NEVER commit to git unless explicitly requested by the user**
 - **IMPORTANT**: Clean commit messages without Claude attribution
 - **Git-Flow & Semantic Versioning**: See **[DevOps Engineer](docs/infrastructure/DEVOPS_ENGINEER_SPECIALIST.md#git-workflow--release-management)** for complete workflow documentation
 - Current version: `0.0.1` → `0.1.0` (next release)
@@ -259,6 +260,7 @@ The backend architecture follows Rails 8 API patterns with a separate Sidekiq wo
 15. **NO including ApiResponse concern**: ApplicationController already includes it - inheritance is automatic
 16. **NO manual service commands**: NEVER use `rails server`, `sidekiq`, `npm start` directly
 17. **NO Claude attribution**: Clean commit messages only
+18. **NO git commits**: NEVER commit to git unless explicitly requested by user
 
 **Service Management**:
 17. **NO manual service starts**: Use `scripts/auto-dev.sh` or delegate to MCP specialists
@@ -441,4 +443,4 @@ worker/docs/ # For worker-specific documentation
 - **Cross-References**: Use relative paths when linking between docs
 - **Version Control**: All documentation committed to appropriate directories
 
-**ABSOLUTE RULE**: No `.md` files in project root except CLAUDE.md, TODO.md, CHANGELOG.md, and DEVELOPMENT.md
+**ABSOLUTE RULE**: No `.md` files in project root except CLAUDE.md (TODO.md, CHANGELOG.md, and DEVELOPMENT.md are now in docs/)

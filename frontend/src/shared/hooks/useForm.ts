@@ -193,16 +193,51 @@ export function useForm<T extends Record<string, any>>(
   // Set field value
   const setValue = useCallback(
     (field: keyof T, value: any) => {
-      setFormState(prev => ({
-        ...prev,
-        [field]: {
-          ...prev[field as string],
-          value,
-          error: enableRealTimeValidation ? validateField(field) || undefined : prev[field as string]?.error
+      setFormState(prev => {
+        // For real-time validation, we need to validate with the new value
+        let error = prev[field as string]?.error;
+        if (enableRealTimeValidation) {
+          const rules = validationRules[field as string];
+          if (rules) {
+            // Required validation
+            if (rules.required && (value === undefined || value === null || value === '')) {
+              error = `${String(field)} is required`;
+            }
+            // Skip other validations if value is empty and not required
+            else if (!value && !rules.required) {
+              error = undefined;
+            }
+            // String-based validations
+            else if (typeof value === 'string') {
+              if (rules.minLength && value.length < rules.minLength) {
+                error = `${String(field)} must be at least ${rules.minLength} characters`;
+              } else if (rules.maxLength && value.length > rules.maxLength) {
+                error = `${String(field)} must be no more than ${rules.maxLength} characters`;
+              } else if (rules.pattern && !rules.pattern.test(value)) {
+                error = `${String(field)} format is invalid`;
+              } else {
+                error = undefined;
+              }
+            }
+            // Custom validation
+            if (!error && rules.custom) {
+              const customError = rules.custom(value);
+              error = customError || undefined;
+            }
+          }
         }
-      }));
+        
+        return {
+          ...prev,
+          [field]: {
+            ...prev[field as string],
+            value,
+            error
+          }
+        };
+      });
     },
-    [enableRealTimeValidation, validateField]
+    [enableRealTimeValidation, validationRules]
   );
 
   // Set field error

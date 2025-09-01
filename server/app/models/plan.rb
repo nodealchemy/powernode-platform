@@ -3,7 +3,7 @@
 class Plan < ApplicationRecord
   
   # Associations
-  has_many :subscriptions, dependent: :nullify
+  has_many :subscriptions, dependent: :restrict_with_error
 
   # Validations
   validates :name, presence: true, uniqueness: { case_sensitive: false }, length: { minimum: 2, maximum: 100 }

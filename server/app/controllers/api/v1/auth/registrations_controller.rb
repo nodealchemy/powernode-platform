@@ -5,7 +5,6 @@ class Api::V1::Auth::RegistrationsController < ApplicationController
   include UserSerialization
   
   skip_before_action :authenticate_request, only: [:create]
-  after_action :increment_rate_limit_count, only: [:create], if: -> { response.status >= 400 }
 
   # POST /api/v1/registrations
   def create
@@ -126,13 +125,6 @@ class Api::V1::Auth::RegistrationsController < ApplicationController
     true # Always rate limit registration attempts
   end
 
-  def rate_limit_max_attempts
-    3 # Allow only 3 registration attempts per IP per hour
-  end
-
-  def rate_limit_window_seconds
-    3600 # 1 hour
-  end
 
   def account_params
     {

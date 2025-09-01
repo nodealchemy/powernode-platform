@@ -173,7 +173,7 @@ start() {
     
     # Use screen with immediate detachment
     cd "$BACKEND_DIR"
-    screen -dmS powernode-backend bash -c "DISABLE_RATE_LIMITING=true exec bundle exec rails server -p $RAILS_PORT -b $RAILS_HOST > '$LOG_FILE' 2>&1"
+    screen -dmS powernode-backend bash -c "exec bundle exec rails server -p $RAILS_PORT -b $RAILS_HOST > '$LOG_FILE' 2>&1"
     
     success "Rails server started in screen session 'powernode-backend'"
     log "View logs: screen -r powernode-backend"

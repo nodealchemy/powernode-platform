@@ -1,13 +1,16 @@
 # frozen_string_literal: true
 
 class Api::V1::PaymentGatewaysController < ApplicationController
-  before_action -> { require_permission('admin.settings.payment') }
+  # Admin operations require admin.settings.payment permission
+  before_action -> { require_permission('admin.settings.payment') }, except: [:index]
+  # index method is public for dashboard overview - no authentication required
+  skip_before_action :authenticate_request, only: [:index]
   
   def index
     begin
       render_success({
         gateways: gateway_configurations,
-        status: gateway_statuses,
+        status: gateway_configuration_statuses, # Use configuration-based status only
         recent_transactions: recent_transactions_data,
         statistics: gateway_statistics
       })
@@ -15,7 +18,7 @@ class Api::V1::PaymentGatewaysController < ApplicationController
       Rails.logger.error "Payment gateways overview error: #{e.message}"
       Rails.logger.error e.backtrace.first(5).join("\n")
       
-      render_internal_error("Failed to load payment gateways overview", exception: e)
+      render json: { success: false, error: "Failed to load payment gateways overview" }, status: :internal_server_error
     end
   end
 
@@ -64,14 +67,25 @@ class Api::V1::PaymentGatewaysController < ApplicationController
     end
 
     begin
-      test_result = test_gateway_connection(gateway)
-      render json: test_result
+      # Create a job record to track the async test
+      job = GatewayConnectionJob.create!(
+        gateway: gateway,
+        status: 'pending',
+        config_data: build_config_data_for_gateway(gateway)
+      )
+
+      # Delegate to worker service for async processing
+      enqueue_gateway_test_job(job.id, gateway, job.config_data)
+
+      render_success({
+        job_id: job.id,
+        status: 'pending',
+        message: 'Gateway connection test started',
+        poll_url: "/api/v1/gateway_connection_jobs/#{job.id}"
+      })
     rescue => e
-      render json: { 
-        success: false, 
-        error: e.message,
-        tested_at: Time.current.iso8601
-      }, status: :service_unavailable
+      Rails.logger.error "Failed to start gateway connection test: #{e.message}"
+      render_error("Failed to start connection test: #{e.message}", status: :internal_server_error)
     end
   end
 
@@ -235,6 +249,14 @@ class Api::V1::PaymentGatewaysController < ApplicationController
     }
   end
 
+  def gateway_configuration_statuses
+    # Configuration-based status without external API calls (for dashboard)
+    {
+      stripe: gateway_config_status_for('stripe'),
+      paypal: gateway_config_status_for('paypal')
+    }
+  end
+
   def gateway_status_for(gateway)
     begin
       case gateway
@@ -286,6 +308,42 @@ class Api::V1::PaymentGatewaysController < ApplicationController
     rescue => e
       Rails.logger.error "Gateway status check failed for #{gateway}: #{e.message}"
       { status: 'error', message: 'Status check failed', last_checked: Time.current }
+    end
+  end
+
+  def gateway_config_status_for(gateway)
+    # Status based only on configuration presence - no external API calls
+    case gateway
+    when 'stripe'
+      stored_config = GatewayConfiguration.stripe_config
+      env_config = safe_config(:stripe)
+      
+      secret_key_present = stored_config[:secret_key].present? || is_real_config_value?(env_config[:secret_key])
+      publishable_key_present = stored_config[:publishable_key].present? || is_real_config_value?(env_config[:publishable_key])
+      
+      if secret_key_present && publishable_key_present
+        { status: 'configured', message: 'Keys configured', last_checked: Time.current }
+      elsif secret_key_present || publishable_key_present
+        { status: 'partial', message: 'Partially configured', last_checked: Time.current }
+      else
+        { status: 'not_configured', message: 'Keys not configured', last_checked: Time.current }
+      end
+    when 'paypal'
+      stored_config = GatewayConfiguration.paypal_config
+      env_config = safe_config(:paypal)
+      
+      client_id_present = stored_config[:client_id].present? || is_real_config_value?(env_config[:client_id])
+      client_secret_present = stored_config[:client_secret].present? || is_real_config_value?(env_config[:client_secret])
+      
+      if client_id_present && client_secret_present
+        { status: 'configured', message: 'Credentials configured', last_checked: Time.current }
+      elsif client_id_present
+        { status: 'partial', message: 'Client ID configured, secret missing', last_checked: Time.current }
+      else
+        { status: 'not_configured', message: 'Credentials not configured', last_checked: Time.current }
+      end
+    else
+      { status: 'unsupported', message: 'Gateway not supported', last_checked: Time.current }
     end
   end
 
@@ -447,55 +505,58 @@ class Api::V1::PaymentGatewaysController < ApplicationController
     (successful.to_f / total * 100).round(2)
   end
 
-  def test_gateway_connection(gateway)
+  def build_config_data_for_gateway(gateway)
     case gateway
     when 'stripe'
-      test_stripe_connection
+      stored_config = GatewayConfiguration.stripe_config
+      env_config = safe_config(:stripe)
+      {
+        'secret_key' => stored_config[:secret_key] || env_config[:secret_key]
+      }
     when 'paypal'
-      test_paypal_connection
+      stored_config = GatewayConfiguration.paypal_config
+      env_config = safe_config(:paypal)
+      {
+        'client_id' => stored_config[:client_id] || env_config[:client_id],
+        'client_secret' => stored_config[:client_secret] || env_config[:client_secret],
+        'mode' => stored_config[:mode] || env_config[:mode] || 'sandbox',
+        'webhook_id' => stored_config[:webhook_id] || env_config[:webhook_id]
+      }
+    else
+      {}
     end
   end
 
-  def test_stripe_connection
-    stored_config = GatewayConfiguration.stripe_config
-    env_config = Rails.application.config.stripe
-    secret_key = stored_config[:secret_key] || env_config[:secret_key]
+  def enqueue_gateway_test_job(job_id, gateway, config_data)
+    # Use HTTP client to call worker service via jobs endpoint
+    worker_client = build_worker_client
     
-    raise "No Stripe secret key configured" unless secret_key.present?
+    response = worker_client.post('/api/v1/jobs', {
+      job_class: 'Services::TestPaymentGatewayConnectionJob',
+      args: [job_id, gateway, config_data],
+      queue: 'high'
+    })
     
-    Stripe.api_key = secret_key
-    account = Stripe::Account.retrieve
+    unless response.code.to_i == 200
+      raise "Failed to enqueue worker job: #{response.body}"
+    end
     
-    {
-      success: true,
-      gateway: 'stripe',
-      account_id: account.id,
-      business_name: account.business_profile&.name || account.settings&.dashboard&.display_name,
-      country: account.country,
-      currency: account.default_currency,
-      charges_enabled: account.charges_enabled,
-      payouts_enabled: account.payouts_enabled,
-      tested_at: Time.current.iso8601
-    }
+    Rails.logger.info "Enqueued gateway test job #{job_id} for #{gateway}"
+  rescue => e
+    Rails.logger.error "Failed to enqueue gateway test job: #{e.message}"
+    raise
   end
 
-  def test_paypal_connection
-    stored_config = GatewayConfiguration.paypal_config
-    env_config = Rails.application.config.paypal
+  def build_worker_client
+    require 'net/http'
+    require 'json'
     
-    client_id = stored_config[:client_id] || env_config[:client_id]
-    client_secret = stored_config[:client_secret] || env_config[:client_secret]
-    mode = stored_config[:mode] || env_config[:mode]
-    webhook_id = stored_config[:webhook_id] || env_config[:webhook_id]
-    
-    {
-      success: client_id.present? && client_secret.present?,
-      gateway: 'paypal',
-      mode: mode,
-      client_id_configured: client_id.present?,
-      webhook_configured: webhook_id.present?,
-      tested_at: Time.current.iso8601
-    }
+    @worker_client ||= begin
+      worker_url = ENV.fetch('WORKER_API_URL', 'http://localhost:4567')
+      worker_token = ENV.fetch('WORKER_TOKEN', '')
+      
+      WorkerHttpClient.new(worker_url, worker_token)
+    end
   end
 
   def update_gateway_configuration(gateway, config_params)
@@ -530,20 +591,18 @@ class Api::V1::PaymentGatewaysController < ApplicationController
   def validate_stripe_config(config)
     errors = []
     
+    # Only validate format if secret key is provided (now optional)
     if config[:secret_key].present?
       unless config[:secret_key].match(/^sk_(test_|live_)?[a-zA-Z0-9_]{20,}$/)
         errors << "Secret key format is invalid (must start with sk_test_ or sk_live_)"
       end
-    else
-      errors << "Secret key is required"
     end
     
+    # Only validate format if publishable key is provided (now optional)
     if config[:publishable_key].present?
       unless config[:publishable_key].match(/^pk_(test_|live_)?[a-zA-Z0-9_]{20,}$/)
         errors << "Publishable key format is invalid (must start with pk_test_ or pk_live_)"
       end
-    else
-      errors << "Publishable key is required"
     end
     
     if config[:endpoint_secret].present?
@@ -565,12 +624,14 @@ class Api::V1::PaymentGatewaysController < ApplicationController
   def validate_paypal_config(config)
     errors = []
     
-    if config[:client_id].blank?
-      errors << "Client ID is required"
+    # Only validate format if client ID is provided (now optional)
+    if config[:client_id].present? && config[:client_id].length < 10
+      errors << "Client ID must be at least 10 characters"
     end
     
-    if config[:client_secret].blank?
-      errors << "Client secret is required"
+    # Only validate format if client secret is provided (now optional)
+    if config[:client_secret].present? && config[:client_secret].length < 10
+      errors << "Client secret must be at least 10 characters"
     end
     
     if config[:mode].present?
@@ -719,5 +780,25 @@ class Api::V1::PaymentGatewaysController < ApplicationController
     
     # If it passes all checks, consider it a real configuration value
     true
+  end
+end
+
+class WorkerHttpClient
+  def initialize(base_url, token)
+    @base_url = base_url
+    @token = token
+  end
+  
+  def post(path, data)
+    uri = URI.parse("#{@base_url}#{path}")
+    http = Net::HTTP.new(uri.host, uri.port)
+    http.use_ssl = uri.scheme == 'https'
+    
+    request = Net::HTTP::Post.new(uri)
+    request['Content-Type'] = 'application/json'
+    request['Authorization'] = "Bearer #{@token}"
+    request.body = data.to_json
+    
+    http.request(request)
   end
 end

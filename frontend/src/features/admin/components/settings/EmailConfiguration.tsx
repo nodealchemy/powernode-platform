@@ -170,8 +170,9 @@ export const EmailConfiguration: React.FC = () => {
             )}
           </div>
 
-          <div className="flex items-center justify-center py-8">
+          <div className="flex flex-col items-center justify-center py-8">
             <LoadingSpinner size="lg" />
+            <p className="text-theme-secondary mt-2">Loading...</p>
           </div>
         </div>
       </div>

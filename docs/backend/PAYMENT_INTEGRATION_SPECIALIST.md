@@ -964,4 +964,4 @@ rails console
 - ✅ Implement proper error handling without exposing sensitive data
 - ✅ Regular security audits and penetration testing
 
-**ALWAYS REFERENCE TODO.md FOR CURRENT TASKS AND PRIORITIES**
+**ALWAYS REFERENCE ../TODO.md FOR CURRENT TASKS AND PRIORITIES**

@@ -643,4 +643,4 @@ jest.mock('@/features/auth/hooks/useAuth', () => ({
 }));
 ```
 
-**ALWAYS REFERENCE TODO.md FOR CURRENT TASKS AND PRIORITIES**
+**ALWAYS REFERENCE ../TODO.md FOR CURRENT TASKS AND PRIORITIES**

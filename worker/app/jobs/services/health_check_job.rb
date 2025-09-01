@@ -8,7 +8,7 @@ class Services::HealthCheckJob < BaseJob
   sidekiq_options queue: 'services',
                   retry: 1
 
-  def execute(environment = nil, specific_service = nil, job_id: nil)
+  def execute(environment = nil, specific_service = nil, job_id = nil)
     logger.info "Starting health checks (job: #{job_id}, env: #{environment}, service: #{specific_service})"
 
     start_time = Time.current

@@ -72,10 +72,10 @@ export const GatewayConfigModal: React.FC<GatewayConfigModalProps> = ({
     if (gateway === 'stripe') {
       return {
         publishable_key: {
-          required: true,
+          required: false, // Optional - only validate format if provided
           custom: (value: unknown) => {
             const keyValue = value as string;
-            if (!keyValue) return null; // Required validation is handled separately
+            if (!keyValue || keyValue.trim() === '') return null; // Allow empty values
             if (!/^pk_(test_|live_)[a-zA-Z0-9_]{20,}$/.test(keyValue)) {
               return 'Publishable key must start with pk_test_ or pk_live_ followed by at least 20 characters';
             }
@@ -83,10 +83,10 @@ export const GatewayConfigModal: React.FC<GatewayConfigModalProps> = ({
           }
         },
         secret_key: {
-          required: true,
+          required: false, // Optional - only validate format if provided
           custom: (value: unknown) => {
             const keyValue = value as string;
-            if (!keyValue) return null; // Required validation is handled separately
+            if (!keyValue || keyValue.trim() === '') return null; // Allow empty values
             if (!/^sk_(test_|live_)[a-zA-Z0-9_]{20,}$/.test(keyValue)) {
               return 'Secret key must start with sk_test_ or sk_live_ followed by at least 20 characters';
             }
@@ -115,11 +115,11 @@ export const GatewayConfigModal: React.FC<GatewayConfigModalProps> = ({
     } else {
       return {
         client_id: {
-          required: true,
+          required: false, // Optional - only validate format if provided
           minLength: 10
         },
         client_secret: {
-          required: true,
+          required: false, // Optional - only validate format if provided
           minLength: 10
         },
         mode: {
@@ -148,6 +148,10 @@ export const GatewayConfigModal: React.FC<GatewayConfigModalProps> = ({
       
       Object.entries(formData).forEach(([key, value]) => {
         if (allowedKeys.includes(key) && value !== '' && value !== null && value !== undefined) {
+          // For string values, also check if they're not just whitespace
+          if (typeof value === 'string' && value.trim() === '') {
+            return; // Skip empty strings
+          }
           configToSend[key as keyof typeof configToSend] = value;
         }
       });
@@ -215,7 +219,7 @@ export const GatewayConfigModal: React.FC<GatewayConfigModalProps> = ({
         form.setValue('webhook_tolerance', (currentConfig as any).webhook_tolerance);
       }
     }
-  }, [currentConfig, isOpen, gateway, form.setValue]);
+  }, [currentConfig, isOpen, gateway]); // Remove form.setValue to prevent infinite loop
 
   const handleCancel = () => {
     form.reset();
@@ -230,7 +234,7 @@ export const GatewayConfigModal: React.FC<GatewayConfigModalProps> = ({
         <div className="grid grid-cols-1 gap-6">
           <div>
             <label className="label-theme flex items-center gap-2">
-              Publishable Key *
+              Publishable Key
               {(currentConfig as any)?.publishable_key_present && (
                 <span className="px-2 py-0.5 text-xs bg-theme-success-subtle text-theme-success-emphasis rounded">
                   Configured
@@ -248,25 +252,24 @@ export const GatewayConfigModal: React.FC<GatewayConfigModalProps> = ({
               className={`input-theme ${(form.errors as any).publishable_key ? 'border-theme-error' : ''}`}
               placeholder={
                 (currentConfig as any)?.publishable_key_present 
-                  ? "Enter new publishable key to update" 
+                  ? "Leave blank to keep current key, or enter new key to update" 
                   : "pk_test_51ABC...xyz123 (starts with pk_test_ or pk_live_)"
               }
               disabled={form.isSubmitting}
-              required
             />
             {(form.errors as any).publishable_key && (
               <p className="text-theme-error text-sm mt-1">{(form.errors as any).publishable_key}</p>
             )}
             <p className="text-xs text-theme-secondary mt-1">
               {(currentConfig as any)?.publishable_key_present
-                ? "A publishable key is already configured. Enter a new key to update it."
-                : "Your Stripe publishable key (starts with pk_)"}
+                ? "A publishable key is already configured. Leave blank to keep current key, or enter a new key to update it."
+                : "Your Stripe publishable key (starts with pk_). Leave blank if not updating."}
             </p>
           </div>
 
           <div>
             <label className="label-theme flex items-center gap-2">
-              Secret Key *
+              Secret Key
               {(currentConfig as any)?.secret_key_present && (
                 <span className="px-2 py-0.5 text-xs bg-theme-success-subtle text-theme-success-emphasis rounded">
                   Configured
@@ -285,11 +288,10 @@ export const GatewayConfigModal: React.FC<GatewayConfigModalProps> = ({
                 className={`input-theme pr-10 ${(form.errors as any).secret_key ? 'border-theme-error' : ''}`}
                 placeholder={
                   (currentConfig as any)?.secret_key_present
-                    ? "Enter new secret key to update"
+                    ? "Leave blank to keep current key, or enter new key to update"
                     : "sk_test_51ABC...xyz123 (starts with sk_test_ or sk_live_)"
                 }
                 disabled={form.isSubmitting}
-                required
               />
               <button
                 type="button"
@@ -304,8 +306,8 @@ export const GatewayConfigModal: React.FC<GatewayConfigModalProps> = ({
             )}
             <p className="text-xs text-theme-secondary mt-1">
               {(currentConfig as any)?.secret_key_present
-                ? "A secret key is already configured. Enter a new key to update it."
-                : "Your Stripe secret key (starts with sk_)"}
+                ? "A secret key is already configured. Leave blank to keep current key, or enter a new key to update it."
+                : "Your Stripe secret key (starts with sk_). Leave blank if not updating."}
             </p>
           </div>
 
@@ -402,7 +404,7 @@ export const GatewayConfigModal: React.FC<GatewayConfigModalProps> = ({
         <div className="grid grid-cols-1 gap-6">
           <div>
             <label className="label-theme flex items-center gap-2">
-              Client ID *
+              Client ID
               {(currentConfig as any)?.client_id_present && (
                 <span className="px-2 py-0.5 text-xs bg-theme-success-subtle text-theme-success-emphasis rounded">
                   Configured
@@ -420,25 +422,24 @@ export const GatewayConfigModal: React.FC<GatewayConfigModalProps> = ({
               className={`input-theme ${(form.errors as any).client_id ? 'border-theme-error' : ''}`}
               placeholder={
                 (currentConfig as any)?.client_id_present
-                  ? "Enter new client ID to update"
+                  ? "Leave blank to keep current ID, or enter new ID to update"
                   : "Your PayPal client ID"
               }
               disabled={form.isSubmitting}
-              required
             />
             {(form.errors as any).client_id && (
               <p className="text-theme-error text-sm mt-1">{(form.errors as any).client_id}</p>
             )}
             <p className="text-xs text-theme-secondary mt-1">
               {(currentConfig as any)?.client_id_present
-                ? "A client ID is already configured. Enter a new ID to update it."
-                : "Your PayPal application client ID"}
+                ? "A client ID is already configured. Leave blank to keep current ID, or enter a new ID to update it."
+                : "Your PayPal application client ID. Leave blank if not updating."}
             </p>
           </div>
 
           <div>
             <label className="label-theme flex items-center gap-2">
-              Client Secret *
+              Client Secret
               {(currentConfig as any)?.client_secret_present && (
                 <span className="px-2 py-0.5 text-xs bg-theme-success-subtle text-theme-success-emphasis rounded">
                   Configured
@@ -457,11 +458,10 @@ export const GatewayConfigModal: React.FC<GatewayConfigModalProps> = ({
                 className={`input-theme pr-10 ${(form.errors as any).client_secret ? 'border-theme-error' : ''}`}
                 placeholder={
                   (currentConfig as any)?.client_secret_present
-                    ? "Enter new client secret to update"
+                    ? "Leave blank to keep current secret, or enter new secret to update"
                     : "Your PayPal client secret"
                 }
                 disabled={form.isSubmitting}
-                required
               />
               <button
                 type="button"
@@ -476,8 +476,8 @@ export const GatewayConfigModal: React.FC<GatewayConfigModalProps> = ({
             )}
             <p className="text-xs text-theme-secondary mt-1">
               {(currentConfig as any)?.client_secret_present
-                ? "A client secret is already configured. Enter a new secret to update it."
-                : "Your PayPal application client secret"}
+                ? "A client secret is already configured. Leave blank to keep current secret, or enter a new secret to update it."
+                : "Your PayPal application client secret. Leave blank if not updating."}
             </p>
           </div>
 
@@ -600,7 +600,7 @@ export const GatewayConfigModal: React.FC<GatewayConfigModalProps> = ({
     <Modal 
       isOpen={isOpen} 
       onClose={handleCancel} 
-      title={`${info.name} Configuration`} 
+      title={`Configure ${info.name}`} 
       subtitle={info.description}
       icon={<Settings />}
       maxWidth="lg"

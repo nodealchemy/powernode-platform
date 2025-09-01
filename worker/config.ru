@@ -58,7 +58,7 @@ map '/' do
     [200, {'content-type' => 'application/json'}, [
       {
         service: 'Powernode Worker',
-        version: '1.0.0',
+        version: '0.0.2',
         environment: PowernodeWorker.application.env,
         timestamp: Time.current.iso8601,
         endpoints: {

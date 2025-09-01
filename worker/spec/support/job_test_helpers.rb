@@ -75,9 +75,18 @@ module JobTestHelpers
       api_error_interval = retry_block.call(1, BackendApiClient::ApiError.new('API Error'))
       expect(api_error_interval).to be <= 60
       
-      # Other errors should use exponential backoff
-      standard_error_interval = retry_block.call(1, StandardError.new('Standard Error'))
-      expect(standard_error_interval).to be > api_error_interval
+      # Test multiple samples of standard errors to account for randomization
+      standard_error_intervals = []
+      10.times do
+        standard_error_intervals << retry_block.call(1, StandardError.new('Standard Error'))
+      end
+      
+      # The average should be greater than API error interval due to exponential backoff base
+      average_interval = standard_error_intervals.sum / standard_error_intervals.size.to_f
+      expect(average_interval).to be > api_error_interval
+      
+      # All intervals should be at least the base exponential value (16 seconds minimum)
+      expect(standard_error_intervals.min).to be >= 16
     end
   end
 
@@ -101,7 +110,14 @@ module JobTestHelpers
         hash[param] = "test_#{param}"
       end
       
+      # Mock both API client and any services the job might use
       allow(job_instance).to receive(:api_client).and_return(double('ApiClient', post: { 'success' => true }))
+      
+      # For email delivery jobs, mock the email service
+      if defined?(EmailDeliveryWorkerService)
+        email_service_double = double('EmailDeliveryWorkerService', send_email: { success: true })
+        allow(EmailDeliveryWorkerService).to receive(:new).and_return(email_service_double)
+      end
       
       expect {
         job_instance.execute(valid_params)
@@ -110,7 +126,7 @@ module JobTestHelpers
   end
 
   shared_examples 'a job with logging' do
-    let(:logger_double) { double('Logger', info: nil, warn: nil, error: nil, debug: nil) }
+    let(:logger_double) { double('Logger', info: nil, warn: nil, error: nil, debug: nil, level: Logger::INFO) }
 
     before do
       mock_powernode_worker_config
@@ -121,7 +137,9 @@ module JobTestHelpers
       job_instance = subject.new
       allow(job_instance).to receive(:execute).and_return({ success: true })
       
-      job_instance.perform
+      # Use test data from context if available, otherwise no arguments
+      test_args = respond_to?(:email_data) ? [email_data] : []
+      job_instance.perform(*test_args)
       
       expect(logger_double).to have_received(:info).with(match(/Starting #{subject.name}/))
       expect(logger_double).to have_received(:info).with(match(/Completed #{subject.name}/))
@@ -131,7 +149,9 @@ module JobTestHelpers
       job_instance = subject.new
       allow(job_instance).to receive(:execute).and_raise(StandardError.new('Test error'))
       
-      expect { job_instance.perform }.to raise_error(StandardError)
+      # Use test data from context if available, otherwise no arguments  
+      test_args = respond_to?(:email_data) ? [email_data] : []
+      expect { job_instance.perform(*test_args) }.to raise_error(StandardError)
       
       expect(logger_double).to have_received(:error).with(match(/Failed #{subject.name}/))
     end
@@ -151,10 +171,12 @@ module JobTestHelpers
         { success: true }
       end
       
-      logger_double = double('Logger', info: nil, warn: nil, error: nil)
+      logger_double = double('Logger', info: nil, warn: nil, error: nil, level: Logger::INFO)
       allow(PowernodeWorker.application).to receive(:logger).and_return(logger_double)
       
-      job_instance.perform
+      # Use test data from context if available, otherwise no arguments
+      test_args = respond_to?(:email_data) ? [email_data] : []
+      job_instance.perform(*test_args)
       
       expect(logger_double).to have_received(:info).with(match(/in 2.5s/))
     end

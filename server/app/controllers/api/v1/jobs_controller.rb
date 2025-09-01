@@ -4,7 +4,7 @@
 # This controller receives job requests from WorkerJobService and forwards them to the worker service
 class Api::V1::JobsController < ApplicationController
   skip_before_action :authenticate_request, only: [:create]
-  before_action :authenticate_service_request!, only: [:create]
+  before_action :authenticate_worker_token, only: [:create]
 
   def create
     job_class = params[:job_class]
@@ -32,35 +32,48 @@ class Api::V1::JobsController < ApplicationController
 
   private
 
-  def authenticate_service_request!
-    service_token = extract_service_token
-    return render_error('Unauthorized', status: :unauthorized) unless service_token
-
-    begin
-      payload = JWT.decode(service_token, Rails.application.config.jwt_secret_key, true, algorithm: 'HS256').first
-      unless payload['service'] == 'backend' && payload['type'] == 'service'
-        return render_error('Invalid service token', status: :unauthorized)
-      end
-    rescue JWT::DecodeError, JWT::ExpiredSignature
-      render_error('Invalid or expired service token', status: :unauthorized)
+  def authenticate_worker_token
+    token = request.headers['Authorization']&.split(' ')&.last
+    
+    if token.present? && token.starts_with?('swt_')
+      worker = Worker.find_by(token: token, status: 'active')
+      return if worker.present?
     end
-  end
-
-  def extract_service_token
-    auth_header = request.headers['Authorization']
-    return nil unless auth_header&.start_with?('Bearer ')
-    auth_header.split(' ', 2).last
+    
+    render_error('Invalid or expired worker token', status: :unauthorized)
   end
 
   def forward_to_worker_service(job_class, args, options)
-    # This is a pass-through controller that receives job requests from WorkerJobService
-    # In a real implementation, this would forward to the actual worker service
-    # For now, we'll return a success response to complete the flow
+    # Enqueue job directly to Redis for Sidekiq worker processing
+    require 'redis'
+    require 'json'
+    require 'securerandom'
+    
+    redis = Redis.new(url: ENV.fetch('REDIS_URL', 'redis://localhost:6379/1'))
+    
+    jid = SecureRandom.hex(12)
+    queue_name = options[:queue] || 'default'
+    
+    job_data = {
+      'class' => job_class,
+      'args' => args,
+      'queue' => queue_name,
+      'jid' => jid,
+      'created_at' => Time.current.to_f,
+      'retry' => options[:retry] || true
+    }
+    
+    # Push job to Sidekiq queue in Redis
+    redis.lpush("queue:#{queue_name}", job_data.to_json)
+    
     {
-      job_id: SecureRandom.uuid,
+      job_id: jid,
       job_class: job_class,
       enqueued_at: Time.current.iso8601,
       status: 'enqueued'
     }
+  rescue => e
+    Rails.logger.error "Failed to enqueue job to Redis: #{e.message}"
+    raise e
   end
 end

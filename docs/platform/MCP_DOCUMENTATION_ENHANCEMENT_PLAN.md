@@ -561,4 +561,4 @@ grep -r "def execute" worker/app/jobs/ | wc -l  # Execute method usage
 4. **Team Review**: Present enhanced documentation for team validation
 5. **Iterative Improvement**: Continuously refine patterns based on feedback
 
-**ALWAYS REFERENCE TODO.md FOR CURRENT TASKS AND PRIORITIES**
+**ALWAYS REFERENCE ../TODO.md FOR CURRENT TASKS AND PRIORITIES**

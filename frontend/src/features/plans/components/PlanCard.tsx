@@ -9,8 +9,13 @@ interface PlanCardProps {
   index?: number;
   featured?: boolean;
   className?: string;
-  onSelect?: (planId: string) => void;
+  onSelect?: (plan: Plan) => void;
   isSelected?: boolean;
+  isCurrentPlan?: boolean;
+  disabled?: boolean;
+  loading?: boolean;
+  upgradeContext?: 'upgrade' | 'downgrade';
+  customAction?: React.ReactNode;
   onBillingPeriodChange?: (period: 'monthly' | 'annually') => void;
 }
 
@@ -22,6 +27,11 @@ export const PlanCard: React.FC<PlanCardProps> = ({
   className = '',
   onSelect,
   isSelected = false,
+  isCurrentPlan = false,
+  disabled = false,
+  loading = false,
+  upgradeContext,
+  customAction,
   onBillingPeriodChange
 }) => {
   const [showAllFeatures, setShowAllFeatures] = useState(false);
@@ -29,18 +39,20 @@ export const PlanCard: React.FC<PlanCardProps> = ({
     if (!plan.price_cents) return 0;
     const basePrice = plan.price_cents / 100;
     
-    if (billingPeriod === 'annually') {
-      const yearlyPrice = basePrice * 12;
-      return plan.has_annual_discount && plan.annual_discount_percent
-        ? yearlyPrice * (1 - plan.annual_discount_percent / 100)
-        : yearlyPrice;
+    // Always show monthly equivalent for consistent display
+    if (plan.billing_cycle === 'yearly') {
+      return basePrice / 12; // Convert yearly price to monthly
+    }
+    
+    if (plan.billing_cycle === 'quarterly') {
+      return basePrice / 3; // Convert quarterly price to monthly
     }
     
     return basePrice;
   };
 
   const getPeriodText = () => {
-    return billingPeriod === 'annually' ? 'year' : 'month';
+    return 'month'; // Always show as monthly for consistency
   };
 
   const getFeaturesList = () => {
@@ -127,8 +139,8 @@ export const PlanCard: React.FC<PlanCardProps> = ({
   const limits = getLimitsDisplay();
 
   const handleCardClick = () => {
-    if (onSelect) {
-      onSelect(plan.id);
+    if (onSelect && !disabled && !loading) {
+      onSelect(plan);
     }
   };
 
@@ -145,12 +157,12 @@ export const PlanCard: React.FC<PlanCardProps> = ({
       className={`
         group relative flex flex-col w-full max-w-lg mx-auto cursor-pointer
         rounded-3xl p-8 transition-all duration-500 transform-gpu
-        min-h-[680px] bg-white overflow-visible
+        min-h-[680px] bg-theme-surface overflow-visible
         ${
           isSelected
             ? 'ring-4 ring-blue-500 ring-offset-4 ring-offset-blue-100/50 scale-110 shadow-2xl z-20 hover:scale-110 border-2 border-blue-400'
             : featured 
-              ? 'ring-1 ring-blue-200 ring-offset-1 shadow-2xl scale-100 hover:scale-105 hover:shadow-xl'
+              ? 'ring-1 ring-blue-200 ring-offset-1 shadow-2xl scale-100 hover:scale-105 hover:shadow-xl border-primary'
               : 'border border-gray-200 hover:scale-105 scale-100 shadow-lg hover:shadow-xl hover:border-gray-300'
         }
         ${className}
@@ -256,7 +268,9 @@ export const PlanCard: React.FC<PlanCardProps> = ({
                 opacity: '1'
               }}
             >
-              {displayPrice === 0 ? 'Free' : `$${Math.floor(displayPrice)}`}
+              {displayPrice === 0 ? 'Free' : 
+               plan.currency === 'EUR' ? `€${displayPrice.toFixed(2)}` :
+               `$${Math.floor(displayPrice)}`}
             </span>
             {displayPrice > 0 && (
               <button 
@@ -286,7 +300,7 @@ export const PlanCard: React.FC<PlanCardProps> = ({
           {plan.trial_days > 0 && displayPrice > 0 && (
             <div className="mt-1">
               <span className="inline-flex items-center bg-gradient-to-r from-purple-500 to-violet-500 text-white px-3 py-1 rounded-full text-xs font-bold shadow-md border border-purple-400/30">
-                <span className="mr-1">🎁</span>{plan.trial_days}-day trial
+                <span className="mr-1">🎁</span>{plan.trial_days}-day free trial
               </span>
             </div>
           )}
@@ -448,41 +462,56 @@ export const PlanCard: React.FC<PlanCardProps> = ({
 
       {/* CTA Section */}
       <div className="mt-auto">
-        
-        <Link 
-          to={`/register?plan=${plan.id}`}
-          className={`
-            group relative w-full text-center px-6 py-4 text-base font-bold rounded-xl 
-            transition-all duration-300 no-underline flex items-center justify-center 
-            transform hover:scale-105 active:scale-95 overflow-hidden
-            ${
-              isSelected
-                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-xl hover:shadow-2xl text-white'
-                : 'bg-white border-2 border-gray-300 hover:border-blue-400 hover:bg-blue-50 shadow-lg hover:shadow-xl'
-            }
-          `}
-          onClick={(e) => e.stopPropagation()}
-          style={{
-            color: isSelected ? '#ffffff' : '#111827'
-          }}
-        >
-          {/* Button shine effect */}
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
-          
-          <span className="relative font-bold tracking-wide">
-            {displayPrice === 0 ? 'Get Started Free' : 'Start Your Trial'}
-          </span>
-          
-          {/* Arrow icon */}
-          <svg 
-            className="relative w-5 h-5 ml-2 transition-transform duration-300 group-hover:translate-x-1" 
-            fill="none" 
-            viewBox="0 0 24 24" 
-            stroke="currentColor"
+        {customAction ? (
+          customAction
+        ) : isCurrentPlan ? (
+          <div className="w-full text-center px-6 py-4 bg-gray-100 text-gray-600 rounded-xl font-bold">
+            Current Plan
+          </div>
+        ) : (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleCardClick();
+            }}
+            disabled={disabled || loading}
+            className={`
+              group relative w-full text-center px-6 py-4 text-base font-bold rounded-xl 
+              transition-all duration-300 flex items-center justify-center 
+              transform hover:scale-105 active:scale-95 overflow-hidden
+              disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100
+              ${
+                isSelected
+                  ? 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-xl hover:shadow-2xl text-white'
+                  : 'bg-white border-2 border-gray-300 hover:border-blue-400 hover:bg-blue-50 shadow-lg hover:shadow-xl'
+              }
+            `}
+            style={{
+              color: isSelected ? '#ffffff' : '#111827'
+            }}
           >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-          </svg>
-        </Link>
+            {/* Button shine effect */}
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
+            
+            <span className="relative font-bold tracking-wide">
+              {loading ? 'Selecting...' : 
+               upgradeContext === 'upgrade' ? 'Upgrade to Plan' :
+               displayPrice === 0 ? 'Select Plan' : 'Select Plan'}
+            </span>
+            
+            {/* Arrow icon */}
+            {!loading && (
+              <svg 
+                className="relative w-5 h-5 ml-2 transition-transform duration-300 group-hover:translate-x-1" 
+                fill="none" 
+                viewBox="0 0 24 24" 
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+              </svg>
+            )}
+          </button>
+        )}
       </div>
     </div>
   );

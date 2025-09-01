@@ -6,6 +6,7 @@ import {
   PaymentGatewaysOverview, 
   TestConnectionResult
 } from '@/features/payment-gateways/services/paymentGatewaysApi';
+import { useNotification } from '@/shared/hooks/useNotification';
 import { GatewayConfigModal } from '@/features/payment-gateways/components/GatewayConfigModal';
 import Button from '@/shared/components/ui/Button';
 import { RootState } from '@/shared/services';
@@ -156,7 +157,6 @@ const GatewayCard: React.FC<GatewayCardProps> = ({
               disabled={testing || !isConfigured}
               variant="primary"
               size="sm"
-              loading={testing}
               className="flex items-center gap-2"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -187,6 +187,7 @@ const GatewayCard: React.FC<GatewayCardProps> = ({
 
 export const AdminSettingsPaymentGatewaysTabPage: React.FC = () => {
   const { user } = useSelector((state: RootState) => state.auth);
+  const { showNotification } = useNotification();
   const [overview, setOverview] = useState<PaymentGatewaysOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [testing, setTesting] = useState<'stripe' | 'paypal' | null>(null);
@@ -229,7 +230,9 @@ export const AdminSettingsPaymentGatewaysTabPage: React.FC = () => {
       setLoading(true);
       const data = await paymentGatewaysApi.getOverview();
       setOverview(data);
-    } catch (error) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load payment gateway overview';
+      showNotification(errorMessage, 'error');
     } finally {
       setLoading(false);
     }
@@ -238,12 +241,32 @@ export const AdminSettingsPaymentGatewaysTabPage: React.FC = () => {
   const handleTestConnection = async (gateway: 'stripe' | 'paypal') => {
     try {
       setTesting(gateway);
-      const result = await paymentGatewaysApi.testConnection(gateway);
+      showNotification(`Starting ${gateway} connection test...`, 'info');
+      
+      // Use the new async pattern with polling
+      const result = await paymentGatewaysApi.testConnectionAndWait(gateway);
       setTestResults(prev => ({ ...prev, [gateway]: result }));
+      
+      if (result.success) {
+        showNotification(`${gateway.charAt(0).toUpperCase() + gateway.slice(1)} connection test successful!`, 'success');
+      } else {
+        showNotification(`${gateway.charAt(0).toUpperCase() + gateway.slice(1)} connection test failed: ${result.error || 'Unknown error'}`, 'error');
+      }
       
       // Reload overview to get updated status
       await loadOverview();
-    } catch (error) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : `Failed to test ${gateway} connection`;
+      setTestResults(prev => ({ 
+        ...prev, 
+        [gateway]: { 
+          success: false, 
+          gateway, 
+          error: errorMessage,
+          tested_at: new Date().toISOString()
+        } 
+      }));
+      showNotification(`${gateway.charAt(0).toUpperCase() + gateway.slice(1)} connection test failed: ${errorMessage}`, 'error');
     } finally {
       setTesting(null);
     }

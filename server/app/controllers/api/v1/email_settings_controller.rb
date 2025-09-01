@@ -1,7 +1,8 @@
 # frozen_string_literal: true
 
 class Api::V1::EmailSettingsController < ApplicationController
-  before_action :authenticate_service_token
+  skip_before_action :authenticate_request
+  before_action :authenticate_worker_token
   
   # GET /api/v1/email_settings
   # Used by worker service to fetch SMTP configuration
@@ -157,15 +158,15 @@ class Api::V1::EmailSettingsController < ApplicationController
     value
   end
   
-  def authenticate_service_token
-    # Accept either service token or admin JWT
+  def authenticate_worker_token
+    # Accept either worker token or admin JWT
     token = request.headers['Authorization']&.split(' ')&.last
     
     if token.present?
-      # Check if it's a service token
+      # Check if it's a worker token
       if token.starts_with?('swt_')
-        service = Service.find_by(token: token, status: 'active')
-        return if service.present?
+        worker = Worker.find_by(token: token, status: 'active')
+        return if worker.present?
       end
       
       # Otherwise check JWT for admin user

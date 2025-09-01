@@ -1408,4 +1408,4 @@ grep -r "className=.*input" src/features/admin/ | grep -E "bg-theme-surface.*tex
 - Form inputs meet contrast requirements
 - Accessibility features properly implemented
 
-**ALWAYS REFERENCE TODO.md FOR CURRENT TASKS AND PRIORITIES**
+**ALWAYS REFERENCE ../TODO.md FOR CURRENT TASKS AND PRIORITIES**

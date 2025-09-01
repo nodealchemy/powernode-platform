@@ -5,7 +5,6 @@ class Api::V1::Auth::EmailVerificationsController < ApplicationController
   
   skip_before_action :authenticate_request, only: [:verify]
   before_action :authenticate_request, only: [:resend]
-  after_action :increment_rate_limit_count, only: [:resend], if: -> { response.status >= 400 }
 
   # POST /api/v1/auth/verify-email
   def verify
@@ -125,11 +124,4 @@ class Api::V1::Auth::EmailVerificationsController < ApplicationController
     action_name == 'resend'
   end
 
-  def rate_limit_max_attempts
-    5 # Allow 5 resend attempts per IP per hour
-  end
-
-  def rate_limit_window_seconds
-    3600 # 1 hour
-  end
 end

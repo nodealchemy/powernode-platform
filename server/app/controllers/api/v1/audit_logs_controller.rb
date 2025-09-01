@@ -5,7 +5,7 @@ class Api::V1::AuditLogsController < ApplicationController
   before_action -> { require_permission('audit_logs.read') }, only: [:index, :show, :stats] 
   before_action -> { require_permission('audit_logs.export') }, only: [:export]
   before_action -> { require_permission('audit_logs.delete') }, only: [:destroy, :bulk_delete]
-  before_action :authenticate_service_or_admin, only: [:create]
+  before_action :authenticate_worker_or_admin, only: [:create]
 
   # GET /api/v1/audit_logs
   def index
@@ -232,17 +232,26 @@ class Api::V1::AuditLogsController < ApplicationController
     end
   end
   
-  def authenticate_service_or_admin
-    # Allow admin users or valid service tokens
+  def authenticate_worker_or_admin
+    # Allow admin users or valid worker tokens
     return if current_user&.has_permission?('admin.access')
     
-    # Check for service token authentication
+    # Check for worker token authentication
     auth_header = request.headers['Authorization']
     return render_unauthorized('Missing authorization header') unless auth_header
     
     token = auth_header.sub(/^Bearer /, '')
     return render_unauthorized('Missing token') if token.blank?
     
+    # Check if it's a worker token (swt_ prefix)
+    if token.starts_with?('swt_')
+      worker = Worker.find_by(token: token, status: 'active')
+      return if worker.present?
+      render_unauthorized('Invalid worker token')
+      return
+    end
+    
+    # Otherwise try JWT decode for service tokens
     begin
       payload = JWT.decode(token, Rails.application.config.jwt_secret_key, true, algorithm: 'HS256').first
       

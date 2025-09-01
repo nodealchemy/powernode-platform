@@ -28,11 +28,12 @@ class BaseJob
     @started_at = Time.current
     logger.info "Starting #{self.class.name} with args: #{args.inspect}"
     
-    execute(*args)
+    result = execute(*args)
     
     @finished_at = Time.current
     duration = @finished_at - @started_at
     logger.info "Completed #{self.class.name} in #{duration.round(2)}s"
+    result
   rescue StandardError => e
     @finished_at = Time.current
     duration = @finished_at - @started_at
@@ -82,6 +83,35 @@ class BaseJob
     
     if missing_keys.any?
       raise ArgumentError, "Missing required parameters: #{missing_keys.join(', ')}"
+    end
+  end
+
+  # Standardized logging methods (consistent with BaseWorkerService)
+  def log_info(message, **metadata)
+    logger.info format_log_message(message, **metadata)
+  end
+
+  def log_error(message, exception = nil, **metadata)
+    error_details = {
+      message: message,
+      exception: exception&.class&.name,
+      exception_message: exception&.message,
+      backtrace: exception&.backtrace&.first(5)
+    }.merge(metadata).compact
+
+    logger.error format_log_message(message, **error_details)
+  end
+
+  def log_warn(message, **metadata)
+    logger.warn format_log_message(message, **metadata)
+  end
+
+  # Format log messages with consistent structure
+  def format_log_message(message, **metadata)
+    if metadata.any?
+      "#{message} | #{metadata.map { |k, v| "#{k}=#{v}" }.join(' ')}"
+    else
+      message
     end
   end
 

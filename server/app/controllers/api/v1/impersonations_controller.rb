@@ -2,10 +2,10 @@
 
 class Api::V1::ImpersonationsController < ApplicationController
   skip_before_action :authenticate_request, only: [:validate_token]
-  before_action :require_permission('admin.access'), except: [:validate_token]
-  before_action :require_permission, only: [:create, :destroy]
+  before_action :require_impersonation_permission, only: [:create]
+  # destroy (stop impersonation) should be available to any authenticated user
+  before_action :require_admin_access, only: [:index, :history, :impersonatable_users, :cleanup_expired]
   before_action :find_target_user, only: [:create]
-  before_action :rate_limit_impersonation, only: [:create]
 
   # POST /api/v1/impersonation
   def create
@@ -40,6 +40,14 @@ class Api::V1::ImpersonationsController < ApplicationController
   def destroy
     session_token = params[:session_token]
     return render_bad_request('Session token required') unless session_token
+
+    # Check if we have a valid current user
+    unless current_user
+      return render json: {
+        success: true,
+        message: 'No active session to end'
+      }
+    end
 
     begin
       Rails.logger.info "Attempting to end impersonation session with token: #{session_token[0..10]}..." if session_token
@@ -145,7 +153,22 @@ class Api::V1::ImpersonationsController < ApplicationController
     begin
       # Decode the token to get the impersonator user
       payload = JwtService.decode(token)
-      
+    rescue JWT::DecodeError, JWT::ExpiredSignature => e
+      return render json: {
+        success: true,
+        valid: false,
+        message: 'Invalid or expired token'
+      }
+    rescue => e
+      Rails.logger.error "Token validation error: #{e.message}"
+      return render json: {
+        success: true,
+        valid: false,
+        message: 'Token validation failed'
+      }
+    end
+    
+    begin
       unless payload[:type] == 'impersonation'
         return render json: {
           success: true,
@@ -211,9 +234,37 @@ class Api::V1::ImpersonationsController < ApplicationController
     end
   end
 
+  # POST /api/v1/impersonation/cleanup_expired (for worker service)
+  def cleanup_expired
+    skip_authorization # Service-to-service call
+    
+    begin
+      cleaned_count = ImpersonationSession.cleanup_expired_sessions
+      
+      render json: {
+        success: true,
+        cleaned_up_count: cleaned_count,
+        message: "Successfully cleaned up #{cleaned_count} expired sessions"
+      }
+    rescue StandardError => e
+      Rails.logger.error "Error cleaning up expired impersonation sessions: #{e.message}"
+      
+      render json: {
+        success: false,
+        error: "Failed to cleanup expired sessions: #{e.message}"
+      }, status: :internal_server_error
+    end
+  end
+
   private
 
-  def require_permission
+  def require_admin_access
+    unless current_user.has_permission?('admin.access')
+      render_forbidden('You do not have permission to access this resource')
+    end
+  end
+
+  def require_impersonation_permission
     unless current_user.has_permission?('users.impersonate') || current_user.has_permission?('account.manage') || current_user.has_permission?('admin.access')
       render_forbidden('You do not have permission to manage impersonation')
     end
@@ -250,7 +301,8 @@ class Api::V1::ImpersonationsController < ApplicationController
       id: user.id,
       email: user.email,
       full_name: user.full_name,
-      role: user.role,
+      roles: user.role_names,
+      permissions: user.permission_names,
       status: user.status,
       last_login_at: user.last_login_at&.iso8601
     }
@@ -286,28 +338,6 @@ class Api::V1::ImpersonationsController < ApplicationController
     }
   end
 
-  # POST /api/v1/impersonation/cleanup_expired (for worker service)
-  def cleanup_expired
-    skip_authorization # Service-to-service call
-    
-    begin
-      cleaned_count = ImpersonationSession.cleanup_expired_sessions
-      
-      render json: {
-        success: true,
-        cleaned_up_count: cleaned_count,
-        message: "Successfully cleaned up #{cleaned_count} expired sessions"
-      }
-    rescue StandardError => e
-      Rails.logger.error "Error cleaning up expired impersonation sessions: #{e.message}"
-      
-      render json: {
-        success: false,
-        error: "Failed to cleanup expired sessions: #{e.message}"
-      }, status: :internal_server_error
-    end
-  end
-
   def render_bad_request(message)
     render json: {
       success: false,
@@ -315,20 +345,4 @@ class Api::V1::ImpersonationsController < ApplicationController
     }, status: :bad_request
   end
 
-  def rate_limit_impersonation
-    # Rate limiting: Use SystemSettingsService for configurable limits
-    max_attempts = SystemSettingsService.rate_limit_setting('impersonation_attempts_per_hour')
-    cache_key = "impersonation_attempts:#{current_user.id}"
-    attempts = Rails.cache.read(cache_key) || 0
-    
-    if attempts >= max_attempts
-      render json: {
-        success: false,
-        error: 'Too many impersonation attempts. Please try again later.'
-      }, status: :too_many_requests
-      return
-    end
-    
-    Rails.cache.write(cache_key, attempts + 1, expires_in: 1.hour)
-  end
 end

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_08_29_031744) do
+ActiveRecord::Schema[8.0].define(version: 2025_08_30_014905) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -472,6 +472,19 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_29_031744) do
     t.datetime "updated_at", null: false
     t.index ["provider", "key_name"], name: "index_gateway_configurations_on_provider_and_key_name", unique: true
     t.index ["provider"], name: "index_gateway_configurations_on_provider"
+  end
+
+  create_table "gateway_connection_jobs", id: :string, force: :cascade do |t|
+    t.string "gateway", null: false
+    t.string "status", default: "pending", null: false
+    t.json "config_data"
+    t.json "result"
+    t.datetime "completed_at", precision: nil
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["created_at"], name: "index_gateway_connection_jobs_on_created_at"
+    t.index ["gateway"], name: "index_gateway_connection_jobs_on_gateway"
+    t.index ["status"], name: "index_gateway_connection_jobs_on_status"
   end
 
   create_table "impersonation_sessions", id: { type: :string, limit: 36, default: -> { "gen_random_uuid()" } }, force: :cascade do |t|

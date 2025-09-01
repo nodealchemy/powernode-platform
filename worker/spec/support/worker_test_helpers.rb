@@ -18,6 +18,8 @@ module WorkerTestHelpers
     allow(config_double).to receive(:worker_token).and_return(test_config[:worker_token])
     allow(config_double).to receive(:api_timeout).and_return(test_config[:api_timeout])
     allow(config_double).to receive(:max_retry_attempts).and_return(test_config[:max_retry_attempts])
+    allow(config_double).to receive(:worker_concurrency).and_return(5)
+    allow(config_double).to receive(:worker_queues).and_return(['default', 'email', 'services'])
     
     app_double = double('Application')
     allow(app_double).to receive(:config).and_return(config_double)
@@ -154,9 +156,9 @@ module WorkerTestHelpers
 
   # Logging helpers
   def expect_log_message(level, message_pattern)
-    expect(PowernodeWorker.application.logger).to have_received(level) do |&block|
-      expect(block.call).to match(message_pattern)
-    end
+    expect(PowernodeWorker.application.logger).to have_received(level).with(
+      a_string_matching(message_pattern)
+    )
   end
 
   def mock_logger
@@ -165,6 +167,7 @@ module WorkerTestHelpers
     allow(logger_double).to receive(:warn)
     allow(logger_double).to receive(:error)
     allow(logger_double).to receive(:debug)
+    allow(logger_double).to receive(:level).and_return(Logger::INFO)
     allow(PowernodeWorker.application).to receive(:logger).and_return(logger_double)
     logger_double
   end

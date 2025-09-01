@@ -23,15 +23,13 @@ RSpec.describe 'Job Queue Management', type: :integration do
         Notifications::EmailDeliveryJob.perform_async(sample_email_data)
         Services::HealthCheckJob.perform_async('production')
         
-        # Verify queue assignment
-        email_jobs = Sidekiq::Queue.new('email').to_a
-        services_jobs = Sidekiq::Queue.new('services').to_a
+        # In fake mode, check the job classes directly
+        expect(Notifications::EmailDeliveryJob.jobs.size).to eq(1)
+        expect(Services::HealthCheckJob.jobs.size).to eq(1)
         
-        expect(email_jobs.size).to eq(1)
-        expect(services_jobs.size).to eq(1)
-        
-        expect(email_jobs.first['class']).to eq('Notifications::EmailDeliveryJob')
-        expect(services_jobs.first['class']).to eq('Services::HealthCheckJob')
+        # Verify queue configuration via job options
+        expect(Notifications::EmailDeliveryJob.sidekiq_options['queue']).to eq('email')
+        expect(Services::HealthCheckJob.sidekiq_options['queue']).to eq('services')
       end
     end
 
@@ -46,8 +44,9 @@ RSpec.describe 'Job Queue Management', type: :integration do
       with_sidekiq_testing_mode(:fake) do
         test_job_class.perform_async('test_arg')
         
-        default_jobs = Sidekiq::Queue.new('default').to_a
-        expect(default_jobs.size).to eq(1)
+        # In fake mode, check job class directly
+        expect(test_job_class.jobs.size).to eq(1)
+        expect(test_job_class.sidekiq_options['queue']).to eq('default')
       end
     end
 
@@ -63,39 +62,45 @@ RSpec.describe 'Job Queue Management', type: :integration do
           })
         end
         
-        queue = Sidekiq::Queue.new('email')
-        expect(queue.size).to eq(5)
+        # In fake mode, check job class directly
+        expect(Notifications::EmailDeliveryJob.jobs.size).to eq(5)
         
-        # Verify FIFO ordering (first enqueued should be first in queue)
-        first_job = queue.first
+        # Verify FIFO ordering (first enqueued should be first in jobs array)
+        first_job = Notifications::EmailDeliveryJob.jobs.first
         expect(first_job['args'][0]['to']).to eq('test0@example.com')
       end
     end
   end
 
-  describe 'Job Retry Mechanisms' do
-    let(:failing_job_class) do
-      Class.new(BaseJob) do
-        sidekiq_options retry: 3, queue: 'test_retries'
-        
-        @@attempt_count = 0
-        
-        def execute(*args)
-          @@attempt_count += 1
-          
-          # Fail first 2 attempts, succeed on 3rd
-          if @@attempt_count <= 2
-            raise StandardError.new("Attempt #{@@attempt_count} failed")
-          end
-          
-          { success: true, attempt: @@attempt_count }
-        end
-        
-        def self.reset_attempts
-          @@attempt_count = 0
-        end
+  # Define test job class outside of describe block to avoid anonymous class issues
+  class TestRetryJob < BaseJob
+    sidekiq_options retry: 3, queue: 'test_retries'
+    
+    @attempt_count = 0
+    
+    def execute(*args)
+      self.class.instance_variable_set(:@attempt_count, self.class.instance_variable_get(:@attempt_count) + 1)
+      current_count = self.class.instance_variable_get(:@attempt_count)
+      
+      # Fail first 2 attempts, succeed on 3rd
+      if current_count <= 2
+        raise StandardError.new("Attempt #{current_count} failed")
       end
+      
+      { success: true, attempt: current_count }
     end
+    
+    def self.reset_attempts
+      @attempt_count = 0
+    end
+    
+    def self.attempt_count
+      @attempt_count
+    end
+  end
+
+  describe 'Job Retry Mechanisms' do
+    let(:failing_job_class) { TestRetryJob }
 
     before do
       failing_job_class.reset_attempts
@@ -157,12 +162,12 @@ RSpec.describe 'Job Queue Management', type: :integration do
         
         always_failing_job.perform_async('doomed')
         
-        # Simulate processing and exhausting retries
-        job = Sidekiq::Queue.new('test_dead').first
+        # In fake mode, verify job was enqueued
+        expect(always_failing_job.jobs.size).to eq(1)
+        job = always_failing_job.jobs.first
         expect(job).to be_present
         
-        # In real Sidekiq, this would eventually move to dead set
-        # We can verify the retry configuration is correct
+        # Verify the retry configuration is correct
         expect(always_failing_job.sidekiq_options['retry']).to eq(1)
         expect(always_failing_job.sidekiq_options['dead']).to be true
       end
@@ -176,25 +181,25 @@ RSpec.describe 'Job Queue Management', type: :integration do
         
         Notifications::EmailDeliveryJob.perform_at(future_time, sample_email_data)
         
-        # Check scheduled set
-        scheduled_jobs = Sidekiq::ScheduledSet.new.to_a
-        expect(scheduled_jobs.size).to eq(1)
+        # In fake mode, check if job was scheduled by examining the job queue
+        # Sidekiq fake mode stores scheduled jobs differently
+        expect(Notifications::EmailDeliveryJob.jobs.size).to eq(1)
         
-        scheduled_job = scheduled_jobs.first
-        expect(scheduled_job.at.to_i).to eq(future_time.to_i)
-        expect(scheduled_job.klass).to eq('Notifications::EmailDeliveryJob')
+        job = Notifications::EmailDeliveryJob.jobs.first
+        expect(job['at']).to be_within(1).of(future_time.to_f)
+        expect(job['args']).to eq([sample_email_data])
       end
     end
 
     it 'handles job scheduling with delays' do
       with_sidekiq_testing_mode(:fake) do
-        Services::HealthCheckJob.perform_in(30.minutes, 'production', nil, job_id: 'scheduled-health-check')
+        Services::HealthCheckJob.perform_in(30.minutes, 'production')
         
-        scheduled_jobs = Sidekiq::ScheduledSet.new.to_a
-        expect(scheduled_jobs.size).to eq(1)
+        # In fake mode, check scheduled job via job class
+        expect(Services::HealthCheckJob.jobs.size).to eq(1)
         
-        scheduled_job = scheduled_jobs.first
-        expect(scheduled_job.at).to be_within(1.second).of(30.minutes.from_now)
+        job = Services::HealthCheckJob.jobs.first
+        expect(job['at']).to be_within(1).of(30.minutes.from_now.to_f)
       end
     end
 
@@ -204,14 +209,17 @@ RSpec.describe 'Job Queue Management', type: :integration do
         past_time = 1.second.ago
         Notifications::EmailDeliveryJob.perform_at(past_time, sample_email_data)
         
-        # Simulate time passing and scheduled job processing
-        Sidekiq::Cron::Job.new(name: 'test', cron: '* * * * *') if defined?(Sidekiq::Cron)
+        # In fake mode, verify the job was scheduled
+        expect(Notifications::EmailDeliveryJob.jobs.size).to eq(1)
+        job = Notifications::EmailDeliveryJob.jobs.first
         
-        # In a real scenario, the scheduled job would move to the regular queue
-        # We can verify it was scheduled correctly
-        scheduled_jobs = Sidekiq::ScheduledSet.new.to_a
-        expect(scheduled_jobs.size).to eq(1)
-        expect(scheduled_jobs.first.at).to be < Time.current
+        # In fake mode, scheduled jobs may not always have 'at' field populated
+        if job['at'].present?
+          expect(job['at']).to be < Time.current.to_f
+        else
+          # Verify job was at least enqueued with correct arguments
+          expect(job['args']).to eq([sample_email_data])
+        end
       end
     end
   end
@@ -227,32 +235,23 @@ RSpec.describe 'Job Queue Management', type: :integration do
     end
 
     it 'provides queue statistics and visibility' do
-      stats = Sidekiq::Stats.new
+      # In fake mode, check job counts directly from job classes
+      expect(Notifications::EmailDeliveryJob.jobs.size).to eq(3)
+      expect(Services::HealthCheckJob.jobs.size).to eq(3) # 2 immediate + 1 scheduled
       
-      expect(stats.enqueued).to eq(5) # 3 email + 2 health check jobs
-      expect(stats.scheduled).to eq(1) # 1 scheduled health check
-      
-      # Queue-specific stats
-      email_queue = Sidekiq::Queue.new('email')
-      services_queue = Sidekiq::Queue.new('services')
-      
-      expect(email_queue.size).to eq(3)
-      expect(services_queue.size).to eq(2)
+      # Verify scheduled jobs exist - in fake mode, scheduled jobs are included in .jobs
+      scheduled_jobs = Services::HealthCheckJob.jobs.select { |job| job['at'].present? }
+      expect(scheduled_jobs.size).to eq(1)
     end
 
     it 'allows queue management operations' do
-      email_queue = Sidekiq::Queue.new('email')
-      initial_size = email_queue.size
+      initial_size = Notifications::EmailDeliveryJob.jobs.size
       
-      # Remove specific job from queue
-      email_queue.each do |job|
-        if job['args'][0]['to'] == 'test1@example.com'
-          job.delete
-          break
-        end
-      end
+      # In fake mode, simulate removing a job by finding and removing from jobs array
+      target_job = Notifications::EmailDeliveryJob.jobs.find { |job| job['args'][0]['to'] == 'test1@example.com' }
+      Notifications::EmailDeliveryJob.jobs.delete(target_job) if target_job
       
-      expect(email_queue.size).to eq(initial_size - 1)
+      expect(Notifications::EmailDeliveryJob.jobs.size).to eq(initial_size - 1)
     end
 
     it 'tracks job processing metrics' do
@@ -298,7 +297,7 @@ RSpec.describe 'Job Queue Management', type: :integration do
         enqueue_time = Time.current - start_time
         
         expect(enqueue_time).to be < 1.0 # Should enqueue 100 jobs in under 1 second
-        expect(Sidekiq::Queue.new('email').size).to eq(100)
+        expect(Notifications::EmailDeliveryJob.jobs.size).to eq(100)
       end
     end
 
@@ -313,19 +312,18 @@ RSpec.describe 'Job Queue Management', type: :integration do
         # Enqueue jobs in batches
         5.times do
           10.times do
-            job_class, queue, args = job_data.sample
+            job_class, _queue, args = job_data.sample
             job_class.perform_async(*args)
           end
         end
         
-        # Verify queues maintained their organization
-        total_jobs = Sidekiq::Stats.new.enqueued
-        expect(total_jobs).to eq(50)
-        
         # Check queue distribution
-        email_queue_size = Sidekiq::Queue.new('email').size
-        services_queue_size = Sidekiq::Queue.new('services').size
+        email_queue_size = Notifications::EmailDeliveryJob.jobs.size
+        services_queue_size = Services::HealthCheckJob.jobs.size
         
+        # Verify queues maintained their organization - in fake mode, count jobs directly
+        total_jobs = email_queue_size + services_queue_size
+        expect(total_jobs).to eq(50)
         expect(email_queue_size + services_queue_size).to eq(50)
       end
     end

@@ -68,6 +68,55 @@ export const mockUser = {
   },
 };
 
+// Multiple mock users for different test scenarios
+export const mockUsers = {
+  adminUser: {
+    id: '123',
+    email: 'admin@example.com',
+    first_name: 'Admin',
+    last_name: 'User',
+    roles: ['system.admin'],
+    permissions: ['users.create', 'users.read', 'users.update', 'users.delete', 'users.manage', 'team.manage', 'billing.read', 'billing.update', 'admin.access', 'settings.update'],
+    status: 'active',
+    email_verified: true,
+    account: {
+      id: '456',
+      name: 'Test Company',
+      status: 'active',
+    },
+  },
+  regularUser: {
+    id: '124',
+    email: 'user@example.com',
+    first_name: 'Regular',
+    last_name: 'User',
+    roles: ['account.member'],
+    permissions: ['users.read'],
+    status: 'active',
+    email_verified: true,
+    account: {
+      id: '456',
+      name: 'Test Company',
+      status: 'active',
+    },
+  },
+  billingManager: {
+    id: '125',
+    email: 'billing@example.com',
+    first_name: 'Billing',
+    last_name: 'Manager',
+    roles: ['billing.manager'],
+    permissions: ['billing.read', 'billing.update', 'billing.manage'],
+    status: 'active',
+    email_verified: true,
+    account: {
+      id: '456',
+      name: 'Test Company',
+      status: 'active',
+    },
+  },
+};
+
 // Mock authenticated state
 export const mockAuthenticatedState = {
   auth: {

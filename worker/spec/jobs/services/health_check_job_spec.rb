@@ -51,7 +51,7 @@ RSpec.describe Services::HealthCheckJob, type: :job do
 
     context 'with successful health check' do
       it 'performs health check via API' do
-        job_instance.execute(environment, specific_service, job_id: job_id)
+        job_instance.execute(environment, specific_service, job_id)
         
         expect(api_client_double).to have_received(:post).with(
           '/api/v1/internal/services/health_check',
@@ -64,7 +64,7 @@ RSpec.describe Services::HealthCheckJob, type: :job do
 
       it 'returns comprehensive health check results' do
         freeze_time_at(Time.current) do
-          result = job_instance.execute(environment, specific_service, job_id: job_id)
+          result = job_instance.execute(environment, specific_service, job_id)
           
           expect(result).to include(
             job_id: job_id,
@@ -109,7 +109,7 @@ RSpec.describe Services::HealthCheckJob, type: :job do
       it 'logs health check progress' do
         logger_double = mock_logger
         
-        job_instance.execute(environment, specific_service, job_id: job_id)
+        job_instance.execute(environment, specific_service, job_id)
         
         expect(logger_double).to have_received(:info).with(
           match(/Starting health checks.*#{job_id}.*#{environment}.*#{specific_service}/)
@@ -121,7 +121,7 @@ RSpec.describe Services::HealthCheckJob, type: :job do
       end
 
       it 'updates job status when job_id provided' do
-        result = job_instance.execute(environment, specific_service, job_id: job_id)
+        result = job_instance.execute(environment, specific_service, job_id)
         
         expect(api_client_double).to have_received(:patch).with(
           "/api/v1/internal/jobs/#{job_id}",
@@ -181,7 +181,7 @@ RSpec.describe Services::HealthCheckJob, type: :job do
         logger_double = mock_logger
         
         expect {
-          job_instance.execute(environment, specific_service, job_id: job_id)
+          job_instance.execute(environment, specific_service, job_id)
         }.to raise_error(BackendApiClient::ApiError)
         
         expect(logger_double).to have_received(:error).with(
@@ -191,7 +191,7 @@ RSpec.describe Services::HealthCheckJob, type: :job do
 
       it 'updates job status as failed' do
         begin
-          job_instance.execute(environment, specific_service, job_id: job_id)
+          job_instance.execute(environment, specific_service, job_id)
         rescue BackendApiClient::ApiError
           # Expected
         end
@@ -200,8 +200,11 @@ RSpec.describe Services::HealthCheckJob, type: :job do
           "/api/v1/internal/jobs/#{job_id}",
           hash_including(
             status: 'failed',
-            error: 'Service unavailable',
-            message: 'Health check failed'
+            result: hash_including(
+              error: 'Service unavailable',
+              message: 'Health check failed',
+              status: 'failed'
+            )
           )
         )
       end
@@ -220,7 +223,7 @@ RSpec.describe Services::HealthCheckJob, type: :job do
         end
         
         begin
-          job_instance.execute(job_id: job_id)
+          job_instance.execute(nil, nil, job_id)
         rescue BackendApiClient::ApiError
           # Expected
         end
@@ -228,7 +231,10 @@ RSpec.describe Services::HealthCheckJob, type: :job do
         expect(api_client_double).to have_received(:patch).with(
           "/api/v1/internal/jobs/#{job_id}",
           hash_including(
-            services: { 'redis' => { 'status' => 'healthy' } }
+            status: 'completed',
+            result: hash_including(
+              services: { 'redis' => { 'status' => 'healthy' } }
+            )
           )
         )
       end
@@ -243,7 +249,7 @@ RSpec.describe Services::HealthCheckJob, type: :job do
       it 'logs warning but continues execution' do
         logger_double = mock_logger
         
-        result = job_instance.execute(job_id: job_id)
+        result = job_instance.execute(nil, nil, job_id)
         
         expect(result[:status]).to eq('completed')
         expect(logger_double).to have_received(:warn).with('Failed to update job status: Update failed')
@@ -347,11 +353,11 @@ RSpec.describe Services::HealthCheckJob, type: :job do
   describe 'integration with Sidekiq' do
     it 'can be enqueued with parameters' do
       with_sidekiq_testing_mode(:fake) do
-        described_class.perform_async(environment, specific_service, job_id: job_id)
+        described_class.perform_async(environment, specific_service, job_id)
         
         expect(described_class.jobs.size).to eq(1)
         job_args = described_class.jobs.first['args']
-        expect(job_args).to eq([environment, specific_service, { 'job_id' => job_id }])
+        expect(job_args).to eq([environment, specific_service, job_id])
       end
     end
 
@@ -365,16 +371,34 @@ RSpec.describe Services::HealthCheckJob, type: :job do
   end
 
   describe 'performance considerations' do
-    it 'completes health check within reasonable time' do
+    let(:health_check_response) do
+      {
+        'services' => {
+          'redis' => { 'status' => 'healthy', 'response_time' => 5 },
+          'database' => { 'status' => 'healthy', 'response_time' => 12 }
+        }
+      }
+    end
+
+    before do
       allow(api_client_double).to receive(:post).and_return(health_check_response)
+      allow(api_client_double).to receive(:patch).and_return({ 'success' => true })
+    end
+
+    it 'completes health check within reasonable time' do
+      start_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
       
-      performance = expect_job_performance_within(described_class, 5.0, environment)
+      result = job_instance.execute(environment)
       
-      expect(performance[:result][:duration]).to be < 1.0 # Most time should be mocked
+      end_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      duration = end_time - start_time
+      
+      expect(duration).to be < 5.0 # Should complete quickly due to mocking
+      expect(result[:duration]).to be < 1.0 # Most time should be mocked
     end
 
     it 'tracks execution duration accurately' do
-      # Mock a slower health check
+      # Override with slower health check
       allow(api_client_double).to receive(:post) do
         sleep(0.1) # Simulate API delay
         health_check_response

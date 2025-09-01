@@ -41,7 +41,8 @@ class Api::V1::RolesController < ApplicationController
   def create
     # Only allow custom roles to be created (not system roles)
     @role = Role.new(role_params)
-    @role.system_role = false
+    @role.role_type = 'user' # Set as user role (non-system role)
+    @role.is_system = false
     
     if @role.save
       # Assign permissions to the role
@@ -132,8 +133,8 @@ class Api::V1::RolesController < ApplicationController
   # GET /api/v1/roles/assignable
   # Returns only roles that the current user has permission to assign
   def assignable
-    # Start with all non-system roles
-    assignable_roles = Role.where(system_role: false).includes(:permissions)
+    # Start with all non-system roles (role_type != 'system')
+    assignable_roles = Role.where.not(role_type: 'system').includes(:permissions)
     
     # System admins and regular admins can assign all roles
     unless current_user.has_permission?('system.admin') || current_user.has_permission?('admin.access')

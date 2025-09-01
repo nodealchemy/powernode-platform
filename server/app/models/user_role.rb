@@ -3,6 +3,7 @@
 class UserRole < ApplicationRecord
   # Table configuration
   self.table_name = 'user_roles'
+  self.primary_key = [:user_id, :role_id]
   
   # Associations
   belongs_to :user

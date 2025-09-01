@@ -30,31 +30,30 @@ export const UserRolesModal: React.FC<UserRolesModalProps> = ({
     toRemove: string[];
   }>({ toAdd: [], toRemove: [] });
 
-  const loadUserRoles = useCallback(() => {
-    if (user) {
-      setUserRoles([...user.roles]);
-    }
-  }, [user]);
-
-  const loadAvailableRoles = useCallback(async () => {
-    try {
-      setLoading(true);
-      const roles = await usersApi.getAvailableRoles();
-      setAvailableRoles(roles);
-    } catch (error) {
-      showNotification('Failed to load available roles', 'error');
-    } finally {
-      setLoading(false);
-    }
-  }, [showNotification]);
-
   // Load user roles and available roles
   useEffect(() => {
-    if (user && isOpen) {
-      loadUserRoles();
-      loadAvailableRoles();
-    }
-  }, [user, isOpen, loadUserRoles, loadAvailableRoles]);
+    if (!user || !isOpen) return;
+
+    // Reset state when opening the modal
+    setUserRoles([...user.roles]);
+    setPendingChanges({ toAdd: [], toRemove: [] });
+    setLoading(true);
+
+    // Load available roles
+    const loadAvailableRoles = async () => {
+      try {
+        const roles = await usersApi.getAvailableRoles();
+        setAvailableRoles(roles || []);
+      } catch (error) {
+        showNotification('Failed to load available roles', 'error');
+        setAvailableRoles([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadAvailableRoles();
+  }, [user, isOpen]); // Removed showNotification as it should be stable
 
   const toggleRole = (roleValue: string) => {
     const role = availableRoles.find(r => r.value === roleValue);

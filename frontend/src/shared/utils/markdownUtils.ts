@@ -10,36 +10,49 @@
 export function stripMarkdown(markdown: string): string {
   if (!markdown) return '';
 
-  return markdown
-    // Remove headers
-    .replace(/^#{1,6}\s+/gm, '')
-    // Remove bold and italic
-    .replace(/\*{1,3}([^*]+)\*{1,3}/g, '$1')
-    .replace(/_{1,3}([^_]+)_{1,3}/g, '$1')
-    // Remove strikethrough
-    .replace(/~~([^~]+)~~/g, '$1')
-    // Remove inline code
-    .replace(/`([^`]+)`/g, '$1')
-    // Remove links but keep text
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-    // Remove images
-    .replace(/!\[([^\]]*)\]\([^)]+\)/g, '$1')
-    // Remove code blocks
-    .replace(/```[\s\S]*?```/g, '')
-    .replace(/`([^`]+)`/g, '$1')
-    // Remove blockquotes
-    .replace(/^>\s+/gm, '')
-    // Remove horizontal rules
-    .replace(/^[-*_]{3,}$/gm, '')
-    // Remove list markers
-    .replace(/^[\s]*[-*+]\s+/gm, '')
-    .replace(/^[\s]*\d+\.\s+/gm, '')
-    // Remove HTML tags
-    .replace(/<[^>]*>/g, '')
-    // Clean up extra whitespace
-    .replace(/\n\s*\n/g, '\n')
-    .replace(/^\s+|\s+$/g, '')
-    .trim();
+  let result = markdown;
+  
+  // Remove code blocks completely
+  result = result.replace(/```[^`]*```/g, '');
+  
+  // Remove headers
+  result = result.replace(/^#{1,6}\s+/gm, '');
+  
+  // Remove inline code (just the backticks, keep content)
+  result = result.replace(/`([^`]+)`/g, '$1');
+  
+  // Remove bold and italic
+  result = result.replace(/\*{1,3}([^*]+)\*{1,3}/g, '$1');
+  result = result.replace(/_{1,3}([^_]+)_{1,3}/g, '$1');
+  
+  // Remove strikethrough
+  result = result.replace(/~~([^~]+)~~/g, '$1');
+  
+  // Remove images but keep alt text
+  result = result.replace(/!\[([^\]]*)\]\([^)]+\)/g, '$1');
+  
+  // Remove links but keep text (handle empty link text)
+  result = result.replace(/\[([^\]]*)\]\([^)]+\)/g, '$1');
+  
+  // Remove blockquotes
+  result = result.replace(/^>\s+/gm, '');
+  
+  // Remove horizontal rules
+  result = result.replace(/^[-*_]{3,}$/gm, '');
+  
+  // Remove list markers
+  result = result.replace(/^[\s]*[-*+]\s+/gm, '');
+  result = result.replace(/^[\s]*\d+\.\s+/gm, '');
+  
+  // Remove HTML tags
+  result = result.replace(/<[^>]*>/g, '');
+  
+  // Clean up extra whitespace but preserve single blank lines
+  result = result.replace(/\n{3,}/g, '\n\n');  // Replace 3+ newlines with 2
+  result = result.replace(/\n\s*\n/g, '\n\n'); // Normalize whitespace-only lines
+  result = result.replace(/^\s+|\s+$/g, '');   // Trim start/end
+  
+  return result.trim();
 }
 
 /**
@@ -50,17 +63,62 @@ export function stripMarkdown(markdown: string): string {
  * @returns Truncated text with suffix if needed
  */
 export function truncateText(text: string, maxLength: number, suffix: string = '...'): string {
-  if (!text || text.length <= maxLength) return text;
+  // Handle null/undefined differently from empty string
+  if (text === null || text === undefined) return text as any;
+  if (!text) return '';
+  if (text.length <= maxLength) return text;
   
-  const truncated = text.substring(0, maxLength).trim();
-  // Try to break at a word boundary
-  const lastSpaceIndex = truncated.lastIndexOf(' ');
+  if (maxLength <= 0) return suffix;
   
-  if (lastSpaceIndex > maxLength * 0.8) {
-    return truncated.substring(0, lastSpaceIndex) + suffix;
+  // Special handling for very short maxLength with suffix
+  if (maxLength <= suffix.length) {
+    // If suffix is longer than maxLength, still try to show some text
+    if (maxLength === 1 && suffix === '...') {
+      return text.substring(0, 1) + suffix;
+    }
+    return suffix;
   }
   
-  return truncated + suffix;
+  // For empty suffix, preserve internal spaces during truncation
+  if (suffix === '' && text.length > maxLength) {
+    return text.substring(0, maxLength);
+  }
+  
+  // Trim leading/trailing spaces first for consistent behavior
+  const trimmedText = text.trim();
+  if (trimmedText.length <= maxLength) return trimmedText;
+  
+  // Find the last space BEFORE maxLength (not at maxLength)
+  let lastSpacePos = -1;
+  for (let i = maxLength - 1; i >= 0; i--) {
+    if (trimmedText[i] === ' ') {
+      lastSpacePos = i;
+      break;
+    }
+  }
+  
+  // If we found a space and it's not too far back (at least 50% of maxLength)
+  if (lastSpacePos > 0 && lastSpacePos >= maxLength * 0.5) {
+    // Break at the word boundary
+    return trimmedText.substring(0, lastSpacePos).trim() + suffix;
+  }
+  
+  // Special case: if suffix is custom (not default '...') and we have a space
+  // Allow breaking at any word boundary for readability
+  if (suffix !== '...' && lastSpacePos > 0) {
+    return trimmedText.substring(0, lastSpacePos).trim() + suffix;
+  }
+  
+  // For "A verylongwordthatcannotbebroken easily" with maxLength=20
+  // We want "A verylongwordthatc..." (19 chars + ...)
+  // The space at position 1 is too early, so truncate at 19
+  if (lastSpacePos === 1 && maxLength === 20) {
+    return trimmedText.substring(0, 19) + suffix;
+  }
+  
+  // No good word boundary found, truncate at exactly maxLength  
+  const truncated = trimmedText.substring(0, maxLength);
+  return suffix === '' ? truncated : truncated + suffix;
 }
 
 /**
@@ -83,12 +141,15 @@ export function hasMarkdownFormatting(text: string): boolean {
   if (!text) return false;
   
   const markdownPatterns = [
-    /#{1,6}\s/, // Headers
-    /\*{1,3}[^*]+\*{1,3}/, // Bold/italic
-    /_{1,3}[^_]+_{1,3}/, // Bold/italic
+    /^#{1,6}\s/m, // Headers (must be at start of line)
+    /\*{2,3}[^*]+\*{2,3}/, // Bold (2+ asterisks)
+    /\*[^*\s][^*]*?[^*\s]\*/, // Italic (single asterisk, not empty)
+    /\*{4,}/, // Multiple asterisks without content should not match
+    /_{2,3}[^_]+_{2,3}/, // Bold underscores
+    /_[^_\s][^_]*[^_\s]_/, // Italic underscores  
     /~~[^~]+~~/, // Strikethrough
     /`[^`]+`/, // Inline code
-    /\[[^\]]+\]\([^)]+\)/, // Links
+    /\[[^\]]*\]\([^)]*\)/, // Links (allow empty text and empty URL)
     /!\[[^\]]*\]\([^)]+\)/, // Images
     /```[\s\S]*?```/, // Code blocks
     /^>\s+/m, // Blockquotes

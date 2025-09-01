@@ -153,15 +153,11 @@ describe('authSlice', () => {
         },
         access_token: 'mock-access-token',
         refresh_token: 'mock-refresh-token',
-      },
-      status: 200,
-      statusText: 'OK',
-      headers: {},
-      config: {} as any,
+      }
     };
 
     it('should handle successful login', async () => {
-      mockedAuthAPI.login.mockResolvedValueOnce(mockLoginResponse);
+      mockedAuthAPI.login.mockResolvedValueOnce(mockLoginResponse as any);
 
       const credentials = { email: 'test@example.com', password: 'password' };
       await store.dispatch(login(credentials));

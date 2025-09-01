@@ -1314,4 +1314,4 @@ grep -r "success: true" server/app/controllers/ | wc -l
 grep -r "success: false" server/app/controllers/ | wc -l
 ```
 
-**ALWAYS REFERENCE TODO.md FOR CURRENT TASKS AND PRIORITIES**
+**ALWAYS REFERENCE ../TODO.md FOR CURRENT TASKS AND PRIORITIES**

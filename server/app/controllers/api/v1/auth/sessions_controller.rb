@@ -12,8 +12,6 @@ class Api::V1::Auth::SessionsController < ApplicationController
 
     # Check if account is locked before attempting authentication
     if user&.locked?
-      # Still increment rate limit for locked accounts
-      increment_rate_limit_count if respond_to?(:increment_rate_limit_count)
       render json: {
         success: false,
         error: "Your account is temporarily locked due to multiple failed login attempts. Please try again later."
@@ -97,8 +95,6 @@ class Api::V1::Auth::SessionsController < ApplicationController
         }, status: :unauthorized
       end
     else
-      # Authentication failed - increment rate limit counter
-      increment_rate_limit_count if respond_to?(:increment_rate_limit_count)
 
       # Failed login attempt is already recorded in User#authenticate
       user.reload if user # Reload to get updated failed_login_attempts
@@ -287,11 +283,4 @@ class Api::V1::Auth::SessionsController < ApplicationController
     action_name == "create"
   end
 
-  def rate_limit_max_attempts
-    6 # Max 6 login attempts per IP
-  end
-
-  def rate_limit_window_seconds
-    300 # 5 minutes window
-  end
 end

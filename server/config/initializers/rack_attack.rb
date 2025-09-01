@@ -64,6 +64,23 @@ class Rack::Attack
         request.ip
       end
     end
+    
+    # User-specific impersonation throttling (more granular than IP-based)
+    throttle("impersonation_by_user", limit: proc { rate_limiting_enabled? ? get_rate_limit('impersonation_attempts_per_hour', Rails.env.development? ? 50 : 5) : 999999 }, period: 1.hour) do |request|
+      if request.path.include?("/impersonation") || request.path.include?("/admin/users") && request.post?
+        # Extract user ID from JWT token for authenticated endpoints
+        auth_header = request.get_header("HTTP_AUTHORIZATION")
+        if auth_header&.start_with?("Bearer ")
+          token = auth_header.split(" ")[1]
+          begin
+            decoded = JWT.decode(token, Rails.application.config.jwt_secret_key, true, algorithm: 'HS256')
+            "user_#{decoded[0]["user_id"]}" if decoded[0]
+          rescue JWT::DecodeError
+            nil
+          end
+        end
+      end
+    end
 
     # General API throttling using system settings
     throttle("api_requests_by_ip", limit: proc { rate_limiting_enabled? ? get_rate_limit('api_requests_per_minute', Rails.env.development? ? 1000 : 300) : 999999 }, period: 15.minutes) do |request|

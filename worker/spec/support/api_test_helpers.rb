@@ -2,45 +2,69 @@
 
 module ApiTestHelpers
   # API response stubs
-  def stub_backend_api_success(method, path, response_data = {}, status: 200)
+  def stub_backend_api_success(method, path, response_data = {}, status: 200, with_query: nil)
     url = build_api_url(path)
     
-    WebMock.stub_request(method, url)
+    stub = WebMock.stub_request(method, url)
       .with(headers: expected_request_headers)
-      .to_return(
-        status: status,
-        body: response_data.to_json,
-        headers: { 'Content-Type' => 'application/json' }
-      )
+    
+    # If specific query parameters are provided, match them exactly
+    # Otherwise, allow any query parameters (or none)
+    if with_query
+      stub = stub.with(query: with_query)
+    else
+      # Use a regex pattern to match the path with any query parameters
+      url_pattern = /#{Regexp.escape(url)}(\?.*)?/
+      stub = WebMock.stub_request(method, url_pattern)
+        .with(headers: expected_request_headers)
+    end
+    
+    stub.to_return(
+      status: status,
+      body: response_data.to_json,
+      headers: { 'Content-Type' => 'application/json' }
+    )
   end
 
-  def stub_backend_api_error(method, path, status: 500, error_message: 'Server Error')
+  def stub_backend_api_error(method, path, status: 500, error_message: 'Server Error', with_query: nil)
     url = build_api_url(path)
     error_response = { error: error_message }
     
-    WebMock.stub_request(method, url)
+    stub = WebMock.stub_request(method, url)
       .with(headers: expected_request_headers)
-      .to_return(
-        status: status,
-        body: error_response.to_json,
-        headers: { 'Content-Type' => 'application/json' }
-      )
+    
+    # Handle query parameters the same way as success stub
+    if with_query
+      stub = stub.with(query: with_query)
+    else
+      url_pattern = /#{Regexp.escape(url)}(\?.*)?/
+      stub = WebMock.stub_request(method, url_pattern)
+        .with(headers: expected_request_headers)
+    end
+    
+    stub.to_return(
+      status: status,
+      body: error_response.to_json,
+      headers: { 'Content-Type' => 'application/json' }
+    )
   end
 
   def stub_backend_api_timeout(method, path)
     url = build_api_url(path)
+    url_pattern = /#{Regexp.escape(url)}(\?.*)?/
     
-    WebMock.stub_request(method, url)
+    WebMock.stub_request(method, url_pattern)
       .with(headers: expected_request_headers)
-      .to_timeout
+      .to_raise(Faraday::TimeoutError.new('execution expired'))
   end
 
   def stub_backend_api_connection_failure(method, path)
     url = build_api_url(path)
+    url_pattern = /#{Regexp.escape(url)}(\?.*)?/
     
-    WebMock.stub_request(method, path)
+    WebMock.stub_request(method, url_pattern)
       .with(headers: expected_request_headers)
-      .to_raise(Faraday::ConnectionFailed)
+      .to_raise(Faraday::ConnectionFailed.new('Failed to open TCP connection'))
   end
 
   # Specific API endpoint stubs
@@ -136,14 +160,15 @@ module ApiTestHelpers
   # Request verification helpers
   def expect_api_request(method, path, with_body: nil)
     url = build_api_url(path)
-    request_stub = have_been_requested(method, url)
+    
+    request_expectation = a_request(method, url)
       .with(headers: expected_request_headers)
     
     if with_body
-      request_stub.with(body: with_body.is_a?(String) ? with_body : with_body.to_json)
+      request_expectation = request_expectation.with(body: with_body.is_a?(String) ? with_body : with_body.to_json)
     end
     
-    request_stub
+    expect(request_expectation).to have_been_made
   end
 
   def expect_no_api_requests

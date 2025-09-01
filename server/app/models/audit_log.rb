@@ -30,6 +30,7 @@ class AuditLog < ApplicationRecord
       gdpr_request ccpa_request data_deletion data_anonymization
       test_email_sent test_email_failed email_sent email_failed
       email_settings_refreshed notification_sent notification_failed
+      api_request api_request_failed
     ]
   }
   validates :resource_type, presence: true

@@ -63,9 +63,9 @@ class APIClient {
         
         // Use impersonation token if active, otherwise use regular access token
         let token = state.auth.accessToken;
-        if (state.auth.impersonation.isImpersonating && state.auth.impersonation.sessionId) {
-          token = state.auth.impersonation.sessionId;
-        } else {
+        const impersonationToken = localStorage.getItem('impersonationToken');
+        if (state.auth.impersonation.isImpersonating && impersonationToken) {
+          token = impersonationToken;
         }
         
         if (token) {

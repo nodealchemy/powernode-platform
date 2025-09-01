@@ -282,6 +282,9 @@ Rails.application.routes.draw do
         end
       end
 
+      # Gateway connection jobs (for async testing)
+      resources :gateway_connection_jobs, only: [:show, :update]
+
       # Billing and payments
       get "billing", to: "billing#overview"
       get "billing/invoices", to: "billing#invoices"

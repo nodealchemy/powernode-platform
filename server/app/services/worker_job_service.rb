@@ -8,7 +8,7 @@ require 'timeout'
 class WorkerJobService
 
   # Base URL for worker service API calls
-  WORKER_API_BASE = ENV['WORKER_API_URL'] || 'http://localhost:3000/api/v1'
+  WORKER_API_BASE = ENV['WORKER_API_URL'] || 'http://localhost:4567'
 
   class << self
     # Enqueue a notification email job
@@ -52,25 +52,17 @@ class WorkerJobService
 
     # Enqueue email settings refresh job
     def enqueue_refresh_email_settings
-      make_worker_request('POST', '/jobs', {
+      make_worker_request('POST', '/api/v1/jobs', {
         job_class: 'RefreshEmailSettingsJob',
-        args: [],
-        options: {
-          refresh_type: 'email_configuration',
-          timestamp: Time.current.to_i
-        }
+        args: []
       })
     end
 
     # Enqueue test email job
     def enqueue_test_email(email_address)
-      make_worker_request('POST', '/jobs', {
+      make_worker_request('POST', '/api/v1/jobs', {
         job_class: 'TestEmailJob',
-        args: [email_address],
-        options: {
-          test_type: 'configuration_test',
-          timestamp: Time.current.to_i
-        }
+        args: [email_address]
       })
     end
 
@@ -114,9 +106,9 @@ class WorkerJobService
       request['Content-Type'] = 'application/json'
       request['Accept'] = 'application/json'
       
-      # Add worker service authentication - generate JWT token
-      service_token = generate_service_token
-      request['Authorization'] = "Bearer #{service_token}" if service_token
+      # Add worker service authentication - use WORKER_TOKEN
+      worker_token = ENV['WORKER_TOKEN'] 
+      request['Authorization'] = "Bearer #{worker_token}" if worker_token
 
       # Set body for requests that support it
       if %w[POST PUT PATCH].include?(method.upcase) && payload.present?
@@ -154,21 +146,6 @@ class WorkerJobService
       end
     end
 
-    def generate_service_token
-      return nil unless Rails.application.config.jwt_secret_key
-      
-      payload = {
-        service: 'backend',
-        type: 'service',
-        iat: Time.current.to_i,
-        exp: (Time.current + 1.hour).to_i
-      }
-      
-      JWT.encode(payload, Rails.application.config.jwt_secret_key, 'HS256')
-    rescue StandardError => e
-      Rails.logger.error "Failed to generate service token: #{e.message}"
-      nil
-    end
   end
 
   # Custom exception for worker service errors

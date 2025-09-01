@@ -243,4 +243,4 @@ find $POWERNODE_ROOT -name "*.yml" -o -name "*.json" -o -name "*.env*" | \
 4. **Iterate and Refine**: Continuously improve pattern documentation
 5. **Validate with Team**: Review findings with development team
 
-**ALWAYS REFERENCE TODO.md FOR CURRENT TASKS AND PRIORITIES**
+**ALWAYS REFERENCE ../TODO.md FOR CURRENT TASKS AND PRIORITIES**

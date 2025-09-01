@@ -1,0 +1,435 @@
+import { billingApi } from './billingApi';
+import { api } from '@/shared/services/api';
+
+// Mock the API client
+jest.mock('@/shared/services/api', () => ({
+  api: {
+    get: jest.fn(),
+    post: jest.fn(),
+    put: jest.fn(),
+    delete: jest.fn()
+  }
+}));
+
+const mockApi = api as jest.Mocked<typeof api>;
+
+describe('billingApi', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  describe('getInvoices', () => {
+    it('should fetch invoices successfully', async () => {
+      const mockInvoices = [
+        {
+          id: 'inv_123',
+          invoice_number: 'INV-001',
+          total_amount: '29.99',
+          currency: 'USD',
+          status: 'paid',
+          created_at: '2023-01-01T00:00:00Z',
+          due_date: '2023-01-15T00:00:00Z',
+          subtotal: '29.99'
+        }
+      ];
+
+      mockApi.get.mockResolvedValue({
+        data: {
+          invoices: mockInvoices,
+          pagination: {
+            current_page: 1,
+            per_page: 20,
+            total_count: 1,
+            total_pages: 1
+          }
+        }
+      });
+
+      const result = await billingApi.getInvoices();
+
+      expect(mockApi.get).toHaveBeenCalledWith('/billing/invoices', {
+        params: { page: 1, per_page: 20 }
+      });
+      expect(result.data).toEqual(mockInvoices);
+    });
+
+    it('should handle pagination parameters', async () => {
+      mockApi.get.mockResolvedValue({
+        data: {
+          invoices: [],
+          pagination: {
+            current_page: 2,
+            per_page: 10,
+            total_count: 0,
+            total_pages: 0
+          }
+        }
+      });
+
+      await billingApi.getInvoices(2, 10);
+
+      expect(mockApi.get).toHaveBeenCalledWith('/billing/invoices', {
+        params: { page: 2, per_page: 10 }
+      });
+    });
+  });
+
+  describe('createInvoice', () => {
+    it('should create invoice successfully', async () => {
+      const invoiceData = {
+        currency: 'USD',
+        due_date: '2023-12-31',
+        notes: 'Monthly subscription',
+        line_items: [
+          {
+            description: 'Premium Plan',
+            quantity: 1,
+            unit_price: 2999
+          }
+        ]
+      };
+
+      const mockResponse = {
+        data: {
+          success: true,
+          invoice: {
+            id: 'inv_456',
+            invoice_number: 'INV-002',
+            total_amount: '29.99',
+            status: 'draft'
+          }
+        }
+      };
+
+      mockApi.post.mockResolvedValue(mockResponse);
+
+      const result = await billingApi.createInvoice(invoiceData);
+
+      expect(mockApi.post).toHaveBeenCalledWith('/billing/invoices', {
+        invoice: {
+          currency: invoiceData.currency,
+          due_date: invoiceData.due_date,
+          notes: invoiceData.notes
+        },
+        line_items: invoiceData.line_items
+      });
+      expect(result).toEqual(mockResponse.data);
+    });
+  });
+
+  describe('createPaymentIntent', () => {
+    it('should create payment intent successfully', async () => {
+      const paymentData = {
+        amount_cents: 2999,
+        currency: 'USD',
+        description: 'One-time payment'
+      };
+
+      const mockResponse = {
+        data: {
+          success: true,
+          client_secret: 'pi_secret_123',
+          payment_intent_id: 'pi_456'
+        }
+      };
+
+      mockApi.post.mockResolvedValue(mockResponse);
+
+      const result = await billingApi.createPaymentIntent(paymentData);
+
+      expect(mockApi.post).toHaveBeenCalledWith('/billing/payment-intent', paymentData);
+      expect(result).toEqual(mockResponse.data);
+    });
+
+    it('should handle payment intent failure', async () => {
+      const paymentData = {
+        amount_cents: 2999,
+        currency: 'USD',
+        description: 'One-time payment'
+      };
+
+      mockApi.post.mockRejectedValue({
+        response: {
+          data: {
+            success: false,
+            error: 'Payment failed: insufficient funds'
+          }
+        }
+      });
+
+      await expect(billingApi.createPaymentIntent(paymentData)).rejects.toMatchObject({
+        response: {
+          data: {
+            success: false,
+            error: 'Payment failed: insufficient funds'
+          }
+        }
+      });
+    });
+  });
+
+  describe('getPaymentMethods', () => {
+    it('should fetch payment methods successfully', async () => {
+      const mockPaymentMethods = [
+        {
+          id: 'pm_123',
+          type: 'card',
+          last4: '4242',
+          brand: 'visa',
+          is_default: true
+        }
+      ];
+
+      mockApi.get.mockResolvedValue({
+        success: true,
+        data: mockPaymentMethods
+      });
+
+      const result = await billingApi.getPaymentMethods();
+
+      expect(mockApi.get).toHaveBeenCalledWith('/billing/payment-methods');
+      expect(result.data).toEqual(mockPaymentMethods);
+    });
+  });
+
+  describe('addPaymentMethod', () => {
+    it('should add payment method successfully', async () => {
+      const paymentMethodData = {
+        type: 'card',
+        token: 'tok_123',
+        is_default: false
+      };
+
+      const mockResponse = {
+        success: true,
+        data: {
+          id: 'pm_456',
+          ...paymentMethodData
+        }
+      };
+
+      mockApi.post.mockResolvedValue(mockResponse);
+
+      const result = await billingApi.addPaymentMethod(paymentMethodData);
+
+      expect(mockApi.post).toHaveBeenCalledWith('/billing/payment-methods', paymentMethodData);
+      expect(result).toEqual(mockResponse);
+    });
+  });
+
+  describe('removePaymentMethod', () => {
+    it('should remove payment method successfully', async () => {
+      const paymentMethodId = 'pm_123';
+
+      mockApi.delete.mockResolvedValue({
+        success: true,
+        message: 'Payment method removed'
+      });
+
+      const result = await billingApi.removePaymentMethod(paymentMethodId);
+
+      expect(mockApi.delete).toHaveBeenCalledWith(`/billing/payment-methods/${paymentMethodId}`);
+      expect(result.success).toBe(true);
+    });
+  });
+
+  describe('setDefaultPaymentMethod', () => {
+    it('should set default payment method successfully', async () => {
+      const paymentMethodId = 'pm_123';
+
+      mockApi.put.mockResolvedValue({
+        success: true,
+        data: {
+          id: 'pm_123',
+          is_default: true
+        }
+      });
+
+      const result = await billingApi.setDefaultPaymentMethod(paymentMethodId);
+
+      expect(mockApi.put).toHaveBeenCalledWith(`/billing/payment-methods/${paymentMethodId}/default`);
+      expect(result.success).toBe(true);
+    });
+  });
+
+  describe('getSubscription', () => {
+    it('should fetch subscription successfully', async () => {
+      const mockSubscription = {
+        id: 'sub_123',
+        status: 'active',
+        plan_id: 'plan_pro',
+        current_period_end: '2024-02-01T00:00:00Z'
+      };
+
+      mockApi.get.mockResolvedValue({
+        success: true,
+        data: mockSubscription
+      });
+
+      const result = await billingApi.getSubscription('sub_123');
+
+      expect(mockApi.get).toHaveBeenCalledWith('/billing/subscriptions/sub_123');
+      expect(result.data).toEqual(mockSubscription);
+    });
+  });
+
+  describe('createSubscription', () => {
+    it('should create subscription successfully', async () => {
+      const subscriptionData = {
+        plan_id: 'plan_pro',
+        payment_method_id: 'pm_123',
+        billing_cycle: 'monthly'
+      };
+
+      const mockResponse = {
+        success: true,
+        data: {
+          id: 'sub_456',
+          ...subscriptionData,
+          status: 'active'
+        }
+      };
+
+      mockApi.post.mockResolvedValue(mockResponse);
+
+      const result = await billingApi.createSubscription(subscriptionData);
+
+      expect(mockApi.post).toHaveBeenCalledWith('/billing/subscriptions', subscriptionData);
+      expect(result).toEqual(mockResponse);
+    });
+  });
+
+  describe('updateSubscription', () => {
+    it('should update subscription successfully', async () => {
+      const subscriptionId = 'sub_123';
+      const updateData = {
+        plan_id: 'plan_enterprise'
+      };
+
+      mockApi.put.mockResolvedValue({
+        success: true,
+        data: {
+          id: subscriptionId,
+          plan_id: 'plan_enterprise'
+        }
+      });
+
+      const result = await billingApi.updateSubscription(subscriptionId, updateData);
+
+      expect(mockApi.put).toHaveBeenCalledWith(`/billing/subscriptions/${subscriptionId}`, updateData);
+      expect(result.success).toBe(true);
+    });
+  });
+
+  describe('cancelSubscription', () => {
+    it('should cancel subscription successfully', async () => {
+      const subscriptionId = 'sub_123';
+
+      mockApi.post.mockResolvedValue({
+        success: true,
+        data: {
+          id: subscriptionId,
+          status: 'canceled'
+        }
+      });
+
+      const result = await billingApi.cancelSubscription(subscriptionId);
+
+      expect(mockApi.post).toHaveBeenCalledWith(`/billing/subscriptions/${subscriptionId}/cancel`);
+      expect(result.success).toBe(true);
+    });
+
+    it('should cancel subscription at period end', async () => {
+      const subscriptionId = 'sub_123';
+
+      mockApi.post.mockResolvedValue({
+        success: true,
+        data: {
+          id: subscriptionId,
+          cancel_at_period_end: true
+        }
+      });
+
+      const result = await billingApi.cancelSubscription(subscriptionId, { at_period_end: true });
+
+      expect(mockApi.post).toHaveBeenCalledWith(`/billing/subscriptions/${subscriptionId}/cancel`, {
+        at_period_end: true
+      });
+      expect(result.success).toBe(true);
+    });
+  });
+
+  describe('getBillingHistory', () => {
+    it('should fetch billing history successfully', async () => {
+      const mockHistory = [
+        {
+          id: 'hist_123',
+          type: 'payment',
+          amount_cents: 2999,
+          status: 'succeeded',
+          created_at: '2023-01-01T00:00:00Z'
+        }
+      ];
+
+      mockApi.get.mockResolvedValue({
+        success: true,
+        data: mockHistory
+      });
+
+      const result = await billingApi.getBillingHistory();
+
+      expect(mockApi.get).toHaveBeenCalledWith('/billing/history');
+      expect(result.data).toEqual(mockHistory);
+    });
+
+    it('should handle date range filters', async () => {
+      const filters = {
+        start_date: '2023-01-01',
+        end_date: '2023-01-31'
+      };
+
+      mockApi.get.mockResolvedValue({
+        success: true,
+        data: []
+      });
+
+      await billingApi.getBillingHistory(filters);
+
+      expect(mockApi.get).toHaveBeenCalledWith('/billing/history', {
+        params: filters
+      });
+    });
+  });
+
+  describe('error handling', () => {
+    it('should handle network errors', async () => {
+      mockApi.get.mockRejectedValue(new Error('Network Error'));
+
+      await expect(billingApi.getInvoices()).rejects.toThrow('Network Error');
+    });
+
+    it('should handle API errors with error messages', async () => {
+      mockApi.post.mockRejectedValue({
+        response: {
+          data: {
+            success: false,
+            error: 'Invalid payment method'
+          }
+        }
+      });
+
+      await expect(billingApi.processPayment({
+        invoice_id: 'inv_123',
+        payment_method_id: 'invalid',
+        amount_cents: 1000
+      })).rejects.toMatchObject({
+        response: {
+          data: {
+            success: false,
+            error: 'Invalid payment method'
+          }
+        }
+      });
+    });
+  });
+});

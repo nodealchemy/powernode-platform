@@ -1769,4 +1769,4 @@ grep -r "Suspense" src/ | wc -l
 - Performance optimizations properly implemented
 - Theme integration consistent and complete
 
-**ALWAYS REFERENCE TODO.md FOR CURRENT TASKS AND PRIORITIES**
+**ALWAYS REFERENCE ../TODO.md FOR CURRENT TASKS AND PRIORITIES**

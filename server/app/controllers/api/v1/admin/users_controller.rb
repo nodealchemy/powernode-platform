@@ -8,7 +8,6 @@ class Api::V1::Admin::UsersController < ApplicationController
   before_action -> { require_permission('admin.user.impersonate') }, only: [:impersonate]
   before_action :find_user, only: [:show, :update, :destroy, :impersonate]
   before_action :find_account, only: [:create]
-  before_action :rate_limit_impersonation, only: [:impersonate]
 
   # GET /api/v1/admin/users
   def index
@@ -134,7 +133,7 @@ class Api::V1::Admin::UsersController < ApplicationController
             Rails.logger.info "Adding roles with IDs: #{roles_to_add.inspect}"
             roles_to_add.each do |role_id|
               Rails.logger.info "Creating user_role for role_id: #{role_id}"
-              user_role = @user.user_roles.create(role_id: role_id, assigned_by: current_user)
+              user_role = @user.user_roles.create(role_id: role_id, granted_by: current_user.id)
               unless user_role.persisted?
                 Rails.logger.error "Failed to create user_role for role #{role_id}: #{user_role.errors.full_messages.join(', ')}"
                 raise "Failed to create user role: #{user_role.errors.full_messages.join(', ')}"
@@ -337,22 +336,6 @@ class Api::V1::Admin::UsersController < ApplicationController
     )
   end
 
-  def rate_limit_impersonation
-    max_attempts = SystemSettingsService.rate_limit_setting('impersonation_attempts_per_hour')
-    cache_key = "impersonation_attempts:#{current_user.id}"
-    attempts = Rails.cache.read(cache_key) || 0
-    
-    if attempts >= max_attempts
-      render json: {
-        success: false,
-        error: 'Too many impersonation attempts. Please try again later.',
-        code: 'rate_limit_exceeded'
-      }, status: :too_many_requests
-      return
-    end
-    
-    Rails.cache.write(cache_key, attempts + 1, expires_in: 1.hour)
-  end
 
 
   def user_summary(user)

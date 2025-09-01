@@ -40,7 +40,7 @@ RSpec.describe BaseJob, type: :job do
 
   describe '#perform' do
     it 'calls execute method with arguments' do
-      result = job_instance.perform('arg1', 'arg2', key: 'value')
+      job_instance.perform('arg1', 'arg2', key: 'value')
       
       expect(job_instance.executed_with).to eq(['arg1', 'arg2', { key: 'value' }])
     end
@@ -320,7 +320,7 @@ RSpec.describe BaseJob, type: :job do
 
       it 'includes exponential backoff delay' do
         call_count = 0
-        start_time = Time.current
+        _start_time = Time.current
         
         begin
           job_instance.send(:with_api_retry, max_attempts: 3) do

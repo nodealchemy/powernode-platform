@@ -101,13 +101,11 @@ class JobsController
     token = auth_header.sub(/^Bearer /, '')
     return false if token.empty?
 
-    begin
-      # Verify JWT token directly
-      payload = JWT.decode(token, jwt_secret_key, true, algorithm: 'HS256').first
-      payload['service'] == 'backend' && payload['type'] == 'service'
-    rescue JWT::DecodeError, JWT::ExpiredSignature
-      false
-    end
+    # Check if token matches the configured WORKER_TOKEN
+    expected_token = PowernodeWorker.application.config.worker_token
+    return false unless expected_token
+
+    token == expected_token
   end
 
   def valid_job_class?(job_class)
@@ -128,7 +126,8 @@ class JobsController
       'RefreshEmailSettingsJob',
       'Notifications::EmailDeliveryJob',
       'Notifications::BulkEmailJob',
-      'Notifications::TransactionalEmailJob'
+      'Notifications::TransactionalEmailJob',
+      'Services::TestPaymentGatewayConnectionJob'
     ]
 
     allowed_jobs.include?(job_class)

@@ -8,6 +8,8 @@
 # Queue configuration
 :queues:
   - [critical, 3]
+  - [high, 3]
+  - [services, 2]
   - [billing, 2]  
   - [email, 2]
   - [reports, 2]

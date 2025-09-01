@@ -70,8 +70,8 @@ RSpec.configure do |config|
   config.include JobTestHelpers
 end
 
-# Configure WebMock
-WebMock.disable_net_connect!(allow_localhost: true)
+# Configure WebMock - allow localhost for backend API communication in tests
+WebMock.disable_net_connect!(allow_localhost: true, allow: ['localhost:3000'])
 
 # Configure VCR for HTTP recording
 VCR.configure do |config|

@@ -127,19 +127,11 @@ class WorkerActivityTracker
       'health_check'
     when %r{^/api/v1/email_settings}
       'email_configuration'
+    when %r{^/api/v1/audit_logs}
+      'api_request'
     else
-      case method
-      when 'GET'
-        'api_read'
-      when 'POST'
-        'api_create'
-      when 'PUT', 'PATCH'
-        'api_update'
-      when 'DELETE'
-        'api_delete'
-      else
-        'api_request'
-      end
+      # All other API calls should use 'api_request' which is a valid action
+      'api_request'
     end
   end
 

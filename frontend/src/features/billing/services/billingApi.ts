@@ -137,9 +137,9 @@ class BillingApi {
   }
 
   // Get payment methods
-  async getPaymentMethods(): Promise<{ payment_methods: PaymentMethod[] }> {
+  async getPaymentMethods(): Promise<{ data: PaymentMethod[] }> {
     const response = await api.get('/billing/payment-methods');
-    return response.data;
+    return { data: response.data.payment_methods || response.data };
   }
 
   // Add payment method
@@ -164,6 +164,113 @@ class BillingApi {
   }> {
     const response = await api.post('/billing/payment-intent', request);
     return response.data;
+  }
+
+  // Additional payment method methods for test compatibility
+  async addPaymentMethod(paymentMethodData: {
+    payment_method_id?: string;
+    type?: string;
+    token?: string;
+    is_default?: boolean;
+    provider?: string;
+  }): Promise<{
+    success: boolean;
+    data?: any;
+    payment_method?: PaymentMethod;
+    error?: string;
+  }> {
+    const response = await api.post('/billing/payment-methods', paymentMethodData);
+    return { success: true, data: response.data };
+  }
+
+  async removePaymentMethod(paymentMethodId: string): Promise<{
+    success: boolean;
+    error?: string;
+  }> {
+    const response = await api.delete(`/billing/payment-methods/${paymentMethodId}`);
+    return { success: true, ...response.data };
+  }
+
+  async setDefaultPaymentMethod(paymentMethodId: string): Promise<{
+    success: boolean;
+    error?: string;
+  }> {
+    const response = await api.put(`/billing/payment-methods/${paymentMethodId}/default`);
+    return { success: true, ...response.data };
+  }
+
+  // Subscription management methods
+  async getSubscription(subscriptionId: string): Promise<{
+    data: any; // Subscription type would need to be defined
+  }> {
+    const response = await api.get(`/billing/subscriptions/${subscriptionId}`);
+    return { data: response.data };
+  }
+
+  async createSubscription(subscriptionData: {
+    plan_id: string;
+    payment_method_id?: string;
+    billing_cycle?: string;
+    trial_end?: string;
+  }): Promise<{
+    success: boolean;
+    data?: any;
+    error?: string;
+  }> {
+    const response = await api.post('/billing/subscriptions', subscriptionData);
+    return { success: true, data: response.data };
+  }
+
+  async updateSubscription(subscriptionId: string, updateData: {
+    plan_id?: string;
+    payment_method_id?: string;
+  }): Promise<{
+    success: boolean;
+    subscription?: any;
+    error?: string;
+  }> {
+    const response = await api.put(`/billing/subscriptions/${subscriptionId}`, updateData);
+    return { success: true, ...response.data };
+  }
+
+  async cancelSubscription(subscriptionId: string, options?: { at_period_end?: boolean }): Promise<{
+    success: boolean;
+    subscription?: any;
+    error?: string;
+  }> {
+    // Handle both forms - with and without options
+    const body = options ? options : undefined;
+    const response = body ? 
+      await api.post(`/billing/subscriptions/${subscriptionId}/cancel`, body) :
+      await api.post(`/billing/subscriptions/${subscriptionId}/cancel`);
+    return { success: true, ...response.data };
+  }
+
+  // Billing history
+  async getBillingHistory(filters?: {
+    start_date?: string;
+    end_date?: string;
+    page?: number;
+    per_page?: number;
+  }): Promise<{
+    data: Array<{
+      id: string;
+      invoice_number: string;
+      amount: string;
+      status: string;
+      created_at: string;
+    }>;
+    pagination?: {
+      current_page: number;
+      per_page: number;
+      total_count: number;
+      total_pages: number;
+    };
+  }> {
+    const response = filters && Object.keys(filters).length > 0 ? 
+      await api.get('/billing/history', { params: filters }) :
+      await api.get('/billing/history');
+    return { data: response.data.data || response.data, pagination: response.data.pagination };
   }
 
   // Utility methods
@@ -224,6 +331,21 @@ class BillingApi {
       return `Bank •••• ${method.bank_account_last_four}`;
     }
     return `${method.provider} ${method.payment_method_type}`;
+  }
+
+  // Process payment method for test compatibility
+  async processPayment(paymentData: {
+    invoice_id: string;
+    payment_method_id: string;
+    amount_cents: number;
+    currency?: string;
+  }): Promise<{
+    success: boolean;
+    payment_id?: string;
+    error?: string;
+  }> {
+    const response = await api.post('/billing/payments/process', paymentData);
+    return response.data;
   }
 }
 
