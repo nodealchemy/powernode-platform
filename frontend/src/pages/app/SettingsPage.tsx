@@ -9,6 +9,7 @@ import { WebSocketStatusIndicator } from '@/shared/components/ui/WebSocketStatus
 import { useTheme } from '@/shared/hooks/ThemeContext';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
 import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
+import { ProfileSubscriptionTab } from '@/features/subscriptions/components/ProfileSubscriptionTab';
 import { Save, RefreshCw } from 'lucide-react';
 
 // Type guard for settings update data
@@ -32,6 +33,7 @@ export const SettingsPage: React.FC = () => {
     // Check for exact matches first to avoid conflicts
     if (path === '/app/profile') return 'profile';
     if (path === '/app/profile/account') return 'account';
+    if (path === '/app/profile/subscription') return 'subscription';
     if (path === '/app/profile/preferences') return 'preferences';
     if (path === '/app/profile/notifications') return 'notifications';
     if (path === '/app/profile/security') return 'security';
@@ -45,6 +47,7 @@ export const SettingsPage: React.FC = () => {
     // Use exact matches like in getActiveTabFromPath
     if (path === '/app/profile') return 'profile';
     if (path === '/app/profile/account') return 'account';
+    if (path === '/app/profile/subscription') return 'subscription';
     if (path === '/app/profile/preferences') return 'preferences';
     if (path === '/app/profile/notifications') return 'notifications';
     if (path === '/app/profile/security') return 'security';
@@ -359,13 +362,28 @@ export const SettingsPage: React.FC = () => {
     }
   ];
 
-  const tabs = useMemo(() => [
-    { id: 'profile', label: 'Profile', icon: '👤', path: '/' },
-    { id: 'account', label: 'Account', icon: '🏢', path: '/account' },
-    { id: 'preferences', label: 'Preferences', icon: '⚙️', path: '/preferences' },
-    { id: 'notifications', label: 'Notifications', icon: '🔔', path: '/notifications' },
-    { id: 'security', label: 'Security', icon: '🔒', path: '/security' }
-  ], []);
+  const tabs = useMemo(() => {
+    const baseTabs = [
+      { id: 'profile', label: 'Profile', icon: '👤', path: '/' },
+      { id: 'account', label: 'Account', icon: '🏢', path: '/account' }
+    ];
+
+    // Add subscription tab if user has billing permissions
+    const canManageBilling = user?.permissions?.includes('billing.manage') || 
+                            user?.permissions?.includes('billing.read');
+    
+    if (canManageBilling) {
+      baseTabs.push({ id: 'subscription', label: 'Subscription', icon: '💳', path: '/subscription' });
+    }
+
+    baseTabs.push(
+      { id: 'preferences', label: 'Preferences', icon: '⚙️', path: '/preferences' },
+      { id: 'notifications', label: 'Notifications', icon: '🔔', path: '/notifications' },
+      { id: 'security', label: 'Security', icon: '🔒', path: '/security' }
+    );
+
+    return baseTabs;
+  }, [user?.permissions]);
 
   const breadcrumbs = useMemo(() => {
     const baseBreadcrumbs = [
@@ -551,6 +569,10 @@ export const SettingsPage: React.FC = () => {
                   </div>
                 </div>
               </div>
+            </TabPanel>
+
+            <TabPanel tabId="subscription" activeTab={activeTab}>
+              <ProfileSubscriptionTab loading={loading} />
             </TabPanel>
 
             <TabPanel tabId="preferences" activeTab={activeTab}>

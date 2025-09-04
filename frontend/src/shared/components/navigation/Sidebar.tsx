@@ -136,7 +136,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
         const copyright = await settingsApi.getCopyright();
         setCopyrightText(copyright);
       } catch (error) {
-        setCopyrightText(`© ${new Date().getFullYear()} Powernode Platform. All rights reserved.`);
+        setCopyrightText(`© ${new Date().getFullYear()} Everett C. Haimes III. All rights reserved.`);
       }
     };
 
@@ -246,7 +246,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
             <div className="border-t border-theme p-4">
               <div className="text-xs text-theme-tertiary">
                 <VersionDisplay show="simple" className="mb-1" />
-                <p>{copyrightText || `© ${new Date().getFullYear()} Powernode Platform. All rights reserved.`}</p>
+                <p>{copyrightText || `© ${new Date().getFullYear()} Everett C. Haimes III. All rights reserved.`}</p>
               </div>
             </div>
           )}

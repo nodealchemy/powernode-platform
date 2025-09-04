@@ -66,3 +66,18 @@ export function createErrorObject(error: unknown) {
     originalError: error
   };
 }
+
+// ErrorHandler class for compatibility with legacy code
+export class ErrorHandler {
+  static getUserMessage(error: unknown): string {
+    return getErrorMessage(error);
+  }
+  
+  static log(message: string | Error, context?: { [key: string]: any }): void {
+    if (typeof message === 'string') {
+      console.error(message, context || {});
+    } else {
+      console.error(message.message, { error: message, ...context });
+    }
+  }
+}

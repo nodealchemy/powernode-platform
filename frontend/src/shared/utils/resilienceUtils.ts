@@ -31,7 +31,7 @@ export const DEFAULT_RETRY_CONFIG: RetryConfig = {
 export const DEFAULT_CIRCUIT_BREAKER_CONFIG: CircuitBreakerConfig = {
   failureThreshold: 5,
   resetTimeout: 60000,
-  monitoringPeriod: 10000
+  monitoringPeriod: 60000
 };
 
 export const DEFAULT_TIMEOUT_CONFIG: TimeoutConfig = {
@@ -100,7 +100,11 @@ export class CircuitBreaker {
   private lastFailureTime = 0;
   private successCount = 0;
 
-  constructor(private config: CircuitBreakerConfig = DEFAULT_CIRCUIT_BREAKER_CONFIG) {}
+  constructor(config: Partial<CircuitBreakerConfig> = {}) {
+    this.config = { ...DEFAULT_CIRCUIT_BREAKER_CONFIG, ...config };
+  }
+  
+  private config: CircuitBreakerConfig;
 
   async execute<T>(operation: () => Promise<T>): Promise<T> {
     if (this.state === 'open') {

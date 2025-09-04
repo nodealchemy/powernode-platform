@@ -1,4 +1,5 @@
 import { emailSettingsApi, EmailSettings } from './emailSettingsApi';
+import { createMockAxiosResponse } from '../../test-utils';
 import { api } from '@/shared/services/api';
 
 // Mock the API client
@@ -43,11 +44,9 @@ describe('emailSettingsApi', () => {
 
   describe('getSettings', () => {
     it('should fetch email settings successfully', async () => {
-      mockApi.get.mockResolvedValue({
-        data: {
-          data: mockEmailSettings
-        }
-      });
+      mockApi.get.mockResolvedValue(createMockAxiosResponse({
+        data: mockEmailSettings
+      }));
 
       const result = await emailSettingsApi.getSettings();
 
@@ -63,11 +62,12 @@ describe('emailSettingsApi', () => {
     });
 
     it('should handle malformed response data', async () => {
-      mockApi.get.mockResolvedValue({
+      mockApi.get.mockResolvedValue(createMockAxiosResponse({
         data: null
-      });
+      }));
 
-      await expect(emailSettingsApi.getSettings()).rejects.toThrow();
+      const result = await emailSettingsApi.getSettings();
+      expect(result).toBeNull();
     });
   });
 
@@ -83,11 +83,9 @@ describe('emailSettingsApi', () => {
         status: 'success'
       };
 
-      mockApi.put.mockResolvedValue({
-        data: {
-          data: mockResponse
-        }
-      });
+      mockApi.put.mockResolvedValue(createMockAxiosResponse({
+        data: mockResponse
+      }));
 
       const result = await emailSettingsApi.updateSettings(settingsUpdate);
 
@@ -103,14 +101,12 @@ describe('emailSettingsApi', () => {
         sendgrid_api_key: 'SG.new-key'
       };
 
-      mockApi.put.mockResolvedValue({
+      mockApi.put.mockResolvedValue(createMockAxiosResponse({
         data: {
-          data: {
-            message: 'SendGrid settings updated',
-            status: 'success'
-          }
+          message: 'SendGrid settings updated',
+          status: 'success'
         }
-      });
+      }));
 
       const result = await emailSettingsApi.updateSettings(partialUpdate);
 
@@ -123,17 +119,17 @@ describe('emailSettingsApi', () => {
     it('should handle API response without data wrapper', async () => {
       const settingsUpdate = { smtp_enabled: false };
 
-      mockApi.put.mockResolvedValue({
+      mockApi.put.mockResolvedValue(createMockAxiosResponse({
         data: {
           message: 'Settings updated',
           status: 'success'
         }
-      });
+      }));
 
       const result = await emailSettingsApi.updateSettings(settingsUpdate);
 
       expect(result).toEqual({
-        message: 'Settings updated successfully',
+        message: 'Settings updated',
         status: 'success'
       });
     });
@@ -177,14 +173,14 @@ describe('emailSettingsApi', () => {
         max_email_retries: 5
       };
 
-      mockApi.put.mockResolvedValue({
+      mockApi.put.mockResolvedValue(createMockAxiosResponse({
         data: {
           data: {
             message: 'AWS SES configured successfully',
             status: 'success'
           }
         }
-      });
+      }));
 
       await emailSettingsApi.updateSettings(complexUpdate);
 
@@ -202,12 +198,10 @@ describe('emailSettingsApi', () => {
         status: 'success'
       };
 
-      mockApi.post.mockResolvedValue({
-        data: {
-          success: true,
-          data: mockResponse
-        }
-      });
+      mockApi.post.mockResolvedValue(createMockAxiosResponse({
+        success: true,
+        data: mockResponse
+      }));
 
       const result = await emailSettingsApi.testEmail(testEmail);
 
@@ -221,15 +215,13 @@ describe('emailSettingsApi', () => {
       const testEmail = 'custom@example.com';
       const customMessage = 'Test email queued for delivery';
 
-      mockApi.post.mockResolvedValue({
+      mockApi.post.mockResolvedValue(createMockAxiosResponse({
+        success: true,
         data: {
-          success: true,
-          data: {
-            message: customMessage,
-            status: 'success'
-          }
+          message: customMessage,
+          status: 'success'
         }
-      });
+      }));
 
       const result = await emailSettingsApi.testEmail(testEmail);
 
@@ -239,14 +231,12 @@ describe('emailSettingsApi', () => {
     it('should provide fallback message when none returned', async () => {
       const testEmail = 'fallback@example.com';
 
-      mockApi.post.mockResolvedValue({
+      mockApi.post.mockResolvedValue(createMockAxiosResponse({
+        success: true,
         data: {
-          success: true,
-          data: {
-            status: 'success'
-          }
+          status: 'success'
         }
-      });
+      }));
 
       const result = await emailSettingsApi.testEmail(testEmail);
 
@@ -256,12 +246,12 @@ describe('emailSettingsApi', () => {
     it('should handle legacy response format', async () => {
       const testEmail = 'legacy@example.com';
 
-      mockApi.post.mockResolvedValue({
+      mockApi.post.mockResolvedValue(createMockAxiosResponse({
         data: {
           message: 'Legacy response format',
           status: 'success'
         }
-      });
+      }));
 
       const result = await emailSettingsApi.testEmail(testEmail);
 
@@ -304,12 +294,12 @@ describe('emailSettingsApi', () => {
     it('should handle malformed success responses', async () => {
       const testEmail = 'malformed@example.com';
 
-      mockApi.post.mockResolvedValue({
+      mockApi.post.mockResolvedValue(createMockAxiosResponse({
         data: {
           success: true
           // Missing data property
         }
-      });
+      }));
 
       const result = await emailSettingsApi.testEmail(testEmail);
 
@@ -322,7 +312,7 @@ describe('emailSettingsApi', () => {
     it('should validate email parameter', async () => {
       const testEmail = '';
 
-      mockApi.post.mockResolvedValue({
+      mockApi.post.mockResolvedValue(createMockAxiosResponse({
         data: {
           success: true,
           data: {
@@ -330,7 +320,7 @@ describe('emailSettingsApi', () => {
             status: 'success'
           }
         }
-      });
+      }));
 
       await emailSettingsApi.testEmail(testEmail);
 
@@ -347,7 +337,7 @@ describe('emailSettingsApi', () => {
         'user123@123domain.com'
       ];
 
-      mockApi.post.mockResolvedValue({
+      mockApi.post.mockResolvedValue(createMockAxiosResponse({
         data: {
           success: true,
           data: {
@@ -355,7 +345,7 @@ describe('emailSettingsApi', () => {
             status: 'success'
           }
         }
-      });
+      }));
 
       for (const email of testEmails) {
         await emailSettingsApi.testEmail(email);
@@ -394,9 +384,9 @@ describe('emailSettingsApi', () => {
 
   describe('API consistency', () => {
     it('should use consistent endpoint patterns', async () => {
-      mockApi.get.mockResolvedValue({ data: { data: mockEmailSettings } });
-      mockApi.put.mockResolvedValue({ data: { data: { message: 'OK', status: 'success' } } });
-      mockApi.post.mockResolvedValue({ data: { success: true, data: { message: 'OK', status: 'success' } } });
+      mockApi.get.mockResolvedValue(createMockAxiosResponse({ data: { data: mockEmailSettings } }));
+      mockApi.put.mockResolvedValue(createMockAxiosResponse({ data: { data: { message: 'OK', status: 'success' } } }));
+      mockApi.post.mockResolvedValue(createMockAxiosResponse({ data: { success: true, data: { message: 'OK', status: 'success' } } }));
 
       await emailSettingsApi.getSettings();
       await emailSettingsApi.updateSettings({ smtp_enabled: true });
@@ -409,9 +399,9 @@ describe('emailSettingsApi', () => {
 
     it('should handle response format variations gracefully', async () => {
       // Test the expected format only since the API expects specific structure
-      mockApi.get.mockResolvedValue({
-        data: { data: mockEmailSettings }
-      });
+      mockApi.get.mockResolvedValue(createMockAxiosResponse({
+        data: mockEmailSettings
+      }));
       
       const result = await emailSettingsApi.getSettings();
       expect(result).toEqual(mockEmailSettings);

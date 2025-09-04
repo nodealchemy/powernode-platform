@@ -91,7 +91,7 @@ describe('useAsyncState', () => {
       const { result } = renderHook(() => useAsyncState<string>());
       
       const asyncFn = jest.fn().mockRejectedValue(new Error('test error'));
-      let executeResult: string | null;
+      let executeResult: string | null = null;
       
       await act(async () => {
         executeResult = await result.current[1].execute(asyncFn);
@@ -107,7 +107,7 @@ describe('useAsyncState', () => {
       const { result } = renderHook(() => useAsyncState<string>());
       
       const asyncFn = jest.fn().mockRejectedValue('string error');
-      let executeResult: string | null;
+      let executeResult: string | null = null;
       
       await act(async () => {
         executeResult = await result.current[1].execute(asyncFn);

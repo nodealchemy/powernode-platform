@@ -5,7 +5,9 @@
 import '@testing-library/jest-dom';
 
 // Suppress testing-related console warnings that don't affect functionality
+// eslint-disable-next-line no-console
 const originalError = console.error;
+// eslint-disable-next-line no-console
 console.error = (...args: any[]) => {
   if (
     typeof args[0] === 'string' &&

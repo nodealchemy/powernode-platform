@@ -61,15 +61,6 @@ export const defaultNavigationConfig: NavigationConfig = {
           order: 2
         },
         {
-          id: 'subscriptions',
-          name: 'Subscriptions',
-          href: '/app/business/subscriptions',
-          icon: CreditCard,
-          description: 'Subscription management and renewals',
-          permissions: [],
-          order: 3
-        },
-        {
           id: 'plans',
           name: 'Plans',
           href: '/app/business/plans',

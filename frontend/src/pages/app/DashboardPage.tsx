@@ -8,7 +8,6 @@ import { DashboardLayout } from '@/shared/components/layout/DashboardLayout';
 import { MetricCard } from '@/shared/components/ui/Card';
 
 // Import all dashboard pages
-import { SubscriptionsPage } from './business/SubscriptionsPage';
 import { ReportsPage } from './business/ReportsPage';
 import { PlansPage } from './business/PlansPage';
 import { SettingsPage } from './SettingsPage';
@@ -417,7 +416,6 @@ const DashboardPage: React.FC = () => {
         
         {/* Business Pages */}
         <Route path="/business/customers" element={<CustomersPage />} />
-        <Route path="/business/subscriptions" element={<SubscriptionsPage />} />
         <Route path="/business/billing/*" element={<BillingPage />} />
         
         {/* Core Pages */}

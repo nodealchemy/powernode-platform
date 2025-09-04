@@ -177,5 +177,131 @@ export const mockUnauthenticatedState = {
   },
 };
 
+// Enhanced type interfaces for testing (with all required properties)
+export interface EnhancedPlan {
+  id: string;
+  name: string;
+  description: string;
+  price_cents: number;
+  currency: string;
+  billing_cycle: 'monthly' | 'yearly' | 'quarterly';
+  status: 'active' | 'inactive' | 'archived';
+  trial_days: number;
+  is_public: boolean;
+  formatted_price: string;
+  monthly_price: string;
+  created_at: string;
+  updated_at: string;
+  // Optional properties
+  price?: number;
+  features?: string[] | Record<string, unknown>;
+  active?: boolean;
+  is_popular?: boolean;
+  subscription_count?: number;
+  active_subscription_count?: number;
+  can_be_deleted?: boolean;
+  has_annual_discount?: boolean;
+  annual_discount_percent?: number;
+  has_promotional_discount?: boolean;
+  promotional_discount_percent?: number;
+  promotional_discount_start?: string | null;
+  promotional_discount_end?: string | null;
+  promotional_discount_code?: string | null;
+  has_volume_discount?: boolean;
+  annual_savings_amount?: string;
+  annual_savings_percentage?: number;
+  limits?: Record<string, any>;
+}
+
+export interface EnhancedUser {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  full_name: string;
+  email: string;
+  email_verified: boolean;
+  roles: string[];
+  permissions: string[];
+  status: 'active' | 'suspended' | 'inactive';
+  locked: boolean;
+  failed_login_attempts: number;
+  preferences: Record<string, any>;
+  account: {
+    id: string;
+    name: string;
+    status: string;
+  };
+  // Optional properties
+  phone?: string;
+  last_login_at: string | null;
+  created_at: string;
+  updated_at: string;
+  invitation_sent_at?: string;
+}
+
+// Enhanced mock creation functions
+export const createMockPlan = (overrides: Partial<EnhancedPlan> = {}): EnhancedPlan => ({
+  id: 'plan_basic',
+  name: 'Basic Plan',
+  description: 'Perfect for small teams',
+  price_cents: 999,
+  currency: 'USD',
+  billing_cycle: 'monthly',
+  status: 'active',
+  trial_days: 14,
+  is_public: true,
+  formatted_price: '$9.99',
+  monthly_price: '$9.99/month',
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString(),
+  // Optional/additional properties
+  price: 9.99,
+  features: [
+    'Up to 5 users',
+    'Basic support',
+    '10GB storage',
+    'Standard integrations'
+  ],
+  active: true,
+  is_popular: false,
+  ...overrides
+});
+
+export const createMockUser = (overrides: Partial<EnhancedUser> = {}): EnhancedUser => ({
+  id: '1',
+  first_name: 'John',
+  last_name: 'Doe',
+  full_name: 'John Doe',
+  email: 'user@example.com',
+  email_verified: true,
+  roles: ['account.member'],
+  permissions: ['users.read', 'plans.read'],
+  status: 'active',
+  locked: false,
+  failed_login_attempts: 0,
+  preferences: {},
+  account: {
+    id: 'acc_1',
+    name: 'Test Company',
+    status: 'active'
+  },
+  // Required properties
+  last_login_at: new Date().toISOString(),
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString(),
+  ...overrides
+});
+
+// Mock Axios response helper for tests
+export const createMockAxiosResponse = <T,>(data: T) => ({
+  data,
+  status: 200,
+  statusText: 'OK',
+  headers: {},
+  config: {
+    headers: {} as any
+  }
+});
+
 // Re-export everything from testing-library
 export * from '@testing-library/react';

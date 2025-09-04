@@ -86,9 +86,7 @@ export const PlanFormModal: React.FC<PlanFormModalProps> = ({
   const isEditing = Boolean(plan);
 
   useEffect(() => {
-    console.log('PlanFormModal useEffect triggered:', { isOpen, plan: !!plan });
     if (isOpen && plan) {
-      console.log('Populating form with plan data:', plan);
       setFormData({
         name: plan.name,
         description: plan.description,
@@ -150,7 +148,7 @@ export const PlanFormModal: React.FC<PlanFormModalProps> = ({
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleDiscountChange = (field: string, value: string | number | boolean) => {
+  const handleDiscountChange = (field: string, value: string | number | boolean | readonly unknown[]) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 

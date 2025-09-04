@@ -30,7 +30,7 @@ interface PlanDiscountConfigProps {
   promotionalDiscountCode: string;
   
   // Change handlers
-  onDiscountChange: (field: string, value: any) => void;
+  onDiscountChange: (field: string, value: string | number | boolean | readonly unknown[]) => void;
   disabled?: boolean;
 }
 

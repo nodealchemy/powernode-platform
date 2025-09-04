@@ -20,7 +20,7 @@ interface PlatformSettings {
 export const PlatformConfiguration: React.FC = () => {
   const [settings, setSettings] = useState<PlatformSettings>({
     system_name: 'Powernode Platform',
-    copyright_text: '© {year} Powernode Platform. All rights reserved.',
+    copyright_text: '© {year} Everett C. Haimes III. All rights reserved.',
     system_email: '',
     support_email: '',
     maintenance_mode: false,
@@ -45,7 +45,7 @@ export const PlatformConfiguration: React.FC = () => {
       // Extract platform settings from the response
       const platformSettings: PlatformSettings = {
         system_name: response.settings_summary?.system_name || 'Powernode Platform',
-        copyright_text: response.settings_summary?.copyright_text || '© {year} Powernode Platform. All rights reserved.',
+        copyright_text: response.settings_summary?.copyright_text || '© {year} Everett C. Haimes III. All rights reserved.',
         system_email: response.settings_summary?.system_email || '',
         support_email: response.settings_summary?.support_email || '',
         maintenance_mode: response.settings_summary?.maintenance_mode || false,

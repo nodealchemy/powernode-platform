@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { UserRolesModal } from './UserRolesModal';
-import { renderWithProviders, mockUsers, mockAuthenticatedState } from '@/shared/utils/test-utils';
+import { renderWithProviders, mockUsers, mockAuthenticatedState, EnhancedUser, createMockUser } from '@/shared/utils/test-utils';
 
 // Import the actual module first to ensure proper mocking
 import { usersApi } from '@/features/users/services/usersApi';
@@ -15,10 +15,9 @@ jest.mock('@/features/users/services/usersApi', () => ({
   }
 }));
 
-const mockUser = {
+const mockUser: EnhancedUser = createMockUser({
   id: '1',
   email: 'user@example.com',
-  full_name: 'John Doe',
   first_name: 'John',
   last_name: 'Doe',
   roles: ['account.member'],
@@ -28,9 +27,10 @@ const mockUser = {
   created_at: '2023-01-01T00:00:00Z',
   account: {
     id: 'acc_1',
-    name: 'Test Company'
+    name: 'Test Company',
+    status: 'active'
   }
-};
+});
 
 const mockAvailableRoles = [
   {

@@ -5,6 +5,7 @@ import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
 import { authAPI } from '@/features/auth/services/authAPI';
 import { plansApi } from '@/features/plans/services/plansApi';
+import { createMockPlan } from '@/shared/utils/test-utils';
 
 // Mock all APIs
 jest.mock('@/features/auth/services/authAPI');
@@ -27,11 +28,39 @@ jest.mock('@/shared/hooks/ThemeContext', () => ({
   })
 }));
 
-// Create test store
+// Create test store with proper initial state structure
 const createTestStore = () => {
+  const initialAuthState = {
+    user: null,
+    accessToken: null,
+    refreshToken: null,
+    isAuthenticated: false,
+    isLoading: false,
+    error: null,
+    resendingVerification: false,
+    resendVerificationSuccess: false,
+    resendCooldown: 0,
+    impersonation: {
+      isImpersonating: false,
+      originalUser: null,
+      impersonatedUser: null,
+      sessionId: null,
+      startedAt: null,
+      expiresAt: null,
+    }
+  };
+
+  const initialUIState = {
+    sidebarOpen: true,
+    sidebarCollapsed: false,
+    theme: 'light' as const,
+    loading: false,
+    notifications: []
+  };
+
   return configureStore({
     reducer: {
-      auth: (state = { user: null, isLoading: false, isAuthenticated: false }, action) => {
+      auth: (state = initialAuthState, action: any) => {
         switch (action.type) {
           case 'auth/loginStart':
             return { ...state, isLoading: true };
@@ -43,7 +72,15 @@ const createTestStore = () => {
               isAuthenticated: true 
             };
           case 'auth/logout':
-            return { user: null, isLoading: false, isAuthenticated: false };
+            return { ...initialAuthState };
+          default:
+            return state;
+        }
+      },
+      ui: (state = initialUIState, action) => {
+        switch (action.type) {
+          case 'ui/setSidebarOpen':
+            return { ...state, sidebarOpen: action.payload };
           default:
             return state;
         }
@@ -67,7 +104,7 @@ const mockPlansApi = plansApi as jest.Mocked<typeof plansApi>;
 
 // Mock data for testing
 const mockPlans = [
-  {
+  createMockPlan({
     id: 'plan_basic',
     name: 'Basic Plan',
     price_cents: 999,
@@ -80,8 +117,8 @@ const mockPlans = [
       api_access: false,
       advanced_analytics: false
     }
-  },
-  {
+  }),
+  createMockPlan({
     id: 'plan_pro',
     name: 'Pro Plan',
     price_cents: 2999,
@@ -94,8 +131,8 @@ const mockPlans = [
       api_access: true,
       advanced_analytics: true
     }
-  },
-  {
+  }),
+  createMockPlan({
     id: 'plan_enterprise',
     name: 'Enterprise Plan',
     price_cents: 9999,
@@ -109,7 +146,7 @@ const mockPlans = [
       advanced_analytics: true,
       custom_integrations: true
     }
-  }
+  })
 ];
 
 const renderWithProviders = (component: React.ReactElement) => {
@@ -148,19 +185,31 @@ describe('Subscription Workflow Integration', () => {
       const mockUser = {
         id: '1',
         email: 'user@example.com',
+        first_name: 'Test',
+        last_name: 'User',
+        roles: ['account.member'],
         permissions: ['users.read', 'plans.read', 'billing.read'],
+        status: 'active',
+        email_verified: true,
         account: {
           id: 'acc_1',
           name: 'Test Company',
-          subscription_status: 'active'
+          status: 'active'
         }
       };
 
       mockAuthAPI.login.mockResolvedValue({
-        success: true,
         data: {
+          success: true,
           user: mockUser,
-          tokens: { access_token: 'token123', refresh_token: 'refresh123' }
+          access_token: 'token123',
+          refresh_token: 'refresh123'
+        },
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config: {
+          headers: {} as any
         }
       });
 
@@ -196,12 +245,30 @@ describe('Subscription Workflow Integration', () => {
       const mockUser = {
         id: '1',
         email: 'user@example.com',
-        permissions: ['users.read']
+        first_name: 'Test',
+        last_name: 'User',
+        roles: ['account.member'],
+        permissions: ['users.read'],
+        status: 'active',
+        email_verified: true,
+        account: {
+          id: 'acc_1',
+          name: 'Test Company',
+          status: 'active'
+        }
       };
 
       mockAuthAPI.getCurrentUser.mockResolvedValue({
-        success: true,
-        data: { user: mockUser }
+        data: {
+          success: true,
+          data: { user: mockUser }
+        },
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config: {
+          headers: {} as any
+        }
       });
 
       // Simulate page refresh with stored token
@@ -228,7 +295,10 @@ describe('Subscription Workflow Integration', () => {
     it('loads and displays available plans', async () => {
       mockPlansApi.getPlans.mockResolvedValue({
         success: true,
-        data: mockPlans
+        data: {
+          plans: mockPlans,
+          total_count: mockPlans.length
+        }
       });
 
       const { store } = renderWithProviders(<MockApp />);
@@ -374,13 +444,31 @@ describe('Subscription Workflow Integration', () => {
       mockAuthAPI.getCurrentUser
         .mockRejectedValueOnce({ message: 'Server error' })
         .mockResolvedValueOnce({
-          success: true,
-          data: { 
-            user: { 
-              id: '1', 
-              email: 'user@example.com', 
-              permissions: ['users.read'] 
-            } 
+          data: {
+            success: true,
+            data: { 
+              user: { 
+                id: '1', 
+                email: 'user@example.com',
+                first_name: 'Test',
+                last_name: 'User', 
+                roles: ['account.member'],
+                permissions: ['users.read'],
+                status: 'active',
+                email_verified: true,
+                account: {
+                  id: 'acc_1',
+                  name: 'Test Company',
+                  status: 'active'
+                }
+              } 
+            }
+          },
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+          config: {
+            headers: {} as any
           }
         });
 

@@ -2,7 +2,7 @@ import React from 'react';
 import { screen, fireEvent, waitFor } from '@testing-library/react';
 import { renderWithProviders, mockAuthenticatedState } from '@/shared/utils/test-utils';
 import { GatewayConfigModal } from './GatewayConfigModal';
-import { paymentGatewaysApi } from '../services/paymentGatewaysApi';
+import { paymentGatewaysApi, TestConnectionResult } from '../services/paymentGatewaysApi';
 
 // Mock the API
 jest.mock('../services/paymentGatewaysApi', () => ({
@@ -391,7 +391,7 @@ describe('GatewayConfigModal', () => {
         resolveTest = resolve;
       });
       
-      mockPaymentGatewaysApi.testConnectionAndWait.mockReturnValue(testPromise);
+      mockPaymentGatewaysApi.testConnectionAndWait.mockReturnValue(testPromise as Promise<TestConnectionResult>);
 
       renderWithProviders(
         <GatewayConfigModal 

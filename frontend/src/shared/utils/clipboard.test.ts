@@ -126,7 +126,13 @@ describe('clipboard utilities', () => {
         const testText = 'Fallback test';
         const mockTextArea = {
           value: '',
-          style: {},
+          style: {
+            position: '',
+            left: '',
+            top: '',
+            opacity: '',
+            pointerEvents: ''
+          },
           focus: jest.fn(),
           select: jest.fn(),
           setSelectionRange: jest.fn(),
@@ -164,12 +170,19 @@ describe('clipboard utilities', () => {
         const testText = 'Fallback test';
         const mockTextArea = {
           value: '',
-          style: {},
+          style: {
+            position: '',
+            left: '',
+            top: '',
+            opacity: '',
+            pointerEvents: ''
+          },
           focus: jest.fn(),
           select: jest.fn(),
           setSelectionRange: jest.fn(),
+          remove: jest.fn(),
           readOnly: false
-        };
+        } as any;
         
         mockDocument.createElement.mockReturnValue(mockTextArea);
         mockDocument.execCommand.mockReturnValue(true);
@@ -195,7 +208,13 @@ describe('clipboard utilities', () => {
         const testText = 'Failed copy test';
         const mockTextArea = {
           value: '',
-          style: {},
+          style: {
+            position: '',
+            left: '',
+            top: '',
+            opacity: '',
+            pointerEvents: ''
+          },
           focus: jest.fn(),
           select: jest.fn(),
           setSelectionRange: jest.fn(),
@@ -468,7 +487,13 @@ describe('clipboard utilities', () => {
       const testText = 'Firefox test';
       const mockTextArea = {
         value: '',
-        style: {},
+        style: {
+          position: '',
+          left: '',
+          top: '',
+          opacity: '',
+          pointerEvents: ''
+        },
         focus: jest.fn(),
         select: jest.fn(),
         setSelectionRange: jest.fn(),
@@ -529,7 +554,13 @@ describe('clipboard utilities', () => {
       const testText = '<script>alert("xss")</script>';
       const mockTextArea = {
         value: '',
-        style: {},
+        style: {
+          position: '',
+          left: '',
+          top: '',
+          opacity: '',
+          pointerEvents: ''
+        },
         focus: jest.fn(),
         select: jest.fn(),
         setSelectionRange: jest.fn(),

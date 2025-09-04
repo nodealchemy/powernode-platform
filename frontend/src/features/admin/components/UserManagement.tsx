@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
+
 import { adminApi } from '../services/adminApi';
+import type { RootState } from '@/shared/services';
 
 const UserManagement: React.FC = () => {
   const [usersData, setUsersData] = useState<{
@@ -12,7 +14,7 @@ const UserManagement: React.FC = () => {
   } | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const user = useSelector((state: any) => state.auth.user);
+  const user = useSelector((state: RootState) => state.auth.user);
 
   useEffect(() => {
     loadUsers();

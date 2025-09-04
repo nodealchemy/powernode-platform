@@ -3,6 +3,8 @@ import { render, screen, fireEvent, waitFor, within, act } from '@testing-librar
 import { TeamMembersManagement } from './TeamMembersManagement';
 import { renderWithProviders, mockUsers, mockAuthenticatedState } from '@/shared/utils/test-utils';
 
+import { usersApi } from '@/features/users/services/usersApi';
+
 // Mock APIs
 jest.mock('@/features/users/services/usersApi', () => ({
   usersApi: {
@@ -13,8 +15,6 @@ jest.mock('@/features/users/services/usersApi', () => ({
     resendVerification: jest.fn()
   }
 }));
-
-import { usersApi } from '@/features/users/services/usersApi';
 
 const mockGetAccountUsers = usersApi.getAccountUsers as jest.Mock;
 const mockUpdateUserRole = usersApi.updateUserRole as jest.Mock;
@@ -138,7 +138,7 @@ describe('TeamMembersManagement', () => {
       renderWithProviders(
         <TeamMembersManagement />,
         {
-          initialState: {
+          preloadedState: {
             auth: { user: mockUsers.adminUser, isAuthenticated: true }
           }
         }

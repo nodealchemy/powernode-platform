@@ -324,7 +324,7 @@ describe('useForm', () => {
         { wrapper: Wrapper }
       );
 
-      let isValid: boolean;
+      let isValid: boolean = false;
       
       act(() => {
         isValid = result.current.validateForm();

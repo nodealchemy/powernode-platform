@@ -1,9 +1,8 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { Provider } from 'react-redux';
+import { Provider, useDispatch, useSelector } from 'react-redux';
+import type { RootState, AppDispatch } from '@/shared/services';
 import { store } from '@/shared/services';
-import { useDispatch, useSelector } from 'react-redux';
-import { RootState, AppDispatch } from '@/shared/services';
 import { getCurrentUser, refreshAccessToken, clearAuth, forceTokenClear, checkImpersonationStatus } from '@/shared/services/slices/authSlice';
 import { isTokenInvalidError, isValidJWTFormat } from '@/shared/utils/tokenUtils';
 
@@ -142,7 +141,7 @@ const AppContent: React.FC = () => {
       }
     };
 
-    initializeAuth();
+    void initializeAuth();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch]); // Remove accessToken, refreshToken, user to prevent infinite loop
 
@@ -294,7 +293,7 @@ const AppContent: React.FC = () => {
   );
 };
 
-function App() {
+const App: React.FC = () => {
   return (
     <Provider store={store}>
       <ThemeProvider>
@@ -306,6 +305,6 @@ function App() {
       </ThemeProvider>
     </Provider>
   );
-}
+};
 
 export default App;

@@ -10,8 +10,23 @@ import uiReducer, {
   clearNotifications
 } from './uiSlice';
 
+interface NotificationState {
+  id: string;
+  type: 'success' | 'error' | 'warning' | 'info';
+  message: string;
+  timestamp: number;
+}
+
+interface TestUIState {
+  sidebarOpen: boolean;
+  sidebarCollapsed: boolean;
+  theme: 'light' | 'dark';
+  loading: boolean;
+  notifications: NotificationState[];
+}
+
 describe('uiSlice', () => {
-  const initialState = {
+  const initialState: TestUIState = {
     sidebarOpen: true,
     sidebarCollapsed: false,
     theme: 'light' as const,
@@ -71,7 +86,7 @@ describe('uiSlice', () => {
     });
 
     it('should set theme to dark', () => {
-      const currentState = { ...initialState, theme: 'light' };
+      const currentState = { ...initialState, theme: 'light' as const };
       const actual = uiReducer(currentState, setTheme('dark'));
       expect(actual.theme).toBe('dark');
     });

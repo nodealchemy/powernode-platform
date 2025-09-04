@@ -1,6 +1,6 @@
 import React from 'react';
 import { screen, fireEvent, waitFor } from '@testing-library/react';
-import { renderWithProviders, mockAuthenticatedState } from '@/shared/utils/test-utils';
+import { renderWithProviders, mockAuthenticatedState, EnhancedPlan, createMockPlan } from '@/shared/utils/test-utils';
 import { PlanCard } from './PlanCard';
 
 // Mock theme context
@@ -11,7 +11,7 @@ jest.mock('@/shared/hooks/ThemeContext', () => ({
   })
 }));
 
-const mockPlan = {
+const mockPlan: EnhancedPlan = createMockPlan({
   id: '1',
   name: 'Pro Plan',
   description: 'Perfect for growing businesses',
@@ -19,17 +19,17 @@ const mockPlan = {
   currency: 'USD',
   billing_cycle: 'monthly',
   trial_days: 14,
-  has_annual_discount: true,
-  annual_discount_percent: 20,
   features: {
     max_users: 100,
     storage_gb: 100,
     api_access: true,
     advanced_analytics: true,
     priority_support: true,
-    custom_integrations: true
+    custom_integrations: true,
+    has_annual_discount: true,
+    annual_discount_percent: 20
   }
-};
+});
 
 describe('PlanCard', () => {
   beforeEach(() => {
@@ -79,7 +79,7 @@ describe('PlanCard', () => {
   it('displays correct pricing for yearly plans', () => {
     const yearlyPlan = {
       ...mockPlan,
-      billing_cycle: 'yearly',
+      billing_cycle: 'yearly' as 'yearly',
       price_cents: 299900 // $2999.00 per year
     };
     
@@ -95,7 +95,7 @@ describe('PlanCard', () => {
   it('displays correct pricing for quarterly plans', () => {
     const quarterlyPlan = {
       ...mockPlan,
-      billing_cycle: 'quarterly',
+      billing_cycle: 'quarterly' as 'quarterly',
       price_cents: 7999 // $79.99 per quarter
     };
     

@@ -142,7 +142,7 @@ export const settingsApi = {
         localStorage.removeItem('powernode_copyright');
       }
     }
-    return `© ${new Date().getFullYear()} Powernode Platform. All rights reserved.`;
+    return `© ${new Date().getFullYear()} Everett C. Haimes III. All rights reserved.`;
   },
 
   // Cache copyright text

@@ -1,5 +1,6 @@
 import { billingApi } from './billingApi';
 import { api } from '@/shared/services/api';
+import { createMockAxiosResponse } from '../../../test-utils';
 
 // Mock the API client
 jest.mock('@/shared/services/api', () => ({
@@ -33,17 +34,15 @@ describe('billingApi', () => {
         }
       ];
 
-      mockApi.get.mockResolvedValue({
-        data: {
-          invoices: mockInvoices,
-          pagination: {
-            current_page: 1,
-            per_page: 20,
-            total_count: 1,
-            total_pages: 1
-          }
+      mockApi.get.mockResolvedValue(createMockAxiosResponse({
+        invoices: mockInvoices,
+        pagination: {
+          current_page: 1,
+          per_page: 20,
+          total_count: 1,
+          total_pages: 1
         }
-      });
+      }));
 
       const result = await billingApi.getInvoices();
 
@@ -54,17 +53,15 @@ describe('billingApi', () => {
     });
 
     it('should handle pagination parameters', async () => {
-      mockApi.get.mockResolvedValue({
-        data: {
-          invoices: [],
-          pagination: {
-            current_page: 2,
-            per_page: 10,
-            total_count: 0,
-            total_pages: 0
-          }
+      mockApi.get.mockResolvedValue(createMockAxiosResponse({
+        invoices: [],
+        pagination: {
+          current_page: 2,
+          per_page: 10,
+          total_count: 0,
+          total_pages: 0
         }
-      });
+      }));
 
       await billingApi.getInvoices(2, 10);
 
@@ -90,18 +87,16 @@ describe('billingApi', () => {
       };
 
       const mockResponse = {
-        data: {
-          success: true,
-          invoice: {
-            id: 'inv_456',
-            invoice_number: 'INV-002',
-            total_amount: '29.99',
-            status: 'draft'
-          }
+        success: true,
+        invoice: {
+          id: 'inv_456',
+          invoice_number: 'INV-002',
+          total_amount: '29.99',
+          status: 'draft'
         }
       };
 
-      mockApi.post.mockResolvedValue(mockResponse);
+      mockApi.post.mockResolvedValue(createMockAxiosResponse(mockResponse));
 
       const result = await billingApi.createInvoice(invoiceData);
 
@@ -113,7 +108,7 @@ describe('billingApi', () => {
         },
         line_items: invoiceData.line_items
       });
-      expect(result).toEqual(mockResponse.data);
+      expect(result).toEqual(mockResponse);
     });
   });
 
@@ -126,19 +121,17 @@ describe('billingApi', () => {
       };
 
       const mockResponse = {
-        data: {
-          success: true,
-          client_secret: 'pi_secret_123',
-          payment_intent_id: 'pi_456'
-        }
+        success: true,
+        client_secret: 'pi_secret_123',
+        payment_intent_id: 'pi_456'
       };
 
-      mockApi.post.mockResolvedValue(mockResponse);
+      mockApi.post.mockResolvedValue(createMockAxiosResponse(mockResponse));
 
       const result = await billingApi.createPaymentIntent(paymentData);
 
       expect(mockApi.post).toHaveBeenCalledWith('/billing/payment-intent', paymentData);
-      expect(result).toEqual(mockResponse.data);
+      expect(result).toEqual(mockResponse);
     });
 
     it('should handle payment intent failure', async () => {
@@ -180,10 +173,9 @@ describe('billingApi', () => {
         }
       ];
 
-      mockApi.get.mockResolvedValue({
-        success: true,
-        data: mockPaymentMethods
-      });
+      mockApi.get.mockResolvedValue(createMockAxiosResponse({
+        payment_methods: mockPaymentMethods
+      }));
 
       const result = await billingApi.getPaymentMethods();
 
@@ -200,15 +192,17 @@ describe('billingApi', () => {
         is_default: false
       };
 
-      const mockResponse = {
-        success: true,
-        data: {
-          id: 'pm_456',
-          ...paymentMethodData
-        }
+      const mockResponseData = {
+        id: 'pm_456',
+        ...paymentMethodData
       };
 
-      mockApi.post.mockResolvedValue(mockResponse);
+      const mockResponse = {
+        success: true,
+        data: mockResponseData
+      };
+
+      mockApi.post.mockResolvedValue(createMockAxiosResponse(mockResponseData));
 
       const result = await billingApi.addPaymentMethod(paymentMethodData);
 
@@ -221,10 +215,10 @@ describe('billingApi', () => {
     it('should remove payment method successfully', async () => {
       const paymentMethodId = 'pm_123';
 
-      mockApi.delete.mockResolvedValue({
+      mockApi.delete.mockResolvedValue(createMockAxiosResponse({
         success: true,
         message: 'Payment method removed'
-      });
+      }));
 
       const result = await billingApi.removePaymentMethod(paymentMethodId);
 
@@ -237,13 +231,13 @@ describe('billingApi', () => {
     it('should set default payment method successfully', async () => {
       const paymentMethodId = 'pm_123';
 
-      mockApi.put.mockResolvedValue({
+      mockApi.put.mockResolvedValue(createMockAxiosResponse({
         success: true,
         data: {
           id: 'pm_123',
           is_default: true
         }
-      });
+      }));
 
       const result = await billingApi.setDefaultPaymentMethod(paymentMethodId);
 
@@ -261,10 +255,7 @@ describe('billingApi', () => {
         current_period_end: '2024-02-01T00:00:00Z'
       };
 
-      mockApi.get.mockResolvedValue({
-        success: true,
-        data: mockSubscription
-      });
+      mockApi.get.mockResolvedValue(createMockAxiosResponse(mockSubscription));
 
       const result = await billingApi.getSubscription('sub_123');
 
@@ -281,16 +272,18 @@ describe('billingApi', () => {
         billing_cycle: 'monthly'
       };
 
-      const mockResponse = {
-        success: true,
-        data: {
-          id: 'sub_456',
-          ...subscriptionData,
-          status: 'active'
-        }
+      const mockResponseData = {
+        id: 'sub_456',
+        ...subscriptionData,
+        status: 'active'
       };
 
-      mockApi.post.mockResolvedValue(mockResponse);
+      const mockResponse = {
+        success: true,
+        data: mockResponseData
+      };
+
+      mockApi.post.mockResolvedValue(createMockAxiosResponse(mockResponseData));
 
       const result = await billingApi.createSubscription(subscriptionData);
 
@@ -306,13 +299,13 @@ describe('billingApi', () => {
         plan_id: 'plan_enterprise'
       };
 
-      mockApi.put.mockResolvedValue({
+      mockApi.put.mockResolvedValue(createMockAxiosResponse({
         success: true,
         data: {
           id: subscriptionId,
           plan_id: 'plan_enterprise'
         }
-      });
+      }));
 
       const result = await billingApi.updateSubscription(subscriptionId, updateData);
 
@@ -325,13 +318,13 @@ describe('billingApi', () => {
     it('should cancel subscription successfully', async () => {
       const subscriptionId = 'sub_123';
 
-      mockApi.post.mockResolvedValue({
+      mockApi.post.mockResolvedValue(createMockAxiosResponse({
         success: true,
         data: {
           id: subscriptionId,
           status: 'canceled'
         }
-      });
+      }));
 
       const result = await billingApi.cancelSubscription(subscriptionId);
 
@@ -342,13 +335,13 @@ describe('billingApi', () => {
     it('should cancel subscription at period end', async () => {
       const subscriptionId = 'sub_123';
 
-      mockApi.post.mockResolvedValue({
+      mockApi.post.mockResolvedValue(createMockAxiosResponse({
         success: true,
         data: {
           id: subscriptionId,
           cancel_at_period_end: true
         }
-      });
+      }));
 
       const result = await billingApi.cancelSubscription(subscriptionId, { at_period_end: true });
 
@@ -371,10 +364,10 @@ describe('billingApi', () => {
         }
       ];
 
-      mockApi.get.mockResolvedValue({
+      mockApi.get.mockResolvedValue(createMockAxiosResponse({
         success: true,
         data: mockHistory
-      });
+      }));
 
       const result = await billingApi.getBillingHistory();
 
@@ -388,10 +381,10 @@ describe('billingApi', () => {
         end_date: '2023-01-31'
       };
 
-      mockApi.get.mockResolvedValue({
+      mockApi.get.mockResolvedValue(createMockAxiosResponse({
         success: true,
         data: []
-      });
+      }));
 
       await billingApi.getBillingHistory(filters);
 

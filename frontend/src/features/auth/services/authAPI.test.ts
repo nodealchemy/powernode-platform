@@ -1,4 +1,5 @@
 import { authAPI } from './authAPI';
+import { createMockAxiosResponse } from '@/shared/utils/test-utils';
 
 // Mock the API client
 jest.mock('@/shared/services/api', () => ({
@@ -39,13 +40,13 @@ describe('authAPI', () => {
         refresh_token: 'refresh123'
       };
 
-      mockApi.post.mockResolvedValue(mockResponse);
+      mockApi.post.mockResolvedValue(createMockAxiosResponse(mockResponse));
 
       const credentials = { email: 'test@example.com', password: 'password' };
       const result = await authAPI.login(credentials);
 
       expect(mockApi.post).toHaveBeenCalledWith('/auth/login', credentials);
-      expect(result).toEqual(mockResponse);
+      expect(result.data).toEqual(mockResponse);
     });
   });
 
@@ -53,12 +54,12 @@ describe('authAPI', () => {
     it('should call POST /auth/logout', async () => {
       const mockResponse = { success: true };
 
-      mockApi.post.mockResolvedValue(mockResponse);
+      mockApi.post.mockResolvedValue(createMockAxiosResponse(mockResponse));
 
       const result = await authAPI.logout();
 
       expect(mockApi.post).toHaveBeenCalledWith('/auth/logout');
-      expect(result).toEqual(mockResponse);
+      expect(result.data).toEqual(mockResponse);
     });
   });
 
@@ -69,14 +70,14 @@ describe('authAPI', () => {
         refresh_token: 'new_refresh123'
       };
 
-      mockApi.post.mockResolvedValue(mockResponse);
+      mockApi.post.mockResolvedValue(createMockAxiosResponse(mockResponse));
 
       const result = await authAPI.refreshToken('refresh_token123');
 
       expect(mockApi.post).toHaveBeenCalledWith('/auth/refresh', {
         refresh_token: 'refresh_token123'
       });
-      expect(result).toEqual(mockResponse);
+      expect(result.data).toEqual(mockResponse);
     });
   });
 
@@ -100,12 +101,12 @@ describe('authAPI', () => {
         }
       };
 
-      mockApi.get.mockResolvedValue(mockResponse);
+      mockApi.get.mockResolvedValue(createMockAxiosResponse(mockResponse));
 
       const result = await authAPI.getCurrentUser();
 
       expect(mockApi.get).toHaveBeenCalledWith('/auth/me');
-      expect(result).toEqual(mockResponse);
+      expect(result.data).toEqual(mockResponse);
     });
   });
 });

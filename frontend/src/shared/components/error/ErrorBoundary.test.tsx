@@ -245,6 +245,7 @@ describe('ErrorBoundary', () => {
 
   it('shows technical details in development mode', () => {
     const originalEnv = process.env.NODE_ENV;
+    // @ts-ignore: Intentionally overriding readonly for testing
     process.env.NODE_ENV = 'development';
 
     renderWithProviders(
@@ -260,11 +261,13 @@ describe('ErrorBoundary', () => {
     fireEvent.click(detailsButton);
     expect(screen.getByText('Development error details')).toBeInTheDocument();
 
+    // @ts-ignore: Intentionally overriding readonly for testing
     process.env.NODE_ENV = originalEnv;
   });
 
   it('hides technical details in production mode', () => {
     const originalEnv = process.env.NODE_ENV;
+    // @ts-ignore: Intentionally overriding readonly for testing
     process.env.NODE_ENV = 'production';
 
     renderWithProviders(
@@ -276,11 +279,13 @@ describe('ErrorBoundary', () => {
 
     expect(screen.queryByText(/Technical Details/)).not.toBeInTheDocument();
 
+    // @ts-ignore: Intentionally overriding readonly for testing
     process.env.NODE_ENV = originalEnv;
   });
 
   it('can be forced to show details regardless of environment', () => {
     const originalEnv = process.env.NODE_ENV;
+    // @ts-ignore: Intentionally overriding readonly for testing
     process.env.NODE_ENV = 'production';
 
     renderWithProviders(
@@ -292,6 +297,7 @@ describe('ErrorBoundary', () => {
 
     expect(screen.getByText(/Technical Details/)).toBeInTheDocument();
 
+    // @ts-ignore: Intentionally overriding readonly for testing
     process.env.NODE_ENV = originalEnv;
   });
 
