@@ -235,8 +235,14 @@ export const servicesApi = {
     return response.data.data;
   },
 
-  // Get health check status
-  async getHealthStatus(): Promise<HealthStatus> {
+  // Get basic health check status
+  async getHealthStatus(): Promise<{ status: string }> {
+    const response = await api.get('/health');
+    return response.data;
+  },
+
+  // Get detailed services health status (requires auth)
+  async getDetailedHealthStatus(): Promise<HealthStatus> {
     const response = await api.get('/services/health_check');
     return response.data.data;
   },

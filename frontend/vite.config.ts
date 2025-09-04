@@ -9,27 +9,29 @@ import fs from 'fs';
 // Function to get allowed hosts from backend proxy settings
 function getAllowedHosts(): string[] {
   try {
-    // Try to fetch from backend proxy settings
-    const result = execSync('node scripts/fetch-proxy-config.js', {
+    // Try to fetch from backend proxy settings with quiet mode
+    const result = execSync('VITE_QUIET=true node scripts/fetch-proxy-config.js', {
       encoding: 'utf-8',
-      stdio: ['pipe', 'pipe', 'ignore'] // Ignore stderr to avoid console noise
+      stdio: ['pipe', 'pipe', 'ignore'], // Ignore stderr to avoid console noise
+      timeout: 5000, // 5 second timeout
+      env: { ...process.env, VITE_QUIET: 'true' }
     });
     
     const config = JSON.parse(result);
-    if (config && config.allowedHosts) {
+    if (config && config.allowedHosts && config.allowedHosts.length > 0) {
       console.log(`✓ Loaded ${config.allowedHosts.length} allowed hosts from ${config.source}`);
       return config.allowedHosts;
     }
   } catch (error) {
-    console.log('⚠ Could not fetch proxy config, using defaults');
+    // Silent fallback - the script already handles logging
+    console.log('⚠ Could not fetch proxy config from backend, using minimal defaults');
   }
   
-  // Fallback to default hosts
+  // Minimal fallback to default hosts - backend should provide the full list
   return [
     'localhost',
     '127.0.0.1',
-    'dev-1.ipnode.net',
-    '.ipnode.net',
+    '::1'
   ];
 }
 
@@ -41,13 +43,6 @@ export default defineConfig(({ mode }) => {
   // Determine if we're behind a reverse proxy
   // Check multiple indicators for reverse proxy detection
   const isProduction = mode === 'production';
-  const behindProxy = env.VITE_BEHIND_PROXY === 'true' || 
-                     env.BEHIND_PROXY === 'true' ||
-                     (env.NODE_ENV === 'production') ||
-                     (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') ||
-                     // Auto-detect based on environment hints
-                     env.VITE_PROXY_HOST !== undefined ||
-                     env.PROXY_HOST !== undefined;
   
   // Use actual host from environment or detect from context
   const proxyHost = env.VITE_PROXY_HOST || 
@@ -55,6 +50,16 @@ export default defineConfig(({ mode }) => {
                    (typeof process !== 'undefined' && process.env.HOSTNAME) || 
                    'localhost';
   const proxyProtocol = env.VITE_PROXY_PROTOCOL || env.PROXY_PROTOCOL || 'https';
+  
+  // Runtime proxy detection (similar to API logic)
+  // If VITE_BEHIND_PROXY is explicitly set, use it
+  // Otherwise, auto-detect based on production mode or domain patterns
+  const behindProxy = env.VITE_BEHIND_PROXY === 'true' || 
+                     env.BEHIND_PROXY === 'true' ||
+                     (env.NODE_ENV === 'production') ||
+                     (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') ||
+                     // Auto-detect proxy based on domain patterns (non-localhost, non-IP)
+                     (proxyHost !== 'localhost' && !proxyHost.match(/^\d+\.\d+\.\d+\.\d+$/) && !proxyHost.includes('ipnode'));
   
   console.log('🔧 Vite Configuration:');
   console.log(`  Mode: ${mode}`);
@@ -98,32 +103,29 @@ export default defineConfig(({ mode }) => {
       host: '0.0.0.0',
       port: 3001,
       open: false,
+      strictPort: true, // Don't try alternative ports
       
       // Allow specific hosts for development
       // Fetched dynamically from backend proxy settings
+      // Add '.host.docker.internal' for Docker environments
       allowedHosts: [
         ...allowedHosts,      // Hosts from backend proxy settings
         ...additionalHosts,   // Additional hosts from environment variable (override)
+        '.host.docker.internal', // Docker host
       ],
       
       // Configure HMR (Hot Module Replacement)
-      hmr: behindProxy
-        ? {
-            // When behind external proxy, client must connect through proxy URL
-            protocol: 'wss',
-            host: proxyHost,
-            port: 443,
-            clientPort: 443,
-            timeout: 120000,
-            overlay: true,
-          }
-        : {
-            protocol: 'ws',
-            host: 'localhost',
-            port: 3001,
-            timeout: 60000,
-            overlay: true,
-          },
+      // Dynamic configuration - client will determine connection type at runtime
+      hmr: {
+        // Let Vite handle the connection dynamically
+        // For proxy scenarios: client will connect via same domain (wss://dev.powernode.org)  
+        // For direct access: client will connect to development server port
+        timeout: 120000,
+        overlay: true,
+        // Allow Vite to auto-detect the best connection method
+        clientPort: undefined,
+        protocol: undefined,
+      },
       
       // Configure CORS for development
       cors: true,

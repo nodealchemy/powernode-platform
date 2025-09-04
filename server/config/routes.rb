@@ -19,8 +19,9 @@ Rails.application.routes.draw do
       # CSRF token endpoint for authenticated users
       get :csrf_token, to: 'csrf#token'
       
-      # Configuration endpoint (no authentication required)
+      # Configuration endpoints (no authentication required)
       get :config, to: 'config#index'
+      get 'config/allowed_hosts', to: 'config#allowed_hosts'
       
       # Public endpoints (no authentication required)
       get 'public/plans', to: 'plans#public_index'

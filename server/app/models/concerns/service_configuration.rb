@@ -190,7 +190,17 @@ module ServiceConfiguration
     def update_reverse_proxy_url_config(new_config)
       setting = find_or_initialize_by(key: 'reverse_proxy_url_config')
       current_config = reverse_proxy_url_config
-      merged_config = current_config.deep_merge(new_config.with_indifferent_access)
+      
+      # Deep merge with special handling for arrays (replace instead of merge)
+      merged_config = current_config.deep_merge(new_config.with_indifferent_access) do |key, old_val, new_val|
+        # For arrays, replace instead of merge
+        if old_val.is_a?(Array) && new_val.is_a?(Array)
+          new_val
+        else
+          new_val
+        end
+      end
+      
       setting.value = merged_config.to_json
       setting.save!
       merged_config

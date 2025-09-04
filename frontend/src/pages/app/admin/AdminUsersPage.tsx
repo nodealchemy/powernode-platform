@@ -301,8 +301,33 @@ const AdminUsersPage: React.FC<AdminUsersPageProps> = () => {
       } else {
         setFormErrors([response.message || 'Failed to create user']);
       }
-    } catch (err) {
-      setFormErrors(['Failed to create user. Please try again.']);
+    } catch (err: any) {
+      console.error('User creation error:', err);
+      
+      // Handle different error types
+      if (err.code === 'ERR_NETWORK' || err.code === 'ERR_FAILED') {
+        setFormErrors(['Network error: Unable to connect to the server. Please check your connection.']);
+      } else if (err.response?.status === 401) {
+        setFormErrors(['Authentication error: Your session may have expired. Please refresh the page.']);
+      } else if (err.response?.status === 403) {
+        setFormErrors(['Permission denied: You do not have permission to create users.']);
+      } else if (err.response?.status === 422) {
+        // Validation errors from backend
+        const validationErrors = err.response?.data?.errors || err.response?.data?.message;
+        if (typeof validationErrors === 'object') {
+          setFormErrors(Object.values(validationErrors).flat());
+        } else if (validationErrors) {
+          setFormErrors([validationErrors]);
+        } else {
+          setFormErrors(['Validation error: Please check your input.']);
+        }
+      } else if (err.response?.data?.message) {
+        setFormErrors([err.response.data.message]);
+      } else if (err.message) {
+        setFormErrors([`Error: ${err.message}`]);
+      } else {
+        setFormErrors(['An unexpected error occurred while creating the user.']);
+      }
     } finally {
       setActionLoading(false);
     }
@@ -1051,10 +1076,13 @@ const AdminUsersPage: React.FC<AdminUsersPageProps> = () => {
               {/* Personal Information Section */}
               <div className="bg-theme-background border-2 border-theme rounded-2xl p-8">
                 <div className="flex items-center space-x-3 mb-6">
-                  <div className="w-10 h-10 bg-theme-interactive-primary bg-opacity-10 rounded-xl flex items-center justify-center">
-                    <svg className="w-5 h-5 text-theme-interactive-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
+                  <div className="relative">
+                    <div className="absolute inset-0 bg-gradient-to-br from-theme-interactive-primary/15 to-theme-interactive-primary/5 rounded-xl blur-md"></div>
+                    <div className="relative w-10 h-10 bg-theme-surface/50 backdrop-blur-sm rounded-xl flex items-center justify-center">
+                      <svg className="w-5 h-5 text-theme-interactive-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
+                    </div>
                   </div>
                   <div>
                     <h3 className="text-lg font-semibold text-theme-primary">Personal Information</h3>

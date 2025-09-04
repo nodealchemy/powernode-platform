@@ -20,30 +20,44 @@ const ProxyHostList: React.FC<ProxyHostListProps> = ({ trustedHosts, onHostsChan
 
     setValidating(true);
     try {
-      // Validate host first
-      const result = await proxySettingsApi.validateHost(newHost);
-      setValidationResult(result);
-
-      if (result.validation.valid || newHost.includes('*')) {
-        // Add to list
-        const updatedHosts = [...trustedHosts, newHost];
-        onHostsChange(updatedHosts);
+      // For wildcard patterns, skip validation (backend handles it)
+      if (newHost.includes('*')) {
+        // Directly add via API for wildcard patterns
+        const response = await proxySettingsApi.addTrustedHost(newHost);
+        onHostsChange(response.trusted_hosts);
         setNewHost('');
+        setValidationResult(null);
         showSuccess(`Added trusted host: ${newHost}`);
       } else {
-        showError(`Invalid host: ${result.validation.errors.join(', ')}`);
+        // Validate regular hosts first
+        const result = await proxySettingsApi.validateHost(newHost);
+        setValidationResult(result);
+
+        if (result.validation.valid) {
+          // Add via API
+          const response = await proxySettingsApi.addTrustedHost(newHost);
+          onHostsChange(response.trusted_hosts);
+          setNewHost('');
+          showSuccess(`Added trusted host: ${newHost}`);
+        } else {
+          showError(`Invalid host: ${result.validation.errors.join(', ')}`);
+        }
       }
     } catch (error) {
-      showError('Failed to validate host');
+      showError('Failed to add trusted host');
     } finally {
       setValidating(false);
     }
   };
 
-  const handleRemoveHost = (host: string) => {
-    const updatedHosts = trustedHosts.filter(h => h !== host);
-    onHostsChange(updatedHosts);
-    showSuccess(`Removed trusted host: ${host}`);
+  const handleRemoveHost = async (host: string) => {
+    try {
+      const response = await proxySettingsApi.removeTrustedHost(host);
+      onHostsChange(response.trusted_hosts);
+      showSuccess(`Removed trusted host: ${host}`);
+    } catch (error) {
+      showError('Failed to remove trusted host');
+    }
   };
 
   const getHostBadge = (host: string) => {

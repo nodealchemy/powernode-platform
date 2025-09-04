@@ -80,7 +80,7 @@ const ServicesConfiguration: React.FC<ServicesConfigurationProps> = ({ className
 
   const refreshHealthStatus = useCallback(async () => {
     try {
-      const health = await servicesApi.getHealthStatus();
+      const health = await servicesApi.getDetailedHealthStatus();
       setHealthStatus(health);
     } catch (error) {
       // Error handled by notification

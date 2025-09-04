@@ -31,26 +31,51 @@ const getAPIBaseURL = (): string => {
         const apiPath = envUrl.pathname || '/api/v1';
         
         // Detect if we're behind a reverse proxy
-        // Check explicit env variable first, then auto-detect based on standard ports
+        // Check explicit env variable first, then auto-detect based on connection patterns
+        
+        // Direct development connections typically use non-standard ports (3001, 4000, 5000, etc.)
+        const isDirectDevConnection = currentPort && !['80', '443'].includes(currentPort);
+        
+        // Standard proxy ports indicate we're behind a reverse proxy
         const isStandardPort = 
           (currentProtocol === 'https:' && (!currentPort || currentPort === '443')) ||
           (currentProtocol === 'http:' && (!currentPort || currentPort === '80'));
         
-        const isProxied = behindProxy || isStandardPort;
+        // Determine if we're behind a proxy:
+        // 1. Explicit env variable override
+        // 2. Standard ports (80/443) indicate proxy
+        // 3. Direct dev connections (non-standard ports) are NOT proxied
+        const isProxied = behindProxy || (isStandardPort && !isDirectDevConnection);
         
         if (isProxied) {
           // Behind reverse proxy - use same host and port as frontend
           const portPart = currentPort ? `:${currentPort}` : '';
           const result = `${currentProtocol}//${currentHostname}${portPart}${apiPath}`;
           if (getEnvVar('NODE_ENV', 'NODE_ENV', 'production') === 'development') {
-            console.log('[API] Detected reverse proxy, using:', result);
+            console.log('[API] Detected reverse proxy:', {
+              currentProtocol,
+              currentHostname, 
+              currentPort,
+              isDirectDevConnection,
+              isStandardPort,
+              behindProxy,
+              result
+            });
           }
           return result;
         } else {
           // Direct access - use port 3000 for backend
           const result = `${currentProtocol}//${currentHostname}:3000${apiPath}`;
           if (getEnvVar('NODE_ENV', 'NODE_ENV', 'production') === 'development') {
-            console.log('[API] Direct access mode, using:', result);
+            console.log('[API] Direct access mode:', {
+              currentProtocol,
+              currentHostname,
+              currentPort,
+              isDirectDevConnection,
+              isStandardPort,
+              behindProxy,
+              result
+            });
           }
           return result;
         }

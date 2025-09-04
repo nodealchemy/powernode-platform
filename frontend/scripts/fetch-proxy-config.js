@@ -6,13 +6,15 @@
  */
 
 const http = require('http');
+const https = require('https');
 const fs = require('fs');
 const path = require('path');
 
 // Configuration
 const API_BASE = process.env.VITE_API_BASE_URL || 'http://localhost:3000';
 const CONFIG_ENDPOINT = '/api/v1/config';
-const PROXY_SETTINGS_ENDPOINT = '/api/v1/admin/proxy_settings/url_config';
+const ALLOWED_HOSTS_ENDPOINT = '/api/v1/config/allowed_hosts';
+const QUIET_MODE = process.env.VITE_QUIET !== 'false'; // Default to quiet
 
 // Cache file for offline development
 const CACHE_FILE = path.join(__dirname, '..', '.proxy-config-cache.json');
@@ -22,7 +24,21 @@ const CACHE_FILE = path.join(__dirname, '..', '.proxy-config-cache.json');
  */
 function fetchConfig(url) {
   return new Promise((resolve, reject) => {
-    http.get(url, (res) => {
+    const urlObj = new URL(url);
+    const client = urlObj.protocol === 'https:' ? https : http;
+    
+    const options = {
+      hostname: urlObj.hostname,
+      port: urlObj.port || (urlObj.protocol === 'https:' ? 443 : 80),
+      path: urlObj.pathname + urlObj.search,
+      method: 'GET',
+      timeout: 3000, // 3 second timeout
+      headers: {
+        'Accept': 'application/json'
+      }
+    };
+    
+    const req = client.request(options, (res) => {
       let data = '';
       
       res.on('data', (chunk) => {
@@ -41,9 +57,18 @@ function fetchConfig(url) {
           reject(new Error(`HTTP ${res.statusCode}`));
         }
       });
-    }).on('error', (err) => {
+    });
+    
+    req.on('error', (err) => {
       reject(err);
     });
+    
+    req.on('timeout', () => {
+      req.destroy();
+      reject(new Error('Request timeout'));
+    });
+    
+    req.end();
   });
 }
 
@@ -74,30 +99,36 @@ function saveCache(config) {
 }
 
 /**
- * Extract allowed hosts from proxy configuration
+ * Extract allowed hosts from backend response
  */
-function extractAllowedHosts(proxyConfig) {
+function extractAllowedHosts(response) {
+  // If the response already has allowed_hosts array, use it directly
+  if (response?.data?.allowed_hosts && Array.isArray(response.data.allowed_hosts)) {
+    return response.data.allowed_hosts;
+  }
+  
+  // Fallback for legacy format
   const hosts = new Set([
     'localhost',
     '127.0.0.1',
     '::1',
   ]);
   
-  // Add trusted hosts from proxy config
-  if (proxyConfig?.data?.trusted_hosts) {
-    proxyConfig.data.trusted_hosts.forEach(host => {
+  // Add trusted hosts from proxy config (legacy)
+  if (response?.data?.trusted_hosts) {
+    response.data.trusted_hosts.forEach(host => {
       hosts.add(host);
     });
   }
   
-  // Add default host if configured
-  if (proxyConfig?.data?.default_host) {
-    hosts.add(proxyConfig.data.default_host);
+  // Add default host if configured (legacy)
+  if (response?.data?.default_host) {
+    hosts.add(response.data.default_host);
   }
   
-  // Add wildcard patterns for multi-tenancy
-  if (proxyConfig?.data?.multi_tenancy?.wildcard_patterns) {
-    proxyConfig.data.multi_tenancy.wildcard_patterns.forEach(pattern => {
+  // Add wildcard patterns for multi-tenancy (legacy)
+  if (response?.data?.multi_tenancy?.wildcard_patterns) {
+    response.data.multi_tenancy.wildcard_patterns.forEach(pattern => {
       hosts.add(pattern);
     });
   }
@@ -110,12 +141,14 @@ function extractAllowedHosts(proxyConfig) {
  */
 async function main() {
   try {
-    // Try to fetch proxy settings from backend
-    console.log('Fetching proxy configuration from backend...');
-    const proxyConfig = await fetchConfig(`${API_BASE}${PROXY_SETTINGS_ENDPOINT}`);
+    // Try to fetch allowed hosts from public endpoint
+    if (!QUIET_MODE) {
+      console.error('Fetching allowed hosts from backend...');
+    }
+    const response = await fetchConfig(`${API_BASE}${ALLOWED_HOSTS_ENDPOINT}`);
     
     // Extract allowed hosts
-    const allowedHosts = extractAllowedHosts(proxyConfig);
+    const allowedHosts = extractAllowedHosts(response);
     
     // Save to cache for offline use
     const config = {
@@ -125,17 +158,20 @@ async function main() {
     };
     saveCache(config);
     
-    // Output for Vite to consume
-    console.log('Allowed hosts:', allowedHosts.join(', '));
+    // Output for Vite to consume (stdout only, no console.log)
     process.stdout.write(JSON.stringify(config));
     
   } catch (error) {
-    console.log('Failed to fetch from backend:', error.message);
+    if (!QUIET_MODE) {
+      console.error('Failed to fetch from backend:', error.message);
+    }
     
     // Try to use cached configuration
     const cached = loadCache();
     if (cached) {
-      console.log('Using cached configuration');
+      if (!QUIET_MODE) {
+        console.error('Using cached configuration');
+      }
       process.stdout.write(JSON.stringify(cached));
     } else {
       // Fallback to default configuration
@@ -143,15 +179,13 @@ async function main() {
         allowedHosts: [
           'localhost',
           '127.0.0.1',
-          '::1',
-          'dev-1.ipnode.net',
-          'dev-1.ipnode.org',
-          '.ipnode.net',
-          '.ipnode.org'
+          '::1'
         ],
         source: 'default'
       };
-      console.log('Using default configuration');
+      if (!QUIET_MODE) {
+        console.error('Using default configuration');
+      }
       process.stdout.write(JSON.stringify(defaultConfig));
     }
   }

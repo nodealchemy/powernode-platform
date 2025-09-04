@@ -205,8 +205,11 @@ export const AdminRolesPage: React.FC = () => {
               <div key={role.id} className="bg-gradient-to-br from-theme-surface to-theme-surface-hover border border-theme rounded-lg p-5 hover:shadow-lg transition-shadow">
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center space-x-2">
-                    <div className="w-8 h-8 bg-theme-interactive-primary bg-opacity-10 rounded-lg flex items-center justify-center">
-                      <Shield className="w-4 h-4 text-theme-interactive-primary" />
+                    <div className="relative">
+                      <div className="absolute inset-0 bg-gradient-to-br from-theme-interactive-primary/15 to-theme-interactive-primary/5 rounded-lg blur-md"></div>
+                      <div className="relative w-8 h-8 bg-theme-surface/50 backdrop-blur-sm rounded-lg flex items-center justify-center">
+                        <Shield className="w-4 h-4 text-theme-interactive-primary" />
+                      </div>
                     </div>
                     <h3 className="font-semibold text-theme-primary capitalize">{role.name.replace(/_/g, ' ')}</h3>
                   </div>
@@ -276,8 +279,11 @@ export const AdminRolesPage: React.FC = () => {
                 <div key={role.id} className="bg-theme-surface border border-theme rounded-lg p-5 hover:shadow-md transition-shadow">
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center space-x-2">
-                      <div className="w-8 h-8 bg-theme-secondary bg-opacity-10 rounded-lg flex items-center justify-center">
-                        <Shield className="w-4 h-4 text-theme-secondary" />
+                      <div className="relative">
+                        <div className="absolute inset-0 bg-gradient-to-br from-theme-secondary/15 to-theme-secondary/5 rounded-lg blur-md"></div>
+                        <div className="relative w-8 h-8 bg-theme-surface/50 backdrop-blur-sm rounded-lg flex items-center justify-center">
+                          <Shield className="w-4 h-4 text-theme-secondary" />
+                        </div>
                       </div>
                       <h3 className="font-semibold text-theme-primary">{role.name}</h3>
                     </div>
@@ -341,8 +347,11 @@ export const AdminRolesPage: React.FC = () => {
               {Object.entries(groupPermissionsByResource(permissions)).map(([resource, perms]) => (
                 <div key={resource} className="space-y-3">
                   <div className="flex items-center space-x-2 pb-2 border-b border-theme">
-                    <div className="w-6 h-6 bg-theme-interactive-primary bg-opacity-10 rounded flex items-center justify-center">
-                      <Shield className="w-3 h-3 text-theme-interactive-primary" />
+                    <div className="relative">
+                      <div className="absolute inset-0 bg-gradient-to-br from-theme-interactive-primary/15 to-theme-interactive-primary/5 rounded blur-md"></div>
+                      <div className="relative w-6 h-6 bg-theme-surface/50 backdrop-blur-sm rounded flex items-center justify-center">
+                        <Shield className="w-3 h-3 text-theme-interactive-primary" />
+                      </div>
                     </div>
                     <h4 className="font-semibold text-theme-primary capitalize text-sm">
                       {resource.replace(/_/g, ' ')}

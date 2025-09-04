@@ -342,7 +342,11 @@ const ProxySettingsTab: React.FC = () => {
           {/* Trusted Hosts */}
           <ProxyHostList
             trustedHosts={config.trusted_hosts}
-            onHostsChange={(hosts) => setConfig({ ...config, trusted_hosts: hosts })}
+            onHostsChange={(hosts) => {
+              // Update local state with new hosts from the backend
+              setConfig({ ...config, trusted_hosts: hosts });
+              // The hosts are already persisted by ProxyHostList via API calls
+            }}
           />
 
           {/* Multi-Tenancy Settings */}

@@ -171,14 +171,18 @@ export const AdminSettingsTabs: React.FC<AdminSettingsTabsProps> = ({ className 
         {(() => {
           const activeTab = availableTabs.find(tab => tab.id === activeTabId);
           if (!activeTab) return null;
+          const IconComponent = activeTab.icon;
           
           return (
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-theme-interactive-primary bg-opacity-10 rounded-lg">
-                <activeTab.icon className="w-5 h-5 text-theme-interactive-primary" />
+              <div className="relative">
+                <div className="absolute inset-0 bg-gradient-to-br from-theme-interactive-primary/15 to-theme-interactive-primary/5 rounded-lg blur-md"></div>
+                <div className="relative p-2.5 bg-theme-surface/50 backdrop-blur-sm rounded-lg">
+                  <IconComponent className="w-6 h-6 text-theme-interactive-primary" strokeWidth={1.5} />
+                </div>
               </div>
               <div>
-                <p className="text-theme-secondary mt-1">{activeTab.description}</p>
+                <p className="text-theme-secondary">{activeTab.description}</p>
               </div>
             </div>
           );

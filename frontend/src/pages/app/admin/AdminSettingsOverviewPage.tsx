@@ -98,16 +98,25 @@ export const AdminSettingsOverviewPage: React.FC = () => {
       setLoading(true);
       setError(null);
       
-      // Load overview data and services health in parallel
-      const [overviewData, healthStatus] = await Promise.all([
-        adminSettingsApi.getOverview(),
-        servicesApi.getHealthStatus().catch(() => null) // Don't fail if services API is unavailable
-      ]);
+      // Load overview data first
+      const overviewData = await adminSettingsApi.getOverview();
+      
+      // Try to load services health, but don't fail if unavailable
+      let healthStatus = null;
+      try {
+        healthStatus = await servicesApi.getDetailedHealthStatus();
+      } catch (healthError) {
+        console.warn('Services health check unavailable:', healthError);
+        // Continue without health status - this is non-critical
+      }
       
       setData(overviewData);
       setServicesHealth(healthStatus);
     } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : 'Failed to load admin overview data');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load admin overview data';
+      console.error('Admin overview load error:', error);
+      setError(errorMessage);
+      showNotification('Failed to load admin overview data', 'error');
     } finally {
       setLoading(false);
     }

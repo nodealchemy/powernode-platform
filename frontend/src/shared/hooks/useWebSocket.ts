@@ -50,16 +50,32 @@ export const useWebSocket = (): UseWebSocketReturn => {
     let host = window.location.hostname;
     let port = ':3000';
     
-    // Handle different development environments
+    // Handle different development environments  
     if (host === 'localhost' || host === '127.0.0.1') {
       // Local development
       port = ':3000';
-    } else if (host.includes('ipnode.net')) {
-      // Development server environment - use the backend port
-      port = ':3000';
     } else {
-      // Production or other environments
-      port = window.location.port ? `:${window.location.port}` : '';
+      // Check if we're behind a reverse proxy
+      // Direct development connections use non-standard ports (3001, 4000, 5000, etc.)
+      const isDirectDevConnection = window.location.port && !['80', '443'].includes(window.location.port);
+      
+      // Standard proxy ports indicate we're behind a reverse proxy
+      const isStandardPort = 
+        (window.location.protocol === 'https:' && (!window.location.port || window.location.port === '443')) ||
+        (window.location.protocol === 'http:' && (!window.location.port || window.location.port === '80'));
+      
+      // Determine connection type:
+      // 1. Standard ports (80/443) without direct dev connection = behind proxy
+      // 2. Direct dev connections (non-standard ports) = direct access
+      const isProxied = isStandardPort && !isDirectDevConnection;
+      
+      if (isProxied) {
+        // Behind reverse proxy - use same port as frontend
+        port = window.location.port ? `:${window.location.port}` : '';
+      } else {
+        // Direct development access - use backend port
+        port = ':3000';
+      }
     }
     
     const baseUrl = `${protocol}//${host}${port}/cable`;

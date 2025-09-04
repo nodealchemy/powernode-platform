@@ -83,20 +83,11 @@ Rails.application.configure do
     /ws:\/\/192\.168\.\d{1,3}\.\d{1,3}:300[0-9]/,
     /ws:\/\/10\.\d{1,3}\.\d{1,3}\.\d{1,3}:300[0-9]/,
     /ws:\/\/172\.(1[6-9]|2[0-9]|3[0-1])\.\d{1,3}\.\d{1,3}:300[0-9]/,
-    # Development domains
+    # Development domains - generic patterns only
     /http:\/\/[^\/]+\.local:300[0-9]/,
-    /http:\/\/[^\/]+\.dev:300[0-9]/,
     /http:\/\/[^\/]+\.test:300[0-9]/,
-    /http:\/\/[^\/]+\.ipnode\.net:300[0-9]/,
     /ws:\/\/[^\/]+\.local:300[0-9]/,
-    /ws:\/\/[^\/]+\.dev:300[0-9]/,
-    /ws:\/\/[^\/]+\.test:300[0-9]/,
-    /ws:\/\/[^\/]+\.ipnode\.net:300[0-9]/,
-    # Specific ipnode.net domain support
-    "http://dev-1.ipnode.net:3000",
-    "http://dev-1.ipnode.net:3001",
-    "ws://dev-1.ipnode.net:3000",
-    "ws://dev-1.ipnode.net:3001"
+    /ws:\/\/[^\/]+\.test:300[0-9]/
   ]
 
   # Raise error when a before_action's only/except options reference missing actions.
