@@ -195,7 +195,7 @@ class AuditLoggingService
     end
   end
 
-  def activity_summary(user: nil, account: nil, time_range = 7.days.ago..Time.current)
+  def activity_summary(user: nil, account: nil, time_range: 7.days.ago..Time.current)
     scope = AuditLog.where(created_at: time_range)
     scope = scope.where(user: user) if user
     scope = scope.where(account: account) if account
