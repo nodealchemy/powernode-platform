@@ -303,9 +303,7 @@ export const AdminSettingsPaymentGatewaysTabPage: React.FC = () => {
   }
 
   return (
-    <div className="bg-theme-surface rounded-lg border border-theme">
-      <div className="p-6">
-        <div className="space-y-6">
+    <div className="space-y-6">
 
       {/* Overview Stats */}
       {overview && overview.statistics?.overall && (
@@ -426,8 +424,6 @@ export const AdminSettingsPaymentGatewaysTabPage: React.FC = () => {
           </div>
         </div>
       )}
-        </div>
-      </div>
 
       {/* Configuration Modal */}
       {configModal.gateway && (

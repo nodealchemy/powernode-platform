@@ -131,7 +131,7 @@ const ProxyTestConnection: React.FC<ProxyTestConnectionProps> = ({ onTestComplet
         <button
           onClick={handleTest}
           disabled={testing}
-          className="mt-4 w-full px-4 py-2 bg-theme-primary text-white rounded-md hover:bg-theme-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="mt-4 w-full px-4 py-2 bg-theme-interactive-primary text-white rounded-md hover:bg-theme-interactive-primary-hover disabled:bg-theme-interactive-primary-disabled disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           {testing ? 'Testing...' : 'Test Configuration'}
         </button>

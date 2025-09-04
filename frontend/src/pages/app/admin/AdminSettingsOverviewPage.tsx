@@ -1,7 +1,4 @@
 import React, { useState, useEffect, useCallback } from 'react';
-// Removed unused Link import
-import { RefreshCw } from 'lucide-react';
-import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { adminSettingsApi, AdminOverviewData } from '@/features/admin/services/adminSettingsApi';
 import { servicesApi, HealthStatus } from '@/features/admin/services/servicesApi';
 import { ActionCard, MetricCard as StandardMetricCard } from '@/shared/components/ui/Card';
@@ -93,7 +90,6 @@ export const AdminSettingsOverviewPage: React.FC = () => {
   const [data, setData] = useState<AdminOverviewData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
   const [servicesHealth, setServicesHealth] = useState<HealthStatus | null>(null);
   const { showNotification } = useNotification();
 
@@ -117,75 +113,39 @@ export const AdminSettingsOverviewPage: React.FC = () => {
     }
   }, []);
 
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    await loadOverviewData();
-    setRefreshing(false);
-  };
-
   useEffect(() => {
     loadOverviewData();
   }, [loadOverviewData]);
 
-  const getBreadcrumbs = () => [
-    { label: 'Dashboard', href: '/app', icon: '🏠' },
-    { label: 'Admin Settings', href: '/app/admin/settings', icon: '⚙️' },
-    { label: 'Overview', icon: '📊' }
-  ];
-
-  const getPageActions = () => [
-    {
-      id: 'refresh',
-      label: refreshing ? 'Refreshing...' : 'Refresh',
-      onClick: handleRefresh,
-      variant: 'secondary' as const,
-      icon: RefreshCw,
-      disabled: refreshing
-    }
-  ];
 
   if (loading && !data) {
     return (
-      <PageContainer 
-        title="Admin Overview" 
-        description="System administration dashboard and monitoring"
-        breadcrumbs={getBreadcrumbs()}
-        actions={getPageActions()}
-      >
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-theme-interactive-primary mx-auto mb-4"></div>
-            <p className="text-theme-secondary">Loading system overview...</p>
-          </div>
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-theme-interactive-primary mx-auto mb-4"></div>
+          <p className="text-theme-secondary">Loading system overview...</p>
         </div>
-      </PageContainer>
+      </div>
     );
   }
 
   if (error) {
     return (
-      <PageContainer 
-        title="Admin Overview" 
-        description="System administration dashboard and monitoring"
-        breadcrumbs={getBreadcrumbs()}
-        actions={getPageActions()}
-      >
-        <div className="bg-theme-error-background border border-theme-error-border rounded-xl p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <span className="text-theme-error text-2xl">⚠️</span>
-            <div>
-              <h3 className="text-lg font-semibold text-theme-error">Unable to Load System Data</h3>
-              <p className="text-theme-error">{error}</p>
-            </div>
+      <div className="bg-theme-error-background border border-theme-error-border rounded-xl p-6">
+        <div className="flex items-center gap-3 mb-4">
+          <span className="text-theme-error text-2xl">⚠️</span>
+          <div>
+            <h3 className="text-lg font-semibold text-theme-error">Unable to Load System Data</h3>
+            <p className="text-theme-error">{error}</p>
           </div>
-          <button
-            onClick={loadOverviewData}
-            className="bg-theme-error text-white px-4 py-2 rounded-lg hover:bg-theme-error transition-colors"
-          >
-            Retry Loading
-          </button>
         </div>
-      </PageContainer>
+        <button
+          onClick={loadOverviewData}
+          className="bg-theme-error text-white px-4 py-2 rounded-lg hover:bg-theme-error transition-colors"
+        >
+          Retry Loading
+        </button>
+      </div>
     );
   }
 
@@ -227,14 +187,9 @@ export const AdminSettingsOverviewPage: React.FC = () => {
   const systemStatus = getSystemStatus();
 
   return (
-    <PageContainer 
-      title="Admin Overview" 
-      description="System administration dashboard and monitoring"
-      breadcrumbs={getBreadcrumbs()}
-      actions={getPageActions()}
-    >
+    <div className="space-y-6">
       {/* System Status Indicator */}
-      <div className="flex items-center gap-4 mb-6 p-4 bg-theme-surface rounded-lg border border-theme">
+      <div className="flex items-center gap-4 p-4 bg-theme-surface rounded-lg border border-theme">
         <span className="text-theme-secondary">System Status:</span>
         <div className="flex items-center gap-2">
           <div className={`w-2 h-2 rounded-full ${
@@ -882,6 +837,6 @@ export const AdminSettingsOverviewPage: React.FC = () => {
           </div>
         </div>
       </div>
-    </PageContainer>
+    </div>
   );
 };

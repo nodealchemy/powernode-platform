@@ -3,8 +3,9 @@ import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { 
-  CreditCard, Mail, Shield, 
-  Zap, BarChart3, Activity, Globe
+  CreditCard, Mail, Gauge, 
+  LayoutDashboard, ShieldAlert, 
+  Network, Lock
 } from 'lucide-react';
 import { RootState } from '@/shared/services';
 import { hasPermissions } from '@/shared/utils/permissionUtils';
@@ -23,7 +24,7 @@ const adminSettingsTabs: AdminSettingsTab[] = [
     id: 'overview',
     label: 'Overview',
     href: '/app/admin/settings',
-    icon: BarChart3,
+    icon: LayoutDashboard,
     description: 'System overview and quick admin actions'
     // No specific permissions required - covered by parent admin.settings.read
   },
@@ -47,7 +48,7 @@ const adminSettingsTabs: AdminSettingsTab[] = [
     id: 'proxy',
     label: 'Reverse Proxy',
     href: '/app/admin/settings/proxy',
-    icon: Globe,
+    icon: Network,
     description: 'Configure reverse proxy URL handling and trusted hosts',
     requiredPermissions: ['admin.settings.read'] // Using basic admin settings permission
   },
@@ -55,7 +56,7 @@ const adminSettingsTabs: AdminSettingsTab[] = [
     id: 'security',
     label: 'Security',
     href: '/app/admin/settings/security',
-    icon: Shield,
+    icon: Lock,
     description: 'Security policies and access controls',
     requiredPermissions: ['admin.settings.security']
   },
@@ -63,7 +64,7 @@ const adminSettingsTabs: AdminSettingsTab[] = [
     id: 'rate-limiting',
     label: 'Rate Limiting',
     href: '/app/admin/settings/rate-limiting',
-    icon: Activity,
+    icon: ShieldAlert,
     description: 'Configure API rate limits and monitor usage patterns',
     requiredPermissions: ['admin.settings.security']
   },
@@ -71,7 +72,7 @@ const adminSettingsTabs: AdminSettingsTab[] = [
     id: 'performance',
     label: 'Performance',
     href: '/app/admin/settings/performance',
-    icon: Zap,
+    icon: Gauge,
     description: 'Monitor and optimize system performance',
     requiredPermissions: ['admin.settings.read'] // Basic permission for now
   }

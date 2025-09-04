@@ -116,18 +116,6 @@ export const EmailConfiguration: React.FC = () => {
   if (loading) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-theme-interactive-primary bg-opacity-10 rounded-lg">
-              <Mail className="w-5 h-5 text-theme-interactive-primary" />
-            </div>
-            <div>
-              <h2 className="text-xl font-semibold text-theme-primary">Email Server Configuration</h2>
-              <p className="text-sm text-theme-secondary">Configure SMTP and email provider settings</p>
-            </div>
-          </div>
-        </div>
-
         <div className="bg-theme-surface rounded-lg border border-theme p-6 space-y-6">
           {/* Email Provider Selection - Show during loading */}
           <div>
@@ -181,50 +169,39 @@ export const EmailConfiguration: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-theme-interactive-primary bg-opacity-10 rounded-lg">
-            <Mail className="w-5 h-5 text-theme-interactive-primary" />
-          </div>
-          <div>
-            <h2 className="text-xl font-semibold text-theme-primary">Email Server Configuration</h2>
-            <p className="text-sm text-theme-secondary">Configure SMTP and email provider settings</p>
-          </div>
-        </div>
-        
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleReset}
-            disabled={!hasChanges || saving}
-            className="px-3 py-2 text-sm bg-theme-background text-theme-primary rounded-md hover:bg-theme-surface transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Settings className="w-4 h-4 mr-1 inline" />
-            Reset
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={!hasChanges || saving}
-            className="px-4 py-2 bg-theme-interactive-primary text-white rounded-md hover:bg-theme-interactive-primary-hover disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors duration-200"
-          >
-            {saving ? (
-              <>
-                <LoadingSpinner size="sm" />
-                Saving...
-              </>
-            ) : (
-              <>
-                <CheckCircle className="w-4 h-4" />
-                Save Changes
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-
       <div className="bg-theme-surface rounded-lg border border-theme p-6 space-y-6">
         {/* Email Provider Selection */}
         <div>
-          <h3 className="text-lg font-medium text-theme-primary mb-4">Provider Settings</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-medium text-theme-primary">Provider Settings</h3>
+            <div className="flex gap-2">
+              <button
+                onClick={handleReset}
+                disabled={!hasChanges || saving}
+                className="px-3 py-2 text-sm bg-theme-background text-theme-primary rounded-md hover:bg-theme-surface-hover transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Settings className="w-4 h-4 mr-1 inline" />
+                Reset
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={!hasChanges || saving}
+                className="px-4 py-2 text-sm bg-theme-interactive-primary text-white rounded-md hover:bg-theme-interactive-primary-hover disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors duration-200"
+              >
+                {saving ? (
+                  <>
+                    <LoadingSpinner size="sm" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="w-4 h-4" />
+                    Save Changes
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
           <div className="mb-6">
             <label htmlFor="email_provider" className="block text-sm font-medium text-theme-primary mb-2">
               Email Provider

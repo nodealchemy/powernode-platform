@@ -96,9 +96,16 @@ class ProxySecurityValidator
         errors << "Host '#{host}' is not in trusted hosts list"
       end
       
-      # Validate RFC-compliant hostname format
-      unless valid_hostname_format?(host)
-        errors << "Host '#{host}' is not RFC-compliant"
+      # Skip RFC validation for wildcard patterns, but validate them differently
+      if host.include?('*')
+        unless valid_wildcard_pattern?(host)
+          errors << "Invalid wildcard pattern: '#{host}'"
+        end
+      else
+        # Validate RFC-compliant hostname format for non-wildcard hosts
+        unless valid_hostname_format?(host)
+          errors << "Host '#{host}' is not RFC-compliant"
+        end
       end
     end
     
@@ -155,6 +162,32 @@ class ProxySecurityValidator
     return false if host.length > 253
     
     labels = host.split('.')
+    labels.all? do |label|
+      label.length.between?(1, 63) &&
+        label.match?(/^[a-z0-9]([a-z0-9\-]{0,61}[a-z0-9])?$/i)
+    end
+  end
+  
+  def valid_wildcard_pattern?(pattern)
+    return false if pattern.nil? || pattern.empty?
+    
+    # Remove port if present
+    host = pattern.split(':').first
+    
+    # Wildcard patterns should only have * at the beginning of a label
+    # Valid: *.example.com, *.subdomain.example.com
+    # Invalid: example.*.com, *example.com, example*.com
+    return false unless host.match?(/\A\*\.[a-z0-9\-.]+\z/i)
+    
+    # Validate the non-wildcard part
+    non_wildcard_part = host.sub(/\A\*\./, '')
+    
+    # The rest should be a valid domain
+    return false if non_wildcard_part.length > 253
+    
+    labels = non_wildcard_part.split('.')
+    return false if labels.length < 2 # Need at least domain.tld
+    
     labels.all? do |label|
       label.length.between?(1, 63) &&
         label.match?(/^[a-z0-9]([a-z0-9\-]{0,61}[a-z0-9])?$/i)

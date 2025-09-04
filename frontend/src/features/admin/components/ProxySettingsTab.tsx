@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useNotification } from '@/shared/hooks/useNotification';
-import { PageContainer } from '@/shared/components/layout/PageContainer';
 import proxySettingsApi, { 
   ProxyUrlConfig, 
   ProxyDetectionResult, 
@@ -118,31 +117,7 @@ const ProxySettingsTab: React.FC = () => {
   }
 
   return (
-    <PageContainer
-      title="Reverse Proxy URL Configuration"
-      description="Configure reverse proxy URL handling, trusted hosts, and multi-tenancy settings"
-      actions={[
-        {
-          id: 'save-changes',
-          label: 'Save Changes',
-          onClick: handleSaveConfig,
-          variant: 'primary',
-          disabled: saving,
-        },
-        {
-          id: 'export-config',
-          label: 'Export',
-          onClick: handleExport,
-          variant: 'secondary',
-        },
-        {
-          id: 'import-config',
-          label: 'Import',
-          onClick: () => document.getElementById('import-file')?.click(),
-          variant: 'secondary',
-        },
-      ]}
-    >
+    <div className="space-y-6">
       {/* Hidden file input for import */}
       <input
         id="import-file"
@@ -156,40 +131,65 @@ const ProxySettingsTab: React.FC = () => {
         }}
       />
 
-      {/* Tab Navigation */}
-      <div className="border-b border-theme mb-6">
-        <nav className="flex space-x-8">
-          <button
-            onClick={() => setActiveTab('config')}
-            className={`py-2 px-1 border-b-2 transition-colors ${
-              activeTab === 'config'
-                ? 'border-theme-primary text-theme-primary'
-                : 'border-transparent text-theme-secondary hover:text-theme-primary'
-            }`}
-          >
-            Configuration
-          </button>
-          <button
-            onClick={() => setActiveTab('detection')}
-            className={`py-2 px-1 border-b-2 transition-colors ${
-              activeTab === 'detection'
-                ? 'border-theme-primary text-theme-primary'
-                : 'border-transparent text-theme-secondary hover:text-theme-primary'
-            }`}
-          >
-            Detection Status
-          </button>
-          <button
-            onClick={() => setActiveTab('testing')}
-            className={`py-2 px-1 border-b-2 transition-colors ${
-              activeTab === 'testing'
-                ? 'border-theme-primary text-theme-primary'
-                : 'border-transparent text-theme-secondary hover:text-theme-primary'
-            }`}
-          >
-            Testing
-          </button>
-        </nav>
+      {/* Tab Navigation with Actions */}
+      <div className="border-b border-theme">
+        <div className="flex items-center justify-between">
+          <nav className="flex space-x-8">
+            <button
+              onClick={() => setActiveTab('config')}
+              className={`py-2 px-1 border-b-2 transition-colors ${
+                activeTab === 'config'
+                  ? 'border-theme-primary text-theme-primary'
+                  : 'border-transparent text-theme-secondary hover:text-theme-primary'
+              }`}
+            >
+              Configuration
+            </button>
+            <button
+              onClick={() => setActiveTab('detection')}
+              className={`py-2 px-1 border-b-2 transition-colors ${
+                activeTab === 'detection'
+                  ? 'border-theme-primary text-theme-primary'
+                  : 'border-transparent text-theme-secondary hover:text-theme-primary'
+              }`}
+            >
+              Detection Status
+            </button>
+            <button
+              onClick={() => setActiveTab('testing')}
+              className={`py-2 px-1 border-b-2 transition-colors ${
+                activeTab === 'testing'
+                  ? 'border-theme-primary text-theme-primary'
+                  : 'border-transparent text-theme-secondary hover:text-theme-primary'
+              }`}
+            >
+              Testing
+            </button>
+          </nav>
+          
+          {/* Action Buttons */}
+          <div className="flex gap-2 pb-2">
+            <button
+              onClick={handleExport}
+              className="px-3 py-1.5 text-sm bg-theme-background text-theme-primary rounded-md hover:bg-theme-surface-hover transition-colors duration-200"
+            >
+              Export
+            </button>
+            <button
+              onClick={() => document.getElementById('import-file')?.click()}
+              className="px-3 py-1.5 text-sm bg-theme-background text-theme-primary rounded-md hover:bg-theme-surface-hover transition-colors duration-200"
+            >
+              Import
+            </button>
+            <button
+              onClick={handleSaveConfig}
+              disabled={saving}
+              className="px-4 py-1.5 text-sm bg-theme-interactive-primary text-white rounded-md hover:bg-theme-interactive-primary-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+            >
+              {saving ? 'Saving...' : 'Save Changes'}
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Tab Content */}
@@ -396,7 +396,7 @@ const ProxySettingsTab: React.FC = () => {
           }}
         />
       )}
-    </PageContainer>
+    </div>
   );
 };
 

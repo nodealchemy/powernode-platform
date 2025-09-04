@@ -2,11 +2,21 @@ import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 import { store } from './index';
 import { refreshAccessToken, clearAuth, stopImpersonation } from './slices/authSlice';
 
+// Get environment variable with Vite/CRA compatibility
+const getEnvVar = (viteKey: string, craKey: string, defaultValue: string = ''): string => {
+  // Check if we're in Vite environment
+  if (typeof import.meta !== 'undefined' && import.meta.env) {
+    return import.meta.env[viteKey] || import.meta.env[craKey] || defaultValue;
+  }
+  // Fallback to process.env for CRA
+  return (process.env as any)[craKey] || defaultValue;
+};
+
 // Dynamic API base URL detection for remote access
 const getAPIBaseURL = (): string => {
-  const envBaseURL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:3000/api/v1';
-  const autoDetect = process.env.REACT_APP_AUTO_DETECT_BACKEND === 'true';
-  const behindProxy = process.env.REACT_APP_BEHIND_PROXY === 'true';
+  const envBaseURL = getEnvVar('VITE_API_BASE_URL', 'REACT_APP_API_BASE_URL', 'http://localhost:3000/api/v1');
+  const autoDetect = getEnvVar('VITE_AUTO_DETECT_BACKEND', 'REACT_APP_AUTO_DETECT_BACKEND', 'true') === 'true';
+  const behindProxy = getEnvVar('VITE_BEHIND_PROXY', 'REACT_APP_BEHIND_PROXY', 'false') === 'true';
   
   if (autoDetect && typeof window !== 'undefined') {
     const currentHostname = window.location.hostname;
@@ -32,14 +42,14 @@ const getAPIBaseURL = (): string => {
           // Behind reverse proxy - use same host and port as frontend
           const portPart = currentPort ? `:${currentPort}` : '';
           const result = `${currentProtocol}//${currentHostname}${portPart}${apiPath}`;
-          if (process.env.NODE_ENV === 'development') {
+          if (getEnvVar('NODE_ENV', 'NODE_ENV', 'production') === 'development') {
             console.log('[API] Detected reverse proxy, using:', result);
           }
           return result;
         } else {
           // Direct access - use port 3000 for backend
           const result = `${currentProtocol}//${currentHostname}:3000${apiPath}`;
-          if (process.env.NODE_ENV === 'development') {
+          if (getEnvVar('NODE_ENV', 'NODE_ENV', 'production') === 'development') {
             console.log('[API] Direct access mode, using:', result);
           }
           return result;
@@ -55,7 +65,8 @@ const getAPIBaseURL = (): string => {
 };
 
 // Log the API base URL in development
-if (process.env.NODE_ENV === 'development') {
+if (getEnvVar('NODE_ENV', 'NODE_ENV', 'production') === 'development') {
+  // Logging handled in getAPIBaseURL function
 }
 
 class APIClient {
