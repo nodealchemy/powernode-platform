@@ -173,7 +173,214 @@ module ServiceConfiguration
       end
     end
 
+    # Reverse Proxy URL Configuration Methods
+    
+    # Get reverse proxy URL configuration
+    def reverse_proxy_url_config
+      setting = find_by(key: 'reverse_proxy_url_config')
+      return default_reverse_proxy_url_config unless setting
+      
+      parsed_value = setting.value.is_a?(String) ? JSON.parse(setting.value) : setting.value
+      default_reverse_proxy_url_config.deep_merge(parsed_value)
+    rescue JSON::ParserError
+      default_reverse_proxy_url_config
+    end
+    
+    # Update reverse proxy URL configuration
+    def update_reverse_proxy_url_config(new_config)
+      setting = find_or_initialize_by(key: 'reverse_proxy_url_config')
+      current_config = reverse_proxy_url_config
+      merged_config = current_config.deep_merge(new_config.with_indifferent_access)
+      setting.value = merged_config.to_json
+      setting.save!
+      merged_config
+    end
+    
+    # Validate proxy host against trusted patterns
+    def validate_proxy_host(host)
+      config = reverse_proxy_url_config
+      return { valid: false, trusted: false, errors: ['Proxy URL configuration not enabled'] } unless config[:enabled]
+      
+      errors = []
+      suspicious = false
+      
+      # Check for suspicious patterns
+      suspicious_patterns = [
+        /javascript:/i,
+        /data:text\/html/i,
+        /<script/i,
+        /onclick=/i,
+        /onerror=/i
+      ]
+      
+      suspicious_patterns.each do |pattern|
+        if host.match?(pattern)
+          suspicious = true
+          errors << "Host contains suspicious pattern: #{pattern.source}"
+        end
+      end
+      
+      # Validate RFC-compliant hostname format
+      unless valid_hostname_format?(host)
+        errors << "Host '#{host}' is not RFC-compliant"
+      end
+      
+      # Check if host is trusted
+      trusted = host_in_trusted_list?(host, config[:trusted_hosts] || [])
+      
+      if config.dig(:security, :strict_mode) && !trusted
+        errors << "Host '#{host}' is not in trusted hosts list"
+      end
+      
+      {
+        valid: errors.empty? && !suspicious,
+        trusted: trusted,
+        suspicious: suspicious,
+        errors: errors
+      }
+    end
+    
+    # Generate API URLs based on proxy context
+    def generate_api_url(proxy_context = {})
+      config = reverse_proxy_url_config
+      
+      # Use proxy-provided values or fall back to defaults
+      proto = proxy_context[:forwarded_proto] || config[:default_protocol] || 'https'
+      host = proxy_context[:forwarded_host] || config[:default_host] || request_host
+      port = proxy_context[:forwarded_port] || config[:default_port]
+      path = proxy_context[:forwarded_path] || config[:base_path] || ''
+      
+      # Build base URL
+      base_url = "#{proto}://#{host}"
+      base_url += ":#{port}" if port && !default_port?(proto, port)
+      base_url += path unless path.empty?
+      
+      # Generate URL collection for client
+      {
+        base_url: base_url,
+        api_url: "#{base_url}/api/v1",
+        websocket_url: websocket_url_from_base(base_url),
+        frontend_url: frontend_url_from_base(base_url),
+        generated_at: Time.current.iso8601,
+        proxy_detected: proxy_context.any?
+      }
+    end
+    
+    # Add trusted host pattern
+    def add_trusted_host(pattern)
+      config = reverse_proxy_url_config
+      trusted_hosts = config[:trusted_hosts] || []
+      
+      unless trusted_hosts.include?(pattern)
+        trusted_hosts << pattern
+        update_reverse_proxy_url_config(trusted_hosts: trusted_hosts)
+      end
+      
+      true
+    end
+    
+    # Remove trusted host pattern
+    def remove_trusted_host(pattern)
+      config = reverse_proxy_url_config
+      trusted_hosts = config[:trusted_hosts] || []
+      
+      if trusted_hosts.include?(pattern)
+        trusted_hosts.delete(pattern)
+        update_reverse_proxy_url_config(trusted_hosts: trusted_hosts)
+      end
+      
+      true
+    end
+    
+    # Test proxy headers simulation
+    def test_proxy_headers(headers)
+      proxy_context = {
+        forwarded_host: headers['X-Forwarded-Host'],
+        forwarded_proto: headers['X-Forwarded-Proto'],
+        forwarded_port: headers['X-Forwarded-Port'],
+        forwarded_path: headers['X-Forwarded-Path']
+      }.compact
+      
+      validation = validate_proxy_host(proxy_context[:forwarded_host]) if proxy_context[:forwarded_host]
+      generated_urls = generate_api_url(proxy_context)
+      
+      {
+        proxy_context: proxy_context,
+        validation: validation,
+        generated_urls: generated_urls,
+        test_performed_at: Time.current.iso8601
+      }
+    end
+    
     private
+    
+    def host_in_trusted_list?(host, trusted_hosts)
+      trusted_hosts.any? do |pattern|
+        if pattern.include?('*')
+          # Convert wildcard pattern to regex
+          regex_pattern = pattern.gsub('.', '\.').gsub('*', '.*')
+          host.match?(/^#{regex_pattern}$/i)
+        else
+          host.downcase == pattern.downcase
+        end
+      end
+    end
+    
+    def valid_hostname_format?(hostname)
+      return false if hostname.nil? || hostname.empty?
+      
+      # Remove port if present
+      host = hostname.split(':').first
+      
+      # RFC 1123 compliant hostname validation
+      return false if host.length > 253
+      
+      labels = host.split('.')
+      labels.all? do |label|
+        label.length.between?(1, 63) &&
+          label.match?(/^[a-z0-9]([a-z0-9\-]{0,61}[a-z0-9])?$/i)
+      end
+    end
+    
+    def default_port?(proto, port)
+      (proto == 'http' && port.to_i == 80) ||
+        (proto == 'https' && port.to_i == 443)
+    end
+    
+    def websocket_url_from_base(base_url)
+      base_url.gsub(/^http/, 'ws')
+    end
+    
+    def frontend_url_from_base(base_url)
+      # Frontend is typically at the same base URL
+      base_url
+    end
+    
+    def request_host
+      # Fallback to request host if available
+      defined?(request) ? request.host : 'localhost'
+    end
+    
+    def default_reverse_proxy_url_config
+      {
+        enabled: false,
+        trusted_hosts: ['localhost', '127.0.0.1', '::1'],
+        default_protocol: 'https',
+        default_host: nil,
+        default_port: nil,
+        base_path: '',
+        security: {
+          enabled: true,
+          strict_mode: false,
+          validate_host_format: true,
+          block_suspicious_patterns: true
+        },
+        multi_tenancy: {
+          enabled: false,
+          wildcard_patterns: []
+        }
+      }.with_indifferent_access
+    end
 
     def default_reverse_proxy_config
       {

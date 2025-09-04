@@ -6,19 +6,44 @@ import { refreshAccessToken, clearAuth, stopImpersonation } from './slices/authS
 const getAPIBaseURL = (): string => {
   const envBaseURL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:3000/api/v1';
   const autoDetect = process.env.REACT_APP_AUTO_DETECT_BACKEND === 'true';
+  const behindProxy = process.env.REACT_APP_BEHIND_PROXY === 'true';
   
   if (autoDetect && typeof window !== 'undefined') {
     const currentHostname = window.location.hostname;
     const currentProtocol = window.location.protocol;
+    const currentPort = window.location.port;
     
-    // Use current hostname with port 3000 for backend
+    // Use current hostname for backend API
     if (currentHostname !== 'localhost' && currentHostname !== '127.0.0.1') {
       // Parse the env base URL to extract the path
       try {
         const envUrl = new URL(envBaseURL);
         const apiPath = envUrl.pathname || '/api/v1';
-        const result = `${currentProtocol}//${currentHostname}:3000${apiPath}`;
-        return result;
+        
+        // Detect if we're behind a reverse proxy
+        // Check explicit env variable first, then auto-detect based on standard ports
+        const isStandardPort = 
+          (currentProtocol === 'https:' && (!currentPort || currentPort === '443')) ||
+          (currentProtocol === 'http:' && (!currentPort || currentPort === '80'));
+        
+        const isProxied = behindProxy || isStandardPort;
+        
+        if (isProxied) {
+          // Behind reverse proxy - use same host and port as frontend
+          const portPart = currentPort ? `:${currentPort}` : '';
+          const result = `${currentProtocol}//${currentHostname}${portPart}${apiPath}`;
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[API] Detected reverse proxy, using:', result);
+          }
+          return result;
+        } else {
+          // Direct access - use port 3000 for backend
+          const result = `${currentProtocol}//${currentHostname}:3000${apiPath}`;
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[API] Direct access mode, using:', result);
+          }
+          return result;
+        }
       } catch (e) {
         // Fallback if URL parsing fails
         const fallback = `${currentProtocol}//${currentHostname}:3000/api/v1`;

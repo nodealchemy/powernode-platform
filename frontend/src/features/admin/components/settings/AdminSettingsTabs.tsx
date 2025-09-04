@@ -4,7 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { 
   CreditCard, Mail, Shield, 
-  Zap, BarChart3, Activity
+  Zap, BarChart3, Activity, Globe
 } from 'lucide-react';
 import { RootState } from '@/shared/services';
 import { hasPermissions } from '@/shared/utils/permissionUtils';
@@ -42,6 +42,14 @@ const adminSettingsTabs: AdminSettingsTab[] = [
     icon: Mail,
     description: 'Configure email providers and delivery settings',
     requiredPermissions: ['admin.settings.email']
+  },
+  {
+    id: 'proxy',
+    label: 'Reverse Proxy',
+    href: '/app/admin/settings/proxy',
+    icon: Globe,
+    description: 'Configure reverse proxy URL handling and trusted hosts',
+    requiredPermissions: ['admin.settings.read'] // Using basic admin settings permission
   },
   {
     id: 'security',

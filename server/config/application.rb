@@ -81,5 +81,9 @@ module Server
     # Add worker activity tracking middleware
     require Rails.root.join('app/middleware/worker_activity_tracker')
     config.middleware.use WorkerActivityTracker
+    
+    # Add proxy security validator middleware
+    require Rails.root.join('app/middleware/proxy_security_validator')
+    config.middleware.use ProxySecurityValidator
   end
 end

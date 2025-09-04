@@ -1,6 +1,5 @@
 // Admin Settings Tab Pages
 export { AdminSettingsPage } from './AdminSettingsPage';
-export { AdminSettingsLayoutPage } from './AdminSettingsLayoutPage';
 export { AdminSettingsOverviewPage } from './AdminSettingsOverviewPage';
 export { AdminSettingsOverviewTabPage } from './AdminSettingsOverviewTabPage';
 export { AdminSettingsPlatformTabPage } from './AdminSettingsPlatformTabPage';

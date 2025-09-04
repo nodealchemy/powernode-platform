@@ -19,6 +19,9 @@ Rails.application.routes.draw do
       # CSRF token endpoint for authenticated users
       get :csrf_token, to: 'csrf#token'
       
+      # Configuration endpoint (no authentication required)
+      get :config, to: 'config#index'
+      
       # Public endpoints (no authentication required)
       get 'public/plans', to: 'plans#public_index'
       get 'public/footer', to: 'site_settings#public_footer'
@@ -265,6 +268,21 @@ Rails.application.routes.draw do
           delete 'limits/:identifier', to: 'rate_limiting#clear_user_limits'
           post :disable, to: 'rate_limiting#disable_temporarily'
           post :enable, to: 'rate_limiting#enable'
+        end
+        
+        # Reverse Proxy URL Configuration
+        resources :proxy_settings, only: [] do
+          collection do
+            get :url_config
+            put :url_config, action: :update_url_config
+            post :validate_host
+            post :test_headers
+            get :current_detection
+            post :trusted_hosts, action: :add_trusted_host
+            delete 'trusted_hosts/:pattern', action: :remove_trusted_host
+            get :export
+            post :import
+          end
         end
       end
       
