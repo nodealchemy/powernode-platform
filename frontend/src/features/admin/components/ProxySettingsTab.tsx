@@ -9,6 +9,7 @@ import ProxyHostList from './ProxyHostList';
 import ProxyDetectionStatus from './ProxyDetectionStatus';
 import ProxyTestConnection from './ProxyTestConnection';
 import APIUrlPreview from './APIUrlPreview';
+import MultiTenancyConfigPanel from './MultiTenancyConfigPanel';
 
 const ProxySettingsTab: React.FC = () => {
   const { showNotification } = useNotification();
@@ -349,37 +350,16 @@ const ProxySettingsTab: React.FC = () => {
             }}
           />
 
-          {/* Multi-Tenancy Settings */}
-          <div className="bg-theme-surface rounded-lg p-6">
-            <h3 className="text-lg font-medium text-theme-primary mb-4">
-              Multi-Tenancy Settings
-            </h3>
-            <label className="flex items-center">
-              <input
-                type="checkbox"
-                checked={config.multi_tenancy.enabled}
-                onChange={() => setConfig({
-                  ...config,
-                  multi_tenancy: {
-                    ...config.multi_tenancy,
-                    enabled: !config.multi_tenancy.enabled
-                  }
-                })}
-                className="h-4 w-4 text-theme-primary border-theme-muted rounded focus:ring-2 focus:ring-theme-primary"
-              />
-              <span className="ml-2 text-theme-primary">
-                Enable multi-tenancy with wildcard domains
-              </span>
-            </label>
-            {config.multi_tenancy.enabled && (
-              <div className="mt-4 p-4 bg-theme-info/10 border border-theme-info rounded-md">
-                <p className="text-sm text-theme-info">
-                  ℹ️ Multi-tenancy allows multiple tenants to use the same application instance
-                  with separate domains (e.g., *.customers.example.com)
-                </p>
-              </div>
-            )}
-          </div>
+          {/* Multi-Tenancy Configuration */}
+          <MultiTenancyConfigPanel
+            config={config.multi_tenancy}
+            onConfigChange={(multiTenancyConfig) => {
+              setConfig({
+                ...config,
+                multi_tenancy: multiTenancyConfig
+              });
+            }}
+          />
         </div>
       )}
 

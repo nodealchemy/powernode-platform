@@ -3,6 +3,10 @@ import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
+import { initializeDOMErrorHandling } from '@/shared/utils/domErrorHandler';
+
+// Initialize DOM error handling as early as possible
+initializeDOMErrorHandling();
 
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement

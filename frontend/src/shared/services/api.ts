@@ -2,13 +2,20 @@ import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 import { store } from './index';
 import { refreshAccessToken, clearAuth, stopImpersonation } from './slices/authSlice';
 
-// Get environment variable with Vite/CRA compatibility
+// Get environment variable with Vite/CRA/Jest compatibility
 const getEnvVar = (viteKey: string, craKey: string, defaultValue: string = ''): string => {
-  // Check if we're in Vite environment
-  if (typeof import.meta !== 'undefined' && import.meta.env) {
-    return import.meta.env[viteKey] || import.meta.env[craKey] || defaultValue;
+  // Check if we're in Jest testing environment first
+  if (typeof process !== 'undefined' && process.env.NODE_ENV === 'test') {
+    return (process.env as any)[craKey] || defaultValue;
   }
-  // Fallback to process.env for CRA
+  
+  // Check if we're in Vite environment (using dynamic access to avoid Jest parsing errors)
+  const importMeta = (globalThis as any).import?.meta || (typeof window !== 'undefined' && (window as any).import?.meta);
+  if (importMeta && importMeta.env) {
+    return importMeta.env[viteKey] || importMeta.env[craKey] || defaultValue;
+  }
+  
+  // Fallback to process.env for CRA and other environments
   return (process.env as any)[craKey] || defaultValue;
 };
 
@@ -50,34 +57,10 @@ const getAPIBaseURL = (): string => {
         if (isProxied) {
           // Behind reverse proxy - use same host and port as frontend
           const portPart = currentPort ? `:${currentPort}` : '';
-          const result = `${currentProtocol}//${currentHostname}${portPart}${apiPath}`;
-          if (getEnvVar('NODE_ENV', 'NODE_ENV', 'production') === 'development') {
-            console.log('[API] Detected reverse proxy:', {
-              currentProtocol,
-              currentHostname, 
-              currentPort,
-              isDirectDevConnection,
-              isStandardPort,
-              behindProxy,
-              result
-            });
-          }
-          return result;
+          return `${currentProtocol}//${currentHostname}${portPart}${apiPath}`;
         } else {
           // Direct access - use port 3000 for backend
-          const result = `${currentProtocol}//${currentHostname}:3000${apiPath}`;
-          if (getEnvVar('NODE_ENV', 'NODE_ENV', 'production') === 'development') {
-            console.log('[API] Direct access mode:', {
-              currentProtocol,
-              currentHostname,
-              currentPort,
-              isDirectDevConnection,
-              isStandardPort,
-              behindProxy,
-              result
-            });
-          }
-          return result;
+          return `${currentProtocol}//${currentHostname}:3000${apiPath}`;
         }
       } catch (e) {
         // Fallback if URL parsing fails
@@ -89,10 +72,6 @@ const getAPIBaseURL = (): string => {
   return envBaseURL;
 };
 
-// Log the API base URL in development
-if (getEnvVar('NODE_ENV', 'NODE_ENV', 'production') === 'development') {
-  // Logging handled in getAPIBaseURL function
-}
 
 class APIClient {
   private client: AxiosInstance;
@@ -118,9 +97,7 @@ class APIClient {
     // Request interceptor to add auth token
     this.client.interceptors.request.use(
       (config) => {
-        
         const state = store.getState();
-        
         
         // Use impersonation token if active, otherwise use regular access token
         let token = state.auth.accessToken;
@@ -128,6 +105,7 @@ class APIClient {
         if (state.auth.impersonation.isImpersonating && impersonationToken) {
           token = impersonationToken;
         }
+        
         
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;

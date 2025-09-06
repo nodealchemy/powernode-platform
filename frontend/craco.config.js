@@ -20,4 +20,15 @@ module.exports = {
       return webpackConfig;
     },
   },
+  jest: {
+    configure: {
+      moduleNameMapping: {
+        '^@/(.*)$': '<rootDir>/src/$1',
+        '^@/shared/(.*)$': '<rootDir>/src/shared/$1',
+        '^@/features/(.*)$': '<rootDir>/src/features/$1',
+        '^@/pages/(.*)$': '<rootDir>/src/pages/$1',
+        '^@/assets/(.*)$': '<rootDir>/src/assets/$1',
+      },
+    },
+  },
 };

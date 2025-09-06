@@ -15,7 +15,6 @@ const APIUrlPreview: React.FC<APIUrlPreviewProps> = ({ urls }) => {
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
     // Could trigger a notification here
-    console.log(`Copied ${label}: ${text}`);
   };
 
   const urlConfig = [

@@ -112,6 +112,12 @@ const proxySettingsApi = {
     return response.data.data; // Unwrap the standardized API response
   },
 
+  // Reorder trusted host patterns
+  reorderTrustedHosts: async (orderedHosts: string[]): Promise<{ trusted_hosts: string[] }> => {
+    const response = await api.put('/admin/proxy_settings/trusted_hosts/reorder', { trusted_hosts: orderedHosts });
+    return response.data.data; // Unwrap the standardized API response
+  },
+
   // Export configuration
   exportConfig: async (): Promise<ProxyExportData> => {
     const response = await api.get('/admin/proxy_settings/export');

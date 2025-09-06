@@ -1,6 +1,7 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { authAPI } from '@/features/auth/services/authAPI';
 import { impersonationApi } from '../impersonationApi';
+import { setAuthDomain, clearAuthDomain } from '@/shared/utils/domainUtils';
 
 export interface User {
   id: string;
@@ -44,7 +45,6 @@ const getInitialState = (): AuthState => {
   const accessToken = localStorage.getItem('accessToken');
   const refreshToken = localStorage.getItem('refreshToken');
   const impersonationToken = localStorage.getItem('impersonationToken');
-  
   
   return {
     user: null,
@@ -265,6 +265,7 @@ const authSlice = createSlice({
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
       localStorage.removeItem('impersonationToken');
+      clearAuthDomain();
     },
     forceTokenClear: (state) => {
       // Force clear tokens immediately, useful for handling invalid signatures
@@ -308,6 +309,9 @@ const authSlice = createSlice({
         if (action.payload.refresh_token) {
           localStorage.setItem('refreshToken', action.payload.refresh_token);
         }
+        
+        // Track the domain where authentication was established
+        setAuthDomain();
       })
       .addCase(login.rejected, (state, action) => {
         state.isLoading = false;

@@ -4,7 +4,7 @@ import { Provider, useDispatch, useSelector } from 'react-redux';
 import type { RootState, AppDispatch } from '@/shared/services';
 import { store } from '@/shared/services';
 import { getCurrentUser, refreshAccessToken, clearAuth, forceTokenClear, checkImpersonationStatus } from '@/shared/services/slices/authSlice';
-import { isTokenInvalidError, isValidJWTFormat } from '@/shared/utils/tokenUtils';
+import { isTokenInvalidError, isValidTokenFormat } from '@/shared/utils/tokenUtils';
 
 // Theme Provider
 import { ThemeProvider } from '@/shared/hooks/ThemeContext';
@@ -52,12 +52,12 @@ const AppContent: React.FC = () => {
 
       try {
         // First, validate token format before attempting API calls
-        if (accessToken && !isValidJWTFormat(accessToken)) {
+        if (accessToken && !isValidTokenFormat(accessToken)) {
           dispatch(forceTokenClear());
           // Continue to check impersonation token instead of returning early
         }
         
-        if (refreshToken && !isValidJWTFormat(refreshToken)) {
+        if (refreshToken && !isValidTokenFormat(refreshToken)) {
           dispatch(forceTokenClear());
           // Continue to check impersonation token instead of returning early
         }
@@ -66,8 +66,6 @@ const AppContent: React.FC = () => {
         const impersonationToken = localStorage.getItem('impersonationToken');
         
         if (impersonationToken || (accessToken && !user)) {
-          // Check if there's an active impersonation session first
-          
           
           // PRIORITY: If we have an impersonation token, validate it first
           if (impersonationToken) {
@@ -118,7 +116,6 @@ const AppContent: React.FC = () => {
                 // If no valid impersonation, get regular user
                 await dispatch(getCurrentUser()).unwrap();
               } catch (refreshError) {
-                
                 // Check if this is a token invalidity error
                 if (isTokenInvalidError(refreshError)) {
                   dispatch(forceTokenClear());
