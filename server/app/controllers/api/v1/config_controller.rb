@@ -14,21 +14,28 @@ module Api
       # GET /api/v1/config/allowed_hosts
       # Public endpoint for Vite to fetch allowed hosts during build
       def allowed_hosts
-        config = AdminSetting.reverse_proxy_url_config
-        
-        # Collect all allowed hosts from various sources
+        # Collect all allowed hosts from various admin settings
         hosts = []
         
-        # Add trusted hosts
+        # Add from reverse proxy URL config (existing)
+        config = AdminSetting.reverse_proxy_url_config
         hosts.concat(config[:trusted_hosts]) if config[:trusted_hosts].present?
-        
-        # Add default host if configured
         hosts << config[:default_host] if config[:default_host].present?
         
         # Add wildcard patterns for multi-tenancy
         if config[:multi_tenancy] && config[:multi_tenancy][:wildcard_patterns].present?
           hosts.concat(config[:multi_tenancy][:wildcard_patterns])
         end
+        
+        # Add from new admin settings we just configured
+        trusted_hosts = AdminSetting.get('trusted_hosts', [])
+        hosts.concat(trusted_hosts) if trusted_hosts.present?
+        
+        allowed_hosts = AdminSetting.get('allowed_hosts', [])  
+        hosts.concat(allowed_hosts) if allowed_hosts.present?
+        
+        proxy_domains = AdminSetting.get('proxy_domains', [])
+        hosts.concat(proxy_domains) if proxy_domains.present?
         
         # Always include localhost variants
         hosts.concat(['localhost', '127.0.0.1', '::1'])

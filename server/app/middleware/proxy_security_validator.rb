@@ -247,7 +247,7 @@ class ProxySecurityValidator
   def proxy_settings
     @proxy_settings ||= begin
       if defined?(AdminSetting)
-        AdminSetting.get_value('reverse_proxy_url_config') || {}
+        AdminSetting.get('reverse_proxy_url_config') || {}
       else
         {}
       end

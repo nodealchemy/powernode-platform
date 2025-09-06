@@ -150,6 +150,143 @@ module Api
           Rails.logger.error "Failed to remove trusted host: #{e.message}"
           render_error('Failed to remove trusted host')
         end
+
+        # PUT /api/v1/admin/proxy_settings/trusted_hosts/reorder
+        def reorder_trusted_hosts
+          trusted_hosts = params[:trusted_hosts]
+          
+          return render_validation_error(trusted_hosts: ['Trusted hosts array is required']) if trusted_hosts.blank?
+          return render_validation_error(trusted_hosts: ['Must be an array']) unless trusted_hosts.is_a?(Array)
+          
+          # Get current configuration and validate that all provided hosts exist
+          current_config = AdminSetting.reverse_proxy_url_config
+          current_hosts = current_config[:trusted_hosts] || []
+          
+          # Validate that the provided hosts match the current ones (same set, potentially different order)
+          provided_hosts_set = trusted_hosts.map(&:to_s).to_set
+          current_hosts_set = current_hosts.to_set
+          
+          unless provided_hosts_set == current_hosts_set
+            return render_validation_error(
+              trusted_hosts: ['Provided hosts must match exactly the current trusted hosts']
+            )
+          end
+          
+          # Update the configuration with the new order
+          AdminSetting.update_reverse_proxy_url_config(trusted_hosts: trusted_hosts)
+          
+          create_audit_log('proxy_settings.reorder_trusted_hosts', { 
+            old_order: current_hosts,
+            new_order: trusted_hosts 
+          })
+          
+          render_success({ 
+            trusted_hosts: trusted_hosts
+          }, meta: { message: 'Trusted hosts order updated successfully' })
+        rescue StandardError => e
+          Rails.logger.error "Failed to reorder trusted hosts: #{e.message}"
+          render_error('Failed to reorder trusted hosts')
+        end
+
+        # POST /api/v1/admin/proxy_settings/wildcard_patterns
+        def add_wildcard_pattern
+          pattern = params[:pattern]
+          
+          return render_validation_error(pattern: ['Pattern is required']) if pattern.blank?
+          
+          # Validate wildcard pattern format
+          unless pattern.match?(/^(\*\.)?[a-z0-9\-\.]+(\.[a-z]{2,})?$/i)
+            return render_validation_error(pattern: ['Invalid wildcard pattern format'])
+          end
+          
+          config = AdminSetting.reverse_proxy_url_config
+          current_patterns = config[:multi_tenancy][:wildcard_patterns] || []
+          
+          if current_patterns.include?(pattern)
+            return render_validation_error(pattern: ['Pattern already exists'])
+          end
+          
+          updated_patterns = current_patterns + [pattern]
+          AdminSetting.update_reverse_proxy_url_config(
+            multi_tenancy: config[:multi_tenancy].merge(wildcard_patterns: updated_patterns)
+          )
+          
+          create_audit_log('proxy_settings.add_wildcard_pattern', { pattern: pattern })
+          
+          render_success({ 
+            pattern: pattern,
+            wildcard_patterns: updated_patterns
+          }, meta: { message: 'Wildcard pattern added successfully' })
+        rescue StandardError => e
+          Rails.logger.error "Failed to add wildcard pattern: #{e.message}"
+          render_error('Failed to add wildcard pattern')
+        end
+
+        # DELETE /api/v1/admin/proxy_settings/wildcard_patterns/:pattern
+        def remove_wildcard_pattern
+          pattern = params[:pattern]
+          
+          return render_validation_error(pattern: ['Pattern is required']) if pattern.blank?
+          
+          config = AdminSetting.reverse_proxy_url_config
+          current_patterns = config[:multi_tenancy][:wildcard_patterns] || []
+          
+          unless current_patterns.include?(pattern)
+            return render_validation_error(pattern: ['Pattern does not exist'])
+          end
+          
+          updated_patterns = current_patterns - [pattern]
+          AdminSetting.update_reverse_proxy_url_config(
+            multi_tenancy: config[:multi_tenancy].merge(wildcard_patterns: updated_patterns)
+          )
+          
+          create_audit_log('proxy_settings.remove_wildcard_pattern', { pattern: pattern })
+          
+          render_success({ 
+            pattern: pattern,
+            wildcard_patterns: updated_patterns
+          }, meta: { message: 'Wildcard pattern removed successfully' })
+        rescue StandardError => e
+          Rails.logger.error "Failed to remove wildcard pattern: #{e.message}"
+          render_error('Failed to remove wildcard pattern')
+        end
+
+        # PUT /api/v1/admin/proxy_settings/wildcard_patterns/reorder
+        def reorder_wildcard_patterns
+          wildcard_patterns = params[:wildcard_patterns]
+          
+          return render_validation_error(wildcard_patterns: ['Patterns array is required']) if wildcard_patterns.blank?
+          return render_validation_error(wildcard_patterns: ['Must be an array']) unless wildcard_patterns.is_a?(Array)
+          
+          config = AdminSetting.reverse_proxy_url_config
+          current_patterns = config[:multi_tenancy][:wildcard_patterns] || []
+          
+          # Validate that the provided patterns match the current ones
+          provided_patterns_set = wildcard_patterns.map(&:to_s).to_set
+          current_patterns_set = current_patterns.to_set
+          
+          unless provided_patterns_set == current_patterns_set
+            return render_validation_error(
+              wildcard_patterns: ['Provided patterns must match exactly the current wildcard patterns']
+            )
+          end
+          
+          AdminSetting.update_reverse_proxy_url_config(
+            multi_tenancy: config[:multi_tenancy].merge(wildcard_patterns: wildcard_patterns)
+          )
+          
+          create_audit_log('proxy_settings.reorder_wildcard_patterns', { 
+            old_order: current_patterns,
+            new_order: wildcard_patterns 
+          })
+          
+          render_success({ 
+            wildcard_patterns: wildcard_patterns
+          }, meta: { message: 'Wildcard patterns order updated successfully' })
+        rescue StandardError => e
+          Rails.logger.error "Failed to reorder wildcard patterns: #{e.message}"
+          render_error('Failed to reorder wildcard patterns')
+        end
         
         # GET /api/v1/admin/proxy_settings/export
         def export

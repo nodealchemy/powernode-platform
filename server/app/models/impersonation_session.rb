@@ -3,7 +3,9 @@
 class ImpersonationSession < ApplicationRecord
   belongs_to :impersonator, class_name: 'User'
   belongs_to :impersonated_user, class_name: 'User'
-  belongs_to :account, required: true
+  
+  # Get account through impersonated user
+  delegate :account, to: :impersonated_user
 
   validates :session_token, presence: true, uniqueness: true
   validates :reason, length: { maximum: 500 }, allow_blank: true
@@ -13,21 +15,20 @@ class ImpersonationSession < ApplicationRecord
   validate :same_account_validation
   validate :prevent_self_impersonation
 
-  scope :active, -> { where(active: true) }
-  scope :ended, -> { where(active: false) }
-  scope :for_account, ->(account_id) { where(account_id: account_id) }
+  scope :active, -> { where(ended_at: nil) }
+  scope :ended, -> { where.not(ended_at: nil) }
+  scope :for_account, ->(account_id) { joins(:impersonated_user).where(users: { account_id: account_id }) }
   scope :by_impersonator, ->(user_id) { where(impersonator_id: user_id) }
   scope :recent, -> { order(started_at: :desc) }
 
   before_validation :set_started_at, on: :create
   before_validation :generate_session_token, on: :create
-  before_validation :set_account_from_users, on: :create
 
   # Maximum impersonation session duration (8 hours)
   MAX_SESSION_DURATION = 8.hours
 
   def active?
-    active && !expired?
+    ended_at.nil? && !expired?
   end
 
   def expired?
@@ -44,20 +45,14 @@ class ImpersonationSession < ApplicationRecord
   end
 
   def end_session!
-    update!(
-      active: false,
-      ended_at: Time.current
-    )
+    update!(ended_at: Time.current)
   end
 
   def self.cleanup_expired_sessions
     expired_sessions = active.where('started_at < ?', MAX_SESSION_DURATION.ago)
     count = expired_sessions.count
     
-    expired_sessions.update_all(
-      active: false,
-      ended_at: Time.current
-    )
+    expired_sessions.update_all(ended_at: Time.current)
     
     count
   end
@@ -69,14 +64,12 @@ class ImpersonationSession < ApplicationRecord
   def self.create_session!(impersonator:, impersonated_user:, reason: nil, ip_address: nil, user_agent: nil)
     # End any existing active sessions for this user
     active.where(impersonated_user: impersonated_user).update_all(
-      active: false,
       ended_at: Time.current
     )
 
     create!(
       impersonator: impersonator,
       impersonated_user: impersonated_user,
-      account: impersonated_user.account,
       reason: reason,
       ip_address: ip_address,
       user_agent: user_agent
@@ -91,12 +84,6 @@ class ImpersonationSession < ApplicationRecord
 
   def generate_session_token
     self.session_token = SecureRandom.hex(32) if session_token.blank?
-  end
-
-  def set_account_from_users
-    return unless impersonated_user
-    
-    self.account = impersonated_user.account
   end
 
   def same_account_validation

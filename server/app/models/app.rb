@@ -9,6 +9,7 @@ class App < ApplicationRecord
   has_one :marketplace_listing, dependent: :destroy
   has_many :app_subscriptions, dependent: :destroy
   has_many :app_reviews, dependent: :destroy
+  has_one :review_aggregation_cache, dependent: :destroy
   has_many :app_analytics, dependent: :destroy
   has_many :app_endpoints, dependent: :destroy
   has_many :app_webhooks, dependent: :destroy

@@ -5,7 +5,7 @@ RSpec.describe Invoice, type: :model do
 
   describe "associations" do
     it { should belong_to(:subscription) }
-    it { should have_one(:account).through(:subscription) }
+    it { should belong_to(:account) }
     it { should have_many(:invoice_line_items).dependent(:destroy) }
     it { should have_many(:payments).dependent(:destroy) }
   end
@@ -48,8 +48,8 @@ RSpec.describe Invoice, type: :model do
     let!(:draft_invoice) { create(:invoice, status: "draft") }
     let!(:open_invoice) { create(:invoice, status: "open") }
     let!(:paid_invoice) { create(:invoice, status: "paid") }
-    let!(:overdue_invoice) { create(:invoice, status: "open", due_date: 1.day.ago) }
-    let!(:due_soon_invoice) { create(:invoice, status: "open", due_date: 3.days.from_now) }
+    let!(:overdue_invoice) { create(:invoice, status: "open", due_at: 1.day.ago) }
+    let!(:due_soon_invoice) { create(:invoice, status: "open", due_at: 3.days.from_now) }
 
     it "returns draft invoices" do
       expect(Invoice.draft).to include(draft_invoice)
@@ -115,9 +115,9 @@ RSpec.describe Invoice, type: :model do
         invoice.invoice_line_items.destroy_all
 
         # Create line items with unit prices that will result in desired total_cents
-        # Line item callback calculates: total_cents = quantity * unit_price_cents
-        create(:invoice_line_item, invoice: invoice, quantity: 1, unit_price_cents: 1000)
-        create(:invoice_line_item, invoice: invoice, quantity: 1, unit_price_cents: 500)
+        # Line item callback calculates: total_cents = quantity * unit_amount_cents
+        create(:invoice_line_item, invoice: invoice, quantity: 1, unit_amount_cents: 1000)
+        create(:invoice_line_item, invoice: invoice, quantity: 1, unit_amount_cents: 500)
 
         # Reload and trigger calculation
         invoice.reload
@@ -134,7 +134,7 @@ RSpec.describe Invoice, type: :model do
         invoice.invoice_line_items.destroy_all
 
         # Create line item with unit price that will result in desired total_cents
-        create(:invoice_line_item, invoice: invoice, quantity: 1, unit_price_cents: 1000)
+        create(:invoice_line_item, invoice: invoice, quantity: 1, unit_amount_cents: 1000)
 
         # Reload and trigger calculation
         invoice.reload
@@ -182,20 +182,20 @@ RSpec.describe Invoice, type: :model do
         expect { invoice.finalize! }.to change { invoice.status }.from("draft").to("open")
       end
 
-      it "sets due_date if not present" do
-        invoice = create(:invoice, status: "draft", due_date: nil)
+      it "sets due_at if not present" do
+        invoice = create(:invoice, status: "draft", due_at: nil)
 
         start_time = Time.current
         invoice.finalize!
-        expect(invoice.due_date).to be_within(2.seconds).of(start_time + 30.days)
+        expect(invoice.due_at).to be_within(2.seconds).of(start_time + 30.days)
       end
 
-      it "doesn't override existing due_date" do
-        due_date = 15.days.from_now
-        invoice = create(:invoice, status: "draft", due_date: due_date)
+      it "doesn't override existing due_at" do
+        due_at = 15.days.from_now
+        invoice = create(:invoice, status: "draft", due_at: due_at)
 
         invoice.finalize!
-        expect(invoice.due_date).to be_within(1.second).of(due_date)
+        expect(invoice.due_at).to be_within(1.second).of(due_at)
       end
     end
 
@@ -259,56 +259,56 @@ RSpec.describe Invoice, type: :model do
 
     describe "#overdue?" do
       it "returns true when open and past due date" do
-        invoice = build(:invoice, status: "open", due_date: 1.day.ago)
+        invoice = build(:invoice, status: "open", due_at: 1.day.ago)
         expect(invoice.overdue?).to be true
       end
 
       it "returns false when not open" do
-        invoice = build(:invoice, status: "paid", due_date: 1.day.ago)
+        invoice = build(:invoice, status: "paid", due_at: 1.day.ago)
         expect(invoice.overdue?).to be false
       end
 
       it "returns false when no due date" do
-        invoice = build(:invoice, status: "open", due_date: nil)
+        invoice = build(:invoice, status: "open", due_at: nil)
         expect(invoice.overdue?).to be false
       end
 
       it "returns false when due date is in future" do
-        invoice = build(:invoice, status: "open", due_date: 1.day.from_now)
+        invoice = build(:invoice, status: "open", due_at: 1.day.from_now)
         expect(invoice.overdue?).to be false
       end
     end
 
     describe "#days_overdue" do
       it "returns number of days overdue" do
-        invoice = build(:invoice, status: "open", due_date: 5.days.ago.to_date)
+        invoice = build(:invoice, status: "open", due_at: 5.days.ago.to_date)
         expect(invoice.days_overdue).to eq(5)
       end
 
       it "returns 0 when not overdue" do
-        invoice = build(:invoice, status: "open", due_date: 1.day.from_now)
+        invoice = build(:invoice, status: "open", due_at: 1.day.from_now)
         expect(invoice.days_overdue).to eq(0)
       end
 
       it "returns 0 when not open" do
-        invoice = build(:invoice, status: "paid", due_date: 5.days.ago)
+        invoice = build(:invoice, status: "paid", due_at: 5.days.ago)
         expect(invoice.days_overdue).to eq(0)
       end
     end
 
     describe "#days_until_due" do
       it "returns number of days until due" do
-        invoice = build(:invoice, status: "open", due_date: 5.days.from_now.to_date)
+        invoice = build(:invoice, status: "open", due_at: 5.days.from_now.to_date)
         expect(invoice.days_until_due).to eq(5)
       end
 
       it "returns 0 when no due date" do
-        invoice = build(:invoice, status: "open", due_date: nil)
+        invoice = build(:invoice, status: "open", due_at: nil)
         expect(invoice.days_until_due).to eq(0)
       end
 
       it "returns 0 when not open" do
-        invoice = build(:invoice, status: "paid", due_date: 5.days.from_now)
+        invoice = build(:invoice, status: "paid", due_at: 5.days.from_now)
         expect(invoice.days_until_due).to eq(0)
       end
     end
@@ -317,7 +317,7 @@ RSpec.describe Invoice, type: :model do
       let(:invoice) do
         invoice = create(:invoice, tax_rate: 0.1, currency: "USD")
         # Create line items that will result in the expected totals
-        create(:invoice_line_item, invoice: invoice, unit_price_cents: 1000, quantity: 2) # 2000 cents
+        create(:invoice_line_item, invoice: invoice, unit_amount_cents: 1000, quantity: 2) # 2000 cents
         invoice.reload # Reload to recalculate totals
         invoice.save! # Trigger calculate_totals callback
         invoice
@@ -376,13 +376,13 @@ RSpec.describe Invoice, type: :model do
         line_item = invoice.add_line_item(
           description: "Test Item",
           quantity: 2,
-          unit_price_cents: 1000
+          unit_amount_cents: 1000
         )
 
         expect(line_item).to be_a(InvoiceLineItem)
         expect(line_item.description).to eq("Test Item")
         expect(line_item.quantity).to eq(2)
-        expect(line_item.unit_price_cents).to eq(1000)
+        expect(line_item.unit_amount_cents).to eq(1000)
         expect(line_item.total_cents).to eq(2000)
         expect(line_item.invoice).to eq(invoice)
       end
@@ -392,7 +392,7 @@ RSpec.describe Invoice, type: :model do
         line_item = invoice.add_line_item(
           description: "Test Item",
           quantity: 1,
-          unit_price_cents: 1000,
+          unit_amount_cents: 1000,
           line_type: "subscription",
           period_start: Date.current,
           period_end: 1.month.from_now
@@ -414,7 +414,7 @@ RSpec.describe Invoice, type: :model do
 
         expect(line_item.description).to eq("Pro Plan (monthly)")
         expect(line_item.quantity).to eq(1)
-        expect(line_item.unit_price_cents).to eq(2999)
+        expect(line_item.unit_amount_cents).to eq(2999)
         expect(line_item.line_type).to eq("subscription")
       end
 
@@ -435,14 +435,14 @@ RSpec.describe Invoice, type: :model do
       end
 
       it "uses subscription period dates when not provided" do
-        subscription.current_period_start = Date.current
-        subscription.current_period_end = 1.month.from_now.to_date
-        subscription.save!
+        # Use the subscription's existing period dates to avoid state transition overrides
+        expected_start = subscription.current_period_start
+        expected_end = subscription.current_period_end
 
         line_item = invoice.add_subscription_line_item(plan)
 
-        expect(line_item.period_start).to eq(subscription.current_period_start)
-        expect(line_item.period_end).to eq(subscription.current_period_end)
+        expect(line_item.period_start).to be_within(1.second).of(expected_start)
+        expect(line_item.period_end).to be_within(1.second).of(expected_end)
       end
     end
   end

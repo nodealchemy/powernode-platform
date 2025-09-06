@@ -281,6 +281,10 @@ Rails.application.routes.draw do
             get :current_detection
             post :trusted_hosts, action: :add_trusted_host
             delete 'trusted_hosts/:pattern', action: :remove_trusted_host
+            put 'trusted_hosts/reorder', action: :reorder_trusted_hosts
+            post :wildcard_patterns, action: :add_wildcard_pattern
+            delete 'wildcard_patterns/:pattern', action: :remove_wildcard_pattern
+            put 'wildcard_patterns/reorder', action: :reorder_wildcard_patterns
             get :export
             post :import
           end
@@ -551,21 +555,46 @@ Rails.application.routes.draw do
         end
       end
       
-      # App Reviews and Ratings
-      resources :app_reviews, only: [:index, :show, :create, :update, :destroy] do
+      # Enhanced App reviews with comprehensive functionality
+      resources :apps, only: [] do
+        resources :app_reviews, path: 'reviews', only: [:index, :create] do
+          collection do
+            get :summary
+          end
+        end
+      end
+
+      resources :app_reviews, path: 'reviews', only: [:show, :update, :destroy] do
         member do
-          post :mark_helpful
-          post :mark_unhelpful
-          post :flag_for_review
-          post :approve_after_review
-          post :remove_after_review
+          post :vote
+          post :flag
+          post :moderate
         end
         
-        collection do
-          get :by_app
-          get :by_rating
-          get :sentiment_analysis
-          get :moderation_queue
+        resources :review_responses, path: 'responses', only: [:index, :create]
+      end
+
+      resources :review_responses, only: [:show, :update, :destroy] do
+        member do
+          post :approve
+          post :reject
+        end
+      end
+
+      # Admin review moderation
+      namespace :admin do
+        resource :review_moderation, only: [] do
+          collection do
+            get :queue
+            post :bulk_action
+            get :analytics
+            get :settings
+            post :update_settings
+          end
+          
+          member do
+            get 'history/:review_id', to: 'review_moderation#history'
+          end
         end
       end
       

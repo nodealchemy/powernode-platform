@@ -1,6 +1,7 @@
 require 'rails_helper'
 
 RSpec.describe 'Authentication Security', type: :request do
+  include ActiveSupport::Testing::TimeHelpers
   let(:account) { create(:account) }
   let(:user) { create(:user, account: account) }
 
@@ -77,8 +78,8 @@ RSpec.describe 'Authentication Security', type: :request do
     end
   end
 
-  describe 'JWT Token Security' do
-    it 'generates secure JWT tokens' do
+  describe 'Token Security' do
+    it 'generates secure access tokens' do
       post '/api/v1/auth/login', params: {
         email: user.email,
         password: 'UncommonStr0ngP@ssw0rd99!'
@@ -87,22 +88,23 @@ RSpec.describe 'Authentication Security', type: :request do
       expect(response).to have_http_status(200)
       token = json_response['access_token']
 
-      # JWT should have three parts separated by dots
-      expect(token.split('.').length).to eq(3)
-
-      # Decode token to check structure
-      payload = JWT.decode(token, Rails.application.config.jwt_secret_key, true, { algorithm: 'HS256' })[0]
-      expect(payload).to include('user_id', 'account_id', 'exp')
+      # Traditional token should be a single secure string (not JWT format)
+      expect(token.split('.').length).to eq(1)
+      
+      # Token should be a secure random string
+      expect(token).to be_a(String)
+      expect(token.length).to be >= 32  # Secure length
+      expect(token).to match(/^[A-Za-z0-9_-]+$/)  # URL-safe characters
+      
+      # Token should be authenticable via UserToken model
+      user_token = UserToken.authenticate(token)
+      expect(user_token).to be_present
+      expect(user_token.user).to eq(user)
     end
 
-    it 'validates JWT signature' do
-      # Create a token with wrong signature
-      payload = {
-        user_id: user.id,
-        account_id: user.account.id,
-        exp: 1.hour.from_now.to_i
-      }
-      invalid_token = JWT.encode(payload, 'wrong_secret', 'HS256')
+    it 'validates token authenticity' do
+      # Create an invalid token (random string)
+      invalid_token = SecureRandom.urlsafe_base64(48)
 
       get '/api/v1/auth/me', headers: {
         'Authorization' => "Bearer #{invalid_token}"
@@ -113,19 +115,20 @@ RSpec.describe 'Authentication Security', type: :request do
     end
 
     it 'rejects expired tokens' do
-      payload = {
-        user_id: user.id,
-        account_id: user.account.id,
-        exp: 1.hour.ago.to_i
-      }
-      expired_token = JWT.encode(payload, Rails.application.config.jwt_secret_key, 'HS256')
+      # Create a UserToken
+      result = UserToken.create_token_for_user(user, type: 'access')
+      user_token = result[:user_token]
+      expired_token = result[:token]
+      
+      # Use time travel to make token appear expired (respects database constraints)
+      travel_to (user_token.expires_at + 1.hour) do
+        get '/api/v1/auth/me', headers: {
+          'Authorization' => "Bearer #{expired_token}"
+        }
 
-      get '/api/v1/auth/me', headers: {
-        'Authorization' => "Bearer #{expired_token}"
-      }
-
-      expect(response).to have_http_status(401)
-      expect(json_response['error']).to include('expired')
+        expect(response).to have_http_status(401)
+      end
+      expect(json_response['error']).to include('Invalid')
     end
   end
 

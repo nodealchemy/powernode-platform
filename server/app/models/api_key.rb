@@ -8,16 +8,16 @@ class ApiKey < ApplicationRecord
 
   # Validations
   validates :name, presence: true, length: { maximum: 100 }
-  validates :key_hash, presence: true, uniqueness: true
-  validates :status, presence: true, inclusion: { in: %w[active revoked expired] }
+  validates :key_digest, presence: true, uniqueness: true
+  validates :is_active, inclusion: { in: [true, false] }
   validates :expires_at, comparison: { greater_than: :created_at }, allow_nil: true
 
   # Note: scopes, allowed_ips, and metadata are JSON columns
   # and don't need explicit serialization in Rails 8
 
   # Scopes
-  scope :active, -> { where(status: 'active').where('expires_at IS NULL OR expires_at > ?', Time.current) }
-  scope :revoked, -> { where(status: 'revoked') }
+  scope :active, -> { where(is_active: true).where('expires_at IS NULL OR expires_at > ?', Time.current) }
+  scope :inactive, -> { where(is_active: false) }
   scope :expired, -> { where('expires_at <= ?', Time.current) }
 
   # Callbacks
@@ -70,8 +70,8 @@ class ApiKey < ApplicationRecord
   def self.find_by_key(key_value)
     return nil unless key_value.present?
     
-    key_hash = hash_key(key_value)
-    find_by(key_hash: key_hash)
+    key_digest = hash_key(key_value)
+    find_by(key_digest: key_digest)
   end
 
   def self.hash_key(key_value)
@@ -80,11 +80,11 @@ class ApiKey < ApplicationRecord
 
   # Instance methods
   def active?
-    status == 'active' && !expired?
+    is_active && !expired?
   end
 
   def revoked?
-    status == 'revoked'
+    !is_active
   end
 
   def expired?
@@ -96,7 +96,7 @@ class ApiKey < ApplicationRecord
   end
 
   def invalid_reason
-    return 'API key is revoked' if revoked?
+    return 'API key is inactive' if revoked?
     return 'API key has expired' if expired?
     return 'Rate limit exceeded' if rate_limited?
     return 'API key is inactive' unless active?
@@ -105,41 +105,40 @@ class ApiKey < ApplicationRecord
 
   def regenerate_key!
     transaction do
-      old_key_hash = key_hash
+      old_key_digest = key_digest
       generate_key
       save!
       
       # Log the regeneration
-      Rails.logger.info "API key #{id} regenerated (old hash: #{old_key_hash[0..7]}...)"
+      Rails.logger.info "API key #{id} regenerated (old digest: #{old_key_digest[0..7]}...)"
     end
   end
 
   def masked_key
-    return nil unless key_prefix.present?
-    "#{key_prefix}...#{key_suffix}"
+    return nil unless prefix.present?
+    "#{prefix}...****"
   end
 
   def has_scope?(required_scope)
-    return true if scopes.blank? # No scope restrictions
-    return true if scopes.include?('*') # Wildcard access
+    return true if permissions.blank? # No scope restrictions
+    return true if permissions.include?('*') # Wildcard access
     
-    scopes.include?(required_scope) || 
-    scopes.any? { |scope| scope_matches?(scope, required_scope) }
+    permissions.include?(required_scope) || 
+    permissions.any? { |scope| scope_matches?(scope, required_scope) }
   end
 
   def record_usage!(request_data = {})
-    increment!(:usage_count)
     update!(last_used_at: Time.current)
     
     # Create detailed usage record
     api_key_usages.create!(
       endpoint: request_data[:endpoint],
-      http_method: request_data[:method],
-      status_code: request_data[:status],
+      method: request_data[:method],
+      response_status: request_data[:status],
       ip_address: request_data[:ip_address],
       user_agent: request_data[:user_agent],
-      request_count: 1,
-      metadata: request_data[:metadata] || {}
+      request_params: request_data[:params] || {},
+      used_at: Time.current
     )
   end
 
@@ -155,21 +154,17 @@ class ApiKey < ApplicationRecord
     usage_count_for_period(1.month.ago..Time.current)
   end
 
-  def average_requests_per_day
-    return 0 if usage_count.zero? || created_at > 1.day.ago
-    
-    days_active = [(Time.current - created_at) / 1.day, 1].max
-    (usage_count.to_f / days_active).round(2)
-  end
-
   def rate_limited?
-    return false unless rate_limit_per_hour || rate_limit_per_day
+    return false if rate_limits.blank?
 
-    if rate_limit_per_hour && requests_in_last_hour >= rate_limit_per_hour
+    hourly_limit = rate_limits['hourly']
+    daily_limit = rate_limits['daily']
+
+    if hourly_limit && requests_in_last_hour >= hourly_limit
       return true
     end
 
-    if rate_limit_per_day && requests_today >= rate_limit_per_day
+    if daily_limit && requests_today >= daily_limit
       return true
     end
 
@@ -180,30 +175,20 @@ class ApiKey < ApplicationRecord
     usage_count_for_period(1.hour.ago..Time.current)
   end
 
-  def ip_allowed?(ip_address)
-    return true if allowed_ips.blank?
-    allowed_ips.include?(ip_address)
-  end
-
   private
 
   def set_defaults
-    self.status ||= 'active'
-    self.scopes ||= []
-    self.allowed_ips ||= []
-    self.usage_count ||= 0
-    self.rate_limit_per_hour ||= SystemSettingsService.get_setting('api_keys.default_hourly_limit', 1000)
-    self.rate_limit_per_day ||= SystemSettingsService.get_setting('api_keys.default_daily_limit', 10000)
-    self.metadata ||= {}
+    self.is_active = true if is_active.nil?
+    self.permissions ||= []
+    self.rate_limits ||= {}
   end
 
   def generate_key
     # Generate a secure random key
     random_bytes = SecureRandom.random_bytes(32)
     self.key_value = "pk_#{Rails.env.production? ? 'live' : 'test'}_#{SecureRandom.urlsafe_base64(32)}"
-    self.key_hash = self.class.hash_key(key_value)
-    self.key_prefix = key_value[0..15]
-    self.key_suffix = key_value[-8..-1]
+    self.key_digest = self.class.hash_key(key_value)
+    self.prefix = key_value[0..15]
   end
 
   def scope_matches?(scope_pattern, required_scope)
@@ -217,12 +202,12 @@ class ApiKey < ApplicationRecord
   end
 
   def usage_count_for_period(time_range)
-    api_key_usages.where(created_at: time_range).sum(:request_count)
+    api_key_usages.where(used_at: time_range).count
   end
 
   def log_status_change
-    if saved_change_to_status?
-      Rails.logger.info "API key #{id} (#{name}) status changed from #{status_before_last_save} to #{status}"
+    if saved_change_to_is_active?
+      Rails.logger.info "API key #{id} (#{name}) is_active changed from #{is_active_before_last_save} to #{is_active}"
     end
   end
 end

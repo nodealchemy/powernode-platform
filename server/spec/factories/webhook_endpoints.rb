@@ -1,20 +1,23 @@
 FactoryBot.define do
   factory :webhook_endpoint do
+    association :account
     sequence(:url) { |n| "https://api.example#{n}.com/webhook" }
     status { 'active' }
-    content_type { 'application/json' }
-    timeout_seconds { 30 }
-    retry_limit { 3 }
+    is_active { true }
     event_types { ['*'] }
-    association :created_by, factory: :user
+    timeout_seconds { 30 }
+    max_retries { 3 }
 
     trait :active do
       status { 'active' }
+      is_active { true }
     end
 
     trait :inactive do
       status { 'inactive' }
+      is_active { false }
     end
+
 
     trait :with_specific_events do
       event_types { ['user.created', 'payment.succeeded'] }

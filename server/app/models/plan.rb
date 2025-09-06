@@ -202,7 +202,10 @@ class Plan < ApplicationRecord
   end
 
   def set_defaults
+    # Handle features - convert array default to hash if needed
+    self.features = {} if features.nil? || (features.is_a?(Array) && features.empty?)
     self.features ||= {}
+    
     self.limits ||= {}
     self.default_roles ||= []
     self.required_roles ||= ['member']

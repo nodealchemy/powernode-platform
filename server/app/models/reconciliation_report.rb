@@ -9,6 +9,7 @@ class ReconciliationReport < ApplicationRecord
   
   # JSON columns for storing summary data
   # summary: { local_payments: int, stripe_payments: int, paypal_payments: int, total_amount_variance: int }
+  serialize :summary, coder: JSON
   
   scope :recent, -> { order(created_at: :desc) }
   scope :with_discrepancies, -> { where('discrepancies_count > 0') }

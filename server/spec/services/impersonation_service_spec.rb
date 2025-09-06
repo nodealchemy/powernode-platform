@@ -146,13 +146,13 @@ RSpec.describe ImpersonationService, type: :service do
       create(:impersonation_session,
              impersonator: admin_user,
              impersonated_user: target_user,
-             active: true)
+)
     end
 
     context 'with valid session token' do
       it 'ends the impersonation session' do
         service.end_impersonation(session.session_token)
-        expect(session.reload.active).to be false
+        expect(session.reload.active?).to be false
         expect(session.ended_at).to be_present
       end
 
@@ -173,7 +173,7 @@ RSpec.describe ImpersonationService, type: :service do
       it 'returns the ended session' do
         result = service.end_impersonation(session.session_token)
         expect(result).to eq(session)
-        expect(result.active).to be false
+        expect(result.active?).to be false
       end
     end
 
@@ -199,25 +199,25 @@ RSpec.describe ImpersonationService, type: :service do
   describe '#list_active_sessions' do
     let!(:active_session1) do
       create(:impersonation_session,
-             account: account,
              impersonator: admin_user,
-             active: true)
+             impersonated_user: target_user)
     end
     let!(:active_session2) do
       create(:impersonation_session,
-             account: account,
-             active: true)
+             impersonator: admin_user,
+             impersonated_user: create(:user, :member, account: account))
     end
     let!(:ended_session) do
-      create(:impersonation_session,
-             account: account,
-             active: false)
+      create(:impersonation_session, :ended)
     end
     let!(:other_account_session) do
       other_account = create(:account)
+      other_impersonator = create(:user, :admin, account: other_account)
+      other_target = create(:user, :member, account: other_account)
       create(:impersonation_session,
-             account: other_account,
-             active: true)
+             impersonator: other_impersonator,
+             impersonated_user: other_target
+      )
     end
 
     it 'returns only active sessions for the account' do
@@ -233,18 +233,24 @@ RSpec.describe ImpersonationService, type: :service do
     end
 
     it 'orders by most recent first' do
+      old_session = nil
       travel_to 1.hour.ago do
-        old_session = create(:impersonation_session, account: account, active: true)
+        old_session = create(:impersonation_session,
+                           impersonator: admin_user,
+                           impersonated_user: create(:user, :member, account: account))
       end
 
       sessions = service.list_active_sessions
+      expect(sessions.count).to be >= 2  # Should include our new session plus others
       expect(sessions.first.started_at).to be > sessions.last.started_at
     end
   end
 
   describe '#get_session_history' do
     it 'returns sessions for the account with limit' do
-      create_list(:impersonation_session, 3, account: account)
+      create_list(:impersonation_session, 3,
+                  impersonator: admin_user,
+                  impersonated_user: target_user)
       
       sessions = service.get_session_history(limit: 2)
       expect(sessions.count).to eq(2)
@@ -264,8 +270,7 @@ RSpec.describe ImpersonationService, type: :service do
     let!(:session) do
       create(:impersonation_session,
              impersonator: admin_user,
-             impersonated_user: target_user,
-             active: true)
+             impersonated_user: target_user)
     end
 
     let(:valid_token) do
@@ -300,9 +305,8 @@ RSpec.describe ImpersonationService, type: :service do
       expired_session = create(:impersonation_session, 
                                impersonator: admin_user,
                                impersonated_user: target_user,
-                               account: account,
-                               started_at: ImpersonationSession::MAX_SESSION_DURATION.ago - 1.hour,
-                               active: true)
+                                                              started_at: ImpersonationSession::MAX_SESSION_DURATION.ago - 1.hour,
+                  )
       
       expired_token = JwtService.encode({
         user_id: target_user.id,
@@ -314,7 +318,7 @@ RSpec.describe ImpersonationService, type: :service do
       
       result = service.validate_impersonation_token(expired_token)
       expect(result).to be_nil
-      expect(expired_session.reload.active).to be false
+      expect(expired_session.reload.active?).to be false
     end
 
     it 'returns nil for non-existent session' do
@@ -332,7 +336,7 @@ RSpec.describe ImpersonationService, type: :service do
     end
 
     it 'returns nil for inactive session' do
-      session.update!(active: false)
+      session.update!(ended_at: Time.current)
       result = service.validate_impersonation_token(valid_token)
       expect(result).to be_nil
     end

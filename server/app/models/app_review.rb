@@ -6,6 +6,11 @@ class AppReview < ApplicationRecord
   # Associations
   belongs_to :app
   belongs_to :account
+  has_many :review_helpfulness_votes, dependent: :destroy
+  has_many :review_responses, dependent: :destroy
+  has_many :review_media_attachments, dependent: :destroy
+  has_many :review_moderation_actions, dependent: :destroy
+  has_many :approved_responses, -> { approved }, class_name: 'ReviewResponse'
   
   # Validations
   validates :rating, presence: true, inclusion: { in: 1..5 }
@@ -22,6 +27,16 @@ class AppReview < ApplicationRecord
   scope :neutral, -> { where(rating: 3) }
   scope :helpful, -> { where('helpful_count > 0').order(helpful_count: :desc) }
   scope :with_content, -> { where.not(content: [nil, '']) }
+  scope :approved, -> { where(moderation_status: 'approved') }
+  scope :pending_moderation, -> { where(moderation_status: 'pending') }
+  scope :flagged, -> { where(flagged_for_review: true) }
+  scope :not_removed, -> { where(removed: false) }
+  scope :verified_purchases, -> { where(verified_purchase: true) }
+  scope :with_sentiment, ->(sentiment) { where(sentiment: sentiment) }
+  scope :high_quality, -> { where('quality_score >= ?', 3.5) }
+  scope :with_media, -> { joins(:review_media_attachments).distinct }
+  scope :with_responses, -> { joins(:review_responses).distinct }
+  scope :publicly_visible, -> { approved.not_removed }
   
   # Callbacks
   after_create :log_review_created
@@ -29,6 +44,10 @@ class AppReview < ApplicationRecord
   after_create :update_app_rating_cache
   after_update :update_app_rating_cache, if: :saved_change_to_rating?
   after_destroy :update_app_rating_cache
+  after_create :check_verification_status
+  after_create :analyze_sentiment
+  after_create :calculate_quality_score
+  after_update :update_aggregation_cache, if: :saved_change_to_moderation_status?
   
   # Rating methods
   def positive?
@@ -240,5 +259,102 @@ class AppReview < ApplicationRecord
   
   def log_removed_after_review(reason)
     Rails.logger.info "App review removed after moderation: #{id} - Reason: #{reason}"
+  end
+  
+  # Media and response methods
+  def has_media?
+    review_media_attachments.any?
+  end
+  
+  def has_approved_responses?
+    approved_responses.any?
+  end
+  
+  def media_count
+    review_media_attachments.count
+  end
+  
+  def response_count
+    approved_responses.count
+  end
+  
+  def log_review_restored(moderator)
+    Rails.logger.info "App review restored: #{id} by moderator #{moderator.id}"
+  end
+  
+  def check_verification_status
+    self.verified_purchase = AppSubscription.exists?(account: account, app: app)
+    save! if changed?
+  end
+  
+  def analyze_sentiment
+    # Basic sentiment analysis based on rating and keywords
+    return unless content.present?
+    
+    positive_keywords = %w[great excellent amazing wonderful fantastic love awesome brilliant perfect outstanding]
+    negative_keywords = %w[terrible awful horrible hate worst disappointing useless broken buggy]
+    
+    content_lower = content.downcase
+    positive_score = positive_keywords.count { |word| content_lower.include?(word) }
+    negative_score = negative_keywords.count { |word| content_lower.include?(word) }
+    
+    # Combine with rating
+    if rating >= 4 && (positive_score > negative_score || (positive_score == 0 && negative_score == 0))
+      self.sentiment = 'positive'
+    elsif rating <= 2 || negative_score > positive_score
+      self.sentiment = 'negative'
+    else
+      self.sentiment = 'neutral'
+    end
+    
+    save! if changed?
+  end
+  
+  def calculate_quality_score
+    score = 0.0
+    
+    # Base score from rating (40% weight)
+    score += (rating.to_f / 5.0) * 4.0 * 0.4
+    
+    # Content quality (30% weight)
+    if content.present?
+      word_count = content.split.length
+      content_score = case word_count
+                     when 0..10 then 2.0
+                     when 11..25 then 3.0
+                     when 26..50 then 4.0
+                     when 51..100 then 5.0
+                     else 4.5
+                     end
+      score += (content_score / 5.0) * 4.0 * 0.3
+    else
+      score += 2.0 * 0.3 # Lower score for no content
+    end
+    
+    # Verification bonus (15% weight)
+    if verified_purchase?
+      score += 4.0 * 0.15
+    else
+      score += 2.0 * 0.15
+    end
+    
+    # Media bonus (10% weight)
+    if has_media?
+      score += 4.0 * 0.1
+    else
+      score += 2.0 * 0.1
+    end
+    
+    # Account age factor (5% weight)
+    account_age_days = (Time.current - account.created_at) / 1.day
+    age_score = account_age_days > 30 ? 4.0 : 2.0
+    score += (age_score / 5.0) * 4.0 * 0.05
+    
+    self.quality_score = [score, 5.0].min.round(2)
+    save! if changed?
+  end
+  
+  def update_aggregation_cache
+    ReviewAggregationCache.refresh_for_app(app)
   end
 end

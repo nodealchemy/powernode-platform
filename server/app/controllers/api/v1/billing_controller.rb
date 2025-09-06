@@ -128,7 +128,7 @@ class Api::V1::BillingController < ApplicationController
           invoice.add_line_item(
             description: line_item_params[:description],
             quantity: line_item_params[:quantity].to_i,
-            unit_price_cents: (line_item_params[:unit_price].to_f * 100).to_i
+            unit_amount_cents: (line_item_params[:unit_price].to_f * 100).to_i
           )
         end
         

@@ -16,6 +16,7 @@ class Account < ApplicationRecord
   has_many :apps, dependent: :destroy
   has_many :app_subscriptions, dependent: :destroy
   has_many :api_keys, dependent: :destroy
+  has_many :webhook_endpoints, dependent: :destroy
 
   # Subscription-related associations
   has_many :invoices, through: :subscription

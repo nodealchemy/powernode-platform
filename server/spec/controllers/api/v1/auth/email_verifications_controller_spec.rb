@@ -179,8 +179,6 @@ RSpec.describe Api::V1::Auth::EmailVerificationsController, type: :controller do
   end
 
   def authenticate_as(user)
-    payload = { user_id: user.id }
-    token = JWT.encode(payload, Rails.application.config.jwt_secret_key, 'HS256')
-    request.headers['Authorization'] = "Bearer #{token}"
+    sign_in_as_user(user)
   end
 end

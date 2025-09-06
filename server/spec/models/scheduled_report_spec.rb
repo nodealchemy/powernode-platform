@@ -33,10 +33,10 @@ RSpec.describe ScheduledReport, type: :model do
   end
 
   describe 'scopes' do
-    let!(:active_report) { create(:scheduled_report, account: account, user: user, active: true) }
+    let!(:active_report) { create(:scheduled_report, account: account, user: user, is_active: true) }
     let!(:inactive_report) { create(:scheduled_report, :inactive, account: account, user: user) }
     let!(:due_report) {
-      report = create(:scheduled_report, account: account, user: user, active: true)
+      report = create(:scheduled_report, account: account, user: user, is_active: true)
       report.update_column(:next_run_at, 1.hour.ago) # Bypass callbacks to set past time
       report
     }
@@ -162,7 +162,7 @@ RSpec.describe ScheduledReport, type: :model do
 
     context 'when report is inactive' do
       it 'does not execute' do
-        scheduled_report.update!(active: false)
+        scheduled_report.update!(is_active: false)
         expect(pdf_service).not_to receive(:generate_pdf)
         expect(scheduled_report.execute_report!).to be_nil
       end

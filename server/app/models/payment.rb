@@ -4,25 +4,27 @@ class Payment < ApplicationRecord
   include AASM
 
   # Associations
+  belongs_to :account
   belongs_to :invoice
+  belongs_to :payment_method, optional: true
+  
+  # Delegated associations for convenience
   has_one :subscription, through: :invoice
-  has_one :account, through: :subscription
 
   # Validations
   validates :amount_cents, presence: true, numericality: { greater_than: 0 }
   validates :currency, presence: true, inclusion: { in: %w[USD EUR GBP] }
-  validates :payment_method, presence: true, inclusion: {
-    in: %w[stripe_card stripe_bank paypal bank_transfer check]
-  }
   validates :status, presence: true, inclusion: {
     in: %w[pending processing succeeded failed canceled refunded partially_refunded]
   }
+  validates :gateway, presence: true, inclusion: { in: %w[stripe paypal] }
+  validate :account_matches_invoice_account
 
   # Note: metadata is a native JSON column - no serialization needed in Rails 8
 
   # PayPal helper methods
   def paypal?
-    payment_method == 'paypal'
+    gateway == 'paypal'
   end
 
   def add_metadata(key, value)
@@ -38,12 +40,12 @@ class Payment < ApplicationRecord
   scope :succeeded, -> { where(status: "succeeded") }
   scope :failed, -> { where(status: "failed") }
   scope :pending, -> { where(status: "pending") }
-  scope :by_method, ->(method) { where(payment_method: method) }
-  scope :stripe_payments, -> { where(payment_method: [ "stripe_card", "stripe_bank" ]) }
-  scope :paypal_payments, -> { where(payment_method: "paypal") }
+  scope :by_gateway, ->(gateway) { where(gateway: gateway) }
+  scope :stripe_payments, -> { where(gateway: "stripe") }
+  scope :paypal_payments, -> { where(gateway: "paypal") }
 
   # Callbacks
-  before_save :calculate_net_amount
+  before_validation :normalize_currency
   after_initialize :set_defaults
 
   # Money attributes (removed monetize for now due to validation conflicts)
@@ -66,7 +68,7 @@ class Payment < ApplicationRecord
       transitions from: [ :pending, :processing ], to: :succeeded
       after do
         self.processed_at = Time.current
-        invoice.mark_paid! if invoice.may_mark_paid?
+        invoice.mark_paid! if invoice.open? || invoice.uncollectible?
       end
     end
 
@@ -96,22 +98,19 @@ class Payment < ApplicationRecord
   end
 
   def gateway_fee
-    Money.new(gateway_fee_cents || 0, currency)
+    # Gateway fees stored in metadata if available
+    fee_cents = metadata.dig("gateway_fee_cents") || 0
+    Money.new(fee_cents.to_i, currency)
   end
 
   def net_amount
-    Money.new(net_amount_cents || amount_cents, currency)
+    # Calculate net amount by subtracting gateway fees from gross amount
+    net_cents = amount_cents - gateway_fee.cents
+    Money.new(net_cents, currency)
   end
 
   def provider
-    case payment_method
-    when "stripe_card", "stripe_bank"
-      "stripe"
-    when "paypal"
-      "paypal"
-    else
-      "manual"
-    end
+    gateway
   end
 
   def gateway_transaction_id
@@ -141,11 +140,11 @@ class Payment < ApplicationRecord
 
   private
 
-  def calculate_net_amount
-    if gateway_fee_cents.present?
-      self.net_amount_cents = amount_cents - gateway_fee_cents
-    else
-      self.net_amount_cents = amount_cents
+  def account_matches_invoice_account
+    return unless invoice && account
+    
+    if invoice.account_id != account_id
+      errors.add(:account, "must match the invoice's account")
     end
   end
 
@@ -157,5 +156,11 @@ class Payment < ApplicationRecord
     else
       self.currency ||= "USD"
     end
+    # Always normalize currency to uppercase
+    self.currency = currency&.upcase if currency.present?
+  end
+
+  def normalize_currency
+    self.currency = currency&.upcase if currency.present?
   end
 end

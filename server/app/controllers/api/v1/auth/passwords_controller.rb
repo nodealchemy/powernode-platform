@@ -35,55 +35,26 @@ class Api::V1::Auth::PasswordsController < ApplicationController
     return render_error("Reset token is required", status: :bad_request) if params[:token].blank?
     return render_error("New password is required", status: :bad_request) if params[:password].blank?
 
-    begin
-      payload = JWT.decode(params[:token], Rails.application.config.jwt_secret_key, true, algorithm: "HS256").first
-      user_id = payload["user_id"]
-      token_type = payload["type"]
-
-      unless token_type == "password_reset"
-        return render json: {
-          success: false,
-          error: "Invalid reset token"
-        }, status: :unauthorized
-      end
-
-      user = User.find_by(id: user_id)
-      unless user
-        return render json: {
-          success: false,
-          error: "Invalid reset token"
-        }, status: :unauthorized
-      end
-
-      if user.reset_password!(params[:password], params[:token])
-        render json: {
-          success: true,
-          message: "Password has been reset successfully"
-        }, status: :ok
-      else
-        render json: {
-          success: false,
-          error: "Failed to reset password",
-          details: user.errors.full_messages
-        }, status: :unprocessable_content
-      end
-    rescue JWT::ExpiredSignature
-      render json: {
-        success: false,
-        error: "Reset token has expired"
-      }, status: :unauthorized
-    rescue JWT::DecodeError
-      render json: {
-        success: false,
-        error: "Invalid reset token"
-      }, status: :unauthorized
-    rescue => e
-      Rails.logger.error "Password reset error: #{e.message}"
-      render json: {
-        success: false,
-        error: "An error occurred. Please try again later."
-      }, status: :internal_server_error
+    # Find user by token hash, checking all candidates
+    token = params[:token]
+    user = User.joins(:account).where.not(reset_token_digest: nil).find do |u|
+      u.reset_token_digest.present? && BCrypt::Password.new(u.reset_token_digest) == token
     end
+
+    unless user
+      return render_error("Invalid reset token", status: :unauthorized)
+    end
+
+    if user.reset_password!(params[:password], params[:token])
+      render_success({
+        message: "Password has been reset successfully"
+      })
+    else
+      render_validation_error(user)
+    end
+  rescue => e
+    Rails.logger.error "Password reset error: #{e.message}"
+    render_error("An error occurred. Please try again later.", status: :internal_server_error)
   end
 
   # PUT /api/v1/passwords/change

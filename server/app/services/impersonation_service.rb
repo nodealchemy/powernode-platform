@@ -174,7 +174,7 @@ class ImpersonationService
       end
       
       # Check if session is still active (not manually ended)
-      return nil unless session.active
+      return nil unless session.active?
       
       session
     rescue StandardError

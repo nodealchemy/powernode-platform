@@ -119,7 +119,7 @@ RSpec.describe UsageLimitService, type: :service do
     context 'when under webhook limit' do
       before do
         plan.update!(limits: { 'max_webhooks' => 5 })
-        create_list(:webhook_endpoint, 2, :active, created_by: user)
+        create_list(:webhook_endpoint, 2, :active, account: account)
       end
 
       it 'returns true' do
@@ -130,7 +130,7 @@ RSpec.describe UsageLimitService, type: :service do
     context 'when at webhook limit' do
       before do
         plan.update!(limits: { 'max_webhooks' => 3 })
-        create_list(:webhook_endpoint, 3, :active, created_by: user)
+        create_list(:webhook_endpoint, 3, :active, account: account)
       end
 
       it 'returns false' do
@@ -141,8 +141,8 @@ RSpec.describe UsageLimitService, type: :service do
     context 'when has inactive webhooks' do
       before do
         plan.update!(limits: { 'max_webhooks' => 3 })
-        create_list(:webhook_endpoint, 2, :active, created_by: user)
-        create_list(:webhook_endpoint, 2, :inactive, created_by: user)
+        create_list(:webhook_endpoint, 2, :active, account: account)
+        create_list(:webhook_endpoint, 2, :inactive, account: account)
       end
 
       it 'only counts active webhooks' do
@@ -153,7 +153,7 @@ RSpec.describe UsageLimitService, type: :service do
     context 'when plan has unlimited webhooks' do
       before do
         plan.update!(limits: { 'max_webhooks' => 999 })
-        create_list(:webhook_endpoint, 50, :active, created_by: user)
+        create_list(:webhook_endpoint, 50, :active, account: account)
       end
 
       it 'returns true' do
@@ -198,12 +198,12 @@ RSpec.describe UsageLimitService, type: :service do
   end
 
   describe '.current_usage' do
-    let(:user) { create(:user, account: account) }
+    let!(:user) { create(:user, account: account) }
 
     before do
       create_list(:user, 3, account: account)
       create_list(:api_key, 2, :active, account: account)
-      create_list(:webhook_endpoint, 4, :active, created_by: user)
+      create_list(:webhook_endpoint, 4, :active, account: account)
       create_list(:worker, 1, account: account)
     end
 
@@ -216,7 +216,7 @@ RSpec.describe UsageLimitService, type: :service do
   end
 
   describe '.usage_summary' do
-    let(:user) { create(:user, account: account) }
+    let!(:user) { create(:user, account: account) }
 
     before do
       plan.update!(limits: {
@@ -228,7 +228,7 @@ RSpec.describe UsageLimitService, type: :service do
       
       create_list(:user, 2, account: account) # 3 total with existing user
       create_list(:api_key, 1, :active, account: account)
-      create_list(:webhook_endpoint, 4, :active, created_by: user)
+      create_list(:webhook_endpoint, 4, :active, account: account)
       create_list(:worker, 2, account: account)
     end
 

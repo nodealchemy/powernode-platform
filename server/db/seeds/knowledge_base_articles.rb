@@ -29,7 +29,7 @@ end
 
 # Get author and categories
 author = User.first || User.create!(
-  email: "admin@powernode.com",
+  email: "admin@powernode.org",
   password: SecureRandom.hex(16),
   email_verified: true,
   first_name: "System",
@@ -497,7 +497,7 @@ Unlock the full power of Powernode through our comprehensive RESTful API. This g
 ### Base API Information
 
 ```
-Base URL: https://api.powernode.com/v1
+Base URL: https://api.powernode.org/v1
 Content-Type: application/json
 Authentication: Bearer JWT tokens
 Rate Limit: 1000 requests/hour (default)
@@ -510,7 +510,7 @@ Rate Limit: 1000 requests/hour (default)
 **🔑 Authentication Flow**
 ```bash
 # 1. Get access token
-curl -X POST https://api.powernode.com/v1/auth/login \
+curl -X POST https://api.powernode.org/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{
     "email": "your-email@example.com",
@@ -528,7 +528,7 @@ curl -X POST https://api.powernode.com/v1/auth/login \
 
 **🔄 Token Refresh**
 ```bash
-curl -X POST https://api.powernode.com/v1/auth/refresh \
+curl -X POST https://api.powernode.org/v1/auth/refresh \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_REFRESH_TOKEN"
 ```
@@ -543,7 +543,7 @@ curl -X POST https://api.powernode.com/v1/auth/refresh \
 
 **🔒 Using API Keys**
 ```bash
-curl -X GET https://api.powernode.com/v1/subscriptions \
+curl -X GET https://api.powernode.org/v1/subscriptions \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Content-Type: application/json"
 ```
@@ -998,7 +998,7 @@ def sync_subscription_to_analytics(subscription):
 
 **🧪 Sandbox Configuration**
 ```bash
-Base URL: https://sandbox-api.powernode.com/v1
+Base URL: https://sandbox-api.powernode.org/v1
 Test API Keys: Use 'test_' prefix
 Test Data: Pre-populated test customers and plans
 Webhooks: Use ngrok for local development
@@ -1032,7 +1032,7 @@ Webhooks: Use ngrok for local development
 export POWERNODE_DEBUG=true
 
 # Use request IDs for tracing
-curl -X GET "https://api.powernode.com/v1/subscriptions" \
+curl -X GET "https://api.powernode.org/v1/subscriptions" \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -H "X-Request-ID: unique-request-id-123"
 ```
@@ -1041,7 +1041,7 @@ curl -X GET "https://api.powernode.com/v1/subscriptions" \
 
 Ready to start building? Check out our [interactive API explorer](API_EXPLORER_LINK) or download our [Postman collection](POSTMAN_LINK) to get started immediately.
 
-Need help? Our developer support team is available through [GitHub Discussions](GITHUB_LINK) or email at developers@powernode.com.
+Need help? Our developer support team is available through [GitHub Discussions](GITHUB_LINK) or email at developers@powernode.org.
 MARKDOWN
 
 article3 = KnowledgeBaseArticle.find_or_create_by(slug: "api-integration-fundamentals-powernode") do |article|
@@ -1974,8 +1974,8 @@ try {
 ### Emergency Contact Information
 - **Stripe Support**: Available 24/7 via dashboard
 - **PayPal Support**: Business support hotline
-- **Powernode Support**: help@powernode.com
-- **Security Issues**: security@powernode.com
+- **Powernode Support**: help@powernode.org
+- **Security Issues**: security@powernode.org
 
 Need help optimizing your payment infrastructure? Contact our payment specialists for personalized consultation and setup assistance.
 MARKDOWN
@@ -2444,20 +2444,20 @@ API Integration Details:
 ## Emergency Contact Information
 
 **🚨 Critical Issues**
-- **Security Emergencies**: security@powernode.com
+- **Security Emergencies**: security@powernode.org
 - **Payment Processing**: Available 24/7 via dashboard
-- **System Outages**: Check status.powernode.com
+- **System Outages**: Check status.powernode.org
 - **Data Breaches**: Immediate escalation protocol
 
 **📧 Standard Support**
-- **General Support**: support@powernode.com  
-- **Technical Issues**: tech@powernode.com
-- **Billing Questions**: billing@powernode.com
-- **API Integration**: developers@powernode.com
+- **General Support**: support@powernode.org  
+- **Technical Issues**: tech@powernode.org
+- **Billing Questions**: billing@powernode.org
+- **API Integration**: developers@powernode.org
 
 **💬 Community Resources**
-- **User Forum**: community.powernode.com
-- **Developer Slack**: Join at powernode.com/slack
+- **User Forum**: community.powernode.org
+- **Developer Slack**: Join at powernode.org/slack
 - **Status Updates**: Follow @PowernodeStatus
 - **Knowledge Base**: Browse all available guides
 

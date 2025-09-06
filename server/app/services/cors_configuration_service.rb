@@ -117,7 +117,13 @@ class CorsConfigurationService
     def parse_cors_origins(value)
       case value
       when String
-        # Comma or newline separated
+        # Try to parse as JSON first, then fallback to comma-separated
+        begin
+          parsed = JSON.parse(value)
+          return parsed.map(&:to_s).reject(&:blank?) if parsed.is_a?(Array)
+        rescue JSON::ParserError
+          # Fallback to comma or newline separated
+        end
         value.split(/[,\n]/).map(&:strip).reject(&:blank?)
       when Array
         value.map(&:to_s).reject(&:blank?)

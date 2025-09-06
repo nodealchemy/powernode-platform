@@ -1,25 +1,18 @@
 module AuthHelpers
-  def jwt_token_for(user)
-    # Get user's primary role (first role in the list)
-    user_role = user.role_names.first || 'member'
-    
-    payload = {
-      user_id: user.id,
-      account_id: user.account.id,
-      email: user.email,
-      role: user_role.downcase,
-      roles: user.role_names,
-      permissions: user.permission_names,
-      type: 'access',
-      exp: 1.hour.from_now.to_i
-    }
+  # Create traditional UserToken for testing (replaces JWT)
+  def token_for(user)
+    result = UserToken.create_token_for_user(user, type: 'access')
+    result[:token]
+  end
 
-    JWT.encode(payload, Rails.application.config.jwt_secret_key, 'HS256')
+  # Legacy method name for backward compatibility
+  def jwt_token_for(user)
+    token_for(user)
   end
 
   def auth_headers_for(user)
     {
-      'Authorization' => "Bearer #{jwt_token_for(user)}",
+      'Authorization' => "Bearer #{token_for(user)}",
       'Content-Type' => 'application/json'
     }
   end
@@ -50,7 +43,7 @@ module AuthHelpers
 
   # Controller test authentication helper
   def sign_in_as_user(user)
-    request.headers['Authorization'] = "Bearer #{jwt_token_for(user)}"
+    request.headers['Authorization'] = "Bearer #{token_for(user)}"
   end
 end
 

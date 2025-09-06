@@ -5,7 +5,7 @@ module Authentication
 
   included do
     before_action :authenticate_request
-    attr_reader :current_user, :current_account, :current_worker
+    attr_reader :current_user, :current_account, :current_worker, :current_user_token
   end
 
   private
@@ -17,27 +17,29 @@ module Authentication
     return render_unauthorized("Access token required") unless header
 
     begin
-      payload = JwtService.decode(header)
-      
+      user_token = UserToken.authenticate(header)
+      return render_unauthorized("Invalid or expired access token") unless user_token
+
       # Check if this is an impersonation token
-      if payload[:type] == 'impersonation'
-        handle_impersonation_token(payload)
+      if user_token.token_type == 'impersonation'
+        handle_impersonation_token(user_token)
       else
-        handle_regular_token(payload)
+        handle_regular_token(user_token)
       end
 
       return render_unauthorized("User inactive") unless @current_user.active?
       return render_unauthorized("Account suspended") unless @current_account.active?
 
+      # Update token usage tracking
+      user_token.touch_last_used!(
+        ip: request.remote_ip,
+        user_agent: request.user_agent
+      )
+
       @current_user.record_login! if should_record_login?
     rescue StandardError => e
-      if e.message.include?("expired")
-        render_unauthorized("Access token expired")
-      elsif e.message.include?("Invalid token")
-        render_unauthorized("Invalid access token")
-      else
-        render_unauthorized("Invalid access token")
-      end
+      Rails.logger.error "Authentication error: #{e.message}"
+      render_unauthorized("Invalid access token")
     end
   end
 
@@ -48,11 +50,18 @@ module Authentication
     header = header.split(" ").last
 
     begin
-      payload = JwtService.decode(header)
-      @current_user = User.find(payload[:user_id])
+      user_token = UserToken.authenticate(header)
+      return unless user_token
+
+      @current_user = user_token.user
       @current_account = @current_user.account
 
       if @current_user.active? && @current_account.active?
+        # Update token usage tracking
+        user_token.touch_last_used!(
+          ip: request.remote_ip,
+          user_agent: request.user_agent
+        )
         @current_user.record_login! if should_record_login?
       else
         @current_user = nil
@@ -76,15 +85,18 @@ module Authentication
     current_user.last_login_at.nil? || current_user.last_login_at < 1.hour.ago
   end
 
-  def handle_regular_token(payload)
-    @current_user = User.find(payload[:user_id])
+  def handle_regular_token(user_token)
+    @current_user = user_token.user
     @current_account = @current_user.account
+    @current_user_token = user_token
     @impersonator = nil
     @impersonation_session = nil
   end
 
-  def handle_impersonation_token(payload)
-    @impersonation_session = ImpersonationSession.find_by(id: payload[:session_id])
+  def handle_impersonation_token(user_token)
+    # Get impersonation session ID from token metadata
+    session_id = user_token.metadata['session_id']
+    @impersonation_session = ImpersonationSession.find_by(id: session_id)
     
     unless @impersonation_session&.active?
       raise StandardError, "Invalid impersonation session"
@@ -99,6 +111,7 @@ module Authentication
     @current_user = @impersonation_session.impersonated_user
     @current_account = @current_user.account
     @impersonator = @impersonation_session.impersonator
+    @current_user_token = user_token
 
     # Add impersonation header for client identification
     response.set_header('X-Impersonation-Active', 'true')

@@ -3,13 +3,13 @@
 class ScheduledReport < ApplicationRecord
 
   belongs_to :account, optional: true
-  belongs_to :user
+  belongs_to :user, foreign_key: 'created_by_id'
 
   validates :report_type, presence: true, inclusion: { in: PdfReportService::REPORT_TYPES }
   validates :frequency, presence: true, inclusion: { in: %w[daily weekly monthly] }
   validates :format, presence: true, inclusion: { in: %w[pdf csv] }
 
-  scope :active, -> { where(active: true) }
+  scope :active, -> { where(is_active: true) }
   scope :for_account, ->(account) { where(account: account) }
   scope :due_for_execution, -> { active.where('next_run_at <= ?', Time.current) }
 
@@ -28,7 +28,7 @@ class ScheduledReport < ApplicationRecord
   end
 
   def execute_report!
-    return unless active?
+    return unless is_active?
     
     # Generate the report
     pdf_data = PdfReportService.new(

@@ -1,6 +1,7 @@
 FactoryBot.define do
   factory :plan do
     sequence(:name) { |n| "Plan #{n}" }
+    sequence(:slug) { |n| "plan-#{n}" }
     description { "A great subscription plan" }
     price_cents { 2999 }
     currency { "USD" }
@@ -37,6 +38,7 @@ FactoryBot.define do
 
     trait :basic_plan do
       name { 'Basic Plan' }
+      slug { 'basic-plan' }
       price_cents { 1500 }
       limits do
         {
@@ -50,6 +52,7 @@ FactoryBot.define do
 
     trait :pro_plan do
       name { 'Professional Plan' }
+      slug { 'professional-plan' }
       price_cents { 4900 }
       limits do
         {
@@ -63,6 +66,7 @@ FactoryBot.define do
 
     trait :enterprise_plan do
       name { 'Enterprise Plan' }
+      slug { 'enterprise-plan' }
       price_cents { 15000 }
       limits do
         {

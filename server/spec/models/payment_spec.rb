@@ -4,9 +4,10 @@ RSpec.describe Payment, type: :model do
   let(:payment) { build(:payment) }
 
   describe "associations" do
+    it { should belong_to(:account) }
     it { should belong_to(:invoice) }
+    it { should belong_to(:payment_method).optional }
     it { should have_one(:subscription).through(:invoice) }
-    it { should have_one(:account).through(:subscription) }
   end
 
   describe "validations" do
@@ -14,8 +15,8 @@ RSpec.describe Payment, type: :model do
     it { should validate_numericality_of(:amount_cents).is_greater_than(0) }
     it { should validate_presence_of(:currency) }
     it { should validate_inclusion_of(:currency).in_array(%w[USD EUR GBP]) }
-    it { should validate_presence_of(:payment_method) }
-    it { should validate_inclusion_of(:payment_method).in_array(%w[stripe_card stripe_bank paypal bank_transfer check]) }
+    it { should validate_presence_of(:gateway) }
+    it { should validate_inclusion_of(:gateway).in_array(%w[stripe paypal]) }
     it { should validate_presence_of(:status) }
     it { should validate_inclusion_of(:status).in_array(%w[pending processing succeeded failed canceled refunded partially_refunded]) }
   end
@@ -24,9 +25,8 @@ RSpec.describe Payment, type: :model do
     let!(:succeeded_payment) { create(:payment, status: "succeeded") }
     let!(:failed_payment) { create(:payment, status: "failed") }
     let!(:pending_payment) { create(:payment, status: "pending") }
-    let!(:stripe_card_payment) { create(:payment, payment_method: "stripe_card") }
-    let!(:stripe_bank_payment) { create(:payment, payment_method: "stripe_bank") }
-    let!(:paypal_payment) { create(:payment, payment_method: "paypal") }
+    let!(:stripe_payment) { create(:payment, gateway: "stripe") }
+    let!(:paypal_payment) { create(:payment, gateway: "paypal") }
 
     it "returns succeeded payments" do
       expect(Payment.succeeded).to include(succeeded_payment)
@@ -43,36 +43,36 @@ RSpec.describe Payment, type: :model do
       expect(Payment.pending).not_to include(succeeded_payment, failed_payment)
     end
 
-    it "filters by payment method" do
-      expect(Payment.by_method("stripe_card")).to include(stripe_card_payment)
-      expect(Payment.by_method("stripe_card")).not_to include(paypal_payment)
+    it "filters by gateway" do
+      expect(Payment.by_gateway("stripe")).to include(stripe_payment)
+      expect(Payment.by_gateway("stripe")).not_to include(paypal_payment)
     end
 
     it "returns stripe payments" do
-      expect(Payment.stripe_payments).to include(stripe_card_payment, stripe_bank_payment)
+      expect(Payment.stripe_payments).to include(stripe_payment)
       expect(Payment.stripe_payments).not_to include(paypal_payment)
     end
 
     it "returns paypal payments" do
       expect(Payment.paypal_payments).to include(paypal_payment)
-      expect(Payment.paypal_payments).not_to include(stripe_card_payment, stripe_bank_payment)
+      expect(Payment.paypal_payments).not_to include(stripe_payment)
     end
   end
 
   describe "callbacks" do
     describe "#calculate_net_amount" do
       it "calculates net amount without gateway fee" do
-        payment = build(:payment, amount_cents: 2000, gateway_fee_cents: nil)
+        payment = build(:payment, amount_cents: 2000, metadata: {})
         payment.save!
 
-        expect(payment.net_amount_cents).to eq(2000)
+        expect(payment.net_amount.cents).to eq(2000)
       end
 
       it "calculates net amount with gateway fee" do
-        payment = build(:payment, amount_cents: 2000, gateway_fee_cents: 100)
+        payment = build(:payment, amount_cents: 2000, metadata: { "gateway_fee_cents" => 100 })
         payment.save!
 
-        expect(payment.net_amount_cents).to eq(1900)
+        expect(payment.net_amount.cents).to eq(1900)
       end
     end
 
@@ -134,8 +134,17 @@ RSpec.describe Payment, type: :model do
       end
 
       it "marks invoice as paid when succeeding" do
-        invoice = create(:invoice, status: "open")
-        payment = create(:payment, invoice: invoice, status: "pending")
+        subscription = create(:subscription)
+        invoice = create(:invoice, 
+          account: subscription.account, 
+          subscription: subscription, 
+          status: "open"
+        )
+        payment = create(:payment, 
+          account: subscription.account, 
+          invoice: invoice, 
+          status: "pending"
+        )
 
         expect { payment.succeed! }.to change { invoice.reload.status }.from("open").to("paid")
       end
@@ -194,7 +203,7 @@ RSpec.describe Payment, type: :model do
   end
 
   describe "money methods" do
-    let(:payment) { create(:payment, amount_cents: 2000, gateway_fee_cents: 100, currency: "USD") }
+    let(:payment) { create(:payment, amount_cents: 2000, metadata: { "gateway_fee_cents" => 100 }, currency: "USD") }
 
     describe "#amount" do
       it "returns Money object for amount" do
@@ -212,7 +221,7 @@ RSpec.describe Payment, type: :model do
       end
 
       it "returns zero when no gateway fee" do
-        payment = create(:payment, gateway_fee_cents: nil)
+        payment = create(:payment, metadata: {})
         expect(payment.gateway_fee.cents).to eq(0)
       end
     end
@@ -224,8 +233,8 @@ RSpec.describe Payment, type: :model do
         expect(payment.net_amount.currency.to_s).to eq("USD")
       end
 
-      it "returns full amount when no net amount calculated" do
-        payment = create(:payment, amount_cents: 2000, net_amount_cents: nil)
+      it "returns full amount when no gateway fee" do
+        payment = create(:payment, amount_cents: 2000, metadata: {})
         expect(payment.net_amount.cents).to eq(2000)
       end
     end
@@ -233,56 +242,52 @@ RSpec.describe Payment, type: :model do
 
   describe "instance methods" do
     describe "#provider" do
-      it "returns 'stripe' for stripe payment methods" do
-        stripe_card = build(:payment, payment_method: "stripe_card")
-        stripe_bank = build(:payment, payment_method: "stripe_bank")
+      it "returns 'stripe' for stripe gateway" do
+        stripe_payment = build(:payment, gateway: "stripe")
 
-        expect(stripe_card.provider).to eq("stripe")
-        expect(stripe_bank.provider).to eq("stripe")
+        expect(stripe_payment.provider).to eq("stripe")
       end
 
-      it "returns 'paypal' for paypal payment method" do
-        paypal_payment = build(:payment, payment_method: "paypal")
+      it "returns 'paypal' for paypal gateway" do
+        paypal_payment = build(:payment, gateway: "paypal")
 
         expect(paypal_payment.provider).to eq("paypal")
       end
 
-      it "returns 'manual' for other payment methods" do
-        bank_transfer = build(:payment, payment_method: "bank_transfer")
-        check = build(:payment, payment_method: "check")
+      it "returns 'stripe' when no payment method" do
+        stripe_payment = build(:payment, gateway: "stripe", payment_method: nil)
 
-        expect(bank_transfer.provider).to eq("manual")
-        expect(check.provider).to eq("manual")
+        expect(stripe_payment.provider).to eq("stripe")
       end
     end
 
     describe "#gateway_transaction_id" do
       it "returns stripe payment intent ID for stripe payments" do
-        payment = build(:payment, payment_method: "stripe_card", metadata: { "stripe_payment_intent_id" => "pi_123" })
+        payment = build(:payment, gateway: "stripe", metadata: { "stripe_payment_intent_id" => "pi_123" })
 
         expect(payment.gateway_transaction_id).to eq("pi_123")
       end
 
       it "returns stripe charge ID when no payment intent" do
-        payment = build(:payment, payment_method: "stripe_card", metadata: { "stripe_charge_id" => "ch_123" })
+        payment = build(:payment, gateway: "stripe", metadata: { "stripe_charge_id" => "ch_123" })
 
         expect(payment.gateway_transaction_id).to eq("ch_123")
       end
 
       it "returns paypal order ID for paypal payments" do
-        payment = build(:payment, payment_method: "paypal", metadata: { "paypal_order_id" => "ORDER_123" })
+        payment = build(:payment, gateway: "paypal", metadata: { "paypal_order_id" => "ORDER_123" })
 
         expect(payment.gateway_transaction_id).to eq("ORDER_123")
       end
 
       it "returns paypal capture ID when no order ID" do
-        payment = build(:payment, payment_method: "paypal", metadata: { "paypal_capture_id" => "CAPTURE_123" })
+        payment = build(:payment, gateway: "paypal", metadata: { "paypal_capture_id" => "CAPTURE_123" })
 
         expect(payment.gateway_transaction_id).to eq("CAPTURE_123")
       end
 
-      it "returns nil for manual payments" do
-        payment = build(:payment, payment_method: "check")
+      it "returns nil when no transaction metadata" do
+        payment = build(:payment, gateway: "stripe", metadata: {})
 
         expect(payment.gateway_transaction_id).to be_nil
       end
@@ -352,11 +357,11 @@ RSpec.describe Payment, type: :model do
     end
   end
 
-  describe "payment method specific behavior" do
-    describe "stripe card payments" do
-      it "processes stripe card payments correctly" do
+  describe "gateway specific behavior" do
+    describe "stripe payments" do
+      it "processes stripe payments correctly" do
         payment = create(:payment,
-          payment_method: "stripe_card",
+          gateway: "stripe",
           metadata: { 
             "stripe_payment_intent_id" => "pi_123456",
             "stripe_charge_id" => "ch_123456"
@@ -368,22 +373,10 @@ RSpec.describe Payment, type: :model do
       end
     end
 
-    describe "stripe bank payments" do
-      it "processes stripe bank payments correctly" do
-        payment = create(:payment,
-          payment_method: "stripe_bank",
-          metadata: { "stripe_payment_intent_id" => "pi_789012" }
-        )
-
-        expect(payment.provider).to eq("stripe")
-        expect(payment.gateway_transaction_id).to eq("pi_789012")
-      end
-    end
-
     describe "paypal payments" do
       it "processes paypal payments correctly" do
         payment = create(:payment,
-          payment_method: "paypal",
+          gateway: "paypal",
           metadata: { "paypal_order_id" => "ORDER_789012" }
         )
 
@@ -392,27 +385,15 @@ RSpec.describe Payment, type: :model do
       end
     end
 
-    describe "manual payments" do
-      it "processes bank transfer payments correctly" do
+    describe "payment metadata" do
+      it "processes custom metadata correctly" do
         payment = create(:payment,
-          payment_method: "bank_transfer",
+          gateway: "stripe",
           metadata: { reference_number: "TXN_123456" }
         )
 
-        expect(payment.provider).to eq("manual")
-        expect(payment.gateway_transaction_id).to be_nil
+        expect(payment.provider).to eq("stripe")
         expect(payment.metadata["reference_number"]).to eq("TXN_123456")
-      end
-
-      it "processes check payments correctly" do
-        payment = create(:payment,
-          payment_method: "check",
-          metadata: { reference_number: "CHK_123456" }
-        )
-
-        expect(payment.provider).to eq("manual")
-        expect(payment.gateway_transaction_id).to be_nil
-        expect(payment.metadata["reference_number"]).to eq("CHK_123456")
       end
     end
   end

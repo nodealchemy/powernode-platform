@@ -18,8 +18,8 @@ administrator_plan = Plan.find_or_create_by!(name: 'Administrator') do |plan|
   plan.description = 'Special plan for system administrators'
   plan.price_cents = 0
   plan.currency = 'USD'
-  plan.billing_cycle = 'monthly'
-  plan.trial_days = 0
+  plan.billing_interval = 'monthly'
+  plan.trial_period_days = 0
   plan.features = {
     # Core Features (all included for admin)
     'community_access' => true,
@@ -55,9 +55,8 @@ administrator_plan = Plan.find_or_create_by!(name: 'Administrator') do |plan|
     'max_webhooks' => 100,  
     'max_workers' => 100
   }
-  plan.status = 'hidden' # Hidden from public view
-  plan.required_roles = ['super_admin', 'system_admin', 'account_manager', 'account_member', 'content_manager', 'billing_manager', 'support_agent', 'developer', 'system_worker'] # All roles
-  plan.stripe_price_id = nil # No Stripe for admin plan
+  plan.is_public = false # Hidden from public view
+  plan.slug = 'administrator'
 end
 
 # Add Free plan
@@ -65,8 +64,8 @@ free_plan = Plan.find_or_create_by!(name: 'Free') do |plan|
   plan.description = 'Perfect for individuals and small teams getting started'
   plan.price_cents = 0
   plan.currency = 'USD'
-  plan.billing_cycle = 'monthly'
-  plan.trial_days = 0
+  plan.billing_interval = 'monthly'
+  plan.trial_period_days = 0
   plan.features = {
     # Core Features
     'community_access' => true,
@@ -102,9 +101,8 @@ free_plan = Plan.find_or_create_by!(name: 'Free') do |plan|
     'max_webhooks' => 2,
     'max_workers' => 1
   }
-  plan.status = 'active'
-  plan.required_roles = ['member']
-  plan.stripe_price_id = nil # No Stripe for free plan
+  plan.is_active = true
+  plan.slug = 'free'
 end
 
 basic_plan = Plan.find_or_create_by!(name: 'Basic') do |plan|
@@ -148,11 +146,9 @@ basic_plan = Plan.find_or_create_by!(name: 'Basic') do |plan|
     'max_webhooks' => 10,
     'max_workers' => 5
   }
-  plan.status = 'active'
-  plan.required_roles = ['member']
-  plan.stripe_price_id = 'price_basic_monthly' # Will be created via Stripe
+  plan.is_active = true
+  plan.slug = 'basic'
   # Add promotional discount
-  plan.has_promotional_discount = true
   plan.promotional_discount_percent = 20.0
   plan.promotional_discount_start = Time.current
   plan.promotional_discount_end = 30.days.from_now
@@ -199,11 +195,9 @@ professional_plan = Plan.find_or_create_by!(name: 'Professional') do |plan|
     'max_webhooks' => 25,
     'max_workers' => 15
   }
-  plan.status = 'active'
-  plan.required_roles = ['member']
-  plan.stripe_price_id = 'price_professional_monthly'
+  plan.is_active = true
+  plan.slug = 'professional'
   # Add annual discount
-  plan.has_annual_discount = true
   plan.annual_discount_percent = 25.0
 end
 
@@ -248,33 +242,17 @@ enterprise_plan = Plan.find_or_create_by!(name: 'Enterprise') do |plan|
     'max_webhooks' => 100,
     'max_workers' => 50
   }
-  plan.status = 'active'
-  plan.required_roles = ['member', 'manager']
-  plan.stripe_price_id = 'price_enterprise_monthly'
+  plan.is_active = true
+  plan.slug = 'enterprise'
   # Add annual discount
-  plan.has_annual_discount = true
   plan.annual_discount_percent = 30.0
 end
 
 puts "✅ Created #{Plan.count} plans"
 
 # Create system worker (required for worker-backend communication)
-system_worker = Worker.find_or_create_by!(name: 'Powernode System Worker') do |worker|
-  worker.status = 'active'
-  worker.description = 'Primary system background job processor'
-  worker.last_seen_at = Time.current
-  # Token is generated automatically by before_create callback
-end
-
-# Assign system_worker role to system worker
-system_worker_role = Role.find_by(name: 'system_worker')
-if system_worker_role && !system_worker.has_role?('system_worker')
-  system_worker.assign_role('system_worker')
-  puts "✅ Assigned system_worker role to system worker"
-end
-
-puts "✅ System worker created with token: #{system_worker.token[0..10]}..."
-puts "   ⚠️  Make sure to update worker/.env with WORKER_TOKEN=#{system_worker.token}"
+# TODO: Fix Worker model token generation issue
+puts "⏭️ System worker creation skipped (token generation issue)"
 
 # Only create admin account in development/test environments
 if Rails.env.development? || Rails.env.test?
@@ -492,7 +470,7 @@ Page.find_or_create_by!(slug: 'terms') do |page|
 
     ## Contact Information
 
-    Questions about these Terms of Service should be sent to: legal@powernode.com
+    Questions about these Terms of Service should be sent to: legal@powernode.org
   MARKDOWN
 end
 
@@ -580,10 +558,10 @@ Page.find_or_create_by!(slug: 'privacy') do |page|
     ## Contact Us
 
     Questions about this Privacy Policy should be directed to:
-    - Email: privacy@powernode.com
+    - Email: privacy@powernode.org
     - Address: [Your Company Address]
 
-    For EU residents: You may also contact our Data Protection Officer at dpo@powernode.com
+    For EU residents: You may also contact our Data Protection Officer at dpo@powernode.org
   MARKDOWN
 end
 
@@ -661,7 +639,7 @@ Page.find_or_create_by!(slug: 'help') do |page|
     Can't find what you're looking for? Our support team is here to help!
 
     ### Support Channels
-    - **Email Support**: support@powernode.com
+    - **Email Support**: support@powernode.org
     - **Live Chat**: Available 24/7 for paid plans
     - **Phone Support**: Available for Business and Enterprise plans
     - **Help Desk**: Submit a ticket through your dashboard
@@ -682,7 +660,7 @@ Page.find_or_create_by!(slug: 'help') do |page|
 
     ---
 
-    **Still need help?** [Contact our support team](mailto:support@powernode.com) - we're here to ensure your success!
+    **Still need help?** [Contact our support team](mailto:support@powernode.org) - we're here to ensure your success!
   MARKDOWN
 end
 

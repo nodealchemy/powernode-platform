@@ -6,6 +6,9 @@ class Worker < ApplicationRecord
   self.table_name = 'workers'
   include AASM
   
+  # Virtual attributes
+  attr_accessor :token
+  
   # Validations
   validates :name, presence: true, length: { minimum: 3, maximum: 50 }
   validates :description, length: { maximum: 255 }
@@ -68,7 +71,9 @@ class Worker < ApplicationRecord
   def self.authenticate(token)
     return nil if token.blank?
     
-    worker = find_by(token: token, status: 'active')
+    # Find all active workers and check token hash
+    workers = where(status: 'active').where.not(token_digest: nil)
+    worker = workers.find { |w| w.token_matches?(token) }
     return nil unless worker
     
     worker.touch(:last_seen_at)
@@ -314,6 +319,23 @@ class Worker < ApplicationRecord
     )
   end
   
+  def generate_token
+    return if token_digest.present? && token.blank?
+    
+    self.token = SecureRandom.urlsafe_base64(32) if token.blank?
+    self.token_digest = self.class.hash_token(token)
+  end
+  
+  def self.hash_token(token)
+    return nil if token.blank?
+    BCrypt::Password.create(token)
+  end
+  
+  def token_matches?(provided_token)
+    return false if token_digest.blank? || provided_token.blank?
+    BCrypt::Password.new(token_digest) == provided_token
+  end
+
   def only_one_system_worker_globally
     # Check if this worker is a system worker (no account_id)
     return unless account_id.nil?

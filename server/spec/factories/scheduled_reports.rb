@@ -1,5 +1,6 @@
 FactoryBot.define do
   factory :scheduled_report do
+    name { "Monthly Revenue Report" }
     report_type { "revenue_report" }
     frequency { "monthly" }
     recipients { ["admin@example.com", "billing@example.com"] }
@@ -8,7 +9,7 @@ FactoryBot.define do
     association :user
     next_run_at { 1.month.from_now.beginning_of_month + 8.hours }
     last_run_at { nil }
-    active { true }
+    is_active { true }
 
     trait :daily do
       frequency { "daily" }
@@ -21,7 +22,7 @@ FactoryBot.define do
     end
 
     trait :inactive do
-      active { false }
+      is_active { false }
     end
 
     trait :with_history do

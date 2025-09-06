@@ -11,8 +11,7 @@ class UsageLimitService
   end
 
   def self.can_create_webhook?(account)
-    # Note: WebhookEndpoints are created through users, so we need to count through the association
-    webhook_count = WebhookEndpoint.joins(:created_by).where(created_by: { account: account }).where(status: 'active').count
+    webhook_count = account.webhook_endpoints.where(status: 'active').count
     check_limit(account, 'max_webhooks', webhook_count)
   end
 
@@ -28,7 +27,7 @@ class UsageLimitService
     when 'max_api_keys'
       account.api_keys.active.count
     when 'max_webhooks'
-      WebhookEndpoint.joins(:created_by).where(created_by: { account: account }).where(status: 'active').count
+      account.webhook_endpoints.where(status: 'active').count
     when 'max_workers'
       account.workers.count
     else

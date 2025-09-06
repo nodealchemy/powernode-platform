@@ -1,8 +1,7 @@
 # frozen_string_literal: true
 
 class Api::V1::EmailSettingsController < ApplicationController
-  skip_before_action :authenticate_request
-  before_action :authenticate_worker_token
+  before_action :require_admin_permission
   
   # GET /api/v1/email_settings
   # Used by worker service to fetch SMTP configuration
@@ -158,27 +157,9 @@ class Api::V1::EmailSettingsController < ApplicationController
     value
   end
   
-  def authenticate_worker_token
-    # Accept either worker token or admin JWT
-    token = request.headers['Authorization']&.split(' ')&.last
+  def require_admin_permission
+    return if current_user&.has_permission?('admin.settings.email')
     
-    if token.present?
-      # Check if it's a worker token
-      if token.starts_with?('swt_')
-        worker = Worker.find_by(token: token, status: 'active')
-        return if worker.present?
-      end
-      
-      # Otherwise check JWT for admin user
-      begin
-        payload = JWT.decode(token, Rails.application.config.jwt_secret_key)[0]
-        user = User.find_by(id: payload['user_id'])
-        return if user&.admin?
-      rescue JWT::DecodeError
-        # Invalid token
-      end
-    end
-    
-    render_error('Unauthorized', status: :unauthorized)
+    render_error('Access denied. Email settings management required.', status: :forbidden)
   end
 end

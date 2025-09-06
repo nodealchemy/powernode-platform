@@ -234,24 +234,6 @@ class User < ApplicationRecord
   end
 
   # Password reset
-  def generate_reset_token!
-    # Generate a JWT token for password reset
-    payload = {
-      user_id: id,
-      type: 'password_reset',
-      exp: 2.hours.from_now.to_i
-    }
-    
-    token = JWT.encode(payload, Rails.application.config.jwt_secret_key, 'HS256')
-    
-    # Store the token digest
-    update!(
-      reset_token_digest: BCrypt::Password.create(token),
-      reset_token_expires_at: 2.hours.from_now
-    )
-    
-    token
-  end
   
   def create_reset_digest
     @reset_token = SecureRandom.urlsafe_base64

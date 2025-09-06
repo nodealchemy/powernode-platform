@@ -1,22 +1,25 @@
 FactoryBot.define do
   factory :api_key do
     sequence(:name) { |n| "API Key #{n}" }
-    key_hash { SecureRandom.hex(32) }
-    status { 'active' }
+    key_digest { SecureRandom.hex(32) }
+    prefix { "pk_test_#{SecureRandom.hex(8)}" }
+    is_active { true }
+    permissions { [] }
+    rate_limits { {} }
     association :account
     association :created_by, factory: :user
 
     trait :active do
-      status { 'active' }
+      is_active { true }
     end
 
     trait :revoked do
-      status { 'revoked' }
+      is_active { false }
     end
 
     trait :expired do
-      status { 'expired' }
       expires_at { 1.day.ago }
+      is_active { true }
     end
   end
 end

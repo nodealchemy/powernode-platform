@@ -22,7 +22,7 @@ Rails.logger.info "CORS: Loaded #{cors_allowed_origins.size} allowed origins"
 # CORS configuration with comprehensive headers support
 Rails.application.config.middleware.insert_before 0, Rack::Cors do
   allow do
-    origins 'http://dev-1.ipnode.net:3001'
+    origins cors_allowed_origins
     
     resource '*',
       headers: :any,

@@ -1,7 +1,7 @@
 FactoryBot.define do
   factory :account do
-    sequence(:name) { |n| "Test Company #{n}" }
-    sequence(:subdomain) { |n| "company-#{n}" }
+    sequence(:name) { |n| "Test Company #{n} #{SecureRandom.hex(3)}" }
+    sequence(:subdomain) { |n| "test-#{n}-#{SecureRandom.hex(3)}" }
     status { 'active' }
     settings { {} }
 

@@ -1439,7 +1439,7 @@ The Powernode API is a RESTful web service that provides programmatic access to 
 - **Versioned**: Stable API with backward compatibility
 
 ### API Characteristics
-- **Base URL**: `https://api.powernode.com/v1`
+- **Base URL**: `https://api.powernode.org/v1`
 - **Authentication**: Bearer token (JWT)
 - **Rate Limits**: 1000 requests per hour per API key
 - **Response Format**: Consistent JSON structure
@@ -1485,7 +1485,7 @@ The Powernode API is a RESTful web service that provides programmatic access to 
 Include API key in request headers:
 ```http
 GET /api/v1/customers HTTP/1.1
-Host: api.powernode.com
+Host: api.powernode.org
 Authorization: Bearer pk_live_your_api_key_here
 Content-Type: application/json
 ```
@@ -1495,7 +1495,7 @@ Content-Type: application/json
 const axios = require('axios');
 
 const apiClient = axios.create({
-  baseURL: 'https://api.powernode.com/v1',
+  baseURL: 'https://api.powernode.org/v1',
   headers: {
     'Authorization': 'Bearer pk_live_your_api_key_here',
     'Content-Type': 'application/json'
@@ -1528,7 +1528,7 @@ All API requests follow consistent patterns:
 
 #### URL Structure
 ```
-https://api.powernode.com/v1/{resource}/{id}/{sub-resource}
+https://api.powernode.org/v1/{resource}/{id}/{sub-resource}
 
 Examples:
 GET    /customers                    # List customers
