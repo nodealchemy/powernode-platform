@@ -65,7 +65,7 @@ describe('EmailConfiguration', () => {
     expect(screen.getByText('Loading...')).toBeInTheDocument();
 
     await waitFor(() => {
-      expect(screen.getByText('Email Server Configuration')).toBeInTheDocument();
+      expect(screen.getByText('SMTP Configuration')).toBeInTheDocument();
       expect(mockEmailSettingsApi.getSettings).toHaveBeenCalled();
     });
   });

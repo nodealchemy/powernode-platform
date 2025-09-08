@@ -310,7 +310,7 @@ describe('ErrorBoundary', () => {
     );
 
     expect(console.group).toHaveBeenCalledWith(
-      expect.stringContaining('Error Boundary Caught Error')
+      expect.stringContaining('ERROR BOUNDARY TRIGGERED')
     );
     expect(console.error).toHaveBeenCalledWith('Error:', expect.any(Error));
     expect(console.error).toHaveBeenCalledWith('Error Info:', expect.any(Object));

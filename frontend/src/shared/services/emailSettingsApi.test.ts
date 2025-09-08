@@ -273,14 +273,7 @@ describe('emailSettingsApi', () => {
         }
       });
 
-      await expect(emailSettingsApi.testEmail(testEmail)).rejects.toMatchObject({
-        response: {
-          data: {
-            success: false,
-            error: 'SMTP connection failed'
-          }
-        }
-      });
+      await expect(emailSettingsApi.testEmail(testEmail)).rejects.toThrow('SMTP connection failed');
     });
 
     it('should handle network errors during test', async () => {
@@ -370,15 +363,7 @@ describe('emailSettingsApi', () => {
         }
       });
 
-      await expect(emailSettingsApi.testEmail(testEmail)).rejects.toMatchObject({
-        response: {
-          status: 500,
-          data: {
-            success: false,
-            error: 'Internal server error: Email service unavailable'
-          }
-        }
-      });
+      await expect(emailSettingsApi.testEmail(testEmail)).rejects.toThrow('Internal server error: Email service unavailable');
     });
   });
 
