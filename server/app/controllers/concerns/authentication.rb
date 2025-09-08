@@ -17,6 +17,17 @@ module Authentication
     return render_unauthorized("Access token required") unless header
 
     begin
+      # Try worker authentication first if token looks like a worker token
+      if header.start_with?('swt_')
+        @current_worker = Worker.authenticate(header)
+        if @current_worker
+          return # Worker authentication successful
+        else
+          return render_unauthorized("Invalid or expired worker token")
+        end
+      end
+
+      # Try user authentication
       user_token = UserToken.authenticate(header)
       return render_unauthorized("Invalid or expired access token") unless user_token
 
@@ -133,19 +144,19 @@ module Authentication
 
   # Permission checking methods (NEVER use roles for access control)
   def require_permission(permission_name)
-    unless current_user&.has_permission?(permission_name)
+    unless has_permission?(permission_name)
       render_forbidden("Permission denied: #{permission_name}")
     end
   end
 
   def require_any_permission(*permission_names)
-    unless permission_names.any? { |p| current_user&.has_permission?(p) }
+    unless permission_names.any? { |p| has_permission?(p) }
       render_forbidden("Permission denied: requires one of #{permission_names.join(', ')}")
     end
   end
 
   def require_all_permissions(*permission_names)
-    unless permission_names.all? { |p| current_user&.has_permission?(p) }
+    unless permission_names.all? { |p| has_permission?(p) }
       render_forbidden("Permission denied: requires all of #{permission_names.join(', ')}")
     end
   end
@@ -156,14 +167,21 @@ module Authentication
     require_any_permission('admin.access', 'system.admin')
   end
 
-  # Check if user has permission without rendering error
-  def can?(permission_name)
-    current_user&.has_permission?(permission_name) || false
+  # Check if current entity (user or worker) has permission without rendering error
+  def has_permission?(permission_name)
+    return current_user.has_permission?(permission_name) if current_user
+    return current_worker.has_permission?(permission_name) if current_worker
+    false
   end
 
-  # Check if user can access a resource action
+  # Alias for backwards compatibility
+  def can?(permission_name)
+    has_permission?(permission_name)
+  end
+
+  # Check if current entity can access a resource action
   def can_access?(resource, action)
-    can?("#{resource}.#{action}")
+    has_permission?("#{resource}.#{action}")
   end
 
   # Render forbidden response

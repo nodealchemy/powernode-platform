@@ -45,13 +45,19 @@ class EmailConfigurationService
         @settings = symbolize_keys(data['data'])
         @last_fetched = Time.now
         
+        logger.info "Email settings fetched successfully from backend API"
+        logger.info "Provider: #{@settings[:provider]}, SMTP Enabled: #{@settings[:smtp_enabled]}"
+        
         configure_action_mailer!
         
         @settings
       else
+        logger.warn "Failed to fetch email settings from backend API: #{response.code} #{response.message}"
         use_fallback_settings
       end
     rescue StandardError => e
+      logger.error "Error fetching email settings from backend API: #{e.message}"
+      logger.error e.backtrace.join("\n") if e.backtrace
       use_fallback_settings
     end
   end
@@ -79,6 +85,10 @@ class EmailConfigurationService
   end
   
   private
+  
+  def logger
+    @logger ||= PowernodeWorker.application.logger
+  end
   
   def configure_smtp!
     return unless @settings[:smtp_enabled]

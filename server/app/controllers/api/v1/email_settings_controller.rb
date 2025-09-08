@@ -158,7 +158,11 @@ class Api::V1::EmailSettingsController < ApplicationController
   end
   
   def require_admin_permission
+    # Allow admin users with proper permission
     return if current_user&.has_permission?('admin.settings.email')
+    
+    # Allow any authenticated worker (workers have system-level access)
+    return if current_worker.present?
     
     render_error('Access denied. Email settings management required.', status: :forbidden)
   end
