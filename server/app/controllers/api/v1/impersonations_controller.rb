@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 class Api::V1::ImpersonationsController < ApplicationController
-  skip_before_action :authenticate_request, only: [:validate_token]
+  skip_before_action :authenticate_request, only: [:validate_token, :destroy]
   before_action :require_impersonation_permission, only: [:create]
   # destroy (stop impersonation) should be available to any authenticated user
   before_action :require_admin_access, only: [:index, :history, :impersonatable_users, :cleanup_expired]
@@ -41,22 +41,58 @@ class Api::V1::ImpersonationsController < ApplicationController
     session_token = params[:session_token]
     return render_bad_request('Session token required') unless session_token
 
-    # Check if we have a valid current user
-    unless current_user
-      return render json: {
-        success: true,
-        message: 'No active session to end'
-      }
+    # Manual authentication for destroy action since we skip the before_action
+    header = request.headers["Authorization"]
+    header = header.split(" ").last if header
+
+    if header
+      begin
+        # Try to authenticate the current token
+        user_token = UserToken.authenticate(header)
+        if user_token
+          if user_token.token_type == 'impersonation'
+            handle_impersonation_token(user_token)
+          else
+            handle_regular_token(user_token)
+          end
+        end
+      rescue => e
+        Rails.logger.warn "Failed to authenticate during impersonation destroy: #{e.message}"
+      end
     end
+
+    # If we couldn't authenticate, we can still try to end the session using just the session_token
+    # This is important because impersonation tokens might be expired but we still want to cleanup
 
     begin
       Rails.logger.info "Attempting to end impersonation session with token: #{session_token[0..10]}..." if session_token
       
-      # If we're currently in an impersonation session (current user is impersonated),
-      # we need to use the original impersonator for the service
-      service_user = impersonating? ? impersonator : current_user
-      service = ImpersonationService.new(service_user)
+      # First try to find UserToken to get the impersonator
+      user_token = UserToken.find_by_token(session_token)
+      service_user = current_user
       
+      if user_token && user_token.token_type == 'impersonation'
+        # For impersonation tokens, ALWAYS use the impersonator from metadata
+        # (current_user is the impersonated user, not the impersonator)
+        impersonator_id = user_token.metadata['impersonator_id']
+        if impersonator_id
+          service_user = User.find_by(id: impersonator_id)
+        end
+      else
+        # Legacy handling - try to find session directly
+        session = ImpersonationSession.find_by(session_token: session_token)
+        service_user = service_user || session&.impersonator
+      end
+      
+      unless service_user
+        return render json: {
+          success: false,
+          error: 'Unable to authenticate impersonation end request'
+        }, status: :unauthorized
+      end
+      
+      # Let the service handle all the token validation and session cleanup
+      service = ImpersonationService.new(service_user)
       session = service.end_impersonation(session_token)
       
       Rails.logger.info "Impersonation session ended successfully: #{session.id}"
@@ -151,45 +187,68 @@ class Api::V1::ImpersonationsController < ApplicationController
     return render_bad_request('Token required') unless token
 
     begin
-      # Decode the token to get the impersonator user
-      payload = JwtService.decode(token)
-    rescue JWT::DecodeError, JWT::ExpiredSignature => e
-      return render json: {
-        success: true,
-        valid: false,
-        message: 'Invalid or expired token'
-      }
-    rescue => e
-      Rails.logger.error "Token validation error: #{e.message}"
-      return render json: {
-        success: true,
-        valid: false,
-        message: 'Token validation failed'
-      }
-    end
-    
-    begin
-      unless payload[:type] == 'impersonation'
+      # Try UserToken first (new system), then fall back to JWT (legacy)
+      user_token = UserToken.find_by_token(token)
+      session = nil
+      
+      if user_token && user_token.token_type == 'impersonation'
+        # This is a UserToken - get impersonator from metadata
+        impersonator_id = user_token.metadata['impersonator_id']
+        impersonator = User.find_by(id: impersonator_id)
+        
+        unless impersonator
+          return render json: {
+            success: true,
+            valid: false,
+            message: 'Impersonator user not found'
+          }
+        end
+        
+        # Create service with the impersonator user
+        service = ImpersonationService.new(impersonator)
+        session = service.validate_impersonation_token(token)
+      elsif token.include?('.')
+        # Legacy JWT token handling
+        begin
+          # Decode the token to get the impersonator user
+          payload = JwtService.decode(token)
+          
+          unless payload[:type] == 'impersonation'
+            return render json: {
+              success: true,
+              valid: false,
+              message: 'Invalid token type'
+            }
+          end
+          
+          impersonator = User.find_by(id: payload[:impersonator_id])
+          unless impersonator
+            return render json: {
+              success: true,
+              valid: false,
+              message: 'Impersonator user not found'
+            }
+          end
+          
+          # Create service with the impersonator user
+          service = ImpersonationService.new(impersonator)
+          session = service.validate_impersonation_token(token)
+        rescue JWT::DecodeError, JWT::ExpiredSignature => e
+          return render json: {
+            success: true,
+            valid: false,
+            message: 'Invalid or expired token'
+          }
+        end
+      else
         return render json: {
           success: true,
           valid: false,
-          message: 'Invalid token type'
+          message: 'Invalid token format'
         }
       end
-      
-      impersonator = User.find_by(id: payload[:impersonator_id])
-      unless impersonator
-        return render json: {
-          success: true,
-          valid: false,
-          message: 'Impersonator user not found'
-        }
-      end
-      
-      # Create service with the impersonator user
-      service = ImpersonationService.new(impersonator)
-      session = service.validate_impersonation_token(token)
 
+      # Handle the session result
       if session
         render json: {
           success: true,
@@ -207,30 +266,12 @@ class Api::V1::ImpersonationsController < ApplicationController
         }
       end
     rescue StandardError => e
-      # Handle JWT decode errors and other token validation errors
-      if e.message.include?('Invalid token') || e.message.include?('blacklisted')
-        Rails.logger.warn "Invalid impersonation token: #{e.message}"
-        render json: {
-          success: true,
-          valid: false,
-          message: 'Invalid or expired token'
-        }
-      # Handle user not found errors
-      elsif e.is_a?(ActiveRecord::RecordNotFound) || e.message.include?('not found')
-        Rails.logger.warn "Impersonator user not found: #{e.message}"
-        render json: {
-          success: true,
-          valid: false,
-          message: 'Impersonator user not found'
-        }
-      else
-        # Handle unexpected errors
-        Rails.logger.error "Error validating impersonation token: #{e.message}"
-        render json: {
-          success: false,
-          error: 'Token validation failed'
-        }, status: :internal_server_error
-      end
+      # Handle unexpected errors
+      Rails.logger.error "Error validating impersonation token: #{e.message}"
+      render json: {
+        success: false,
+        error: 'Token validation failed'
+      }, status: :internal_server_error
     end
   end
 
@@ -265,7 +306,7 @@ class Api::V1::ImpersonationsController < ApplicationController
   end
 
   def require_impersonation_permission
-    unless current_user.has_permission?('users.impersonate') || current_user.has_permission?('account.manage') || current_user.has_permission?('admin.access')
+    unless current_user.has_permission?('admin.user.impersonate') || current_user.has_permission?('account.manage') || current_user.has_permission?('admin.access')
       render_forbidden('You do not have permission to manage impersonation')
     end
   end
@@ -343,6 +384,34 @@ class Api::V1::ImpersonationsController < ApplicationController
       success: false,
       error: message
     }, status: :bad_request
+  end
+
+  # Authentication helper methods for destroy action
+  def handle_impersonation_token(user_token)
+    # Get impersonation session ID from token metadata
+    session_id = user_token.metadata['session_id']
+    @impersonation_session = ImpersonationSession.find_by(id: session_id)
+    
+    unless @impersonation_session&.active?
+      raise StandardError, "Invalid impersonation session"
+    end
+
+    if @impersonation_session.expired?
+      @impersonation_session.end_session!
+      raise StandardError, "Impersonation session expired"
+    end
+
+    # Set the impersonated user as current user
+    @current_user = @impersonation_session.impersonated_user
+    @current_account = @current_user.account
+    @impersonator = @impersonation_session.impersonator
+    @current_user_token = user_token
+  end
+
+  def handle_regular_token(user_token)
+    @current_user = user_token.user
+    @current_account = @current_user.account
+    @current_user_token = user_token
   end
 
 end

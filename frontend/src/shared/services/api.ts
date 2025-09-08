@@ -210,22 +210,7 @@ class APIClient {
 
 const API_BASE_URL = getAPIBaseURL();
 
-// Debug logging for production issues
-if (typeof window !== 'undefined') {
-  console.log('API Client Configuration:', {
-    baseURL: API_BASE_URL,
-    hostname: window.location.hostname,
-    protocol: window.location.protocol,
-    port: window.location.port,
-    proxyConfigVersion: 'v1.1.0-proxy-fix',
-    timestamp: new Date().toISOString()
-  });
-
-  // Force cache invalidation notice for production domains  
-  if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-    console.warn('🔄 CACHE NOTICE: If experiencing API errors, perform a hard refresh (Ctrl+Shift+R) to clear cached code.');
-  }
-}
+// API Client Configuration initialized (debug logs removed for production)
 
 export const api = new APIClient(API_BASE_URL);
 export default api;

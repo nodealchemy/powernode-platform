@@ -42,24 +42,7 @@ const AppContent: React.FC = () => {
   const [showAuthFallback, setShowAuthFallback] = React.useState(false);
   const initializingRef = React.useRef(false); // Prevent double initialization
 
-  // Debug: Track auth state changes that might cause refreshes
-  React.useEffect(() => {
-    console.log('🔍 Auth state change:', {
-      isAuthenticated,
-      hasAccessToken: !!accessToken,
-      hasUser: !!user,
-      initializing,
-      timestamp: new Date().toISOString()
-    });
-    
-    // Log if there's a mismatch that could cause issues
-    if (isAuthenticated && !user) {
-      console.warn('⚠️ Auth mismatch: authenticated but no user data');
-    }
-    if (!isAuthenticated && user) {
-      console.warn('⚠️ Auth mismatch: user data but not authenticated');
-    }
-  }, [isAuthenticated, accessToken, user, initializing]);
+  // Track auth state changes for debugging purposes (logs removed for production)
 
   // Debug: Track page refreshes and navigation
   React.useEffect(() => {
@@ -124,12 +107,7 @@ const AppContent: React.FC = () => {
     
     // Try to restore user session if we have a token
     const initializeAuth = async () => {
-      console.log('🔐 Starting auth initialization:', { 
-        hasAccessToken: !!accessToken, 
-        hasRefreshToken: !!refreshToken,
-        hasUser: !!user,
-        timestamp: new Date().toISOString()
-      });
+      // Starting auth initialization
       // Set a timeout to prevent infinite loading
       const timeoutId = setTimeout(() => {
         console.log('App: Auth fallback timeout triggered'); // Debug log

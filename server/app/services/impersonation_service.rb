@@ -91,9 +91,22 @@ class ImpersonationService
   end
 
   def end_impersonation(token_or_session_token)
-    # Check if the token is a JWT impersonation token or a session token
-    if token_or_session_token.include?('.')
-      # This is a JWT token, decode it to get the session ID
+    # Try to find the token as a UserToken first (new system)
+    user_token = UserToken.find_by_token(token_or_session_token)
+    
+    if user_token && user_token.token_type == 'impersonation'
+      # This is an impersonation UserToken - get session from metadata
+      session_id = user_token.metadata['session_id']
+      session = ImpersonationSession.find_by(id: session_id)
+      
+      unless session
+        raise ActiveRecord::RecordNotFound, 'Impersonation session not found'
+      end
+      
+      # Revoke the UserToken when ending impersonation
+      user_token.revoke!(reason: 'impersonation_ended')
+    elsif token_or_session_token.include?('.')
+      # Legacy JWT token handling (for any remaining old tokens)
       begin
         payload = JwtService.decode(token_or_session_token)
         
@@ -159,6 +172,33 @@ class ImpersonationService
   end
 
   def validate_impersonation_token(token)
+    # Try to find the token as a UserToken first (new system)
+    user_token = UserToken.find_by_token(token)
+    
+    if user_token && user_token.token_type == 'impersonation'
+      # This is an impersonation UserToken - get session from metadata
+      session_id = user_token.metadata['session_id']
+      session = ImpersonationSession.find_by(id: session_id)
+      
+      return nil unless session
+      
+      # Check if UserToken is active (handles expiration)
+      return nil unless user_token.active?
+      
+      # Check if session has expired
+      if session.expired?
+        session.end_session!
+        user_token.revoke!(reason: 'session_expired')
+        return nil
+      end
+      
+      # Check if session is still active (not manually ended)
+      return nil unless session.active?
+      
+      return session
+    end
+    
+    # Legacy JWT token handling (for any remaining old tokens)
     begin
       payload = JwtService.decode(token)
       
@@ -221,14 +261,23 @@ class ImpersonationService
   end
 
   def generate_impersonation_token(session, target_user)
-    payload = {
-      user_id: target_user.id,
-      impersonator_id: @current_user.id,
-      session_id: session.id,
+    # Create an impersonation UserToken instead of JWT
+    result = UserToken.create_token_for_user(
+      target_user,
       type: 'impersonation',
-      exp: (Time.current + ImpersonationSession::MAX_SESSION_DURATION).to_i
-    }
-
-    JwtService.encode(payload)
+      name: "Impersonation by #{@current_user.email}",
+      expires_in: ImpersonationSession::MAX_SESSION_DURATION
+    )
+    
+    # Store session metadata in the token for authentication lookup
+    user_token = result[:user_token]
+    user_token.update!(
+      metadata: {
+        session_id: session.id,
+        impersonator_id: @current_user.id
+      }
+    )
+    
+    result[:token]
   end
 end
