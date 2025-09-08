@@ -19,6 +19,9 @@ module Permissions
     'team.remove' => 'Remove team members',
     'team.assign_roles' => 'Assign roles to team members',
     
+    # User Impersonation
+    'users.impersonate' => 'Impersonate other users',
+    
     # Billing & Subscriptions
     'billing.read' => 'View billing information',
     'billing.update' => 'Update payment methods',
@@ -389,6 +392,7 @@ module Permissions
         *RESOURCE_PERMISSIONS.keys,
         # Selected admin permissions for account management
         'admin.user.read', 'admin.user.create', 'admin.user.edit', 'admin.user.suspend',
+        'users.impersonate',
         'admin.role.read', 'admin.role.assign',
         'admin.billing.read', 'admin.billing.override',
         'admin.settings.read', 'admin.settings.edit',
