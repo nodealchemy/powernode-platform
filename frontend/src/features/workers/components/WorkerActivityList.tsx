@@ -42,13 +42,16 @@ export const WorkerActivityList: React.FC<WorkerActivityListProps> = ({ workerId
 
   // Auto-refresh every 30 seconds
   useEffect(() => {
-    const interval = setInterval(() => {
-      if (!loading) {
-        loadActivities();
-      }
-    }, 30000);
+    // TEMPORARILY DISABLED - Causing automatic page refreshes
+    // const interval = setInterval(() => {
+    //   if (!loading) {
+    //     loadActivities();
+    //   }
+    // }, 30000);
 
-    return () => clearInterval(interval);
+    console.log('⚠️ WorkerActivityList auto-refresh temporarily disabled to prevent page refreshes');
+
+    // return () => clearInterval(interval);
   }, [loadActivities, loading]);
 
   const handleFilterChange = (newFilters: Partial<ActivityFilters>) => {

@@ -316,13 +316,13 @@ articles_data = [
       ### 1. JWT Tokens (Recommended)
       ```bash
       curl -H "Authorization: Bearer YOUR_JWT_TOKEN" \\
-           https://api.powernode.org/v1/users
+           https://api.powernode.org/api/v1/users
       ```
 
       ### 2. API Keys
       ```bash
       curl -H "X-API-Key: YOUR_API_KEY" \\
-           https://api.powernode.org/v1/users
+           https://api.powernode.org/api/v1/users
       ```
 
       ## Getting Your Credentials
@@ -396,7 +396,7 @@ articles_data = [
 
       All API requests should be made to:
       ```
-      https://api.powernode.org/v1/
+      https://api.powernode.org/api/v1/
       ```
 
       ## Request Format
@@ -448,17 +448,17 @@ articles_data = [
 
       Large result sets are paginated:
       ```bash
-      curl "https://api.powernode.org/v1/users?page=2&per_page=50"
+      curl "https://api.powernode.org/api/v1/users?page=2&per_page=50"
       ```
 
       ## Filtering and Sorting
 
       ```bash
       # Filter by status
-      curl "https://api.powernode.org/v1/users?status=active"
+      curl "https://api.powernode.org/api/v1/users?status=active"
 
       # Sort by created date
-      curl "https://api.powernode.org/v1/users?sort=created_at&order=desc"
+      curl "https://api.powernode.org/api/v1/users?sort=created_at&order=desc"
       ```
 
       ## Webhooks
@@ -530,7 +530,7 @@ articles_data = [
       # Correct format
       curl -H "Authorization: Bearer YOUR_TOKEN" \\
            -H "Content-Type: application/json" \\
-           https://api.powernode.org/v1/users
+           https://api.powernode.org/api/v1/users
       ```
 
       ## Rate Limiting
@@ -594,10 +594,10 @@ articles_data = [
 
       ```bash
       # Request specific fields only
-      curl "https://api.powernode.org/v1/users?fields=id,name,email"
+      curl "https://api.powernode.org/api/v1/users?fields=id,name,email"
 
       # Use filters to reduce data
-      curl "https://api.powernode.org/v1/users?created_after=2024-01-01"
+      curl "https://api.powernode.org/api/v1/users?created_after=2024-01-01"
       ```
 
       ## Getting Help

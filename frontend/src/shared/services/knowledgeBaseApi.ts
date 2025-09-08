@@ -1,6 +1,17 @@
 import api from '@/shared/services/api';
 
 // Types
+export interface KbAttachment {
+  id: string;
+  filename: string;
+  url?: string;
+  content_type: string;
+  size?: number;
+  file_size?: string;
+  download_count?: number;
+  created_at: string;
+}
+
 export interface KbCategory {
   id: string;
   name: string;
@@ -31,7 +42,8 @@ export interface KbArticle {
     name: string;
     slug?: string;
   };
-  status?: string;
+  category_id?: string;
+  status?: 'draft' | 'review' | 'published';
   is_public: boolean;
   is_featured: boolean;
   published_at?: string;
@@ -44,6 +56,8 @@ export interface KbArticle {
   attachments?: KbAttachment[];
   can_edit?: boolean;
   metadata?: Record<string, any>;
+  meta_title?: string;
+  meta_description?: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -69,7 +83,7 @@ export interface KbComment {
   replies?: KbComment[];
 }
 
-export interface KbAttachment {
+export interface KbAttachmentResponse {
   id: string;
   filename: string;
   content_type: string;
@@ -208,9 +222,9 @@ export const knowledgeBaseApi = {
     api.get<{ data: KbComment; message: string }>(`/kb/comments/${id}`)
 };
 
-// Admin Knowledge Base API
-export const knowledgeBaseAdminApi = {
-  // Categories
+// Editing/Admin methods (integrated into main API)
+const createEditingApi = () => ({
+  // Categories (Editing mode)
   getCategories: (params?: { search?: string; page?: number; per_page?: number }) => {
     const searchParams = new URLSearchParams();
     if (params?.search) searchParams.append('search', params.search);
@@ -218,27 +232,27 @@ export const knowledgeBaseAdminApi = {
     if (params?.per_page) searchParams.append('per_page', params.per_page.toString());
 
     const queryString = searchParams.toString();
-    const url = queryString ? `/admin/kb/categories?${queryString}` : '/admin/kb/categories';
+    const url = queryString ? `/kb/categories?${queryString}` : '/kb/categories';
 
-    return api.get<{ data: { categories: KbCategory[]; pagination: KbPagination }; message: string }>(url);
+    return api.get<{ data: KbCategory[]; message: string }>(url);
   },
 
   getCategory: (id: string) =>
-    api.get<{ data: KbCategory; message: string }>(`/admin/kb/categories/${id}`),
+    api.get<{ data: KbCategory; message: string }>(`/kb/categories/${id}`),
 
   createCategory: (params: KbCategoryCreateParams) =>
-    api.post<{ data: KbCategory; message: string }>('/admin/kb/categories', { category: params }),
+    api.post<{ data: KbCategory; message: string }>('/kb/categories', { category: params }),
 
   updateCategory: (id: string, params: Partial<KbCategoryCreateParams>) =>
-    api.patch<{ data: KbCategory; message: string }>(`/admin/kb/categories/${id}`, { category: params }),
+    api.patch<{ data: KbCategory; message: string }>(`/kb/categories/${id}`, { category: params }),
 
   deleteCategory: (id: string) =>
-    api.delete<{ message: string }>(`/admin/kb/categories/${id}`),
+    api.delete<{ message: string }>(`/kb/categories/${id}`),
 
   getCategoryTree: () =>
-    api.get<{ data: KbCategory[]; message: string }>('/admin/kb/categories/tree'),
+    api.get<{ data: KbCategory[]; message: string }>('/kb/categories/tree'),
 
-  // Articles
+  // Articles (Editing mode)
   getArticles: (params?: { 
     search?: string; 
     status?: string; 
@@ -262,7 +276,7 @@ export const knowledgeBaseAdminApi = {
     if (params?.per_page) searchParams.append('per_page', params.per_page.toString());
 
     const queryString = searchParams.toString();
-    const url = queryString ? `/admin/kb/articles?${queryString}` : '/admin/kb/articles';
+    const url = queryString ? `/kb/articles?${queryString}` : '/kb/articles';
 
     return api.get<{ 
       data: { 
@@ -281,22 +295,45 @@ export const knowledgeBaseAdminApi = {
   },
 
   getArticle: (id: string) =>
-    api.get<{ data: KbArticle; message: string }>(`/admin/kb/articles/${id}`),
+    api.get<{ data: { article: KbArticle; related_articles: KbArticle[] }; message: string }>(`/kb/articles/${id}`),
 
   createArticle: (params: KbArticleCreateParams) =>
-    api.post<{ data: KbArticle; message: string }>('/admin/kb/articles', { article: params }),
+    api.post<{ data: KbArticle; message: string }>('/kb/articles', { article: params }),
 
   updateArticle: (id: string, params: Partial<KbArticleCreateParams>) =>
-    api.patch<{ data: KbArticle; message: string }>(`/admin/kb/articles/${id}`, { article: params }),
+    api.patch<{ data: KbArticle; message: string }>(`/kb/articles/${id}`, { article: params }),
 
   deleteArticle: (id: string) =>
-    api.delete<{ message: string }>(`/admin/kb/articles/${id}`),
+    api.delete<{ message: string }>(`/kb/articles/${id}`),
+
+  // Bulk operations
+  bulkUpdateArticles: (ids: string[], params: { status?: string; category_id?: string; is_featured?: boolean; is_public?: boolean }) =>
+    api.patch<{ data: { updated_count: number }; message: string }>('/kb/articles/bulk', { 
+      article_ids: ids, 
+      ...params 
+    }),
+
+  bulkDeleteArticles: (ids: string[]) =>
+    api.delete<{ data: { deleted_count: number }; message: string }>('/kb/articles/bulk', { 
+      data: { article_ids: ids } 
+    }),
+
+  // File uploads
+  uploadAttachment: (formData: FormData) =>
+    api.post<{ data: { attachment: KbAttachment; url: string }; message: string }>('/kb/attachments', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    }),
+
+  deleteAttachment: (id: string) =>
+    api.delete<{ message: string }>(`/kb/attachments/${id}`),
 
   publishArticle: (id: string) =>
-    api.post<{ data: KbArticle; message: string }>(`/admin/kb/articles/${id}/publish`),
+    api.post<{ data: KbArticle; message: string }>(`/kb/articles/${id}/publish`),
 
   unpublishArticle: (id: string) =>
-    api.post<{ data: KbArticle; message: string }>(`/admin/kb/articles/${id}/unpublish`),
+    api.post<{ data: KbArticle; message: string }>(`/kb/articles/${id}/unpublish`),
 
   getAnalytics: (period?: number) => {
     const searchParams = new URLSearchParams();
@@ -304,8 +341,8 @@ export const knowledgeBaseAdminApi = {
 
     const queryString = searchParams.toString();
     const url = queryString 
-      ? `/admin/kb/articles/analytics?${queryString}` 
-      : '/admin/kb/articles/analytics';
+      ? `/kb/articles/analytics?${queryString}` 
+      : '/kb/articles/analytics';
 
     return api.get<{ 
       data: {
@@ -320,7 +357,7 @@ export const knowledgeBaseAdminApi = {
     }>(url);
   },
 
-  // Comments
+  // Comments (Moderation)
   getComments: (params?: { 
     status?: string; 
     article_id?: string; 
@@ -339,8 +376,7 @@ export const knowledgeBaseAdminApi = {
     if (params?.page) searchParams.append('page', params.page.toString());
     if (params?.per_page) searchParams.append('per_page', params.per_page.toString());
 
-    const queryString = searchParams.toString();
-    const url = queryString ? `/admin/kb/comments?${queryString}` : '/admin/kb/comments';
+    const url = `/kb/comments/moderate?${searchParams.toString()}`;
 
     return api.get<{ 
       data: { 
@@ -359,17 +395,20 @@ export const knowledgeBaseAdminApi = {
   },
 
   getComment: (id: string) =>
-    api.get<{ data: KbComment; message: string }>(`/admin/kb/comments/${id}`),
+    api.get<{ data: KbComment; message: string }>(`/kb/comments/${id}`),
 
   approveComment: (id: string) =>
-    api.post<{ data: KbComment; message: string }>(`/admin/kb/comments/${id}/approve`),
+    api.post<{ data: KbComment; message: string }>(`/kb/comments/${id}/approve`),
 
   rejectComment: (id: string) =>
-    api.post<{ data: KbComment; message: string }>(`/admin/kb/comments/${id}/reject`),
+    api.post<{ data: KbComment; message: string }>(`/kb/comments/${id}/reject`),
 
   markCommentAsSpam: (id: string) =>
-    api.post<{ data: KbComment; message: string }>(`/admin/kb/comments/${id}/spam`),
+    api.post<{ data: KbComment; message: string }>(`/kb/comments/${id}/spam`),
 
   deleteComment: (id: string) =>
-    api.delete<{ message: string }>(`/admin/kb/comments/${id}`)
-};
+    api.delete<{ message: string }>(`/kb/comments/${id}`)
+});
+
+// Export admin API as main knowledgeBaseAdminApi for backward compatibility
+export const knowledgeBaseAdminApi = createEditingApi();

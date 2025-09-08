@@ -418,10 +418,13 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
     }
 
     // Only enable WebSocket auto-refresh for overview tab, let LiveMetricsOverview handle live tab
-    refreshInterval.current = setInterval(() => {
-      // Request real-time analytics update via WebSocket
-      requestAnalyticsUpdate();
-    }, 30000); // Request update every 30 seconds
+    // TEMPORARILY DISABLED - Causing automatic page refreshes
+    // refreshInterval.current = setInterval(() => {
+    //   // Request real-time analytics update via WebSocket
+    //   requestAnalyticsUpdate();
+    // }, 30000); // Request update every 30 seconds
+    
+    console.log('⚠️ AnalyticsPage auto-refresh temporarily disabled to prevent page refreshes');
 
     return () => {
       if (refreshInterval.current) {
@@ -429,7 +432,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
         refreshInterval.current = null;
       }
     };
-  }, [isConnected, data, requestAnalyticsUpdate, activeTab]);
+  }, [isConnected, requestAnalyticsUpdate, activeTab]); // Removed 'data' dependency to prevent restart when data changes
 
   const handleDateRangeChange = (newDateRange: { startDate: Date; endDate: Date }) => {
     setDateRange(newDateRange);

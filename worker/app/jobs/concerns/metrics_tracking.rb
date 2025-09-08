@@ -5,7 +5,7 @@ module MetricsTracking
   extend ActiveSupport::Concern
 
   included do
-    around_execute :track_job_metrics
+    around_perform :track_job_metrics
   end
 
   private

@@ -251,8 +251,39 @@ end
 puts "✅ Created #{Plan.count} plans"
 
 # Create system worker (required for worker-backend communication)
-# TODO: Fix Worker model token generation issue
-puts "⏭️ System worker creation skipped (token generation issue)"
+puts "🔧 Creating system worker..."
+
+begin
+  # Check if WORKER_TOKEN is set in environment
+  worker_token = ENV['WORKER_SERVICE_TOKEN'] || ENV['WORKER_TOKEN']
+  if worker_token.blank?
+    puts "⚠️ WORKER_TOKEN not found in environment - generating new token"
+    worker_token = "swt_#{SecureRandom.urlsafe_base64(32)}"
+    puts "💡 Set this token in your environment: WORKER_SERVICE_TOKEN=#{worker_token}"
+  end
+
+  system_worker = Worker.find_by(name: 'System Worker')
+  
+  if system_worker
+    puts "✅ System worker already exists"
+  else
+    system_worker = Worker.create_worker!(
+      name: 'System Worker',
+      description: 'System worker for background processing and API communication',
+      account: nil,
+      roles: ['system_worker'],
+      token: worker_token
+    )
+  end
+
+  puts "✅ System worker created successfully"
+  puts "   Token: #{system_worker.masked_token}"
+  puts "   Roles: #{system_worker.role_names.join(', ')}"
+
+rescue => e
+  puts "❌ Failed to create system worker: #{e.message}"
+  puts "   This may cause worker authentication issues"
+end
 
 # Only create admin account in development/test environments
 if Rails.env.development? || Rails.env.test?

@@ -19,11 +19,14 @@ export const useSubscriptionLifecycle = (): SubscriptionLifecycleHook => {
 
   // Auto-refresh subscriptions every 5 minutes when component is active
   useEffect(() => {
-    const interval = setInterval(() => {
-      dispatch(fetchSubscriptions());
-    }, 5 * 60 * 1000); // 5 minutes
+    // TEMPORARILY DISABLED - Causing automatic page refreshes
+    // const interval = setInterval(() => {
+    //   dispatch(fetchSubscriptions());
+    // }, 5 * 60 * 1000); // 5 minutes
 
-    return () => clearInterval(interval);
+    console.log('⚠️ SubscriptionLifecycle auto-refresh temporarily disabled to prevent page refreshes');
+    
+    // return () => clearInterval(interval);
   }, [dispatch]);
 
   // Update current subscription when subscriptions change

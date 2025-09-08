@@ -97,11 +97,14 @@ const ServicesConfiguration: React.FC<ServicesConfigurationProps> = ({ className
   useEffect(() => {
     if (!config?.enabled) return;
 
-    const interval = setInterval(() => {
-      refreshHealthStatus();
-    }, 30000); // 30 seconds
+    // Temporarily disable auto-refresh to debug page refresh issues  
+    // const interval = setInterval(() => {
+    //   refreshHealthStatus();
+    // }, 30000); // 30 seconds
+    
+    console.log('ServicesConfiguration: Auto-refresh disabled for debugging'); // Debug log
 
-    return () => clearInterval(interval);
+    // return () => clearInterval(interval); // Commented out with the interval
   }, [config?.enabled, refreshHealthStatus]);
 
   const updateServiceDiscoveryConfig = async (newConfig: ServiceDiscoveryConfig) => {

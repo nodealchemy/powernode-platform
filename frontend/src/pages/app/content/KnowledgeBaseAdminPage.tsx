@@ -1,19 +1,27 @@
 import { useState, useEffect } from 'react';
 import { PageContainer, BreadcrumbItem } from '@/shared/components/layout/PageContainer';
 import { knowledgeBaseAdminApi, KbArticle, KbCategory } from '@/shared/services/knowledgeBaseApi';
-import { KbArticleList } from '@/features/knowledge-base/components/KbArticleList';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/shared/services';
 import { Button } from '@/shared/components/ui/Button';
 import { Badge } from '@/shared/components/ui/Badge';
+import { Input } from '@/shared/components/ui/Input';
+import { Select } from '@/shared/components/ui/Select';
+import { globalNotifications } from '@/shared/services/globalNotifications';
 import { 
   PlusIcon, 
-  CogIcon, 
+ 
   ChartBarIcon, 
   DocumentTextIcon,
   FolderIcon,
   ChatBubbleLeftRightIcon,
-  BookOpenIcon
+  BookOpenIcon,
+  MagnifyingGlassIcon,
+  FunnelIcon,
+  TrashIcon,
+  ArchiveBoxIcon,
+  CheckIcon,
+  XMarkIcon
 } from '@heroicons/react/24/outline';
 import { Navigate } from 'react-router-dom';
 
@@ -29,10 +37,17 @@ export default function KnowledgeBaseAdminPage() {
     archived: 0
   });
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedArticles, setSelectedArticles] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
   // Check permissions
   const canManageKb = currentUser?.permissions?.includes('kb.manage');
-  const canWriteKb = currentUser?.permissions?.includes('kb.write') || canManageKb;
+  const canEditKb = currentUser?.permissions?.includes('kb.edit') || canManageKb;
 
   // Static breadcrumbs for admin page
   const breadcrumbs: BreadcrumbItem[] = [
@@ -51,30 +66,87 @@ export default function KnowledgeBaseAdminPage() {
   ];
 
   useEffect(() => {
-    if (canWriteKb) {
+    if (canEditKb) {
       loadAdminData();
     }
-  }, [canWriteKb]);
+  }, [canEditKb, currentPage, searchQuery, statusFilter, categoryFilter]);
 
   const loadAdminData = async () => {
     try {
       setIsLoading(true);
       
+      const params = {
+        per_page: 20,
+        page: currentPage,
+        search: searchQuery || undefined,
+        status: statusFilter || undefined,
+        category_id: categoryFilter || undefined
+      };
+
       const [articlesResponse, categoriesResponse] = await Promise.all([
-        knowledgeBaseAdminApi.getArticles({ per_page: 20 }),
-        knowledgeBaseAdminApi.getCategories({ per_page: 50 })
+        knowledgeBaseAdminApi.getArticles(params),
+        knowledgeBaseAdminApi.getCategories({ per_page: 100 })
       ]);
 
       setArticles(articlesResponse.data.data.articles);
       setStats(articlesResponse.data.data.stats);
       setCategories(categoriesResponse.data.data.categories);
+      setTotalPages(articlesResponse.data.data.pagination?.pages || 1);
     } catch (error) {
+      globalNotifications.error('Failed to load data');
     } finally {
       setIsLoading(false);
     }
   };
 
-  if (!canWriteKb) {
+  // Bulk operations
+  const toggleArticleSelection = (articleId: string) => {
+    setSelectedArticles(prev => 
+      prev.includes(articleId) 
+        ? prev.filter(id => id !== articleId)
+        : [...prev, articleId]
+    );
+  };
+
+  const selectAllArticles = () => {
+    setSelectedArticles(
+      selectedArticles.length === articles.length 
+        ? [] 
+        : articles.map(article => article.id)
+    );
+  };
+
+  const bulkUpdateStatus = async (status: string) => {
+    if (selectedArticles.length === 0) return;
+
+    try {
+      await knowledgeBaseAdminApi.bulkUpdateArticles(selectedArticles, { status });
+      globalNotifications.success(`${selectedArticles.length} articles updated`);
+      setSelectedArticles([]);
+      loadAdminData();
+    } catch (error) {
+      globalNotifications.error('Failed to update articles');
+    }
+  };
+
+  const bulkDeleteArticles = async () => {
+    if (selectedArticles.length === 0) return;
+    
+    if (!confirm(`Delete ${selectedArticles.length} articles? This cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      await knowledgeBaseAdminApi.bulkDeleteArticles(selectedArticles);
+      globalNotifications.success(`${selectedArticles.length} articles deleted`);
+      setSelectedArticles([]);
+      loadAdminData();
+    } catch (error) {
+      globalNotifications.error('Failed to delete articles');
+    }
+  };
+
+  if (!canEditKb) {
     return <Navigate to="/app/content/kb" replace />;
   }
 
@@ -82,18 +154,45 @@ export default function KnowledgeBaseAdminPage() {
     {
       id: 'create-article',
       label: 'Create Article',
-      onClick: () => window.location.href = '/app/content/kb/admin/articles/new',
+      onClick: () => { window.location.href = '/app/content/kb/admin/articles/new'; },
       variant: 'primary' as const,
       icon: PlusIcon
     },
     {
       id: 'manage-categories',
       label: 'Manage Categories', 
-      onClick: () => window.location.href = '/app/content/kb/admin/categories',
+      onClick: () => { window.location.href = '/app/content/kb/admin/categories'; },
       variant: 'secondary' as const,
       icon: FolderIcon
     }
   ];
+
+  // Add bulk actions when articles are selected
+  if (selectedArticles.length > 0 && canManageKb) {
+    actions.unshift(
+      {
+        id: 'bulk-publish',
+        label: `Publish (${selectedArticles.length})`,
+        onClick: () => { bulkUpdateStatus('published'); },
+        variant: 'secondary' as const,
+        icon: CheckIcon
+      },
+      {
+        id: 'bulk-archive',
+        label: `Archive (${selectedArticles.length})`,
+        onClick: () => { bulkUpdateStatus('archived'); },
+        variant: 'secondary' as const,
+        icon: ArchiveBoxIcon
+      },
+      {
+        id: 'bulk-delete',
+        label: `Delete (${selectedArticles.length})`,
+        onClick: bulkDeleteArticles,
+        variant: 'secondary' as const,
+        icon: TrashIcon
+      }
+    );
+  }
 
   if (canManageKb) {
     actions.push({
@@ -128,6 +227,94 @@ export default function KnowledgeBaseAdminPage() {
       actions={actions}
     >
       <div className="space-y-6">
+        {/* Search and Filters */}
+        <div className="bg-theme-surface rounded-lg border border-theme p-4">
+          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+            {/* Search */}
+            <div className="flex-1 max-w-md">
+              <div className="relative">
+                <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-theme-secondary" />
+                <Input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search articles..."
+                  className="pl-10"
+                />
+              </div>
+            </div>
+
+            {/* Filter Toggle */}
+            <Button
+              onClick={() => setShowFilters(!showFilters)}
+              variant="ghost"
+              size="sm"
+              className="flex items-center gap-2"
+            >
+              <FunnelIcon className="h-4 w-4" />
+              Filters
+              {(statusFilter || categoryFilter) && (
+                <Badge variant="primary" size="sm">
+                  {[statusFilter, categoryFilter].filter(Boolean).length}
+                </Badge>
+              )}
+            </Button>
+          </div>
+
+          {/* Filter Panel */}
+          {showFilters && (
+            <div className="mt-4 pt-4 border-t border-theme">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-theme-primary mb-1">
+                    Status
+                  </label>
+                  <Select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                  >
+                    <option value="">All Statuses</option>
+                    <option value="draft">Draft</option>
+                    <option value="review">In Review</option>
+                    <option value="published">Published</option>
+                    <option value="archived">Archived</option>
+                  </Select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-theme-primary mb-1">
+                    Category
+                  </label>
+                  <Select
+                    value={categoryFilter}
+                    onChange={(e) => setCategoryFilter(e.target.value)}
+                  >
+                    <option value="">All Categories</option>
+                    {categories.map(category => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+
+                <div className="flex items-end">
+                  <Button
+                    onClick={() => {
+                      setStatusFilter('');
+                      setCategoryFilter('');
+                      setSearchQuery('');
+                    }}
+                    variant="ghost"
+                    size="sm"
+                  >
+                    Clear Filters
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* Stats Overview */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           <div className="bg-theme-surface rounded-lg border border-theme p-4">
@@ -239,27 +426,60 @@ export default function KnowledgeBaseAdminPage() {
           </div>
         </div>
 
-        {/* Recent Articles */}
+        {/* Articles List */}
         <div>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-theme-primary">Recent Articles</h2>
-            <Button
-              onClick={() => window.location.href = '/app/content/kb/admin/articles'}
-              variant="ghost"
-              size="sm"
-            >
-              View All Articles
-            </Button>
+            <div className="flex items-center gap-4">
+              <h2 className="text-lg font-semibold text-theme-primary">Articles</h2>
+              {selectedArticles.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <Badge variant="primary">{selectedArticles.length} selected</Badge>
+                  <Button
+                    onClick={() => setSelectedArticles([])}
+                    variant="ghost"
+                    size="sm"
+                  >
+                    <XMarkIcon className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+            </div>
+            
+            {articles.length > 0 && (
+              <div className="flex items-center gap-2">
+                <Button
+                  onClick={selectAllArticles}
+                  variant="ghost"
+                  size="sm"
+                >
+                  {selectedArticles.length === articles.length ? 'Deselect All' : 'Select All'}
+                </Button>
+              </div>
+            )}
           </div>
           
           {articles.length > 0 ? (
             <div className="space-y-4">
-              {articles.slice(0, 5).map(article => (
+              {articles.map(article => (
                 <div 
                   key={article.id}
-                  className="bg-theme-surface rounded-lg border border-theme p-4"
+                  className={`bg-theme-surface rounded-lg border p-4 transition-colors ${
+                    selectedArticles.includes(article.id) 
+                      ? 'border-theme-primary bg-theme-primary/5' 
+                      : 'border-theme hover:border-theme-secondary'
+                  }`}
                 >
-                  <div className="flex items-start justify-between">
+                  <div className="flex items-start gap-4">
+                    {/* Selection Checkbox */}
+                    <div className="pt-1">
+                      <input
+                        type="checkbox"
+                        checked={selectedArticles.includes(article.id)}
+                        onChange={() => toggleArticleSelection(article.id)}
+                        className="h-4 w-4 text-theme-primary focus:ring-theme-primary border-theme rounded"
+                      />
+                    </div>
+
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
                         <h3 className="font-medium text-theme-primary line-clamp-1">
@@ -326,6 +546,33 @@ export default function KnowledgeBaseAdminPage() {
                 <PlusIcon className="h-4 w-4 mr-1" />
                 Create First Article
               </Button>
+            </div>
+          )}
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between mt-6 pt-6 border-t border-theme">
+              <div className="text-sm text-theme-secondary">
+                Page {currentPage} of {totalPages}
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                  disabled={currentPage === 1}
+                  variant="ghost"
+                  size="sm"
+                >
+                  Previous
+                </Button>
+                <Button
+                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                  disabled={currentPage === totalPages}
+                  variant="ghost"
+                  size="sm"
+                >
+                  Next
+                </Button>
+              </div>
             </div>
           )}
         </div>

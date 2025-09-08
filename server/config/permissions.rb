@@ -65,8 +65,8 @@ module Permissions
     'kb.edit' => 'Edit knowledge base articles',
     'kb.delete' => 'Delete knowledge base articles',
     'kb.publish' => 'Publish knowledge base articles',
-    'kb.manage_categories' => 'Manage knowledge base categories',
-    'kb.moderate_comments' => 'Moderate knowledge base comments',
+    'kb.manage' => 'Manage knowledge base categories and settings',
+    'kb.moderate' => 'Moderate knowledge base comments',
     
     # Marketplace - Apps
     'app.read' => 'View marketplace apps',
@@ -300,7 +300,7 @@ module Permissions
         'invoice.read', 'invoice.download',
         'audit.read', 'audit.export', 'audit.manage',
         # Knowledge base permissions
-        'kb.read', 'kb.create', 'kb.edit', 'kb.publish', 'kb.manage_categories',
+        'kb.read', 'kb.create', 'kb.edit', 'kb.publish', 'kb.manage',
         # Marketplace permissions
         'app.read', 'app.create', 'app.edit', 'app.delete', 'app.publish',
         'app.manage_features', 'app.manage_plans', 'app.read_analytics',
@@ -346,7 +346,7 @@ module Permissions
         'api.read', 'api.write', 'api.manage_keys',
         'webhook.read', 'webhook.create', 'webhook.edit', 'webhook.delete',
         # Knowledge base permissions
-        'kb.read', 'kb.create', 'kb.edit', 'kb.publish', 'kb.manage_categories',
+        'kb.read', 'kb.create', 'kb.edit', 'kb.publish', 'kb.manage',
         'invoice.read', 'invoice.download',
         'audit.read',
         # Full marketplace permissions
@@ -375,7 +375,7 @@ module Permissions
         'audit.read',
         # Full knowledge base permissions
         'kb.read', 'kb.create', 'kb.edit', 'kb.delete', 'kb.publish',
-        'kb.manage_categories', 'kb.moderate_comments'
+        'kb.manage', 'kb.moderate'
       ]
     },
 

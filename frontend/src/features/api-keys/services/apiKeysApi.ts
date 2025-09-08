@@ -134,7 +134,38 @@ export const apiKeysApi = {
     try {
       const response = await api.get(`/api_keys?page=${page}&per_page=${perPage}`);
       return response.data;
-    } catch (error) {
+    } catch (error: any) {
+      console.error('API Keys fetch error:', error);
+      console.error('Error details:', {
+        hasResponse: !!error.response,
+        hasRequest: !!error.request,
+        message: error.message,
+        code: error.code,
+        config: error.config ? {
+          url: error.config.url,
+          method: error.config.method,
+          baseURL: error.config.baseURL
+        } : null
+      });
+      
+      // Handle different types of errors more specifically
+      let errorMessage = 'Failed to fetch API keys';
+      
+      if (error.response) {
+        // Server responded with error status
+        const status = error.response.status;
+        const data = error.response.data;
+        errorMessage = data?.error || `Server error: HTTP ${status}`;
+        console.log(`Server response: ${status}`, data);
+      } else if (error.request) {
+        // Network error - request was made but no response received
+        errorMessage = 'Network error: Unable to reach server (possible cache issue - try hard refresh)';
+        console.error('Network request failed:', error.request);
+      } else if (error.message) {
+        // Other axios errors
+        errorMessage = `Request configuration error: ${error.message}`;
+      }
+      
       return {
         success: false,
         data: {
@@ -154,7 +185,7 @@ export const apiKeysApi = {
             most_used_keys: {}
           }
         },
-        error: (error as any).response?.data?.error || 'Failed to fetch API keys'
+        error: errorMessage
       };
     }
   },

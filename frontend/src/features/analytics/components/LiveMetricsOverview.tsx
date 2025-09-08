@@ -175,12 +175,16 @@ export const LiveMetricsOverview: React.FC<LiveMetricsOverviewProps> = ({
   useEffect(() => {
     if (!isConnected || !metrics) return;
     
-    const interval = setInterval(() => {
-      requestAnalyticsUpdate();
-    }, updateInterval);
+    // Temporarily disable auto-refresh to debug page refresh issues
+    // const interval = setInterval(() => {
+    //   requestAnalyticsUpdate();
+    // }, updateInterval);
     
-    return () => clearInterval(interval);
-  }, [isConnected, requestAnalyticsUpdate, updateInterval, metrics]);
+    console.log('LiveMetricsOverview: Auto-refresh disabled for debugging'); // Debug log
+    // const interval = null; // Placeholder to avoid breaking the cleanup
+    
+    // return () => clearInterval(interval); // Commented out with the interval
+  }, [isConnected, requestAnalyticsUpdate, updateInterval]); // Removed 'metrics' dependency to prevent restart when data changes
 
   // Initial data load - only run once on mount and only if user has permission
   useEffect(() => {

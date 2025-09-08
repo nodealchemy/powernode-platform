@@ -242,12 +242,16 @@ class AnalyticsService {
     // Fallback to polling for live analytics data
     return setInterval(async () => {
       try {
-        const liveData = await this.getLiveAnalytics();
-        callback({
-          type: 'live_analytics_update',
-          data: liveData.data
-        });
+        // Only poll if page is visible to prevent excessive API calls
+        if (!document.hidden) {
+          const liveData = await this.getLiveAnalytics();
+          callback({
+            type: 'live_analytics_update',
+            data: liveData.data
+          });
+        }
       } catch (error) {
+        // Silently handle errors to prevent console spam
       }
     }, 30000); // Update every 30 seconds
   }

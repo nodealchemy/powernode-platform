@@ -15,6 +15,7 @@ import { PagesPage } from './content/PagesPage';
 import KnowledgeBasePage from './content/KnowledgeBasePage';
 import KnowledgeBaseArticlePage from './content/KnowledgeBaseArticlePage';
 import KnowledgeBaseAdminPage from './content/KnowledgeBaseAdminPage';
+import KnowledgeBaseArticleEditor from '../../features/knowledge-base/components/KnowledgeBaseArticleEditor';
 import { UsersPage } from './UsersPage';
 import { AuditLogsPage } from './AuditLogsPage';
 import { ApiKeysPage } from './ApiKeysPage';
@@ -424,7 +425,10 @@ const DashboardPage: React.FC = () => {
         {/* Knowledge Base Pages */}
         <Route path="/content/kb" element={<KnowledgeBasePage />} />
         <Route path="/content/kb/articles/:id" element={<KnowledgeBaseArticlePage />} />
-        <Route path="/content/kb/admin/*" element={<KnowledgeBaseAdminPage />} />
+        <Route path="/content/kb/articles/new" element={<KnowledgeBaseArticleEditor />} />
+        <Route path="/content/kb/articles/:id/edit" element={<KnowledgeBaseArticleEditor />} />
+        <Route path="/content/kb/admin" element={<KnowledgeBaseAdminPage />} />
+        <Route path="/content/kb/manage" element={<KnowledgeBaseAdminPage />} />
         <Route path="/business/plans/*" element={<PlansPage />} />
         
         

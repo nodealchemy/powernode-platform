@@ -76,8 +76,8 @@ class KnowledgeBaseComment < ApplicationRecord
   private
 
   def set_default_status
-    # Auto-approve comments from users with kb.write permission
-    if author.permissions.include?('kb.manage') || author.permissions.include?('kb.write')
+    # Auto-approve comments from users with kb.edit permission
+    if author.permissions.include?('kb.manage') || author.permissions.include?('kb.edit')
       self.status = 'approved'
     else
       self.status = 'pending'

@@ -147,11 +147,13 @@ export const AuditLogsPage: React.FC = () => {
       setRefreshInterval(null);
       showNotification('Auto-refresh disabled', 'info');
     } else {
-      const interval = setInterval(() => {
-        loadAuditLogs();
-        loadMetrics();
-      }, 30000); // Refresh every 30 seconds
-      setRefreshInterval(interval);
+      // TEMPORARILY DISABLED - Causing automatic page refreshes
+      // const interval = setInterval(() => {
+      //   loadAuditLogs();
+      //   loadMetrics();
+      // }, 30000); // Refresh every 30 seconds
+      // setRefreshInterval(interval);
+      console.log('⚠️ AuditLogsPage auto-refresh temporarily disabled to prevent page refreshes');
       showNotification('Auto-refresh enabled (30s)', 'success');
     }
   };

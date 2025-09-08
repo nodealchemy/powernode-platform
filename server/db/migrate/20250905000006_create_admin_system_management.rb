@@ -115,6 +115,7 @@ class CreateAdminSystemManagement < ActiveRecord::Migration[8.0]
       t.string :ip_address, limit: 45
       t.string :user_agent, limit: 1000
       t.jsonb :request_params, default: {}
+      t.integer :request_count, null: false, default: 1
       t.datetime :used_at, null: false
       t.timestamps null: false
       

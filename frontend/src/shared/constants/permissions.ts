@@ -77,8 +77,8 @@ export const KB_PERMISSIONS = {
   EDIT: 'kb.edit',
   DELETE: 'kb.delete',
   PUBLISH: 'kb.publish',
-  MANAGE_CATEGORIES: 'kb.manage_categories',
-  MODERATE_COMMENTS: 'kb.moderate_comments'
+  MANAGE: 'kb.manage',
+  MODERATE: 'kb.moderate'
 } as const;
 
 // Marketplace Permissions
@@ -313,7 +313,7 @@ export const PERMISSION_GROUPS = {
     KB_PERMISSIONS.CREATE,
     KB_PERMISSIONS.EDIT,
     KB_PERMISSIONS.PUBLISH,
-    KB_PERMISSIONS.MANAGE_CATEGORIES,
+    KB_PERMISSIONS.MANAGE,
     PAGE_PERMISSIONS.CREATE,
     PAGE_PERMISSIONS.EDIT,
     PAGE_PERMISSIONS.PUBLISH

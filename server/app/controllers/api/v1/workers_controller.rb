@@ -3,7 +3,7 @@
 # Workers Controller
 # Manages worker authentication tokens and permissions
 class Api::V1::WorkersController < ApplicationController
-  before_action -> { require_permission('system.workers.view') }, only: [:index, :show, :test_worker, :health_check]
+  before_action -> { require_permission('system.workers.read') }, only: [:index, :show, :test_worker, :health_check]
   before_action -> { require_permission('system.workers.create') }, only: [:create]
   before_action -> { require_permission('system.workers.edit') }, only: [:update, :regenerate_token, :suspend, :activate, :revoke]
   before_action -> { require_permission('system.workers.delete') }, only: [:destroy]
@@ -13,7 +13,7 @@ class Api::V1::WorkersController < ApplicationController
   def index
     # Admin users can see all workers (including system workers)
     # Regular users can only see workers for their account
-    @workers = if current_user.has_permission?('system.workers.view') || current_user.has_permission?('super_admin')
+    @workers = if current_user.has_permission?('system.workers.read') || current_user.has_permission?('super_admin')
                  Worker.order(:name)
                else
                  current_account.workers.order(:name)
@@ -226,16 +226,44 @@ class Api::V1::WorkersController < ApplicationController
     end
   end
 
+  # POST /api/v1/workers/:id/test_results
+  def test_results
+    test_data = params[:test_results] || {}
+    
+    # Record the test completion activity
+    @worker.record_activity!("test_completed", {
+      test_type: test_data[:test_type] || 'unknown',
+      status: test_data[:status] || 'unknown',
+      duration_seconds: test_data[:duration_seconds],
+      redis_check: test_data[:redis_check],
+      backend_check: test_data[:backend_check],
+      performed_by: 'test_worker_job',
+      timestamp: test_data[:timestamp] || Time.current.iso8601
+    })
+
+    # Update worker last_seen_at
+    @worker.touch(:last_seen_at)
+    
+    render_success({
+      message: "Test results recorded for worker '#{@worker.name}'",
+      worker_id: @worker.id,
+      test_status: test_data[:status] || 'completed'
+    })
+  rescue StandardError => e
+    Rails.logger.error "Failed to record test results for worker #{@worker.id}: #{e.message}"
+    render_error("Failed to record test results: #{e.message}", status: :internal_server_error)
+  end
+
   # POST /api/v1/workers/:id/health_check
   def health_check
     start_time = Time.current
     
-    # Initialize check results
+    # Initialize check results - all start as pending
     checks = {
-      connectivity: 'pass',
-      authentication: 'pass',
-      rate_limiting: 'pass',
-      monitoring: 'pass'
+      connectivity: 'pending',
+      authentication: 'pending',
+      rate_limiting: 'pending',
+      monitoring: 'pending'
     }
     details = []
     overall_status = 'healthy'
@@ -247,6 +275,7 @@ class Api::V1::WorkersController < ApplicationController
       details << 'Worker not found or inaccessible'
       overall_status = 'error'
     else
+      checks[:connectivity] = 'pass'
       details << 'Worker connectivity verified'
     end
 
@@ -259,22 +288,24 @@ class Api::V1::WorkersController < ApplicationController
       checks[:authentication] = 'fail'
       details << 'Worker is suspended'
       overall_status = 'warning'
-    elsif @worker.present? && @worker.token.blank?
+    elsif @worker.present? && @worker.token_digest.blank?
       checks[:authentication] = 'fail'
       details << 'Worker has no authentication token'
       overall_status = 'error'
     elsif @worker.present?
+      checks[:authentication] = 'pass'
       details << 'Worker authentication status is valid'
     end
 
     # Check 3: Rate limiting (check recent activity)
     if @worker
-      recent_requests = @worker.request_count || 0
+      recent_requests = @worker.worker_activities.count
       if recent_requests > 10000 # Arbitrary high threshold
         checks[:rate_limiting] = 'fail'
         details << "High request volume detected: #{recent_requests} total requests"
         overall_status = overall_status == 'healthy' ? 'warning' : overall_status
       else
+        checks[:rate_limiting] = 'pass'
         details << "Request volume normal: #{recent_requests} total requests"
       end
     end
@@ -292,6 +323,7 @@ class Api::V1::WorkersController < ApplicationController
         details << "Worker last seen #{hours_ago} hours ago"
         overall_status = overall_status == 'healthy' ? 'warning' : overall_status
       else
+        checks[:monitoring] = 'pass'
         minutes_ago = ((Time.current - last_seen) / 1.minute).round
         details << "Worker last seen #{minutes_ago} minutes ago"
       end
@@ -358,7 +390,7 @@ class Api::V1::WorkersController < ApplicationController
       status: worker.status,
       account_name: worker.account&.name || 'System',
       masked_token: worker.masked_token,
-      request_count: worker.request_count || 0,
+      request_count: worker.worker_activities.count,
       last_seen_at: worker.last_seen_at&.iso8601,
       active_recently: worker.active_in_last_hours(24),
       created_at: worker.created_at.iso8601,
@@ -369,7 +401,7 @@ class Api::V1::WorkersController < ApplicationController
   def worker_details(worker)
     worker_summary(worker).merge({
       token: worker.token, # Only show full token in details view
-      token_regenerated_at: worker.token_regenerated_at&.iso8601
+      token_regenerated_at: nil # Field not implemented in current schema
     })
   end
 
@@ -377,10 +409,10 @@ class Api::V1::WorkersController < ApplicationController
   def activity_json(activity)
     {
       id: activity.id,
-      action: activity.action,
-      performed_at: activity.performed_at.iso8601,
-      ip_address: activity.ip_address,
-      user_agent: activity.user_agent,
+      action: activity.activity_type,
+      performed_at: activity.occurred_at.iso8601,
+      ip_address: activity.details['ip_address'],
+      user_agent: activity.details['user_agent'],
       successful: activity.successful?,
       failed: activity.failed?,
       duration: activity.duration,

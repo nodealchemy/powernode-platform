@@ -90,6 +90,7 @@ class KnowledgeBaseArticle < ApplicationRecord
       session_id: session_id,
       ip_address: ip_address,
       user_agent: user_agent,
+      viewed_at: Time.current,
       metadata: {
         recorded_at: Time.current,
         referrer: nil # Could be added later

@@ -21,7 +21,7 @@ const getEnvVar = (viteKey: string, craKey: string, defaultValue: string = ''): 
 
 // Dynamic API base URL detection for remote access
 const getAPIBaseURL = (): string => {
-  const envBaseURL = getEnvVar('VITE_API_BASE_URL', 'REACT_APP_API_BASE_URL', 'http://localhost:3000/api/v1');
+  const envBaseURL = getEnvVar('VITE_API_BASE_URL', 'REACT_APP_API_BASE_URL', '/api/v1');
   const autoDetect = getEnvVar('VITE_AUTO_DETECT_BACKEND', 'REACT_APP_AUTO_DETECT_BACKEND', 'true') === 'true';
   const behindProxy = getEnvVar('VITE_BEHIND_PROXY', 'REACT_APP_BEHIND_PROXY', 'false') === 'true';
   
@@ -34,8 +34,9 @@ const getAPIBaseURL = (): string => {
     if (currentHostname !== 'localhost' && currentHostname !== '127.0.0.1') {
       // Parse the env base URL to extract the path
       try {
-        const envUrl = new URL(envBaseURL);
-        const apiPath = envUrl.pathname || '/api/v1';
+        // If envBaseURL is a relative path, use it directly
+        const apiPath = envBaseURL.startsWith('/') ? envBaseURL : 
+                       (new URL(envBaseURL).pathname || '/api/v1');
         
         // Detect if we're behind a reverse proxy
         // Check explicit env variable first, then auto-detect based on connection patterns
@@ -208,6 +209,23 @@ class APIClient {
 }
 
 const API_BASE_URL = getAPIBaseURL();
+
+// Debug logging for production issues
+if (typeof window !== 'undefined') {
+  console.log('API Client Configuration:', {
+    baseURL: API_BASE_URL,
+    hostname: window.location.hostname,
+    protocol: window.location.protocol,
+    port: window.location.port,
+    proxyConfigVersion: 'v1.1.0-proxy-fix',
+    timestamp: new Date().toISOString()
+  });
+
+  // Force cache invalidation notice for production domains  
+  if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+    console.warn('🔄 CACHE NOTICE: If experiencing API errors, perform a hard refresh (Ctrl+Shift+R) to clear cached code.');
+  }
+}
 
 export const api = new APIClient(API_BASE_URL);
 export default api;

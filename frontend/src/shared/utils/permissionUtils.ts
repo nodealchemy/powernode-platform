@@ -117,7 +117,7 @@ export const canManageKnowledgeBase = (user: User | null): boolean => {
  * Check if user can moderate knowledge base
  */
 export const canModerateKnowledgeBase = (user: User | null): boolean => {
-  return hasPermissions(user, ['kb.moderate_comments']) || hasPermissions(user, ['admin.kb.moderate']);
+  return hasPermissions(user, ['kb.moderate']) || hasPermissions(user, ['admin.kb.moderate']);
 };
 
 /**

@@ -34,7 +34,7 @@ end
 # Owner should have content management permissions
 owner_role = Role.find_by(name: 'owner')
 if owner_role
-  kb_owner_permissions = %w[kb.read kb.create kb.edit kb.publish kb.manage_categories admin.kb.read admin.kb.manage admin.kb.analytics]
+  kb_owner_permissions = %w[kb.read kb.create kb.edit kb.publish kb.manage admin.kb.read admin.kb.manage admin.kb.analytics]
   kb_owner_permissions.each do |perm_name|
     permission = Permission.find_by(name: perm_name)
     if permission && !owner_role.permissions.include?(permission)
@@ -49,7 +49,7 @@ end
 # Manager should have content creation permissions
 manager_role = Role.find_by(name: 'manager')
 if manager_role
-  kb_manager_permissions = %w[kb.read kb.create kb.edit kb.publish kb.manage_categories]
+  kb_manager_permissions = %w[kb.read kb.create kb.edit kb.publish kb.manage]
   kb_manager_permissions.each do |perm_name|
     permission = Permission.find_by(name: perm_name)
     if permission && !manager_role.permissions.include?(permission)
@@ -64,7 +64,7 @@ end
 # Content Manager should have full content permissions
 content_manager_role = Role.find_by(name: 'content_manager')
 if content_manager_role
-  kb_content_permissions = %w[kb.read kb.create kb.edit kb.delete kb.publish kb.manage_categories kb.moderate_comments]
+  kb_content_permissions = %w[kb.read kb.create kb.edit kb.delete kb.publish kb.manage kb.moderate]
   kb_content_permissions.each do |perm_name|
     permission = Permission.find_by(name: perm_name)
     if permission && !content_manager_role.permissions.include?(permission)
@@ -98,8 +98,8 @@ puts "    • kb.create - Create new articles"
 puts "    • kb.edit - Edit existing articles"
 puts "    • kb.delete - Delete articles"
 puts "    • kb.publish - Publish articles"
-puts "    • kb.manage_categories - Manage categories"
-puts "    • kb.moderate_comments - Moderate comments"
+puts "    • kb.manage - Manage categories and settings"
+puts "    • kb.moderate - Moderate comments"
 puts ""
 puts "  🛠️ Admin Permissions:"
 puts "    • admin.kb.read - View all content"

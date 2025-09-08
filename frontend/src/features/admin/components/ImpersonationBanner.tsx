@@ -21,8 +21,12 @@ const ImpersonationBanner: React.FC = () => {
     try {
       await dispatch(stopImpersonation()).unwrap();
       // Refresh the page after successful impersonation stop to ensure clean state
-      window.location.reload();
+      // Only reload if we're actually impersonating to prevent accidental reloads
+      if (impersonation.isImpersonating) {
+        window.location.reload();
+      }
     } catch (error) {
+      // Error already logged by the action
     }
   };
 

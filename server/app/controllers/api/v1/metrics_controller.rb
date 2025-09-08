@@ -3,23 +3,11 @@
 module Api
   module V1
     class MetricsController < ApplicationController
-      # Skip authentication for Prometheus scraping
-      skip_before_action :authenticate_request!, only: [:prometheus]
+      # Prometheus endpoint disabled - no authentication skipping needed
       
-      # Prometheus metrics endpoint
+      # Prometheus metrics endpoint - DISABLED
       def prometheus
-        # Check if request is from monitoring network
-        unless request.remote_ip.in?(['127.0.0.1', '::1']) || 
-               request.headers['User-Agent']&.include?('Prometheus')
-          render_error('Forbidden', status: :forbidden)
-          return
-        end
-
-        metrics_data = PrometheusExporter::Client.default.send_json({})
-        render plain: metrics_data, content_type: 'text/plain; version=0.0.4'
-      rescue => e
-        Rails.logger.error "Metrics endpoint error: #{e.message}"
-        render_error('Internal server error', status: :internal_server_error)
+        render_error('Prometheus metrics disabled in development', status: :service_unavailable)
       end
 
       # Health check with basic metrics

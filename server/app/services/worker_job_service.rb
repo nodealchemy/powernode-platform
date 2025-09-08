@@ -59,23 +59,24 @@ class WorkerJobService
     end
 
     # Enqueue test email job
-    def enqueue_test_email(email_address)
+    def enqueue_test_email(email_address, account_id = nil)
+      args = account_id ? [email_address, account_id] : [email_address]
+      
       make_worker_request('POST', '/api/v1/jobs', {
         job_class: 'TestEmailJob',
-        args: [email_address]
+        args: args
       })
     end
 
     # Enqueue test worker job
     def enqueue_test_worker_job(worker_id, worker_name)
-      make_worker_request('POST', '/jobs', {
-        job_class: 'TestWorkerJob',
-        args: [worker_id, worker_name],
-        options: {
-          test_type: 'worker_connectivity_test',
-          worker_id: worker_id,
-          timestamp: Time.current.to_i
-        }
+      make_worker_request('POST', '/api/v1/jobs', {
+        'job_class' => 'TestWorkerJob',
+        'args' => [worker_id, worker_name, {
+          'test_type' => 'worker_connectivity_test',
+          'worker_id' => worker_id,
+          'timestamp' => Time.current.to_i
+        }]
       })
     end
 
@@ -106,8 +107,8 @@ class WorkerJobService
       request['Content-Type'] = 'application/json'
       request['Accept'] = 'application/json'
       
-      # Add worker service authentication - use WORKER_TOKEN
-      worker_token = ENV['WORKER_TOKEN'] 
+      # Add worker service authentication - use WORKER_SERVICE_TOKEN or WORKER_TOKEN
+      worker_token = ENV['WORKER_SERVICE_TOKEN'] || ENV['WORKER_TOKEN']
       request['Authorization'] = "Bearer #{worker_token}" if worker_token
 
       # Set body for requests that support it

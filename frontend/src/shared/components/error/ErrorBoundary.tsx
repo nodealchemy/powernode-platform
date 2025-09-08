@@ -47,11 +47,14 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
     this.setState({ errorInfo });
 
-    // Log error details
-    console.group(`🚨 Error Boundary Caught Error [${errorId}]`);
+    // Log error details with enhanced debugging for page refresh investigation
+    console.group(`🚨 ERROR BOUNDARY TRIGGERED - POTENTIAL REFRESH CAUSE [${errorId}]`);
+    console.error('⚠️ ERROR BOUNDARY: This error may be causing automatic page refreshes!');
     console.error('Error:', error);
+    console.error('Error Message:', error.message);
     console.error('Error Info:', errorInfo);
     console.error('Component Stack:', errorInfo.componentStack);
+    console.trace('Stack trace when error boundary triggered:');
     console.groupEnd();
 
     // Report to external error tracking service

@@ -123,6 +123,7 @@ class JobsController
       'Analytics::UpdateRevenueSnapshotsJob',
       'SendNotificationEmailJob',
       'TestEmailJob',
+      'TestWorkerJob',
       'RefreshEmailSettingsJob',
       'Notifications::EmailDeliveryJob',
       'Notifications::BulkEmailJob',

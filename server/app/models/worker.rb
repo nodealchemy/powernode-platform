@@ -12,8 +12,7 @@ class Worker < ApplicationRecord
   # Validations
   validates :name, presence: true, length: { minimum: 3, maximum: 50 }
   validates :description, length: { maximum: 255 }
-  validates :token, presence: true, uniqueness: true, on: :update
-  validates :token, uniqueness: true, allow_blank: true, on: :create
+  validates :token_digest, presence: true, on: :update
   # Permissions now handled through roles
   validates :status, presence: true
   # Role field will be deprecated - roles now handled through worker_roles association
@@ -71,24 +70,29 @@ class Worker < ApplicationRecord
   def self.authenticate(token)
     return nil if token.blank?
     
-    # Find all active workers and check token hash
-    workers = where(status: 'active').where.not(token_digest: nil)
-    worker = workers.find { |w| w.token_matches?(token) }
+    # Hash the provided token to compare with stored digest
+    token_digest = Digest::SHA256.hexdigest(token)
+    worker = where(status: 'active', token_digest: token_digest).first
     return nil unless worker
     
     worker.touch(:last_seen_at)
-    worker.increment!(:request_count)
     worker
   end
   
-  def self.create_worker!(name:, description: nil, roles: [], account: nil)
+  def self.create_worker!(name:, description: nil, roles: [], account: nil, token: nil)
+    # Generate token if not provided
+    token ||= generate_secure_token
+    
     worker = create!(
       name: name,
       description: description,
       account: account,
-      token: generate_secure_token,
+      token_digest: Digest::SHA256.hexdigest(token),
       status: 'active'
     )
+    
+    # Set virtual attribute for return
+    worker.token = token
     
     # Assign roles if provided, with validation
     Array(roles).each do |role_name|
@@ -205,26 +209,29 @@ class Worker < ApplicationRecord
   end
   
   def regenerate_token!
+    new_token = self.class.generate_secure_token
     update!(
-      token: self.class.generate_secure_token,
-      token_regenerated_at: Time.current
+      token_digest: Digest::SHA256.hexdigest(new_token),
+      updated_at: Time.current
     )
+    self.token = new_token
     log_token_regeneration
-    token
+    new_token
   end
   
   def record_activity!(action, details = {})
     worker_activities.create!(
-      action: action,
-      details: details,
-      performed_at: Time.current,
-      ip_address: details[:ip_address],
-      user_agent: details[:user_agent]
+      activity_type: action,
+      details: details.merge(
+        ip_address: details[:ip_address],
+        user_agent: details[:user_agent]
+      ).compact,
+      occurred_at: Time.current
     )
   end
   
   def last_activity
-    worker_activities.order(:performed_at).last
+    worker_activities.order(:occurred_at).last
   end
   
   def active_in_last_hours(hours = 24)
@@ -236,8 +243,9 @@ class Worker < ApplicationRecord
   end
   
   def masked_token
-    return '' if token.blank?
-    "#{token[0..7]}#{'*' * (token.length - 12)}#{token[-4..-1]}"
+    return '' if token_digest.blank?
+    # Show first 8 and last 4 characters of the digest for identification
+    "#{token_digest[0..7]}#{'*' * (token_digest.length - 12)}#{token_digest[-4..-1]}"
   end
   
   def system?
@@ -251,7 +259,12 @@ class Worker < ApplicationRecord
   private
   
   def generate_token
-    self.token = self.class.generate_secure_token if token.blank?
+    if token_digest.blank? && token.blank?
+      self.token = self.class.generate_secure_token
+      self.token_digest = Digest::SHA256.hexdigest(self.token)
+    elsif token.present? && token_digest.blank?
+      self.token_digest = Digest::SHA256.hexdigest(self.token)
+    end
   end
   
   def self.generate_secure_token

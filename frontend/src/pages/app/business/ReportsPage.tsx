@@ -592,9 +592,10 @@ export const ReportsPage: React.FC = () => {
                                 <button
                                   onClick={() => {
                                     setSelectedTemplate(template);
-                                    navigate('/app/business/reports');
+                                    navigate('/app/business/reports/builder');
                                     setBuilderStep(2);
-                                  }}className="btn-theme btn-theme-primary text-xs px-3 py-1"
+                                  }}
+                                  className="btn-theme btn-theme-primary text-xs px-3 py-1"
                                 >
                                   Use Template
                                 </button>

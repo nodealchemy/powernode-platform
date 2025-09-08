@@ -497,7 +497,7 @@ Unlock the full power of Powernode through our comprehensive RESTful API. This g
 ### Base API Information
 
 ```
-Base URL: https://api.powernode.org/v1
+Base URL: https://api.powernode.org/api/v1
 Content-Type: application/json
 Authentication: Bearer JWT tokens
 Rate Limit: 1000 requests/hour (default)
@@ -510,7 +510,7 @@ Rate Limit: 1000 requests/hour (default)
 **🔑 Authentication Flow**
 ```bash
 # 1. Get access token
-curl -X POST https://api.powernode.org/v1/auth/login \
+curl -X POST https://api.powernode.org/api/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{
     "email": "your-email@example.com",
@@ -528,7 +528,7 @@ curl -X POST https://api.powernode.org/v1/auth/login \
 
 **🔄 Token Refresh**
 ```bash
-curl -X POST https://api.powernode.org/v1/auth/refresh \
+curl -X POST https://api.powernode.org/api/v1/auth/refresh \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_REFRESH_TOKEN"
 ```
@@ -543,7 +543,7 @@ curl -X POST https://api.powernode.org/v1/auth/refresh \
 
 **🔒 Using API Keys**
 ```bash
-curl -X GET https://api.powernode.org/v1/subscriptions \
+curl -X GET https://api.powernode.org/api/v1/subscriptions \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Content-Type: application/json"
 ```
@@ -998,7 +998,7 @@ def sync_subscription_to_analytics(subscription):
 
 **🧪 Sandbox Configuration**
 ```bash
-Base URL: https://sandbox-api.powernode.org/v1
+Base URL: https://sandbox-api.powernode.org/api/v1
 Test API Keys: Use 'test_' prefix
 Test Data: Pre-populated test customers and plans
 Webhooks: Use ngrok for local development
@@ -1032,7 +1032,7 @@ Webhooks: Use ngrok for local development
 export POWERNODE_DEBUG=true
 
 # Use request IDs for tracing
-curl -X GET "https://api.powernode.org/v1/subscriptions" \
+curl -X GET "https://api.powernode.org/api/v1/subscriptions" \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -H "X-Request-ID: unique-request-id-123"
 ```

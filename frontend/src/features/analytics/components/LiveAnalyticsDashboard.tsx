@@ -212,13 +212,19 @@ export const LiveAnalyticsDashboard: React.FC<LiveAnalyticsDashboardProps> = ({
   useEffect(() => {
     loadAnalyticsData();
     
-    if (autoRefresh) {
-      const interval = setInterval(() => {
-        loadAnalyticsData(false); // Don't show spinner for auto-refresh
-      }, refreshInterval * 1000);
-      
-      return () => clearInterval(interval);
-    }
+    // Temporarily disable auto-refresh to debug page refresh issues
+    // if (autoRefresh) {
+    //   const interval = setInterval(() => {
+    //     // Only refresh if page is visible to prevent excessive API calls
+    //     if (!document.hidden) {
+    //       loadAnalyticsData(false); // Don't show spinner for auto-refresh
+    //     }
+    //   }, refreshInterval * 1000);
+    //   
+    //   return () => clearInterval(interval);
+    // }
+    
+    console.log('LiveAnalyticsDashboard: Auto-refresh disabled for debugging'); // Debug log
   }, [loadAnalyticsData, autoRefresh, refreshInterval]);
 
   const handleExport = async (format: 'csv' | 'pdf') => {

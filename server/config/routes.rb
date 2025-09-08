@@ -46,6 +46,7 @@ Rails.application.routes.draw do
         resources :workers, only: [:index, :show] do
           member do
             post :ping
+            post :test_results
             get :status
           end
         end
@@ -93,6 +94,49 @@ Rails.application.routes.draw do
         post :verify
         post :authenticate_user
         post :verify_session
+      end
+
+      # Knowledge Base endpoints (public access + editing for authorized users)
+      namespace :kb do
+        resources :categories do
+          collection do
+            get :tree
+          end
+        end
+        
+        resources :articles do
+          collection do
+            get :search
+            get :analytics
+            patch :bulk, to: 'articles#bulk_update'
+            delete :bulk, to: 'articles#bulk_delete'
+          end
+          member do
+            post :publish
+            post :unpublish
+          end
+          resources :comments, only: [:index, :create]
+        end
+        
+        resources :comments, only: [:show] do
+          collection do
+            get :moderate
+          end
+          member do
+            post :approve
+            post :reject
+            post :spam
+            delete :destroy
+          end
+        end
+        
+        resources :tags, only: [:index] do
+          member do
+            get :articles
+          end
+        end
+        
+        resources :attachments, only: [:show, :create, :destroy]
       end
 
       # Protected resources (will be added later)
@@ -293,7 +337,7 @@ Rails.application.routes.draw do
       
       # Email Settings endpoints (for worker service)
       resource :email_settings, only: [ :show, :update ] do
-        post :test, on: :member
+        post :test, on: :collection
       end
 
       # Payment Gateways management (admin only)
@@ -669,12 +713,23 @@ Rails.application.routes.draw do
         end
       end
 
-      # Knowledge Base public endpoints
+      # Knowledge Base endpoints with integrated editing
       namespace :kb do
-        resources :categories, only: [:index, :show]
-        resources :articles, only: [:index, :show] do
+        resources :categories do
+          collection do
+            get :tree
+          end
+        end
+        resources :articles do
           collection do
             get :search
+            get :analytics
+            patch :bulk, to: 'articles#bulk_update'
+            delete :bulk, to: 'articles#bulk_delete'
+          end
+          member do
+            post :publish
+            post :unpublish
           end
           resources :comments, only: [:index, :create]
         end
@@ -683,7 +738,14 @@ Rails.application.routes.draw do
             get :articles
           end
         end
-        resources :comments, only: [:show]
+        resources :comments do
+          member do
+            post :approve
+            post :reject
+            post :spam
+          end
+        end
+        resources :attachments, only: [:create, :destroy]
       end
 
       # Knowledge Base admin endpoints
@@ -707,30 +769,7 @@ Rails.application.routes.draw do
           end
         end
         
-        # Knowledge Base admin management
-        namespace :kb do
-          resources :categories do
-            collection do
-              get :tree
-            end
-          end
-          resources :articles do
-            member do
-              post :publish
-              post :unpublish
-            end
-            collection do
-              get :analytics
-            end
-          end
-          resources :comments do
-            member do
-              post :approve
-              post :reject
-              post :spam
-            end
-          end
-        end
+        # Knowledge Base admin functionality moved to main /api/v1/kb endpoints
 
         # Maintenance endpoints
         namespace :maintenance do
@@ -794,6 +833,7 @@ Rails.application.routes.draw do
           post :activate
           post :revoke
           post :test_worker
+          post :test_results
           post :health_check
         end
         

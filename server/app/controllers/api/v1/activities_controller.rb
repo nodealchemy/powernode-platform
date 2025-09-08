@@ -10,10 +10,10 @@ class Api::V1::ActivitiesController < ApplicationController
   # GET /api/v1/workers/:worker_id/activities
   def index
     begin
-      @activities = @worker.worker_activities.order(performed_at: :desc)
+      @activities = @worker.worker_activities.order(occurred_at: :desc)
 
       # Apply filters
-      @activities = @activities.where(action: params[:action]) if params[:action].present?
+      @activities = @activities.where(activity_type: params[:action]) if params[:action].present?
       @activities = apply_status_filter(@activities, params[:status]) if params[:status].present?
       @activities = apply_date_range_filter(@activities) if params[:from] || params[:to]
 
@@ -69,7 +69,7 @@ class Api::V1::ActivitiesController < ApplicationController
     hours = [params[:hours]&.to_i || 24, 1].max
 
     # Get activities within time range
-    activities = @worker.worker_activities.where('performed_at > ?', hours.hours.ago)
+    activities = @worker.worker_activities.where('occurred_at > ?', hours.hours.ago)
     
     # Generate hourly breakdown
     requests_by_hour = {}
@@ -80,13 +80,13 @@ class Api::V1::ActivitiesController < ApplicationController
       hour_start = hour_ago.hours.ago.beginning_of_hour
       hour_end = hour_start + 1.hour
       hour_key = hour_start.strftime('%Y-%m-%d %H:00')
-      count = activities.where(performed_at: hour_start...hour_end).count
+      count = activities.where(occurred_at: hour_start...hour_end).count
       requests_by_hour[hour_key] = count
       hourly_breakdown[hour_key] = count
     end
 
     # Actions breakdown
-    activities.group(:action).count.each do |action, count|
+    activities.group(:activity_type).count.each do |action, count|
       actions_breakdown[action] = count
     end
 
@@ -94,8 +94,8 @@ class Api::V1::ActivitiesController < ApplicationController
       total_requests: activities.count,
       successful_requests: activities.successful.count,
       failed_requests: activities.failed.count,
-      unique_actions: activities.distinct.pluck(:action),
-      last_activity: activities.order(:performed_at).last&.performed_at&.iso8601,
+      unique_actions: activities.distinct.pluck(:activity_type),
+      last_activity: activities.order(:occurred_at).last&.occurred_at&.iso8601,
       requests_by_hour: requests_by_hour,
       actions_breakdown: actions_breakdown,
       hourly_breakdown: hourly_breakdown,
@@ -129,7 +129,7 @@ class Api::V1::ActivitiesController < ApplicationController
     days = [params[:days]&.to_i || 30, 1].max
     cutoff_date = days.days.ago
 
-    deleted_count = @worker.worker_activities.where('performed_at < ?', cutoff_date).delete_all
+    deleted_count = @worker.worker_activities.where('occurred_at < ?', cutoff_date).delete_all
 
     render_success({
       message: "Cleaned up #{deleted_count} activities older than #{days} days",
@@ -169,15 +169,15 @@ class Api::V1::ActivitiesController < ApplicationController
   end
 
   def apply_date_range_filter(activities)
-    activities = activities.where('performed_at >= ?', Time.parse(params[:from])) if params[:from]
-    activities = activities.where('performed_at <= ?', Time.parse(params[:to])) if params[:to]
+    activities = activities.where('occurred_at >= ?', Time.parse(params[:from])) if params[:from]
+    activities = activities.where('occurred_at <= ?', Time.parse(params[:to])) if params[:to]
     activities
   rescue ArgumentError
     activities
   end
 
   def generate_activity_summary(worker, activities)
-    recent_activities = activities.where('performed_at > ?', 24.hours.ago)
+    recent_activities = activities.where('occurred_at > ?', 24.hours.ago)
     
     # Get endpoint usage statistics
     top_endpoints = get_top_endpoints(recent_activities)
@@ -202,9 +202,9 @@ class Api::V1::ActivitiesController < ApplicationController
       failed_recent: recent_activities.failed.count,
       success_rate: success_rate,
       avg_response_time: avg_response_time.round(2),
-      actions: recent_activities.group(:action).count,
+      actions: recent_activities.group(:activity_type).count,
       top_endpoints: top_endpoints,
-      last_activity_at: activities.order(:performed_at).last&.performed_at&.iso8601
+      last_activity_at: activities.order(:occurred_at).last&.occurred_at&.iso8601
     }
   end
 
@@ -234,10 +234,10 @@ class Api::V1::ActivitiesController < ApplicationController
   def activity_json(activity)
     {
       id: activity.id,
-      action: activity.action,
-      performed_at: activity.performed_at.iso8601,
-      ip_address: activity.ip_address,
-      user_agent: activity.user_agent,
+      action: activity.activity_type,
+      performed_at: activity.occurred_at.iso8601,
+      ip_address: activity.details['ip_address'],
+      user_agent: activity.details['user_agent'],
       successful: activity.successful?,
       failed: activity.failed?,
       duration: activity.duration,

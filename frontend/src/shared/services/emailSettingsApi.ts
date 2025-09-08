@@ -45,15 +45,26 @@ export const emailSettingsApi = {
     message: string;
     status: string;
   }> {
-    const response = await api.post('/email_settings/test', { email });
-    // Handle standardized API response format: {success: true, data: {...}}
-    if (response.data.success && response.data.data) {
-      return {
-        message: response.data.data.message || 'Test email queued successfully',
-        status: 'success'
-      };
+    try {
+      const response = await api.post('/email_settings/test', { email });
+      
+      // Handle standardized API response format: {success: true, data: {...}}
+      if (response.data.success && response.data.data) {
+        return {
+          message: response.data.data.message || 'Test email queued successfully',
+          status: 'success'
+        };
+      }
+      
+      // Fallback for backward compatibility
+      return response.data.data || response.data || { message: 'Test email queued successfully', status: 'success' };
+    } catch (error: any) {
+      // Re-throw with structured error information
+      if (error.response?.data) {
+        const errorData = error.response.data;
+        throw new Error(errorData.error || errorData.message || 'Failed to send test email');
+      }
+      throw error;
     }
-    // Fallback for backward compatibility
-    return response.data.data || response.data || { message: 'Test email queued successfully', status: 'success' };
   }
 };

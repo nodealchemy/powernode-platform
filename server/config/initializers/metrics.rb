@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
 # Prometheus metrics configuration for Powernode Platform
-# Skip in test environment to prevent test failures
-if Rails.env.test?
+# Disabled for development - only test environment stubs remain
+if Rails.env.test? || true  # Force disable Prometheus
   # Test environment - create stub module
   module PowernodeMetrics
     def self.method_missing(method, *args, &block)

@@ -133,7 +133,7 @@ class Api::V1::Admin::UsersController < ApplicationController
             Rails.logger.info "Adding roles with IDs: #{roles_to_add.inspect}"
             roles_to_add.each do |role_id|
               Rails.logger.info "Creating user_role for role_id: #{role_id}"
-              user_role = @user.user_roles.create(role_id: role_id, granted_by: current_user.id)
+              user_role = @user.user_roles.create(role_id: role_id, granted_by_id: current_user.id, granted_at: Time.current)
               unless user_role.persisted?
                 Rails.logger.error "Failed to create user_role for role #{role_id}: #{user_role.errors.full_messages.join(', ')}"
                 raise "Failed to create user role: #{user_role.errors.full_messages.join(', ')}"

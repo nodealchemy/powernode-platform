@@ -13,7 +13,7 @@ const path = require('path');
 // Configuration
 const API_BASE = process.env.VITE_API_BASE_URL || 'http://localhost:3000';
 const CONFIG_ENDPOINT = '/api/v1/config';
-const ALLOWED_HOSTS_ENDPOINT = '/api/v1/config/allowed_hosts';
+const ALLOWED_HOSTS_ENDPOINT = '/api/v1/config/allowed_hosts'; // Direct endpoint, no double prefix
 const QUIET_MODE = process.env.VITE_QUIET !== 'false'; // Default to quiet
 
 // Cache file for offline development

@@ -176,6 +176,7 @@ class CreateCoreFoundation < ActiveRecord::Migration[8.0]
     # Create workers table - Background job workers
     create_table :workers, id: false do |t|
       t.uuid :id, primary_key: true, null: false, default: -> { 'gen_random_uuid()' }
+      t.uuid :account_id, null: true
       t.string :name, null: false
       t.text :description
       t.string :status, default: 'active'
@@ -187,6 +188,7 @@ class CreateCoreFoundation < ActiveRecord::Migration[8.0]
       t.index [:name], unique: true
       t.index [:status]
       t.index [:permissions], using: :gin
+      t.index [:account_id]
     end
 
     # Create worker_roles junction table
@@ -274,6 +276,9 @@ class CreateCoreFoundation < ActiveRecord::Migration[8.0]
       t.index [:started_at], name: 'index_impersonation_sessions_on_started_at'
       t.index [:ended_at], name: 'index_impersonation_sessions_on_ended_at'
     end
+
+    # Add foreign key constraints
+    add_foreign_key :workers, :accounts, column: :account_id
 
     # Add check constraints
     add_check_constraint :accounts, "status IN ('active', 'cancelled', 'suspended')", name: 'valid_account_status'

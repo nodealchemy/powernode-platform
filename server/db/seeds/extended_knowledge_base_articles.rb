@@ -1084,7 +1084,7 @@ System-level access and configuration:
 Knowledge Base and content operations:
 
 - `kb.view` - View knowledge base articles
-- `kb.write` - Create and edit knowledge base content
+- `kb.edit` - Create and edit knowledge base content
 - `kb.manage` - Full knowledge base management
 - `kb.admin` - Knowledge base system administration
 
@@ -1196,7 +1196,7 @@ Basic Information:
 Primary Role: account.manager
 Additional Permissions: 
   - analytics.export (if needed for reporting)
-  - kb.write (if contributing to documentation)
+  - kb.edit (if contributing to documentation)
 ```
 
 **Option B: Custom Permission Assignment**
@@ -1249,7 +1249,7 @@ Account Configuration:
 first_name,last_name,email,role,additional_permissions
 John,Smith,john@company.com,account.manager,analytics.export
 Jane,Doe,jane@company.com,billing.manager,
-Mike,Johnson,mike@company.com,account.member,kb.write
+Mike,Johnson,mike@company.com,account.member,kb.edit
 ```
 
 ## Permission Best Practices
@@ -1282,7 +1282,7 @@ Finance Team:
   
 Customer Success:
   Base Role: account.manager
-  Additional: kb.write, team.manage
+  Additional: kb.edit, team.manage
   
 IT/Admin:
   Base Role: system.admin
@@ -1439,7 +1439,7 @@ The Powernode API is a RESTful web service that provides programmatic access to 
 - **Versioned**: Stable API with backward compatibility
 
 ### API Characteristics
-- **Base URL**: `https://api.powernode.org/v1`
+- **Base URL**: `https://api.powernode.org/api/v1`
 - **Authentication**: Bearer token (JWT)
 - **Rate Limits**: 1000 requests per hour per API key
 - **Response Format**: Consistent JSON structure
@@ -1495,7 +1495,7 @@ Content-Type: application/json
 const axios = require('axios');
 
 const apiClient = axios.create({
-  baseURL: 'https://api.powernode.org/v1',
+  baseURL: 'https://api.powernode.org/api/v1',
   headers: {
     'Authorization': 'Bearer pk_live_your_api_key_here',
     'Content-Type': 'application/json'
@@ -1528,7 +1528,7 @@ All API requests follow consistent patterns:
 
 #### URL Structure
 ```
-https://api.powernode.org/v1/{resource}/{id}/{sub-resource}
+https://api.powernode.org/api/v1/{resource}/{id}/{sub-resource}
 
 Examples:
 GET    /customers                    # List customers

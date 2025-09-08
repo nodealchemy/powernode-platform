@@ -1,21 +1,14 @@
+/* All @import statements must come first */
+@import './assets/styles/themes.css';
+@import './assets/styles/global-enhancements.css';
+@import './assets/styles/ms-high-contrast-fix.css';
+@import 'highlight.js/styles/github.css';
+@import './assets/styles/markdown-preview.css';
+
+/* Tailwind directives come after imports */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-/* Import theme system */
-@import './assets/styles/themes.css';
-
-/* Import global styling enhancements */
-@import './assets/styles/global-enhancements.css';
-
-/* Import MS High Contrast deprecation fix */
-@import './assets/styles/ms-high-contrast-fix.css';
-
-/* Import highlight.js theme for code syntax highlighting */
-@import 'highlight.js/styles/github.css';
-
-/* Import modern markdown styling */
-@import './assets/styles/markdown-preview.css';
 
 body {
   margin: 0;

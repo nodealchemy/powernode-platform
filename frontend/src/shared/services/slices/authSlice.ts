@@ -88,9 +88,17 @@ export const register = createAsyncThunk(
     account_name: string;
     plan_id?: string;
     billing_cycle?: string;
-  }) => {
-    const response = await authAPI.register(userData);
-    return response.data;
+  }, { rejectWithValue }) => {
+    try {
+      const response = await authAPI.register(userData);
+      return response.data;
+    } catch (error: any) {
+      // Handle HTTP errors properly
+      if (error.response?.data) {
+        return rejectWithValue(error.response.data);
+      }
+      return rejectWithValue({ error: error.message || 'Registration failed' });
+    }
   }
 );
 
@@ -339,7 +347,23 @@ const authSlice = createSlice({
       })
       .addCase(register.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.error.message || 'Registration failed';
+        // Better error handling for registration failures
+        let errorMessage = 'Registration failed';
+        
+        if (action.payload && typeof action.payload === 'object') {
+          const payload = action.payload as any;
+          if (payload.error) {
+            errorMessage = payload.error;
+          } else if (payload.message) {
+            errorMessage = payload.message;
+          }
+        } else if (action.error) {
+          if (action.error.message) {
+            errorMessage = action.error.message;
+          }
+        }
+        
+        state.error = errorMessage;
       })
       
       // Logout

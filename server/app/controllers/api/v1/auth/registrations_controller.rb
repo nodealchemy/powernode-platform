@@ -44,7 +44,7 @@ class Api::V1::Auth::RegistrationsController < ApplicationController
       end
 
       # Create subscription if plan is selected
-      plan_id = params[:planId] || params.dig(:user, :planId)
+      plan_id = params[:planId] || params[:plan_id] || params.dig(:user, :planId) || params.dig(:user, :plan_id)
       if plan_id.present?
         plan = Plan.find_by(id: plan_id, status: 'active', is_public: true)
         if plan
@@ -128,14 +128,14 @@ class Api::V1::Auth::RegistrationsController < ApplicationController
 
   def account_params
     {
-      name: params[:accountName] || params.dig(:user, :accountName)
+      name: params[:accountName] || params[:account_name] || params.dig(:user, :accountName) || params.dig(:user, :account_name)
     }
   end
 
   def user_params
     {
-      first_name: params[:firstName] || params.dig(:user, :firstName),
-      last_name: params[:lastName] || params.dig(:user, :lastName),
+      first_name: params[:firstName] || params[:first_name] || params.dig(:user, :firstName) || params.dig(:user, :first_name),
+      last_name: params[:lastName] || params[:last_name] || params.dig(:user, :lastName) || params.dig(:user, :last_name),
       email: params[:email] || params.dig(:user, :email),
       password: params[:password] || params.dig(:user, :password)
     }

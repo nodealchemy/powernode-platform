@@ -31,10 +31,10 @@ class TestEmailJob < BaseJob
       logger.info "Test email would be sent to: #{email_address}"
       logger.info "Email delivery simulation completed successfully"
     else
-      # Ensure we have the latest email configuration
-      logger.info "Fetching email settings..."
-      EmailConfigurationService.instance.fetch_settings
-      logger.info "Email settings fetched"
+      # Ensure we have the latest email configuration by forcing a refresh
+      logger.info "Refreshing email settings from backend..."
+      EmailConfigurationService.instance.fetch_settings(force_refresh: true)
+      logger.info "Email settings refreshed successfully"
       
       # Send the test email
       logger.info "Sending email via NotificationMailer..."
@@ -65,7 +65,7 @@ class TestEmailJob < BaseJob
         source: 'worker',
         details: {
           # recipient email removed for privacy
-          timestamp: Time.current.iso8601,
+          timestamp: Time.now.iso8601,
           provider: provider,
           account_provided: account_id ? 'yes' : 'no',
           authentication_method: account_id ? 'system_worker' : 'default_worker'
@@ -94,7 +94,7 @@ class TestEmailJob < BaseJob
         details: {
           # recipient email removed for privacy
           error: e.message,
-          timestamp: Time.current.iso8601,
+          timestamp: Time.now.iso8601,
           account_provided: account_id ? 'yes' : 'no',
           authentication_method: account_id ? 'system_worker' : 'default_worker'
         }

@@ -5,9 +5,10 @@ import { KbArticleContent } from '@/features/knowledge-base/components/KbArticle
 import { KbArticleComments } from '@/features/knowledge-base/components/KbArticleComments';
 import { KbRelatedArticles } from '@/features/knowledge-base/components/KbRelatedArticles';
 import { knowledgeBaseApi, KbArticle } from '@/shared/services/knowledgeBaseApi';
+import { Badge } from '@/shared/components/ui/Badge';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/shared/services';
-import { Badge } from '@/shared/components/ui/Badge';
+import { hasPermissions } from '@/shared/utils/permissionUtils';
 import { 
   ArrowLeftIcon, 
   PencilIcon, 
@@ -105,11 +106,13 @@ export default function KnowledgeBaseArticlePage() {
       }
     ];
 
-    if (article?.can_edit) {
+    // Check if user can edit KB articles
+    const canEditKb = hasPermissions(currentUser, ['kb.edit']) || hasPermissions(currentUser, ['kb.manage']);
+    if (canEditKb && article) {
       actions.push({
         id: 'edit',
         label: 'Edit Article',
-        onClick: () => navigate(`/app/content/kb/admin/articles/${article.id}/edit`),
+        onClick: () => navigate(`/app/content/kb/articles/${article.id}/edit`),
         variant: 'secondary',
         icon: PencilIcon
       });

@@ -40,13 +40,99 @@ const AppContent: React.FC = () => {
   const { isAuthenticated, accessToken, refreshToken, user } = useSelector((state: RootState) => state.auth);
   const [initializing, setInitializing] = React.useState(true);
   const [showAuthFallback, setShowAuthFallback] = React.useState(false);
+  const initializingRef = React.useRef(false); // Prevent double initialization
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // Debug: Track auth state changes that might cause refreshes
+  React.useEffect(() => {
+    console.log('🔍 Auth state change:', {
+      isAuthenticated,
+      hasAccessToken: !!accessToken,
+      hasUser: !!user,
+      initializing,
+      timestamp: new Date().toISOString()
+    });
+    
+    // Log if there's a mismatch that could cause issues
+    if (isAuthenticated && !user) {
+      console.warn('⚠️ Auth mismatch: authenticated but no user data');
+    }
+    if (!isAuthenticated && user) {
+      console.warn('⚠️ Auth mismatch: user data but not authenticated');
+    }
+  }, [isAuthenticated, accessToken, user, initializing]);
+
+  // Debug: Track page refreshes and navigation
+  React.useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      console.log('⚠️ Page about to refresh/unload:', {
+        reason: 'beforeunload event',
+        timestamp: new Date().toISOString()
+      });
+      console.trace('Stack trace for page refresh:');
+    };
+    
+    const handlePopState = (e: PopStateEvent) => {
+      console.log('🔄 Navigation change (popstate):', {
+        state: e.state,
+        timestamp: new Date().toISOString()
+      });
+    };
+
+    // Catch unhandled JavaScript errors that might trigger ErrorBoundary
+    const handleError = (event: ErrorEvent) => {
+      console.group('🚨 UNHANDLED JAVASCRIPT ERROR - POTENTIAL REFRESH TRIGGER');
+      console.error('⚠️ Unhandled error detected - may cause ErrorBoundary to trigger page refresh');
+      console.error('Error message:', event.message);
+      console.error('Error filename:', event.filename);
+      console.error('Error line:', event.lineno);
+      console.error('Error column:', event.colno);
+      console.error('Error object:', event.error);
+      console.trace('Error stack trace:');
+      console.groupEnd();
+    };
+
+    // Catch unhandled promise rejections
+    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      console.group('🚨 UNHANDLED PROMISE REJECTION - POTENTIAL REFRESH TRIGGER');
+      console.error('⚠️ Unhandled promise rejection - may cause ErrorBoundary to trigger page refresh');
+      console.error('Rejection reason:', event.reason);
+      console.trace('Rejection stack trace:');
+      console.groupEnd();
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('popstate', handlePopState);
+    window.addEventListener('error', handleError);
+    window.addEventListener('unhandledrejection', handleUnhandledRejection);
+    
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('popstate', handlePopState);
+      window.removeEventListener('error', handleError);
+      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+    };
+  }, []);
+  
+  // Auth initialization with proper dependencies to prevent double execution
   useEffect(() => {
+    // Prevent double initialization
+    if (initializingRef.current) {
+      return;
+    }
+    
+    initializingRef.current = true;
+    
     // Try to restore user session if we have a token
     const initializeAuth = async () => {
+      console.log('🔐 Starting auth initialization:', { 
+        hasAccessToken: !!accessToken, 
+        hasRefreshToken: !!refreshToken,
+        hasUser: !!user,
+        timestamp: new Date().toISOString()
+      });
       // Set a timeout to prevent infinite loading
       const timeoutId = setTimeout(() => {
+        console.log('App: Auth fallback timeout triggered'); // Debug log
         setShowAuthFallback(true);
       }, 5000); // 5 second timeout, then show fallback
 
@@ -84,7 +170,7 @@ const AppContent: React.FC = () => {
           
           // If no valid impersonation session, proceed with regular authentication
           try {
-            await dispatch(getCurrentUser()).unwrap();
+            const userResult = await dispatch(getCurrentUser()).unwrap();
           } catch (error) {
             
             // Check if this error indicates invalid tokens that should be cleared immediately
@@ -135,6 +221,7 @@ const AppContent: React.FC = () => {
       } finally {
         clearTimeout(timeoutId);
         setInitializing(false);
+        initializingRef.current = false; // Reset initialization flag
       }
     };
 
@@ -145,6 +232,7 @@ const AppContent: React.FC = () => {
   const handleAuthFallback = () => {
     dispatch(clearAuth());
     setInitializing(false);
+    initializingRef.current = false; // Reset initialization flag
   };
 
   if (initializing) {

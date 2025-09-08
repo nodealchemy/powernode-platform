@@ -175,7 +175,16 @@ export function KbArticleContent({ article }: KbArticleContentProps) {
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {article.attachments.map(attachment => (
-              <AttachmentCard key={attachment.id} attachment={attachment} />
+              <AttachmentCard 
+                key={attachment.id} 
+                attachment={{
+                  id: attachment.id,
+                  filename: attachment.filename,
+                  content_type: attachment.content_type,
+                  file_size: attachment.file_size || `${attachment.size || 0} bytes`,
+                  download_count: attachment.download_count || 0
+                }} 
+              />
             ))}
           </div>
         </section>

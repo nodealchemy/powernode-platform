@@ -39,10 +39,13 @@ export const SystemAlertsPanel: React.FC<SystemAlertsPanelProps> = ({
   useEffect(() => {
     loadAlerts();
     
-    if (autoRefresh) {
-      const interval = setInterval(loadAlerts, refreshInterval);
-      return () => clearInterval(interval);
-    }
+    // Temporarily disable auto-refresh to debug page refresh issues
+    // if (autoRefresh) {
+    //   const interval = setInterval(loadAlerts, refreshInterval);
+    //   return () => clearInterval(interval);
+    // }
+    
+    console.log('SystemAlertsPanel: Auto-refresh disabled for debugging'); // Debug log
   }, [autoRefresh, refreshInterval]);
 
   const loadAlerts = async () => {

@@ -11,6 +11,7 @@ import { RootState } from '@/shared/services';
 import { Button } from '@/shared/components/ui/Button';
 import { useNavigate } from 'react-router-dom';
 import { PlusIcon, BookOpenIcon, TagIcon } from '@heroicons/react/24/outline';
+import { hasPermissions } from '@/shared/utils/permissionUtils';
 
 export default function KnowledgeBasePage() {
   const { user: currentUser } = useSelector((state: RootState) => state.auth);
@@ -23,7 +24,7 @@ export default function KnowledgeBasePage() {
   const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(searchParams.get('category') || null);
 
-  const canManageKb = currentUser?.permissions?.includes('kb.manage') || currentUser?.permissions?.includes('kb.write');
+  const canManageKb = hasPermissions(currentUser, ['kb.manage']) || hasPermissions(currentUser, ['kb.edit']);
 
   // Generate dynamic breadcrumbs based on current filters
   const getBreadcrumbs = (): BreadcrumbItem[] => {
@@ -141,7 +142,7 @@ export default function KnowledgeBasePage() {
     {
       id: 'create-article',
       label: 'Create Article',
-      onClick: () => navigate('/app/content/kb/admin/articles/new'),
+      onClick: () => navigate('/app/content/kb/articles/new'),
       variant: 'primary' as const,
       icon: PlusIcon
     }
@@ -275,7 +276,7 @@ export default function KnowledgeBasePage() {
                   <h3 className="font-medium text-theme-primary mb-3">Quick Actions</h3>
                   <div className="space-y-2">
                     <Button
-                      onClick={() => navigate('/app/content/kb/admin')}
+                      onClick={() => navigate('/app/content/kb/manage')}
                       variant="ghost"
                       size="sm"
                       className="w-full justify-start"

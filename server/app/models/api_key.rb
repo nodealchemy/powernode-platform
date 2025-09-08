@@ -19,6 +19,7 @@ class ApiKey < ApplicationRecord
   scope :active, -> { where(is_active: true).where('expires_at IS NULL OR expires_at > ?', Time.current) }
   scope :inactive, -> { where(is_active: false) }
   scope :expired, -> { where('expires_at <= ?', Time.current) }
+  scope :revoked, -> { where(is_active: false) }
 
   # Callbacks
   before_validation :set_defaults

@@ -38,7 +38,7 @@ gem "prawn"
 gem "prawn-table"
 
 # Prometheus metrics
-gem "prometheus_exporter"
+# gem "prometheus_exporter"  # Disabled for development
 
 # Markdown processing
 gem "redcarpet"
