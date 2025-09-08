@@ -2,12 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { apiKeysApi } from '@/features/api-keys/services/apiKeysApi';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
+import { ApiKeyModal } from '@/features/api-keys/components/ApiKeyModal';
 import { Key, RefreshCw } from 'lucide-react';
 
 export const ApiKeysPage: React.FC = () => {
   const [apiKeys, setApiKeys] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showModal, setShowModal] = useState(false);
   const [stats, setStats] = useState({
     requestsToday: 0,
     apiUptime: '99.9%',
@@ -41,9 +43,17 @@ export const ApiKeysPage: React.FC = () => {
     }
   };
 
-  const handleGenerateKey = async () => {
-    // TODO: Implement create API key modal/functionality
-    alert('Generate new key functionality coming soon!');
+  const handleGenerateKey = () => {
+    setShowModal(true);
+  };
+
+  const handleModalClose = () => {
+    setShowModal(false);
+  };
+
+  const handleModalSuccess = () => {
+    setShowModal(false);
+    loadApiKeys(); // Refresh the API keys list
   };
 
   const handleRegenerateKey = async (id: string) => {
@@ -264,6 +274,12 @@ export const ApiKeysPage: React.FC = () => {
           </div>
         </>
       )}
+      
+      <ApiKeyModal
+        isOpen={showModal}
+        onClose={handleModalClose}
+        onSuccess={handleModalSuccess}
+      />
     </PageContainer>
   );
 };
