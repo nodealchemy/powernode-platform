@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useSelector } from 'react-redux';
 import { Navigate } from 'react-router-dom';
 import { RootState } from '@/shared/services';
@@ -458,6 +458,30 @@ export const WorkersPage: React.FC = () => {
     currentPage: 1
   });
 
+  // Timeout refs for cleanup to prevent memory leaks
+  const timeoutsRef = useRef<Set<NodeJS.Timeout>>(new Set());
+
+  // Helper function for safe timeout management
+  const setSafeTimeout = useCallback((callback: () => void, delay: number): NodeJS.Timeout => {
+    const timeoutId = setTimeout(() => {
+      callback();
+      timeoutsRef.current.delete(timeoutId);
+    }, delay);
+    timeoutsRef.current.add(timeoutId);
+    return timeoutId;
+  }, []);
+
+  // Cleanup effect to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      // Clear all timeouts when component unmounts
+      timeoutsRef.current.forEach(timeoutId => {
+        clearTimeout(timeoutId);
+      });
+      timeoutsRef.current.clear();
+    };
+  }, []);
+
   const loadWorkers = useCallback(async () => {
     setState(prev => ({ ...prev, loading: true, error: null }));
     try {
@@ -536,7 +560,8 @@ export const WorkersPage: React.FC = () => {
       await loadWorkers();
       setState(prev => ({ ...prev, showCreateModal: false }));
       setState(prev => ({ ...prev, successMessage: `Worker "${workerData.name}" created successfully` }));
-      setTimeout(() => setState(prev => ({ ...prev, successMessage: null })), 3000);
+      // Use safe timeout to prevent memory leaks
+      setSafeTimeout(() => setState(prev => ({ ...prev, successMessage: null })), 3000);
     } catch (error: any) {
       // Error will be handled by the modal
       throw error;
@@ -585,10 +610,10 @@ export const WorkersPage: React.FC = () => {
       await loadWorkers();
       setState(prev => ({ ...prev, selectedWorkers: new Set(), showBulkActionsModal: false }));
       setState(prev => ({ ...prev, successMessage: `Successfully ${action}d ${workerIds.length} worker(s)` }));
-      setTimeout(() => setState(prev => ({ ...prev, successMessage: null })), 3000);
+      setSafeTimeout(() => setState(prev => ({ ...prev, successMessage: null })), 3000);
     } catch (error: any) {
       setState(prev => ({ ...prev, error: `Failed to ${action} workers: ${error.message}` }));
-      setTimeout(() => setState(prev => ({ ...prev, error: null })), 5000);
+      setSafeTimeout(() => setState(prev => ({ ...prev, error: null })), 5000);
     }
   };
 
@@ -635,10 +660,10 @@ export const WorkersPage: React.FC = () => {
       
       setState(prev => ({ ...prev, showExportModal: false }));
       setState(prev => ({ ...prev, successMessage: `Workers exported as ${format.toUpperCase()}` }));
-      setTimeout(() => setState(prev => ({ ...prev, successMessage: null })), 3000);
+      setSafeTimeout(() => setState(prev => ({ ...prev, successMessage: null })), 3000);
     } catch (error: any) {
       setState(prev => ({ ...prev, error: `Failed to export workers: ${error.message}` }));
-      setTimeout(() => setState(prev => ({ ...prev, error: null })), 5000);
+      setSafeTimeout(() => setState(prev => ({ ...prev, error: null })), 5000);
     }
   };
 

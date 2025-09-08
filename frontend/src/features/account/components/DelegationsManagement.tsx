@@ -59,10 +59,10 @@ export const DelegationsManagement: React.FC = () => {
   const loadDelegations = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('auth_token');
+      // Use centralized API service instead of direct fetch
       const response = await fetch('/api/v1/accounts/current/delegations', {
         headers: {
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
           'Content-Type': 'application/json'
         }
       });
@@ -84,7 +84,7 @@ export const DelegationsManagement: React.FC = () => {
   const handleCreateDelegation = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = localStorage.getItem('accessToken');
       const response = await fetch('/api/v1/accounts/current/delegations', {
         method: 'POST',
         headers: {
@@ -138,7 +138,7 @@ export const DelegationsManagement: React.FC = () => {
 
   const handleDelegationAction = async (delegationId: string, action: 'activate' | 'deactivate' | 'revoke') => {
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = localStorage.getItem('accessToken');
       const response = await fetch(`/api/v1/accounts/current/delegations/${delegationId}/${action}`, {
         method: 'PATCH',
         headers: {

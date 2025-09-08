@@ -12,8 +12,8 @@ export function stripMarkdown(markdown: string): string {
 
   let result = markdown;
   
-  // Remove code blocks completely
-  result = result.replace(/```[^`]*```/g, '');
+  // Remove code blocks completely - Fixed: More specific pattern to prevent backtracking
+  result = result.replace(/```[^`\n]*(?:`?[^`\n])*```/g, '');
   
   // Remove headers
   result = result.replace(/^#{1,6}\s+/gm, '');
@@ -21,9 +21,9 @@ export function stripMarkdown(markdown: string): string {
   // Remove inline code (just the backticks, keep content)
   result = result.replace(/`([^`]+)`/g, '$1');
   
-  // Remove bold and italic
-  result = result.replace(/\*{1,3}([^*]+)\*{1,3}/g, '$1');
-  result = result.replace(/_{1,3}([^_]+)_{1,3}/g, '$1');
+  // Remove bold and italic - Fixed: More specific patterns
+  result = result.replace(/\*{1,3}([^*\n]+)\*{1,3}/g, '$1');
+  result = result.replace(/_{1,3}([^_\n]+)_{1,3}/g, '$1');
   
   // Remove strikethrough
   result = result.replace(/~~([^~]+)~~/g, '$1');
@@ -142,16 +142,16 @@ export function hasMarkdownFormatting(text: string): boolean {
   
   const markdownPatterns = [
     /^#{1,6}\s/m, // Headers (must be at start of line)
-    /\*{2,3}[^*]+\*{2,3}/, // Bold (2+ asterisks)
-    /\*[^*\s][^*]*?[^*\s]\*/, // Italic (single asterisk, not empty)
+    /\*{2,3}[^*\n]+\*{2,3}/, // Bold (2+ asterisks) - Fixed: prevent newline matching
+    /\*[^*\s][^*\n]*[^*\s]\*/, // Italic (single asterisk, not empty) - Fixed: prevent newline matching
     /\*{4,}/, // Multiple asterisks without content should not match
-    /_{2,3}[^_]+_{2,3}/, // Bold underscores
-    /_[^_\s][^_]*[^_\s]_/, // Italic underscores  
-    /~~[^~]+~~/, // Strikethrough
-    /`[^`]+`/, // Inline code
-    /\[[^\]]*\]\([^)]*\)/, // Links (allow empty text and empty URL)
-    /!\[[^\]]*\]\([^)]+\)/, // Images
-    /```[\s\S]*?```/, // Code blocks
+    /_{2,3}[^_\n]+_{2,3}/, // Bold underscores - Fixed: prevent newline matching
+    /_[^_\s][^_\n]*[^_\s]_/, // Italic underscores - Fixed: prevent newline matching
+    /~~[^~\n]+~~/, // Strikethrough - Fixed: prevent newline matching
+    /`[^`\n]+`/, // Inline code - Fixed: prevent newline matching
+    /\[[^\]\n]*\]\([^)\n]*\)/, // Links (allow empty text and empty URL) - Fixed: prevent newline matching
+    /!\[[^\]\n]*\]\([^)\n]+\)/, // Images - Fixed: prevent newline matching
+    /```[^`\n]*(?:`?[^`\n])*```/, // Code blocks - Fixed: prevent catastrophic backtracking
     /^>\s+/m, // Blockquotes
     /^[-*_]{3,}$/m, // Horizontal rules
     /^[\s]*[-*+]\s+/m, // Lists

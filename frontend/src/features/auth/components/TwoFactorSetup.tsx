@@ -4,6 +4,7 @@ import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { Button } from '@/shared/components/ui/Button';
 import { FormField } from '@/shared/components/ui/FormField';
 import { Copy, Check } from 'lucide-react';
+import { sanitizeQrCode } from '@/shared/utils/sanitizeHtml';
 
 interface TwoFactorSetupProps {
   onComplete?: () => void;
@@ -104,7 +105,7 @@ const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ onComplete, onCancel })
             <div className="flex flex-col items-center space-y-4">
               <div 
                 className="p-4 bg-theme-surface border border-theme rounded-lg"
-                dangerouslySetInnerHTML={{ __html: qrCode }}
+                dangerouslySetInnerHTML={{ __html: sanitizeQrCode(qrCode) }}
               />
               <p className="text-sm text-theme-secondary text-center">
                 Scan this QR code with Google Authenticator, Authy, or another TOTP app

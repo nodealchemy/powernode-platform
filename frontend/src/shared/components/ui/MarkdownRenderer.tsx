@@ -6,6 +6,7 @@ import rehypeHighlight from 'rehype-highlight';
 import rehypeRaw from 'rehype-raw';
 import type { Components } from 'react-markdown';
 import { hasMarkdownFormatting } from '@/shared/utils/markdownUtils';
+import { sanitizeMarkdown } from '@/shared/utils/sanitizeHtml';
 
 /**
  * Process markdown content to add advanced visual features
@@ -16,11 +17,13 @@ const processAdvancedFeatures = (content: string): string => {
 
   return content
     // Callout syntax: :::info, :::warning, :::success, :::danger, :::note
-    .replace(/:::(info|warning|success|danger|note)\n([\s\S]*?)\n:::/g, 
+    // Fixed: Use atomic grouping pattern to prevent backtracking
+    .replace(/:::(info|warning|success|danger|note)\n([^]*?)\n:::/g, 
       '<div class="callout callout-$1" data-type="$1">$2</div>')
     
     // Alert syntax: !!! for important alerts
-    .replace(/!!!\s*(.*?)\n([\s\S]*?)(?=\n\n|\n$|$)/g, 
+    // Fixed: Simplified pattern to prevent ReDoS
+    .replace(/!!!\s*([^\n]*)\n([^]*?)(?:\n\n|$)/g, 
       '<div class="alert alert-info">$2</div>')
     
     // Badge syntax: [[badge:text]] or [[badge:type:text]]
@@ -30,11 +33,13 @@ const processAdvancedFeatures = (content: string): string => {
       '<span class="badge" data-badge="primary">$1</span>')
     
     // Card blocks: ~~~ card content ~~~
-    .replace(/~~~\s*card\s*\n([\s\S]*?)\n~~~/g, 
+    // Fixed: Use [^]* instead of [\s\S]*? to prevent backtracking
+    .replace(/~~~\s*card\s*\n([^]*?)\n~~~/g, 
       '<div class="card-block" data-card="true">$1</div>')
     
     // Terminal code blocks: ```terminal or ```bash with terminal styling
-    .replace(/```(terminal|bash|sh)\n([\s\S]*?)```/g, 
+    // Fixed: Use [^]* instead of [\s\S]*? to prevent backtracking
+    .replace(/```(terminal|bash|sh)\n([^]*?)```/g, 
       '<pre class="code-terminal" data-terminal="true"><code>$2</code></pre>')
     
     // Enhanced horizontal rules with decorative elements
@@ -405,7 +410,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
         <div 
           className={`markdown-content ${variant}`}
           dangerouslySetInnerHTML={{ 
-            __html: renderedContent 
+            __html: sanitizeMarkdown(renderedContent) 
           }} 
         />
       ) : content ? (

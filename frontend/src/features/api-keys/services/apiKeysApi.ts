@@ -135,18 +135,15 @@ export const apiKeysApi = {
       const response = await api.get(`/api_keys?page=${page}&per_page=${perPage}`);
       return response.data;
     } catch (error: any) {
-      console.error('API Keys fetch error:', error);
-      console.error('Error details:', {
-        hasResponse: !!error.response,
-        hasRequest: !!error.request,
-        message: error.message,
-        code: error.code,
-        config: error.config ? {
-          url: error.config.url,
-          method: error.config.method,
-          baseURL: error.config.baseURL
-        } : null
-      });
+      // Log error without sensitive information
+      if (process.env.NODE_ENV === 'development') {
+        console.error('API Keys fetch error:', {
+          message: error.message,
+          status: error.response?.status,
+          url: error.config?.url?.replace(/\/api_keys.*/, '/api_keys'),
+          method: error.config?.method
+        });
+      }
       
       // Handle different types of errors more specifically
       let errorMessage = 'Failed to fetch API keys';
