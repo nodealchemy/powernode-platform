@@ -292,3 +292,6 @@ Thumbs.db
 exports/
 export.json
 export.csv
+
+# RSpec auto-generated example files
+worker/spec/examples.txt
