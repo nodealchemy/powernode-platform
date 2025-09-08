@@ -132,7 +132,7 @@ RSpec.describe 'Job Queue Management', type: :integration do
     it 'uses custom retry intervals for different error types' do
       retry_block = BaseJob.sidekiq_retry_in_block
       
-      # Test API error intervals (shorter)
+      # Test API error intervals (shorter, fixed)
       api_error = BackendApiClient::ApiError.new('API Error', 503)
       api_interval_1 = retry_block.call(1, api_error)
       api_interval_2 = retry_block.call(2, api_error)
@@ -140,13 +140,23 @@ RSpec.describe 'Job Queue Management', type: :integration do
       expect(api_interval_1).to eq(30)
       expect(api_interval_2).to eq(60)
       
-      # Test standard error intervals (exponential backoff)
+      # Test standard error intervals (exponential backoff with randomness)
       std_error = StandardError.new('Standard Error')
-      std_interval_1 = retry_block.call(1, std_error)
-      std_interval_2 = retry_block.call(2, std_error)
       
-      expect(std_interval_1).to be > api_interval_1
-      expect(std_interval_2).to be > std_interval_1
+      # Test multiple times to account for randomness and ensure pattern holds
+      intervals_1 = Array.new(10) { retry_block.call(1, std_error) }
+      intervals_2 = Array.new(10) { retry_block.call(2, std_error) }
+      
+      # All intervals should be within expected range: (count ** 4) + 15 + (0-30) * (count + 1)
+      # Count=1: (1**4) + 15 + (0-60) = 16-76
+      # Count=2: (2**4) + 15 + (0-90) = 31-121
+      expect(intervals_1).to all(be_between(16, 76))
+      expect(intervals_2).to all(be_between(31, 121))
+      
+      # Verify that count=2 intervals are generally higher than count=1
+      avg_interval_1 = intervals_1.sum / intervals_1.length
+      avg_interval_2 = intervals_2.sum / intervals_2.length
+      expect(avg_interval_2).to be > avg_interval_1
     end
 
     it 'moves jobs to dead queue after max retries exceeded' do
