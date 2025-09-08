@@ -105,6 +105,7 @@ export const ApiKeysPage: React.FC = () => {
 
   const breadcrumbs = [
     { label: 'Dashboard', href: '/app', icon: '🏠' },
+    { label: 'System', icon: '⚙️' },
     { label: 'API Keys', icon: '🔑' }
   ];
 

@@ -31,7 +31,6 @@ import { BillingPage } from './business/BillingPage';
 
 // Import system pages
 import WebhookManagementPage from '@/pages/app/WebhookManagementPage';
-import { AuditLogsPage as SystemAuditLogsPage } from '@/pages/app/AuditLogsPage';
 
 // Import marketplace pages
 import { MarketplacePage, AppDetailPage } from '@/pages/app/marketplace';
@@ -438,13 +437,12 @@ const DashboardPage: React.FC = () => {
         {/* System Pages */}
         <Route path="/profile/*" element={<SettingsPage />} />
         {/* Workers moved to admin routes */}
-        <Route path="/audit-logs" element={<AuditLogsPage />} />
-        <Route path="/api-keys" element={<ApiKeysPage />} />
         
         {/* System Management Pages */}
         <Route path="/system/services" element={<ServicesPage />} />
         <Route path="/system/webhooks" element={<WebhookManagementPage />} />
-        <Route path="/system/audit-logs" element={<SystemAuditLogsPage />} />
+        <Route path="/system/audit-logs" element={<AuditLogsPage />} />
+        <Route path="/system/api-keys" element={<ApiKeysPage />} />
         
         {/* Business Analytics Pages */}
         <Route path="/business/analytics/*" element={<AnalyticsPage />} />

@@ -45,8 +45,8 @@ export const AuditLogsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'table' | 'analytics'>('table');
   
   // Check if user has audit log permissions
-  const canReadAuditLogs = hasPermissions(user, ['audit.read']);
-  const canExportAuditLogs = hasPermissions(user, ['audit.export']);
+  const canReadAuditLogs = hasPermissions(user, ['audit_logs.read']);
+  const canExportAuditLogs = hasPermissions(user, ['audit_logs.export']);
   
   // Handle tab changes with proper type casting
   const handleTabChange = (tabId: string) => {
@@ -236,6 +236,7 @@ export const AuditLogsPage: React.FC = () => {
   const getBreadcrumbs = () => {
     const baseBreadcrumbs = [
       { label: 'Dashboard', href: '/app', icon: '🏠' },
+      { label: 'System', icon: '⚙️' },
       { label: 'Audit Logs', icon: '🛡️' }
     ];
     
@@ -269,7 +270,7 @@ export const AuditLogsPage: React.FC = () => {
             You don't have permission to view audit logs. Contact your system administrator to request access.
           </p>
           <p className="text-sm text-theme-tertiary">
-            Required permission: <code className="px-2 py-1 bg-theme-background-secondary rounded">audit.read</code>
+            Required permission: <code className="px-2 py-1 bg-theme-background-secondary rounded">audit_logs.read</code>
           </p>
         </div>
       ) : (
@@ -335,7 +336,7 @@ export const AuditLogsPage: React.FC = () => {
           tabs={tabs}
           activeTab={activeTab}
           onTabChange={handleTabChange}
-          basePath="/app/audit-logs"
+          basePath="/app/system/audit-logs"
           variant="underline"
           className="mb-6"
         >

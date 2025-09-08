@@ -212,7 +212,7 @@ export const adminNavigationOverrides = {
         {
           id: 'api-keys',
           name: 'API Keys',
-          href: '/app/api-keys',
+          href: '/app/system/api-keys',
           icon: '🔑',
           description: 'Manage API keys and access tokens',
           permissions: ['api.manage_keys'],
