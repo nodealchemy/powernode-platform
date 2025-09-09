@@ -5,7 +5,7 @@ module Authentication
 
   included do
     before_action :authenticate_request
-    attr_reader :current_user, :current_account, :current_worker, :current_user_token
+    attr_reader :current_user, :current_account, :current_worker, :current_service, :current_jwt_payload
   end
 
   private
@@ -17,7 +17,7 @@ module Authentication
     return render_unauthorized("Access token required") unless header
 
     begin
-      # Try worker authentication first if token looks like a worker token
+      # Try worker authentication first if token looks like a worker token (legacy)
       if header.start_with?('swt_')
         @current_worker = Worker.authenticate(header)
         if @current_worker
@@ -27,27 +27,29 @@ module Authentication
         end
       end
 
-      # Try user authentication
-      user_token = UserToken.authenticate(header)
-      return render_unauthorized("Invalid or expired access token") unless user_token
-
-      # Check if this is an impersonation token
-      if user_token.token_type == 'impersonation'
-        handle_impersonation_token(user_token)
+      # JWT token authentication
+      payload = JwtService.decode(header)
+      
+      case payload[:type]
+      when 'access'
+        handle_user_token(payload)
+      when 'worker'  
+        handle_worker_token(payload)
+      when 'impersonation'
+        handle_impersonation_jwt_token(payload)
+      when 'service'
+        handle_service_token(payload)
       else
-        handle_regular_token(user_token)
+        return render_unauthorized("Invalid token type")
       end
 
-      return render_unauthorized("User inactive") unless @current_user.active?
-      return render_unauthorized("Account suspended") unless @current_account.active?
-
-      # Update token usage tracking
-      user_token.touch_last_used!(
-        ip: request.remote_ip,
-        user_agent: request.user_agent
-      )
-
-      @current_user.record_login! if should_record_login?
+      # Validate user/account status for user tokens
+      if @current_user
+        return render_unauthorized("User inactive") unless @current_user.active?
+        return render_unauthorized("Account suspended") unless @current_account.active?
+        @current_user.record_login! if should_record_login?
+      end
+      
     rescue StandardError => e
       Rails.logger.error "Authentication error: #{e.message}"
       render_unauthorized("Invalid access token")
@@ -61,26 +63,28 @@ module Authentication
     header = header.split(" ").last
 
     begin
-      user_token = UserToken.authenticate(header)
-      return unless user_token
-
-      @current_user = user_token.user
-      @current_account = @current_user.account
-
-      if @current_user.active? && @current_account.active?
-        # Update token usage tracking
-        user_token.touch_last_used!(
-          ip: request.remote_ip,
-          user_agent: request.user_agent
-        )
-        @current_user.record_login! if should_record_login?
-      else
-        @current_user = nil
-        @current_account = nil
+      # Try JWT authentication
+      payload = JwtService.decode(header)
+      
+      case payload[:type]
+      when 'access'
+        user = User.find(payload[:sub])
+        if user&.active? && user.account&.active?
+          @current_user = user
+          @current_account = user.account
+          @current_user.record_login! if should_record_login?
+        end
+      when 'worker'
+        worker = Worker.find(payload[:sub])
+        @current_worker = worker if worker&.active?
+      when 'impersonation'
+        # Handle impersonation session loading
+        handle_impersonation_jwt_token(payload)
       end
     rescue StandardError
       @current_user = nil
       @current_account = nil
+      @current_worker = nil
     end
   end
 
@@ -96,17 +100,27 @@ module Authentication
     current_user.last_login_at.nil? || current_user.last_login_at < 1.hour.ago
   end
 
-  def handle_regular_token(user_token)
-    @current_user = user_token.user
+  def handle_user_token(payload)
+    @current_user = User.find(payload[:sub])
     @current_account = @current_user.account
-    @current_user_token = user_token
+    @current_jwt_payload = payload
     @impersonator = nil
     @impersonation_session = nil
   end
 
-  def handle_impersonation_token(user_token)
-    # Get impersonation session ID from token metadata
-    session_id = user_token.metadata['session_id']
+  def handle_worker_token(payload)
+    @current_worker = Worker.find(payload[:sub])
+    @current_jwt_payload = payload
+  end
+  
+  def handle_service_token(payload)
+    @current_service = payload[:service]
+    @current_jwt_payload = payload
+  end
+
+  def handle_impersonation_jwt_token(payload)
+    # Get impersonation session ID from JWT metadata
+    session_id = payload[:session_id]
     @impersonation_session = ImpersonationSession.find_by(id: session_id)
     
     unless @impersonation_session&.active?
@@ -122,7 +136,7 @@ module Authentication
     @current_user = @impersonation_session.impersonated_user
     @current_account = @current_user.account
     @impersonator = @impersonation_session.impersonator
-    @current_user_token = user_token
+    @current_jwt_payload = payload
 
     # Add impersonation header for client identification
     response.set_header('X-Impersonation-Active', 'true')
@@ -169,8 +183,15 @@ module Authentication
 
   # Check if current entity (user or worker) has permission without rendering error
   def has_permission?(permission_name)
+    # For JWT tokens, check permissions directly from token payload (faster)
+    if @current_jwt_payload&.dig(:permissions)&.include?(permission_name)
+      return true
+    end
+    
+    # Fallback to database checks
     return current_user.has_permission?(permission_name) if current_user
     return current_worker.has_permission?(permission_name) if current_worker
+    return true if @current_service # Service tokens have implied permissions
     false
   end
 

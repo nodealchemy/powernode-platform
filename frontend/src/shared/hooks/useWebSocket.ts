@@ -35,6 +35,9 @@ export const useWebSocket = (): UseWebSocketReturn => {
   const connectingRef = useRef<boolean>(false);
   const mountedRef = useRef<boolean>(true);
   const connectionDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const reconnectAttemptsRef = useRef<number>(0);
+  const lastConnectAttemptRef = useRef<number>(0);
+  const refreshingTokenRef = useRef<boolean>(false);
   
   const [state, setState] = useState<WebSocketState>({
     isConnected: false,
@@ -177,6 +180,23 @@ export const useWebSocket = (): UseWebSocketReturn => {
       return;
     }
 
+    // Implement exponential backoff to prevent rapid reconnection
+    const now = Date.now();
+    const timeSinceLastAttempt = now - lastConnectAttemptRef.current;
+    const minBackoffTime = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 30000); // Max 30 seconds
+    
+    if (timeSinceLastAttempt < minBackoffTime) {
+      // Schedule retry after backoff period
+      setTimeout(() => {
+        if (mountedRef.current) {
+          connect();
+        }
+      }, minBackoffTime - timeSinceLastAttempt);
+      return;
+    }
+
+    lastConnectAttemptRef.current = now;
+
     // Clear any existing debounce timeout
     if (connectionDebounceRef.current) {
       clearTimeout(connectionDebounceRef.current);
@@ -212,6 +232,7 @@ export const useWebSocket = (): UseWebSocketReturn => {
         if (!mountedRef.current) return;
         
         connectingRef.current = false;
+        reconnectAttemptsRef.current = 0; // Reset reconnect attempts on successful connection
         setState({
           isConnected: true,
           error: null,
@@ -246,15 +267,41 @@ export const useWebSocket = (): UseWebSocketReturn => {
 
           // Handle disconnect (authentication failure)
           if (data.type === 'disconnect' && data.reason === 'unauthorized') {
+            // Close current connection to prevent reconnection loops
+            if (wsRef.current) {
+              wsRef.current.close();
+              wsRef.current = null;
+            }
+            
+            // Prevent multiple concurrent token refresh attempts
+            if (refreshingTokenRef.current) {
+              return;
+            }
+            
+            refreshingTokenRef.current = true;
+            
+            // Try to refresh token but limit reconnection attempts
             dispatch(refreshAccessToken())
               .unwrap()
               .then(() => {
-                setTimeout(connect, 1000);
+                refreshingTokenRef.current = false;
+                // Only reconnect if we still have valid auth and component is mounted
+                if (mountedRef.current && user?.account?.id) {
+                  setTimeout(() => {
+                    // Double-check auth state before reconnecting
+                    if (mountedRef.current && user?.account?.id && accessToken) {
+                      connect();
+                    }
+                  }, 2000); // Longer delay to prevent rapid reconnection
+                }
               })
               .catch((error) => {
+                refreshingTokenRef.current = false;
+                // Token refresh failed - user needs to re-login
                 setState(prev => ({
                   ...prev,
-                  error: 'Authentication failed - please login again'
+                  error: 'Session expired - please login again',
+                  isConnected: false
                 }));
               });
             return;
@@ -307,14 +354,25 @@ export const useWebSocket = (): UseWebSocketReturn => {
           error: errorMessage
         }));
 
-        // Auto-reconnect after 3 seconds if not a normal closure and user is still authenticated
+        // Auto-reconnect with exponential backoff if not a normal closure and user is still authenticated
         if (event.code !== 1000 && accessToken && user?.account?.id && mountedRef.current) {
-          reconnectTimeoutRef.current = setTimeout(() => {
-            if (mountedRef.current) {
-              connect();
-            }
-          }, 3000);
-        } else if (event.code !== 1000) {
+          reconnectAttemptsRef.current += 1;
+          const backoffTime = Math.min(3000 * Math.pow(1.5, reconnectAttemptsRef.current - 1), 30000);
+          
+          // Limit reconnection attempts to prevent infinite loops
+          if (reconnectAttemptsRef.current <= 10) {
+            reconnectTimeoutRef.current = setTimeout(() => {
+              if (mountedRef.current) {
+                connect();
+              }
+            }, backoffTime);
+          } else {
+            // Too many failed attempts - stop trying
+            setState(prev => ({
+              ...prev,
+              error: 'Connection failed repeatedly - please refresh the page'
+            }));
+          }
         }
       };
 
@@ -349,6 +407,11 @@ export const useWebSocket = (): UseWebSocketReturn => {
   // Disconnect WebSocket
   const disconnect = useCallback(() => {
     connectingRef.current = false;
+    
+    // Reset reconnection state
+    reconnectAttemptsRef.current = 0;
+    lastConnectAttemptRef.current = 0;
+    refreshingTokenRef.current = false;
     
     // Clear all timeouts
     if (reconnectTimeoutRef.current) {

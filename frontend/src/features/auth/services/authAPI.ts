@@ -23,6 +23,7 @@ export interface AuthResponse {
     first_name: string;
     last_name: string;
     roles: string[];
+    permissions: string[];  // Added permissions array from JWT
     status: string;
     email_verified: boolean;
     account: {
@@ -34,6 +35,7 @@ export interface AuthResponse {
   access_token?: string;
   refresh_token?: string;
   expires_at?: string;
+  refresh_expires_at?: string;  // Added for JWT refresh token expiration
   warning?: string;
   message?: string;
   error?: string;
@@ -42,8 +44,11 @@ export interface AuthResponse {
 }
 
 export interface RefreshTokenResponse {
+  success: boolean;
   access_token: string;
   refresh_token: string;
+  expires_at: string;
+  refresh_expires_at?: string;
 }
 
 class AuthAPI {
@@ -86,6 +91,13 @@ class AuthAPI {
 
   async resendVerification() {
     return api.post('/auth/resend-verification');
+  }
+
+  async verify2FA(verificationToken: string, code: string) {
+    return api.post<AuthResponse>('/auth/verify-2fa', {
+      verification_token: verificationToken,
+      code: code,
+    });
   }
 }
 

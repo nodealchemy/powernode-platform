@@ -311,12 +311,20 @@ export const SettingsPage: React.FC = () => {
       return;
     }
 
+    setSaving(true);
     try {
-      setSaving(true);
-      await settingsApi.changePassword(passwordForm);
-      setPasswordForm({ current_password: '', password: '', password_confirmation: '' });
-      showSuccess('Password changed successfully');
+      const response = await settingsApi.changePassword(passwordForm);
+      
+      if (response.success) {
+        setPasswordForm({ current_password: '', password: '', password_confirmation: '' });
+        showSuccess('Password changed successfully');
+      } else {
+        // Show specific error message, prioritizing detailed validation errors
+        const errorMessage = response.message || response.error || 'Failed to change password';
+        showError(errorMessage);
+      }
     } catch (error: unknown) {
+      // Handle network errors or other exceptions
       const errorMsg = error instanceof Error ? error.message : 'Failed to change password';
       showError(errorMsg);
     } finally {

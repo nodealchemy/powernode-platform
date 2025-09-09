@@ -33,7 +33,7 @@ module PasswordSecurity
     
     # Check password history (only for existing users)
     if persisted? && password_reused?
-      errors.add(:password, "cannot be one of your last 12 passwords")
+      errors.add(:password, "has been used recently. For security, please choose a different password that you haven't used in your last 12 password changes")
     end
   end
 

@@ -246,6 +246,18 @@ export const checkImpersonationStatus = createAsyncThunk(
   }
 );
 
+export const verify2FA = createAsyncThunk(
+  'auth/verify2FA',
+  async ({ verificationToken, code }: { verificationToken: string; code: string }, { rejectWithValue }) => {
+    try {
+      const response = await authAPI.verify2FA(verificationToken, code);
+      return response.data;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.error || error.response?.data?.message || '2FA verification failed');
+    }
+  }
+);
+
 const authSlice = createSlice({
   name: 'auth',
   initialState,
@@ -583,6 +595,33 @@ const authSlice = createSlice({
           expiresAt: null,
         };
         localStorage.removeItem('impersonationToken');
+      })
+      
+      // 2FA verification
+      .addCase(verify2FA.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(verify2FA.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.isAuthenticated = true;
+        state.user = action.payload.user || null;
+        state.accessToken = action.payload.access_token || null;
+        state.refreshToken = action.payload.refresh_token || null;
+        
+        if (action.payload.access_token) {
+          localStorage.setItem('accessToken', action.payload.access_token);
+        }
+        if (action.payload.refresh_token) {
+          localStorage.setItem('refreshToken', action.payload.refresh_token);
+        }
+        
+        // Track the domain where authentication was established
+        setAuthDomain();
+      })
+      .addCase(verify2FA.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string || '2FA verification failed';
       });
   },
 });

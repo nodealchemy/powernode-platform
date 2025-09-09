@@ -24,7 +24,11 @@ class Api::V1::Auth::SessionsController < ApplicationController
         # Check if user has 2FA enabled
         if user.two_factor_enabled?
           # Generate 2FA verification token
-          two_fa_result = UserToken.create_token_for_user(user, type: '2fa', expires_in: 10.minutes)
+          metadata = {
+            ip: request.remote_ip,
+            user_agent: request.user_agent
+          }
+          two_fa_result = JwtService.generate_2fa_token(user, metadata: metadata)
           
           # Create partial audit log entry
           AuditLog.create!(
@@ -48,9 +52,13 @@ class Api::V1::Auth::SessionsController < ApplicationController
           return
         end
 
-        # Normal login without 2FA - create traditional tokens
-        access_result = UserToken.create_token_for_user(user, type: 'access')
-        refresh_result = UserToken.create_token_for_user(user, type: 'refresh', expires_in: 7.days)
+        # Normal login without 2FA - create JWT tokens
+        metadata = {
+          ip: request.remote_ip,
+          user_agent: request.user_agent
+        }
+        
+        token_result = JwtService.generate_user_tokens(user, metadata: metadata)
         user.record_login!
 
         # Create audit log entry
@@ -70,9 +78,9 @@ class Api::V1::Auth::SessionsController < ApplicationController
           success: true,
           user: user_data(user),
           account: account_data(user.account),
-          access_token: access_result[:token],
-          refresh_token: refresh_result[:token],
-          expires_at: access_result[:user_token].expires_at
+          access_token: token_result[:access_token],
+          refresh_token: token_result[:refresh_token],
+          expires_at: token_result[:expires_at]
         }
 
         # Add warning if email is not verified
@@ -120,48 +128,45 @@ class Api::V1::Auth::SessionsController < ApplicationController
     return render_error("Refresh token required", status: :bad_request) unless refresh_token
 
     begin
-      # Find and validate refresh token
-      user_token = UserToken.find_by_token(refresh_token)
-      unless user_token&.active? && user_token&.token_type == 'refresh'
-        return render_error("Invalid or expired refresh token", status: :unauthorized)
-      end
-
-      # Generate new access token using the refresh token
-      new_access_result = user_token.refresh!
-      unless new_access_result
-        return render_error("Unable to refresh token", status: :unauthorized)
-      end
+      # Use JWT service to refresh the token
+      token_result = JwtService.refresh_access_token(refresh_token)
 
       render json: {
         success: true,
-        access_token: new_access_result[:token],
-        refresh_token: refresh_token, # Keep same refresh token
-        expires_at: new_access_result[:user_token].expires_at
+        access_token: token_result[:access_token],
+        refresh_token: token_result[:refresh_token],
+        expires_at: token_result[:expires_at]
       }, status: :ok
     rescue StandardError => e
       Rails.logger.error "Token refresh error: #{e.message}"
       Rails.logger.error "Token refresh backtrace: #{e.backtrace.join("\n")}"
-      render_error("Invalid refresh token", status: :unauthorized)
+      
+      # Check if this is a permissions change that requires re-login
+      if e.message.include?("Permissions changed")
+        render_error("Authentication required - please log in again", status: :unauthorized)
+      else
+        render_error("Invalid refresh token", status: :unauthorized)
+      end
     end
   end
 
   # DELETE /api/v1/sessions
   def destroy
-    # Revoke the current access token and any provided refresh token
+    # Blacklist the current access token and any provided refresh token
     begin
-      # Revoke current access token if available
-      if current_user_token
-        current_user_token.revoke!(reason: "logout")
+      # Get current token from authorization header
+      if request.headers["Authorization"]
+        current_token = request.headers["Authorization"].split(" ").last
+        JwtService.blacklist_token(current_token, reason: "logout", user_id: current_user.id)
       end
 
-      # Also revoke refresh token if provided
+      # Also blacklist refresh token if provided
       if params[:refresh_token].present?
-        refresh_token = UserToken.find_by_token(params[:refresh_token])
-        refresh_token&.revoke!(reason: "logout")
+        JwtService.blacklist_token(params[:refresh_token], reason: "logout", user_id: current_user.id)
       end
     rescue => e
-      Rails.logger.error "Error revoking tokens: #{e.message}"
-      # Continue with logout even if revoking fails
+      Rails.logger.error "Error blacklisting tokens: #{e.message}"
+      # Continue with logout even if blacklisting fails
     end
 
     # Create audit log entry for logout
@@ -213,31 +218,12 @@ class Api::V1::Auth::SessionsController < ApplicationController
     end
 
     begin
-      # Find and validate 2FA token
-      two_fa_token = UserToken.find_by_token(verification_token)
-      unless two_fa_token&.active? && two_fa_token.token_type == '2fa'
-        return render json: {
-          success: false,
-          error: "Invalid or expired verification token"
-        }, status: :unauthorized
-      end
-
-      user = two_fa_token.user
+      # Use JWT service to verify 2FA and get full tokens
+      token_result = JwtService.verify_2fa_token(verification_token, two_factor_code)
       
-      # Verify the 2FA code
-      unless user.verify_two_factor_token(two_factor_code)
-        return render json: {
-          success: false,
-          error: "Invalid two-factor authentication code"
-        }, status: :unauthorized
-      end
-
-      # Revoke the 2FA token (it's now used)
-      two_fa_token.revoke!(reason: "2fa_used")
-
-      # Generate access and refresh tokens
-      access_result = UserToken.create_token_for_user(user, type: 'access')
-      refresh_result = UserToken.create_token_for_user(user, type: 'refresh', expires_in: 7.days)
+      # Get user from the token result (user info should be in the JWT)
+      payload = JwtService.decode(token_result[:access_token])
+      user = User.find(payload[:sub])
       user.record_login!
 
       # Create successful login audit log entry
@@ -257,9 +243,9 @@ class Api::V1::Auth::SessionsController < ApplicationController
         success: true,
         user: user_data(user),
         account: account_data(user.account),
-        access_token: access_result[:token],
-        refresh_token: refresh_result[:token],
-        expires_at: access_result[:user_token].expires_at
+        access_token: token_result[:access_token],
+        refresh_token: token_result[:refresh_token],
+        expires_at: token_result[:expires_at]
       }
 
       # Add warning if email is not verified

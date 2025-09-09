@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_09_05_000007) do
+ActiveRecord::Schema[8.0].define(version: 2025_09_08_223655) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -38,7 +38,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_09_05_000007) do
     t.index ["role_id"], name: "index_account_delegations_on_role"
     t.index ["role_id"], name: "index_account_delegations_on_role_id"
     t.index ["status"], name: "index_account_delegations_on_status"
-    t.check_constraint "status::text = ANY (ARRAY['active'::character varying, 'inactive'::character varying, 'expired'::character varying]::text[])", name: "valid_delegation_status"
+    t.check_constraint "status::text = ANY (ARRAY['active'::character varying::text, 'inactive'::character varying::text, 'expired'::character varying::text])", name: "valid_delegation_status"
   end
 
   create_table "accounts", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -56,7 +56,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_09_05_000007) do
     t.index ["status"], name: "index_accounts_on_status"
     t.index ["stripe_customer_id"], name: "index_accounts_on_stripe_customer_id", unique: true, where: "(stripe_customer_id IS NOT NULL)"
     t.index ["subdomain"], name: "index_accounts_on_subdomain", unique: true, where: "((subdomain IS NOT NULL) AND ((subdomain)::text <> ''::text))"
-    t.check_constraint "status::text = ANY (ARRAY['active'::character varying, 'cancelled'::character varying, 'suspended'::character varying]::text[])", name: "valid_account_status"
+    t.check_constraint "status::text = ANY (ARRAY['active'::character varying::text, 'cancelled'::character varying::text, 'suspended'::character varying::text])", name: "valid_account_status"
   end
 
   create_table "admin_settings", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -75,7 +75,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_09_05_000007) do
     t.index ["key"], name: "idx_admin_settings_on_key_unique", unique: true
     t.index ["setting_type"], name: "idx_admin_settings_on_setting_type"
     t.index ["sort_order"], name: "idx_admin_settings_on_sort_order"
-    t.check_constraint "setting_type::text = ANY (ARRAY['string'::character varying, 'text'::character varying, 'integer'::character varying, 'boolean'::character varying, 'json'::character varying, 'array'::character varying]::text[])", name: "valid_admin_setting_type"
+    t.check_constraint "setting_type::text = ANY (ARRAY['string'::character varying::text, 'text'::character varying::text, 'integer'::character varying::text, 'boolean'::character varying::text, 'json'::character varying::text, 'array'::character varying::text])", name: "valid_admin_setting_type"
   end
 
   create_table "api_key_usages", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -200,7 +200,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_09_05_000007) do
     t.index ["is_active"], name: "idx_app_endpoints_on_is_active"
     t.index ["is_public"], name: "idx_app_endpoints_on_is_public"
     t.index ["version"], name: "idx_app_endpoints_on_version"
-    t.check_constraint "http_method::text = ANY (ARRAY['GET'::character varying, 'POST'::character varying, 'PUT'::character varying, 'PATCH'::character varying, 'DELETE'::character varying, 'HEAD'::character varying, 'OPTIONS'::character varying]::text[])", name: "valid_endpoint_http_method"
+    t.check_constraint "http_method::text = ANY (ARRAY['GET'::character varying::text, 'POST'::character varying::text, 'PUT'::character varying::text, 'PATCH'::character varying::text, 'DELETE'::character varying::text, 'HEAD'::character varying::text, 'OPTIONS'::character varying::text])", name: "valid_endpoint_http_method"
   end
 
   create_table "app_features", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -238,7 +238,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_09_05_000007) do
     t.index ["app_id"], name: "index_app_plans_on_app_id"
     t.index ["is_active"], name: "idx_app_plans_on_is_active"
     t.index ["is_public"], name: "idx_app_plans_on_is_public"
-    t.check_constraint "billing_interval::text = ANY (ARRAY['monthly'::character varying, 'yearly'::character varying, 'one_time'::character varying]::text[])", name: "valid_app_billing_interval"
+    t.check_constraint "billing_interval::text = ANY (ARRAY['monthly'::character varying::text, 'yearly'::character varying::text, 'one_time'::character varying::text])", name: "valid_app_billing_interval"
     t.check_constraint "price_cents >= 0", name: "valid_app_plan_price"
   end
 
@@ -280,7 +280,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_09_05_000007) do
     t.check_constraint "features_rating IS NULL OR features_rating >= 1 AND features_rating <= 5", name: "valid_features_rating"
     t.check_constraint "quality_score IS NULL OR quality_score >= 0::numeric AND quality_score <= 100::numeric", name: "valid_quality_score"
     t.check_constraint "rating >= 1 AND rating <= 5", name: "valid_overall_rating"
-    t.check_constraint "status::text = ANY (ARRAY['draft'::character varying, 'published'::character varying, 'hidden'::character varying, 'flagged'::character varying, 'removed'::character varying]::text[])", name: "valid_review_status"
+    t.check_constraint "status::text = ANY (ARRAY['draft'::character varying::text, 'published'::character varying::text, 'hidden'::character varying::text, 'flagged'::character varying::text, 'removed'::character varying::text])", name: "valid_review_status"
     t.check_constraint "support_rating IS NULL OR support_rating >= 1 AND support_rating <= 5", name: "valid_support_rating"
     t.check_constraint "usability_rating IS NULL OR usability_rating >= 1 AND usability_rating <= 5", name: "valid_usability_rating"
     t.check_constraint "value_rating IS NULL OR value_rating >= 1 AND value_rating <= 5", name: "valid_value_rating"
@@ -304,7 +304,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_09_05_000007) do
     t.index ["app_plan_id"], name: "index_app_subscriptions_on_app_plan_id"
     t.index ["next_billing_at"], name: "idx_app_subscriptions_on_next_billing_at"
     t.index ["status"], name: "idx_app_subscriptions_on_status"
-    t.check_constraint "status::text = ANY (ARRAY['active'::character varying, 'paused'::character varying, 'cancelled'::character varying, 'expired'::character varying]::text[])", name: "valid_app_subscription_status"
+    t.check_constraint "status::text = ANY (ARRAY['active'::character varying::text, 'paused'::character varying::text, 'cancelled'::character varying::text, 'expired'::character varying::text])", name: "valid_app_subscription_status"
   end
 
   create_table "app_webhook_deliveries", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -327,7 +327,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_09_05_000007) do
     t.index ["next_retry_at"], name: "idx_app_webhook_deliveries_on_next_retry_at"
     t.index ["status"], name: "idx_app_webhook_deliveries_on_status"
     t.check_constraint "attempt_number > 0", name: "valid_webhook_attempt_number"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'delivered'::character varying, 'failed'::character varying, 'cancelled'::character varying]::text[])", name: "valid_webhook_delivery_status"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'delivered'::character varying::text, 'failed'::character varying::text, 'cancelled'::character varying::text])", name: "valid_webhook_delivery_status"
   end
 
   create_table "app_webhooks", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -352,7 +352,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_09_05_000007) do
     t.index ["app_id"], name: "index_app_webhooks_on_app_id"
     t.index ["event_type"], name: "idx_app_webhooks_on_event_type"
     t.index ["is_active"], name: "idx_app_webhooks_on_is_active"
-    t.check_constraint "http_method::text = ANY (ARRAY['POST'::character varying, 'PUT'::character varying, 'PATCH'::character varying]::text[])", name: "valid_webhook_http_method"
+    t.check_constraint "http_method::text = ANY (ARRAY['POST'::character varying::text, 'PUT'::character varying::text, 'PATCH'::character varying::text])", name: "valid_webhook_http_method"
     t.check_constraint "max_retries >= 0 AND max_retries <= 10", name: "valid_webhook_retries"
     t.check_constraint "timeout_seconds > 0 AND timeout_seconds <= 300", name: "valid_webhook_timeout"
   end
@@ -386,7 +386,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_09_05_000007) do
     t.index ["published_at"], name: "idx_apps_on_published_at"
     t.index ["slug"], name: "idx_apps_on_slug_unique", unique: true
     t.index ["status"], name: "idx_apps_on_status"
-    t.check_constraint "status::text = ANY (ARRAY['draft'::character varying, 'review'::character varying, 'published'::character varying, 'inactive'::character varying]::text[])", name: "valid_app_status"
+    t.check_constraint "status::text = ANY (ARRAY['draft'::character varying::text, 'review'::character varying::text, 'published'::character varying::text, 'inactive'::character varying::text])", name: "valid_app_status"
   end
 
   create_table "audit_logs", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -436,7 +436,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_09_05_000007) do
     t.index ["status"], name: "idx_background_jobs_on_status"
     t.check_constraint "attempts >= 0 AND max_attempts > 0", name: "valid_job_attempts"
     t.check_constraint "priority >= 0", name: "valid_job_priority"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'processing'::character varying, 'completed'::character varying, 'failed'::character varying, 'cancelled'::character varying, 'retrying'::character varying]::text[])", name: "valid_job_status"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'processing'::character varying::text, 'completed'::character varying::text, 'failed'::character varying::text, 'cancelled'::character varying::text, 'retrying'::character varying::text])", name: "valid_job_status"
   end
 
   create_table "blacklisted_tokens", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -469,8 +469,8 @@ ActiveRecord::Schema[8.0].define(version: 2025_09_05_000007) do
     t.index ["created_by_id"], name: "index_database_backups_on_created_by_id"
     t.index ["started_at"], name: "idx_database_backups_on_started_at"
     t.index ["status"], name: "idx_database_backups_on_status"
-    t.check_constraint "backup_type::text = ANY (ARRAY['full'::character varying, 'incremental'::character varying, 'manual'::character varying]::text[])", name: "valid_backup_type"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'running'::character varying, 'completed'::character varying, 'failed'::character varying]::text[])", name: "valid_backup_status"
+    t.check_constraint "backup_type::text = ANY (ARRAY['full'::character varying::text, 'incremental'::character varying::text, 'manual'::character varying::text])", name: "valid_backup_type"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'running'::character varying::text, 'completed'::character varying::text, 'failed'::character varying::text])", name: "valid_backup_status"
   end
 
   create_table "database_restores", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -491,7 +491,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_09_05_000007) do
     t.index ["initiated_by_id"], name: "index_database_restores_on_initiated_by_id"
     t.index ["started_at"], name: "idx_database_restores_on_started_at"
     t.index ["status"], name: "idx_database_restores_on_status"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'running'::character varying, 'completed'::character varying, 'failed'::character varying]::text[])", name: "valid_restore_status"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'running'::character varying::text, 'completed'::character varying::text, 'failed'::character varying::text])", name: "valid_restore_status"
   end
 
   create_table "delegation_permissions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -532,9 +532,9 @@ ActiveRecord::Schema[8.0].define(version: 2025_09_05_000007) do
     t.index ["sent_at"], name: "idx_email_deliveries_on_sent_at"
     t.index ["status"], name: "idx_email_deliveries_on_status"
     t.index ["user_id"], name: "index_email_deliveries_on_user_id"
-    t.check_constraint "email_type::text = ANY (ARRAY['welcome'::character varying, 'verification'::character varying, 'password_reset'::character varying, 'invitation'::character varying, 'notification'::character varying, 'marketing'::character varying, 'transactional'::character varying]::text[])", name: "valid_email_type"
+    t.check_constraint "email_type::text = ANY (ARRAY['welcome'::character varying::text, 'verification'::character varying::text, 'password_reset'::character varying::text, 'invitation'::character varying::text, 'notification'::character varying::text, 'marketing'::character varying::text, 'transactional'::character varying::text])", name: "valid_email_type"
     t.check_constraint "retry_count >= 0", name: "valid_email_retry_count"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'sent'::character varying, 'delivered'::character varying, 'bounced'::character varying, 'failed'::character varying, 'opened'::character varying, 'clicked'::character varying]::text[])", name: "valid_email_status"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'sent'::character varying::text, 'delivered'::character varying::text, 'bounced'::character varying::text, 'failed'::character varying::text, 'opened'::character varying::text, 'clicked'::character varying::text])", name: "valid_email_status"
   end
 
   create_table "gateway_configurations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -562,7 +562,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_09_05_000007) do
     t.index ["gateway", "operation"], name: "idx_gateway_connection_jobs_on_gateway_operation"
     t.index ["scheduled_at"], name: "idx_gateway_connection_jobs_on_scheduled_at"
     t.index ["status"], name: "idx_gateway_connection_jobs_on_status"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'processing'::character varying, 'completed'::character varying, 'failed'::character varying]::text[])", name: "valid_gateway_job_status"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'processing'::character varying::text, 'completed'::character varying::text, 'failed'::character varying::text])", name: "valid_gateway_job_status"
   end
 
   create_table "impersonation_sessions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -606,7 +606,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_09_05_000007) do
     t.index ["role_names"], name: "index_invitations_on_role_names", using: :gin
     t.index ["status"], name: "index_invitations_on_status"
     t.index ["token_digest"], name: "index_invitations_on_token_digest", unique: true
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'accepted'::character varying, 'expired'::character varying, 'cancelled'::character varying]::text[])", name: "valid_invitation_status"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'accepted'::character varying::text, 'expired'::character varying::text, 'cancelled'::character varying::text])", name: "valid_invitation_status"
   end
 
   create_table "invoice_line_items", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -655,9 +655,24 @@ ActiveRecord::Schema[8.0].define(version: 2025_09_05_000007) do
     t.index ["status"], name: "idx_invoices_on_status"
     t.index ["stripe_invoice_id"], name: "idx_invoices_on_stripe_id_unique", unique: true, where: "(stripe_invoice_id IS NOT NULL)"
     t.index ["subscription_id"], name: "index_invoices_on_subscription_id"
-    t.check_constraint "status::text = ANY (ARRAY['draft'::character varying, 'open'::character varying, 'paid'::character varying, 'void'::character varying, 'uncollectible'::character varying]::text[])", name: "valid_invoice_status"
+    t.check_constraint "status::text = ANY (ARRAY['draft'::character varying::text, 'open'::character varying::text, 'paid'::character varying::text, 'void'::character varying::text, 'uncollectible'::character varying::text])", name: "valid_invoice_status"
     t.check_constraint "subtotal_cents >= 0 AND tax_cents >= 0 AND total_cents >= 0", name: "valid_invoice_amounts"
     t.check_constraint "tax_rate >= 0::numeric AND tax_rate < 1::numeric", name: "valid_tax_rate"
+  end
+
+  create_table "jwt_blacklists", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "jti", limit: 100, null: false
+    t.datetime "expires_at", null: false
+    t.uuid "user_id"
+    t.string "reason", limit: 100
+    t.boolean "user_blacklist", default: false, null: false
+    t.text "metadata"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["expires_at"], name: "index_jwt_blacklists_on_expires_at"
+    t.index ["jti", "expires_at"], name: "index_jwt_blacklists_on_jti_and_expires_at"
+    t.index ["jti"], name: "index_jwt_blacklists_on_jti", unique: true
+    t.index ["user_id", "user_blacklist"], name: "index_jwt_blacklists_on_user_id_and_user_blacklist"
   end
 
   create_table "knowledge_base_article_tags", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -733,7 +748,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_09_05_000007) do
     t.check_constraint "helpful_count >= 0 AND not_helpful_count >= 0", name: "valid_kb_helpful_counts"
     t.check_constraint "helpfulness_score >= 0::numeric AND helpfulness_score <= 100::numeric", name: "valid_kb_helpfulness_score"
     t.check_constraint "reading_time_minutes IS NULL OR reading_time_minutes > 0", name: "valid_kb_reading_time"
-    t.check_constraint "status::text = ANY (ARRAY['draft'::character varying, 'review'::character varying, 'published'::character varying, 'archived'::character varying]::text[])", name: "valid_kb_article_status"
+    t.check_constraint "status::text = ANY (ARRAY['draft'::character varying::text, 'review'::character varying::text, 'published'::character varying::text, 'archived'::character varying::text])", name: "valid_kb_article_status"
     t.check_constraint "view_count >= 0", name: "valid_kb_view_count"
   end
 
@@ -796,7 +811,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_09_05_000007) do
     t.index ["parent_id"], name: "index_knowledge_base_comments_on_parent_id"
     t.index ["status"], name: "idx_kb_comments_on_status"
     t.check_constraint "helpful_count >= 0", name: "valid_kb_comment_helpful_count"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'published'::character varying, 'hidden'::character varying, 'spam'::character varying]::text[])", name: "valid_kb_comment_status"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'published'::character varying::text, 'hidden'::character varying::text, 'spam'::character varying::text])", name: "valid_kb_comment_status"
   end
 
   create_table "knowledge_base_tags", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -833,7 +848,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_09_05_000007) do
     t.index ["to_status"], name: "idx_kb_workflows_on_to_status"
     t.index ["user_id"], name: "idx_kb_workflows_on_user_id"
     t.index ["user_id"], name: "index_knowledge_base_workflows_on_user_id"
-    t.check_constraint "action::text = ANY (ARRAY['create'::character varying, 'edit'::character varying, 'publish'::character varying, 'unpublish'::character varying, 'archive'::character varying, 'delete'::character varying, 'review'::character varying]::text[])", name: "valid_kb_workflow_action"
+    t.check_constraint "action::text = ANY (ARRAY['create'::character varying::text, 'edit'::character varying::text, 'publish'::character varying::text, 'unpublish'::character varying::text, 'archive'::character varying::text, 'delete'::character varying::text, 'review'::character varying::text])", name: "valid_kb_workflow_action"
   end
 
   create_table "marketplace_categories", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -872,7 +887,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_09_05_000007) do
     t.index ["featured"], name: "idx_marketplace_listings_on_featured"
     t.index ["published_at"], name: "idx_marketplace_listings_on_published_at"
     t.index ["review_status"], name: "idx_marketplace_listings_on_review_status"
-    t.check_constraint "review_status::text = ANY (ARRAY['pending'::character varying, 'approved'::character varying, 'rejected'::character varying]::text[])", name: "valid_listing_review_status"
+    t.check_constraint "review_status::text = ANY (ARRAY['pending'::character varying::text, 'approved'::character varying::text, 'rejected'::character varying::text])", name: "valid_listing_review_status"
   end
 
   create_table "missing_payment_logs", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -919,7 +934,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_09_05_000007) do
     t.index ["published_at"], name: "idx_pages_on_published_at"
     t.index ["slug"], name: "idx_pages_on_slug_unique", unique: true
     t.index ["status"], name: "idx_pages_on_status"
-    t.check_constraint "status::text = ANY (ARRAY['draft'::character varying, 'published'::character varying, 'archived'::character varying]::text[])", name: "valid_page_status"
+    t.check_constraint "status::text = ANY (ARRAY['draft'::character varying::text, 'published'::character varying::text, 'archived'::character varying::text])", name: "valid_page_status"
   end
 
   create_table "password_histories", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -949,8 +964,8 @@ ActiveRecord::Schema[8.0].define(version: 2025_09_05_000007) do
     t.index ["account_id"], name: "index_payment_methods_on_account_id"
     t.index ["gateway", "external_id"], name: "idx_payment_methods_on_gateway_external_id_unique", unique: true
     t.index ["is_active"], name: "idx_payment_methods_on_is_active"
-    t.check_constraint "gateway::text = ANY (ARRAY['stripe'::character varying, 'paypal'::character varying]::text[])", name: "valid_payment_gateway"
-    t.check_constraint "payment_type::text = ANY (ARRAY['card'::character varying, 'bank'::character varying, 'paypal'::character varying, 'apple_pay'::character varying, 'google_pay'::character varying]::text[])", name: "valid_payment_type"
+    t.check_constraint "gateway::text = ANY (ARRAY['stripe'::character varying::text, 'paypal'::character varying::text])", name: "valid_payment_gateway"
+    t.check_constraint "payment_type::text = ANY (ARRAY['card'::character varying::text, 'bank'::character varying::text, 'paypal'::character varying::text, 'apple_pay'::character varying::text, 'google_pay'::character varying::text])", name: "valid_payment_type"
   end
 
   create_table "payments", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -980,8 +995,8 @@ ActiveRecord::Schema[8.0].define(version: 2025_09_05_000007) do
     t.index ["subscription_id"], name: "index_payments_on_subscription_id"
     t.index ["transaction_type"], name: "idx_payments_on_transaction_type"
     t.check_constraint "amount_cents >= 0", name: "valid_payment_amount"
-    t.check_constraint "gateway::text = ANY (ARRAY['stripe'::character varying, 'paypal'::character varying]::text[])", name: "valid_payment_gateway"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'processing'::character varying, 'succeeded'::character varying, 'failed'::character varying, 'canceled'::character varying, 'refunded'::character varying, 'partially_refunded'::character varying]::text[])", name: "valid_payment_status"
+    t.check_constraint "gateway::text = ANY (ARRAY['stripe'::character varying::text, 'paypal'::character varying::text])", name: "valid_payment_gateway"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'processing'::character varying::text, 'succeeded'::character varying::text, 'failed'::character varying::text, 'canceled'::character varying::text, 'refunded'::character varying::text, 'partially_refunded'::character varying::text])", name: "valid_payment_status"
   end
 
   create_table "permissions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -995,7 +1010,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_09_05_000007) do
     t.index ["category"], name: "index_permissions_on_category"
     t.index ["name"], name: "index_permissions_on_name", unique: true
     t.index ["resource", "action", "category"], name: "idx_permissions_on_resource_action_category_unique", unique: true
-    t.check_constraint "category::text = ANY (ARRAY['resource'::character varying, 'admin'::character varying, 'system'::character varying]::text[])", name: "valid_permission_category"
+    t.check_constraint "category::text = ANY (ARRAY['resource'::character varying::text, 'admin'::character varying::text, 'system'::character varying::text])", name: "valid_permission_category"
   end
 
   create_table "plans", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1031,7 +1046,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_09_05_000007) do
     t.index ["is_active"], name: "idx_plans_on_is_active"
     t.index ["is_public"], name: "idx_plans_on_is_public"
     t.index ["slug"], name: "idx_plans_on_slug_unique", unique: true
-    t.check_constraint "billing_interval::text = ANY (ARRAY['monthly'::character varying, 'yearly'::character varying, 'one_time'::character varying]::text[])", name: "valid_billing_interval"
+    t.check_constraint "billing_interval::text = ANY (ARRAY['monthly'::character varying::text, 'yearly'::character varying::text, 'one_time'::character varying::text])", name: "valid_billing_interval"
     t.check_constraint "price_cents >= 0", name: "valid_price"
   end
 
@@ -1056,9 +1071,9 @@ ActiveRecord::Schema[8.0].define(version: 2025_09_05_000007) do
     t.index ["resolved_by_id"], name: "index_reconciliation_flags_on_resolved_by_id"
     t.index ["severity"], name: "idx_reconciliation_flags_on_severity"
     t.index ["status"], name: "idx_reconciliation_flags_on_status"
-    t.check_constraint "flag_type::text = ANY (ARRAY['missing_payment'::character varying, 'duplicate_payment'::character varying, 'amount_mismatch'::character varying, 'status_mismatch'::character varying, 'unknown_transaction'::character varying]::text[])", name: "valid_flag_type"
-    t.check_constraint "severity::text = ANY (ARRAY['low'::character varying, 'medium'::character varying, 'high'::character varying, 'critical'::character varying]::text[])", name: "valid_flag_severity"
-    t.check_constraint "status::text = ANY (ARRAY['open'::character varying, 'investigating'::character varying, 'resolved'::character varying, 'dismissed'::character varying]::text[])", name: "valid_flag_status"
+    t.check_constraint "flag_type::text = ANY (ARRAY['missing_payment'::character varying::text, 'duplicate_payment'::character varying::text, 'amount_mismatch'::character varying::text, 'status_mismatch'::character varying::text, 'unknown_transaction'::character varying::text])", name: "valid_flag_type"
+    t.check_constraint "severity::text = ANY (ARRAY['low'::character varying::text, 'medium'::character varying::text, 'high'::character varying::text, 'critical'::character varying::text])", name: "valid_flag_severity"
+    t.check_constraint "status::text = ANY (ARRAY['open'::character varying::text, 'investigating'::character varying::text, 'resolved'::character varying::text, 'dismissed'::character varying::text])", name: "valid_flag_status"
   end
 
   create_table "reconciliation_investigations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1077,7 +1092,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_09_05_000007) do
     t.index ["reconciliation_flag_id"], name: "index_reconciliation_investigations_on_reconciliation_flag_id"
     t.index ["started_at"], name: "idx_reconciliation_investigations_on_started_at"
     t.index ["status"], name: "idx_reconciliation_investigations_on_status"
-    t.check_constraint "status::text = ANY (ARRAY['open'::character varying, 'in_progress'::character varying, 'completed'::character varying, 'escalated'::character varying]::text[])", name: "valid_investigation_status"
+    t.check_constraint "status::text = ANY (ARRAY['open'::character varying::text, 'in_progress'::character varying::text, 'completed'::character varying::text, 'escalated'::character varying::text])", name: "valid_investigation_status"
   end
 
   create_table "reconciliation_reports", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1104,9 +1119,9 @@ ActiveRecord::Schema[8.0].define(version: 2025_09_05_000007) do
     t.index ["gateway", "report_date", "report_type"], name: "idx_reconciliation_reports_on_gateway_date_type_unique", unique: true
     t.index ["report_date"], name: "idx_reconciliation_reports_on_report_date"
     t.index ["status"], name: "idx_reconciliation_reports_on_status"
-    t.check_constraint "gateway::text = ANY (ARRAY['stripe'::character varying, 'paypal'::character varying]::text[])", name: "valid_reconciliation_gateway"
-    t.check_constraint "report_type::text = ANY (ARRAY['daily'::character varying, 'weekly'::character varying, 'monthly'::character varying, 'manual'::character varying]::text[])", name: "valid_report_type"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'processing'::character varying, 'completed'::character varying, 'failed'::character varying]::text[])", name: "valid_reconciliation_status"
+    t.check_constraint "gateway::text = ANY (ARRAY['stripe'::character varying::text, 'paypal'::character varying::text])", name: "valid_reconciliation_gateway"
+    t.check_constraint "report_type::text = ANY (ARRAY['daily'::character varying::text, 'weekly'::character varying::text, 'monthly'::character varying::text, 'manual'::character varying::text])", name: "valid_report_type"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'processing'::character varying::text, 'completed'::character varying::text, 'failed'::character varying::text])", name: "valid_reconciliation_status"
     t.check_constraint "total_transactions >= 0 AND matched_transactions >= 0 AND unmatched_transactions >= 0", name: "valid_transaction_counts"
   end
 
@@ -1131,7 +1146,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_09_05_000007) do
     t.index ["requested_by_id"], name: "idx_report_requests_on_requested_by_id"
     t.index ["requested_by_id"], name: "index_report_requests_on_requested_by_id"
     t.index ["status"], name: "idx_report_requests_on_status"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'generating'::character varying, 'completed'::character varying, 'failed'::character varying, 'expired'::character varying]::text[])", name: "valid_report_request_status"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'generating'::character varying::text, 'completed'::character varying::text, 'failed'::character varying::text, 'expired'::character varying::text])", name: "valid_report_request_status"
   end
 
   create_table "revenue_snapshots", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1161,7 +1176,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_09_05_000007) do
     t.index ["account_id"], name: "index_revenue_snapshots_on_account_id"
     t.index ["period_type"], name: "idx_revenue_snapshots_on_period_type"
     t.index ["snapshot_date"], name: "idx_revenue_snapshots_on_snapshot_date"
-    t.check_constraint "period_type::text = ANY (ARRAY['daily'::character varying, 'weekly'::character varying, 'monthly'::character varying, 'yearly'::character varying]::text[])", name: "valid_period_type"
+    t.check_constraint "period_type::text = ANY (ARRAY['daily'::character varying::text, 'weekly'::character varying::text, 'monthly'::character varying::text, 'yearly'::character varying::text])", name: "valid_period_type"
   end
 
   create_table "review_aggregation_cache", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1225,7 +1240,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_09_05_000007) do
     t.index ["file_type"], name: "idx_review_media_attachments_on_file_type"
     t.check_constraint "display_order >= 0", name: "valid_display_order"
     t.check_constraint "file_size IS NULL OR file_size > 0", name: "valid_file_size"
-    t.check_constraint "file_type::text = ANY (ARRAY['image'::character varying, 'video'::character varying, 'document'::character varying]::text[])", name: "valid_media_type"
+    t.check_constraint "file_type::text = ANY (ARRAY['image'::character varying::text, 'video'::character varying::text, 'document'::character varying::text])", name: "valid_media_type"
   end
 
   create_table "review_moderation_actions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1244,7 +1259,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_09_05_000007) do
     t.index ["created_at"], name: "idx_review_moderation_actions_on_created_at"
     t.index ["moderator_id"], name: "idx_review_moderation_actions_on_moderator_id"
     t.index ["moderator_id"], name: "index_review_moderation_actions_on_moderator_id"
-    t.check_constraint "action_type::text = ANY (ARRAY['publish'::character varying, 'hide'::character varying, 'flag'::character varying, 'remove'::character varying, 'approve'::character varying, 'reject'::character varying, 'edit'::character varying]::text[])", name: "valid_moderation_action"
+    t.check_constraint "action_type::text = ANY (ARRAY['publish'::character varying::text, 'hide'::character varying::text, 'flag'::character varying::text, 'remove'::character varying::text, 'approve'::character varying::text, 'reject'::character varying::text, 'edit'::character varying::text])", name: "valid_moderation_action"
   end
 
   create_table "review_notification_deliveries", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1266,8 +1281,8 @@ ActiveRecord::Schema[8.0].define(version: 2025_09_05_000007) do
     t.index ["review_notification_id"], name: "index_review_notification_deliveries_on_review_notification_id"
     t.index ["status"], name: "idx_review_notification_deliveries_on_status"
     t.check_constraint "attempt_count >= 0", name: "valid_delivery_attempt_count"
-    t.check_constraint "delivery_channel::text = ANY (ARRAY['email'::character varying, 'sms'::character varying, 'push'::character varying, 'webhook'::character varying, 'slack'::character varying]::text[])", name: "valid_delivery_channel"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'delivered'::character varying, 'failed'::character varying, 'cancelled'::character varying]::text[])", name: "valid_delivery_status"
+    t.check_constraint "delivery_channel::text = ANY (ARRAY['email'::character varying::text, 'sms'::character varying::text, 'push'::character varying::text, 'webhook'::character varying::text, 'slack'::character varying::text])", name: "valid_delivery_channel"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'delivered'::character varying::text, 'failed'::character varying::text, 'cancelled'::character varying::text])", name: "valid_delivery_status"
   end
 
   create_table "review_notifications", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1299,10 +1314,10 @@ ActiveRecord::Schema[8.0].define(version: 2025_09_05_000007) do
     t.index ["status"], name: "idx_review_notifications_on_status"
     t.index ["triggered_by_id"], name: "idx_review_notifications_on_triggered_by_id"
     t.index ["triggered_by_id"], name: "index_review_notifications_on_triggered_by_id"
-    t.check_constraint "notification_type::text = ANY (ARRAY['new_review'::character varying, 'review_response'::character varying, 'review_flagged'::character varying, 'review_approved'::character varying, 'review_rejected'::character varying, 'review_milestone'::character varying, 'helpful_vote'::character varying, 'review_digest'::character varying, 'admin_alert'::character varying]::text[])", name: "valid_notification_type"
-    t.check_constraint "priority::text = ANY (ARRAY['low'::character varying, 'normal'::character varying, 'high'::character varying, 'urgent'::character varying]::text[])", name: "valid_notification_priority"
+    t.check_constraint "notification_type::text = ANY (ARRAY['new_review'::character varying::text, 'review_response'::character varying::text, 'review_flagged'::character varying::text, 'review_approved'::character varying::text, 'review_rejected'::character varying::text, 'review_milestone'::character varying::text, 'helpful_vote'::character varying::text, 'review_digest'::character varying::text, 'admin_alert'::character varying::text])", name: "valid_notification_type"
+    t.check_constraint "priority::text = ANY (ARRAY['low'::character varying::text, 'normal'::character varying::text, 'high'::character varying::text, 'urgent'::character varying::text])", name: "valid_notification_priority"
     t.check_constraint "retry_count >= 0", name: "valid_retry_count"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'sent'::character varying, 'failed'::character varying, 'cancelled'::character varying]::text[])", name: "valid_notification_status"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'sent'::character varying::text, 'failed'::character varying::text, 'cancelled'::character varying::text])", name: "valid_notification_status"
   end
 
   create_table "review_responses", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1319,7 +1334,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_09_05_000007) do
     t.index ["responder_id"], name: "idx_review_responses_on_responder_id"
     t.index ["responder_id"], name: "index_review_responses_on_responder_id"
     t.index ["status"], name: "idx_review_responses_on_status"
-    t.check_constraint "status::text = ANY (ARRAY['draft'::character varying, 'published'::character varying, 'hidden'::character varying, 'removed'::character varying]::text[])", name: "valid_response_status"
+    t.check_constraint "status::text = ANY (ARRAY['draft'::character varying::text, 'published'::character varying::text, 'hidden'::character varying::text, 'removed'::character varying::text])", name: "valid_response_status"
   end
 
   create_table "role_permissions", id: false, force: :cascade do |t|
@@ -1365,7 +1380,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_09_05_000007) do
     t.index ["frequency"], name: "idx_scheduled_reports_on_frequency"
     t.index ["is_active"], name: "idx_scheduled_reports_on_is_active"
     t.index ["next_run_at"], name: "idx_scheduled_reports_on_next_run_at"
-    t.check_constraint "frequency::text = ANY (ARRAY['daily'::character varying, 'weekly'::character varying, 'monthly'::character varying, 'quarterly'::character varying, 'yearly'::character varying]::text[])", name: "valid_report_frequency"
+    t.check_constraint "frequency::text = ANY (ARRAY['daily'::character varying::text, 'weekly'::character varying::text, 'monthly'::character varying::text, 'quarterly'::character varying::text, 'yearly'::character varying::text])", name: "valid_report_frequency"
   end
 
   create_table "scheduled_tasks", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1403,7 +1418,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_09_05_000007) do
     t.index ["is_public"], name: "idx_site_settings_on_is_public"
     t.index ["key"], name: "idx_site_settings_on_key_unique", unique: true
     t.index ["setting_type"], name: "idx_site_settings_on_setting_type"
-    t.check_constraint "setting_type::text = ANY (ARRAY['string'::character varying, 'text'::character varying, 'integer'::character varying, 'boolean'::character varying, 'json'::character varying, 'array'::character varying]::text[])", name: "valid_site_setting_type"
+    t.check_constraint "setting_type::text = ANY (ARRAY['string'::character varying::text, 'text'::character varying::text, 'integer'::character varying::text, 'boolean'::character varying::text, 'json'::character varying::text, 'array'::character varying::text])", name: "valid_site_setting_type"
   end
 
   create_table "subscriptions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1431,7 +1446,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_09_05_000007) do
     t.index ["status"], name: "idx_subscriptions_on_status"
     t.index ["stripe_subscription_id"], name: "idx_subscriptions_on_stripe_id_unique", unique: true, where: "(stripe_subscription_id IS NOT NULL)"
     t.index ["trial_end"], name: "idx_subscriptions_on_trial_end"
-    t.check_constraint "status::text = ANY (ARRAY['active'::character varying, 'trialing'::character varying, 'past_due'::character varying, 'canceled'::character varying, 'unpaid'::character varying, 'incomplete'::character varying, 'incomplete_expired'::character varying, 'paused'::character varying]::text[])", name: "valid_subscription_status"
+    t.check_constraint "status::text = ANY (ARRAY['active'::character varying::text, 'trialing'::character varying::text, 'past_due'::character varying::text, 'canceled'::character varying::text, 'unpaid'::character varying::text, 'incomplete'::character varying::text, 'incomplete_expired'::character varying::text, 'paused'::character varying::text])", name: "valid_subscription_status"
   end
 
   create_table "system_health_checks", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1446,7 +1461,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_09_05_000007) do
     t.index ["check_name", "checked_at"], name: "idx_system_health_checks_on_name_checked_at"
     t.index ["checked_at"], name: "idx_system_health_checks_on_checked_at"
     t.index ["status"], name: "idx_system_health_checks_on_status"
-    t.check_constraint "status::text = ANY (ARRAY['healthy'::character varying, 'warning'::character varying, 'critical'::character varying, 'unknown'::character varying]::text[])", name: "valid_health_status"
+    t.check_constraint "status::text = ANY (ARRAY['healthy'::character varying::text, 'warning'::character varying::text, 'critical'::character varying::text, 'unknown'::character varying::text])", name: "valid_health_status"
   end
 
   create_table "system_operations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1468,7 +1483,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_09_05_000007) do
     t.index ["operation_type"], name: "idx_system_operations_on_operation_type"
     t.index ["started_at"], name: "idx_system_operations_on_started_at"
     t.index ["status"], name: "idx_system_operations_on_status"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'running'::character varying, 'completed'::character varying, 'failed'::character varying, 'cancelled'::character varying]::text[])", name: "valid_operation_status"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'running'::character varying::text, 'completed'::character varying::text, 'failed'::character varying::text, 'cancelled'::character varying::text])", name: "valid_operation_status"
   end
 
   create_table "task_executions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1486,7 +1501,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_09_05_000007) do
     t.index ["scheduled_task_id"], name: "index_task_executions_on_scheduled_task_id"
     t.index ["started_at"], name: "idx_task_executions_on_started_at"
     t.index ["status"], name: "idx_task_executions_on_status"
-    t.check_constraint "status::text = ANY (ARRAY['running'::character varying, 'completed'::character varying, 'failed'::character varying, 'timeout'::character varying]::text[])", name: "valid_execution_status"
+    t.check_constraint "status::text = ANY (ARRAY['running'::character varying::text, 'completed'::character varying::text, 'failed'::character varying::text, 'timeout'::character varying::text])", name: "valid_execution_status"
   end
 
   create_table "user_roles", id: false, force: :cascade do |t|
@@ -1530,7 +1545,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_09_05_000007) do
     t.index ["user_id"], name: "index_user_tokens_on_user_id"
     t.check_constraint "expires_at > created_at", name: "valid_expiration"
     t.check_constraint "length(token_digest::text) >= 32", name: "valid_token_digest_length"
-    t.check_constraint "token_type::text = ANY (ARRAY['access'::character varying, 'refresh'::character varying, 'api_key'::character varying, '2fa'::character varying, 'impersonation'::character varying]::text[])", name: "valid_token_type"
+    t.check_constraint "token_type::text = ANY (ARRAY['access'::character varying::text, 'refresh'::character varying::text, 'api_key'::character varying::text, '2fa'::character varying::text, 'impersonation'::character varying::text])", name: "valid_token_type"
   end
 
   create_table "users", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1566,7 +1581,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_09_05_000007) do
     t.index ["email_verification_token"], name: "index_users_on_email_verification_token", unique: true, where: "(email_verification_token IS NOT NULL)"
     t.index ["reset_token_digest"], name: "index_users_on_reset_token_digest", unique: true, where: "(reset_token_digest IS NOT NULL)"
     t.index ["status"], name: "index_users_on_status"
-    t.check_constraint "status::text = ANY (ARRAY['active'::character varying, 'inactive'::character varying, 'suspended'::character varying, 'pending_verification'::character varying]::text[])", name: "valid_user_status"
+    t.check_constraint "status::text = ANY (ARRAY['active'::character varying::text, 'inactive'::character varying::text, 'suspended'::character varying::text, 'pending_verification'::character varying::text])", name: "valid_user_status"
   end
 
   create_table "webhook_deliveries", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1591,7 +1606,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_09_05_000007) do
     t.index ["webhook_event_id"], name: "idx_webhook_deliveries_on_webhook_event_id"
     t.index ["webhook_event_id"], name: "index_webhook_deliveries_on_webhook_event_id"
     t.check_constraint "attempt_number > 0", name: "valid_webhook_attempt_number"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'success'::character varying, 'failed'::character varying, 'timeout'::character varying]::text[])", name: "valid_webhook_delivery_status"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'success'::character varying::text, 'failed'::character varying::text, 'timeout'::character varying::text])", name: "valid_webhook_delivery_status"
   end
 
   create_table "webhook_endpoints", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1625,11 +1640,11 @@ ActiveRecord::Schema[8.0].define(version: 2025_09_05_000007) do
     t.index ["last_delivery_at"], name: "idx_webhook_endpoints_on_last_delivery_at"
     t.index ["status", "is_active"], name: "idx_webhook_endpoints_on_status_active"
     t.index ["success_count"], name: "idx_webhook_endpoints_on_success_count"
-    t.check_constraint "content_type::text = ANY (ARRAY['application/json'::character varying, 'application/x-www-form-urlencoded'::character varying]::text[])", name: "valid_webhook_content_type"
+    t.check_constraint "content_type::text = ANY (ARRAY['application/json'::character varying::text, 'application/x-www-form-urlencoded'::character varying::text])", name: "valid_webhook_content_type"
     t.check_constraint "failure_count >= 0", name: "valid_webhook_failure_count"
-    t.check_constraint "retry_backoff::text = ANY (ARRAY['linear'::character varying, 'exponential'::character varying]::text[])", name: "valid_webhook_retry_backoff"
+    t.check_constraint "retry_backoff::text = ANY (ARRAY['linear'::character varying::text, 'exponential'::character varying::text])", name: "valid_webhook_retry_backoff"
     t.check_constraint "retry_limit >= 0 AND retry_limit <= 10", name: "valid_webhook_retry_limit"
-    t.check_constraint "status::text = ANY (ARRAY['active'::character varying, 'inactive'::character varying, 'suspended'::character varying]::text[])", name: "valid_webhook_status"
+    t.check_constraint "status::text = ANY (ARRAY['active'::character varying::text, 'inactive'::character varying::text, 'suspended'::character varying::text])", name: "valid_webhook_status"
     t.check_constraint "success_count >= 0", name: "valid_webhook_success_count"
     t.check_constraint "timeout_seconds > 0 AND timeout_seconds <= 300", name: "valid_webhook_timeout"
   end
@@ -1659,9 +1674,9 @@ ActiveRecord::Schema[8.0].define(version: 2025_09_05_000007) do
     t.index ["provider"], name: "idx_webhook_events_on_provider"
     t.index ["retry_count"], name: "idx_webhook_events_on_retry_count"
     t.index ["status"], name: "idx_webhook_events_on_status"
-    t.check_constraint "provider::text = ANY (ARRAY['stripe'::character varying, 'paypal'::character varying]::text[])", name: "valid_webhook_provider"
+    t.check_constraint "provider::text = ANY (ARRAY['stripe'::character varying::text, 'paypal'::character varying::text])", name: "valid_webhook_provider"
     t.check_constraint "retry_count >= 0 AND retry_count <= 10", name: "valid_webhook_retry_count"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'processing'::character varying, 'processed'::character varying, 'failed'::character varying, 'skipped'::character varying]::text[])", name: "valid_webhook_event_status"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'processing'::character varying::text, 'processed'::character varying::text, 'failed'::character varying::text, 'skipped'::character varying::text])", name: "valid_webhook_event_status"
   end
 
   create_table "worker_activities", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1743,6 +1758,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_09_05_000007) do
   add_foreign_key "invoice_line_items", "plans"
   add_foreign_key "invoices", "accounts"
   add_foreign_key "invoices", "subscriptions"
+  add_foreign_key "jwt_blacklists", "users", on_delete: :nullify
   add_foreign_key "knowledge_base_article_views", "users"
   add_foreign_key "knowledge_base_articles", "users", column: "author_id"
   add_foreign_key "knowledge_base_articles", "users", column: "last_edited_by_id"

@@ -177,7 +177,16 @@ export const settingsApi = {
   // Change user password (authentication required)
   async changePassword(passwordData: { current_password: string; password: string; password_confirmation: string }): Promise<{ success: boolean; error?: string; message?: string }> {
     try {
-      const response = await api.put('/auth/change-password', passwordData);
+      // Transform parameters to match backend expectations
+      const backendParams = {
+        password: {
+          current_password: passwordData.current_password,
+          new_password: passwordData.password,
+          password_confirmation: passwordData.password_confirmation
+        }
+      };
+      
+      const response = await api.put('/auth/change-password', backendParams);
       return response.data;
     } catch (error: any) {
       return {
