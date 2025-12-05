@@ -162,7 +162,7 @@ start_worker() {
         export WORKER_ENV=\${WORKER_ENV:-development}
         export REDIS_URL=\${REDIS_URL:-redis://localhost:6379/1}
         export BACKEND_API_URL=\${BACKEND_API_URL:-http://localhost:3000}
-        export SERVICE_TOKEN='$WORKER_TOKEN'
+        export WORKER_TOKEN='$WORKER_TOKEN'
         
         echo 'Starting Sidekiq worker...' | tee -a '$LOG_FILE'
         exec bundle exec sidekiq -r ./config/application.rb -C ./config/sidekiq.yml 2>&1 | tee -a '$LOG_FILE'
@@ -176,10 +176,11 @@ start_worker() {
         if [[ -n "$screen_pid" ]]; then
             echo "$screen_pid" > "$PID_FILE"
             success "Worker service started successfully (PID: $screen_pid)"
-            
-            # Note: Web interface can be started separately with: $0 start-web
-            log "Worker started. Use '$0 start-web' to start the web interface separately"
-            
+
+            # Automatically start web interface
+            log "Starting Sidekiq web interface..."
+            start_web_interface
+
             return 0
         fi
         sleep 0.5
@@ -228,8 +229,8 @@ start_web_interface() {
         cd '$WORKER_DIR'
         export WORKER_ENV=\${WORKER_ENV:-development}
         export REDIS_URL=\${REDIS_URL:-redis://localhost:6379/1}
-        export BACKEND_API_URL=\${BACKEND_API_URL:-http://localhost:3001}
-        export SERVICE_TOKEN='$WORKER_TOKEN'
+        export BACKEND_API_URL=\${BACKEND_API_URL:-http://localhost:3000}
+        export WORKER_TOKEN='$WORKER_TOKEN'
         export SIDEKIQ_WEB_HOST=\${SIDEKIQ_WEB_HOST:-0.0.0.0}
         export SIDEKIQ_WEB_PORT=\${SIDEKIQ_WEB_PORT:-4567}
         
@@ -349,7 +350,7 @@ stop_worker() {
 
 # Restart worker service
 restart_worker() {
-    log "Restarting worker service..."
+    log "Restarting worker service and web interface..."
     stop_worker
     # Reduced sleep for faster restart
     sleep 1

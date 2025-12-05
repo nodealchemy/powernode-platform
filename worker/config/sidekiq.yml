@@ -2,15 +2,19 @@
 
 :environment: <%= ENV['WORKER_ENV'] || ENV['RAILS_ENV'] || 'development' %>
 :concurrency: <%= ENV.fetch('WORKER_CONCURRENCY', '5').to_i %>
-:timeout: 25
+:timeout: 300
 :verbose: <%= ENV['WORKER_ENV'] == 'development' %>
 
 # Queue configuration
 :queues:
   - [critical, 3]
   - [high, 3]
+  - [ai_workflows, 2]
+  - [ai_agents, 2]
+  - [ai_conversations, 2]
+  - [file_processing, 2]
   - [services, 2]
-  - [billing, 2]  
+  - [billing, 2]
   - [email, 2]
   - [reports, 2]
   - [webhooks, 1]
@@ -28,9 +32,8 @@
 # Dead job retention (in seconds)
 :dead_timeout_in_seconds: 1209600  # 2 weeks
 
-# Process configuration
-:pidfile: /var/tmp/powernode-worker.pid
-:logfile: /home/rett/Projects/powernode-platform/logs/worker.log
+# Process configuration - Note: Sidekiq 7+ doesn't support pidfile/logfile in config
+# These must be handled by the process manager (screen/systemd/etc)
 :daemonize: false
 
 # Development settings

@@ -90,7 +90,7 @@ Check out: **[CLAUDE.md](CLAUDE.md)** - Development guidance and patterns
 See: **[docs/TODO.md](docs/TODO.md)** - Current status and roadmap
 
 ### 🧪 **Testing & Quality?**
-Visit: **[docs/testing/TESTING_DOCUMENTATION_MASTER.md](docs/testing/TESTING_DOCUMENTATION_MASTER.md)**
+See specialists: **[Backend Test Engineer](docs/testing/BACKEND_TEST_ENGINEER_SPECIALIST.md)** | **[Frontend Test Engineer](docs/testing/FRONTEND_TEST_ENGINEER_SPECIALIST.md)**
 
 ## 🎯 Specialist Documentation
 

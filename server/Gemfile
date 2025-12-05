@@ -6,8 +6,6 @@ gem "rails", "~> 8.0.2"
 gem "pg", "~> 1.1"
 # Use the Puma web server [https://github.com/puma/puma]
 gem "puma", ">= 5.0"
-# Build JSON APIs with ease [https://github.com/rails/jbuilder]
-# gem "jbuilder"
 
 # Use Active Model has_secure_password [https://guides.rubyonrails.org/active_model_basics.html#securepassword]
 gem "bcrypt", "~> 3.1.7"
@@ -37,14 +35,41 @@ gem "httparty"
 gem "prawn"
 gem "prawn-table"
 
-# Prometheus metrics
-# gem "prometheus_exporter"  # Disabled for development
-
 # Markdown processing
 gem "redcarpet"
 
 # Pagination
 gem "kaminari"
+
+# Cron expression parsing for workflow schedules
+gem "fugit"
+
+# Date/time grouping for analytics
+gem "groupdate"
+
+# ===================================================================
+# FILE MANAGEMENT SYSTEM - Storage provider gems
+# ===================================================================
+
+# AWS S3 storage provider
+gem "aws-sdk-s3", "~> 1.156"
+
+# Google Cloud Storage provider
+gem "google-cloud-storage", "~> 1.51"
+
+# Azure Blob Storage provider
+gem "azure-storage-blob", "~> 2.0"
+
+# Image processing for file transformations
+gem "mini_magick", "~> 5.0"
+
+# MIME type detection
+gem "marcel", "~> 1.0"
+
+# Disk filesystem statistics (optional)
+gem "sys-filesystem", "~> 1.5"
+
+# ===================================================================
 
 # Windows does not include zoneinfo files, so bundle the tzinfo-data gem
 gem "tzinfo-data", platforms: %i[ windows jruby ]
@@ -62,9 +87,6 @@ gem "kamal", require: false
 
 # Add HTTP asset caching/compression and X-Sendfile acceleration to Puma [https://github.com/basecamp/thruster/]
 gem "thruster", require: false
-
-# Use Active Storage variants [https://guides.rubyonrails.org/active_storage_overview.html#transforming-images]
-# gem "image_processing", "~> 1.2"
 
 # Use Rack CORS for handling Cross-Origin Resource Sharing (CORS), making cross-origin Ajax possible
 gem "rack-cors"

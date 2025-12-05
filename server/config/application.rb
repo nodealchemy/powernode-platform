@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require_relative "boot"
 require_relative "version"
 
@@ -63,6 +65,9 @@ module Server
 
     # Track boot time for uptime calculations
     config.boot_time = Time.current
+
+    # Application version configuration
+    config.version = Powernode::Version.current
 
     # Configure Redis for caching and session store
     if Rails.env.production? || ENV['REDIS_URL']

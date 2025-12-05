@@ -200,8 +200,8 @@ if (!canAccessAdminPanel) return <AccessDenied />;
 
 #### Implementation Rules
 1. **Frontend**: Check `currentUser.permissions.includes('permission.name')` ONLY
-2. **Backend**: Roles assign permissions, controllers validate permissions
-3. **API Responses**: Always include `permissions` array in user objects
+2. **Backend**: Use `current_user.has_permission?('permission.name')` ONLY - NEVER use `current_user.permissions.include?('permission.name')` (returns Permission objects, not strings)
+3. **API Responses**: Always include `permissions` array in user objects (use `permission_names` method)
 4. **UI Controls**: Disable/hide elements based on permissions
 5. **Navigation**: Filter menu items by permissions, not roles
 
@@ -235,13 +235,13 @@ The backend architecture follows Rails 8 API patterns with a separate Sidekiq wo
 ### 🚨 ABSOLUTE PROHIBITIONS
 **Frontend**:
 1. **NO role-based access control**: ONLY permission-based access control allowed
-2. **NO hardcoded colors**: Use `bg-theme-*`, `text-theme-*` classes only (Exception: `text-white` on colored backgrounds)
+2. **NO hardcoded colors**: Use `bg-theme-*`, `text-theme-*` classes only (Exception: `text-white` on colored backgrounds) ⚡ Auto-fixable: `./scripts/fix-hardcoded-colors.sh`
 3. **NO submenu navigation**: Flat navigation structure only - no `children` arrays
 4. **NO action buttons in page content**: ALL actions in PageContainer only
 5. **NO local success/error state**: Global notifications only
-6. **NO relative imports**: Use path aliases (`@/shared/`, `@/features/`)
+6. **NO cross-feature relative imports**: Use path aliases (`@/shared/`, `@/features/`) for imports outside current feature ⚡ Auto-fixable: `./scripts/convert-relative-imports.sh`
 7. **NO inline styles**: All styling via Tailwind classes
-8. **NO console.log**: Use proper logging utilities
+8. **NO console.log in production**: Wrap debug logging in `process.env.NODE_ENV === 'development'` checks ⚡ Auto-fixable: `./scripts/cleanup-all-console-logs.sh`
 9. **NO any types**: Proper TypeScript types required
 
 **CRITICAL - Permission-Based Access Control**:
@@ -261,6 +261,8 @@ The backend architecture follows Rails 8 API patterns with a separate Sidekiq wo
 16. **NO manual service commands**: NEVER use `rails server`, `sidekiq`, `npm start` directly
 17. **NO Claude attribution**: Clean commit messages only
 18. **NO git commits**: NEVER commit to git unless explicitly requested by user
+19. **NO redundant add_index**: Rails auto-creates indexes for foreign keys/references - ONLY add explicit indexes for unique constraints, composite indexes, or custom names
+20. **NO current_user.permissions.include?**: NEVER use `current_user.permissions.include?('permission.name')` - permissions returns objects not strings. ALWAYS use `current_user.has_permission?('permission.name')`
 
 **Service Management**:
 17. **NO manual service starts**: Use `scripts/auto-dev.sh` or delegate to MCP specialists
@@ -281,13 +283,15 @@ The backend architecture follows Rails 8 API patterns with a separate Sidekiq wo
 **Backend**:
 9. **Controller Pattern**: `Api::V1` namespace, inherit from ApplicationController (includes ApiResponse automatically)
 10. **API Responses**: MANDATORY use `render_success()`, `render_error()`, `render_validation_error()` methods (inherited from ApiResponse concern)
-11. **Model Structure**: Associations → Validations → Scopes → Callbacks → Methods
-12. **Service Delegation**: Complex operations delegated to worker service
-13. **Worker Jobs**: Inherit BaseJob, use execute method, API-only communication
-14. **UUIDv7 Strategy**: All models automatically inherit UUIDv7 generation from ApplicationRecord
-15. **Database Schema**: Use native PostgreSQL UUID types, `type: :uuid` for foreign keys
-16. **Frozen Strings**: All Ruby files start with `# frozen_string_literal: true`
-17. **Error Handling**: Use ApiResponse methods only - never manual JSON responses
+11. **Permission Checking**: ALWAYS use `current_user.has_permission?('permission.name')` - NEVER use `current_user.permissions.include?()` (returns objects not strings)
+12. **Model Structure**: Associations → Validations → Scopes → Callbacks → Methods
+13. **Service Delegation**: Complex operations delegated to worker service
+14. **Worker Jobs**: Inherit BaseJob, use execute method, API-only communication
+15. **UUIDv7 Strategy**: All models automatically inherit UUIDv7 generation from ApplicationRecord
+16. **Database Schema**: Use native PostgreSQL UUID types, `type: :uuid` for foreign keys
+17. **Frozen Strings**: All Ruby files start with `# frozen_string_literal: true`
+18. **Error Handling**: Use ApiResponse methods only - never manual JSON responses
+19. **Migration Indexes**: Rails automatically creates indexes for foreign keys and references. ONLY add explicit `add_index` for: unique constraints, composite indexes, or custom index names. NEVER add redundant single-column indexes.
 
 **Universal**:
 17. **Conventional Commits & Git-Flow**: See [DevOps Engineer](docs/infrastructure/DEVOPS_ENGINEER_SPECIALIST.md#git-workflow--release-management)
@@ -317,11 +321,19 @@ $POWERNODE_ROOT/scripts/auto-dev.sh health     # Health check all services
 #### Individual Service Scripts (When auto-dev.sh insufficient)
 ```bash
 # Backend service
-./server/bin/dev                               # Start Rails server  
+scripts/backend-manager.sh start              # Start Rails server
+scripts/backend-manager.sh stop               # Stop Rails server
+scripts/backend-manager.sh restart            # Restart Rails server
+scripts/backend-manager.sh status             # Check backend status
+scripts/backend-manager.sh follow             # Monitor backend logs
 ./server/scripts/service-health.sh            # Backend health check
 
-# Worker service  
-./worker/bin/dev                               # Start Sidekiq worker
+# Worker service
+scripts/worker-manager.sh start               # Start Sidekiq worker
+scripts/worker-manager.sh stop                # Stop Sidekiq worker
+scripts/worker-manager.sh restart             # Restart Sidekiq worker
+scripts/worker-manager.sh status              # Check worker status
+scripts/worker-manager.sh follow              # Monitor worker logs
 ./worker/scripts/worker-status.sh             # Worker status check
 
 # Frontend service
@@ -335,6 +347,49 @@ $POWERNODE_ROOT/scripts/auto-dev.sh health     # Health check all services
 3. **Use MCP specialists** for complex service issues or configuration
 4. **Individual scripts only** when auto-dev.sh cannot resolve specific service issues
 5. **Reference DevOps Engineer** for service architecture and deployment concerns
+
+### 🛠️ Code Quality Enforcement (AUTOMATED)
+
+**Pre-Commit Hooks**: Automated quality checks prevent violations before commit
+
+#### Install Git Hooks
+```bash
+./scripts/install-git-hooks.sh  # One-time installation
+```
+
+**Automated Checks (runs on every commit):**
+1. ✅ No console.log in production code (dev-wrapped logging allowed)
+2. ✅ No hardcoded color classes (theme classes required)
+3. ✅ No puts/print in Ruby code (use Rails.logger)
+4. ✅ All Ruby files have frozen_string_literal pragma
+5. ⚠️  TypeScript 'any' type usage (warning only)
+
+**Bypass Checks** (not recommended):
+```bash
+git commit --no-verify  # Skip pre-commit checks
+```
+
+#### Automation Scripts
+
+**Console Logging Cleanup:**
+```bash
+./scripts/cleanup-all-console-logs.sh  # Remove debug console statements
+```
+
+**Hardcoded Colors Fix:**
+```bash
+./scripts/fix-hardcoded-colors.sh      # Convert to theme classes
+```
+
+**Relative Imports Conversion:**
+```bash
+./scripts/convert-relative-imports.sh  # Convert deep relative paths to @/ aliases
+```
+
+**Quality Check** (manual run):
+```bash
+./scripts/pre-commit-quality-check.sh  # Run all checks manually
+```
 
 ### 🔧 Development Commands
 ```bash

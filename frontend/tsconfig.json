@@ -36,6 +36,7 @@
     "forceConsistentCasingInFileNames": true,
     "downlevelIteration": true
   },
-  "include": ["src", "vite.config.ts"],
+  "include": ["src"],
+  "exclude": ["node_modules/@types/d3-dispatch/**/*"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }
