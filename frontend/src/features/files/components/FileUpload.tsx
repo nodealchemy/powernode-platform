@@ -308,7 +308,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
                       e.stopPropagation();
                       cancelUpload(uploadingFile.file);
                     }}
-                    className="flex-shrink-0 px-2 py-1 text-xs text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+                    className="flex-shrink-0 px-2 py-1 text-xs text-theme-danger hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
                     aria-label="Cancel upload"
                   >
                     Cancel

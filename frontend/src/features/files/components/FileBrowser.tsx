@@ -312,14 +312,14 @@ export const FileBrowser: React.FC<FileBrowserProps> = ({
           </span>
           <button
             onClick={handleBulkDelete}
-            className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition-colors text-sm"
+            className="px-3 py-1 bg-theme-danger text-white rounded hover:bg-theme-danger transition-colors text-sm"
             aria-label="Delete selected"
           >
             Delete Selected
           </button>
           <button
             onClick={() => setSelectedFiles(new Set())}
-            className="px-3 py-1 bg-theme-surface border border-theme rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-sm text-theme-primary"
+            className="px-3 py-1 bg-theme-surface border border-theme rounded hover:bg-theme-surface dark:hover:bg-gray-700 transition-colors text-sm text-theme-primary"
           >
             Clear Selection
           </button>
