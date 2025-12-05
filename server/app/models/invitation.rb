@@ -9,7 +9,7 @@ class Invitation < ApplicationRecord
   validates :email, presence: true, 
                     format: { with: URI::MailTo::EMAIL_REGEXP },
                     uniqueness: { scope: :account_id, message: "has already been invited to this account" }
-  validates :status, presence: true, inclusion: { in: %w[pending accepted rejected expired] }
+  validates :status, presence: true, inclusion: { in: %w[pending accepted expired cancelled] }
   validates :token, presence: true, uniqueness: true
   validates :expires_at, presence: true
   validates :first_name, presence: true
@@ -25,6 +25,7 @@ class Invitation < ApplicationRecord
   # Callbacks
   before_validation :generate_token, on: :create
   before_validation :set_expiration, on: :create
+  before_validation :generate_token_digest, on: :create
   before_create :set_defaults
 
   # State management
@@ -37,9 +38,9 @@ class Invitation < ApplicationRecord
     end
   end
 
-  def revoke!
+  def cancel!
     return false if expired? || !pending?
-    update!(status: 'revoked', revoked_at: Time.current)
+    update!(status: 'cancelled')
   end
 
   def expired?
@@ -54,14 +55,49 @@ class Invitation < ApplicationRecord
     status == 'accepted'
   end
 
-  def revoked?
-    status == 'revoked'
+  def cancelled?
+    status == 'cancelled'
+  end
+
+  # Class method to find invitation by token
+  def self.find_by_token(token)
+    return nil if token.blank?
+
+    digest = Digest::SHA256.hexdigest(token)
+    where(token_digest: digest).first
+  end
+
+  # Instance method to verify token
+  def valid_token?(token)
+    return false if token.blank?
+
+    Digest::SHA256.hexdigest(token) == token_digest
+  end
+
+  # Helper methods for role management
+  def add_role(role_name)
+    self.role_names ||= []
+    self.role_names << role_name unless self.role_names.include?(role_name)
+    self.role_names.uniq!
+  end
+
+  def remove_role(role_name)
+    self.role_names ||= []
+    self.role_names.delete(role_name)
+  end
+
+  def has_role?(role_name)
+    role_names&.include?(role_name) || false
   end
 
   private
 
   def generate_token
     self.token = SecureRandom.urlsafe_base64(32) if token.blank?
+  end
+
+  def generate_token_digest
+    self.token_digest = Digest::SHA256.hexdigest(token) if token.present? && token_digest.blank?
   end
 
   def set_expiration
@@ -85,22 +121,6 @@ class Invitation < ApplicationRecord
     if invalid_roles.any?
       errors.add(:role_names, "contains invalid roles: #{invalid_roles.join(', ')}")
     end
-  end
-
-  # Helper methods for role management
-  def add_role(role_name)
-    self.role_names ||= []
-    self.role_names << role_name unless self.role_names.include?(role_name)
-    self.role_names.uniq!
-  end
-
-  def remove_role(role_name)
-    self.role_names ||= []
-    self.role_names.delete(role_name)
-  end
-
-  def has_role?(role_name)
-    role_names&.include?(role_name) || false
   end
 
   def inviter_can_send_invitations

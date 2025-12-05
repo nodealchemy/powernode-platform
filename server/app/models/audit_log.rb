@@ -8,7 +8,8 @@ class AuditLog < ApplicationRecord
   # Enhanced validations with comprehensive action types
   validates :action, presence: true, inclusion: {
     in: %w[
-      create update delete login logout payment subscription_change role_change 
+      create update delete created updated deleted login logout payment subscription_change role_change
+      user_created user_updated user_deleted 
       create_plan update_plan delete_plan toggle_plan_status 
       suspend_account activate_account admin_settings_update
       impersonation_started impersonation_ended
@@ -31,16 +32,62 @@ class AuditLog < ApplicationRecord
       test_email_sent test_email_failed email_sent email_failed
       email_settings_refreshed notification_sent notification_failed
       api_request api_request_failed
+      ai_analytics.usage_recorded ai_analytics.update
+      ai_conversations.update ai_conversations.create ai_conversations.destroy
+      ai_messages.update ai_messages.create ai_messages.destroy
+      ai_agents.index ai_agents.create ai_agents.update ai_agents.destroy
+      ai_agents.execute ai_agents.clone ai_agents.pause ai_agents.resume
+      ai_agents.archive ai_agents.stats ai_agents.analytics
+      ai.agents.read ai.agents.create ai.agents.update ai.agents.delete
+      ai.agents.execute ai.agents.clone ai.agents.pause ai.agents.resume
+      ai.agents.archive ai.agents.test ai.agents.validate
+      audit_logging_error
+      ai_conversation_channel_subscribed ai_conversation_channel_unsubscribed
+      ai_conversation_message_sent ai_conversation_message_failed
+      ai_messages.create ai_messages.update ai_messages.destroy ai_messages.edit_content
+      ai_analytics.usage_recorded ai_analytics.report_generated
+      ai_provider_credential_created ai_provider_credential_updated ai_provider_credential_deleted
+      ai_provider_credential_tested ai_provider_credential_made_default ai_provider_credential_decrypted
+      ai_provider_credential_encryption_rotated
+      ai.providers.list ai.providers.view ai.providers.create ai.providers.update ai.providers.delete
+      ai.providers.test_connection ai.providers.sync_models ai.providers.credential.create
+      ai.providers.credential.update ai.providers.credential.delete ai.providers.credential.test
+      ai.providers.read ai.providers.test ai.providers.sync ai.providers.configure
+      ai.credentials.read ai.credentials.create ai.credentials.update ai.credentials.delete ai.credentials.test
+      ai.workflows.list ai.workflows.view ai.workflows.create ai.workflows.update ai.workflows.delete
+      ai.workflows.execute ai.workflows.pause ai.workflows.resume ai.workflows.duplicate
+      ai.workflows.read ai.workflows.export ai.workflows.validate ai.workflows.clone
+      ai.executions.read ai.executions.create ai.executions.update ai.executions.cancel ai.executions.retry
+      ai.workflow_runs.read ai.workflow_runs.create ai.workflow_runs.update ai.workflow_runs.cancel
+      ai.workflow_runs.retry ai.workflow_runs.pause ai.workflow_runs.resume
+      ai.agents.execution.cancel ai.agents.execution.delete ai.agents.execution.retry
+      ai.providers.sync_models ai.providers.credential.make_default ai.providers.credential.rotate
+      ai.analytics.cost_analysis ai.analytics.dashboard ai.analytics.export ai.analytics.insights
+      ai.analytics.report.cancel ai.analytics.report.create ai.analytics.report.download
+      ai.marketplace.installation_deleted ai.marketplace.template_created ai.marketplace.template_created_from_workflow
+      ai.marketplace.template_deleted ai.marketplace.template_installed ai.marketplace.template_published
+      ai.marketplace.template_rated ai.marketplace.template_updated ai.marketplace.workflow_published
+      ai.monitoring.alerts_check ai.monitoring.alerts_view ai.monitoring.circuit_breaker.close
+      ai.monitoring.circuit_breaker.open ai.monitoring.circuit_breaker.reset ai.monitoring.circuit_breakers.category_reset
+      ai.monitoring.circuit_breakers.reset_all ai.monitoring.dashboard ai.monitoring.health_check
+      ai.monitoring.start ai.monitoring.stop
+      ai_agent_team.created ai_agent_team.updated ai_agent_team.deleted
+      ai_agent_team.member_added ai_agent_team.member_removed
+      ai_agent_team.execution_started ai_agent_team.execution_completed ai_agent_team.execution_failed
+      invitation.created invitation.updated invitation.deleted
+      invitation.resent invitation.cancelled invitation.accepted
+      job_enqueue notification_send billing_operation webhook_process
+      analytics_request report_generation health_check email_configuration
+      error_occurred
     ]
   }
   validates :resource_type, presence: true
   validates :resource_id, presence: true
   validates :source, presence: true, inclusion: { 
-    in: %w[web api system webhook admin_panel mobile_app integration automation scheduler worker] 
+    in: %w[web api system webhook admin_panel mobile_app integration automation scheduler worker security_system compliance_system] 
   }
-  # Note: severity and risk_level columns don't exist in database schema
-  # validates :severity, inclusion: { in: %w[low medium high critical] }, allow_nil: true
-  # validates :risk_level, inclusion: { in: %w[low medium high critical] }, allow_nil: true
+  validates :severity, inclusion: { in: %w[low medium high critical] }, allow_nil: false
+  validates :risk_level, inclusion: { in: %w[low medium high critical] }, allow_nil: false
 
   # Note: old_values, new_values, and metadata are JSON columns in PostgreSQL
   # They have native JSON serialization, no need for explicit serialize calls
@@ -51,9 +98,8 @@ class AuditLog < ApplicationRecord
   scope :by_account, ->(account) { where(account: account) }
   scope :by_action, ->(action) { where(action: action) }
   scope :by_source, ->(source) { where(source: source) }
-  # Note: severity and risk_level columns don't exist in database schema
-  # scope :by_severity, ->(severity) { where(severity: severity) }
-  # scope :by_risk_level, ->(risk_level) { where(risk_level: risk_level) }
+  scope :by_severity, ->(severity) { where(severity: severity) }
+  scope :by_risk_level, ->(risk_level) { where(risk_level: risk_level) }
   scope :recent, -> { order(created_at: :desc) }
   scope :in_date_range, ->(start_date, end_date) { where(created_at: start_date..end_date) }
   
@@ -61,8 +107,7 @@ class AuditLog < ApplicationRecord
   scope :security_events, -> { where(action: security_actions) }
   scope :failed_events, -> { where(action: failed_actions) }
   scope :admin_events, -> { where(action: admin_actions) }
-  # Note: risk_level column doesn't exist in database schema
-  # scope :high_risk, -> { where(risk_level: ['high', 'critical']) }
+  scope :high_risk, -> { where(risk_level: ['high', 'critical']) }
   scope :suspicious, -> { where(action: suspicious_actions) }
   scope :compliance_events, -> { where(action: compliance_actions) }
   
@@ -142,10 +187,9 @@ class AuditLog < ApplicationRecord
   end
 
   def self.log_action(action:, resource:, user: nil, account:, old_values: nil, new_values: nil, **options)
-    # Note: severity and risk_level columns don't exist in database schema
     # Calculate risk level and severity automatically
-    # risk_level = calculate_risk_level(action, options)
-    # severity = calculate_severity(action, options)
+    risk_level = calculate_risk_level(action, options)
+    severity = calculate_severity(action, options)
     
     create!(
       action: action,
@@ -158,8 +202,8 @@ class AuditLog < ApplicationRecord
       ip_address: options[:ip_address],
       user_agent: options[:user_agent],
       source: options[:source] || "web",
-      # severity: options[:severity] || severity,
-      # risk_level: options[:risk_level] || risk_level,
+      severity: options[:severity] || severity,
+      risk_level: options[:risk_level] || risk_level,
       metadata: (options[:metadata] || {}).merge(
         request_id: options[:request_id],
         session_id: options[:session_id],
@@ -177,8 +221,8 @@ class AuditLog < ApplicationRecord
       resource: resource,
       user: user,
       account: account,
-      # severity: 'high',
-      # risk_level: 'high',
+      severity: 'high',
+      risk_level: 'high',
       **options.merge(source: options[:source] || 'security_system')
     )
   end
@@ -189,8 +233,8 @@ class AuditLog < ApplicationRecord
       resource: resource,
       user: user,
       account: account,
-      # severity: 'medium',
-      # risk_level: 'medium',
+      severity: 'medium',
+      risk_level: 'medium',
       **options.merge(
         source: options[:source] || 'compliance_system',
         metadata: (options[:metadata] || {}).merge(

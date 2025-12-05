@@ -20,13 +20,30 @@ class PermissionSeeder
         
         if parts[0] == 'admin' || parts[0] == 'system'
           category = parts[0]
-          resource = parts[1]
-          action = parts[2..].join('_') if parts.length > 2
-          action ||= parts[1]
+          # For admin/system permissions, handle nested resources properly
+          if parts.length >= 3
+            # admin.ai.agents.delete -> resource: agents, action: delete
+            # admin.ai.providers.create -> resource: providers, action: create
+            resource = parts[1..-2].join('.')  # Everything except first and last part
+            action = parts[-1]  # Last part
+          else
+            # admin.access -> resource: admin, action: access
+            resource = parts[0]
+            action = parts[1]
+          end
         else
           category = 'resource'
-          resource = parts[0]
-          action = parts[1..].join('_')
+          # Handle AI permissions specially
+          if parts.length >= 3 && parts[0] == 'ai'
+            # ai.agents.create -> resource: agents, action: create
+            resource = parts[1]
+            action = parts[2]
+          else
+            # user.read -> resource: user, action: read
+            # api.manage_keys -> resource: api, action: manage_keys
+            resource = parts[0]
+            action = parts[1..].join('_')
+          end
         end
         
         # Find by resource and action combination, or create new

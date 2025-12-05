@@ -32,17 +32,12 @@
 class ReportRequest < ApplicationRecord
   # Associations
   belongs_to :account
-  belongs_to :user
+  belongs_to :user, foreign_key: 'requested_by_id'
 
   # Validations
-  validates :name, presence: true, length: { maximum: 255 }
-  validates :report_type, presence: true, inclusion: { 
+  validates :report_type, presence: true, inclusion: {
     in: %w[revenue_analytics customer_analytics churn_analysis growth_analytics cohort_analysis comprehensive_report],
     message: "is not a valid report type"
-  }
-  validates :format, presence: true, inclusion: { 
-    in: %w[pdf csv xlsx json],
-    message: "is not a valid format"
   }
   validates :status, presence: true, inclusion: { 
     in: %w[pending processing completed failed cancelled],
@@ -59,8 +54,7 @@ class ReportRequest < ApplicationRecord
   scope :processing, -> { where(status: 'processing') }
 
   # Callbacks
-  before_save :set_content_type
-  after_update :log_status_change, if: :saved_change_to_status?
+  after_update_commit :log_status_change, if: :saved_change_to_status?
 
   # State machine for status transitions
   def can_cancel?
@@ -157,8 +151,10 @@ class ReportRequest < ApplicationRecord
   # Generate filename
   def generate_filename
     timestamp = created_at.strftime('%Y%m%d_%H%M%S')
-    sanitized_name = name.parameterize(separator: '_')
-    "#{sanitized_name}_#{timestamp}.#{format}"
+    sanitized_type = report_type.parameterize(separator: '_')
+    # Infer format from file_path extension, default to pdf
+    extension = file_path ? File.extname(file_path).delete('.') : 'pdf'
+    "#{sanitized_type}_#{timestamp}.#{extension}"
   end
 
   # Get human readable status
@@ -213,37 +209,35 @@ class ReportRequest < ApplicationRecord
 
   private
 
-  def set_content_type
-    self.content_type = case format
-    when 'pdf'
-      'application/pdf'
-    when 'csv'
-      'text/csv'
-    when 'xlsx'
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    when 'json'
-      'application/json'
-    else
-      'application/octet-stream'
-    end
-  end
-
   def log_status_change
     Rails.logger.info "Report request #{id} status changed to #{status}"
-    
-    # Create audit log entry
-    AuditLog.create!(
-      user: user,
-      account: account,
-      action: "report_request_#{status}",
-      auditable: self,
-      changes: { 
-        status: saved_changes['status'],
-        completed_at: completed_at,
-        error_message: error_message
-      }.compact,
-      ip_address: nil, # Would be set by controller if available
-      user_agent: nil
-    )
+
+    # Create audit log entry with error handling
+    # Use after_update_commit to prevent audit failures from rolling back the main transaction
+    begin
+      AuditLog.create!(
+        user: user,
+        account: account,
+        action: "report_request_#{status}",
+        resource_type: self.class.name,
+        resource_id: id,
+        old_values: {
+          status: previous_changes['status']&.first
+        }.compact.presence || {},
+        new_values: {
+          status: status,
+          completed_at: completed_at,
+          error_message: error_message
+        }.compact,
+        metadata: {},
+        source: 'system',
+        severity: 'low',
+        risk_level: 'low',
+        ip_address: nil,
+        user_agent: nil
+      )
+    rescue StandardError => e
+      Rails.logger.error "Failed to create audit log for report request #{id}: #{e.message}"
+    end
   end
 end

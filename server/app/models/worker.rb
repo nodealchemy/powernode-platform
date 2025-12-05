@@ -8,7 +8,12 @@ class Worker < ApplicationRecord
   
   # Virtual attributes
   attr_accessor :token
-  
+
+  # Method alias for test compatibility
+  def auth_token
+    token
+  end
+
   # Validations
   validates :name, presence: true, length: { minimum: 3, maximum: 50 }
   validates :description, length: { maximum: 255 }
@@ -67,16 +72,21 @@ class Worker < ApplicationRecord
   after_create :log_creation
   
   # Class methods
-  def self.authenticate(token)
+  def self.authenticate(token, update_last_seen: true)
     return nil if token.blank?
-    
+
     # Hash the provided token to compare with stored digest
     token_digest = Digest::SHA256.hexdigest(token)
     worker = where(status: 'active', token_digest: token_digest).first
     return nil unless worker
-    
-    worker.touch(:last_seen_at)
+
+    # Only update last_seen_at when explicitly requested (not for cached verifications)
+    worker.touch(:last_seen_at) if update_last_seen
     worker
+  end
+
+  def self.authenticate_without_touch(token)
+    authenticate(token, update_last_seen: false)
   end
   
   def self.create_worker!(name:, description: nil, roles: [], account: nil, token: nil)
@@ -244,8 +254,27 @@ class Worker < ApplicationRecord
   
   def masked_token
     return '' if token_digest.blank?
-    # Show first 8 and last 4 characters of the digest for identification
-    "#{token_digest[0..7]}#{'*' * (token_digest.length - 12)}#{token_digest[-4..-1]}"
+    # Return a masked hash of the token digest for authenticity verification
+    # Users can verify their token by computing SHA256(SHA256(their_token)) and comparing the visible portions
+    verification_hash = Digest::SHA256.hexdigest(token_digest)
+    # Show first 6 characters, mask middle with asterisks, show last 4 characters
+    "#{verification_hash[0..5]}******#{verification_hash[-4..-1]}"
+  end
+
+  def full_token_hash
+    return '' if token_digest.blank?
+    # Return the complete hash of the token digest for full verification
+    # Users can verify their token by comparing this hash with SHA256(SHA256(their_token))
+    Digest::SHA256.hexdigest(token_digest)
+  end
+
+  def token_verification_hash
+    return '' if token.blank?
+    # Generate a hash that users can verify against their actual token
+    # Users can verify by running: SHA256(SHA256(their_token))[0..15] == this_hash
+    token_digest_value = Digest::SHA256.hexdigest(token)
+    verification_hash = Digest::SHA256.hexdigest(token_digest_value)
+    verification_hash[0..15]
   end
   
   def system?
@@ -255,7 +284,54 @@ class Worker < ApplicationRecord
   def account?
     !system?
   end
-  
+
+  # Worker Configuration Methods
+  def effective_config
+    self.class.default_config.deep_merge(config || {})
+  end
+
+  def self.default_config
+    {
+      'security' => {
+        'token_rotation_enabled' => false,
+        'token_expiry_days' => 90,
+        'require_ip_whitelist' => false,
+        'allowed_ips' => [],
+        'max_concurrent_sessions' => 10,
+        'enforce_https' => true
+      },
+      'rate_limiting' => {
+        'enabled' => true,
+        'requests_per_minute' => 60,
+        'burst_limit' => 100,
+        'throttle_delay_ms' => 1000
+      },
+      'monitoring' => {
+        'activity_logging' => true,
+        'performance_tracking' => true,
+        'error_reporting' => true,
+        'metrics_retention_days' => 30
+      },
+      'notifications' => {
+        'alert_on_failures' => true,
+        'alert_threshold' => 5,
+        'notify_on_token_rotation' => true,
+        'notify_on_suspension' => true
+      },
+      'operational' => {
+        'auto_cleanup_activities' => true,
+        'cleanup_after_days' => 30,
+        'enable_health_checks' => true,
+        'health_check_interval_minutes' => 5
+      }
+    }
+  end
+
+  def reset_config!
+    update!(config: self.class.default_config)
+    effective_config
+  end
+
   private
   
   def generate_token
@@ -332,23 +408,6 @@ class Worker < ApplicationRecord
     )
   end
   
-  def generate_token
-    return if token_digest.present? && token.blank?
-    
-    self.token = SecureRandom.urlsafe_base64(32) if token.blank?
-    self.token_digest = self.class.hash_token(token)
-  end
-  
-  def self.hash_token(token)
-    return nil if token.blank?
-    BCrypt::Password.create(token)
-  end
-  
-  def token_matches?(provided_token)
-    return false if token_digest.blank? || provided_token.blank?
-    BCrypt::Password.new(token_digest) == provided_token
-  end
-
   def only_one_system_worker_globally
     # Check if this worker is a system worker (no account_id)
     return unless account_id.nil?

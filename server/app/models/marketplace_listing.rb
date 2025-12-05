@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
 class MarketplaceListing < ApplicationRecord
-  # include AuditLogging  # TODO: Enable when AuditLogging concern is available
-  
+  include Auditable
+
   # Associations
   belongs_to :app
   

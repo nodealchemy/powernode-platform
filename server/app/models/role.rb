@@ -99,25 +99,22 @@ class Role < ApplicationRecord
   end
   
   def has_permission?(permission_name)
-    # Super admin has all permissions programmatically
-    return true if super_admin?
-    
+    # Roles with system.admin permission have all permissions programmatically
+    return true if permissions.exists?(name: 'system.admin')
+
     permissions.exists?(name: permission_name)
   end
   
   def permission_names
-    # Super admin has all permissions programmatically
-    return Permissions::ALL_PERMISSIONS.keys.sort if super_admin?
-    
+    # Roles with system.admin permission have all permissions programmatically
+    return Permissions::ALL_PERMISSIONS.keys.sort if permissions.exists?(name: 'system.admin')
+
     permissions.pluck(:name).sort
   end
   
   def sync_permissions!(permission_names)
     return unless permission_names.is_a?(Array)
-    
-    # Skip permission sync for super_admin - it has all permissions programmatically
-    return if super_admin?
-    
+
     # Get or create all permissions
     new_permissions = permission_names.uniq.map do |name|
       Permission.find_or_create_from_name!(

@@ -132,12 +132,12 @@ class UserToken < ApplicationRecord
   end
   
   def has_permission?(permission_name)
-    # Super admin users have all permissions
-    return true if user.super_admin?
-    
+    # Users with system.admin permission have all permissions
+    return true if permissions&.include?('system.admin')
+
     # Check cached permissions first (faster)
     return permissions&.include?(permission_name) if permissions.present?
-    
+
     # Fallback to user permissions
     user.has_permission?(permission_name)
   end

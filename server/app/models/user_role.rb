@@ -15,15 +15,22 @@ class UserRole < ApplicationRecord
   
   # Callbacks
   after_create :log_role_grant
+  after_create :clear_user_permission_cache
   after_destroy :log_role_revoke
-  
+  after_destroy :clear_user_permission_cache
+
   private
-  
+
   def log_role_grant
     Rails.logger.info "Role #{role.name} granted to user #{user.email}"
   end
-  
+
   def log_role_revoke
     Rails.logger.info "Role #{role.name} revoked from user #{user.email}"
+  end
+
+  # Clear user's permission cache when their roles change
+  def clear_user_permission_cache
+    user.send(:clear_permission_cache) if user
   end
 end

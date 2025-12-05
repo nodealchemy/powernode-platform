@@ -17,6 +17,31 @@ class Account < ApplicationRecord
   has_many :app_subscriptions, dependent: :destroy
   has_many :api_keys, dependent: :destroy
   has_many :webhook_endpoints, dependent: :destroy
+  
+  # AI-related associations
+  has_many :ai_providers, dependent: :destroy
+  has_many :ai_provider_credentials, dependent: :destroy
+  has_many :ai_agents, dependent: :destroy
+  has_many :ai_conversations, dependent: :destroy
+  has_many :ai_messages, dependent: :destroy
+  has_many :ai_agent_executions, dependent: :destroy
+  has_many :ai_agent_teams, dependent: :destroy
+
+  # AI Workflow associations
+  has_many :ai_workflows, dependent: :destroy
+  has_many :ai_workflow_runs, dependent: :destroy
+  has_many :ai_workflow_template_installations, dependent: :destroy
+
+  # Analytics & Reporting associations
+  has_many :report_requests, dependent: :destroy
+
+  # MCP (Model Context Protocol) associations
+  has_many :mcp_servers, dependent: :destroy
+
+  # File Storage associations
+  has_many :file_storages, dependent: :destroy
+  has_many :file_objects, dependent: :destroy
+  has_many :file_tags, dependent: :destroy
 
   # Subscription-related associations
   has_many :invoices, through: :subscription

@@ -8,12 +8,14 @@ require 'timeout'
 class WorkerJobService
 
   # Base URL for worker service API calls
-  WORKER_API_BASE = ENV['WORKER_API_URL'] || 'http://localhost:4567'
+  def self.worker_api_base
+    Rails.application.config.worker_url
+  end
 
   class << self
     # Enqueue a notification email job
     def enqueue_notification_email(template_type, data = {})
-      make_worker_request('POST', '/notifications/email', {
+      new.make_worker_request('POST', '/notifications/email', {
         template_type: template_type,
         data: data
       })
@@ -21,7 +23,7 @@ class WorkerJobService
 
     # Enqueue a billing job
     def enqueue_billing_job(job_type, data = {})
-      make_worker_request('POST', '/billing/jobs', {
+      new.make_worker_request('POST', '/billing/jobs', {
         job_type: job_type,
         data: data
       })
@@ -29,7 +31,7 @@ class WorkerJobService
 
     # Enqueue an analytics job
     def enqueue_analytics_job(job_type, data = {})
-      make_worker_request('POST', '/analytics/jobs', {
+      new.make_worker_request('POST', '/analytics/jobs', {
         job_type: job_type,
         data: data
       })
@@ -37,7 +39,7 @@ class WorkerJobService
 
     # Enqueue a report generation job
     def enqueue_report_job(report_type, data = {})
-      make_worker_request('POST', '/reports/generate', {
+      new.make_worker_request('POST', '/reports/generate', {
         report_type: report_type,
         data: data
       })
@@ -45,14 +47,14 @@ class WorkerJobService
 
     # Enqueue password reset email job
     def enqueue_password_reset_email(user_id)
-      make_worker_request('POST', '/notifications/password_reset', {
+      new.make_worker_request('POST', '/notifications/password_reset', {
         user_id: user_id
       })
     end
 
     # Enqueue email settings refresh job
     def enqueue_refresh_email_settings
-      make_worker_request('POST', '/api/v1/jobs', {
+      new.make_worker_request('POST', '/api/v1/jobs', {
         job_class: 'RefreshEmailSettingsJob',
         args: []
       })
@@ -61,8 +63,8 @@ class WorkerJobService
     # Enqueue test email job
     def enqueue_test_email(email_address, account_id = nil)
       args = account_id ? [email_address, account_id] : [email_address]
-      
-      make_worker_request('POST', '/api/v1/jobs', {
+
+      new.make_worker_request('POST', '/api/v1/jobs', {
         job_class: 'TestEmailJob',
         args: args
       })
@@ -70,7 +72,7 @@ class WorkerJobService
 
     # Enqueue test worker job
     def enqueue_test_worker_job(worker_id, worker_name)
-      make_worker_request('POST', '/api/v1/jobs', {
+      new.make_worker_request('POST', '/api/v1/jobs', {
         'job_class' => 'TestWorkerJob',
         'args' => [worker_id, worker_name, {
           'test_type' => 'worker_connectivity_test',
@@ -80,11 +82,167 @@ class WorkerJobService
       })
     end
 
-    private
+    # Enqueue AI workflow execution job
+    def enqueue_ai_workflow_execution(run_id, job_options = {})
+      new.make_worker_request('POST', '/api/v1/jobs', {
+        'job_class' => 'AiWorkflowExecutionJob',
+        'args' => [run_id, job_options],
+        'queue' => 'ai_workflows',
+        'options' => { 'retry' => 3 }
+      })
+    end
 
-    def make_worker_request(method, path, payload = {})
+    # Enqueue AI agent execution job
+    def enqueue_ai_agent_execution(agent_execution_id)
+      new.make_worker_request('POST', '/api/v1/jobs', {
+        'job_class' => 'AiAgentExecutionJob',
+        'args' => [agent_execution_id],
+        'queue' => 'ai_agents',
+        'options' => { 'retry' => 3 }
+      })
+    end
 
-      uri = URI("#{WORKER_API_BASE}#{path}")
+    # Enqueue billing automation job
+    def enqueue_billing_automation(subscription_id = nil, delay: 0)
+      payload = {
+        'job_class' => 'Billing::BillingAutomationJob',
+        'args' => subscription_id ? [subscription_id] : [],
+        'queue' => 'billing'
+      }
+      payload['at'] = (Time.current + delay).to_i if delay.positive?
+
+      new.make_worker_request('POST', '/api/v1/jobs', payload)
+    end
+
+    # Enqueue billing scheduler job
+    def enqueue_billing_scheduler(date, delay: 0)
+      payload = {
+        'job_class' => 'Billing::BillingSchedulerJob',
+        'args' => [date],
+        'queue' => 'billing'
+      }
+      payload['at'] = (Time.current + delay).to_i if delay.positive?
+
+      new.make_worker_request('POST', '/api/v1/jobs', payload)
+    end
+
+    # Enqueue billing cleanup job
+    def enqueue_billing_cleanup(delay: 0)
+      payload = {
+        'job_class' => 'Billing::BillingCleanupJob',
+        'args' => [],
+        'queue' => 'billing'
+      }
+      payload['at'] = (Time.current + delay).to_i if delay.positive?
+
+      new.make_worker_request('POST', '/api/v1/jobs', payload)
+    end
+
+    # Enqueue payment retry job
+    def enqueue_payment_retry(payment_id, reason, retry_attempt)
+      new.make_worker_request('POST', '/api/v1/jobs', {
+        'job_class' => 'Billing::PaymentRetryJob',
+        'args' => [payment_id, reason, retry_attempt],
+        'queue' => 'billing'
+      })
+    end
+
+    # Enqueue subscription lifecycle job
+    def enqueue_subscription_lifecycle(action, subscription_id, **options)
+      new.make_worker_request('POST', '/api/v1/jobs', {
+        'job_class' => 'Billing::SubscriptionLifecycleJob',
+        'args' => [action, subscription_id, options],
+        'queue' => 'billing'
+      })
+    end
+
+    # Enqueue node execution retry job
+    def enqueue_node_execution_retry(node_execution_id, delay_ms: 0)
+      payload = {
+        'job_class' => 'AiWorkflowNodeExecutionJob',
+        'args' => [node_execution_id],
+        'queue' => 'ai_workflows'
+      }
+      payload['at'] = (Time.current + (delay_ms / 1000.0)).to_i if delay_ms.positive?
+
+      new.make_worker_request('POST', '/api/v1/jobs', payload)
+    end
+
+    # Generic enqueue job method
+    def enqueue_job(job_class, args = {})
+      queue = args.delete(:queue) || 'default'
+      delay = args.delete(:delay) || 0
+
+      payload = {
+        'job_class' => job_class,
+        'args' => args.is_a?(Hash) ? [args] : [args].flatten,
+        'queue' => queue
+      }
+      payload['at'] = (Time.current + delay).to_i if delay.positive?
+
+      new.make_worker_request('POST', '/api/v1/jobs', payload)
+    end
+
+    # ==========================================
+    # MCP (Model Context Protocol) Jobs
+    # ==========================================
+
+    # Enqueue MCP server connection job
+    def enqueue_mcp_server_connection(server_id, action: 'connect')
+      new.make_worker_request('POST', '/api/v1/jobs', {
+        'job_class' => 'Mcp::McpServerConnectionJob',
+        'args' => [server_id, { 'action' => action }],
+        'queue' => 'mcp'
+      })
+    end
+
+    # Enqueue MCP tool execution job
+    def enqueue_mcp_tool_execution(execution_id)
+      new.make_worker_request('POST', '/api/v1/jobs', {
+        'job_class' => 'Mcp::McpToolExecutionJob',
+        'args' => [execution_id],
+        'queue' => 'mcp'
+      })
+    end
+
+    # Enqueue MCP tool discovery job
+    def enqueue_mcp_tool_discovery(server_id)
+      new.make_worker_request('POST', '/api/v1/jobs', {
+        'job_class' => 'Mcp::McpToolDiscoveryJob',
+        'args' => [server_id],
+        'queue' => 'mcp'
+      })
+    end
+
+    # Enqueue MCP server health check job
+    def enqueue_mcp_health_check(server_id = nil)
+      args = server_id ? [server_id] : []
+      new.make_worker_request('POST', '/api/v1/jobs', {
+        'job_class' => 'Mcp::McpServerHealthCheckJob',
+        'args' => args,
+        'queue' => 'mcp'
+      })
+    end
+
+    # Enqueue MCP tool cache refresh job
+    def enqueue_mcp_cache_refresh
+      new.make_worker_request('POST', '/api/v1/jobs', {
+        'job_class' => 'Mcp::McpToolCacheRefreshJob',
+        'args' => [],
+        'queue' => 'mcp'
+      })
+    end
+
+  end
+
+  # Instance methods for compatibility
+  def queue_ai_workflow_execution(run_id)
+    self.class.enqueue_ai_workflow_execution(run_id)
+  end
+
+  def make_worker_request(method, path, payload = {})
+
+      uri = URI("#{self.class.worker_api_base}#{path}")
       http = Net::HTTP.new(uri.host, uri.port)
       http.use_ssl = uri.scheme == 'https'
       http.read_timeout = 10
@@ -107,8 +265,8 @@ class WorkerJobService
       request['Content-Type'] = 'application/json'
       request['Accept'] = 'application/json'
       
-      # Add worker service authentication - use WORKER_SERVICE_TOKEN or WORKER_TOKEN
-      worker_token = ENV['WORKER_SERVICE_TOKEN'] || ENV['WORKER_TOKEN']
+      # Add worker service authentication
+      worker_token = Rails.application.config.worker_token
       request['Authorization'] = "Bearer #{worker_token}" if worker_token
 
       # Set body for requests that support it
@@ -146,8 +304,6 @@ class WorkerJobService
         raise WorkerServiceError, "Invalid response format from worker service"
       end
     end
-
-  end
 
   # Custom exception for worker service errors
   class WorkerServiceError < StandardError; end
