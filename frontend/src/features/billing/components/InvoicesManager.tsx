@@ -5,7 +5,7 @@ import {
   Check, Clock, X, Filter, Search
 } from 'lucide-react';
 import { invoicesApi, Invoice, InvoiceFilters, InvoiceStats } from '@/shared/services/invoicesApi';
-import { useNotification } from '@/shared/hooks/useNotification';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 
 interface InvoicesManagerProps {
@@ -34,7 +34,7 @@ export const InvoicesManager: React.FC<InvoicesManagerProps> = ({
   });
   const [showFiltersPanel, setShowFiltersPanel] = useState(false);
   
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
   const perPage = 20;
 
   const loadInvoices = useCallback(async () => {
@@ -60,6 +60,9 @@ export const InvoicesManager: React.FC<InvoicesManagerProps> = ({
       const statsData = await invoicesApi.getInvoiceStats();
       setStats(statsData);
     } catch (error: any) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('[InvoicesManager] Failed to load invoice stats:', error);
+      }
     }
   };
 
@@ -503,4 +506,3 @@ export const InvoicesManager: React.FC<InvoicesManagerProps> = ({
   );
 };
 
-export default InvoicesManager;

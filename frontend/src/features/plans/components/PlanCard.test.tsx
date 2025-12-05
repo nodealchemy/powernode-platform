@@ -1,5 +1,4 @@
-import React from 'react';
-import { screen, fireEvent, waitFor } from '@testing-library/react';
+import { screen, fireEvent } from '@testing-library/react';
 import { renderWithProviders, mockAuthenticatedState, EnhancedPlan, createMockPlan } from '@/shared/utils/test-utils';
 import { PlanCard } from './PlanCard';
 

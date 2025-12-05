@@ -3,7 +3,7 @@ import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Card } from '@/shared/components/ui/Card';
-import { useNotification } from '@/shared/hooks/useNotification';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import { App } from '../../types';
 import { Plus, CreditCard, AlertCircle, Check, Star, CheckCircle } from 'lucide-react';
 
@@ -121,7 +121,7 @@ export const AppSubscriptionModal: React.FC<AppSubscriptionModalProps> = ({
     
   const [selectedPlanId, setSelectedPlanId] = useState<string>(availablePlans[0]?.id || 'free');
   const [subscribing, setSubscribing] = useState(false);
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
 
   const handleSubscribe = async () => {
     if (!app) return;

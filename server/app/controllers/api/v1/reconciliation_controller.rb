@@ -7,13 +7,13 @@ class Api::V1::ReconciliationController < ApplicationController
   def stripe_payments
     start_date = Time.parse(params[:start_date])
     end_date = Time.parse(params[:end_date])
-    
+
     payments = Payment.joins(invoice: :subscription)
                      .where(payment_method: ['stripe_card', 'stripe_bank'])
                      .where(created_at: start_date..end_date)
                      .where(status: 'succeeded')
                      .includes(invoice: [:subscription, :account])
-    
+
     payments_data = payments.map do |payment|
       {
         id: payment.id,
@@ -26,21 +26,21 @@ class Api::V1::ReconciliationController < ApplicationController
         invoice_id: payment.invoice.id
       }
     end
-    
-    render json: payments_data
+
+    render_success(payments_data)
   end
   
   # Get PayPal payments for reconciliation
   def paypal_payments
     start_date = Time.parse(params[:start_date])
     end_date = Time.parse(params[:end_date])
-    
+
     payments = Payment.joins(invoice: :subscription)
                      .where(payment_method: 'paypal')
                      .where(created_at: start_date..end_date)
                      .where(status: 'succeeded')
                      .includes(invoice: [:subscription, :account])
-    
+
     payments_data = payments.map do |payment|
       {
         id: payment.id,
@@ -53,8 +53,8 @@ class Api::V1::ReconciliationController < ApplicationController
         invoice_id: payment.invoice.id
       }
     end
-    
-    render json: payments_data
+
+    render_success(payments_data)
   end
   
   # Receive reconciliation reports
@@ -80,19 +80,19 @@ class Api::V1::ReconciliationController < ApplicationController
         discrepancies_found: params[:discrepancies_count]
       }
     )
-    
-    render json: { success: true, report_id: reconciliation_report.id }
+
+    render_success({ report_id: reconciliation_report.id })
   end
   
   # Handle reconciliation corrections
   def corrections
     correction_type = params[:type]
-    
+
     case correction_type
     when 'create_missing_payment'
       handle_create_missing_payment(params)
     else
-      render json: { success: false, error: "Unknown correction type: #{correction_type}" }
+      render_error("Unknown correction type: #{correction_type}", status: :bad_request)
     end
   end
   
@@ -107,8 +107,8 @@ class Api::V1::ReconciliationController < ApplicationController
       metadata: params.except(:type, :provider, :local_payment_id, :external_id, :requires_manual_review),
       status: 'pending'
     )
-    
-    render json: { success: true, flag_id: reconciliation_flag.id }
+
+    render_success({ flag_id: reconciliation_flag.id })
   end
   
   # Handle reconciliation investigations
@@ -123,8 +123,8 @@ class Api::V1::ReconciliationController < ApplicationController
       requires_investigation: params[:requires_investigation],
       status: 'pending'
     )
-    
-    render json: { success: true, investigation_id: reconciliation_investigation.id }
+
+    render_success({ investigation_id: reconciliation_investigation.id })
   end
   
   private
@@ -144,20 +144,19 @@ class Api::V1::ReconciliationController < ApplicationController
       status: 'pending_creation',
       discovered_at: Time.current
     )
-    
-    render json: { 
-      success: true, 
+
+    render_success(
       message: 'Missing payment logged for manual review',
-      log_id: missing_payment_log.id
-    }
+      data: { log_id: missing_payment_log.id }
+    )
   end
   
   def authenticate_service_request
     service_token = request.headers['X-Service-Token']
     expected_token = Rails.application.credentials.dig(:worker_service, :api_token)
-    
+
     unless service_token == expected_token
-      render json: { error: 'Unauthorized service request' }, status: 401
+      render_error('Unauthorized service request', status: :unauthorized)
     end
   end
 end

@@ -1,16 +1,17 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import MDEditor, { ICommand, EditorContext } from '@uiw/react-md-editor';
+import MDEditorOriginal, { ICommand } from '@uiw/react-md-editor';
 import { useDropzone } from 'react-dropzone';
-import { 
-  PhotoIcon, 
-  DocumentIcon, 
-  EyeIcon, 
+import {
+  PhotoIcon,
+  EyeIcon,
   EyeSlashIcon,
   ArrowsPointingOutIcon,
   ArrowsPointingInIcon
 } from '@heroicons/react/24/outline';
 import { Button } from '@/shared/components/ui/Button';
-import { knowledgeBaseApi } from '@/shared/services/knowledgeBaseApi';
+
+// Type cast to bypass strict prop checking with incompatible library types
+const MDEditor = MDEditorOriginal as React.ComponentType<any>;
 
 export interface MarkdownEditorProps {
   value: string;
@@ -41,7 +42,7 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const autoSaveTimeoutRef = useRef<NodeJS.Timeout>();
+  const autoSaveTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
   const lastValueRef = useRef(value);
 
   // Auto-save functionality
@@ -111,7 +112,7 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
     keyCommand: 'image',
     buttonProps: { 'aria-label': 'Insert image', title: 'Insert image' },
     icon: <PhotoIcon className="w-4 h-4" />,
-    execute: (state: EditorContext) => {
+    execute: (state: { text?: string }) => {
       const input = document.createElement('input');
       input.type = 'file';
       input.accept = 'image/*';
@@ -123,7 +124,7 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
             try {
               const imageUrl = await onImageUpload(files[i]);
               const imageMarkdown = `![${files[i].name}](${imageUrl})\n`;
-              onChange(state.text + imageMarkdown);
+              onChange((state.text || '') + imageMarkdown);
             } catch (error) {
               console.error('Image upload failed:', error);
             }
@@ -172,30 +173,13 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
     previewToggleCommand, fullscreenCommand
   ];
 
-  const editorProps = {
-    value,
-    onChange: (val?: string) => onChange(val || ''),
-    commands,
-    preview: isPreviewMode ? 'preview' : 'edit',
-    hideToolbar: readOnly,
-    visibleDragBar: false,
-    height: isFullscreen ? '100vh' : height,
-    'data-color-mode': 'light', // Will be handled by theme
-    placeholder,
-    textareaProps: {
-      placeholder,
-      style: { fontSize: 14 },
-      disabled: readOnly
-    }
-  };
-
   return (
-    <div 
+    <div
       className={`markdown-editor-container ${className} ${isFullscreen ? 'fixed inset-0 z-50 bg-theme-background' : ''}`}
       {...getRootProps()}
     >
       <input {...getInputProps()} />
-      
+
       {/* Auto-save status */}
       {autoSave && (
         <div className="flex items-center justify-between mb-2 text-xs text-theme-secondary">
@@ -236,7 +220,22 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
 
       {/* Editor */}
       <div className="markdown-editor-wrapper">
-        <MDEditor {...editorProps} />
+        <MDEditor
+          value={value}
+          onChange={(val?: string) => onChange(val || '')}
+          commands={commands as ICommand[]}
+          preview={isPreviewMode ? 'preview' : 'edit'}
+          hideToolbar={readOnly}
+          visibleDragBar={false}
+          height={isFullscreen ? '100vh' : height}
+          data-color-mode="light"
+          placeholder={placeholder}
+          textareaProps={{
+            placeholder,
+            style: { fontSize: 14 },
+            disabled: readOnly
+          }}
+        />
       </div>
 
       {/* Theme styles applied through CSS classes */}

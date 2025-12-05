@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
 import { Badge } from '@/shared/components/ui/Badge';
-import { useNotification } from '@/shared/hooks/useNotification';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import { useAppWebhooks } from '../../hooks/useWebhooks';
 import { AppWebhook } from '../../types';
 import { X, Send, Copy, Eye, EyeOff } from 'lucide-react';
@@ -37,7 +37,7 @@ export const WebhookTestModal: React.FC<WebhookTestModalProps> = ({
   const [useCustomPayload, setUseCustomPayload] = useState(false);
   const [showResponse, setShowResponse] = useState(false);
 
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
   const { testWebhook } = useAppWebhooks(appId, {});
 
   const samplePayloads = {

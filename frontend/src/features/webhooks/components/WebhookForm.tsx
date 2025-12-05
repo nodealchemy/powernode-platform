@@ -9,8 +9,9 @@ import {
   Info,
   CheckCircle
 } from 'lucide-react';
-import webhooksApi, { 
-  WebhookEndpoint, 
+import {
+  webhooksApi,
+  WebhookEndpoint,
   WebhookFormData,
   WebhookEventCategories
 } from '@/features/webhooks/services/webhooksApi';
@@ -24,7 +25,7 @@ interface WebhookFormProps {
   onCancel: () => void;
 }
 
-const WebhookForm: React.FC<WebhookFormProps> = ({
+export const WebhookForm: React.FC<WebhookFormProps> = ({
   webhook,
   onSubmit,
   onCancel
@@ -83,8 +84,7 @@ const WebhookForm: React.FC<WebhookFormProps> = ({
     successMessage: webhook ? 'Webhook updated successfully' : 'Webhook created successfully',
   });
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [availableEvents, setAvailableEvents] = useState<string[]>([]);
+  const [, setAvailableEvents] = useState<string[]>([]);
   const [eventCategories, setEventCategories] = useState<WebhookEventCategories>({});
   const [loadingEvents, setLoadingEvents] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -100,7 +100,7 @@ const WebhookForm: React.FC<WebhookFormProps> = ({
         } else {
           setError(response.error || 'Failed to load available events');
         }
-      } catch (err) {
+      } catch (error) {
         setError('Failed to load available events');
       } finally {
         setLoadingEvents(false);
@@ -445,4 +445,3 @@ const WebhookForm: React.FC<WebhookFormProps> = ({
   );
 };
 
-export default WebhookForm;

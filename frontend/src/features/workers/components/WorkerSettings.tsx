@@ -1,20 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Worker, workerAPI, WorkerConfig } from '@/features/workers/services/workerApi';
-import { SettingsCard, ToggleSettingItem, FormField, Input, Select } from '@/features/admin/components/settings/SettingsComponents';
-import { useNotification } from '@/shared/hooks/useNotification';
-import { 
-  Shield, 
-  Key, 
-  Clock, 
-  AlertTriangle, 
-  CheckCircle, 
-  XCircle, 
+import { Worker, WorkerConfig, workerApi } from '@/features/workers/services/workerApi';
+import { SettingsCard, ToggleSettingItem, FormField, Input } from '@/features/admin/components/settings/SettingsComponents';
+import { useNotifications } from '@/shared/hooks/useNotifications';
+import {
+  Shield,
+  Clock,
+  CheckCircle,
+  XCircle,
   RefreshCw,
   Activity,
-  Database,
   Network,
-  Monitor,
-  Bell,
   Lock
 } from 'lucide-react';
 
@@ -68,9 +63,7 @@ export const WorkerSettings: React.FC<WorkerSettingsProps> = ({
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
-  const { showNotification } = useNotification();
-
-  const isSystemWorker = worker.account_name === 'System';
+  const { showNotification } = useNotifications();
 
   useEffect(() => {
     loadWorkerConfig();
@@ -79,23 +72,13 @@ export const WorkerSettings: React.FC<WorkerSettingsProps> = ({
   const loadWorkerConfig = async () => {
     setLoading(true);
     try {
-      // In a real implementation, this would fetch from the API
-      // For now, use default config with some worker-specific overrides
-      const workerConfig = { 
-        ...defaultConfig,
-        security: {
-          ...defaultConfig.security,
-          enforce_https: isSystemWorker,
-          max_concurrent_sessions: isSystemWorker ? 50 : 10
-        },
-        rate_limiting: {
-          ...defaultConfig.rate_limiting,
-          requests_per_minute: isSystemWorker ? 5000 : 1000
-        }
-      };
+      const workerConfig = await workerApi.getWorkerConfig(worker.id);
       setConfig(workerConfig);
     } catch (error) {
-      showNotification('Failed to load worker configuration', 'error');
+      // Fallback to defaults if API call fails
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load worker configuration';
+      showNotification(errorMessage, 'error');
+      setConfig(defaultConfig);
     } finally {
       setLoading(false);
     }
@@ -104,13 +87,18 @@ export const WorkerSettings: React.FC<WorkerSettingsProps> = ({
   const saveWorkerConfig = async () => {
     setSaving(true);
     try {
-      if (onUpdate) {
-        await onUpdate(worker.id, config);
-      }
+      const result = await workerApi.updateWorkerConfig(worker.id, config);
+      setConfig(result.config);
       setLastSaved(new Date());
-      showNotification('Worker settings saved successfully', 'success');
+      showNotification(result.message || 'Worker settings saved successfully', 'success');
+
+      // Also call onUpdate callback if provided
+      if (onUpdate) {
+        await onUpdate(worker.id, result.config);
+      }
     } catch (error) {
-      showNotification('Failed to save worker settings', 'error');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to save worker settings';
+      showNotification(errorMessage, 'error');
     } finally {
       setSaving(false);
     }
@@ -153,20 +141,38 @@ export const WorkerSettings: React.FC<WorkerSettingsProps> = ({
     setLoading(true);
     showNotification('Testing worker health...', 'info');
     try {
-      // Simulate health check - in real implementation would call API
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      showNotification('Worker health check passed', 'success');
+      // Call the real health check endpoint
+      const result = await workerApi.testWorkerHealth(worker.id);
+
+      if (result.status === 'healthy') {
+        showNotification(`Worker health check passed (${result.response_time_ms}ms)`, 'success');
+      } else if (result.status === 'warning') {
+        showNotification('Worker health check completed with warnings', 'warning');
+      } else {
+        showNotification('Worker health check failed', 'error');
+      }
     } catch (error) {
-      showNotification('Worker health check failed', 'error');
+      const errorMessage = error instanceof Error ? error.message : 'Worker health check failed';
+      showNotification(errorMessage, 'error');
     } finally {
       setLoading(false);
     }
   };
 
-  const resetToDefaults = () => {
+  const resetToDefaults = async () => {
     if (window.confirm('Reset all worker settings to defaults? This cannot be undone.')) {
-      setConfig(defaultConfig);
-      showNotification('Worker settings reset to defaults', 'info');
+      setLoading(true);
+      try {
+        const result = await workerApi.resetWorkerConfig(worker.id);
+        setConfig(result.config);
+        showNotification(result.message || 'Worker settings reset to defaults', 'success');
+      } catch (error) {
+        // Fallback to local reset if API fails
+        setConfig(defaultConfig);
+        showNotification('Worker settings reset to defaults (locally)', 'info');
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
@@ -616,4 +622,3 @@ export const WorkerSettings: React.FC<WorkerSettingsProps> = ({
   );
 };
 
-export default WorkerSettings;

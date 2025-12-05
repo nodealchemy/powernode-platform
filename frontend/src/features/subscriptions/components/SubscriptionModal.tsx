@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Subscription, Plan } from '@/features/subscriptions/services/subscriptionService';
+import { Subscription, SubscriptionPlan as Plan } from '@/shared/types';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
 import { Badge } from '@/shared/components/ui/Badge';
@@ -10,8 +10,8 @@ interface SubscriptionModalProps {
   onClose: () => void;
   subscription: Subscription | null;
   availablePlans: Plan[];
-  onUpgrade?: (planId: string) => void;
-  onCancel?: (subscriptionId: string) => void;
+  onUpgrade?: (plan_id: string) => void;
+  onCancel?: (subscription_id: string) => void;
   loading?: boolean;
 }
 
@@ -42,26 +42,11 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
     });
   };
 
-  const formatPrice = (price: {cents: number; currency_iso: string} | number | null | undefined, currency?: string) => {
-    let priceCents: number;
-    
-    if (price == null) {
+  const formatPrice = (priceCents: number | null | undefined, currency?: string) => {
+    if (priceCents == null || priceCents === 0 || isNaN(priceCents)) {
       return 'Free';
     }
-    
-    if (typeof price === 'object' && 'cents' in price) {
-      priceCents = price.cents;
-      currency = currency || price.currency_iso;
-    } else if (typeof price === 'number') {
-      priceCents = price;
-    } else {
-      return 'Free';
-    }
-    
-    if (priceCents === 0 || isNaN(priceCents)) {
-      return 'Free';
-    }
-    
+
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: currency || 'USD',
@@ -83,9 +68,9 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
     }
   };
 
-  const availableUpgrades = availablePlans.filter(plan => 
-    plan.id !== subscription.plan.id && 
-    plan.price > subscription.plan.price &&
+  const availableUpgrades = availablePlans.filter(plan =>
+    plan.id !== subscription.plan.id &&
+    plan.price_cents > subscription.plan.price_cents &&
     plan.status === 'active'
   );
 
@@ -124,7 +109,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
               </div>
               <div>
                 <span className="text-theme-secondary">Price:</span>
-                <p className="font-medium">{formatPrice(subscription.plan.price)}/{subscription.plan.billing_cycle || subscription.plan.interval}</p>
+                <p className="font-medium">{formatPrice(subscription.plan.price_cents, subscription.plan.currency)}/{subscription.plan.billing_cycle}</p>
               </div>
               <div>
                 <span className="text-theme-secondary">Status:</span>
@@ -136,14 +121,14 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
               </div>
               <div>
                 <span className="text-theme-secondary">
-                  {subscription.currentPeriodEnd ? 'Next Billing:' : 'Billing:'}
+                  {subscription.current_period_end ? 'Next Billing:' : 'Billing:'}
                 </span>
-                <p className="font-medium">{formatDate(subscription.currentPeriodEnd)}</p>
+                <p className="font-medium">{formatDate(subscription.current_period_end)}</p>
               </div>
-              {subscription.trialEndsAt && (
+              {subscription.trial_end && (
                 <div className="col-span-2">
                   <span className="text-theme-secondary">Trial Ends:</span>
-                  <p className="font-medium">{formatDate(subscription.trialEndsAt)}</p>
+                  <p className="font-medium">{formatDate(subscription.trial_end)}</p>
                 </div>
               )}
             </div>
@@ -167,7 +152,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                     <div className="ml-3 flex-1">
                       <div className="flex justify-between items-center">
                         <p className="text-sm font-medium text-theme-primary">{plan.name}</p>
-                        <p className="text-sm text-theme-secondary">{formatPrice(plan.price)}/{plan.billing_cycle || plan.interval}</p>
+                        <p className="text-sm text-theme-secondary">{formatPrice(plan.price_cents, plan.currency)}/{plan.billing_cycle}</p>
                       </div>
                     </div>
                   </label>
@@ -208,8 +193,8 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
             <div className="border border-theme-error-border bg-theme-error-background p-4 rounded-lg">
               <h5 className="text-sm font-medium text-theme-error mb-2">Cancel Subscription?</h5>
               <p className="text-sm text-theme-error mb-3">
-                {subscription.currentPeriodEnd 
-                  ? `Your subscription will remain active until ${formatDate(subscription.currentPeriodEnd)}, after which you'll lose access to premium features.`
+                {subscription.current_period_end
+                  ? `Your subscription will remain active until ${formatDate(subscription.current_period_end)}, after which you'll lose access to premium features.`
                   : 'Cancelling will immediately end your subscription and you\'ll lose access to premium features.'
                 }
               </p>

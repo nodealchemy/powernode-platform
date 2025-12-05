@@ -27,15 +27,15 @@ Create or update `.env.local` with:
 ```bash
 # Critical for reverse proxy operation
 VITE_BEHIND_PROXY=true
-VITE_PROXY_HOST=dev-1.ipnode.net    # Your proxy hostname
-VITE_PROXY_PROTOCOL=https           # https or http
+VITE_PROXY_HOST=app.example.com    # Your proxy hostname
+VITE_PROXY_PROTOCOL=https          # https or http
 
 # API endpoints (should match your proxy setup)
-VITE_API_BASE_URL=https://dev-1.ipnode.net/api/v1
-VITE_WS_BASE_URL=wss://dev-1.ipnode.net/cable
+VITE_API_BASE_URL=https://app.example.com/api/v1
+VITE_WS_BASE_URL=wss://app.example.com/cable
 
 # Optional: Explicitly set allowed hosts
-VITE_ALLOWED_HOSTS=dev-1.ipnode.net,dev-1.ipnode.org
+VITE_ALLOWED_HOSTS=app.example.com,staging.example.com
 ```
 
 ## Nginx Configuration
@@ -45,7 +45,7 @@ Use the provided `nginx-dev-proxy.conf` as a template:
 ```nginx
 server {
     listen 443 ssl http2;
-    server_name dev-1.ipnode.net;
+    server_name app.example.com;
     
     # Main application
     location / {

@@ -5,7 +5,7 @@ import { Badge } from '@/shared/components/ui/Badge';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { rolesApi, Role, UserWithRoles } from '../services/rolesApi';
 import { usersApi } from '@/features/users/services/usersApi';
-import { useNotification } from '@/shared/hooks/useNotification';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/shared/services';
 import { hasPermissions } from '@/shared/utils/permissionUtils';
@@ -21,7 +21,7 @@ export const RoleUsersModal: React.FC<RoleUsersModalProps> = ({
   onClose
 }) => {
   const { user: currentUser } = useSelector((state: RootState) => state.auth);
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
   const [users, setUsers] = useState<UserWithRoles[]>([]);
   const [availableUsers, setAvailableUsers] = useState<UserWithRoles[]>([]);
   const [loading, setLoading] = useState(true);
@@ -105,8 +105,7 @@ export const RoleUsersModal: React.FC<RoleUsersModalProps> = ({
     const searchLower = searchTerm.toLowerCase();
     return (
       user.email.toLowerCase().includes(searchLower) ||
-      user.first_name?.toLowerCase().includes(searchLower) ||
-      user.last_name?.toLowerCase().includes(searchLower)
+      user.name?.toLowerCase().includes(searchLower)
     );
   });
 
@@ -217,7 +216,7 @@ export const RoleUsersModal: React.FC<RoleUsersModalProps> = ({
                           </div>
                           <div>
                             <div className="font-medium text-theme-primary">
-                              {user.first_name} {user.last_name}
+                              {user.name}
                             </div>
                             <div className="text-xs text-theme-tertiary flex items-center space-x-1">
                               <Mail className="w-3 h-3" />
@@ -271,12 +270,12 @@ export const RoleUsersModal: React.FC<RoleUsersModalProps> = ({
                 >
                   <div className="flex items-center space-x-3">
                     <div className="w-10 h-10 bg-gradient-to-br from-theme-interactive-primary to-theme-interactive-primary-hover rounded-full flex items-center justify-center text-white font-semibold">
-                      {user.first_name?.[0]}{user.last_name?.[0]}
+                      {user.name?.[0]?.toUpperCase() || user.email?.[0]?.toUpperCase()}
                     </div>
                     <div>
                       <div className="flex items-center space-x-2">
                         <span className="font-medium text-theme-primary">
-                          {user.first_name} {user.last_name}
+                          {user.name}
                         </span>
                         {user.id === currentUser?.id && (
                           <Badge variant="primary" size="xs">
@@ -329,4 +328,3 @@ export const RoleUsersModal: React.FC<RoleUsersModalProps> = ({
   );
 };
 
-export default RoleUsersModal;

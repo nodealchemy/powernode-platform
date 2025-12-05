@@ -8,11 +8,11 @@ interface PublicRouteProps {
   redirectTo?: string;
 }
 
-export const PublicRoute: React.FC<PublicRouteProps> = ({
+export const PublicRoute: React.FC<PublicRouteProps> = React.memo(({
   children,
   redirectTo = '/app',
 }) => {
-  const { isAuthenticated } = useSelector((state: RootState) => state.auth);
+  const isAuthenticated = useSelector((state: RootState) => state.auth.isAuthenticated);
 
   // If user is authenticated, redirect to protected area
   if (isAuthenticated) {
@@ -20,4 +20,6 @@ export const PublicRoute: React.FC<PublicRouteProps> = ({
   }
 
   return <>{children}</>;
-};
+});
+
+PublicRoute.displayName = 'PublicRoute';

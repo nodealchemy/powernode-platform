@@ -6,8 +6,8 @@ import { CurrentPlanSummary } from './CurrentPlanSummary';
 import { SimplePlanBrowser } from './SimplePlanBrowser';
 import { SubscriptionModal } from './SubscriptionModal';
 import { useSubscriptionWebSocket } from '@/shared/hooks/useSubscriptionWebSocket';
-import { useNotification } from '@/shared/hooks/useNotification';
-import { Plan, Subscription } from '../services/subscriptionService';
+import { useNotifications } from '@/shared/hooks/useNotifications';
+import { SubscriptionPlan, Subscription } from '@/shared/types';
 import { CreditCard, ExternalLink, HelpCircle, Mail, RefreshCw, TrendingUp } from 'lucide-react';
 
 interface ProfileSubscriptionTabProps {
@@ -16,50 +16,68 @@ interface ProfileSubscriptionTabProps {
 }
 
 // Mock plans data (in real app, this would come from API)
-const mockPlans: Plan[] = [
+const mockPlans: SubscriptionPlan[] = [
   {
     id: '1',
     name: 'Starter',
-    price: { cents: 999, currency_iso: 'USD' },
+    description: 'Perfect for individuals and small teams getting started',
+    price_cents: 999,
+    currency: 'USD',
     billing_cycle: 'monthly',
     status: 'active',
-    isPublic: true,
+    trial_days: 14,
+    is_public: true,
+    formatted_price: '$9.99',
+    monthly_price: '$9.99',
     features: {
       basic_support: true,
       api_access: true,
-      storage_gb: '5GB'
+      storage_gb: 5
     },
-    trialDays: 14
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
   },
   {
     id: '2',
     name: 'Professional',
-    price: { cents: 2999, currency_iso: 'USD' },
+    description: 'Advanced features for growing businesses',
+    price_cents: 2999,
+    currency: 'USD',
     billing_cycle: 'monthly',
     status: 'active',
-    isPublic: true,
+    trial_days: 14,
+    is_public: true,
+    formatted_price: '$29.99',
+    monthly_price: '$29.99',
     features: {
       priority_support: true,
       api_access: true,
       advanced_analytics: true,
-      storage_gb: '50GB'
+      storage_gb: 50
     },
-    trialDays: 14
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
   },
   {
     id: '3',
     name: 'Enterprise',
-    price: { cents: 9999, currency_iso: 'USD' },
+    description: 'Full-featured solution for large organizations',
+    price_cents: 9999,
+    currency: 'USD',
     billing_cycle: 'monthly',
     status: 'active',
-    isPublic: true,
+    trial_days: 30,
+    is_public: true,
+    formatted_price: '$99.99',
+    monthly_price: '$99.99',
     features: {
       dedicated_support: true,
       api_access: true,
       advanced_analytics: true,
       unlimited_storage: true
     },
-    trialDays: 30
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
   }
 ];
 
@@ -68,9 +86,9 @@ export const ProfileSubscriptionTab: React.FC<ProfileSubscriptionTabProps> = ({
   className = ''
 }) => {
   const dispatch = useDispatch<AppDispatch>();
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
   const { user } = useSelector((state: RootState) => state.auth);
-  const { subscriptions, currentSubscription, availablePlans, loading: subscriptionLoading, error } = useSelector((state: RootState) => state.subscription);
+  const { currentSubscription, availablePlans, loading: subscriptionLoading, error } = useSelector((state: RootState) => state.subscription);
 
   const [selectedSubscription, setSelectedSubscription] = useState<Subscription | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -80,19 +98,19 @@ export const ProfileSubscriptionTab: React.FC<ProfileSubscriptionTabProps> = ({
 
   // WebSocket integration for real-time updates
   useSubscriptionWebSocket({
-    onSubscriptionUpdate: (data: unknown) => {
+    onSubscriptionUpdate: (_data: unknown) => {
       dispatch(fetchSubscriptions());
     },
-    onSubscriptionCancelled: (data: unknown) => {
+    onSubscriptionCancelled: (_data: unknown) => {
       dispatch(fetchSubscriptions());
     },
-    onPaymentProcessed: (data: unknown) => {
+    onPaymentProcessed: (_data: unknown) => {
       dispatch(fetchSubscriptions());
     },
-    onTrialEnding: (data: unknown) => {
+    onTrialEnding: (_data: unknown) => {
       // Could show a notification here
     },
-    onError: (error: string) => {
+    onError: (_error: string) => {
       // Handle WebSocket errors silently in profile context
     }
   });
@@ -100,8 +118,8 @@ export const ProfileSubscriptionTab: React.FC<ProfileSubscriptionTabProps> = ({
   // Load subscription data
   useEffect(() => {
     // Set mock plans (in real app, this would be an API call)
-    dispatch(setAvailablePlans(mockPlans as any));
-    
+    dispatch(setAvailablePlans(mockPlans));
+
     // Fetch real subscriptions
     dispatch(fetchSubscriptions());
   }, [dispatch]);
@@ -112,7 +130,7 @@ export const ProfileSubscriptionTab: React.FC<ProfileSubscriptionTabProps> = ({
         // Update existing subscription
         const result = await dispatch(updateSubscription({
           id: currentSubscription.id,
-          data: { planId }
+          data: { plan_id: planId }
         }));
         
         if (updateSubscription.fulfilled.match(result)) {
@@ -122,8 +140,8 @@ export const ProfileSubscriptionTab: React.FC<ProfileSubscriptionTabProps> = ({
         }
       } else {
         // Create new subscription
-        const result = await dispatch(createSubscription({ planId }));
-        
+        const result = await dispatch(createSubscription({ plan_id: planId }));
+
         if (createSubscription.fulfilled.match(result)) {
           showNotification('Subscription created successfully!', 'success');
         } else {
@@ -264,7 +282,7 @@ export const ProfileSubscriptionTab: React.FC<ProfileSubscriptionTabProps> = ({
           </div>
           <div className="p-6">
             <SimplePlanBrowser
-              plans={availablePlans as Plan[]}
+              plans={availablePlans}
               currentSubscription={currentSubscription}
               onPlanSelect={handlePlanSelect}
               loading={loading}
@@ -309,7 +327,7 @@ export const ProfileSubscriptionTab: React.FC<ProfileSubscriptionTabProps> = ({
         subscription={selectedSubscription}
         availablePlans={availablePlans}
         onUpgrade={handlePlanSelect}
-        onCancel={async (subscriptionId: string) => {
+        onCancel={async (_subscriptionId: string) => {
           // Handle cancellation - would typically call API
           showNotification('Subscription cancellation processed.', 'success');
           setIsModalOpen(false);

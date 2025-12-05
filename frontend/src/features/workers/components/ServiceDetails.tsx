@@ -1,22 +1,22 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Service, ServiceDetailsResponse, serviceAPI } from '@/shared/services/serviceApi';
+import { Service, ServiceDetailsResponse, service_api } from '@/shared/services/serviceApi';
 import { ServiceActivityList } from './ServiceActivityList';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { copyToClipboard } from '@/shared/utils/clipboard';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 
 interface ServiceDetailsProps {
   service: Service;
-  onServiceUpdate: (serviceId: string, data: any) => Promise<any>;
   onTokenRegenerate: (serviceId: string) => Promise<string>;
   onStatusChange: (serviceId: string, action: 'suspend' | 'activate' | 'revoke') => Promise<any>;
 }
 
 export const ServiceDetails: React.FC<ServiceDetailsProps> = ({
   service,
-  onServiceUpdate,
   onTokenRegenerate,
   onStatusChange
 }) => {
+  const { addNotification } = useNotifications();
   const [details, setDetails] = useState<ServiceDetailsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -29,7 +29,7 @@ export const ServiceDetails: React.FC<ServiceDetailsProps> = ({
     try {
       setLoading(true);
       setError(null);
-      const response = await serviceAPI.getService(service.id);
+      const response = await service_api.getService(service.id);
       setDetails(response);
     } catch (error: any) {
       setError(error.response?.data?.error || 'Failed to load service details');
@@ -49,7 +49,7 @@ export const ServiceDetails: React.FC<ServiceDetailsProps> = ({
       setShowToken(true);
       await loadServiceDetails(); // Reload to get updated details
     } catch (error: any) {
-      alert(error.message);
+      addNotification({ type: 'error', message: error.message || 'Failed to regenerate token' });
     }
   };
 
@@ -354,4 +354,3 @@ export const ServiceDetails: React.FC<ServiceDetailsProps> = ({
   );
 };
 
-export default ServiceDetails;

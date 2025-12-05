@@ -3,9 +3,10 @@ import React, { useEffect, useRef } from 'react';
 export interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
-  title: string;
+  title?: string | React.ReactNode;
   children: React.ReactNode;
-  maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | 'full';
+  maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl' | '6xl' | '7xl' | 'full';
+  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl' | '6xl' | '7xl' | 'full'; // Alias for maxWidth
   className?: string;
   variant?: 'default' | 'centered' | 'fullscreen' | 'drawer';
   showCloseButton?: boolean;
@@ -13,9 +14,10 @@ export interface ModalProps {
   closeOnEscape?: boolean;
   footer?: React.ReactNode;
   icon?: React.ReactNode;
-  subtitle?: string;
+  subtitle?: string | React.ReactNode;
   animate?: boolean;
   blur?: boolean;
+  disableContentScroll?: boolean;
 }
 
 export const Modal: React.FC<ModalProps> = ({
@@ -24,6 +26,7 @@ export const Modal: React.FC<ModalProps> = ({
   title,
   children,
   maxWidth = 'lg',
+  size, // Alias for maxWidth
   className = '',
   variant = 'default',
   showCloseButton = true,
@@ -33,9 +36,13 @@ export const Modal: React.FC<ModalProps> = ({
   icon,
   subtitle,
   animate = true,
-  blur = true
+  blur = true,
+  disableContentScroll = false
 }) => {
   const modalRef = useRef<HTMLDivElement>(null);
+
+  // Use size if provided, otherwise use maxWidth
+  const effectiveMaxWidth = size || maxWidth;
 
   const maxWidthClasses = {
     sm: 'max-w-sm',
@@ -45,6 +52,9 @@ export const Modal: React.FC<ModalProps> = ({
     '2xl': 'max-w-2xl',
     '3xl': 'max-w-3xl',
     '4xl': 'max-w-4xl',
+    '5xl': 'max-w-5xl',
+    '6xl': 'max-w-6xl',
+    '7xl': 'max-w-7xl',
     full: 'max-w-full mx-4'
   };
 
@@ -92,14 +102,16 @@ export const Modal: React.FC<ModalProps> = ({
 
   // Variant-specific styles
   const variantClasses = {
-    default: 'sm:my-8',
+    default: disableContentScroll ? 'sm:my-4' : 'sm:my-8',
     centered: 'my-auto',
     fullscreen: 'h-full m-0',
     drawer: 'ml-auto h-full m-0'
   };
 
   const modalPositioning = {
-    default: 'flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0',
+    default: disableContentScroll
+      ? 'flex items-start justify-center min-h-screen pt-4 px-4 pb-4 text-center sm:block sm:p-0'
+      : 'flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0',
     centered: 'flex items-center justify-center min-h-screen p-4',
     fullscreen: 'flex items-center justify-center h-screen',
     drawer: 'flex justify-end h-screen'
@@ -118,7 +130,7 @@ export const Modal: React.FC<ModalProps> = ({
       ${animate ? 'animate-modal-zoom-in' : ''}
     `,
     fullscreen: `
-      bg-theme-surface h-full w-full text-left overflow-hidden
+      bg-theme-surface h-full w-full text-left overflow-hidden flex flex-col
       ${animate ? 'animate-modal-fade-in' : ''}
     `,
     drawer: `
@@ -136,7 +148,7 @@ export const Modal: React.FC<ModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 overflow-y-auto"
+      className={`fixed inset-0 z-[9999] ${disableContentScroll ? 'overflow-y-auto' : 'overflow-y-auto'}`}
       aria-labelledby="modal-title"
       role="dialog"
       aria-modal="true"
@@ -172,7 +184,7 @@ export const Modal: React.FC<ModalProps> = ({
             ${variant === 'drawer' ? 'w-full max-w-md' : ''}
             ${
               // eslint-disable-next-line security/detect-object-injection
-              variant !== 'fullscreen' && variant !== 'drawer' ? (maxWidthClasses[maxWidth] || maxWidthClasses.lg) : ''
+              variant !== 'fullscreen' && variant !== 'drawer' ? (maxWidthClasses[effectiveMaxWidth] || maxWidthClasses.lg) : ''
             }
             ${className}
           `.replace(/\s+/g, ' ').trim()}
@@ -194,9 +206,9 @@ export const Modal: React.FC<ModalProps> = ({
                     {title}
                   </h3>
                   {subtitle && (
-                    <p className="text-sm text-theme-secondary mt-1">
+                    <div className="text-sm text-theme-secondary mt-1">
                       {subtitle}
-                    </p>
+                    </div>
                   )}
                 </div>
               </div>
@@ -231,11 +243,11 @@ export const Modal: React.FC<ModalProps> = ({
             </div>
           </div>
 
-          {/* Enhanced Content with scroll */}
+          {/* Enhanced Content with conditional scroll */}
           <div className={`
-            px-6 py-4 text-theme-secondary
-            ${variant === 'fullscreen' ? 'flex-1 overflow-y-auto' : 'max-h-[60vh] overflow-y-auto'}
-            custom-scrollbar
+            text-theme-secondary
+            ${variant === 'fullscreen' ? 'flex-1 min-h-0' :
+              disableContentScroll ? 'px-6 py-4' : 'px-6 py-4 max-h-[60vh] overflow-y-auto custom-scrollbar'}
           `}>
             {children}
           </div>

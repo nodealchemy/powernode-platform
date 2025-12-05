@@ -23,26 +23,26 @@ class Api::V1::AppEndpointsController < ApplicationController
     total_count = endpoints.count
     endpoints = endpoints.order(:name).limit(per_page).offset(offset)
 
-    render json: {
-      success: true,
-      data: endpoints.map { |endpoint| endpoint_data(endpoint) },
-      pagination: {
-        current_page: page,
-        per_page: per_page,
-        total_count: total_count,
-        total_pages: (total_count / per_page.to_f).ceil
+    render_success(
+      data: {
+        endpoints: endpoints.map { |endpoint| endpoint_data(endpoint) },
+        pagination: {
+          current_page: page,
+          per_page: per_page,
+          total_count: total_count,
+          total_pages: (total_count / per_page.to_f).ceil
+        }
       }
-    }
+    )
   end
 
   # GET /api/v1/apps/:app_id/endpoints/:id
   def show
     authorize_permission!('apps.read')
-    
-    render json: {
-      success: true,
+
+    render_success(
       data: endpoint_data(@app_endpoint, include_analytics: true)
-    }
+    )
   end
 
   # POST /api/v1/apps/:app_id/endpoints
@@ -50,77 +50,65 @@ class Api::V1::AppEndpointsController < ApplicationController
     authorize_permission!('apps.update')
     
     @app_endpoint = @app.app_endpoints.build(endpoint_params)
-    
+
     if @app_endpoint.save
-      render json: {
-        success: true,
+      render_success(
         data: endpoint_data(@app_endpoint),
-        message: 'API endpoint created successfully'
-      }, status: :created
+        message: 'API endpoint created successfully',
+        status: :created
+      )
     else
-      render json: {
-        success: false,
-        error: 'Failed to create API endpoint',
-        details: @app_endpoint.errors.full_messages
-      }, status: :unprocessable_content
+      render_validation_error(@app_endpoint)
     end
   end
 
   # PUT /api/v1/apps/:app_id/endpoints/:id
   def update
     authorize_permission!('apps.update')
-    
+
     if @app_endpoint.update(endpoint_params)
-      render json: {
-        success: true,
+      render_success(
         data: endpoint_data(@app_endpoint),
         message: 'API endpoint updated successfully'
-      }, status: :ok
+      )
     else
-      render json: {
-        success: false,
-        error: 'Failed to update API endpoint',
-        details: @app_endpoint.errors.full_messages
-      }, status: :unprocessable_content
+      render_validation_error(@app_endpoint)
     end
   end
 
   # DELETE /api/v1/apps/:app_id/endpoints/:id
   def destroy
     authorize_permission!('apps.delete')
-    
+
     @app_endpoint.destroy!
-    
-    render json: {
-      success: true,
+
+    render_success(
       message: 'API endpoint deleted successfully'
-    }, status: :ok
+    )
   end
 
   # POST /api/v1/apps/:app_id/endpoints/:id/activate
   def activate
     authorize_permission!('apps.update')
-    
+
     @app_endpoint.update!(is_active: true)
-    
-    render json: {
-      success: true,
+
+    render_success(
       data: endpoint_data(@app_endpoint),
       message: 'API endpoint activated successfully'
-    }
+    )
   end
 
   # POST /api/v1/apps/:app_id/endpoints/:id/deactivate
   def deactivate
     authorize_permission!('apps.update')
-    
+
     @app_endpoint.update!(is_active: false)
-    
-    render json: {
-      success: true,
+
+    render_success(
       data: endpoint_data(@app_endpoint),
       message: 'API endpoint deactivated successfully'
-    }
+    )
   end
 
   # POST /api/v1/apps/:app_id/endpoints/:id/test
@@ -144,9 +132,8 @@ class Api::V1::AppEndpointsController < ApplicationController
       response_headers: { 'Content-Type' => 'application/json' },
       called_at: Time.current
     )
-    
-    render json: {
-      success: true,
+
+    render_success(
       data: {
         call_id: call.id,
         status_code: call.status_code,
@@ -154,7 +141,7 @@ class Api::V1::AppEndpointsController < ApplicationController
         test_result: 'Endpoint test completed successfully'
       },
       message: 'API endpoint test completed'
-    }
+    )
   end
 
   # GET /api/v1/apps/:app_id/endpoints/:id/analytics
@@ -178,11 +165,10 @@ class Api::V1::AppEndpointsController < ApplicationController
                        .first(5)
                        .to_h
     }
-    
-    render json: {
-      success: true,
+
+    render_success(
       data: analytics_data
-    }
+    )
   end
 
   private
@@ -190,19 +176,13 @@ class Api::V1::AppEndpointsController < ApplicationController
   def set_app
     @app = current_account.apps.find(params[:app_id])
   rescue ActiveRecord::RecordNotFound
-    render json: {
-      success: false,
-      error: 'App not found'
-    }, status: :not_found
+    render_error('App not found', status: :not_found)
   end
 
   def set_app_endpoint
     @app_endpoint = @app.app_endpoints.find(params[:id])
   rescue ActiveRecord::RecordNotFound
-    render json: {
-      success: false,
-      error: 'API endpoint not found'
-    }, status: :not_found
+    render_error('API endpoint not found', status: :not_found)
   end
 
   def endpoint_params

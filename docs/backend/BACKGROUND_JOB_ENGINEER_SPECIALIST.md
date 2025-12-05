@@ -926,8 +926,8 @@ class WorkerJobService
   
   def initialize
     @worker_api_client = BackendApiClient.new(
-      base_url: ENV['WORKER_API_URL'],
-      token: ENV['WORKER_API_TOKEN'],
+      base_url: Rails.application.config.worker_url,
+      token: Rails.application.config.worker_token,
       timeout: API_TIMEOUT
     )
   end

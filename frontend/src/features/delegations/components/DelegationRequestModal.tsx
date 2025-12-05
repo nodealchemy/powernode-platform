@@ -158,7 +158,7 @@ export const DelegationRequestModal: React.FC<DelegationRequestModalProps> = ({
                       {(request.delegation.users || []).map((user) => (
                         <div key={user.id} className="flex items-center justify-between">
                           <div>
-                            <p className="text-theme-primary">{user.name || `${user.first_name || ''} ${user.last_name || ''}`.trim()}</p>
+                            <p className="text-theme-primary">{user.name}</p>
                             <p className="text-sm text-theme-secondary">{user.email}</p>
                           </div>
                           <span className="text-sm text-theme-tertiary">{user.roles?.[0] || 'N/A'}</span>

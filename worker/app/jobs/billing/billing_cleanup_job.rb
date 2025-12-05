@@ -9,7 +9,7 @@ class Billing::BillingCleanupJob < BaseJob
                   retry: 1
 
   def execute
-    logger.info "Starting billing cleanup and maintenance"
+    log_info("Starting billing cleanup and maintenance")
     
     begin
       # Clean up old failed payments
@@ -30,10 +30,10 @@ class Billing::BillingCleanupJob < BaseJob
       # Generate billing health report
       generate_billing_health_report
       
-      logger.info "Billing cleanup completed successfully"
+      log_info("Billing cleanup completed successfully")
       
     rescue StandardError => e
-      logger.error "Billing cleanup failed: #{e.message}"
+      log_error("Billing cleanup failed: #{e.message}")
       raise
     end
   end
@@ -52,7 +52,7 @@ class Billing::BillingCleanupJob < BaseJob
       api_client.post('/api/v1/billing/cleanup', cleanup_params)
     end
     
-    logger.info "Cleaned up #{result['count']} old failed payments"
+    log_info("Cleaned up #{result['count']} old failed payments")
   end
 
   def cleanup_expired_invoices
@@ -67,7 +67,7 @@ class Billing::BillingCleanupJob < BaseJob
       api_client.post('/api/v1/billing/cleanup', cleanup_params)
     end
     
-    logger.info "Marked #{result['count']} invoices as expired"
+    log_info("Marked #{result['count']} invoices as expired")
   end
 
   def update_subscription_metrics
@@ -76,8 +76,8 @@ class Billing::BillingCleanupJob < BaseJob
       api_client.post('/api/v1/analytics/update_metrics', { type: 'subscription_metrics' })
     end
     
-    logger.info "Updated subscription metrics cache"
-    logger.info "Active subscriptions by plan: #{metrics_result['active_by_plan']&.size || 0} plans"
+    log_info("Updated subscription metrics cache")
+    log_info("Active subscriptions by plan: #{metrics_result['active_by_plan']&.size || 0} plans")
   end
 
   def cleanup_orphaned_payment_methods
@@ -92,7 +92,7 @@ class Billing::BillingCleanupJob < BaseJob
       api_client.post('/api/v1/billing/cleanup', cleanup_params)
     end
     
-    logger.info "Cleaned up #{result['count']} orphaned payment methods"
+    log_info("Cleaned up #{result['count']} orphaned payment methods")
   end
 
   def update_account_suspension_status
@@ -102,7 +102,7 @@ class Billing::BillingCleanupJob < BaseJob
     end
     
     if result['reactivated_count'] > 0
-      logger.info "Reactivated #{result['reactivated_count']} accounts after payment resolution"
+      log_info("Reactivated #{result['reactivated_count']} accounts after payment resolution")
     end
     
     result['reactivated_accounts']&.each do |account|
@@ -118,9 +118,9 @@ class Billing::BillingCleanupJob < BaseJob
     
     report_data = report_result['report']
     
-    logger.info "Generated billing health report"
-    logger.info "Payment success rate: #{report_data['payment_success_rate']}"
-    logger.info "Churn rate: #{report_data.dig('subscription_health', 'churn_rate')}"
+    log_info("Generated billing health report")
+    log_info("Payment success rate: #{report_data['payment_success_rate']}")
+    log_info("Churn rate: #{report_data.dig('subscription_health', 'churn_rate')}")
     
     # Send alert if there are issues
     if report_data['payment_success_rate'] < 0.95 || 
@@ -141,9 +141,9 @@ class Billing::BillingCleanupJob < BaseJob
       api_client.post('/api/v1/notifications', notification_params)
     end
     
-    logger.info "Sent account reactivation notification for account #{account['id']}"
+    log_info("Sent account reactivation notification for account #{account['id']}")
   rescue StandardError => e
-    logger.error "Failed to send account reactivation notification: #{e.message}"
+    log_error("Failed to send account reactivation notification: #{e.message}")
   end
 
   def send_billing_health_alert(report_data)
@@ -163,10 +163,10 @@ class Billing::BillingCleanupJob < BaseJob
       api_client.post('/api/v1/notifications', alert_params)
     end
     
-    logger.warn "ADMIN ALERT: Billing health issues detected"
-    logger.warn "Payment success rate: #{report_data['payment_success_rate']}"
-    logger.warn "Churn rate: #{report_data.dig('subscription_health', 'churn_rate')}"
+    log_warn("ADMIN ALERT: Billing health issues detected")
+    log_warn("Payment success rate: #{report_data['payment_success_rate']}")
+    log_warn("Churn rate: #{report_data.dig('subscription_health', 'churn_rate')}")
   rescue StandardError => e
-    logger.error "Failed to send billing health alert: #{e.message}"
+    log_error("Failed to send billing health alert: #{e.message}")
   end
 end

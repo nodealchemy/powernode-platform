@@ -198,4 +198,3 @@ export const CreateWorkerModal: React.FC<CreateWorkerModalProps> = ({ isOpen, on
   );
 };
 
-export default CreateWorkerModal;

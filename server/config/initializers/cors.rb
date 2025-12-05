@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # Be sure to restart your server when you modify this file.
 
 # Avoid CORS issues when API is called from the frontend app.
@@ -5,24 +7,21 @@
 
 # Read more: https://github.com/cyu/rack-cors
 
-# Load allowed origins once at startup (can be reloaded by restarting server)
-cors_allowed_origins = begin
-  CorsConfigurationService.allowed_origins
-rescue StandardError => e
-  Rails.logger.error "Failed to load CORS origins: #{e.message}"
-  # Fallback to basic development origins
-  [
-    'http://localhost:3001',
-    'http://127.0.0.1:3001', 
-  ]
-end
-
-Rails.logger.info "CORS: Loaded #{cors_allowed_origins.size} allowed origins"
-
-# CORS configuration with comprehensive headers support
+# Dynamic CORS origin checking using CorsConfigurationService
+# This approach avoids class loading issues during initialization
 Rails.application.config.middleware.insert_before 0, Rack::Cors do
   allow do
-    origins cors_allowed_origins
+    # Use a proc to dynamically check origins at runtime
+    origins do |source, _env|
+      begin
+        # Lazy-load and check if origin is allowed
+        CorsConfigurationService.origin_allowed?(source)
+      rescue StandardError => e
+        Rails.logger.error "CORS origin check failed: #{e.message}"
+        # Fallback: allow localhost in development
+        Rails.env.development? && (source.start_with?('http://localhost') || source.start_with?('http://127.0.0.1'))
+      end
+    end
     
     resource '*',
       headers: :any,

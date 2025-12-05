@@ -25,7 +25,9 @@ export const handleDOMErrors = (): void => {
       ];
       
       if (extensionErrors.some(pattern => message.includes(pattern))) {
-        console.warn('[DOM] Browser extension DOM error suppressed:', error.message);
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('[DOM] Browser extension DOM error suppressed:', error.message);
+        }
         event.preventDefault(); // Suppress the error
         return;
       }
@@ -42,10 +44,12 @@ export const handleDOMErrors = (): void => {
       const message = error.message.toLowerCase();
       
       // Suppress known browser extension errors
-      if (message.includes('extension context invalidated') || 
+      if (message.includes('extension context invalidated') ||
           message.includes('bootstrap-autofill-overlay') ||
           message.includes('autofill-inline-menu')) {
-        console.warn('[DOM] Browser extension error suppressed:', error.message);
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('[DOM] Browser extension error suppressed:', error.message);
+        }
         event.preventDefault();
         return;
       }

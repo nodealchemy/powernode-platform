@@ -148,13 +148,13 @@ class Api::V1::ActivitiesController < ApplicationController
                 current_account.workers.find(params[:worker_id])
               end
   rescue ActiveRecord::RecordNotFound
-    render_error("Worker not found", :not_found)
+    render_error("Worker not found", status: :not_found)
   end
 
   def set_activity
     @activity = @worker.worker_activities.find(params[:id])
   rescue ActiveRecord::RecordNotFound
-    render_error("Activity not found", :not_found)
+    render_error("Activity not found", status: :not_found)
   end
 
   def apply_status_filter(activities, status)

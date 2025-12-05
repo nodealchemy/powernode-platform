@@ -1,5 +1,8 @@
 import { api } from '@/shared/services/api';
 
+// Feature value types
+export type FeatureValue = boolean | number | string | null;
+
 // Types
 export interface PlanFeature {
   id: string;
@@ -7,7 +10,7 @@ export interface PlanFeature {
   description: string;
   type: 'boolean' | 'numeric' | 'text' | 'enum';
   category: 'core' | 'advanced' | 'integrations' | 'support' | 'analytics';
-  default_value: any;
+  default_value: FeatureValue;
   validation_rules?: {
     min?: number;
     max?: number;
@@ -24,7 +27,7 @@ export interface PlanLimit {
   id: string;
   plan_id: string;
   feature_id: string;
-  value: any;
+  value: FeatureValue;
   is_unlimited: boolean;
   is_enabled: boolean;
   custom_message?: string;
@@ -52,7 +55,7 @@ export interface PlanTemplate {
   id: string;
   name: string;
   description: string;
-  features: Record<string, any>;
+  features: Record<string, FeatureValue>;
   is_default: boolean;
 }
 
@@ -70,7 +73,7 @@ export interface PlanComparison {
   features: PlanFeature[];
   plans: Array<{
     plan: Plan;
-    feature_values: Record<string, any>;
+    feature_values: Record<string, FeatureValue>;
   }>;
 }
 
@@ -79,7 +82,7 @@ export interface FeatureFormData {
   description: string;
   type: 'boolean' | 'numeric' | 'text' | 'enum';
   category: 'core' | 'advanced' | 'integrations' | 'support' | 'analytics';
-  default_value: any;
+  default_value: FeatureValue;
   validation_rules?: {
     min?: number;
     max?: number;
@@ -90,7 +93,7 @@ export interface FeatureFormData {
 }
 
 export interface LimitFormData {
-  value: any;
+  value: FeatureValue;
   is_unlimited: boolean;
   is_enabled: boolean;
   custom_message?: string;
@@ -250,7 +253,7 @@ export const planFeaturesApi = {
   },
 
   // Validation
-  async validateFeatureValue(featureId: string, value: any): Promise<{ success: boolean; valid?: boolean; errors?: string[]; error?: string }> {
+  async validateFeatureValue(featureId: string, value: FeatureValue): Promise<{ success: boolean; valid?: boolean; errors?: string[]; error?: string }> {
     try {
       const response = await api.post(`/admin/plan_features/${featureId}/validate`, { value });
       return response.data;
@@ -295,7 +298,7 @@ export const planFeaturesApi = {
     }
   },
 
-  formatFeatureValue(feature: PlanFeature, value: any): string {
+  formatFeatureValue(feature: PlanFeature, value: FeatureValue): string {
     if (value === null || value === undefined) return 'Not set';
     
     switch (feature.type) {
@@ -384,7 +387,7 @@ export const planFeaturesApi = {
       }
 
       if (feature.type === 'enum' && feature.validation_rules?.enum_values) {
-        if (!feature.validation_rules.enum_values.includes(data.value)) {
+        if (!feature.validation_rules.enum_values.includes(String(data.value))) {
           errors.push('Value must be one of the allowed options');
         }
       }

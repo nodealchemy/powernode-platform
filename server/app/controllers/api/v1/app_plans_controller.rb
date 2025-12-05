@@ -28,17 +28,15 @@ class Api::V1::AppPlansController < ApplicationController
       plans = plans.order(:sort_order, :name)
     end
     
-    render json: {
-      success: true,
+    render_success(
       data: plans.map { |plan| plan_data(plan) }
-    }, status: :ok
+    )
   end
   
   def show
-    render json: {
-      success: true,
+    render_success(
       data: plan_data(@plan, detailed: true)
-    }, status: :ok
+    )
   end
   
   def create
@@ -52,17 +50,13 @@ class Api::V1::AppPlansController < ApplicationController
         plan_name: @plan.name 
       })
       
-      render json: {
-        success: true,
+      render_success(
         data: plan_data(@plan, detailed: true),
-        message: 'App plan created successfully'
-      }, status: :created
+        message: 'App plan created successfully',
+        status: :created
+      )
     else
-      render json: {
-        success: false,
-        error: 'Failed to create app plan',
-        details: @plan.errors.full_messages
-      }, status: :unprocessable_content
+      render_validation_error(@plan)
     end
   end
   
@@ -74,17 +68,12 @@ class Api::V1::AppPlansController < ApplicationController
         changes: @plan.previous_changes.keys 
       })
       
-      render json: {
-        success: true,
+      render_success(
         data: plan_data(@plan, detailed: true),
         message: 'App plan updated successfully'
-      }, status: :ok
+      )
     else
-      render json: {
-        success: false,
-        error: 'Failed to update app plan',
-        details: @plan.errors.full_messages
-      }, status: :unprocessable_content
+      render_validation_error(@plan)
     end
   end
   
@@ -97,16 +86,11 @@ class Api::V1::AppPlansController < ApplicationController
         plan_name: plan_name 
       })
       
-      render json: {
-        success: true,
+      render_success(
         message: 'App plan deleted successfully'
-      }, status: :ok
+      )
     else
-      render json: {
-        success: false,
-        error: 'Failed to delete app plan',
-        details: @plan.errors.full_messages
-      }, status: :unprocessable_content
+      render_validation_error(@plan)
     end
   end
   
@@ -118,17 +102,12 @@ class Api::V1::AppPlansController < ApplicationController
         plan_name: @plan.name 
       })
       
-      render json: {
-        success: true,
+      render_success(
         data: plan_data(@plan, detailed: true),
         message: 'App plan activated successfully'
-      }, status: :ok
+      )
     else
-      render json: {
-        success: false,
-        error: 'Failed to activate app plan',
-        details: @plan.errors.full_messages
-      }, status: :unprocessable_content
+      render_validation_error(@plan)
     end
   end
   
@@ -140,24 +119,19 @@ class Api::V1::AppPlansController < ApplicationController
         plan_name: @plan.name 
       })
       
-      render json: {
-        success: true,
+      render_success(
         data: plan_data(@plan, detailed: true),
         message: 'App plan deactivated successfully'
-      }, status: :ok
+      )
     else
-      render json: {
-        success: false,
-        error: 'Failed to deactivate app plan',
-        details: @plan.errors.full_messages
-      }, status: :unprocessable_content
+      render_validation_error(@plan)
     end
   end
   
   def reorder
     plan_ids = params[:plan_ids]
     
-    return render_error('Plan IDs required', :bad_request) if plan_ids.blank?
+    return render_error('Plan IDs required', status: :bad_request) if plan_ids.blank?
     
     begin
       ActiveRecord::Base.transaction do
@@ -172,25 +146,24 @@ class Api::V1::AppPlansController < ApplicationController
         new_order: plan_ids 
       })
       
-      render json: {
-        success: true,
+      render_success(
         message: 'App plans reordered successfully'
-      }, status: :ok
+      )
     rescue ActiveRecord::RecordNotFound
-      render_error('One or more plans not found', :not_found)
+      render_error('One or more plans not found', status: :not_found)
     rescue => e
-      render_error('Failed to reorder plans', :unprocessable_content)
+      render_error('Failed to reorder plans', status: :unprocessable_content)
     end
   end
   
   def compare
     plan_ids = params[:plan_ids]
     
-    return render_error('Plan IDs required for comparison', :bad_request) if plan_ids.blank?
+    return render_error('Plan IDs required for comparison', status: :bad_request) if plan_ids.blank?
     
     plans = @app.app_plans.where(id: plan_ids).includes(:app)
     
-    return render_error('Plans not found', :not_found) if plans.empty?
+    return render_error('Plans not found', status: :not_found) if plans.empty?
     
     comparison_data = plans.map do |plan|
       {
@@ -205,8 +178,7 @@ class Api::V1::AppPlansController < ApplicationController
       }
     end
     
-    render json: {
-      success: true,
+    render_success(
       data: {
         plans: comparison_data,
         app: {
@@ -214,7 +186,7 @@ class Api::V1::AppPlansController < ApplicationController
           name: @app.name
         }
       }
-    }, status: :ok
+    )
   end
   
   def analytics
@@ -228,30 +200,29 @@ class Api::V1::AppPlansController < ApplicationController
       average_plan_price: @app.average_plan_price
     }
     
-    render json: {
-      success: true,
+    render_success(
       data: analytics_data
-    }, status: :ok
+    )
   end
   
   private
   
   def set_app
     @app = current_account.apps.find_by(id: params[:app_id])
-    render_error('App not found', :not_found) unless @app
+    render_error('App not found', status: :not_found) unless @app
   end
   
   def authorize_app_access
     return true if @app.account == current_account
     return true if current_user.has_permission?('apps.manage')
     
-    render_error('Unauthorized to access this app', :forbidden)
+    render_error('Unauthorized to access this app', status: :forbidden)
     false
   end
   
   def set_plan
     @plan = @app.app_plans.find_by(id: params[:id])
-    render_error('App plan not found', :not_found) unless @plan
+    render_error('App plan not found', status: :not_found) unless @plan
   end
   
   def plan_params
@@ -304,10 +275,4 @@ class Api::V1::AppPlansController < ApplicationController
     data
   end
   
-  def render_error(message, status)
-    render json: {
-      success: false,
-      error: message
-    }, status: status
-  end
 end

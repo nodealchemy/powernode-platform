@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { Plan } from '../services/plansApi';
 import { CheckIcon, XMarkIcon } from '@heroicons/react/24/outline';
 
@@ -248,5 +248,3 @@ export const PricingComparison: React.FC<PricingComparisonProps> = ({
     </div>
   );
 };
-
-export default PricingComparison;

@@ -1,5 +1,9 @@
 # frozen_string_literal: true
 
+# External webhook controller for Stripe payment events.
+# Note: Uses raw JSON responses instead of ApiResponse concern methods because
+# Stripe expects specific response formats for webhook acknowledgment.
+# See: https://stripe.com/docs/webhooks#acknowledge-events-immediately
 class Webhooks::StripeController < ApplicationController
   skip_before_action :authenticate_request
   before_action :verify_stripe_signature

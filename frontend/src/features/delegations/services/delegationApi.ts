@@ -77,12 +77,10 @@ export interface Delegation {
   targetAccountId?: string;
   targetAccountName?: string;
   users?: Array<{ 
-    userId?: string; 
-    id?: string; 
-    email: string; 
-    name?: string; 
-    first_name?: string;
-    last_name?: string;
+    userId?: string;
+    id?: string;
+    email: string;
+    name?: string;
     role?: string;
     addedAt?: string;
   }>;
@@ -154,12 +152,10 @@ export interface DelegationRequest {
     sourceAccountName?: string;
     expiresAt?: string;
     permissions: string[];
-    users?: Array<{ 
-      id?: string; 
-      name?: string; 
-      first_name?: string;
-      last_name?: string;
-      email: string; 
+    users?: Array<{
+      id?: string;
+      name?: string;
+      email: string;
       roles?: string[];
     }>;
   };
@@ -168,8 +164,7 @@ export interface DelegationRequest {
 export interface User {
   id: string;
   email: string;
-  first_name: string;
-  last_name: string;
+  name: string;
   roles: string[];
 }
 
@@ -449,5 +444,3 @@ export const DELEGATION_PERMISSIONS = [
     description: 'Access all analytics across the platform',
   },
 ];
-
-export default delegationApi;

@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { ProxyDetectionResult } from '@/shared/services/proxySettingsApi';
 
 interface ProxyDetectionStatusProps {
@@ -6,7 +6,7 @@ interface ProxyDetectionStatusProps {
   onRefresh: () => void;
 }
 
-const ProxyDetectionStatus: React.FC<ProxyDetectionStatusProps> = ({ detection, onRefresh }) => {
+export const ProxyDetectionStatus: React.FC<ProxyDetectionStatusProps> = ({ detection, onRefresh }) => {
   if (!detection) {
     return (
       <div className="bg-theme-surface rounded-lg p-6">
@@ -134,10 +134,10 @@ const ProxyDetectionStatus: React.FC<ProxyDetectionStatusProps> = ({ detection, 
           Typical Reverse Proxy URL Mapping
         </h4>
         <ul className="text-sm text-theme-info space-y-1">
-          <li>• <code className="font-mono">/*</code> → Frontend application (React)</li>
-          <li>• <code className="font-mono">/api/v1/*</code> → Backend API (Rails)</li>
+          <li>• <code className="font-mono">{'/*'}</code> → Frontend application (React)</li>
+          <li>• <code className="font-mono">{'/api/v1/*'}</code> → Backend API (Rails)</li>
           <li>• <code className="font-mono">/cable</code> → WebSocket connection (ActionCable)</li>
-          <li>• <code className="font-mono">/webhooks/*</code> → Webhook endpoints</li>
+          <li>• <code className="font-mono">{'/webhooks/*'}</code> → Webhook endpoints</li>
         </ul>
         <p className="text-xs text-theme-info mt-2">
           The same reverse proxy handles both frontend and backend routing based on URL paths.
@@ -152,4 +152,3 @@ const ProxyDetectionStatus: React.FC<ProxyDetectionStatusProps> = ({ detection, 
   );
 };
 
-export default ProxyDetectionStatus;

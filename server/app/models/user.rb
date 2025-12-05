@@ -36,15 +36,16 @@ class User < ApplicationRecord
   validates :email, presence: true,
                    format: { with: URI::MailTo::EMAIL_REGEXP },
                    uniqueness: { case_sensitive: false }
-  validates :first_name, presence: true, length: { minimum: 1, maximum: 50 }
-  validates :last_name, presence: true, length: { minimum: 1, maximum: 50 }
+  validates :name, presence: true, length: { minimum: 1, maximum: 100 }
   validates :status, presence: true, inclusion: { in: %w[active inactive suspended] }
 
   # Callbacks
   before_validation :normalize_email
   after_create :assign_default_role
+  after_create :assign_permissions_after_create
   after_update :clear_reset_token_on_password_change, if: :saved_change_to_password_digest?
   before_save :set_password_changed_at, if: :password_digest_changed?
+  after_touch :clear_permission_cache
 
   # Constants
   MAX_FAILED_ATTEMPTS = 5
@@ -69,11 +70,18 @@ class User < ApplicationRecord
 
   # Instance methods
   def full_name
-    "#{first_name} #{last_name}".strip
+    name.to_s.strip
   end
 
   def initials
-    "#{first_name[0]}#{last_name[0]}".upcase
+    name_parts = name.to_s.split(' ')
+    return '' if name_parts.empty?
+
+    if name_parts.length == 1
+      name_parts[0][0].upcase
+    else
+      "#{name_parts.first[0]}#{name_parts.last[0]}".upcase
+    end
   end
 
   def active?
@@ -82,9 +90,9 @@ class User < ApplicationRecord
 
   # NEW: Permission-based access control methods
   def has_permission?(permission_name)
-    # Super admin has all permissions programmatically
-    return true if super_admin?
-    
+    # Check if user has system.admin permission (equivalent to super admin)
+    return true if roles.joins(:permissions).exists?(permissions: { name: 'system.admin' })
+
     # Check if user has permission through any of their roles
     permissions.exists?(name: permission_name)
   end
@@ -98,8 +106,8 @@ class User < ApplicationRecord
   end
 
   def permissions
-    # Super admin has programmatic access to all permissions
-    if super_admin?
+    # Users with system.admin permission have access to all permissions
+    if roles.joins(:permissions).exists?(permissions: { name: 'system.admin' })
       Permission.all
     else
       # Get all permissions through roles
@@ -108,12 +116,63 @@ class User < ApplicationRecord
   end
 
   def permission_names
-    # Super admin has programmatic access to all permissions
-    if super_admin?
-      Permission.pluck(:name).sort
-    else
-      permissions.pluck(:name).uniq.sort
+    # PERFORMANCE FIX: Cache permission names to avoid expensive queries on every token refresh
+    # Cache expires after 5 minutes or when user's roles/permissions change
+    cache_key = "user:#{id}:permission_names:#{updated_at.to_i}:#{role_cache_key}"
+
+    Rails.cache.fetch(cache_key, expires_in: 5.minutes) do
+      # Check if user has system.admin permission (cache this check too)
+      has_system_admin = roles.joins(:permissions).exists?(permissions: { name: 'system.admin' })
+
+      if has_system_admin
+        # System admins get all permissions
+        Permission.pluck(:name).sort
+      else
+        # Regular users get permissions through their roles
+        permissions.pluck(:name).uniq.sort
+      end
     end
+  end
+
+  # Virtual attribute for setting permissions (useful for testing)
+  # Creates or finds a role with the specified permissions and assigns it to the user
+  def permissions=(permission_list)
+    # Set flag to skip default role assignment (even for empty arrays)
+    @permissions_explicitly_set = true
+    # Store pending permissions for after_create callback
+    @pending_permissions = Array(permission_list)
+  end
+
+  def assign_permissions_after_create
+    # Use nil? instead of blank? to allow empty arrays (users with no permissions)
+    return if @pending_permissions.nil?
+
+    # Find or create a test role with these specific permissions
+    # Use alphanumeric string that matches Role name validation
+    role_name = "test_role_#{('a'..'z').to_a.sample(8).join}"
+    role = Role.create!(
+      name: role_name,
+      display_name: "Test Role",
+      role_type: "user",
+      description: "Test role with custom permissions"
+    )
+
+    # Assign permissions to the role (even if empty array)
+    @pending_permissions.each do |permission_name|
+      permission = Permission.find_or_create_by!(name: permission_name)
+      role.permissions << permission unless role.permissions.include?(permission)
+    end
+
+    # Assign role to user
+    roles << role unless roles.include?(role)
+
+    @pending_permissions = nil
+    clear_permission_cache
+  end
+
+  # Cache key for role associations (changes when roles are added/removed)
+  def role_cache_key
+    @role_cache_key ||= role_ids.sort.join('-')
   end
 
   # Role checking methods
@@ -374,7 +433,9 @@ class User < ApplicationRecord
 
   def assign_default_role
     return unless roles.empty?
-    
+    # Skip default role if permissions were explicitly set (even if empty)
+    return if @permissions_explicitly_set
+
     # First user in account gets owner role
     if account && account.users.count == 1  # This user is the only one (just created)
       owner_role = Role.find_by(name: 'owner')
@@ -398,5 +459,14 @@ class User < ApplicationRecord
 
   def generate_backup_codes
     Array.new(10) { SecureRandom.hex(4).upcase }
+  end
+
+  # Clear permission cache when roles/permissions change
+  def clear_permission_cache
+    @role_cache_key = nil
+    cache_key_pattern = "user:#{id}:permission_names:*"
+    Rails.cache.delete_matched(cache_key_pattern)
+  rescue => e
+    Rails.logger.warn "Failed to clear permission cache for user #{id}: #{e.message}"
   end
 end

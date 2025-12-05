@@ -203,9 +203,9 @@ describe('tokenUtils', () => {
   describe('clearStoredTokens', () => {
     it('removes both access and refresh tokens from localStorage', () => {
       clearStoredTokens();
-      
-      expect(localStorageMock.removeItem).toHaveBeenCalledWith('accessToken');
-      expect(localStorageMock.removeItem).toHaveBeenCalledWith('refreshToken');
+
+      expect(localStorageMock.removeItem).toHaveBeenCalledWith('access_token');
+      expect(localStorageMock.removeItem).toHaveBeenCalledWith('refresh_token');
       expect(localStorageMock.removeItem).toHaveBeenCalledTimes(2);
     });
 
@@ -221,29 +221,29 @@ describe('tokenUtils', () => {
   describe('hasStoredTokens', () => {
     it('returns true when access token exists', () => {
       localStorageMock.getItem.mockImplementation((key) => {
-        if (key === 'accessToken') return 'access-token-value';
+        if (key === 'access_token') return 'access-token-value';
         return null;
       });
-      
+
       expect(hasStoredTokens()).toBe(true);
     });
 
     it('returns true when refresh token exists', () => {
       localStorageMock.getItem.mockImplementation((key) => {
-        if (key === 'refreshToken') return 'refresh-token-value';
+        if (key === 'refresh_token') return 'refresh-token-value';
         return null;
       });
-      
+
       expect(hasStoredTokens()).toBe(true);
     });
 
     it('returns true when both tokens exist', () => {
       localStorageMock.getItem.mockImplementation((key) => {
-        if (key === 'accessToken') return 'access-token-value';
-        if (key === 'refreshToken') return 'refresh-token-value';
+        if (key === 'access_token') return 'access-token-value';
+        if (key === 'refresh_token') return 'refresh-token-value';
         return null;
       });
-      
+
       expect(hasStoredTokens()).toBe(true);
     });
 
@@ -408,24 +408,27 @@ describe('tokenUtils', () => {
     it('correctly identifies expired tokens', () => {
       const expiredTimestamp = Math.floor(Date.now() / 1000) - 3600; // 1 hour ago
       const expiredJWT = `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.${btoa(JSON.stringify({ exp: expiredTimestamp }))}.signature`;
-      
+
       expect(isValidJWTFormat(expiredJWT)).toBe(true);
-      
+
       const expiry = getTokenExpiry(expiredJWT);
       expect(expiry).toBeInstanceOf(Date);
       expect(expiry!.getTime() < Date.now()).toBe(true);
     });
 
     it('handles complete authentication error workflow', () => {
-      // Initial state - tokens exist
-      localStorageMock.getItem.mockImplementation((key) => {
-        if (key === 'accessToken') return 'expired-token';
-        if (key === 'refreshToken') return 'expired-refresh';
+      // Use a fresh mock for this test to ensure isolation
+      const mockGetItem = jest.fn((key) => {
+        if (key === 'access_token') return 'expired-token';
+        if (key === 'refresh_token') return 'expired-refresh';
         return null;
       });
-      
+
+      // Apply the new mock
+      localStorageMock.getItem = mockGetItem;
+
       expect(hasStoredTokens()).toBe(true);
-      
+
       // API error occurs
       const authError = {
         response: {
@@ -435,14 +438,14 @@ describe('tokenUtils', () => {
           }
         }
       };
-      
+
       expect(isTokenInvalidError(authError)).toBe(true);
-      
+
       // Clear tokens after error
       clearStoredTokens();
-      
-      expect(localStorageMock.removeItem).toHaveBeenCalledWith('accessToken');
-      expect(localStorageMock.removeItem).toHaveBeenCalledWith('refreshToken');
+
+      expect(localStorageMock.removeItem).toHaveBeenCalledWith('access_token');
+      expect(localStorageMock.removeItem).toHaveBeenCalledWith('refresh_token');
     });
 
     it('handles token format validation and expiry checking', () => {

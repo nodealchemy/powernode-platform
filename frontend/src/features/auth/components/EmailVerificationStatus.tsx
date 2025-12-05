@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { CheckCircle, AlertTriangle, Clock } from 'lucide-react';
 
 interface EmailVerificationStatusProps {
@@ -103,4 +103,3 @@ export const EmailVerificationLoader: React.FC<{
   );
 };
 
-export default EmailVerificationStatus;

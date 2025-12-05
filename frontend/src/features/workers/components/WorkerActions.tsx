@@ -181,4 +181,3 @@ export const WorkerActions: React.FC<WorkerActionsProps> = ({
   );
 };
 
-export default WorkerActions;

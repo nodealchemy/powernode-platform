@@ -1,13 +1,13 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import { authAPI } from '@/features/auth/services/authAPI';
+import { authApi } from '@/features/auth/services/authAPI';
 import { impersonationApi } from '../impersonationApi';
 import { setAuthDomain, clearAuthDomain } from '@/shared/utils/domainUtils';
 
 export interface User {
   id: string;
   email: string;
-  first_name: string;
-  last_name: string;
+  name: string;
+  full_name?: string;  // Full name returned from backend (typically same as name)
   roles: string[];  // Array of role names (e.g., ['system.admin', 'account.manager'])
   permissions?: string[];  // Array of permission strings (e.g., ['users.create', 'billing.read']) - optional as not always returned
   status: string;
@@ -30,8 +30,8 @@ export interface ImpersonationState {
 
 interface AuthState {
   user: User | null;
-  accessToken: string | null;
-  refreshToken: string | null;
+  access_token: string | null;
+  refresh_token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
@@ -42,15 +42,15 @@ interface AuthState {
 }
 
 const getInitialState = (): AuthState => {
-  const accessToken = localStorage.getItem('accessToken');
-  const refreshToken = localStorage.getItem('refreshToken');
+  const access_token = localStorage.getItem('access_token');
+  const refresh_token = localStorage.getItem('refresh_token');
   const impersonationToken = localStorage.getItem('impersonationToken');
   
   return {
     user: null,
-    accessToken,
-    refreshToken,
-    isAuthenticated: !!accessToken,
+    access_token,
+    refresh_token,
+    isAuthenticated: !!access_token,
     isLoading: false,
     error: null,
     resendingVerification: false,
@@ -73,8 +73,9 @@ const initialState: AuthState = getInitialState();
 export const login = createAsyncThunk(
   'auth/login',
   async ({ email, password }: { email: string; password: string }) => {
-    const response = await authAPI.login({ email, password });
-    return response.data;
+    const response = await authApi.login({ email, password });
+    // Backend returns {success: true, data: {...}}, we need to unwrap the nested data
+    return response.data.data || response.data;
   }
 );
 
@@ -83,15 +84,15 @@ export const register = createAsyncThunk(
   async (userData: {
     email: string;
     password: string;
-    first_name: string;
-    last_name: string;
+    name: string;
     account_name: string;
     plan_id?: string;
     billing_cycle?: string;
   }, { rejectWithValue }) => {
     try {
-      const response = await authAPI.register(userData);
-      return response.data;
+      const response = await authApi.register(userData);
+      // Backend returns {success: true, data: {...}}, we need to unwrap the nested data
+      return response.data.data || response.data;
     } catch (error: any) {
       // Handle HTTP errors properly
       if (error.response?.data) {
@@ -103,7 +104,7 @@ export const register = createAsyncThunk(
 );
 
 export const logout = createAsyncThunk('auth/logout', async () => {
-  await authAPI.logout();
+  await authApi.logout();
 });
 
 export const refreshAccessToken = createAsyncThunk(
@@ -111,26 +112,27 @@ export const refreshAccessToken = createAsyncThunk(
   async (_, { getState, rejectWithValue }) => {
     try {
       const state = getState() as { auth: AuthState };
-      const refreshToken = state.auth.refreshToken;
-      
-      if (!refreshToken) {
+      const refresh_token = state.auth.refresh_token;
+
+      if (!refresh_token) {
         throw new Error('No refresh token available');
       }
-      
-      const response = await authAPI.refreshToken(refreshToken);
-      return response.data;
+
+      const response = await authApi.refreshToken(refresh_token);
+      // Backend returns {success: true, data: {...}}, we need to unwrap the nested data
+      return response.data.data || response.data;
     } catch (error: any) {
       const errorMessage = error.response?.data?.error || error.response?.data?.message || 'Token refresh failed';
-      
+
       // Check for signature verification failure or other token invalidity issues
-      if (errorMessage.includes('Signature verification failed') || 
+      if (errorMessage.includes('Signature verification failed') ||
           errorMessage.includes('Invalid token') ||
           errorMessage.includes('Invalid refresh token')) {
         // These errors indicate the token is fundamentally invalid (wrong secret, corrupted, etc.)
         // Clear tokens immediately rather than retrying
         return rejectWithValue({ clearTokens: true, message: errorMessage });
       }
-      
+
       return rejectWithValue({ clearTokens: false, message: errorMessage });
     }
   }
@@ -138,21 +140,22 @@ export const refreshAccessToken = createAsyncThunk(
 
 export const getCurrentUser = createAsyncThunk(
   'auth/getCurrentUser',
-  async (_, { rejectWithValue }) => {
+  async (silentAuth: boolean = false, { rejectWithValue }) => {
     try {
-      const response = await authAPI.getCurrentUser();
-      return response.data;
+      const response = await authApi.getCurrentUser(silentAuth);
+      // Backend returns {success: true, data: {...}}, we need to unwrap the nested data
+      return response.data.data || response.data;
     } catch (error: any) {
       const errorMessage = error.response?.data?.error || error.response?.data?.message || 'Failed to get current user';
-      
+
       // Check for token invalidity issues that require immediate token clearance
-      if (error.response?.status === 401 && 
-          (errorMessage.includes('Invalid token') || 
+      if (error.response?.status === 401 &&
+          (errorMessage.includes('Invalid token') ||
            errorMessage.includes('Signature verification failed') ||
            errorMessage.includes('Token has been blacklisted'))) {
         return rejectWithValue({ clearTokens: true, message: errorMessage });
       }
-      
+
       return rejectWithValue({ clearTokens: false, message: errorMessage });
     }
   }
@@ -162,8 +165,9 @@ export const resendVerificationEmail = createAsyncThunk(
   'auth/resendVerificationEmail',
   async (_, { rejectWithValue }) => {
     try {
-      const response = await authAPI.resendVerification();
-      return response.data;
+      const response = await authApi.resendVerification();
+      // Backend returns {success: true, data: {...}}, we need to unwrap the nested data
+      return response.data.data || response.data;
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.error || 'Failed to resend verification email');
     }
@@ -196,21 +200,20 @@ export const startImpersonation = createAsyncThunk(
 
 export const stopImpersonation = createAsyncThunk(
   'auth/stopImpersonation',
-  async (_, { getState, rejectWithValue }) => {
+  async (_, { rejectWithValue }) => {
     try {
-      // const state = getState() as { auth: AuthState };
       const sessionToken = localStorage.getItem('impersonationToken') || '';
-      
+
       if (!sessionToken) {
         throw new Error('No active impersonation session');
       }
-      
+
       const response = await impersonationApi.stopImpersonation(sessionToken);
-      
+
       if (!response.success) {
         throw new Error(response.error || 'Failed to stop impersonation');
       }
-      
+
       return response.data;
     } catch (error: any) {
       return rejectWithValue(error.message || 'Failed to stop impersonation');
@@ -250,8 +253,9 @@ export const verify2FA = createAsyncThunk(
   'auth/verify2FA',
   async ({ verificationToken, code }: { verificationToken: string; code: string }, { rejectWithValue }) => {
     try {
-      const response = await authAPI.verify2FA(verificationToken, code);
-      return response.data;
+      const response = await authApi.verify2FA(verificationToken, code);
+      // Backend returns {success: true, data: {...}}, we need to unwrap the nested data
+      return response.data.data || response.data;
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.error || error.response?.data?.message || '2FA verification failed');
     }
@@ -267,8 +271,8 @@ const authSlice = createSlice({
     },
     clearAuth: (state) => {
       state.user = null;
-      state.accessToken = null;
-      state.refreshToken = null;
+      state.access_token = null;
+      state.refresh_token = null;
       state.isAuthenticated = false;
       state.error = null;
       state.resendingVerification = false;
@@ -282,8 +286,8 @@ const authSlice = createSlice({
         startedAt: null,
         expiresAt: null,
       };
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
       localStorage.removeItem('impersonationToken');
       clearAuthDomain();
     },
@@ -291,13 +295,13 @@ const authSlice = createSlice({
       // Force clear tokens immediately, useful for handling invalid signatures
       // CRITICAL FIX: Don't clear impersonation token - it should be validated separately
       state.user = null;
-      state.accessToken = null;
-      state.refreshToken = null;
+      state.access_token = null;
+      state.refresh_token = null;
       state.isAuthenticated = false;
       state.error = 'Session expired. Please log in again.';
       // DON'T reset impersonation state here - let it be validated separately
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
       // localStorage.removeItem('impersonationToken'); // REMOVED - preserve for validation
     },
     clearResendVerificationSuccess: (state) => {
@@ -320,14 +324,14 @@ const authSlice = createSlice({
         state.isLoading = false;
         state.isAuthenticated = true;
         state.user = action.payload.user || null;
-        state.accessToken = action.payload.access_token || null;
-        state.refreshToken = action.payload.refresh_token || null;
+        state.access_token = action.payload.access_token || null;
+        state.refresh_token = action.payload.refresh_token || null;
         
         if (action.payload.access_token) {
-          localStorage.setItem('accessToken', action.payload.access_token);
+          localStorage.setItem('access_token', action.payload.access_token);
         }
         if (action.payload.refresh_token) {
-          localStorage.setItem('refreshToken', action.payload.refresh_token);
+          localStorage.setItem('refresh_token', action.payload.refresh_token);
         }
         
         // Track the domain where authentication was established
@@ -347,14 +351,14 @@ const authSlice = createSlice({
         state.isLoading = false;
         state.isAuthenticated = true;
         state.user = action.payload.user || null;
-        state.accessToken = action.payload.access_token || null;
-        state.refreshToken = action.payload.refresh_token || null;
+        state.access_token = action.payload.access_token || null;
+        state.refresh_token = action.payload.refresh_token || null;
         
         if (action.payload.access_token) {
-          localStorage.setItem('accessToken', action.payload.access_token);
+          localStorage.setItem('access_token', action.payload.access_token);
         }
         if (action.payload.refresh_token) {
-          localStorage.setItem('refreshToken', action.payload.refresh_token);
+          localStorage.setItem('refresh_token', action.payload.refresh_token);
         }
       })
       .addCase(register.rejected, (state, action) => {
@@ -381,54 +385,66 @@ const authSlice = createSlice({
       // Logout
       .addCase(logout.fulfilled, (state) => {
         state.user = null;
-        state.accessToken = null;
-        state.refreshToken = null;
+        state.access_token = null;
+        state.refresh_token = null;
         state.isAuthenticated = false;
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
       })
-      
+
       // Refresh token
+      .addCase(refreshAccessToken.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
       .addCase(refreshAccessToken.fulfilled, (state, action) => {
-        state.accessToken = action.payload.access_token || null;
-        state.refreshToken = action.payload.refresh_token || null;
-        
+        state.isLoading = false;
+        state.access_token = action.payload.access_token || null;
+        state.refresh_token = action.payload.refresh_token || null;
+
         if (action.payload.access_token) {
-          localStorage.setItem('accessToken', action.payload.access_token);
+          localStorage.setItem('access_token', action.payload.access_token);
         }
         if (action.payload.refresh_token) {
-          localStorage.setItem('refreshToken', action.payload.refresh_token);
+          localStorage.setItem('refresh_token', action.payload.refresh_token);
         }
       })
       .addCase(refreshAccessToken.rejected, (state, action) => {
+        state.isLoading = false;
         const payload = action.payload as { clearTokens: boolean; message: string } | string;
-        
+
         // Always clear tokens on refresh failure, but handle enhanced error info if available
         state.user = null;
-        state.accessToken = null;
-        state.refreshToken = null;
+        state.access_token = null;
+        state.refresh_token = null;
         state.isAuthenticated = false;
         state.error = typeof payload === 'object' ? payload.message : (payload || 'Token refresh failed');
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
       })
-      
+
       // Get current user
+      .addCase(getCurrentUser.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
       .addCase(getCurrentUser.fulfilled, (state, action) => {
+        state.isLoading = false;
         state.user = action.payload.user || null;
         state.isAuthenticated = true;
       })
       .addCase(getCurrentUser.rejected, (state, action) => {
+        state.isLoading = false;
         const payload = action.payload as { clearTokens: boolean; message: string } | string;
-        
+
         // Clear all authentication data when getCurrentUser fails
         state.user = null;
-        state.accessToken = null;
-        state.refreshToken = null;
+        state.access_token = null;
+        state.refresh_token = null;
         state.isAuthenticated = false;
         state.error = typeof payload === 'object' ? payload.message : (payload || 'Failed to get current user');
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
       })
       
       // Resend verification email
@@ -459,8 +475,7 @@ const authSlice = createSlice({
         const targetUser = {
           id: action.payload.target_user.id,
           email: action.payload.target_user.email,
-          first_name: action.payload.target_user.full_name.split(' ')[0] || '',
-          last_name: action.payload.target_user.full_name.split(' ').slice(1).join(' ') || '',
+          name: action.payload.target_user.full_name || '',
           roles: action.payload.target_user.roles || [],
           permissions: action.payload.target_user.permissions || [],
           status: action.payload.target_user.status,
@@ -492,9 +507,9 @@ const authSlice = createSlice({
         state.isLoading = true;
         state.error = null;
       })
-      .addCase(stopImpersonation.fulfilled, (state, action) => {
+      .addCase(stopImpersonation.fulfilled, (state) => {
         state.isLoading = false;
-        
+
         // Restore original user
         state.user = state.impersonation.originalUser;
         state.impersonation = {
@@ -505,7 +520,7 @@ const authSlice = createSlice({
           startedAt: null,
           expiresAt: null,
         };
-        
+
         // Remove impersonation token
         localStorage.removeItem('impersonationToken');
       })
@@ -537,8 +552,7 @@ const authSlice = createSlice({
           const impersonatedUser = {
             id: session.impersonated_user.id,
             email: session.impersonated_user.email,
-            first_name: session.impersonated_user.full_name.split(' ')[0] || '',
-            last_name: session.impersonated_user.full_name.split(' ').slice(1).join(' ') || '',
+            name: session.impersonated_user.full_name || '',
             roles: session.impersonated_user.roles || [],
             permissions: session.impersonated_user.permissions || [],
             status: session.impersonated_user.status,
@@ -546,12 +560,11 @@ const authSlice = createSlice({
             account: state.user?.account || { id: '', name: '', status: '' }
           };
 
-          // Convert impersonator to User format  
+          // Convert impersonator to User format
           const impersonator = {
             id: session.impersonator.id,
             email: session.impersonator.email,
-            first_name: session.impersonator.full_name.split(' ')[0] || '',
-            last_name: session.impersonator.full_name.split(' ').slice(1).join(' ') || '',
+            name: session.impersonator.full_name || '',
             roles: session.impersonator.roles || [],
             permissions: session.impersonator.permissions || [],
             status: session.impersonator.status,
@@ -584,7 +597,7 @@ const authSlice = createSlice({
           localStorage.removeItem('impersonationToken');
         }
       })
-      .addCase(checkImpersonationStatus.rejected, (state, action) => {
+      .addCase(checkImpersonationStatus.rejected, (state, _action) => {
         // Clear invalid impersonation state on error
         state.impersonation = {
           isImpersonating: false,
@@ -606,14 +619,14 @@ const authSlice = createSlice({
         state.isLoading = false;
         state.isAuthenticated = true;
         state.user = action.payload.user || null;
-        state.accessToken = action.payload.access_token || null;
-        state.refreshToken = action.payload.refresh_token || null;
+        state.access_token = action.payload.access_token || null;
+        state.refresh_token = action.payload.refresh_token || null;
         
         if (action.payload.access_token) {
-          localStorage.setItem('accessToken', action.payload.access_token);
+          localStorage.setItem('access_token', action.payload.access_token);
         }
         if (action.payload.refresh_token) {
-          localStorage.setItem('refreshToken', action.payload.refresh_token);
+          localStorage.setItem('refresh_token', action.payload.refresh_token);
         }
         
         // Track the domain where authentication was established

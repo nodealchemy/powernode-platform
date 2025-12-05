@@ -1,5 +1,5 @@
 import { useState, useCallback, ChangeEvent, FormEvent } from 'react';
-import { useNotification } from './useNotification';
+import { useNotifications } from './useNotifications';
 
 export interface FormValidationRule {
   required?: boolean;
@@ -70,7 +70,7 @@ export interface UseFormReturn<T> {
 export function useForm<T extends Record<string, any>>(
   options: UseFormOptions<T>
 ): UseFormReturn<T> {
-  const { showNotification } = useNotification();
+  const { addNotification } = useNotifications();
   const {
     initialValues,
     validationRules = {},
@@ -339,7 +339,10 @@ export function useForm<T extends Record<string, any>>(
       // Validate all fields
       const isFormValid = validateForm();
       if (!isFormValid) {
-        showNotification('Please correct the errors in the form', 'error');
+        addNotification({
+          type: 'error',
+          message: 'Please correct the errors in the form'
+        });
         return;
       }
 
@@ -349,7 +352,10 @@ export function useForm<T extends Record<string, any>>(
         await onSubmit(values);
         
         if (showSuccessNotification) {
-          showNotification(successMessage, 'success');
+          addNotification({
+            type: 'success',
+            message: successMessage
+          });
         }
         
         if (resetAfterSubmit) {
@@ -357,12 +363,15 @@ export function useForm<T extends Record<string, any>>(
         }
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : 'An error occurred while submitting the form';
-        showNotification(errorMessage, 'error');
+        addNotification({
+          type: 'error',
+          message: errorMessage
+        });
       } finally {
         setIsSubmitting(false);
       }
     },
-    [validateForm, onSubmit, values, showNotification, showSuccessNotification, successMessage, resetAfterSubmit, reset]
+    [validateForm, onSubmit, values, addNotification, showSuccessNotification, successMessage, resetAfterSubmit, reset]
   );
 
   // Get props for a field (convenience method)

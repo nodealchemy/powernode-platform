@@ -1,5 +1,9 @@
 # frozen_string_literal: true
 
+# External webhook controller for PayPal payment events.
+# Note: Uses raw JSON responses instead of ApiResponse concern methods because
+# PayPal expects specific response formats for webhook acknowledgment.
+# See: https://developer.paypal.com/docs/api-basics/notifications/webhooks/
 class Webhooks::PaypalController < ApplicationController
   skip_before_action :authenticate_request
   before_action :verify_paypal_signature

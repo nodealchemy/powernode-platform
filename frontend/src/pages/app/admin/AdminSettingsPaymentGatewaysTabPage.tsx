@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
-import { Navigate } from 'react-router-dom';
 import { 
   paymentGatewaysApi, 
   PaymentGatewaysOverview, 
   TestConnectionResult
 } from '@/features/payment-gateways/services/paymentGatewaysApi';
-import { useNotification } from '@/shared/hooks/useNotification';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import { GatewayConfigModal } from '@/features/payment-gateways/components/GatewayConfigModal';
 import Button from '@/shared/components/ui/Button';
 import { RootState } from '@/shared/services';
@@ -187,7 +186,7 @@ const GatewayCard: React.FC<GatewayCardProps> = ({
 
 export const AdminSettingsPaymentGatewaysTabPage: React.FC = () => {
   const { user } = useSelector((state: RootState) => state.auth);
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
   const [overview, setOverview] = useState<PaymentGatewaysOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [testing, setTesting] = useState<'stripe' | 'paypal' | null>(null);
@@ -275,7 +274,7 @@ export const AdminSettingsPaymentGatewaysTabPage: React.FC = () => {
   const handleViewDetails = async (gateway: 'stripe' | 'paypal') => {
     // For simplicity in admin settings, we'll just show a notification
     // In a full implementation, you could show a modal or redirect
-    alert(`View ${gateway} details - Feature can be expanded to show modal with gateway details`);
+    showNotification(`View ${gateway} details - Feature can be expanded to show modal with gateway details`, 'info');
   };
 
   const handleConfigureGateway = (gateway: 'stripe' | 'paypal') => {
@@ -343,7 +342,7 @@ export const AdminSettingsPaymentGatewaysTabPage: React.FC = () => {
               </svg>
             </div>
             <h3 className="text-lg font-semibold text-theme-primary mb-2">Total Volume</h3>
-            <div className="text-3xl font-bold text-purple-600 mb-1">
+            <div className="text-3xl font-bold text-theme-interactive-primary mb-1">
               {paymentGatewaysApi.formatCurrency(overview.statistics?.overall?.total_volume || 0)}
             </div>
             <div className="text-sm text-theme-secondary">All-time processed</div>

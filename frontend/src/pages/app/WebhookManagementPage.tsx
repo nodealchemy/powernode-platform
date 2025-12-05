@@ -12,16 +12,17 @@ import {
 } from 'lucide-react';
 import { RootState } from '@/shared/services';
 import { hasPermissions } from '@/shared/utils/permissionUtils';
-import webhooksApi, { 
-  WebhookEndpoint, 
-  WebhookStats as WebhookStatsType, 
+import {
+  webhooksApi,
+  WebhookEndpoint,
+  WebhookStats as WebhookStatsType,
   WebhookFormData,
   DetailedWebhookStats
 } from '@/features/webhooks/services/webhooksApi';
 import { WebhookModal } from '@/features/webhooks/components/WebhookModal';
-import WebhookList from '@/features/webhooks/components/WebhookList';
-import WebhookDetails from '@/features/webhooks/components/WebhookDetails';
-import WebhookStats from '@/features/webhooks/components/WebhookStats';
+import { WebhookList } from '@/features/webhooks/components/WebhookList';
+import { WebhookDetails } from '@/features/webhooks/components/WebhookDetails';
+import { WebhookStats } from '@/features/webhooks/components/WebhookStats';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
 import ErrorAlert from '@/shared/components/ui/ErrorAlert';
@@ -75,7 +76,7 @@ const WebhookManagementPage: React.FC = () => {
 
     try {
       const response = await webhooksApi.getWebhooks(page, pagination.per_page);
-      
+
       if (response.success && response.data) {
         setWebhooks(response.data.webhooks);
         setPagination(response.data.pagination);
@@ -83,7 +84,7 @@ const WebhookManagementPage: React.FC = () => {
       } else {
         setError(response.error || 'Failed to load webhooks');
       }
-    } catch (err) {
+    } catch (_error) {
       setError('An unexpected error occurred while loading webhooks');
     } finally {
       setLoading(false);
@@ -101,7 +102,7 @@ const WebhookManagementPage: React.FC = () => {
       if (response.success && response.data) {
         setDetailedStats(response.data);
       }
-    } catch (err) {
+    } catch (_error) {
     }
   }, [canReadWebhooks]);
 
@@ -134,7 +135,7 @@ const WebhookManagementPage: React.FC = () => {
       } else {
         setError(response.error || 'Failed to create webhook');
       }
-    } catch (err) {
+    } catch (_error) {
       setError('An unexpected error occurred while creating the webhook');
     }
   };
@@ -164,7 +165,7 @@ const WebhookManagementPage: React.FC = () => {
       } else {
         setError(response.error || 'Failed to update webhook');
       }
-    } catch (err) {
+    } catch (_error) {
       setError('An unexpected error occurred while updating the webhook');
     }
   };
@@ -195,7 +196,7 @@ const WebhookManagementPage: React.FC = () => {
       } else {
         setError(response.error || 'Failed to delete webhook');
       }
-    } catch (err) {
+    } catch (_error) {
       setError('An unexpected error occurred while deleting the webhook');
     }
   };
@@ -216,7 +217,7 @@ const WebhookManagementPage: React.FC = () => {
       } else {
         setError(response.error || 'Failed to update webhook status');
       }
-    } catch (err) {
+    } catch (_error) {
       setError('An unexpected error occurred while updating webhook status');
     }
   };
@@ -236,7 +237,7 @@ const WebhookManagementPage: React.FC = () => {
       } else {
         setError(response.error || 'Failed to retry failed deliveries');
       }
-    } catch (err) {
+    } catch (_error) {
       setError('An unexpected error occurred while retrying failed deliveries');
     }
   };

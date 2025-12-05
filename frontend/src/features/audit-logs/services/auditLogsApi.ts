@@ -440,5 +440,3 @@ export const auditLogsApi = {
     ];
   }
 };
-
-export default auditLogsApi;

@@ -440,10 +440,10 @@ export const servicesApi = {
     job_type: string;
     status: 'pending' | 'in_progress' | 'completed' | 'failed' | 'cancelled';
     progress: number;
-    parameters?: any;
-    result?: any;
+    parameters?: Record<string, unknown>;
+    result?: unknown;
     error_message?: string;
-    error_details?: any;
+    error_details?: Record<string, unknown>;
     duration?: number;
     created_at: string;
     started_at?: string;
@@ -480,11 +480,11 @@ export const servicesApi = {
 
   // Helper method to poll job status until completion
   async pollJobUntilComplete(
-    jobId: string, 
-    onProgress?: (status: string, progress: number, result?: any) => void,
+    jobId: string,
+    onProgress?: (status: string, progress: number, result?: unknown) => void,
     maxAttempts: number = 60,
     intervalMs: number = 1000
-  ): Promise<any> {
+  ): Promise<unknown> {
     let attempts = 0;
     
     return new Promise((resolve, reject) => {

@@ -1,26 +1,21 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useSelector } from 'react-redux';
-import { RootState } from '@/shared/services';
+import { useSelector, useDispatch } from 'react-redux';
+import { RootState, AppDispatch } from '@/shared/services';
+import { addNotification } from '@/shared/services/slices/uiSlice';
 import MDEditor from '@uiw/react-md-editor';
 import '@uiw/react-md-editor/markdown-editor.css';
 import '@uiw/react-markdown-preview/markdown.css';
 import { Badge } from '@/shared/components/ui/Badge';
 import { knowledgeBaseAdminApi, KbCategory } from '@/shared/services/knowledgeBaseApi';
-import { globalNotifications } from '@/shared/services/globalNotifications';
 import { hasPermissions } from '@/shared/utils/permissionUtils';
 import { useTheme } from '@/shared/hooks/ThemeContext';
 import { MarkdownRenderer } from '@/shared/components/ui/MarkdownRenderer';
-import { 
-  ArrowDownTrayIcon as SaveIcon, 
-  EyeIcon, 
-  CheckIcon, 
-  XMarkIcon,
-  TagIcon,
-  BookOpenIcon,
-  DocumentTextIcon,
-  Cog6ToothIcon,
-  ChartBarIcon
+import {
+  ArrowDownTrayIcon as SaveIcon,
+  EyeIcon,
+  CheckIcon,
+  XMarkIcon
 } from '@heroicons/react/24/outline';
 
 interface ArticleFormData {
@@ -38,9 +33,10 @@ interface ArticleFormData {
   sort_order: number;
 }
 
-export default function KnowledgeBaseArticleEditor() {
+export function KnowledgeBaseArticleEditor() {
   const { id: articleId } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const dispatch = useDispatch<AppDispatch>();
   const { user: currentUser } = useSelector((state: RootState) => state.auth);
   const { theme } = useTheme();
   
@@ -106,7 +102,7 @@ export default function KnowledgeBaseArticleEditor() {
         const response = await knowledgeBaseAdminApi.getCategories({ per_page: 100 });
         setCategories(response.data.data);
       } catch (error) {
-        globalNotifications.error('Failed to load categories');
+        dispatch(addNotification({ type: 'error', message: 'Failed to load categories' }));
         console.error('Categories loading error:', error);
       }
     };
@@ -134,7 +130,7 @@ export default function KnowledgeBaseArticleEditor() {
           sort_order: article.sort_order || article.metadata?.sort_order || 0
         });
       } catch (error) {
-        globalNotifications.error('Failed to load article');
+        dispatch(addNotification({ type: 'error', message: 'Failed to load article' }));
         console.error('Article loading error:', error);
         navigate('/app/content/kb');
       } finally {
@@ -193,29 +189,18 @@ export default function KnowledgeBaseArticleEditor() {
   // Auto-save functionality (removed to prevent infinite re-renders)
   // Auto-save disabled for now to prevent page reloading issues
 
-  // Image upload handler
-  const handleImageUpload = async (file: File): Promise<string> => {
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      
-      const response = await knowledgeBaseAdminApi.uploadAttachment(formData);
-      return response.data.data.url;
-    } catch (error) {
-      globalNotifications.error('Failed to upload image');
-      throw error;
-    }
-  };
+  // Image upload handler - available for future MD editor integration
+  // Removed unused function to eliminate TypeScript warning
 
   // Save article
   const saveArticle = async (newStatus?: ArticleFormData['status']) => {
     if (!formData.title.trim()) {
-      globalNotifications.error('Title is required');
+      dispatch(addNotification({ type: 'error', message: 'Title is required' }));
       return;
     }
 
     if (!formData.category_id) {
-      globalNotifications.error('Category is required');
+      dispatch(addNotification({ type: 'error', message: 'Category is required' }));
       return;
     }
 
@@ -235,9 +220,10 @@ export default function KnowledgeBaseArticleEditor() {
 
       const article = response.data.data || response.data;
       
-      globalNotifications.success(
-        isEditing ? 'Article updated successfully' : 'Article created successfully'
-      );
+      dispatch(addNotification({
+        type: 'success',
+        message: isEditing ? 'Article updated successfully' : 'Article created successfully'
+      }));
 
       setLastSaved(new Date());
       
@@ -246,14 +232,14 @@ export default function KnowledgeBaseArticleEditor() {
       }
     } catch (error: any) {
       const errorMessage = error.response?.data?.error || 'Failed to save article';
-      globalNotifications.error(errorMessage);
+      dispatch(addNotification({ type: 'error', message: errorMessage }));
     } finally {
       setIsSaving(false);
     }
   };
 
-  // Actions
-  const actions = [
+  // Actions configuration - available for future toolbar implementation
+  const _actions = [
     {
       id: 'save-draft',
       label: isSaving ? 'Saving...' : 'Save Draft',
@@ -266,7 +252,7 @@ export default function KnowledgeBaseArticleEditor() {
 
   if (canPublish) {
     if (formData.status !== 'published') {
-      actions.push({
+      _actions.push({
         id: 'submit-review',
         label: 'Submit for Review',
         onClick: () => saveArticle('review'),
@@ -277,7 +263,7 @@ export default function KnowledgeBaseArticleEditor() {
     }
 
     if (formData.status === 'review' || formData.status === 'published') {
-      actions.push({
+      _actions.push({
         id: 'publish',
         label: formData.status === 'published' ? 'Update Published' : 'Publish',
         onClick: () => saveArticle('published'),

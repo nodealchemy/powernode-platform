@@ -19,27 +19,24 @@ class Api::V1::ImpersonationsController < ApplicationController
         user_agent: request.user_agent
       )
 
-      render json: {
-        success: true,
+      render_success(
         message: 'Impersonation started successfully',
         data: {
           token: token,
           target_user: user_summary(@target_user),
           expires_at: (Time.current + ImpersonationSession::MAX_SESSION_DURATION).iso8601
-        }
-      }, status: :created
+        },
+        status: :created
+      )
     rescue ImpersonationService::Error => e
-      render json: {
-        success: false,
-        error: e.message
-      }, status: :unprocessable_content
+      render_error(e.message, status: :unprocessable_content)
     end
   end
 
   # DELETE /api/v1/impersonations
   def destroy
     session_token = params[:session_token]
-    return render_bad_request('Session token required') unless session_token
+    return render_error('Session token required', status: :bad_request) unless session_token
 
     # Manual authentication for destroy action since we skip the before_action
     header = request.headers["Authorization"]
@@ -85,10 +82,7 @@ class Api::V1::ImpersonationsController < ApplicationController
       end
       
       unless service_user
-        return render json: {
-          success: false,
-          error: 'Unable to authenticate impersonation end request'
-        }, status: :unauthorized
+        return render_error('Unable to authenticate impersonation end request', status: :unauthorized)
       end
       
       # Let the service handle all the token validation and session cleanup
@@ -97,31 +91,23 @@ class Api::V1::ImpersonationsController < ApplicationController
       
       Rails.logger.info "Impersonation session ended successfully: #{session.id}"
       
-      render json: {
-        success: true,
+      render_success(
         message: 'Impersonation ended successfully',
         data: {
           duration: session.duration.to_i
         }
-      }
+      )
     rescue ActiveRecord::RecordNotFound => e
       Rails.logger.warn "Impersonation session not found: #{e.message}"
       render_not_found(e)
     rescue ImpersonationService::Error => e
       Rails.logger.warn "Impersonation service error: #{e.message}"
-      render json: {
-        success: false,
-        error: e.message
-      }, status: :unprocessable_content
+      render_error(e.message, status: :unprocessable_content)
     rescue StandardError => e
       Rails.logger.error "Unexpected error ending impersonation: #{e.message}"
       Rails.logger.error e.backtrace.join("\n") if Rails.env.development?
-      
-      render json: {
-        success: false,
-        error: 'Failed to end impersonation session',
-        code: 'impersonation_end_failed'
-      }, status: :internal_server_error
+
+      render_error('Failed to end impersonation session', :internal_server_error, code: 'impersonation_end_failed')
     end
   end
 
@@ -130,10 +116,9 @@ class Api::V1::ImpersonationsController < ApplicationController
     service = ImpersonationService.new(current_user)
     active_sessions = service.list_active_sessions
 
-    render json: {
-      success: true,
+    render_success(
       data: active_sessions.map { |session| session_summary(session) }
-    }
+    )
   end
 
   # GET /api/v1/impersonation/history
@@ -143,14 +128,13 @@ class Api::V1::ImpersonationsController < ApplicationController
     
     sessions = service.get_session_history(limit: limit)
 
-    render json: {
-      success: true,
+    render_success(
       data: sessions.map { |session| session_summary(session) },
       pagination: {
         limit: limit,
         total: sessions.length
       }
-    }
+    )
   end
 
   # GET /api/v1/impersonation/users
@@ -160,7 +144,7 @@ class Api::V1::ImpersonationsController < ApplicationController
       users = User.includes(:account)
                   .active
                   .where.not(id: current_user.id)
-                  .order(:first_name, :last_name)
+                  .order(:name)
       
       # System admins can impersonate anyone except other system admins
       users = users.where.not(role: 'admin')
@@ -169,22 +153,21 @@ class Api::V1::ImpersonationsController < ApplicationController
       users = current_account.users
                             .active
                             .where.not(id: current_user.id)
-                            .order(:first_name, :last_name)
+                            .order(:name)
 
       # Filter out owners if current user is not owner
       users = users.where.not(role: 'owner') unless current_user.has_permission?('account.manage')
     end
 
-    render json: {
-      success: true,
+    render_success(
       data: users.map { |user| user_summary_with_account(user) }
-    }
+    )
   end
 
   # POST /api/v1/impersonation/validate
   def validate_token
     token = params[:token]
-    return render_bad_request('Token required') unless token
+    return render_error('Token required', status: :bad_request) unless token
 
     begin
       # Try UserToken first (new system), then fall back to JWT (legacy)
@@ -197,11 +180,12 @@ class Api::V1::ImpersonationsController < ApplicationController
         impersonator = User.find_by(id: impersonator_id)
         
         unless impersonator
-          return render json: {
-            success: true,
-            valid: false,
-            message: 'Impersonator user not found'
-          }
+          return render_success(
+            data: {
+              valid: false,
+              message: 'Impersonator user not found'
+            }
+          )
         end
         
         # Create service with the impersonator user
@@ -214,64 +198,65 @@ class Api::V1::ImpersonationsController < ApplicationController
           payload = JwtService.decode(token)
           
           unless payload[:type] == 'impersonation'
-            return render json: {
-              success: true,
-              valid: false,
-              message: 'Invalid token type'
-            }
+            return render_success(
+              data: {
+                valid: false,
+                message: 'Invalid token type'
+              }
+            )
           end
           
           impersonator = User.find_by(id: payload[:impersonator_id])
           unless impersonator
-            return render json: {
-              success: true,
-              valid: false,
-              message: 'Impersonator user not found'
-            }
+            return render_success(
+              data: {
+                valid: false,
+                message: 'Impersonator user not found'
+              }
+            )
           end
           
           # Create service with the impersonator user
           service = ImpersonationService.new(impersonator)
           session = service.validate_impersonation_token(token)
         rescue JWT::DecodeError, JWT::ExpiredSignature => e
-          return render json: {
-            success: true,
-            valid: false,
-            message: 'Invalid or expired token'
-          }
+          return render_success(
+            data: {
+              valid: false,
+              message: 'Invalid or expired token'
+            }
+          )
         end
       else
-        return render json: {
-          success: true,
-          valid: false,
-          message: 'Invalid token format'
-        }
+        return render_success(
+          data: {
+            valid: false,
+            message: 'Invalid token format'
+          }
+        )
       end
 
       # Handle the session result
       if session
-        render json: {
-          success: true,
-          valid: true,
+        render_success(
           data: {
+            valid: true,
             session: session_summary(session),
             expires_at: (session.started_at + ImpersonationSession::MAX_SESSION_DURATION).iso8601
           }
-        }
+        )
       else
-        render json: {
-          success: true,
-          valid: false,
-          message: 'Invalid or expired impersonation token'
-        }
+        render_success(
+          data: {
+            valid: false,
+            message: 'Invalid or expired impersonation token'
+          }
+        )
       end
     rescue StandardError => e
       # Handle unexpected errors
       Rails.logger.error "Error validating impersonation token: #{e.message}"
-      render json: {
-        success: false,
-        error: 'Token validation failed'
-      }, status: :internal_server_error
+      render_error('Token validation failed', status: :internal_server_error)
     end
   end
 
@@ -282,18 +267,16 @@ class Api::V1::ImpersonationsController < ApplicationController
     begin
       cleaned_count = ImpersonationSession.cleanup_expired_sessions
       
-      render json: {
-        success: true,
-        cleaned_up_count: cleaned_count,
+      render_success(
+        data: {
+          cleaned_up_count: cleaned_count
+        },
         message: "Successfully cleaned up #{cleaned_count} expired sessions"
-      }
+      )
     rescue StandardError => e
       Rails.logger.error "Error cleaning up expired impersonation sessions: #{e.message}"
-      
-      render json: {
-        success: false,
-        error: "Failed to cleanup expired sessions: #{e.message}"
-      }, status: :internal_server_error
+
+      render_error("Failed to cleanup expired sessions: #{e.message}", status: :internal_server_error)
     end
   end
 
@@ -313,7 +296,7 @@ class Api::V1::ImpersonationsController < ApplicationController
 
   def find_target_user
     user_id = params[:user_id]
-    return render_bad_request('User ID required') unless user_id
+    return render_error('User ID required', status: :bad_request) unless user_id
 
     # System Administrators can impersonate users from any account
     if current_user.has_permission?('admin.access')
@@ -321,20 +304,17 @@ class Api::V1::ImpersonationsController < ApplicationController
       
       # System admins cannot impersonate other system admins
       if @target_user.admin?
-        return render json: {
-          success: false,
-          error: 'Cannot impersonate other system administrators'
-        }, status: :forbidden
+        return render_error('Cannot impersonate other system administrators', status: :forbidden)
       end
     else
       # Regular users can only impersonate within their account
       @target_user = current_account.users.find(user_id)
     end
   rescue ActiveRecord::RecordNotFound
-    render json: {
-      success: false,
-      error: current_user.has_permission?('admin.access') ? 'User not found' : 'User not found in your account'
-    }, status: :not_found
+    render_error(
+      current_user.has_permission?('admin.access') ? 'User not found' : 'User not found in your account',
+      :not_found
+    )
   end
 
   def user_summary(user)
@@ -377,13 +357,6 @@ class Api::V1::ImpersonationsController < ApplicationController
       active: session.active?,
       expired: session.expired?
     }
-  end
-
-  def render_bad_request(message)
-    render json: {
-      success: false,
-      error: message
-    }, status: :bad_request
   end
 
   # Authentication helper methods for destroy action

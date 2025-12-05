@@ -3,6 +3,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '@/shared/services';
 import { startImpersonation } from '@/shared/services/slices/authSlice';
 import { usersApi, User, UserFormData, UserStats } from '@/features/users/services/usersApi';
+import { getUserInitials } from '@/shared/utils/userUtils';
 import { Button } from '@/shared/components/ui/Button';
 import { FormField } from '@/shared/components/ui/FormField';
 import { Modal } from '@/shared/components/ui/Modal';
@@ -12,9 +13,7 @@ import { PageContainer, PageAction } from '@/shared/components/layout/PageContai
 import { UserRolesModal } from '@/features/users/components/UserRolesModal';
 import { UserPlus, RefreshCw, Search, Filter, Download, UserCheck, Shield, Settings } from 'lucide-react';
 
-interface UsersPageProps {}
-
-const UsersPage: React.FC<UsersPageProps> = () => {
+const UsersPage: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const { user: currentUser } = useSelector((state: RootState) => state.auth);
   const [users, setUsers] = useState<User[]>([]);
@@ -41,8 +40,7 @@ const UsersPage: React.FC<UsersPageProps> = () => {
 
   // Form state
   const [formData, setFormData] = useState<UserFormData>({
-    first_name: '',
-    last_name: '',
+    name: '',
     email: '',
     phone: '',
     roles: ['account.member'],
@@ -75,7 +73,7 @@ const UsersPage: React.FC<UsersPageProps> = () => {
       } else {
         setUserStats(null);
       }
-    } catch (err) {
+    } catch (_error) {
       setError('Failed to load users. Please check your connection and try again.');
     } finally {
       setLoading(false);
@@ -88,7 +86,7 @@ const UsersPage: React.FC<UsersPageProps> = () => {
       setRolesLoading(true);
       const roles = await usersApi.getAvailableRoles();
       setAvailableRoles(roles);
-    } catch (error) {
+    } catch (_error) {
       setAvailableRoles([]);
     } finally {
       setRolesLoading(false);
@@ -107,7 +105,7 @@ const UsersPage: React.FC<UsersPageProps> = () => {
     // Apply search filter
     if (searchTerm) {
       filtered = filtered.filter(user => 
-        user.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
         user.phone?.toLowerCase().includes(searchTerm.toLowerCase())
       );
@@ -129,8 +127,8 @@ const UsersPage: React.FC<UsersPageProps> = () => {
 
       switch (sortBy) {
         case 'name':
-          aVal = a.full_name.toLowerCase();
-          bVal = b.full_name.toLowerCase();
+          aVal = a.name.toLowerCase();
+          bVal = b.name.toLowerCase();
           break;
         case 'email':
           aVal = a.email.toLowerCase();
@@ -168,8 +166,7 @@ const UsersPage: React.FC<UsersPageProps> = () => {
   // Reset form
   const resetForm = () => {
     setFormData({
-      first_name: '',
-      last_name: '',
+      name: '',
       email: '',
       phone: '',
       roles: ['account.member'],
@@ -229,7 +226,7 @@ const UsersPage: React.FC<UsersPageProps> = () => {
 
       await loadData();
       setSelectedUsers(new Set());
-    } catch (err) {
+    } catch (_error) {
       setError(`Failed to ${action} selected users. Please try again.`);
     } finally {
       setActionLoading(false);
@@ -240,7 +237,7 @@ const UsersPage: React.FC<UsersPageProps> = () => {
   const exportUsers = (usersToExport: User[] = filteredUsers) => {
     const headers = ['Name', 'Email', 'Phone', 'Roles', 'Status', 'Verified', 'Last Login', 'Created Date'];
     const rows = usersToExport.map(user => [
-      user.full_name,
+      user.name,
       user.email,
       user.phone || '',
       user.roles?.[0] || 'account.member',
@@ -272,15 +269,15 @@ const UsersPage: React.FC<UsersPageProps> = () => {
 
     try {
       setActionLoading(true);
-      const response = await dispatch(startImpersonation({ 
-        user_id: user.id, 
-        reason: 'Admin impersonation' 
+      await dispatch(startImpersonation({
+        user_id: user.id,
+        reason: 'Admin impersonation'
       })).unwrap();
-      
+
       // The Redux action automatically handles token storage
       window.location.href = '/app';
-    } catch (err: any) {
-      setError(err || 'Failed to impersonate user. Please try again.');
+    } catch (_error: any) {
+      setError('Failed to impersonate user. Please try again.');
     } finally {
       setActionLoading(false);
     }
@@ -305,7 +302,7 @@ const UsersPage: React.FC<UsersPageProps> = () => {
       } else {
         setFormErrors([response.message || 'Failed to create user']);
       }
-    } catch (err) {
+    } catch (_error) {
       setFormErrors(['Failed to create user. Please try again.']);
     } finally {
       setActionLoading(false);
@@ -317,8 +314,7 @@ const UsersPage: React.FC<UsersPageProps> = () => {
     if (!selectedUser) return;
 
     const updateData = {
-      first_name: formData.first_name,
-      last_name: formData.last_name,
+      name: formData.name,
       email: formData.email,
       phone: formData.phone
     };
@@ -334,7 +330,7 @@ const UsersPage: React.FC<UsersPageProps> = () => {
       } else {
         setFormErrors([response.message || 'Failed to update user']);
       }
-    } catch (err) {
+    } catch (_error) {
       setFormErrors(['Failed to update user. Please try again.']);
     } finally {
       setActionLoading(false);
@@ -356,7 +352,7 @@ const UsersPage: React.FC<UsersPageProps> = () => {
       } else {
         setError(response.message || 'Failed to delete user');
       }
-    } catch (err) {
+    } catch (_error) {
       setError('Failed to delete user. Please try again.');
     } finally {
       setActionLoading(false);
@@ -392,7 +388,7 @@ const UsersPage: React.FC<UsersPageProps> = () => {
       } else {
         setError(response.message || `Failed to ${action} user`);
       }
-    } catch (err) {
+    } catch (_error) {
       setError(`Failed to ${action} user. Please try again.`);
     } finally {
       setActionLoading(false);
@@ -403,8 +399,7 @@ const UsersPage: React.FC<UsersPageProps> = () => {
   const openEditModal = (user: User) => {
     setSelectedUser(user);
     setFormData({
-      first_name: user.first_name || '',
-      last_name: user.last_name || '',
+      name: user.name || '',
       email: user.email,
       phone: user.phone || '',
       roles: ['account.member'], // Default role for consistency
@@ -752,14 +747,13 @@ const UsersPage: React.FC<UsersPageProps> = () => {
                       <div className="flex-shrink-0 h-10 w-10">
                         <div className="h-10 w-10 rounded-full bg-theme-interactive-primary flex items-center justify-center">
                           <span className="text-white text-sm font-medium">
-                            {(user.first_name?.[0] || user.email[0]).toUpperCase()}
-                            {user.last_name?.[0]?.toUpperCase() || ''}
+                            {getUserInitials(user)}
                           </span>
                         </div>
                       </div>
                       <div className="ml-4">
                         <div className="text-sm font-medium text-theme-primary">
-                          {user.full_name}
+                          {user.name}
                         </div>
                         <div className="text-sm text-theme-secondary">{user.email}</div>
                         {!user.email_verified && (
@@ -903,22 +897,14 @@ const UsersPage: React.FC<UsersPageProps> = () => {
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-4">
-            <FormField
-              label="First Name"
-              type="text"
-              value={formData.first_name}
-              onChange={(value) => handleFormChange('first_name', value)}
-              required
-            />
-            <FormField
-              label="Last Name"
-              type="text"
-              value={formData.last_name}
-              onChange={(value) => handleFormChange('last_name', value)}
-              required
-            />
-          </div>
+          <FormField
+            label="Full Name"
+            type="text"
+            value={formData.name}
+            onChange={(value) => handleFormChange('name', value)}
+            placeholder="Enter full name"
+            required
+          />
 
           <FormField
             label="Email"
@@ -1003,22 +989,14 @@ const UsersPage: React.FC<UsersPageProps> = () => {
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-4">
-            <FormField
-              label="First Name"
-              type="text"
-              value={formData.first_name}
-              onChange={(value) => handleFormChange('first_name', value)}
-              required
-            />
-            <FormField
-              label="Last Name"
-              type="text"
-              value={formData.last_name}
-              onChange={(value) => handleFormChange('last_name', value)}
-              required
-            />
-          </div>
+          <FormField
+            label="Full Name"
+            type="text"
+            value={formData.name}
+            onChange={(value) => handleFormChange('name', value)}
+            placeholder="Enter full name"
+            required
+          />
 
           <FormField
             label="Email"
@@ -1077,7 +1055,7 @@ const UsersPage: React.FC<UsersPageProps> = () => {
         maxWidth="sm"
       >
         <div className="text-theme-primary">
-          Are you sure you want to delete <strong>{selectedUser?.full_name}</strong>? 
+          Are you sure you want to delete <strong>{selectedUser?.name}</strong>? 
           This action cannot be undone.
         </div>
         <div className="flex justify-end space-x-3 mt-6">

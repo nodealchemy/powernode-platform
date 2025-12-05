@@ -1,12 +1,12 @@
 // Worker Management Components
-export { default as WorkerActions } from './WorkerActions';
-export { default as WorkerCard } from './WorkerCard';
-export { default as WorkerGrid } from './WorkerGrid';
-export { default as WorkerTable } from './WorkerTable';
-export { default as WorkerFilters } from './WorkerFilters';
-export { default as WorkerDetailsPanel } from './WorkerDetailsPanel';
-export { default as WorkerPermissionsView } from './WorkerPermissionsView';
-export { default as WorkerActivityDashboard } from './WorkerActivityDashboard';
+export { WorkerActions } from './WorkerActions';
+export { WorkerCard } from './WorkerCard';
+export { WorkerGrid } from './WorkerGrid';
+export { WorkerTable } from './WorkerTable';
+export { WorkerFilters } from './WorkerFilters';
+export { WorkerDetailsPanel } from './WorkerDetailsPanel';
+export { WorkerPermissionsView } from './WorkerPermissionsView';
+export { WorkerActivityDashboard } from './WorkerActivityDashboard';
 
 // Export all component types
 export type { WorkerActionsProps } from './WorkerActions';

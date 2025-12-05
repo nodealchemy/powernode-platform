@@ -43,18 +43,18 @@ class Api::V1::Kb::CategoriesController < ApplicationController
 
   # GET /api/v1/kb/categories/:id
   def show
-    return render_error('Category not found', :not_found) unless @category
+    return render_error('Category not found', status: :not_found) unless @category
 
     if editing_mode?
       # Admin view - detailed category info for editing
-      return render_error('Access denied', :forbidden) unless can_manage_kb?
+      return render_error('Access denied', status: :forbidden) unless can_manage_kb?
 
       render_success({
         category: serialize_category_detailed(@category)
       })
     else
       # Public view - category with articles
-      return render_error('Category not found', :not_found) unless @category.is_public
+      return render_error('Category not found', status: :not_found) unless @category.is_public
 
       articles = @category.articles
         .published
@@ -84,7 +84,7 @@ class Api::V1::Kb::CategoriesController < ApplicationController
 
   # PATCH /api/v1/kb/categories/:id
   def update
-    return render_error('Category not found', :not_found) unless @category
+    return render_error('Category not found', status: :not_found) unless @category
 
     if @category.update(category_params)
       render_success({
@@ -97,8 +97,8 @@ class Api::V1::Kb::CategoriesController < ApplicationController
 
   # DELETE /api/v1/kb/categories/:id
   def destroy
-    return render_error('Category not found', :not_found) unless @category
-    return render_error('Cannot delete category with articles', :bad_request) if @category.articles.any?
+    return render_error('Category not found', status: :not_found) unless @category
+    return render_error('Cannot delete category with articles', status: :bad_request) if @category.articles.any?
 
     @category.destroy
     render_success(message: 'Category deleted successfully')
@@ -120,7 +120,7 @@ class Api::V1::Kb::CategoriesController < ApplicationController
   end
 
   def authorize_kb_manage
-    return render_error('Access denied', :forbidden) unless can_manage_kb?
+    return render_error('Access denied', status: :forbidden) unless can_manage_kb?
   end
 
   def category_params

@@ -322,7 +322,6 @@ export const EndpointsList: React.FC<EndpointsListProps> = ({
           setSelectedEndpoint(null);
         }}
         endpoint={selectedEndpoint}
-        appId={appId}
         onTest={testEndpoint}
       />
 
@@ -333,7 +332,6 @@ export const EndpointsList: React.FC<EndpointsListProps> = ({
           setSelectedEndpoint(null);
         }}
         endpoint={selectedEndpoint}
-        appId={appId}
       />
     </div>
   );

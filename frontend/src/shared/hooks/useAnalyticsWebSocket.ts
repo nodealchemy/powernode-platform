@@ -48,14 +48,23 @@ export const useAnalyticsWebSocket = ({
     if (unsubscribeRef.current) {
       unsubscribeRef.current();
     }
-    
+
+    // Only subscribe if account_id is provided
+    if (!accountId) {
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('[AnalyticsWebSocket] Cannot subscribe: account_id not provided');
+      }
+      return;
+    }
+
     unsubscribeRef.current = subscribe({
       channel: 'AnalyticsChannel',
+      params: { account_id: accountId },
       onMessage: handleMessage,
       onError: handleError
     });
-    
-  }, [subscribe]); // Remove handleMessage, handleError to prevent recreations
+
+  }, [subscribe, accountId, handleMessage, handleError]);
 
   // Request analytics update
   const requestAnalyticsUpdate = useCallback(async () => {
@@ -66,19 +75,19 @@ export const useAnalyticsWebSocket = ({
     await sendMessage('AnalyticsChannel', 'request_analytics');
   }, [isConnected, sendMessage]);
 
-  // Auto-subscribe when connected - but only once
+  // Auto-subscribe when connected
   useEffect(() => {
-    if (isConnected) {
+    if (isConnected && accountId) {
       subscribeToAnalytics();
     }
-    
+
     return () => {
       if (unsubscribeRef.current) {
         unsubscribeRef.current();
         unsubscribeRef.current = null;
       }
     };
-  }, [isConnected]); // Remove subscribeToAnalytics dependency to prevent recreation
+  }, [isConnected, accountId, subscribeToAnalytics]);
 
   // Handle connection errors
   useEffect(() => {

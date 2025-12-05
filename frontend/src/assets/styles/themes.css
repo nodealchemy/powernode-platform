@@ -138,6 +138,31 @@
   --easing-ease-in: cubic-bezier(0.4, 0, 1, 1);
   --easing-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
   --easing-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+
+  /* ===== WORKFLOW NODE TYPE COLORS ===== */
+  /* Visual distinction for different workflow node categories */
+  --node-trigger-bg: #4ade80;        /* emerald-400 */
+  --node-ai-agent-bg: #60a5fa;       /* blue-400 */
+  --node-data-processor-bg: #a78bfa; /* purple-400 */
+  --node-condition-bg: #fbbf24;      /* yellow-400 */
+  --node-loop-bg: #fb923c;           /* orange-400 */
+  --node-api-call-bg: #14b8a6;       /* teal-500 */
+  --node-webhook-bg: #ec4899;        /* pink-500 */
+  --node-database-bg: #06b6d4;       /* cyan-500 */
+  --node-email-bg: #6366f1;          /* indigo-500 */
+  --node-scheduler-bg: #f59e0b;      /* amber-500 */
+  --node-file-bg: #8b5cf6;           /* violet-500 */
+  --node-transformer-bg: #64748b;    /* slate-500 */
+  --node-validator-bg: #f43f5e;      /* rose-500 */
+  --node-notification-bg: #84cc16;   /* lime-500 */
+  --node-delay-bg: #9ca3af;          /* gray-400 */
+  --node-merge-bg: #d946ef;          /* fuchsia-500 */
+  --node-split-bg: #0ea5e9;          /* sky-500 */
+  --node-end-bg: #f87171;            /* red-400 */
+  --node-start-bg: #22c55e;          /* green-500 */
+  --node-prompt-template-bg: #a855f7; /* purple-500 */
+  --node-kb-article-bg: #10b981;     /* emerald-500 */
+  --node-page-bg: #3b82f6;           /* blue-500 */
 }
 
 /* ===== LIGHT THEME ===== */

@@ -9,7 +9,7 @@ class Services::GenerateConfigJob < BaseJob
                   retry: 2
 
   def execute(proxy_type, config, job_id: nil)
-    logger.info "Starting #{proxy_type} configuration generation (job: #{job_id})"
+    log_info("Starting #{proxy_type} configuration generation (job: #{job_id})")
 
     start_time = Time.current
 
@@ -38,7 +38,7 @@ class Services::GenerateConfigJob < BaseJob
         message: "#{proxy_type.capitalize} configuration generated successfully"
       }
 
-      logger.info "Generated #{proxy_type} config (#{result[:size]} chars) in #{duration.round(2)}s"
+      log_info("Generated #{proxy_type} config (#{result[:size]} chars) in #{duration.round(2)}s")
 
       # Update job status via API
       update_job_status(job_id, result) if job_id
@@ -56,7 +56,7 @@ class Services::GenerateConfigJob < BaseJob
         message: "#{proxy_type.capitalize} configuration generation failed"
       }
 
-      logger.error "Config generation failed after #{duration.round(2)}s: #{e.message}"
+      log_error("Config generation failed after #{duration.round(2)}s: #{e.message}")
       
       # Update job status via API
       update_job_status(job_id, error_result) if job_id
@@ -73,6 +73,6 @@ class Services::GenerateConfigJob < BaseJob
       result: result
     })
   rescue => e
-    logger.warn "Failed to update job status: #{e.message}"
+    log_warn("Failed to update job status: #{e.message}")
   end
 end

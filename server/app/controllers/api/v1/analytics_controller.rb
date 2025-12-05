@@ -382,11 +382,12 @@ class Api::V1::AnalyticsController < ApplicationController
           type: "text/csv"
         }
         format.json {
-          render json: {
-            success: true,
-            data: csv_data,
-            filename: "#{report_type}_analytics_#{Date.current.strftime('%Y%m%d')}.csv"
-          }
+          render_success(
+            data: {
+              csv_data: csv_data,
+              filename: "#{report_type}_analytics_#{Date.current.strftime('%Y%m%d')}.csv"
+            }
+          )
         }
       end
     when "pdf"
@@ -405,12 +406,13 @@ class Api::V1::AnalyticsController < ApplicationController
           type: "application/pdf"
         }
         format.json {
-          render json: {
-            success: true,
-            data: Base64.encode64(pdf_data),
-            filename: "#{report_type}_report_#{Date.current.strftime('%Y%m%d')}.pdf",
-            content_type: "application/pdf"
-          }
+          render_success(
+            data: {
+              pdf_data: Base64.encode64(pdf_data),
+              filename: "#{report_type}_report_#{Date.current.strftime('%Y%m%d')}.pdf",
+              content_type: "application/pdf"
+            }
+          )
         }
       end
     else
@@ -423,13 +425,13 @@ class Api::V1::AnalyticsController < ApplicationController
   private
 
   def check_analytics_permission
-    unless current_user.has_permission?("analytics.view") || current_user.has_permission?("admin.access")
+    unless current_user.has_permission?("ai.analytics.read") || current_user.has_permission?("admin.access")
       render_error("Analytics permission required", status: :forbidden)
     end
   end
 
   def can_export_analytics?
-    current_user.has_permission?("analytics.export") || current_user.has_permission?("admin.access")
+    current_user.has_permission?("ai.analytics.export") || current_user.has_permission?("admin.access")
   end
 
   def set_date_range

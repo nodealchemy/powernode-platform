@@ -1,5 +1,8 @@
 // Common types used across the application
 
+// Import for use in Subscription interface
+import type { Plan } from '@/features/plans/services/plansApi';
+
 export interface APIResponse<T = unknown> {
   success: boolean;
   data?: T;
@@ -45,18 +48,9 @@ export interface ChurnMetrics {
   churned_subscriptions: number;
 }
 
-export interface SubscriptionPlan {
-  id: string;
-  name: string;
-  description: string;
-  price_cents: number;
-  currency: string;
-  billing_cycle: 'monthly' | 'quarterly' | 'yearly';
-  trial_days: number;
-  features: Record<string, boolean | string | number>;
-  limits: Record<string, number>;
-  status: 'active' | 'inactive' | 'archived';
-}
+// Re-export Plan types from canonical source (plansApi)
+// Using alias to maintain backward compatibility with SubscriptionPlan name
+export type { Plan as SubscriptionPlan, DetailedPlan, VolumeDiscountTier } from '@/features/plans/services/plansApi';
 
 export interface Subscription {
   id: string;
@@ -65,7 +59,9 @@ export interface Subscription {
   current_period_end: string;
   trial_start?: string;
   trial_end?: string;
-  plan: SubscriptionPlan;
+  canceled_at?: string;
+  ends_at?: string;
+  plan: Plan;
   created_at: string;
   updated_at: string;
 }

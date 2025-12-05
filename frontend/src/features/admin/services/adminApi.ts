@@ -125,13 +125,25 @@ export interface AdminLog {
   created_at: string;
 }
 
+export interface PaymentGateway {
+  id: string;
+  name: string;
+  type: 'stripe' | 'paypal' | 'custom';
+  enabled: boolean;
+  is_primary: boolean;
+  test_mode: boolean;
+  config: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface AdminSettingsData {
   settings_summary: SystemSettings;
   metrics: PlatformStats;
   recent_users: unknown[];
   recent_accounts: unknown[];
   recent_logs: unknown[];
-  payment_gateways: any;
+  payment_gateways: PaymentGateway[];
 }
 
 export interface AdminSettingsUpdateRequest {
@@ -171,19 +183,48 @@ export interface AdminSettingsUpdateRequest {
   feature_flags?: Record<string, boolean>;
 }
 
+/**
+ * @module AdminApi
+ * @description Admin analytics and data export service.
+ *
+ * RESPONSIBILITY: Global analytics and system data exports only
+ * NOT RESPONSIBLE FOR: Platform settings, user/account management, system configuration
+ *
+ * @see Use adminSettingsApi for platform configuration, health monitoring, rate limiting
+ * @see Use usersApi for user operations
+ * @see Use accountsApi for account operations
+ */
 class AdminApiService {
+  /**
+   * @deprecated Use adminSettingsApi.getOverview() instead
+   * This method will be removed in a future version.
+   */
   // Get all admin settings
   async getAdminSettings(): Promise<AdminSettingsData> {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('DEPRECATED: adminApi.getAdminSettings() - use adminSettingsApi.getOverview() instead');
+    }
     const response = await api.get('/admin_settings');
     return response.data;
   }
 
+  /**
+   * @deprecated Use adminSettingsApi.updateSettings() instead
+   * This method will be removed in a future version.
+   */
   // Update admin settings
   async updateAdminSettings(settings: AdminSettingsUpdateRequest): Promise<AdminSettingsData> {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('DEPRECATED: adminApi.updateAdminSettings() - use adminSettingsApi.updateSettings() instead');
+    }
     const response = await api.put('/admin_settings', { admin_settings: settings });
     return response.data;
   }
 
+  /**
+   * @deprecated Use adminSettingsApi.getUsers() instead
+   * This method will be removed in a future version.
+   */
   // Get users for admin management
   async getUsers(filters?: { status?: string }): Promise<{
     users: AdminUser[];
@@ -192,11 +233,18 @@ class AdminApiService {
     inactive_count: number;
     suspended_count: number;
   }> {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('DEPRECATED: adminApi.getUsers() - use adminSettingsApi.getUsers() instead');
+    }
     const params = filters ? new URLSearchParams(filters).toString() : '';
     const response = await api.get(`/admin_settings/users${params ? `?${params}` : ''}`);
     return response.data;
   }
 
+  /**
+   * @deprecated Use adminSettingsApi.getAccounts() instead
+   * This method will be removed in a future version.
+   */
   // Get accounts for admin management
   async getAccounts(): Promise<{
     accounts: AdminAccount[];
@@ -205,50 +253,93 @@ class AdminApiService {
     suspended_count: number;
     cancelled_count: number;
   }> {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('DEPRECATED: adminApi.getAccounts() - use adminSettingsApi.getAccounts() instead');
+    }
     const response = await api.get('/admin_settings/accounts');
     return response.data;
   }
 
+  /**
+   * @deprecated Use adminSettingsApi.getSystemLogs() instead
+   * This method will be removed in a future version.
+   */
   // Get system logs
   async getSystemLogs(): Promise<{
     logs: AdminLog[];
     total_count: number;
   }> {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('DEPRECATED: adminApi.getSystemLogs() - use adminSettingsApi.getSystemLogs() instead');
+    }
     const response = await api.get('/admin_settings/system_logs');
     return response.data;
   }
 
+  /**
+   * @deprecated Use adminSettingsApi.suspendAccount() instead
+   * This method will be removed in a future version.
+   */
   // Suspend an account
-  async suspendAccount(accountId: string, reason?: string): Promise<void> {
+  async suspendAccount(account_id: string, reason?: string): Promise<void> {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('DEPRECATED: adminApi.suspendAccount() - use adminSettingsApi.suspendAccount() instead');
+    }
     await api.post('/admin_settings/suspend_account', {
-      account_id: accountId,
+      account_id: account_id,
       reason
     });
   }
 
+  /**
+   * @deprecated Use adminSettingsApi.activateAccount() instead
+   * This method will be removed in a future version.
+   */
   // Activate an account
-  async activateAccount(accountId: string, reason?: string): Promise<void> {
+  async activateAccount(account_id: string, reason?: string): Promise<void> {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('DEPRECATED: adminApi.activateAccount() - use adminSettingsApi.activateAccount() instead');
+    }
     await api.post('/admin_settings/activate_account', {
-      account_id: accountId,
+      account_id: account_id,
       reason
     });
   }
 
+  /**
+   * @deprecated Use usersApi.updateUser() with status field instead
+   * This method will be removed in a future version.
+   */
   // Update user status (using existing users endpoint)
-  async updateUserStatus(userId: string, status: 'active' | 'inactive' | 'suspended'): Promise<any> {
-    const response = await api.put(`/users/${userId}`, {
+  async updateUserStatus(user_id: string, status: 'active' | 'inactive' | 'suspended'): Promise<AdminUser> {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('DEPRECATED: adminApi.updateUserStatus() - use usersApi.updateUser() instead');
+    }
+    const response = await api.put(`/users/${user_id}`, {
       user: { status }
     });
     return response.data;
   }
 
+  /**
+   * @deprecated Use usersApi.deleteUser() instead
+   * This method will be removed in a future version.
+   */
   // Delete user (using existing users endpoint)
-  async deleteUser(userId: string): Promise<void> {
-    await api.delete(`/users/${userId}`);
+  async deleteUser(user_id: string): Promise<void> {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('DEPRECATED: adminApi.deleteUser() - use usersApi.deleteUser() instead');
+    }
+    await api.delete(`/users/${user_id}`);
   }
 
   // Get global analytics (if user has permission)
-  async getGlobalAnalytics(): Promise<any> {
+  async getGlobalAnalytics(): Promise<{
+    total_revenue: number;
+    monthly_revenue: number;
+    revenue_by_plan: Record<string, number>;
+    revenue_trend: Array<{ month: string; revenue: number }>;
+  }> {
     const response = await api.get('/analytics/revenue?global=true');
     return response.data;
   }

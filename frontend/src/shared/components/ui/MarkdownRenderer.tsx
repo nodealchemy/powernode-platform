@@ -81,7 +81,6 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
   // Modern markdown components with enhanced UX design
   const getMarkdownComponents = (): Components => {
     const isPublic = variant === 'public';
-    const isPreview = variant === 'preview';
 
     return {
       // Enhanced headings with modern typography and optimal spacing
@@ -253,9 +252,9 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
         <div className="relative group mb-6">
           {/* Terminal-style dots */}
           <div className="flex items-center space-x-2 px-4 py-2 bg-theme-background-secondary rounded-t-xl border-b border-theme">
-            <div className="w-3 h-3 bg-red-500 rounded-full opacity-80"></div>
+            <div className="w-3 h-3 bg-theme-danger rounded-full opacity-80"></div>
             <div className="w-3 h-3 bg-yellow-500 rounded-full opacity-80"></div>
-            <div className="w-3 h-3 bg-green-500 rounded-full opacity-80"></div>
+            <div className="w-3 h-3 bg-theme-success rounded-full opacity-80"></div>
           </div>
           <pre className={`
             p-4 rounded-b-xl overflow-x-auto
@@ -341,7 +340,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
           px-5 py-4 text-left font-semibold text-sm
           bg-gradient-to-br from-blue-50/80 to-blue-100/60
           dark:from-blue-900/20 dark:to-blue-800/30
-          text-theme-primary border-b-2 border-blue-500/20
+          text-theme-primary border-b-2 border-theme-info/20
           border-r border-theme/30 last:border-r-0
           uppercase tracking-wide letter-spacing-wide
           transition-all duration-200 ease-out

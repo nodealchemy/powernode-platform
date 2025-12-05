@@ -5,7 +5,7 @@ import { Card } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { FlexBetween, FlexItemsCenter } from '@/shared/components/ui/FlexContainer';
-import { useNotification } from '@/shared/hooks/useNotification';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import { servicesApi, ServiceDiscoveryConfig } from '../../services/servicesApi';
 import { JobProgressModal } from './JobProgressModal';
 import { 
@@ -45,7 +45,7 @@ export const ServiceDiscoveryModal: React.FC<ServiceDiscoveryModalProps> = ({
   config,
   onConfigUpdate
 }) => {
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
   const [discovering, setDiscovering] = useState(false);
   const [discoveredServices, setDiscoveredServices] = useState<DiscoveredService[]>([]);
   const [activeTab, setActiveTab] = useState<'config' | 'discovered'>('config');

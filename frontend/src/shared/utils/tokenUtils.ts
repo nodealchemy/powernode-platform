@@ -53,11 +53,13 @@ export const isTokenInvalidError = (error: unknown): boolean => {
  */
 export const clearStoredTokens = (): void => {
   try {
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
   } catch (error) {
     // Silently handle localStorage errors (e.g., when storage is disabled)
-    console.warn('Failed to clear stored tokens:', error);
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('Failed to clear stored tokens:', error);
+    }
   }
 };
 
@@ -66,7 +68,7 @@ export const clearStoredTokens = (): void => {
  */
 export const hasStoredTokens = (): boolean => {
   try {
-    return !!(localStorage.getItem('accessToken') || localStorage.getItem('refreshToken'));
+    return !!(localStorage.getItem('access_token') || localStorage.getItem('refresh_token'));
   } catch (error) {
     // Handle localStorage errors gracefully
     return false;

@@ -6,6 +6,7 @@ import { RootState, AppDispatch } from '@/shared/services';
 import { logout } from '@/shared/services/slices/authSlice';
 // import { NavigationItem } from './NavigationItem';
 import { useNavigation } from '@/shared/hooks/NavigationContext';
+import { getUserInitials } from '@/shared/utils/userUtils';
 
 interface UserMenuProps {
   className?: string;
@@ -32,11 +33,8 @@ export const UserMenu: React.FC<UserMenuProps> = ({ className = '' }) => {
     };
   }, []);
 
-  // Get user initials
-  const getUserInitials = () => {
-    if (!user?.first_name || !user?.last_name) return 'U';
-    return `${user.first_name[0]}${user.last_name[0]}`.toUpperCase();
-  };
+  // Get user initials using utility function
+  const userInitials = getUserInitials(user);
 
   // Handle logout
   const handleLogout = () => {
@@ -59,7 +57,7 @@ export const UserMenu: React.FC<UserMenuProps> = ({ className = '' }) => {
         <div className="relative">
           <div className="h-9 w-9 rounded-full bg-gradient-to-br from-theme-interactive-primary to-theme-interactive-secondary flex items-center justify-center shadow-sm">
             <span className="text-white text-sm font-semibold">
-              {getUserInitials()}
+              {userInitials}
             </span>
           </div>
           {/* Online status indicator */}
@@ -69,7 +67,7 @@ export const UserMenu: React.FC<UserMenuProps> = ({ className = '' }) => {
         {/* User Info - Hidden on mobile */}
         <div className="hidden md:block text-left">
           <p className="font-medium text-theme-primary text-sm leading-tight">
-            {user?.first_name} {user?.last_name}
+            {user?.name}
           </p>
           <p className="text-xs text-theme-tertiary leading-tight">
             {user?.account?.name}
@@ -95,12 +93,12 @@ export const UserMenu: React.FC<UserMenuProps> = ({ className = '' }) => {
             <div className="flex items-center space-x-3">
               <div className="h-12 w-12 rounded-full bg-gradient-to-br from-theme-interactive-primary to-theme-interactive-secondary flex items-center justify-center">
                 <span className="text-white text-lg font-semibold">
-                  {getUserInitials()}
+                  {userInitials}
                 </span>
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-theme-primary text-base truncate">
-                  {user?.first_name} {user?.last_name}
+                  {user?.name}
                 </p>
                 <p className="text-sm text-theme-secondary truncate">
                   {user?.email}

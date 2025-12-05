@@ -7,7 +7,7 @@ export const validateThemeClasses = () => {
     const root = document.documentElement;
     const currentTheme = root.classList.contains('dark') ? 'dark' : 'light';
     
-    
+
     // Test CSS custom properties
     const style = getComputedStyle(root);
     const themeProperties = [
@@ -17,10 +17,6 @@ export const validateThemeClasses = () => {
       '--color-text-secondary',
       '--color-border'
     ];
-    
-    themeProperties.forEach(prop => {
-      const value = style.getPropertyValue(prop);
-    });
     
     return {
       theme: currentTheme,

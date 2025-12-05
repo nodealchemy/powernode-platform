@@ -52,15 +52,21 @@ class Permission < ApplicationRecord
         permission.update!(name: name) if permission.name != name
         return permission
       end
-      
-      # Create new permission
-      create!(
-        name: name,
-        category: category,
-        resource: resource,
-        action: action,
-        description: description || "Permission for #{name}"
-      )
+
+      # Create new permission with race-safe find_or_create_by!
+      # Use rescue to handle race conditions where another thread creates between find and create
+      begin
+        create!(
+          name: name,
+          category: category,
+          resource: resource,
+          action: action,
+          description: description || "Permission for #{name}"
+        )
+      rescue ActiveRecord::RecordNotUnique
+        # Another thread created it, find and return
+        find_by(name: name) || find_by(resource: resource, action: action, category: category)
+      end
     end
     
     def sync_from_config!
@@ -81,13 +87,27 @@ class Permission < ApplicationRecord
       case category
       when 'admin', 'system'
         # Format: admin.resource.action or system.resource.action
-        resource = parts[1]
-        action = parts[2..].join('_') if parts.length > 2
-        action ||= parts[1] # Fallback if only two parts
+        if parts.length >= 3
+          # admin.ai.agents.delete -> resource: ai.agents, action: delete
+          resource = parts[1..-2].join('.')  # Everything except first and last part
+          action = parts[-1]  # Last part
+        else
+          # admin.access -> resource: admin, action: access
+          resource = parts[0]
+          action = parts[1]
+        end
       else
-        # Format: resource.action
-        resource = parts[0]
-        action = parts[1..].join('_')
+        # Format: resource.action (e.g., ai.agents.create, user.read)
+        if parts.length >= 3 && parts[0] == 'ai'
+          # ai.agents.create -> resource: agents, action: create
+          resource = parts[1]
+          action = parts[2]
+        else
+          # user.read -> resource: user, action: read
+          # api.manage_keys -> resource: api, action: manage_keys
+          resource = parts[0]
+          action = parts[1..].join('_')
+        end
       end
       
       [resource, action]

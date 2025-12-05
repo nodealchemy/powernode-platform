@@ -85,7 +85,10 @@ export default function KnowledgeBasePage() {
       setCategories(categoriesResponse.data.data);
       setArticles(articlesResponse.data.data.articles);
       setFeaturedArticles(featuredResponse.data.data.articles);
-    } catch (error) {
+    } catch (_error) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('[KnowledgeBasePage] Failed to load initial data:', _error);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -95,7 +98,10 @@ export default function KnowledgeBasePage() {
     try {
       const response = await knowledgeBaseApi.getArticles({ per_page: 20 });
       setArticles(response.data.data.articles);
-    } catch (error) {
+    } catch (_error) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('[KnowledgeBasePage] Failed to load articles:', _error);
+      }
     }
   };
 
@@ -128,7 +134,10 @@ export default function KnowledgeBasePage() {
       if (searchQuery) params.set('q', searchQuery);
       if (selectedCategory) params.set('category', selectedCategory);
       setSearchParams(params);
-    } catch (error) {
+    } catch (_error) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('[KnowledgeBasePage] Search failed:', _error);
+      }
     }
   };
 

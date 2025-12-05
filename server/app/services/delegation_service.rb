@@ -257,7 +257,7 @@ class DelegationService
     User.where.not(id: account.user_ids)
         .where.not(id: delegator.id)
         .active
-        .order(:first_name, :last_name)
+        .order(:name)
   end
 
   def list_available_roles_for_delegation

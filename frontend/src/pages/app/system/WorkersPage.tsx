@@ -3,7 +3,7 @@ import { useSelector } from 'react-redux';
 import { Navigate, useLocation } from 'react-router-dom';
 import { RootState } from '@/shared/services';
 import { hasPermissions } from '@/shared/utils/permissionUtils';
-import { workerAPI, Worker } from '@/features/workers/services/workerApi';
+import { workerApi, Worker } from '@/features/workers/services/workerApi';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { TabContainer } from '@/shared/components/ui/TabContainer';
 import { Card } from '@/shared/components/ui/Card';
@@ -158,7 +158,7 @@ export const WorkersPage: React.FC = () => {
   const loadWorkers = useCallback(async () => {
     setState(prev => ({ ...prev, loading: true, error: null }));
     try {
-      const response = await workerAPI.getWorkers();
+      const response = await workerApi.getWorkers();
       const workers = response.workers || [];
       const workerStats = calculateStats(workers);
       
@@ -324,7 +324,7 @@ export const WorkersPage: React.FC = () => {
 
   const handleCreateWorker = useCallback(async (workerData: unknown) => {
     try {
-      await workerAPI.createWorker(workerData as any);
+      await workerApi.createWorker(workerData as any);
       await loadWorkers();
       setState(prev => ({ ...prev, showCreateModal: false }));
     } catch (error: unknown) {
@@ -338,13 +338,13 @@ export const WorkersPage: React.FC = () => {
       // Implement bulk actions
       switch (action) {
         case 'activate':
-          await Promise.all(workerIds.map(id => workerAPI.activateWorker(id)));
+          await Promise.all(workerIds.map(id => workerApi.activateWorker(id)));
           break;
         case 'suspend':
-          await Promise.all(workerIds.map(id => workerAPI.suspendWorker(id)));
+          await Promise.all(workerIds.map(id => workerApi.suspendWorker(id)));
           break;
         case 'delete':
-          await Promise.all(workerIds.map(id => workerAPI.deleteWorker(id)));
+          await Promise.all(workerIds.map(id => workerApi.deleteWorker(id)));
           break;
       }
       await loadWorkers();
@@ -594,7 +594,7 @@ const WorkerOverviewTab: React.FC<{
   stats: WorkerStats;
   onRefresh: () => void;
   loading: boolean;
-}> = ({ workers, stats, onRefresh, loading }) => {
+}> = ({ workers, stats, onRefresh, loading: _loading }) => {
   const recentWorkers = workers
     .sort((a, b) => {
       // System workers first, then by creation date
@@ -865,11 +865,11 @@ const WorkerManagementTab: React.FC<{
               expandedWorker={state.selectedWorker}
               isExpanded={state.showDetailsPanel}
               onUpdateWorker={async (workerId, data) => {
-                await workerAPI.updateWorker(workerId, data);
+                await workerApi.updateWorker(workerId, data);
                 await loadWorkers();
               }}
               onDeleteWorker={async (workerId) => {
-                await workerAPI.deleteWorker(workerId);
+                await workerApi.deleteWorker(workerId);
                 await loadWorkers();
                 setState(prev => ({ ...prev, showDetailsPanel: false, selectedWorker: null }));
               }}
@@ -893,11 +893,11 @@ const WorkerManagementTab: React.FC<{
               expandedWorker={state.selectedWorker}
               isExpanded={state.showDetailsPanel}
               onUpdateWorker={async (workerId, data) => {
-                await workerAPI.updateWorker(workerId, data);
+                await workerApi.updateWorker(workerId, data);
                 await loadWorkers();
               }}
               onDeleteWorker={async (workerId) => {
-                await workerAPI.deleteWorker(workerId);
+                await workerApi.deleteWorker(workerId);
                 await loadWorkers();
                 setState(prev => ({ ...prev, showDetailsPanel: false, selectedWorker: null }));
               }}
@@ -915,7 +915,6 @@ const WorkerActivityTab: React.FC<{
   workers: Worker[];
   onRefresh: () => void;
 }> = ({ workers, onRefresh }) => {
-  const [selectedWorker, setSelectedWorker] = useState<string | null>(null);
   const [timeRange, setTimeRange] = useState<'1h' | '24h' | '7d' | '30d'>('24h');
 
   const getActivityData = () => {
@@ -1056,7 +1055,6 @@ const WorkerSecurityTab: React.FC<{
   canManageWorkers: boolean;
   onRefresh: () => void;
 }> = ({ workers, canManageWorkers, onRefresh }) => {
-  const [selectedWorker, setSelectedWorker] = useState<string | null>(null);
 
   const getSecurityStats = () => {
     const totalPermissions = new Set(workers.flatMap(w => w.permissions)).size;
@@ -1192,9 +1190,9 @@ const WorkerSecurityTab: React.FC<{
                   </Badge>
                   {canManageWorkers && (
                     <Button
-                      onClick={() => setSelectedWorker(worker.id)}
                       variant="secondary"
                       size="sm"
+                      title="View worker details"
                     >
                       <Shield className="w-4 h-4" />
                     </Button>

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { adminSettingsApi, AdminOverviewData } from '@/features/admin/services/adminSettingsApi';
 import { servicesApi, HealthStatus } from '@/features/admin/services/servicesApi';
 import { ActionCard, MetricCard as StandardMetricCard } from '@/shared/components/ui/Card';
-import { useNotification } from '@/shared/hooks/useNotification';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 
 
 interface SystemStatusCardProps {
@@ -91,7 +91,7 @@ export const AdminSettingsOverviewPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [servicesHealth, setServicesHealth] = useState<HealthStatus | null>(null);
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
 
   const loadOverviewData = useCallback(async () => {
     try {
@@ -105,8 +105,10 @@ export const AdminSettingsOverviewPage: React.FC = () => {
       let healthStatus = null;
       try {
         healthStatus = await servicesApi.getDetailedHealthStatus();
-      } catch (healthError) {
-        console.warn('Services health check unavailable:', healthError);
+      } catch (_healthError) {
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('Services health check unavailable:', _healthError);
+        }
         // Continue without health status - this is non-critical
       }
       
@@ -272,7 +274,7 @@ export const AdminSettingsOverviewPage: React.FC = () => {
                 await adminSettingsApi.updateSettings({ maintenance_mode: false });
                 showNotification('Maintenance mode disabled successfully', 'success');
                 await loadOverviewData(); // Refresh the data
-              } catch (error) {
+              } catch (_error) {
                 showNotification('Failed to disable maintenance mode', 'error');
               }
             }
@@ -714,7 +716,7 @@ export const AdminSettingsOverviewPage: React.FC = () => {
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-theme-interactive-primary rounded-full flex items-center justify-center flex-shrink-0">
                           <span className="text-white font-medium text-sm">
-                            {(user.first_name?.[0] || '?')}{(user.last_name?.[0] || '?')}
+                            {user.name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || '??'}
                           </span>
                         </div>
                         <div className="flex-1 min-w-0">

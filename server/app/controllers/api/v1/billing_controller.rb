@@ -4,33 +4,37 @@ class Api::V1::BillingController < ApplicationController
   before_action :authenticate_request
 
   def overview
-    render json: {
-      outstanding: outstanding_amount,
-      this_month: this_month_amount,
-      collected: all_time_collected,
-      success_rate: payment_success_rate,
-      recent_invoices: recent_invoices_data,
-      payment_methods: payment_methods_data
-    }
+    render_success(
+      data: {
+        outstanding: outstanding_amount,
+        this_month: this_month_amount,
+        collected: all_time_collected,
+        success_rate: payment_success_rate,
+        recent_invoices: recent_invoices_data,
+        payment_methods: payment_methods_data
+      }
+    )
   end
 
   def payment_methods
     methods = current_account.payment_methods.includes(:user).order(created_at: :desc)
-    
-    render json: {
-      payment_methods: methods.map do |method|
-        {
-          id: method.id,
-          provider: method.provider,
-          payment_method_type: method.payment_method_type,
-          card_brand: method.card_brand,
-          card_last_four: method.card_last_four,
-          bank_account_last_four: method.bank_account_last_four,
-          is_default: method.is_default,
-          created_at: method.created_at
-        }
-      end
-    }
+
+    render_success(
+      data: {
+        payment_methods: methods.map do |method|
+          {
+            id: method.id,
+            provider: method.provider,
+            payment_method_type: method.payment_method_type,
+            card_brand: method.card_brand,
+            card_last_four: method.card_last_four,
+            bank_account_last_four: method.bank_account_last_four,
+            is_default: method.is_default,
+            created_at: method.created_at
+          }
+        end
+      }
+    )
   end
 
   def create_payment_method
@@ -45,16 +49,17 @@ class Api::V1::BillingController < ApplicationController
     )
 
     if result[:success]
-      render json: {
-        success: true,
-        payment_method: {
-          id: result[:payment_method].id,
-          provider: result[:payment_method].provider,
-          payment_method_type: result[:payment_method].payment_method_type,
-          card_brand: result[:payment_method].card_brand,
-          card_last_four: result[:payment_method].card_last_four
+      render_success(
+        data: {
+          payment_method: {
+            id: result[:payment_method].id,
+            provider: result[:payment_method].provider,
+            payment_method_type: result[:payment_method].payment_method_type,
+            card_brand: result[:payment_method].card_brand,
+            card_last_four: result[:payment_method].card_last_four
+          }
         }
-      }
+      )
     else
       render_error(result[:error], status: :unprocessable_content)
     end
@@ -73,11 +78,12 @@ class Api::V1::BillingController < ApplicationController
     )
 
     if result[:success]
-      render json: {
-        success: true,
-        client_secret: result[:client_secret],
-        payment_intent_id: result[:payment_intent].id
-      }
+      render_success(
+        data: {
+          client_secret: result[:client_secret],
+          payment_intent_id: result[:payment_intent].id
+        }
+      )
     else
       render_error(result[:error], status: :unprocessable_content)
     end
@@ -93,28 +99,30 @@ class Api::V1::BillingController < ApplicationController
     total_count = invoices_query.count
     invoices = invoices_query.limit(per_page).offset((page - 1) * per_page)
 
-    render json: {
-      invoices: invoices.map do |invoice|
-        {
-          id: invoice.id,
-          invoice_number: invoice.invoice_number,
-          subtotal: invoice.subtotal.to_s,
-          tax_amount: invoice.tax_amount.to_s,
-          total_amount: invoice.total_amount.to_s,
-          currency: invoice.currency,
-          status: invoice.status,
-          due_date: invoice.due_date,
-          created_at: invoice.created_at,
-          line_items_count: invoice.invoice_line_items.count
+    render_success(
+      data: {
+        invoices: invoices.map do |invoice|
+          {
+            id: invoice.id,
+            invoice_number: invoice.invoice_number,
+            subtotal: invoice.subtotal.to_s,
+            tax_amount: invoice.tax_amount.to_s,
+            total_amount: invoice.total_amount.to_s,
+            currency: invoice.currency,
+            status: invoice.status,
+            due_date: invoice.due_date,
+            created_at: invoice.created_at,
+            line_items_count: invoice.invoice_line_items.count
+          }
+        end,
+        pagination: {
+          current_page: page,
+          per_page: per_page,
+          total_count: total_count,
+          total_pages: (total_count / per_page.to_f).ceil
         }
-      end,
-      pagination: {
-        current_page: page,
-        per_page: per_page,
-        total_count: total_count,
-        total_pages: (total_count / per_page.to_f).ceil
       }
-    }
+    )
   end
 
   def create_invoice
@@ -135,20 +143,18 @@ class Api::V1::BillingController < ApplicationController
         invoice.calculate_totals
       end
 
-      render json: {
-        success: true,
-        invoice: {
-          id: invoice.id,
-          invoice_number: invoice.invoice_number,
-          total_amount: invoice.total_amount.to_s,
-          status: invoice.status
+      render_success(
+        data: {
+          invoice: {
+            id: invoice.id,
+            invoice_number: invoice.invoice_number,
+            total_amount: invoice.total_amount.to_s,
+            status: invoice.status
+          }
         }
-      }
+      )
     else
-      render json: {
-        success: false,
-        errors: invoice.errors.full_messages
-      }, status: :unprocessable_content
+      render_validation_error(invoice)
     end
   end
 
@@ -160,24 +166,26 @@ class Api::V1::BillingController < ApplicationController
       return
     end
 
-    render json: {
-      subscription: {
-        id: subscription.id,
-        plan: {
-          id: subscription.plan.id,
-          name: subscription.plan.name,
-          price: subscription.plan.price.to_s,
-          billing_cycle: subscription.plan.billing_cycle
+    render_success(
+      data: {
+        subscription: {
+          id: subscription.id,
+          plan: {
+            id: subscription.plan.id,
+            name: subscription.plan.name,
+            price: subscription.plan.price.to_s,
+            billing_cycle: subscription.plan.billing_cycle
+          },
+          status: subscription.status,
+          current_period_start: subscription.current_period_start,
+          current_period_end: subscription.current_period_end,
+          trial_end: subscription.trial_end,
+          canceled_at: subscription.canceled_at
         },
-        status: subscription.status,
-        current_period_start: subscription.current_period_start,
-        current_period_end: subscription.current_period_end,
-        trial_end: subscription.trial_end,
-        canceled_at: subscription.canceled_at
-      },
-      upcoming_invoice: upcoming_invoice_data(subscription),
-      billing_history: billing_history_data(subscription)
-    }
+        upcoming_invoice: upcoming_invoice_data(subscription),
+        billing_history: billing_history_data(subscription)
+      }
+    )
   end
 
   private

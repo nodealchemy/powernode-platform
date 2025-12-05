@@ -9,7 +9,7 @@ class Services::ServiceValidationJob < BaseJob
                   retry: 1
 
   def execute(service_configs, job_id: nil)
-    logger.info "Starting service validation (job: #{job_id})"
+    log_info("Starting service validation (job: #{job_id})")
 
     start_time = Time.current
     validation_results = {}
@@ -40,7 +40,7 @@ class Services::ServiceValidationJob < BaseJob
         message: "Service validation completed: #{valid_count}/#{total_count} services valid"
       }
 
-      logger.info "Service validation completed: #{valid_count}/#{total_count} valid in #{duration.round(2)}s"
+      log_info("Service validation completed: #{valid_count}/#{total_count} valid in #{duration.round(2)}s")
 
       # Update job status via API
       update_job_status(job_id, result) if job_id
@@ -58,7 +58,7 @@ class Services::ServiceValidationJob < BaseJob
         message: 'Service validation failed'
       }
 
-      logger.error "Service validation failed after #{duration.round(2)}s: #{e.message}"
+      log_error("Service validation failed after #{duration.round(2)}s: #{e.message}")
       
       # Update job status via API
       update_job_status(job_id, error_result) if job_id
@@ -75,6 +75,6 @@ class Services::ServiceValidationJob < BaseJob
       result: result
     })
   rescue => e
-    logger.warn "Failed to update job status: #{e.message}"
+    log_warn("Failed to update job status: #{e.message}")
   end
 end

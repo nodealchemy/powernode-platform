@@ -1,9 +1,9 @@
-import React from 'react';
-import { Plan, Subscription } from '../services/subscriptionService';
+
+import { SubscriptionPlan, Subscription } from '@/shared/types';
 import { Check, Star, TrendingUp, TrendingDown } from 'lucide-react';
 
 interface SimplePlanBrowserProps {
-  plans: Plan[];
+  plans: SubscriptionPlan[];
   currentSubscription?: Subscription | null;
   onPlanSelect: (planId: string) => void;
   loading?: boolean;
@@ -23,64 +23,66 @@ export const SimplePlanBrowser: React.FC<SimplePlanBrowserProps> = ({
 }) => {
   const formatPrice = (priceCents: number, cycle: string) => {
     if (priceCents === 0) return 'Free';
-    
+
     const price = (priceCents / 100).toFixed(2);
     const cycleText = cycle === 'monthly' ? 'month' : 'year';
     return `$${price}/${cycleText}`;
   };
 
-  const getPlanPriceCents = (plan: Plan) => {
-    if (typeof plan.price === 'number') {
-      return plan.price;
-    }
-    return plan.price.cents || 0;
+  const getPlanPriceCents = (plan: SubscriptionPlan) => {
+    return plan.price_cents || 0;
   };
 
-  const getYearlyPrice = (plan: Plan) => {
+  const getYearlyPrice = (plan: SubscriptionPlan) => {
     const priceCents = getPlanPriceCents(plan);
-    // For now, assume 10% yearly discount - this would come from plan data in real app
-    const discountMultiplier = 0.9; // 10% discount
+    // Check for annual discount in plan data
+    if (plan.has_annual_discount && plan.annual_discount_percent) {
+      const discountMultiplier = 1 - (plan.annual_discount_percent / 100);
+      return Math.round(priceCents * 12 * discountMultiplier);
+    }
+    // Default to 10% yearly discount if not specified
+    const discountMultiplier = 0.9;
     return Math.round(priceCents * 12 * discountMultiplier);
   };
 
-  const getDisplayPrice = (plan: Plan) => {
+  const getDisplayPrice = (plan: SubscriptionPlan) => {
     if (billingCycle === 'yearly') {
       return getYearlyPrice(plan);
     }
     return getPlanPriceCents(plan);
   };
 
-  const getSavingsPercent = (plan: Plan) => {
+  const getSavingsPercent = (plan: SubscriptionPlan) => {
     if (billingCycle === 'yearly') {
-      return 10; // 10% savings for yearly billing
+      return plan.annual_savings_percentage || 10; // Use plan discount or default to 10%
     }
     return 0;
   };
 
-  const getPlanComparison = (plan: Plan) => {
+  const getPlanComparison = (plan: SubscriptionPlan) => {
     if (!currentSubscription) return null;
-    
+
     const currentPlanPrice = getPlanPriceCents(currentSubscription.plan);
     const planPrice = getPlanPriceCents(plan);
-    
+
     if (plan.id === currentSubscription.plan.id) {
       return 'current';
     }
-    
+
     if (planPrice > currentPlanPrice) {
       return 'upgrade';
     }
-    
+
     if (planPrice < currentPlanPrice) {
       return 'downgrade';
     }
-    
+
     return 'same';
   };
 
-  const getActionButtonText = (plan: Plan) => {
+  const getActionButtonText = (plan: SubscriptionPlan) => {
     const comparison = getPlanComparison(plan);
-    
+
     switch (comparison) {
       case 'current':
         return 'Current Plan';
@@ -93,9 +95,9 @@ export const SimplePlanBrowser: React.FC<SimplePlanBrowserProps> = ({
     }
   };
 
-  const getActionButtonVariant = (plan: Plan) => {
+  const getActionButtonVariant = (plan: SubscriptionPlan) => {
     const comparison = getPlanComparison(plan);
-    
+
     switch (comparison) {
       case 'current':
         return 'secondary';
@@ -106,14 +108,14 @@ export const SimplePlanBrowser: React.FC<SimplePlanBrowserProps> = ({
     }
   };
 
-  const isCurrentPlan = (plan: Plan) => {
+  const isCurrentPlan = (plan: SubscriptionPlan) => {
     return currentSubscription?.plan.id === plan.id;
   };
 
-  const getKeyFeatures = (plan: Plan) => {
+  const getKeyFeatures = (plan: SubscriptionPlan) => {
     if (plan.features && typeof plan.features === 'object') {
       return Object.entries(plan.features)
-        .filter(([_, value]) => value === true || (typeof value === 'string' && value.length > 0))
+        .filter(([_, value]) => value === true || (typeof value === 'string' && value.length > 0) || (typeof value === 'number' && value > 0))
         .slice(0, 3)
         .map(([key, value]) => {
           if (typeof value === 'boolean') {
@@ -151,7 +153,7 @@ export const SimplePlanBrowser: React.FC<SimplePlanBrowserProps> = ({
     );
   }
 
-  const publicPlans = plans.filter(plan => plan.isPublic);
+  const publicPlans = plans.filter(plan => plan.is_public);
 
   return (
     <div className={`space-y-6 ${className}`}>
@@ -191,13 +193,13 @@ export const SimplePlanBrowser: React.FC<SimplePlanBrowserProps> = ({
           const savingsPercent = getSavingsPercent(plan);
           const keyFeatures = getKeyFeatures(plan);
           const displayPrice = getDisplayPrice(plan);
-          
+
           return (
             <div
               key={plan.id}
               className={`card-theme relative p-6 transition-all duration-200 hover:shadow-lg ${
-                isCurrentPlan(plan) 
-                  ? 'ring-2 ring-theme-primary border-theme-primary' 
+                isCurrentPlan(plan)
+                  ? 'ring-2 ring-theme-primary border-theme-primary'
                   : 'border-theme hover:border-theme-primary'
               }`}
             >
@@ -276,12 +278,12 @@ export const SimplePlanBrowser: React.FC<SimplePlanBrowserProps> = ({
                 onClick={() => onPlanSelect(plan.id)}
                 disabled={isCurrentPlan(plan)}
                 className={`w-full btn-theme ${
-                  getActionButtonVariant(plan) === 'primary' 
-                    ? 'btn-theme-primary' 
+                  getActionButtonVariant(plan) === 'primary'
+                    ? 'btn-theme-primary'
                     : 'btn-theme-secondary'
                 } ${
-                  isCurrentPlan(plan) 
-                    ? 'opacity-50 cursor-not-allowed' 
+                  isCurrentPlan(plan)
+                    ? 'opacity-50 cursor-not-allowed'
                     : 'hover:scale-105 transform transition-transform'
                 }`}
               >
@@ -289,9 +291,9 @@ export const SimplePlanBrowser: React.FC<SimplePlanBrowserProps> = ({
               </button>
 
               {/* Trial Information */}
-              {plan.trialDays && plan.trialDays > 0 && !isCurrentPlan(plan) && (
+              {plan.trial_days && plan.trial_days > 0 && !isCurrentPlan(plan) && (
                 <p className="text-xs text-theme-secondary text-center mt-2">
-                  {plan.trialDays}-day free trial included
+                  {plan.trial_days}-day free trial included
                 </p>
               )}
             </div>

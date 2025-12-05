@@ -382,7 +382,7 @@ describe('usePermissions', () => {
       roles?: string[];
     }
 
-    const ProtectedComponent: React.FC<ProtectedComponentProps> = ({ permissions, roles = [] }) => {
+    const ProtectedComponent: React.FC<ProtectedComponentProps> = ({ permissions: _permissions, roles: _roles = [] }) => {
       const {
         hasPermission,
         hasAnyPermission,

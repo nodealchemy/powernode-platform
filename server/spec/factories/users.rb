@@ -1,16 +1,30 @@
+# frozen_string_literal: true
+
 FactoryBot.define do
   factory :user do
     association :account
     sequence(:email) { |n| "user#{n}@example.com" }
-    first_name { Faker::Name.first_name }
-    last_name { Faker::Name.last_name }
+    name { Faker::Name.name }
     password { 'UncommonStr0ngP@ssw0rd99!' }
     status { 'active' }
     email_verified_at { 1.day.ago }
 
+    # Transient attribute for permissions
+    transient do
+      permissions { nil }  # nil means use default role, [] means no permissions
+    end
+
+    # Set permissions before creation using the virtual attribute
+    before(:create) do |user, evaluator|
+      # Only set permissions if explicitly provided (even if empty array)
+      unless evaluator.permissions.nil?
+        user.permissions = evaluator.permissions
+      end
+    end
+
     # Default role assignment happens in after_create callback
     after(:create) do |user, evaluator|
-      # User gets 'member' role by default via model callback
+      # User gets 'member' role by default via model callback if no custom permissions
     end
 
     trait :owner do
@@ -52,6 +66,13 @@ FactoryBot.define do
       after(:create) do |user|
         user.roles = []
         user.add_role('billing_admin')
+      end
+    end
+
+    trait :system_admin do
+      after(:create) do |user|
+        user.roles = []
+        user.add_role('system_admin')
       end
     end
 

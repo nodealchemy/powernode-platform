@@ -39,18 +39,41 @@ class JwtService
       JWT.encode(enhanced_payload, signing_key(algorithm), algorithm)
     end
 
-    # Enhanced decode method with blacklist checking
+    # Enhanced decode method with blacklist checking and secret rotation support
     def decode(token, algorithm: nil)
       algorithm ||= default_algorithm
-      decoded = JWT.decode(token, verification_key(algorithm), true, { algorithm: algorithm })[0]
-      payload = HashWithIndifferentAccess.new(decoded)
-      
+
+      # Try decoding with current secret
+      begin
+        decoded = JWT.decode(token, verification_key(algorithm), true, { algorithm: algorithm })[0]
+        payload = HashWithIndifferentAccess.new(decoded)
+      rescue JWT::VerificationError => e
+        # If verification fails, check if we're in a secret rotation grace period
+        rotation_data = Rails.cache.read('jwt_secret_rotation')
+
+        if rotation_data && Time.current < rotation_data[:grace_period_ends_at]
+          # Try decoding with old secret during grace period
+          begin
+            old_key = algorithm == 'HS256' ? rotation_data[:old_secret] : rotation_data[:old_secret]
+            decoded = JWT.decode(token, old_key, true, { algorithm: algorithm })[0]
+            payload = HashWithIndifferentAccess.new(decoded)
+
+            Rails.logger.info "Token verified with old secret during grace period (expires: #{rotation_data[:grace_period_ends_at]})"
+          rescue JWT::DecodeError
+            # If it fails with old secret too, raise original error
+            raise StandardError, "Invalid token: #{e.message}"
+          end
+        else
+          raise StandardError, "Invalid token: #{e.message}"
+        end
+      end
+
       # Check if token is blacklisted using JTI
       jti = payload[:jti]
       if jti && JwtBlacklistService.blacklisted?(jti)
         raise StandardError, "Invalid token: Token has been blacklisted"
       end
-      
+
       payload
     rescue JWT::DecodeError, JWT::ExpiredSignature => e
       raise StandardError, "Invalid token: #{e.message}"
@@ -88,15 +111,14 @@ class JwtService
     end
     
     # Generate service tokens for internal communication
-    def generate_service_token(service_name, permissions: [], metadata: {})
+    def generate_service_token(service_name, metadata: {})
       service_payload = {
         sub: service_name,
         type: 'service',
-        permissions: permissions,
         service: service_name,
         version: CURRENT_TOKEN_VERSION
       }.merge(metadata)
-      
+
       {
         token: encode(service_payload),
         expires_at: EXPIRATION_TIMES[:service].from_now
@@ -217,28 +239,24 @@ class JwtService
 
     private
     
-    # Build comprehensive user payload with permissions
+    # Build user payload without permissions (permissions queried separately)
     def build_user_payload(user, metadata = {})
       {
         sub: user.id,
         account_id: user.account_id,
         email: user.email,
-        roles: user.role_names,
-        permissions: user.permission_names,
         permission_version: calculate_permission_version(user),
         version: CURRENT_TOKEN_VERSION
       }.merge(metadata.slice(:ip, :device_id, :user_agent))
     end
     
-    # Build worker payload with permissions
+    # Build worker payload without permissions (permissions queried separately)
     def build_worker_payload(worker, metadata = {})
       {
         sub: worker.id,
         worker_type: worker.system? ? 'system' : 'account',
         account_id: worker.account_id,
         name: worker.name,
-        roles: worker.role_names,
-        permissions: worker.permission_names,
         permission_version: calculate_worker_permission_version(worker),
         version: CURRENT_TOKEN_VERSION
       }.merge(metadata.slice(:ip, :user_agent))

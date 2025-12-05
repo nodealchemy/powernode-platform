@@ -12,7 +12,7 @@ interface TwoFactorVerificationProps {
   onCancel?: () => void;
 }
 
-const TwoFactorVerification: React.FC<TwoFactorVerificationProps> = ({ 
+export const TwoFactorVerification: React.FC<TwoFactorVerificationProps> = ({ 
   verificationToken, 
   onSuccess, 
   onError,
@@ -40,13 +40,13 @@ const TwoFactorVerification: React.FC<TwoFactorVerificationProps> = ({
 
     try {
       const response = await twoFactorApi.verifyLogin(verificationToken, code);
-      
+
       if (response.success) {
         onSuccess(response);
       } else {
         setError(response.error || 'Invalid verification code');
       }
-    } catch (err) {
+    } catch (error) {
       setError('Failed to verify code. Please try again.');
       onError('Failed to verify code. Please try again.');
     } finally {
@@ -132,4 +132,3 @@ const TwoFactorVerification: React.FC<TwoFactorVerificationProps> = ({
   );
 };
 
-export default TwoFactorVerification;

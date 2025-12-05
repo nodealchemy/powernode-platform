@@ -1,6 +1,6 @@
-import React from 'react';
+
 import { Worker, UpdateWorkerData } from '@/features/workers/services/workerApi';
-import WorkerCard from './WorkerCard';
+import { WorkerCard } from './WorkerCard';
 import { WorkerDetailsPanel } from './WorkerDetailsPanel';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
@@ -47,14 +47,11 @@ export const WorkerGrid: React.FC<WorkerGridProps> = ({
 
   const pageSizeOptions = [6, 12, 24, 48];
 
-  // Find the position of the expanded worker to insert details panel after it
-  const _expandedWorkerIndex = expandedWorker ? paginatedWorkers.findIndex(w => w.id === expandedWorker.id) : -1;
-
   return (
     <div className="space-y-6">
       {/* Worker Grid */}
       <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {paginatedWorkers.map((worker, index) => (
+        {paginatedWorkers.map((worker, _index) => (
           <WorkerCard
             key={worker.id}
             worker={worker}
@@ -161,5 +158,3 @@ export const WorkerGrid: React.FC<WorkerGridProps> = ({
     </div>
   );
 };
-
-export default WorkerGrid;

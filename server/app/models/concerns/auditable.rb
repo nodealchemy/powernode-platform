@@ -21,8 +21,7 @@ module Auditable
   def log_record_creation
     AuditLog.log_action(
       action: 'created',
-      resource_type: self.class.name,
-      resource_id: id,
+      resource: self,
       account: try(:account),
       new_values: auditable_attributes,
       source: 'system'
@@ -43,8 +42,7 @@ module Auditable
 
     AuditLog.log_action(
       action: 'updated',
-      resource_type: self.class.name,
-      resource_id: id,
+      resource: self,
       account: try(:account),
       old_values: old_values,
       new_values: new_values,
@@ -57,8 +55,7 @@ module Auditable
   def log_record_deletion
     AuditLog.log_action(
       action: 'deleted',
-      resource_type: self.class.name,
-      resource_id: id,
+      resource: self,
       account: try(:account),
       old_values: auditable_attributes,
       source: 'system'

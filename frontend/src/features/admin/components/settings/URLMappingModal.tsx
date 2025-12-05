@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
-import { useNotification } from '@/shared/hooks/useNotification';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import { URLMapping } from '../../services/servicesApi';
 
 interface URLMappingModalProps {
@@ -21,7 +21,7 @@ export const URLMappingModal: React.FC<URLMappingModalProps> = ({
   mapping,
   availableServices
 }) => {
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
     name: '',

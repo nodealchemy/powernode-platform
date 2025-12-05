@@ -280,4 +280,3 @@ export const WorkerFilters: React.FC<WorkerFiltersProps> = ({
   );
 };
 
-export default WorkerFilters;

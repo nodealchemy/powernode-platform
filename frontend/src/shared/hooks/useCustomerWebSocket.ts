@@ -1,4 +1,6 @@
 import { useCallback, useRef, useEffect } from 'react';
+import { useSelector } from 'react-redux';
+import { RootState } from '@/shared/services';
 import { useWebSocket } from './useWebSocket';
 
 interface CustomerWebSocketOptions {
@@ -13,6 +15,7 @@ export const useCustomerWebSocket = ({
   onError
 }: CustomerWebSocketOptions) => {
   const { isConnected, subscribe, sendMessage, error: connectionError } = useWebSocket();
+  const user = useSelector((state: RootState) => state.auth.user);
   const unsubscribeRef = useRef<(() => void) | null>(null);
 
   // Store latest callback refs to avoid dependency issues
@@ -60,14 +63,23 @@ export const useCustomerWebSocket = ({
     if (unsubscribeRef.current) {
       unsubscribeRef.current();
     }
-    
+
+    // Only subscribe if user has an account
+    if (!user?.account?.id) {
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('[CustomerWebSocket] Cannot subscribe: user account not available');
+      }
+      return;
+    }
+
     unsubscribeRef.current = subscribe({
       channel: 'CustomerChannel',
+      params: { account_id: user.account.id },
       onMessage: handleMessage,
       onError: handleError
     });
-    
-  }, [subscribe, handleMessage, handleError]);
+
+  }, [subscribe, handleMessage, handleError, user?.account?.id]);
 
   // Search customers
   const searchCustomers = useCallback(async (query: string, filters: unknown = {}) => {

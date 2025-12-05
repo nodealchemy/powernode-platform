@@ -9,7 +9,7 @@ class Analytics::RecalculateAnalyticsJob < BaseJob
                   retry: 2
 
   def execute(start_date, end_date, account_id: nil, period_type: "daily")
-    logger.info "Starting analytics recalculation from #{start_date} to #{end_date}"
+    log_info("Starting analytics recalculation from #{start_date} to #{end_date}")
 
     start_time = Time.current
     
@@ -36,11 +36,11 @@ class Analytics::RecalculateAnalyticsJob < BaseJob
 
       duration = Time.current - start_time
       
-      logger.info "Analytics recalculation completed: #{result['snapshots_processed']} snapshots processed in #{duration.round(2)}s"
+      log_info("Analytics recalculation completed: #{result['snapshots_processed']} snapshots processed in #{duration.round(2)}s")
 
       if result['errors_count'] > 0
-        logger.warn "Analytics recalculation had #{result['errors_count']} errors"
-        result['errors']&.each { |error| logger.warn "  - #{error}" }
+        log_warn("Analytics recalculation had #{result['errors_count']} errors")
+        result['errors']&.each { |error| log_warn("  - #{error}") }
       end
 
       # Return summary
@@ -54,7 +54,7 @@ class Analytics::RecalculateAnalyticsJob < BaseJob
       }
 
     rescue StandardError => e
-      logger.error "Analytics recalculation job failed: #{e.message}"
+      log_error("Analytics recalculation job failed: #{e.message}")
       raise e
     end
   end

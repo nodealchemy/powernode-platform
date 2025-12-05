@@ -15,29 +15,33 @@ class Api::V1::CustomersController < ApplicationController
                               .limit(per_page)
                               .offset((page - 1) * per_page)
 
-    render json: {
-      customers: accounts.map { |account| serialize_customer(account) },
-      pagination: {
-        current_page: page,
-        per_page: per_page,
-        total_count: total_count,
-        total_pages: (total_count / per_page.to_f).ceil
-      },
-      stats: customer_stats
-    }
+    render_success(
+      data: {
+        customers: accounts.map { |account| serialize_customer(account) },
+        pagination: {
+          current_page: page,
+          per_page: per_page,
+          total_count: total_count,
+          total_pages: (total_count / per_page.to_f).ceil
+        },
+        stats: customer_stats
+      }
+    )
   end
 
   def show
     account = Account.includes(:users, :subscription, subscription: :plan).find(params[:id])
-    
-    render json: {
-      customer: serialize_detailed_customer(account)
-    }
+
+    render_success(
+      data: {
+        customer: serialize_detailed_customer(account)
+      }
+    )
   end
 
   def create
     account_data = customer_params.slice(:name, :subdomain)
-    user_data = customer_params.slice(:first_name, :last_name, :email)
+    user_data = customer_params.slice(:name, :email)
     plan_id = customer_params[:plan_id]
 
     Account.transaction do
@@ -74,17 +78,16 @@ class Api::V1::CustomersController < ApplicationController
 
     # Broadcast customer creation
     broadcast_customer_change('created', @account)
-    
-    render json: {
-      success: true,
-      customer: serialize_customer(@account)
-    }, status: :created
-    
+
+    render_success(
+      data: {
+        customer: serialize_customer(@account)
+      },
+      status: :created
+    )
+
   rescue ActiveRecord::RecordInvalid => e
-    render json: {
-      success: false,
-      errors: e.record.errors.full_messages
-    }, status: :unprocessable_content
+    render_validation_error(e.record)
   end
 
   def update
@@ -100,28 +103,26 @@ class Api::V1::CustomersController < ApplicationController
         end
       end
       
-      account.update!(customer_params.except(:subscription_attributes, :first_name, :last_name, :email, :plan_id))
+      account.update!(customer_params.except(:subscription_attributes, :name, :email, :plan_id))
       
       # Update primary user if user data provided
-      if customer_params.slice(:first_name, :last_name, :email).any?
+      if customer_params.slice(:name, :email).any?
         primary_user = account.users.owners.first || account.users.first
-        primary_user&.update!(customer_params.slice(:first_name, :last_name, :email))
+        primary_user&.update!(customer_params.slice(:name, :email))
       end
     end
 
     # Broadcast customer update
     broadcast_customer_change('updated', account)
-    
-    render json: {
-      success: true,
-      customer: serialize_customer(account.reload)
-    }
-    
+
+    render_success(
+      data: {
+        customer: serialize_customer(account.reload)
+      }
+    )
+
   rescue ActiveRecord::RecordInvalid => e
-    render json: {
-      success: false,
-      errors: e.record.errors.full_messages
-    }, status: :unprocessable_content
+    render_validation_error(e.record)
   end
 
   def destroy
@@ -135,7 +136,9 @@ class Api::V1::CustomersController < ApplicationController
   end
 
   def stats
-    render json: customer_stats
+    render_success(
+      data: customer_stats
+    )
   end
 
   private
@@ -151,8 +154,8 @@ class Api::V1::CustomersController < ApplicationController
     if params[:search].present?
       search = "%#{params[:search]}%"
       account_ids_query = account_ids_query.where(
-        "accounts.name ILIKE ? OR users.email ILIKE ? OR users.first_name ILIKE ? OR users.last_name ILIKE ?",
-        search, search, search, search
+        "accounts.name ILIKE ? OR users.email ILIKE ? OR users.name ILIKE ?",
+        search, search, search
       )
     end
     
@@ -186,9 +189,7 @@ class Api::V1::CustomersController < ApplicationController
       updated_at: account.updated_at,
       user: primary_user ? {
         id: primary_user.id,
-        first_name: primary_user.first_name,
-        last_name: primary_user.last_name,
-        full_name: primary_user.full_name,
+        name: primary_user.name,
         email: primary_user.email,
         email_verified: primary_user.email_verified?,
         last_login_at: primary_user.last_login_at
@@ -317,7 +318,7 @@ class Api::V1::CustomersController < ApplicationController
 
   def customer_params
     params.require(:customer).permit(
-      :name, :subdomain, :status, :first_name, :last_name, :email, :plan_id,
+      :name, :subdomain, :status, :email, :plan_id,
       subscription_attributes: [:plan_id, :status]
     )
   end

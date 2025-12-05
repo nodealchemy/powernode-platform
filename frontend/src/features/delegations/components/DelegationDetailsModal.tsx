@@ -8,13 +8,10 @@ interface DelegationDetailsModalProps {
   onUpdate: () => void;
 }
 
-// Removed unused User interface
-
 interface DelegationUser {
   id: string;
   email: string;
-  first_name: string;
-  last_name: string;
+  name: string;
 }
 
 export const DelegationDetailsModal: React.FC<DelegationDetailsModalProps> = ({
@@ -52,7 +49,7 @@ export const DelegationDetailsModal: React.FC<DelegationDetailsModalProps> = ({
       const data = await delegationApi.getAvailableUsers(delegation.sourceAccountId || delegation.account.id);
       const currentUserIds = delegation.users?.map(u => u.userId) || [];
       setAvailableUsers(data.users.filter((u: DelegationUser) => !currentUserIds.includes(u.id)));
-    } catch (error) {
+    } catch (_error) {
     }
   };
 
@@ -64,7 +61,7 @@ export const DelegationDetailsModal: React.FC<DelegationDetailsModalProps> = ({
       setShowAddUsers(false);
       setSelectedUsers([]);
       onUpdate();
-    } catch (error) {
+    } catch (_error) {
     }
   };
 
@@ -73,7 +70,7 @@ export const DelegationDetailsModal: React.FC<DelegationDetailsModalProps> = ({
       try {
         await delegationApi.removeUserFromDelegation(delegation.id, userId);
         onUpdate();
-      } catch (error) {
+      } catch (_error) {
       }
     }
   };
@@ -254,7 +251,7 @@ export const DelegationDetailsModal: React.FC<DelegationDetailsModalProps> = ({
                           className="rounded border-theme text-theme-interactive-primary"
                         />
                         <div className="flex-1">
-                          <div className="text-theme-primary">{user.first_name} {user.last_name}</div>
+                          <div className="text-theme-primary">{user.name}</div>
                           <div className="text-sm text-theme-secondary">{user.email}</div>
                         </div>
                       </label>
@@ -285,7 +282,7 @@ export const DelegationDetailsModal: React.FC<DelegationDetailsModalProps> = ({
                   <div key={user.userId || user.id} className="bg-theme-background rounded-lg p-4 flex items-center justify-between">
                     <div>
                       <div className="font-medium text-theme-primary">
-                        {user.name || `${user.first_name || ''} ${user.last_name || ''}`.trim()}
+                        {user.name}
                       </div>
                       <div className="text-sm text-theme-secondary">{user.email}</div>
                       <div className="text-xs text-theme-tertiary mt-1">

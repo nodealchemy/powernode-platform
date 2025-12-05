@@ -1,4 +1,4 @@
-import React from 'react';
+
 
 interface APIUrlPreviewProps {
   urls: {
@@ -11,8 +11,8 @@ interface APIUrlPreviewProps {
   };
 }
 
-const APIUrlPreview: React.FC<APIUrlPreviewProps> = ({ urls }) => {
-  const copyToClipboard = (text: string, label: string) => {
+export const APIUrlPreview: React.FC<APIUrlPreviewProps> = ({ urls }) => {
+  const copyToClipboard = (text: string, _label: string) => {
     navigator.clipboard.writeText(text);
     // Could trigger a notification here
   };
@@ -132,8 +132,8 @@ window.location.href = '${urls.frontend_url}/dashboard';`}
           The reverse proxy routes requests based on URL paths:
         </p>
         <ul className="mt-2 text-xs text-theme-info space-y-1">
-          <li>• <code>/*</code> → Frontend (React app at {urls.frontend_url})</li>
-          <li>• <code>/api/v1/*</code> → Backend API (Rails at {urls.api_url})</li>
+          <li>• <code>{'/*'}</code> → Frontend (React app at {urls.frontend_url})</li>
+          <li>• <code>{'/api/v1/*'}</code> → Backend API (Rails at {urls.api_url})</li>
           <li>• <code>/cable</code> → WebSocket (ActionCable at {urls.websocket_url}/cable)</li>
         </ul>
         <p className="text-xs text-theme-info mt-2">
@@ -149,4 +149,3 @@ window.location.href = '${urls.frontend_url}/dashboard';`}
   );
 };
 
-export default APIUrlPreview;

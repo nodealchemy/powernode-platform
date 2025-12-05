@@ -17,8 +17,8 @@ interface ExampleFormProps {
  * Example form demonstrating the useForm hook usage
  * This serves as a reference implementation for other forms in the application
  */
-export const ExampleForm: React.FC<ExampleFormProps> = ({ 
-  onSubmit = async (data) => {
+export const ExampleForm: React.FC<ExampleFormProps> = ({
+  onSubmit = async (_data) => {
     // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 1000));
   },

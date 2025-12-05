@@ -29,28 +29,21 @@ class Api::V1::PaypalController < ApplicationController
         }
       )
 
-      render json: {
-        success: true,
+      render_success(
         data: {
           payment_id: payment.id,
           paypal_payment_id: result[:payment_id],
           approval_url: result[:approval_url],
           status: result[:status]
-        }
-      }, status: :created
+        },
+        status: :created
+      )
     else
-      render json: {
-        success: false,
-        error: result[:error],
-        details: result[:details]
-      }, status: :unprocessable_content
+      render_error(result[:error], :unprocessable_content, details: result[:details])
     end
   rescue => e
     Rails.logger.error "PayPal payment creation error: #{e.message}"
-    render json: {
-      success: false,
-      error: "Failed to create PayPal payment"
-    }, status: :internal_server_error
+    render_error("Failed to create PayPal payment", status: :internal_server_error)
   end
 
   # POST /api/v1/paypal/payments/:id/execute
@@ -58,8 +51,8 @@ class Api::V1::PaypalController < ApplicationController
     payment = current_account.payments.find(params[:id])
     payer_id = params[:payer_id]
 
-    return render_error("PayPal payer ID required", :bad_request) unless payer_id
-    return render_error("Payment already processed", :bad_request) unless payment.pending?
+    return render_error("PayPal payer ID required", status: :bad_request) unless payer_id
+    return render_error("Payment already processed", status: :bad_request) unless payment.pending?
 
     # Store payer_id for processing
     payment.add_metadata("payer_id", payer_id)
@@ -69,26 +62,19 @@ class Api::V1::PaypalController < ApplicationController
     result = processing_service.process_payment(payment: payment)
 
     if result[:success]
-      render json: {
-        success: true,
+      render_success(
         data: {
           payment_id: payment.id,
           status: payment.status,
           amount: payment.amount.to_s
         }
-      }
+      )
     else
-      render json: {
-        success: false,
-        error: result[:error]
-      }, status: :unprocessable_content
+      render_error(result[:error], status: :unprocessable_content)
     end
   rescue => e
     Rails.logger.error "PayPal payment execution error: #{e.message}"
-    render json: {
-      success: false,
-      error: "Failed to execute PayPal payment"
-    }, status: :internal_server_error
+    render_error("Failed to execute PayPal payment", status: :internal_server_error)
   end
 
   # POST /api/v1/paypal/subscriptions/plans
@@ -96,7 +82,7 @@ class Api::V1::PaypalController < ApplicationController
     plan = current_account.plans.find(params[:plan_id]) if params[:plan_id]
     
     unless plan
-      return render_error("Plan not found", :not_found)
+      return render_error("Plan not found", status: :not_found)
     end
 
     result = @paypal_service.create_subscription_plan(plan: plan)
@@ -105,27 +91,20 @@ class Api::V1::PaypalController < ApplicationController
       # Update plan with PayPal plan ID
       plan.update!(paypal_plan_id: result[:plan_id])
 
-      render json: {
-        success: true,
+      render_success(
         data: {
           plan_id: plan.id,
           paypal_plan_id: result[:plan_id],
           status: result[:status]
-        }
-      }, status: :created
+        },
+        status: :created
+      )
     else
-      render json: {
-        success: false,
-        error: result[:error],
-        details: result[:details]
-      }, status: :unprocessable_content
+      render_error(result[:error], :unprocessable_content, details: result[:details])
     end
   rescue => e
     Rails.logger.error "PayPal subscription plan creation error: #{e.message}"
-    render json: {
-      success: false,
-      error: "Failed to create PayPal subscription plan"
-    }, status: :internal_server_error
+    render_error("Failed to create PayPal subscription plan", status: :internal_server_error)
   end
 
   # POST /api/v1/paypal/subscriptions
@@ -133,7 +112,7 @@ class Api::V1::PaypalController < ApplicationController
     plan = current_account.plans.find(params[:plan_id]) if params[:plan_id]
     
     unless plan&.paypal_plan_id
-      return render_error("PayPal plan not found", :not_found)
+      return render_error("PayPal plan not found", status: :not_found)
     end
 
     result = @paypal_service.create_subscription_agreement(
@@ -155,35 +134,24 @@ class Api::V1::PaypalController < ApplicationController
       )
 
       if subscription.save
-        render json: {
-          success: true,
+        render_success(
           data: {
             subscription_id: subscription.id,
             paypal_agreement_id: result[:agreement_id],
             approval_url: result[:approval_url],
             status: result[:status]
-          }
-        }, status: :created
+          },
+          status: :created
+        )
       else
-        render json: {
-          success: false,
-          error: "Failed to create subscription record",
-          details: subscription.errors.full_messages
-        }, status: :unprocessable_content
+        render_validation_error(subscription)
       end
     else
-      render json: {
-        success: false,
-        error: result[:error],
-        details: result[:details]
-      }, status: :unprocessable_content
+      render_error(result[:error], :unprocessable_content, details: result[:details])
     end
   rescue => e
     Rails.logger.error "PayPal subscription creation error: #{e.message}"
-    render json: {
-      success: false,
-      error: "Failed to create PayPal subscription"
-    }, status: :internal_server_error
+    render_error("Failed to create PayPal subscription", status: :internal_server_error)
   end
 
   # POST /api/v1/paypal/subscriptions/:id/execute
@@ -191,7 +159,7 @@ class Api::V1::PaypalController < ApplicationController
     subscription = current_account.subscription
     
     unless subscription&.paypal_agreement_id
-      return render_error("PayPal subscription not found", :not_found)
+      return render_error("PayPal subscription not found", status: :not_found)
     end
 
     result = @paypal_service.execute_subscription_agreement(
@@ -204,26 +172,18 @@ class Api::V1::PaypalController < ApplicationController
         activated_at: Time.current
       )
 
-      render json: {
-        success: true,
+      render_success(
         data: {
           subscription_id: subscription.id,
           status: subscription.status
         }
-      }
+      )
     else
-      render json: {
-        success: false,
-        error: result[:error],
-        details: result[:details]
-      }, status: :unprocessable_content
+      render_error(result[:error], :unprocessable_content, details: result[:details])
     end
   rescue => e
     Rails.logger.error "PayPal subscription execution error: #{e.message}"
-    render json: {
-      success: false,
-      error: "Failed to execute PayPal subscription"
-    }, status: :internal_server_error
+    render_error("Failed to execute PayPal subscription", status: :internal_server_error)
   end
 
   # DELETE /api/v1/paypal/subscriptions/:id
@@ -231,7 +191,7 @@ class Api::V1::PaypalController < ApplicationController
     subscription = current_account.subscription
     
     unless subscription&.paypal_agreement_id
-      return render_error("PayPal subscription not found", :not_found)
+      return render_error("PayPal subscription not found", status: :not_found)
     end
 
     result = @paypal_service.cancel_subscription(
@@ -246,26 +206,18 @@ class Api::V1::PaypalController < ApplicationController
         cancellation_reason: params[:reason]
       )
 
-      render json: {
-        success: true,
+      render_success(
         data: {
           subscription_id: subscription.id,
           status: subscription.status
         }
-      }
+      )
     else
-      render json: {
-        success: false,
-        error: result[:error],
-        details: result[:details]
-      }, status: :unprocessable_content
+      render_error(result[:error], :unprocessable_content, details: result[:details])
     end
   rescue => e
     Rails.logger.error "PayPal subscription cancellation error: #{e.message}"
-    render json: {
-      success: false,
-      error: "Failed to cancel PayPal subscription"
-    }, status: :internal_server_error
+    render_error("Failed to cancel PayPal subscription", status: :internal_server_error)
   end
 
   # POST /api/v1/paypal/payments/:id/refund
@@ -273,7 +225,7 @@ class Api::V1::PaypalController < ApplicationController
     payment = current_account.payments.find(params[:id])
     
     unless payment.paypal_transaction_id
-      return render_error("PayPal transaction ID not found", :not_found)
+      return render_error("PayPal transaction ID not found", status: :not_found)
     end
 
     processing_service = PaymentProcessingService.new(account: current_account, user: current_user)
@@ -284,40 +236,25 @@ class Api::V1::PaypalController < ApplicationController
     )
 
     if result[:success]
-      render json: {
-        success: true,
+      render_success(
         data: {
           payment_id: payment.id,
           refund_id: result[:refund_id],
           amount_refunded: result[:amount_refunded],
           status: payment.reload.status
         }
-      }
+      )
     else
-      render json: {
-        success: false,
-        error: result[:error],
-        details: result[:details]
-      }, status: :unprocessable_content
+      render_error(result[:error], :unprocessable_content, details: result[:details])
     end
   rescue => e
     Rails.logger.error "PayPal refund creation error: #{e.message}"
-    render json: {
-      success: false,
-      error: "Failed to create PayPal refund"
-    }, status: :internal_server_error
+    render_error("Failed to create PayPal refund", status: :internal_server_error)
   end
 
   private
 
   def set_paypal_service
     @paypal_service = PaypalService.new(account: current_account, user: current_user)
-  end
-
-  def render_error(message, status = :bad_request)
-    render json: {
-      success: false,
-      error: message
-    }, status: status
   end
 end

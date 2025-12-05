@@ -70,10 +70,30 @@ class Api::V1::Internal::WorkersController < ApplicationController
   private
 
   def authenticate_worker_service!
-    # For now, just verify there's an authorization header
-    # TODO: Implement proper worker service authentication
-    unless request.headers['Authorization']
-      render_error('Authorization required', status: :unauthorized)
+    token = request.headers['Authorization']&.sub(/^Bearer /, '')
+    worker_token = Rails.application.config.worker_token
+
+    unless token.present? && worker_token.present? && ActiveSupport::SecurityUtils.secure_compare(token, worker_token)
+      Rails.logger.warn("Worker authentication failed: IP=#{request.remote_ip}, Token present: #{token.present?}")
+
+      # Create audit log for failed worker authentication
+      AuditLog.create!(
+        account_id: nil, # System-level event
+        user_id: nil,
+        action: 'worker_auth_failed',
+        resource_type: 'WorkerService',
+        resource_id: 'internal',
+        source: 'worker_service',
+        ip_address: request.remote_ip,
+        user_agent: request.user_agent,
+        metadata: {
+          endpoint: request.path,
+          token_present: token.present?,
+          timestamp: Time.current.iso8601
+        }
+      )
+
+      render_error('Invalid worker authentication', status: :unauthorized)
     end
   end
 end

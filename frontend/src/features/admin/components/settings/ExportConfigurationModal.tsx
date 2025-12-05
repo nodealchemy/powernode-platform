@@ -5,7 +5,7 @@ import { Card } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { FlexBetween, FlexItemsCenter } from '@/shared/components/ui/FlexContainer';
-import { useNotification } from '@/shared/hooks/useNotification';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import { servicesApi, GeneratedConfig } from '../../services/servicesApi';
 import { JobProgressModal } from './JobProgressModal';
 import { 
@@ -35,7 +35,7 @@ export const ExportConfigurationModal: React.FC<ExportConfigurationModalProps> =
   isOpen,
   onClose
 }) => {
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
   const [selectedType, setSelectedType] = useState<ProxyType>('nginx');
   const [generatedConfig, setGeneratedConfig] = useState<GeneratedConfig | null>(null);
   const [generating, setGenerating] = useState(false);

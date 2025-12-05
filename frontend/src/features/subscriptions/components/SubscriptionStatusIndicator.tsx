@@ -1,6 +1,6 @@
-import React from 'react';
+
 import { useSubscriptionLifecycle } from '@/shared/hooks/useSubscriptionLifecycle';
-import { Subscription } from '@/features/subscriptions/services/subscriptionService';
+import { Subscription } from '@/shared/types';
 
 interface SubscriptionStatusIndicatorProps {
   subscription: Subscription;
@@ -34,7 +34,7 @@ export const SubscriptionStatusIndicator: React.FC<SubscriptionStatusIndicatorPr
           icon: '✓',
           message: 'Active',
           description: showDetails ? (
-            subscription.currentPeriodEnd ? `Next billing: ${formatDate(subscription.currentPeriodEnd)}` : 'Never expires'
+            subscription.current_period_end ? `Next billing: ${formatDate(subscription.current_period_end)}` : 'Never expires'
           ) : undefined
         };
       case 'trial_ending':

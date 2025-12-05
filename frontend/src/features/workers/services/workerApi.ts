@@ -10,6 +10,7 @@ export interface Worker {
   status: 'active' | 'suspended' | 'revoked';
   account_name: string;
   masked_token: string;
+  full_token_hash?: string; // Complete hash for verification
   token?: string; // Only available in details view
   request_count: number;
   last_seen_at: string | null;
@@ -127,10 +128,28 @@ export interface ActivityListResponse {
   };
 }
 
+export interface WorkerStats {
+  total_jobs: number;
+  completed_jobs: number;
+  failed_jobs: number;
+  success_rate: number;
+  avg_processing_time: number;
+  queue_depth: number;
+  queues: Record<string, { size: number; latency: number }>;
+  workers_active: number;
+  timestamp: string;
+  error?: string;
+}
+
 class WorkerAPI {
   // Workers Management
   async getWorkers(): Promise<WorkerListResponse> {
     const response = await api.get('/workers');
+    return response.data.data;
+  }
+
+  async getStats(): Promise<WorkerStats> {
+    const response = await api.get('/workers/stats');
     return response.data.data;
   }
 
@@ -272,5 +291,4 @@ class WorkerAPI {
   }
 }
 
-export const workerAPI = new WorkerAPI();
-export default workerAPI;
+export const workerApi = new WorkerAPI();

@@ -9,7 +9,7 @@ class Services::ServiceDiscoveryJob < BaseJob
                   retry: 2
 
   def execute(discovery_config, job_id: nil)
-    logger.info "Starting service discovery (job: #{job_id})"
+    log_info("Starting service discovery (job: #{job_id})")
 
     start_time = Time.current
     discovered_services = []
@@ -37,7 +37,7 @@ class Services::ServiceDiscoveryJob < BaseJob
         message: "Service discovery completed: #{discovered_services.length} services found"
       }
 
-      logger.info "Service discovery found #{discovered_services.length} services in #{duration.round(2)}s"
+      log_info("Service discovery found #{discovered_services.length} services in #{duration.round(2)}s")
 
       # Update job status via API
       update_job_status(job_id, result) if job_id
@@ -56,7 +56,7 @@ class Services::ServiceDiscoveryJob < BaseJob
         message: 'Service discovery failed'
       }
 
-      logger.error "Service discovery failed after #{duration.round(2)}s: #{e.message}"
+      log_error("Service discovery failed after #{duration.round(2)}s: #{e.message}")
       
       # Update job status via API
       update_job_status(job_id, error_result) if job_id
@@ -73,6 +73,6 @@ class Services::ServiceDiscoveryJob < BaseJob
       result: result
     })
   rescue => e
-    logger.warn "Failed to update job status: #{e.message}"
+    log_warn("Failed to update job status: #{e.message}")
   end
 end

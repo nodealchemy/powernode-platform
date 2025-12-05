@@ -13,6 +13,7 @@ export const Input: React.FC<InputProps> = ({
   className = '',
   ...props
 }) => {
+  const inputId = props.id || `input-${Math.random().toString(36).substr(2, 9)}`;
   const baseClassName = `
     px-3 py-2 border border-theme rounded-md 
     bg-theme-surface text-theme-primary 
@@ -20,23 +21,28 @@ export const Input: React.FC<InputProps> = ({
     focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-transparent
     disabled:bg-theme-background disabled:text-theme-secondary
     ${fullWidth ? 'w-full' : ''}
-    ${error ? 'border-red-500 focus:ring-red-500' : ''}
+    ${error ? 'border-theme-error focus:ring-theme-error' : ''}
     ${className}
   `.trim();
 
   return (
     <div className={fullWidth ? 'w-full' : ''}>
       {label && (
-        <label className="block text-sm font-medium text-theme-primary mb-1">
+        <label 
+          htmlFor={inputId}
+          className="block text-sm font-medium text-theme-primary mb-1"
+        >
           {label}
         </label>
       )}
       <input
+        id={inputId}
         className={baseClassName}
+        aria-describedby={error ? `${inputId}-error` : undefined}
         {...props}
       />
       {error && (
-        <p className="mt-1 text-sm text-red-600">
+        <p id={`${inputId}-error`} className="mt-1 text-sm text-theme-error" role="alert">
           {error}
         </p>
       )}

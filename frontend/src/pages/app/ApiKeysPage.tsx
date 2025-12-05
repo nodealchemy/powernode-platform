@@ -4,8 +4,10 @@ import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
 import { ApiKeyModal } from '@/features/api-keys/components/ApiKeyModal';
 import { Key, RefreshCw } from 'lucide-react';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 
 export const ApiKeysPage: React.FC = () => {
+  const { addNotification } = useNotifications();
   const [apiKeys, setApiKeys] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -36,7 +38,7 @@ export const ApiKeysPage: React.FC = () => {
       } else {
         setError(response.error || 'Failed to load API keys');
       }
-    } catch (err) {
+    } catch (_error) {
       setError('Failed to load API keys');
     } finally {
       setLoading(false);
@@ -58,17 +60,17 @@ export const ApiKeysPage: React.FC = () => {
 
   const handleRegenerateKey = async (id: string) => {
     if (!window.confirm('Are you sure you want to regenerate this API key? This will invalidate the current key.')) return;
-    
+
     try {
       const response = await apiKeysApi.regenerateApiKey(id);
       if (response.success) {
         loadApiKeys();
-        alert('API key regenerated successfully');
+        addNotification({ type: 'success', message: 'API key regenerated successfully' });
       } else {
-        alert(response.error || 'Failed to regenerate API key');
+        addNotification({ type: 'error', message: response.error || 'Failed to regenerate API key' });
       }
-    } catch (err) {
-      alert('Failed to regenerate API key');
+    } catch (_error) {
+      addNotification({ type: 'error', message: 'Failed to regenerate API key' });
     }
   };
 
@@ -78,19 +80,19 @@ export const ApiKeysPage: React.FC = () => {
       if (response.success) {
         loadApiKeys();
       } else {
-        alert(response.error || 'Failed to update API key status');
+        addNotification({ type: 'error', message: response.error || 'Failed to update API key status' });
       }
-    } catch (err) {
-      alert('Failed to update API key status');
+    } catch (_error) {
+      addNotification({ type: 'error', message: 'Failed to update API key status' });
     }
   };
 
   const handleCopyKey = (key: string) => {
     apiKeysApi.copyToClipboard(key).then(success => {
       if (success) {
-        alert('API key copied to clipboard');
+        addNotification({ type: 'success', message: 'API key copied to clipboard' });
       } else {
-        alert('Failed to copy API key');
+        addNotification({ type: 'error', message: 'Failed to copy API key' });
       }
     });
   };

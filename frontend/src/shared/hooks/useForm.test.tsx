@@ -1,17 +1,17 @@
 import React from 'react';
-import { screen, fireEvent, waitFor, act, render } from '@testing-library/react';
+import { screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { renderHook } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
 import { renderWithProviders, mockAuthenticatedState } from '../utils/test-utils';
-import { useForm, FormValidationRules, UseFormOptions } from './useForm';
+import { useForm, FormValidationRules } from './useForm';
 import uiReducer from '@/shared/services/slices/uiSlice';
 
-// Mock the notification hook
-const mockShowNotification = jest.fn();
-jest.mock('./useNotification', () => ({
-  useNotification: () => ({
-    showNotification: mockShowNotification
+// Mock the notifications hook
+const mockAddNotification = jest.fn();
+jest.mock('./useNotifications', () => ({
+  useNotifications: () => ({
+    addNotification: mockAddNotification
   })
 }));
 
@@ -737,7 +737,7 @@ describe('useForm', () => {
           email: { required: true, pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/ },
           password: { required: true, minLength: 8 }
         },
-        onSubmit: async (values) => {
+        onSubmit: async (_values) => {
           await new Promise(resolve => setTimeout(resolve, 100));
         }
       });

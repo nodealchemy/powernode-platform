@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
-import { useNotification } from '@/shared/hooks/useNotification';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import proxySettingsApi, { ProxyTestResult } from '@/shared/services/proxySettingsApi';
 
 interface ProxyTestConnectionProps {
   onTestComplete: (result: ProxyTestResult) => void;
 }
 
-const ProxyTestConnection: React.FC<ProxyTestConnectionProps> = ({ onTestComplete }) => {
-  const { showNotification } = useNotification();
+export const ProxyTestConnection: React.FC<ProxyTestConnectionProps> = ({ onTestComplete }) => {
+  const { showNotification } = useNotifications();
   const showSuccess = (msg: string) => showNotification(msg, 'success');
   const showError = (msg: string) => showNotification(msg, 'error');
   const [testing, setTesting] = useState(false);
@@ -224,4 +224,3 @@ const ProxyTestConnection: React.FC<ProxyTestConnectionProps> = ({ onTestComplet
   );
 };
 
-export default ProxyTestConnection;

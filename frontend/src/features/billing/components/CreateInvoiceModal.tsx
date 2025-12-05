@@ -373,4 +373,3 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
   );
 };
 
-export default CreateInvoiceModal;

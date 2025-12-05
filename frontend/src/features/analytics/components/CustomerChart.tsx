@@ -1,4 +1,4 @@
-import React from 'react';
+
 import {
   LineChart,
   Line,
@@ -291,7 +291,7 @@ export const CustomerChart: React.FC<CustomerChartProps> = ({
                     fill="#8884d8"
                     dataKey="value"
                   >
-                    {segmentation.by_plan.map((entry, index) => (
+                    {segmentation.by_plan.map((_entry, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>

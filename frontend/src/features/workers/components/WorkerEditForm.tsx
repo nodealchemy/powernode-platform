@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { Worker, UpdateWorkerData } from '@/features/workers/services/workerApi';
 import { Button } from '@/shared/components/ui/Button';
 import { useForm, FormValidationRules } from '@/shared/hooks/useForm';
@@ -148,5 +148,3 @@ export const WorkerEditForm: React.FC<WorkerEditFormProps> = ({ worker, onUpdate
     </div>
   );
 };
-
-export default WorkerEditForm;

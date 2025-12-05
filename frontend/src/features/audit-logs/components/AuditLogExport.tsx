@@ -7,8 +7,8 @@ import {
   AlertCircle,
   Loader
 } from 'lucide-react';
-import { AuditLogFilters as FilterType } from '@/features/audit-logs/services/auditLogsApi';
-import { useNotification } from '@/shared/hooks/useNotification';
+import { auditLogsApi, AuditLogFilters as FilterType } from '@/features/audit-logs/services/auditLogsApi';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 
 interface AuditLogExportProps {
   filters: FilterType;
@@ -31,7 +31,7 @@ interface ExportOptions {
   };
 }
 
-export const AuditLogExport: React.FC<AuditLogExportProps> = ({ filters: _filters, onClose }) => {
+export const AuditLogExport: React.FC<AuditLogExportProps> = ({ filters, onClose }) => {
   const [exportOptions, setExportOptions] = useState<ExportOptions>({
     format: 'csv',
     scope: 'filtered',
@@ -47,7 +47,7 @@ export const AuditLogExport: React.FC<AuditLogExportProps> = ({ filters: _filter
   
   const [isExporting, setIsExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
 
   const formatOptions = [
     {
@@ -92,11 +92,11 @@ export const AuditLogExport: React.FC<AuditLogExportProps> = ({ filters: _filter
     setIsExporting(true);
     setExportProgress(0);
 
-    // Fixed: Ensure interval is properly cleaned up in all scenarios
+    // Progress simulation for UX feedback
     let progressInterval: NodeJS.Timeout | null = null;
 
     try {
-      // Simulate export progress
+      // Start progress animation
       progressInterval = setInterval(() => {
         setExportProgress(prev => {
           if (prev >= 90) {
@@ -107,33 +107,88 @@ export const AuditLogExport: React.FC<AuditLogExportProps> = ({ filters: _filter
         });
       }, 200);
 
-      // TODO: Implement actual export API call with parameters
+      // Build export request with options and current filters
+      const exportRequest = {
+        format: exportOptions.format,
+        scope: exportOptions.scope,
+        includeMetadata: exportOptions.includeMetadata,
+        includeSensitiveData: exportOptions.includeSensitiveData,
+        maxRecords: exportOptions.maxRecords,
+        filters: exportOptions.scope === 'filtered' ? filters : undefined,
+        customDateRange: exportOptions.customDateRange.enabled
+          ? exportOptions.customDateRange
+          : undefined
+      };
 
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
+      // Call the actual export API
+      const response = await auditLogsApi.exportLogs(exportRequest);
+
       if (progressInterval) clearInterval(progressInterval);
       setExportProgress(100);
-      
-      // Simulate file download
-      const timestamp = new Date().toISOString().split('T')[0];
-      const filename = `audit-logs-${timestamp}.${exportOptions.format}`;
-      
-      // In a real implementation, this would be an actual file download
-      showNotification(`Export completed: ${filename}`, 'success');
-      
+
+      if (!response.success) {
+        throw new Error(response.error || 'Export failed');
+      }
+
+      const { data } = response;
+
+      // Handle background job response (large exports)
+      if (data.job_id) {
+        showNotification(
+          `Export queued. Job ID: ${data.job_id}. Estimated completion: ${data.estimated_completion ? new Date(data.estimated_completion).toLocaleTimeString() : 'shortly'}`,
+          'info'
+        );
+        setTimeout(() => {
+          setIsExporting(false);
+          setExportProgress(0);
+          onClose();
+        }, 1500);
+        return;
+      }
+
+      // Handle immediate export response (content returned directly)
+      if (data.content && data.filename) {
+        // Determine MIME type based on format
+        const mimeTypes: Record<string, string> = {
+          csv: 'text/csv',
+          json: 'application/json',
+          pdf: 'application/pdf'
+        };
+        const mimeType = mimeTypes[data.format] || 'application/octet-stream';
+
+        // Create blob and trigger download
+        const blob = new Blob([data.content], { type: mimeType });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = data.filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+
+        const recordInfo = data.record_count ? ` (${data.record_count.toLocaleString()} records)` : '';
+        showNotification(`Export completed: ${data.filename}${recordInfo}`, 'success');
+      } else if (data.download_url) {
+        // Handle download URL response
+        window.open(data.download_url, '_blank');
+        showNotification('Export ready. Download starting...', 'success');
+      } else {
+        showNotification('Export completed successfully', 'success');
+      }
+
       setTimeout(() => {
         setIsExporting(false);
         setExportProgress(0);
         onClose();
       }, 1000);
-      
+
     } catch (error) {
-      // Fixed: Clear interval in error scenario to prevent memory leak
       if (progressInterval) clearInterval(progressInterval);
       setIsExporting(false);
       setExportProgress(0);
-      showNotification('Export failed. Please try again.', 'error');
+      const errorMessage = error instanceof Error ? error.message : 'Export failed. Please try again.';
+      showNotification(errorMessage, 'error');
     }
   };
 

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/shared/services';
 import { usersApi, User } from '@/features/users/services/usersApi';
+import { getUserInitials } from '@/shared/utils/userUtils';
 
 interface TeamMembersManagementProps {
   accountId?: string;
@@ -160,12 +161,12 @@ export const TeamMembersManagement: React.FC<TeamMembersManagementProps> = ({ ac
                   <div className="flex items-center space-x-3">
                     <div className="h-8 w-8 rounded-full bg-gradient-to-br from-theme-interactive-primary to-theme-interactive-secondary flex items-center justify-center">
                       <span className="text-white text-xs font-bold">
-                        {member.first_name?.[0]}{member.last_name?.[0]}
+                        {getUserInitials(member)}
                       </span>
                     </div>
                     <div>
                       <p className="font-medium text-theme-primary">
-                        {member.first_name} {member.last_name}
+                        {member.name}
                       </p>
                       <p className="text-sm text-theme-secondary">{member.email}</p>
                     </div>
@@ -249,7 +250,7 @@ export const TeamMembersManagement: React.FC<TeamMembersManagementProps> = ({ ac
             </h3>
             <div className="mb-4">
               <p className="text-theme-secondary">
-                {selectedMember.first_name} {selectedMember.last_name}
+                {selectedMember.name}
               </p>
               <p className="text-sm text-theme-tertiary">{selectedMember.email}</p>
             </div>
@@ -297,4 +298,3 @@ export const TeamMembersManagement: React.FC<TeamMembersManagementProps> = ({ ac
   );
 };
 
-export default TeamMembersManagement;

@@ -121,7 +121,7 @@ class Api::V1::AppReviewsController < ApplicationController
     # Check if user already has a review for this app
     existing_review = @app.app_reviews.find_by(account: current_user.account)
     if existing_review
-      return render_error('You have already reviewed this app', :unprocessable_entity)
+      return render_error('You have already reviewed this app', status: :unprocessable_content)
     end
 
     @app_review = @app.app_reviews.build(review_params)
@@ -202,7 +202,7 @@ class Api::V1::AppReviewsController < ApplicationController
     reason = params[:reason]
     
     if @app_review.flagged_for_review?
-      return render_error('Review is already flagged', :unprocessable_entity)
+      return render_error('Review is already flagged', status: :unprocessable_content)
     end
 
     @app_review.flag_for_review!(reason, current_user.account)
@@ -216,7 +216,7 @@ class Api::V1::AppReviewsController < ApplicationController
   # POST /api/v1/reviews/:id/moderate
   def moderate
     unless current_user.has_permission?('reviews.moderate')
-      return render_error('Insufficient permissions', :forbidden)
+      return render_error('Insufficient permissions', status: :forbidden)
     end
 
     action = params[:action] # 'approve', 'reject', 'remove', 'restore'
@@ -243,7 +243,7 @@ class Api::V1::AppReviewsController < ApplicationController
       @app_review.restore!(current_user.account, reason)
       message = 'Review restored'
     else
-      return render_error('Invalid moderation action', :unprocessable_entity)
+      return render_error('Invalid moderation action', status: :unprocessable_content)
     end
 
     render_success(
@@ -267,7 +267,7 @@ class Api::V1::AppReviewsController < ApplicationController
     # Users can only modify their own reviews unless they're moderators
     unless @app_review.account == current_user.account || 
            current_user.has_permission?('reviews.moderate')
-      render_error('Insufficient permissions', :forbidden)
+      render_error('Insufficient permissions', status: :forbidden)
     end
   end
 

@@ -35,7 +35,7 @@ module MetricsTracking
       timestamp: Time.current.iso8601
     })
   rescue => e
-    logger.error "Failed to track job metrics: #{e.message}"
+    log_error("Failed to track job metrics: #{e.message}")
   end
 
   def track_job_error(job_class, queue, error)
@@ -48,7 +48,7 @@ module MetricsTracking
       timestamp: Time.current.iso8601
     })
   rescue => e
-    logger.error "Failed to track job error: #{e.message}"
+    log_error("Failed to track job error: #{e.message}")
   end
 
   # Track custom business metrics from jobs
@@ -60,7 +60,7 @@ module MetricsTracking
       timestamp: Time.current.iso8601
     })
   rescue => e
-    logger.error "Failed to track business metric: #{e.message}"
+    log_error("Failed to track business metric: #{e.message}")
   end
 
   # Helper methods for common metrics

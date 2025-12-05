@@ -153,7 +153,6 @@ export const apiKeysApi = {
         const status = error.response.status;
         const data = error.response.data;
         errorMessage = data?.error || `Server error: HTTP ${status}`;
-        console.log(`Server response: ${status}`, data);
       } else if (error.request) {
         // Network error - request was made but no response received
         errorMessage = 'Network error: Unable to reach server (possible cache issue - try hard refresh)';
@@ -476,5 +475,3 @@ export const apiKeysApi = {
     return `${parts[0]}_${parts[1]}_${'*'.repeat(8)}...${keyValue.slice(-8)}`;
   }
 };
-
-export default apiKeysApi;

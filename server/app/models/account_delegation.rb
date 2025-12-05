@@ -5,7 +5,7 @@ class AccountDelegation < ApplicationRecord
   belongs_to :account
   belongs_to :delegated_user, class_name: 'User', foreign_key: 'delegated_user_id'
   belongs_to :delegated_by, class_name: 'User', foreign_key: 'delegated_by_id'
-  belongs_to :revoked_by, class_name: 'User', foreign_key: 'revoked_by', optional: true
+  belongs_to :revoked_by, class_name: 'User', foreign_key: 'revoked_by_id', optional: true
   belongs_to :role, optional: true
   
   # Permission associations

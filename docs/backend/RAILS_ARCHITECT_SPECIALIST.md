@@ -1100,8 +1100,8 @@ class WorkerJobService
   
   def self.worker_api_client
     @worker_api_client ||= WorkerApiClient.new(
-      base_url: ENV['WORKER_API_URL'],
-      token: ENV['WORKER_API_TOKEN']
+      base_url: Rails.application.config.worker_url,
+      token: Rails.application.config.worker_token
     )
   end
 end

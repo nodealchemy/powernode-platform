@@ -7,25 +7,20 @@ class Api::V1::PermissionsController < ApplicationController
   def index
     permissions = Permission.order(:name)
 
-    render json: {
-      success: true,
+    render_success(
       data: permissions.map { |permission| permission_data(permission) }
-    }, status: :ok
+    )
   end
 
   # GET /api/v1/permissions/:id
   def show
     permission = Permission.find(params[:id])
 
-    render json: {
-      success: true,
+    render_success(
       data: permission_data(permission)
-    }, status: :ok
+    )
   rescue ActiveRecord::RecordNotFound
-    render json: {
-      success: false,
-      error: "Permission not found"
-    }, status: :not_found
+    render_error("Permission not found", status: :not_found)
   end
 
   private
@@ -33,14 +28,11 @@ class Api::V1::PermissionsController < ApplicationController
   def require_admin_permission
     # Allow users with admin.role.view or admin.access permissions to view permissions
     user_permissions = current_user&.permission_names || []
-    
-    unless user_permissions.include?('admin.role.view') || 
+
+    unless user_permissions.include?('admin.role.view') ||
            user_permissions.include?('admin.access') ||
            user_permissions.include?('system.admin')
-      render json: {
-        success: false,
-        error: "Unauthorized access to permissions"
-      }, status: :forbidden
+      render_error("Unauthorized access to permissions", status: :forbidden)
     end
   end
 

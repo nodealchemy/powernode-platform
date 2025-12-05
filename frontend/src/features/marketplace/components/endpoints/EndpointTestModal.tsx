@@ -6,13 +6,12 @@ import { Badge } from '@/shared/components/ui/Badge';
 import { AppEndpoint } from '../../types';
 import { getHttpMethodThemeClass } from '../../utils/themeHelpers';
 import { X, Play, Copy, Plus, Minus, Clock, CheckCircle, XCircle } from 'lucide-react';
-import { useNotification } from '@/shared/hooks/useNotification';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 
 interface EndpointTestModalProps {
   isOpen: boolean;
   onClose: () => void;
   endpoint: AppEndpoint | null;
-  appId: string;
   onTest: (endpointId: string, testData?: any, testHeaders?: Record<string, string>) => Promise<any>;
 }
 
@@ -35,7 +34,6 @@ export const EndpointTestModal: React.FC<EndpointTestModalProps> = ({
   isOpen,
   onClose,
   endpoint,
-  appId,
   onTest
 }) => {
   const [testing, setTesting] = useState(false);
@@ -45,7 +43,7 @@ export const EndpointTestModal: React.FC<EndpointTestModalProps> = ({
   const [testHeaders, setTestHeaders] = useState<Record<string, string>>({});
   const [newHeader, setNewHeader] = useState({ key: '', value: '' });
   const responseRef = useRef<HTMLPreElement>(null);
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
 
   const handleTest = async () => {
     if (!endpoint) return;

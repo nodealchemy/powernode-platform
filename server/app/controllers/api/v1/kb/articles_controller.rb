@@ -35,19 +35,19 @@ class Api::V1::Kb::ArticlesController < ApplicationController
 
   # GET /api/v1/kb/articles/:id
   def show
-    return render_error('Article not found', :not_found) unless @article
+    return render_error('Article not found', status: :not_found) unless @article
 
     # Check access permissions
     if editing_mode?
       # Admin view - can see any article if has edit permissions
-      return render_error('Access denied', :forbidden) unless can_edit_kb?
+      return render_error('Access denied', status: :forbidden) unless can_edit_kb?
       
       render_success({
         article: serialize_article_detailed(@article)
       })
     else
       # Public view - check if article is viewable
-      return render_error('Access denied', :forbidden) unless @article.viewable_by?(current_user)
+      return render_error('Access denied', status: :forbidden) unless @article.viewable_by?(current_user)
 
       # Record view with tracking (no session in API-only mode)
       @article.record_view!(
@@ -82,8 +82,8 @@ class Api::V1::Kb::ArticlesController < ApplicationController
 
   # PATCH /api/v1/kb/articles/:id
   def update
-    return render_error('Article not found', :not_found) unless @article
-    return render_error('Access denied', :forbidden) unless @article.editable_by?(current_user)
+    return render_error('Article not found', status: :not_found) unless @article
+    return render_error('Access denied', status: :forbidden) unless @article.editable_by?(current_user)
 
     if @article.update(article_params)
       handle_tag_assignment(@article) if params[:article][:tag_names].present?
@@ -98,8 +98,8 @@ class Api::V1::Kb::ArticlesController < ApplicationController
 
   # DELETE /api/v1/kb/articles/:id
   def destroy
-    return render_error('Article not found', :not_found) unless @article
-    return render_error('Access denied', :forbidden) unless @article.editable_by?(current_user)
+    return render_error('Article not found', status: :not_found) unless @article
+    return render_error('Access denied', status: :forbidden) unless @article.editable_by?(current_user)
 
     @article.destroy
     render_success(message: 'Article deleted successfully')
@@ -107,7 +107,7 @@ class Api::V1::Kb::ArticlesController < ApplicationController
 
   # POST /api/v1/kb/articles/:id/publish
   def publish
-    return render_error('Article not found', :not_found) unless @article
+    return render_error('Article not found', status: :not_found) unless @article
 
     if @article.update(status: 'published', published_at: Time.current)
       render_success({
@@ -120,7 +120,7 @@ class Api::V1::Kb::ArticlesController < ApplicationController
 
   # POST /api/v1/kb/articles/:id/unpublish
   def unpublish
-    return render_error('Article not found', :not_found) unless @article
+    return render_error('Article not found', status: :not_found) unless @article
 
     if @article.update(status: 'draft', published_at: nil)
       render_success({
@@ -134,7 +134,7 @@ class Api::V1::Kb::ArticlesController < ApplicationController
   # GET /api/v1/kb/articles/search
   def search
     query = params[:q]
-    return render_error('Search query is required', :bad_request) if query.blank?
+    return render_error('Search query is required', status: :bad_request) if query.blank?
 
     articles = KnowledgeBaseArticle.published.public_articles
     articles = articles.search_by_text(query) if query.present?
@@ -168,15 +168,15 @@ class Api::V1::Kb::ArticlesController < ApplicationController
   # PATCH /api/v1/kb/articles/bulk
   def bulk_update
     article_ids = params[:article_ids]
-    return render_error('No article IDs provided', :bad_request) if article_ids.blank?
+    return render_error('No article IDs provided', status: :bad_request) if article_ids.blank?
 
     articles = KnowledgeBaseArticle.where(id: article_ids)
-    return render_error('No articles found', :not_found) if articles.empty?
+    return render_error('No articles found', status: :not_found) if articles.empty?
 
     # Check permissions for all articles
     unauthorized_articles = articles.reject { |article| article.editable_by?(current_user) }
     if unauthorized_articles.any?
-      return render_error('Access denied for some articles', :forbidden)
+      return render_error('Access denied for some articles', status: :forbidden)
     end
 
     updated_count = 0
@@ -192,21 +192,21 @@ class Api::V1::Kb::ArticlesController < ApplicationController
       updated_count: updated_count
     }, "#{updated_count} articles updated successfully")
   rescue StandardError => e
-    render_error("Bulk update failed: #{e.message}", :internal_server_error)
+    render_error("Bulk update failed: #{e.message}", status: :internal_server_error)
   end
 
   # DELETE /api/v1/kb/articles/bulk
   def bulk_delete
     article_ids = params[:article_ids]
-    return render_error('No article IDs provided', :bad_request) if article_ids.blank?
+    return render_error('No article IDs provided', status: :bad_request) if article_ids.blank?
 
     articles = KnowledgeBaseArticle.where(id: article_ids)
-    return render_error('No articles found', :not_found) if articles.empty?
+    return render_error('No articles found', status: :not_found) if articles.empty?
 
     # Check permissions for all articles
     unauthorized_articles = articles.reject { |article| article.editable_by?(current_user) }
     if unauthorized_articles.any?
-      return render_error('Access denied for some articles', :forbidden)
+      return render_error('Access denied for some articles', status: :forbidden)
     end
 
     deleted_count = 0
@@ -220,7 +220,7 @@ class Api::V1::Kb::ArticlesController < ApplicationController
       deleted_count: deleted_count
     }, "#{deleted_count} articles deleted successfully")
   rescue StandardError => e
-    render_error("Bulk delete failed: #{e.message}", :internal_server_error)
+    render_error("Bulk delete failed: #{e.message}", status: :internal_server_error)
   end
 
   private
@@ -249,15 +249,15 @@ class Api::V1::Kb::ArticlesController < ApplicationController
   end
 
   def authorize_kb_edit
-    return render_error('Access denied', :forbidden) unless can_edit_kb?
+    return render_error('Access denied', status: :forbidden) unless can_edit_kb?
   end
 
   def authorize_kb_publish
-    return render_error('Access denied', :forbidden) unless can_publish_kb?
+    return render_error('Access denied', status: :forbidden) unless can_publish_kb?
   end
 
   def authorize_kb_manage
-    return render_error('Access denied', :forbidden) unless can_manage_kb?
+    return render_error('Access denied', status: :forbidden) unless can_manage_kb?
   end
 
   def apply_filters(articles)

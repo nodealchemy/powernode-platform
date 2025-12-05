@@ -97,11 +97,11 @@ class Api::V1::ReviewResponsesController < ApplicationController
   # POST /api/v1/review_responses/:id/approve
   def approve
     unless current_user.has_permission?('reviews.moderate')
-      return render_error('Insufficient permissions', :forbidden)
+      return render_error('Insufficient permissions', status: :forbidden)
     end
 
     if @review_response.approved?
-      return render_error('Response is already approved', :unprocessable_entity)
+      return render_error('Response is already approved', status: :unprocessable_content)
     end
 
     @review_response.approve!(current_user.account)
@@ -115,11 +115,11 @@ class Api::V1::ReviewResponsesController < ApplicationController
   # POST /api/v1/review_responses/:id/reject
   def reject
     unless current_user.has_permission?('reviews.moderate')
-      return render_error('Insufficient permissions', :forbidden)
+      return render_error('Insufficient permissions', status: :forbidden)
     end
 
     if @review_response.rejected?
-      return render_error('Response is already rejected', :unprocessable_entity)
+      return render_error('Response is already rejected', status: :unprocessable_content)
     end
 
     reason = params[:reason]
@@ -145,7 +145,7 @@ class Api::V1::ReviewResponsesController < ApplicationController
     # Users can only modify their own responses unless they're moderators
     unless @review_response.account == current_user.account || 
            current_user.has_permission?('reviews.moderate')
-      render_error('Insufficient permissions', :forbidden)
+      render_error('Insufficient permissions', status: :forbidden)
     end
   end
 

@@ -57,6 +57,8 @@ RSpec.configure do |config|
     Sidekiq::Worker.clear_all
     # Reset WebMock stubs
     WebMock.reset!
+    # Reset circuit breaker to prevent OPEN state from blocking subsequent tests
+    CircuitBreaker::CircuitBreakerRegistry.instance.reset_breaker('backend_api')
   end
 
   config.after(:each) do
@@ -70,21 +72,25 @@ RSpec.configure do |config|
   config.include JobTestHelpers
 end
 
-# Configure WebMock - allow localhost for backend API communication in tests
-WebMock.disable_net_connect!(allow_localhost: true, allow: ['localhost:3000'])
+# Configure WebMock - disable all real HTTP connections to force stub usage
+WebMock.disable_net_connect!
 
 # Configure VCR for HTTP recording
 VCR.configure do |config|
   config.cassette_library_dir = "spec/vcr_cassettes"
   config.hook_into :webmock
   config.configure_rspec_metadata!
-  # Allow HTTP connections when no cassette is present for test flexibility
+  # Allow HTTP connections when no cassette - let WebMock handle with stubs
   config.allow_http_connections_when_no_cassette = true
   config.default_cassette_options = {
     record: :once,
     match_requests_on: [:method, :uri, :headers, :body]
   }
-  
+
+  # Ignore localhost requests - let WebMock handle them with stubs
+  config.ignore_localhost = true
+  config.ignore_hosts 'localhost', '127.0.0.1'
+
   # Filter sensitive data
   config.filter_sensitive_data('<BACKEND_API_URL>') { ENV['BACKEND_API_URL'] || 'http://localhost:3000' }
   config.filter_sensitive_data('<WORKER_TOKEN>') { ENV['WORKER_TOKEN'] || 'test-token' }

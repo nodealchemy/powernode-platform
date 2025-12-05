@@ -3,7 +3,7 @@ import { knowledgeBaseApi, KbComment } from '@/shared/services/knowledgeBaseApi'
 import { useSelector } from 'react-redux';
 import { RootState } from '@/shared/services';
 import { Button } from '@/shared/components/ui/Button';
-import { useNotification } from '@/shared/hooks/useNotification';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import { 
   ChatBubbleLeftEllipsisIcon, 
   HandThumbUpIcon, 
@@ -17,8 +17,8 @@ interface KbArticleCommentsProps {
 }
 
 export function KbArticleComments({ articleId }: KbArticleCommentsProps) {
-  const { user: _currentUser, isAuthenticated } = useSelector((state: RootState) => state.auth);
-  const { showNotification } = useNotification();
+  const { isAuthenticated } = useSelector((state: RootState) => state.auth);
+  const { showNotification } = useNotifications();
   const showSuccess = (message: string) => showNotification(message, 'success');
   const showError = (message: string) => showNotification(message, 'error');
   const [comments, setComments] = useState<KbComment[]>([]);
@@ -244,7 +244,7 @@ function CommentItem({
               {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
             </span>
             {comment.status === 'pending' && (
-              <div className="flex items-center gap-1 text-xs text-yellow-600">
+              <div className="flex items-center gap-1 text-xs text-theme-warning">
                 <ExclamationTriangleIcon className="h-3 w-3" />
                 <span>Pending approval</span>
               </div>
@@ -331,7 +331,7 @@ function CommentItem({
                           {formatDistanceToNow(new Date(reply.created_at), { addSuffix: true })}
                         </span>
                         {reply.status === 'pending' && (
-                          <div className="flex items-center gap-1 text-xs text-yellow-600">
+                          <div className="flex items-center gap-1 text-xs text-theme-warning">
                             <ExclamationTriangleIcon className="h-3 w-3" />
                             <span>Pending</span>
                           </div>

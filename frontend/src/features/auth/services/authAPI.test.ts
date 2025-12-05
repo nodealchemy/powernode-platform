@@ -1,4 +1,4 @@
-import { authAPI } from './authAPI';
+import { authApi } from './authAPI';
 import { createMockAxiosResponse } from '@/shared/utils/test-utils';
 
 // Mock the API client
@@ -13,7 +13,7 @@ jest.mock('@/shared/services/api', () => ({
 
 const mockApi = require('@/shared/services/api').api;
 
-describe('authAPI', () => {
+describe('authApi', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
@@ -22,12 +22,12 @@ describe('authAPI', () => {
     it('should call POST /auth/login with email and password', async () => {
       const mockResponse = {
         success: true,
-        user: { 
-          id: '1', 
-          email: 'test@example.com', 
-          first_name: 'Test',
-          last_name: 'User',
+        user: {
+          id: '1',
+          email: 'test@example.com',
+          name: 'Test User',
           roles: ['account.member'],
+          permissions: ['users.read'],
           status: 'active',
           email_verified: true,
           account: {
@@ -43,7 +43,7 @@ describe('authAPI', () => {
       mockApi.post.mockResolvedValue(createMockAxiosResponse(mockResponse));
 
       const credentials = { email: 'test@example.com', password: 'password' };
-      const result = await authAPI.login(credentials);
+      const result = await authApi.login(credentials);
 
       expect(mockApi.post).toHaveBeenCalledWith('/auth/login', credentials);
       expect(result.data).toEqual(mockResponse);
@@ -56,7 +56,7 @@ describe('authAPI', () => {
 
       mockApi.post.mockResolvedValue(createMockAxiosResponse(mockResponse));
 
-      const result = await authAPI.logout();
+      const result = await authApi.logout();
 
       expect(mockApi.post).toHaveBeenCalledWith('/auth/logout');
       expect(result.data).toEqual(mockResponse);
@@ -72,7 +72,7 @@ describe('authAPI', () => {
 
       mockApi.post.mockResolvedValue(createMockAxiosResponse(mockResponse));
 
-      const result = await authAPI.refreshToken('refresh_token123');
+      const result = await authApi.refreshToken('refresh_token123');
 
       expect(mockApi.post).toHaveBeenCalledWith('/auth/refresh', {
         refresh_token: 'refresh_token123'
@@ -85,12 +85,12 @@ describe('authAPI', () => {
     it('should call GET /auth/me', async () => {
       const mockResponse = {
         success: true,
-        user: { 
-          id: '1', 
+        user: {
+          id: '1',
           email: 'test@example.com',
-          first_name: 'Test',
-          last_name: 'User',
+          name: 'Test User',
           roles: ['account.member'],
+          permissions: ['users.read'],
           status: 'active',
           email_verified: true,
           account: {
@@ -103,9 +103,9 @@ describe('authAPI', () => {
 
       mockApi.get.mockResolvedValue(createMockAxiosResponse(mockResponse));
 
-      const result = await authAPI.getCurrentUser();
+      const result = await authApi.getCurrentUser();
 
-      expect(mockApi.get).toHaveBeenCalledWith('/auth/me');
+      expect(mockApi.get).toHaveBeenCalledWith('/auth/me', { silentAuth: false });
       expect(result.data).toEqual(mockResponse);
     });
   });

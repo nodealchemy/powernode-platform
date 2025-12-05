@@ -9,7 +9,7 @@ class SidekiqWebAuth
   def initialize(app)
     @app = app
     @logger = PowernodeWorker.application.logger
-    @api_client = BackendApiClient.new
+    @api_client = WebAuthApiClient.new
   end
 
   def call(env)

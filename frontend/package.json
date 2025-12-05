@@ -7,9 +7,17 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@heroicons/react": "^2.2.0",
+    "@rails/actioncable": "^8.0.201",
+    "@reactflow/background": "^11.3.14",
+    "@reactflow/controls": "^11.2.14",
+    "@reactflow/core": "^11.11.4",
+    "@reactflow/minimap": "^11.7.14",
+    "@reactflow/node-resizer": "^2.2.14",
     "@reduxjs/toolkit": "^2.8.2",
+    "@tanstack/react-query": "^5.89.0",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/react": "^16.3.0",
+    "@types/dagre": "^0.7.53",
     "@types/dompurify": "^3.0.5",
     "@types/jest": "^27.5.2",
     "@types/node": "^20.19.13",
@@ -19,8 +27,10 @@
     "@types/react-router-dom": "^5.3.3",
     "@uiw/react-markdown-preview": "^5.1.5",
     "@uiw/react-md-editor": "^4.0.8",
+    "@xyflow/react": "^12.8.4",
     "axios": "^1.11.0",
     "clsx": "^2.1.1",
+    "dagre": "^0.8.5",
     "date-fns": "^4.1.0",
     "dompurify": "^3.2.6",
     "highlight.js": "^11.11.1",
@@ -48,7 +58,8 @@
   "scripts": {
     "start": "vite",
     "dev": "vite --host 0.0.0.0",
-    "build": "tsc && vite build",
+    "build": "vite build",
+    "build:full": "tsc && vite build",
     "build:verbose": "vite build --debug",
     "refresh-proxy": "node scripts/refresh-proxy-cache.js",
     "test": "NODE_OPTIONS='--no-deprecation' react-scripts test",
@@ -89,6 +100,9 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
+  },
+  "resolutions": {
+    "@types/d3-dispatch": "3.0.6"
   },
   "license": "GPL-3.0-or-later",
   "devDependencies": {

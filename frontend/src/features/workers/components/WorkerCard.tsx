@@ -64,14 +64,7 @@ export const WorkerCard: React.FC<WorkerCardProps> = ({
   };
 
   const formatMaskedToken = (token: string): string => {
-    if (token.includes('_') && token.length < 25) {
-      return token;
-    }
-    if (token.length > 20) {
-      const start = token.substring(0, 8);
-      const end = token.substring(token.length - 4);
-      return `${start}******${end}`;
-    }
+    // Backend now provides pre-masked tokens, return as-is
     return token;
   };
 
@@ -103,7 +96,7 @@ export const WorkerCard: React.FC<WorkerCardProps> = ({
   const copyTokenToClipboard = async (e: React.MouseEvent) => {
     e.stopPropagation();
     try {
-      await copyToClipboard(worker.masked_token);
+      await copyToClipboard(worker.full_token_hash || '');
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (error) {
@@ -297,7 +290,7 @@ export const WorkerCard: React.FC<WorkerCardProps> = ({
                 <button
                   onClick={copyTokenToClipboard}
                   className="p-1 text-theme-secondary hover:text-theme-primary transition-colors"
-                  title="Copy token"
+                  title="Copy full hash"
                 >
                   {copied ? <Check className="w-3 h-3 text-theme-success" /> : <Copy className="w-3 h-3" />}
                 </button>
@@ -356,4 +349,3 @@ export const WorkerCard: React.FC<WorkerCardProps> = ({
   );
 };
 
-export default WorkerCard;

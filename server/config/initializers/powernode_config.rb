@@ -2,10 +2,8 @@
 
 # Powernode application configuration
 Rails.application.configure do
-  # JWT Configuration
-  config.jwt_secret_key = Rails.env.production? ?
-    Rails.application.credentials.jwt_secret_key :
-    ENV.fetch("JWT_SECRET_KEY", "development_jwt_secret_key_that_persists_across_restarts_and_is_secure_enough_for_local_development_only")
+  # JWT Configuration is handled in config/initializers/jwt.rb
+  # DO NOT set jwt_secret_key here - it's already configured in jwt.rb
 
   config.jwt_expiration_time = ENV.fetch("JWT_EXPIRATION_TIME", "24h")
 
@@ -30,4 +28,10 @@ Rails.application.configure do
   config.background_jobs_api_token = Rails.env.production? ?
     Rails.application.credentials.background_jobs_api_token :
     ENV.fetch("BACKGROUND_JOBS_API_TOKEN", "development_service_token")
+
+  # Worker Service Configuration
+  config.worker_url = ENV.fetch("WORKER_URL", "http://localhost:4567")
+  config.worker_token = Rails.env.production? ?
+    Rails.application.credentials.worker_token :
+    ENV.fetch("WORKER_TOKEN", "development_worker_token")
 end

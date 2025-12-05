@@ -9,7 +9,7 @@ class Services::HealthCheckJob < BaseJob
                   retry: 1
 
   def execute(environment = nil, specific_service = nil, job_id = nil)
-    logger.info "Starting health checks (job: #{job_id}, env: #{environment}, service: #{specific_service})"
+    log_info("Starting health checks (job: #{job_id}, env: #{environment}, service: #{specific_service})")
 
     start_time = Time.current
     check_results = {}
@@ -42,7 +42,7 @@ class Services::HealthCheckJob < BaseJob
         message: "Health check completed: #{healthy_count}/#{total_count} services healthy"
       }
 
-      logger.info "Health check completed: #{healthy_count}/#{total_count} healthy in #{duration.round(2)}s"
+      log_info("Health check completed: #{healthy_count}/#{total_count} healthy in #{duration.round(2)}s")
 
       # Update job status via API
       update_job_status(job_id, result) if job_id
@@ -60,7 +60,7 @@ class Services::HealthCheckJob < BaseJob
         message: 'Health check failed'
       }
 
-      logger.error "Health check failed after #{duration.round(2)}s: #{e.message}"
+      log_error("Health check failed after #{duration.round(2)}s: #{e.message}")
       
       # Update job status via API
       update_job_status(job_id, error_result) if job_id
@@ -92,6 +92,6 @@ class Services::HealthCheckJob < BaseJob
       result: result
     })
   rescue => e
-    logger.warn "Failed to update job status: #{e.message}"
+    log_warn("Failed to update job status: #{e.message}")
   end
 end

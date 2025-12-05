@@ -1,6 +1,28 @@
 # frozen_string_literal: true
 
 module JobTestHelpers
+  # Allow all logging methods to be called with any arguments
+  # Use this when testing jobs that log multiple messages
+  def allow_logging_methods
+    allow_any_instance_of(BaseJob).to receive(:log_info)
+    allow_any_instance_of(BaseJob).to receive(:log_error)
+    allow_any_instance_of(BaseJob).to receive(:log_warn)
+  end
+
+  # Helper to verify a specific log message was called (use after job execution)
+  # This captures log calls and allows verification after the fact
+  def capture_logs_for(job_instance)
+    @captured_logs = { info: [], error: [], warn: [] }
+    allow(job_instance).to receive(:log_info) { |msg, **_opts| @captured_logs[:info] << msg }
+    allow(job_instance).to receive(:log_error) { |msg, *_args, **_opts| @captured_logs[:error] << msg }
+    allow(job_instance).to receive(:log_warn) { |msg, **_opts| @captured_logs[:warn] << msg }
+    @captured_logs
+  end
+
+  def expect_logged(level, pattern)
+    expect(@captured_logs[level]).to include(match(pattern))
+  end
+
   # Shared job testing patterns
   shared_examples 'a base job' do |job_class|
     let(:job_instance) { job_class.new }
@@ -136,11 +158,23 @@ module JobTestHelpers
     it 'logs job start and completion' do
       job_instance = subject.new
       allow(job_instance).to receive(:execute).and_return({ success: true })
-      
-      # Use test data from context if available, otherwise no arguments
-      test_args = respond_to?(:email_data) ? [email_data] : []
-      job_instance.perform(*test_args)
-      
+
+      # Use test data from context if available
+      if respond_to?(:workflow_job_args)
+        # Workflow jobs use keyword arguments
+        job_instance.perform(**workflow_job_args)
+      elsif respond_to?(:email_data)
+        # Email jobs use positional arguments
+        job_instance.perform(email_data)
+      elsif respond_to?(:job_args)
+        # Generic positional arguments (can be single value or array)
+        args = job_args.is_a?(Array) ? job_args : [job_args]
+        job_instance.perform(*args)
+      else
+        # No arguments
+        job_instance.perform
+      end
+
       expect(logger_double).to have_received(:info).with(match(/Starting #{subject.name}/))
       expect(logger_double).to have_received(:info).with(match(/Completed #{subject.name}/))
     end
@@ -148,11 +182,25 @@ module JobTestHelpers
     it 'logs errors when job fails' do
       job_instance = subject.new
       allow(job_instance).to receive(:execute).and_raise(StandardError.new('Test error'))
-      
-      # Use test data from context if available, otherwise no arguments  
-      test_args = respond_to?(:email_data) ? [email_data] : []
-      expect { job_instance.perform(*test_args) }.to raise_error(StandardError)
-      
+
+      # Use test data from context if available
+      expect do
+        if respond_to?(:workflow_job_args)
+          # Workflow jobs use keyword arguments
+          job_instance.perform(**workflow_job_args)
+        elsif respond_to?(:email_data)
+          # Email jobs use positional arguments
+          job_instance.perform(email_data)
+        elsif respond_to?(:job_args)
+          # Generic positional arguments (can be single value or array)
+          args = job_args.is_a?(Array) ? job_args : [job_args]
+          job_instance.perform(*args)
+        else
+          # No arguments
+          job_instance.perform
+        end
+      end.to raise_error(StandardError)
+
       expect(logger_double).to have_received(:error).with(match(/Failed #{subject.name}/))
     end
   end
@@ -174,10 +222,19 @@ module JobTestHelpers
       logger_double = double('Logger', info: nil, warn: nil, error: nil, level: Logger::INFO)
       allow(PowernodeWorker.application).to receive(:logger).and_return(logger_double)
       
-      # Use test data from context if available, otherwise no arguments
-      test_args = respond_to?(:email_data) ? [email_data] : []
-      job_instance.perform(*test_args)
-      
+      # Use test data from context if available
+      if respond_to?(:workflow_job_args)
+        job_instance.perform(**workflow_job_args)
+      elsif respond_to?(:email_data)
+        job_instance.perform(email_data)
+      elsif respond_to?(:job_args)
+        # Generic positional arguments (can be single value or array)
+        args = job_args.is_a?(Array) ? job_args : [job_args]
+        job_instance.perform(*args)
+      else
+        job_instance.perform
+      end
+
       expect(logger_double).to have_received(:info).with(match(/in 2.5s/))
     end
   end

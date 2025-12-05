@@ -1,9 +1,9 @@
-import React from 'react';
+
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '@/shared/services';
 import { stopImpersonation } from '@/shared/services/slices/authSlice';
 
-const ImpersonationBanner: React.FC = () => {
+export const ImpersonationBanner: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const { impersonation, isLoading } = useSelector((state: RootState) => state.auth);
 
@@ -43,7 +43,7 @@ const ImpersonationBanner: React.FC = () => {
               <>
                 You are viewing as{' '}
                 <span className="font-semibold">
-                  {impersonation.impersonatedUser?.first_name} {impersonation.impersonatedUser?.last_name}
+                  {impersonation.impersonatedUser?.name}
                 </span>
                 {' '}({impersonation.impersonatedUser?.email})
               </>
@@ -83,4 +83,3 @@ const ImpersonationBanner: React.FC = () => {
   );
 };
 
-export default ImpersonationBanner;

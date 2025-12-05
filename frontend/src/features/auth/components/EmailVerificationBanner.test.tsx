@@ -1,4 +1,3 @@
-import React from 'react';
 import { screen, fireEvent, waitFor } from '@testing-library/react';
 import { EmailVerificationBanner } from './EmailVerificationBanner';
 import { renderWithProviders, mockAuthenticatedState } from '@/shared/utils/test-utils';
@@ -9,8 +8,7 @@ jest.useFakeTimers();
 const mockUser = {
   id: 'user-1',
   email: 'user@example.com',
-  first_name: 'John',
-  last_name: 'Doe',
+  name: 'John Doe',
   email_verified: false,
   account: {
     id: 'account-1',
@@ -246,7 +244,7 @@ describe('EmailVerificationBanner', () => {
 
   it('maintains proper styling for different states', () => {
     // Test warning state
-    const { rerender } = renderWithProviders(<EmailVerificationBanner />, {
+    renderWithProviders(<EmailVerificationBanner />, {
       preloadedState: {
         ...mockAuthenticatedState,
         auth: {
@@ -258,9 +256,6 @@ describe('EmailVerificationBanner', () => {
 
     let banner = screen.getByText('Email Verification Required').closest('.bg-theme-warning-subtle');
     expect(banner).toHaveClass('border-l-4');
-
-    // Test success state - need to update state to success
-    rerender(<EmailVerificationBanner />);
 
     // Since we can't actually change the Redux state in this test setup,
     // we should test just the warning state styling
@@ -347,7 +342,7 @@ describe('EmailVerificationBanner', () => {
     expect(button).toBeDisabled();
 
     // Test cooldown state
-    const { rerender } = renderWithProviders(<EmailVerificationBanner />, {
+    renderWithProviders(<EmailVerificationBanner />, {
       preloadedState: {
         ...mockAuthenticatedState,
         auth: {

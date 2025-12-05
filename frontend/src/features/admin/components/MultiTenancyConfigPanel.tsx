@@ -16,8 +16,7 @@ import {
 import {
   CSS,
 } from '@dnd-kit/utilities';
-import { useNotification } from '@/shared/hooks/useNotification';
-import proxySettingsApi from '@/shared/services/proxySettingsApi';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 
 interface MultiTenancyConfig {
   enabled: boolean;
@@ -36,11 +35,11 @@ interface SortableWildcardItemProps {
   onEdit: (oldPattern: string, newPattern: string) => void;
 }
 
-const SortableWildcardItem: React.FC<SortableWildcardItemProps> = ({ 
-  pattern, 
-  index, 
-  onRemove, 
-  onEdit 
+const SortableWildcardItem: React.FC<SortableWildcardItemProps> = ({
+  pattern,
+  index: _index,
+  onRemove,
+  onEdit
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(pattern);
@@ -171,11 +170,11 @@ const SortableWildcardItem: React.FC<SortableWildcardItemProps> = ({
   );
 };
 
-const MultiTenancyConfigPanel: React.FC<MultiTenancyConfigPanelProps> = ({ 
+export const MultiTenancyConfigPanel: React.FC<MultiTenancyConfigPanelProps> = ({ 
   config, 
   onConfigChange 
 }) => {
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
   const showSuccess = (msg: string) => showNotification(msg, 'success');
   const showError = (msg: string) => showNotification(msg, 'error');
   
@@ -434,4 +433,3 @@ const MultiTenancyConfigPanel: React.FC<MultiTenancyConfigPanelProps> = ({
   );
 };
 
-export default MultiTenancyConfigPanel;

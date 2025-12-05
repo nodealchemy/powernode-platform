@@ -183,7 +183,7 @@ class CorsConfigurationService
         'http://127.0.0.1:3000',
         'http://127.0.0.1:3001'
       ]
-      
+
       # Add development origins from environment variables
       add_env_development_origins(dev_origins)
 
@@ -193,10 +193,10 @@ class CorsConfigurationService
       origins.add('/\\Ahttp:\\/\\/192\\.168\\.\\d{1,3}\\.\\d{1,3}:300[0-9]\\z/')
       origins.add('/\\Ahttp:\\/\\/10\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}:300[0-9]\\z/')
       origins.add('/\\Ahttp:\\/\\/172\\.(1[6-9]|2[0-9]|3[0-1])\\.\\d{1,3}\\.\\d{1,3}:300[0-9]\\z/')
-      
+
       # Development hostname patterns (allow frontend port 3001 to access backend port 3000)
-      origins.add('/\\Ahttp:\\/\\/[^\\/\\.]+\\.(ipnode\\.net|ipnode\\.org|powernode\\.dev|powernode\\.org|local|test):300[0-9]\\z/')
-      origins.add('/\\Ahttps:\\/\\/[^\\/\\.]+\\.(ipnode\\.net|ipnode\\.org|powernode\\.dev|powernode\\.org|local|test):300[0-9]\\z/')
+      origins.add('/\\Ahttp:\\/\\/[^\\/\\.]+\\.(local|test):300[0-9]\\z/')
+      origins.add('/\\Ahttps:\\/\\/[^\\/\\.]+\\.(local|test):300[0-9]\\z/')
     end
 
     # Fallback origins when database is unavailable
@@ -211,7 +211,8 @@ class CorsConfigurationService
           'http://127.0.0.1:3001'
         ]
       else
-        ['https://powernode.dev', 'https://www.powernode.dev']
+        # Production origins should be configured via AdminSettings
+        []
       end
     end
   end

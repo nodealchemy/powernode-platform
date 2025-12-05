@@ -4,7 +4,7 @@
 # This controller receives job requests from WorkerJobService and forwards them to the worker service
 class Api::V1::JobsController < ApplicationController
   skip_before_action :authenticate_request, only: [:create]
-  before_action :authenticate_worker_token, only: [:create]
+  before_action :authenticate_service_token, only: [:create]
 
   def create
     job_class = params[:job_class]
@@ -13,7 +13,7 @@ class Api::V1::JobsController < ApplicationController
 
     # Validate required parameters
     unless job_class.present?
-      return render_error('Missing job_class parameter', status: :unprocessable_entity)
+      return render_error('Missing job_class parameter', status: :unprocessable_content)
     end
 
     # Forward the job request to the worker service
@@ -32,15 +32,15 @@ class Api::V1::JobsController < ApplicationController
 
   private
 
-  def authenticate_worker_token
-    token = request.headers['Authorization']&.split(' ')&.last
-    
-    if token.present? && token.starts_with?('swt_')
-      worker = Worker.find_by(token: token, status: 'active')
-      return if worker.present?
+  def authenticate_service_token
+    token = request.headers['Authorization']&.remove('Bearer ')
+    expected_token = ENV['WORKER_SERVICE_TOKEN'] ||
+                     Rails.application.credentials.dig(:worker, :service_token) ||
+                     'development_worker_service_token_that_persists_across_restarts'
+
+    unless token.present? && expected_token.present? && ActiveSupport::SecurityUtils.secure_compare(token, expected_token)
+      render_error('Service authentication required', status: :unauthorized)
     end
-    
-    render_error('Invalid or expired worker token', status: :unauthorized)
   end
 
   def forward_to_worker_service(job_class, args, options)

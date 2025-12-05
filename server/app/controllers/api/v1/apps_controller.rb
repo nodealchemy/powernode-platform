@@ -42,9 +42,8 @@ class Api::V1::AppsController < ApplicationController
     offset = (page - 1) * per_page
     
     apps = apps.limit(per_page).offset(offset)
-    
-    render json: {
-      success: true,
+
+    render_success(
       data: apps.map { |app| app_data(app) },
       pagination: {
         current_page: page,
@@ -52,14 +51,13 @@ class Api::V1::AppsController < ApplicationController
         total_count: total_count,
         per_page: per_page
       }
-    }, status: :ok
+    )
   end
   
   def show
-    render json: {
-      success: true,
+    render_success(
       data: app_data(@app, detailed: true)
-    }, status: :ok
+    )
   end
   
   def create
@@ -69,36 +67,27 @@ class Api::V1::AppsController < ApplicationController
     
     if @app.save
       log_audit_event('app_created', { app_id: @app.id, app_name: @app.name })
-      
-      render json: {
-        success: true,
+
+      render_success(
         data: app_data(@app, detailed: true),
-        message: 'App created successfully'
-      }, status: :created
+        message: 'App created successfully',
+        status: :created
+      )
     else
-      render json: {
-        success: false,
-        error: 'Failed to create app',
-        details: @app.errors.full_messages
-      }, status: :unprocessable_content
+      render_validation_error(@app)
     end
   end
   
   def update
     if @app.update(app_params)
       log_audit_event('app_updated', { app_id: @app.id, changes: @app.previous_changes.keys })
-      
-      render json: {
-        success: true,
+
+      render_success(
         data: app_data(@app, detailed: true),
         message: 'App updated successfully'
-      }, status: :ok
+      )
     else
-      render json: {
-        success: false,
-        error: 'Failed to update app',
-        details: @app.errors.full_messages
-      }, status: :unprocessable_content
+      render_validation_error(@app)
     end
   end
   
@@ -107,83 +96,63 @@ class Api::V1::AppsController < ApplicationController
     
     if @app.destroy
       log_audit_event('app_deleted', { app_name: app_name })
-      
-      render json: {
-        success: true,
+
+      render_success(
         message: 'App deleted successfully'
-      }, status: :ok
+      )
     else
-      render json: {
-        success: false,
-        error: 'Failed to delete app',
-        details: @app.errors.full_messages
-      }, status: :unprocessable_content
+      render_validation_error(@app)
     end
   end
   
   def publish
-    return render_error('App must be in review status to publish', :unprocessable_content) unless @app.under_review?
+    return render_error('App must be in review status to publish', status: :unprocessable_content) unless @app.under_review?
     
     if @app.publish!
       log_audit_event('app_published', { app_id: @app.id, app_name: @app.name })
-      
-      render json: {
-        success: true,
+
+      render_success(
         data: app_data(@app, detailed: true),
         message: 'App published successfully'
-      }, status: :ok
+      )
     else
-      render json: {
-        success: false,
-        error: 'Failed to publish app',
-        details: @app.errors.full_messages
-      }, status: :unprocessable_content
+      render_validation_error(@app)
     end
   end
   
   def unpublish
-    return render_error('App must be published to unpublish', :unprocessable_content) unless @app.published?
+    return render_error('App must be published to unpublish', status: :unprocessable_content) unless @app.published?
     
     if @app.unpublish!
       log_audit_event('app_unpublished', { app_id: @app.id, app_name: @app.name })
-      
-      render json: {
-        success: true,
+
+      render_success(
         data: app_data(@app, detailed: true),
         message: 'App unpublished successfully'
-      }, status: :ok
+      )
     else
-      render json: {
-        success: false,
-        error: 'Failed to unpublish app',
-        details: @app.errors.full_messages
-      }, status: :unprocessable_content
+      render_validation_error(@app)
     end
   end
   
   def submit_for_review
-    return render_error('App must be in draft status to submit for review', :unprocessable_content) unless @app.draft?
+    return render_error('App must be in draft status to submit for review', status: :unprocessable_content) unless @app.draft?
     
     if @app.submit_for_review!
       log_audit_event('app_submitted_for_review', { app_id: @app.id, app_name: @app.name })
-      
-      render json: {
-        success: true,
+
+      render_success(
         data: app_data(@app, detailed: true),
         message: 'App submitted for review successfully'
-      }, status: :ok
+      )
     else
-      render json: {
-        success: false,
-        error: 'Failed to submit app for review',
-        details: @app.errors.full_messages
-      }, status: :unprocessable_content
+      render_validation_error(@app)
     end
   end
   
   def analytics
-    return render_error('App not found', :not_found) unless set_app
-    return render_error('Unauthorized', :forbidden) unless authorize_app_access
+    return render_error('App not found', status: :not_found) unless set_app
+    return render_error('Unauthorized', status: :forbidden) unless authorize_app_access
     
     analytics_data = {
       subscription_count: @app.subscription_count,
@@ -195,25 +164,24 @@ class Api::V1::AppsController < ApplicationController
       download_count: @app.download_count,
       recent_activity: @app.recent_activity_summary
     }
-    
-    render json: {
-      success: true,
+
+    render_success(
       data: analytics_data
-    }, status: :ok
+    )
   end
   
   private
   
   def set_app
     @app = current_account.apps.find_by(id: params[:id])
-    render_error('App not found', :not_found) unless @app
+    render_error('App not found', status: :not_found) unless @app
   end
   
   def authorize_app_access
     return true if @app.account == current_account
     return true if current_user.has_permission?('apps.manage')
     
-    render_error('Unauthorized to access this app', :forbidden)
+    render_error('Unauthorized to access this app', status: :forbidden)
     false
   end
   
@@ -294,10 +262,4 @@ class Api::V1::AppsController < ApplicationController
     }
   end
   
-  def render_error(message, status)
-    render json: {
-      success: false,
-      error: message
-    }, status: status
-  end
 end

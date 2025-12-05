@@ -4,7 +4,7 @@ import { Button } from '@/shared/components/ui/Button';
 import { Badge } from '@/shared/components/ui/Badge';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { FlexBetween, FlexItemsCenter } from '@/shared/components/ui/FlexContainer';
-import { useNotification } from '@/shared/hooks/useNotification';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import { servicesApi, HealthStatus } from '../../services/servicesApi';
 import { 
   Heart,
@@ -43,7 +43,7 @@ export const HealthMonitoringDashboard: React.FC<HealthMonitoringDashboardProps>
   onRefresh,
   refreshing
 }) => {
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
   const [selectedService, setSelectedService] = useState<string | null>(null);
   const [healthHistory, setHealthHistory] = useState<ServiceHealthHistory | null>(null);
   const [loadingHistory, setLoadingHistory] = useState(false);

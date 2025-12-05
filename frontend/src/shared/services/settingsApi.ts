@@ -198,7 +198,7 @@ export const settingsApi = {
   },
 
   // Update user profile (authentication required)
-  async updateProfile(profileData: { first_name: string; last_name: string; email: string }): Promise<{ success: boolean; error?: string; message?: string }> {
+  async updateProfile(profileData: { name: string; email: string }): Promise<{ success: boolean; error?: string; message?: string }> {
     try {
       const response = await api.put('/users/profile', profileData);
       return response.data;

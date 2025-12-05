@@ -1,4 +1,3 @@
-import React from 'react';
 import {
   LineChart,
   Line,
@@ -8,7 +7,6 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
-  // BarChart, // TODO: Use for bar chart visualization
   Bar,
   ComposedChart
 } from 'recharts';

@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { Plan } from '@/features/plans/services/plansApi';
 import { Button } from '@/shared/components/ui/Button';
 

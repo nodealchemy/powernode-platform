@@ -8,7 +8,7 @@ import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { Modal } from '@/shared/components/ui/Modal';
 import { StatusIndicator } from '@/shared/components/ui/StatusIndicator';
 import { TabContainer } from '@/shared/components/ui/TabContainer';
-import { useNotification } from '@/shared/hooks/useNotification';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import { servicesApi, ServiceConfig, URLMapping, HealthStatus, ServiceDiscoveryConfig } from '../../services/servicesApi';
 import { URLMappingModal } from './URLMappingModal';
 import { TestConfigurationModal } from './TestConfigurationModal';
@@ -43,8 +43,8 @@ interface ServicesConfigurationProps {
 
 type TabType = 'basic' | 'services' | 'mappings' | 'advanced' | 'monitoring' | 'discovery';
 
-const ServicesConfiguration: React.FC<ServicesConfigurationProps> = ({ className = '' }) => {
-  const { showNotification } = useNotification();
+export const ServicesConfiguration: React.FC<ServicesConfigurationProps> = ({ className = '' }) => {
+  const { showNotification } = useNotifications();
   const [activeTab, setActiveTab] = useState<TabType>('basic');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -97,12 +97,10 @@ const ServicesConfiguration: React.FC<ServicesConfigurationProps> = ({ className
   useEffect(() => {
     if (!config?.enabled) return;
 
-    // Temporarily disable auto-refresh to debug page refresh issues  
+    // Temporarily disable auto-refresh to debug page refresh issues
     // const interval = setInterval(() => {
     //   refreshHealthStatus();
     // }, 30000); // 30 seconds
-    
-    console.log('ServicesConfiguration: Auto-refresh disabled for debugging'); // Debug log
 
     // return () => clearInterval(interval); // Commented out with the interval
   }, [config?.enabled, refreshHealthStatus]);
@@ -212,26 +210,6 @@ const ServicesConfiguration: React.FC<ServicesConfigurationProps> = ({ className
     return Object.keys(config.environments[currentEnv] || {});
   };
 
-  const getServiceStatus = (serviceName: string) => {
-    // eslint-disable-next-line security/detect-object-injection
-    if (!healthStatus?.services[serviceName]) {
-      return { status: 'unknown', color: 'secondary' };
-    }
-    
-    // eslint-disable-next-line security/detect-object-injection
-    const service = healthStatus.services[serviceName];
-    switch (service.status) {
-      case 'healthy':
-        return { status: 'healthy', color: 'success' };
-      case 'unhealthy':
-        return { status: 'unhealthy', color: 'warning' };
-      case 'unreachable':
-        return { status: 'unreachable', color: 'danger' };
-      default:
-        return { status: 'unknown', color: 'secondary' };
-    }
-  };
-
   if (loading) {
     return (
       <FlexItemsCenter justify="center" className="py-12">
@@ -324,35 +302,32 @@ const ServicesConfiguration: React.FC<ServicesConfigurationProps> = ({ className
           </FlexBetween>
           
           <GridCols2 gap="md">
-            {Object.entries(healthStatus.services).map(([serviceName, service]) => {
-              const _statusInfo = getServiceStatus(serviceName);
-              return (
-                <FlexItemsCenter key={serviceName} className="p-3 bg-theme-surface rounded-lg">
-                  <StatusIndicator 
-                    status={
-                      service.status === 'healthy' ? 'success' :
-                      service.status === 'unhealthy' ? 'warning' :
-                      service.status === 'unreachable' ? 'error' :
-                      'inactive'
-                    } 
-                    className="mr-3"
-                  />
-                  <div className="flex-1">
-                    <div className="font-medium text-theme-primary capitalize">
-                      {serviceName}
-                    </div>
-                    <div className="text-sm text-theme-secondary">
-                      {service.url || 'No URL configured'}
-                    </div>
+            {Object.entries(healthStatus.services).map(([serviceName, service]) => (
+              <FlexItemsCenter key={serviceName} className="p-3 bg-theme-surface rounded-lg">
+                <StatusIndicator
+                  status={
+                    service.status === 'healthy' ? 'success' :
+                    service.status === 'unhealthy' ? 'warning' :
+                    service.status === 'unreachable' ? 'error' :
+                    'inactive'
+                  }
+                  className="mr-3"
+                />
+                <div className="flex-1">
+                  <div className="font-medium text-theme-primary capitalize">
+                    {serviceName}
                   </div>
-                  {service.response_time && (
-                    <div className="text-sm text-theme-tertiary">
-                      {service.response_time}ms
-                    </div>
-                  )}
-                </FlexItemsCenter>
-              );
-            })}
+                  <div className="text-sm text-theme-secondary">
+                    {service.url || 'No URL configured'}
+                  </div>
+                </div>
+                {service.response_time && (
+                  <div className="text-sm text-theme-tertiary">
+                    {service.response_time}ms
+                  </div>
+                )}
+              </FlexItemsCenter>
+            ))}
           </GridCols2>
         </Card>
       )}
@@ -579,7 +554,7 @@ const ServicesListComponent: React.FC<{
   updateConfig: (updates: Partial<ServiceConfig>) => void;
   healthStatus: HealthStatus | null;
 }> = ({ config, updateConfig, healthStatus }) => {
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
   const [selectedEnvironment, setSelectedEnvironment] = useState(config.current_environment);
   const [showAddServiceModal, setShowAddServiceModal] = useState(false);
   const [editingService, setEditingService] = useState<string | null>(null);
@@ -1634,7 +1609,7 @@ const AddServiceModal: React.FC<AddServiceModalProps> = ({
   existingServices,
   templates
 }) => {
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
   const [serviceName, setServiceName] = useState('');
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
   const [customConfig, setCustomConfig] = useState({
@@ -1869,6 +1844,3 @@ const AddServiceModal: React.FC<AddServiceModalProps> = ({
     </Modal>
   );
 };
-
-export { ServicesConfiguration };
-export default ServicesConfiguration;

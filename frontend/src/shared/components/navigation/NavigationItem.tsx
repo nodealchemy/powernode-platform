@@ -28,10 +28,21 @@ export const NavigationItem: React.FC<NavigationItemProps> = ({
     return null;
   }
 
-  // Check if item is active
-  const isActive = item.href === '/app' 
-    ? location.pathname === item.href
-    : location.pathname.startsWith(item.href);
+  // Check if item is active - exact match for section root paths, startsWith for others
+  const isActive = (() => {
+    // Dashboard must be exact match
+    if (item.href === '/app') {
+      return location.pathname === item.href;
+    }
+    // Section overview pages (like /app/ai, /app/business) - exact match only
+    // These are paths with exactly 2 segments after /app
+    const hrefSegments = item.href.split('/').filter(Boolean);
+    if (hrefSegments.length === 2 && hrefSegments[0] === 'app') {
+      return location.pathname === item.href;
+    }
+    // For deeper paths, use startsWith
+    return location.pathname.startsWith(item.href);
+  })();
 
   // Render icon
   const renderIcon = () => {

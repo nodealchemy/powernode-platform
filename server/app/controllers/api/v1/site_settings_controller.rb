@@ -19,22 +19,15 @@ class Api::V1::SiteSettingsController < ApplicationController
       }
       
       footer_data = defaults.merge(footer_data)
-      
-      render json: {
-        success: true,
-        data: {
-          footer: footer_data
-        }
-      }, status: :ok
+
+      render_success({
+        footer: footer_data
+      })
     rescue => e
       Rails.logger.error "Footer API error: #{e.message}"
       Rails.logger.error e.backtrace.join("\n")
-      
-      render json: {
-        success: false,
-        error: "Failed to load footer data",
-        code: "FOOTER_ERROR"
-      }, status: :internal_server_error
+
+      render_error("Failed to load footer data", status: :internal_server_error)
     end
   end
 
@@ -42,32 +35,26 @@ class Api::V1::SiteSettingsController < ApplicationController
   def index
     @settings = SiteSetting.all.order(:key)
 
-    render_success(
-      data: {
-        settings: @settings.map { |setting| setting_data(setting) },
-        total_count: @settings.count
-      }
-    )
+    render_success({
+      settings: @settings.map { |setting| setting_data(setting) },
+      total_count: @settings.count
+    })
   end
 
   # GET /api/v1/site_settings/footer
   def footer
     footer_settings = SiteSetting.footer_settings
-    
-    render_success(
-      data: {
-        settings: footer_settings
-      }
-    )
+
+    render_success({
+      settings: footer_settings
+    })
   end
 
   # GET /api/v1/site_settings/:id
   def show
-    render_success(
-      data: {
-        setting: detailed_setting_data(@site_setting)
-      }
-    )
+    render_success({
+      setting: detailed_setting_data(@site_setting)
+    })
   end
 
   # POST /api/v1/site_settings
@@ -91,13 +78,10 @@ class Api::V1::SiteSettingsController < ApplicationController
         }
       )
 
-      render_success(
-        data: {
-          setting: detailed_setting_data(@site_setting),
-          message: "Setting created successfully"
-        },
-        status: :created
-      )
+      render_success({
+        setting: detailed_setting_data(@site_setting),
+        message: "Setting created successfully"
+      }, status: :created)
     else
       render_validation_error(@site_setting)
     end
@@ -125,12 +109,10 @@ class Api::V1::SiteSettingsController < ApplicationController
         }
       )
 
-      render_success(
-        data: {
-          setting: detailed_setting_data(@site_setting),
-          message: "Setting updated successfully"
-        }
-      )
+      render_success({
+        setting: detailed_setting_data(@site_setting),
+        message: "Setting updated successfully"
+      })
     else
       render_validation_error(@site_setting)
     end
@@ -200,12 +182,10 @@ class Api::V1::SiteSettingsController < ApplicationController
         }
       )
 
-      render_success(
-        data: {
-          settings: updated_settings,
-          message: "#{updated_settings.count} settings updated successfully"
-        }
-      )
+      render_success({
+        settings: updated_settings,
+        message: "#{updated_settings.count} settings updated successfully"
+      })
     else
       render_error("Some settings failed to update: #{errors.join(', ')}", status: :unprocessable_content)
     end

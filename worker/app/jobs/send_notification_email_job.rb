@@ -40,6 +40,11 @@ class SendNotificationEmailJob < BaseJob
         params['account_id'],
         params['end_date']
       ).deliver_now
+    when 'invitation'
+      NotificationMailer.invitation_email(
+        params['invitation_id'],
+        params['invitation_token']
+      ).deliver_now
     else
       return
     end

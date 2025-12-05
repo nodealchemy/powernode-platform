@@ -8,13 +8,12 @@ import {
   CreditCard, 
   Lock, 
   MapPin,
-  User 
+  User
 } from 'lucide-react';
-import React, { useState } from 'react';
+
 import { useDispatch } from 'react-redux';
 
 import { useForm } from '@/shared/hooks/useForm';
-import { useFormSubmission } from '@/shared/hooks/useFormSubmission';
 import type { AppDispatch } from '@/shared/services';
 import { addNotification } from '@/shared/services/slices/uiSlice';
 
@@ -56,17 +55,6 @@ const formatCardNumber = (value: string): string => {
   return groups.join(' ');
 };
 
-// Get card brand from number
-const getCardBrand = (cardNumber: string) => {
-  const digits = cardNumber.replace(/\D/g, '');
-  
-  if (/^4/.test(digits)) return 'visa';
-  if (/^5[1-5]/.test(digits) || /^2[2-7]/.test(digits)) return 'mastercard';
-  if (/^3[47]/.test(digits)) return 'amex';
-  if (/^6(?:011|5)/.test(digits)) return 'discover';
-  
-  return 'unknown';
-};
 
 // Luhn algorithm for card validation
 const isValidCardNumber = (cardNumber: string): boolean => {
@@ -100,7 +88,6 @@ export const CreditCardForm: React.FC<CreditCardFormProps> = ({
   submitButtonText = 'Add Payment Method'
 }) => {
   const dispatch = useDispatch<AppDispatch>();
-  const [cardBrand, setCardBrand] = useState<string>('unknown');
   
   const initialValues: CreditCardFormData = {
     cardholderName: '',
@@ -186,7 +173,7 @@ export const CreditCardForm: React.FC<CreditCardFormProps> = ({
   const form = useForm({
     initialValues,
     validationRules,
-    onSubmit: async (values) => {
+    onSubmit: async (_values) => {
       try {
         // Here you would integrate with your payment processor (Stripe, etc.)
         // For now, we'll simulate a successful payment method creation
@@ -211,9 +198,6 @@ export const CreditCardForm: React.FC<CreditCardFormProps> = ({
   // Handle card number changes with formatting
   const handleCardNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const formatted = formatCardNumber(e.target.value);
-    const brand = getCardBrand(formatted);
-    
-    setCardBrand(brand);
     form.setValue('cardNumber', formatted);
   };
 
@@ -245,7 +229,7 @@ export const CreditCardForm: React.FC<CreditCardFormProps> = ({
             placeholder="Enter cardholder name"
           />
           {form.errors.cardholderName && (
-            <p className="mt-1 text-sm text-red-600 flex items-center">
+            <p className="mt-1 text-sm text-theme-danger flex items-center">
               <AlertCircle className="w-4 h-4 mr-1" />
               {form.errors.cardholderName}
             </p>
@@ -269,7 +253,7 @@ export const CreditCardForm: React.FC<CreditCardFormProps> = ({
             placeholder="1234 5678 9012 3456"
           />
           {form.errors.cardNumber && (
-            <p className="mt-1 text-sm text-red-600 flex items-center">
+            <p className="mt-1 text-sm text-theme-danger flex items-center">
               <AlertCircle className="w-4 h-4 mr-1" />
               {form.errors.cardNumber}
             </p>
@@ -395,7 +379,7 @@ export const CreditCardForm: React.FC<CreditCardFormProps> = ({
               <input
                 type="checkbox"
                 {...form.getFieldProps('saveCard')}
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-theme rounded"
+                className="h-4 w-4 text-theme-info focus:ring-blue-500 border-theme rounded"
               />
               <label className="ml-2 block text-sm text-theme-primary">
                 Save this card for future payments
@@ -407,7 +391,7 @@ export const CreditCardForm: React.FC<CreditCardFormProps> = ({
                 <input
                   type="checkbox"
                   {...form.getFieldProps('setAsDefault')}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-theme rounded"
+                  className="h-4 w-4 text-theme-info focus:ring-blue-500 border-theme rounded"
                 />
                 <label className="ml-2 block text-sm text-theme-primary">
                   Set as default payment method
@@ -422,7 +406,7 @@ export const CreditCardForm: React.FC<CreditCardFormProps> = ({
           <button
             type="submit"
             disabled={form.isSubmitting}
-            className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 bg-theme-info text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {form.isSubmitting ? 'Processing...' : submitButtonText}
           </button>

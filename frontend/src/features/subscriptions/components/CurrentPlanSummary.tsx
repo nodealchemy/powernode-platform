@@ -1,6 +1,6 @@
-import React from 'react';
+
 import { SubscriptionStatusIndicator } from './SubscriptionStatusIndicator';
-import { Subscription } from '../services/subscriptionService';
+import { Subscription } from '@/shared/types';
 import { CreditCard, Calendar, Clock, TrendingUp } from 'lucide-react';
 
 interface CurrentPlanSummaryProps {
@@ -53,13 +53,13 @@ export const CurrentPlanSummary: React.FC<CurrentPlanSummaryProps> = ({
   };
 
   const getDaysRemaining = (subscription: Subscription): number => {
-    if (!subscription.currentPeriodEnd) return 0;
-    
-    const endDate = new Date(subscription.currentPeriodEnd);
+    if (!subscription.current_period_end) return 0;
+
+    const endDate = new Date(subscription.current_period_end);
     const now = new Date();
     const diffTime = endDate.getTime() - now.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
+
     return Math.max(0, diffDays);
   };
 
@@ -127,7 +127,7 @@ export const CurrentPlanSummary: React.FC<CurrentPlanSummaryProps> = ({
               <h4 className="font-semibold text-theme-primary">{subscription.plan.name}</h4>
             </div>
             <p className="text-2xl font-bold text-theme-primary">
-              {formatPrice(subscription.plan.price, subscription.plan.billing_cycle)}
+              {formatPrice(subscription.plan.price_cents, subscription.plan.billing_cycle)}
             </p>
             <p className="text-sm text-theme-secondary">
               {subscription.plan.billing_cycle} billing
@@ -159,7 +159,7 @@ export const CurrentPlanSummary: React.FC<CurrentPlanSummaryProps> = ({
                 {isTrialing ? 'Trial Ends' : 'Next Billing'}
               </p>
               <p className="text-sm text-theme-secondary">
-                {formatDate(isTrialing ? subscription.trialEndsAt : subscription.currentPeriodEnd)}
+                {formatDate(isTrialing ? subscription.trial_end : subscription.current_period_end)}
               </p>
             </div>
           </div>

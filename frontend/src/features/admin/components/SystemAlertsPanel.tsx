@@ -5,7 +5,7 @@ import {
   Trash2, Bell, Filter
 } from 'lucide-react';
 import { performanceApi, PerformanceAlert } from '@/shared/services/performanceApi';
-import { useNotification } from '@/shared/hooks/useNotification';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 
 interface SystemAlertsPanelProps {
   autoRefresh?: boolean;
@@ -34,18 +34,16 @@ export const SystemAlertsPanel: React.FC<SystemAlertsPanelProps> = ({
   const [showFilters, setShowFilters] = useState(false);
   const [dismissingAlerts, setDismissingAlerts] = useState<Set<string>>(new Set());
 
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
 
   useEffect(() => {
     loadAlerts();
-    
+
     // Temporarily disable auto-refresh to debug page refresh issues
     // if (autoRefresh) {
     //   const interval = setInterval(loadAlerts, refreshInterval);
     //   return () => clearInterval(interval);
     // }
-    
-    console.log('SystemAlertsPanel: Auto-refresh disabled for debugging'); // Debug log
   }, [autoRefresh, refreshInterval]);
 
   const loadAlerts = async () => {
@@ -332,4 +330,3 @@ export const SystemAlertsPanel: React.FC<SystemAlertsPanelProps> = ({
   );
 };
 
-export default SystemAlertsPanel;

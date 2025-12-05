@@ -13,7 +13,7 @@ import {
   MoreVertical,
   ExternalLink
 } from 'lucide-react';
-import webhooksApi, { WebhookEndpoint } from '@/features/webhooks/services/webhooksApi';
+import { webhooksApi, WebhookEndpoint } from '@/features/webhooks/services/webhooksApi';
 import Pagination from '@/shared/components/ui/Pagination';
 
 interface WebhookListProps {
@@ -36,7 +36,7 @@ interface WebhookListProps {
   onFiltersChange: (filters: { status: string; search: string }) => void;
 }
 
-const WebhookList: React.FC<WebhookListProps> = ({
+export const WebhookList: React.FC<WebhookListProps> = ({
   webhooks,
   pagination,
   onPageChange,
@@ -490,4 +490,3 @@ const WebhookList: React.FC<WebhookListProps> = ({
   );
 };
 
-export default WebhookList;

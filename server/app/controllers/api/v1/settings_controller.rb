@@ -13,12 +13,9 @@ class Api::V1::SettingsController < ApplicationController
   def show
     # Check if user is authenticated
     unless current_user
-      return render json: {
-        success: false,
-        error: 'Authentication required'
-      }, status: :unauthorized
+      return render_error('Authentication required', status: :unauthorized)
     end
-    
+
     render_success({
       user_preferences: current_user_preferences,
       account_settings: current_account_settings,
@@ -40,10 +37,7 @@ class Api::V1::SettingsController < ApplicationController
         message: "Settings updated successfully"
       }))
     else
-      render_error("Settings update failed", 
-        status: :unprocessable_content,
-        details: result[:errors]
-      )
+      render_error("Settings update failed", :unprocessable_content, details: result[:errors])
     end
   end
 
@@ -62,10 +56,7 @@ class Api::V1::SettingsController < ApplicationController
         message: "Notification preferences updated"
       }))
     else
-      render_error("Failed to update notification preferences",
-        status: :unprocessable_content,
-        details: { errors: current_user.errors.full_messages }
-      )
+      render_error("Failed to update notification preferences", :unprocessable_content, details: { errors: current_user.errors.full_messages })
     end
   end
 
@@ -84,10 +75,7 @@ class Api::V1::SettingsController < ApplicationController
         message: "User preferences updated"
       }))
     else
-      render_error("Failed to update preferences",
-        status: :unprocessable_content,
-        details: { errors: current_user.errors.full_messages }
-      )
+      render_error("Failed to update preferences", :unprocessable_content, details: { errors: current_user.errors.full_messages })
     end
   end
 
@@ -187,7 +175,9 @@ class Api::V1::SettingsController < ApplicationController
     {
       email_verified: current_user.email_verified?,
       password_last_changed: current_user.password_changed_at,
-      two_factor_enabled: false, # TODO: Implement 2FA
+      two_factor_enabled: current_user.two_factor_enabled?,
+      two_factor_enabled_at: current_user.two_factor_enabled_at,
+      backup_codes_generated_at: current_user.two_factor_backup_codes_generated_at,
       login_history: recent_login_history,
       failed_attempts: current_user.failed_login_attempts,
       account_locked: current_user.locked?
@@ -224,7 +214,7 @@ class Api::V1::SettingsController < ApplicationController
       {
         type: message_type,
         data: data,
-        userId: current_user.id,
+        user_id: current_user.id,
         timestamp: Time.current.iso8601
       }
     )

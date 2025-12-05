@@ -3,7 +3,6 @@ import react from '@vitejs/plugin-react';
 import viteTsconfigPaths from 'vite-tsconfig-paths';
 import svgr from 'vite-plugin-svgr';
 import path from 'path';
-import { execSync } from 'child_process';
 import fs from 'fs';
 
 // Cached proxy configuration to prevent automatic page refreshes
@@ -43,8 +42,9 @@ function getAllowedHosts(): string[] {
     } else {
       console.log('⚠ No proxy cache found, using defaults (background refresh will create)');
     }
-  } catch (error) {
-    console.log('⚠ Error reading proxy cache, using defaults:', error.message);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.log('⚠ Error reading proxy cache, using defaults:', errorMessage);
   }
   
   // TEMPORARILY DISABLED - Background refresh may be causing 90s refresh cycles
@@ -58,67 +58,65 @@ function getAllowedHosts(): string[] {
 }
 
 // Background refresh that doesn't block Vite configuration
-function scheduleBackgroundRefresh(cacheFile: string): void {
-  // Use setImmediate to ensure this runs after Vite config loading
-  setImmediate(() => {
-    // Fork a child process to avoid blocking
-    const { spawn } = require('child_process');
-    
-    const refreshProcess = spawn('node', ['scripts/fetch-proxy-config.js'], {
-      cwd: __dirname,
-      stdio: 'pipe',
-      env: { ...process.env, VITE_QUIET: 'true' },
-      detached: false
-    });
-    
-    let output = '';
-    refreshProcess.stdout.on('data', (data: Buffer) => {
-      output += data.toString();
-    });
-    
-    refreshProcess.on('close', (code: number) => {
-      if (code === 0 && output.trim()) {
-        try {
-          // Verify the output is valid JSON
-          const config = JSON.parse(output.trim());
-          if (config.allowedHosts && config.allowedHosts.length > 0) {
-            // Update cache file for next Vite restart
-            fs.writeFileSync(cacheFile, JSON.stringify({
-              ...config,
-              fetchedAt: new Date().toISOString()
-            }, null, 2));
-            console.log('✓ Background refresh completed, cache updated for next restart');
-          }
-        } catch (error) {
-          console.log('⚠ Background refresh failed to parse response:', error.message);
-        }
-      } else {
-        console.log('⚠ Background refresh failed, will retry on next restart');
-      }
-    });
-    
-    // Prevent hanging processes
-    refreshProcess.on('error', () => {
-      console.log('⚠ Background refresh process error, will retry on next restart');
-    });
-    
-    // Kill after 10 seconds to prevent hanging
-    setTimeout(() => {
-      if (!refreshProcess.killed) {
-        refreshProcess.kill();
-      }
-    }, 10000);
-  });
-}
+// TEMPORARILY DISABLED - Function preserved for future use
+// function scheduleBackgroundRefresh(cacheFile: string): void {
+//   // Use setImmediate to ensure this runs after Vite config loading
+//   setImmediate(() => {
+//     // Fork a child process to avoid blocking
+//     const { spawn } = require('child_process');
+//
+//     const refreshProcess = spawn('node', ['scripts/fetch-proxy-config.js'], {
+//       cwd: __dirname,
+//       stdio: 'pipe',
+//       env: { ...process.env, VITE_QUIET: 'true' },
+//       detached: false
+//     });
+//
+//     let output = '';
+//     refreshProcess.stdout.on('data', (data: Buffer) => {
+//       output += data.toString();
+//     });
+//
+//     refreshProcess.on('close', (code: number) => {
+//       if (code === 0 && output.trim()) {
+//         try {
+//           // Verify the output is valid JSON
+//           const config = JSON.parse(output.trim());
+//           if (config.allowedHosts && config.allowedHosts.length > 0) {
+//             // Update cache file for next Vite restart
+//             fs.writeFileSync(cacheFile, JSON.stringify({
+//               ...config,
+//               fetchedAt: new Date().toISOString()
+//             }, null, 2));
+//             console.log('✓ Background refresh completed, cache updated for next restart');
+//           }
+//         } catch (error: unknown) {
+//           const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+//           console.log('⚠ Background refresh failed to parse response:', errorMessage);
+//         }
+//       } else {
+//         console.log('⚠ Background refresh failed, will retry on next restart');
+//       }
+//     });
+//
+//     // Prevent hanging processes
+//     refreshProcess.on('error', () => {
+//       console.log('⚠ Background refresh process error, will retry on next restart');
+//     });
+//
+//     // Kill after 10 seconds to prevent hanging
+//     setTimeout(() => {
+//       if (!refreshProcess.killed) {
+//         refreshProcess.kill();
+//       }
+//     }, 10000);
+//   });
+// }
 
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => {
+export default defineConfig(({ mode }: { mode: string }) => {
   // Load env file based on `mode` in the current working directory.
   const env = loadEnv(mode, process.cwd(), '');
-  
-  // Determine if we're behind a reverse proxy
-  // Check multiple indicators for reverse proxy detection
-  const isProduction = mode === 'production';
   
   // Use actual host from environment or detect from context
   const proxyHost = env.VITE_PROXY_HOST || 
@@ -130,12 +128,11 @@ export default defineConfig(({ mode }) => {
   // Runtime proxy detection (similar to API logic)
   // If VITE_BEHIND_PROXY is explicitly set, use it
   // Otherwise, auto-detect based on production mode or domain patterns
-  const behindProxy = env.VITE_BEHIND_PROXY === 'true' || 
+  const behindProxy = env.VITE_BEHIND_PROXY === 'true' ||
                      env.BEHIND_PROXY === 'true' ||
                      (env.NODE_ENV === 'production') ||
-                     (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') ||
                      // Auto-detect proxy based on domain patterns (non-localhost, non-IP)
-                     (proxyHost !== 'localhost' && !proxyHost.match(/^\d+\.\d+\.\d+\.\d+$/) && !proxyHost.includes('ipnode'));
+                     (proxyHost !== 'localhost' && !proxyHost.match(/^\d+\.\d+\.\d+\.\d+$/));
   
   console.log('🔧 Vite Configuration:');
   console.log(`  Mode: ${mode}`);
@@ -195,7 +192,7 @@ export default defineConfig(({ mode }) => {
       // Dynamic configuration - client will determine connection type at runtime
       hmr: {
         // Let Vite handle the connection dynamically
-        // For proxy scenarios: client will connect via same domain (wss://dev.powernode.org)  
+        // For proxy scenarios: client will connect via same domain
         // For direct access: client will connect to development server port
         timeout: 30000, // Reduced from 120000ms to prevent long disconnection periods
         overlay: true,
@@ -221,15 +218,15 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           secure: false,
           ws: true,
-          rewrite: (path) => path.replace(/^\/api\/v1/, ''),
-          configure: (proxy, _options) => {
-            proxy.on('error', (err, _req, _res) => {
+          rewrite: (path: string) => path.replace(/^\/api\/v1/, ''),
+          configure: (proxy: any) => {
+            proxy.on('error', (err: Error) => {
               console.log('proxy error', err);
             });
-            proxy.on('proxyReq', (proxyReq, req, _res) => {
+            proxy.on('proxyReq', (_proxyReq: any, req: any) => {
               console.log('Sending Request to the Target:', req.method, req.url);
             });
-            proxy.on('proxyRes', (proxyRes, req, _res) => {
+            proxy.on('proxyRes', (proxyRes: any, req: any) => {
               console.log('Received Response from the Target:', proxyRes.statusCode, req.url);
             });
           },

@@ -59,8 +59,8 @@ class Api::V1::Admin::ReviewModerationController < ApplicationController
     @total_count = @reviews.count
     @reviews = @reviews.limit(per_page).offset(offset)
 
-    render_success(
-      data: {
+    render_success({
+
         reviews: serialize_moderation_reviews(@reviews),
         pagination: {
           page: page,
@@ -80,7 +80,7 @@ class Api::V1::Admin::ReviewModerationController < ApplicationController
     reason = params[:reason]
 
     unless review_ids.is_a?(Array) && review_ids.any?
-      return render_error('No reviews selected', :unprocessable_entity)
+      return render_error('No reviews selected', status: :unprocessable_content)
     end
 
     reviews = AppReview.where(id: review_ids)
@@ -160,7 +160,7 @@ class Api::V1::Admin::ReviewModerationController < ApplicationController
                                                      .transform_values(&:count)
     }
 
-    render_success(data: analytics_data)
+    render_success(analytics_data)
   end
 
   # GET /api/v1/admin/review_moderation/history/:review_id
@@ -170,8 +170,8 @@ class Api::V1::Admin::ReviewModerationController < ApplicationController
                     .includes(:moderator)
                     .order(created_at: :desc)
 
-    render_success(
-      data: {
+    render_success({
+
         review: {
           id: review.id,
           title: review.display_title,
@@ -227,14 +227,14 @@ class Api::V1::Admin::ReviewModerationController < ApplicationController
       require_verification_for_reviews: AdminSetting.get('require_verification_for_reviews', 'false') == 'true'
     }
 
-    render_success(data: { settings: settings })
+    render_success({ settings: settings })
   end
 
   private
 
   def check_admin_permissions
     unless current_user.has_permission?('reviews.moderate')
-      render_error('Insufficient permissions', :forbidden)
+      render_error('Insufficient permissions', status: :forbidden)
     end
   end
 

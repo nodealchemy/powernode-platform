@@ -216,9 +216,6 @@ class CreateCoreFoundation < ActiveRecord::Migration[8.0]
       t.timestamps null: false
       
       t.index [:account_id, :delegated_user_id], unique: true, name: 'index_account_delegations_unique'
-      t.index [:delegated_user_id], name: 'index_account_delegations_on_delegated_user'
-      t.index [:delegated_by_id], name: 'index_account_delegations_on_delegated_by'
-      t.index [:role_id], name: 'index_account_delegations_on_role'
       t.index [:status], name: 'index_account_delegations_on_status'
       t.index [:expires_at], name: 'index_account_delegations_on_expires_at'
     end

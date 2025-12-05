@@ -272,7 +272,8 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
     }
   }, []);
 
-  const handleWebSocketError = useCallback((errorMessage: string) => {
+  const handleWebSocketError = useCallback((_errorMessage: string) => {
+    // Error handling could be added here
   }, []);
 
   // Analytics WebSocket for real-time updates
@@ -293,8 +294,8 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
   // const [lastUpdated, setLastUpdated] = useState<Date | null>(null); // TODO: Display last updated timestamp
   
   // Check permissions before loading analytics
-  const canViewAnalytics = hasPermissions(user, ['analytics.read']);
-  const canExportAnalytics = hasPermissions(user, ['analytics.export']);
+  const canViewAnalytics = hasPermissions(user, ['ai.analytics.read', 'admin.access']);
+  const canExportAnalytics = hasPermissions(user, ['ai.analytics.export', 'admin.access']);
   
   // Date range state
   const [dateRange, setDateRange] = useState<{
@@ -318,7 +319,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
     }, 50);
 
     return () => clearTimeout(timeoutId);
-  }, [location.pathname, getActiveTabFromPath]);
+  }, [location.pathname]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load analytics data with StrictMode protection
   const loadAnalyticsData = useCallback(async (force = false) => {
@@ -400,7 +401,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
     } finally {
       setLoading(false);
     }
-  }, [dateRange, data, usingFallbackData, canViewAnalytics]);
+  }, [dateRange.startDate.getTime(), dateRange.endDate.getTime(), canViewAnalytics]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Initial data load with StrictMode protection
   useEffect(() => {
@@ -408,7 +409,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
       loadAnalyticsData();
     }, 0);
     return () => clearTimeout(timeoutId);
-  }, [dateRange]);
+  }, [dateRange.startDate, dateRange.endDate]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-refresh analytics data when WebSocket is connected - but only for overview tab
   useEffect(() => {
@@ -423,8 +424,6 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
     //   // Request real-time analytics update via WebSocket
     //   requestAnalyticsUpdate();
     // }, 30000); // Request update every 30 seconds
-    
-    console.log('⚠️ AnalyticsPage auto-refresh temporarily disabled to prevent page refreshes');
 
     return () => {
       if (refreshInterval.current) {
@@ -443,11 +442,12 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
     if (!canExportAnalytics) {
       return; // Don't export if user doesn't have permission
     }
-    
+
     try {
       await analyticsService.exportAnalytics(format, reportType, dateRange);
       setShowExportModal(false);
-    } catch (error) {
+    } catch (_error) {
+      // Error handling could be added here
     }
   };
 

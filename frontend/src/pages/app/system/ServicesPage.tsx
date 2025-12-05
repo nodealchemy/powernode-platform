@@ -5,7 +5,6 @@ import { ServicesConfiguration } from '@/features/admin/components/settings/Serv
 import { RootState } from '@/shared/services';
 import { hasPermissions } from '@/shared/utils/permissionUtils';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
-import { Globe } from 'lucide-react';
 
 export const ServicesPage: React.FC = () => {
   const { user } = useSelector((state: RootState) => state.auth);

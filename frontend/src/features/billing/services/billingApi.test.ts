@@ -246,109 +246,30 @@ describe('billingApi', () => {
     });
   });
 
-  describe('getSubscription', () => {
-    it('should fetch subscription successfully', async () => {
-      const mockSubscription = {
-        id: 'sub_123',
-        status: 'active',
-        plan_id: 'plan_pro',
-        current_period_end: '2024-02-01T00:00:00Z'
+  describe('getSubscriptionBilling', () => {
+    it('should fetch subscription billing successfully', async () => {
+      const mockSubscriptionBilling = {
+        subscription: {
+          id: 'sub_123',
+          plan: {
+            id: 'plan_pro',
+            name: 'Pro Plan',
+            price: '29.99',
+            billing_cycle: 'monthly'
+          },
+          status: 'active',
+          current_period_start: '2024-01-01T00:00:00Z',
+          current_period_end: '2024-02-01T00:00:00Z'
+        },
+        billing_history: []
       };
 
-      mockApi.get.mockResolvedValue(createMockAxiosResponse(mockSubscription));
+      mockApi.get.mockResolvedValue(createMockAxiosResponse(mockSubscriptionBilling));
 
-      const result = await billingApi.getSubscription('sub_123');
+      const result = await billingApi.getSubscriptionBilling();
 
-      expect(mockApi.get).toHaveBeenCalledWith('/billing/subscriptions/sub_123');
-      expect(result.data).toEqual(mockSubscription);
-    });
-  });
-
-  describe('createSubscription', () => {
-    it('should create subscription successfully', async () => {
-      const subscriptionData = {
-        plan_id: 'plan_pro',
-        payment_method_id: 'pm_123',
-        billing_cycle: 'monthly'
-      };
-
-      const mockResponseData = {
-        id: 'sub_456',
-        ...subscriptionData,
-        status: 'active'
-      };
-
-      const mockResponse = {
-        success: true,
-        data: mockResponseData
-      };
-
-      mockApi.post.mockResolvedValue(createMockAxiosResponse(mockResponseData));
-
-      const result = await billingApi.createSubscription(subscriptionData);
-
-      expect(mockApi.post).toHaveBeenCalledWith('/billing/subscriptions', subscriptionData);
-      expect(result).toEqual(mockResponse);
-    });
-  });
-
-  describe('updateSubscription', () => {
-    it('should update subscription successfully', async () => {
-      const subscriptionId = 'sub_123';
-      const updateData = {
-        plan_id: 'plan_enterprise'
-      };
-
-      mockApi.put.mockResolvedValue(createMockAxiosResponse({
-        success: true,
-        data: {
-          id: subscriptionId,
-          plan_id: 'plan_enterprise'
-        }
-      }));
-
-      const result = await billingApi.updateSubscription(subscriptionId, updateData);
-
-      expect(mockApi.put).toHaveBeenCalledWith(`/billing/subscriptions/${subscriptionId}`, updateData);
-      expect(result.success).toBe(true);
-    });
-  });
-
-  describe('cancelSubscription', () => {
-    it('should cancel subscription successfully', async () => {
-      const subscriptionId = 'sub_123';
-
-      mockApi.post.mockResolvedValue(createMockAxiosResponse({
-        success: true,
-        data: {
-          id: subscriptionId,
-          status: 'canceled'
-        }
-      }));
-
-      const result = await billingApi.cancelSubscription(subscriptionId);
-
-      expect(mockApi.post).toHaveBeenCalledWith(`/billing/subscriptions/${subscriptionId}/cancel`);
-      expect(result.success).toBe(true);
-    });
-
-    it('should cancel subscription at period end', async () => {
-      const subscriptionId = 'sub_123';
-
-      mockApi.post.mockResolvedValue(createMockAxiosResponse({
-        success: true,
-        data: {
-          id: subscriptionId,
-          cancel_at_period_end: true
-        }
-      }));
-
-      const result = await billingApi.cancelSubscription(subscriptionId, { at_period_end: true });
-
-      expect(mockApi.post).toHaveBeenCalledWith(`/billing/subscriptions/${subscriptionId}/cancel`, {
-        at_period_end: true
-      });
-      expect(result.success).toBe(true);
+      expect(mockApi.get).toHaveBeenCalledWith('/billing/subscription');
+      expect(result).toEqual(mockSubscriptionBilling);
     });
   });
 

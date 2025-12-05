@@ -15,7 +15,7 @@ import { AuditLogAnalytics } from '@/features/audit-logs/components/AuditLogAnal
 import { AuditLogMetrics } from '@/features/audit-logs/components/AuditLogMetrics';
 import { AuditLogExport } from '@/features/audit-logs/components/AuditLogExport';
 import { auditLogsApi, AuditLog, AuditLogFilters as FilterType } from '@/features/audit-logs/services/auditLogsApi';
-import { useNotification } from '@/shared/hooks/useNotification';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
 import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
 import { hasPermissions } from '@/shared/utils/permissionUtils';
@@ -55,7 +55,7 @@ export const AuditLogsPage: React.FC = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [showExport, setShowExport] = useState(false);
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
-  const [refreshInterval, setRefreshInterval] = useState<NodeJS.Timer | null>(null);
+  const [refreshInterval, setRefreshInterval] = useState<ReturnType<typeof setInterval> | null>(null);
   
   // State management
   const [state, setState] = useState<AuditLogsState>({
@@ -74,7 +74,7 @@ export const AuditLogsPage: React.FC = () => {
   
   const [metrics, setMetrics] = useState<SecurityMetrics | null>(null);
   
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
 
   // Load audit logs
   const loadAuditLogs = async (newFilters?: FilterType) => {
@@ -93,7 +93,7 @@ export const AuditLogsPage: React.FC = () => {
         loading: false
       }));
       
-    } catch (error) {
+    } catch (_error) {
       setState(prev => ({
         ...prev,
         loading: false,
@@ -108,7 +108,7 @@ export const AuditLogsPage: React.FC = () => {
     try {
       const response = await auditLogsApi.getSecuritySummary();
       setMetrics(response);
-    } catch (error) {
+    } catch (_error) {
     }
   };
 
@@ -153,7 +153,6 @@ export const AuditLogsPage: React.FC = () => {
       //   loadMetrics();
       // }, 30000); // Refresh every 30 seconds
       // setRefreshInterval(interval);
-      console.log('⚠️ AuditLogsPage auto-refresh temporarily disabled to prevent page refreshes');
       showNotification('Auto-refresh enabled (30s)', 'success');
     }
   };

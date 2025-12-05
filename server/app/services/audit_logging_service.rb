@@ -55,14 +55,14 @@ class AuditLoggingService
   # Specialized logging methods
   def log_authentication(action:, user: nil, request: nil, **options)
     context = extract_request_context(request) if request
+    severity = action.include?('failed') ? 'high' : 'low'
     
     log(
       action: action,
       resource: user || create_dummy_user_resource(options[:email]),
       user: user,
       account: user&.account,
-      severity: action.include?('failed') ? 'high' : 'low',
-      risk_level: action.include?('failed') ? 'high' : 'low',
+      severity: severity,
       **context,
       **options
     )
@@ -95,9 +95,8 @@ class AuditLoggingService
       action: action,
       resource: resource,
       user: user,
-      severity: 'high',
-      risk_level: 'medium',
       source: 'admin_panel',
+      severity: 'high',
       metadata: (options[:metadata] || {}).merge(
         admin_action: true,
         requires_review: true
@@ -125,8 +124,6 @@ class AuditLoggingService
       resource: resource,
       user: user,
       account: user&.account || detect_account(user, resource),
-      severity: threat_level,
-      risk_level: threat_level,
       metadata: (options[:metadata] || {}).merge(
         threat_level: threat_level,
         security_event: true,
@@ -205,7 +202,7 @@ class AuditLoggingService
       by_action: scope.group(:action).count.sort_by(&:last).reverse.first(10),
       by_source: scope.group(:source).count,
       by_day: scope.by_day.count,
-      high_risk_activities: scope.high_risk.count,
+      suspicious_activities: scope.suspicious.count,
       recent_activities: scope.recent(20).includes(:user, :account).map(&:summary)
     }
   end
@@ -298,13 +295,11 @@ class AuditLoggingService
 
   def should_monitor?(audit_log)
     audit_log.is_suspicious? || 
-    audit_log.is_security_related? || 
-    audit_log.risk_level.in?(['high', 'critical'])
+    audit_log.is_security_related?
   end
 
   def requires_analysis?(audit_log)
     audit_log.is_suspicious? || 
-    audit_log.severity.in?(['high', 'critical']) ||
     audit_log.action.in?(AuditLog.admin_actions)
   end
 
@@ -315,8 +310,6 @@ class AuditLoggingService
       data: {
         id: audit_log.id,
         action: audit_log.action,
-        severity: audit_log.severity,
-        risk_level: audit_log.risk_level,
         user: audit_log.user&.email,
         account: audit_log.account&.name,
         timestamp: audit_log.created_at,
@@ -369,11 +362,11 @@ class AuditLoggingService
   def perform_real_time_analysis
     return unless @monitoring_enabled
 
-    # Analyze recent high-risk events
-    recent_events = AuditLog.high_risk.where(created_at: 5.minutes.ago..Time.current)
+    # Analyze recent suspicious events since high_risk scope doesn't work without risk_level column
+    recent_events = AuditLog.suspicious.where(created_at: 5.minutes.ago..Time.current)
     
     if recent_events.count > 10
-      send_alert('High risk event spike', "#{recent_events.count} high-risk events in last 5 minutes")
+      send_alert('Suspicious event spike', "#{recent_events.count} suspicious events in last 5 minutes")
     end
 
     # Check for anomalous patterns
@@ -397,7 +390,6 @@ class AuditLoggingService
   def recent_security_alerts(time_range)
     AuditLog.security_events
             .where(created_at: time_range)
-            .where(severity: ['high', 'critical'])
             .recent(10)
             .map(&:summary)
   end
@@ -407,7 +399,6 @@ class AuditLoggingService
     
     risk_indicators = {
       failed_logins: recent_logs.where(action: 'login_failed').count,
-      high_risk_events: recent_logs.high_risk.count,
       admin_actions: recent_logs.admin_events.count,
       suspicious_events: recent_logs.suspicious.count
     }
@@ -543,7 +534,6 @@ class AuditLoggingService
         user: user,
         account: account || Account.first,
         source: 'system',
-        severity: 'critical',
         metadata: {
           original_action: action,
           error_message: error.message,

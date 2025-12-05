@@ -14,7 +14,7 @@ class Webhooks::ProcessWebhookJob < BaseJob
     provider = webhook_data['provider']
     event_type = webhook_data['event_type']
     
-    logger.info "Processing #{provider} webhook: #{event_type}"
+    log_info("Processing #{provider} webhook: #{event_type}")
     
     # Process webhook based on provider
     result = case provider.downcase
@@ -23,14 +23,14 @@ class Webhooks::ProcessWebhookJob < BaseJob
              when 'paypal'
                process_paypal_webhook(webhook_data)
              else
-               logger.warn "Unknown webhook provider: #{provider}"
+               log_warn("Unknown webhook provider: #{provider}")
                { 'success' => false, 'error' => "Unsupported provider: #{provider}" }
              end
     
     if result['success']
-      logger.info "Successfully processed #{provider} webhook: #{event_type}"
+      log_info("Successfully processed #{provider} webhook: #{event_type}")
     else
-      logger.error "Failed to process #{provider} webhook: #{result['error']}"
+      log_error("Failed to process #{provider} webhook: #{result['error']}")
     end
     
     result
@@ -58,7 +58,7 @@ class Webhooks::ProcessWebhookJob < BaseJob
     when 'payment_intent.payment_failed'
       handle_payment_intent_failed(payload, 'stripe')
     else
-      logger.info "Unhandled Stripe event type: #{event_type}"
+      log_info("Unhandled Stripe event type: #{event_type}")
       { 'success' => true, 'message' => 'Event type not handled' }
     end
   end
@@ -74,7 +74,7 @@ class Webhooks::ProcessWebhookJob < BaseJob
       { 'success' => false, 'error' => result[:error] || 'PayPal webhook processing failed' }
     end
   rescue => e
-    logger.error "PayPal webhook processing failed: #{e.message}"
+    log_error("PayPal webhook processing failed: #{e.message}")
     { 'success' => false, 'error' => e.message }
   end
   
@@ -92,7 +92,7 @@ class Webhooks::ProcessWebhookJob < BaseJob
       api_client.post('/api/v1/webhooks/payment_succeeded', webhook_params)
     end
   rescue BackendApiClient::ApiError => e
-    logger.error "Failed to process payment succeeded webhook: #{e.message}"
+    log_error("Failed to process payment succeeded webhook: #{e.message}")
     { 'success' => false, 'error' => e.message }
   end
   
@@ -113,12 +113,12 @@ class Webhooks::ProcessWebhookJob < BaseJob
     # Schedule payment retry if subscription is identified
     if result['subscription_id']
       Billing::PaymentRetryJob.perform_in(1.hour, result['subscription_id'], 'webhook_failure')
-      logger.info "Scheduled payment retry for subscription #{result['subscription_id']}"
+      log_info("Scheduled payment retry for subscription #{result['subscription_id']}")
     end
     
     result
   rescue BackendApiClient::ApiError => e
-    logger.error "Failed to process payment failed webhook: #{e.message}"
+    log_error("Failed to process payment failed webhook: #{e.message}")
     { 'success' => false, 'error' => e.message }
   end
   
@@ -136,7 +136,7 @@ class Webhooks::ProcessWebhookJob < BaseJob
       api_client.post('/api/v1/webhooks/subscription_updated', webhook_params)
     end
   rescue BackendApiClient::ApiError => e
-    logger.error "Failed to process subscription updated webhook: #{e.message}"
+    log_error("Failed to process subscription updated webhook: #{e.message}")
     { 'success' => false, 'error' => e.message }
   end
   
@@ -154,7 +154,7 @@ class Webhooks::ProcessWebhookJob < BaseJob
       api_client.post('/api/v1/webhooks/subscription_cancelled', webhook_params)
     end
   rescue BackendApiClient::ApiError => e
-    logger.error "Failed to process subscription cancelled webhook: #{e.message}"
+    log_error("Failed to process subscription cancelled webhook: #{e.message}")
     { 'success' => false, 'error' => e.message }
   end
   
@@ -172,7 +172,7 @@ class Webhooks::ProcessWebhookJob < BaseJob
       api_client.post('/api/v1/webhooks/subscription_activated', webhook_params)
     end
   rescue BackendApiClient::ApiError => e
-    logger.error "Failed to process subscription activated webhook: #{e.message}"
+    log_error("Failed to process subscription activated webhook: #{e.message}")
     { 'success' => false, 'error' => e.message }
   end
   
@@ -190,7 +190,7 @@ class Webhooks::ProcessWebhookJob < BaseJob
       api_client.post('/api/v1/webhooks/payment_method_attached', webhook_params)
     end
   rescue BackendApiClient::ApiError => e
-    logger.error "Failed to process payment method attached webhook: #{e.message}"
+    log_error("Failed to process payment method attached webhook: #{e.message}")
     { 'success' => false, 'error' => e.message }
   end
   
@@ -208,7 +208,7 @@ class Webhooks::ProcessWebhookJob < BaseJob
       api_client.post('/api/v1/webhooks/payment_intent_succeeded', webhook_params)
     end
   rescue BackendApiClient::ApiError => e
-    logger.error "Failed to process payment intent succeeded webhook: #{e.message}"
+    log_error("Failed to process payment intent succeeded webhook: #{e.message}")
     { 'success' => false, 'error' => e.message }
   end
   
@@ -226,7 +226,7 @@ class Webhooks::ProcessWebhookJob < BaseJob
       api_client.post('/api/v1/webhooks/payment_intent_failed', webhook_params)
     end
   rescue BackendApiClient::ApiError => e
-    logger.error "Failed to process payment intent failed webhook: #{e.message}"
+    log_error("Failed to process payment intent failed webhook: #{e.message}")
     { 'success' => false, 'error' => e.message }
   end
   

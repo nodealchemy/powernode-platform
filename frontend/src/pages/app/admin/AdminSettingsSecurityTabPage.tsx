@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import { Navigate } from 'react-router-dom';
-import { adminApi, SystemSettings } from '@/features/admin/services/adminApi';
-import { useNotification } from '@/shared/hooks/useNotification';
+import { adminSettingsApi, AdminSettings } from '@/features/admin/services/adminSettingsApi';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import { ToggleSwitch, SettingsCard } from '@/features/admin/components/settings/SettingsComponents';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { Shield, Lock, Users, Clock, Settings, AlertTriangle } from 'lucide-react';
@@ -11,8 +11,8 @@ import { hasPermissions } from '@/shared/utils/permissionUtils';
 
 export const AdminSettingsSecurityTabPage: React.FC = () => {
   const { user } = useSelector((state: RootState) => state.auth);
-  const { showNotification } = useNotification();
-  const [systemSettings, setSystemSettings] = useState<Partial<SystemSettings>>({});
+  const { showNotification } = useNotifications();
+  const [systemSettings, setSystemSettings] = useState<Partial<AdminSettings>>({});
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -50,7 +50,7 @@ export const AdminSettingsSecurityTabPage: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await adminApi.getAdminSettings();
+      const response = await adminSettingsApi.getOverview();
       setSystemSettings(response.settings_summary || {});
       
       // Calculate security scores based on current settings
@@ -63,7 +63,7 @@ export const AdminSettingsSecurityTabPage: React.FC = () => {
     }
   };
 
-  const calculateSecurityScores = (settings: Partial<SystemSettings>) => {
+  const calculateSecurityScores = (settings: Partial<AdminSettings>) => {
     let authScore = 60;
     if (settings.password_complexity_level === 'high') authScore += 30;
     else if (settings.password_complexity_level === 'medium') authScore += 20;
@@ -85,22 +85,22 @@ export const AdminSettingsSecurityTabPage: React.FC = () => {
     });
   };
 
-  const handleSettingsUpdate = async (newSettings: Partial<SystemSettings>) => {
+  const handleSettingsUpdate = async (newSettings: Partial<AdminSettings>) => {
     try {
       setSaving(true);
-      await adminApi.updateAdminSettings(newSettings);
+      await adminSettingsApi.updateSettings(newSettings);
       const updatedSettings = { ...systemSettings, ...newSettings };
       setSystemSettings(updatedSettings);
       calculateSecurityScores(updatedSettings);
       showNotification('Security settings updated successfully', 'success');
-    } catch (error) {
+    } catch (_error) {
       showNotification('Failed to update security settings', 'error');
     } finally {
       setSaving(false);
     }
   };
 
-  const handleRateLimitingUpdate = async (rateLimitingSettings: Partial<NonNullable<SystemSettings['rate_limiting']>>) => {
+  const handleRateLimitingUpdate = async (rateLimitingSettings: Partial<NonNullable<AdminSettings['rate_limiting']>>) => {
     const updatedRateLimit = {
       ...systemSettings.rate_limiting,
       ...rateLimitingSettings

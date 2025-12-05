@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 
 interface Tab {
   id: string;
@@ -12,13 +12,11 @@ interface Tab {
 
 interface TabNavigationProps {
   tabs: readonly Tab[];
-  basePath: string;
   className?: string;
 }
 
-export const TabNavigation: React.FC<TabNavigationProps> = ({ tabs, basePath, className = '' }) => {
+export const TabNavigation: React.FC<TabNavigationProps> = ({ tabs, className = '' }) => {
   const location = useLocation();
-  const navigate = useNavigate();
   const currentPath = location.pathname;
 
   // Find the most specific matching tab (longest path that matches)
@@ -84,16 +82,12 @@ export const TabNavigation: React.FC<TabNavigationProps> = ({ tabs, basePath, cl
 
 interface MobileTabNavigationProps {
   tabs: readonly Tab[];
-  basePath: string;
   className?: string;
-  currentTabLabel?: string;
 }
 
-export const MobileTabNavigation: React.FC<MobileTabNavigationProps> = ({ 
-  tabs, 
-  basePath, 
-  currentTabLabel,
-  className = '' 
+export const MobileTabNavigation: React.FC<MobileTabNavigationProps> = ({
+  tabs,
+  className = ''
 }) => {
   const location = useLocation();
   const currentPath = location.pathname;
@@ -116,7 +110,7 @@ export const MobileTabNavigation: React.FC<MobileTabNavigationProps> = ({
         value={currentTab?.path || ''}
         onChange={(e) => {
           if (e.target.value) {
-            navigate(e.target.value);
+            window.location.href = e.target.value;
           }
         }}
       >

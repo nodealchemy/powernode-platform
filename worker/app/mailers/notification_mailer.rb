@@ -98,13 +98,32 @@ class NotificationMailer < ApplicationMailer
   def test_email(email_address)
     @timestamp = Time.current
     @settings = EmailConfigurationService.instance.settings
-    
+
     mail(
       to: email_address,
       subject: "Test Email from #{app_name}"
     )
   end
-  
+
+  # Account invitation email
+  def invitation_email(invitation_id, invitation_token)
+    invitation = fetch_invitation(invitation_id)
+    return if invitation.nil?
+
+    @invitation = invitation
+    @inviter_name = "#{invitation[:inviter_first_name]} #{invitation[:inviter_last_name]}"
+    @invitee_name = "#{invitation[:first_name]} #{invitation[:last_name]}"
+    @account_name = invitation[:account_name]
+    @invitation_url = "#{frontend_url}/accept-invitation?token=#{invitation_token}"
+    @expires_at = invitation[:expires_at]
+    @role_names = invitation[:role_names]&.join(', ') || 'Member'
+
+    mail(
+      to: invitation[:email],
+      subject: "You've been invited to join #{@account_name} on #{app_name}"
+    )
+  end
+
   private
   
   def fetch_user(user_id)
@@ -118,7 +137,13 @@ class NotificationMailer < ApplicationMailer
   rescue StandardError => e
     nil
   end
-  
+
+  def fetch_invitation(invitation_id)
+    api_client.get_invitation(invitation_id)
+  rescue StandardError => e
+    nil
+  end
+
   def frontend_url
     ENV['FRONTEND_URL'] || 'http://localhost:3001'
   end

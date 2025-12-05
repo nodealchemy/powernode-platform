@@ -12,11 +12,10 @@ class Api::V1::Auth::SessionsController < ApplicationController
 
     # Check if account is locked before attempting authentication
     if user&.locked?
-      render json: {
-        success: false,
-        error: "Your account is temporarily locked due to multiple failed login attempts. Please try again later."
-      }, status: :unauthorized
-      return
+      return render_error(
+        "Your account is temporarily locked due to multiple failed login attempts. Please try again later.",
+        :unauthorized
+      )
     end
 
     if user&.authenticate(login_params[:password])
@@ -43,12 +42,12 @@ class Api::V1::Auth::SessionsController < ApplicationController
             metadata: { login_method: "password", step: "2fa_required" }
           )
 
-          render json: {
-            success: true,
+          render_success({
             requires_2fa: true,
-            verification_token: two_fa_result[:token],
+            verification_token: two_fa_result[:token]
+          },
             message: "Two-factor authentication required. Please provide your verification code."
-          }, status: :ok
+          )
           return
         end
 
@@ -88,7 +87,13 @@ class Api::V1::Auth::SessionsController < ApplicationController
           response_data[:warning] = "Please complete email verification to secure your account"
         end
 
-        render json: response_data, status: :ok
+        render_success({
+          user: response_data[:user],
+          account: response_data[:account],
+          access_token: response_data[:access_token],
+          refresh_token: response_data[:refresh_token],
+          expires_at: response_data[:expires_at]
+        }.merge(response_data[:warning] ? { warning: response_data[:warning] } : {}))
       else
         error_message = if user.status == "suspended"
           "Account is suspended"
@@ -98,10 +103,7 @@ class Api::V1::Auth::SessionsController < ApplicationController
           "Account access denied"
         end
 
-        render json: {
-          success: false,
-          error: error_message
-        }, status: :unauthorized
+        render_error(error_message, status: :unauthorized)
       end
     else
 
@@ -109,15 +111,12 @@ class Api::V1::Auth::SessionsController < ApplicationController
       user.reload if user # Reload to get updated failed_login_attempts
 
       if user&.locked?
-        render json: {
-          success: false,
-          error: "Your account has been temporarily locked due to multiple failed login attempts. Please try again later."
-        }, status: :unauthorized
+        render_error(
+          "Your account has been temporarily locked due to multiple failed login attempts. Please try again later.",
+          :unauthorized
+        )
       else
-        render json: {
-          success: false,
-          error: "Invalid email or password"
-        }, status: :unauthorized
+        render_error("Invalid email or password", status: :unauthorized)
       end
     end
   end
@@ -131,12 +130,12 @@ class Api::V1::Auth::SessionsController < ApplicationController
       # Use JWT service to refresh the token
       token_result = JwtService.refresh_access_token(refresh_token)
 
-      render json: {
-        success: true,
+      render_success({
         access_token: token_result[:access_token],
         refresh_token: token_result[:refresh_token],
         expires_at: token_result[:expires_at]
-      }, status: :ok
+      }
+      )
     rescue StandardError => e
       Rails.logger.error "Token refresh error: #{e.message}"
       Rails.logger.error "Token refresh backtrace: #{e.backtrace.join("\n")}"
@@ -182,18 +181,16 @@ class Api::V1::Auth::SessionsController < ApplicationController
       metadata: { logout_method: "api" }
     )
 
-    render json: {
-      success: true,
-      message: "Successfully logged out"
-    }, status: :ok
+    render_success(
+      "Successfully logged out"
+    )
   end
 
   # GET /api/v1/sessions/current
   def current
-    render json: {
-      success: true,
+    render_success({
       user: user_data(current_user)
-    }, status: :ok
+    })
   end
 
   # POST /api/v1/auth/verify-2fa
@@ -202,19 +199,17 @@ class Api::V1::Auth::SessionsController < ApplicationController
     two_factor_code = params[:code]
 
     unless verification_token.present?
-      render json: {
-        success: false,
-        error: "Verification token is required"
-      }, status: :bad_request
-      return
+      return render_error(
+        "Verification token is required",
+        :bad_request
+      )
     end
 
     unless two_factor_code.present?
-      render json: {
-        success: false,
-        error: "Two-factor authentication code is required"
-      }, status: :bad_request
-      return
+      return render_error(
+        "Two-factor authentication code is required",
+        :bad_request
+      )
     end
 
     begin
@@ -253,13 +248,20 @@ class Api::V1::Auth::SessionsController < ApplicationController
         response_data[:warning] = "Please complete email verification to secure your account"
       end
 
-      render json: response_data, status: :ok
+      render_success({
+        user: response_data[:user],
+        account: response_data[:account],
+        access_token: response_data[:access_token],
+          refresh_token: response_data[:refresh_token],
+          expires_at: response_data[:expires_at]
+        }.merge(response_data[:warning] ? { warning: response_data[:warning] } : {})
+      )
     rescue StandardError => e
       Rails.logger.error "2FA verification error: #{e.message}"
-      render json: {
-        success: false,
-        error: "Authentication verification failed"
-      }, status: :unauthorized
+      render_error(
+        "Authentication verification failed",
+        :unauthorized
+      )
     end
   end
 

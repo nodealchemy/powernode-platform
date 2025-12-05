@@ -1,14 +1,13 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Worker, workerAPI } from '@/features/workers/services/workerApi';
-import { 
-  Activity, 
-  TrendingUp, 
+import { Worker, workerApi } from '@/features/workers/services/workerApi';
+import {
+  Activity,
+  TrendingUp,
   TrendingDown,
   Clock,
   Globe,
   Smartphone,
   Monitor,
-  MapPin,
   AlertTriangle,
   CheckCircle,
   XCircle,
@@ -57,7 +56,7 @@ export const WorkerActivityDashboard: React.FC<WorkerActivityDashboardProps> = (
     const fetchActivityStats = async () => {
       try {
         setLoading(true);
-        const response = await workerAPI.getWorkerActivities(worker.id, { page: 1, per_page: 1 });
+        const response = await workerApi.getWorkerActivities(worker.id, { page: 1, per_page: 1 });
         if (response && response.summary) {
           setRealActivityStats(response.summary);
         }
@@ -394,7 +393,7 @@ export const WorkerActivityDashboard: React.FC<WorkerActivityDashboardProps> = (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                           {event.ip_address && (
                             <div className="flex items-center gap-2">
-                              <MapPin className="w-4 h-4 text-theme-secondary" />
+                              <Globe className="w-4 h-4 text-theme-secondary" />
                               <span className="text-theme-secondary">IP:</span>
                               <span className="text-theme-primary font-mono">{event.ip_address}</span>
                             </div>
@@ -459,4 +458,3 @@ export const WorkerActivityDashboard: React.FC<WorkerActivityDashboardProps> = (
   );
 };
 
-export default WorkerActivityDashboard;

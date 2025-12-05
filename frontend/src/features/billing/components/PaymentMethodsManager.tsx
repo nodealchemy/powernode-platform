@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { CreditCard, Plus, Trash2, Check, AlertTriangle, Star } from 'lucide-react';
 import { paymentMethodsApi, PaymentMethod } from '@/shared/services/paymentMethodsApi';
-import { useNotification } from '@/shared/hooks/useNotification';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { Button } from '@/shared/components/ui/Button';
 
 interface PaymentMethodsManagerProps {
   onMethodAdded?: (method: PaymentMethod) => void;
-  onMethodDeleted?: (methodId: string) => void;
+  onMethodDeleted?: (method_id: string) => void;
   showAddButton?: boolean;
 }
 
@@ -17,13 +17,13 @@ export const PaymentMethodsManager: React.FC<PaymentMethodsManagerProps> = ({
   showAddButton = true
 }) => {
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
-  const [defaultMethodId, setDefaultMethodId] = useState<string>('');
+  const [default_method_id, setDefault_method_id] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [addingMethod, setAddingMethod] = useState(false);
   const [deletingMethod, setDeletingMethod] = useState<string>('');
   const [settingDefault, setSettingDefault] = useState<string>('');
   
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
 
   const loadPaymentMethods = useCallback(async () => {
     try {
@@ -31,7 +31,7 @@ export const PaymentMethodsManager: React.FC<PaymentMethodsManagerProps> = ({
       const response = await paymentMethodsApi.getPaymentMethods();
       if (response.success) {
         setPaymentMethods(response.payment_methods);
-        setDefaultMethodId(response.default_payment_method_id || '');
+        setDefault_method_id(response.default_payment_method_id || '');
       } else {
         showNotification(response.error || 'Failed to load payment methods', 'error');
       }
@@ -70,13 +70,13 @@ export const PaymentMethodsManager: React.FC<PaymentMethodsManagerProps> = ({
     }
   };
 
-  const handleSetDefault = async (methodId: string) => {
+  const handleSetDefault = async (method_id: string) => {
     try {
-      setSettingDefault(methodId);
-      const response = await paymentMethodsApi.setDefaultPaymentMethod(methodId);
-      
+      setSettingDefault(method_id);
+      const response = await paymentMethodsApi.setDefaultPaymentMethod(method_id);
+
       if (response.success) {
-        setDefaultMethodId(methodId);
+        setDefault_method_id(method_id);
         showNotification('Default payment method updated', 'success');
       } else {
         showNotification(response.error || 'Failed to set default payment method', 'error');
@@ -88,23 +88,23 @@ export const PaymentMethodsManager: React.FC<PaymentMethodsManagerProps> = ({
     }
   };
 
-  const handleDeleteMethod = async (methodId: string) => {
+  const handleDeleteMethod = async (method_id: string) => {
     if (!window.confirm('Are you sure you want to delete this payment method?')) {
       return;
     }
 
     try {
-      setDeletingMethod(methodId);
-      const response = await paymentMethodsApi.deletePaymentMethod(methodId);
-      
+      setDeletingMethod(method_id);
+      const response = await paymentMethodsApi.deletePaymentMethod(method_id);
+
       if (response.success) {
-        setPaymentMethods(prev => prev.filter(method => method.id !== methodId));
-        if (defaultMethodId === methodId) {
-          setDefaultMethodId('');
+        setPaymentMethods(prev => prev.filter(method => method.id !== method_id));
+        if (default_method_id === method_id) {
+          setDefault_method_id('');
         }
         showNotification('Payment method deleted successfully', 'success');
         if (onMethodDeleted) {
-          onMethodDeleted(methodId);
+          onMethodDeleted(method_id);
         }
       } else {
         showNotification(response.error || 'Failed to delete payment method', 'error');
@@ -188,7 +188,7 @@ export const PaymentMethodsManager: React.FC<PaymentMethodsManagerProps> = ({
       ) : (
         <div className="space-y-4">
           {paymentMethods.map((method) => {
-            const isDefault = method.id === defaultMethodId;
+            const isDefault = method.id === default_method_id;
             const expiryWarning = getExpiryWarning(method);
             
             return (
@@ -303,4 +303,3 @@ export const PaymentMethodsManager: React.FC<PaymentMethodsManagerProps> = ({
   );
 };
 
-export default PaymentMethodsManager;

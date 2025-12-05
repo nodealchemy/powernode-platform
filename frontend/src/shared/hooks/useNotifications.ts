@@ -7,6 +7,7 @@ interface NotificationParams {
   type: 'success' | 'error' | 'warning' | 'info';
   message: string;
   title?: string; // Optional title for compatibility
+  details?: Record<string, any>; // Optional details for expandable notifications
 }
 
 export const useNotifications = () => {
@@ -14,15 +15,21 @@ export const useNotifications = () => {
 
   const addNotification = (params: NotificationParams) => {
     // If title is provided, combine with message
-    const message = params.title 
+    const message = params.title
       ? `${params.title}: ${params.message}`
       : params.message;
-    
+
     dispatch(addNotificationAction({
       type: params.type,
-      message
+      message,
+      details: params.details
     }));
   };
 
-  return { addNotification };
+  // Compatibility helper for simpler usage
+  const showNotification = (message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info') => {
+    addNotification({ message, type });
+  };
+
+  return { addNotification, showNotification };
 };

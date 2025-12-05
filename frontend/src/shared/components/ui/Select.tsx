@@ -1,9 +1,18 @@
 import React from 'react';
 
-export interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
+export interface SelectOption {
+  value: string;
+  label: string;
+  disabled?: boolean;
+}
+
+export interface SelectProps extends Omit<React.SelectHTMLAttributes<HTMLSelectElement>, 'onChange'> {
   label?: string;
   error?: string;
   fullWidth?: boolean;
+  options?: SelectOption[];
+  onChange?: (value: string) => void;
+  onValueChange?: (value: string) => void;
 }
 
 export const Select: React.FC<SelectProps> = ({
@@ -12,15 +21,29 @@ export const Select: React.FC<SelectProps> = ({
   fullWidth = true,
   className = '',
   children,
+  options,
+  onChange,
+  onValueChange,
+  value,
   ...props
 }) => {
+  const handleChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    const newValue = event.target.value;
+    if (onChange) {
+      onChange(newValue);
+    }
+    if (onValueChange) {
+      onValueChange(newValue);
+    }
+  };
+
   const baseClassName = `
     px-3 py-2 border border-theme rounded-md 
     bg-theme-surface text-theme-primary 
     focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-transparent
     disabled:bg-theme-background disabled:text-theme-secondary
     ${fullWidth ? 'w-full' : ''}
-    ${error ? 'border-red-500 focus:ring-red-500' : ''}
+    ${error ? 'border-theme-error focus:ring-theme-error' : ''}
     ${className}
   `.trim();
 
@@ -33,12 +56,26 @@ export const Select: React.FC<SelectProps> = ({
       )}
       <select
         className={baseClassName}
+        value={value}
+        onChange={handleChange}
         {...props}
       >
-        {children}
+        {options ? (
+          options.map((option) => (
+            <option
+              key={option.value}
+              value={option.value}
+              disabled={option.disabled}
+            >
+              {option.label}
+            </option>
+          ))
+        ) : (
+          children
+        )}
       </select>
       {error && (
-        <p className="mt-1 text-sm text-red-600">
+        <p className="mt-1 text-sm text-theme-error">
           {error}
         </p>
       )}

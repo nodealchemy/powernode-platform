@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { CreateServiceData } from '@/shared/services/serviceApi';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
@@ -150,5 +150,3 @@ export const CreateServiceModal: React.FC<CreateServiceModalProps> = ({ isOpen, 
     </Modal>
   );
 };
-
-export default CreateServiceModal;

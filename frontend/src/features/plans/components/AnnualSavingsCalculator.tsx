@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { Plan } from '../services/plansApi';
 
 interface AnnualSavingsCalculatorProps {
@@ -90,5 +90,3 @@ export const AnnualSavingsCalculator: React.FC<AnnualSavingsCalculatorProps> = (
     </div>
   );
 };
-
-export default AnnualSavingsCalculator;

@@ -23,7 +23,7 @@ import {
 } from '@/shared/services/maintenanceApi';
 import { SettingsCard, ToggleSwitch } from '../settings/SettingsComponents';
 import { FormField } from '@/shared/components/ui/FormField';
-import { useNotification } from '@/shared/hooks/useNotification';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 
 // Maintenance Mode Control Component
 interface MaintenanceModeControlProps {
@@ -37,7 +37,7 @@ export const MaintenanceModeControl: React.FC<MaintenanceModeControlProps> = ({ 
   const [scheduledStart, setScheduledStart] = useState('');
   const [scheduledEnd, setScheduledEnd] = useState('');
   const [message, setMessage] = useState(status.message || '');
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
 
   const handleToggleMaintenanceMode = async (enabled: boolean) => {
     try {
@@ -328,7 +328,7 @@ interface DatabaseBackupProps {
 export const DatabaseBackupManager: React.FC<DatabaseBackupProps> = ({ backups, onRefresh }) => {
   const [loading, setLoading] = useState(false);
   const [creatingBackup, setCreatingBackup] = useState(false);
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
 
   const handleCreateBackup = async () => {
     try {
@@ -500,7 +500,7 @@ export const DataCleanupManager: React.FC<DataCleanupProps> = ({ stats, onRefres
     orphaned_uploads: true,
     cache_entries: false,
   });
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
 
   const handleRunCleanup = async () => {
     if (!window.confirm('Are you sure you want to run the selected cleanup operations? This action cannot be undone.')) {

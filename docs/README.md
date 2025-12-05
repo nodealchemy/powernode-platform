@@ -3,10 +3,11 @@
 This directory contains comprehensive documentation for the Powernode subscription platform.
 
 ## Quick Access
-- **[TODO.md](TODO.md)** - Project tracking and development status  
+- **[TODO.md](TODO.md)** - Project tracking and development status
 - **[CHANGELOG.md](CHANGELOG.md)** - Version history and release notes
 - **[DEVELOPMENT.md](DEVELOPMENT.md)** - Development setup and workflow
-- **[Testing Documentation Master](testing/TESTING_DOCUMENTATION_MASTER.md)** - Complete testing guide
+- **[Backend Test Engineer](testing/BACKEND_TEST_ENGINEER_SPECIALIST.md)** - Rails testing specialist
+- **[Frontend Test Engineer](testing/FRONTEND_TEST_ENGINEER_SPECIALIST.md)** - React testing specialist
 
 ## Directory Structure
 
@@ -37,15 +38,8 @@ React TypeScript specialist documentation:
 
 ### Testing Documentation (`testing/`)
 Comprehensive testing framework and methodologies:
-- **[Testing Master Guide](testing/TESTING_DOCUMENTATION_MASTER.md)** - Central testing documentation hub
-- **[Testing Quick Reference](testing/TESTING_QUICK_REFERENCE.md)** - Daily testing patterns
-- **[Systematic Patterns](testing/SYSTEMATIC_TESTING_PATTERNS.md)** - Proven testing methodologies
-- **[Achievement Records](testing/TESTING_ACHIEVEMENT_RECORDS.md)** - Historic 100% testing excellence
-- **[Testing Strategy](testing/COMPREHENSIVE_TESTING_STRATEGY.md)** - Complete testing framework
-- **[Testing Excellence Roadmap](testing/TESTING_EXCELLENCE_ROADMAP.md)** - Future testing enhancement plans
-- **[Testing Methodology Validation](testing/TESTING_METHODOLOGY_VALIDATION.md)** - Testing approach validation
-- **[Backend Test Engineer](testing/BACKEND_TEST_ENGINEER_SPECIALIST.md)** - Rails testing specialist guide
-- **[Frontend Test Engineer](testing/FRONTEND_TEST_ENGINEER_SPECIALIST.md)** - React testing specialist guide
+- **[Backend Test Engineer](testing/BACKEND_TEST_ENGINEER_SPECIALIST.md)** - Rails testing specialist guide (RSpec patterns)
+- **[Frontend Test Engineer](testing/FRONTEND_TEST_ENGINEER_SPECIALIST.md)** - React testing specialist guide (Jest/Cypress)
 
 ### Infrastructure Documentation (`infrastructure/`)
 DevOps and system administration:
@@ -61,7 +55,7 @@ Specialized service implementations:
 
 ### Worker Documentation (`worker/`)
 Background processing documentation:
-- **[Email Testing Configuration](worker/EMAIL_TESTING_CONFIGURATION.md)** - Email system testing setup
+- See **[Background Jobs Specialist](backend/BACKGROUND_JOB_ENGINEER_SPECIALIST.md)** for worker patterns
 
 ## Additional Documentation Files
 

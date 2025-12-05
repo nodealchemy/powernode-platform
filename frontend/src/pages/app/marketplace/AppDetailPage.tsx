@@ -13,11 +13,15 @@ import { useAppWebhooks } from '@/features/marketplace/hooks/useWebhooks';
 import { useAppSubscriptions } from '@/features/marketplace/hooks/useAppSubscriptions';
 import { AppStatus } from '@/features/marketplace/types';
 import { Settings, Globe, Calendar, Code, Webhook, RefreshCw, Upload, EyeOff } from 'lucide-react';
+import { useNotifications } from '@/shared/hooks/useNotifications';
+import { appsApi } from '@/features/marketplace/services/marketplaceApi';
 
 export const AppDetailPage: React.FC = () => {
   const { appId } = useParams<{ appId: string }>();
   const navigate = useNavigate();
+  const { showNotification } = useNotifications();
   const [activeTab, setActiveTab] = useState<'overview' | 'endpoints' | 'webhooks' | 'analytics'>('overview');
+  const [publishing, setPublishing] = useState(false);
 
   // Always call hooks at the top level - use empty string as fallback to avoid conditional calls
   const { app, loading, error, refresh } = useApp(appId || '');
@@ -46,11 +50,31 @@ export const AppDetailPage: React.FC = () => {
   };
 
   const handlePublish = async () => {
-    // TODO: Implement publish functionality
+    if (!appId) return;
+    try {
+      setPublishing(true);
+      await appsApi.publishApp(appId);
+      showNotification('App published successfully', 'success');
+      refresh();
+    } catch (error) {
+      showNotification(error instanceof Error ? error.message : 'Failed to publish app', 'error');
+    } finally {
+      setPublishing(false);
+    }
   };
 
   const handleUnpublish = async () => {
-    // TODO: Implement unpublish functionality
+    if (!appId) return;
+    try {
+      setPublishing(true);
+      await appsApi.unpublishApp(appId);
+      showNotification('App unpublished successfully', 'success');
+      refresh();
+    } catch (error) {
+      showNotification(error instanceof Error ? error.message : 'Failed to unpublish app', 'error');
+    } finally {
+      setPublishing(false);
+    }
   };
 
   const getBreadcrumbs = () => [
@@ -61,7 +85,7 @@ export const AppDetailPage: React.FC = () => {
   ];
 
 
-  const handleWebhookAction = (action: string, webhookId: string) => {
+  const handleWebhookAction = (action: string, _webhookId: string) => {
     // Refresh webhooks when needed
     if (['create', 'update', 'delete', 'toggle-status'].includes(action)) {
       refreshWebhooks();
@@ -106,20 +130,22 @@ export const AppDetailPage: React.FC = () => {
     if (app?.status === 'draft' || app?.status === 'inactive') {
       actions.unshift({
         id: 'publish',
-        label: 'Publish App',
+        label: publishing ? 'Publishing...' : 'Publish App',
         onClick: handlePublish,
         variant: 'outline' as const,
         icon: Upload,
-        permission: 'apps.publish'
+        permission: 'apps.publish',
+        disabled: publishing
       });
     } else if (app?.status === 'published') {
       actions.unshift({
         id: 'unpublish',
-        label: 'Unpublish',
+        label: publishing ? 'Unpublishing...' : 'Unpublish',
         onClick: handleUnpublish,
         variant: 'outline' as const,
         icon: EyeOff,
-        permission: 'apps.publish'
+        permission: 'apps.publish',
+        disabled: publishing
       });
     }
 

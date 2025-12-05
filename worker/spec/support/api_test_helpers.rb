@@ -4,21 +4,22 @@ module ApiTestHelpers
   # API response stubs
   def stub_backend_api_success(method, path, response_data = {}, status: 200, with_query: nil)
     url = build_api_url(path)
-    
-    stub = WebMock.stub_request(method, url)
-      .with(headers: expected_request_headers)
-    
+
+    # Use a regex pattern to match the path with optional query parameters
+    # The pattern must end with $ or ? to prevent /messages matching /messages/UUID
+    url_pattern = /#{Regexp.escape(url)}(\?.*)?$/
+
+    stub = WebMock.stub_request(method, url_pattern)
+
     # If specific query parameters are provided, match them exactly
-    # Otherwise, allow any query parameters (or none)
     if with_query
       stub = stub.with(query: with_query)
-    else
-      # Use a regex pattern to match the path with any query parameters
-      url_pattern = /#{Regexp.escape(url)}(\?.*)?/
-      stub = WebMock.stub_request(method, url_pattern)
-        .with(headers: expected_request_headers)
     end
-    
+
+    # Only match critical Authorization header (partial matching)
+    # This allows Faraday to add additional headers like Connection, Host, etc.
+    stub = stub.with(headers: { 'Authorization' => expected_request_headers['Authorization'] })
+
     stub.to_return(
       status: status,
       body: response_data.to_json,
@@ -29,19 +30,21 @@ module ApiTestHelpers
   def stub_backend_api_error(method, path, status: 500, error_message: 'Server Error', with_query: nil)
     url = build_api_url(path)
     error_response = { error: error_message }
-    
-    stub = WebMock.stub_request(method, url)
-      .with(headers: expected_request_headers)
-    
-    # Handle query parameters the same way as success stub
+
+    # Use a regex pattern to match the path with optional query parameters
+    # The pattern must end with $ to prevent /messages matching /messages/UUID
+    url_pattern = /#{Regexp.escape(url)}(\?.*)?$/
+
+    stub = WebMock.stub_request(method, url_pattern)
+
+    # If specific query parameters are provided, match them exactly
     if with_query
       stub = stub.with(query: with_query)
-    else
-      url_pattern = /#{Regexp.escape(url)}(\?.*)?/
-      stub = WebMock.stub_request(method, url_pattern)
-        .with(headers: expected_request_headers)
     end
-    
+
+    # Only match critical Authorization header (partial matching)
+    stub = stub.with(headers: { 'Authorization' => expected_request_headers['Authorization'] })
+
     stub.to_return(
       status: status,
       body: error_response.to_json,
@@ -51,19 +54,17 @@ module ApiTestHelpers
 
   def stub_backend_api_timeout(method, path)
     url = build_api_url(path)
-    url_pattern = /#{Regexp.escape(url)}(\?.*)?/
-    
+    url_pattern = /#{Regexp.escape(url)}(\?.*)?$/
+
     WebMock.stub_request(method, url_pattern)
-      .with(headers: expected_request_headers)
       .to_raise(Faraday::TimeoutError.new('execution expired'))
   end
 
   def stub_backend_api_connection_failure(method, path)
     url = build_api_url(path)
-    url_pattern = /#{Regexp.escape(url)}(\?.*)?/
-    
+    url_pattern = /#{Regexp.escape(url)}(\?.*)?$/
+
     WebMock.stub_request(method, url_pattern)
-      .with(headers: expected_request_headers)
       .to_raise(Faraday::ConnectionFailed.new('Failed to open TCP connection'))
   end
 

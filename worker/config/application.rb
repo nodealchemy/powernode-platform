@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require_relative 'boot'
 
 # Main application class for Powernode Worker Service
@@ -117,7 +119,7 @@ class PowernodeWorker
                 :worker_concurrency, :worker_queues
 
     def api_timeout
-      ENV.fetch('API_TIMEOUT', '30').to_i
+      ENV.fetch('API_TIMEOUT', '120').to_i
     end
 
     def max_retry_attempts

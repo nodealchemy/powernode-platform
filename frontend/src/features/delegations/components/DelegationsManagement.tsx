@@ -340,4 +340,3 @@ export const DelegationsManagement: React.FC = () => {
   );
 };
 
-export default DelegationsManagement;

@@ -99,8 +99,8 @@ export const ReportsOverviewPage: React.FC = () => {
 
       setStats(statsResponse.data);
       setRecentReports(recentResponse.data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load overview data');
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Failed to load overview data');
     } finally {
       setLoading(false);
     }

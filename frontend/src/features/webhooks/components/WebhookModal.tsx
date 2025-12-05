@@ -1,6 +1,6 @@
-import React from 'react';
+
 import { X } from 'lucide-react';
-import WebhookForm from './WebhookForm';
+import { WebhookForm } from './WebhookForm';
 import { WebhookEndpoint, WebhookFormData } from '../services/webhooksApi';
 
 interface WebhookModalProps {

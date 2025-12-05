@@ -18,16 +18,12 @@ class Api::V1::Auth::PasswordsController < ApplicationController
     end
 
     # Always return success to prevent email enumeration
-    render json: {
-      success: true,
+    render_success(
       message: "If an account with that email exists, password reset instructions have been sent."
-    }, status: :ok
+    )
   rescue => e
     Rails.logger.error "Password reset error: #{e.message}"
-    render json: {
-      success: false,
-      error: "An error occurred. Please try again later."
-    }, status: :internal_server_error
+    render_error("An error occurred. Please try again later.", status: :internal_server_error)
   end
 
   # POST /api/v1/passwords/reset
@@ -65,22 +61,14 @@ class Api::V1::Auth::PasswordsController < ApplicationController
         password_confirmation: change_params[:password_confirmation]
       )
 
-      render json: {
-        success: true,
+      render_success(
         message: "Password changed successfully"
-      }, status: :ok
+      )
     else
-      render json: {
-        success: false,
-        error: "Current password is incorrect"
-      }, status: :unauthorized
+      render_error("Current password is incorrect", status: :unauthorized)
     end
   rescue ActiveRecord::RecordInvalid => e
-    render json: {
-      success: false,
-      error: "Password change failed",
-      details: e.record.errors.full_messages
-    }, status: :unprocessable_content
+    render_error("Password change failed", :unprocessable_content, details: e.record.errors.full_messages)
   end
 
   private

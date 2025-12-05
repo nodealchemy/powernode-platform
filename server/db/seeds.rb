@@ -13,6 +13,50 @@ puts "✅ Created #{Permission.count} permissions"
 Role.sync_from_config!
 puts "✅ Created #{Role.count} roles"
 
+# Validate permission system integrity
+puts "\n🔍 Validating permission system integrity..."
+validation_issues = []
+
+# Check for super_admin role
+super_admin_role = Role.find_by(name: 'super_admin')
+if super_admin_role.nil?
+  validation_issues << "Critical: super_admin role not found!"
+else
+  # Verify super_admin has system.admin permission
+  unless super_admin_role.permissions.exists?(name: 'system.admin')
+    validation_issues << "Critical: super_admin role missing system.admin permission!"
+  end
+end
+
+# Check for system.admin permission
+system_admin_perm = Permission.find_by(name: 'system.admin')
+if system_admin_perm.nil?
+  validation_issues << "Critical: system.admin permission not found!"
+end
+
+# Check permission categories
+permission_categories = Permission.pluck(:name).map { |name| name.split('.').first }.uniq
+expected_categories = ['users', 'admin', 'billing', 'system', 'analytics', 'pages', 'storage']
+missing_categories = expected_categories - permission_categories
+
+if missing_categories.any?
+  validation_issues << "Warning: Missing permission categories: #{missing_categories.join(', ')}"
+end
+
+# Report validation results
+if validation_issues.empty?
+  puts "✅ Permission system validation passed"
+  puts "   Total Permissions: #{Permission.count}"
+  puts "   Total Roles: #{Role.count}"
+  puts "   Permission Categories: #{permission_categories.count} (#{permission_categories.join(', ')})"
+else
+  puts "⚠️  Permission system validation found #{validation_issues.count} issues:"
+  validation_issues.each { |issue| puts "   - #{issue}" }
+  if validation_issues.any? { |i| i.start_with?('Critical:') }
+    puts "\n❌ Critical validation errors found. Please check permissions.rb configuration!"
+  end
+end
+
 # Create default plans
 administrator_plan = Plan.find_or_create_by!(name: 'Administrator') do |plan|
   plan.description = 'Special plan for system administrators'
@@ -255,11 +299,11 @@ puts "🔧 Creating system worker..."
 
 begin
   # Check if WORKER_TOKEN is set in environment
-  worker_token = ENV['WORKER_SERVICE_TOKEN'] || ENV['WORKER_TOKEN']
+  worker_token = ENV['WORKER_TOKEN']
   if worker_token.blank?
     puts "⚠️ WORKER_TOKEN not found in environment - generating new token"
     worker_token = "swt_#{SecureRandom.urlsafe_base64(32)}"
-    puts "💡 Set this token in your environment: WORKER_SERVICE_TOKEN=#{worker_token}"
+    puts "💡 Set this token in your environment: WORKER_TOKEN=#{worker_token}"
   end
 
   system_worker = Worker.find_by(name: 'System Worker')
@@ -314,8 +358,7 @@ if Rails.env.development? || Rails.env.test?
     email: 'admin@powernode.org'
   ) do |user|
     user.account = admin_account
-    user.first_name = 'System'
-    user.last_name = 'Admin'
+    user.name = 'System Admin'
     user.password = 'P0w3rN0d3Admin!@&'
     user.password_confirmation = 'P0w3rN0d3Admin!@&'
     user.status = 'active'
@@ -328,7 +371,20 @@ if Rails.env.development? || Rails.env.test?
   if super_admin_role && !admin_user.roles.include?(super_admin_role)
     admin_user.roles.clear  # Remove any existing roles
     admin_user.roles << super_admin_role
-    puts "✅ Assigned super_admin role to admin user (#{super_admin_role.permissions.count} permissions)"
+
+    # Enhanced permission feedback
+    has_system_admin = super_admin_role.permissions.exists?(name: 'system.admin')
+    total_system_permissions = Permission.count
+    permission_categories = Permission.pluck(:name).map { |name| name.split('.').first }.uniq.count
+
+    puts "✅ Assigned super_admin role to admin user"
+    puts "   Role Permissions: #{super_admin_role.permissions.count}"
+    if has_system_admin
+      puts "   🔑 Has system.admin permission (grants access to ALL #{total_system_permissions} permissions)"
+      puts "   📊 Permission Coverage: #{permission_categories} categories"
+    else
+      puts "   ⚠️  WARNING: super_admin role missing system.admin permission!"
+    end
   end
 
   # Create demo account
@@ -356,8 +412,7 @@ if Rails.env.development? || Rails.env.test?
     email: 'manager@powernode.org'
   ) do |user|
     user.account = demo_account
-    user.first_name = 'Demo'
-    user.last_name = 'Manager'
+    user.name = 'Demo Manager'
     user.password = 'D3m0U$er2024!@&'
     user.password_confirmation = 'D3m0U$er2024!@&'
     user.status = 'active'
@@ -375,8 +430,7 @@ if Rails.env.development? || Rails.env.test?
     email: 'member@powernode.org'
   ) do |user|
     user.account = demo_account
-    user.first_name = 'Demo'
-    user.last_name = 'Member'
+    user.name = 'Demo Member'
     user.password = 'D3m0U$er2024!@*'
     user.password_confirmation = 'D3m0U$er2024!@*'
     user.status = 'active'
@@ -772,6 +826,30 @@ puts "\n📚 Loading Knowledge Base content..."
 load Rails.root.join('db', 'seeds', 'knowledge_base_permissions.rb')
 load Rails.root.join('db', 'seeds', 'knowledge_base_articles.rb')
 
+# Load AI Providers and Workflows (only in development/test)
+if Rails.env.development? || Rails.env.test?
+  puts "\n🤖 Loading Comprehensive AI Providers (OpenAI, Grok, Ollama, Claude)..."
+  load Rails.root.join('db', 'seeds', 'comprehensive_ai_providers_seed.rb')
+
+  puts "\n🧠 Loading Claude-Powered Workflow Agents..."
+  load Rails.root.join('db', 'seeds', 'claude_agents_seed.rb')
+
+  puts "\n📊 Loading Monitoring and Analytics Agents..."
+  load Rails.root.join('db', 'seeds', 'monitoring_analytics_agents_seed.rb')
+
+  puts "\n🔊 Loading Simple Echo Test Workflow..."
+  load Rails.root.join('db', 'seeds', 'simple_echo_test_workflow_seed.rb')
+
+  puts "\n📝 Loading Simple Blog Generation Workflow..."
+  load Rails.root.join('db', 'seeds', 'simple_blog_generation_workflow_seed.rb')
+
+  puts "\n📝 Loading Enhanced Blog Generation Workflow..."
+  load Rails.root.join('db', 'seeds', 'enhanced_blog_generation_workflow_seed.rb')
+
+  puts "\n🗄️  Loading File Storage configurations..."
+  load Rails.root.join('db', 'seeds', 'file_storage_seeds.rb')
+end
+
 puts "\n🎉 Seeding complete!"
 puts "   Permissions: #{Permission.count}"
 puts "   Roles: #{Role.count}"
@@ -780,6 +858,14 @@ puts "   Workers: #{Worker.count}"
 puts "   Public Pages: #{Page.count}"
 puts "   KB Categories: #{KnowledgeBaseCategory.count}"
 puts "   KB Articles: #{KnowledgeBaseArticle.count}"
+
+if Rails.env.development? || Rails.env.test?
+  puts "   AI Providers: #{AiProvider.count}"
+  puts "   AI Agents: #{AiAgent.count}"
+  puts "   AI Workflows: #{AiWorkflow.count}"
+  puts "   AI Workflow Templates: #{AiWorkflowTemplate.count}"
+  puts "   AI Workflow Runs: #{AiWorkflowRun.count}"
+end
 
 # 🔧 Create default site settings
 puts "\n🔧 Creating default site settings..."
