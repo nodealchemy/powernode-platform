@@ -70,9 +70,17 @@ fi
 # Check 4: All Ruby files have frozen_string_literal
 echo ""
 echo "4️⃣  Checking for frozen_string_literal pragma..."
-MISSING_FROZEN=$(git diff --cached --name-only --diff-filter=ACM | \
-  grep '\.rb$' | \
-  xargs grep -L "frozen_string_literal: true" 2>/dev/null || echo "")
+RUBY_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep '\.rb$' || true)
+MISSING_FROZEN=""
+
+if [ -n "$RUBY_FILES" ]; then
+  # Check each file individually to avoid xargs stdin issues
+  for file in $RUBY_FILES; do
+    if [ -f "$file" ] && ! grep -q "frozen_string_literal: true" "$file" 2>/dev/null; then
+      MISSING_FROZEN="$MISSING_FROZEN$file"$'\n'
+    fi
+  done
+fi
 
 if [ -n "$MISSING_FROZEN" ]; then
   echo "❌ FAILED: Files missing frozen_string_literal pragma:"
