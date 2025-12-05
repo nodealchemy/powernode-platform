@@ -9,13 +9,10 @@ class Api::V1::PlansController < ApplicationController
   def public_index
     @plans = Plan.active.public_plans.order(:price_cents)
 
-    render json: {
-      success: true,
-      data: {
-        plans: @plans.map { |plan| public_plan_data(plan) },
-        total_count: @plans.count
-      }
-    }, status: :ok
+    render_success({
+      plans: @plans.map { |plan| public_plan_data(plan) },
+      total_count: @plans.count
+    })
   end
 
   # GET /api/v1/plans
@@ -28,23 +25,17 @@ class Api::V1::PlansController < ApplicationController
                Plan.active.public_plans.order(:price_cents)
              end
 
-    render json: {
-      success: true,
-      data: {
-        plans: @plans.map { |plan| plan_data(plan) },
-        total_count: @plans.count
-      }
-    }, status: :ok
+    render_success({
+      plans: @plans.map { |plan| plan_data(plan) },
+      total_count: @plans.count
+    })
   end
 
   # GET /api/v1/plans/:id
   def show
-    render json: {
-      success: true,
-      data: {
-        plan: detailed_plan_data(@plan)
-      }
-    }, status: :ok
+    render_success({
+      plan: detailed_plan_data(@plan)
+    })
   end
 
   # POST /api/v1/plans
@@ -69,19 +60,15 @@ class Api::V1::PlansController < ApplicationController
         }
       )
 
-      render json: {
-        success: true,
-        data: {
+      render_success(
+        {
           plan: detailed_plan_data(@plan),
           message: "Plan created successfully"
-        }
-      }, status: :created
+        },
+        status: :created
+      )
     else
-      render json: {
-        success: false,
-        error: "Failed to create plan",
-        details: @plan.errors.full_messages
-      }, status: :unprocessable_content
+      render_validation_error(@plan)
     end
   end
 
@@ -108,29 +95,22 @@ class Api::V1::PlansController < ApplicationController
         }
       )
 
-      render json: {
-        success: true,
-        data: {
-          plan: detailed_plan_data(@plan),
-          message: "Plan updated successfully"
-        }
-      }, status: :ok
+      render_success({
+        plan: detailed_plan_data(@plan),
+        message: "Plan updated successfully"
+      })
     else
-      render json: {
-        success: false,
-        error: "Failed to update plan",
-        details: @plan.errors.full_messages
-      }, status: :unprocessable_content
+      render_validation_error(@plan)
     end
   end
 
   # DELETE /api/v1/plans/:id
   def destroy
     unless @plan.can_be_deleted?
-      return render json: {
-        success: false,
-        error: "Cannot delete plan with active subscriptions"
-      }, status: :unprocessable_content
+      return render_error(
+        "Cannot delete plan with active subscriptions",
+        :unprocessable_content
+      )
     end
 
     # Log plan deletion before destroying
@@ -151,23 +131,18 @@ class Api::V1::PlansController < ApplicationController
     )
 
     if @plan.destroy
-      render json: {
-        success: true,
+      render_success({
         message: "Plan deleted successfully"
-      }, status: :ok
+      })
     else
-      render json: {
-        success: false,
-        error: "Failed to delete plan",
-        details: @plan.errors.full_messages
-      }, status: :unprocessable_content
+      render_validation_error(@plan)
     end
   end
 
   # POST /api/v1/plans/:id/duplicate
   def duplicate
     set_plan
-    
+
     new_plan = @plan.dup
     new_plan.name = "#{@plan.name} (Copy)"
     new_plan.status = 'inactive'
@@ -175,19 +150,15 @@ class Api::V1::PlansController < ApplicationController
     new_plan.paypal_plan_id = nil
 
     if new_plan.save
-      render json: {
-        success: true,
-        data: {
+      render_success(
+        {
           plan: detailed_plan_data(new_plan),
           message: "Plan duplicated successfully"
-        }
-      }, status: :created
+        },
+        status: :created
+      )
     else
-      render json: {
-        success: false,
-        error: "Failed to duplicate plan",
-        details: new_plan.errors.full_messages
-      }, status: :unprocessable_content
+      render_validation_error(new_plan)
     end
   end
 
@@ -215,19 +186,12 @@ class Api::V1::PlansController < ApplicationController
         }
       )
 
-      render json: {
-        success: true,
-        data: {
-          plan: detailed_plan_data(@plan),
-          message: "Plan status updated successfully"
-        }
-      }, status: :ok
+      render_success({
+        plan: detailed_plan_data(@plan),
+        message: "Plan status updated successfully"
+      })
     else
-      render json: {
-        success: false,
-        error: "Failed to update plan status",
-        details: @plan.errors.full_messages
-      }, status: :unprocessable_content
+      render_validation_error(@plan)
     end
   end
 
@@ -236,18 +200,15 @@ class Api::V1::PlansController < ApplicationController
   def set_plan
     @plan = Plan.find(params[:id])
   rescue ActiveRecord::RecordNotFound
-    render json: {
-      success: false,
-      error: "Plan not found"
-    }, status: :not_found
+    render_error("Plan not found", status: :not_found)
   end
 
   def require_plan_management_permission
     unless current_user.has_permission?('plans.manage') || current_user.has_permission?('admin.billing.view')
-      render json: {
-        success: false,
-        error: "Permission denied: requires plans.manage or admin.billing.view"
-      }, status: :forbidden
+      render_error(
+        "Permission denied: requires plans.manage or admin.billing.view",
+        :forbidden
+      )
     end
   end
 

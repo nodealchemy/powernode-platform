@@ -5,31 +5,22 @@ class Api::V1::VersionController < ApplicationController
 
   # GET /api/v1/version
   def show
-    render json: {
-      success: true,
-      data: Powernode::Version.semantic_version
-    }, status: :ok
+    render_success(Powernode::Version.semantic_version)
   end
 
   # GET /api/v1/version/full
   def full
-    render json: {
-      success: true,
-      data: Powernode::Version.full_version_info
-    }, status: :ok
+    render_success(Powernode::Version.full_version_info)
   end
 
   # GET /api/v1/version/health
   def health
-    render json: {
-      success: true,
-      data: {
-        status: 'healthy',
-        version: Powernode::Version.current,
-        timestamp: Time.current.iso8601,
-        uptime: uptime_info
-      }
-    }, status: :ok
+    render_success({
+      status: 'healthy',
+      version: Powernode::Version.current,
+      timestamp: Time.current.iso8601,
+      uptime: uptime_info
+    })
   end
 
   private

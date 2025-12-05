@@ -39,7 +39,7 @@ class Api::V1::Webhooks::StripeSyncController < ApplicationController
       })
     end
 
-    render json: { success: true, message: 'Invoice payment processed' }
+    render_success(message: 'Invoice payment processed')
   rescue => e
     Rails.logger.error "Stripe invoice payment processing failed: #{e.message}"
     render_error(e.message, status: :internal_server_error)
@@ -87,7 +87,7 @@ class Api::V1::Webhooks::StripeSyncController < ApplicationController
       })
     end
 
-    render json: { success: true, message: 'Invoice payment failure processed' }
+    render_success(message: 'Invoice payment failure processed')
   rescue => e
     Rails.logger.error "Stripe invoice failure processing failed: #{e.message}"
     render_error(e.message, status: :internal_server_error)
@@ -122,7 +122,7 @@ class Api::V1::Webhooks::StripeSyncController < ApplicationController
       })
     end
 
-    render json: { success: true, message: 'Subscription synchronized' }
+    render_success(message: 'Subscription synchronized')
   rescue => e
     Rails.logger.error "Stripe subscription update failed: #{e.message}"
     render_error(e.message, status: :internal_server_error)
@@ -153,7 +153,7 @@ class Api::V1::Webhooks::StripeSyncController < ApplicationController
       })
     end
 
-    render json: { success: true, message: 'Subscription cancellation processed' }
+    render_success(message: 'Subscription cancellation processed')
   rescue => e
     Rails.logger.error "Stripe subscription cancellation failed: #{e.message}"
     render_error(e.message, status: :internal_server_error)
@@ -169,7 +169,7 @@ class Api::V1::Webhooks::StripeSyncController < ApplicationController
       create_standalone_payment_success(params)
     end
 
-    render json: { success: true, message: 'Payment success processed' }
+    render_success(message: 'Payment success processed')
   rescue => e
     Rails.logger.error "Stripe payment success processing failed: #{e.message}"
     render_error(e.message, status: :internal_server_error)
@@ -185,7 +185,7 @@ class Api::V1::Webhooks::StripeSyncController < ApplicationController
       log_standalone_payment_failure(params)
     end
 
-    render json: { success: true, message: 'Payment failure processed' }
+    render_success(message: 'Payment failure processed')
   rescue => e
     Rails.logger.error "Stripe payment failure processing failed: #{e.message}"
     render_error(e.message, status: :internal_server_error)
@@ -201,7 +201,7 @@ class Api::V1::Webhooks::StripeSyncController < ApplicationController
       payment_method: params[:payment_method]
     })
 
-    render json: { success: true, message: 'Setup intent success processed' }
+    render_success(message: 'Setup intent success processed')
   end
 
   # Handle payment method attachment
@@ -227,7 +227,7 @@ class Api::V1::Webhooks::StripeSyncController < ApplicationController
       customer: params[:customer]
     })
 
-    render json: { success: true, message: 'Payment method attachment processed' }
+    render_success(message: 'Payment method attachment processed')
   end
 
   # Handle payment method detachment
@@ -247,7 +247,7 @@ class Api::V1::Webhooks::StripeSyncController < ApplicationController
       payment_method_id: params[:payment_method_id]
     })
 
-    render json: { success: true, message: 'Payment method detachment processed' }
+    render_success(message: 'Payment method detachment processed')
   end
 
   # Handle unhandled events
@@ -259,7 +259,7 @@ class Api::V1::Webhooks::StripeSyncController < ApplicationController
       payload_summary: params[:payload_summary]
     })
 
-    render json: { success: true, message: 'Unhandled event logged' }
+    render_success(message: 'Unhandled event logged')
   end
 
   # Activate subscription after successful payment
@@ -275,7 +275,7 @@ class Api::V1::Webhooks::StripeSyncController < ApplicationController
       })
     end
 
-    render json: { success: true, message: 'Subscription activation processed' }
+    render_success(message: 'Subscription activation processed')
   end
 
   private
@@ -373,9 +373,9 @@ class Api::V1::Webhooks::StripeSyncController < ApplicationController
     # This should verify that the request is coming from the worker service
     service_token = request.headers['X-Service-Token']
     expected_token = Rails.application.credentials.dig(:worker_service, :api_token)
-    
+
     unless service_token == expected_token
-      render json: { error: 'Unauthorized service request' }, status: 401
+      render_error('Unauthorized service request', status: :unauthorized)
     end
   end
 end

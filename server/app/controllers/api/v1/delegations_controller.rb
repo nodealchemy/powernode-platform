@@ -3,35 +3,39 @@
 class Api::V1::DelegationsController < ApplicationController
   # Authentication is handled by ApplicationController's before_action :authenticate_request
   before_action :set_account
-  before_action :set_delegation, only: [:show, :update, :destroy, :activate, :deactivate, :revoke]
+  before_action :set_delegation, only: [:show, :update, :destroy, :activate, :deactivate, :revoke, :add_permission, :remove_permission]
   before_action :authorize_delegation_management!, except: [:show]
   before_action :authorize_delegation_view!, only: [:show]
 
   # GET /api/v1/accounts/:account_id/delegations
   def index
     @delegations = @account.account_delegations
-                          .includes(:delegated_user, :delegated_by, :role, :revoked_by)
+                          .includes(:delegated_user, :delegated_by, :role, :revoked_by, :permissions, :delegation_permissions)
                           .order(:created_at)
-    
+
     # Filter by status if provided
     @delegations = @delegations.where(status: params[:status]) if params[:status].present?
-    
+
     # Filter by role if provided
     @delegations = @delegations.where(role_id: params[:role_id]) if params[:role_id].present?
-    
-    render json: {
-      delegations: @delegations.map { |d| delegation_json(d) },
-      meta: {
-        total_count: @delegations.count,
-        active_count: @delegations.active.count,
-        expired_count: @delegations.select(&:expired?).count
+
+    render_success(
+      {
+        delegations: @delegations.map { |d| delegation_json(d) },
+        meta: {
+          total_count: @delegations.count,
+          active_count: @delegations.active.count,
+          expired_count: @delegations.select(&:expired?).count
+        }
       }
-    }
+    )
   end
 
   # GET /api/v1/accounts/:account_id/delegations/:id
   def show
-    render json: { delegation: delegation_json(@delegation) }
+    render_success(
+      { delegation: delegation_json(@delegation) }
+    )
   end
 
   # POST /api/v1/accounts/:account_id/delegations
@@ -47,15 +51,12 @@ class Api::V1::DelegationsController < ApplicationController
     )
     
     if result[:success]
-      render json: { 
-        delegation: delegation_json(result[:delegation]),
-        message: "Delegation created successfully"
-      }, status: :created
+      render_success(
+        { delegation: delegation_json(result[:delegation]), message: "Delegation created successfully" },
+        status: :created
+      )
     else
-      render json: { 
-        errors: result[:errors],
-        message: "Failed to create delegation"
-      }, status: :unprocessable_content
+      render_error("Failed to create delegation", status: :unprocessable_content, details: result[:errors])
     end
   end
 
@@ -72,15 +73,11 @@ class Api::V1::DelegationsController < ApplicationController
     )
     
     if result[:success]
-      render json: { 
-        delegation: delegation_json(@delegation.reload),
-        message: "Delegation updated successfully"
-      }
+      render_success(
+        { delegation: delegation_json(@delegation.reload), message: "Delegation updated successfully" }
+      )
     else
-      render json: { 
-        errors: result[:errors],
-        message: "Failed to update delegation"
-      }, status: :unprocessable_content
+      render_error("Failed to update delegation", status: :unprocessable_content, details: result[:errors])
     end
   end
 
@@ -91,12 +88,9 @@ class Api::V1::DelegationsController < ApplicationController
     result = delegation_service.revoke_delegation(@delegation)
     
     if result[:success]
-      render json: { message: "Delegation revoked successfully" }
+      render_success({ message: "Delegation revoked successfully" })
     else
-      render json: { 
-        errors: result[:errors],
-        message: "Failed to revoke delegation"
-      }, status: :unprocessable_content
+      render_error("Failed to revoke delegation", status: :unprocessable_content, details: result[:errors])
     end
   end
 
@@ -107,15 +101,11 @@ class Api::V1::DelegationsController < ApplicationController
     result = delegation_service.activate_delegation(@delegation)
     
     if result[:success]
-      render json: { 
-        delegation: delegation_json(@delegation.reload),
-        message: "Delegation activated successfully"
-      }
+      render_success(
+        { delegation: delegation_json(@delegation.reload), message: "Delegation activated successfully" }
+      )
     else
-      render json: { 
-        errors: result[:errors],
-        message: "Failed to activate delegation"
-      }, status: :unprocessable_content
+      render_error("Failed to activate delegation", status: :unprocessable_content, details: result[:errors])
     end
   end
 
@@ -126,15 +116,11 @@ class Api::V1::DelegationsController < ApplicationController
     result = delegation_service.deactivate_delegation(@delegation)
     
     if result[:success]
-      render json: { 
-        delegation: delegation_json(@delegation.reload),
-        message: "Delegation deactivated successfully"
-      }
+      render_success(
+        { delegation: delegation_json(@delegation.reload), message: "Delegation deactivated successfully" }
+      )
     else
-      render json: { 
-        errors: result[:errors],
-        message: "Failed to deactivate delegation"
-      }, status: :unprocessable_content
+      render_error("Failed to deactivate delegation", status: :unprocessable_content, details: result[:errors])
     end
   end
 
@@ -145,15 +131,11 @@ class Api::V1::DelegationsController < ApplicationController
     result = delegation_service.revoke_delegation(@delegation)
     
     if result[:success]
-      render json: { 
-        delegation: delegation_json(@delegation.reload),
-        message: "Delegation revoked successfully"
-      }
+      render_success(
+        { delegation: delegation_json(@delegation.reload), message: "Delegation revoked successfully" }
+      )
     else
-      render json: { 
-        errors: result[:errors],
-        message: "Failed to revoke delegation"
-      }, status: :unprocessable_content
+      render_error("Failed to revoke delegation", status: :unprocessable_content, details: result[:errors])
     end
   end
 
@@ -164,10 +146,12 @@ class Api::V1::DelegationsController < ApplicationController
     
     permissions = delegation_service.list_available_permissions_for_delegation(role_id: role_id)
     
-    render json: {
-      permissions: permissions.map { |permission| permission_json(permission) },
-      role_id: role_id
-    }
+    render_success(
+      {
+        permissions: permissions.map { |permission| permission_json(permission) },
+        role_id: role_id
+      }
+    )
   end
 
   # POST /api/v1/accounts/:account_id/delegations/:id/permissions
@@ -180,15 +164,11 @@ class Api::V1::DelegationsController < ApplicationController
     )
     
     if result[:success]
-      render json: { 
-        delegation: delegation_json(@delegation.reload),
-        message: "Permission added successfully"
-      }
+      render_success(
+        { delegation: delegation_json(@delegation.reload), message: "Permission added successfully" }
+      )
     else
-      render json: { 
-        errors: result[:errors],
-        message: "Failed to add permission"
-      }, status: :unprocessable_content
+      render_error("Failed to add permission", status: :unprocessable_content, details: result[:errors])
     end
   end
 
@@ -202,15 +182,11 @@ class Api::V1::DelegationsController < ApplicationController
     )
     
     if result[:success]
-      render json: { 
-        delegation: delegation_json(@delegation.reload),
-        message: "Permission removed successfully"
-      }
+      render_success(
+        { delegation: delegation_json(@delegation.reload), message: "Permission removed successfully" }
+      )
     else
-      render json: { 
-        errors: result[:errors],
-        message: "Failed to remove permission"
-      }, status: :unprocessable_content
+      render_error("Failed to remove permission", status: :unprocessable_content, details: result[:errors])
     end
   end
 
@@ -271,7 +247,6 @@ class Api::V1::DelegationsController < ApplicationController
       permissions: delegation.permissions.map { |permission| permission_json(permission) },
       permission_source: delegation.permission_source,
       permissions_summary: delegation.permissions_summary,
-      available_permissions: delegation.available_permissions.map { |permission| permission_json(permission) },
       status: delegation.status,
       expires_at: delegation.expires_at,
       revoked_at: delegation.revoked_at,

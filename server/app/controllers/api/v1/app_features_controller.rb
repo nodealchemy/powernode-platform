@@ -10,13 +10,13 @@ class Api::V1::AppFeaturesController < ApplicationController
   
   def index
     features = @app.app_features.includes(:app)
-    
+
     # Apply filters
     features = features.by_type(params[:type]) if params[:type].present?
     features = features.enabled_by_default if params[:default_enabled] == 'true'
     features = features.disabled_by_default if params[:default_enabled] == 'false'
     features = features.where('name ILIKE ?', "%#{params[:search]}%") if params[:search].present?
-    
+
     # Apply sorting
     case params[:sort]
     when 'name'
@@ -28,162 +28,131 @@ class Api::V1::AppFeaturesController < ApplicationController
     else
       features = features.order(:name)
     end
-    
-    render json: {
-      success: true,
+
+    render_success(
       data: features.map { |feature| feature_data(feature) }
-    }, status: :ok
+    )
   end
   
   def show
-    render json: {
-      success: true,
+    render_success(
       data: feature_data(@feature, detailed: true)
-    }, status: :ok
+    )
   end
   
   def create
     @feature = @app.app_features.build(feature_params)
-    
+
     if @feature.save
-      log_audit_event('app_feature_created', { 
-        app_id: @app.id, 
-        feature_id: @feature.id, 
+      log_audit_event('app_feature_created', {
+        app_id: @app.id,
+        feature_id: @feature.id,
         feature_name: @feature.name,
         feature_type: @feature.feature_type
       })
-      
-      render json: {
-        success: true,
+
+      render_success(
         data: feature_data(@feature, detailed: true),
-        message: 'App feature created successfully'
-      }, status: :created
+        message: 'App feature created successfully',
+        status: :created
+      )
     else
-      render json: {
-        success: false,
-        error: 'Failed to create app feature',
-        details: @feature.errors.full_messages
-      }, status: :unprocessable_content
+      render_validation_error(@feature)
     end
   end
   
   def update
     if @feature.update(feature_params)
-      log_audit_event('app_feature_updated', { 
+      log_audit_event('app_feature_updated', {
         app_id: @app.id,
-        feature_id: @feature.id, 
-        changes: @feature.previous_changes.keys 
+        feature_id: @feature.id,
+        changes: @feature.previous_changes.keys
       })
-      
-      render json: {
-        success: true,
+
+      render_success(
         data: feature_data(@feature, detailed: true),
         message: 'App feature updated successfully'
-      }, status: :ok
+      )
     else
-      render json: {
-        success: false,
-        error: 'Failed to update app feature',
-        details: @feature.errors.full_messages
-      }, status: :unprocessable_content
+      render_validation_error(@feature)
     end
   end
   
   def destroy
     feature_name = @feature.name
-    
+
     if @feature.destroy
-      log_audit_event('app_feature_deleted', { 
+      log_audit_event('app_feature_deleted', {
         app_id: @app.id,
-        feature_name: feature_name 
+        feature_name: feature_name
       })
-      
-      render json: {
-        success: true,
+
+      render_success(
         message: 'App feature deleted successfully'
-      }, status: :ok
+      )
     else
-      render json: {
-        success: false,
-        error: 'Failed to delete app feature',
-        details: @feature.errors.full_messages
-      }, status: :unprocessable_content
+      render_validation_error(@feature)
     end
   end
   
   def enable_by_default
     if @feature.enable_by_default!
-      log_audit_event('app_feature_enabled_by_default', { 
+      log_audit_event('app_feature_enabled_by_default', {
         app_id: @app.id,
-        feature_id: @feature.id, 
-        feature_name: @feature.name 
+        feature_id: @feature.id,
+        feature_name: @feature.name
       })
-      
-      render json: {
-        success: true,
+
+      render_success(
         data: feature_data(@feature, detailed: true),
         message: 'App feature enabled by default'
-      }, status: :ok
+      )
     else
-      render json: {
-        success: false,
-        error: 'Failed to enable app feature by default',
-        details: @feature.errors.full_messages
-      }, status: :unprocessable_content
+      render_validation_error(@feature)
     end
   end
   
   def disable_by_default
     if @feature.disable_by_default!
-      log_audit_event('app_feature_disabled_by_default', { 
+      log_audit_event('app_feature_disabled_by_default', {
         app_id: @app.id,
-        feature_id: @feature.id, 
-        feature_name: @feature.name 
+        feature_id: @feature.id,
+        feature_name: @feature.name
       })
-      
-      render json: {
-        success: true,
+
+      render_success(
         data: feature_data(@feature, detailed: true),
         message: 'App feature disabled by default'
-      }, status: :ok
+      )
     else
-      render json: {
-        success: false,
-        error: 'Failed to disable app feature by default',
-        details: @feature.errors.full_messages
-      }, status: :unprocessable_content
+      render_validation_error(@feature)
     end
   end
   
   def duplicate
     new_name = params[:name] || "#{@feature.name} (Copy)"
     duplicated_feature = @feature.duplicate(new_name)
-    
+
     if duplicated_feature.persisted?
-      log_audit_event('app_feature_duplicated', { 
+      log_audit_event('app_feature_duplicated', {
         app_id: @app.id,
         original_feature_id: @feature.id,
         new_feature_id: duplicated_feature.id,
         new_feature_name: duplicated_feature.name
       })
-      
-      render json: {
-        success: true,
+
+      render_success(
         data: feature_data(duplicated_feature, detailed: true),
-        message: 'App feature duplicated successfully'
-      }, status: :created
+        message: 'App feature duplicated successfully',
+        status: :created
+      )
     else
-      render json: {
-        success: false,
-        error: 'Failed to duplicate app feature',
-        details: duplicated_feature.errors.full_messages
-      }, status: :unprocessable_content
+      render_validation_error(duplicated_feature)
     end
   end
   
   def types
-    render json: {
-      success: true,
+    render_success(
       data: {
         types: AppFeature::FEATURE_TYPES.map do |type|
           {
@@ -193,7 +162,7 @@ class Api::V1::AppFeaturesController < ApplicationController
           }
         end
       }
-    }, status: :ok
+    )
   end
   
   def dependencies
@@ -205,43 +174,41 @@ class Api::V1::AppFeaturesController < ApplicationController
         feature_type: feature.feature_type
       }
     end
-    
-    render json: {
-      success: true,
+
+    render_success(
       data: feature_dependencies
-    }, status: :ok
+    )
   end
   
   def validate_dependencies
     feature_id = params[:feature_id]
     dependency_slugs = params[:dependencies] || []
-    
+
     feature = @app.app_features.find_by(id: feature_id) if feature_id
-    
+
     validation_errors = []
-    
+
     dependency_slugs.each do |slug|
       unless @app.app_features.exists?(slug: slug)
         validation_errors << "Feature '#{slug}' does not exist"
       end
     end
-    
+
     if feature && dependency_slugs.include?(feature.slug)
       validation_errors << "Feature cannot depend on itself"
     end
-    
+
     # Check for circular dependencies
     if feature && would_create_circular_dependency?(feature, dependency_slugs)
       validation_errors << "Dependencies would create a circular reference"
     end
-    
-    render json: {
-      success: validation_errors.empty?,
+
+    render_success(
       data: {
         valid: validation_errors.empty?,
         errors: validation_errors
       }
-    }, status: :ok
+    )
   end
   
   def usage_report
@@ -263,9 +230,8 @@ class Api::V1::AppFeaturesController < ApplicationController
         end
       }
     end
-    
-    render json: {
-      success: true,
+
+    render_success(
       data: {
         app: {
           id: @app.id,
@@ -278,27 +244,27 @@ class Api::V1::AppFeaturesController < ApplicationController
           unused_features: usage_data.count { |f| f[:usage_count] == 0 }
         }
       }
-    }, status: :ok
+    )
   end
   
   private
   
   def set_app
     @app = current_account.apps.find_by(id: params[:app_id])
-    render_error('App not found', :not_found) unless @app
+    render_error('App not found', status: :not_found) unless @app
   end
   
   def authorize_app_access
     return true if @app.account == current_account
     return true if current_user.has_permission?('apps.manage')
     
-    render_error('Unauthorized to access this app', :forbidden)
+    render_error('Unauthorized to access this app', status: :forbidden)
     false
   end
   
   def set_feature
     @feature = @app.app_features.find_by(id: params[:id])
-    render_error('App feature not found', :not_found) unless @feature
+    render_error('App feature not found', status: :not_found) unless @feature
   end
   
   def feature_params
@@ -410,10 +376,4 @@ class Api::V1::AppFeaturesController < ApplicationController
     false
   end
   
-  def render_error(message, status)
-    render json: {
-      success: false,
-      error: message
-    }, status: status
-  end
 end

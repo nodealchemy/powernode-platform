@@ -17,8 +17,8 @@ class Api::V1::PaymentGatewaysController < ApplicationController
     rescue => e
       Rails.logger.error "Payment gateways overview error: #{e.message}"
       Rails.logger.error e.backtrace.first(5).join("\n")
-      
-      render json: { success: false, error: "Failed to load payment gateways overview" }, status: :internal_server_error
+
+      render_error("Failed to load payment gateways overview", status: :internal_server_error)
     end
   end
 
@@ -48,12 +48,14 @@ class Api::V1::PaymentGatewaysController < ApplicationController
 
     begin
       update_gateway_configuration(gateway, gateway_params)
-      
-      render json: {
+
+      render_success(
         message: "Gateway configuration updated successfully",
-        gateway: gateway,
-        configuration: gateway_configuration_for(gateway)
-      }
+        data: {
+          gateway: gateway,
+          configuration: gateway_configuration_for(gateway)
+        }
+      )
     rescue => e
       render_error(e.message, status: :unprocessable_content)
     end
@@ -101,26 +103,28 @@ class Api::V1::PaymentGatewaysController < ApplicationController
     total_count = events_query.count
     events = events_query.limit(per_page).offset((page - 1) * per_page)
 
-    render json: {
-      events: events.map do |event|
-        {
-          id: event.id,
-          event_type: event.event_type,
-          status: event.status,
-          payment_id: event.payment_id,
-          external_id: event.external_id,
-          processed_at: event.processed_at,
-          created_at: event.created_at,
-          error_message: event.error_message
+    render_success(
+      data: {
+        events: events.map do |event|
+          {
+            id: event.id,
+            event_type: event.event_type,
+            status: event.status,
+            payment_id: event.payment_id,
+            external_id: event.external_id,
+            processed_at: event.processed_at,
+            created_at: event.created_at,
+            error_message: event.error_message
+          }
+        end,
+        pagination: {
+          current_page: page,
+          per_page: per_page,
+          total_count: total_count,
+          total_pages: (total_count / per_page.to_f).ceil
         }
-      end,
-      pagination: {
-        current_page: page,
-        per_page: per_page,
-        total_count: total_count,
-        total_pages: (total_count / per_page.to_f).ceil
       }
-    }
+    )
   end
 
   def transactions
@@ -135,29 +139,31 @@ class Api::V1::PaymentGatewaysController < ApplicationController
     total_count = payments_query.count
     payments = payments_query.limit(per_page).offset((page - 1) * per_page)
 
-    render json: {
-      transactions: payments.map do |payment|
-        {
-          id: payment.id,
-          invoice_id: payment.invoice_id,
-          amount: payment.amount.to_s,
-          currency: payment.currency,
-          status: payment.status,
-          payment_method: payment.payment_method,
-          gateway_transaction_id: payment.gateway_transaction_id,
-          created_at: payment.created_at,
-          processed_at: payment.processed_at,
-          gateway_fee: payment.gateway_fee.to_s,
-          net_amount: payment.net_amount.to_s
+    render_success(
+      data: {
+        transactions: payments.map do |payment|
+          {
+            id: payment.id,
+            invoice_id: payment.invoice_id,
+            amount: payment.amount.to_s,
+            currency: payment.currency,
+            status: payment.status,
+            payment_method: payment.payment_method,
+            gateway_transaction_id: payment.gateway_transaction_id,
+            created_at: payment.created_at,
+            processed_at: payment.processed_at,
+            gateway_fee: payment.gateway_fee.to_s,
+            net_amount: payment.net_amount.to_s
+          }
+        end,
+        pagination: {
+          current_page: page,
+          per_page: per_page,
+          total_count: total_count,
+          total_pages: (total_count / per_page.to_f).ceil
         }
-      end,
-      pagination: {
-        current_page: page,
-        per_page: per_page,
-        total_count: total_count,
-        total_pages: (total_count / per_page.to_f).ceil
       }
-    }
+    )
   end
 
   private
@@ -552,9 +558,9 @@ class Api::V1::PaymentGatewaysController < ApplicationController
     require 'json'
     
     @worker_client ||= begin
-      worker_url = ENV.fetch('WORKER_API_URL', 'http://localhost:4567')
-      worker_token = ENV.fetch('WORKER_TOKEN', '')
-      
+      worker_url = Rails.application.config.worker_url
+      worker_token = Rails.application.config.worker_token
+
       WorkerHttpClient.new(worker_url, worker_token)
     end
   end

@@ -18,7 +18,7 @@ class Api::V1::Kb::TagsController < ApplicationController
     tag = KnowledgeBaseTag.find_by(id: params[:id]) || 
           KnowledgeBaseTag.find_by(slug: params[:id])
     
-    return render_error('Tag not found', :not_found) unless tag
+    return render_error('Tag not found', status: :not_found) unless tag
 
     articles = tag.articles.published.public_articles
       .includes(:author, :category, :tags)

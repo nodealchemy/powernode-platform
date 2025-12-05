@@ -11,21 +11,19 @@ class Api::V1::ReportsController < ApplicationController
   # GET /api/v1/reports/:report_type
   def show
     unless REPORT_TYPES.include?(params[:report_type])
-      render json: { 
-        success: false, 
-        error: "Invalid report type. Supported types: #{REPORT_TYPES.join(', ')}" 
-      }, status: 400
-      return
+      return render_error(
+        "Invalid report type. Supported types: #{REPORT_TYPES.join(', ')}",
+        :bad_request
+      )
     end
 
     format = params[:format]&.downcase || 'pdf'
     
     unless SUPPORTED_FORMATS.include?(format)
-      render json: { 
-        success: false, 
-        error: "Invalid format. Supported formats: #{SUPPORTED_FORMATS.join(', ')}" 
-      }, status: 400
-      return
+      return render_error(
+        "Invalid format. Supported formats: #{SUPPORTED_FORMATS.join(', ')}",
+        :bad_request
+      )
     end
 
     case format
@@ -41,8 +39,7 @@ class Api::V1::ReportsController < ApplicationController
 
   # GET /api/v1/reports
   def index
-    render json: {
-      success: true,
+    render_success(
       data: {
         available_reports: REPORT_TYPES.map do |report_type|
           {
@@ -55,13 +52,12 @@ class Api::V1::ReportsController < ApplicationController
         supported_formats: SUPPORTED_FORMATS,
         max_date_range_days: 730 # 2 years
       }
-    }
+    )
   end
 
   # GET /api/v1/reports/templates
   def templates
-    render json: {
-      success: true,
+    render_success(
       data: [
         {
           id: 'revenue_analytics',
@@ -160,7 +156,7 @@ class Api::V1::ReportsController < ApplicationController
           }
         }
       ]
-    }
+    )
   end
 
   # GET /api/v1/reports/requests
@@ -174,8 +170,7 @@ class Api::V1::ReportsController < ApplicationController
                                   .limit(limit)
                                   .offset((page - 1) * limit)
 
-    render json: {
-      success: true,
+    render_success(
       data: report_requests.map do |request|
         {
           id: request.id,
@@ -191,15 +186,14 @@ class Api::V1::ReportsController < ApplicationController
           parameters: request.parameters
         }
       end
-    }
+    )
   end
 
   # GET /api/v1/reports/requests/:id
   def request_details
     request = ReportRequest.for_account(@account_scope).find(params[:id])
     
-    render json: {
-      success: true,
+    render_success(
       data: {
         id: request.id,
         name: request.name,
@@ -213,7 +207,7 @@ class Api::V1::ReportsController < ApplicationController
         error_message: request.error_message,
         parameters: request.parameters
       }
-    }
+    )
   rescue ActiveRecord::RecordNotFound
     render_error("Report request not found", status: :internal_server_error)
   end
@@ -246,15 +240,14 @@ class Api::V1::ReportsController < ApplicationController
     # Queue background job to generate the report (job lives in worker service)
     GenerateReportJob.perform_later(request.id)
 
-    render json: {
-      success: true,
+    render_success(
       data: {
         id: request.id,
         name: request.name,
         status: request.status,
         requested_at: request.created_at.iso8601
       }
-    }
+    )
   rescue => e
     Rails.logger.error "Failed to create report request: #{e.message}"
     render_error(e.message, status: :internal_server_error)
@@ -268,14 +261,13 @@ class Api::V1::ReportsController < ApplicationController
     
     request.update!(update_params)
 
-    render json: { 
-      success: true,
+    render_success(
       data: {
         id: request.id,
         status: request.status,
         updated_at: request.updated_at.iso8601
       }
-    }
+    )
   rescue ActiveRecord::RecordNotFound
     render_error("Report request not found", status: :internal_server_error)
   rescue => e
@@ -333,8 +325,7 @@ class Api::V1::ReportsController < ApplicationController
                             .where(active: true)
                             .order(:next_run_at)
 
-    render json: {
-      success: true,
+    render_success(
       data: reports.map do |report|
         {
           id: report.id,
@@ -350,7 +341,7 @@ class Api::V1::ReportsController < ApplicationController
           format: report.format
         }
       end
-    }
+    )
   end
 
   # POST /api/v1/reports/generate
@@ -402,8 +393,7 @@ class Api::V1::ReportsController < ApplicationController
       end
     end
 
-    render json: {
-      success: true,
+    render_success(
       data: {
         reports: generated_reports,
         generated_at: Time.current.iso8601,
@@ -416,7 +406,7 @@ class Api::V1::ReportsController < ApplicationController
           end_date: @end_date
         }
       }
-    }
+    )
   end
 
   # POST /api/v1/reports/schedule
@@ -432,8 +422,10 @@ class Api::V1::ReportsController < ApplicationController
     end
 
     unless %w[daily weekly monthly].include?(frequency)
-      render json: { success: false, error: "Invalid frequency. Use: daily, weekly, monthly" }, status: 400
-      return
+      return render_error(
+        "Invalid frequency. Use: daily, weekly, monthly",
+        :bad_request
+      )
     end
 
     # Create scheduled report record
@@ -448,8 +440,7 @@ class Api::V1::ReportsController < ApplicationController
       active: true
     )
 
-    render json: {
-      success: true,
+    render_success(
       data: {
         id: scheduled_report.id,
         report_type: scheduled_report.report_type,
@@ -457,7 +448,7 @@ class Api::V1::ReportsController < ApplicationController
         next_run_at: scheduled_report.next_run_at,
         recipients: scheduled_report.recipients
       }
-    }
+    )
   rescue => e
     render_error(e.message, status: :internal_server_error)
   end
@@ -468,8 +459,7 @@ class Api::V1::ReportsController < ApplicationController
                             .where(active: true)
                             .order(:next_run_at)
 
-    render json: {
-      success: true,
+    render_success(
       data: reports.map do |report|
         {
           id: report.id,
@@ -481,7 +471,7 @@ class Api::V1::ReportsController < ApplicationController
           created_at: report.created_at
         }
       end
-    }
+    )
   end
 
   # DELETE /api/v1/reports/scheduled/:id
@@ -489,7 +479,7 @@ class Api::V1::ReportsController < ApplicationController
     scheduled_report = ScheduledReport.for_account(@account_scope).find(params[:id])
     scheduled_report.update!(active: false)
 
-    render json: { success: true, message: "Scheduled report cancelled" }
+    render_success(message: "Scheduled report cancelled")
   rescue ActiveRecord::RecordNotFound
     render_error("Scheduled report not found", status: :internal_server_error)
   end
@@ -588,7 +578,7 @@ class Api::V1::ReportsController < ApplicationController
         subscription = customer.account.subscription
         csv << [
           customer.id,
-          "#{customer.first_name} #{customer.last_name}",
+          customer.full_name,
           customer.email,
           customer.account.name,
           subscription&.plan&.name || "No Plan",

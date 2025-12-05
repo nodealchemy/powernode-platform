@@ -8,16 +8,18 @@ class Api::V1::Internal::UsersController < ApplicationController
   # GET /api/v1/internal/users/:id
   def show
     user = User.find(params[:id])
-    
-    render json: {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      reset_token: user.instance_variable_get(:@reset_token), # Access the temporary reset token
-      email_verified: user.email_verified?,
-      created_at: user.created_at,
-      last_login_at: user.last_login_at
-    }
+
+    render_success(
+      data: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        reset_token: user.instance_variable_get(:@reset_token), # Access the temporary reset token
+        email_verified: user.email_verified?,
+        created_at: user.created_at,
+        last_login_at: user.last_login_at
+      }
+    )
   rescue ActiveRecord::RecordNotFound
     render_error('User not found', status: :not_found)
   end
@@ -39,7 +41,7 @@ class Api::V1::Internal::UsersController < ApplicationController
         render_error('Invalid service token', status: :unauthorized)
         return
       end
-      
+
     rescue JWT::DecodeError, JWT::ExpiredSignature
       render_error('Invalid service token', status: :unauthorized)
     end

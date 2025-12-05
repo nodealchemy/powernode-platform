@@ -9,32 +9,27 @@ class Api::V1::PagesController < ApplicationController
   # GET /api/v1/pages/:slug
   def show
     unless @page.published?
-      render json: {
-        error: "Page not found",
-        message: "The requested page is not available"
-      }, status: :not_found
+      render_error("The requested page is not available", status: :not_found)
       return
     end
 
-    render json: {
-      data: {
-        id: @page.id,
-        title: @page.title,
-        slug: @page.slug,
-        content: @page.content,
-        rendered_content: @page.rendered_content,
-        meta_description: @page.meta_description,
-        meta_keywords: @page.meta_keywords,
-        published_at: @page.published_at,
-        word_count: @page.word_count,
-        estimated_read_time: @page.estimated_read_time,
-        seo: {
-          title: @page.seo_title,
-          description: @page.seo_description,
-          keywords: @page.seo_keywords_array
-        }
+    render_success({
+      id: @page.id,
+      title: @page.title,
+      slug: @page.slug,
+      content: @page.content,
+      rendered_content: @page.rendered_content,
+      meta_description: @page.meta_description,
+      meta_keywords: @page.meta_keywords,
+      published_at: @page.published_at,
+      word_count: @page.word_count,
+      estimated_read_time: @page.estimated_read_time,
+      seo: {
+        title: @page.seo_title,
+        description: @page.seo_description,
+        keywords: @page.seo_keywords_array
       }
-    }
+    })
   end
 
   # GET /api/v1/pages (public index for published pages)
@@ -60,8 +55,8 @@ class Api::V1::PagesController < ApplicationController
     total_count = Page.published.count
     total_pages = (total_count.to_f / per_page).ceil
 
-    render json: {
-      data: pages.map do |page|
+    render_success({
+      pages: pages.map do |page|
         {
           id: page.id,
           title: page.title,
@@ -79,7 +74,7 @@ class Api::V1::PagesController < ApplicationController
         total_count: total_count,
         total_pages: total_pages
       }
-    }
+    })
   end
 
   private
@@ -87,9 +82,6 @@ class Api::V1::PagesController < ApplicationController
   def set_page
     @page = Page.find_by!(slug: params[:slug])
   rescue ActiveRecord::RecordNotFound
-    render json: {
-      error: "Page not found",
-      message: "The requested page could not be found"
-    }, status: :not_found
+    render_error("The requested page could not be found", status: :not_found)
   end
 end

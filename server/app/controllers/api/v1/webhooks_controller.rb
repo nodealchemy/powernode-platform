@@ -21,8 +21,7 @@ class Api::V1::WebhooksController < ApplicationController
                               .limit(per_page)
                               .offset(offset)
 
-    render json: {
-      success: true,
+    render_success(
       data: {
         webhooks: webhooks.map { |webhook| webhook_summary(webhook) },
         pagination: {
@@ -33,15 +32,14 @@ class Api::V1::WebhooksController < ApplicationController
         },
         stats: webhook_stats
       }
-    }, status: :ok
+    )
   end
 
   # GET /api/v1/webhooks/:id
   def show
-    render json: {
-      success: true,
+    render_success(
       data: detailed_webhook_data(@webhook)
-    }, status: :ok
+    )
   end
 
   # POST /api/v1/webhooks
@@ -59,17 +57,13 @@ class Api::V1::WebhooksController < ApplicationController
       # Log webhook creation
       log_webhook_action('webhook_created', webhook)
 
-      render json: {
-        success: true,
+      render_success(
         message: 'Webhook endpoint created successfully',
-        data: detailed_webhook_data(webhook)
-      }, status: :created
+        data: detailed_webhook_data(webhook),
+        status: :created
+      )
     else
-      render json: {
-        success: false,
-        error: 'Failed to create webhook endpoint',
-        details: webhook.errors.full_messages
-      }, status: :unprocessable_content
+      render_validation_error(webhook)
     end
   end
 
@@ -78,47 +72,37 @@ class Api::V1::WebhooksController < ApplicationController
     if @webhook.update(webhook_params)
       log_webhook_action('webhook_updated', @webhook)
 
-      render json: {
-        success: true,
+      render_success(
         message: 'Webhook endpoint updated successfully',
         data: detailed_webhook_data(@webhook)
-      }, status: :ok
+      )
     else
-      render json: {
-        success: false,
-        error: 'Failed to update webhook endpoint',
-        details: @webhook.errors.full_messages
-      }, status: :unprocessable_content
+      render_validation_error(@webhook)
     end
   end
 
   # DELETE /api/v1/webhooks/:id
   def destroy
     webhook_data = webhook_summary(@webhook)
-    
+
     if @webhook.destroy
       log_webhook_action('webhook_deleted', @webhook, webhook_data)
 
-      render json: {
-        success: true,
+      render_success(
         message: 'Webhook endpoint deleted successfully'
-      }, status: :ok
+      )
     else
-      render json: {
-        success: false,
-        error: 'Failed to delete webhook endpoint',
-        details: @webhook.errors.full_messages
-      }, status: :unprocessable_content
+      render_validation_error(@webhook)
     end
   end
 
   # POST /api/v1/webhooks/:id/test
   def test
     test_payload = generate_test_payload(params[:event_type] || 'test.webhook')
-    
+
     begin
       response = WebhookService.deliver_webhook(@webhook, test_payload, 'test.webhook')
-      
+
       # Log test attempt
       log_webhook_action('webhook_test', @webhook, {
         event_type: 'test.webhook',
@@ -126,63 +110,56 @@ class Api::V1::WebhooksController < ApplicationController
         response_time: response[:response_time],
         success: response[:success]
       })
-      
-      render json: {
-        success: true,
+
+      render_success(
         message: 'Webhook test completed',
         data: {
           webhook_id: @webhook.id,
           test_payload: test_payload,
           response: response
         }
-      }, status: :ok
+      )
     rescue => e
       log_webhook_action('webhook_test_failed', @webhook, {
         event_type: 'test.webhook',
         error: e.message
       })
-      
-      render json: {
-        success: false,
-        error: 'Webhook test failed',
+
+      render_error(
+        'Webhook test failed',
+        :unprocessable_content,
         details: e.message
-      }, status: :unprocessable_content
+      )
     end
   end
 
   # POST /api/v1/webhooks/:id/toggle_status
   def toggle_status
     new_status = @webhook.active? ? 'inactive' : 'active'
-    
+
     if @webhook.update(status: new_status)
       log_webhook_action('webhook_status_changed', @webhook, {
         old_status: @webhook.status_was,
         new_status: new_status
       })
 
-      render json: {
-        success: true,
+      render_success(
         message: "Webhook endpoint #{new_status == 'active' ? 'activated' : 'deactivated'}",
         data: webhook_summary(@webhook)
-      }, status: :ok
+      )
     else
-      render json: {
-        success: false,
-        error: 'Failed to update webhook status',
-        details: @webhook.errors.full_messages
-      }, status: :unprocessable_content
+      render_validation_error(@webhook)
     end
   end
 
   # GET /api/v1/webhooks/events
   def available_events
-    render json: {
-      success: true,
+    render_success(
       data: {
         events: WebhookEndpoint.available_event_types,
         categories: WebhookEndpoint.event_categories
       }
-    }, status: :ok
+    )
   end
 
   # GET /api/v1/webhooks/deliveries
@@ -194,17 +171,16 @@ class Api::V1::WebhooksController < ApplicationController
 
     deliveries_query = WebhookDelivery.includes(:webhook_endpoint)
                                       .order(created_at: :desc)
-    
+
     deliveries_query = deliveries_query.where(webhook_endpoint_id: webhook_id) if webhook_id.present?
-    
+
     total_count = deliveries_query.count
     total_pages = (total_count.to_f / per_page).ceil
 
     deliveries = deliveries_query.limit(per_page)
                                 .offset(offset)
 
-    render json: {
-      success: true,
+    render_success(
       data: {
         deliveries: deliveries.map { |delivery| delivery_summary(delivery) },
         pagination: {
@@ -214,15 +190,14 @@ class Api::V1::WebhooksController < ApplicationController
           total_count: total_count
         }
       }
-    }, status: :ok
+    )
   end
 
   # GET /api/v1/webhooks/stats
   def stats
-    render json: {
-      success: true,
+    render_success(
       data: detailed_webhook_stats
-    }, status: :ok
+    )
   end
 
   # POST /api/v1/webhooks/retry_failed
@@ -230,7 +205,7 @@ class Api::V1::WebhooksController < ApplicationController
     failed_deliveries = WebhookDelivery.failed
                                       .where(created_at: 24.hours.ago..Time.current)
                                       .includes(:webhook_endpoint)
-    
+
     retry_count = 0
     failed_deliveries.each do |delivery|
       if delivery.webhook_endpoint.active? && delivery.can_retry?
@@ -238,26 +213,24 @@ class Api::V1::WebhooksController < ApplicationController
         retry_count += 1
       end
     end
-    
-    render json: {
-      success: true,
+
+    render_success(
       message: "Queued #{retry_count} webhook deliveries for retry",
       data: {
         retry_count: retry_count,
         total_failed: failed_deliveries.count
       }
-    }, status: :ok
+    )
   end
 
   # GET /api/v1/webhooks/health
   def health_check
     health_service = WebhookHealthService.new(current_user.account)
     health_data = health_service.overall_health
-    
-    render json: {
-      success: true,
+
+    render_success(
       data: health_data
-    }, status: :ok
+    )
   end
 
   # GET /api/v1/webhooks/health/stats
@@ -265,49 +238,41 @@ class Api::V1::WebhooksController < ApplicationController
     days = params[:days]&.to_i || 7
     health_service = WebhookHealthService.new(current_user.account)
     stats_data = health_service.webhook_event_stats(days: days)
-    
-    render json: {
-      success: true,
+
+    render_success(
       data: stats_data
-    }, status: :ok
+    )
   end
 
   # POST /api/v1/webhooks/:id/health_test
   def health_test
     health_service = WebhookHealthService.new(current_user.account)
     test_result = health_service.test_endpoint(@webhook)
-    
+
     log_webhook_action('webhook_health_test', @webhook, {
       test_result: test_result[:success],
       response_time: test_result[:response_time],
       status_code: test_result[:status_code]
     })
-    
-    render json: {
-      success: true,
+
+    render_success(
       message: 'Webhook health test completed',
       data: test_result
-    }, status: :ok
+    )
   end
 
   private
 
   def require_admin_access
     unless current_user.has_permission?('account.manage') || current_user.has_permission?('admin.access')
-      render json: {
-        success: false,
-        error: "Access denied: Admin privileges required"
-      }, status: :forbidden
+      render_error("Access denied: Admin privileges required", status: :forbidden)
     end
   end
 
   def find_webhook
     @webhook = WebhookEndpoint.find(params[:id])
   rescue ActiveRecord::RecordNotFound
-    render json: {
-      success: false,
-      error: 'Webhook endpoint not found'
-    }, status: :not_found
+    render_error('Webhook endpoint not found', status: :not_found)
   end
 
   def webhook_params

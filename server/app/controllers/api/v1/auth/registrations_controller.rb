@@ -44,7 +44,7 @@ class Api::V1::Auth::RegistrationsController < ApplicationController
       end
 
       # Create subscription if plan is selected
-      plan_id = params[:planId] || params[:plan_id] || params.dig(:user, :planId) || params.dig(:user, :plan_id)
+      plan_id = params[:plan_id] || params.dig(:user, :plan_id)
       if plan_id.present?
         plan = Plan.find_by(id: plan_id, status: 'active', is_public: true)
         if plan
@@ -87,14 +87,12 @@ class Api::V1::Auth::RegistrationsController < ApplicationController
       end
 
       response_data = {
-        success: true,
         user: user_data(@user),
         account: account_data(@account),
         subscription: @subscription ? subscription_data(@subscription) : nil,
         access_token: tokens[:access_token],
         refresh_token: tokens[:refresh_token],
-        expires_at: tokens[:expires_at],
-        message: "Account created successfully"
+        expires_at: tokens[:expires_at]
       }
 
       # Add verification reminder if email is not verified
@@ -102,21 +100,18 @@ class Api::V1::Auth::RegistrationsController < ApplicationController
         response_data[:warning] = "Please check your email and verify your account to secure access"
       end
 
-      render json: response_data, status: :created
+      render_success(
+        message: "Account created successfully",
+        data: response_data,
+        status: :created
+      )
     end
   rescue ActiveRecord::RecordInvalid => e
     # Use the first validation error as the main error message
     error_message = e.record.errors.full_messages.first || "Registration failed"
-    render json: {
-      success: false,
-      error: error_message,
-      details: e.record.errors.full_messages
-    }, status: :unprocessable_content
+    render_error(error_message, :unprocessable_content, details: e.record.errors.full_messages)
   rescue StandardError => e
-    render json: {
-      success: false,
-      error: e.message.presence || "Registration failed"
-    }, status: :unprocessable_content
+    render_error(e.message.presence || "Registration failed", status: :unprocessable_content)
   end
 
   private
@@ -128,14 +123,13 @@ class Api::V1::Auth::RegistrationsController < ApplicationController
 
   def account_params
     {
-      name: params[:accountName] || params[:account_name] || params.dig(:user, :accountName) || params.dig(:user, :account_name)
+      name: params[:account_name] || params.dig(:user, :account_name)
     }
   end
 
   def user_params
     {
-      first_name: params[:firstName] || params[:first_name] || params.dig(:user, :firstName) || params.dig(:user, :first_name),
-      last_name: params[:lastName] || params[:last_name] || params.dig(:user, :lastName) || params.dig(:user, :last_name),
+      name: params[:name] || params.dig(:user, :name),
       email: params[:email] || params.dig(:user, :email),
       password: params[:password] || params.dig(:user, :password)
     }

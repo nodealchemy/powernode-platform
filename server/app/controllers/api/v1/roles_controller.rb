@@ -12,29 +12,26 @@ class Api::V1::RolesController < ApplicationController
   # GET /api/v1/roles
   def index
     roles = Role.includes(:permissions).order(:name)
-    
-    render json: {
-      success: true,
+
+    render_success(
       data: roles.map { |role| role_data(role) }
-    }, status: :ok
+    )
   end
 
   # GET /api/v1/roles/:id
   def show
-    render json: {
-      success: true,
+    render_success(
       data: role_data(@role)
-    }, status: :ok
+    )
   end
 
   # GET /api/v1/roles/:id/users
   def users
-    users = @role.users.includes(:account, :user_roles).order(:first_name, :last_name, :email)
-    
-    render json: {
-      success: true,
+    users = @role.users.includes(:account, :user_roles).order(:name, :email)
+
+    render_success(
       data: users.map { |user| user_with_roles(user) }
-    }, status: :ok
+    )
   end
 
   # POST /api/v1/roles
@@ -51,17 +48,13 @@ class Api::V1::RolesController < ApplicationController
         @role.permissions = permissions
       end
       
-      render json: {
-        success: true,
+      render_success(
         data: role_data(@role),
-        message: "Role created successfully"
-      }, status: :created
+        message: "Role created successfully",
+        status: :created
+      )
     else
-      render json: {
-        success: false,
-        error: "Failed to create role",
-        details: @role.errors.full_messages
-      }, status: :unprocessable_content
+      render_validation_error(@role)
     end
   end
 
@@ -69,10 +62,7 @@ class Api::V1::RolesController < ApplicationController
   def update
     # Don't allow updating system roles
     if @role.system_role?
-      render json: {
-        success: false,
-        error: "System roles cannot be modified"
-      }, status: :forbidden
+      render_error("System roles cannot be modified", status: :forbidden)
       return
     end
     
@@ -83,17 +73,12 @@ class Api::V1::RolesController < ApplicationController
         @role.permissions = permissions
       end
       
-      render json: {
-        success: true,
+      render_success(
         data: role_data(@role),
         message: "Role updated successfully"
-      }, status: :ok
+      )
     else
-      render json: {
-        success: false,
-        error: "Failed to update role",
-        details: @role.errors.full_messages
-      }, status: :unprocessable_content
+      render_validation_error(@role)
     end
   end
 
@@ -101,32 +86,22 @@ class Api::V1::RolesController < ApplicationController
   def destroy
     # Don't allow deleting system roles
     if @role.system_role?
-      render json: {
-        success: false,
-        error: "System roles cannot be deleted"
-      }, status: :forbidden
+      render_error("System roles cannot be deleted", status: :forbidden)
       return
     end
-    
+
     # Check if role is in use
     if @role.users.any?
-      render json: {
-        success: false,
-        error: "Cannot delete role that is assigned to users"
-      }, status: :conflict
+      render_error("Cannot delete role that is assigned to users", status: :conflict)
       return
     end
-    
+
     if @role.destroy
-      render json: {
-        success: true,
+      render_success(
         message: "Role deleted successfully"
-      }, status: :ok
+      )
     else
-      render json: {
-        success: false,
-        error: "Failed to delete role"
-      }, status: :unprocessable_content
+      render_validation_error(@role)
     end
   end
 
@@ -149,10 +124,9 @@ class Api::V1::RolesController < ApplicationController
       end
     end
     
-    render json: {
-      success: true,
+    render_success(
       data: assignable_roles.map { |role| assignable_role_data(role) }
-    }, status: :ok
+    )
   end
 
   # POST /api/v1/roles/:role_id/assign_to_user/:user_id
@@ -161,26 +135,19 @@ class Api::V1::RolesController < ApplicationController
     
     # Validate that current user can assign this role
     unless can_assign_role?(role)
-      render json: {
-        success: false,
-        error: "You do not have permission to assign this role"
-      }, status: :forbidden
+      render_error("You do not have permission to assign this role", status: :forbidden)
       return
     end
-    
+
     begin
       @user.assign_role(role, assigned_by: current_user)
-      
-      render json: {
-        success: true,
+
+      render_success(
         data: user_with_roles(@user),
         message: "Role assigned successfully"
-      }, status: :ok
+      )
     rescue => e
-      render json: {
-        success: false,
-        error: "Failed to assign role: #{e.message}"
-      }, status: :unprocessable_content
+      render_error("Failed to assign role: #{e.message}", status: :unprocessable_content)
     end
   end
 
@@ -190,17 +157,13 @@ class Api::V1::RolesController < ApplicationController
     
     begin
       @user.remove_role(role)
-      
-      render json: {
-        success: true,
+
+      render_success(
         data: user_with_roles(@user),
         message: "Role removed successfully"
-      }, status: :ok
+      )
     rescue => e
-      render json: {
-        success: false,
-        error: "Failed to remove role: #{e.message}"
-      }, status: :unprocessable_content
+      render_error("Failed to remove role: #{e.message}", status: :unprocessable_content)
     end
   end
 
@@ -209,19 +172,13 @@ class Api::V1::RolesController < ApplicationController
   def find_role
     @role = Role.find(params[:id])
   rescue ActiveRecord::RecordNotFound
-    render json: {
-      success: false,
-      error: "Role not found"
-    }, status: :not_found
+    render_error("Role not found", status: :not_found)
   end
 
   def find_user
     @user = User.find(params[:user_id])
   rescue ActiveRecord::RecordNotFound
-    render json: {
-      success: false,
-      error: "User not found"
-    }, status: :not_found
+    render_error("User not found", status: :not_found)
   end
 
   def role_params
@@ -253,8 +210,7 @@ class Api::V1::RolesController < ApplicationController
     {
       id: user.id,
       email: user.email,
-      first_name: user.first_name,
-      last_name: user.last_name,
+      name: user.name,
       full_name: user.full_name,
       status: user.status,
       account: user.account ? {

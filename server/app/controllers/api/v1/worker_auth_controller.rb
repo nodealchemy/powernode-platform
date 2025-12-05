@@ -38,10 +38,7 @@ class Api::V1::WorkerAuthController < ApplicationController
       return render_error('Invalid email or password', status: :unauthorized)
     end
 
-    # Temporary bypass for testing - REMOVE IN PRODUCTION
-    if email == 'admin@powernode.org' && password == 'admin'
-      Rails.logger.info "Using temporary admin bypass"
-    elsif !user.authenticate(password)
+    if !user.authenticate(password)
       Rails.logger.warn "Password authentication failed for: #{email}"
       return render_error('Invalid email or password', status: :unauthorized)
     end
@@ -132,12 +129,36 @@ class Api::V1::WorkerAuthController < ApplicationController
     return false unless auth_header&.start_with?('Bearer ')
 
     token = auth_header.split(' ').last
-    expected_token = Rails.application.credentials.worker_token || ENV['WORKER_TOKEN']
-    
-    return false unless expected_token.present?
-    
-    # Secure token comparison
-    ActiveSupport::SecurityUtils.secure_compare(token, expected_token)
+    return false if token.blank?
+
+    # Cache worker authentication to reduce database calls
+    # Use token hash as cache key for security
+    cache_key = "worker_auth:#{Digest::SHA256.hexdigest(token)}"
+
+    cached_worker_id = Rails.cache.read(cache_key)
+    if cached_worker_id
+      # Use cached worker ID to avoid repeated authentication
+      worker = Worker.find_by(id: cached_worker_id, status: 'active')
+      if worker&.system?
+        @current_worker = worker
+        return true
+      else
+        # Cache invalidation if worker no longer valid
+        Rails.cache.delete(cache_key)
+      end
+    end
+
+    # Fallback to full authentication if not cached or cache invalid
+    # Only update last_seen_at on the first authentication, not on repeated verifications
+    worker = Worker.authenticate(token, update_last_seen: true)
+    return false unless worker&.system?
+
+    # Cache the successful authentication for 5 minutes
+    Rails.cache.write(cache_key, worker.id, expires_in: 5.minutes)
+
+    # Store the authenticated worker for use in other methods
+    @current_worker = worker
+    true
   end
 
   def generate_session_token(user)

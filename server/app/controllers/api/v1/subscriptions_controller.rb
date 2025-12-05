@@ -7,18 +7,14 @@ class Api::V1::SubscriptionsController < ApplicationController
   def index
     subscription = current_account.subscription
 
-    render json: {
-      success: true,
-      data: subscription ? [subscription_data(subscription)] : []
-    }, status: :ok
+    render_success(
+      subscription ? [subscription_data(subscription)] : []
+    )
   end
 
   # GET /api/v1/subscriptions/:id
   def show
-    render json: {
-      success: true,
-      data: subscription_data(@subscription)
-    }, status: :ok
+    render_success(subscription_data(@subscription))
   end
 
   # POST /api/v1/subscriptions
@@ -26,50 +22,27 @@ class Api::V1::SubscriptionsController < ApplicationController
     @subscription = current_account.build_subscription(subscription_params)
 
     if @subscription.save
-      render json: {
-        success: true,
-        data: subscription_data(@subscription),
-        message: "Subscription created successfully"
-      }, status: :created
+      render_created(subscription_data(@subscription))
     else
-      render json: {
-        success: false,
-        error: "Subscription creation failed",
-        details: @subscription.errors.full_messages
-      }, status: :unprocessable_content
+      render_validation_error(@subscription)
     end
   end
 
   # PATCH/PUT /api/v1/subscriptions/:id
   def update
     if @subscription.update(subscription_update_params)
-      render json: {
-        success: true,
-        data: subscription_data(@subscription),
-        message: "Subscription updated successfully"
-      }, status: :ok
+      render_success(subscription_data(@subscription))
     else
-      render json: {
-        success: false,
-        error: "Subscription update failed",
-        details: @subscription.errors.full_messages
-      }, status: :unprocessable_content
+      render_validation_error(@subscription)
     end
   end
 
   # DELETE /api/v1/subscriptions/:id
   def destroy
     if @subscription.cancel!
-      render json: {
-        success: true,
-        message: "Subscription cancelled successfully"
-      }, status: :ok
+      render_no_content
     else
-      render json: {
-        success: false,
-        error: "Subscription cancellation failed",
-        details: @subscription.errors.full_messages
-      }, status: :unprocessable_content
+      render_validation_error(@subscription)
     end
   end
 
@@ -105,40 +78,34 @@ class Api::V1::SubscriptionsController < ApplicationController
         metadata: log.metadata,
         user: log.user ? {
           id: log.user.id,
-          name: "#{log.user.first_name} #{log.user.last_name}",
+          name: log.user.full_name,
           email: log.user.email
         } : nil,
         created_at: log.created_at,
         source: log.source
       }
     end
-    
-    render json: {
-      success: true,
-      data: {
-        current_subscription: subscription ? subscription_data(subscription) : nil,
-        history: history_data,
-        total_events: all_logs.count
-      }
-    }, status: :ok
+
+    render_success({
+      current_subscription: subscription ? subscription_data(subscription) : nil,
+      history: history_data,
+      total_events: all_logs.count
+    })
   end
 
   private
 
   def set_subscription
     @subscription = current_account.subscription
-    
+
     # Verify the subscription ID matches if provided
     if params[:id] && @subscription&.id != params[:id]
       raise ActiveRecord::RecordNotFound
     end
-    
+
     raise ActiveRecord::RecordNotFound unless @subscription
   rescue ActiveRecord::RecordNotFound
-    render json: {
-      success: false,
-      error: "Subscription not found"
-    }, status: :not_found
+    render_error("Subscription not found", status: :not_found)
   end
 
   def subscription_params

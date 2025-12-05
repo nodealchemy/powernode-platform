@@ -10,54 +10,45 @@ class Api::V1::AuditLogsController < ApplicationController
   # GET /api/v1/audit_logs
   def index
     filters = audit_log_filters
-    page = [params[:page].to_i, 1].max
-    per_page = [(params[:per_page] || 50).to_i, 200].min
-    offset = (page - 1) * per_page
 
-    logs_query = AuditLog.includes(:user, :account)
-                         .apply_filters(filters)
-                         .order(created_at: :desc)
+    # Pagination using Kaminari
+    page = params[:page] || 1
+    per_page = [params[:per_page]&.to_i || 50, 200].min # Default 50, max 200
 
-    total_count = logs_query.count
-    total_pages = (total_count.to_f / per_page).ceil
+    logs = AuditLog.includes(:user, :account)
+                   .apply_filters(filters)
+                   .order(created_at: :desc)
+                   .page(page)
+                   .per(per_page)
 
-    logs = logs_query.limit(per_page)
-                     .offset(offset)
-
-    render json: {
-      success: true,
+    render_success(
       data: logs.map { |log| audit_log_data(log) },
-      meta: {
-        current_page: page,
-        per_page: per_page,
-        total_pages: total_pages,
-        total: total_count
+      pagination: {
+        current_page: logs.current_page,
+        per_page: logs.limit_value,
+        total_pages: logs.total_pages,
+        total_count: logs.total_count
       },
       stats: audit_log_stats
-    }, status: :ok
+    )
   end
 
   # GET /api/v1/audit_logs/:id
   def show
     log = AuditLog.includes(:user, :account).find(params[:id])
-    
-    render json: {
-      success: true,
+
+    render_success(
       data: detailed_audit_log_data(log)
-    }, status: :ok
+    )
   rescue ActiveRecord::RecordNotFound
-    render json: {
-      success: false,
-      error: 'Audit log not found'
-    }, status: :not_found
+    render_error('Audit log not found', status: :not_found)
   end
 
   # GET /api/v1/audit_logs/stats
   def stats
-    render json: {
-      success: true,
+    render_success(
       data: detailed_audit_log_stats
-    }, status: :ok
+    )
   end
 
   # POST /api/v1/audit_logs/export
@@ -73,14 +64,14 @@ class Api::V1::AuditLogsController < ApplicationController
         format
       ).job_id
       
-      render json: {
-        success: true,
+      render_success(
         message: 'Export job queued successfully',
         data: {
           job_id: job_id,
           estimated_completion: 5.minutes.from_now.iso8601
-        }
-      }, status: :accepted
+        },
+        status: :accepted
+      )
     else
       # For small exports, return data immediately
       logs = AuditLog.includes(:user, :account)
@@ -90,14 +81,13 @@ class Api::V1::AuditLogsController < ApplicationController
       
       export_data = generate_export_data(logs, format)
       
-      render json: {
-        success: true,
+      render_success(
         data: {
           format: format,
           content: export_data,
           filename: "audit_logs_#{Date.current.strftime('%Y%m%d')}.#{format}"
         }
-      }, status: :ok
+      )
     end
   end
 
@@ -114,10 +104,7 @@ class Api::V1::AuditLogsController < ApplicationController
       
       # Validate required parameters
       unless audit_params[:action].present?
-        return render json: {
-          success: false,
-          error: 'Action is required'
-        }, status: :unprocessable_content
+        return render_error('Action is required', status: :unprocessable_content)
       end
       
       # Set defaults for worker requests
@@ -141,10 +128,7 @@ class Api::V1::AuditLogsController < ApplicationController
                 end
       
       unless account
-        return render json: {
-          success: false,
-          error: 'No account found for audit log'
-        }, status: :unprocessable_content
+        return render_error('No account found for audit log', status: :unprocessable_content)
       end
       
       # Create audit log
@@ -160,30 +144,30 @@ class Api::V1::AuditLogsController < ApplicationController
         metadata: metadata
       )
       
-      render json: {
-        success: true,
+      render_success(
         message: 'Audit log created successfully',
         data: {
           id: audit_log.id,
           action: audit_log.action,
           created_at: audit_log.created_at.iso8601
-        }
-      }, status: :created
+        },
+        status: :created
+      )
       
     rescue ActiveRecord::RecordInvalid => e
       Rails.logger.error "Audit log validation failed: #{e.record.errors.full_messages.join(', ')}"
-      render json: {
-        success: false,
-        error: 'Invalid audit log data',
+      render_error(
+        'Invalid audit log data',
+        :unprocessable_content,
         details: e.record.errors.full_messages
-      }, status: :unprocessable_content
+      )
     rescue StandardError => e
       Rails.logger.error "Failed to create audit log: #{e.message}"
-      render json: {
-        success: false,
-        error: 'Failed to create audit log',
+      render_error(
+        'Failed to create audit log',
+        :internal_server_error,
         details: e.message
-      }, status: :internal_server_error
+      )
     end
   end
 
@@ -211,24 +195,20 @@ class Api::V1::AuditLogsController < ApplicationController
       }
     )
     
-    render json: {
-      success: true,
+    render_success(
       message: "Successfully deleted #{deleted_count} audit log entries",
       data: {
         deleted_count: deleted_count,
         cutoff_date: cutoff_date.iso8601
       }
-    }, status: :ok
+    )
   end
 
   private
 
   def require_admin_access
     unless current_user.has_permission?('account.manage') || current_user.has_permission?('admin.access')
-      render json: {
-        success: false,
-        error: "Access denied: Admin privileges required"
-      }, status: :forbidden
+      render_error("Access denied: Admin privileges required", status: :forbidden)
     end
   end
   
@@ -269,10 +249,7 @@ class Api::V1::AuditLogsController < ApplicationController
   end
   
   def render_unauthorized(message)
-    render json: {
-      success: false,
-      error: message
-    }, status: :unauthorized
+    render_error(message, status: :unauthorized)
   end
 
   def audit_log_filters
@@ -564,9 +541,6 @@ class Api::V1::AuditLogsController < ApplicationController
   end
 
   def render_bad_request(message)
-    render json: {
-      success: false,
-      error: message
-    }, status: :bad_request
+    render_error(message, status: :bad_request)
   end
 end

@@ -11,14 +11,26 @@ module Authentication
   private
 
   def authenticate_request
+    # Check for worker authentication via X-Worker-Token header first
+    worker_token = request.headers['X-Worker-Token']
+    if worker_token.present? && ENV['WORKER_TOKEN'].present?
+      # When WORKER_TOKEN environment variable is set, authenticate using the provided token
+      @current_worker = Worker.authenticate(worker_token)
+      if @current_worker
+        return # Worker authentication successful via X-Worker-Token
+      else
+        return render_unauthorized("Invalid or expired worker token")
+      end
+    end
+
     header = request.headers["Authorization"]
     header = header.split(" ").last if header
 
     return render_unauthorized("Access token required") unless header
 
     begin
-      # Try worker authentication first if token looks like a worker token (legacy)
-      if header.start_with?('swt_')
+      # Try worker authentication first if token looks like a worker token (legacy or development)
+      if header.start_with?('swt_') || header == 'development_worker_token'
         @current_worker = Worker.authenticate(header)
         if @current_worker
           return # Worker authentication successful
@@ -86,10 +98,6 @@ module Authentication
       @current_account = nil
       @current_worker = nil
     end
-  end
-
-  def render_unauthorized(message = "Unauthorized")
-    render json: { success: false, error: message }, status: :unauthorized
   end
 
   def should_record_login?
@@ -205,13 +213,8 @@ module Authentication
     has_permission?("#{resource}.#{action}")
   end
 
-  # Render forbidden response
-  def render_forbidden(message = "Access denied")
-    render json: {
-      success: false,
-      error: message
-    }, status: :forbidden
-  end
+  # Note: render_unauthorized and render_forbidden are provided by ApiResponse concern
+  # ApplicationController includes ApiResponse after Authentication, so those methods take precedence
 
   # Worker authentication methods
   def authenticate_worker_request!

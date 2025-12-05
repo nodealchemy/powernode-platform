@@ -5,7 +5,7 @@ class Api::V1::AdminSettingsController < ApplicationController
 
   # GET /api/v1/admin_settings
   def show
-    render json: admin_overview_data, status: :ok
+    render_success(admin_overview_data)
   end
 
   # PUT /api/v1/admin_settings
@@ -13,7 +13,12 @@ class Api::V1::AdminSettingsController < ApplicationController
     begin
       settings_params = admin_settings_params
       updated_settings = SystemSettingsService.update_settings(settings_params)
-      
+
+      # Update settings metadata timestamp
+      metadata = Rails.cache.fetch('system_settings_metadata') || { created_at: Time.current }
+      metadata[:updated_at] = Time.current
+      Rails.cache.write('system_settings_metadata', metadata, expires_in: 1.year)
+
       # Log the settings update
       AuditLog.create!(
         user: current_user,
@@ -30,20 +35,19 @@ class Api::V1::AdminSettingsController < ApplicationController
         }
       )
 
-      render json: {
-        success: true,
-        data: updated_settings,
-        message: "Admin settings updated successfully"
-      }, status: :ok
+      render_success(
+        message: "Admin settings updated successfully",
+        data: updated_settings
+      )
     rescue StandardError => e
       Rails.logger.error "Admin settings update failed: #{e.class.name}: #{e.message}"
       Rails.logger.error e.backtrace.join("\n")
-      
-      render json: {
-        success: false,
-        error: "Admin settings update failed",
+
+      render_error(
+        "Admin settings update failed",
+        :unprocessable_content,
         details: e.message
-      }, status: :unprocessable_content
+      )
     end
   end
 
@@ -53,16 +57,15 @@ class Api::V1::AdminSettingsController < ApplicationController
                 .order(:created_at)
                 .limit(100) # Paginate in real implementation
 
-    render json: {
-      success: true,
-      data: {
+    render_success({
+
         users: users.map { |user| admin_user_data(user) },
         total_count: User.count,
         active_count: User.where(status: 'active').count,
         inactive_count: User.where(status: 'inactive').count,
         suspended_count: User.where(status: 'suspended').count
       }
-    }, status: :ok
+    )
   end
 
   # GET /api/v1/admin_settings/accounts
@@ -71,16 +74,15 @@ class Api::V1::AdminSettingsController < ApplicationController
                      .order(:created_at)
                      .limit(100) # Paginate in real implementation
 
-    render json: {
-      success: true,
-      data: {
+    render_success({
+
         accounts: accounts.map { |account| admin_account_data(account) },
         total_count: Account.count,
         active_count: Account.where(status: 'active').count,
         suspended_count: Account.where(status: 'suspended').count,
         cancelled_count: Account.where(status: 'cancelled').count
       }
-    }, status: :ok
+    )
   end
 
   # GET /api/v1/admin_settings/system_logs
@@ -89,13 +91,12 @@ class Api::V1::AdminSettingsController < ApplicationController
                    .order(created_at: :desc)
                    .limit(100) # Paginate in real implementation
 
-    render json: {
-      success: true,
-      data: {
+    render_success({
+
         logs: logs.map { |log| admin_log_data(log) },
         total_count: AuditLog.count
       }
-    }, status: :ok
+    )
   end
 
   # POST /api/v1/admin_settings/suspend_account
@@ -113,22 +114,17 @@ class Api::V1::AdminSettingsController < ApplicationController
         source: 'admin_panel',
         ip_address: request.remote_ip,
         user_agent: request.user_agent,
-        metadata: { 
+        metadata: {
           suspended_account_name: account.name,
           reason: params[:reason] || 'Administrative action'
         }
       )
 
-      render json: {
-        success: true,
+      render_success(
         message: "Account suspended successfully"
-      }, status: :ok
+      )
     else
-      render json: {
-        success: false,
-        error: "Failed to suspend account",
-        details: account.errors.full_messages
-      }, status: :unprocessable_content
+      render_validation_error(account)
     end
   end
 
@@ -147,22 +143,17 @@ class Api::V1::AdminSettingsController < ApplicationController
         source: 'admin_panel',
         ip_address: request.remote_ip,
         user_agent: request.user_agent,
-        metadata: { 
+        metadata: {
           activated_account_name: account.name,
           reason: params[:reason] || 'Administrative action'
         }
       )
 
-      render json: {
-        success: true,
+      render_success(
         message: "Account activated successfully"
-      }, status: :ok
+      )
     else
-      render json: {
-        success: false,
-        error: "Failed to activate account",
-        details: account.errors.full_messages
-      }, status: :unprocessable_content
+      render_validation_error(account)
     end
   end
 
@@ -275,13 +266,58 @@ class Api::V1::AdminSettingsController < ApplicationController
   # POST /api/v1/admin_settings/security/regenerate_jwt_secret
   def regenerate_jwt_secret
     require_permission('admin.settings.security')
-    
-    # TODO: Implement JWT secret regeneration
-    # This would require careful coordination to avoid invalidating all active sessions
-    
+
+    # Generate new JWT secret
+    new_secret = SecureRandom.hex(64) # 128-character secret (512 bits)
+    old_secret = Rails.application.config.jwt_secret_key
+
+    # Store both secrets with grace period (24 hours)
+    grace_period_ends_at = 24.hours.from_now
+
+    Rails.cache.write('jwt_secret_rotation', {
+      old_secret: old_secret,
+      new_secret: new_secret,
+      rotated_at: Time.current,
+      grace_period_ends_at: grace_period_ends_at
+    }, expires_in: 25.hours)
+
+    # Update current secret (immediately effective for new tokens)
+    Rails.application.config.jwt_secret_key = new_secret
+
+    # Log critical security event
+    AuditLog.create!(
+      user: current_user,
+      account: current_account,
+      action: 'jwt_secret_regenerated',
+      resource_type: 'SecuritySettings',
+      resource_id: 'jwt',
+      source: 'admin_panel',
+      ip_address: request.remote_ip,
+      user_agent: request.user_agent,
+      severity: 'critical',
+      risk_level: 'high',
+      metadata: {
+        regenerated_by: current_user.email,
+        grace_period_hours: 24,
+        grace_period_ends_at: grace_period_ends_at.iso8601,
+        old_secret_length: old_secret.length,
+        new_secret_length: new_secret.length,
+        reason: params[:reason] || 'Admin-initiated rotation'
+      }
+    )
+
     render_success(
-      message: 'JWT secret regeneration initiated',
-      warning: 'This will invalidate all existing user sessions'
+      message: 'JWT secret regenerated successfully',
+      new_secret: new_secret, # Only shown once
+      grace_period_hours: 24,
+      grace_period_ends_at: grace_period_ends_at.iso8601,
+      warning: 'Store this secret securely. After 24 hours, all sessions using the old secret will be invalidated.',
+      instructions: [
+        'Save the new secret to your environment variables (JWT_SECRET_KEY)',
+        'Update production credentials if using Rails credentials',
+        'Restart application servers after updating environment',
+        'Users will need to re-authenticate after grace period expires'
+      ]
     )
   end
 
@@ -346,8 +382,7 @@ class Api::V1::AdminSettingsController < ApplicationController
         .map do |user|
       {
         id: user.id,
-        first_name: user.first_name,
-        last_name: user.last_name,
+        name: user.name,
         full_name: user.full_name,
         email: user.email,
         email_verified: user.email_verified?,
@@ -389,8 +424,8 @@ class Api::V1::AdminSettingsController < ApplicationController
         } : nil,
         owner: owner ? {
           id: owner.id,
-          first_name: owner.first_name,
-          last_name: owner.last_name,
+          name: owner.name,
+          full_name: owner.full_name,
           email: owner.email
         } : nil
       }
@@ -431,18 +466,22 @@ class Api::V1::AdminSettingsController < ApplicationController
   end
 
   def settings_summary_data
-    SystemSettingsService.load_settings.merge({
-      created_at: 30.days.ago, # TODO: Store actual settings creation time
-      updated_at: 1.day.ago     # TODO: Store actual settings update time
-    })
+    settings = SystemSettingsService.load_settings
+
+    # Get actual timestamps from Rails cache or default to system startup
+    settings_metadata = Rails.cache.fetch('system_settings_metadata', expires_in: 1.year) do
+      {
+        created_at: Time.current,
+        updated_at: Time.current
+      }
+    end
+
+    settings.merge(settings_metadata)
   end
 
   def require_admin_access
     unless current_user.has_permission?('account.manage') || current_user.has_permission?('admin.access')
-      render json: {
-        success: false,
-        error: "Access denied: Admin privileges required"
-      }, status: :forbidden
+      render_error("Access denied: Admin privileges required", status: :forbidden)
     end
   end
 
@@ -484,7 +523,7 @@ class Api::V1::AdminSettingsController < ApplicationController
 
   def system_settings
     {
-      maintenance_mode: false, # TODO: Implement maintenance mode
+      maintenance_mode: Rails.configuration.x.maintenance_mode || false,
       registration_enabled: true,
       email_verification_required: true,
       password_complexity_level: 'high',
@@ -730,7 +769,7 @@ class Api::V1::AdminSettingsController < ApplicationController
   end
 
   def webhook_events_today_count
-    # TODO: Implement webhook event tracking
+    # Track webhook events from payment gateways via audit logs
     AuditLog.where(
       source: ['stripe_webhook', 'paypal_webhook'],
       created_at: Date.current.beginning_of_day..Date.current.end_of_day

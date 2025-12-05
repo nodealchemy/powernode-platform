@@ -12,9 +12,9 @@ module ApiResponse
   # @param meta [Hash] Optional metadata (pagination, etc.)
   def render_success(data = nil, status: :ok, meta: nil)
     response = { success: true }
-    response[:data] = data unless data.nil?
-    response[:meta] = meta if meta.present?
-    
+    response[:data] = sanitize_for_json(data) unless data.nil?
+    response[:meta] = sanitize_for_json(meta) if meta.present?
+
     render json: response, status: status
   end
 
@@ -81,13 +81,38 @@ module ApiResponse
   end
 
   # Forbidden response (403 status)
-  # @param message [String] Custom forbidden message  
+  # @param message [String] Custom forbidden message
   def render_forbidden(message = "Access denied")
     render_error(
       message,
       status: :forbidden,
       code: "FORBIDDEN"
     )
+  end
+
+  private
+
+  # Sanitize data for JSON rendering by converting ActionController::Parameters
+  # and ensuring all nested structures are properly converted
+  def sanitize_for_json(data)
+    case data
+    when ActionController::Parameters
+      # Convert unpermitted parameters to hash
+      data.permit!.to_h
+    when Hash
+      # Recursively sanitize hash values
+      data.transform_values { |v| sanitize_for_json(v) }
+    when Array
+      # Recursively sanitize array elements
+      data.map { |item| sanitize_for_json(item) }
+    else
+      # Return other types as-is (String, Numeric, nil, etc.)
+      data
+    end
+  rescue StandardError => e
+    Rails.logger.error "Failed to sanitize data for JSON: #{e.message}"
+    # Return safe empty value on error
+    data.is_a?(Hash) || data.is_a?(ActionController::Parameters) ? {} : nil
   end
 
   # Internal server error response (500 status)
@@ -165,20 +190,20 @@ module ApiResponse
     render_success(data, status: status)
   end
 
-  private
-
   # Override ApplicationController error handlers to use standardized responses
+  # Note: rescue_from is processed in reverse order - last defined = highest priority
+  # Define general exceptions FIRST (lowest priority) and specific exceptions LAST (highest priority)
   included do
-    rescue_from ActiveRecord::RecordNotFound do |exception|
-      render_not_found(exception.model.humanize)
+    rescue_from StandardError do |exception|
+      render_internal_error("Something went wrong", exception: exception)
     end
 
     rescue_from ActiveRecord::RecordInvalid do |exception|
       render_validation_error(exception.record.errors)
     end
 
-    rescue_from StandardError do |exception|
-      render_internal_error("Something went wrong", exception: exception)
+    rescue_from ActiveRecord::RecordNotFound do |exception|
+      render_not_found(exception.model.humanize)
     end
   end
 end

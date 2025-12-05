@@ -63,7 +63,7 @@ class Api::V1::Kb::CommentsController < ApplicationController
 
   # POST /api/v1/kb/comments/:id/approve
   def approve
-    return render_error('Comment not found', :not_found) unless @comment
+    return render_error('Comment not found', status: :not_found) unless @comment
 
     @comment.approve!
     render_success({
@@ -73,7 +73,7 @@ class Api::V1::Kb::CommentsController < ApplicationController
 
   # POST /api/v1/kb/comments/:id/reject
   def reject
-    return render_error('Comment not found', :not_found) unless @comment
+    return render_error('Comment not found', status: :not_found) unless @comment
 
     @comment.reject!
     render_success({
@@ -83,7 +83,7 @@ class Api::V1::Kb::CommentsController < ApplicationController
 
   # POST /api/v1/kb/comments/:id/spam
   def spam
-    return render_error('Comment not found', :not_found) unless @comment
+    return render_error('Comment not found', status: :not_found) unless @comment
 
     @comment.mark_as_spam!
     render_success({
@@ -93,7 +93,7 @@ class Api::V1::Kb::CommentsController < ApplicationController
 
   # DELETE /api/v1/kb/comments/:id
   def destroy
-    return render_error('Comment not found', :not_found) unless @comment
+    return render_error('Comment not found', status: :not_found) unless @comment
 
     @comment.destroy
     render_success(message: 'Comment deleted successfully')
@@ -115,7 +115,7 @@ class Api::V1::Kb::CommentsController < ApplicationController
   end
 
   def authorize_kb_moderate
-    return render_error('Access denied', :forbidden) unless can_moderate_kb?
+    return render_error('Access denied', status: :forbidden) unless can_moderate_kb?
   end
 
   def apply_admin_filters(comments)

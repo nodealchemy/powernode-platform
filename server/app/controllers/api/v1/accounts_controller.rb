@@ -5,26 +5,20 @@ class Api::V1::AccountsController < ApplicationController
 
   # GET /api/v1/accounts/:id
   def show
-    render json: {
-      success: true,
+    render_success(
       data: account_data(@account)
-    }, status: :ok
+    )
   end
 
   # PATCH/PUT /api/v1/accounts/:id
   def update
     if @account.update(account_params)
-      render json: {
-        success: true,
-        data: account_data(@account),
-        message: "Account updated successfully"
-      }, status: :ok
+      render_success(
+        message: "Account updated successfully",
+        data: account_data(@account)
+      )
     else
-      render json: {
-        success: false,
-        error: "Account update failed",
-        details: @account.errors.full_messages
-      }, status: :unprocessable_content
+      render_validation_error(@account)
     end
   end
 
@@ -35,18 +29,12 @@ class Api::V1::AccountsController < ApplicationController
 
     # Allow access to other accounts only if user has accounts.read permissions
     if params[:id] != current_account.id && !current_user.has_permission?("accounts.read")
-      return render json: {
-        success: false,
-        error: "Access denied"
-      }, status: :forbidden
+      return render_error("Access denied", status: :forbidden)
     end
 
     @account = Account.find(params[:id]) if params[:id] != current_account.id
   rescue ActiveRecord::RecordNotFound
-    render json: {
-      success: false,
-      error: "Account not found"
-    }, status: :not_found
+    render_error("Account not found", status: :not_found)
   end
 
   def account_params

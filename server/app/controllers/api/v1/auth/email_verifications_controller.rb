@@ -16,7 +16,7 @@ class Api::V1::Auth::EmailVerificationsController < ApplicationController
     end
 
     user = User.find_by(email_verification_token: token)
-    
+
     if user.nil?
       render_error("Invalid verification token", status: :not_found)
       return
@@ -84,12 +84,12 @@ class Api::V1::Auth::EmailVerificationsController < ApplicationController
     end
 
     # Check if user recently requested verification
-    if current_user.email_verification_sent_at && 
+    if current_user.email_verification_sent_at &&
        current_user.email_verification_sent_at > 5.minutes.ago
       time_remaining = (5.minutes - (Time.current - current_user.email_verification_sent_at)).to_i
       render_error(
         "Please wait #{time_remaining} seconds before requesting another verification email",
-        status: :too_many_requests,
+        :too_many_requests,
         details: { retry_after: time_remaining }
       )
       return

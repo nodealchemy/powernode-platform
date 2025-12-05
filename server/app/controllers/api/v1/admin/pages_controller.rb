@@ -32,8 +32,8 @@ class Api::V1::Admin::PagesController < ApplicationController
     total_count = Page.count
     total_pages = (total_count.to_f / pagination[:per_page]).ceil
 
-    render json: {
-      data: pages.map do |page|
+    render_success(
+      pages.map do |page|
         {
           id: page.id,
           title: page.title,
@@ -65,13 +65,13 @@ class Api::V1::Admin::PagesController < ApplicationController
           search: params[:search]
         }
       }
-    }
+    )
   end
 
   # GET /api/v1/admin/pages/:id
   def show
-    render json: {
-      data: {
+    render_success(
+      {
         id: @page.id,
         title: @page.title,
         slug: @page.slug,
@@ -96,7 +96,7 @@ class Api::V1::Admin::PagesController < ApplicationController
           keywords: @page.seo_keywords_array
         }
       }
-    }
+    )
   end
 
   # POST /api/v1/admin/pages
@@ -105,59 +105,43 @@ class Api::V1::Admin::PagesController < ApplicationController
     @page.author = current_user
 
     if @page.save
-      render json: {
-        data: serialize_page(@page),
-        message: "Page created successfully"
-      }, status: :created
+      render_success(
+        serialize_page(@page),
+        status: :created
+      )
     else
-      render json: {
-        error: "Page creation failed",
-        details: @page.errors.full_messages
-      }, status: :unprocessable_content
+      render_validation_error(@page)
     end
   end
 
   # PATCH/PUT /api/v1/admin/pages/:id
   def update
     if @page.update(page_params)
-      render json: {
-        data: serialize_page(@page),
-        message: "Page updated successfully"
-      }
+      render_success(
+        serialize_page(@page)
+      )
     else
-      render json: {
-        error: "Page update failed",
-        details: @page.errors.full_messages
-      }, status: :unprocessable_content
+      render_validation_error(@page)
     end
   end
 
   # DELETE /api/v1/admin/pages/:id
   def destroy
     @page.destroy!
-    render json: {
-      message: "Page deleted successfully"
-    }
+    render_success
   rescue ActiveRecord::RecordNotDestroyed
-    render json: {
-      error: "Page deletion failed",
-      details: @page.errors.full_messages
-    }, status: :unprocessable_content
+    render_validation_error(@page)
   end
 
   # POST /api/v1/admin/pages/:id/publish
   def publish
     set_page
     if @page.publish!
-      render json: {
-        data: serialize_page(@page),
-        message: "Page published successfully"
-      }
+      render_success(
+        serialize_page(@page)
+      )
     else
-      render json: {
-        error: "Page publication failed",
-        details: @page.errors.full_messages
-      }, status: :unprocessable_content
+      render_validation_error(@page)
     end
   end
 
@@ -165,15 +149,11 @@ class Api::V1::Admin::PagesController < ApplicationController
   def unpublish
     set_page
     if @page.unpublish!
-      render json: {
-        data: serialize_page(@page),
-        message: "Page unpublished successfully"
-      }
+      render_success(
+        serialize_page(@page)
+      )
     else
-      render json: {
-        error: "Page unpublishing failed",
-        details: @page.errors.full_messages
-      }, status: :unprocessable_content
+      render_validation_error(@page)
     end
   end
 
@@ -189,15 +169,12 @@ class Api::V1::Admin::PagesController < ApplicationController
     new_page.author = current_user
 
     if new_page.save
-      render json: {
-        data: serialize_page(new_page),
-        message: "Page duplicated successfully"
-      }, status: :created
+      render_success(
+        serialize_page(new_page),
+        status: :created
+      )
     else
-      render json: {
-        error: "Page duplication failed",
-        details: new_page.errors.full_messages
-      }, status: :unprocessable_content
+      render_validation_error(new_page)
     end
   end
 
@@ -216,10 +193,10 @@ class Api::V1::Admin::PagesController < ApplicationController
 
   def ensure_admin_access!
     unless current_user.has_permission?('admin.access')
-      render json: {
-        error: "Access denied",
-        message: "You don't have permission to access this resource"
-      }, status: :forbidden
+      render_error(
+        "Access denied: You don't have permission to access this resource",
+        :forbidden
+      )
     end
   end
 

@@ -16,8 +16,7 @@ class Api::V1::ApiKeysController < ApplicationController
     
     total_pages = (total_count.to_f / per_page).ceil
 
-    render json: {
-      success: true,
+    render_success(
       data: {
         api_keys: api_keys.map { |key| api_key_summary(key) },
         pagination: {
@@ -28,15 +27,14 @@ class Api::V1::ApiKeysController < ApplicationController
         },
         stats: api_key_stats
       }
-    }, status: :ok
+    )
   end
 
   # GET /api/v1/api_keys/:id
   def show
-    render json: {
-      success: true,
+    render_success(
       data: detailed_api_key_data(@api_key)
-    }, status: :ok
+    )
   end
 
   # POST /api/v1/api_keys
@@ -55,19 +53,15 @@ class Api::V1::ApiKeysController < ApplicationController
       # Log API key creation
       log_api_key_action('api_key_created', api_key)
 
-      render json: {
-        success: true,
+      render_success(
         message: 'API key created successfully',
         data: detailed_api_key_data(api_key).merge({
           key_value: api_key.key_value # Only show full key on creation
-        })
-      }, status: :created
+        }),
+        status: :created
+      )
     else
-      render json: {
-        success: false,
-        error: 'Failed to create API key',
-        details: api_key.errors.full_messages
-      }, status: :unprocessable_content
+      render_validation_error(api_key)
     end
   end
 
@@ -76,17 +70,12 @@ class Api::V1::ApiKeysController < ApplicationController
     if @api_key.update(api_key_update_params)
       log_api_key_action('api_key_updated', @api_key)
 
-      render json: {
-        success: true,
+      render_success(
         message: 'API key updated successfully',
         data: detailed_api_key_data(@api_key)
-      }, status: :ok
+      )
     else
-      render json: {
-        success: false,
-        error: 'Failed to update API key',
-        details: @api_key.errors.full_messages
-      }, status: :unprocessable_content
+      render_validation_error(@api_key)
     end
   end
 
@@ -97,16 +86,11 @@ class Api::V1::ApiKeysController < ApplicationController
     if @api_key.destroy
       log_api_key_action('api_key_deleted', @api_key, api_key_data)
 
-      render json: {
-        success: true,
+      render_success(
         message: 'API key deleted successfully'
-      }, status: :ok
+      )
     else
-      render json: {
-        success: false,
-        error: 'Failed to delete API key',
-        details: @api_key.errors.full_messages
-      }, status: :unprocessable_content
+      render_validation_error(@api_key)
     end
   end
 
@@ -119,19 +103,14 @@ class Api::V1::ApiKeysController < ApplicationController
         old_key_preview: old_key_preview
       })
 
-      render json: {
-        success: true,
+      render_success(
         message: 'API key regenerated successfully',
         data: detailed_api_key_data(@api_key).merge({
           key_value: @api_key.key_value # Only show full key on regeneration
         })
-      }, status: :ok
+      )
     else
-      render json: {
-        success: false,
-        error: 'Failed to regenerate API key',
-        details: @api_key.errors.full_messages
-      }, status: :unprocessable_content
+      render_validation_error(@api_key)
     end
   end
 
@@ -145,17 +124,12 @@ class Api::V1::ApiKeysController < ApplicationController
         new_status: new_status
       })
 
-      render json: {
-        success: true,
+      render_success(
         message: "API key #{new_status == 'active' ? 'activated' : 'revoked'}",
         data: api_key_summary(@api_key)
-      }, status: :ok
+      )
     else
-      render json: {
-        success: false,
-        error: 'Failed to update API key status',
-        details: @api_key.errors.full_messages
-      }, status: :unprocessable_content
+      render_validation_error(@api_key)
     end
   end
 
@@ -173,8 +147,7 @@ class Api::V1::ApiKeysController < ApplicationController
                             .group_by_day(:created_at)
                             .sum(:request_count)
 
-    render json: {
-      success: true,
+    render_success(
       data: {
         usage_stats: usage_stats,
         summary: {
@@ -186,45 +159,44 @@ class Api::V1::ApiKeysController < ApplicationController
           }
         }
       }
-    }, status: :ok
+    )
   end
 
   # GET /api/v1/api_keys/scopes
   def available_scopes
-    render json: {
-      success: true,
+    render_success(
       data: {
         scopes: ApiKey.available_scopes,
         scope_descriptions: ApiKey.scope_descriptions
       }
-    }, status: :ok
+    )
   end
 
   # POST /api/v1/api_keys/validate
   def validate_key
     key_value = params[:key]
-    return render_bad_request('API key required') unless key_value.present?
+    return render_error('API key required', status: :bad_request) unless key_value.present?
 
     api_key = ApiKey.find_by(key_hash: ApiKey.hash_key(key_value))
-    
+
     if api_key&.valid_for_use?
-      render json: {
-        success: true,
-        valid: true,
+      render_success(
         data: {
+          valid: true,
           id: api_key.id,
           name: api_key.name,
           scopes: api_key.scopes,
           account_id: api_key.account_id,
           expires_at: api_key.expires_at&.iso8601
         }
-      }, status: :ok
+      )
     else
-      render json: {
-        success: true,
-        valid: false,
-        reason: api_key ? api_key.invalid_reason : 'API key not found'
-      }, status: :ok
+      render_success(
+        data: {
+          valid: false,
+          reason: api_key ? api_key.invalid_reason : 'API key not found'
+        }
+      )
     end
   end
 
@@ -232,10 +204,7 @@ class Api::V1::ApiKeysController < ApplicationController
 
   def require_admin_access
     unless current_user.has_permission?('account.manage') || current_user.has_permission?('admin.access')
-      render json: {
-        success: false,
-        error: "Access denied: Admin privileges required"
-      }, status: :forbidden
+      render_error("Access denied: Admin privileges required", status: :forbidden)
     end
   end
 
@@ -244,19 +213,13 @@ class Api::V1::ApiKeysController < ApplicationController
     
     # Non-admin users can only manage their account's API keys
     unless current_user.has_permission?('admin.access') || @api_key.account == current_user.account
-      render json: {
-        success: false,
-        error: 'Access denied: You can only manage your account\'s API keys'
-      }, status: :forbidden
+      render_error('Access denied: You can only manage your account\'s API keys', status: :forbidden)
       return false
     end
-    
+
     true
   rescue ActiveRecord::RecordNotFound
-    render json: {
-      success: false,
-      error: 'API key not found'
-    }, status: :not_found
+    render_error('API key not found', status: :not_found)
     false
   end
 
@@ -361,12 +324,5 @@ class Api::V1::ApiKeysController < ApplicationController
         scopes: api_key.scopes
       })
     )
-  end
-
-  def render_bad_request(message)
-    render json: {
-      success: false,
-      error: message
-    }, status: :bad_request
   end
 end

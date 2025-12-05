@@ -291,16 +291,15 @@ module Api
         # GET /api/v1/admin/proxy_settings/export
         def export
           config = AdminSetting.reverse_proxy_url_config
-          
-          render json: {
-            success: true,
+
+          render_success(
             data: {
               config: config,
               export_timestamp: Time.current.iso8601,
               export_format: 'json',
               version: '1.0'
             }
-          }
+          )
         rescue StandardError => e
           Rails.logger.error "Failed to export proxy config: #{e.message}"
           render_error('Failed to export configuration')
