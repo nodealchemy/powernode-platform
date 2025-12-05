@@ -108,6 +108,10 @@ class ApiClient
     get("/api/v1/internal/accounts/#{account_id}")
   end
 
+  def get_invitation(invitation_id)
+    get("/api/v1/internal/invitations/#{invitation_id}")
+  end
+
   def generate_pdf_report(report_type, account_id: nil, start_date: nil, end_date: nil, user_id: nil)
     post('/api/v1/reports/generate', {
       reports: [{

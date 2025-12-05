@@ -9,7 +9,7 @@ class Services::TestConfigurationJob < BaseJob
                   retry: 1
 
   def execute(test_config, job_id: nil)
-    logger.info "Starting services configuration test (job: #{job_id})"
+    log_info("Starting services configuration test (job: #{job_id})")
 
     start_time = Time.current
 
@@ -39,7 +39,7 @@ class Services::TestConfigurationJob < BaseJob
         message: 'Configuration test completed successfully'
       }
 
-      logger.info "Configuration test completed in #{duration.round(2)}s"
+      log_info("Configuration test completed in #{duration.round(2)}s")
 
       # Update job status via API
       update_job_status(job_id, result) if job_id
@@ -56,7 +56,7 @@ class Services::TestConfigurationJob < BaseJob
         message: 'Configuration test failed'
       }
 
-      logger.error "Configuration test failed after #{duration.round(2)}s: #{e.message}"
+      log_error("Configuration test failed after #{duration.round(2)}s: #{e.message}")
       
       # Update job status via API
       update_job_status(job_id, error_result) if job_id
@@ -73,6 +73,6 @@ class Services::TestConfigurationJob < BaseJob
       result: result
     })
   rescue => e
-    logger.warn "Failed to update job status: #{e.message}"
+    log_warn("Failed to update job status: #{e.message}")
   end
 end

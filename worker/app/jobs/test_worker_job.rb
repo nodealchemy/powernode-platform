@@ -4,7 +4,7 @@
 class TestWorkerJob < BaseJob
 
   def execute(worker_id, worker_name, options = {})
-    PowernodeWorker.application.logger.info "TestWorkerJob started for worker: #{worker_name} (#{worker_id})"
+    PowernodeWorker.application.log_info("TestWorkerJob started for worker: #{worker_name} (#{worker_id})")
     
     start_time = Time.now
     
@@ -32,8 +32,8 @@ class TestWorkerJob < BaseJob
         timestamp: Time.now.iso8601
       }
       
-      PowernodeWorker.application.logger.info "TestWorkerJob completed successfully for worker: #{worker_name}"
-      PowernodeWorker.application.logger.info "Test results: #{result.to_json}"
+      PowernodeWorker.application.log_info("TestWorkerJob completed successfully for worker: #{worker_name}")
+      PowernodeWorker.application.log_info("Test results: #{result.to_json}")
       
       # Report success back to backend if configured
       report_test_completion(worker_id, result) if backend_check[:success]
@@ -52,7 +52,7 @@ class TestWorkerJob < BaseJob
         timestamp: Time.now.iso8601
       }
       
-      PowernodeWorker.application.logger.error "TestWorkerJob failed for worker: #{worker_name} - #{e.message}"
+      PowernodeWorker.application.log_error("TestWorkerJob failed for worker: #{worker_name} - #{e.message}")
       
       # Still try to report the failure
       report_test_completion(worker_id, error_result) rescue nil
@@ -114,9 +114,9 @@ class TestWorkerJob < BaseJob
     # Try to report the test results back to the backend via internal API
     api_client.post("/api/v1/internal/workers/#{worker_id}/test_results", { test_results: result })
     
-    PowernodeWorker.application.logger.info "Test results reported to backend successfully"
+    PowernodeWorker.application.log_info("Test results reported to backend successfully")
   rescue => e
-    PowernodeWorker.application.logger.warn "Failed to report test results to backend: #{e.message}"
+    PowernodeWorker.application.log_warn("Failed to report test results to backend: #{e.message}")
     # Don't fail the job if reporting fails
   end
 end

@@ -11,7 +11,7 @@ class Services::TestPaymentGatewayConnectionJob < BaseJob
   def execute(job_id, gateway, config_data = {})
     validate_required_params({ 'job_id' => job_id, 'gateway' => gateway }, 'job_id', 'gateway')
     
-    logger.info "Testing #{gateway} connection for job #{job_id}"
+    log_info("Testing #{gateway} connection for job #{job_id}")
     
     # Update job status to running
     update_job_status(job_id, 'running')
@@ -29,7 +29,7 @@ class Services::TestPaymentGatewayConnectionJob < BaseJob
       # Update job status with successful result
       update_job_status(job_id, 'completed', result)
       
-      logger.info "Successfully tested #{gateway} connection for job #{job_id}"
+      log_info("Successfully tested #{gateway} connection for job #{job_id}")
       result
       
     rescue StandardError => e
@@ -43,7 +43,7 @@ class Services::TestPaymentGatewayConnectionJob < BaseJob
       # Update job status with error result  
       update_job_status(job_id, 'failed', error_result)
       
-      logger.error "Failed to test #{gateway} connection for job #{job_id}: #{e.message}"
+      log_error("Failed to test #{gateway} connection for job #{job_id}: #{e.message}")
       raise
     end
   end
@@ -225,7 +225,7 @@ class Services::TestPaymentGatewayConnectionJob < BaseJob
       })
     end
   rescue BackendApiClient::ApiError => e
-    logger.warn "Failed to update job status for #{job_id}: #{e.message}"
+    log_warn("Failed to update job status for #{job_id}: #{e.message}")
     # Don't re-raise - job status update failure shouldn't fail the main job
   end
 end

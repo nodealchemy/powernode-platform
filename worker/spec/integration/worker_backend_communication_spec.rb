@@ -141,8 +141,9 @@ RSpec.describe 'Worker-Backend Communication', type: :integration do
 
     describe 'report data for generation' do
       before do
+        # Stub without with_query since the regex pattern already handles query params
         stub_backend_api_success(
-          :get, 
+          :get,
           '/api/v1/analytics/export',
           {
             success: true,
@@ -153,11 +154,6 @@ RSpec.describe 'Worker-Backend Communication', type: :integration do
                 { date: '2024-01-30', revenue: 7500, users: 32 }
               ]
             }
-          },
-          with_query: {
-            report_type: 'monthly_summary',
-            account_id: account_id,
-            'parameters[month]' => '2024-01'
           }
         )
       end

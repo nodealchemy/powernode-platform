@@ -9,7 +9,7 @@ class Reports::GenerateReportJob < BaseJob
                   retry: 2
 
   def execute(report_request_id)
-    logger.info "Processing report request #{report_request_id}"
+    log_info("Processing report request #{report_request_id}")
     
     # Get the report request details from backend
     report_request = with_api_retry do
@@ -17,7 +17,7 @@ class Reports::GenerateReportJob < BaseJob
     end
     
     unless report_request
-      logger.error "Report request #{report_request_id} not found"
+      log_error("Report request #{report_request_id} not found")
       return false
     end
     
@@ -26,7 +26,7 @@ class Reports::GenerateReportJob < BaseJob
       backend_api_client.update_report_request_status(report_request_id, 'processing')
     end
     
-    logger.info "Generating #{report_request['type']} report in #{report_request['format']} format"
+    log_info("Generating #{report_request['type']} report in #{report_request['format']} format")
     
     begin
       # Generate the report file
@@ -45,10 +45,10 @@ class Reports::GenerateReportJob < BaseJob
         )
       end
       
-      logger.info "Successfully generated report #{report_request_id}"
+      log_info("Successfully generated report #{report_request_id}")
       
     rescue StandardError => e
-      logger.error "Failed to generate report #{report_request_id}: #{e.message}"
+      log_error("Failed to generate report #{report_request_id}: #{e.message}")
       
       # Mark request as failed
       with_api_retry do
@@ -63,7 +63,7 @@ class Reports::GenerateReportJob < BaseJob
   
   # Generate the actual report file based on type and parameters
   def generate_report_file(report_request)
-    logger.info "Generating #{report_request['report_type']} in #{report_request['format']} format"
+    log_info("Generating #{report_request['report_type']} in #{report_request['format']} format")
     
     case report_request['format']
     when 'pdf'
@@ -94,7 +94,7 @@ class Reports::GenerateReportJob < BaseJob
     # Write file to storage
     File.write(file_path, file_data, mode: 'wb')
     
-    logger.info "Report file saved to #{file_path}"
+    log_info("Report file saved to #{file_path}")
     file_path
   end
   
@@ -287,12 +287,12 @@ class Reports::GenerateReportJob < BaseJob
       response = connection.post(callback_url, notification_payload)
       
       if response.success?
-        logger.info "Sent completion notification to #{callback_url}"
+        log_info("Sent completion notification to #{callback_url}")
       else
-        logger.warn "Failed to send notification to #{callback_url}: #{response.status}"
+        log_warn("Failed to send notification to #{callback_url}: #{response.status}")
       end
     rescue StandardError => e
-      logger.error "Error sending notification to #{callback_url}: #{e.message}"
+      log_error("Error sending notification to #{callback_url}: #{e.message}")
       # Don't fail the job for notification errors
     end
   end

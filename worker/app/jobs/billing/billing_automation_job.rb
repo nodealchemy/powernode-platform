@@ -9,7 +9,7 @@ class Billing::BillingAutomationJob < BaseJob
                   retry: 3
 
   def execute(subscription_id = nil)
-    logger.info "Starting billing automation cycle at #{Time.current}"
+    log_info("Starting billing automation cycle at #{Time.current}")
     
     if subscription_id
       # Process specific subscription
@@ -19,7 +19,7 @@ class Billing::BillingAutomationJob < BaseJob
       process_subscriptions_needing_renewal
     end
     
-    logger.info "Completed billing automation cycle at #{Time.current}"
+    log_info("Completed billing automation cycle at #{Time.current}")
   end
 
   private
@@ -38,7 +38,7 @@ class Billing::BillingAutomationJob < BaseJob
       api_client.get('/api/v1/subscriptions', renewal_params)
     end
 
-    logger.info "Found #{subscriptions.size} subscriptions needing renewal"
+    log_info("Found #{subscriptions.size} subscriptions needing renewal")
 
     subscriptions.each do |subscription_data|
       process_subscription(subscription_data['id'])
@@ -49,34 +49,44 @@ class Billing::BillingAutomationJob < BaseJob
     subscription = with_api_retry do
       api_client.get("/api/v1/subscriptions/#{subscription_id}")
     end
-    
+
     return unless subscription
 
-    logger.info "Processing subscription #{subscription['id']} for account #{subscription.dig('account', 'name')}"
+    log_info("Processing subscription #{subscription['id']} for account #{subscription.dig('account', 'name')}")
 
-    begin
-      case subscription['status']
-      when 'trialing'
-        handle_trial_ending(subscription)
-      when 'active', 'past_due'
-        handle_subscription_renewal(subscription)
-      end
-    rescue StandardError => e
-      logger.error "Failed to process subscription #{subscription['id']}: #{e.message}"
-      
-      # Schedule retry for later
-      Billing::BillingAutomationJob.perform_in(1.hour, subscription_id)
-      
-      # Send alert via API
-      send_billing_failure_alert(subscription, e.message)
+    case subscription['status']
+    when 'trialing'
+      handle_trial_ending(subscription)
+    when 'active', 'past_due'
+      handle_subscription_renewal(subscription)
     end
+  rescue BackendApiClient::ApiError => e
+    if e.status == 404
+      log_warn("Subscription #{subscription_id} not found, skipping")
+      return nil
+    end
+    log_error("Failed to process subscription #{subscription_id}: #{e.message}")
+
+    # Schedule retry for later
+    Billing::BillingAutomationJob.perform_in(1.hour, subscription_id)
+
+    # Send alert via API if we have subscription data
+    send_billing_failure_alert(subscription, e.message) if subscription
+  rescue StandardError => e
+    log_error("Failed to process subscription #{subscription_id}: #{e.message}")
+
+    # Schedule retry for later
+    Billing::BillingAutomationJob.perform_in(1.hour, subscription_id)
+
+    # Send alert via API if we have subscription data
+    send_billing_failure_alert(subscription, e.message) if subscription
   end
 
   def handle_trial_ending(subscription)
     trial_end = subscription['trial_end'] ? Time.parse(subscription['trial_end']) : nil
     return unless trial_end && trial_end <= Time.current
 
-    logger.info "Trial ending for subscription #{subscription['id']}"
+    log_info("Trial ending for subscription #{subscription['id']}")
 
     # Get account payment methods via API
     payment_methods = with_api_retry do
@@ -89,7 +99,7 @@ class Billing::BillingAutomationJob < BaseJob
         status: 'past_due',
         current_period_start: Time.current.iso8601,
         current_period_end: 3.days.from_now.iso8601,
-        metadata: subscription['metadata'].merge(
+        metadata: (subscription['metadata'] || {}).merge(
           'trial_ended_at' => Time.current.iso8601,
           'grace_period_ends' => 3.days.from_now.iso8601
         )
@@ -148,7 +158,7 @@ class Billing::BillingAutomationJob < BaseJob
         Billing::PaymentRetryJob.perform_in(1.hour, subscription['id'], 'trial_conversion_failure')
       end
     rescue StandardError => e
-      logger.error "Failed to process trial ending for subscription #{subscription['id']}: #{e.message}"
+      log_error("Failed to process trial ending for subscription #{subscription['id']}: #{e.message}")
       
       with_api_retry do
         api_client.patch("/api/v1/subscriptions/#{subscription['id']}", { status: 'past_due' })
@@ -159,7 +169,7 @@ class Billing::BillingAutomationJob < BaseJob
   end
 
   def handle_subscription_renewal(subscription)
-    logger.info "Processing renewal for subscription #{subscription['id']}"
+    log_info("Processing renewal for subscription #{subscription['id']}")
 
     # Get account payment methods via API
     payment_methods = with_api_retry do
@@ -222,7 +232,7 @@ class Billing::BillingAutomationJob < BaseJob
       end
       
     rescue StandardError => e
-      logger.error "Failed to process renewal for subscription #{subscription['id']}: #{e.message}"
+      log_error("Failed to process renewal for subscription #{subscription['id']}: #{e.message}")
       raise
     end
   end
@@ -256,9 +266,9 @@ class Billing::BillingAutomationJob < BaseJob
       api_client.post('/api/v1/notifications', notification_params)
     end
     
-    logger.info "Sent payment method required notification for subscription #{subscription['id']}"
+    log_info("Sent payment method required notification for subscription #{subscription['id']}")
   rescue StandardError => e
-    logger.error "Failed to send payment method notification: #{e.message}"
+    log_error("Failed to send payment method notification: #{e.message}")
   end
 
   def send_trial_conversion_success_notification(subscription)
@@ -274,9 +284,9 @@ class Billing::BillingAutomationJob < BaseJob
       api_client.post('/api/v1/notifications', notification_params)
     end
     
-    logger.info "Sent trial conversion success notification for subscription #{subscription['id']}"
+    log_info("Sent trial conversion success notification for subscription #{subscription['id']}")
   rescue StandardError => e
-    logger.error "Failed to send trial conversion notification: #{e.message}"
+    log_error("Failed to send trial conversion notification: #{e.message}")
   end
 
   def send_renewal_success_notification(subscription, invoice)
@@ -293,9 +303,9 @@ class Billing::BillingAutomationJob < BaseJob
       api_client.post('/api/v1/notifications', notification_params)
     end
     
-    logger.info "Sent renewal success notification for subscription #{subscription['id']}"
+    log_info("Sent renewal success notification for subscription #{subscription['id']}")
   rescue StandardError => e
-    logger.error "Failed to send renewal notification: #{e.message}"
+    log_error("Failed to send renewal notification: #{e.message}")
   end
 
   def send_payment_failure_notification(subscription, payment_result)
@@ -311,9 +321,9 @@ class Billing::BillingAutomationJob < BaseJob
       api_client.post('/api/v1/notifications', notification_params)
     end
     
-    logger.info "Sent payment failure notification for subscription #{subscription['id']}"
+    log_info("Sent payment failure notification for subscription #{subscription['id']}")
   rescue StandardError => e
-    logger.error "Failed to send payment failure notification: #{e.message}"
+    log_error("Failed to send payment failure notification: #{e.message}")
   end
 
   def send_reactivation_notification(subscription)
@@ -329,9 +339,9 @@ class Billing::BillingAutomationJob < BaseJob
       api_client.post('/api/v1/notifications', notification_params)
     end
     
-    logger.info "Sent reactivation notification for subscription #{subscription['id']}"
+    log_info("Sent reactivation notification for subscription #{subscription['id']}")
   rescue StandardError => e
-    logger.error "Failed to send reactivation notification: #{e.message}"
+    log_error("Failed to send reactivation notification: #{e.message}")
   end
 
   def send_billing_failure_alert(subscription, error_message)
@@ -348,8 +358,8 @@ class Billing::BillingAutomationJob < BaseJob
       api_client.post('/api/v1/notifications', alert_params)
     end
     
-    logger.error "ADMIN ALERT: Billing failure for subscription #{subscription['id']}: #{error_message}"
+    log_error("ADMIN ALERT: Billing failure for subscription #{subscription['id']}: #{error_message}")
   rescue StandardError => e
-    logger.error "Failed to send billing failure alert: #{e.message}"
+    log_error("Failed to send billing failure alert: #{e.message}")
   end
 end

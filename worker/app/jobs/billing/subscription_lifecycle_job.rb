@@ -9,7 +9,7 @@ class Billing::SubscriptionLifecycleJob < BaseJob
                   retry: 2
 
   def execute(action, subscription_id, **options)
-    logger.info "Processing subscription lifecycle action '#{action}' for subscription #{subscription_id}"
+    log_info("Processing subscription lifecycle action '#{action}' for subscription #{subscription_id}")
     
     case action.to_s
     when 'trial_ending_reminder'
@@ -27,7 +27,7 @@ class Billing::SubscriptionLifecycleJob < BaseJob
     when 'grace_period_ending'
       handle_grace_period_ending(subscription_id, options)
     else
-      logger.error "Unknown subscription lifecycle action: #{action}"
+      log_error("Unknown subscription lifecycle action: #{action}")
     end
   end
 
@@ -42,7 +42,7 @@ class Billing::SubscriptionLifecycleJob < BaseJob
     
     return unless [7, 3, 1].include?(days_until_end)
 
-    logger.info "Sending trial ending reminder for subscription #{subscription_id} (#{days_until_end} days)"
+    log_info("Sending trial ending reminder for subscription #{subscription_id} (#{days_until_end} days)")
 
     # Check if account has payment method
     payment_methods = get_account_payment_methods(subscription['account_id'], active: true)
@@ -63,7 +63,7 @@ class Billing::SubscriptionLifecycleJob < BaseJob
     trial_end = subscription['trial_end'] ? Time.parse(subscription['trial_end']) : nil
     return unless trial_end && trial_end <= Time.current
 
-    logger.info "Processing trial end for subscription #{subscription_id}"
+    log_info("Processing trial end for subscription #{subscription_id}")
 
     # Delegate to billing automation
     Billing::BillingAutomationJob.perform_async(subscription_id)
@@ -78,7 +78,7 @@ class Billing::SubscriptionLifecycleJob < BaseJob
     
     return unless [7, 3, 1].include?(days_until_renewal)
 
-    logger.info "Sending renewal reminder for subscription #{subscription_id} (#{days_until_renewal} days)"
+    log_info("Sending renewal reminder for subscription #{subscription_id} (#{days_until_renewal} days)")
 
     # Check payment method status
     payment_methods = get_account_payment_methods(subscription['account_id'], default: true, active: true)
@@ -96,7 +96,7 @@ class Billing::SubscriptionLifecycleJob < BaseJob
     subscription = get_subscription(subscription_id)
     return unless subscription
 
-    logger.info "Processing payment method update requirement for subscription #{subscription_id}"
+    log_info("Processing payment method update requirement for subscription #{subscription_id}")
 
     reason = options[:reason] || 'expired'
     
@@ -129,7 +129,7 @@ class Billing::SubscriptionLifecycleJob < BaseJob
     subscription = get_subscription(subscription_id)
     return unless subscription
 
-    logger.info "Processing subscription expiration for subscription #{subscription_id}"
+    log_info("Processing subscription expiration for subscription #{subscription_id}")
 
     # Request subscription cancellation via API
     cancellation_params = {
@@ -166,7 +166,7 @@ class Billing::SubscriptionLifecycleJob < BaseJob
     subscription = get_subscription(subscription_id)
     return unless subscription && ['unpaid', 'cancelled'].include?(subscription['status'])
 
-    logger.info "Attempting subscription reactivation for subscription #{subscription_id}"
+    log_info("Attempting subscription reactivation for subscription #{subscription_id}")
 
     payment_methods = get_account_payment_methods(subscription['account_id'], default: true, active: true)
     return if payment_methods.empty?
@@ -225,7 +225,7 @@ class Billing::SubscriptionLifecycleJob < BaseJob
     subscription = get_subscription(subscription_id)
     return unless subscription
 
-    logger.info "Processing grace period end for subscription #{subscription_id}"
+    log_info("Processing grace period end for subscription #{subscription_id}")
 
     # Check if payment method was added during grace period
     payment_methods = get_account_payment_methods(subscription['account_id'], default: true, active: true)
@@ -249,8 +249,12 @@ class Billing::SubscriptionLifecycleJob < BaseJob
       api_client.get("/api/v1/subscriptions/#{subscription_id}")
     end
   rescue BackendApiClient::ApiError => e
-    logger.warn "Subscription #{subscription_id} not found: #{e.message}" if e.status == 404
-    nil
+    if e.status == 404
+      log_warn("Subscription #{subscription_id} not found: #{e.message}")
+      nil
+    else
+      raise # Re-raise for retry
+    end
   end
 
   def get_account_payment_methods(account_id, **filters)
@@ -320,9 +324,9 @@ class Billing::SubscriptionLifecycleJob < BaseJob
       api_client.post('/api/v1/notifications', notification_params)
     end
     
-    logger.info "Sent trial ending notification (#{days_until_end} days) for subscription #{subscription['id']}"
+    log_info("Sent trial ending notification (#{days_until_end} days) for subscription #{subscription['id']}")
   rescue StandardError => e
-    logger.error "Failed to send trial ending notification: #{e.message}"
+    log_error("Failed to send trial ending notification: #{e.message}")
   end
 
   def send_renewal_reminder_notification(subscription, days_until_renewal, payment_method_valid)
@@ -342,9 +346,9 @@ class Billing::SubscriptionLifecycleJob < BaseJob
       api_client.post('/api/v1/notifications', notification_params)
     end
     
-    logger.info "Sent renewal reminder (#{days_until_renewal} days) for subscription #{subscription['id']}"
+    log_info("Sent renewal reminder (#{days_until_renewal} days) for subscription #{subscription['id']}")
   rescue StandardError => e
-    logger.error "Failed to send renewal reminder: #{e.message}"
+    log_error("Failed to send renewal reminder: #{e.message}")
   end
 
   def send_payment_method_update_notification(subscription, reason, options)
@@ -364,9 +368,9 @@ class Billing::SubscriptionLifecycleJob < BaseJob
       api_client.post('/api/v1/notifications', notification_params)
     end
     
-    logger.info "Sent payment method update notification for subscription #{subscription['id']}"
+    log_info("Sent payment method update notification for subscription #{subscription['id']}")
   rescue StandardError => e
-    logger.error "Failed to send payment method update notification: #{e.message}"
+    log_error("Failed to send payment method update notification: #{e.message}")
   end
 
   def send_subscription_expired_notification(subscription, reason)
@@ -386,9 +390,9 @@ class Billing::SubscriptionLifecycleJob < BaseJob
       api_client.post('/api/v1/notifications', notification_params)
     end
     
-    logger.info "Sent subscription expired notification for subscription #{subscription['id']}"
+    log_info("Sent subscription expired notification for subscription #{subscription['id']}")
   rescue StandardError => e
-    logger.error "Failed to send subscription expired notification: #{e.message}"
+    log_error("Failed to send subscription expired notification: #{e.message}")
   end
 
   def send_reactivation_success_notification(subscription)
@@ -407,9 +411,9 @@ class Billing::SubscriptionLifecycleJob < BaseJob
       api_client.post('/api/v1/notifications', notification_params)
     end
     
-    logger.info "Sent reactivation success notification for subscription #{subscription['id']}"
+    log_info("Sent reactivation success notification for subscription #{subscription['id']}")
   rescue StandardError => e
-    logger.error "Failed to send reactivation success notification: #{e.message}"
+    log_error("Failed to send reactivation success notification: #{e.message}")
   end
 
   def send_reactivation_failure_notification(subscription, error)
@@ -429,8 +433,8 @@ class Billing::SubscriptionLifecycleJob < BaseJob
       api_client.post('/api/v1/notifications', notification_params)
     end
     
-    logger.info "Sent reactivation failure notification for subscription #{subscription['id']}"
+    log_info("Sent reactivation failure notification for subscription #{subscription['id']}")
   rescue StandardError => e
-    logger.error "Failed to send reactivation failure notification: #{e.message}"
+    log_error("Failed to send reactivation failure notification: #{e.message}")
   end
 end

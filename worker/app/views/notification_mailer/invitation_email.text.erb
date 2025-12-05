@@ -1,0 +1,30 @@
+You've Been Invited!
+==================
+
+Hi <%= @invitee_name %>,
+
+<%= @inviter_name %> has invited you to join <%= @account_name %> on <%= app_name %>.
+
+Accept your invitation by visiting:
+<%= @invitation_url %>
+
+Invitation Details:
+-------------------
+Account: <%= @account_name %>
+Role(s): <%= @role_names %>
+Invited by: <%= @inviter_name %>
+Expires: <%= Time.parse(@expires_at.to_s).strftime("%B %d, %Y at %I:%M %p") rescue @expires_at %>
+
+What Happens Next:
+------------------
+1. Click the invitation link above
+2. Complete your account registration
+3. Set your password
+4. Start collaborating with your team!
+
+Note: This invitation will expire on <%= Time.parse(@expires_at.to_s).strftime("%B %d, %Y") rescue @expires_at %>. Please accept it before then.
+
+If you believe you received this email in error, you can safely ignore it.
+
+Best regards,
+The <%= app_name %> Team

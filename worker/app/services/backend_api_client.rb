@@ -3,10 +3,12 @@
 require 'faraday'
 require 'faraday/retry'
 require 'oj'
+require_relative 'concerns/circuit_breaker'
 
 # API client for worker-to-backend communication
 # Handles all HTTP requests to the Rails backend with service authentication
 class BackendApiClient
+  include CircuitBreaker
   class ApiError < StandardError
     attr_reader :status, :response_body
 
@@ -113,32 +115,106 @@ class BackendApiClient
     get("/api/v1/health")
   end
 
-  def make_request(method, path, data = {})
-    response = @connection.send(method) do |req|
-      req.url path
+  # File processing operations
+  def get_file_processing_job(job_id)
+    get("/api/v1/worker/processing_jobs/#{job_id}")
+  end
+
+  def update_file_processing_job(job_id, data)
+    patch("/api/v1/worker/processing_jobs/#{job_id}", data)
+  end
+
+  def complete_file_processing_job(job_id, result_data = {})
+    patch("/api/v1/worker/processing_jobs/#{job_id}", {
+      status: 'completed',
+      result_data: result_data,
+      completed_at: Time.current.iso8601
+    })
+  end
+
+  def fail_file_processing_job(job_id, error_message, error_data = {})
+    patch("/api/v1/worker/processing_jobs/#{job_id}", {
+      status: 'failed',
+      error_details: {
+        error_message: error_message
+      }.merge(error_data),
+      completed_at: Time.current.iso8601
+    })
+  end
+
+  # File object operations
+  def get_file_object(file_id)
+    get("/api/v1/worker/files/#{file_id}")
+  end
+
+  def update_file_object(file_id, data)
+    patch("/api/v1/worker/files/#{file_id}", data)
+  end
+
+  def download_file_content(file_id)
+    # Returns binary file content
+    response = @connection.get do |req|
+      req.url "/api/v1/worker/files/#{file_id}/download"
       req.headers['Authorization'] = "Bearer #{@config.worker_token}"
-      req.headers['Content-Type'] = 'application/json'
-      req.headers['Accept'] = 'application/json'
-      req.headers['User-Agent'] = 'PowernodeWorker/1.0'
-      
-      case method
-      when :get, :delete
-        req.params = data if data.any?
-      else
-        req.body = data if data.any?
-      end
     end
 
-    handle_response(response)
-  rescue Faraday::TimeoutError => e
-    @logger.error "API request timeout: #{e.message}"
-    raise ApiError.new("Request timeout: #{e.message}", 408)
-  rescue Faraday::ConnectionFailed => e
-    @logger.error "API connection failed: #{e.message}"
-    raise ApiError.new("Connection failed: #{e.message}", 503)
-  rescue Faraday::Error => e
-    @logger.error "API request failed: #{e.message}"
-    raise ApiError.new("Request failed: #{e.message}")
+    if response.status == 200
+      response.body
+    else
+      raise ApiError.new("Failed to download file #{file_id}", response.status, response.body)
+    end
+  end
+
+  def upload_processed_file(file_id, file_content, metadata = {})
+    # Upload binary file content with metadata
+    payload = {
+      file_content: Base64.strict_encode64(file_content),
+      metadata: metadata
+    }
+
+    post("/api/v1/worker/files/#{file_id}/processed", payload)
+  end
+
+  def make_request(method, path, data = {})
+    # Use circuit breaker for all backend API requests
+    with_backend_api_circuit_breaker do
+      start_time = Time.current
+
+      begin
+        response = @connection.send(method) do |req|
+          req.url path
+          req.headers['Authorization'] = "Bearer #{@config.worker_token}"
+          req.headers['Content-Type'] = 'application/json'
+          req.headers['Accept'] = 'application/json'
+          req.headers['User-Agent'] = 'PowernodeWorker/1.0'
+
+          case method
+          when :get, :delete
+            req.params = data if data.any?
+          else
+            req.body = data if data.any?
+          end
+        end
+
+        duration = Time.current - start_time
+        @logger.debug "[BackendAPI] #{method.upcase} #{path} completed in #{duration.round(3)}s"
+
+        handle_response(response)
+
+      rescue Faraday::TimeoutError => e
+        @logger.error "[BackendAPI] Request timeout for #{method.upcase} #{path}: #{e.message}"
+        raise ApiError.new("Request timeout: #{e.message}", 408)
+      rescue Faraday::ConnectionFailed => e
+        @logger.error "[BackendAPI] Connection failed for #{method.upcase} #{path}: #{e.message}"
+        raise ApiError.new("Connection failed: #{e.message}", 503)
+      rescue Faraday::Error => e
+        @logger.error "[BackendAPI] Request failed for #{method.upcase} #{path}: #{e.message}"
+        raise ApiError.new("Request failed: #{e.message}")
+      end
+    end
+  rescue CircuitOpenError => e
+    @logger.warn "[BackendAPI] Circuit breaker OPEN: #{e.message}"
+    raise ApiError.new("Service temporarily unavailable: #{e.message}", 503)
   end
 
   private

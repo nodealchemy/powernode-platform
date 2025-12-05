@@ -9,7 +9,7 @@ class Reports::ScheduledReportJob < BaseJob
                   retry: 1
 
   def execute(scheduled_report_id)
-    logger.info "Processing scheduled report #{scheduled_report_id}"
+    log_info("Processing scheduled report #{scheduled_report_id}")
     
     # Get scheduled report details from backend
     scheduled_report = with_api_retry do
@@ -17,25 +17,25 @@ class Reports::ScheduledReportJob < BaseJob
     end
     
     if scheduled_report.empty?
-      logger.warn "Scheduled report #{scheduled_report_id} not found"
+      log_warn("Scheduled report #{scheduled_report_id} not found")
       return
     end
     
     report_config = scheduled_report.first
     
     unless report_config['active']
-      logger.info "Scheduled report #{scheduled_report_id} is inactive, skipping"
+      log_info("Scheduled report #{scheduled_report_id} is inactive, skipping")
       return
     end
     
     # Check if report is due for execution
     next_run_at = Time.parse(report_config['next_run_at'])
     if next_run_at > Time.current
-      logger.info "Scheduled report #{scheduled_report_id} not due until #{next_run_at}, skipping"
+      log_info("Scheduled report #{scheduled_report_id} not due until #{next_run_at}, skipping")
       return
     end
     
-    logger.info "Executing scheduled #{report_config['report_type']} report for account #{report_config['account_id']}"
+    log_info("Executing scheduled #{report_config['report_type']} report for account #{report_config['account_id']}")
     
     # Build report parameters from scheduled config
     report_params = build_scheduled_report_params(report_config)
@@ -46,7 +46,7 @@ class Reports::ScheduledReportJob < BaseJob
     # Update next run time
     update_next_run_time(scheduled_report_id, report_config)
     
-    logger.info "Successfully scheduled report generation for #{scheduled_report_id}"
+    log_info("Successfully scheduled report generation for #{scheduled_report_id}")
   end
   
   private
@@ -96,9 +96,9 @@ class Reports::ScheduledReportJob < BaseJob
       api_client.update_scheduled_report(scheduled_report_id, update_data)
     end
     
-    logger.info "Updated next run time for scheduled report #{scheduled_report_id} to #{next_run_at}"
+    log_info("Updated next run time for scheduled report #{scheduled_report_id} to #{next_run_at}")
   rescue StandardError => e
-    logger.error "Failed to update next run time for scheduled report #{scheduled_report_id}: #{e.message}"
+    log_error("Failed to update next run time for scheduled report #{scheduled_report_id}: #{e.message}")
     # Don't fail the job for this error
   end
   

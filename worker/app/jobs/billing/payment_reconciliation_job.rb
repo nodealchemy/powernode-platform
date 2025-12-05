@@ -9,7 +9,7 @@ class Billing::PaymentReconciliationJob < BaseJob
                   retry: 2
 
   def execute(reconciliation_type = 'daily', date_range = nil)
-    logger.info "Starting payment reconciliation: #{reconciliation_type}"
+    log_info("Starting payment reconciliation: #{reconciliation_type}")
     
     date_range ||= case reconciliation_type
                    when 'daily'
@@ -62,7 +62,7 @@ class Billing::PaymentReconciliationJob < BaseJob
   private
   
   def reconcile_stripe_payments(date_range)
-    logger.info "Reconciling Stripe payments for #{date_range}"
+    log_info("Reconciling Stripe payments for #{date_range}")
     
     # Get local Stripe payments
     local_payments = get_local_stripe_payments(date_range)
@@ -83,7 +83,7 @@ class Billing::PaymentReconciliationJob < BaseJob
   end
   
   def reconcile_paypal_payments(date_range)
-    logger.info "Reconciling PayPal payments for #{date_range}"
+    log_info("Reconciling PayPal payments for #{date_range}")
     
     # Get local PayPal payments
     local_payments = get_local_paypal_payments(date_range)
@@ -149,7 +149,7 @@ class Billing::PaymentReconciliationJob < BaseJob
       end
       
     rescue Stripe::StripeError => e
-      logger.error "Failed to fetch Stripe payments: #{e.message}"
+      log_error("Failed to fetch Stripe payments: #{e.message}")
     end
     
     payments
@@ -162,10 +162,10 @@ class Billing::PaymentReconciliationJob < BaseJob
       # Use PayPal API to get payments in the date range
       # This would require implementing PayPal's reporting API
       # For now, return empty array
-      logger.info "PayPal API reconciliation not yet implemented"
+      log_info("PayPal API reconciliation not yet implemented")
       
     rescue => e
-      logger.error "Failed to fetch PayPal payments: #{e.message}"
+      log_error("Failed to fetch PayPal payments: #{e.message}")
     end
     
     payments
@@ -303,7 +303,7 @@ class Billing::PaymentReconciliationJob < BaseJob
       send_reconciliation_alert(results)
     end
     
-    logger.info "Reconciliation completed: #{results[:summary][:discrepancies_found]} discrepancies found"
+    log_info("Reconciliation completed: #{results[:summary][:discrepancies_found]} discrepancies found")
   end
   
   def handle_discrepancies(discrepancies)
@@ -320,7 +320,7 @@ class Billing::PaymentReconciliationJob < BaseJob
   end
   
   def handle_missing_local_payment(discrepancy)
-    logger.warn "Missing local payment: #{discrepancy[:provider_payment_id]}"
+    log_warn("Missing local payment: #{discrepancy[:provider_payment_id]}")
     
     # Create corrective action job
     correction_data = {
@@ -337,7 +337,7 @@ class Billing::PaymentReconciliationJob < BaseJob
   end
   
   def handle_missing_provider_payment(discrepancy)
-    logger.warn "Missing provider payment: #{discrepancy[:external_id]}"
+    log_warn("Missing provider payment: #{discrepancy[:external_id]}")
     
     # Flag for manual review
     flag_data = {
@@ -354,7 +354,7 @@ class Billing::PaymentReconciliationJob < BaseJob
   end
   
   def handle_amount_mismatch(discrepancy)
-    logger.warn "Amount mismatch: Local=#{discrepancy[:local_amount]}, Provider=#{discrepancy[:provider_amount]}"
+    log_warn("Amount mismatch: Local=#{discrepancy[:local_amount]}, Provider=#{discrepancy[:provider_amount]}")
     
     # Flag for investigation
     investigation_data = {
@@ -389,6 +389,6 @@ class Billing::PaymentReconciliationJob < BaseJob
       api_client.post('/api/v1/alerts', alert_data)
     end
     
-    logger.warn "Sent reconciliation alert: #{results[:discrepancies].count} discrepancies found"
+    log_warn("Sent reconciliation alert: #{results[:discrepancies].count} discrepancies found")
   end
 end
