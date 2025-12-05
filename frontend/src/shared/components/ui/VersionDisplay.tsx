@@ -56,11 +56,11 @@ export const VersionDisplay: React.FC<VersionDisplayProps> = ({
             if (healthResponse.status === 'fulfilled' && healthResponse.value.success) {
               setHealth(healthResponse.value.data);
             }
-          } catch (err) {
+          } catch (error) {
             // Silently fail version fetching - it's not critical to app functionality
           }
         }
-      } catch (err) {
+      } catch (error) {
         // Only log warnings for version fetching failures
       } finally {
         setLoading(false);

@@ -118,7 +118,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   };
 
   isNetworkError = (error: Error | null): boolean => {
-    if (!error) return false;
+    if (!error || !error.message) return false;
     const networkErrorMessages = [
       'network error',
       'fetch error',
@@ -133,7 +133,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   };
 
   isChunkLoadError = (error: Error | null): boolean => {
-    if (!error) return false;
+    if (!error || !error.message) return false;
     return error.message.includes('Loading chunk') || 
            error.message.includes('Loading CSS chunk');
   };
@@ -145,8 +145,8 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     if (this.isChunkLoadError(error)) return 'medium';
     if (this.isNetworkError(error)) return 'medium';
     if (error.name === 'ChunkLoadError') return 'medium';
-    if (error.message.includes('Permission denied')) return 'high';
-    if (error.message.includes('Memory')) return 'critical';
+    if (error.message && error.message.includes('Permission denied')) return 'high';
+    if (error.message && error.message.includes('Memory')) return 'critical';
     
     return 'high';
   };
@@ -166,7 +166,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
           <div>
             <h4 className="text-sm font-medium text-theme-primary">Error Message:</h4>
             <p className="text-sm text-theme-error font-mono bg-theme-surface p-2 rounded mt-1">
-              {error.message}
+              {error.message || error.toString() || 'Unknown error'}
             </p>
           </div>
           <div>

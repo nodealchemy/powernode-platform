@@ -4,6 +4,7 @@ import { User } from '@/shared/services/slices/authSlice';
 import { WebSocketStatusIndicator } from '../ui/WebSocketStatusIndicator';
 import { ThemeToggle } from '../ui/ThemeToggle';
 import { PERMISSIONS } from '@/shared/constants/permissions';
+import { getUserInitials } from '@/shared/utils/userUtils';
 
 interface HeaderProps {
   user: User | null;
@@ -17,12 +18,6 @@ export const Header: React.FC<HeaderProps> = ({ user, onLogout, onToggleSidebar 
 
   // Check if user has admin access using permissions
   const hasAdminAccess = user?.permissions?.includes(PERMISSIONS.ADMIN.ACCESS);
-
-  // Get user initials
-  const getUserInitials = () => {
-    if (!user?.first_name || !user?.last_name) return 'U';
-    return `${user.first_name[0]}${user.last_name[0]}`.toUpperCase();
-  };
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -80,17 +75,17 @@ export const Header: React.FC<HeaderProps> = ({ user, onLogout, onToggleSidebar 
               <div className="relative">
                 <div className="h-9 w-9 rounded-full bg-gradient-to-br from-theme-interactive-primary to-theme-interactive-secondary flex items-center justify-center shadow-sm">
                   <span className="text-white text-sm font-semibold">
-                    {getUserInitials()}
+                    {getUserInitials(user)}
                   </span>
                 </div>
                 {/* Online status indicator */}
                 <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 bg-theme-success border-2 border-theme-surface rounded-full"></div>
               </div>
-              
+
               {/* User Info - Hidden on mobile */}
               <div className="hidden md:block text-left">
                 <p className="font-medium text-theme-primary text-sm leading-tight">
-                  {user?.first_name} {user?.last_name}
+                  {user?.name}
                 </p>
                 <p className="text-xs text-theme-tertiary leading-tight">
                   {user?.account?.name || 'Loading...'}
@@ -116,12 +111,12 @@ export const Header: React.FC<HeaderProps> = ({ user, onLogout, onToggleSidebar 
                   <div className="flex items-center space-x-3">
                     <div className="h-12 w-12 rounded-full bg-gradient-to-br from-theme-interactive-primary to-theme-interactive-secondary flex items-center justify-center">
                       <span className="text-white text-lg font-semibold">
-                        {getUserInitials()}
+                        {getUserInitials(user)}
                       </span>
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-theme-primary text-base truncate">
-                        {user?.first_name} {user?.last_name}
+                        {user?.name}
                       </p>
                       <p className="text-sm text-theme-secondary truncate">
                         {user?.email}

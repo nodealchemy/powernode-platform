@@ -38,13 +38,10 @@ export const NavigationSection: React.FC<NavigationSectionProps> = ({
       const newExpandedSections = isExpanded
         ? state.expandedSections.filter(id => id !== section.id)
         : [...state.expandedSections, section.id];
-      
+
       updateState({
         expandedSections: newExpandedSections
       });
-      
-      // Track manual user interaction for better UX
-      const action = isExpanded ? 'collapsed' : 'expanded';
     }
   };
 

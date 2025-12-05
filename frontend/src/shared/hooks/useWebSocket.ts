@@ -1,18 +1,20 @@
-import { useEffect, useRef, useCallback, useState } from 'react';
+import { useEffect, useCallback, useState, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '@/shared/services';
 import { refreshAccessToken } from '../services/slices/authSlice';
+import { wsManager } from '@/shared/services/WebSocketManager';
 
-// Simplified WebSocket connection state
+// WebSocket connection state
 interface WebSocketState {
   isConnected: boolean;
   error: string | null;
   lastConnected: Date | null;
 }
 
-// Simple channel subscription
+// Channel subscription interface
 interface ChannelSubscription {
   channel: string;
+  params?: Record<string, any>;
   onMessage?: (data: unknown) => void;
   onError?: (error: string) => void;
 }
@@ -22,56 +24,59 @@ interface UseWebSocketReturn {
   error: string | null;
   lastConnected: Date | null;
   subscribe: (subscription: ChannelSubscription) => () => void;
-  sendMessage: (channel: string, action: string, data?: any) => Promise<boolean>;
+  sendMessage: (channel: string, action: string, data?: any, params?: Record<string, any>) => Promise<boolean>;
 }
 
+/**
+ * Custom hook for WebSocket connections
+ *
+ * Uses a singleton WebSocket manager to share a single connection
+ * across all components in the application.
+ *
+ * Benefits:
+ * - Reduces resource usage (single connection for entire app)
+ * - Centralized connection management
+ * - Automatic reconnection handling
+ * - Proper cleanup on unmount
+ */
 export const useWebSocket = (): UseWebSocketReturn => {
-  const { user, accessToken } = useSelector((state: RootState) => state.auth);
+  const { user, access_token: accessToken } = useSelector((state: RootState) => state.auth);
   const dispatch = useDispatch<AppDispatch>();
-  
-  const wsRef = useRef<WebSocket | null>(null);
-  const subscriptionsRef = useRef<Map<string, ChannelSubscription>>(new Map());
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const connectingRef = useRef<boolean>(false);
+
   const mountedRef = useRef<boolean>(true);
-  const connectionDebounceRef = useRef<NodeJS.Timeout | null>(null);
-  const reconnectAttemptsRef = useRef<number>(0);
-  const lastConnectAttemptRef = useRef<number>(0);
   const refreshingTokenRef = useRef<boolean>(false);
-  
+
   const [state, setState] = useState<WebSocketState>({
     isConnected: false,
     error: null,
     lastConnected: null,
   });
 
-  // Get WebSocket URL with authentication
+  /**
+   * Get WebSocket URL with authentication
+   */
   const getWebSocketUrl = useCallback(() => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    
+
     // Use environment-aware host resolution
     let host = window.location.hostname;
     let port = ':3000';
-    
-    // Handle different development environments  
+
+    // Handle different development environments
     if (host === 'localhost' || host === '127.0.0.1') {
       // Local development
       port = ':3000';
     } else {
       // Check if we're behind a reverse proxy
-      // Direct development connections use non-standard ports (3001, 4000, 5000, etc.)
       const isDirectDevConnection = window.location.port && !['80', '443'].includes(window.location.port);
-      
+
       // Standard proxy ports indicate we're behind a reverse proxy
-      const isStandardPort = 
+      const isStandardPort =
         (window.location.protocol === 'https:' && (!window.location.port || window.location.port === '443')) ||
         (window.location.protocol === 'http:' && (!window.location.port || window.location.port === '80'));
-      
-      // Determine connection type:
-      // 1. Standard ports (80/443) without direct dev connection = behind proxy
-      // 2. Direct dev connections (non-standard ports) = direct access
+
       const isProxied = isStandardPort && !isDirectDevConnection;
-      
+
       if (isProxied) {
         // Behind reverse proxy - use same port as frontend
         port = window.location.port ? `:${window.location.port}` : '';
@@ -80,384 +85,159 @@ export const useWebSocket = (): UseWebSocketReturn => {
         port = ':3000';
       }
     }
-    
+
     const baseUrl = `${protocol}//${host}${port}/cable`;
-    
-    return accessToken ? `${baseUrl}?token=${encodeURIComponent(accessToken)}` : baseUrl;
+    const wsUrl = accessToken ? `${baseUrl}?token=${encodeURIComponent(accessToken)}` : baseUrl;
+
+    return wsUrl;
   }, [accessToken]);
 
-  // Send message safely
-  const sendMessage = useCallback(async (channel: string, action: string, data?: any): Promise<boolean> => {
-    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
-      return false;
-    }
+  /**
+   * Send message to a channel
+   */
+  const sendMessage = useCallback(async (
+    channel: string,
+    action: string,
+    data?: any,
+    params?: Record<string, any>
+  ): Promise<boolean> => {
+    return wsManager.sendMessage(channel, action, data, params);
+  }, []);
 
-    const message = {
-      command: 'message',
-      identifier: JSON.stringify({ 
-        channel, 
-        account_id: user?.account?.id 
-      }),
-      data: JSON.stringify({ action, ...data })
-    };
-
-    try {
-      wsRef.current.send(JSON.stringify(message));
-      return true;
-    } catch (error) {
-      return false;
-    }
-  }, [user?.account?.id]);
-
-  // Subscribe to a channel
+  /**
+   * Subscribe to a channel
+   */
   const subscribe = useCallback((subscription: ChannelSubscription) => {
-    const { channel, onError } = subscription;
-    
-    // Store subscription
-    subscriptionsRef.current.set(channel, subscription);
+    return wsManager.subscribe(subscription);
+  }, []);
 
-    // Subscribe if connected
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      const subscribeMessage = {
-        command: 'subscribe',
-        identifier: JSON.stringify({ 
-          channel, 
-          account_id: user?.account?.id 
-        })
-      };
-      
-      try {
-        wsRef.current.send(JSON.stringify(subscribeMessage));
-      } catch (error) {
-        onError?.('Failed to subscribe to channel');
-      }
+  /**
+   * Handle token refresh on unauthorized disconnect
+   */
+  const handleUnauthorized = useCallback(() => {
+    if (refreshingTokenRef.current || !mountedRef.current) {
+      return;
     }
 
-    // Return unsubscribe function
-    return () => {
-      subscriptionsRef.current.delete(channel);
-      
-      if (wsRef.current?.readyState === WebSocket.OPEN) {
-        const unsubscribeMessage = {
-          command: 'unsubscribe',
-          identifier: JSON.stringify({ 
-            channel, 
-            account_id: user?.account?.id 
-          })
-        };
-        
-        try {
-          wsRef.current.send(JSON.stringify(unsubscribeMessage));
-        } catch (error) {
+    refreshingTokenRef.current = true;
+
+    dispatch(refreshAccessToken())
+      .unwrap()
+      .then(() => {
+        refreshingTokenRef.current = false;
+        wsManager.resetTokenRefreshFlag();
+
+        // Reconnect with new token
+        if (mountedRef.current && user?.account?.id) {
+          setTimeout(() => {
+            wsManager.reconnect();
+          }, 1000);
         }
-      }
-    };
-  }, [user?.account?.id]);
+      })
+      .catch(() => {
+        refreshingTokenRef.current = false;
+        wsManager.resetTokenRefreshFlag();
 
-  // Connect to WebSocket with debouncing
-  const connect = useCallback(() => {
-    if (!user?.account?.id || !accessToken || !mountedRef.current) {
-      // This is expected when user is not logged in or during component unmount
-      if (!mountedRef.current) {
-        // Component unmounted, no need to log
-        return;
-      }
-      if (!user?.account?.id && !accessToken) {
-        // User not logged in - this is normal, no need to log
-        return;
-      }
-      // Only log if we have partial auth state (which might indicate an issue)
-      if (user && !user.account?.id) {
-      } else if (!accessToken && user) {
-      }
-      return;
-    }
-
-    // Prevent overlapping connection attempts
-    if (connectingRef.current || 
-        wsRef.current?.readyState === WebSocket.CONNECTING || 
-        wsRef.current?.readyState === WebSocket.OPEN) {
-      return;
-    }
-
-    // Implement exponential backoff to prevent rapid reconnection
-    const now = Date.now();
-    const timeSinceLastAttempt = now - lastConnectAttemptRef.current;
-    const minBackoffTime = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 30000); // Max 30 seconds
-    
-    if (timeSinceLastAttempt < minBackoffTime) {
-      // Schedule retry after backoff period
-      setTimeout(() => {
         if (mountedRef.current) {
-          connect();
+          setState(prev => ({
+            ...prev,
+            error: 'Session expired - please login again',
+            isConnected: false
+          }));
         }
-      }, minBackoffTime - timeSinceLastAttempt);
-      return;
-    }
+      });
+  }, [dispatch, user]);
 
-    lastConnectAttemptRef.current = now;
+  /**
+   * Initialize WebSocket manager when component mounts
+   * The manager itself ensures only one initialization happens globally
+   */
+  useEffect(() => {
+    mountedRef.current = true;
 
-    // Clear any existing debounce timeout
-    if (connectionDebounceRef.current) {
-      clearTimeout(connectionDebounceRef.current);
-      connectionDebounceRef.current = null;
-    }
-
-    // Debounce connection attempts to handle StrictMode
-    connectionDebounceRef.current = setTimeout(() => {
-      if (!mountedRef.current || !user?.account?.id || !accessToken) {
-        return;
-      }
-
-      connectingRef.current = true;
-
-      // Clear any existing reconnect timeout
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-        reconnectTimeoutRef.current = null;
-      }
-
-      // Close any existing connection before creating new one
-      if (wsRef.current) {
-        wsRef.current.close();
-        wsRef.current = null;
-      }
-
-      try {
-        const wsUrl = getWebSocketUrl();
-        
-        wsRef.current = new WebSocket(wsUrl);
-
-      wsRef.current.onopen = () => {
-        if (!mountedRef.current) return;
-        
-        connectingRef.current = false;
-        reconnectAttemptsRef.current = 0; // Reset reconnect attempts on successful connection
-        setState({
-          isConnected: true,
-          error: null,
-          lastConnected: new Date()
-        });
-
-        // Re-subscribe to all channels
-        subscriptionsRef.current.forEach((subscription, channel) => {
-          const subscribeMessage = {
-            command: 'subscribe',
-            identifier: JSON.stringify({ 
-              channel, 
-              account_id: user.account?.id 
-            })
-          };
-          
-          try {
-            wsRef.current?.send(JSON.stringify(subscribeMessage));
-          } catch (error) {
+    if (user?.account?.id && accessToken) {
+      wsManager.initialize({
+        getUrl: getWebSocketUrl,
+        onConnect: () => {
+          if (mountedRef.current) {
+            setState({
+              isConnected: true,
+              error: null,
+              lastConnected: new Date()
+            });
           }
-        });
-      };
+        },
+        onDisconnect: (code, reason) => {
+          if (!mountedRef.current) return;
 
-      wsRef.current.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          
-          // Handle system messages
-          if (data.type === 'welcome' || data.type === 'ping') {
-            return;
+          let errorMessage: string | null = null;
+          if (code === 1006) {
+            errorMessage = 'Connection lost unexpectedly - check network';
+          } else if (code === 1008) {
+            errorMessage = 'Connection closed due to policy violation';
+          } else if (code !== 1000) {
+            errorMessage = reason || 'Connection lost';
           }
 
-          // Handle disconnect (authentication failure)
-          if (data.type === 'disconnect' && data.reason === 'unauthorized') {
-            // Close current connection to prevent reconnection loops
-            if (wsRef.current) {
-              wsRef.current.close();
-              wsRef.current = null;
-            }
-            
-            // Prevent multiple concurrent token refresh attempts
-            if (refreshingTokenRef.current) {
-              return;
-            }
-            
-            refreshingTokenRef.current = true;
-            
-            // Try to refresh token but limit reconnection attempts
-            dispatch(refreshAccessToken())
-              .unwrap()
-              .then(() => {
-                refreshingTokenRef.current = false;
-                // Only reconnect if we still have valid auth and component is mounted
-                if (mountedRef.current && user?.account?.id) {
-                  setTimeout(() => {
-                    // Double-check auth state before reconnecting
-                    if (mountedRef.current && user?.account?.id && accessToken) {
-                      connect();
-                    }
-                  }, 2000); // Longer delay to prevent rapid reconnection
-                }
-              })
-              .catch((error) => {
-                refreshingTokenRef.current = false;
-                // Token refresh failed - user needs to re-login
-                setState(prev => ({
-                  ...prev,
-                  error: 'Session expired - please login again',
-                  isConnected: false
-                }));
-              });
-            return;
-          }
-
-          // Handle confirmation and rejection
-          if (data.type === 'confirm_subscription') {
-            return;
-          }
-
-          if (data.type === 'reject_subscription') {
-            return;
-          }
-
-          // Route messages to channel handlers
-          if (data.identifier) {
-            try {
-              const identifier = JSON.parse(data.identifier);
-              const subscription = subscriptionsRef.current.get(identifier.channel);
-              
-              if (subscription?.onMessage && data.message) {
-                subscription.onMessage(data.message);
-              }
-            } catch (error) {
-            }
-          }
-
-        } catch (error) {
-        }
-      };
-
-      wsRef.current.onclose = (event) => {
-        connectingRef.current = false;
-        if (!mountedRef.current) return;
-        
-        
-        // Check for specific error codes
-        let errorMessage: string | null = null;
-        if (event.code === 1006) {
-          errorMessage = 'Connection lost unexpectedly - check network';
-        } else if (event.code === 1008) {
-          errorMessage = 'Connection closed due to policy violation';
-        } else if (event.code !== 1000) {
-          errorMessage = `Connection closed: ${event.reason || 'Connection lost'}`;
-        }
-        
-        setState(prev => ({
-          ...prev,
-          isConnected: false,
-          error: errorMessage
-        }));
-
-        // Auto-reconnect with exponential backoff if not a normal closure and user is still authenticated
-        if (event.code !== 1000 && accessToken && user?.account?.id && mountedRef.current) {
-          reconnectAttemptsRef.current += 1;
-          const backoffTime = Math.min(3000 * Math.pow(1.5, reconnectAttemptsRef.current - 1), 30000);
-          
-          // Limit reconnection attempts to prevent infinite loops
-          if (reconnectAttemptsRef.current <= 10) {
-            reconnectTimeoutRef.current = setTimeout(() => {
-              if (mountedRef.current) {
-                connect();
-              }
-            }, backoffTime);
-          } else {
-            // Too many failed attempts - stop trying
+          setState(prev => ({
+            ...prev,
+            isConnected: false,
+            error: errorMessage
+          }));
+        },
+        onError: () => {
+          if (mountedRef.current) {
             setState(prev => ({
               ...prev,
-              error: 'Connection failed repeatedly - please refresh the page'
+              isConnected: false,
+              error: 'WebSocket connection error'
             }));
           }
         }
-      };
-
-      wsRef.current.onerror = (error) => {
-        connectingRef.current = false;
-        if (!mountedRef.current) return;
-        
-        setState(prev => ({
-          ...prev,
-          isConnected: false,
-          error: 'WebSocket connection error'
-        }));
-        
-        // Close the connection to prevent "closed before connection established" errors
-        if (wsRef.current && wsRef.current.readyState !== WebSocket.CLOSED) {
-          wsRef.current.close();
-          wsRef.current = null;
-        }
-      };
-
-    } catch (error) {
-      connectingRef.current = false;
-      setState(prev => ({
-        ...prev,
-        isConnected: false,
-        error: `Failed to create WebSocket: ${error}`
-      }));
-    }
-    }, 100); // 100ms debounce to handle StrictMode double invocation
-  }, [user, accessToken, getWebSocketUrl, dispatch]);
-
-  // Disconnect WebSocket
-  const disconnect = useCallback(() => {
-    connectingRef.current = false;
-    
-    // Reset reconnection state
-    reconnectAttemptsRef.current = 0;
-    lastConnectAttemptRef.current = 0;
-    refreshingTokenRef.current = false;
-    
-    // Clear all timeouts
-    if (reconnectTimeoutRef.current) {
-      clearTimeout(reconnectTimeoutRef.current);
-      reconnectTimeoutRef.current = null;
-    }
-    
-    if (connectionDebounceRef.current) {
-      clearTimeout(connectionDebounceRef.current);
-      connectionDebounceRef.current = null;
+      });
     }
 
-    if (wsRef.current) {
-      wsRef.current.close(1000, 'User disconnect');
-      wsRef.current = null;
-    }
-
-    subscriptionsRef.current.clear();
-    setState({
-      isConnected: false,
-      error: null,
-      lastConnected: null
-    });
-  }, []);
-
-  // Set mounted state
-  useEffect(() => {
-    mountedRef.current = true;
     return () => {
       mountedRef.current = false;
     };
-  }, []);
+  }, [user?.account?.id, accessToken, getWebSocketUrl]);
 
-  // Auto-connect/disconnect based on auth state
+  /**
+   * Listen to state changes from the WebSocket manager
+   */
   useEffect(() => {
-    
-    if (user?.account?.id && accessToken) {
-      connect();
-    } else {
-      disconnect();
-    }
+    const unsubscribe = wsManager.addStateListener((isConnected, error) => {
+      if (!mountedRef.current) return;
 
-    return () => {
-      disconnect();
-    };
-  }, [user?.account?.id, accessToken, connect, disconnect]);
+      setState(prev => ({
+        isConnected,
+        error: error || prev.error,
+        lastConnected: isConnected ? new Date() : prev.lastConnected
+      }));
+
+      // Handle unauthorized disconnect
+      if (error === 'Session expired') {
+        handleUnauthorized();
+      }
+    });
+
+    // Sync initial state
+    setState(prev => ({
+      ...prev,
+      isConnected: wsManager.getIsConnected()
+    }));
+
+    return unsubscribe;
+  }, [handleUnauthorized]);
+
+  /**
+   * Disconnect when user logs out
+   */
+  useEffect(() => {
+    if (!user?.account?.id || !accessToken) {
+      wsManager.disconnect();
+    }
+  }, [user?.account?.id, accessToken]);
 
   return {
     isConnected: state.isConnected,

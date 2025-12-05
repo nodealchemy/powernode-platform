@@ -1,0 +1,145 @@
+import React from 'react';
+import { Handle, Position, NodeProps } from '@xyflow/react';
+import { Workflow, GitBranch, Play, Settings } from 'lucide-react';
+
+export const SubWorkflowNode: React.FC<NodeProps<any>> = ({ 
+  data, 
+  selected 
+}) => {
+  const getSubWorkflowIcon = () => {
+    if (data.configuration?.waitForCompletion === false) {
+      return <Play className="h-4 w-4" />;
+    }
+    if (data.configuration?.passthrough) {
+      return <GitBranch className="h-4 w-4" />;
+    }
+    return <Workflow className="h-4 w-4" />;
+  };
+
+  const getSubWorkflowLabel = () => {
+    const config = data.configuration;
+    if (!config) return 'Sub-workflow';
+
+    if (config.waitForCompletion === false) {
+      return 'Fire & forget';
+    }
+    if (config.passthrough) {
+      return 'Passthrough workflow';
+    }
+    return 'Sub-workflow';
+  };
+
+  const hasMapping = () => {
+    const config = data.configuration;
+    const hasInput = config?.inputMapping && Object.keys(config.inputMapping).length > 0;
+    const hasOutput = config?.outputMapping && Object.keys(config.outputMapping).length > 0;
+    return hasInput || hasOutput;
+  };
+
+  return (
+    <div className={`
+      relative bg-theme-surface border-2 rounded-lg p-4 w-48 shadow-lg
+      ${selected ? 'border-theme-interactive-primary ring-2 ring-theme-interactive-primary/20' : 'border-indigo-500'}
+      hover:shadow-xl transition-all duration-200
+    `}>
+      {/* Input Handle - orientation-aware */}
+      <Handle
+        type="target"
+        position={data.handleOrientation === 'horizontal' ? Position.Left : Position.Top}
+        className="w-3 h-3 bg-indigo-500 border-2 border-theme-surface"
+        style={data.handleOrientation === 'horizontal' ? { left: -6 } : { top: -6 }}
+      />
+
+      {/* Header */}
+      <div className="flex items-center gap-3 mb-3">
+        <div className="w-8 h-8 bg-indigo-500 rounded-lg flex items-center justify-center text-white">
+          {getSubWorkflowIcon()}
+        </div>
+        <div className="flex-1 min-w-0">
+          <h3 className="font-semibold text-theme-primary truncate">
+            {data.name || 'Sub-workflow'}
+          </h3>
+          <p className="text-xs text-indigo-600 font-medium">
+            {getSubWorkflowLabel()}
+          </p>
+        </div>
+      </div>
+
+      {/* Description */}
+      {data.description && (
+        <p className="text-sm text-theme-primary mb-3 line-clamp-2">
+          {data.description}
+        </p>
+      )}
+
+      {/* Configuration Details */}
+      <div className="space-y-2">
+        {data.configuration?.workflowName && (
+          <div className="text-xs">
+            <span className="text-theme-muted">Workflow:</span>
+            <span className="ml-1 text-theme-secondary font-semibold">
+              {data.configuration.workflowName.length > 25 
+                ? `${data.configuration.workflowName.substring(0, 25)}...`
+                : data.configuration.workflowName
+              }
+            </span>
+          </div>
+        )}
+
+        {data.configuration?.workflowId && !data.configuration?.workflowName && (
+          <div className="text-xs">
+            <span className="text-theme-muted">ID:</span>
+            <span className="ml-1 text-theme-secondary font-mono">
+              {data.configuration.workflowId.substring(0, 8)}...
+            </span>
+          </div>
+        )}
+
+        {hasMapping() && (
+          <div className="text-xs">
+            <span className="text-theme-muted">Mapping:</span>
+            <span className="ml-1 text-indigo-600 font-semibold">Configured</span>
+          </div>
+        )}
+
+        {data.configuration?.waitForCompletion === false && (
+          <div className="text-xs">
+            <span className="text-theme-muted">Mode:</span>
+            <span className="ml-1 text-theme-warning font-semibold">Async</span>
+          </div>
+        )}
+      </div>
+
+      {/* Status Indicator */}
+      <div className="absolute top-2 right-2">
+        <div className="w-2 h-2 bg-indigo-500 rounded-full animate-pulse" />
+      </div>
+
+      {/* Mapping Indicator */}
+      {hasMapping() && (
+        <div className="absolute -top-1 -right-1">
+          <Settings className="h-3 w-3 text-indigo-600" />
+        </div>
+      )}
+
+      {/* Output Handle - orientation-aware */}
+      <Handle
+        type="source"
+        position={data.handleOrientation === 'horizontal' ? Position.Right : Position.Bottom}
+        className="w-3 h-3 bg-indigo-500 border-2 border-theme-surface"
+        style={data.handleOrientation === 'horizontal' ? { right: -6 } : { bottom: -6 }}
+      />
+
+      {/* Error Output Handle (for async workflows) - orientation-aware */}
+      {data.configuration?.waitForCompletion !== false && (
+        <Handle
+          type="source"
+          position={data.handleOrientation === 'horizontal' ? Position.Right : Position.Bottom}
+          id="error"
+          className="w-3 h-3 bg-theme-danger border-2 border-theme-surface"
+          style={data.handleOrientation === 'horizontal' ? { right: -6, top: '70%' } : { bottom: -6, left: '70%' }}
+        />
+      )}
+    </div>
+  );
+};

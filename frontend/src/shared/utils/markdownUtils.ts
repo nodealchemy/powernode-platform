@@ -12,8 +12,8 @@ export function stripMarkdown(markdown: string): string {
 
   let result = markdown;
   
-  // Remove code blocks completely - Fixed: More specific pattern to prevent backtracking
-  result = result.replace(/```[^`\n]*(?:`?[^`\n])*```/g, '');
+  // Remove code blocks completely - Fixed: Allow newlines in code blocks
+  result = result.replace(/```[\s\S]*?```/g, '');
   
   // Remove headers
   result = result.replace(/^#{1,6}\s+/gm, '');
@@ -64,7 +64,7 @@ export function stripMarkdown(markdown: string): string {
  */
 export function truncateText(text: string, maxLength: number, suffix: string = '...'): string {
   // Handle null/undefined differently from empty string
-  if (text === null || text === undefined) return text as any;
+  if (text === null || text === undefined) return text as unknown as string;
   if (!text) return '';
   if (text.length <= maxLength) return text;
   
@@ -139,7 +139,7 @@ export function extractPlainTextExcerpt(markdown: string, maxLength: number = 20
  */
 export function hasMarkdownFormatting(text: string): boolean {
   if (!text) return false;
-  
+
   const markdownPatterns = [
     /^#{1,6}\s/m, // Headers (must be at start of line)
     /\*{2,3}[^*\n]+\*{2,3}/, // Bold (2+ asterisks) - Fixed: prevent newline matching
@@ -151,7 +151,7 @@ export function hasMarkdownFormatting(text: string): boolean {
     /`[^`\n]+`/, // Inline code - Fixed: prevent newline matching
     /\[[^\]\n]*\]\([^)\n]*\)/, // Links (allow empty text and empty URL) - Fixed: prevent newline matching
     /!\[[^\]\n]*\]\([^)\n]+\)/, // Images - Fixed: prevent newline matching
-    /```[^`\n]*(?:`?[^`\n])*```/, // Code blocks - Fixed: prevent catastrophic backtracking
+    /```[\s\S]*?```/, // Code blocks - Fixed: Allow newlines in code blocks
     /^>\s+/m, // Blockquotes
     /^[-*_]{3,}$/m, // Horizontal rules
     /^[\s]*[-*+]\s+/m, // Lists
@@ -159,4 +159,39 @@ export function hasMarkdownFormatting(text: string): boolean {
   ];
 
   return markdownPatterns.some(pattern => pattern.test(text));
+}
+
+/**
+ * Clean markdown content for safe rendering
+ * Removes dangerous content while preserving formatting
+ * @param content - Raw markdown content
+ * @returns Cleaned markdown content safe for rendering
+ */
+export function cleanMarkdownContent(content: string): string {
+  if (!content) return '';
+
+  // Remove <think> tags and their content (AI reasoning blocks)
+  let cleaned = content.replace(/<think>[\s\S]*?<\/think>/gi, '');
+
+  // Remove any script tags for safety - use non-greedy match with [\s\S]
+  cleaned = cleaned.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '');
+
+  // Remove any style tags
+  cleaned = cleaned.replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, '');
+
+  // Remove any iframe tags
+  cleaned = cleaned.replace(/<iframe\b[^>]*>[\s\S]*?<\/iframe>/gi, '');
+
+  // Remove any object/embed tags
+  cleaned = cleaned.replace(/<object\b[^>]*>[\s\S]*?<\/object>/gi, '');
+  cleaned = cleaned.replace(/<embed\b[^>]*>[\s\S]*?<\/embed>/gi, '');
+
+  // Remove dangerous attributes from remaining HTML
+  cleaned = cleaned.replace(/\s*on\w+\s*=\s*["'][^"']*["']/gi, '');
+  cleaned = cleaned.replace(/\s*javascript:\s*/gi, '');
+
+  // Clean up extra whitespace
+  cleaned = cleaned.trim();
+
+  return cleaned;
 }

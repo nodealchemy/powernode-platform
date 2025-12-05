@@ -34,7 +34,7 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
   // Get authentication state with null checking
   const authState = useSelector((state: RootState) => state?.auth);
   const isAuthenticated = authState?.isAuthenticated || false;
-  const hasValidTokens = authState?.accessToken && authState?.user;
+  const hasValidTokens = authState?.access_token && authState?.user;
 
   // Load theme from user preferences on mount (only if authenticated)
   useEffect(() => {

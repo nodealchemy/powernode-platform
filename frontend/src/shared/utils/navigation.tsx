@@ -1,8 +1,9 @@
 // Navigation Configuration
-import { 
-  Home, BarChart3, Users, User, Settings, CreditCard, 
+import {
+  Home, BarChart3, Users, User, Settings, CreditCard,
   FileText, Package, UserCheck, Store, Smartphone,
-  HelpCircle, LogOut
+  HelpCircle, LogOut, Bot, Brain, MessageSquare,
+  HardDrive
 } from 'lucide-react';
 import { NavigationConfig } from '../types/navigation';
 
@@ -34,6 +35,15 @@ export const defaultNavigationConfig: NavigationConfig = {
       description: 'Browse apps, manage subscriptions, and create your own',
       permissions: [],
       order: 3
+    },
+    {
+      id: 'ai-orchestration',
+      name: 'AI Orchestration',
+      href: '/app/ai',
+      icon: Brain,
+      description: 'Manage AI providers, agents, workflows, and conversations',
+      permissions: ['ai.providers.read', 'ai.agents.read', 'ai.workflows.read', 'ai.conversations.read', 'ai.analytics.read'],
+      order: 4
     }
   ],
   
@@ -113,9 +123,18 @@ export const defaultNavigationConfig: NavigationConfig = {
           description: 'Browse articles, guides, and documentation',
           permissions: ['kb.read'],
           order: 2
+        },
+        {
+          id: 'my-files',
+          name: 'My Files',
+          href: '/app/content/files',
+          icon: HardDrive,
+          description: 'Manage your personal files and uploads',
+          permissions: ['files.read'],
+          order: 3
         }
       ],
-      permissions: ['page.read', 'kb.read'],
+      permissions: ['page.read', 'kb.read', 'files.read'],
       collapsible: true,
       defaultExpanded: true,
       order: 16
@@ -198,6 +217,22 @@ export const defaultNavigationConfig: NavigationConfig = {
       icon: CreditCard,
       description: 'Set up payment processing',
       permissions: ['admin.billing.manage_gateways']
+    },
+    {
+      id: 'create-ai-agent',
+      name: 'Create AI Agent',
+      href: '/app/ai/agents',
+      icon: Bot,
+      description: 'Create a new AI agent for automation',
+      permissions: ['ai.agents.create']
+    },
+    {
+      id: 'ai-chat',
+      name: 'Start AI Chat',
+      href: '/app/ai/conversations',
+      icon: MessageSquare,
+      description: 'Start a new AI conversation',
+      permissions: ['ai.conversations.create']
     }
   ]
 };
@@ -253,9 +288,18 @@ export const adminNavigationOverrides = {
           description: 'Manage background workers and job processing',
           permissions: ['system.workers.read'],
           order: 5
+        },
+        {
+          id: 'storage',
+          name: 'File Storage',
+          href: '/app/system/storage',
+          icon: HardDrive,
+          description: 'Configure storage providers for file management',
+          permissions: ['admin.storage.manage', 'admin.storage.read'],
+          order: 6
         }
       ],
-      permissions: ['webhook.read', 'admin.audit.read', 'api.manage_keys', 'admin.settings.edit', 'system.workers.read'],
+      permissions: ['webhook.read', 'admin.audit.read', 'api.manage_keys', 'admin.settings.edit', 'system.workers.read', 'admin.storage.manage', 'admin.storage.read'],
       collapsible: true,
       defaultExpanded: false,
       order: 18

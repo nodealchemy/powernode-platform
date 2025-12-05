@@ -5,6 +5,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { configureStore } from '@reduxjs/toolkit';
 import authReducer from '../services/slices/authSlice';
 import uiReducer from '../services/slices/uiSlice';
+import { BreadcrumbProvider } from '../hooks/BreadcrumbContext';
 
 // This type interface extends the default options for render from RTL, as well
 // as allows the user to specify other things such as initialState, store.
@@ -36,13 +37,15 @@ export function renderWithProviders(
   function Wrapper({ children }: { children?: React.ReactNode }): React.ReactElement {
     return (
       <Provider store={store}>
-        <BrowserRouter 
+        <BrowserRouter
           future={{
             v7_startTransition: true,
             v7_relativeSplatPath: true,
           }}
         >
-          {children}
+          <BreadcrumbProvider>
+            {children}
+          </BreadcrumbProvider>
         </BrowserRouter>
       </Provider>
     );
@@ -55,8 +58,7 @@ export function renderWithProviders(
 export const mockUser = {
   id: '123',
   email: 'test@example.com',
-  first_name: 'John',
-  last_name: 'Doe',
+  name: 'John Doe',
   roles: ['system.admin'],
   permissions: ['users.create', 'users.read', 'users.update', 'users.delete', 'billing.read', 'billing.update'],
   status: 'active',
@@ -73,8 +75,7 @@ export const mockUsers = {
   adminUser: {
     id: '123',
     email: 'admin@example.com',
-    first_name: 'Admin',
-    last_name: 'User',
+    name: 'Admin User',
     roles: ['system.admin'],
     permissions: ['users.create', 'users.read', 'users.update', 'users.delete', 'users.manage', 'team.manage', 'billing.read', 'billing.update', 'admin.access', 'settings.update'],
     status: 'active',
@@ -88,8 +89,7 @@ export const mockUsers = {
   regularUser: {
     id: '124',
     email: 'user@example.com',
-    first_name: 'Regular',
-    last_name: 'User',
+    name: 'Regular User',
     roles: ['account.member'],
     permissions: ['users.read'],
     status: 'active',
@@ -103,8 +103,7 @@ export const mockUsers = {
   billingManager: {
     id: '125',
     email: 'billing@example.com',
-    first_name: 'Billing',
-    last_name: 'Manager',
+    name: 'Billing Manager',
     roles: ['billing.manager'],
     permissions: ['billing.read', 'billing.update', 'billing.manage'],
     status: 'active',
@@ -215,9 +214,8 @@ export interface EnhancedPlan {
 
 export interface EnhancedUser {
   id: string;
-  first_name: string | null;
-  last_name: string | null;
-  full_name: string;
+  name: string;  // Required by base User type
+  full_name?: string;  // Optional for backward compatibility
   email: string;
   email_verified: boolean;
   roles: string[];
@@ -269,8 +267,7 @@ export const createMockPlan = (overrides: Partial<EnhancedPlan> = {}): EnhancedP
 
 export const createMockUser = (overrides: Partial<EnhancedUser> = {}): EnhancedUser => ({
   id: '1',
-  first_name: 'John',
-  last_name: 'Doe',
+  name: 'John Doe',
   full_name: 'John Doe',
   email: 'user@example.com',
   email_verified: true,

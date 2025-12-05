@@ -14,17 +14,15 @@ interface Tab {
 interface BreadcrumbAwareTabNavigationProps {
   pageId: string;
   tabs: Tab[];
-  basePath: string;
   className?: string;
   onTabChange?: (tabId: string, tab: Tab) => void;
 }
 
-export const BreadcrumbAwareTabNavigation: React.FC<BreadcrumbAwareTabNavigationProps> = ({ 
+export const BreadcrumbAwareTabNavigation: React.FC<BreadcrumbAwareTabNavigationProps> = ({
   pageId,
-  tabs, 
-  basePath, 
+  tabs,
   className = '',
-  onTabChange 
+  onTabChange
 }) => {
   const location = useLocation();
   const { setActiveTab, setCurrentPage } = useBreadcrumb();
@@ -115,11 +113,9 @@ interface BreadcrumbAwareMobileTabNavigationProps extends BreadcrumbAwareTabNavi
   currentTabLabel?: string;
 }
 
-export const BreadcrumbAwareMobileTabNavigation: React.FC<BreadcrumbAwareMobileTabNavigationProps> = ({ 
+export const BreadcrumbAwareMobileTabNavigation: React.FC<BreadcrumbAwareMobileTabNavigationProps> = ({
   pageId,
-  tabs, 
-  basePath, 
-  currentTabLabel,
+  tabs,
   className = '',
   onTabChange
 }) => {

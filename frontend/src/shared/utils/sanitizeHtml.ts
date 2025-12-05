@@ -17,7 +17,6 @@ export const sanitizeHtml = (html: string): string => {
       'data-type', 'data-badge', 'data-card', 'data-terminal'
     ],
     ALLOW_DATA_ATTR: false,
-    FORBID_SCRIPT: true,
     FORBID_TAGS: ['script', 'object', 'embed', 'style', 'link'],
     FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus', 'onblur', 'style']
   });
@@ -33,8 +32,7 @@ export const sanitizeQrCode = (html: string): string => {
   return DOMPurify.sanitize(html, {
     ALLOWED_TAGS: ['svg', 'path', 'rect', 'g', 'defs', 'pattern', 'image', 'div'],
     ALLOWED_ATTR: ['viewBox', 'width', 'height', 'd', 'fill', 'stroke', 'x', 'y', 'class'],
-    USE_PROFILES: { svg: true },
-    FORBID_SCRIPT: true
+    USE_PROFILES: { svg: true }
   });
 };
 
@@ -46,9 +44,9 @@ export const sanitizeMarkdown = (html: string): string => {
   
   return DOMPurify.sanitize(html, {
     ALLOWED_TAGS: [
-      'div', 'span', 'p', 'br', 'strong', 'b', 'em', 'i', 'u', 
-      'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 
-      'blockquote', 'code', 'pre', 'a', 'img', 'hr', 'table', 
+      'div', 'span', 'p', 'br', 'strong', 'b', 'em', 'i', 'u',
+      'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li',
+      'blockquote', 'code', 'pre', 'a', 'img', 'hr', 'table',
       'thead', 'tbody', 'tr', 'th', 'td'
     ],
     ALLOWED_ATTR: [
@@ -56,7 +54,6 @@ export const sanitizeMarkdown = (html: string): string => {
       'data-type', 'data-badge', 'data-card', 'data-terminal'
     ],
     ALLOW_DATA_ATTR: false,
-    FORBID_SCRIPT: true,
     SANITIZE_DOM: true
   });
 };

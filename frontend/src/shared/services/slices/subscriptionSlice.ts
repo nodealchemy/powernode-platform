@@ -1,10 +1,11 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { subscriptionService, Subscription, Plan, CreateSubscriptionRequest, UpdateSubscriptionRequest } from '@/features/subscriptions/services/subscriptionService';
+import { subscriptionService, CreateSubscriptionRequest, UpdateSubscriptionRequest } from '@/features/subscriptions/services/subscriptionService';
+import { Subscription, SubscriptionPlan } from '@/shared/types';
 
 interface SubscriptionState {
   subscriptions: Subscription[];
   currentSubscription: Subscription | null;
-  availablePlans: Plan[];
+  availablePlans: SubscriptionPlan[];
   loading: boolean;
   error: string | null;
 }
@@ -25,7 +26,7 @@ export const fetchSubscriptions = createAsyncThunk(
     if (!response.success) {
       return rejectWithValue(response.error || 'Failed to fetch subscriptions');
     }
-    return response.data as Subscription[];
+    return response.data as unknown as Subscription[];
   }
 );
 
@@ -36,7 +37,7 @@ export const fetchSubscription = createAsyncThunk(
     if (!response.success) {
       return rejectWithValue(response.error || 'Failed to fetch subscription');
     }
-    return response.data as Subscription;
+    return response.data as unknown as Subscription;
   }
 );
 
@@ -47,7 +48,7 @@ export const createSubscription = createAsyncThunk(
     if (!response.success) {
       return rejectWithValue(response.error || 'Failed to create subscription');
     }
-    return response.data as Subscription;
+    return response.data as unknown as Subscription;
   }
 );
 
@@ -58,7 +59,7 @@ export const updateSubscription = createAsyncThunk(
     if (!response.success) {
       return rejectWithValue(response.error || 'Failed to update subscription');
     }
-    return response.data as Subscription;
+    return response.data as unknown as Subscription;
   }
 );
 
@@ -83,7 +84,7 @@ const subscriptionSlice = createSlice({
     setCurrentSubscription: (state, action: PayloadAction<Subscription | null>) => {
       state.currentSubscription = action.payload;
     },
-    setAvailablePlans: (state, action: PayloadAction<Plan[]>) => {
+    setAvailablePlans: (state, action: PayloadAction<SubscriptionPlan[]>) => {
       state.availablePlans = action.payload;
     },
   },
@@ -172,11 +173,11 @@ const subscriptionSlice = createSlice({
         const targetSubscription = state.subscriptions.find(sub => sub.id === subscriptionId);
         if (targetSubscription) {
           targetSubscription.status = 'cancelled';
-          targetSubscription.canceledAt = new Date().toISOString();
+          targetSubscription.canceled_at = new Date().toISOString();
         }
         if (state.currentSubscription?.id === subscriptionId) {
           state.currentSubscription.status = 'cancelled';
-          state.currentSubscription.canceledAt = new Date().toISOString();
+          state.currentSubscription.canceled_at = new Date().toISOString();
         }
       })
       .addCase(cancelSubscription.rejected, (state, action) => {

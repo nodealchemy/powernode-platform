@@ -3,7 +3,7 @@ import { renderHook } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
 import { useNotifications } from './useNotifications';
-import uiReducer, { addNotification } from '@/shared/services/slices/uiSlice';
+import uiReducer from '@/shared/services/slices/uiSlice';
 
 // Create a test store
 const createTestStore = () => {

@@ -2,9 +2,7 @@ import {
   isErrorWithMessage,
   isErrorWithResponse,
   getErrorMessage,
-  createErrorObject,
-  ErrorWithMessage,
-  ErrorWithResponse
+  createErrorObject
 } from './errorHandling';
 
 describe('errorHandling utilities', () => {
@@ -46,7 +44,7 @@ describe('errorHandling utilities', () => {
 
   describe('isErrorWithResponse', () => {
     it('returns true for objects with response property', () => {
-      const error = { 
+      const error = {
         message: 'API error',
         response: { data: { error: 'Server error' } }
       };
@@ -201,7 +199,7 @@ describe('errorHandling utilities', () => {
     it('creates error object with message and originalError', () => {
       const originalError = new Error('Original error');
       const errorObject = createErrorObject(originalError);
-      
+
       expect(errorObject).toEqual({
         message: 'Original error',
         originalError
@@ -217,9 +215,9 @@ describe('errorHandling utilities', () => {
           }
         }
       };
-      
+
       const errorObject = createErrorObject(originalError);
-      
+
       expect(errorObject).toEqual({
         message: 'Server validation error',
         originalError
@@ -228,7 +226,7 @@ describe('errorHandling utilities', () => {
 
     it('handles string errors', () => {
       const errorObject = createErrorObject('Simple string error');
-      
+
       expect(errorObject).toEqual({
         message: 'Simple string error',
         originalError: 'Simple string error'
@@ -238,12 +236,12 @@ describe('errorHandling utilities', () => {
     it('handles null/undefined errors', () => {
       const nullErrorObject = createErrorObject(null);
       const undefinedErrorObject = createErrorObject(undefined);
-      
+
       expect(nullErrorObject).toEqual({
         message: 'An unexpected error occurred',
         originalError: null
       });
-      
+
       expect(undefinedErrorObject).toEqual({
         message: 'An unexpected error occurred',
         originalError: undefined
@@ -261,9 +259,9 @@ describe('errorHandling utilities', () => {
           data: { error: 'Bad request' }
         }
       };
-      
+
       const errorObject = createErrorObject(complexError);
-      
+
       expect(errorObject.message).toBe('Bad request');
       expect(errorObject.originalError).toBe(complexError);
       expect(errorObject.originalError).toHaveProperty('customProperty', 'custom value');
@@ -272,18 +270,22 @@ describe('errorHandling utilities', () => {
 
   describe('Type safety and edge cases', () => {
     it('handles circular reference objects safely', () => {
-      const circularError: any = { message: 'Circular error' };
+      interface CircularError {
+        message: string;
+        self?: CircularError;
+      }
+      const circularError: CircularError = { message: 'Circular error' };
       circularError.self = circularError;
-      
+
       expect(() => getErrorMessage(circularError)).not.toThrow();
       expect(getErrorMessage(circularError)).toBe('Circular error');
     });
 
     it('handles objects with prototype pollution attempts', () => {
-      const maliciousError = Object.create(null);
+      const maliciousError = Object.create(null) as { message: string; constructor: string };
       maliciousError.message = 'Prototype pollution attempt';
       maliciousError.constructor = 'malicious';
-      
+
       expect(() => getErrorMessage(maliciousError)).not.toThrow();
       expect(getErrorMessage(maliciousError)).toBe('Prototype pollution attempt');
     });
@@ -295,27 +297,36 @@ describe('errorHandling utilities', () => {
         enumerable: false,
         writable: false
       });
-      
+
       expect(getErrorMessage(error)).toBe('Non-enumerable message');
     });
 
-    it('type guards work correctly with TypeScript', () => {
+    it('type guards work correctly with TypeScript for ErrorWithMessage', () => {
       const unknownError: unknown = new Error('TypeScript test');
-      
-      if (isErrorWithMessage(unknownError)) {
-        // TypeScript should recognize this as ErrorWithMessage
-        expect(typeof unknownError.message).toBe('string');
+
+      const result = isErrorWithMessage(unknownError);
+      expect(result).toBe(true);
+
+      // After the guard, we can access message
+      if (result) {
+        expect(typeof (unknownError as { message: string }).message).toBe('string');
       }
-      
+    });
+
+    it('type guards work correctly with TypeScript for ErrorWithResponse', () => {
       const apiError: unknown = {
         message: 'API Error',
         response: { data: { error: 'Server error' } }
       };
-      
-      if (isErrorWithResponse(apiError)) {
-        // TypeScript should recognize this as ErrorWithResponse
-        expect(apiError.response).toBeDefined();
-        expect(typeof apiError.message).toBe('string');
+
+      const result = isErrorWithResponse(apiError);
+      expect(result).toBe(true);
+
+      // After the guard, we can access response
+      if (result) {
+        const typedError = apiError as { message: string; response: { data: unknown } };
+        expect(typedError.response).toBeDefined();
+        expect(typeof typedError.message).toBe('string');
       }
     });
 
@@ -335,7 +346,7 @@ describe('errorHandling utilities', () => {
           }
         }
       };
-      
+
       // Should prioritize top-level response.data.message
       expect(getErrorMessage(deepError)).toBe('Top level message');
     });
@@ -350,7 +361,7 @@ describe('errorHandling utilities', () => {
           }
         }
       };
-      
+
       expect(getErrorMessage(errorWithNull)).toBe('Base message');
     });
   });

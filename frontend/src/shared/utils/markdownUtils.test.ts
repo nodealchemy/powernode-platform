@@ -119,22 +119,7 @@ const code = 'block';
 
 Final paragraph.`;
 
-      const expected = `Title
-
-This is a paragraph with bold and italic text.
-
-Subtitle
-
-Item 1 with code
-Item 2 with link
-
-This is a blockquote with strikethrough text.
-
-
-Final paragraph.`;
-
       const result = stripMarkdown(complex).trim();
-      const expectedResult = expected.trim();
       // The implementation may preserve some formatting differences
       expect(result).toContain('Title');
       expect(result).toContain('Final paragraph');

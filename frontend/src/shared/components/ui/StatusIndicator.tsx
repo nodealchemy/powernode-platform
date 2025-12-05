@@ -1,5 +1,4 @@
 import React from 'react';
-import { FlexItemsCenter } from './FlexContainer';
 import { Badge } from './Badge';
 
 export interface StatusIndicatorProps {

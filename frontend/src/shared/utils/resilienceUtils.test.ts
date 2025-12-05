@@ -11,9 +11,7 @@ import {
   sleep,
   isNetworkError,
   isRetryableError,
-  DEFAULT_RETRY_CONFIG,
-  DEFAULT_CIRCUIT_BREAKER_CONFIG,
-  DEFAULT_TIMEOUT_CONFIG
+  DEFAULT_RETRY_CONFIG
 } from './resilienceUtils';
 
 describe('resilienceUtils', () => {
@@ -350,36 +348,36 @@ describe('resilienceUtils', () => {
 
     it('stores and retrieves values', () => {
       cache.set('key1', 'value1');
-      
+
       expect(cache.get('key1')).toBe('value1');
       expect(cache.has('key1')).toBe(true);
     });
 
     it('expires values after TTL', async () => {
       cache.set('key1', 'value1', 100); // 100ms TTL
-      
+
       expect(cache.get('key1')).toBe('value1');
-      
+
       await sleep(150);
-      
+
       expect(cache.get('key1')).toBeUndefined();
       expect(cache.has('key1')).toBe(false);
     });
 
     it('uses custom TTL when provided', async () => {
       cache.set('key1', 'value1', 2000); // 2 second TTL
-      
+
       await sleep(1500);
-      
+
       expect(cache.get('key1')).toBe('value1'); // Should still be valid
     });
 
     it('deletes specific keys', () => {
       cache.set('key1', 'value1');
       cache.set('key2', 'value2');
-      
+
       cache.delete('key1');
-      
+
       expect(cache.get('key1')).toBeUndefined();
       expect(cache.get('key2')).toBe('value2');
     });
@@ -387,9 +385,9 @@ describe('resilienceUtils', () => {
     it('clears all entries', () => {
       cache.set('key1', 'value1');
       cache.set('key2', 'value2');
-      
+
       cache.clear();
-      
+
       expect(cache.get('key1')).toBeUndefined();
       expect(cache.get('key2')).toBeUndefined();
     });
@@ -397,11 +395,11 @@ describe('resilienceUtils', () => {
     it('cleans up expired entries', async () => {
       cache.set('key1', 'value1', 100);
       cache.set('key2', 'value2', 200);
-      
+
       await sleep(150);
-      
+
       cache.cleanup();
-      
+
       const stats = cache.getStats();
       expect(stats.size).toBe(1); // Only key2 should remain
       expect(stats.keys).toEqual(['key2']);
@@ -410,9 +408,9 @@ describe('resilienceUtils', () => {
     it('provides cache statistics', () => {
       cache.set('key1', 'value1');
       cache.set('key2', 'value2');
-      
+
       const stats = cache.getStats();
-      
+
       expect(stats.size).toBe(2);
       expect(stats.keys).toEqual(['key1', 'key2']);
     });
@@ -641,12 +639,12 @@ describe('resilienceUtils', () => {
         }
         return 'success';
       });
-      
+
       // Remove timeout to focus on retry behavior
       const result = await withResilience(mockOperation, {
         retry: { maxAttempts: 3, baseDelay: 10 } // Just retry for now
       });
-      
+
       expect(result).toBe('success');
       expect(mockOperation).toHaveBeenCalledTimes(3);
     });
@@ -677,10 +675,8 @@ describe('resilienceUtils', () => {
 
     it('combines circuit breaker with retry correctly', async () => {
       const circuitBreaker = new CircuitBreaker({ failureThreshold: 3, resetTimeout: 100 });
-      let attemptCount = 0;
-      
+
       const mockOperation = jest.fn().mockImplementation(() => {
-        attemptCount++;
         return Promise.reject(new Error('Service failure'));
       });
       
@@ -717,8 +713,7 @@ describe('resilienceUtils', () => {
     it('handles complex failure scenarios with full resilience stack', async () => {
       const circuitBreaker = new CircuitBreaker({ failureThreshold: 4 }); // Allow 4 attempts before opening
       const bulkhead = new Bulkhead(2);
-      const cache = new CacheWithTTL<string>(5000);
-      
+
       let networkFailureCount = 0;
       const unreliableNetworkOperation = jest.fn().mockImplementation(async () => {
         networkFailureCount++;

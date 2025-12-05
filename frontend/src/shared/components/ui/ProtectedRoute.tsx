@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { useSelector } from 'react-redux';
+import { useSelector, shallowEqual } from 'react-redux';
 import { RootState } from '@/shared/services';
+import { LoadingSpinner } from './LoadingSpinner';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -10,18 +11,40 @@ interface ProtectedRouteProps {
   requireAdminAccess?: boolean;
 }
 
-export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
+// Memoize the entire component to prevent unnecessary re-renders
+export const ProtectedRoute: React.FC<ProtectedRouteProps> = React.memo(({
   children,
   requiredPermissions = [],
   requireEmailVerification = false,
   requireAdminAccess = false,
 }) => {
   const location = useLocation();
-  const { isAuthenticated, user } = useSelector((state: RootState) => state.auth);
 
-  // Check if user is authenticated
+  // Use separate selectors with shallowEqual to prevent unnecessary re-renders
+  const isAuthenticated = useSelector((state: RootState) => state.auth.isAuthenticated);
+  const user = useSelector((state: RootState) => state.auth.user, shallowEqual);
+  const isLoading = useSelector((state: RootState) => state.auth.isLoading);
+
+  // Memoize the redirect state to prevent object recreation on every render
+  const loginRedirectState = useMemo(() => {
+    // Don't include state if already on login page to prevent loops
+    return location.pathname === '/login' ? undefined : { from: location.pathname };
+  }, [location.pathname]);
+
+  // Show loading spinner while authentication state is being determined
+  // CRITICAL: Wait for loading to complete before making redirect decisions
+  // This prevents infinite loops when isAuthenticated=true but user is still being fetched
+  if (isLoading || (isAuthenticated && !user)) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <LoadingSpinner size="lg" />
+      </div>
+    );
+  }
+
+  // Check if user is authenticated (only after loading is complete)
   if (!isAuthenticated || !user) {
-    return <Navigate to="/login" state={{ from: location }} replace />;
+    return <Navigate to="/login" state={loginRedirectState} replace />;
   }
 
   // Check if email verification is required
@@ -49,4 +72,6 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   }
 
   return <>{children}</>;
-};
+});
+
+ProtectedRoute.displayName = 'ProtectedRoute';

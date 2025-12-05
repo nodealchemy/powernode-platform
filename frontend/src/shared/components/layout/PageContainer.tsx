@@ -9,7 +9,7 @@ export interface BreadcrumbItem {
 }
 
 export interface PageAction {
-  id: string;
+  id?: string;
   label: string;
   onClick: () => void;
   variant?: 'primary' | 'secondary' | 'outline' | 'danger' | 'warning' | 'success';
@@ -118,9 +118,9 @@ export const PageContainer: React.FC<PageContainerProps> = ({
         {/* Page Actions */}
         {actions && actions.length > 0 && (
           <div className="flex items-center gap-3 flex-shrink-0">
-            {actions.map((action) => (
+            {actions.map((action, index) => (
               <button
-                key={action.id}
+                key={action.id || `action-${index}`}
                 onClick={action.onClick}
                 disabled={action.disabled}
                 className={`${getButtonClasses(action.variant, action.size)} ${action.disabled ? 'opacity-50 cursor-not-allowed' : ''}`}

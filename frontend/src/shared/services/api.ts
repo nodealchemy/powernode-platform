@@ -101,7 +101,7 @@ class APIClient {
         const state = store.getState();
         
         // Use impersonation token if active, otherwise use regular access token
-        let token = state.auth.accessToken;
+        let token = state.auth.access_token;
         const impersonationToken = localStorage.getItem('impersonationToken');
         if (state.auth.impersonation.isImpersonating && impersonationToken) {
           token = impersonationToken;
@@ -122,6 +122,14 @@ class APIClient {
       (response) => response,
       async (error) => {
         const originalRequest = error.config;
+
+        // Suppress console logging for silent auth requests
+        const isSilentAuth = originalRequest?.silentAuth === true;
+
+        // Only log non-silent auth errors during development
+        if (!isSilentAuth && process.env.NODE_ENV === 'development' && error.response?.status !== 401) {
+          console.error('[API Error]', error);
+        }
 
         if (error.response?.status === 401 && !originalRequest._retry) {
           const state = store.getState();
@@ -187,7 +195,7 @@ class APIClient {
   }
 
   // HTTP Methods
-  async get<T = any>(url: string, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
+  async get<T = any>(url: string, config?: AxiosRequestConfig & { silentAuth?: boolean }): Promise<AxiosResponse<T>> {
     return this.client.get(url, config);
   }
 
