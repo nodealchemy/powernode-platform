@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# BaseMonitoringService - Shared patterns for monitoring services
+# AiMonitoringConcern - Shared patterns for AI monitoring services
 #
 # Provides common functionality for monitoring AI operations:
 # - Metric collection and aggregation
@@ -11,7 +11,7 @@
 # Usage:
 #   class UnifiedMonitoringService
 #     include BaseAiService
-#     include BaseMonitoringService
+#     include AiMonitoringConcern
 #
 #     def get_system_health
 #       collect_health_metrics do
@@ -20,7 +20,7 @@
 #     end
 #   end
 #
-module BaseMonitoringService
+module AiMonitoringConcern
   extend ActiveSupport::Concern
 
   # Metric types

@@ -21,7 +21,7 @@
 #
 class UnifiedMonitoringService
   include BaseAiService
-  include BaseMonitoringService
+  include AiMonitoringConcern
 
   # Component types for monitoring
   COMPONENTS = %w[system providers agents workflows conversations costs resources].freeze
@@ -312,18 +312,26 @@ class UnifiedMonitoringService
   # =============================================================================
 
   def get_account_providers
+    return AiProvider.none unless @account
+
     @account.ai_providers.includes(:ai_provider_credentials)
   end
 
   def get_account_agents
+    return AiAgent.none unless @account
+
     @account.ai_agents.includes(:ai_provider)
   end
 
   def get_account_workflows
+    return AiWorkflow.none unless @account
+
     @account.ai_workflows.includes(:ai_workflow_runs)
   end
 
   def get_account_conversations(time_range)
+    return AiConversation.none unless @account
+
     @account.ai_conversations.where('created_at >= ?', time_range.ago)
   end
 
@@ -332,10 +340,14 @@ class UnifiedMonitoringService
   # =============================================================================
 
   def count_active_workflows
+    return 0 unless @account
+
     @account.ai_workflows.with_active_runs.count
   end
 
   def count_active_agents
+    return 0 unless @account
+
     @account.ai_agents.where(status: 'active').count
   end
 

@@ -2,7 +2,7 @@
 
 require 'rails_helper'
 
-RSpec.describe WorkflowCircuitBreakerService do
+RSpec.describe AiWorkflowCircuitBreakerService do
   let(:service_name) { 'test_service' }
   let(:config) do
     {
@@ -84,14 +84,14 @@ RSpec.describe WorkflowCircuitBreakerService do
       it 'raises CircuitOpenError without executing block' do
         expect {
           circuit_breaker.execute { 'should not execute' }
-        }.to raise_error(WorkflowCircuitBreakerService::CircuitOpenError)
+        }.to raise_error(AiWorkflowCircuitBreakerService::CircuitOpenError)
       end
 
       it 'does not execute the block when open' do
         executed = false
         begin
           circuit_breaker.execute { executed = true }
-        rescue WorkflowCircuitBreakerService::CircuitOpenError
+        rescue AiWorkflowCircuitBreakerService::CircuitOpenError
           # Expected
         end
 
@@ -110,7 +110,7 @@ RSpec.describe WorkflowCircuitBreakerService do
       it 'records circuit open events' do
         begin
           circuit_breaker.execute { 'test' }
-        rescue WorkflowCircuitBreakerService::CircuitOpenError => e
+        rescue AiWorkflowCircuitBreakerService::CircuitOpenError => e
           expect(e.message).to include('Circuit breaker is open')
           expect(e.message).to include(service_name)
         end

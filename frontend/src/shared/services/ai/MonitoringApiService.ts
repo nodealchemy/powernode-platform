@@ -66,11 +66,26 @@ export interface MonitoringDashboard {
   }>;
 }
 
+export interface HealthComponentStatus {
+  status: 'healthy' | 'degraded' | 'unhealthy';
+  message?: string;
+  response_time_ms?: number;
+}
+
 export interface HealthStatus {
-  status: 'healthy' | 'degraded' | 'down';
+  status: 'healthy' | 'degraded' | 'unhealthy' | 'critical';
   timestamp: string;
-  services: Record<string, {
-    status: 'healthy' | 'degraded' | 'down';
+  time_range_seconds?: number;
+  health_score?: number;
+  system?: HealthComponentStatus;
+  database?: HealthComponentStatus;
+  redis?: HealthComponentStatus;
+  providers?: HealthComponentStatus;
+  workers?: HealthComponentStatus;
+  circuit_breakers?: any;
+  // Legacy field for backwards compatibility
+  services?: Record<string, {
+    status: 'healthy' | 'degraded' | 'unhealthy';
     message?: string;
   }>;
 }
@@ -117,7 +132,20 @@ class MonitoringApiService extends BaseApiService {
    * GET /api/v1/ai/monitoring/dashboard
    */
   async getDashboard(): Promise<MonitoringDashboard> {
-    return this.get<MonitoringDashboard>(`${this.basePath}/dashboard`);
+    const response = await this.get<{
+      dashboard: MonitoringDashboard;
+      generated_at: string;
+    }>(`${this.basePath}/dashboard`);
+
+    // Extract dashboard from nested response
+    return response?.dashboard || {
+      system_health: { status: 'healthy', uptime_percentage: 100 },
+      providers: [],
+      agents: { total: 0, active: 0, paused: 0, errored: 0 },
+      workflows: { total: 0, running: 0, completed_today: 0, failed_today: 0 },
+      alerts: [],
+      recent_activity: []
+    };
   }
 
   /**
@@ -175,7 +203,18 @@ class MonitoringApiService extends BaseApiService {
    */
   async getAlerts(filters?: { severity?: string; acknowledged?: boolean }): Promise<Alert[]> {
     const queryString = this.buildQueryString(filters);
-    return this.get<Alert[]>(`${this.basePath}/alerts${queryString}`);
+    const response = await this.get<{
+      alerts: {
+        total_alerts: number;
+        by_severity: Record<string, number>;
+        by_type: Record<string, number>;
+        recent_alerts: Alert[];
+      };
+      timestamp: string;
+    }>(`${this.basePath}/alerts${queryString}`);
+
+    // Extract recent_alerts array from nested response, or return empty array
+    return response?.alerts?.recent_alerts || [];
   }
 
   /**
@@ -183,7 +222,15 @@ class MonitoringApiService extends BaseApiService {
    * POST /api/v1/ai/monitoring/alerts/check
    */
   async checkAlerts(): Promise<Alert[]> {
-    return this.post<Alert[]>(`${this.basePath}/alerts/check`);
+    const response = await this.post<{
+      alerts_checked: boolean;
+      triggered_alerts: Alert[];
+      count: number;
+      timestamp: string;
+    }>(`${this.basePath}/alerts/check`);
+
+    // Extract triggered_alerts array from response, or return empty array
+    return response?.triggered_alerts || [];
   }
 
   // ===================================================================

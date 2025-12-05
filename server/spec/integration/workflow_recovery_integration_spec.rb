@@ -147,7 +147,7 @@ RSpec.describe 'Workflow Recovery Integration', type: :integration do
       # Step 4: Attempt request with open circuit
       expect {
         breaker.execute { 'should not execute' }
-      }.to raise_error(WorkflowCircuitBreakerService::CircuitOpenError)
+      }.to raise_error(AiWorkflowCircuitBreakerService::CircuitOpenError)
 
       # Step 5: Simulate timeout passing
       Timecop.travel(Time.current + 61) do
@@ -318,7 +318,7 @@ RSpec.describe 'Workflow Recovery Integration', type: :integration do
         WorkflowCircuitBreakerManager.execute_with_breaker(service_name) do
           'should not execute'
         end
-      }.to raise_error(WorkflowCircuitBreakerService::CircuitOpenError)
+      }.to raise_error(AiWorkflowCircuitBreakerService::CircuitOpenError)
 
       # Step 5: Mark workflow as failed due to circuit breaker
       workflow_run.update(

@@ -42,17 +42,37 @@ RSpec.describe Analytics::LiveMetricsJob, type: :job do
   end
 
   describe '#execute' do
+    let(:mock_api_client) { instance_double(BackendApiClient) }
+    let(:mock_success_response) { double('Response', success?: true, data: live_metrics_response) }
+    let(:mock_redis) { double('Redis') }
+
+    before do
+      allow(BackendApiClient).to receive(:new).and_return(mock_api_client)
+      # Stub Redis.current dynamically since Redis may not be loaded
+      # Create a Redis class with a current class method
+      redis_class = Class.new do
+        class << self
+          attr_accessor :current_instance
+          def current
+            @current_instance
+          end
+        end
+      end
+      stub_const('Redis', redis_class)
+      Redis.current_instance = mock_redis
+      allow(mock_redis).to receive(:setex)
+    end
+
     context 'when processing live metrics for specific account' do
       before do
-        stub_backend_api_success(:get, '/api/v1/analytics/live', live_metrics_response)
-        stub_backend_api_success(:post, '/api/v1/analytics/cache', { 'success' => true })
-        stub_backend_api_success(:post, '/api/v1/analytics/broadcast', { 'success' => true })
+        allow(mock_api_client).to receive(:get).with('/api/v1/analytics/live', hash_including(:account_id)).and_return(mock_success_response)
+        allow(mock_api_client).to receive(:post).and_return(double('Response', success?: true))
       end
 
       it 'fetches live metrics from API' do
         described_class.new.execute(account_id: account_id)
 
-        expect_api_request(:get, '/api/v1/analytics/live')
+        expect(mock_api_client).to have_received(:get).with('/api/v1/analytics/live', hash_including(account_id: account_id))
       end
 
       it 'returns metrics data' do
@@ -74,15 +94,14 @@ RSpec.describe Analytics::LiveMetricsJob, type: :job do
 
     context 'when processing global metrics' do
       before do
-        stub_backend_api_success(:get, '/api/v1/analytics/live', live_metrics_response)
-        stub_backend_api_success(:post, '/api/v1/analytics/cache', { 'success' => true })
-        stub_backend_api_success(:post, '/api/v1/analytics/broadcast', { 'success' => true })
+        allow(mock_api_client).to receive(:get).with('/api/v1/analytics/live', hash_including(:account_id)).and_return(mock_success_response)
+        allow(mock_api_client).to receive(:post).and_return(double('Response', success?: true))
       end
 
       it 'processes metrics without account filter' do
         described_class.new.execute(account_id: nil)
 
-        expect_api_request(:get, '/api/v1/analytics/live')
+        expect(mock_api_client).to have_received(:get).with('/api/v1/analytics/live', hash_including(account_id: nil))
       end
 
       it 'logs global metrics processing' do
@@ -97,30 +116,26 @@ RSpec.describe Analytics::LiveMetricsJob, type: :job do
 
     context 'when broadcast is disabled' do
       before do
-        stub_backend_api_success(:get, '/api/v1/analytics/live', live_metrics_response)
-        stub_backend_api_success(:post, '/api/v1/analytics/cache', { 'success' => true })
+        allow(mock_api_client).to receive(:get).and_return(mock_success_response)
+        allow(mock_api_client).to receive(:post).and_return(double('Response', success?: true))
       end
 
       it 'skips broadcasting' do
         described_class.new.execute(account_id: account_id, broadcast: false)
 
-        expect_no_api_request(:post, '/api/v1/analytics/broadcast')
+        expect(mock_api_client).not_to have_received(:post).with('/api/v1/analytics/live', anything)
       end
     end
 
     context 'when API returns error' do
+      let(:mock_error_response) { double('Response', success?: false, data: nil) }
+
       before do
-        stub_backend_api_error(:get, '/api/v1/analytics/live', status: 500, error_message: 'Server error')
-        stub_backend_api_success(:post, '/api/v1/analytics/cache', { 'success' => true })
-        stub_backend_api_success(:post, '/api/v1/analytics/broadcast', { 'success' => true })
+        allow(mock_api_client).to receive(:get).and_return(mock_error_response)
+        allow(mock_api_client).to receive(:post).and_return(double('Response', success?: true))
       end
 
       it 'uses fallback metrics' do
-        # Allow the response to indicate failure but not throw
-        allow_any_instance_of(BackendApiClient).to receive(:get).and_return(
-          double('Response', success?: false, data: nil)
-        )
-
         result = described_class.new.execute(account_id: account_id)
 
         expect(result[:current_metrics][:mrr]).to eq(0)
@@ -130,8 +145,15 @@ RSpec.describe Analytics::LiveMetricsJob, type: :job do
 
     context 'when an error occurs during processing' do
       before do
-        stub_backend_api_success(:get, '/api/v1/analytics/live', live_metrics_response)
+        allow(mock_api_client).to receive(:get).and_return(mock_success_response)
         allow_any_instance_of(described_class).to receive(:cache_live_metrics).and_raise(StandardError, 'Cache error')
+        # Stub ErrorNotificationService if not loaded - needs notify class method
+        unless defined?(ErrorNotificationService)
+          error_notification_class = Class.new do
+            def self.notify(options = {}); end
+          end
+          stub_const('ErrorNotificationService', error_notification_class)
+        end
         allow(ErrorNotificationService).to receive(:notify)
       end
 

@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# BaseWorkflowService - Shared patterns for workflow execution services
+# AiWorkflowService - Shared patterns for AI workflow execution services
 #
 # Provides common functionality for workflow-related services:
 # - Workflow validation
@@ -12,7 +12,7 @@
 # Usage:
 #   class WorkflowExecutionService
 #     include BaseAiService
-#     include BaseWorkflowService
+#     include AiWorkflowService
 #
 #     def execute_workflow
 #       with_workflow_context(@workflow_run) do
@@ -21,7 +21,7 @@
 #     end
 #   end
 #
-module BaseWorkflowService
+module AiWorkflowService
   extend ActiveSupport::Concern
 
   included do

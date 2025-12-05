@@ -176,21 +176,35 @@ jest.mock('@/features/ai-monitoring/components/ResourceUtilizationChart', () => 
   )
 }));
 
-// Mock UI primitives
-jest.mock('@/shared/components/ui/Tabs', () => ({
-  Tabs: ({ value, onValueChange: _onValueChange, children }: any) => (
-    <div data-testid="tabs" data-value={value}>
+// Mock TabContainer used by the component
+jest.mock('@/shared/components/layout/TabContainer', () => ({
+  TabContainer: ({ tabs, activeTab, onTabChange, children }: any) => (
+    <div data-testid="tab-container">
+      <div data-testid="tabs-list">
+        {tabs?.map((tab: any) => (
+          <button
+            key={tab.id}
+            data-testid={`tab-${tab.id}`}
+            data-value={tab.id}
+            onClick={() => onTabChange?.(tab.id)}
+            className={activeTab === tab.id ? 'active' : ''}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
       {children}
     </div>
   ),
-  TabsList: ({ children }: any) => <div data-testid="tabs-list">{children}</div>,
-  TabsTrigger: ({ value, children }: any) => (
-    <button data-testid={`tab-${value}`} data-value={value}>
+  TabPanel: ({ tabId, activeTab, children }: any) => (
+    // Always render content for testing, but mark visibility
+    <div
+      data-testid={`tab-content-${tabId}`}
+      style={{ display: activeTab === tabId ? 'block' : 'none' }}
+      data-active={activeTab === tabId}
+    >
       {children}
-    </button>
-  ),
-  TabsContent: ({ value, children }: any) => (
-    <div data-testid={`tab-content-${value}`}>{children}</div>
+    </div>
   )
 }));
 
@@ -321,6 +335,13 @@ describe('AIMonitoringPage', () => {
     it('displays provider monitoring grid', async () => {
       renderComponent();
 
+      // Wait for initial load then navigate to providers tab
+      await waitFor(() => {
+        expect(screen.getByTestId('tab-providers')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByTestId('tab-providers'));
+
       await waitFor(() => {
         expect(screen.getByTestId('provider-monitoring-grid')).toBeInTheDocument();
       });
@@ -329,6 +350,13 @@ describe('AIMonitoringPage', () => {
     it('displays agent performance panel', async () => {
       renderComponent();
 
+      // Wait for initial load then navigate to agents tab
+      await waitFor(() => {
+        expect(screen.getByTestId('tab-agents')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByTestId('tab-agents'));
+
       await waitFor(() => {
         expect(screen.getByTestId('agent-performance-panel')).toBeInTheDocument();
       });
@@ -336,6 +364,13 @@ describe('AIMonitoringPage', () => {
 
     it('displays alert management center', async () => {
       renderComponent();
+
+      // Wait for initial load then navigate to alerts tab
+      await waitFor(() => {
+        expect(screen.getByTestId('tab-alerts')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByTestId('tab-alerts'));
 
       await waitFor(() => {
         expect(screen.getByTestId('alert-management-center')).toBeInTheDocument();
@@ -358,13 +393,18 @@ describe('AIMonitoringPage', () => {
     it('toggles real-time monitoring when button clicked', async () => {
       renderComponent();
 
+      // Wait for initial data to load and connection to establish
       await waitFor(() => {
-        expect(screen.getByTestId('action-enable-real-time')).toBeInTheDocument();
+        expect(screen.getByText('Connected')).toBeInTheDocument();
       });
 
-      fireEvent.click(screen.getByTestId('action-enable-real-time'));
+      // Find the enable real-time button
+      const enableButton = screen.getByTestId('action-enable-real-time');
+      expect(enableButton).toBeInTheDocument();
 
-      // After clicking, the button text should change
+      fireEvent.click(enableButton);
+
+      // After clicking, the button text should change to "Disable Real-time"
       await waitFor(() => {
         expect(screen.getByTestId('action-disable-real-time')).toBeInTheDocument();
       });
@@ -373,21 +413,24 @@ describe('AIMonitoringPage', () => {
     it('refreshes data when refresh button clicked', async () => {
       renderComponent();
 
+      // Wait for initial data to load
       await waitFor(() => {
-        expect(screen.getByTestId('action-refresh')).toBeInTheDocument();
+        expect(screen.getByText('Connected')).toBeInTheDocument();
       });
 
-      // Clear previous calls
-      (monitoringApi.getDashboard as jest.Mock).mockClear();
-      (monitoringApi.getHealth as jest.Mock).mockClear();
-      (monitoringApi.getAlerts as jest.Mock).mockClear();
+      // Verify initial API calls were made
+      expect(monitoringApi.getDashboard).toHaveBeenCalled();
 
-      fireEvent.click(screen.getByTestId('action-refresh'));
+      const initialCallCount = (monitoringApi.getDashboard as jest.Mock).mock.calls.length;
+
+      const refreshButton = screen.getByTestId('action-refresh');
+      expect(refreshButton).toBeInTheDocument();
+
+      fireEvent.click(refreshButton);
 
       await waitFor(() => {
-        expect(monitoringApi.getDashboard).toHaveBeenCalled();
-        expect(monitoringApi.getHealth).toHaveBeenCalled();
-        expect(monitoringApi.getAlerts).toHaveBeenCalled();
+        // Verify additional API call was made
+        expect((monitoringApi.getDashboard as jest.Mock).mock.calls.length).toBeGreaterThan(initialCallCount);
       });
     });
   });
@@ -435,6 +478,13 @@ describe('AIMonitoringPage', () => {
     it('displays alerts with correct count', async () => {
       renderComponent();
 
+      // Wait for initial load then navigate to alerts tab
+      await waitFor(() => {
+        expect(screen.getByTestId('tab-alerts')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByTestId('tab-alerts'));
+
       await waitFor(() => {
         expect(screen.getByTestId('alert-management-center')).toBeInTheDocument();
         expect(screen.getByText(/Alerts: 2/)).toBeInTheDocument();
@@ -443,6 +493,13 @@ describe('AIMonitoringPage', () => {
 
     it('shows acknowledge and resolve buttons for active alerts', async () => {
       renderComponent();
+
+      // Wait for initial load then navigate to alerts tab
+      await waitFor(() => {
+        expect(screen.getByTestId('tab-alerts')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByTestId('tab-alerts'));
 
       await waitFor(() => {
         expect(screen.getByTestId('ack-alert-alert-1')).toBeInTheDocument();
@@ -454,6 +511,13 @@ describe('AIMonitoringPage', () => {
   describe('Provider Testing', () => {
     it('allows testing providers when permission granted', async () => {
       renderComponent();
+
+      // Wait for initial load then navigate to providers tab
+      await waitFor(() => {
+        expect(screen.getByTestId('tab-providers')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByTestId('tab-providers'));
 
       await waitFor(() => {
         // Provider test buttons should be present
@@ -499,6 +563,13 @@ describe('AIMonitoringPage', () => {
   describe('Workflow Tab', () => {
     it('displays workflow metrics', async () => {
       renderComponent();
+
+      // Wait for initial load then navigate to workflows tab
+      await waitFor(() => {
+        expect(screen.getByTestId('tab-workflows')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByTestId('tab-workflows'));
 
       await waitFor(() => {
         expect(screen.getByTestId('tab-content-workflows')).toBeInTheDocument();

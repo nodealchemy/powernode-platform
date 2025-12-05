@@ -197,7 +197,7 @@ module BaseAiService
         service: self.class.name,
         duration_ms: duration_ms,
         account_id: @account&.id,
-        **metadata
+        **(metadata || {})
       }
     )
   end
@@ -215,7 +215,7 @@ module BaseAiService
         error_class: error.class.name,
         error_message: error.message,
         account_id: @account&.id,
-        **metadata
+        **(metadata || {})
       }
     )
   end

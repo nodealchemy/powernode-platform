@@ -93,6 +93,7 @@ jest.mock('@/features/ai-conversations/components/ConversationContinueModal', ()
 }));
 
 // Import component after mocks
+// eslint-disable-next-line import/first
 import { AIConversationsPage } from './AIConversationsPage';
 
 describe('AIConversationsPage', () => {

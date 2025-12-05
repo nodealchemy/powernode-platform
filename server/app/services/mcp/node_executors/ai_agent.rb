@@ -155,8 +155,8 @@ module Mcp
         agent_execution.start_execution!
         log_debug "Started agent execution tracking"
 
-        # Use MCP agent executor for actual execution
-        mcp_executor = McpAgentExecutor.new(
+        # Use AI MCP agent executor for actual execution
+        mcp_executor = AiMcpAgentExecutor.new(
           agent: agent,
           execution: agent_execution,
           account: @orchestrator.account

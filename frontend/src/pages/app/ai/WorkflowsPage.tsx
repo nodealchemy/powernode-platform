@@ -21,7 +21,9 @@ import {
   Calendar,
   User,
   Hash,
-  FileText
+  FileText,
+  Activity,
+  FileStack
 } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { DataTable } from '@/shared/components/ui/DataTable';
@@ -353,9 +355,13 @@ export const WorkflowsPage: React.FC = () => {
       width: '40%',
       render: (workflow: AiWorkflow) => (
         <div className="min-w-0">
-          <div className="font-semibold text-lg text-theme-primary whitespace-normal">
+          <button
+            onClick={() => navigate(`/app/ai/workflows/${workflow.id}`)}
+            className="font-semibold text-lg text-theme-primary hover:text-theme-interactive-primary hover:underline whitespace-normal text-left transition-colors"
+            title="View workflow details"
+          >
             {workflow.name}
-          </div>
+          </button>
           <div className="text-sm text-theme-muted leading-relaxed whitespace-normal">
             {workflow.description}
           </div>
@@ -487,22 +493,38 @@ export const WorkflowsPage: React.FC = () => {
     <PageContainer
       title="AI Workflows"
       description="Create, manage, and execute automated AI workflows"
-      actions={canCreateWorkflows ? [
+      actions={[
         {
-          id: 'import-workflow',
-          label: 'Import Workflow',
-          onClick: () => navigate('/app/ai/workflows/import'),
-          icon: Upload,
+          id: 'templates',
+          label: 'Templates',
+          onClick: () => navigate('/app/ai/workflows/templates'),
+          icon: FileStack,
           variant: 'outline'
         },
         {
-          id: 'create-workflow',
-          label: 'Create Workflow',
-          onClick: () => setIsCreateModalOpen(true),
-          icon: Plus,
-          variant: 'primary'
-        }
-      ] : []}
+          id: 'monitoring',
+          label: 'Monitoring',
+          onClick: () => navigate('/app/ai/workflows/monitoring'),
+          icon: Activity,
+          variant: 'outline'
+        },
+        ...(canCreateWorkflows ? [
+          {
+            id: 'import-workflow',
+            label: 'Import',
+            onClick: () => navigate('/app/ai/workflows/import'),
+            icon: Upload,
+            variant: 'outline' as const
+          },
+          {
+            id: 'create-workflow',
+            label: 'Create Workflow',
+            onClick: () => setIsCreateModalOpen(true),
+            icon: Plus,
+            variant: 'primary' as const
+          }
+        ] : [])
+      ]}
     >
       <div className="space-y-4">
         {/* Search and Controls */}

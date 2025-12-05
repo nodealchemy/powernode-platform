@@ -34,18 +34,38 @@ RSpec.describe AudioProcessingJob, type: :job do
   let(:audio_content) { 'fake audio content' }
 
   describe '#execute' do
-    context 'when audio processing succeeds' do
-      before do
-        stub_backend_api_success(:get, "/api/v1/file_processing_jobs/#{processing_job_id}", processing_job_data)
-        stub_backend_api_success(:get, "/api/v1/file_objects/#{file_object_id}", file_object_data)
-        stub_backend_api_success(:patch, "/api/v1/file_processing_jobs/#{processing_job_id}", { 'success' => true })
-        stub_backend_api_success(:get, "/api/v1/file_objects/#{file_object_id}/download", audio_content)
-        stub_backend_api_success(:patch, "/api/v1/file_objects/#{file_object_id}", { 'success' => true })
-        stub_backend_api_success(:post, "/api/v1/file_processing_jobs/#{processing_job_id}/complete", { 'success' => true })
+    let(:mock_api_client) { instance_double(BackendApiClient) }
 
-        # Mock ffprobe command
-        allow_any_instance_of(described_class).to receive(:`).and_return(ffprobe_json_output)
-        allow($?).to receive(:success?).and_return(true)
+    before do
+      allow_any_instance_of(described_class).to receive(:api_client).and_return(mock_api_client)
+    end
+
+    context 'when audio processing succeeds' do
+      let(:temp_file) { Tempfile.new(['audio', '.mp3']) }
+
+      before do
+        # Mock API client methods
+        allow(mock_api_client).to receive(:get_file_processing_job).with(processing_job_id).and_return(processing_job_data)
+        allow(mock_api_client).to receive(:get_file_object).with(file_object_id).and_return(file_object_data)
+        allow(mock_api_client).to receive(:update_file_processing_job).and_return({ 'success' => true })
+        allow(mock_api_client).to receive(:download_file_content).with(file_object_id).and_return(audio_content)
+        allow(mock_api_client).to receive(:update_file_object).and_return({ 'success' => true })
+        allow(mock_api_client).to receive(:complete_file_processing_job).and_return({ 'success' => true })
+
+        # Mock temp file download
+        allow_any_instance_of(described_class).to receive(:download_file_content).and_return(temp_file)
+        allow_any_instance_of(described_class).to receive(:cleanup_temp_file)
+
+        # Mock ffprobe command - use block form to run a successful command that sets $?
+        allow_any_instance_of(described_class).to receive(:`) do |_instance, _cmd|
+          `true` # Run a simple successful command to set $? to success
+          ffprobe_json_output
+        end
+      end
+
+      after do
+        temp_file.close
+        temp_file.unlink rescue nil
       end
 
       let(:ffprobe_json_output) do
@@ -74,31 +94,32 @@ RSpec.describe AudioProcessingJob, type: :job do
       it 'loads the processing job' do
         described_class.new.execute(processing_job_id)
 
-        expect_api_request(:get, "/api/v1/file_processing_jobs/#{processing_job_id}")
+        expect(mock_api_client).to have_received(:get_file_processing_job).with(processing_job_id)
       end
 
       it 'loads the file object' do
         described_class.new.execute(processing_job_id)
 
-        expect_api_request(:get, "/api/v1/file_objects/#{file_object_id}")
+        expect(mock_api_client).to have_received(:get_file_object).with(file_object_id)
       end
 
       it 'updates job status to processing' do
         described_class.new.execute(processing_job_id)
 
-        expect_api_request(:patch, "/api/v1/file_processing_jobs/#{processing_job_id}")
+        expect(mock_api_client).to have_received(:update_file_processing_job).with(processing_job_id, hash_including(status: 'processing'))
       end
 
       it 'updates file object with metadata' do
         described_class.new.execute(processing_job_id)
 
-        expect_api_request(:patch, "/api/v1/file_objects/#{file_object_id}")
+        # Called twice: once for metadata update, once for processing_status update
+        expect(mock_api_client).to have_received(:update_file_object).with(file_object_id, anything).at_least(:once)
       end
 
       it 'marks job as completed' do
         described_class.new.execute(processing_job_id)
 
-        expect_api_request(:post, "/api/v1/file_processing_jobs/#{processing_job_id}/complete")
+        expect(mock_api_client).to have_received(:complete_file_processing_job).with(processing_job_id, anything)
       end
 
       it 'logs success message' do
@@ -113,7 +134,9 @@ RSpec.describe AudioProcessingJob, type: :job do
 
     context 'when processing job not found' do
       before do
-        stub_backend_api_error(:get, "/api/v1/file_processing_jobs/#{processing_job_id}", status: 404, error_message: 'Not found')
+        allow(mock_api_client).to receive(:get_file_processing_job).and_raise(
+          BackendApiClient::ApiError.new('Not found', 404)
+        )
       end
 
       it 'raises an error' do
@@ -138,9 +161,11 @@ RSpec.describe AudioProcessingJob, type: :job do
 
     context 'when file object not found' do
       before do
-        stub_backend_api_success(:get, "/api/v1/file_processing_jobs/#{processing_job_id}", processing_job_data)
-        stub_backend_api_success(:patch, "/api/v1/file_processing_jobs/#{processing_job_id}", { 'success' => true })
-        stub_backend_api_error(:get, "/api/v1/file_objects/#{file_object_id}", status: 404, error_message: 'Not found')
+        allow(mock_api_client).to receive(:get_file_processing_job).with(processing_job_id).and_return(processing_job_data)
+        allow(mock_api_client).to receive(:update_file_processing_job).and_return({ 'success' => true })
+        allow(mock_api_client).to receive(:get_file_object).and_raise(
+          BackendApiClient::ApiError.new('Not found', 404)
+        )
       end
 
       it 'raises an error' do
@@ -151,34 +176,59 @@ RSpec.describe AudioProcessingJob, type: :job do
     end
 
     context 'when ffprobe extraction fails' do
-      before do
-        stub_backend_api_success(:get, "/api/v1/file_processing_jobs/#{processing_job_id}", processing_job_data)
-        stub_backend_api_success(:get, "/api/v1/file_objects/#{file_object_id}", file_object_data)
-        stub_backend_api_success(:patch, "/api/v1/file_processing_jobs/#{processing_job_id}", { 'success' => true })
-        stub_backend_api_success(:get, "/api/v1/file_objects/#{file_object_id}/download", audio_content)
-        stub_backend_api_success(:patch, "/api/v1/file_objects/#{file_object_id}", { 'success' => true })
-        stub_backend_api_success(:post, "/api/v1/file_processing_jobs/#{processing_job_id}/complete", { 'success' => true })
+      let(:temp_file) { Tempfile.new(['audio', '.mp3']) }
 
-        allow_any_instance_of(described_class).to receive(:`).and_return('')
-        allow($?).to receive(:success?).and_return(false)
+      before do
+        allow(mock_api_client).to receive(:get_file_processing_job).with(processing_job_id).and_return(processing_job_data)
+        allow(mock_api_client).to receive(:get_file_object).with(file_object_id).and_return(file_object_data)
+        allow(mock_api_client).to receive(:update_file_processing_job).and_return({ 'success' => true })
+        allow(mock_api_client).to receive(:download_file_content).with(file_object_id).and_return(audio_content)
+        allow(mock_api_client).to receive(:update_file_object).and_return({ 'success' => true })
+        allow(mock_api_client).to receive(:complete_file_processing_job).and_return({ 'success' => true })
+
+        # Mock temp file download
+        allow_any_instance_of(described_class).to receive(:download_file_content).and_return(temp_file)
+        allow_any_instance_of(described_class).to receive(:cleanup_temp_file)
+
+        # Mock ffprobe command - use block form to run a failing command that sets $?
+        allow_any_instance_of(described_class).to receive(:`) do |_instance, _cmd|
+          `false` # Run a failing command to set $? to failure
+          ''
+        end
+      end
+
+      after do
+        temp_file.close
+        temp_file.unlink rescue nil
       end
 
       it 'continues with empty metadata' do
-        result = described_class.new.execute(processing_job_id)
+        described_class.new.execute(processing_job_id)
 
-        expect_api_request(:post, "/api/v1/file_processing_jobs/#{processing_job_id}/complete")
+        expect(mock_api_client).to have_received(:complete_file_processing_job).with(processing_job_id, anything)
       end
     end
 
     context 'when processing fails with exception' do
+      let(:temp_file) { Tempfile.new(['audio', '.mp3']) }
+
       before do
-        stub_backend_api_success(:get, "/api/v1/file_processing_jobs/#{processing_job_id}", processing_job_data)
-        stub_backend_api_success(:get, "/api/v1/file_objects/#{file_object_id}", file_object_data)
-        stub_backend_api_success(:patch, "/api/v1/file_processing_jobs/#{processing_job_id}", { 'success' => true })
-        stub_backend_api_success(:get, "/api/v1/file_objects/#{file_object_id}/download", audio_content)
-        stub_backend_api_success(:post, "/api/v1/file_processing_jobs/#{processing_job_id}/fail", { 'success' => true })
+        allow(mock_api_client).to receive(:get_file_processing_job).with(processing_job_id).and_return(processing_job_data)
+        allow(mock_api_client).to receive(:get_file_object).with(file_object_id).and_return(file_object_data)
+        allow(mock_api_client).to receive(:update_file_processing_job).and_return({ 'success' => true })
+        allow(mock_api_client).to receive(:download_file_content).with(file_object_id).and_return(audio_content)
+        allow(mock_api_client).to receive(:fail_file_processing_job).and_return({ 'success' => true })
+
+        # Mock temp file download
+        allow_any_instance_of(described_class).to receive(:download_file_content).and_return(temp_file)
+        allow_any_instance_of(described_class).to receive(:cleanup_temp_file)
 
         allow_any_instance_of(described_class).to receive(:extract_audio_info).and_raise(StandardError, 'Processing error')
+      end
+
+      after do
+        temp_file.close
+        temp_file.unlink rescue nil
       end
 
       it 'marks job as failed' do
@@ -186,7 +236,7 @@ RSpec.describe AudioProcessingJob, type: :job do
           described_class.new.execute(processing_job_id)
         }.to raise_error(StandardError, 'Processing error')
 
-        expect_api_request(:post, "/api/v1/file_processing_jobs/#{processing_job_id}/fail")
+        expect(mock_api_client).to have_received(:fail_file_processing_job).with(processing_job_id, 'Processing error', anything)
       end
     end
   end
@@ -234,8 +284,10 @@ RSpec.describe AudioProcessingJob, type: :job do
       end
 
       before do
-        allow(job).to receive(:`).and_return(ffprobe_output)
-        allow($?).to receive(:success?).and_return(true)
+        allow(job).to receive(:`) do |_cmd|
+          `true` # Set $? to success
+          ffprobe_output
+        end
       end
 
       it 'extracts duration' do
@@ -272,8 +324,10 @@ RSpec.describe AudioProcessingJob, type: :job do
 
     context 'with failed ffprobe' do
       before do
-        allow(job).to receive(:`).and_return('')
-        allow($?).to receive(:success?).and_return(false)
+        allow(job).to receive(:`) do |_cmd|
+          `false` # Set $? to failure
+          ''
+        end
       end
 
       it 'returns empty metadata' do
@@ -286,8 +340,10 @@ RSpec.describe AudioProcessingJob, type: :job do
 
     context 'with invalid JSON output' do
       before do
-        allow(job).to receive(:`).and_return('invalid json')
-        allow($?).to receive(:success?).and_return(true)
+        allow(job).to receive(:`) do |_cmd|
+          `true` # Set $? to success
+          'invalid json'
+        end
       end
 
       it 'returns empty metadata and logs warning' do

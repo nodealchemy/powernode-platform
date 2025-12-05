@@ -54,8 +54,8 @@
 class AiAgentOrchestrationService
   include ActiveModel::Model
   include ActiveModel::Attributes
-  include Concerns::NodeExecutors
-  include Concerns::OrchestrationBroadcasting
+  include AiNodeExecutors
+  include AiOrchestrationBroadcasting
 
   class OrchestrationError < StandardError; end
   class ExecutionError < StandardError; end
@@ -790,7 +790,7 @@ class AiAgentOrchestrationService
     }
   end
 
-  # Broadcasting methods moved to Concerns::OrchestrationBroadcasting
+  # Broadcasting methods moved to Concerns::AiOrchestrationBroadcasting
 
   public
 
@@ -1175,7 +1175,7 @@ class AiAgentOrchestrationService
     end
   end
 
-  # Node execution methods moved to Concerns::NodeExecutors
+  # Node execution methods moved to Concerns::AiNodeExecutors
 
   # Workflow analysis methods
   def has_circular_dependency?(nodes, edges)

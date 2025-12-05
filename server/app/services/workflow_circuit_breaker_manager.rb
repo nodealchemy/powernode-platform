@@ -33,7 +33,7 @@ class WorkflowCircuitBreakerManager
     # Get or create circuit breaker for a service
     def get_or_create_breaker(service_name, config = {})
       @breakers ||= {}
-      @breakers[service_name] ||= WorkflowCircuitBreakerService.new(
+      @breakers[service_name] ||= AiWorkflowCircuitBreakerService.new(
         service_name: service_name,
         config: config
       )
@@ -41,7 +41,7 @@ class WorkflowCircuitBreakerManager
 
     # Get all circuit breaker states
     def all_states
-      WorkflowCircuitBreakerService.all_states
+      AiWorkflowCircuitBreakerService.all_states
     end
 
     # Get states for a specific category
@@ -100,7 +100,7 @@ class WorkflowCircuitBreakerManager
       protect(service_name: service_name, config: config) do
         block.call
       end
-    rescue WorkflowCircuitBreakerService::CircuitOpenError => e
+    rescue AiWorkflowCircuitBreakerService::CircuitOpenError => e
       handle_circuit_open_error(node_execution, service_name, e)
     rescue StandardError => e
       Rails.logger.error "[CircuitBreakerManager] Error executing node with protection: #{e.message}"

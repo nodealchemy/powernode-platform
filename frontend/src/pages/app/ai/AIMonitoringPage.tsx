@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   Activity,
   AlertTriangle,
@@ -17,7 +17,7 @@ import { Card, CardContent } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Select } from '@/shared/components/ui/Select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/Tabs';
+import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { monitoringApi, MonitoringDashboard, HealthStatus, Alert as ApiAlert } from '@/shared/services/ai/MonitoringApiService';
@@ -43,6 +43,12 @@ import { ResourceUtilizationChart } from '@/features/ai-monitoring/components/Re
 export const AIMonitoringPage: React.FC = () => {
   const { currentUser } = useAuth();
   const { addNotification } = useNotifications();
+
+  // Use ref to avoid infinite loop from addNotification dependency
+  const addNotificationRef = useRef(addNotification);
+  useEffect(() => {
+    addNotificationRef.current = addNotification;
+  }, [addNotification]);
 
   // State management
   const [dashboardData, setDashboardData] = useState<MonitoringDashboardData | null>(null);
@@ -264,7 +270,7 @@ export const AIMonitoringPage: React.FC = () => {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch monitoring data';
       setError(errorMessage);
       setIsConnected(false);
-      addNotification({
+      addNotificationRef.current({
         type: 'error',
         title: 'Monitoring Error',
         message: errorMessage
@@ -272,7 +278,7 @@ export const AIMonitoringPage: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [canViewMonitoring, transformDashboardData, transformHealthData, transformAlerts, addNotification]);
+  }, [canViewMonitoring, transformDashboardData, transformHealthData, transformAlerts]);
 
   // Initialize monitoring connection
   useEffect(() => {
@@ -373,6 +379,36 @@ export const AIMonitoringPage: React.FC = () => {
     return `${hours}h ago`;
   };
 
+  // Tab definitions for consistent reference
+  const tabs = [
+    { id: 'overview', label: 'System Health', icon: '🏥' },
+    { id: 'providers', label: 'Providers', icon: '🔌' },
+    { id: 'agents', label: 'Agents', icon: '🤖' },
+    { id: 'workflows', label: 'Workflows', icon: '⚡' },
+    { id: 'conversations', label: 'Conversations', icon: '💬' },
+    { id: 'alerts', label: 'Alerts', icon: '🔔' }
+  ];
+
+  // Dynamic breadcrumbs based on active tab
+  const getBreadcrumbs = () => {
+    const baseBreadcrumbs = [
+      { label: 'Dashboard', href: '/app', icon: '🏠' },
+      { label: 'AI', href: '/app/ai', icon: '🤖' },
+      { label: 'Monitoring', icon: '📊' }
+    ];
+
+    // Add active tab to breadcrumbs if not the default overview tab
+    const activeTabInfo = tabs.find(tab => tab.id === activeTab);
+    if (activeTabInfo && activeTab !== 'overview') {
+      baseBreadcrumbs.push({
+        label: activeTabInfo.label,
+        icon: activeTabInfo.icon
+      });
+    }
+
+    return baseBreadcrumbs;
+  };
+
   if (!canViewMonitoring) {
     return (
       <PageContainer
@@ -396,6 +432,7 @@ export const AIMonitoringPage: React.FC = () => {
     <PageContainer
       title="AI System Monitoring"
       description="Comprehensive real-time monitoring of AI providers, agents, workflows, and system health"
+      breadcrumbs={getBreadcrumbs()}
       actions={[
         {
           label: isRealTimeEnabled ? 'Disable Real-time' : 'Enable Real-time',
@@ -574,17 +611,18 @@ export const AIMonitoringPage: React.FC = () => {
         )}
 
         {/* Main Monitoring Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-6">
-            <TabsTrigger value="overview">System Health</TabsTrigger>
-            <TabsTrigger value="providers">Providers</TabsTrigger>
-            <TabsTrigger value="agents">Agents</TabsTrigger>
-            <TabsTrigger value="workflows">Workflows</TabsTrigger>
-            <TabsTrigger value="conversations">Conversations</TabsTrigger>
-            <TabsTrigger value="alerts">Alerts</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="overview" className="space-y-6">
+        <TabContainer
+          tabs={tabs.map(tab =>
+            tab.id === 'alerts'
+              ? { ...tab, badge: { count: alerts.filter(a => !a.resolved).length, variant: 'warning' as const } }
+              : tab
+          )}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          variant="underline"
+          className="mb-6"
+        >
+          <TabPanel tabId="overview" activeTab={activeTab} className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <SystemHealthDashboard
                 healthData={systemHealth}
@@ -598,9 +636,9 @@ export const AIMonitoringPage: React.FC = () => {
                 onRefresh={refreshAllData}
               />
             </div>
-          </TabsContent>
+          </TabPanel>
 
-          <TabsContent value="providers">
+          <TabPanel tabId="providers" activeTab={activeTab}>
             <ProviderMonitoringGrid
               providers={providers}
               isLoading={isLoading}
@@ -627,9 +665,9 @@ export const AIMonitoringPage: React.FC = () => {
                 undefined
               }
             />
-          </TabsContent>
+          </TabPanel>
 
-          <TabsContent value="agents">
+          <TabPanel tabId="agents" activeTab={activeTab}>
             <AgentPerformancePanel
               agents={agents}
               isLoading={isLoading}
@@ -656,9 +694,9 @@ export const AIMonitoringPage: React.FC = () => {
                 undefined
               }
             />
-          </TabsContent>
+          </TabPanel>
 
-          <TabsContent value="workflows">
+          <TabPanel tabId="workflows" activeTab={activeTab}>
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-medium text-theme-primary">Workflow Performance</h3>
@@ -709,18 +747,18 @@ export const AIMonitoringPage: React.FC = () => {
                 </Card>
               </div>
             </div>
-          </TabsContent>
+          </TabPanel>
 
-          <TabsContent value="conversations">
+          <TabPanel tabId="conversations" activeTab={activeTab}>
             <ConversationAnalytics
               conversations={conversations}
               isLoading={isLoading}
               timeRange={timeRange}
               onRefresh={refreshAllData}
             />
-          </TabsContent>
+          </TabPanel>
 
-          <TabsContent value="alerts">
+          <TabPanel tabId="alerts" activeTab={activeTab}>
             <AlertManagementCenter
               alerts={alerts}
               isLoading={isLoading}
@@ -758,8 +796,8 @@ export const AIMonitoringPage: React.FC = () => {
                 await refreshAllData();
               }}
             />
-          </TabsContent>
-        </Tabs>
+          </TabPanel>
+        </TabContainer>
       </div>
     </PageContainer>
   );

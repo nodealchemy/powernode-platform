@@ -50,10 +50,23 @@ import { AdminMarketplacePage } from '@/pages/app/admin/AdminMarketplacePage';
 // Test page
 import { TestWebSocket } from '@/pages/app/TestWebSocket';
 
-// AI Orchestration Pages
-import { AIOrchestrationPage } from './ai/AIOrchestrationPage';
+// AI Pages - Standalone navigation (no longer using AIOrchestrationPage wrapper)
+import { AIOverviewPage } from './ai/AIOverviewPage';
+import { AIProvidersPage } from './ai/AIProvidersPage';
+import { AIAgentsPage } from './ai/AIAgentsPage';
+import { WorkflowsPage } from './ai/WorkflowsPage';
+import { AIConversationsPage } from './ai/AIConversationsPage';
+import { WorkflowAnalyticsPage } from './ai/WorkflowAnalyticsPage';
+import { AIMonitoringPage } from './ai/AIMonitoringPage';
+import { McpBrowserPage } from './ai/McpBrowserPage';
+// AI Sub-pages
 import { CreateWorkflowPage, WorkflowTemplatesPage, AIDebugPage } from './ai';
 import AgentTeamsPage from './ai/AgentTeamsPage';
+import { WorkflowDetailPage } from './ai/WorkflowDetailPage';
+import { WorkflowImportPage } from './ai/WorkflowImportPage';
+import { WorkflowMonitoringPage } from './ai/WorkflowMonitoringPage';
+import { WorkflowValidationStatisticsPage } from './ai/WorkflowValidationStatisticsPage';
+import { AIAnalyticsPage } from './ai/AIAnalyticsPage';
 
 // Dashboard overview page
 const DashboardOverview: React.FC = () => {
@@ -426,13 +439,24 @@ const DashboardPage: React.FC = () => {
         <Route path="/business/customers" element={<CustomersPage />} />
         <Route path="/business/billing/*" element={<BillingPage />} />
         
-        {/* AI Orchestration Pages */}
-        <Route path="/ai" element={<AIOrchestrationPage />} />
-        <Route path="/ai/*" element={<AIOrchestrationPage />} />
-        
-        {/* Standalone AI Pages (outside tab system) */}
+        {/* AI Pages - Standalone navigation */}
+        <Route path="/ai" element={<AIOverviewPage />} />
+        <Route path="/ai/providers" element={<AIProvidersPage />} />
+        <Route path="/ai/agents" element={<AIAgentsPage />} />
+        <Route path="/ai/workflows" element={<WorkflowsPage />} />
+        <Route path="/ai/conversations" element={<AIConversationsPage />} />
+        <Route path="/ai/analytics" element={<WorkflowAnalyticsPage />} />
+        <Route path="/ai/monitoring" element={<AIMonitoringPage />} />
+        <Route path="/ai/mcp" element={<McpBrowserPage />} />
+
+        {/* AI Sub-pages (detail/utility routes) */}
         <Route path="/ai/workflows/new" element={<CreateWorkflowPage />} />
         <Route path="/ai/workflows/templates" element={<WorkflowTemplatesPage />} />
+        <Route path="/ai/workflows/import" element={<WorkflowImportPage />} />
+        <Route path="/ai/workflows/monitoring" element={<WorkflowMonitoringPage />} />
+        <Route path="/ai/workflows/validation-stats" element={<WorkflowValidationStatisticsPage />} />
+        <Route path="/ai/workflows/:id" element={<WorkflowDetailPage />} />
+        <Route path="/ai/analytics/system" element={<AIAnalyticsPage />} />
         <Route path="/ai/debug" element={<AIDebugPage />} />
         <Route path="/ai/agent-teams" element={<AgentTeamsPage />} />
         

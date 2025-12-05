@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-# Plugin Node Executor Service
-# Executes workflow nodes that are implemented as plugins
-class PluginNodeExecutorService
+# AI Plugin Node Executor Service
+# Executes AI workflow nodes that are implemented as plugins
+class AiPluginNodeExecutorService
   include ActiveModel::Model
 
   attr_accessor :node_execution, :account

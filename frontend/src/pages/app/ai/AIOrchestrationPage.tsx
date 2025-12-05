@@ -14,10 +14,10 @@ import { AIAgentsPage } from './AIAgentsPage';
 import { WorkflowsPage } from './WorkflowsPage';
 import { AIConversationsPage } from './AIConversationsPage';
 import { WorkflowAnalyticsPage } from './WorkflowAnalyticsPage';
+import { AIMonitoringPage } from './AIMonitoringPage';
+import { McpBrowserPage } from './McpBrowserPage';
 import { EnhancedAIOverview } from '@/features/ai-orchestration/components/EnhancedAIOverview';
 import { AuthenticationCheck } from '@/shared/components/ai/AuthenticationCheck';
-// Note: PluginsPage moved to unified marketplace at /app/marketplace
-// import { PluginsPage } from '@/features/ai-plugins/components/PluginsPage';
 
 export const AIOrchestrationPage: React.FC = () => {
   const { user } = useSelector((state: RootState) => state.auth);
@@ -32,8 +32,10 @@ export const AIOrchestrationPage: React.FC = () => {
   const canViewWorkflows = currentUser?.permissions?.includes('ai.workflows.read') || false;
   const canViewConversations = currentUser?.permissions?.includes('ai.conversations.read') || false;
   const canViewAnalytics = currentUser?.permissions?.includes('ai.analytics.read') || false;
-  // Note: Plugins functionality moved to unified marketplace at /app/marketplace
-  // const canViewPlugins = currentUser?.permissions?.includes('ai.plugins.browse') || false;
+  const canViewMonitoring = currentUser?.permissions?.includes('ai.monitoring.view') ||
+                            currentUser?.permissions?.includes('admin.access') || false;
+  const canViewMcp = currentUser?.permissions?.includes('ai_orchestration.read') ||
+                     currentUser?.permissions?.includes('admin.access') || false;
 
   // Load initial data
   const loadData = useCallback(async (force = false) => {
@@ -66,9 +68,9 @@ export const AIOrchestrationPage: React.FC = () => {
     ...(canViewAgents ? [{ id: 'agents', label: 'AI Agents', icon: '🤖', path: '/agents' }] : []),
     ...(canViewWorkflows ? [{ id: 'workflows', label: 'Workflows', icon: '⚡', path: '/workflows' }] : []),
     ...(canViewConversations ? [{ id: 'conversations', label: 'Conversations', icon: '💬', path: '/conversations' }] : []),
-    // Note: Plugins tab removed - functionality moved to unified marketplace at /app/marketplace
-    // ...(canViewPlugins ? [{ id: 'plugins', label: 'Plugins', icon: '📦', path: '/plugins' }] : []),
-    ...(canViewAnalytics ? [{ id: 'analytics', label: 'Analytics', icon: '📈', path: '/analytics' }] : [])
+    ...(canViewAnalytics ? [{ id: 'analytics', label: 'Analytics', icon: '📈', path: '/analytics' }] : []),
+    ...(canViewMonitoring ? [{ id: 'monitoring', label: 'Monitoring', icon: '🔍', path: '/monitoring' }] : []),
+    ...(canViewMcp ? [{ id: 'mcp', label: 'MCP', icon: '🔌', path: '/mcp' }] : [])
   ];
 
   // Get active tab from URL
@@ -78,7 +80,8 @@ export const AIOrchestrationPage: React.FC = () => {
     if (path.includes('/providers')) return 'providers';
     if (path.includes('/agents')) return 'agents';
     if (path.includes('/conversations')) return 'conversations';
-    if (path.includes('/plugins')) return 'plugins';
+    if (path.includes('/monitoring')) return 'monitoring';
+    if (path.includes('/mcp')) return 'mcp';
     if (path.includes('/analytics')) return 'analytics';
     if (path.includes('/workflows')) return 'workflows';
     return 'overview';
@@ -217,13 +220,23 @@ export const AIOrchestrationPage: React.FC = () => {
               </TabPanel>
             )}
 
-            {/* Note: Plugins tab removed - functionality moved to unified marketplace at /app/marketplace */}
-
             {canViewAnalytics && (
               <TabPanel tabId="analytics" activeTab={activeTab}>
                 <AuthenticationCheck requiredPermissions={['ai.analytics.read']}>
                   <WorkflowAnalyticsPage />
                 </AuthenticationCheck>
+              </TabPanel>
+            )}
+
+            {canViewMonitoring && (
+              <TabPanel tabId="monitoring" activeTab={activeTab}>
+                <AIMonitoringPage />
+              </TabPanel>
+            )}
+
+            {canViewMcp && (
+              <TabPanel tabId="mcp" activeTab={activeTab}>
+                <McpBrowserPage />
               </TabPanel>
             )}
 

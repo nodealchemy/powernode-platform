@@ -251,7 +251,12 @@ RSpec.describe Webhooks::ProcessWebhookJob, type: :job do
       end
 
       before do
-        stub_backend_api_error(:post, '/api/v1/webhooks/payment_succeeded', status: 500, error_message: 'Server error')
+        # Mock api_client to raise ApiError directly (avoids retry delays in tests)
+        mock_api_client = instance_double(BackendApiClient)
+        allow_any_instance_of(described_class).to receive(:api_client).and_return(mock_api_client)
+        allow(mock_api_client).to receive(:post).and_raise(
+          BackendApiClient::ApiError.new('Server error', 500)
+        )
       end
 
       it 'returns failure result' do

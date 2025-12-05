@@ -1,5 +1,3 @@
-# frozen_string_literal: true
-
 # This file is auto-generated from the current state of the database. Instead
 # of editing this file, please use the migrations feature of Active Record to
 # incrementally modify your database, and then regenerate this schema definition.
@@ -175,9 +173,9 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_04_220011) do
     t.index ["account_id", "status"], name: "index_ai_agent_teams_on_account_id_and_status"
     t.index ["account_id"], name: "index_ai_agent_teams_on_account_id"
     t.index ["team_type"], name: "index_ai_agent_teams_on_team_type"
-    t.check_constraint "coordination_strategy::text = ANY (ARRAY['manager_worker'::character varying, 'peer_to_peer'::character varying, 'hybrid'::character varying]::text[])", name: "ai_agent_teams_coordination_strategy_check"
-    t.check_constraint "status::text = ANY (ARRAY['active'::character varying, 'inactive'::character varying, 'archived'::character varying]::text[])", name: "ai_agent_teams_status_check"
-    t.check_constraint "team_type::text = ANY (ARRAY['hierarchical'::character varying, 'mesh'::character varying, 'sequential'::character varying, 'parallel'::character varying]::text[])", name: "ai_agent_teams_team_type_check"
+    t.check_constraint "coordination_strategy::text = ANY (ARRAY['manager_worker'::character varying::text, 'peer_to_peer'::character varying::text, 'hybrid'::character varying::text])", name: "ai_agent_teams_coordination_strategy_check"
+    t.check_constraint "status::text = ANY (ARRAY['active'::character varying::text, 'inactive'::character varying::text, 'archived'::character varying::text])", name: "ai_agent_teams_status_check"
+    t.check_constraint "team_type::text = ANY (ARRAY['hierarchical'::character varying::text, 'mesh'::character varying::text, 'sequential'::character varying::text, 'parallel'::character varying::text])", name: "ai_agent_teams_team_type_check"
   end
 
   create_table "ai_agent_templates", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -2077,7 +2075,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_04_220011) do
     t.index ["mcp_server_id", "name"], name: "index_mcp_tools_on_mcp_server_id_and_name"
     t.index ["mcp_server_id"], name: "index_mcp_tools_on_mcp_server_id"
     t.index ["permission_level"], name: "index_mcp_tools_on_permission_level"
-    t.check_constraint "permission_level::text = ANY (ARRAY['public'::character varying, 'account'::character varying, 'admin'::character varying]::text[])", name: "mcp_tools_permission_level_check"
+    t.check_constraint "permission_level::text = ANY (ARRAY['public'::character varying::text, 'account'::character varying::text, 'admin'::character varying::text])", name: "mcp_tools_permission_level_check"
   end
 
   create_table "missing_payment_logs", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|

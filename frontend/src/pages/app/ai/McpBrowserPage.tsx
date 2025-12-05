@@ -60,12 +60,19 @@ export const McpBrowserPage: React.FC = () => {
   const { addNotification } = useNotifications();
   const { currentUser } = useAuth();
 
-  // Permission checks
-  const canViewMcpServers = currentUser?.permissions?.includes('ai_orchestration.read');
+  // Permission checks - memoized to prevent infinite loops
+  const canViewMcpServers = useMemo(() =>
+    currentUser?.permissions?.includes('ai_orchestration.read') ||
+    currentUser?.permissions?.includes('admin.access') ||
+    false
+  , [currentUser?.permissions]);
 
   // Load MCP servers and tools
   const loadData = useCallback(async (showSpinner = true) => {
-    if (!canViewMcpServers) return;
+    if (!canViewMcpServers) {
+      setLoading(false);
+      return;
+    }
 
     try {
       if (showSpinner) {
@@ -91,11 +98,16 @@ export const McpBrowserPage: React.FC = () => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [canViewMcpServers, addNotification]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canViewMcpServers]);
 
+  // Initial load - only runs once when canViewMcpServers becomes true
   useEffect(() => {
-    loadData(true);
-  }, [loadData]);
+    if (canViewMcpServers) {
+      loadData(true);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canViewMcpServers]);
 
   // Filter servers
   const filteredServers = useMemo(() => {
@@ -171,6 +183,11 @@ export const McpBrowserPage: React.FC = () => {
     <PageContainer
       title="MCP Browser"
       description="Browse and interact with Model Context Protocol servers and tools"
+      breadcrumbs={[
+        { label: 'Dashboard', href: '/app' },
+        { label: 'AI', href: '/app/ai' },
+        { label: 'MCP Browser' }
+      ]}
       actions={[
         {
           id: 'refresh',

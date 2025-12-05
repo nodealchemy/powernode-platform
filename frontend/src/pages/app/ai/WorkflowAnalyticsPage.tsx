@@ -206,6 +206,11 @@ export const WorkflowAnalyticsPage: React.FC = () => {
     <PageContainer
       title="Workflow Analytics"
       description="Performance insights and optimization recommendations for AI workflows"
+      breadcrumbs={[
+        { label: 'Dashboard', href: '/app' },
+        { label: 'AI', href: '/app/ai' },
+        { label: 'Analytics' }
+      ]}
       actions={[
         {
           label: 'Export Data',

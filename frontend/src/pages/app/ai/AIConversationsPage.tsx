@@ -468,6 +468,11 @@ export const AIConversationsPage: React.FC = () => {
     <PageContainer
       title="AI Conversations"
       description="Manage and review your AI conversation history"
+      breadcrumbs={[
+        { label: 'Dashboard', href: '/app' },
+        { label: 'AI', href: '/app/ai' },
+        { label: 'Conversations' }
+      ]}
       actions={canCreateConversations ? [
         {
           id: 'create-conversation',

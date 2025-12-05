@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# NodeExecutors - Concern for executing individual workflow nodes
+# AiNodeExecutors - Concern for executing individual AI workflow nodes
 #
 # This concern encapsulates the execution logic for different node types
 # in AI workflows. Each node type (ai_agent, api_call, webhook, condition,
@@ -8,12 +8,11 @@
 #
 # @example Including in a service
 #   class AiAgentOrchestrationService
-#     include Concerns::NodeExecutors
+#     include AiNodeExecutors
 #   end
 #
-module Concerns
-  module NodeExecutors
-    extend ActiveSupport::Concern
+module AiNodeExecutors
+  extend ActiveSupport::Concern
 
     # Execute an AI agent node by calling the configured AI provider
     #
@@ -209,5 +208,4 @@ module Concerns
         cost: 0
       }
     end
-  end
 end

@@ -33,9 +33,9 @@ jest.mock('lucide-react', () => ({
   Eye: () => <span data-testid="eye-icon" />,
 }));
 
-// Mock FileItem component
-jest.mock('../components/FileItem', () => {
-  return function MockFileItem({ file, onView, onDownload, onDelete }: any) {
+// Mock FileItem component (named export)
+jest.mock('../components/FileItem', () => ({
+  FileItem: function MockFileItem({ file, onView, onDownload, onDelete }: any) {
     return (
       <div data-testid={`file-item-${file.id}`} className="file-item">
         <span
@@ -61,12 +61,12 @@ jest.mock('../components/FileItem', () => {
         </button>
       </div>
     );
-  };
-});
+  },
+}));
 
-// Mock FileDetails component
-jest.mock('../components/FileDetails', () => {
-  return function MockFileDetails({ file, isOpen, onClose }: any) {
+// Mock FileDetails component (named export)
+jest.mock('../components/FileDetails', () => ({
+  FileDetails: function MockFileDetails({ file, isOpen, onClose }: any) {
     if (!isOpen) return null;
     return (
       <div role="dialog" data-testid="file-details-modal">
@@ -74,8 +74,8 @@ jest.mock('../components/FileDetails', () => {
         <button onClick={onClose}>Close</button>
       </div>
     );
-  };
-});
+  },
+}));
 
 const mockFilesApi = jest.mocked(filesApi);
 

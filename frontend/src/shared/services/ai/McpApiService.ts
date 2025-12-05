@@ -88,7 +88,7 @@ class McpApiService extends BaseApiService {
     }
 
     const query = queryParams.toString();
-    const url = `/api/v1/mcp_servers${query ? `?${query}` : ''}`;
+    const url = `/mcp_servers${query ? `?${query}` : ''}`;
 
     // Fetch servers
     const response = await this.get<{
@@ -157,7 +157,7 @@ class McpApiService extends BaseApiService {
   }> {
     const response = await this.get<{
       mcp_server: any;
-    }>(`/api/v1/mcp_servers/${serverId}`);
+    }>(`/mcp_servers/${serverId}`);
 
     const s = response.mcp_server;
     const server: McpServer = {
@@ -203,7 +203,7 @@ class McpApiService extends BaseApiService {
     const response = await this.post<{
       mcp_server: any;
       message: string;
-    }>(`/api/v1/mcp_servers/${serverId}/connect`, {});
+    }>(`/mcp_servers/${serverId}/connect`, {});
 
     const s = response.mcp_server;
     return {
@@ -233,7 +233,7 @@ class McpApiService extends BaseApiService {
     const response = await this.post<{
       mcp_server: any;
       message: string;
-    }>(`/api/v1/mcp_servers/${serverId}/disconnect`, {});
+    }>(`/mcp_servers/${serverId}/disconnect`, {});
 
     const s = response.mcp_server;
     return {
@@ -287,7 +287,7 @@ class McpApiService extends BaseApiService {
     }
 
     const query = queryParams.toString();
-    const url = `/api/v1/mcp_servers/${filters.server_id}/mcp_tools${query ? `?${query}` : ''}`;
+    const url = `/mcp_servers/${filters.server_id}/mcp_tools${query ? `?${query}` : ''}`;
 
     const response = await this.get<{
       mcp_tools: any[];
@@ -315,7 +315,7 @@ class McpApiService extends BaseApiService {
     const response = await this.get<{
       mcp_tool: any;
       mcp_server: { id: string; name: string };
-    }>(`/api/v1/mcp_servers/${serverId}/mcp_tools/${toolId}`);
+    }>(`/mcp_servers/${serverId}/mcp_tools/${toolId}`);
 
     return {
       tool: {
@@ -348,7 +348,7 @@ class McpApiService extends BaseApiService {
         duration_ms?: number;
       };
       mcp_tool: { id: string; name: string };
-    }>(`/api/v1/mcp_servers/${serverId}/mcp_tools/${toolId}/execute`, {
+    }>(`/mcp_servers/${serverId}/mcp_tools/${toolId}/execute`, {
       parameters
     });
 
@@ -461,7 +461,7 @@ class McpApiService extends BaseApiService {
         last_execution_at?: string;
         first_execution_at?: string;
       };
-    }>(`/api/v1/mcp_servers/${serverId}/mcp_tools/${toolId}/stats`);
+    }>(`/mcp_servers/${serverId}/mcp_tools/${toolId}/stats`);
   }
 
   /**
@@ -480,7 +480,7 @@ class McpApiService extends BaseApiService {
       last_connected_at?: string;
       last_error?: string;
       checked_at: string;
-    }>(`/api/v1/mcp_servers/${serverId}/health_check`, {});
+    }>(`/mcp_servers/${serverId}/health_check`, {});
 
     return {
       success: response.healthy,
@@ -502,7 +502,7 @@ class McpApiService extends BaseApiService {
       tools_discovered: number;
       tools: any[];
       message: string;
-    }>(`/api/v1/mcp_servers/${serverId}/discover_tools`, {});
+    }>(`/mcp_servers/${serverId}/discover_tools`, {});
 
     // Fetch updated server data
     const { server } = await this.getServer(serverId);

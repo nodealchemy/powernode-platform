@@ -1,3 +1,4 @@
+import React, { useState } from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { BrowserRouter } from 'react-router-dom';
@@ -275,11 +276,34 @@ describe('AiProvidersPage', () => {
     });
   });
 
+  // Wrapper component that captures and renders actions
+  const TestWrapper: React.FC = () => {
+    const [actions, setActions] = useState<any[]>([]);
+
+    return (
+      <>
+        {/* Render the page header mock with captured actions */}
+        <div data-testid="page-header">
+          <h1>AI Providers</h1>
+          <p>Manage AI providers and their configurations</p>
+          <div data-testid="page-actions">
+            {actions.map((action: any, i: number) => (
+              <button key={i} onClick={action.onClick} disabled={action.disabled}>
+                {action.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <AiProvidersPage onActionsReady={setActions} />
+      </>
+    );
+  };
+
   const renderComponent = () => {
     return render(
       <Provider store={store}>
         <BrowserRouter>
-          <AiProvidersPage />
+          <TestWrapper />
         </BrowserRouter>
       </Provider>
     );
@@ -591,9 +615,9 @@ describe('AiProvidersPage', () => {
 
       renderComponent();
 
-      // Component doesn't crash and shows empty state
+      // Component doesn't crash and shows empty state when providers fail to load
       await waitFor(() => {
-        expect(screen.getByTestId('page-container')).toBeInTheDocument();
+        expect(screen.getByTestId('empty-state')).toBeInTheDocument();
       });
     });
 
@@ -654,10 +678,11 @@ describe('AiProvidersPage', () => {
     it('provides semantic markup for provider list', async () => {
       renderComponent();
 
+      // Component renders providers with proper structure after loading
       await waitFor(() => {
-        expect(screen.getByTestId('page-container')).toBeInTheDocument();
-        expect(screen.getByTestId('page-header')).toBeInTheDocument();
-        expect(screen.getByTestId('page-content')).toBeInTheDocument();
+        expect(screen.getByTestId('provider-card-provider-1')).toBeInTheDocument();
+        expect(screen.getByTestId('provider-card-provider-2')).toBeInTheDocument();
+        expect(screen.getByTestId('provider-card-provider-3')).toBeInTheDocument();
       });
     });
   });

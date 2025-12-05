@@ -1,16 +1,16 @@
 # frozen_string_literal: true
 
-# WorkflowCircuitBreakerService - Circuit breaker for workflow services
+# AiWorkflowCircuitBreakerService - Circuit breaker for AI workflow services
 #
 # Provides circuit breaker protection for workflow execution services
 # including AI providers, external APIs, and internal services.
 # Uses the shared CircuitBreakerCore concern for core functionality.
 #
 # Example:
-#   breaker = WorkflowCircuitBreakerService.new(service_name: 'openai')
+#   breaker = AiWorkflowCircuitBreakerService.new(service_name: 'openai')
 #   breaker.execute { call_openai_api }
 #
-class WorkflowCircuitBreakerService
+class AiWorkflowCircuitBreakerService
   include CircuitBreakerCore
 
   # Re-export error class for backward compatibility

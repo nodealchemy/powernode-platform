@@ -27,7 +27,7 @@ module Mcp
   #
   class WorkflowExecutor
     include BaseAiService
-    include BaseWorkflowService
+    include AiWorkflowService
 
     attr_reader :workflow_run, :workflow, :execution_context, :node_results
 

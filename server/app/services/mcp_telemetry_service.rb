@@ -3,7 +3,6 @@
 # MCP Telemetry Service - Comprehensive monitoring and analytics for MCP protocol operations
 class McpTelemetryService
   include ActiveModel::Model
-  include ActiveModel::Attributes
 
   attr_accessor :account
 
@@ -18,6 +17,36 @@ class McpTelemetryService
 
     # Initialize metrics storage
     initialize_metrics_storage
+  end
+
+  # Record a metric - used by BaseAiService
+  #
+  # @param metric_type [String] Type of metric (e.g., 'operation.success', 'operation.error')
+  # @param metric_name [String] Name of the metric/operation
+  # @param value [Numeric] Metric value
+  # @param metadata [Hash] Additional metadata
+  def record_metric(metric_type: nil, metric_name: nil, value: nil, metadata: {})
+    persist_metric(metric_type, {
+      name: metric_name,
+      value: value,
+      account_id: @account&.id,
+      service_name: @service_name,
+      timestamp: Time.current,
+      **metadata
+    })
+  end
+
+  # Record an event - used by BaseAiService
+  #
+  # @param event_type [String] Type of event
+  # @param event_data [Hash] Event data
+  def record_event(event_type:, event_data: {})
+    persist_metric(event_type, {
+      account_id: @account&.id,
+      service_name: @service_name,
+      timestamp: Time.current,
+      **event_data
+    })
   end
 
   # =============================================================================

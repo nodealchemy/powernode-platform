@@ -9,7 +9,11 @@ import {
   Settings,
   ArrowRight,
   Zap,
-  RefreshCw
+  RefreshCw,
+  Upload,
+  Activity,
+  CheckCircle,
+  Server
 } from 'lucide-react';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { agentsApi, providersApi } from '@/shared/services/ai';
@@ -387,6 +391,38 @@ export const EnhancedAIOverview: React.FC = () => {
       icon: BarChart3,
       action: () => navigate('/app/ai/analytics'),
       variant: 'secondary'
+    },
+    {
+      id: 'import-workflow',
+      title: 'Import Workflow',
+      description: 'Import from file or template',
+      icon: Upload,
+      action: () => navigate('/app/ai/workflows/import'),
+      variant: 'secondary'
+    },
+    {
+      id: 'workflow-monitoring',
+      title: 'Workflow Monitoring',
+      description: 'Real-time execution tracking',
+      icon: Activity,
+      action: () => navigate('/app/ai/workflows/monitoring'),
+      variant: 'secondary'
+    },
+    {
+      id: 'validation-stats',
+      title: 'Validation Stats',
+      description: 'Workflow validation analytics',
+      icon: CheckCircle,
+      action: () => navigate('/app/ai/workflows/validation-stats'),
+      variant: 'secondary'
+    },
+    {
+      id: 'mcp-browser',
+      title: 'MCP Browser',
+      description: 'Browse MCP servers & tools',
+      icon: Server,
+      action: () => navigate('/app/ai/mcp'),
+      variant: 'secondary'
     }
   ], [navigate]);
 
@@ -617,7 +653,7 @@ export const EnhancedAIOverview: React.FC = () => {
       <div className="card-theme p-6">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-lg font-semibold text-theme-primary">Quick Actions</h3>
-          <Badge variant="secondary" size="sm">4 available</Badge>
+          <Badge variant="secondary" size="sm">8 available</Badge>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {quickActions.map((action) => {

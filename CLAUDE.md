@@ -397,6 +397,10 @@ git commit --no-verify  # Skip pre-commit checks
 cd $POWERNODE_ROOT/server && rails db:migrate db:seed         # Database setup
 cd $POWERNODE_ROOT/server && bundle exec rspec                # Run backend tests
 
+# Frontend tests - ALWAYS use CI=true to prevent watch mode
+cd $POWERNODE_ROOT/frontend && CI=true npm test               # Run all frontend tests
+cd $POWERNODE_ROOT/frontend && CI=true npm test -- --testPathPattern="ComponentName"  # Run specific test
+
 # Git Flow - See DevOps Engineer specialist for details
 git flow feature start ISSUE-description
 git flow release start v1.2.0

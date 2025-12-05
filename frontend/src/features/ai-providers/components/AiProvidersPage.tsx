@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Search, Filter, Settings, Zap, AlertCircle } from 'lucide-react';
-import { PageContainer, type PageAction } from '@/shared/components/layout/PageContainer';
+import { Search, Filter, Settings, Zap, AlertCircle, RefreshCw } from 'lucide-react';
+import { type PageAction } from '@/shared/components/layout/PageContainer';
 import { Button } from '@/shared/components/ui/Button';
 import { Input } from '@/shared/components/ui/Input';
 import { Card } from '@/shared/components/ui/Card';
@@ -18,7 +18,11 @@ import { BulkTestModal } from './BulkTestModal';
 import { ProviderDetailModal } from './ProviderDetailModal';
 import { EditProviderModal } from './EditProviderModal';
 
-export const AiProvidersPage: React.FC = () => {
+export interface AiProvidersPageProps {
+  onActionsReady?: (actions: PageAction[]) => void;
+}
+
+export const AiProvidersPage: React.FC<AiProvidersPageProps> = ({ onActionsReady }) => {
   const [providers, setProviders] = useState<AiProvider[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -233,13 +237,16 @@ export const AiProvidersPage: React.FC = () => {
 
   const pageActions: PageAction[] = [
     {
+      id: 'refresh',
       label: 'Refresh',
       onClick: handleRefresh,
       variant: 'outline' as const,
+      icon: RefreshCw,
       disabled: refreshing,
       size: 'sm'
     },
     ...(canTestCredentials ? [{
+      id: 'test-all',
       label: 'Test All',
       onClick: () => setShowBulkTestModal(true),
       variant: 'outline' as const,
@@ -247,12 +254,14 @@ export const AiProvidersPage: React.FC = () => {
     }] : []),
     ...(canCreateProviders ? [
       {
+        id: 'setup-defaults',
         label: 'Setup Defaults',
         onClick: () => setShowSetupModal(true),
         variant: 'outline' as const,
         size: 'sm' as const
       },
       {
+        id: 'add-provider',
         label: 'Add Provider',
         onClick: () => setShowCreateModal(true),
         variant: 'primary' as const,
@@ -261,23 +270,19 @@ export const AiProvidersPage: React.FC = () => {
     ] : [])
   ];
 
+  // Notify parent of actions
+  useEffect(() => {
+    if (onActionsReady) {
+      onActionsReady(pageActions);
+    }
+  }, [refreshing, canTestCredentials, canCreateProviders]); // eslint-disable-line react-hooks/exhaustive-deps
+
   if (loading) {
-    return (
-      <PageContainer
-        title="AI Providers"
-        description="Manage AI providers and their configurations"
-      >
-        <LoadingSpinner className="py-12" />
-      </PageContainer>
-    );
+    return <LoadingSpinner className="py-12" />;
   }
 
   return (
-    <PageContainer
-      title="AI Providers"
-      description="Manage AI providers and their configurations"
-      actions={pageActions}
-    >
+    <>
       {/* Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <Card className="p-4">
@@ -500,6 +505,6 @@ export const AiProvidersPage: React.FC = () => {
           onSuccess={handleProviderUpdate}
         />
       )}
-    </PageContainer>
+    </>
   );
 };

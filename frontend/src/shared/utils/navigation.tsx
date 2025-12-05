@@ -3,7 +3,7 @@ import {
   Home, BarChart3, Users, User, Settings, CreditCard,
   FileText, Package, UserCheck, Store, Smartphone,
   HelpCircle, LogOut, Bot, Brain, MessageSquare,
-  HardDrive
+  HardDrive, Workflow, Activity, Server
 } from 'lucide-react';
 import { NavigationConfig } from '../types/navigation';
 
@@ -35,19 +35,92 @@ export const defaultNavigationConfig: NavigationConfig = {
       description: 'Browse apps, manage subscriptions, and create your own',
       permissions: [],
       order: 3
-    },
-    {
-      id: 'ai-orchestration',
-      name: 'AI Orchestration',
-      href: '/app/ai',
-      icon: Brain,
-      description: 'Manage AI providers, agents, workflows, and conversations',
-      permissions: ['ai.providers.read', 'ai.agents.read', 'ai.workflows.read', 'ai.conversations.read', 'ai.analytics.read'],
-      order: 4
     }
   ],
   
   sections: [
+    {
+      id: 'ai',
+      name: 'AI',
+      items: [
+        {
+          id: 'ai-overview',
+          name: 'Overview',
+          href: '/app/ai',
+          icon: Brain,
+          description: 'AI system dashboard and quick actions',
+          permissions: [],
+          order: 1
+        },
+        {
+          id: 'ai-providers',
+          name: 'Providers',
+          href: '/app/ai/providers',
+          icon: Settings,
+          description: 'Manage AI provider integrations',
+          permissions: ['ai.providers.read'],
+          order: 2
+        },
+        {
+          id: 'ai-agents',
+          name: 'Agents',
+          href: '/app/ai/agents',
+          icon: Bot,
+          description: 'Create and manage AI agents',
+          permissions: ['ai.agents.read'],
+          order: 3
+        },
+        {
+          id: 'ai-workflows',
+          name: 'Workflows',
+          href: '/app/ai/workflows',
+          icon: Workflow,
+          description: 'Design and execute AI workflows',
+          permissions: ['ai.workflows.read'],
+          order: 4
+        },
+        {
+          id: 'ai-conversations',
+          name: 'Conversations',
+          href: '/app/ai/conversations',
+          icon: MessageSquare,
+          description: 'AI-powered conversations',
+          permissions: ['ai.conversations.read'],
+          order: 5
+        },
+        {
+          id: 'ai-analytics',
+          name: 'Analytics',
+          href: '/app/ai/analytics',
+          icon: BarChart3,
+          description: 'AI performance insights',
+          permissions: ['ai.analytics.read'],
+          order: 6
+        },
+        {
+          id: 'ai-monitoring',
+          name: 'Monitoring',
+          href: '/app/ai/monitoring',
+          icon: Activity,
+          description: 'System health and alerts',
+          permissions: ['ai.monitoring.view', 'admin.access'],
+          order: 7
+        },
+        {
+          id: 'ai-mcp',
+          name: 'MCP Browser',
+          href: '/app/ai/mcp',
+          icon: Server,
+          description: 'Browse MCP servers and tools',
+          permissions: ['ai_orchestration.read', 'admin.access'],
+          order: 8
+        }
+      ],
+      permissions: ['ai.providers.read', 'ai.agents.read', 'ai.workflows.read', 'ai.conversations.read'],
+      collapsible: true,
+      defaultExpanded: true,
+      order: 5
+    },
     {
       id: 'business',
       name: 'Business',

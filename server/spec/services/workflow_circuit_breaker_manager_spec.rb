@@ -15,7 +15,7 @@ RSpec.describe WorkflowCircuitBreakerManager do
   describe '.get_breaker' do
     it 'returns circuit breaker for service' do
       breaker = described_class.get_breaker('test_service')
-      expect(breaker).to be_a(WorkflowCircuitBreakerService)
+      expect(breaker).to be_a(AiWorkflowCircuitBreakerService)
     end
 
     it 'returns same instance for same service' do
@@ -85,7 +85,7 @@ RSpec.describe WorkflowCircuitBreakerManager do
 
       expect {
         described_class.execute_with_breaker('test_service') { 'should not execute' }
-      }.to raise_error(WorkflowCircuitBreakerService::CircuitOpenError)
+      }.to raise_error(AiWorkflowCircuitBreakerService::CircuitOpenError)
     end
   end
 

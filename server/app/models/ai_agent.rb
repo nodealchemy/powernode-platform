@@ -128,8 +128,8 @@ class AiAgent < ApplicationRecord
     # Create execution record
     execution = create_mcp_execution(input_parameters, execution_options)
 
-    # Delegate to MCP agent executor
-    executor = McpAgentExecutor.new(
+    # Delegate to AI MCP agent executor
+    executor = AiMcpAgentExecutor.new(
       agent: self,
       execution: execution,
       account: account
@@ -344,8 +344,8 @@ class AiAgent < ApplicationRecord
     # Create execution record
     execution = create_mcp_execution(input_parameters, execution_options)
 
-    # Execute via MCP executor
-    executor = McpAgentExecutor.new(
+    # Execute via AI MCP executor
+    executor = AiMcpAgentExecutor.new(
       agent: self,
       execution: execution,
       account: account

@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# OrchestrationBroadcasting - Concern for real-time workflow status broadcasting
+# AiOrchestrationBroadcasting - Concern for real-time AI workflow status broadcasting
 #
 # This concern handles ActionCable broadcasts for workflow execution status,
 # agent status updates, and system metrics. It enables real-time UI updates
@@ -8,12 +8,11 @@
 #
 # @example Including in a service
 #   class AiAgentOrchestrationService
-#     include Concerns::OrchestrationBroadcasting
+#     include AiOrchestrationBroadcasting
 #   end
 #
-module Concerns
-  module OrchestrationBroadcasting
-    extend ActiveSupport::Concern
+module AiOrchestrationBroadcasting
+  extend ActiveSupport::Concern
 
     # Broadcast workflow execution status update to connected clients
     #
@@ -120,5 +119,4 @@ module Concerns
         status: current_executions.any? ? 'active' : 'idle'
       }
     end
-  end
 end

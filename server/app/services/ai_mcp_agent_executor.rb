@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-# MCP Agent Executor - Executes AI agents via MCP protocol
+# AI MCP Agent Executor - Executes AI agents via MCP protocol
 # Handles tool invocation, parameter validation, and response formatting
-class McpAgentExecutor
+class AiMcpAgentExecutor
   include ActiveModel::Model
   include ActiveModel::Attributes
 
