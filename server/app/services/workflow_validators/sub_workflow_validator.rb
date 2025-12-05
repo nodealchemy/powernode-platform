@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module WorkflowValidation
+module WorkflowValidators
   # Validates Sub-Workflow nodes
   class SubWorkflowValidator < BaseValidator
     protected

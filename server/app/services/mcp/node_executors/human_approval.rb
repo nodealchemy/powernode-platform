@@ -3,7 +3,7 @@
 module Mcp
   module NodeExecutors
     # Human_approval node executor - stub implementation
-    class Human_approval < Base
+    class HumanApproval < Base
       protected
 
       def perform_execution

@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module WorkflowValidation
+module WorkflowValidators
   # Validates Webhook nodes
   class WebhookValidator < BaseValidator
     protected

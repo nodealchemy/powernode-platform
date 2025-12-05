@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module WorkflowValidation
+module WorkflowValidators
   # Validates AI Agent nodes
   class AiAgentValidator < BaseValidator
     protected

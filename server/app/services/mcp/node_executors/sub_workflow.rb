@@ -3,7 +3,7 @@
 module Mcp
   module NodeExecutors
     # Sub_workflow node executor - stub implementation
-    class Sub_workflow < Base
+    class SubWorkflow < Base
       protected
 
       def perform_execution

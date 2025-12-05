@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module WorkflowValidation
+module WorkflowValidators
   # Validates Transform nodes
   class TransformValidator < BaseValidator
     protected

@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module WorkflowValidation
+module WorkflowValidators
   # Validates API Call / HTTP Request nodes
   class ApiCallValidator < BaseValidator
     protected

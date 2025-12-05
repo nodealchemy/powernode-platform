@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module WorkflowValidation
+module WorkflowValidators
   # Validates Human Approval nodes
   class HumanApprovalValidator < BaseValidator
     protected

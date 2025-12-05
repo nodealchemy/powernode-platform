@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module WorkflowValidation
+module WorkflowValidators
   # BaseValidator
   #
   # Base class for node-type-specific validators.
