@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
-import { useNotification } from '@/shared/hooks/useNotification';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import { servicesApi, ServiceConfig } from '../../services/servicesApi';
 import { JobProgressModal } from './JobProgressModal';
 import { TestTube } from 'lucide-react';
@@ -17,7 +17,7 @@ export const TestConfigurationModal: React.FC<TestConfigurationModalProps> = ({
   onClose,
   config
 }) => {
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
   const [jobId, setJobId] = useState<string | null>(null);
   const [showProgress, setShowProgress] = useState(false);
 

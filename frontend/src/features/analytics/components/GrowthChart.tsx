@@ -1,4 +1,3 @@
-import React from 'react';
 import {
   LineChart,
   Line,
@@ -8,7 +7,6 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
-  // BarChart, // TODO: Use for bar chart visualization
   Bar,
   ComposedChart,
   Area,
@@ -87,33 +85,6 @@ export const GrowthChart: React.FC<GrowthChartProps> = ({
     }
     return null;
   };
-
-  // const GrowthRateCell = ({ data: cellData }: any) => {
-  //   const color = getGrowthColor(cellData.growth_rate);
-  //   return (
-  //     <g>
-  //       <rect
-  //         x={cellData.x - 15}
-  //         y={cellData.y - 10}
-  //         width={30}
-  //         height={20}
-  //         fill={color}
-  //         opacity={0.8}
-  //         rx={4}
-  //       />
-  //       <text
-  //         x={cellData.x}
-  //         y={cellData.y + 3}
-  //         textAnchor="middle"
-  //         fontSize={10}
-  //         fill="white"
-  //         fontWeight="bold"
-  //       >
-  //         {formatPercentage(cellData.growth_rate)}
-  //       </text>
-  //     </g>
-  //   );
-  // }; // TODO: Use for custom growth rate cell rendering
 
   if (compact) {
     return (

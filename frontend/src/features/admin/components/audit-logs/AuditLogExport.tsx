@@ -8,7 +8,7 @@ import {
   Loader
 } from 'lucide-react';
 import { AuditLogFilters as FilterType, auditLogsApi } from '@/features/audit-logs/services/auditLogsApi';
-import { useNotification } from '@/shared/hooks/useNotification';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 
 interface AuditLogExportProps {
   filters: FilterType;
@@ -47,7 +47,7 @@ export const AuditLogExport: React.FC<AuditLogExportProps> = ({ filters, onClose
   
   const [isExporting, setIsExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
 
   const formatOptions = [
     {

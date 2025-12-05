@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { Worker } from '@/features/workers/services/workerApi';
 
 interface WorkerListProps {
@@ -12,11 +12,11 @@ interface WorkerListProps {
 
 export const WorkerList: React.FC<WorkerListProps> = ({
   workers,
-  selectedWorker,
-  onWorkerSelect,
-  onWorkerUpdate,
-  onWorkerDelete,
-  onTokenRegenerate
+  selectedWorker: _selectedWorker,
+  onWorkerSelect: _onWorkerSelect,
+  onWorkerUpdate: _onWorkerUpdate,
+  onWorkerDelete: _onWorkerDelete,
+  onTokenRegenerate: _onTokenRegenerate
 }) => {
   return (
     <div className="space-y-4">
@@ -29,4 +29,3 @@ export const WorkerList: React.FC<WorkerListProps> = ({
   );
 };
 
-export default WorkerList;

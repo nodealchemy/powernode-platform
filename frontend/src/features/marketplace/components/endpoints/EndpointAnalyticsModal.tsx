@@ -11,7 +11,6 @@ interface EndpointAnalyticsModalProps {
   isOpen: boolean;
   onClose: () => void;
   endpoint: AppEndpoint | null;
-  appId: string;
 }
 
 interface AnalyticsData {
@@ -39,8 +38,7 @@ const formatDate = (dateStr: string): string => {
 export const EndpointAnalyticsModal: React.FC<EndpointAnalyticsModalProps> = ({
   isOpen,
   onClose,
-  endpoint,
-  appId
+  endpoint
 }) => {
   const [loading, setLoading] = useState(true);
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);

@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 
 interface AuditLogMetricsProps {

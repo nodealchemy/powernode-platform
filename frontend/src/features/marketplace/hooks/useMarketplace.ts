@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { marketplaceListingsApi } from '../services/marketplaceApi';
 import { MarketplaceListing, MarketplaceFilters, MarketplaceCategory } from '../types';
-import { useNotification } from '@/shared/hooks/useNotification';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 
 export const useMarketplaceListings = (filters: MarketplaceFilters = {}) => {
   const [listings, setListings] = useState<MarketplaceListing[]>([]);
@@ -29,7 +29,7 @@ export const useMarketplaceListings = (filters: MarketplaceFilters = {}) => {
       } else {
         setError('Failed to load marketplace listings');
       }
-    } catch (err) {
+    } catch (error) {
       setError('Failed to load marketplace listings');
       // Error handled by state
     } finally {
@@ -67,7 +67,7 @@ export const useMarketplaceListing = (id: string) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
 
   const loadListing = useCallback(async () => {
     setLoading(true);
@@ -81,7 +81,7 @@ export const useMarketplaceListing = (id: string) => {
       } else {
         setError(response.error || 'Failed to load marketplace listing');
       }
-    } catch (err) {
+    } catch (error) {
       setError('Failed to load marketplace listing');
       // Error handled by state
     } finally {
@@ -107,7 +107,7 @@ export const useMarketplaceListing = (id: string) => {
         showNotification(response.error || 'Failed to submit listing for review', 'error');
         return null;
       }
-    } catch (err) {
+    } catch (error) {
       showNotification('Failed to submit listing for review', 'error');
       // Error handled by notification
       return null;
@@ -126,7 +126,7 @@ export const useMarketplaceListing = (id: string) => {
         showNotification(response.error || 'Failed to approve listing', 'error');
         return null;
       }
-    } catch (err) {
+    } catch (error) {
       showNotification('Failed to approve listing', 'error');
       // Error handled by notification
       return null;
@@ -145,7 +145,7 @@ export const useMarketplaceListing = (id: string) => {
         showNotification(response.error || 'Failed to reject listing', 'error');
         return null;
       }
-    } catch (err) {
+    } catch (error) {
       showNotification('Failed to reject listing', 'error');
       // Error handled by notification
       return null;
@@ -164,7 +164,7 @@ export const useMarketplaceListing = (id: string) => {
         showNotification(response.error || 'Failed to feature listing', 'error');
         return null;
       }
-    } catch (err) {
+    } catch (error) {
       showNotification('Failed to feature listing', 'error');
       // Error handled by notification
       return null;
@@ -183,7 +183,7 @@ export const useMarketplaceListing = (id: string) => {
         showNotification(response.error || 'Failed to unfeature listing', 'error');
         return null;
       }
-    } catch (err) {
+    } catch (error) {
       showNotification('Failed to unfeature listing', 'error');
       // Error handled by notification
       return null;
@@ -222,7 +222,7 @@ export const useMarketplaceCategories = () => {
       } else {
         setError(response.error || 'Failed to load categories');
       }
-    } catch (err) {
+    } catch (error) {
       setError('Failed to load categories');
       // Error handled by state
     } finally {

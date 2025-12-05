@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/shared/services';
 import { Button } from '@/shared/components/ui/Button';
@@ -130,7 +130,6 @@ export const LiveMetricsOverview: React.FC<LiveMetricsOverviewProps> = ({
   }, []);
 
   const handleWebSocketError = useCallback((errorMessage: string) => {
-    
     // Provide more user-friendly error messages
     let userFriendlyError = errorMessage;
     if (errorMessage.includes('unauthorized') || errorMessage.includes('Unauthorized')) {
@@ -174,17 +173,17 @@ export const LiveMetricsOverview: React.FC<LiveMetricsOverviewProps> = ({
   // Auto-request analytics updates when connected - but only if we have metrics already
   useEffect(() => {
     if (!isConnected || !metrics) return;
-    
+
     // Temporarily disable auto-refresh to debug page refresh issues
     // const interval = setInterval(() => {
     //   requestAnalyticsUpdate();
     // }, updateInterval);
-    
-    console.log('LiveMetricsOverview: Auto-refresh disabled for debugging'); // Debug log
+
+    // Auto-refresh disabled for debugging
     // const interval = null; // Placeholder to avoid breaking the cleanup
-    
+
     // return () => clearInterval(interval); // Commented out with the interval
-  }, [isConnected, requestAnalyticsUpdate, updateInterval]); // Removed 'metrics' dependency to prevent restart when data changes
+  }, [isConnected, requestAnalyticsUpdate, updateInterval, metrics]); // Removed 'metrics' dependency to prevent restart when data changes
 
   // Initial data load - only run once on mount and only if user has permission
   useEffect(() => {
@@ -203,7 +202,6 @@ export const LiveMetricsOverview: React.FC<LiveMetricsOverviewProps> = ({
           setError(errorMsg);
         }
       } catch (err) {
-        
         // Provide more specific error messages for API failures
         let userError = 'Failed to load live metrics';
         if (err instanceof Error) {
@@ -219,7 +217,7 @@ export const LiveMetricsOverview: React.FC<LiveMetricsOverviewProps> = ({
             userError = 'Network error. Please check your connection and try again.';
           }
         }
-        
+
         setError(userError);
       } finally {
         setLoading(false);
@@ -311,8 +309,8 @@ export const LiveMetricsOverview: React.FC<LiveMetricsOverviewProps> = ({
               </div>
             )}
             <Button onClick={handleRefresh} disabled={isReconnecting} variant="primary">
-            </Button>
               {isReconnecting ? 'Connecting...' : 'Retry'}
+            </Button>
           </div>
         </div>
       );

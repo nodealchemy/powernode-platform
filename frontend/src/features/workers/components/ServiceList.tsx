@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { Service } from '@/shared/services/serviceApi';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 
 interface ServiceListProps {
   services: Service[];
   selectedService: Service | null;
   onServiceSelect: (service: Service) => void;
-  onServiceUpdate: (serviceId: string, data: any) => Promise<any>;
   onServiceDelete: (serviceId: string) => Promise<void>;
   onTokenRegenerate: (serviceId: string) => Promise<string>;
   onStatusChange: (serviceId: string, action: 'suspend' | 'activate' | 'revoke') => Promise<any>;
@@ -15,7 +15,6 @@ interface ServiceItemProps {
   service: Service;
   isSelected: boolean;
   onSelect: () => void;
-  onUpdate: (data: any) => Promise<any>;
   onDelete: () => Promise<void>;
   onTokenRegenerate: () => Promise<string>;
   onStatusChange: (action: 'suspend' | 'activate' | 'revoke') => Promise<any>;
@@ -25,11 +24,11 @@ const ServiceItem: React.FC<ServiceItemProps> = ({
   service,
   isSelected,
   onSelect,
-  onUpdate,
   onDelete,
   onTokenRegenerate,
   onStatusChange
 }) => {
+  const { addNotification } = useNotifications();
   const [showActions, setShowActions] = useState(false);
   const [loading, setLoading] = useState<string | null>(null);
 
@@ -67,7 +66,7 @@ const ServiceItem: React.FC<ServiceItemProps> = ({
       await action();
       setShowActions(false);
     } catch (error: any) {
-      alert(error.message);
+      addNotification({ type: 'error', message: error.message || 'Operation failed' });
     } finally {
       setLoading(null);
     }
@@ -218,7 +217,6 @@ export const ServiceList: React.FC<ServiceListProps> = ({
   services,
   selectedService,
   onServiceSelect,
-  onServiceUpdate,
   onServiceDelete,
   onTokenRegenerate,
   onStatusChange
@@ -248,7 +246,6 @@ export const ServiceList: React.FC<ServiceListProps> = ({
             service={service}
             isSelected={selectedService?.id === service.id}
             onSelect={() => onServiceSelect(service)}
-            onUpdate={(data) => onServiceUpdate(service.id, data)}
             onDelete={() => onServiceDelete(service.id)}
             onTokenRegenerate={() => onTokenRegenerate(service.id)}
             onStatusChange={(action) => onStatusChange(service.id, action)}
@@ -259,4 +256,3 @@ export const ServiceList: React.FC<ServiceListProps> = ({
   );
 };
 
-export default ServiceList;

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Worker, workerAPI, UpdateWorkerData } from '@/features/workers/services/workerApi';
-import WorkerActivityDashboard from './WorkerActivityDashboard';
-import WorkerPermissionsView from './WorkerPermissionsView';
+import { Worker, workerApi, UpdateWorkerData } from '@/features/workers/services/workerApi';
+import { WorkerActivityDashboard } from './WorkerActivityDashboard';
+import { WorkerPermissionsView } from './WorkerPermissionsView';
 import { WorkerSettings } from './WorkerSettings';
 import { useForm, FormValidationRules } from '@/shared/hooks/useForm';
 import { 
@@ -120,12 +120,7 @@ export const WorkerDetailsPanel: React.FC<WorkerDetailsPanelProps> = ({
   };
 
   const formatMaskedToken = (token: string): string => {
-    if (token.includes('_') && token.length < 25) return token;
-    if (token.length > 20) {
-      const start = token.substring(0, 8);
-      const end = token.substring(token.length - 4);
-      return `${start}******${end}`;
-    }
+    // Backend now provides pre-masked tokens, return as-is
     return token;
   };
 
@@ -142,10 +137,13 @@ export const WorkerDetailsPanel: React.FC<WorkerDetailsPanelProps> = ({
   const handleTokenRegenerate = async () => {
     setLoading(true);
     try {
-      const response = await workerAPI.regenerateToken(worker.id);
+      const response = await workerApi.regenerateToken(worker.id);
       setNewToken(response.new_token);
       setShowToken(true);
     } catch (error) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('[WorkerDetailsPanel] Token regeneration failed:', error);
+      }
     } finally {
       setLoading(false);
     }
@@ -156,16 +154,19 @@ export const WorkerDetailsPanel: React.FC<WorkerDetailsPanelProps> = ({
     try {
       switch (action) {
         case 'suspend':
-          await workerAPI.suspendWorker(worker.id);
+          await workerApi.suspendWorker(worker.id);
           break;
         case 'activate':
-          await workerAPI.activateWorker(worker.id);
+          await workerApi.activateWorker(worker.id);
           break;
         case 'revoke':
-          await workerAPI.revokeWorker(worker.id);
+          await workerApi.revokeWorker(worker.id);
           break;
       }
     } catch (error) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('[WorkerDetailsPanel] Status change failed:', action, error);
+      }
     } finally {
       setLoading(false);
     }
@@ -177,6 +178,7 @@ export const WorkerDetailsPanel: React.FC<WorkerDetailsPanelProps> = ({
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (error) {
+      // Clipboard copy failure is non-critical - user can manually copy
     }
   };
 
@@ -187,6 +189,9 @@ export const WorkerDetailsPanel: React.FC<WorkerDetailsPanelProps> = ({
       setShowDeleteConfirm(false);
       onClose();
     } catch (error) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('[WorkerDetailsPanel] Worker deletion failed:', error);
+      }
     } finally {
       setLoading(false);
     }
@@ -199,7 +204,7 @@ export const WorkerDetailsPanel: React.FC<WorkerDetailsPanelProps> = ({
       setTestResults(null);
       
       // Enqueue test job
-      const jobResult = await workerAPI.testWorker(worker.id);
+      const jobResult = await workerApi.testWorker(worker.id);
       
       // Set initial queued state
       setTestResults({
@@ -236,7 +241,7 @@ export const WorkerDetailsPanel: React.FC<WorkerDetailsPanelProps> = ({
       setTimeout(async () => {
         try {
           // After job completes, run health check to get actual results
-          const healthResults = await workerAPI.testWorkerHealth(worker.id);
+          const healthResults = await workerApi.testWorkerHealth(worker.id);
           setTestResults(healthResults);
           setTestJobStatus('completed');
         } catch (healthErr: unknown) {
@@ -260,7 +265,7 @@ export const WorkerDetailsPanel: React.FC<WorkerDetailsPanelProps> = ({
         }
       }, 30000); // 30 seconds as per API response
 
-    } catch (err: unknown) {
+    } catch (error: unknown) {
       setTestResults({
         status: 'error',
         checks: {
@@ -272,7 +277,7 @@ export const WorkerDetailsPanel: React.FC<WorkerDetailsPanelProps> = ({
         response_time_ms: 0,
         details: [
           '❌ Failed to enqueue test job',
-          `Error: ${err instanceof Error ? err.message : 'Failed to enqueue test job'}`
+          `Error: ${error instanceof Error ? error.message : 'Failed to enqueue test job'}`
         ]
       });
       setShowTestResults(true);
@@ -567,15 +572,15 @@ export const WorkerDetailsPanel: React.FC<WorkerDetailsPanelProps> = ({
                     <h3 className="text-lg font-semibold text-theme-primary">Authentication Token</h3>
                     <div className="bg-theme-background rounded-lg p-4 space-y-4">
                       <div>
-                        <span className="text-theme-secondary text-sm">Masked Token:</span>
+                        <span className="text-theme-secondary text-sm">Token Hash:</span>
                         <div className="flex items-center gap-2 mt-1">
                           <code className="bg-theme-surface px-3 py-2 rounded font-mono text-sm flex-1">
                             {formatMaskedToken(worker.masked_token)}
                           </code>
                           <button
-                            onClick={() => copyToken(worker.masked_token)}
+                            onClick={() => copyToken(worker.full_token_hash || '')}
                             className="p-2 bg-theme-interactive-primary text-white rounded hover:bg-theme-interactive-primary/80 transition-colors"
-                            title="Copy token"
+                            title="Copy full hash"
                           >
                             {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                           </button>
@@ -584,21 +589,21 @@ export const WorkerDetailsPanel: React.FC<WorkerDetailsPanelProps> = ({
 
                       {(showToken || newToken) && (
                         <div>
-                          <span className="text-theme-secondary text-sm">Full Token:</span>
+                          <span className="text-theme-secondary text-sm">Full Hash:</span>
                           <div className="flex items-center gap-2 mt-1">
                             <code className="bg-theme-surface px-3 py-2 rounded font-mono text-sm flex-1 break-all">
-                              {newToken || worker.token}
+                              {newToken || worker.full_token_hash}
                             </code>
                             <button
-                              onClick={() => copyToken(newToken || worker.token || '')}
+                              onClick={() => copyToken(newToken || worker.full_token_hash || '')}
                               className="p-2 bg-theme-interactive-primary text-white rounded hover:bg-theme-interactive-primary/80 transition-colors"
-                              title="Copy full token"
+                              title="Copy full hash"
                             >
                               {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                             </button>
                           </div>
-                          <p className="text-theme-warning text-xs mt-2">
-                            ⚠️ Store this token securely. It won't be shown again.
+                          <p className="text-theme-info text-xs mt-2">
+                            💡 This is the complete SHA256 hash for token verification.
                           </p>
                         </div>
                       )}
@@ -609,7 +614,7 @@ export const WorkerDetailsPanel: React.FC<WorkerDetailsPanelProps> = ({
                           className="flex items-center gap-2 px-4 py-2 bg-theme-surface border border-theme text-theme-primary rounded hover:bg-theme-background transition-colors"
                         >
                           {showToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                          {showToken ? 'Hide Token' : 'Show Full Token'}
+                          {showToken ? 'Hide Hash' : 'Show Full Hash'}
                         </button>
                         <button
                           onClick={handleTokenRegenerate}
@@ -714,9 +719,8 @@ export const WorkerDetailsPanel: React.FC<WorkerDetailsPanelProps> = ({
             <WorkerSettings
               worker={worker}
               onUpdate={async (_workerId, _config) => {
-                // Handle worker configuration updates
-                // In a real implementation, this would call the worker settings API
-                // For now, just show a success message
+                // Callback triggered after WorkerSettings saves config to backend
+                // Refresh is handled by the WorkerSettings component itself
               }}
             />
           )}
@@ -845,4 +849,3 @@ export const WorkerDetailsPanel: React.FC<WorkerDetailsPanelProps> = ({
   );
 };
 
-export default WorkerDetailsPanel;

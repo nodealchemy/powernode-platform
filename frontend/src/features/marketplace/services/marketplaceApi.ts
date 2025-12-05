@@ -4,7 +4,6 @@ import {
   AppPlan,
   AppFeature,
   MarketplaceListing,
-  AppSubscription,
   AppReview,
   MarketplaceCategory,
   AppFormData,
@@ -289,77 +288,9 @@ export const marketplaceListingsApi = {
 };
 
 // App Subscriptions API
-export const appSubscriptionsApi = {
-  async getAppSubscriptions(): Promise<ApiResponse<AppSubscription[]>> {
-    const response = await api.get('/app_subscriptions');
-    return response.data;
-  },
-
-  async getAppSubscription(id: string): Promise<ApiResponse<AppSubscription>> {
-    const response = await api.get(`/app_subscriptions/${id}`);
-    return response.data;
-  },
-
-  async createAppSubscription(data: { app_id: string; app_plan_id: string }): Promise<ApiResponse<AppSubscription>> {
-    const response = await api.post('/app_subscriptions', data);
-    return response.data;
-  },
-
-  async updateAppSubscription(id: string, data: any): Promise<ApiResponse<AppSubscription>> {
-    const response = await api.put(`/app_subscriptions/${id}`, data);
-    return response.data;
-  },
-
-  async cancelAppSubscription(id: string): Promise<ApiResponse<AppSubscription>> {
-    const response = await api.post(`/app_subscriptions/${id}/cancel`);
-    return response.data;
-  },
-
-  async pauseAppSubscription(id: string): Promise<ApiResponse<AppSubscription>> {
-    const response = await api.post(`/app_subscriptions/${id}/pause`);
-    return response.data;
-  },
-
-  async resumeAppSubscription(id: string): Promise<ApiResponse<AppSubscription>> {
-    const response = await api.post(`/app_subscriptions/${id}/resume`);
-    return response.data;
-  },
-
-  async upgradePlan(id: string, planId: string): Promise<ApiResponse<AppSubscription>> {
-    const response = await api.post(`/app_subscriptions/${id}/upgrade_plan`, { plan_id: planId });
-    return response.data;
-  },
-
-  async downgradePlan(id: string, planId: string): Promise<ApiResponse<AppSubscription>> {
-    const response = await api.post(`/app_subscriptions/${id}/downgrade_plan`, { plan_id: planId });
-    return response.data;
-  },
-
-  async getUsage(id: string): Promise<ApiResponse<any>> {
-    const response = await api.get(`/app_subscriptions/${id}/usage`);
-    return response.data;
-  },
-
-  async getSubscriptionAnalytics(id: string): Promise<ApiResponse<any>> {
-    const response = await api.get(`/app_subscriptions/${id}/analytics`);
-    return response.data;
-  },
-
-  async getActiveSubscriptions(): Promise<ApiResponse<AppSubscription[]>> {
-    const response = await api.get('/app_subscriptions/active');
-    return response.data;
-  },
-
-  async getCancelledSubscriptions(): Promise<ApiResponse<AppSubscription[]>> {
-    const response = await api.get('/app_subscriptions/cancelled');
-    return response.data;
-  },
-
-  async getExpiredSubscriptions(): Promise<ApiResponse<AppSubscription[]>> {
-    const response = await api.get('/app_subscriptions/expired');
-    return response.data;
-  }
-};
+// Re-exported from standalone appSubscriptionsApi.ts for convenience
+// Use the standalone file directly for more complete types and methods
+export { appSubscriptionsApi } from './appSubscriptionsApi';
 
 // App Reviews API
 export const appReviewsApi = {

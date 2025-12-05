@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Eye, EyeOff, Copy, CheckCircle, AlertTriangle } from 'lucide-react';
 import { ApiKeyFormData, apiKeysApi } from '../services/apiKeysApi';
-import { useNotification } from '@/shared/hooks/useNotification';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 
 interface ApiKeyModalProps {
   isOpen: boolean;
@@ -29,7 +29,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
   const [copied, setCopied] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
 
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
 
   // Load available scopes when modal opens
   useEffect(() => {

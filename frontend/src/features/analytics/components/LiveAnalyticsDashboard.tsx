@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/shared/services';
 import { Button } from '@/shared/components/ui/Button';
@@ -8,7 +8,7 @@ import {
   RefreshCw, AlertTriangle, Target, Zap, Lock
 } from 'lucide-react';
 import { analyticsService, RevenueData, GrowthData, ChurnData, CustomerData } from '@/features/analytics/services/analyticsService';
-import { useNotification } from '@/shared/hooks/useNotification';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import { hasPermissions } from '@/shared/utils/permissionUtils';
 
 interface LiveAnalyticsDashboardProps {
@@ -28,17 +28,11 @@ interface MetricCardProps {
 }
 
 interface LiveMetric {
-  current_revenue: number;
-  active_subscriptions: number;
-  new_subscriptions_today: number;
-  churn_rate_this_month: number;
   mrr: number;
   arr: number;
+  active_subscriptions: number;
+  new_subscriptions_today: number;
   growth_rate: number;
-  customer_count: number;
-  conversion_rate: number;
-  ltv: number;
-  last_updated: string;
 }
 
 const MetricCard: React.FC<MetricCardProps> = ({
@@ -125,7 +119,7 @@ export const LiveAnalyticsDashboard: React.FC<LiveAnalyticsDashboardProps> = ({
   const [selectedTimeRange, setSelectedTimeRange] = useState('30d');
   const [error, setError] = useState<string | null>(null);
   
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
   
   // Check permissions before loading analytics
   const canViewAnalytics = hasPermissions(user, ['analytics.read']);
@@ -224,7 +218,7 @@ export const LiveAnalyticsDashboard: React.FC<LiveAnalyticsDashboardProps> = ({
     //   return () => clearInterval(interval);
     // }
     
-    console.log('LiveAnalyticsDashboard: Auto-refresh disabled for debugging'); // Debug log
+    // Auto-refresh disabled for debugging
   }, [loadAnalyticsData, autoRefresh, refreshInterval]);
 
   const handleExport = async (format: 'csv' | 'pdf') => {
@@ -232,17 +226,17 @@ export const LiveAnalyticsDashboard: React.FC<LiveAnalyticsDashboardProps> = ({
       showNotification('You do not have permission to export analytics', 'error');
       return;
     }
-    
+
     try {
       const { startDate, endDate } = getDateRange(selectedTimeRange);
       await analyticsService.exportAnalytics(
-        format, 
+        format,
         'comprehensive',
         { startDate: new Date(startDate), endDate: new Date(endDate) },
         accountId
       );
       showNotification(`Analytics exported as ${format.toUpperCase()}`, 'success');
-    } catch (error) {
+    } catch (_error) {
       showNotification('Failed to export analytics', 'error');
     }
   };
@@ -461,4 +455,3 @@ export const LiveAnalyticsDashboard: React.FC<LiveAnalyticsDashboardProps> = ({
   );
 };
 
-export default LiveAnalyticsDashboard;

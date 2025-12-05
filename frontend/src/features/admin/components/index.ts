@@ -8,14 +8,11 @@ export { PlatformConfiguration } from './settings/PlatformConfiguration';
 export * from './settings/SettingsComponents';
 
 // User Management Components
-export { default as CreateUserModal } from './users/CreateUserModal';
-export { default as ImpersonateUserModal } from './users/ImpersonateUserModal';
-export { default as ImpersonationBanner } from './users/ImpersonationBanner';
-export { default as ImpersonationHistory } from './users/ImpersonationHistory';
+export { CreateUserModal } from './users/CreateUserModal';
+export { ImpersonateUserModal } from './users/ImpersonateUserModal';
+export { ImpersonationBanner } from './users/ImpersonationBanner';
+export { ImpersonationHistory } from './users/ImpersonationHistory';
 export { SystemUserManagement } from './users/SystemUserManagement';
 
 // System Components
 export * from './system/MaintenanceComponents';
-
-// Audit Logs Components
-export * from './audit-logs';

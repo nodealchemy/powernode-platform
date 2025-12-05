@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { useAppDispatch, useAppSelector } from '@/shared/hooks/redux';
 import { resendVerificationEmail, clearResendVerificationSuccess } from '@/shared/services/slices/authSlice';
 import { AlertTriangle, Mail, CheckCircle, X } from 'lucide-react';
@@ -97,4 +97,3 @@ export const EmailVerificationBanner: React.FC<EmailVerificationBannerProps> = (
   );
 };
 
-export default EmailVerificationBanner;

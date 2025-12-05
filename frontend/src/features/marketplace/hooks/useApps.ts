@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { appsApi } from '../services/marketplaceApi';
 import { App, AppFilters, AppFormData } from '../types';
-import { useNotification } from '@/shared/hooks/useNotification';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 
 export const useApps = (filters: AppFilters = {}) => {
   const [apps, setApps] = useState<App[]>([]);
@@ -14,7 +14,7 @@ export const useApps = (filters: AppFilters = {}) => {
     per_page: 20
   });
   
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
 
   const loadApps = useCallback(async (newFilters: AppFilters = {}) => {
     setLoading(true);
@@ -29,7 +29,7 @@ export const useApps = (filters: AppFilters = {}) => {
       } else {
         setError('Failed to load apps');
       }
-    } catch (err) {
+    } catch (error) {
       setError('Failed to load apps');
       // Error handled by state
     } finally {
@@ -64,7 +64,7 @@ export const useApps = (filters: AppFilters = {}) => {
         showNotification(response.error || 'Failed to create app', 'error');
         return null;
       }
-    } catch (err) {
+    } catch (error) {
       showNotification('Failed to create app', 'error');
       // Error handled by notification
       return null;
@@ -83,7 +83,7 @@ export const useApps = (filters: AppFilters = {}) => {
         showNotification(response.error || 'Failed to update app', 'error');
         return null;
       }
-    } catch (err) {
+    } catch (error) {
       showNotification('Failed to update app', 'error');
       // Error handled by notification
       return null;
@@ -102,7 +102,7 @@ export const useApps = (filters: AppFilters = {}) => {
         showNotification(response.error || 'Failed to delete app', 'error');
         return false;
       }
-    } catch (err) {
+    } catch (error) {
       showNotification('Failed to delete app', 'error');
       // Error handled by notification
       return false;
@@ -121,7 +121,7 @@ export const useApps = (filters: AppFilters = {}) => {
         showNotification(response.error || 'Failed to publish app', 'error');
         return null;
       }
-    } catch (err) {
+    } catch (error) {
       showNotification('Failed to publish app', 'error');
       // Error handled by notification
       return null;
@@ -140,7 +140,7 @@ export const useApps = (filters: AppFilters = {}) => {
         showNotification(response.error || 'Failed to unpublish app', 'error');
         return null;
       }
-    } catch (err) {
+    } catch (error) {
       showNotification('Failed to unpublish app', 'error');
       // Error handled by notification
       return null;
@@ -159,7 +159,7 @@ export const useApps = (filters: AppFilters = {}) => {
         showNotification(response.error || 'Failed to submit app for review', 'error');
         return null;
       }
-    } catch (err) {
+    } catch (error) {
       showNotification('Failed to submit app for review', 'error');
       // Error handled by notification
       return null;
@@ -189,7 +189,7 @@ export const useApp = (id: string) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
   const hasLoadedAppRef = useRef<string | null>(null);
 
   const loadApp = useCallback(async () => {
@@ -204,7 +204,7 @@ export const useApp = (id: string) => {
       } else {
         setError(response.error || 'Failed to load app');
       }
-    } catch (err) {
+    } catch (error) {
       setError('Failed to load app');
       // Error handled by state
     } finally {
@@ -234,7 +234,7 @@ export const useApp = (id: string) => {
         showNotification(response.error || 'Failed to update app', 'error');
         return null;
       }
-    } catch (err) {
+    } catch (error) {
       showNotification('Failed to update app', 'error');
       // Error handled by notification
       return null;

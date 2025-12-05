@@ -12,7 +12,7 @@ interface ImpersonateUserModalProps {
   preselectedUserId?: string;
 }
 
-const ImpersonateUserModal: React.FC<ImpersonateUserModalProps> = ({
+export const ImpersonateUserModal: React.FC<ImpersonateUserModalProps> = ({
   isOpen,
   onClose,
   preselectedUserId
@@ -250,4 +250,3 @@ const ImpersonateUserModal: React.FC<ImpersonateUserModalProps> = ({
   );
 };
 
-export default ImpersonateUserModal;

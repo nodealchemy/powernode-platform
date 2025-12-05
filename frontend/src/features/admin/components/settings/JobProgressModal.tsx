@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Clock, CheckCircle, XCircle, Loader } from 'lucide-react';
+import { Clock, CheckCircle, XCircle, Loader, X } from 'lucide-react';
 import { servicesApi } from '../../services/servicesApi';
 
 interface JobProgressModalProps {
@@ -57,9 +57,9 @@ export const JobProgressModal: React.FC<JobProgressModalProps> = ({
           setStatus('completed');
           onComplete?.(jobData);
         }
-      } catch (err: unknown) {
+      } catch (error: unknown) {
         if (isMounted) {
-          const errorMessage = err instanceof Error ? err.message : 'Job failed';
+          const errorMessage = error instanceof Error ? error.message : 'Job failed';
           setError(errorMessage);
           setStatus('failed');
           onError?.(errorMessage);

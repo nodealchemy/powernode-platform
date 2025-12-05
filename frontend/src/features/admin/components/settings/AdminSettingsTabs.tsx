@@ -1,5 +1,5 @@
 // Admin Settings Tabbed Interface
-import React from 'react';
+
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { 
@@ -192,4 +192,3 @@ export const AdminSettingsTabs: React.FC<AdminSettingsTabsProps> = ({ className 
   );
 };
 
-export default AdminSettingsTabs;

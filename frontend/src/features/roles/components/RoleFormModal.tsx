@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
 import { Badge } from '@/shared/components/ui/Badge';
@@ -272,5 +272,3 @@ export const RoleFormModal: React.FC<RoleFormModalProps> = ({
     </Modal>
   );
 };
-
-export default RoleFormModal;

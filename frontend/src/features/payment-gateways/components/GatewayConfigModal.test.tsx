@@ -1,4 +1,3 @@
-import React from 'react';
 import { screen, fireEvent, waitFor } from '@testing-library/react';
 import { renderWithProviders, mockAuthenticatedState } from '@/shared/utils/test-utils';
 import { GatewayConfigModal } from './GatewayConfigModal';
@@ -110,7 +109,6 @@ describe('GatewayConfigModal', () => {
       
       // Verify input fields exist - should have text inputs + password inputs
       const textInputs = screen.getAllByRole('textbox');
-      const passwordInputs = screen.getAllByDisplayValue(''); // Password fields with empty value
       const totalInputs = textInputs.length;
       // Should have publishable_key (text) + secret_key/endpoint_secret (password) + webhook_tolerance (number)
       expect(totalInputs).toBeGreaterThanOrEqual(1); // At least publishable key visible

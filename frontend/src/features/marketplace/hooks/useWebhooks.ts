@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { appWebhooksApi } from '../services/webhooksApi';
+import { appWebhooksApi } from '../services/appWebhooksApi';
 import { AppWebhook, AppWebhookFilters, AppWebhookFormData } from '../types';
-import { useNotification } from '@/shared/hooks/useNotification';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 
 export const useAppWebhooks = (appId: string, filters: AppWebhookFilters = {}) => {
   const [webhooks, setWebhooks] = useState<AppWebhook[]>([]);
@@ -15,7 +15,7 @@ export const useAppWebhooks = (appId: string, filters: AppWebhookFilters = {}) =
     per_page: 20
   });
   
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
 
   const loadWebhooks = useCallback(async (newFilters: AppWebhookFilters = {}) => {
     if (!appId) return;
@@ -27,7 +27,7 @@ export const useAppWebhooks = (appId: string, filters: AppWebhookFilters = {}) =
       const response = await appWebhooksApi.getWebhooks(appId, { ...filters, ...newFilters });
       setWebhooks(response.data);
       setPagination(response.pagination);
-    } catch (err) {
+    } catch (error) {
       setError('Failed to load webhooks');
     } finally {
       setLoading(false);
@@ -51,7 +51,7 @@ export const useAppWebhooks = (appId: string, filters: AppWebhookFilters = {}) =
       showNotification('Webhook created successfully', 'success');
       await loadWebhooks();
       return webhook;
-    } catch (err) {
+    } catch (error) {
       showNotification('Failed to create webhook', 'error');
       return null;
     }
@@ -63,7 +63,7 @@ export const useAppWebhooks = (appId: string, filters: AppWebhookFilters = {}) =
       showNotification('Webhook updated successfully', 'success');
       await loadWebhooks();
       return webhook;
-    } catch (err) {
+    } catch (error) {
       showNotification('Failed to update webhook', 'error');
       return null;
     }
@@ -75,7 +75,7 @@ export const useAppWebhooks = (appId: string, filters: AppWebhookFilters = {}) =
       showNotification('Webhook deleted successfully', 'success');
       await loadWebhooks();
       return true;
-    } catch (err) {
+    } catch (error) {
       showNotification('Failed to delete webhook', 'error');
       return false;
     }
@@ -87,7 +87,7 @@ export const useAppWebhooks = (appId: string, filters: AppWebhookFilters = {}) =
       showNotification('Webhook activated successfully', 'success');
       await loadWebhooks();
       return true;
-    } catch (err) {
+    } catch (error) {
       showNotification('Failed to activate webhook', 'error');
       return false;
     }
@@ -99,7 +99,7 @@ export const useAppWebhooks = (appId: string, filters: AppWebhookFilters = {}) =
       showNotification('Webhook deactivated successfully', 'success');
       await loadWebhooks();
       return true;
-    } catch (err) {
+    } catch (error) {
       showNotification('Failed to deactivate webhook', 'error');
       return false;
     }
@@ -110,7 +110,7 @@ export const useAppWebhooks = (appId: string, filters: AppWebhookFilters = {}) =
       const result = await appWebhooksApi.testWebhook(appId, webhookId, testData);
       showNotification('Webhook test initiated successfully', 'success');
       return result;
-    } catch (err) {
+    } catch (error) {
       showNotification('Failed to test webhook', 'error');
       return null;
     }
@@ -122,7 +122,7 @@ export const useAppWebhooks = (appId: string, filters: AppWebhookFilters = {}) =
       showNotification('Webhook secret regenerated successfully', 'success');
       await loadWebhooks();
       return result;
-    } catch (err) {
+    } catch (error) {
       showNotification('Failed to regenerate webhook secret', 'error');
       return null;
     }
@@ -152,7 +152,7 @@ export const useAppWebhook = (appId: string, webhookId: string) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
 
   const loadWebhook = useCallback(async () => {
     if (!appId || !webhookId) return;
@@ -163,7 +163,7 @@ export const useAppWebhook = (appId: string, webhookId: string) => {
     try {
       const data = await appWebhooksApi.getWebhook(appId, webhookId);
       setWebhook(data);
-    } catch (err) {
+    } catch (error) {
       setError('Failed to load webhook');
     } finally {
       setLoading(false);
@@ -180,7 +180,7 @@ export const useAppWebhook = (appId: string, webhookId: string) => {
       showNotification('Webhook updated successfully', 'success');
       setWebhook(updatedWebhook);
       return updatedWebhook;
-    } catch (err) {
+    } catch (error) {
       showNotification('Failed to update webhook', 'error');
       return null;
     }
@@ -189,7 +189,7 @@ export const useAppWebhook = (appId: string, webhookId: string) => {
   const getAnalytics = async (days: number = 30) => {
     try {
       return await appWebhooksApi.getWebhookAnalytics(appId, webhookId, days);
-    } catch (err) {
+    } catch (error) {
       showNotification('Failed to load webhook analytics', 'error');
       return null;
     }
@@ -204,7 +204,7 @@ export const useAppWebhook = (appId: string, webhookId: string) => {
   } = {}) => {
     try {
       return await appWebhooksApi.getWebhookDeliveries(appId, webhookId, filters);
-    } catch (err) {
+    } catch (error) {
       showNotification('Failed to load webhook deliveries', 'error');
       return null;
     }

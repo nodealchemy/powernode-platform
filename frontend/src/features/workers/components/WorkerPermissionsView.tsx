@@ -1,16 +1,12 @@
 import React, { useState, useMemo } from 'react';
 import { Worker } from '@/features/workers/services/workerApi';
-import { 
-  Shield, 
-  Key, 
-  Search, 
-  ChevronDown, 
-  ChevronRight, 
-  AlertTriangle,
-  Check,
-  X,
-  Plus,
-  Minus
+import {
+  Shield,
+  Key,
+  Search,
+  ChevronDown,
+  ChevronRight,
+  Check
 } from 'lucide-react';
 
 export interface WorkerPermissionsViewProps {
@@ -500,4 +496,3 @@ export const WorkerPermissionsView: React.FC<WorkerPermissionsViewProps> = ({
   );
 };
 
-export default WorkerPermissionsView;

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Mail, Send, CheckCircle, AlertCircle, Settings, Eye, EyeOff } from 'lucide-react';
+import { Send, CheckCircle, AlertCircle, Settings, Eye, EyeOff } from 'lucide-react';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
-import { useNotification } from '@/shared/hooks/useNotification';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import { emailSettingsApi, EmailSettings } from '@/shared/services/emailSettingsApi';
 
 export const EmailConfiguration: React.FC = () => {
@@ -37,7 +37,7 @@ export const EmailConfiguration: React.FC = () => {
   const [testEmail, setTestEmail] = useState('');
   const [testing, setTesting] = useState(false);
   
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
 
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -657,4 +657,3 @@ export const EmailConfiguration: React.FC = () => {
   );
 };
 
-export default EmailConfiguration;

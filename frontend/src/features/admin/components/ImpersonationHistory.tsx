@@ -3,7 +3,7 @@ import { impersonationApi, ImpersonationSession } from '@/shared/services/impers
 import { Button } from '@/shared/components/ui/Button';
 import { FormField } from '@/shared/components/ui/FormField';
 
-const ImpersonationHistory: React.FC = () => {
+export const ImpersonationHistory: React.FC = () => {
   const [sessions, setSessions] = useState<ImpersonationSession[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -249,4 +249,3 @@ const ImpersonationHistory: React.FC = () => {
   );
 };
 
-export default ImpersonationHistory;

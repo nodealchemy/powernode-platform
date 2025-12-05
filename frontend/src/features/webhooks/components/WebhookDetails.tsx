@@ -21,12 +21,13 @@ import {
   RefreshCw,
   X
 } from 'lucide-react';
-import webhooksApi, { 
-  WebhookEndpoint, 
-  DetailedWebhookEndpoint, 
-  WebhookDelivery 
+import {
+  webhooksApi,
+  WebhookEndpoint,
+  DetailedWebhookEndpoint,
+  WebhookDelivery
 } from '@/features/webhooks/services/webhooksApi';
-import WebhookTest from './WebhookTest';
+import { WebhookTest } from './WebhookTest';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import ErrorAlert from '@/shared/components/ui/ErrorAlert';
 import SuccessAlert from '@/shared/components/ui/SuccessAlert';
@@ -39,7 +40,7 @@ interface WebhookDetailsProps {
   onToggleStatus?: () => void;
 }
 
-const WebhookDetails: React.FC<WebhookDetailsProps> = ({
+export const WebhookDetails: React.FC<WebhookDetailsProps> = ({
   webhook,
   onEdit,
   onDelete,
@@ -82,7 +83,7 @@ const WebhookDetails: React.FC<WebhookDetailsProps> = ({
         } else {
           setError(response.error || 'Failed to load webhook details');
         }
-      } catch (err) {
+      } catch (error) {
         setError('An unexpected error occurred while loading webhook details');
       } finally {
         setLoading(false);
@@ -109,7 +110,7 @@ const WebhookDetails: React.FC<WebhookDetailsProps> = ({
       } else {
         setError(response.error || 'Failed to load delivery history');
       }
-    } catch (err) {
+    } catch (error) {
       setError('Failed to load delivery history');
     } finally {
       setLoadingDeliveries(false);
@@ -130,7 +131,7 @@ const WebhookDetails: React.FC<WebhookDetailsProps> = ({
     try {
       await navigator.clipboard.writeText(detailedWebhook.secret_token);
       setSuccess('Secret token copied to clipboard');
-    } catch (err) {
+    } catch (error) {
       setError('Failed to copy secret token');
     }
   };
@@ -610,4 +611,3 @@ const WebhookDetails: React.FC<WebhookDetailsProps> = ({
   );
 };
 
-export default WebhookDetails;

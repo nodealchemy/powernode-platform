@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { workerAPI, WorkerActivity, ActivityListResponse } from '@/features/workers/services/workerApi';
+import { workerApi, WorkerActivity, ActivityListResponse } from '@/features/workers/services/workerApi';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { formatDistanceToNow, format } from 'date-fns';
 
@@ -27,10 +27,10 @@ export const WorkerActivityList: React.FC<WorkerActivityListProps> = ({ workerId
     try {
       setLoading(true);
       setError(null);
-      const response = await workerAPI.getWorkerActivities(workerId, filters);
+      const response = await workerApi.getWorkerActivities(workerId, filters);
       setData(response);
-    } catch (err: any) {
-      setError(err.message || 'Failed to load activities');
+    } catch (error: any) {
+      setError(error.message || 'Failed to load activities');
     } finally {
       setLoading(false);
     }
@@ -48,8 +48,6 @@ export const WorkerActivityList: React.FC<WorkerActivityListProps> = ({ workerId
     //     loadActivities();
     //   }
     // }, 30000);
-
-    console.log('⚠️ WorkerActivityList auto-refresh temporarily disabled to prevent page refreshes');
 
     // return () => clearInterval(interval);
   }, [loadActivities, loading]);
@@ -85,15 +83,6 @@ export const WorkerActivityList: React.FC<WorkerActivityListProps> = ({ workerId
       service_revoked: '🚫'
     };
     return iconMap[action] || '📝';
-  };
-
-  const getStatusColor = (activity: WorkerActivity) => {
-    if (activity.successful) {
-      return 'text-theme-success';
-    } else if (activity.failed) {
-      return 'text-theme-error';
-    }
-    return 'text-theme-secondary';
   };
 
   const getStatusBadge = (activity: WorkerActivity) => {
@@ -366,4 +355,3 @@ export const WorkerActivityList: React.FC<WorkerActivityListProps> = ({ workerId
   );
 };
 
-export default WorkerActivityList;

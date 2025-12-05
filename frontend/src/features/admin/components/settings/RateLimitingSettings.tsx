@@ -14,7 +14,7 @@ import {
   Play,
   Save
 } from 'lucide-react';
-import { useNotification } from '@/shared/hooks/useNotification';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import { adminSettingsApi } from '@/features/admin/services/adminSettingsApi';
 import { Button } from '@/shared/components/ui/Button';
 
@@ -52,8 +52,8 @@ interface RateLimitStats {
 //   reset_in: number;
 // }
 
-const RateLimitingSettings: React.FC = () => {
-  const { showNotification } = useNotification();
+export const RateLimitingSettings: React.FC = () => {
+  const { showNotification } = useNotifications();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [stats, setStats] = useState<RateLimitStats | null>(null);
@@ -315,7 +315,7 @@ const RateLimitingSettings: React.FC = () => {
         {/* Global Enable/Disable */}
         <div className="flex items-center justify-between p-4 bg-theme-surface-subtle rounded-lg mb-6">
           <div className="flex items-center gap-3">
-            <div className={`w-3 h-3 rounded-full ${config.enabled ? 'bg-green-500' : 'bg-red-500'}`}></div>
+            <div className={`w-3 h-3 rounded-full ${config.enabled ? 'bg-theme-success' : 'bg-theme-danger'}`}></div>
             <div>
               <h3 className="font-medium text-theme-primary">Rate Limiting Status</h3>
               <p className="text-sm text-theme-secondary">
@@ -331,7 +331,7 @@ const RateLimitingSettings: React.FC = () => {
               className="sr-only"
             />
             <div className={`relative inline-block w-10 h-6 transition duration-200 ease-in-out rounded-full ${
-              config.enabled ? 'bg-green-500' : 'bg-gray-300'
+              config.enabled ? 'bg-theme-success' : 'bg-gray-300'
             }`}>
               <div className={`absolute left-0 top-0 bg-white w-6 h-6 rounded-full shadow transition-transform duration-200 ease-in-out ${
                 config.enabled ? 'transform translate-x-4' : ''
@@ -345,7 +345,7 @@ const RateLimitingSettings: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <div className="p-4 bg-theme-surface-subtle rounded-lg">
               <div className="flex items-center gap-3">
-                <Activity className="w-5 h-5 text-blue-500" />
+                <Activity className="w-5 h-5 text-theme-info" />
                 <div>
                   <p className="text-sm text-theme-secondary">Active Limits</p>
                   <p className="text-xl font-semibold text-theme-primary">{stats.active_limits}</p>
@@ -354,10 +354,10 @@ const RateLimitingSettings: React.FC = () => {
             </div>
             <div className="p-4 bg-theme-surface-subtle rounded-lg">
               <div className="flex items-center gap-3">
-                <AlertTriangle className={`w-5 h-5 ${stats.current_violations > 0 ? 'text-red-500' : 'text-green-500'}`} />
+                <AlertTriangle className={`w-5 h-5 ${stats.current_violations > 0 ? 'text-theme-danger' : 'text-theme-success'}`} />
                 <div>
                   <p className="text-sm text-theme-secondary">Current Violations</p>
-                  <p className={`text-xl font-semibold ${stats.current_violations > 0 ? 'text-red-500' : 'text-green-500'}`}>
+                  <p className={`text-xl font-semibold ${stats.current_violations > 0 ? 'text-theme-danger' : 'text-theme-success'}`}>
                     {stats.current_violations}
                   </p>
                 </div>
@@ -365,10 +365,10 @@ const RateLimitingSettings: React.FC = () => {
             </div>
             <div className="p-4 bg-theme-surface-subtle rounded-lg">
               <div className="flex items-center gap-3">
-                <CheckCircle className="w-5 h-5 text-green-500" />
+                <CheckCircle className="w-5 h-5 text-theme-success" />
                 <div>
                   <p className="text-sm text-theme-secondary">System Status</p>
-                  <p className="text-lg font-medium text-green-500">
+                  <p className="text-lg font-medium text-theme-success">
                     {config.enabled ? 'Protected' : 'Unprotected'}
                   </p>
                 </div>
@@ -513,4 +513,3 @@ const RateLimitingSettings: React.FC = () => {
   );
 };
 
-export default RateLimitingSettings;

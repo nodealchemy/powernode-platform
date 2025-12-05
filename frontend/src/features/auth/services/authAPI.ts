@@ -8,34 +8,46 @@ export interface LoginCredentials {
 export interface RegisterData {
   email: string;
   password: string;
-  first_name: string;
-  last_name: string;
+  name: string;
   account_name: string;
   plan_id?: string;
   billing_cycle?: string;
 }
 
-export interface AuthResponse {
-  success: boolean;
-  user?: {
+export interface AuthUser {
+  id: string;
+  email: string;
+  name: string;
+  roles: string[];
+  permissions: string[];  // Added permissions array from JWT
+  status: string;
+  email_verified: boolean;
+  account: {
     id: string;
-    email: string;
-    first_name: string;
-    last_name: string;
-    roles: string[];
-    permissions: string[];  // Added permissions array from JWT
+    name: string;
     status: string;
-    email_verified: boolean;
-    account: {
-      id: string;
-      name: string;
-      status: string;
-    };
   };
+}
+
+export interface AuthData {
+  user?: AuthUser;
   access_token?: string;
   refresh_token?: string;
   expires_at?: string;
   refresh_expires_at?: string;  // Added for JWT refresh token expiration
+  requires_2fa?: boolean;
+  verification_token?: string;
+}
+
+export interface AuthResponse {
+  success: boolean;
+  data?: AuthData;  // Backend wraps auth data in 'data' property
+  // Legacy flat structure (some endpoints may still use this)
+  user?: AuthUser;
+  access_token?: string;
+  refresh_token?: string;
+  expires_at?: string;
+  refresh_expires_at?: string;
   warning?: string;
   message?: string;
   error?: string;
@@ -43,11 +55,20 @@ export interface AuthResponse {
   verification_token?: string;
 }
 
-export interface RefreshTokenResponse {
-  success: boolean;
+export interface RefreshTokenData {
   access_token: string;
   refresh_token: string;
   expires_at: string;
+  refresh_expires_at?: string;
+}
+
+export interface RefreshTokenResponse {
+  success: boolean;
+  data?: RefreshTokenData;  // Backend wraps token data in 'data' property
+  // Legacy flat structure
+  access_token?: string;
+  refresh_token?: string;
+  expires_at?: string;
   refresh_expires_at?: string;
 }
 
@@ -70,8 +91,8 @@ class AuthAPI {
     });
   }
 
-  async getCurrentUser() {
-    return api.get('/auth/me');
+  async getCurrentUser(silentAuth = false) {
+    return api.get('/auth/me', { silentAuth });
   }
 
   async forgotPassword(email: string) {
@@ -101,4 +122,4 @@ class AuthAPI {
   }
 }
 
-export const authAPI = new AuthAPI();
+export const authApi = new AuthAPI();

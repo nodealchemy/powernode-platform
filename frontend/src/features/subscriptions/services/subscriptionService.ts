@@ -1,15 +1,19 @@
 import { api } from '@/shared/services/api';
 
+/**
+ * @deprecated Use Plan from '@/features/plans/services/plansApi' instead
+ * Kept for backward compatibility with subscription service responses
+ */
 export interface Plan {
   id: string;
   name: string;
   price: {
     cents: number;
     currency_iso: string;
-  } | number; // Support both new API format and legacy format
+  } | number;
   interval?: string;
   billing_cycle?: string;
-  billingCycle?: string; // Legacy camelCase support
+  billingCycle?: string;
   features: Record<string, any>;
   limits?: Record<string, any>;
   status: string;
@@ -18,6 +22,10 @@ export interface Plan {
   trialDays?: number;
 }
 
+/**
+ * @deprecated Use Subscription from '@/shared/types' instead
+ * This interface uses camelCase - modern code should use snake_case version from shared/types
+ */
 export interface Subscription {
   id: string;
   status: string;
@@ -40,14 +48,24 @@ export interface SubscriptionResponse {
 }
 
 export interface CreateSubscriptionRequest {
-  planId: string;
-  trialEndsAt?: string;
+  plan_id: string;
+  trial_ends_at?: string;
 }
 
 export interface UpdateSubscriptionRequest {
-  planId: string;
+  plan_id: string;
 }
 
+/**
+ * @module SubscriptionService
+ * @description Subscription lifecycle management service.
+ *
+ * RESPONSIBILITY: All subscription CRUD operations via /subscriptions/* endpoints
+ * NOT RESPONSIBLE FOR: Billing, invoices, payment methods
+ *
+ * Integrates with Redux subscriptionSlice for state management.
+ * @see Use billingApi for billing operations and payment processing
+ */
 class SubscriptionService {
   async getSubscriptions(): Promise<SubscriptionResponse> {
     try {
@@ -121,4 +139,3 @@ class SubscriptionService {
 }
 
 export const subscriptionService = new SubscriptionService();
-export default subscriptionService;

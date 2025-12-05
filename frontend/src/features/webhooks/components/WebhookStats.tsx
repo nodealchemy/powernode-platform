@@ -22,17 +22,16 @@ interface WebhookStatsProps {
   loading: boolean;
 }
 
-const WebhookStats: React.FC<WebhookStatsProps> = ({
+export const WebhookStats: React.FC<WebhookStatsProps> = ({
   stats,
   detailedStats,
   loading
 }) => {
   // Fixed: Move useMemo to top to comply with Rules of Hooks (no hooks after early returns)
-  const { totalDeliveries, successRate } = useMemo(() => {
-    if (!stats) return { totalDeliveries: 0, successRate: 0 };
+  const successRate = useMemo(() => {
+    if (!stats) return 0;
     const total = stats.successful_deliveries_today + stats.failed_deliveries_today;
-    const rate = total === 0 ? 0 : Math.round((stats.successful_deliveries_today / total) * 100);
-    return { totalDeliveries: total, successRate: rate };
+    return total === 0 ? 0 : Math.round((stats.successful_deliveries_today / total) * 100);
   }, [stats?.successful_deliveries_today, stats?.failed_deliveries_today]);
 
   if (loading) {
@@ -376,4 +375,3 @@ const WebhookStats: React.FC<WebhookStatsProps> = ({
   );
 };
 
-export default WebhookStats;

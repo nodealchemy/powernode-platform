@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/shared/components/ui/Button';
 import { Modal } from '@/shared/components/ui/Modal';
 import { useForm, FormValidationRules } from '@/shared/hooks/useForm';
-import { useNotification } from '@/shared/hooks/useNotification';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import { paymentGatewaysApi, PaymentGatewayConfig } from '../services/paymentGatewaysApi';
 import { Settings, Save } from 'lucide-react';
 
@@ -41,7 +41,7 @@ export const GatewayConfigModal: React.FC<GatewayConfigModalProps> = ({
   currentConfig,
   onConfigured
 }) => {
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
   const [showSecrets, setShowSecrets] = useState(false);
 
   // Memoize default values to prevent unnecessary re-renders
@@ -621,4 +621,3 @@ export const GatewayConfigModal: React.FC<GatewayConfigModalProps> = ({
   );
 };
 
-export default GatewayConfigModal;

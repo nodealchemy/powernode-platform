@@ -39,13 +39,13 @@ const CATEGORY_GROUPS: CategoryGroup[] = [
     name: 'Marketing',
     categories: [],
     icon: '📈',
-    color: 'bg-purple-500'
+    color: 'bg-theme-interactive-primary'
   },
   {
     name: 'Communication',
     categories: [],
     icon: '💬',
-    color: 'bg-orange-500'
+    color: 'bg-theme-warning'
   },
   {
     name: 'Analytics',

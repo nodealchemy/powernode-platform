@@ -19,9 +19,8 @@ export interface SystemMetrics {
 
 export interface AdminUser {
   id: string;
-  first_name: string;
-  last_name: string;
-  full_name: string;
+  name: string;
+  full_name?: string;
   email: string;
   email_verified: boolean;
   last_login_at: string | null;
@@ -53,8 +52,7 @@ export interface AdminAccount {
   };
   owner: {
     id: string;
-    first_name: string;
-    last_name: string;
+    name: string;
     email: string;
   };
 }
@@ -70,14 +68,14 @@ export interface SystemLog {
 
 export interface RateLimitingSettings {
   enabled?: boolean;
-  api_requests_per_minute: number;
-  impersonation_attempts_per_hour: number;
-  login_attempts_per_hour: number;
-  password_reset_attempts_per_hour: number;
-  registration_attempts_per_hour: number;
-  webhook_requests_per_minute: number;
-  email_verification_attempts_per_hour: number;
-  authenticated_requests_per_hour: number;
+  api_requests_per_minute?: number;
+  impersonation_attempts_per_hour?: number;
+  login_attempts_per_hour?: number;
+  password_reset_attempts_per_hour?: number;
+  registration_attempts_per_hour?: number;
+  webhook_requests_per_minute?: number;
+  email_verification_attempts_per_hour?: number;
+  authenticated_requests_per_hour?: number;
 }
 
 export interface AdminSettings {
@@ -95,9 +93,13 @@ export interface AdminSettings {
   session_timeout_minutes: number;
   password_min_length: number;
   require_email_verification: boolean;
+  email_verification_required: boolean;
   allow_account_deletion: boolean;
   backup_retention_days: number;
   log_retention_days: number;
+  password_complexity_level: 'low' | 'medium' | 'high';
+  max_failed_login_attempts: number;
+  account_lockout_duration: number;
   rate_limiting: RateLimitingSettings;
   feature_flags: Record<string, boolean>;
   smtp_settings: {
@@ -135,6 +137,16 @@ export interface AdminOverviewData {
   settings_summary: Partial<AdminSettings>;
 }
 
+/**
+ * @module AdminSettingsApi
+ * @description Platform configuration and system settings service.
+ *
+ * RESPONSIBILITY: System settings, health monitoring, rate limiting, security configuration,
+ *                 admin dashboard data (user/account/log lists)
+ * NOT RESPONSIBLE FOR: Analytics export, user CRUD operations
+ *
+ * This is the primary owner of /admin_settings/* endpoints.
+ */
 class AdminSettingsApi {
   // Get admin overview data
   async getOverview(): Promise<AdminOverviewData> {
@@ -278,18 +290,14 @@ class AdminSettingsApi {
   // Utility methods
   formatBytes(bytes: number, decimals = 2): string {
     if (bytes === 0) return '0 Bytes';
-    
+
     const k = 1024;
     const dm = decimals < 0 ? 0 : decimals;
-    // const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB']; // TODO: Use for dynamic size unit selection
-    
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    
-    const sizeUnit = i === 0 ? 'Bytes' : 
-                     i === 1 ? 'KB' : 
-                     i === 2 ? 'MB' : 
-                     i === 3 ? 'GB' : 
-                     i === 4 ? 'TB' : 'Bytes';
+    const sizeUnit = sizes[i] || 'Bytes';
+
     return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizeUnit;
   }
 
@@ -391,7 +399,7 @@ class AdminSettingsApi {
   async updateSecurityConfig(config: unknown): Promise<{
     success: boolean;
     message: string;
-    config: any;
+    config: Record<string, unknown>;
   }> {
     const response = await api.put('/admin_settings/security', { security_config: config });
     return response.data;

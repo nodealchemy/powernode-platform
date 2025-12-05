@@ -93,7 +93,7 @@ export interface WebhookTestResponse {
   message?: string;
   data?: {
     webhook_id: string;
-    test_payload: any;
+    test_payload: Record<string, unknown>;
     response: {
       status: number;
       response_time: number;
@@ -127,8 +127,8 @@ export const webhooksApi = {
       return response.data;
     } catch (error: unknown) {
       // Error handled by return statement
-      const errorMessage = error && typeof error === 'object' && 'response' in error 
-        ? (error as any).response?.data?.error || 'Failed to fetch webhooks'
+      const errorMessage = error && typeof error === 'object' && 'response' in error
+        ? (error as { response?: { data?: { error?: string } } }).response?.data?.error || 'Failed to fetch webhooks'
         : 'Failed to fetch webhooks';
       return {
         success: false,
@@ -161,8 +161,8 @@ export const webhooksApi = {
       return response.data;
     } catch (error: unknown) {
       // Error handled by return statement
-      const errorMessage = error && typeof error === 'object' && 'response' in error 
-        ? (error as any).response?.data?.error || 'Failed to fetch webhook'
+      const errorMessage = error && typeof error === 'object' && 'response' in error
+        ? (error as { response?: { data?: { error?: string } } }).response?.data?.error || 'Failed to fetch webhook'
         : 'Failed to fetch webhook';
       return {
         success: false,
@@ -178,8 +178,8 @@ export const webhooksApi = {
       return response.data;
     } catch (error: unknown) {
       // Error handled by return statement
-      const errorMessage = error && typeof error === 'object' && 'response' in error 
-        ? (error as any).response?.data?.error || 'Failed to create webhook'
+      const errorMessage = error && typeof error === 'object' && 'response' in error
+        ? (error as { response?: { data?: { error?: string } } }).response?.data?.error || 'Failed to create webhook'
         : 'Failed to create webhook';
       return {
         success: false,
@@ -195,8 +195,8 @@ export const webhooksApi = {
       return response.data;
     } catch (error: unknown) {
       // Error handled by return statement
-      const errorMessage = error && typeof error === 'object' && 'response' in error 
-        ? (error as any).response?.data?.error || 'Failed to update webhook'
+      const errorMessage = error && typeof error === 'object' && 'response' in error
+        ? (error as { response?: { data?: { error?: string } } }).response?.data?.error || 'Failed to update webhook'
         : 'Failed to update webhook';
       return {
         success: false,
@@ -212,8 +212,8 @@ export const webhooksApi = {
       return response.data;
     } catch (error: unknown) {
       // Error handled by return statement
-      const errorMessage = error && typeof error === 'object' && 'response' in error 
-        ? (error as any).response?.data?.error || 'Failed to delete webhook'
+      const errorMessage = error && typeof error === 'object' && 'response' in error
+        ? (error as { response?: { data?: { error?: string } } }).response?.data?.error || 'Failed to delete webhook'
         : 'Failed to delete webhook';
       return {
         success: false,
@@ -229,8 +229,8 @@ export const webhooksApi = {
       return response.data;
     } catch (error: unknown) {
       // Error handled by return statement
-      const errorMessage = error && typeof error === 'object' && 'response' in error 
-        ? (error as any).response?.data?.error || 'Failed to test webhook'
+      const errorMessage = error && typeof error === 'object' && 'response' in error
+        ? (error as { response?: { data?: { error?: string } } }).response?.data?.error || 'Failed to test webhook'
         : 'Failed to test webhook';
       return {
         success: false,
@@ -246,8 +246,8 @@ export const webhooksApi = {
       return response.data;
     } catch (error: unknown) {
       // Error handled by return statement
-      const errorMessage = error && typeof error === 'object' && 'response' in error 
-        ? (error as any).response?.data?.error || 'Failed to toggle webhook status'
+      const errorMessage = error && typeof error === 'object' && 'response' in error
+        ? (error as { response?: { data?: { error?: string } } }).response?.data?.error || 'Failed to toggle webhook status'
         : 'Failed to toggle webhook status';
       return {
         success: false,
@@ -263,8 +263,8 @@ export const webhooksApi = {
       return response.data;
     } catch (error: unknown) {
       // Error handled by return statement
-      const errorMessage = error && typeof error === 'object' && 'response' in error 
-        ? (error as any).response?.data?.error || 'Failed to fetch available events'
+      const errorMessage = error && typeof error === 'object' && 'response' in error
+        ? (error as { response?: { data?: { error?: string } } }).response?.data?.error || 'Failed to fetch available events'
         : 'Failed to fetch available events';
       return {
         success: false,
@@ -301,8 +301,8 @@ export const webhooksApi = {
       return response.data;
     } catch (error: unknown) {
       // Error handled by return statement
-      const errorMessage = error && typeof error === 'object' && 'response' in error 
-        ? (error as any).response?.data?.error || 'Failed to fetch delivery history'
+      const errorMessage = error && typeof error === 'object' && 'response' in error
+        ? (error as { response?: { data?: { error?: string } } }).response?.data?.error || 'Failed to fetch delivery history'
         : 'Failed to fetch delivery history';
       return {
         success: false,
@@ -318,8 +318,8 @@ export const webhooksApi = {
       return response.data;
     } catch (error: unknown) {
       // Error handled by return statement
-      const errorMessage = error && typeof error === 'object' && 'response' in error 
-        ? (error as any).response?.data?.error || 'Failed to fetch webhook stats'
+      const errorMessage = error && typeof error === 'object' && 'response' in error
+        ? (error as { response?: { data?: { error?: string } } }).response?.data?.error || 'Failed to fetch webhook stats'
         : 'Failed to fetch webhook stats';
       return {
         success: false,
@@ -335,8 +335,8 @@ export const webhooksApi = {
       return response.data;
     } catch (error: unknown) {
       // Error handled by return statement
-      const errorMessage = error && typeof error === 'object' && 'response' in error 
-        ? (error as any).response?.data?.error || 'Failed to retry failed webhooks'
+      const errorMessage = error && typeof error === 'object' && 'response' in error
+        ? (error as { response?: { data?: { error?: string } } }).response?.data?.error || 'Failed to retry failed webhooks'
         : 'Failed to retry failed webhooks';
       return {
         success: false,
@@ -426,5 +426,3 @@ export const webhooksApi = {
     };
   }
 };
-
-export default webhooksApi;

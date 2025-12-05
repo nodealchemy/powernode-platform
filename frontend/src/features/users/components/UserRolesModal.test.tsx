@@ -1,7 +1,6 @@
-import React from 'react';
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { screen, fireEvent, waitFor } from '@testing-library/react';
 import { UserRolesModal } from './UserRolesModal';
-import { renderWithProviders, mockUsers, mockAuthenticatedState, EnhancedUser, createMockUser } from '@/shared/utils/test-utils';
+import { renderWithProviders, mockAuthenticatedState, EnhancedUser, createMockUser } from '@/shared/utils/test-utils';
 
 // Import the actual module first to ensure proper mocking
 import { usersApi } from '@/features/users/services/usersApi';
@@ -18,8 +17,7 @@ jest.mock('@/features/users/services/usersApi', () => ({
 const mockUser: EnhancedUser = createMockUser({
   id: '1',
   email: 'user@example.com',
-  first_name: 'John',
-  last_name: 'Doe',
+  name: 'John Doe',
   roles: ['account.member'],
   permissions: ['users.read'],
   status: 'active',
@@ -68,71 +66,8 @@ describe('UserRolesModal', () => {
   });
 
   it('renders modal with user information', async () => {
-    await act(async () => {
-      renderWithProviders(
-        <UserRolesModal 
-          isOpen={true}
-          onClose={jest.fn()}
-          user={mockUser}
-          onUserUpdated={jest.fn()}
-        />,
-        { preloadedState: mockAuthenticatedState }
-      );
-    });
-    
-    await waitFor(() => {
-      expect(screen.getByText('Manage Roles - John Doe')).toBeInTheDocument();
-      expect(screen.getByText('John Doe')).toBeInTheDocument();
-      expect(screen.getByText('user@example.com')).toBeInTheDocument();
-    });
-  });
-
-  it('loads and displays available roles', async () => {
-    await act(async () => {
-      renderWithProviders(
-        <UserRolesModal 
-          isOpen={true}
-          onClose={jest.fn()}
-          user={mockUser}
-          onUserUpdated={jest.fn()}
-        />,
-        { preloadedState: mockAuthenticatedState }
-      );
-    });
-
-    await waitFor(() => {
-      // Check that Available Roles section exists
-      expect(screen.getByText('Available Roles')).toBeInTheDocument();
-      // Check for role labels in the available roles section
-      expect(screen.getAllByText('Account Member')).toHaveLength(2); // One in current, one in available
-      expect(screen.getByText('Account Owner')).toBeInTheDocument();
-      expect(screen.getByText('Billing Manager')).toBeInTheDocument();
-      expect(screen.getByText('System Administrator')).toBeInTheDocument();
-    });
-  });
-
-  it('shows current user roles in the current roles section', async () => {
-    await act(async () => {
-      renderWithProviders(
-        <UserRolesModal 
-          isOpen={true}
-          onClose={jest.fn()}
-          user={mockUser}
-          onUserUpdated={jest.fn()}
-        />,
-        { preloadedState: mockAuthenticatedState }
-      );
-    });
-
-    await waitFor(() => {
-      const rolesSection = screen.getByText('Current Roles').parentElement?.parentElement;
-      expect(rolesSection).toHaveTextContent('Account Member');
-    });
-  });
-
-  it('allows toggling role selection', async () => {
     renderWithProviders(
-      <UserRolesModal 
+      <UserRolesModal
         isOpen={true}
         onClose={jest.fn()}
         user={mockUser}
@@ -142,8 +77,68 @@ describe('UserRolesModal', () => {
     );
 
     await waitFor(() => {
-      const managerRoleText = screen.getByText('Account Owner');
-      expect(managerRoleText).toBeInTheDocument();
+      expect(screen.getByText('Manage Roles - John Doe')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('John Doe')).toBeInTheDocument();
+    expect(screen.getByText('user@example.com')).toBeInTheDocument();
+  });
+
+  it('loads and displays available roles', async () => {
+    renderWithProviders(
+      <UserRolesModal
+        isOpen={true}
+        onClose={jest.fn()}
+        user={mockUser}
+        onUserUpdated={jest.fn()}
+      />,
+      { preloadedState: mockAuthenticatedState }
+    );
+
+    await waitFor(() => {
+      // Check that Available Roles section exists
+      expect(screen.getByText('Available Roles')).toBeInTheDocument();
+    });
+
+    // Check for role labels in the available roles section
+    expect(screen.getAllByText('Account Member')).toHaveLength(2); // One in current, one in available
+    expect(screen.getByText('Account Owner')).toBeInTheDocument();
+    expect(screen.getByText('Billing Manager')).toBeInTheDocument();
+    expect(screen.getByText('System Administrator')).toBeInTheDocument();
+  });
+
+  it('shows current user roles in the current roles section', async () => {
+    renderWithProviders(
+      <UserRolesModal
+        isOpen={true}
+        onClose={jest.fn()}
+        user={mockUser}
+        onUserUpdated={jest.fn()}
+      />,
+      { preloadedState: mockAuthenticatedState }
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Current Roles')).toBeInTheDocument();
+    });
+
+    const rolesSection = screen.getByText('Current Roles').parentElement?.parentElement;
+    expect(rolesSection).toHaveTextContent('Account Member');
+  });
+
+  it('allows toggling role selection', async () => {
+    renderWithProviders(
+      <UserRolesModal
+        isOpen={true}
+        onClose={jest.fn()}
+        user={mockUser}
+        onUserUpdated={jest.fn()}
+      />,
+      { preloadedState: mockAuthenticatedState }
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Account Owner')).toBeInTheDocument();
     });
 
     // Find and click the Account Owner role card
@@ -151,7 +146,7 @@ describe('UserRolesModal', () => {
     if (managerCard) {
       fireEvent.click(managerCard);
     }
-    
+
     // Check that it's now marked as being added
     await waitFor(() => {
       expect(screen.getByText('Adding:')).toBeInTheDocument();
@@ -160,7 +155,7 @@ describe('UserRolesModal', () => {
 
   it('displays role descriptions', async () => {
     renderWithProviders(
-      <UserRolesModal 
+      <UserRolesModal
         isOpen={true}
         onClose={jest.fn()}
         user={mockUser}
@@ -171,13 +166,14 @@ describe('UserRolesModal', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Basic account access')).toBeInTheDocument();
-      expect(screen.getByText('Can manage account settings and users')).toBeInTheDocument();
     });
+
+    expect(screen.getByText('Can manage account settings and users')).toBeInTheDocument();
   });
 
   it('shows pending changes indicator', async () => {
     renderWithProviders(
-      <UserRolesModal 
+      <UserRolesModal
         isOpen={true}
         onClose={jest.fn()}
         user={mockUser}
@@ -187,8 +183,7 @@ describe('UserRolesModal', () => {
     );
 
     await waitFor(() => {
-      const managerRoleText = screen.getByText('Account Owner');
-      expect(managerRoleText).toBeInTheDocument();
+      expect(screen.getByText('Account Owner')).toBeInTheDocument();
     });
 
     // Click to add a role
@@ -212,7 +207,7 @@ describe('UserRolesModal', () => {
     });
 
     renderWithProviders(
-      <UserRolesModal 
+      <UserRolesModal
         isOpen={true}
         onClose={mockOnClose}
         user={mockUser}
@@ -221,8 +216,7 @@ describe('UserRolesModal', () => {
     );
 
     await waitFor(() => {
-      const managerRoleText = screen.getByText('Account Owner');
-      expect(managerRoleText).toBeInTheDocument();
+      expect(screen.getByText('Account Owner')).toBeInTheDocument();
     });
 
     // Add a role
@@ -239,9 +233,10 @@ describe('UserRolesModal', () => {
       expect((usersApi.updateAdminUser as jest.Mock)).toHaveBeenCalledWith('1', {
         roles: ['account.member', 'account.owner']
       });
-      expect(mockOnUserUpdated).toHaveBeenCalled();
-      expect(mockOnClose).toHaveBeenCalled();
     });
+
+    expect(mockOnUserUpdated).toHaveBeenCalled();
+    expect(mockOnClose).toHaveBeenCalled();
   });
 
   it('handles save errors gracefully', async () => {
@@ -252,7 +247,7 @@ describe('UserRolesModal', () => {
     });
 
     renderWithProviders(
-      <UserRolesModal 
+      <UserRolesModal
         isOpen={true}
         onClose={jest.fn()}
         user={mockUser}
@@ -262,8 +257,7 @@ describe('UserRolesModal', () => {
     );
 
     await waitFor(() => {
-      const managerRoleText = screen.getByText('Account Owner');
-      expect(managerRoleText).toBeInTheDocument();
+      expect(screen.getByText('Account Owner')).toBeInTheDocument();
     });
 
     // Add a role
@@ -282,7 +276,7 @@ describe('UserRolesModal', () => {
 
   it('prevents removing all roles', async () => {
     renderWithProviders(
-      <UserRolesModal 
+      <UserRolesModal
         isOpen={true}
         onClose={jest.fn()}
         user={mockUser}
@@ -291,15 +285,14 @@ describe('UserRolesModal', () => {
     );
 
     await waitFor(() => {
-      const memberRole = screen.getByText('Account Member');
-      expect(memberRole).toBeInTheDocument();
+      expect(screen.getByText('Account Member')).toBeInTheDocument();
     });
 
     // Try to remove the only role
     const memberCard = Array.from(document.querySelectorAll('div')).find(
       el => el.textContent?.includes('Account Member') && el.className?.includes('cursor-pointer')
     );
-    
+
     if (memberCard) {
       fireEvent.click(memberCard);
     }
@@ -316,7 +309,7 @@ describe('UserRolesModal', () => {
 
   it('shows restricted roles with lock icon', async () => {
     renderWithProviders(
-      <UserRolesModal 
+      <UserRolesModal
         isOpen={true}
         onClose={jest.fn()}
         user={mockUser}
@@ -327,18 +320,16 @@ describe('UserRolesModal', () => {
 
     await waitFor(() => {
       // System admin role should be restricted (canAssign: false)
-      const adminRole = screen.getByText('System Administrator');
-      expect(adminRole).toBeInTheDocument();
-      
-      // Check for "Restricted" badge
-      const restrictedBadge = screen.getByText('Restricted');
-      expect(restrictedBadge).toBeInTheDocument();
+      expect(screen.getByText('System Administrator')).toBeInTheDocument();
     });
+
+    // Check for "Restricted" badge
+    expect(screen.getByText('Restricted')).toBeInTheDocument();
   });
 
   it('allows resetting pending changes', async () => {
     renderWithProviders(
-      <UserRolesModal 
+      <UserRolesModal
         isOpen={true}
         onClose={jest.fn()}
         user={mockUser}
@@ -348,8 +339,7 @@ describe('UserRolesModal', () => {
     );
 
     await waitFor(() => {
-      const managerRoleText = screen.getByText('Account Owner');
-      expect(managerRoleText).toBeInTheDocument();
+      expect(screen.getByText('Account Owner')).toBeInTheDocument();
     });
 
     // Add a role
@@ -360,11 +350,11 @@ describe('UserRolesModal', () => {
 
     // Should show reset button
     await waitFor(() => {
-      const resetButton = screen.getByRole('button', { name: /reset changes/i });
-      expect(resetButton).toBeInTheDocument();
-      
-      fireEvent.click(resetButton);
+      expect(screen.getByRole('button', { name: /reset changes/i })).toBeInTheDocument();
     });
+
+    const resetButton = screen.getByRole('button', { name: /reset changes/i });
+    fireEvent.click(resetButton);
 
     // Changes should be cleared
     await waitFor(() => {
@@ -374,7 +364,7 @@ describe('UserRolesModal', () => {
 
   it('does not render when user is null', () => {
     const { container } = renderWithProviders(
-      <UserRolesModal 
+      <UserRolesModal
         isOpen={true}
         onClose={jest.fn()}
         user={null}
@@ -388,16 +378,16 @@ describe('UserRolesModal', () => {
 
   it('closes modal on cancel', () => {
     const mockOnClose = jest.fn();
-    
+
     renderWithProviders(
-      <UserRolesModal 
+      <UserRolesModal
         isOpen={true}
         onClose={mockOnClose}
         user={mockUser}
         onUserUpdated={jest.fn()}
       />
     );
-    
+
     const cancelButton = screen.getByRole('button', { name: /cancel/i });
     fireEvent.click(cancelButton);
 
@@ -406,9 +396,9 @@ describe('UserRolesModal', () => {
 
   it('handles API failure when loading roles', async () => {
     (usersApi.getAvailableRoles as jest.Mock).mockRejectedValue(new Error('Failed to load'));
-    
+
     renderWithProviders(
-      <UserRolesModal 
+      <UserRolesModal
         isOpen={true}
         onClose={jest.fn()}
         user={mockUser}
@@ -425,7 +415,7 @@ describe('UserRolesModal', () => {
 
   it('displays role count correctly', async () => {
     renderWithProviders(
-      <UserRolesModal 
+      <UserRolesModal
         isOpen={true}
         onClose={jest.fn()}
         user={mockUser}
@@ -437,8 +427,9 @@ describe('UserRolesModal', () => {
     // User has 1 role
     await waitFor(() => {
       expect(screen.getByText('1')).toBeInTheDocument();
-      expect(screen.getByText('Role')).toBeInTheDocument();
     });
+
+    expect(screen.getByText('Role')).toBeInTheDocument();
 
     // Add another role
     const managerCard = screen.getByText('Account Owner').closest('div');
@@ -449,7 +440,8 @@ describe('UserRolesModal', () => {
     // Should now show 2 roles
     await waitFor(() => {
       expect(screen.getByText('2')).toBeInTheDocument();
-      expect(screen.getByText('Roles')).toBeInTheDocument();
     });
+
+    expect(screen.getByText('Roles')).toBeInTheDocument();
   });
 });

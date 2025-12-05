@@ -1,4 +1,3 @@
-import React from 'react';
 import { screen, fireEvent, waitFor } from '@testing-library/react';
 import { AdminSettingsTabs } from './AdminSettingsTabs';
 import { renderWithProviders, mockUsers, mockAuthenticatedState } from '@/shared/utils/test-utils';

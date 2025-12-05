@@ -271,7 +271,7 @@ export const PlanDiscountConfig: React.FC<PlanDiscountConfigProps> = ({
           onClick={() => toggleSection('promotional')}
         >
           <div className="flex items-center space-x-3">
-            <CalendarIcon className="w-5 h-5 text-purple-600" />
+            <CalendarIcon className="w-5 h-5 text-theme-interactive-primary" />
             <div>
               <h4 className="font-medium text-theme-primary">Promotional Discount</h4>
               <p className="text-sm text-theme-secondary">Time-limited promotional offers</p>

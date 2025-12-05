@@ -1,7 +1,7 @@
-import React from 'react';
+
 import { Worker, UpdateWorkerData } from '@/features/workers/services/workerApi';
 import { WorkerDetailsPanel } from './WorkerDetailsPanel';
-import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Eye, Copy, Check, X } from 'lucide-react';
+import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Eye, Copy, Check } from 'lucide-react';
 import { useState } from 'react';
 import { copyToClipboard } from '@/shared/utils/clipboard';
 
@@ -84,14 +84,7 @@ export const WorkerTable: React.FC<WorkerTableProps> = ({
   };
 
   const formatMaskedToken = (token: string): string => {
-    if (token.includes('_') && token.length < 25) {
-      return token;
-    }
-    if (token.length > 20) {
-      const start = token.substring(0, 8);
-      const end = token.substring(token.length - 4);
-      return `${start}******${end}`;
-    }
+    // Backend now provides pre-masked tokens, return as-is
     return token;
   };
 
@@ -187,7 +180,7 @@ export const WorkerTable: React.FC<WorkerTableProps> = ({
                   <span className="text-sm font-medium text-theme-primary">Roles</span>
                 </th>
                 <th className="px-4 py-3 text-left">
-                  <span className="text-sm font-medium text-theme-primary">Token</span>
+                  <span className="text-sm font-medium text-theme-primary">Token Hash</span>
                 </th>
                 <th className="px-4 py-3 text-left">
                   <SortButton column="request_count">
@@ -282,16 +275,16 @@ export const WorkerTable: React.FC<WorkerTableProps> = ({
                     </div>
                   </td>
 
-                  {/* Token */}
+                  {/* Token Hash */}
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2 max-w-40">
                       <code className="text-xs font-mono text-theme-primary bg-theme-background px-2 py-1 rounded flex-1 truncate">
                         {formatMaskedToken(worker.masked_token)}
                       </code>
                       <button
-                        onClick={(e) => copyTokenToClipboard(worker.id, worker.masked_token, e)}
+                        onClick={(e) => copyTokenToClipboard(worker.id, worker.full_token_hash || '', e)}
                         className="p-1 text-theme-secondary hover:text-theme-primary transition-colors"
-                        title="Copy token"
+                        title="Copy full hash"
                       >
                         {copiedTokens.has(worker.id) ? 
                           <Check className="w-3 h-3 text-theme-success" /> : 
@@ -430,4 +423,3 @@ export const WorkerTable: React.FC<WorkerTableProps> = ({
   );
 };
 
-export default WorkerTable;

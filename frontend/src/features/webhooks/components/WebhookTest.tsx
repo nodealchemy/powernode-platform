@@ -12,7 +12,7 @@ import {
   Globe,
   ArrowRight
 } from 'lucide-react';
-import webhooksApi, { WebhookEndpoint } from '@/features/webhooks/services/webhooksApi';
+import { webhooksApi, WebhookEndpoint } from '@/features/webhooks/services/webhooksApi';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import CodeBlock from '@/shared/components/ui/CodeBlock';
 
@@ -34,7 +34,7 @@ interface TestResult {
   };
 }
 
-const WebhookTest: React.FC<WebhookTestProps> = ({
+export const WebhookTest: React.FC<WebhookTestProps> = ({
   webhook,
   onSuccess,
   onError
@@ -54,7 +54,7 @@ const WebhookTest: React.FC<WebhookTestProps> = ({
         if (response.success && response.data) {
           setAvailableEvents(response.data.events);
         }
-      } catch (err) {
+      } catch (error) {
         // Error handled silently - events are optional
       }
     };
@@ -79,7 +79,7 @@ const WebhookTest: React.FC<WebhookTestProps> = ({
       } else {
         onError(response.error || 'Webhook test failed');
       }
-    } catch (err) {
+    } catch (error) {
       onError('An unexpected error occurred during webhook test');
     } finally {
       setLoading(false);
@@ -376,4 +376,3 @@ const WebhookTest: React.FC<WebhookTestProps> = ({
   );
 };
 
-export default WebhookTest;

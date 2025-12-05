@@ -1,4 +1,3 @@
-import React from 'react';
 import { screen, fireEvent, waitFor, within, act } from '@testing-library/react';
 import { renderWithProviders } from '@/shared/utils/test-utils';
 import { EmailConfiguration } from './EmailConfiguration';

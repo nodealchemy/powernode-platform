@@ -1,18 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { useNotification } from '@/shared/hooks/useNotification';
-import proxySettingsApi, { 
-  ProxyUrlConfig, 
-  ProxyDetectionResult, 
-  ProxyValidationResult 
+import { useNotifications } from '@/shared/hooks/useNotifications';
+import proxySettingsApi, {
+  ProxyUrlConfig,
+  ProxyDetectionResult
 } from '@/shared/services/proxySettingsApi';
-import ProxyHostList from './ProxyHostList';
-import ProxyDetectionStatus from './ProxyDetectionStatus';
-import ProxyTestConnection from './ProxyTestConnection';
-import APIUrlPreview from './APIUrlPreview';
-import MultiTenancyConfigPanel from './MultiTenancyConfigPanel';
+import { ProxyHostList } from './ProxyHostList';
+import { ProxyDetectionStatus } from './ProxyDetectionStatus';
+import { ProxyTestConnection } from './ProxyTestConnection';
+import { APIUrlPreview } from './APIUrlPreview';
+import { MultiTenancyConfigPanel } from './MultiTenancyConfigPanel';
 
-const ProxySettingsTab: React.FC = () => {
-  const { showNotification } = useNotification();
+export const ProxySettingsTab: React.FC = () => {
+  const { showNotification } = useNotifications();
   const showSuccess = (msg: string) => showNotification(msg, 'success');
   const showError = (msg: string) => showNotification(msg, 'error');
   const [loading, setLoading] = useState(true);
@@ -24,6 +23,7 @@ const ProxySettingsTab: React.FC = () => {
   useEffect(() => {
     loadConfig();
     loadDetection();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadConfig = async () => {
@@ -84,7 +84,7 @@ const ProxySettingsTab: React.FC = () => {
     try {
       await proxySettingsApi.downloadConfigAsFile();
       showSuccess('Configuration exported successfully');
-    } catch (error) {
+    } catch (_error) {
       showError('Failed to export configuration');
     }
   };
@@ -96,7 +96,7 @@ const ProxySettingsTab: React.FC = () => {
       setConfig(updatedConfig);
       showSuccess('Configuration imported successfully');
       await loadDetection();
-    } catch (error) {
+    } catch (_error) {
       showError('Failed to import configuration');
     }
   };
@@ -374,7 +374,7 @@ const ProxySettingsTab: React.FC = () => {
 
       {activeTab === 'testing' && (
         <ProxyTestConnection
-          onTestComplete={(result) => {
+          onTestComplete={(_result) => {
             showSuccess('Proxy test completed successfully');
             loadDetection();
           }}
@@ -384,4 +384,3 @@ const ProxySettingsTab: React.FC = () => {
   );
 };
 
-export default ProxySettingsTab;

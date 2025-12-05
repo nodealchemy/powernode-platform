@@ -1,6 +1,4 @@
-import React from 'react';
 import { format, parseISO } from 'date-fns';
-// import { useChartColors } from '@/shared/hooks/useThemeColors';
 
 interface CohortChartProps {
   data: Array<{
@@ -20,13 +18,11 @@ interface CohortChartProps {
   title: string;
 }
 
-export const CohortChart: React.FC<CohortChartProps> = ({ 
-  data, 
+export const CohortChart: React.FC<CohortChartProps> = ({
+  data,
   summary,
   title
 }) => {
-  // Use theme-aware colors that update automatically
-  // const colors = useChartColors();
   const formatDate = (dateString: string) => {
     try {
       return format(parseISO(dateString + '-01'), 'MMM yyyy');
@@ -43,14 +39,10 @@ export const CohortChart: React.FC<CohortChartProps> = ({
     if (rate >= 80) return `bg-theme-success text-white`;
     if (rate >= 60) return `bg-theme-info text-white`;
     if (rate >= 40) return `bg-theme-warning text-white`;
-    if (rate >= 20) return `bg-orange-500 text-white`;
+    if (rate >= 20) return `bg-theme-warning text-white`;
     if (rate > 0) return `bg-theme-error text-white`;
     return 'bg-theme-background-secondary text-theme-secondary';
   };
-
-  // const getIntensity = (rate: number) => {
-  //   return Math.min(rate / 100, 1);
-  // }; // TODO: Use for color intensity calculation
 
   // Prepare data for the cohort table - handle empty data
   const maxMonths = data.length > 0 ? Math.max(...data.map(cohort => cohort.retention_rates.length)) : 0;
@@ -115,7 +107,7 @@ export const CohortChart: React.FC<CohortChartProps> = ({
             <span className="text-theme-secondary">0-20%</span>
           </div>
           <div className="flex items-center space-x-2">
-            <div className="w-4 h-4 bg-orange-500 rounded shadow-sm"></div>
+            <div className="w-4 h-4 bg-theme-warning rounded shadow-sm"></div>
             <span className="text-theme-secondary">20-40%</span>
           </div>
           <div className="flex items-center space-x-2">
@@ -279,8 +271,8 @@ export const CohortChart: React.FC<CohortChartProps> = ({
                     >
                       <title>
                         {(() => {
-                          const retentionData = cohort.retention_rates.find((r, idx) => idx === pointIndex);
-                          return retentionData ? 
+                          const retentionData = cohort.retention_rates.find((_r, idx) => idx === pointIndex);
+                          return retentionData ?
                             `${formatDate(cohort.cohort_date)} - Month ${retentionData.month}: ${formatPercentage(retentionData.retention_rate * 100)}` :
                             formatDate(cohort.cohort_date);
                         })()}

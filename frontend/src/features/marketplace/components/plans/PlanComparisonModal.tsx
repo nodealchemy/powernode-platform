@@ -6,7 +6,7 @@ import { Card } from '@/shared/components/ui/Card';
 import { App, AppPlan } from '../../types';
 import { formatPriceCents, formatBillingInterval, getPriorityBadgeClass } from '../../utils/themeHelpers';
 import { Check, X, Star, TrendingUp, Shield, Zap, Users, Crown } from 'lucide-react';
-import { useNotification } from '@/shared/hooks/useNotification';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 
 interface PlanComparisonModalProps {
   isOpen: boolean;
@@ -50,7 +50,7 @@ export const PlanComparisonModal: React.FC<PlanComparisonModalProps> = ({
 }) => {
   const [selectedPlanId, setSelectedPlanId] = useState<string>('');
   const [subscribing, setSubscribing] = useState(false);
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
 
   const plans = useMemo(() => app?.plans || [], [app?.plans]);
   const activePlans = useMemo(() => plans.filter(plan => plan.is_active), [plans]);

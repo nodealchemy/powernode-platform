@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Service, ServiceActivity, serviceAPI } from '@/shared/services/serviceApi';
+import { Service, ServiceActivity, service_api } from '@/shared/services/serviceApi';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 
 interface ServiceActivityListProps {
@@ -46,7 +46,7 @@ export const ServiceActivityList: React.FC<ServiceActivityListProps> = ({ servic
       if (filters.from) params.from = filters.from;
       if (filters.to) params.to = filters.to;
       
-      const response = await serviceAPI.getServiceActivities(service.id, params);
+      const response = await service_api.getServiceActivities(service.id, params);
       
       setActivities(response.activities);
       setPagination(response.pagination);
@@ -312,4 +312,3 @@ export const ServiceActivityList: React.FC<ServiceActivityListProps> = ({ servic
   );
 };
 
-export default ServiceActivityList;

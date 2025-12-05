@@ -1,444 +1,27 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/shared/components/ui/Button';
-import { 
-  Plus, Edit, Trash2, Save, X, Settings, Filter,
-  CheckCircle, AlertTriangle, Eye, Download
+import {
+  Plus, Edit, Trash2, Settings, Filter,
+  CheckCircle, X, Eye, Download
 } from 'lucide-react';
-import { 
-  planFeaturesApi, 
-  PlanFeature, 
-  Plan, 
-  PlanLimit, 
+import {
+  planFeaturesApi,
+  PlanFeature,
+  Plan,
+  PlanLimit,
   FeatureFormData,
   LimitFormData,
   PlanComparison
 } from '@/shared/services/planFeaturesApi';
-import { useNotification } from '@/shared/hooks/useNotification';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
+import { FeatureModal } from './FeatureModal';
+import { LimitModal } from './LimitModal';
 
 interface PlanFeaturesManagerProps {
   showComparison?: boolean;
   allowEditing?: boolean;
 }
-
-interface FeatureModalProps {
-  isOpen: boolean;
-  feature?: PlanFeature;
-  onClose: () => void;
-  onSave: (data: FeatureFormData) => void;
-}
-
-interface LimitModalProps {
-  isOpen: boolean;
-  plan: Plan;
-  feature: PlanFeature;
-  currentLimit?: PlanLimit;
-  onClose: () => void;
-  onSave: (data: LimitFormData) => void;
-}
-
-const FeatureModal: React.FC<FeatureModalProps> = ({ isOpen, feature, onClose, onSave }) => {
-  const [formData, setFormData] = useState<FeatureFormData>(planFeaturesApi.getDefaultFormData());
-  const [errors, setErrors] = useState<string[]>([]);
-
-  useEffect(() => {
-    if (feature) {
-      setFormData({
-        name: feature.name,
-        description: feature.description,
-        type: feature.type,
-        category: feature.category,
-        default_value: feature.default_value,
-        validation_rules: feature.validation_rules || {}
-      });
-    } else {
-      setFormData(planFeaturesApi.getDefaultFormData());
-    }
-    setErrors([]);
-  }, [feature, isOpen]);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const validationErrors = planFeaturesApi.validateFeatureFormData(formData);
-    if (validationErrors.length > 0) {
-      setErrors(validationErrors);
-      return;
-    }
-    onSave(formData);
-    onClose();
-  };
-
-  const handleEnumValuesChange = (value: string) => {
-    const enumValues = value.split('\n').map(v => v.trim()).filter(v => v);
-    setFormData(prev => ({
-      ...prev,
-      validation_rules: { ...prev.validation_rules, enum_values: enumValues }
-    }));
-  };
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-theme-surface rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-auto">
-        <div className="px-6 py-4 border-b border-theme">
-          <h3 className="text-lg font-semibold text-theme-primary">
-            {feature ? 'Edit Feature' : 'Create Feature'}
-          </h3>
-        </div>
-
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {/* Errors */}
-          {errors.length > 0 && (
-            <div className="bg-theme-error-background border border-theme-error rounded-lg p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <AlertTriangle className="w-5 h-5 text-theme-error" />
-                <span className="font-medium text-theme-error">Please fix the following errors:</span>
-              </div>
-              <ul className="list-disc list-inside text-sm text-theme-error space-y-1">
-                {errors.map((error, index) => (
-                  <li key={index}>{error}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {/* Basic Info */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-theme-primary mb-2">
-                Feature Name *
-              </label>
-              <input
-                type="text"
-                value={formData.name}
-                onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                className="w-full px-3 py-2 border border-theme rounded-md bg-theme-background text-theme-primary focus:outline-none focus:border-theme-focus"
-                placeholder="e.g., API Requests"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-theme-primary mb-2">
-                Category *
-              </label>
-              <select
-                value={formData.category}
-                onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value as 'core' | 'advanced' | 'integrations' | 'support' | 'analytics' }))}
-                className="w-full px-3 py-2 border border-theme rounded-md bg-theme-background text-theme-primary focus:outline-none focus:border-theme-focus"
-                required
-              >
-                <option value="core">Core Features</option>
-                <option value="advanced">Advanced Features</option>
-                <option value="integrations">Integrations</option>
-                <option value="support">Support</option>
-                <option value="analytics">Analytics</option>
-              </select>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-theme-primary mb-2">
-              Description *
-            </label>
-            <textarea
-              value={formData.description}
-              onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-              className="w-full px-3 py-2 border border-theme rounded-md bg-theme-background text-theme-primary focus:outline-none focus:border-theme-focus"
-              rows={3}
-              placeholder="Describe what this feature controls..."
-              required
-            />
-          </div>
-
-          {/* Type and Default Value */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-theme-primary mb-2">
-                Feature Type *
-              </label>
-              <select
-                value={formData.type}
-                onChange={(e) => setFormData(prev => ({ 
-                  ...prev, 
-                  type: e.target.value as 'boolean' | 'numeric' | 'text' | 'enum',
-                  default_value: e.target.value === 'boolean' ? false : e.target.value === 'numeric' ? 0 : ''
-                }))}
-                className="w-full px-3 py-2 border border-theme rounded-md bg-theme-background text-theme-primary focus:outline-none focus:border-theme-focus"
-                required
-              >
-                <option value="boolean">Boolean (True/False)</option>
-                <option value="numeric">Numeric (Number)</option>
-                <option value="text">Text (String)</option>
-                <option value="enum">Enum (Dropdown)</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-theme-primary mb-2">
-                Default Value
-              </label>
-              {formData.type === 'boolean' ? (
-                <select
-                  value={formData.default_value.toString()}
-                  onChange={(e) => setFormData(prev => ({ ...prev, default_value: e.target.value === 'true' }))}
-                  className="w-full px-3 py-2 border border-theme rounded-md bg-theme-background text-theme-primary focus:outline-none focus:border-theme-focus"
-                >
-                  <option value="false">Disabled</option>
-                  <option value="true">Enabled</option>
-                </select>
-              ) : formData.type === 'numeric' ? (
-                <input
-                  type="number"
-                  value={formData.default_value}
-                  onChange={(e) => setFormData(prev => ({ ...prev, default_value: parseInt(e.target.value) || 0 }))}
-                  className="w-full px-3 py-2 border border-theme rounded-md bg-theme-background text-theme-primary focus:outline-none focus:border-theme-focus"
-                />
-              ) : (
-                <input
-                  type="text"
-                  value={formData.default_value}
-                  onChange={(e) => setFormData(prev => ({ ...prev, default_value: e.target.value }))}
-                  className="w-full px-3 py-2 border border-theme rounded-md bg-theme-background text-theme-primary focus:outline-none focus:border-theme-focus"
-                />
-              )}
-            </div>
-          </div>
-
-          {/* Validation Rules */}
-          {(formData.type === 'numeric' || formData.type === 'enum') && (
-            <div className="space-y-4">
-              <h4 className="font-medium text-theme-primary">Validation Rules</h4>
-              
-              {formData.type === 'numeric' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-theme-primary mb-2">
-                      Minimum Value
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.validation_rules?.min || ''}
-                      onChange={(e) => setFormData(prev => ({
-                        ...prev,
-                        validation_rules: { 
-                          ...prev.validation_rules, 
-                          min: e.target.value ? parseInt(e.target.value) : undefined 
-                        }
-                      }))}
-                      className="w-full px-3 py-2 border border-theme rounded-md bg-theme-background text-theme-primary focus:outline-none focus:border-theme-focus"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-theme-primary mb-2">
-                      Maximum Value
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.validation_rules?.max || ''}
-                      onChange={(e) => setFormData(prev => ({
-                        ...prev,
-                        validation_rules: { 
-                          ...prev.validation_rules, 
-                          max: e.target.value ? parseInt(e.target.value) : undefined 
-                        }
-                      }))}
-                      className="w-full px-3 py-2 border border-theme rounded-md bg-theme-background text-theme-primary focus:outline-none focus:border-theme-focus"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {formData.type === 'enum' && (
-                <div>
-                  <label className="block text-sm font-medium text-theme-primary mb-2">
-                    Available Options (one per line)
-                  </label>
-                  <textarea
-                    value={formData.validation_rules?.enum_values?.join('\n') || ''}
-                    onChange={(e) => handleEnumValuesChange(e.target.value)}
-                    className="w-full px-3 py-2 border border-theme rounded-md bg-theme-background text-theme-primary focus:outline-none focus:border-theme-focus"
-                    rows={4}
-                    placeholder="basic&#10;standard&#10;premium"
-                  />
-                </div>
-              )}
-            </div>
-          )}
-        </form>
-
-        <div className="px-6 py-4 border-t border-theme flex justify-end gap-3">
-          <Button onClick={onClose} type="button" variant="outline">
-            Cancel
-          </Button>
-          <Button onClick={handleSubmit} variant="primary">
-            <Save className="w-4 h-4" />
-            {feature ? 'Update Feature' : 'Create Feature'}
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const LimitModal: React.FC<LimitModalProps> = ({ isOpen, plan, feature, currentLimit, onClose, onSave }) => {
-  const [formData, setFormData] = useState<LimitFormData>(planFeaturesApi.getDefaultLimitData());
-  const [errors, setErrors] = useState<string[]>([]);
-
-  useEffect(() => {
-    if (currentLimit) {
-      setFormData({
-        value: currentLimit.value,
-        is_unlimited: currentLimit.is_unlimited,
-        is_enabled: currentLimit.is_enabled,
-        custom_message: currentLimit.custom_message || ''
-      });
-    } else {
-      setFormData(planFeaturesApi.getDefaultLimitData());
-    }
-    setErrors([]);
-  }, [currentLimit, isOpen]);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const validationErrors = planFeaturesApi.validateLimitFormData(feature, formData);
-    if (validationErrors.length > 0) {
-      setErrors(validationErrors);
-      return;
-    }
-    onSave(formData);
-    onClose();
-  };
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-theme-surface rounded-lg shadow-xl max-w-lg w-full">
-        <div className="px-6 py-4 border-b border-theme">
-          <h3 className="text-lg font-semibold text-theme-primary">
-            Configure {feature.name} for {plan.name}
-          </h3>
-        </div>
-
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          {/* Errors */}
-          {errors.length > 0 && (
-            <div className="bg-theme-error-background border border-theme-error rounded-lg p-4">
-              <ul className="list-disc list-inside text-sm text-theme-error space-y-1">
-                {errors.map((error, index) => (
-                  <li key={index}>{error}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {/* Enable/Disable */}
-          <div>
-            <label className="flex items-center">
-              <input
-                type="checkbox"
-                checked={formData.is_enabled}
-                onChange={(e) => setFormData(prev => ({ ...prev, is_enabled: e.target.checked }))}
-                className="w-4 h-4 text-theme-interactive-primary border-theme rounded focus:ring-theme-interactive-primary"
-              />
-              <span className="ml-2 text-sm font-medium text-theme-primary">Enable this feature</span>
-            </label>
-          </div>
-
-          {formData.is_enabled && (
-            <>
-              {/* Unlimited toggle */}
-              <div>
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={formData.is_unlimited}
-                    onChange={(e) => setFormData(prev => ({ ...prev, is_unlimited: e.target.checked }))}
-                    className="w-4 h-4 text-theme-interactive-primary border-theme rounded focus:ring-theme-interactive-primary"
-                  />
-                  <span className="ml-2 text-sm font-medium text-theme-primary">Unlimited</span>
-                </label>
-              </div>
-
-              {/* Value input */}
-              {!formData.is_unlimited && (
-                <div>
-                  <label className="block text-sm font-medium text-theme-primary mb-2">
-                    {feature.type === 'boolean' ? 'Default State' : 'Limit Value'}
-                  </label>
-                  {feature.type === 'boolean' ? (
-                    <select
-                      value={formData.value ? 'true' : 'false'}
-                      onChange={(e) => setFormData(prev => ({ ...prev, value: e.target.value === 'true' }))}
-                      className="w-full px-3 py-2 border border-theme rounded-md bg-theme-background text-theme-primary focus:outline-none focus:border-theme-focus"
-                    >
-                      <option value="false">Disabled</option>
-                      <option value="true">Enabled</option>
-                    </select>
-                  ) : feature.type === 'numeric' ? (
-                    <input
-                      type="number"
-                      value={formData.value || ''}
-                      onChange={(e) => setFormData(prev => ({ ...prev, value: parseInt(e.target.value) || 0 }))}
-                      className="w-full px-3 py-2 border border-theme rounded-md bg-theme-background text-theme-primary focus:outline-none focus:border-theme-focus"
-                      min={feature.validation_rules?.min}
-                      max={feature.validation_rules?.max}
-                    />
-                  ) : feature.type === 'enum' ? (
-                    <select
-                      value={formData.value || ''}
-                      onChange={(e) => setFormData(prev => ({ ...prev, value: e.target.value }))}
-                      className="w-full px-3 py-2 border border-theme rounded-md bg-theme-background text-theme-primary focus:outline-none focus:border-theme-focus"
-                    >
-                      <option value="">Select an option</option>
-                      {feature.validation_rules?.enum_values?.map(option => (
-                        <option key={option} value={option}>{option}</option>
-                      ))}
-                    </select>
-                  ) : (
-                    <input
-                      type="text"
-                      value={formData.value || ''}
-                      onChange={(e) => setFormData(prev => ({ ...prev, value: e.target.value }))}
-                      className="w-full px-3 py-2 border border-theme rounded-md bg-theme-background text-theme-primary focus:outline-none focus:border-theme-focus"
-                    />
-                  )}
-                </div>
-              )}
-
-              {/* Custom message */}
-              <div>
-                <label className="block text-sm font-medium text-theme-primary mb-2">
-                  Custom Message (optional)
-                </label>
-                <textarea
-                  value={formData.custom_message || ''}
-                  onChange={(e) => setFormData(prev => ({ ...prev, custom_message: e.target.value }))}
-                  className="w-full px-3 py-2 border border-theme rounded-md bg-theme-background text-theme-primary focus:outline-none focus:border-theme-focus"
-                  rows={2}
-                  placeholder="Custom message shown when limit is reached"
-                />
-              </div>
-            </>
-          )}
-        </form>
-
-        <div className="px-6 py-4 border-t border-theme flex justify-end gap-3">
-          <Button onClick={onClose} type="button" variant="outline">
-            Cancel
-          </Button>
-          <Button onClick={handleSubmit} variant="primary">
-            <Save className="w-4 h-4" />
-            Save Limit
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-};
 
 export const PlanFeaturesManager: React.FC<PlanFeaturesManagerProps> = ({
   showComparison = true,
@@ -450,7 +33,7 @@ export const PlanFeaturesManager: React.FC<PlanFeaturesManagerProps> = ({
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'features' | 'limits' | 'comparison'>('features');
   const [selectedPlan, setSelectedPlan] = useState<string>('');
-  
+
   // Modals
   const [featureModal, setFeatureModal] = useState<{ isOpen: boolean; feature?: PlanFeature }>({ isOpen: false });
   const [limitModal, setLimitModal] = useState<{
@@ -460,7 +43,7 @@ export const PlanFeaturesManager: React.FC<PlanFeaturesManagerProps> = ({
     currentLimit?: PlanLimit;
   }>({ isOpen: false });
 
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
 
   const loadData = useCallback(async () => {
     try {
@@ -580,10 +163,10 @@ export const PlanFeaturesManager: React.FC<PlanFeaturesManagerProps> = ({
   const groupFeaturesByCategory = (features: PlanFeature[]) => {
     const allowedCategories: Array<PlanFeature['category']> = ['core', 'advanced', 'integrations', 'support', 'analytics'];
     const groups: Record<string, PlanFeature[]> = {};
-    
+
     features.forEach(feature => {
       const category = feature.category;
-      
+
       if (allowedCategories.includes(category)) {
         if (category === 'core') {
           groups.core = groups.core || [];
@@ -603,7 +186,7 @@ export const PlanFeaturesManager: React.FC<PlanFeaturesManagerProps> = ({
         }
       }
     });
-    
+
     return groups;
   };
 
@@ -626,7 +209,7 @@ export const PlanFeaturesManager: React.FC<PlanFeaturesManagerProps> = ({
           <h2 className="text-2xl font-bold text-theme-primary">Plan Features & Limits</h2>
           <p className="text-theme-secondary">Configure feature availability and limits for subscription plans</p>
         </div>
-        
+
         {allowEditing && (
           <Button variant="outline" onClick={() => setFeatureModal({ isOpen: true })}
             className="px-4 py-2 bg-theme-interactive-primary text-white rounded-md hover:bg-theme-interactive-primary-hover flex items-center gap-2"
@@ -647,7 +230,8 @@ export const PlanFeaturesManager: React.FC<PlanFeaturesManagerProps> = ({
           ].map(tab => {
             const Icon = tab.icon;
             return (
-              <Button variant="outline" onClick={() => setActiveTab(tab.id as any)}
+              <Button variant="outline" onClick={() => setActiveTab(tab.id as 'features' | 'limits' | 'comparison')}
+                key={tab.id}
                 className={`flex items-center gap-2 py-3 px-1 border-b-2 font-medium text-sm ${
                   activeTab === tab.id
                     ? 'border-theme-interactive-primary text-theme-interactive-primary'
@@ -701,7 +285,7 @@ export const PlanFeaturesManager: React.FC<PlanFeaturesManagerProps> = ({
                           Default: {planFeaturesApi.formatFeatureValue(feature, feature.default_value)}
                         </p>
                       </div>
-                      
+
                       {allowEditing && !feature.is_system_feature && (
                         <div className="flex items-center gap-2">
                           <Button variant="outline" onClick={() => setFeatureModal({ isOpen: true, feature })}
@@ -762,7 +346,7 @@ export const PlanFeaturesManager: React.FC<PlanFeaturesManagerProps> = ({
               <div className="divide-y divide-theme">
                 {categoryFeatures.map(feature => {
                   const currentLimit = selectedPlanData.limits.find(l => l.feature_id === feature.id);
-                  
+
                   return (
                     <div key={feature.id} className="px-6 py-4">
                       <div className="flex items-center justify-between">
@@ -792,14 +376,14 @@ export const PlanFeaturesManager: React.FC<PlanFeaturesManagerProps> = ({
                           </div>
                           <p className="text-sm text-theme-secondary">{feature.description}</p>
                         </div>
-                        
+
                         {allowEditing && (
                           <Button variant="outline" onClick={() => setLimitModal({
-                              isOpen: true,
-                              plan: selectedPlanData,
-                              feature,
-                              currentLimit
-                            })}
+                            isOpen: true,
+                            plan: selectedPlanData,
+                            feature,
+                            currentLimit
+                          })}
                             className="px-3 py-1 text-sm border border-theme text-theme-primary rounded-md hover:bg-theme-surface transition-colors"
                           >
                             Configure
@@ -896,7 +480,7 @@ export const PlanFeaturesManager: React.FC<PlanFeaturesManagerProps> = ({
         isOpen={featureModal.isOpen}
         feature={featureModal.feature}
         onClose={() => setFeatureModal({ isOpen: false })}
-        onSave={featureModal.feature ? 
+        onSave={featureModal.feature ?
           (data) => featureModal.feature ? handleUpdateFeature(featureModal.feature.id, data) : undefined :
           handleCreateFeature
         }
@@ -915,5 +499,3 @@ export const PlanFeaturesManager: React.FC<PlanFeaturesManagerProps> = ({
     </div>
   );
 };
-
-export default PlanFeaturesManager;

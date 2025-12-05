@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline';
-import { Link } from 'react-router-dom';
 import { Plan } from '../services/plansApi';
 
 interface PlanCardProps {
@@ -32,7 +31,7 @@ export const PlanCard: React.FC<PlanCardProps> = ({
   loading = false,
   upgradeContext,
   customAction,
-  onBillingPeriodChange
+  onBillingPeriodChange: _onBillingPeriodChange
 }) => {
   const [showAllFeatures, setShowAllFeatures] = useState(false);
   const getPrice = () => {
@@ -146,9 +145,9 @@ export const PlanCard: React.FC<PlanCardProps> = ({
 
   const handleBillingToggle = (e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent card selection
-    if (onBillingPeriodChange) {
+    if (_onBillingPeriodChange) {
       const newPeriod = billingPeriod === 'monthly' ? 'annually' : 'monthly';
-      onBillingPeriodChange(newPeriod);
+      _onBillingPeriodChange(newPeriod);
     }
   };
 
@@ -163,7 +162,7 @@ export const PlanCard: React.FC<PlanCardProps> = ({
             ? 'ring-4 ring-blue-500 ring-offset-4 ring-offset-blue-100/50 scale-110 shadow-2xl z-20 hover:scale-110 border-2 border-blue-400'
             : featured 
               ? 'ring-1 ring-blue-200 ring-offset-1 shadow-2xl scale-100 hover:scale-105 hover:shadow-xl border-primary'
-              : 'border border-gray-200 hover:scale-105 scale-100 shadow-lg hover:shadow-xl hover:border-gray-300'
+              : 'border border-theme hover:scale-105 scale-100 shadow-lg hover:shadow-xl hover:border-theme'
         }
         ${className}
       `}
@@ -313,7 +312,7 @@ export const PlanCard: React.FC<PlanCardProps> = ({
           ? 'bg-blue-50/80 border border-blue-200/50 shadow-md' 
           : featured
             ? 'bg-indigo-50/60 border border-indigo-200/40 shadow-md'
-            : 'bg-gray-50/80 border border-gray-200/50 shadow-sm'
+            : 'bg-theme-surface/80 border border-theme/50 shadow-sm'
       }`}>
         <div className="grid grid-cols-3 gap-2 text-center">
           <div className="flex flex-col items-center">
@@ -437,7 +436,7 @@ export const PlanCard: React.FC<PlanCardProps> = ({
                   e.stopPropagation();
                   setShowAllFeatures(!showAllFeatures);
                 }}
-                className="flex items-center justify-center gap-2 w-full text-xs font-semibold transition-all duration-200 hover:opacity-80 py-1 rounded-md hover:bg-gray-50"
+                className="flex items-center justify-center gap-2 w-full text-xs font-semibold transition-all duration-200 hover:opacity-80 py-1 rounded-md hover:bg-theme-surface"
                 style={{
                   color: isSelected ? '#2563eb' : '#059669',
                   fontWeight: '600'
@@ -465,7 +464,7 @@ export const PlanCard: React.FC<PlanCardProps> = ({
         {customAction ? (
           customAction
         ) : isCurrentPlan ? (
-          <div className="w-full text-center px-6 py-4 bg-gray-100 text-gray-600 rounded-xl font-bold">
+          <div className="w-full text-center px-6 py-4 bg-theme-surface text-theme-muted rounded-xl font-bold">
             Current Plan
           </div>
         ) : (
@@ -483,7 +482,7 @@ export const PlanCard: React.FC<PlanCardProps> = ({
               ${
                 isSelected
                   ? 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-xl hover:shadow-2xl text-white'
-                  : 'bg-white border-2 border-gray-300 hover:border-blue-400 hover:bg-blue-50 shadow-lg hover:shadow-xl'
+                  : 'bg-white border-2 border-theme hover:border-blue-400 hover:bg-blue-50 shadow-lg hover:shadow-xl'
               }
             `}
             style={{
@@ -517,4 +516,3 @@ export const PlanCard: React.FC<PlanCardProps> = ({
   );
 };
 
-export default PlanCard;

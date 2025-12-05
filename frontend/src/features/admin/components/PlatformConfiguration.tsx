@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Save, Settings, RefreshCw, Info } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
-import { useNotification } from '@/shared/hooks/useNotification';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import { adminSettingsApi } from '@/features/admin/services/adminSettingsApi';
 
 interface PlatformSettings {
@@ -35,7 +35,7 @@ export const PlatformConfiguration: React.FC = () => {
   const [hasChanges, setHasChanges] = useState(false);
   const [originalSettings, setOriginalSettings] = useState<PlatformSettings | null>(null);
   
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
 
   const loadSettings = useCallback(async () => {
     try {
@@ -339,4 +339,3 @@ export const PlatformConfiguration: React.FC = () => {
   );
 };
 
-export default PlatformConfiguration;

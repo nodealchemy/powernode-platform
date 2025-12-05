@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { appSubscriptionsApi, type AppSubscription, type SubscriptionUsage, type SubscriptionAnalytics } from '../services/appSubscriptionsApi';
-import { useNotification } from '@/shared/hooks/useNotification';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 
 interface UseAppSubscriptionsResult {
   subscriptions: AppSubscription[];
@@ -34,7 +34,7 @@ export const useAppSubscriptions = (status?: string, initialLoad = true): UseApp
     total_count: number;
     per_page: number;
   } | null>(null);
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
 
   const loadSubscriptions = useCallback(async (page = 1, append = false) => {
     try {
@@ -50,8 +50,8 @@ export const useAppSubscriptions = (status?: string, initialLoad = true): UseApp
       }
       
       setPagination(response.pagination);
-    } catch (err: unknown) {
-      const httpError = err as { response?: { data?: { error?: string } } };
+    } catch (error: unknown) {
+      const httpError = error as { response?: { data?: { error?: string } } };
       const errorMessage = httpError.response?.data?.error || 'Failed to load subscriptions';
       setError(errorMessage);
       showNotification(errorMessage, 'error');
@@ -79,8 +79,8 @@ export const useAppSubscriptions = (status?: string, initialLoad = true): UseApp
       
       showNotification('Successfully subscribed to app', 'success');
       return newSubscription;
-    } catch (err: unknown) {
-      const httpError = err as { response?: { data?: { error?: string } } };
+    } catch (error: unknown) {
+      const httpError = error as { response?: { data?: { error?: string } } };
       const errorMessage = httpError.response?.data?.error || 'Failed to create subscription';
       showNotification(errorMessage, 'error');
       return null;
@@ -100,8 +100,8 @@ export const useAppSubscriptions = (status?: string, initialLoad = true): UseApp
       
       showNotification('Subscription updated successfully', 'success');
       return updatedSubscription;
-    } catch (err: unknown) {
-      const httpError = err as { response?: { data?: { error?: string } } };
+    } catch (error: unknown) {
+      const httpError = error as { response?: { data?: { error?: string } } };
       const errorMessage = httpError.response?.data?.error || 'Failed to update subscription';
       showNotification(errorMessage, 'error');
       return null;
@@ -118,8 +118,8 @@ export const useAppSubscriptions = (status?: string, initialLoad = true): UseApp
       setSubscriptions(prev => prev.filter(sub => sub.id !== id));
       showNotification('Subscription deleted successfully', 'success');
       return true;
-    } catch (err: unknown) {
-      const httpError = err as { response?: { data?: { error?: string } } };
+    } catch (error: unknown) {
+      const httpError = error as { response?: { data?: { error?: string } } };
       const errorMessage = httpError.response?.data?.error || 'Failed to delete subscription';
       showNotification(errorMessage, 'error');
       return false;
@@ -139,8 +139,8 @@ export const useAppSubscriptions = (status?: string, initialLoad = true): UseApp
       
       showNotification('Subscription paused successfully', 'success');
       return pausedSubscription;
-    } catch (err: unknown) {
-      const httpError = err as { response?: { data?: { error?: string } } };
+    } catch (error: unknown) {
+      const httpError = error as { response?: { data?: { error?: string } } };
       const errorMessage = httpError.response?.data?.error || 'Failed to pause subscription';
       showNotification(errorMessage, 'error');
       return null;
@@ -160,8 +160,8 @@ export const useAppSubscriptions = (status?: string, initialLoad = true): UseApp
       
       showNotification('Subscription resumed successfully', 'success');
       return resumedSubscription;
-    } catch (err: unknown) {
-      const httpError = err as { response?: { data?: { error?: string } } };
+    } catch (error: unknown) {
+      const httpError = error as { response?: { data?: { error?: string } } };
       const errorMessage = httpError.response?.data?.error || 'Failed to resume subscription';
       showNotification(errorMessage, 'error');
       return null;
@@ -181,8 +181,8 @@ export const useAppSubscriptions = (status?: string, initialLoad = true): UseApp
       
       showNotification('Subscription cancelled successfully', 'success');
       return cancelledSubscription;
-    } catch (err: unknown) {
-      const httpError = err as { response?: { data?: { error?: string } } };
+    } catch (error: unknown) {
+      const httpError = error as { response?: { data?: { error?: string } } };
       const errorMessage = httpError.response?.data?.error || 'Failed to cancel subscription';
       showNotification(errorMessage, 'error');
       return null;
@@ -202,8 +202,8 @@ export const useAppSubscriptions = (status?: string, initialLoad = true): UseApp
       
       showNotification('Plan upgraded successfully', 'success');
       return upgradedSubscription;
-    } catch (err: unknown) {
-      const httpError = err as { response?: { data?: { error?: string } } };
+    } catch (error: unknown) {
+      const httpError = error as { response?: { data?: { error?: string } } };
       const errorMessage = httpError.response?.data?.error || 'Failed to upgrade plan';
       showNotification(errorMessage, 'error');
       return null;
@@ -223,8 +223,8 @@ export const useAppSubscriptions = (status?: string, initialLoad = true): UseApp
       
       showNotification('Plan downgraded successfully', 'success');
       return downgradedSubscription;
-    } catch (err: unknown) {
-      const httpError = err as { response?: { data?: { error?: string } } };
+    } catch (error: unknown) {
+      const httpError = error as { response?: { data?: { error?: string } } };
       const errorMessage = httpError.response?.data?.error || 'Failed to downgrade plan';
       showNotification(errorMessage, 'error');
       return null;
@@ -270,7 +270,7 @@ export const useSubscriptionUsage = (subscriptionId: string | null) => {
   const [usage, setUsage] = useState<SubscriptionUsage | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
   const hasLoadedUsageRef = useRef<string | null>(null);
 
   const loadUsage = useCallback(async () => {
@@ -281,8 +281,8 @@ export const useSubscriptionUsage = (subscriptionId: string | null) => {
       setError(null);
       const usageData = await appSubscriptionsApi.getUsage(subscriptionId);
       setUsage(usageData);
-    } catch (err: unknown) {
-      const httpError = err as { response?: { data?: { error?: string } } };
+    } catch (error: unknown) {
+      const httpError = error as { response?: { data?: { error?: string } } };
       const errorMessage = httpError.response?.data?.error || 'Failed to load usage data';
       setError(errorMessage);
       showNotification(errorMessage, 'error');
@@ -313,7 +313,7 @@ export const useSubscriptionAnalytics = (subscriptionId: string | null) => {
   const [analytics, setAnalytics] = useState<SubscriptionAnalytics | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
   const hasLoadedAnalyticsRef = useRef<string | null>(null);
 
   const loadAnalytics = useCallback(async () => {
@@ -324,8 +324,8 @@ export const useSubscriptionAnalytics = (subscriptionId: string | null) => {
       setError(null);
       const analyticsData = await appSubscriptionsApi.getAnalytics(subscriptionId);
       setAnalytics(analyticsData);
-    } catch (err: unknown) {
-      const httpError = err as { response?: { data?: { error?: string } } };
+    } catch (error: unknown) {
+      const httpError = error as { response?: { data?: { error?: string } } };
       const errorMessage = httpError.response?.data?.error || 'Failed to load analytics data';
       setError(errorMessage);
       showNotification(errorMessage, 'error');

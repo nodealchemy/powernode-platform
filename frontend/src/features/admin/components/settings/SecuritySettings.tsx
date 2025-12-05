@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Shield, Key, Clock, AlertTriangle, CheckCircle, XCircle, RefreshCw } from 'lucide-react';
 import { SettingsCard, ToggleSettingItem, FormField, Input, Select, SectionHeader } from './SettingsComponents';
-import { useNotification } from '@/shared/hooks/useNotification';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import { adminSettingsApi } from '@/features/admin/services/adminSettingsApi';
 
 interface SecurityConfig {
@@ -64,7 +64,7 @@ export const SecuritySettings: React.FC = () => {
   const [config, setConfig] = useState<SecurityConfig>(defaultConfig);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
 
   const loadSecurityConfig = useCallback(async () => {
     setLoading(true);
@@ -472,4 +472,3 @@ export const SecuritySettings: React.FC = () => {
   );
 };
 
-export default SecuritySettings;

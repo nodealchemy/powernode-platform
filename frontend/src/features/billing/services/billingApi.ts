@@ -90,6 +90,15 @@ export interface PaginatedResponse<T> {
   };
 }
 
+/**
+ * @module BillingApi
+ * @description Billing operations, invoices, and payment processing service.
+ *
+ * RESPONSIBILITY: Billing overview, invoices, payment methods, payment processing
+ * NOT RESPONSIBLE FOR: Subscription CRUD operations
+ *
+ * @see Use subscriptionService for subscription lifecycle management
+ */
 class BillingApi {
   // Get billing overview with summary statistics
   async getOverview(): Promise<BillingOverview> {
@@ -196,53 +205,6 @@ class BillingApi {
     error?: string;
   }> {
     const response = await api.put(`/billing/payment-methods/${paymentMethodId}/default`);
-    return { success: true, ...response.data };
-  }
-
-  // Subscription management methods
-  async getSubscription(subscriptionId: string): Promise<{
-    data: any; // Subscription type would need to be defined
-  }> {
-    const response = await api.get(`/billing/subscriptions/${subscriptionId}`);
-    return { data: response.data };
-  }
-
-  async createSubscription(subscriptionData: {
-    plan_id: string;
-    payment_method_id?: string;
-    billing_cycle?: string;
-    trial_end?: string;
-  }): Promise<{
-    success: boolean;
-    data?: any;
-    error?: string;
-  }> {
-    const response = await api.post('/billing/subscriptions', subscriptionData);
-    return { success: true, data: response.data };
-  }
-
-  async updateSubscription(subscriptionId: string, updateData: {
-    plan_id?: string;
-    payment_method_id?: string;
-  }): Promise<{
-    success: boolean;
-    subscription?: any;
-    error?: string;
-  }> {
-    const response = await api.put(`/billing/subscriptions/${subscriptionId}`, updateData);
-    return { success: true, ...response.data };
-  }
-
-  async cancelSubscription(subscriptionId: string, options?: { at_period_end?: boolean }): Promise<{
-    success: boolean;
-    subscription?: any;
-    error?: string;
-  }> {
-    // Handle both forms - with and without options
-    const body = options ? options : undefined;
-    const response = body ? 
-      await api.post(`/billing/subscriptions/${subscriptionId}/cancel`, body) :
-      await api.post(`/billing/subscriptions/${subscriptionId}/cancel`);
     return { success: true, ...response.data };
   }
 

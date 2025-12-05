@@ -16,7 +16,7 @@ import {
 import {
   CSS,
 } from '@dnd-kit/utilities';
-import { useNotification } from '@/shared/hooks/useNotification';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import proxySettingsApi from '@/shared/services/proxySettingsApi';
 
 interface ProxyHostListProps {
@@ -31,11 +31,11 @@ interface SortableHostItemProps {
   getHostBadge: (host: string) => React.ReactNode;
 }
 
-const SortableHostItem: React.FC<SortableHostItemProps> = ({ 
-  host, 
-  index, 
-  onRemove, 
-  getHostBadge 
+const SortableHostItem: React.FC<SortableHostItemProps> = ({
+  host,
+  index: _index,
+  onRemove,
+  getHostBadge
 }) => {
   const {
     attributes,
@@ -90,8 +90,8 @@ const SortableHostItem: React.FC<SortableHostItemProps> = ({
   );
 };
 
-const ProxyHostList: React.FC<ProxyHostListProps> = ({ trustedHosts, onHostsChange }) => {
-  const { showNotification } = useNotification();
+export const ProxyHostList: React.FC<ProxyHostListProps> = ({ trustedHosts, onHostsChange }) => {
+  const { showNotification } = useNotifications();
   const showSuccess = (msg: string) => showNotification(msg, 'success');
   const showError = (msg: string) => showNotification(msg, 'error');
   const [newHost, setNewHost] = useState('');
@@ -308,4 +308,3 @@ const ProxyHostList: React.FC<ProxyHostListProps> = ({ trustedHosts, onHostsChan
   );
 };
 
-export default ProxyHostList;
