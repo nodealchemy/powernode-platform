@@ -4,7 +4,7 @@ import { useLocation } from 'react-router-dom';
 import { RootState } from '@/shared/services';
 import { billingApi, BillingOverview } from '@/features/billing/services/billingApi';
 import { DateRangePicker } from '@/shared/components/ui/DateRangePicker';
-import CreateInvoiceModal, { InvoiceFormData } from '@/features/billing/components/CreateInvoiceModal';
+import { CreateInvoiceModal, InvoiceFormData } from '@/features/billing/components/CreateInvoiceModal';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
 import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
@@ -43,17 +43,18 @@ export const BillingPage: React.FC = () => {
     loadBillingData();
   }, [loadBillingData]);
 
-  const handleCreateInvoice = async (invoiceData: InvoiceFormData) => {
+  const handleCreateInvoice = async (_invoiceData: InvoiceFormData) => {
     try {
       setLoading(true);
       // In a real implementation, this would call the billing API
-      
+
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 1000));
-      
+
       setShowCreateInvoice(false);
       await loadBillingData(); // Refresh data
-    } catch (error) {
+    } catch (_error) {
+      // Error handling could be added here
     } finally {
       setLoading(false);
     }

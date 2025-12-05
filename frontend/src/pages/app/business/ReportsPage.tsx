@@ -105,8 +105,8 @@ export const ReportsPage: React.FC = () => {
       setTemplates(templatesResponse.data);
       setRequests(requestsResponse.data);
       isInitialLoad.current = false;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load reports data');
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Failed to load reports data');
     } finally {
       setLoading(false);
     }
@@ -174,8 +174,8 @@ export const ReportsPage: React.FC = () => {
       setShowRequestModal(false);
       setSelectedTemplate(null);
       
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to submit report request');
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Failed to submit report request');
     } finally {
       setIsSubmitting(false);
     }
@@ -186,7 +186,7 @@ export const ReportsPage: React.FC = () => {
     
     try {
       await reportsService.downloadReport(request.id);
-    } catch (err) {
+    } catch (error) {
     }
   };
 
@@ -197,7 +197,7 @@ export const ReportsPage: React.FC = () => {
       // Refresh requests list
       const response = await reportsService.getRequests();
       setRequests(response.data);
-    } catch (err) {
+    } catch (error) {
     }
   };
 

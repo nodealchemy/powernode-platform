@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
-import { siteSettingsApi, SiteSetting } from '@/features/settings/services/siteSettingsApi';
-import { useNotification } from '@/shared/hooks/useNotification';
+import { siteSettingsApi } from '@/features/settings/services/siteSettingsApi';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import { 
   Settings, 
   Save, 
@@ -29,8 +29,7 @@ interface FooterSettingsForm {
 }
 
 export const SiteSettingsPage: React.FC = () => {
-  const { showNotification } = useNotification();
-  const [settings, setSettings] = useState<SiteSetting[]>([]);
+  const { showNotification } = useNotifications();
   const [footerSettings, setFooterSettings] = useState<FooterSettingsForm>({
     site_name: '',
     copyright_text: '',
@@ -59,8 +58,6 @@ export const SiteSettingsPage: React.FC = () => {
       setLoading(true);
       const response = await siteSettingsApi.getFooterSettings();
       if (response.success) {
-        setSettings(response.data.settings);
-        
         // Convert settings array to form object
         const formData: FooterSettingsForm = {
           site_name: '',
@@ -245,7 +242,7 @@ export const SiteSettingsPage: React.FC = () => {
         <div className="surface rounded-2xl p-6">
           <div className="flex items-center mb-6">
             <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center mr-4">
-              <Globe className="w-5 h-5 text-blue-600" />
+              <Globe className="w-5 h-5 text-theme-info" />
             </div>
             <div>
               <h3 className="text-lg font-semibold text-theme-primary">Contact Information</h3>
@@ -263,7 +260,7 @@ export const SiteSettingsPage: React.FC = () => {
                 value={footerSettings.contact_email}
                 onChange={(e) => handleInputChange('contact_email', e.target.value)}
                 className="input-theme"
-                placeholder="hello@powernode.org"
+                placeholder="hello@example.com"
               />
             </div>
 
@@ -300,7 +297,7 @@ export const SiteSettingsPage: React.FC = () => {
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center">
               <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center mr-4">
-                <Globe className="w-5 h-5 text-purple-600" />
+                <Globe className="w-5 h-5 text-theme-interactive-primary" />
               </div>
               <div>
                 <h3 className="text-lg font-semibold text-theme-primary">Social Media Links</h3>
@@ -388,7 +385,7 @@ export const SiteSettingsPage: React.FC = () => {
         <div className="surface rounded-2xl p-6">
           <div className="flex items-center mb-6">
             <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center mr-4">
-              <Settings className="w-5 h-5 text-green-600" />
+              <Settings className="w-5 h-5 text-theme-success" />
             </div>
             <div>
               <h3 className="text-lg font-semibold text-theme-primary">Performance Settings</h3>
@@ -410,7 +407,7 @@ export const SiteSettingsPage: React.FC = () => {
                     onChange={(e) => handleInputChange('footer_cache_enabled', e.target.checked)}
                     className="sr-only peer"
                   />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                  <div className="w-11 h-6 bg-theme-border peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-theme after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-theme-info"></div>
                 </label>
               </div>
             </div>
@@ -421,7 +418,7 @@ export const SiteSettingsPage: React.FC = () => {
         <div className="surface rounded-2xl p-6">
           <div className="flex items-center mb-4">
             <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center mr-4">
-              <Globe className="w-5 h-5 text-green-600" />
+              <Globe className="w-5 h-5 text-theme-success" />
             </div>
             <div>
               <h3 className="text-lg font-semibold text-theme-primary">Settings Status</h3>
@@ -432,36 +429,36 @@ export const SiteSettingsPage: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-green-50 border border-green-200 rounded-lg p-4">
               <div className="flex items-center">
-                <Globe className="w-5 h-5 text-green-600 mr-2" />
+                <Globe className="w-5 h-5 text-theme-success mr-2" />
                 <span className="text-sm font-medium text-green-800">Public Settings</span>
               </div>
-              <p className="text-xs text-green-600 mt-1">Visible to all website visitors</p>
+              <p className="text-xs text-theme-success mt-1">Visible to all website visitors</p>
             </div>
             
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <div className="flex items-center">
-                <Settings className="w-5 h-5 text-blue-600 mr-2" />
+                <Settings className="w-5 h-5 text-theme-info mr-2" />
                 <span className="text-sm font-medium text-blue-800">Total Settings</span>
               </div>
-              <p className="text-xs text-blue-600 mt-1">{Object.keys(footerSettings).length - 1} public + 1 admin</p>
+              <p className="text-xs text-theme-info mt-1">{Object.keys(footerSettings).length - 1} public + 1 admin</p>
             </div>
             
             <div className={`border rounded-lg p-4 ${footerSettings.footer_cache_enabled ? 'bg-green-50 border-green-200' : 'bg-orange-50 border-orange-200'}`}>
               <div className="flex items-center">
-                <Settings className={`w-5 h-5 mr-2 ${footerSettings.footer_cache_enabled ? 'text-green-600' : 'text-orange-600'}`} />
+                <Settings className={`w-5 h-5 mr-2 ${footerSettings.footer_cache_enabled ? 'text-theme-success' : 'text-theme-warning'}`} />
                 <span className={`text-sm font-medium ${footerSettings.footer_cache_enabled ? 'text-green-800' : 'text-orange-800'}`}>Footer Caching</span>
               </div>
-              <p className={`text-xs mt-1 ${footerSettings.footer_cache_enabled ? 'text-green-600' : 'text-orange-600'}`}>
+              <p className={`text-xs mt-1 ${footerSettings.footer_cache_enabled ? 'text-theme-success' : 'text-theme-warning'}`}>
                 {footerSettings.footer_cache_enabled ? 'Enabled (1 hour cache)' : 'Disabled (no caching)'}
               </p>
             </div>
             
             <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
               <div className="flex items-center">
-                <Lock className="w-5 h-5 text-purple-600 mr-2" />
+                <Lock className="w-5 h-5 text-theme-interactive-primary mr-2" />
                 <span className="text-sm font-medium text-purple-800">Access Level</span>
               </div>
-              <p className="text-xs text-purple-600 mt-1">Admin only management</p>
+              <p className="text-xs text-theme-interactive-primary mt-1">Admin only management</p>
             </div>
           </div>
         </div>

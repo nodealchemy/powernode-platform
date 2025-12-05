@@ -2,7 +2,7 @@
 import React from 'react';
 import { useSelector } from 'react-redux';
 import { Navigate } from 'react-router-dom';
-import RateLimitingSettings from '@/features/admin/components/settings/RateLimitingSettings';
+import { RateLimitingSettings } from '@/features/admin/components/settings/RateLimitingSettings';
 import { RootState } from '@/shared/services';
 import { hasPermissions } from '@/shared/utils/permissionUtils';
 

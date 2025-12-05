@@ -7,7 +7,9 @@ import { Button } from '@/shared/components/ui/Button';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Input } from '@/shared/components/ui/Input';
 import { Select } from '@/shared/components/ui/Select';
-import { globalNotifications } from '@/shared/services/globalNotifications';
+import { useDispatch } from 'react-redux';
+import { addNotification } from '@/shared/services/slices/uiSlice';
+import { AppDispatch } from '@/shared/services';
 import { 
   PlusIcon, 
  
@@ -26,6 +28,7 @@ import {
 import { Navigate } from 'react-router-dom';
 
 export default function KnowledgeBaseAdminPage() {
+  const dispatch = useDispatch<AppDispatch>();
   const { user: currentUser } = useSelector((state: RootState) => state.auth);
   const [articles, setArticles] = useState<KbArticle[]>([]);
   const [categories, setCategories] = useState<KbCategory[]>([]);
@@ -90,10 +93,10 @@ export default function KnowledgeBaseAdminPage() {
 
       setArticles(articlesResponse.data.data.articles);
       setStats(articlesResponse.data.data.stats);
-      setCategories(categoriesResponse.data.data.categories);
-      setTotalPages(articlesResponse.data.data.pagination?.pages || 1);
+      setCategories(categoriesResponse.data.data);
+      setTotalPages(articlesResponse.data.data.pagination?.total_pages || 1);
     } catch (error) {
-      globalNotifications.error('Failed to load data');
+      dispatch(addNotification({ type: 'error', message: 'Failed to load data' }));
     } finally {
       setIsLoading(false);
     }
@@ -121,11 +124,11 @@ export default function KnowledgeBaseAdminPage() {
 
     try {
       await knowledgeBaseAdminApi.bulkUpdateArticles(selectedArticles, { status });
-      globalNotifications.success(`${selectedArticles.length} articles updated`);
+      dispatch(addNotification({ type: 'success', message: `${selectedArticles.length} articles updated` }));
       setSelectedArticles([]);
       loadAdminData();
     } catch (error) {
-      globalNotifications.error('Failed to update articles');
+      dispatch(addNotification({ type: 'error', message: 'Failed to update articles' }));
     }
   };
 
@@ -138,11 +141,11 @@ export default function KnowledgeBaseAdminPage() {
 
     try {
       await knowledgeBaseAdminApi.bulkDeleteArticles(selectedArticles);
-      globalNotifications.success(`${selectedArticles.length} articles deleted`);
+      dispatch(addNotification({ type: 'success', message: `${selectedArticles.length} articles deleted` }));
       setSelectedArticles([]);
       loadAdminData();
     } catch (error) {
-      globalNotifications.error('Failed to delete articles');
+      dispatch(addNotification({ type: 'error', message: 'Failed to delete articles' }));
     }
   };
 
@@ -270,7 +273,7 @@ export default function KnowledgeBaseAdminPage() {
                   </label>
                   <Select
                     value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
+                    onChange={(value) => setStatusFilter(value)}
                   >
                     <option value="">All Statuses</option>
                     <option value="draft">Draft</option>
@@ -286,7 +289,7 @@ export default function KnowledgeBaseAdminPage() {
                   </label>
                   <Select
                     value={categoryFilter}
-                    onChange={(e) => setCategoryFilter(e.target.value)}
+                    onChange={(value) => setCategoryFilter(value)}
                   >
                     <option value="">All Categories</option>
                     {categories.map(category => (
@@ -329,7 +332,7 @@ export default function KnowledgeBaseAdminPage() {
 
           <div className="bg-theme-surface rounded-lg border border-theme p-4">
             <div className="flex items-center">
-              <div className="h-8 w-8 bg-green-500 rounded-lg flex items-center justify-center">
+              <div className="h-8 w-8 bg-theme-success rounded-lg flex items-center justify-center">
                 <span className="text-white text-sm font-bold">P</span>
               </div>
               <div className="ml-3">
@@ -353,7 +356,7 @@ export default function KnowledgeBaseAdminPage() {
 
           <div className="bg-theme-surface rounded-lg border border-theme p-4">
             <div className="flex items-center">
-              <div className="h-8 w-8 bg-blue-500 rounded-lg flex items-center justify-center">
+              <div className="h-8 w-8 bg-theme-info rounded-lg flex items-center justify-center">
                 <span className="text-white text-sm font-bold">R</span>
               </div>
               <div className="ml-3">
@@ -365,7 +368,7 @@ export default function KnowledgeBaseAdminPage() {
 
           <div className="bg-theme-surface rounded-lg border border-theme p-4">
             <div className="flex items-center">
-              <div className="h-8 w-8 bg-gray-500 rounded-lg flex items-center justify-center">
+              <div className="h-8 w-8 bg-theme-surface0 rounded-lg flex items-center justify-center">
                 <span className="text-white text-sm font-bold">A</span>
               </div>
               <div className="ml-3">

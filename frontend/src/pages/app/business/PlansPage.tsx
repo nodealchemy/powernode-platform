@@ -12,12 +12,12 @@ import { hasPermissions } from '@/shared/utils/permissionUtils';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
 import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
-import { useNotification } from '@/shared/hooks/useNotification';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import { Plus, RefreshCw } from 'lucide-react';
 
 export const PlansPage: React.FC = () => {
   const { user } = useSelector((state: RootState) => state.auth);
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
   const notificationRef = useRef(showNotification);
   notificationRef.current = showNotification;
   
@@ -72,7 +72,7 @@ export const PlansPage: React.FC = () => {
       const response = await plansApi.getPlan(planId);
       setSelectedPlan(response.data?.plan || null);
       setShowEditModal(true);
-    } catch (error) {
+    } catch (_error) {
       showError('Failed to load plan details');
     }
   };
@@ -83,14 +83,14 @@ export const PlansPage: React.FC = () => {
       const response = await plansApi.getPlan(planId);
       if (response.data?.plan) {
         const planToCopy = response.data.plan;
-        
+
         // Create a copy with modified name and cleared IDs for new plan creation
         // Explicitly preserve all critical fields to ensure nothing is lost
         const duplicatedPlan = {
           ...planToCopy,
           id: `copy-of-${planToCopy.id}`,
           name: `Copy of ${planToCopy.name}`,
-          
+
           // Core plan data (preserved)
           description: planToCopy.description,
           price_cents: planToCopy.price_cents,
@@ -100,13 +100,13 @@ export const PlansPage: React.FC = () => {
           is_public: planToCopy.is_public,
           formatted_price: planToCopy.formatted_price,
           monthly_price: planToCopy.monthly_price,
-          
+
           // Features and Limits (explicitly preserved)
           features: planToCopy.features ? { ...planToCopy.features } : {},
           limits: planToCopy.limits ? { ...planToCopy.limits } : {},
           default_role: planToCopy.default_role,
           metadata: planToCopy.metadata ? { ...planToCopy.metadata } : {},
-          
+
           // Discount settings (explicitly preserved)
           has_annual_discount: planToCopy.has_annual_discount,
           annual_discount_percent: planToCopy.annual_discount_percent,
@@ -119,30 +119,30 @@ export const PlansPage: React.FC = () => {
           promotional_discount_code: planToCopy.promotional_discount_code,
           annual_savings_amount: planToCopy.annual_savings_amount,
           annual_savings_percentage: planToCopy.annual_savings_percentage,
-          
+
           // Reset payment gateway IDs since this will be a new plan
           stripe_price_id: null,
           paypal_plan_id: null,
-          
+
           // Reset subscription counts
           subscription_count: 0,
           active_subscription_count: 0,
           can_be_deleted: true,
-          
+
           // Set as inactive by default for review
           status: 'inactive' as const,
-          
+
           // Update timestamps
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         };
-        
+
         setSelectedPlan(duplicatedPlan);
         setShowCreateModal(true);
       } else {
         showError('Failed to load plan details');
       }
-    } catch (error) {
+    } catch (_error) {
       showError('Failed to load plan for copying');
     }
   };
@@ -152,7 +152,7 @@ export const PlansPage: React.FC = () => {
       await plansApi.togglePlanStatus(planId);
       showSuccess('Plan status updated successfully');
       loadPlans();
-    } catch (error) {
+    } catch (_error) {
       showError('Failed to update plan status');
     }
   };
@@ -166,7 +166,7 @@ export const PlansPage: React.FC = () => {
       await plansApi.deletePlan(planId);
       showSuccess('Plan deleted successfully');
       loadPlans();
-    } catch (error) {
+    } catch (_error) {
       showError('Failed to delete plan');
     }
   };

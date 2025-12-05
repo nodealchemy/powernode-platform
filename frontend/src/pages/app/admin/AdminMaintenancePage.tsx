@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useNotification } from '@/shared/hooks/useNotification';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { 
@@ -16,8 +16,7 @@ import {
   MaintenanceSystemMetrics,
   MaintenanceSchedule
 } from '@/shared/services/maintenanceApi';
-import { SettingsCard, ToggleSwitch, StatsCard } from '@/features/admin/components/SettingsComponents';
-import { FormField } from '@/shared/components/ui/FormField';
+import { SettingsCard, ToggleSwitch, StatsCard } from '@/features/admin/components/settings/SettingsComponents';
 import { RefreshCw, Plus, Trash2 } from 'lucide-react';
 
 type MaintenanceTab = 'mode' | 'health' | 'backups' | 'cleanup' | 'operations' | 'schedules';
@@ -32,7 +31,7 @@ interface MaintenancePageActions {
 export const AdminMaintenancePage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
   
   // Get active tab from URL path
   const getActiveTabFromPath = (): MaintenanceTab => {
@@ -249,7 +248,7 @@ const MaintenanceModeTab: React.FC<{
   status: MaintenanceStatus;
   onUpdate: () => void;
 }> = ({ status, onUpdate }) => {
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
   const [submitting, setSubmitting] = useState(false);
   const [scheduledMode, setScheduledMode] = useState({
     enabled: false,
@@ -267,7 +266,7 @@ const MaintenanceModeTab: React.FC<{
         'success'
       );
       onUpdate();
-    } catch (error: unknown) {
+    } catch (_error: unknown) {
       showNotification('Failed to update maintenance mode', 'error');
     } finally {
       setSubmitting(false);
@@ -284,7 +283,7 @@ const MaintenanceModeTab: React.FC<{
       );
       showNotification('Maintenance mode scheduled successfully', 'success');
       onUpdate();
-    } catch (error: unknown) {
+    } catch (_error: unknown) {
       showNotification('Failed to schedule maintenance mode', 'error');
     } finally {
       setSubmitting(false);
@@ -333,25 +332,32 @@ const MaintenanceModeTab: React.FC<{
         icon="📅"
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <FormField 
-            label="Start Time"
-            type="datetime-local"
-            value={scheduledMode.startTime}
-            onChange={(value) => setScheduledMode(prev => ({ ...prev, startTime: value }))}
-          />
-          <FormField 
-            label="End Time"
-            type="datetime-local"
-            value={scheduledMode.endTime}
-            onChange={(value) => setScheduledMode(prev => ({ ...prev, endTime: value }))}
-          />
+          <div>
+            <label className="block text-sm font-semibold text-theme-primary mb-2">Start Time</label>
+            <input
+              type="datetime-local"
+              value={scheduledMode.startTime}
+              onChange={(e) => setScheduledMode(prev => ({ ...prev, startTime: e.target.value }))}
+              className="input-theme w-full"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-theme-primary mb-2">End Time</label>
+            <input
+              type="datetime-local"
+              value={scheduledMode.endTime}
+              onChange={(e) => setScheduledMode(prev => ({ ...prev, endTime: e.target.value }))}
+              className="input-theme w-full"
+            />
+          </div>
           <div className="md:col-span-2">
-            <FormField 
-              label="Maintenance Message"
+            <label className="block text-sm font-semibold text-theme-primary mb-2">Maintenance Message</label>
+            <input
               type="text"
               placeholder="System maintenance in progress..."
               value={scheduledMode.message}
-              onChange={(value) => setScheduledMode(prev => ({ ...prev, message: value }))}
+              onChange={(e) => setScheduledMode(prev => ({ ...prev, message: e.target.value }))}
+              className="input-theme w-full"
             />
           </div>
           <div className="md:col-span-2">
@@ -374,7 +380,7 @@ const SystemHealthTab: React.FC<{
   health: SystemHealth | null;
   metrics: MaintenanceSystemMetrics | null;
   onRefresh: () => void;
-}> = ({ health, metrics, onRefresh }) => {
+}> = ({ health, metrics }) => {
   if (!health || !metrics) {
     return (
       <div className="text-center py-8">
@@ -462,19 +468,15 @@ const DatabaseBackupsTab: React.FC<{
   onRefresh: () => void;
   onRegisterActions: (actions: MaintenancePageActions) => void;
 }> = ({ backups, onRefresh, onRegisterActions }) => {
-  const { showNotification } = useNotification();
-  // const [creating, setCreating] = useState(false); // TODO: Use for button loading state
+  const { showNotification } = useNotifications();
 
   const handleCreateBackup = async () => {
-    // setCreating(true); // TODO: Show loading state
     try {
       await maintenanceApi.createBackup();
       showNotification('Backup created successfully', 'success');
       onRefresh();
-    } catch (error: unknown) {
+    } catch (_error: unknown) {
       showNotification('Failed to create backup', 'error');
-    } finally {
-      // setCreating(false); // TODO: Hide loading state
     }
   };
 
@@ -495,11 +497,9 @@ const DataCleanupTab: React.FC<{
   onRefresh: () => void;
   onRegisterActions: (actions: MaintenancePageActions) => void;
 }> = ({ stats, onRefresh, onRegisterActions }) => {
-  const { showNotification } = useNotification();
-  // const [running, setRunning] = useState(false); // TODO: Use for button loading state
+  const { showNotification } = useNotifications();
 
   const handleRunCleanup = async () => {
-    // setRunning(true); // TODO: Show loading state
     try {
       const result = await maintenanceApi.runCleanup({
         old_logs: true,
@@ -509,10 +509,8 @@ const DataCleanupTab: React.FC<{
       });
       showNotification(`Cleanup completed. ${result.cleaned_items} items cleaned`, 'success');
       onRefresh();
-    } catch (error: unknown) {
+    } catch (_error: unknown) {
       showNotification('Failed to run cleanup', 'error');
-    } finally {
-      // setRunning(false); // TODO: Hide loading state
     }
   };
 
@@ -540,7 +538,7 @@ const SystemOperationsTab: React.FC<{
   health: SystemHealth | null;
   onRefresh: () => void;
 }> = ({ health, onRefresh }) => {
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
   const [operations, setOperations] = useState({
     flushingCache: false,
     optimizingDb: false,
@@ -553,7 +551,7 @@ const SystemOperationsTab: React.FC<{
       await maintenanceApi.flushCache();
       showNotification('Cache flushed successfully', 'success');
       onRefresh();
-    } catch (error: unknown) {
+    } catch (_error: unknown) {
       showNotification('Failed to flush cache', 'error');
     } finally {
       setOperations(prev => ({ ...prev, flushingCache: false }));
@@ -566,7 +564,7 @@ const SystemOperationsTab: React.FC<{
       const result = await maintenanceApi.optimizeDatabase();
       showNotification(`Database optimized. ${result.tables_optimized} tables optimized`, 'success');
       onRefresh();
-    } catch (error: unknown) {
+    } catch (_error: unknown) {
       showNotification('Failed to optimize database', 'error');
     } finally {
       setOperations(prev => ({ ...prev, optimizingDb: false }));
@@ -579,7 +577,7 @@ const SystemOperationsTab: React.FC<{
       await maintenanceApi.restartService(serviceName);
       showNotification(`${serviceName} service restarted successfully`, 'success');
       onRefresh();
-    } catch (error: unknown) {
+    } catch (_error: unknown) {
       showNotification(`Failed to restart ${serviceName} service`, 'error');
     } finally {
       setOperations(prev => ({ ...prev, restartingService: false }));
@@ -668,17 +666,179 @@ const SystemOperationsTab: React.FC<{
   );
 };
 
+// Schedule Creation Modal
+const CreateScheduleModal: React.FC<{
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (schedule: Omit<MaintenanceSchedule, 'id' | 'next_run' | 'last_run'>) => Promise<void>;
+}> = ({ isOpen, onClose, onSubmit }) => {
+  const [formData, setFormData] = useState({
+    type: 'backup' as MaintenanceSchedule['type'],
+    scheduled_at: '',
+    frequency: 'once' as MaintenanceSchedule['frequency'],
+    enabled: true,
+    description: ''
+  });
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.scheduled_at || !formData.description) return;
+
+    setSubmitting(true);
+    try {
+      await onSubmit(formData);
+      setFormData({
+        type: 'backup',
+        scheduled_at: '',
+        frequency: 'once',
+        enabled: true,
+        description: ''
+      });
+      onClose();
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div className="bg-theme-surface rounded-lg shadow-xl w-full max-w-md mx-4">
+        <div className="p-6 border-b border-theme">
+          <h2 className="text-lg font-semibold text-theme-primary">Create Maintenance Schedule</h2>
+          <p className="text-sm text-theme-secondary mt-1">Set up a new automated maintenance task</p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div>
+            <label className="block text-sm font-semibold text-theme-primary mb-2">
+              Description<span className="text-theme-error ml-1">*</span>
+            </label>
+            <input
+              type="text"
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              placeholder="e.g., Daily database backup"
+              className="input-theme w-full"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-theme-primary mb-2">
+              Task Type<span className="text-theme-error ml-1">*</span>
+            </label>
+            <select
+              value={formData.type}
+              onChange={(e) => setFormData({ ...formData, type: e.target.value as MaintenanceSchedule['type'] })}
+              className="input-theme w-full"
+            >
+              <option value="backup">Database Backup</option>
+              <option value="cleanup">Data Cleanup</option>
+              <option value="restart">Service Restart</option>
+              <option value="maintenance_mode">Maintenance Mode</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-theme-primary mb-2">
+              Scheduled Time<span className="text-theme-error ml-1">*</span>
+            </label>
+            <input
+              type="datetime-local"
+              value={formData.scheduled_at}
+              onChange={(e) => setFormData({ ...formData, scheduled_at: e.target.value })}
+              className="input-theme w-full"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-theme-primary mb-2">
+              Frequency<span className="text-theme-error ml-1">*</span>
+            </label>
+            <select
+              value={formData.frequency}
+              onChange={(e) => setFormData({ ...formData, frequency: e.target.value as MaintenanceSchedule['frequency'] })}
+              className="input-theme w-full"
+            >
+              <option value="once">Run Once</option>
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+              <option value="monthly">Monthly</option>
+            </select>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="enabled"
+              checked={formData.enabled}
+              onChange={(e) => setFormData({ ...formData, enabled: e.target.checked })}
+              className="rounded border-theme text-theme-interactive-primary focus:ring-theme-interactive-primary"
+            />
+            <label htmlFor="enabled" className="text-sm text-theme-primary">
+              Enable schedule immediately
+            </label>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4">
+            <button
+              type="button"
+              onClick={onClose}
+              className="btn-theme btn-theme-secondary"
+              disabled={submitting}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="btn-theme btn-theme-primary"
+              disabled={submitting || !formData.description || !formData.scheduled_at}
+            >
+              {submitting ? (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                <>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create Schedule
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
 // Scheduled Tasks Tab
 const ScheduledTasksTab: React.FC<{
   schedules: MaintenanceSchedule[];
   onRefresh: () => void;
   onRegisterActions: (actions: MaintenancePageActions) => void;
 }> = ({ schedules, onRefresh, onRegisterActions }) => {
-  const { showNotification } = useNotification();
-  const [showModal, setShowModal] = useState(false); // TODO: Use for modal display
+  const { showNotification } = useNotifications();
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   const handleCreateSchedule = () => {
-    setShowModal(true);
+    setShowCreateModal(true);
+  };
+
+  const handleSubmitSchedule = async (schedule: Omit<MaintenanceSchedule, 'id' | 'next_run' | 'last_run'>) => {
+    try {
+      await maintenanceApi.createMaintenanceSchedule(schedule);
+      showNotification('Maintenance schedule created successfully', 'success');
+      onRefresh();
+    } catch (error) {
+      showNotification('Failed to create maintenance schedule', 'error');
+      throw error;
+    }
   };
 
   useEffect(() => {
@@ -690,13 +850,19 @@ const ScheduledTasksTab: React.FC<{
       await maintenanceApi.runScheduledTask(scheduleId);
       showNotification('Scheduled task executed successfully', 'success');
       onRefresh();
-    } catch (error: unknown) {
+    } catch (_error: unknown) {
       showNotification('Failed to execute scheduled task', 'error');
     }
   };
 
   return (
     <div className="space-y-6">
+      <CreateScheduleModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSubmit={handleSubmitSchedule}
+      />
+
       <SettingsCard
         title="Scheduled Maintenance Tasks"
         description="Automated maintenance operations"

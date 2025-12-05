@@ -37,99 +37,53 @@ import '@/assets/styles/deprecated-css-override.css';
 
 const AppContent: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
-  const { isAuthenticated, accessToken, refreshToken, user } = useSelector((state: RootState) => state.auth);
+  const { isAuthenticated, access_token, refresh_token, user } = useSelector((state: RootState) => state.auth);
   const [initializing, setInitializing] = React.useState(true);
   const [showAuthFallback, setShowAuthFallback] = React.useState(false);
   const initializingRef = React.useRef(false); // Prevent double initialization
 
-  // Track auth state changes for debugging purposes (logs removed for production)
-
-  // Debug: Track page refreshes and navigation
-  React.useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      console.log('⚠️ Page about to refresh/unload:', {
-        reason: 'beforeunload event',
-        timestamp: new Date().toISOString()
-      });
-      console.trace('Stack trace for page refresh:');
-    };
-    
-    const handlePopState = (e: PopStateEvent) => {
-      console.log('🔄 Navigation change (popstate):', {
-        state: e.state,
-        timestamp: new Date().toISOString()
-      });
-    };
-
-    // Catch unhandled JavaScript errors that might trigger ErrorBoundary
-    const handleError = (event: ErrorEvent) => {
-      console.group('🚨 UNHANDLED JAVASCRIPT ERROR - POTENTIAL REFRESH TRIGGER');
-      console.error('⚠️ Unhandled error detected - may cause ErrorBoundary to trigger page refresh');
-      console.error('Error message:', event.message);
-      console.error('Error filename:', event.filename);
-      console.error('Error line:', event.lineno);
-      console.error('Error column:', event.colno);
-      console.error('Error object:', event.error);
-      console.trace('Error stack trace:');
-      console.groupEnd();
-    };
-
-    // Catch unhandled promise rejections
-    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
-      console.group('🚨 UNHANDLED PROMISE REJECTION - POTENTIAL REFRESH TRIGGER');
-      console.error('⚠️ Unhandled promise rejection - may cause ErrorBoundary to trigger page refresh');
-      console.error('Rejection reason:', event.reason);
-      console.trace('Rejection stack trace:');
-      console.groupEnd();
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    window.addEventListener('popstate', handlePopState);
-    window.addEventListener('error', handleError);
-    window.addEventListener('unhandledrejection', handleUnhandledRejection);
-    
-    return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-      window.removeEventListener('popstate', handlePopState);
-      window.removeEventListener('error', handleError);
-      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
-    };
-  }, []);
-  
   // Auth initialization with proper dependencies to prevent double execution
   useEffect(() => {
     // Prevent double initialization
     if (initializingRef.current) {
       return;
     }
-    
+
     initializingRef.current = true;
-    
+
     // Try to restore user session if we have a token
     const initializeAuth = async () => {
+      // CRITICAL: If user is already loaded (e.g., from login), skip initialization
+      if (user && access_token) {
+        // User already authenticated and loaded, complete initialization immediately
+        setInitializing(false);
+        initializingRef.current = false;
+        return;
+      }
+
       // Starting auth initialization
       // Set a timeout to prevent infinite loading
       const timeoutId = setTimeout(() => {
-        console.log('App: Auth fallback timeout triggered'); // Debug log
         setShowAuthFallback(true);
       }, 5000); // 5 second timeout, then show fallback
 
       try {
+
         // First, validate token format before attempting API calls
-        if (accessToken && !isValidTokenFormat(accessToken)) {
+        if (access_token && !isValidTokenFormat(access_token)) {
           dispatch(forceTokenClear());
           // Continue to check impersonation token instead of returning early
         }
-        
-        if (refreshToken && !isValidTokenFormat(refreshToken)) {
+
+        if (refresh_token && !isValidTokenFormat(refresh_token)) {
           dispatch(forceTokenClear());
           // Continue to check impersonation token instead of returning early
         }
-        
+
         // Check for impersonation first, even if regular tokens are invalid
         const impersonationToken = localStorage.getItem('impersonationToken');
-        
-        if (impersonationToken || (accessToken && !user)) {
+
+        if (impersonationToken || (access_token && !user)) {
           
           // PRIORITY: If we have an impersonation token, validate it first
           if (impersonationToken) {
@@ -148,7 +102,7 @@ const AppContent: React.FC = () => {
           
           // If no valid impersonation session, proceed with regular authentication
           try {
-            const userResult = await dispatch(getCurrentUser()).unwrap();
+            await dispatch(getCurrentUser(true)).unwrap(); // silentAuth = true during initialization
           } catch (error) {
             
             // Check if this error indicates invalid tokens that should be cleared immediately
@@ -158,7 +112,7 @@ const AppContent: React.FC = () => {
             }
             
             // If that fails, try to refresh the access token
-            if (refreshToken) {
+            if (refresh_token) {
               try {
                 await dispatch(refreshAccessToken()).unwrap();
                 
@@ -178,7 +132,7 @@ const AppContent: React.FC = () => {
                 }
                 
                 // If no valid impersonation, get regular user
-                await dispatch(getCurrentUser()).unwrap();
+                await dispatch(getCurrentUser(true)).unwrap(); // silentAuth = true during initialization
               } catch (refreshError) {
                 // Check if this is a token invalidity error
                 if (isTokenInvalidError(refreshError)) {
@@ -205,7 +159,7 @@ const AppContent: React.FC = () => {
 
     void initializeAuth();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dispatch]); // Remove accessToken, refreshToken, user to prevent infinite loop
+  }, [dispatch]); // Remove access_token, refresh_token, user to prevent infinite loop
 
   const handleAuthFallback = () => {
     dispatch(clearAuth());

@@ -15,7 +15,8 @@ import { PagesPage } from './content/PagesPage';
 import KnowledgeBasePage from './content/KnowledgeBasePage';
 import KnowledgeBaseArticlePage from './content/KnowledgeBaseArticlePage';
 import KnowledgeBaseAdminPage from './content/KnowledgeBaseAdminPage';
-import KnowledgeBaseArticleEditor from '../../features/knowledge-base/components/KnowledgeBaseArticleEditor';
+import { KnowledgeBaseArticleEditor } from '@/features/knowledge-base/components/KnowledgeBaseArticleEditor';
+import MyFilesPage from './content/MyFilesPage';
 import { UsersPage } from './UsersPage';
 import { AuditLogsPage } from './AuditLogsPage';
 import { ApiKeysPage } from './ApiKeysPage';
@@ -33,7 +34,8 @@ import { BillingPage } from './business/BillingPage';
 import WebhookManagementPage from '@/pages/app/WebhookManagementPage';
 
 // Import marketplace pages
-import { MarketplacePage, AppDetailPage } from '@/pages/app/marketplace';
+import { MarketplacePage } from '@/pages/app/marketplace/MarketplacePage';
+import { ItemDetailPage } from '@/pages/app/marketplace/ItemDetailPage';
 
 // Import admin pages
 import { AdminSettingsPage } from '@/pages/app/admin/AdminSettingsPage';
@@ -41,11 +43,17 @@ import { AdminUsersPage } from '@/pages/app/admin/AdminUsersPage';
 import { AdminRolesPage } from '@/pages/app/admin/AdminRolesPage';
 import { WorkersPage as SystemWorkersPage } from '@/pages/app/system/WorkersPage';
 import { ServicesPage } from '@/pages/app/system/ServicesPage';
+import StorageProvidersPage from '@/pages/app/system/StorageProvidersPage';
 import { AdminMaintenancePage } from '@/pages/app/admin/AdminMaintenancePage';
 import { AdminMarketplacePage } from '@/pages/app/admin/AdminMarketplacePage';
 
 // Test page
 import { TestWebSocket } from '@/pages/app/TestWebSocket';
+
+// AI Orchestration Pages
+import { AIOrchestrationPage } from './ai/AIOrchestrationPage';
+import { CreateWorkflowPage, WorkflowTemplatesPage, AIDebugPage } from './ai';
+import AgentTeamsPage from './ai/AgentTeamsPage';
 
 // Dashboard overview page
 const DashboardOverview: React.FC = () => {
@@ -76,7 +84,7 @@ const DashboardOverview: React.FC = () => {
           const paypalConfigured = gatewaysOverview.gateways.paypal.enabled && 
             ['connected', 'configured'].includes(gatewaysOverview.status.paypal.status);
           hasConfiguredGateways = stripeConfigured || paypalConfigured;
-        } catch (gatewayError) {
+        } catch (_gatewayError) {
           // If user doesn't have permission or API fails, assume no gateways configured
           hasConfiguredGateways = false;
         }
@@ -86,7 +94,7 @@ const DashboardOverview: React.FC = () => {
           setHasPlans(plansResponse.data.plans.length > 0);
           setHasPaymentGateways(hasConfiguredGateways);
         }
-      } catch (error) {
+      } catch (_error) {
         if (mounted) {
           // Assume no setup on error
           setHasPlans(false);
@@ -157,7 +165,7 @@ const DashboardOverview: React.FC = () => {
   
   return (
     <PageContainer
-      title={`Welcome back, ${user?.first_name}! 👋`}
+      title={`Welcome back, ${user?.name || 'User'}! 👋`}
       description="Here's an overview of your account activity and system status."
       breadcrumbs={breadcrumbs}
       actions={pageActions}
@@ -418,9 +426,22 @@ const DashboardPage: React.FC = () => {
         <Route path="/business/customers" element={<CustomersPage />} />
         <Route path="/business/billing/*" element={<BillingPage />} />
         
+        {/* AI Orchestration Pages */}
+        <Route path="/ai" element={<AIOrchestrationPage />} />
+        <Route path="/ai/*" element={<AIOrchestrationPage />} />
+        
+        {/* Standalone AI Pages (outside tab system) */}
+        <Route path="/ai/workflows/new" element={<CreateWorkflowPage />} />
+        <Route path="/ai/workflows/templates" element={<WorkflowTemplatesPage />} />
+        <Route path="/ai/debug" element={<AIDebugPage />} />
+        <Route path="/ai/agent-teams" element={<AgentTeamsPage />} />
+        
         {/* Core Pages */}
         <Route path="/content/pages" element={<PagesPage />} />
-        
+
+        {/* My Files Page */}
+        <Route path="/content/files" element={<MyFilesPage />} />
+
         {/* Knowledge Base Pages */}
         <Route path="/content/kb" element={<KnowledgeBasePage />} />
         <Route path="/content/kb/articles/:id" element={<KnowledgeBaseArticlePage />} />
@@ -440,6 +461,7 @@ const DashboardPage: React.FC = () => {
         
         {/* System Management Pages */}
         <Route path="/system/services" element={<ServicesPage />} />
+        <Route path="/system/storage" element={<StorageProvidersPage />} />
         <Route path="/system/webhooks" element={<WebhookManagementPage />} />
         <Route path="/system/audit-logs" element={<AuditLogsPage />} />
         <Route path="/system/api-keys" element={<ApiKeysPage />} />
@@ -448,12 +470,9 @@ const DashboardPage: React.FC = () => {
         <Route path="/business/analytics/*" element={<AnalyticsPage />} />
         <Route path="/metrics" element={<MetricsPage />} />
         
-        {/* Marketplace Pages */}
+        {/* Marketplace Pages - Unified Interface */}
         <Route path="/marketplace" element={<MarketplacePage />} />
-        <Route path="/marketplace/subscriptions" element={<MarketplacePage />} />
-        <Route path="/marketplace/my-apps" element={<MarketplacePage />} />
-        <Route path="/marketplace/reviews" element={<MarketplacePage />} />
-        <Route path="/marketplace/apps/:appId" element={<AppDetailPage />} />
+        <Route path="/marketplace/:type/:id" element={<ItemDetailPage />} />
         
         {/* Admin routes - consistent with navigation */}
         <Route path="/users" element={<UsersPage />} />

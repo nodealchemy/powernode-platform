@@ -3,13 +3,14 @@ import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '@/shared/services';
 import { startImpersonation } from '@/shared/services/slices/authSlice';
 import { usersApi, User, UserFormData, UserStats } from '@/features/users/services/usersApi';
+import { getUserInitials } from '@/shared/utils/userUtils';
 import { Button } from '@/shared/components/ui/Button';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Badge } from '@/shared/components/ui/Badge';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
-import { UserPlus, RefreshCw, Search, Filter, Download, UserCheck, Shield, Users } from 'lucide-react';
-import UserRolesModal from '@/features/users/components/UserRolesModal';
+import { UserPlus, RefreshCw, Search, Filter, Download, UserCheck, Shield, Users, MoreHorizontal, Unlock, Mail, Ban, CheckCircle, Key } from 'lucide-react';
+import { UserRolesModal } from '@/features/users/components/UserRolesModal';
 
 interface AdminUsersPageProps {}
 
@@ -39,11 +40,11 @@ const AdminUsersPage: React.FC<AdminUsersPageProps> = () => {
   const [sortBy, setSortBy] = useState<'name' | 'email' | 'created_at' | 'last_login_at'>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [showFilters, setShowFilters] = useState(false);
+  const [openDropdownUserId, setOpenDropdownUserId] = useState<string | null>(null);
 
   // Form state
   const [formData, setFormData] = useState<UserFormData>({
-    first_name: '',
-    last_name: '',
+    name: '',
     email: '',
     phone: '',
     roles: ['account.member'],
@@ -87,7 +88,7 @@ const AdminUsersPage: React.FC<AdminUsersPageProps> = () => {
       } else {
         setUserStats(null);
       }
-    } catch (err) {
+    } catch (error) {
       setError('Failed to load users. Please check your connection and try again.');
     } finally {
       setLoading(false);
@@ -106,7 +107,7 @@ const AdminUsersPage: React.FC<AdminUsersPageProps> = () => {
     // Apply search filter
     if (searchTerm) {
       filtered = filtered.filter(user => 
-        user.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
         user.phone?.toLowerCase().includes(searchTerm.toLowerCase())
       );
@@ -125,8 +126,8 @@ const AdminUsersPage: React.FC<AdminUsersPageProps> = () => {
 
       switch (sortBy) {
         case 'name':
-          aVal = a.full_name.toLowerCase();
-          bVal = b.full_name.toLowerCase();
+          aVal = a.name.toLowerCase();
+          bVal = b.name.toLowerCase();
           break;
         case 'email':
           aVal = a.email.toLowerCase();
@@ -164,8 +165,7 @@ const AdminUsersPage: React.FC<AdminUsersPageProps> = () => {
   // Reset form
   const resetForm = () => {
     setFormData({
-      first_name: '',
-      last_name: '',
+      name: '',
       email: '',
       phone: '',
       roles: ['account.member'],
@@ -225,7 +225,7 @@ const AdminUsersPage: React.FC<AdminUsersPageProps> = () => {
 
       await loadData();
       setSelectedUsers(new Set());
-    } catch (err) {
+    } catch (error) {
       setError(`Failed to ${action} selected users. Please try again.`);
     } finally {
       setActionLoading(false);
@@ -236,7 +236,7 @@ const AdminUsersPage: React.FC<AdminUsersPageProps> = () => {
   const exportUsers = (usersToExport: User[] = filteredUsers) => {
     const headers = ['Name', 'Email', 'Phone', 'Role', 'Status', 'Verified', 'Last Login', 'Created Date'];
     const rows = usersToExport.map(user => [
-      user.full_name,
+      user.name,
       user.email,
       user.phone || '',
       usersApi.formatRoles(user.roles || []),
@@ -268,15 +268,16 @@ const AdminUsersPage: React.FC<AdminUsersPageProps> = () => {
 
     try {
       setActionLoading(true);
-      const response = await dispatch(startImpersonation({ 
-        user_id: user.id, 
-        reason: 'Admin impersonation' 
+      await dispatch(startImpersonation({
+        user_id: user.id,
+        reason: 'Admin impersonation'
       })).unwrap();
-      
+
       // The Redux action automatically handles token storage
       window.location.href = '/app';
-    } catch (err: any) {
-      setError(err || 'Failed to impersonate user. Please try again.');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to impersonate user. Please try again.';
+      setError(errorMessage);
     } finally {
       setActionLoading(false);
     }
@@ -301,30 +302,35 @@ const AdminUsersPage: React.FC<AdminUsersPageProps> = () => {
       } else {
         setFormErrors([response.message || 'Failed to create user']);
       }
-    } catch (err: any) {
-      console.error('User creation error:', err);
-      
+    } catch (error: unknown) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('User creation error:', error);
+      }
+
+      // Type-safe error handling
+      const axiosError = error as { code?: string; response?: { status?: number; data?: { errors?: unknown; message?: string } }; message?: string };
+
       // Handle different error types
-      if (err.code === 'ERR_NETWORK' || err.code === 'ERR_FAILED') {
+      if (axiosError.code === 'ERR_NETWORK' || axiosError.code === 'ERR_FAILED') {
         setFormErrors(['Network error: Unable to connect to the server. Please check your connection.']);
-      } else if (err.response?.status === 401) {
+      } else if (axiosError.response?.status === 401) {
         setFormErrors(['Authentication error: Your session may have expired. Please refresh the page.']);
-      } else if (err.response?.status === 403) {
+      } else if (axiosError.response?.status === 403) {
         setFormErrors(['Permission denied: You do not have permission to create users.']);
-      } else if (err.response?.status === 422) {
+      } else if (axiosError.response?.status === 422) {
         // Validation errors from backend
-        const validationErrors = err.response?.data?.errors || err.response?.data?.message;
-        if (typeof validationErrors === 'object') {
-          setFormErrors(Object.values(validationErrors).flat());
+        const validationErrors = axiosError.response?.data?.errors || axiosError.response?.data?.message;
+        if (typeof validationErrors === 'object' && validationErrors !== null) {
+          setFormErrors(Object.values(validationErrors as Record<string, string[]>).flat());
         } else if (validationErrors) {
-          setFormErrors([validationErrors]);
+          setFormErrors([String(validationErrors)]);
         } else {
           setFormErrors(['Validation error: Please check your input.']);
         }
-      } else if (err.response?.data?.message) {
-        setFormErrors([err.response.data.message]);
-      } else if (err.message) {
-        setFormErrors([`Error: ${err.message}`]);
+      } else if (axiosError.response?.data?.message) {
+        setFormErrors([axiosError.response.data.message]);
+      } else if (axiosError.message) {
+        setFormErrors([`Error: ${axiosError.message}`]);
       } else {
         setFormErrors(['An unexpected error occurred while creating the user.']);
       }
@@ -339,8 +345,7 @@ const AdminUsersPage: React.FC<AdminUsersPageProps> = () => {
 
 
     const updateData = {
-      first_name: formData.first_name,
-      last_name: formData.last_name,
+      name: formData.name,
       email: formData.email,
       phone: formData.phone
     };
@@ -357,7 +362,7 @@ const AdminUsersPage: React.FC<AdminUsersPageProps> = () => {
       } else {
         setFormErrors([response.message || 'Failed to update user']);
       }
-    } catch (err) {
+    } catch (error) {
       setFormErrors(['Failed to update user. Please try again.']);
     } finally {
       setActionLoading(false);
@@ -379,7 +384,7 @@ const AdminUsersPage: React.FC<AdminUsersPageProps> = () => {
       } else {
         setError(response.message || 'Failed to delete user');
       }
-    } catch (err) {
+    } catch (error) {
       setError('Failed to delete user. Please try again.');
     } finally {
       setActionLoading(false);
@@ -415,7 +420,7 @@ const AdminUsersPage: React.FC<AdminUsersPageProps> = () => {
       } else {
         setError(response.message || `Failed to ${action} user`);
       }
-    } catch (err) {
+    } catch (error) {
       setError(`Failed to ${action} user. Please try again.`);
     } finally {
       setActionLoading(false);
@@ -426,8 +431,7 @@ const AdminUsersPage: React.FC<AdminUsersPageProps> = () => {
   const openEditModal = (user: User) => {
     setSelectedUser(user);
     setFormData({
-      first_name: user.first_name || '',
-      last_name: user.last_name || '',
+      name: user.name || '',
       email: user.email,
       phone: user.phone || '',
       roles: ['account.member'], // Not used in edit form anymore
@@ -447,6 +451,90 @@ const AdminUsersPage: React.FC<AdminUsersPageProps> = () => {
     setSelectedUser(user);
     setShowRolesModal(true);
   };
+
+  // Handle suspend user
+  const handleSuspendUser = async (user: User) => {
+    try {
+      setActionLoading(true);
+      setOpenDropdownUserId(null);
+      await usersApi.suspendUser(user.id, 'Suspended by administrator');
+      await loadData();
+    } catch (error) {
+      setError('Failed to suspend user');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Handle activate user
+  const handleActivateUser = async (user: User) => {
+    try {
+      setActionLoading(true);
+      setOpenDropdownUserId(null);
+      await usersApi.activateUser(user.id);
+      await loadData();
+    } catch (error) {
+      setError('Failed to activate user');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Handle unlock user
+  const handleUnlockUser = async (user: User) => {
+    try {
+      setActionLoading(true);
+      setOpenDropdownUserId(null);
+      await usersApi.unlockUser(user.id);
+      await loadData();
+    } catch (error) {
+      setError('Failed to unlock user');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Handle resend verification
+  const handleResendVerification = async (user: User) => {
+    try {
+      setActionLoading(true);
+      setOpenDropdownUserId(null);
+      await usersApi.resendVerification(user.id);
+    } catch (error) {
+      setError('Failed to resend verification email');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Handle reset password
+  const handleResetPassword = async (user: User) => {
+    try {
+      setActionLoading(true);
+      setOpenDropdownUserId(null);
+      await usersApi.resetUserPassword(user.id);
+    } catch (error) {
+      setError('Failed to send password reset email');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Toggle dropdown
+  const toggleDropdown = (userId: string) => {
+    setOpenDropdownUserId(openDropdownUserId === userId ? null : userId);
+  };
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (openDropdownUserId && !(event.target as Element).closest('.user-dropdown')) {
+        setOpenDropdownUserId(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [openDropdownUserId]);
 
   const pageActions: PageAction[] = [
     {
@@ -747,14 +835,13 @@ const AdminUsersPage: React.FC<AdminUsersPageProps> = () => {
                       <div className="flex-shrink-0 h-10 w-10">
                         <div className="h-10 w-10 rounded-full bg-theme-interactive-primary flex items-center justify-center">
                           <span className="text-white text-sm font-medium">
-                            {(user.first_name?.[0] || user.email[0]).toUpperCase()}
-                            {user.last_name?.[0]?.toUpperCase() || ''}
+                            {getUserInitials(user)}
                           </span>
                         </div>
                       </div>
                       <div className="ml-4">
                         <div className="text-sm font-medium text-theme-primary">
-                          {user.full_name}
+                          {user.name}
                         </div>
                         <div className="text-sm text-theme-secondary">{user.email}</div>
                         {!user.email_verified && (
@@ -853,15 +940,82 @@ const AdminUsersPage: React.FC<AdminUsersPageProps> = () => {
                       )}
 
                       {/* Additional Actions Dropdown */}
-                      <div className="relative inline-block text-left">
+                      <div className="relative inline-block text-left user-dropdown">
                         <Button
                           variant="secondary"
                           size="sm"
                           title="More Actions"
+                          onClick={() => toggleDropdown(user.id)}
                         >
-                          ⋯
+                          <MoreHorizontal className="h-4 w-4" />
                         </Button>
-                        {/* TODO: Implement dropdown menu for additional actions */}
+
+                        {openDropdownUserId === user.id && (
+                          <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-theme-surface ring-1 ring-black ring-opacity-5 z-50">
+                            <div className="py-1" role="menu">
+                              {/* Status Actions */}
+                              {user.status === 'active' && user.id !== currentUser?.id && (
+                                <button
+                                  onClick={() => handleSuspendUser(user)}
+                                  className="flex items-center w-full px-4 py-2 text-sm text-theme-primary hover:bg-theme-surface-hover"
+                                  role="menuitem"
+                                  disabled={actionLoading}
+                                >
+                                  <Ban className="h-4 w-4 mr-2 text-theme-error" />
+                                  Suspend User
+                                </button>
+                              )}
+
+                              {user.status === 'suspended' && (
+                                <button
+                                  onClick={() => handleActivateUser(user)}
+                                  className="flex items-center w-full px-4 py-2 text-sm text-theme-primary hover:bg-theme-surface-hover"
+                                  role="menuitem"
+                                  disabled={actionLoading}
+                                >
+                                  <CheckCircle className="h-4 w-4 mr-2 text-theme-success" />
+                                  Activate User
+                                </button>
+                              )}
+
+                              {/* Unlock Account */}
+                              {user.locked && (
+                                <button
+                                  onClick={() => handleUnlockUser(user)}
+                                  className="flex items-center w-full px-4 py-2 text-sm text-theme-primary hover:bg-theme-surface-hover"
+                                  role="menuitem"
+                                  disabled={actionLoading}
+                                >
+                                  <Unlock className="h-4 w-4 mr-2 text-theme-warning" />
+                                  Unlock Account
+                                </button>
+                              )}
+
+                              {/* Email Actions */}
+                              {!user.email_verified && (
+                                <button
+                                  onClick={() => handleResendVerification(user)}
+                                  className="flex items-center w-full px-4 py-2 text-sm text-theme-primary hover:bg-theme-surface-hover"
+                                  role="menuitem"
+                                  disabled={actionLoading}
+                                >
+                                  <Mail className="h-4 w-4 mr-2 text-theme-info" />
+                                  Resend Verification
+                                </button>
+                              )}
+
+                              <button
+                                onClick={() => handleResetPassword(user)}
+                                className="flex items-center w-full px-4 py-2 text-sm text-theme-primary hover:bg-theme-surface-hover"
+                                role="menuitem"
+                                disabled={actionLoading}
+                              >
+                                <Key className="h-4 w-4 mr-2 text-theme-interactive-primary" />
+                                Reset Password
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                       <Button
@@ -909,33 +1063,18 @@ const AdminUsersPage: React.FC<AdminUsersPageProps> = () => {
           )}
 
           <div className="bg-theme-background border border-theme rounded-xl p-6 space-y-5">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="block text-sm font-semibold text-theme-primary">
-                  First Name <span className="text-theme-error">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={formData.first_name}
-                  onChange={(e) => handleFormChange('first_name', e.target.value)}
-                  className="w-full px-4 py-3 bg-theme-surface border-2 border-theme rounded-lg text-theme-primary placeholder-theme-tertiary focus:outline-none focus:border-theme-interactive-primary focus:bg-theme-background transition-all duration-200"
-                  placeholder="Enter first name"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="block text-sm font-semibold text-theme-primary">
-                  Last Name <span className="text-theme-error">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={formData.last_name}
-                  onChange={(e) => handleFormChange('last_name', e.target.value)}
-                  className="w-full px-4 py-3 bg-theme-surface border-2 border-theme rounded-lg text-theme-primary placeholder-theme-tertiary focus:outline-none focus:border-theme-interactive-primary focus:bg-theme-background transition-all duration-200"
-                  placeholder="Enter last name"
-                  required
-                />
-              </div>
+            <div className="space-y-2">
+              <label className="block text-sm font-semibold text-theme-primary">
+                Full Name <span className="text-theme-error">*</span>
+              </label>
+              <input
+                type="text"
+                value={formData.name}
+                onChange={(e) => handleFormChange('name', e.target.value)}
+                className="w-full px-4 py-3 bg-theme-surface border-2 border-theme rounded-lg text-theme-primary placeholder-theme-tertiary focus:outline-none focus:border-theme-interactive-primary focus:bg-theme-background transition-all duration-200"
+                placeholder="Enter full name"
+                required
+              />
             </div>
 
             <div className="space-y-2">
@@ -1091,33 +1230,18 @@ const AdminUsersPage: React.FC<AdminUsersPageProps> = () => {
                 </div>
 
                 <div className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-3">
-                      <label className="block text-sm font-semibold text-theme-primary">
-                        First Name <span className="text-theme-error">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.first_name}
-                        onChange={(e) => handleFormChange('first_name', e.target.value)}
-                        className="w-full px-4 py-4 bg-theme-surface border-2 border-theme rounded-xl text-theme-primary placeholder-theme-tertiary focus:outline-none focus:border-theme-interactive-primary focus:bg-theme-background focus:shadow-lg transition-all duration-300"
-                        placeholder="Enter first name"
-                        required
-                      />
-                    </div>
-                    <div className="space-y-3">
-                      <label className="block text-sm font-semibold text-theme-primary">
-                        Last Name <span className="text-theme-error">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.last_name}
-                        onChange={(e) => handleFormChange('last_name', e.target.value)}
-                        className="w-full px-4 py-4 bg-theme-surface border-2 border-theme rounded-xl text-theme-primary placeholder-theme-tertiary focus:outline-none focus:border-theme-interactive-primary focus:bg-theme-background focus:shadow-lg transition-all duration-300"
-                        placeholder="Enter last name"
-                        required
-                      />
-                    </div>
+                  <div className="space-y-3">
+                    <label className="block text-sm font-semibold text-theme-primary">
+                      Full Name <span className="text-theme-error">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.name}
+                      onChange={(e) => handleFormChange('name', e.target.value)}
+                      className="w-full px-4 py-4 bg-theme-surface border-2 border-theme rounded-xl text-theme-primary placeholder-theme-tertiary focus:outline-none focus:border-theme-interactive-primary focus:bg-theme-background focus:shadow-lg transition-all duration-300"
+                      placeholder="Enter full name"
+                      required
+                    />
                   </div>
 
                   <div className="space-y-3">
@@ -1221,7 +1345,7 @@ const AdminUsersPage: React.FC<AdminUsersPageProps> = () => {
         maxWidth="sm"
       >
         <div className="text-theme-primary">
-          Are you sure you want to delete <strong>{selectedUser?.full_name}</strong>? 
+          Are you sure you want to delete <strong>{selectedUser?.name}</strong>? 
           This action cannot be undone.
         </div>
         <div className="flex justify-end space-x-3 mt-6">

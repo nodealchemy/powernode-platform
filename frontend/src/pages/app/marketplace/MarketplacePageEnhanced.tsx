@@ -133,7 +133,7 @@ export const MarketplacePageEnhanced: React.FC = () => {
   };
 
   // Enhanced handlers
-  const handleSearch = (query: string) => {
+  const handleSearch = (_query: string) => {
     // In real implementation, trigger search API call
   };
 
@@ -154,18 +154,18 @@ export const MarketplacePageEnhanced: React.FC = () => {
 
   const handleSubscribeToApp = async (app: App, planId?: string) => {
     try {
-      const subscription = await appSubscriptionsApi.createSubscription(
-        app.id, 
+      await appSubscriptionsApi.createSubscription(
+        app.id,
         planId || 'default',
         {}
       );
-      
-      
+
+
       // Refresh subscriptions list if on that tab
       if (subscriptionsRefreshRef.current) {
         subscriptionsRefreshRef.current();
       }
-      
+
       return Promise.resolve();
     } catch (error: any) {
       throw new Error(error.response?.data?.error || 'Failed to create subscription');
@@ -274,7 +274,7 @@ export const MarketplacePageEnhanced: React.FC = () => {
     return baseActions;
   }, [activeTab, refresh, refreshApps, subscriptionsRefreshRef, showSidebar]);
 
-  const handleSubscriptionAction = (action: string, subscriptionId: string) => {
+  const handleSubscriptionAction = (_action: string, _subscriptionId: string) => {
   };
 
   // Commented out - functionality handled by pageActions

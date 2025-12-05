@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 import { RootState, AppDispatch } from '@/shared/services';
 import { addNotification } from '@/shared/services/slices/uiSlice';
 import { pagesApi, Page } from '@/features/pages/services/pagesApi';
@@ -13,7 +13,6 @@ import { Plus, RefreshCw, Edit2, Eye, EyeOff, Copy, Trash2 } from 'lucide-react'
 export const PagesPage: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const { user } = useSelector((state: RootState) => state.auth);
-  const navigate = useNavigate();
   const [pages, setPages] = useState<Page[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedPage, setSelectedPage] = useState<Page | null>(null);
@@ -40,7 +39,7 @@ export const PagesPage: React.FC = () => {
       });
       setPages(response.data);
       setTotalPages(response.meta.total_pages);
-    } catch (error: unknown) {
+    } catch (_error: unknown) {
       dispatch(addNotification({
         type: 'error',
         message: 'Failed to load pages'
@@ -115,7 +114,7 @@ export const PagesPage: React.FC = () => {
       setSelectedPage(response.data);
       setIsCreating(false);
       setShowEditor(true);
-    } catch (error) {
+    } catch (_error) {
       showError('Failed to load page for editing');
     }
   };
@@ -138,7 +137,7 @@ export const PagesPage: React.FC = () => {
         showSuccess(`"${page.title}" has been published`);
       }
       loadPages();
-    } catch (error) {
+    } catch (_error) {
       showError(`Failed to ${page.status === 'published' ? 'unpublish' : 'publish'} page`);
     }
   };
@@ -148,7 +147,7 @@ export const PagesPage: React.FC = () => {
       await pagesApi.duplicatePage(page.id);
       showSuccess(`"${page.title}" has been duplicated`);
       loadPages();
-    } catch (error) {
+    } catch (_error) {
       showError('Failed to duplicate page');
     }
   };
@@ -162,7 +161,7 @@ export const PagesPage: React.FC = () => {
       await pagesApi.deletePage(page.id);
       showSuccess(`"${page.title}" has been deleted`);
       loadPages();
-    } catch (error) {
+    } catch (_error) {
       showError('Failed to delete page');
     }
   };

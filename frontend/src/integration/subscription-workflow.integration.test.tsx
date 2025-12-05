@@ -3,7 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
-import { authAPI } from '@/features/auth/services/authAPI';
+import { authApi } from '@/features/auth/services/authAPI';
 import { plansApi } from '@/features/plans/services/plansApi';
 import { createMockPlan } from '@/shared/utils/test-utils';
 
@@ -99,7 +99,7 @@ const createTestStore = () => {
   });
 };
 
-const mockAuthAPI = authAPI as jest.Mocked<typeof authAPI>;
+const mockAuthAPI = authApi as jest.Mocked<typeof authApi>;
 const mockPlansApi = plansApi as jest.Mocked<typeof plansApi>;
 
 // Mock data for testing
@@ -185,8 +185,7 @@ describe('Subscription Workflow Integration', () => {
       const mockUser = {
         id: '1',
         email: 'user@example.com',
-        first_name: 'Test',
-        last_name: 'User',
+        name: 'Test User',
         roles: ['account.member'],
         permissions: ['users.read', 'plans.read', 'billing.read'],
         status: 'active',
@@ -245,8 +244,7 @@ describe('Subscription Workflow Integration', () => {
       const mockUser = {
         id: '1',
         email: 'user@example.com',
-        first_name: 'Test',
-        last_name: 'User',
+        name: 'Test User',
         roles: ['account.member'],
         permissions: ['users.read'],
         status: 'active',
@@ -328,8 +326,8 @@ describe('Subscription Workflow Integration', () => {
 
       // Mock the billing API call for subscription creation
       const mockCreateSubscription = jest.fn().mockResolvedValue(mockSubscriptionResponse);
-      
-      const { store } = renderWithProviders(<MockApp />);
+
+      renderWithProviders(<MockApp />);
 
       // Simulate plan selection and subscription creation
       const selectedPlan = mockPlans[1]; // Pro Plan
@@ -446,12 +444,11 @@ describe('Subscription Workflow Integration', () => {
         .mockResolvedValueOnce({
           data: {
             success: true,
-            data: { 
-              user: { 
-                id: '1', 
+            data: {
+              user: {
+                id: '1',
                 email: 'user@example.com',
-                first_name: 'Test',
-                last_name: 'User', 
+                name: 'Test User',
                 roles: ['account.member'],
                 permissions: ['users.read'],
                 status: 'active',
@@ -461,7 +458,7 @@ describe('Subscription Workflow Integration', () => {
                   name: 'Test Company',
                   status: 'active'
                 }
-              } 
+              }
             }
           },
           status: 200,

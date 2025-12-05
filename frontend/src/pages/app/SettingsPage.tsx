@@ -56,8 +56,7 @@ export const SettingsPage: React.FC = () => {
 
   // Form states
   const [profileForm, setProfileForm] = useState({
-    firstName: '',
-    lastName: '',
+    name: '',
     email: ''
   });
 
@@ -142,14 +141,14 @@ export const SettingsPage: React.FC = () => {
   }, [dispatch]);
 
   // Initialize WebSocket for real-time updates
-  const { isConnected, requestSettingsSync } = useSettingsWebSocket({
+  const { requestSettingsSync } = useSettingsWebSocket({
     onSettingsUpdate: handleSettingsUpdate,
     onPreferencesUpdate: handlePreferencesUpdate,
     onNotificationsUpdate: handleNotificationsUpdate,
-    onProfileUpdate: (data) => {
+    onProfileUpdate: (_data) => {
       // Handle profile updates if needed
     },
-    onError: (error) => {
+    onError: (_error) => {
     }
   });
 
@@ -165,14 +164,13 @@ export const SettingsPage: React.FC = () => {
       
       // Initialize form states
       setProfileForm({
-        firstName: user?.first_name || '',
-        lastName: user?.last_name || '',
+        name: user?.name || '',
         email: user?.email || ''
       });
 
       setPreferences({ user_preferences: settingsData.user_preferences || {} });
       setNotifications({ notification_preferences: settingsData.notification_preferences || {} });
-    } catch (error) {
+    } catch (_error) {
       dispatch(addNotification({
         type: 'error',
         message: 'Failed to load settings'
@@ -210,7 +208,7 @@ export const SettingsPage: React.FC = () => {
       requestSettingsSync();
       
       showSuccess('Preferences updated successfully');
-    } catch (error) {
+    } catch (_error) {
       showError('Failed to update preferences');
     } finally {
       setSaving(false);
@@ -228,7 +226,7 @@ export const SettingsPage: React.FC = () => {
       requestSettingsSync();
       
       showSuccess('Theme updated successfully');
-    } catch (error) {
+    } catch (_error) {
       showError('Failed to update theme');
     } finally {
       setSaving(false);
@@ -245,7 +243,7 @@ export const SettingsPage: React.FC = () => {
       requestSettingsSync();
       
       showSuccess('Notification preferences updated');
-    } catch (error) {
+    } catch (_error) {
       showError('Failed to update notifications');
     } finally {
       setSaving(false);
@@ -256,8 +254,8 @@ export const SettingsPage: React.FC = () => {
     e.preventDefault();
     
     // Basic validation
-    if (!profileForm.firstName.trim() || !profileForm.lastName.trim()) {
-      showError('First name and last name are required');
+    if (!profileForm.name.trim()) {
+      showError('Name is required');
       return;
     }
     
@@ -269,8 +267,7 @@ export const SettingsPage: React.FC = () => {
     try {
       setSaving(true);
       await settingsApi.updateProfile({
-        first_name: profileForm.firstName,
-        last_name: profileForm.lastName,
+        name: profileForm.name,
         email: profileForm.email
       });
       showSuccess('Profile updated successfully');
@@ -470,40 +467,22 @@ export const SettingsPage: React.FC = () => {
                 <div className="p-6">
                   <form id="profile-form" onSubmit={handleProfileUpdate}>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div>
+                      <div className="md:col-span-2">
                         <label className="label-theme">
-                          First Name *
+                          Name *
                         </label>
                         <input
                           type="text"
-                          value={profileForm.firstName}
-                          onChange={(e) => setProfileForm({ ...profileForm, firstName: e.target.value })}
+                          value={profileForm.name}
+                          onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
                           className={`input-theme w-full ${
-                            !profileForm.firstName.trim() ? 'border-theme-error' : ''
+                            !profileForm.name.trim() ? 'border-theme-error' : ''
                           }`}
-                          placeholder="Enter your first name"
+                          placeholder="Enter your full name"
                           required
                         />
-                        {!profileForm.firstName.trim() && (
-                          <p className="form-error">First name is required</p>
-                        )}
-                      </div>
-                      <div>
-                        <label className="label-theme">
-                          Last Name *
-                        </label>
-                        <input
-                          type="text"
-                          value={profileForm.lastName}
-                          onChange={(e) => setProfileForm({ ...profileForm, lastName: e.target.value })}
-                          className={`input-theme w-full ${
-                            !profileForm.lastName.trim() ? 'border-theme-error' : ''
-                          }`}
-                          placeholder="Enter your last name"
-                          required
-                        />
-                        {!profileForm.lastName.trim() && (
-                          <p className="form-error">Last name is required</p>
+                        {!profileForm.name.trim() && (
+                          <p className="form-error">Name is required</p>
                         )}
                       </div>
                       <div className="md:col-span-2">
@@ -529,7 +508,7 @@ export const SettingsPage: React.FC = () => {
                       <div className="flex items-center space-x-4">
                         <button
                           type="submit"
-                          disabled={saving || !profileForm.firstName.trim() || !profileForm.lastName.trim() || !isValidEmail(profileForm.email)}
+                          disabled={saving || !profileForm.name.trim() || !isValidEmail(profileForm.email)}
                           className="btn-theme btn-theme-primary"
                         >
 {saving ? 'Saving...' : 'Save Changes'}
