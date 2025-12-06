@@ -54,8 +54,10 @@ RSpec.describe McpStreamableHttpService do
       it 'includes MCP-Protocol-Version header' do
         service.initialize_protocol
 
+        # Header is sent on both initialize request and initialized notification
         expect(WebMock).to have_requested(:post, 'https://mcp.example.com/mcp')
           .with(headers: { 'MCP-Protocol-Version' => '2025-06-18' })
+          .at_least_once
       end
 
       it 'sends initialized notification after success' do
@@ -124,7 +126,7 @@ RSpec.describe McpStreamableHttpService do
         jsonrpc: '2.0',
         id: '123',
         result: {
-          content: [{ type: 'text', text: 'File contents here' }],
+          content: [ { type: 'text', text: 'File contents here' } ],
           isError: false
         }
       }
@@ -187,7 +189,7 @@ RSpec.describe McpStreamableHttpService do
         jsonrpc: '2.0',
         id: '123',
         result: {
-          contents: [{ uri: 'file:///test.txt', mimeType: 'text/plain', text: 'content' }]
+          contents: [ { uri: 'file:///test.txt', mimeType: 'text/plain', text: 'content' } ]
         }
       }
     end
@@ -210,7 +212,7 @@ RSpec.describe McpStreamableHttpService do
         jsonrpc: '2.0',
         id: '123',
         result: {
-          prompts: [{ name: 'code_review', description: 'Review code' }]
+          prompts: [ { name: 'code_review', description: 'Review code' } ]
         }
       }
     end
@@ -234,7 +236,7 @@ RSpec.describe McpStreamableHttpService do
         jsonrpc: '2.0',
         id: '123',
         result: {
-          messages: [{ role: 'user', content: { type: 'text', text: 'Review this code' } }]
+          messages: [ { role: 'user', content: { type: 'text', text: 'Review this code' } } ]
         }
       }
     end
