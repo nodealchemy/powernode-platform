@@ -1,0 +1,21 @@
+{
+  "name": "powernode-mcp-examples",
+  "version": "1.0.0",
+  "description": "Example MCP servers for Powernode platform",
+  "private": true,
+  "workspaces": [
+    "stdio-calculator",
+    "stdio-filesystem",
+    "http-weather"
+  ],
+  "scripts": {
+    "start:calculator": "node stdio-calculator/index.js",
+    "start:filesystem": "node stdio-filesystem/index.js",
+    "start:weather": "node http-weather/index.js",
+    "test:calculator": "echo '{\"jsonrpc\":\"2.0\",\"method\":\"initialize\",\"params\":{},\"id\":1}' | node stdio-calculator/index.js",
+    "test:filesystem": "echo '{\"jsonrpc\":\"2.0\",\"method\":\"initialize\",\"params\":{},\"id\":1}' | node stdio-filesystem/index.js"
+  },
+  "keywords": ["mcp", "model-context-protocol", "powernode", "ai-tools"],
+  "author": "Powernode",
+  "license": "MIT"
+}

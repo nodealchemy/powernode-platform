@@ -1,0 +1,20 @@
+{
+  "name": "mcp-weather-server",
+  "version": "1.0.0",
+  "description": "MCP server providing weather information via HTTP",
+  "main": "index.js",
+  "bin": {
+    "mcp-weather": "./index.js"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "start:port": "PORT=3200 node index.js",
+    "test": "curl -s http://localhost:3100/health"
+  },
+  "keywords": ["mcp", "weather", "http", "ai-tools"],
+  "author": "Powernode",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

@@ -50,11 +50,12 @@ else
   echo "✅ PASSED: No hardcoded color violations"
 fi
 
-# Check 3: No puts/print in Ruby code
+# Check 3: No puts/print in Ruby code (excluding seeds which use puts for feedback)
 echo ""
 echo "3️⃣  Checking for debug statements in Ruby..."
 DEBUG_RUBY=$(git diff --cached --name-only --diff-filter=ACM | \
   grep '\.rb$' | \
+  grep -v 'seeds' | \
   xargs grep -E "^\s*(puts|print) " 2>/dev/null || echo "")
 
 if [ -n "$DEBUG_RUBY" ]; then
