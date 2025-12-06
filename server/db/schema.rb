@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # This file is auto-generated from the current state of the database. Instead
 # of editing this file, please use the migrations feature of Active Record to
 # incrementally modify your database, and then regenerate this schema definition.
@@ -10,7 +12,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_12_04_220011) do
+ActiveRecord::Schema[8.0].define(version: 2025_12_06_040624) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -178,41 +180,6 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_04_220011) do
     t.check_constraint "team_type::text = ANY (ARRAY['hierarchical'::character varying::text, 'mesh'::character varying::text, 'sequential'::character varying::text, 'parallel'::character varying::text])", name: "ai_agent_teams_team_type_check"
   end
 
-  create_table "ai_agent_templates", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "creator_id", null: false
-    t.string "name", limit: 255, null: false
-    t.string "slug", limit: 150, null: false
-    t.text "description"
-    t.string "category", limit: 100
-    t.jsonb "template_config", default: {}, null: false
-    t.jsonb "default_parameters", default: {}
-    t.jsonb "required_capabilities", default: []
-    t.jsonb "supported_providers", default: []
-    t.string "version", default: "1.0.0"
-    t.boolean "is_public", default: false
-    t.boolean "is_featured", default: false
-    t.integer "usage_count", default: 0
-    t.decimal "average_rating", precision: 3, scale: 2, default: "0.0"
-    t.integer "rating_count", default: 0
-    t.jsonb "tags", default: []
-    t.text "instructions"
-    t.jsonb "example_inputs", default: []
-    t.jsonb "example_outputs", default: []
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.index ["average_rating"], name: "index_ai_agent_templates_on_average_rating"
-    t.index ["category"], name: "index_ai_agent_templates_on_category"
-    t.index ["creator_id"], name: "index_ai_agent_templates_on_creator_id"
-    t.index ["is_featured"], name: "index_ai_agent_templates_on_is_featured"
-    t.index ["is_public", "category"], name: "index_ai_agent_templates_on_is_public_and_category"
-    t.index ["is_public", "is_featured"], name: "index_ai_agent_templates_on_is_public_and_is_featured"
-    t.index ["is_public"], name: "index_ai_agent_templates_on_is_public"
-    t.index ["slug"], name: "index_ai_agent_templates_on_slug", unique: true
-    t.index ["supported_providers"], name: "index_ai_agent_templates_on_supported_providers", using: :gin
-    t.index ["tags"], name: "index_ai_agent_templates_on_tags", using: :gin
-    t.index ["usage_count"], name: "index_ai_agent_templates_on_usage_count"
-  end
-
   create_table "ai_agents", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.uuid "creator_id", null: false
@@ -283,42 +250,6 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_04_220011) do
     t.index ["user_id"], name: "index_ai_conversations_on_user_id"
     t.index ["websocket_channel"], name: "index_ai_conversations_on_websocket_channel"
     t.index ["websocket_session_id"], name: "index_ai_conversations_on_websocket_session_id"
-  end
-
-  create_table "ai_knowledge_documents", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "account_id", null: false
-    t.uuid "user_id", null: false
-    t.uuid "knowledge_base_article_id"
-    t.uuid "page_id"
-    t.string "document_type", limit: 50, null: false
-    t.string "title", limit: 500, null: false
-    t.text "content", null: false
-    t.text "summary"
-    t.jsonb "metadata", default: {}
-    t.string "source_url", limit: 1000
-    t.string "content_hash", limit: 64
-    t.integer "chunk_size", default: 0
-    t.integer "chunk_overlap", default: 0
-    t.jsonb "chunked_content", default: []
-    t.text "embedding_data"
-    t.string "embedding_model", limit: 100
-    t.string "status", limit: 20, default: "pending"
-    t.datetime "processed_at", precision: nil
-    t.datetime "indexed_at", precision: nil
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.index ["account_id", "document_type"], name: "index_ai_knowledge_documents_on_account_id_and_document_type"
-    t.index ["account_id", "status"], name: "index_ai_knowledge_documents_on_account_id_and_status"
-    t.index ["account_id"], name: "index_ai_knowledge_documents_on_account_id"
-    t.index ["chunked_content"], name: "index_ai_knowledge_documents_on_chunked_content", using: :gin
-    t.index ["content_hash"], name: "index_ai_knowledge_documents_on_content_hash"
-    t.index ["document_type"], name: "index_ai_knowledge_documents_on_document_type"
-    t.index ["indexed_at"], name: "index_ai_knowledge_documents_on_indexed_at"
-    t.index ["knowledge_base_article_id"], name: "index_ai_knowledge_documents_on_knowledge_base_article_id"
-    t.index ["page_id"], name: "index_ai_knowledge_documents_on_page_id"
-    t.index ["processed_at"], name: "index_ai_knowledge_documents_on_processed_at"
-    t.index ["status"], name: "index_ai_knowledge_documents_on_status"
-    t.index ["user_id"], name: "index_ai_knowledge_documents_on_user_id"
   end
 
   create_table "ai_messages", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -446,31 +377,6 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_04_220011) do
     t.index ["supported_models"], name: "index_ai_providers_on_supported_models", using: :gin
   end
 
-  create_table "ai_search_indices", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "account_id", null: false
-    t.string "index_name", limit: 100, null: false
-    t.string "index_type", limit: 50, null: false
-    t.text "description"
-    t.jsonb "configuration", default: {}
-    t.integer "document_count", default: 0
-    t.integer "total_chunks", default: 0
-    t.string "embedding_model", limit: 100
-    t.integer "embedding_dimensions", default: 1536
-    t.string "status", limit: 20, default: "active"
-    t.jsonb "metadata", default: {}
-    t.datetime "last_updated_at", precision: nil
-    t.datetime "last_indexed_at", precision: nil
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.index ["account_id", "index_type"], name: "index_ai_search_indices_on_account_id_and_index_type"
-    t.index ["account_id"], name: "index_ai_search_indices_on_account_id"
-    t.index ["index_name"], name: "index_ai_search_indices_on_index_name", unique: true
-    t.index ["index_type"], name: "index_ai_search_indices_on_index_type"
-    t.index ["last_indexed_at"], name: "index_ai_search_indices_on_last_indexed_at"
-    t.index ["last_updated_at"], name: "index_ai_search_indices_on_last_updated_at"
-    t.index ["status"], name: "index_ai_search_indices_on_status"
-  end
-
   create_table "ai_shared_context_pools", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "ai_workflow_run_id", null: false
     t.string "pool_id", null: false
@@ -493,30 +399,6 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_04_220011) do
     t.index ["pool_id"], name: "index_ai_shared_context_pools_on_pool_id", unique: true
     t.index ["pool_type"], name: "index_ai_shared_context_pools_on_pool_type"
     t.index ["scope"], name: "index_ai_shared_context_pools_on_scope"
-  end
-
-  create_table "ai_template_installations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "ai_agent_template_id", null: false
-    t.uuid "account_id", null: false
-    t.uuid "user_id", null: false
-    t.uuid "ai_agent_id"
-    t.string "installation_status", default: "pending", null: false
-    t.jsonb "custom_config", default: {}
-    t.jsonb "installation_metadata", default: {}
-    t.text "installation_notes"
-    t.datetime "installed_at", precision: nil
-    t.datetime "last_used_at", precision: nil
-    t.integer "usage_count", default: 0
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.index ["account_id", "ai_agent_template_id"], name: "idx_on_account_id_ai_agent_template_id_3613aa7892", unique: true
-    t.index ["account_id"], name: "index_ai_template_installations_on_account_id"
-    t.index ["ai_agent_id"], name: "index_ai_template_installations_on_ai_agent_id"
-    t.index ["ai_agent_template_id"], name: "index_ai_template_installations_on_ai_agent_template_id"
-    t.index ["installation_status"], name: "index_ai_template_installations_on_installation_status"
-    t.index ["installed_at"], name: "index_ai_template_installations_on_installed_at"
-    t.index ["last_used_at"], name: "index_ai_template_installations_on_last_used_at"
-    t.index ["user_id"], name: "index_ai_template_installations_on_user_id"
   end
 
   create_table "ai_workflow_checkpoints", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1006,19 +888,6 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_04_220011) do
     t.check_constraint "rate_limit_per_day IS NULL OR rate_limit_per_day > 0", name: "valid_api_key_daily_limit"
     t.check_constraint "rate_limit_per_hour IS NULL OR rate_limit_per_hour > 0", name: "valid_api_key_hourly_limit"
     t.check_constraint "usage_count >= 0", name: "valid_api_key_usage_count"
-  end
-
-  create_table "app_analytics", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "app_id", null: false
-    t.string "metric_name", limit: 100, null: false
-    t.decimal "metric_value", precision: 15, scale: 2
-    t.datetime "recorded_at", precision: nil, default: -> { "CURRENT_TIMESTAMP" }
-    t.jsonb "dimensions", default: {}
-    t.jsonb "metadata", default: {}
-    t.index ["app_id", "metric_name", "recorded_at"], name: "idx_app_analytics_on_app_metric_recorded_at"
-    t.index ["app_id"], name: "index_app_analytics_on_app_id"
-    t.index ["metric_name"], name: "idx_app_analytics_on_metric_name"
-    t.index ["recorded_at"], name: "idx_app_analytics_on_recorded_at"
   end
 
   create_table "app_endpoint_calls", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -3081,7 +2950,6 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_04_220011) do
   add_foreign_key "ai_agent_team_members", "ai_agent_teams"
   add_foreign_key "ai_agent_team_members", "ai_agents"
   add_foreign_key "ai_agent_teams", "accounts"
-  add_foreign_key "ai_agent_templates", "users", column: "creator_id", on_delete: :restrict
   add_foreign_key "ai_agents", "accounts", on_delete: :cascade
   add_foreign_key "ai_agents", "ai_providers"
   add_foreign_key "ai_agents", "users", column: "creator_id", on_delete: :restrict
@@ -3089,10 +2957,6 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_04_220011) do
   add_foreign_key "ai_conversations", "ai_agents", on_delete: :nullify
   add_foreign_key "ai_conversations", "ai_providers", on_delete: :restrict
   add_foreign_key "ai_conversations", "users", on_delete: :restrict
-  add_foreign_key "ai_knowledge_documents", "accounts", on_delete: :cascade
-  add_foreign_key "ai_knowledge_documents", "knowledge_base_articles", on_delete: :cascade
-  add_foreign_key "ai_knowledge_documents", "pages", on_delete: :cascade
-  add_foreign_key "ai_knowledge_documents", "users", on_delete: :restrict
   add_foreign_key "ai_messages", "ai_agents"
   add_foreign_key "ai_messages", "ai_conversations", on_delete: :cascade
   add_foreign_key "ai_messages", "ai_messages", column: "parent_message_id", on_delete: :nullify
@@ -3101,12 +2965,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_04_220011) do
   add_foreign_key "ai_provider_credentials", "ai_providers", on_delete: :cascade
   add_foreign_key "ai_provider_plugins", "plugins"
   add_foreign_key "ai_providers", "accounts"
-  add_foreign_key "ai_search_indices", "accounts", on_delete: :cascade
   add_foreign_key "ai_shared_context_pools", "ai_workflow_runs", on_delete: :cascade
-  add_foreign_key "ai_template_installations", "accounts", on_delete: :cascade
-  add_foreign_key "ai_template_installations", "ai_agent_templates", on_delete: :cascade
-  add_foreign_key "ai_template_installations", "ai_agents", on_delete: :cascade
-  add_foreign_key "ai_template_installations", "users", on_delete: :restrict
   add_foreign_key "ai_workflow_checkpoints", "ai_workflow_runs", on_delete: :cascade
   add_foreign_key "ai_workflow_compensations", "ai_workflow_node_executions", on_delete: :cascade
   add_foreign_key "ai_workflow_compensations", "ai_workflow_runs", on_delete: :cascade
@@ -3140,7 +2999,6 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_04_220011) do
   add_foreign_key "api_key_usages", "api_keys"
   add_foreign_key "api_keys", "accounts"
   add_foreign_key "api_keys", "users", column: "created_by_id"
-  add_foreign_key "app_analytics", "apps", on_delete: :cascade
   add_foreign_key "app_endpoint_calls", "accounts"
   add_foreign_key "app_endpoint_calls", "app_endpoints", on_delete: :cascade
   add_foreign_key "app_endpoints", "apps", on_delete: :cascade

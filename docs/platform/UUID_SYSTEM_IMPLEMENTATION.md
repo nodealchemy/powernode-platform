@@ -95,12 +95,12 @@ All remaining platform models updated with UUIDv7 support.
 ## Documentation Created
 
 ### 1. **System Architecture** 📚
-- **Location**: `server/docs/UUID_SYSTEM_ARCHITECTURE.md`
+- **Location**: [`server/docs/UUID_SYSTEM_ARCHITECTURE.md`](../../server/docs/UUID_SYSTEM_ARCHITECTURE.md)
 - **Content**: Complete technical implementation details
 - **Audience**: System architects and senior developers
 
-### 2. **Development Guidelines** 📚  
-- **Location**: `server/docs/UUID_DEVELOPMENT_GUIDELINES.md`
+### 2. **Development Guidelines** 📚
+- **Location**: [`server/docs/UUID_DEVELOPMENT_GUIDELINES.md`](../../server/docs/UUID_DEVELOPMENT_GUIDELINES.md)
 - **Content**: Practical developer guidance and best practices
 - **Audience**: All developers working with the platform
 
@@ -198,9 +198,9 @@ Category ID: 0198ebdf-fd18-7daa-98cd-8f5d33627a6a (Version 7) ✅
 - ✅ Complete documentation available
 
 ### **Documentation Links**
-- 📚 [Technical Architecture](../server/docs/UUID_SYSTEM_ARCHITECTURE.md)
-- 📚 [Development Guidelines](../server/docs/UUID_DEVELOPMENT_GUIDELINES.md)
-- 📚 [UuidGenerator Concern](../server/app/models/concerns/uuid_generator.rb)
+- 📚 [Technical Architecture](../../server/docs/UUID_SYSTEM_ARCHITECTURE.md)
+- 📚 [Development Guidelines](../../server/docs/UUID_DEVELOPMENT_GUIDELINES.md)
+- 📚 [UuidGenerator Concern](../../server/app/models/concerns/uuid_generator.rb)
 
 ---
 

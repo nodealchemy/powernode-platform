@@ -616,9 +616,8 @@ end
 7. ✓ Disk space available? (`df -h /tmp`)
 
 ## Related Documentation
-- [Background Job Engineer Specialist](docs/backend/BACKGROUND_JOB_ENGINEER_SPECIALIST.md) - Worker job patterns
-- [Rails Architect Specialist](docs/backend/RAILS_ARCHITECT_SPECIALIST.md) - Backend API patterns
-- [File Storage Documentation](docs/backend/FILE_STORAGE_SYSTEM.md) - File storage architecture (if exists)
+- [Background Job Engineer Specialist](../backend/BACKGROUND_JOB_ENGINEER_SPECIALIST.md) - Worker job patterns
+- [Rails Architect Specialist](../backend/RAILS_ARCHITECT_SPECIALIST.md) - Backend API patterns
 
 ## Summary
 
