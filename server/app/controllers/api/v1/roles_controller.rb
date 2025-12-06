@@ -13,25 +13,19 @@ class Api::V1::RolesController < ApplicationController
   def index
     roles = Role.includes(:permissions).order(:name)
 
-    render_success(
-      data: roles.map { |role| role_data(role) }
-    )
+    render_success(roles.map { |role| role_data(role) })
   end
 
   # GET /api/v1/roles/:id
   def show
-    render_success(
-      data: role_data(@role)
-    )
+    render_success(role_data(@role))
   end
 
   # GET /api/v1/roles/:id/users
   def users
     users = @role.users.includes(:account, :user_roles).order(:name, :email)
 
-    render_success(
-      data: users.map { |user| user_with_roles(user) }
-    )
+    render_success(users.map { |user| user_with_roles(user) })
   end
 
   # POST /api/v1/roles
@@ -48,11 +42,7 @@ class Api::V1::RolesController < ApplicationController
         @role.permissions = permissions
       end
       
-      render_success(
-        data: role_data(@role),
-        message: "Role created successfully",
-        status: :created
-      )
+      render_success(role_data(@role), status: :created)
     else
       render_validation_error(@role)
     end
@@ -73,10 +63,7 @@ class Api::V1::RolesController < ApplicationController
         @role.permissions = permissions
       end
       
-      render_success(
-        data: role_data(@role),
-        message: "Role updated successfully"
-      )
+      render_success(role_data(@role))
     else
       render_validation_error(@role)
     end
@@ -97,9 +84,7 @@ class Api::V1::RolesController < ApplicationController
     end
 
     if @role.destroy
-      render_success(
-        message: "Role deleted successfully"
-      )
+      render_success(nil)
     else
       render_validation_error(@role)
     end
@@ -124,9 +109,7 @@ class Api::V1::RolesController < ApplicationController
       end
     end
     
-    render_success(
-      data: assignable_roles.map { |role| assignable_role_data(role) }
-    )
+    render_success(assignable_roles.map { |role| assignable_role_data(role) })
   end
 
   # POST /api/v1/roles/:role_id/assign_to_user/:user_id
@@ -142,10 +125,7 @@ class Api::V1::RolesController < ApplicationController
     begin
       @user.assign_role(role, assigned_by: current_user)
 
-      render_success(
-        data: user_with_roles(@user),
-        message: "Role assigned successfully"
-      )
+      render_success(user_with_roles(@user))
     rescue => e
       render_error("Failed to assign role: #{e.message}", status: :unprocessable_content)
     end
@@ -158,10 +138,7 @@ class Api::V1::RolesController < ApplicationController
     begin
       @user.remove_role(role)
 
-      render_success(
-        data: user_with_roles(@user),
-        message: "Role removed successfully"
-      )
+      render_success(user_with_roles(@user))
     rescue => e
       render_error("Failed to remove role: #{e.message}", status: :unprocessable_content)
     end

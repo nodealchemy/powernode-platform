@@ -19,21 +19,21 @@ class Api::V1::UsersController < ApplicationController
     paginated_users = users.page(page).per(per_page)
 
     render_success(
-      data: paginated_users.map { |user| user_data(user) },
-      pagination: {
-        current_page: paginated_users.current_page,
-        per_page: paginated_users.limit_value,
-        total_pages: paginated_users.total_pages,
-        total_count: paginated_users.total_count
+      paginated_users.map { |user| user_data(user) },
+      meta: {
+        pagination: {
+          current_page: paginated_users.current_page,
+          per_page: paginated_users.limit_value,
+          total_pages: paginated_users.total_pages,
+          total_count: paginated_users.total_count
+        }
       }
     )
   end
 
   # GET /api/v1/users/:id
   def show
-    render_success(
-      data: user_data(@user)
-    )
+    render_success(user_data(@user))
   end
 
   # POST /api/v1/users
@@ -50,11 +50,7 @@ class Api::V1::UsersController < ApplicationController
       # Assign default roles based on the current plan
       assign_default_roles(@user)
 
-      render_success(
-        data: user_data(@user),
-        message: "User created successfully",
-        status: :created
-      )
+      render_success(user_data(@user), status: :created)
     else
       render_validation_error(@user)
     end
@@ -63,10 +59,7 @@ class Api::V1::UsersController < ApplicationController
   # PATCH/PUT /api/v1/users/:id
   def update
     if @user.update(user_update_params)
-      render_success(
-        data: user_data(@user),
-        message: "User updated successfully"
-      )
+      render_success(user_data(@user))
     else
       render_validation_error(@user)
     end
@@ -82,9 +75,7 @@ class Api::V1::UsersController < ApplicationController
     end
 
     if @user.destroy
-      render_success(
-        message: "User deleted successfully"
-      )
+      render_success(nil)
     else
       render_validation_error(@user)
     end
@@ -102,9 +93,7 @@ class Api::V1::UsersController < ApplicationController
       recent_logins: users.where('last_login_at >= ?', 7.days.ago).count
     }
 
-    render_success(
-      data: stats_data
-    )
+    render_success(stats_data)
   end
 
   private
