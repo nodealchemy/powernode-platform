@@ -21,9 +21,9 @@ class Api::V1::McpToolExecutionsController < ApplicationController
     executions = executions.where(status: params[:status]) if params[:status].present?
 
     # Filter by user if admin and user_id provided
-    if params[:user_id].present? && current_user.has_permission?('admin.users.read')
+    if params[:user_id].present? && current_user.has_permission?('admin.user.read')
       executions = executions.where(user_id: params[:user_id])
-    elsif !current_user.has_permission?('admin.users.read')
+    elsif !current_user.has_permission?('admin.user.read')
       # Non-admin users can only see their own executions
       executions = executions.where(user_id: current_user.id)
     end
@@ -168,7 +168,7 @@ class Api::V1::McpToolExecutionsController < ApplicationController
 
   def can_view_execution?(execution)
     # Admin users can view all executions
-    return true if current_user.has_permission?('admin.users.read')
+    return true if current_user.has_permission?('admin.user.read')
 
     # Regular users can only view their own executions
     execution.user_id == current_user.id
@@ -176,7 +176,7 @@ class Api::V1::McpToolExecutionsController < ApplicationController
 
   def can_modify_execution?(execution)
     # Admin users can modify all executions
-    return true if current_user.has_permission?('admin.users.read')
+    return true if current_user.has_permission?('admin.user.read')
 
     # Regular users can only modify their own executions
     execution.user_id == current_user.id
@@ -187,7 +187,7 @@ class Api::V1::McpToolExecutionsController < ApplicationController
       id: execution.id,
       status: execution.status,
       user_id: execution.user_id,
-      user_name: execution.user&.display_name,
+      user_name: execution.user&.name,
       duration_ms: execution.duration_ms,
       created_at: execution.created_at,
       started_at: execution.started_at,
@@ -199,7 +199,7 @@ class Api::V1::McpToolExecutionsController < ApplicationController
         parameters: execution.parameters,
         result: execution.result,
         error_message: execution.error_message,
-        metadata: execution.metadata
+        execution_time_ms: execution.execution_time_ms
       })
     end
 

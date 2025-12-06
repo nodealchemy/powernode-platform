@@ -31,7 +31,7 @@ RSpec.describe 'Api::V1::McpToolExecutions', type: :request do
             as: :json
 
         expect_success_response
-        data = json_response
+        data = json_response_data
         expect(data['executions']).to be_an(Array)
         expect(data['executions'].length).to eq(5) # Only user's executions
         expect(data['executions'].all? { |e| e['user_id'] == user.id }).to be true
@@ -44,14 +44,13 @@ RSpec.describe 'Api::V1::McpToolExecutions', type: :request do
 
       it 'filters by status' do
         get "/api/v1/mcp_servers/#{server.id}/mcp_tools/#{tool.id}/executions",
-            params: { status: 'success' },
-            headers: headers,
-            as: :json
+            params: { status: 'completed' },
+            headers: headers
 
         expect_success_response
-        data = json_response
+        data = json_response_data
         expect(data['executions'].length).to eq(3)
-        expect(data['executions'].all? { |e| e['status'] == 'success' }).to be true
+        expect(data['executions'].all? { |e| e['status'] == 'completed' }).to be true
       end
 
       it 'filters by time' do
@@ -60,28 +59,26 @@ RSpec.describe 'Api::V1::McpToolExecutions', type: :request do
 
         get "/api/v1/mcp_servers/#{server.id}/mcp_tools/#{tool.id}/executions",
             params: { since: 1.day.ago.iso8601 },
-            headers: headers,
-            as: :json
+            headers: headers
 
         expect_success_response
-        data = json_response
+        data = json_response_data
         expect(data['executions'].none? { |e| e['id'] == old_execution.id }).to be true
       end
 
       it 'supports pagination' do
         get "/api/v1/mcp_servers/#{server.id}/mcp_tools/#{tool.id}/executions",
             params: { page: 1, per_page: 2 },
-            headers: headers,
-            as: :json
+            headers: headers
 
         expect_success_response
-        data = json_response
+        data = json_response_data
         expect(data['executions'].length).to eq(2)
         expect(data['pagination']).to include(
-          'page' => 1,
+          'current_page' => 1,
           'per_page' => 2,
-          'total' => 5,
-          'pages' => 3
+          'total_count' => 5,
+          'total_pages' => 3
         )
       end
     end
@@ -93,29 +90,24 @@ RSpec.describe 'Api::V1::McpToolExecutions', type: :request do
             as: :json
 
         expect_success_response
-        data = json_response
+        data = json_response_data
         expect(data['executions'].length).to eq(7) # All executions
       end
 
       it 'filters by user_id when admin' do
         get "/api/v1/mcp_servers/#{server.id}/mcp_tools/#{tool.id}/executions",
             params: { user_id: user.id },
-            headers: admin_headers,
-            as: :json
+            headers: admin_headers
 
         expect_success_response
-        data = json_response
+        data = json_response_data
         expect(data['executions'].length).to eq(5)
         expect(data['executions'].all? { |e| e['user_id'] == user.id }).to be true
       end
     end
 
     context 'without mcp.executions.read permission' do
-      before do
-        limited_user.permissions.delete('mcp.executions.read')
-        limited_user.save!
-      end
-
+      # Member role doesn't have MCP permissions
       it 'returns forbidden error' do
         get "/api/v1/mcp_servers/#{server.id}/mcp_tools/#{tool.id}/executions",
             headers: limited_headers,
@@ -141,20 +133,19 @@ RSpec.describe 'Api::V1::McpToolExecutions', type: :request do
     context 'with proper permissions' do
       it 'returns own execution details' do
         get "/api/v1/mcp_servers/#{server.id}/mcp_tools/#{tool.id}/executions/#{execution.id}",
-            headers: headers,
-            as: :json
+            headers: headers
 
         expect_success_response
-        data = json_response
+        data = json_response_data
         expect(data['execution']).to include(
           'id' => execution.id,
-          'status' => 'success',
+          'status' => 'completed',
           'user_id' => user.id
         )
         expect(data['execution']).to have_key('parameters')
         expect(data['execution']).to have_key('result')
         expect(data['execution']).to have_key('error_message')
-        expect(data['execution']).to have_key('metadata')
+        expect(data['execution']).to have_key('execution_time_ms')
         expect(data['mcp_tool']).to include('id' => tool.id)
         expect(data['mcp_server']).to include('id' => server.id)
       end
@@ -183,7 +174,7 @@ RSpec.describe 'Api::V1::McpToolExecutions', type: :request do
             as: :json
 
         expect_success_response
-        data = json_response
+        data = json_response_data
         expect(data['execution']['id']).to eq(other_execution.id)
       end
     end
@@ -204,7 +195,7 @@ RSpec.describe 'Api::V1::McpToolExecutions', type: :request do
                as: :json
 
           expect_success_response
-          data = json_response
+          data = json_response_data
           expect(data['message']).to eq('Execution cancelled successfully')
         end
 
@@ -223,7 +214,7 @@ RSpec.describe 'Api::V1::McpToolExecutions', type: :request do
                headers: headers,
                as: :json
 
-          expect_error_response("Cannot cancel execution with status 'success'", 422)
+          expect_error_response("Cannot cancel execution with status 'completed'", 422)
         end
       end
 
@@ -252,11 +243,7 @@ RSpec.describe 'Api::V1::McpToolExecutions', type: :request do
 
     context 'without mcp.executions.write permission' do
       let(:execution) { create(:mcp_tool_execution, :pending, mcp_tool: tool, user: limited_user) }
-
-      before do
-        limited_user.permissions.delete('mcp.executions.write')
-        limited_user.save!
-      end
+      # Member role doesn't have MCP permissions
 
       it 'returns forbidden error' do
         post "/api/v1/mcp_servers/#{server.id}/mcp_tools/#{tool.id}/executions/#{execution.id}/cancel",

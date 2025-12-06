@@ -78,7 +78,7 @@ class Api::V1::McpToolsController < ApplicationController
 
     # Execute the tool (asynchronously)
     begin
-      execution = @mcp_tool.execute(user: current_user, parameters: parameters)
+      execution = @mcp_tool.execute(user: current_user, account: current_user.account, parameters: parameters)
 
       render_success({
         execution: serialize_execution(execution),

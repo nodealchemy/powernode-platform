@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Server, Search, RefreshCw, Filter, Package, Zap, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Server, Search, RefreshCw, Filter, Package, Zap, AlertCircle, CheckCircle2, Plus } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { Card } from '@/shared/components/ui/Card';
 import { Input } from '@/shared/components/ui/Input';
@@ -8,6 +8,7 @@ import { useNotifications } from '@/shared/hooks/useNotifications';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { McpServerCard } from '@/features/ai/components/McpServerCard';
 import { McpToolExplorer } from '@/features/ai/components/McpToolExplorer';
+import { McpServerFormModal } from '@/features/ai/components/McpServerFormModal';
 import { mcpApi } from '@/shared/services/ai/McpApiService';
 
 export interface McpServer {
@@ -16,8 +17,8 @@ export interface McpServer {
   description?: string;
   version: string;
   protocol_version: string;
-  status: 'connected' | 'disconnected' | 'error';
-  connection_type: 'stdio' | 'sse' | 'websocket';
+  status: 'connected' | 'disconnected' | 'connecting' | 'error';
+  connection_type: 'stdio' | 'sse' | 'websocket' | 'http';
   capabilities: {
     tools?: boolean;
     resources?: boolean;
@@ -56,6 +57,8 @@ export const McpBrowserPage: React.FC = () => {
   const [filterStatus, setFilterStatus] = useState<'all' | 'connected' | 'disconnected' | 'error'>('all');
   const [selectedTool, setSelectedTool] = useState<McpTool | null>(null);
   const [showToolExplorer, setShowToolExplorer] = useState(false);
+  const [showServerForm, setShowServerForm] = useState(false);
+  const [editingServer, setEditingServer] = useState<McpServer | null>(null);
 
   const { addNotification } = useNotifications();
   const { currentUser } = useAuth();
@@ -166,6 +169,148 @@ export const McpBrowserPage: React.FC = () => {
     return result.result;
   }, [tools]);
 
+  // Server management handlers
+  const handleConnect = useCallback(async (serverId: string) => {
+    try {
+      const { server } = await mcpApi.connectServer(serverId);
+      setServers(prev => prev.map(s => s.id === serverId ? { ...s, ...server } : s));
+      addNotification({
+        type: 'success',
+        title: 'Server Connected',
+        message: `Connected to ${server.name}`
+      });
+    } catch (error) {
+      addNotification({
+        type: 'error',
+        title: 'Connection Failed',
+        message: error instanceof Error ? error.message : 'Failed to connect server'
+      });
+      throw error;
+    }
+  }, [addNotification]);
+
+  const handleDisconnect = useCallback(async (serverId: string) => {
+    try {
+      const { server } = await mcpApi.disconnectServer(serverId);
+      setServers(prev => prev.map(s => s.id === serverId ? { ...s, ...server } : s));
+      addNotification({
+        type: 'success',
+        title: 'Server Disconnected',
+        message: `Disconnected from ${server.name}`
+      });
+    } catch (error) {
+      addNotification({
+        type: 'error',
+        title: 'Disconnect Failed',
+        message: error instanceof Error ? error.message : 'Failed to disconnect server'
+      });
+      throw error;
+    }
+  }, [addNotification]);
+
+  const handleDelete = useCallback(async (serverId: string) => {
+    const server = servers.find(s => s.id === serverId);
+    if (!server) return;
+
+    if (!confirm(`Are you sure you want to delete ${server.name}? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      await mcpApi.deleteServer(serverId);
+      setServers(prev => prev.filter(s => s.id !== serverId));
+      setTools(prev => prev.filter(t => t.server_id !== serverId));
+      addNotification({
+        type: 'success',
+        title: 'Server Deleted',
+        message: `Deleted ${server.name}`
+      });
+    } catch (error) {
+      addNotification({
+        type: 'error',
+        title: 'Delete Failed',
+        message: error instanceof Error ? error.message : 'Failed to delete server'
+      });
+    }
+  }, [servers, addNotification]);
+
+  const handleEdit = useCallback((server: McpServer) => {
+    setEditingServer(server);
+    setShowServerForm(true);
+  }, []);
+
+  const handleRefreshCapabilities = useCallback(async (serverId: string) => {
+    try {
+      const { server } = await mcpApi.refreshServerCapabilities(serverId);
+      setServers(prev => prev.map(s => s.id === serverId ? { ...s, ...server } : s));
+      // Reload tools for this server
+      const { tools: serverTools } = await mcpApi.getTools({ server_id: serverId });
+      setTools(prev => [
+        ...prev.filter(t => t.server_id !== serverId),
+        ...serverTools
+      ]);
+      addNotification({
+        type: 'success',
+        title: 'Capabilities Refreshed',
+        message: `Refreshed capabilities for ${server.name}`
+      });
+    } catch (error) {
+      addNotification({
+        type: 'error',
+        title: 'Refresh Failed',
+        message: error instanceof Error ? error.message : 'Failed to refresh capabilities'
+      });
+      throw error;
+    }
+  }, [addNotification]);
+
+  const handleAddServer = () => {
+    setEditingServer(null);
+    setShowServerForm(true);
+  };
+
+  const handleServerFormClose = () => {
+    setShowServerForm(false);
+    setEditingServer(null);
+  };
+
+  const handleServerFormSubmit = async (data: {
+    name: string;
+    description?: string;
+    connection_type: 'stdio' | 'websocket' | 'http';
+    command?: string;
+    args?: string[];
+    env?: Record<string, string>;
+  }) => {
+    try {
+      if (editingServer) {
+        const { server } = await mcpApi.updateServer(editingServer.id, data);
+        setServers(prev => prev.map(s => s.id === editingServer.id ? { ...s, ...server } : s));
+        addNotification({
+          type: 'success',
+          title: 'Server Updated',
+          message: `Updated ${server.name}`
+        });
+      } else {
+        const { server } = await mcpApi.createServer(data);
+        setServers(prev => [...prev, server]);
+        addNotification({
+          type: 'success',
+          title: 'Server Created',
+          message: `Created ${server.name}`
+        });
+      }
+      handleServerFormClose();
+    } catch (error) {
+      addNotification({
+        type: 'error',
+        title: editingServer ? 'Update Failed' : 'Create Failed',
+        message: error instanceof Error ? error.message : 'Failed to save server'
+      });
+      throw error;
+    }
+  };
+
   if (!canViewMcpServers) {
     return (
       <PageContainer title="MCP Browser">
@@ -189,6 +334,13 @@ export const McpBrowserPage: React.FC = () => {
         { label: 'MCP Browser' }
       ]}
       actions={[
+        {
+          id: 'add-server',
+          label: 'Add Server',
+          onClick: handleAddServer,
+          variant: 'primary' as const,
+          icon: Plus
+        },
         {
           id: 'refresh',
           label: 'Refresh',
@@ -304,6 +456,11 @@ export const McpBrowserPage: React.FC = () => {
                 server={server}
                 tools={tools.filter(t => t.server_id === server.id)}
                 onTestTool={handleTestTool}
+                onConnect={handleConnect}
+                onDisconnect={handleDisconnect}
+                onDelete={handleDelete}
+                onEdit={handleEdit}
+                onRefreshCapabilities={handleRefreshCapabilities}
               />
             ))}
           </div>
@@ -320,6 +477,16 @@ export const McpBrowserPage: React.FC = () => {
             setSelectedTool(null);
           }}
           onExecuteTool={handleExecuteTool}
+        />
+      )}
+
+      {/* Server Form Modal */}
+      {showServerForm && (
+        <McpServerFormModal
+          isOpen={showServerForm}
+          onClose={handleServerFormClose}
+          onSubmit={handleServerFormSubmit}
+          server={editingServer}
         />
       )}
     </PageContainer>

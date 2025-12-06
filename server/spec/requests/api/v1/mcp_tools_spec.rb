@@ -28,7 +28,7 @@ RSpec.describe 'Api::V1::McpTools', type: :request do
         get "/api/v1/mcp_servers/#{server.id}/mcp_tools", headers: headers, as: :json
 
         expect_success_response
-        data = json_response
+        data = json_response_data
         expect(data['mcp_tools']).to be_an(Array)
         expect(data['mcp_tools'].length).to eq(5)
         expect(data['mcp_server']).to include(
@@ -43,12 +43,12 @@ RSpec.describe 'Api::V1::McpTools', type: :request do
       end
 
       it 'filters by enabled status' do
-        get "/api/v1/mcp_servers/#{server.id}/mcp_tools?enabled=true",
-            headers: headers,
-            as: :json
+        get "/api/v1/mcp_servers/#{server.id}/mcp_tools",
+            params: { enabled: true },
+            headers: headers
 
         expect_success_response
-        data = json_response
+        data = json_response_data
         expect(data['mcp_tools'].length).to eq(3)
         expect(data['mcp_tools'].all? { |t| t['enabled'] }).to be true
       end
@@ -63,11 +63,7 @@ RSpec.describe 'Api::V1::McpTools', type: :request do
     end
 
     context 'without mcp.tools.read permission' do
-      before do
-        limited_user.permissions.delete('mcp.tools.read')
-        limited_user.save!
-      end
-
+      # Member role doesn't have MCP permissions
       it 'returns forbidden error' do
         get "/api/v1/mcp_servers/#{server.id}/mcp_tools", headers: limited_headers, as: :json
 
@@ -92,7 +88,7 @@ RSpec.describe 'Api::V1::McpTools', type: :request do
         get "/api/v1/mcp_servers/#{server.id}/mcp_tools/#{tool.id}", headers: headers, as: :json
 
         expect_success_response
-        data = json_response
+        data = json_response_data
         expect(data['mcp_tool']).to include(
           'id' => tool.id,
           'name' => tool.name,
@@ -144,7 +140,7 @@ RSpec.describe 'Api::V1::McpTools', type: :request do
                as: :json
 
           expect(response).to have_http_status(:accepted)
-          data = json_response
+          data = json_response_data
           expect(data['execution']).to include(
             'id' => execution.id,
             'status' => 'pending'
@@ -198,11 +194,7 @@ RSpec.describe 'Api::V1::McpTools', type: :request do
     end
 
     context 'without mcp.tools.execute permission' do
-      before do
-        limited_user.permissions.delete('mcp.tools.execute')
-        limited_user.save!
-      end
-
+      # Member role doesn't have MCP permissions
       it 'returns forbidden error' do
         post "/api/v1/mcp_servers/#{server.id}/mcp_tools/#{tool.id}/execute",
              params: execution_params,
@@ -229,7 +221,7 @@ RSpec.describe 'Api::V1::McpTools', type: :request do
         get "/api/v1/mcp_servers/#{server.id}/mcp_tools/#{tool.id}/stats", headers: headers, as: :json
 
         expect_success_response
-        data = json_response
+        data = json_response_data
         expect(data['mcp_tool_id']).to eq(tool.id)
         expect(data['stats']).to include(
           'total_executions' => 9,
@@ -248,11 +240,7 @@ RSpec.describe 'Api::V1::McpTools', type: :request do
     end
 
     context 'without mcp.tools.read permission' do
-      before do
-        limited_user.permissions.delete('mcp.tools.read')
-        limited_user.save!
-      end
-
+      # Member role doesn't have MCP permissions
       it 'returns forbidden error' do
         get "/api/v1/mcp_servers/#{server.id}/mcp_tools/#{tool.id}/stats", headers: limited_headers, as: :json
 

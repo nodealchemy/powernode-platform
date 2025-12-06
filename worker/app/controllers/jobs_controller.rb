@@ -184,7 +184,13 @@ class JobsController
       'ThumbnailGenerationJob',
       'MetadataExtractionJob',
       'VideoProcessingJob',
-      'AudioProcessingJob'
+      'AudioProcessingJob',
+      # MCP (Model Context Protocol) jobs
+      'Mcp::McpServerConnectionJob',
+      'Mcp::McpServerHealthCheckJob',
+      'Mcp::McpToolDiscoveryJob',
+      'Mcp::McpToolExecutionJob',
+      'Mcp::McpToolCacheRefreshJob'
     ]
 
     allowed_jobs.include?(job_class)

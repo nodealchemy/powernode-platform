@@ -46,10 +46,22 @@ interface McpAgentExecution {
   status: 'initializing' | 'running' | 'completed' | 'failed';
 }
 
+interface McpToolExecution {
+  execution_id: string;
+  tool_id: string;
+  tool_name: string;
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
+  result?: any;
+  error?: string;
+  duration_ms?: number;
+  timestamp: string;
+}
+
 interface McpWebSocketOptions {
   onToolsUpdated?: (tools: McpTool[]) => void;
   onWorkflowUpdate?: (execution: McpWorkflowExecution) => void;
   onAgentUpdate?: (execution: McpAgentExecution) => void;
+  onToolExecutionUpdate?: (execution: McpToolExecution) => void;
   onNotification?: (notification: JsonRpcNotification) => void;
   onError?: (error: string) => void;
   requestTimeout?: number; // Default: 30000ms
@@ -65,6 +77,7 @@ export const useMcpWebSocket = ({
   onToolsUpdated,
   onWorkflowUpdate,
   onAgentUpdate,
+  onToolExecutionUpdate,
   onNotification,
   onError,
   requestTimeout = 30000
@@ -79,12 +92,14 @@ export const useMcpWebSocket = ({
   const onToolsUpdatedRef = useRef(onToolsUpdated);
   const onWorkflowUpdateRef = useRef(onWorkflowUpdate);
   const onAgentUpdateRef = useRef(onAgentUpdate);
+  const onToolExecutionUpdateRef = useRef(onToolExecutionUpdate);
   const onNotificationRef = useRef(onNotification);
   const onErrorRef = useRef(onError);
 
   onToolsUpdatedRef.current = onToolsUpdated;
   onWorkflowUpdateRef.current = onWorkflowUpdate;
   onAgentUpdateRef.current = onAgentUpdate;
+  onToolExecutionUpdateRef.current = onToolExecutionUpdate;
   onNotificationRef.current = onNotification;
   onErrorRef.current = onError;
 
@@ -181,6 +196,9 @@ export const useMcpWebSocket = ({
             break;
           case 'agent/status_changed':
             onAgentUpdateRef.current?.(notification.params);
+            break;
+          case 'tool_execution/status_changed':
+            onToolExecutionUpdateRef.current?.(notification.params);
             break;
           default:
             onNotificationRef.current?.(notification);

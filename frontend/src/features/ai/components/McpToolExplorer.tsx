@@ -1,10 +1,11 @@
 import React, { useState, useCallback } from 'react';
-import { Play, Loader2, CheckCircle2, XCircle, Copy, Code, FileText } from 'lucide-react';
+import { Play, Loader2, CheckCircle2, XCircle, Copy, Code, FileText, History } from 'lucide-react';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
 import { Input } from '@/shared/components/ui/Input';
 import { Badge } from '@/shared/components/ui/Badge';
 import { useNotifications } from '@/shared/hooks/useNotifications';
+import { McpToolExecutionHistory } from './McpToolExecutionHistory';
 import type { McpTool } from '@/pages/app/ai/McpBrowserPage';
 
 export interface McpToolExplorerProps {
@@ -40,6 +41,8 @@ export const McpToolExplorer: React.FC<McpToolExplorerProps> = ({
   const [executing, setExecuting] = useState(false);
   const [executionResult, setExecutionResult] = useState<ExecutionResult | null>(null);
   const [showRawSchema, setShowRawSchema] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [historyRefreshTrigger, setHistoryRefreshTrigger] = useState(0);
 
   const { addNotification } = useNotifications();
 
@@ -164,6 +167,9 @@ export const McpToolExplorer: React.FC<McpToolExplorerProps> = ({
           title: 'Tool Executed',
           message: `${tool.name} executed successfully in ${executionTime}ms`
         });
+
+        // Trigger history refresh
+        setHistoryRefreshTrigger(prev => prev + 1);
       } else {
         // Mock execution for development
         await new Promise(resolve => setTimeout(resolve, 1000));
@@ -323,7 +329,7 @@ export const McpToolExplorer: React.FC<McpToolExplorerProps> = ({
           </div>
         )}
 
-        {/* Schema Toggle */}
+        {/* Schema and History Toggles */}
         <div className="flex items-center justify-between pt-2 border-t border-theme">
           <button
             onClick={() => setShowRawSchema(!showRawSchema)}
@@ -331,6 +337,13 @@ export const McpToolExplorer: React.FC<McpToolExplorerProps> = ({
           >
             <Code className="h-4 w-4" />
             {showRawSchema ? 'Hide' : 'Show'} JSON Schema
+          </button>
+          <button
+            onClick={() => setShowHistory(!showHistory)}
+            className="text-sm text-theme-interactive-primary hover:underline flex items-center gap-1"
+          >
+            <History className="h-4 w-4" />
+            {showHistory ? 'Hide' : 'Show'} History
           </button>
         </div>
 
@@ -351,6 +364,16 @@ export const McpToolExplorer: React.FC<McpToolExplorerProps> = ({
               <Copy className="h-4 w-4" />
             </Button>
           </div>
+        )}
+
+        {/* Execution History */}
+        {showHistory && (
+          <McpToolExecutionHistory
+            serverId={tool.server_id}
+            toolId={tool.id}
+            toolName={tool.name}
+            refreshTrigger={historyRefreshTrigger}
+          />
         )}
 
         {/* Execution Result */}

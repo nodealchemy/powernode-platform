@@ -56,6 +56,50 @@ class McpServer < ApplicationRecord
   after_update :broadcast_status_change, if: :saved_change_to_status?
 
   # ==========================================
+  # Virtual Attributes (for API compatibility)
+  # ==========================================
+
+  # URL for http/websocket connections - stored in command or env
+  def url
+    return command if connection_type.in?(%w[http websocket]) && command&.start_with?('http')
+
+    env&.dig('MCP_URL') || env&.dig('URL')
+  end
+
+  def url=(value)
+    if connection_type.in?(%w[http websocket])
+      self.command = value
+      self.env ||= {}
+      self.env['MCP_URL'] = value
+    end
+  end
+
+  # Alias last_health_check as last_connected_at for API compatibility
+  def last_connected_at
+    last_health_check
+  end
+
+  # Last error is stored in capabilities or a default message
+  def last_error
+    capabilities&.dig('last_error')
+  end
+
+  def last_error=(value)
+    self.capabilities ||= {}
+    self.capabilities['last_error'] = value
+  end
+
+  # Config stored in capabilities for API compatibility
+  def config
+    capabilities&.dig('config') || {}
+  end
+
+  def config=(value)
+    self.capabilities ||= {}
+    self.capabilities['config'] = value
+  end
+
+  # ==========================================
   # Public Methods
   # ==========================================
 
@@ -104,6 +148,17 @@ class McpServer < ApplicationRecord
       # Still mark as disconnected locally
       update!(status: 'disconnected', last_health_check: Time.current)
     end
+  end
+
+  # Health check - synchronous version that updates last_health_check
+  def health_check
+    return false unless connected?
+
+    update!(last_health_check: Time.current)
+    true
+  rescue StandardError => e
+    Rails.logger.error "Health check failed for MCP server #{name}: #{e.message}"
+    false
   end
 
   # Health check - delegates to worker service for async execution

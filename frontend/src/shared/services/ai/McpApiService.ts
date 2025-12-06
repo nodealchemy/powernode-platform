@@ -6,8 +6,8 @@ export interface McpServer {
   description?: string;
   version: string;
   protocol_version: string;
-  status: 'connected' | 'disconnected' | 'error';
-  connection_type: 'stdio' | 'sse' | 'websocket';
+  status: 'connected' | 'disconnected' | 'connecting' | 'error';
+  connection_type: 'stdio' | 'sse' | 'websocket' | 'http';
   capabilities: {
     tools?: boolean;
     resources?: boolean;
@@ -63,6 +63,39 @@ export interface McpToolExecutionResult {
   execution_time_ms: number;
   tool_id: string;
   tool_name: string;
+}
+
+export interface McpToolExecution {
+  id: string;
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
+  user_id: string;
+  user_name?: string;
+  parameters?: Record<string, any>;
+  result?: Record<string, any>;
+  error_message?: string;
+  duration_ms?: number;
+  created_at: string;
+  started_at?: string;
+  completed_at?: string;
+}
+
+export interface McpExecutionHistoryResponse {
+  executions: McpToolExecution[];
+  mcp_tool: { id: string; name: string };
+  mcp_server: { id: string; name: string };
+  pagination: {
+    current_page: number;
+    per_page: number;
+    total_pages: number;
+    total_count: number;
+  };
+  meta: {
+    pending_count: number;
+    running_count: number;
+    success_count: number;
+    failed_count: number;
+    cancelled_count: number;
+  };
 }
 
 /**
@@ -265,6 +298,85 @@ class McpApiService extends BaseApiService {
   }
 
   /**
+   * Create a new MCP server
+   */
+  async createServer(data: {
+    name: string;
+    description?: string;
+    connection_type: 'stdio' | 'websocket' | 'http';
+    command?: string;
+    args?: string[];
+    env?: Record<string, string>;
+  }): Promise<{ server: McpServer }> {
+    const response = await this.post<{
+      mcp_server: any;
+    }>('/mcp_servers', { mcp_server: data });
+
+    const s = response.mcp_server;
+    return {
+      server: {
+        id: s.id,
+        name: s.name,
+        description: s.description,
+        version: s.config?.version || '1.0.0',
+        protocol_version: s.config?.protocol_version || '2024-11-05',
+        status: s.status,
+        connection_type: s.connection_type,
+        capabilities: s.config?.capabilities || { tools: true },
+        tools_count: s.tools_count || 0,
+        resources_count: s.config?.resources_count || 0,
+        prompts_count: s.config?.prompts_count || 0,
+        last_connected_at: s.last_connected_at,
+        error_message: s.last_error,
+        metadata: s.config?.metadata
+      }
+    };
+  }
+
+  /**
+   * Update an MCP server
+   */
+  async updateServer(serverId: string, data: {
+    name?: string;
+    description?: string;
+    connection_type?: 'stdio' | 'websocket' | 'http';
+    command?: string;
+    args?: string[];
+    env?: Record<string, string>;
+  }): Promise<{ server: McpServer }> {
+    const response = await this.patch<{
+      mcp_server: any;
+    }>(`/mcp_servers/${serverId}`, { mcp_server: data });
+
+    const s = response.mcp_server;
+    return {
+      server: {
+        id: s.id,
+        name: s.name,
+        description: s.description,
+        version: s.config?.version || '1.0.0',
+        protocol_version: s.config?.protocol_version || '2024-11-05',
+        status: s.status,
+        connection_type: s.connection_type,
+        capabilities: s.config?.capabilities || { tools: true },
+        tools_count: s.tools_count || 0,
+        resources_count: s.config?.resources_count || 0,
+        prompts_count: s.config?.prompts_count || 0,
+        last_connected_at: s.last_connected_at,
+        error_message: s.last_error,
+        metadata: s.config?.metadata
+      }
+    };
+  }
+
+  /**
+   * Delete an MCP server
+   */
+  async deleteServer(serverId: string): Promise<void> {
+    await this.delete(`/mcp_servers/${serverId}`);
+  }
+
+  /**
    * Get MCP tools for a specific server
    */
   async getTools(filters?: {
@@ -427,6 +539,60 @@ class McpApiService extends BaseApiService {
     }>;
   }> {
     throw new Error('Prompts endpoint not yet implemented');
+  }
+
+  /**
+   * Get tool execution history
+   */
+  async getExecutionHistory(
+    serverId: string,
+    toolId: string,
+    options?: {
+      status?: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
+      since?: string;
+      page?: number;
+      per_page?: number;
+    }
+  ): Promise<McpExecutionHistoryResponse> {
+    const queryParams = new URLSearchParams();
+    if (options?.status) queryParams.append('status', options.status);
+    if (options?.since) queryParams.append('since', options.since);
+    if (options?.page) queryParams.append('page', options.page.toString());
+    if (options?.per_page) queryParams.append('per_page', options.per_page.toString());
+
+    const query = queryParams.toString();
+    const url = `/mcp_servers/${serverId}/mcp_tools/${toolId}/executions${query ? `?${query}` : ''}`;
+
+    return this.get<McpExecutionHistoryResponse>(url);
+  }
+
+  /**
+   * Get single execution details
+   */
+  async getExecution(
+    serverId: string,
+    toolId: string,
+    executionId: string
+  ): Promise<{
+    execution: McpToolExecution;
+    mcp_tool: { id: string; name: string; description?: string };
+    mcp_server: { id: string; name: string; status: string };
+  }> {
+    return this.get(`/mcp_servers/${serverId}/mcp_tools/${toolId}/executions/${executionId}`);
+  }
+
+  /**
+   * Cancel a running or pending execution
+   */
+  async cancelExecution(
+    serverId: string,
+    toolId: string,
+    executionId: string
+  ): Promise<{
+    execution: McpToolExecution;
+    message: string;
+  }> {
+    return this.post(`/mcp_servers/${serverId}/mcp_tools/${toolId}/executions/${executionId}/cancel`, {});
   }
 
   /**

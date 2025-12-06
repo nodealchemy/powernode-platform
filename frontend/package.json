@@ -106,6 +106,9 @@
   },
   "license": "GPL-3.0-or-later",
   "devDependencies": {
+    "@babel/preset-env": "^7.28.5",
+    "@babel/preset-react": "^7.28.5",
+    "@babel/preset-typescript": "^7.28.5",
     "@craco/craco": "^7.1.0",
     "@cypress/react": "^9.0.1",
     "@cypress/webpack-dev-server": "^4.1.1",
@@ -128,6 +131,10 @@
     "vite-tsconfig-paths": "^4.3.2"
   },
   "jest": {
+    "testEnvironment": "jsdom",
+    "setupFilesAfterEnv": [
+      "<rootDir>/src/setupTests.ts"
+    ],
     "transformIgnorePatterns": [
       "node_modules/(?!(axios|react-router|react-router-dom)/)"
     ],
