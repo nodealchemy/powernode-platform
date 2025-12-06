@@ -76,6 +76,10 @@ MISSING_FROZEN=""
 if [ -n "$RUBY_FILES" ]; then
   # Check each file individually to avoid xargs stdin issues
   for file in $RUBY_FILES; do
+    # Skip auto-generated files that don't need frozen_string_literal
+    if [[ "$file" == *"schema.rb" ]] || [[ "$file" == *"structure.sql" ]]; then
+      continue
+    fi
     if [ -f "$file" ] && ! grep -q "frozen_string_literal: true" "$file" 2>/dev/null; then
       MISSING_FROZEN="$MISSING_FROZEN$file"$'\n'
     fi
