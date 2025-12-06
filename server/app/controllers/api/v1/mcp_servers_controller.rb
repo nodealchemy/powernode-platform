@@ -5,7 +5,7 @@ class Api::V1::McpServersController < ApplicationController
   include AuditLogging
 
   before_action :authenticate_request
-  before_action :require_read_permission, only: [:index, :show, :health_check]
+  before_action :require_read_permission, only: [:index, :show, :health_check, :for_workflow_builder]
   before_action :require_write_permission, only: [:create, :update, :destroy, :connect, :disconnect, :discover_tools]
   before_action :set_mcp_server, only: [:show, :update, :destroy, :connect, :disconnect, :health_check, :discover_tools]
 
@@ -172,6 +172,28 @@ class Api::V1::McpServersController < ApplicationController
     end
   end
 
+  # GET /api/v1/mcp_servers/for_workflow_builder
+  # Returns connected MCP servers with their tools, resources, and prompts for the workflow builder
+  def for_workflow_builder
+    servers = current_user.account.mcp_servers
+                          .includes(:mcp_tools)
+                          .where(status: 'connected')
+                          .order(:name)
+
+    render_success({
+      mcp_servers: servers.map { |server| serialize_for_workflow_builder(server) },
+      meta: {
+        total_servers: servers.count,
+        total_tools: servers.sum { |s| s.mcp_tools.enabled.count }
+      }
+    })
+
+    log_audit_event('mcp.servers.workflow_builder_read', current_user.account)
+  rescue => e
+    Rails.logger.error "Failed to load MCP servers for workflow builder: #{e.message}"
+    render_error('Failed to load MCP servers', status: :internal_server_error)
+  end
+
   private
 
   def set_mcp_server
@@ -242,5 +264,53 @@ class Api::V1::McpServersController < ApplicationController
       execution_count: tool.execution_count,
       created_at: tool.created_at
     }
+  end
+
+  def serialize_for_workflow_builder(server)
+    {
+      id: server.id,
+      name: server.name,
+      description: server.description,
+      status: server.status,
+      connection_type: server.connection_type,
+      capabilities: server.capabilities,
+      tools: server.mcp_tools.enabled.map do |tool|
+        {
+          id: tool.id,
+          name: tool.name,
+          description: tool.description,
+          input_schema: tool.input_schema,
+          permission_level: tool.permission_level
+        }
+      end,
+      # Resources and prompts would be fetched from capabilities
+      resources: extract_resources_from_capabilities(server),
+      prompts: extract_prompts_from_capabilities(server)
+    }
+  end
+
+  def extract_resources_from_capabilities(server)
+    capabilities = server.capabilities || {}
+    resources = capabilities['resources'] || capabilities[:resources] || []
+    resources.map do |resource|
+      {
+        uri: resource['uri'] || resource[:uri],
+        name: resource['name'] || resource[:name],
+        description: resource['description'] || resource[:description],
+        mime_type: resource['mimeType'] || resource[:mimeType]
+      }
+    end
+  end
+
+  def extract_prompts_from_capabilities(server)
+    capabilities = server.capabilities || {}
+    prompts = capabilities['prompts'] || capabilities[:prompts] || []
+    prompts.map do |prompt|
+      {
+        name: prompt['name'] || prompt[:name],
+        description: prompt['description'] || prompt[:description],
+        arguments: prompt['arguments'] || prompt[:arguments] || []
+      }
+    end
   end
 end

@@ -163,6 +163,9 @@
   --node-prompt-template-bg: #a855f7; /* purple-500 */
   --node-kb-article-bg: #10b981;     /* emerald-500 */
   --node-page-bg: #3b82f6;           /* blue-500 */
+  --node-mcp-tool-bg: #8b5cf6;       /* violet-500 */
+  --node-mcp-resource-bg: #06b6d4;   /* cyan-500 */
+  --node-mcp-prompt-bg: #f59e0b;     /* amber-500 */
 }
 
 /* ===== LIGHT THEME ===== */

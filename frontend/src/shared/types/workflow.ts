@@ -39,10 +39,22 @@ export interface AiWorkflow {
   };
 }
 
+// MCP Node Types
+export type McpNodeType = 'mcp_tool' | 'mcp_resource' | 'mcp_prompt';
+
+// All workflow node types
+export type WorkflowNodeType =
+  | 'ai_agent' | 'api_call' | 'webhook' | 'condition' | 'loop'
+  | 'transform' | 'delay' | 'human_approval' | 'sub_workflow' | 'merge' | 'split'
+  | 'start' | 'end' | 'trigger'
+  | 'kb_article_create' | 'kb_article_read' | 'kb_article_update' | 'kb_article_search' | 'kb_article_publish'
+  | 'page_create' | 'page_read' | 'page_update' | 'page_publish'
+  | McpNodeType;
+
 export interface AiWorkflowNode {
   id: string;
   node_id: string;
-  node_type: 'ai_agent' | 'api_call' | 'webhook' | 'condition' | 'loop' | 'transform' | 'delay' | 'human_approval' | 'sub_workflow' | 'merge' | 'split';
+  node_type: WorkflowNodeType;
   name: string;
   description: string;
   position_x: number;
@@ -362,4 +374,89 @@ export interface ValidationRule {
   severity: ValidationIssue['severity'];
   enabled: boolean;
   auto_fixable: boolean;
+}
+
+// ===== MCP NODE CONFIGURATION TYPES =====
+// Type-safe configuration for MCP workflow nodes
+
+export interface ParameterMapping {
+  parameter_name: string;
+  mapping_type: 'static' | 'variable' | 'expression';
+  static_value?: unknown;
+  variable_path?: string;
+  expression?: string;
+}
+
+export interface McpToolNodeConfiguration {
+  mcp_server_id: string;
+  mcp_server_name?: string;
+  mcp_tool_id: string;
+  mcp_tool_name: string;
+  mcp_tool_description?: string;
+  input_schema?: Record<string, unknown>;
+  parameters: Record<string, unknown>;
+  parameter_mappings: ParameterMapping[];
+  execution_mode: 'sync' | 'async';
+  timeout_seconds?: number;
+  retry_on_failure?: boolean;
+  output_variable?: string;
+}
+
+export interface McpResourceNodeConfiguration {
+  mcp_server_id: string;
+  mcp_server_name?: string;
+  resource_uri: string;
+  resource_name?: string;
+  mime_type?: string;
+  output_variable?: string;
+  cache_duration_seconds?: number;
+}
+
+export interface McpPromptNodeConfiguration {
+  mcp_server_id: string;
+  mcp_server_name?: string;
+  prompt_name: string;
+  prompt_description?: string;
+  arguments_schema?: Record<string, unknown>;
+  arguments: Record<string, unknown>;
+  argument_mappings: ParameterMapping[];
+  output_variable?: string;
+}
+
+// MCP Workflow Builder types
+export interface McpServerForWorkflowBuilder {
+  id: string;
+  name: string;
+  description?: string;
+  status: string;
+  connection_type: string;
+  capabilities?: Record<string, unknown>;
+  tools: McpToolForWorkflowBuilder[];
+  resources: McpResourceForWorkflowBuilder[];
+  prompts: McpPromptForWorkflowBuilder[];
+}
+
+export interface McpToolForWorkflowBuilder {
+  id: string;
+  name: string;
+  description?: string;
+  input_schema?: Record<string, unknown>;
+  permission_level?: string;
+}
+
+export interface McpResourceForWorkflowBuilder {
+  uri: string;
+  name?: string;
+  description?: string;
+  mime_type?: string;
+}
+
+export interface McpPromptForWorkflowBuilder {
+  name: string;
+  description?: string;
+  arguments?: Array<{
+    name: string;
+    description?: string;
+    required?: boolean;
+  }>;
 }

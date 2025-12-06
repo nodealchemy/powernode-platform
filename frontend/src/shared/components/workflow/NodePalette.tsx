@@ -32,7 +32,9 @@ import {
   FilePlus,
   FileSearch,
   FileEdit,
-  FileCheck
+  FileCheck,
+  Wrench,
+  MessageSquareText
 } from 'lucide-react';
 import { Input } from '@/shared/components/ui/Input';
 
@@ -199,6 +201,22 @@ const nodeColorThemes = {
     bg: 'bg-[var(--node-page-bg)]',
     indicator: 'bg-[var(--node-page-bg)]',
     text: 'text-theme-info'
+  },
+  // MCP (Model Context Protocol) Nodes
+  'mcp_tool': {
+    bg: 'bg-[var(--node-mcp-tool-bg)]',
+    indicator: 'bg-[var(--node-mcp-tool-bg)]',
+    text: 'text-[var(--node-mcp-tool-bg)]'
+  },
+  'mcp_resource': {
+    bg: 'bg-[var(--node-mcp-resource-bg)]',
+    indicator: 'bg-[var(--node-mcp-resource-bg)]',
+    text: 'text-[var(--node-mcp-resource-bg)]'
+  },
+  'mcp_prompt': {
+    bg: 'bg-[var(--node-mcp-prompt-bg)]',
+    indicator: 'bg-[var(--node-mcp-prompt-bg)]',
+    text: 'text-[var(--node-mcp-prompt-bg)]'
   }
 } as const;
 
@@ -456,10 +474,35 @@ const nodeTypes: NodeTypeDefinition[] = [
     icon: <FileCheck className="h-4 w-4" />,
     category: 'Content',
     color: 'page_publish'
+  },
+  // MCP (Model Context Protocol) Nodes
+  {
+    type: 'mcp_tool',
+    label: 'MCP Tool',
+    description: 'Execute tools from connected MCP servers',
+    icon: <Wrench className="h-4 w-4" />,
+    category: 'MCP',
+    color: 'mcp_tool'
+  },
+  {
+    type: 'mcp_resource',
+    label: 'MCP Resource',
+    description: 'Read resources from MCP servers (files, databases, etc.)',
+    icon: <Database className="h-4 w-4" />,
+    category: 'MCP',
+    color: 'mcp_resource'
+  },
+  {
+    type: 'mcp_prompt',
+    label: 'MCP Prompt',
+    description: 'Use prompt templates from MCP servers for AI interactions',
+    icon: <MessageSquareText className="h-4 w-4" />,
+    category: 'MCP',
+    color: 'mcp_prompt'
   }
 ];
 
-const categories = ['All', 'Control', 'AI', 'Integration', 'Data', 'Communication', 'Content'];
+const categories = ['All', 'Control', 'AI', 'MCP', 'Integration', 'Data', 'Communication', 'Content'];
 
 export const NodePalette: React.FC<NodePaletteProps> = ({
   onAddNode,

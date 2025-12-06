@@ -502,6 +502,13 @@ module Mcp
                         Mcp::NodeExecutors::PageUpdate
                       when 'page_publish'
                         Mcp::NodeExecutors::PagePublish
+                      # MCP Server Integration
+                      when 'mcp_tool'
+                        Mcp::NodeExecutors::McpTool
+                      when 'mcp_resource'
+                        Mcp::NodeExecutors::McpResource
+                      when 'mcp_prompt'
+                        Mcp::NodeExecutors::McpPrompt
                       else
                         raise NodeExecutionError, "Unknown node type: #{node.node_type}"
                       end

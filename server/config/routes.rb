@@ -795,6 +795,9 @@ Rails.application.routes.draw do
 
       # MCP (Model Context Protocol) resources
       resources :mcp_servers do
+        collection do
+          get :for_workflow_builder
+        end
         member do
           post :connect
           post :disconnect

@@ -12,6 +12,20 @@ export { useMcpWebSocket } from './useMcpWebSocket';
 export { useAiOrchestrationWebSocket } from './useAiOrchestrationWebSocket';
 export { useTabBreadcrumb } from './useTabBreadcrumb';
 
+// MCP Workflow Builder hooks
+export { useMcpServersForWorkflow, useMcpServerForWorkflow } from './useMcpServersForWorkflow';
+export {
+  useMcpToolsForWorkflow,
+  useMcpResourcesForWorkflow,
+  useMcpPromptsForWorkflow,
+  useMcpToolForWorkflow,
+  useAllMcpToolsForWorkflow,
+  useAllMcpResourcesForWorkflow,
+  useAllMcpPromptsForWorkflow,
+} from './useMcpToolsForWorkflow';
+export { useWorkflowVariables, resolveVariablePath } from './useWorkflowVariables';
+export type { WorkflowVariable } from './useWorkflowVariables';
+
 // Form handling
 export { useForm } from './useForm';
 export type { UseFormReturn, UseFormOptions, FormValidationRule, FormValidationRules } from './useForm';

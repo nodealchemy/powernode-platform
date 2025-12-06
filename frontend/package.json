@@ -131,10 +131,6 @@
     "vite-tsconfig-paths": "^4.3.2"
   },
   "jest": {
-    "testEnvironment": "jsdom",
-    "setupFilesAfterEnv": [
-      "<rootDir>/src/setupTests.ts"
-    ],
     "transformIgnorePatterns": [
       "node_modules/(?!(axios|react-router|react-router-dom)/)"
     ],

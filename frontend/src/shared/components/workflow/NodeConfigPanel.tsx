@@ -17,6 +17,10 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/shared/components/ui
 import { agentsApi } from '@/shared/services/ai';
 import { useAuth } from '@/shared/hooks/useAuth';
 import type { AiAgent } from '@/shared/types/ai';
+// MCP Config Panels
+import { McpToolConfigPanel } from './config/McpToolConfigPanel';
+import { McpResourceConfigPanel } from './config/McpResourceConfigPanel';
+import { McpPromptConfigPanel } from './config/McpPromptConfigPanel';
 
 // Define the workflow node data structure
 export interface WorkflowNodeData {
@@ -471,11 +475,11 @@ export const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
                   {/* Display current node flags as read-only info */}
                   <div className="grid grid-cols-1 gap-3 mb-4">
                     {(config.isStartNode || node.type === 'trigger' || node.type === 'start') && (
-                      <div className="flex items-center gap-3 p-3 rounded-lg border border-green-200 bg-green-50">
+                      <div className="flex items-center gap-3 p-3 rounded-lg border border-theme-success/30 bg-theme-success/10">
                         <CheckCircle className="h-4 w-4 text-theme-success" />
                         <div className="flex-1">
-                          <span className="text-sm font-medium text-green-800">Start Node</span>
-                          <p className="text-xs text-theme-success mt-1">
+                          <span className="text-sm font-medium text-theme-success">Start Node</span>
+                          <p className="text-xs text-theme-success/80 mt-1">
                             Entry point for workflow execution. Use workflow canvas controls to modify.
                           </p>
                         </div>
@@ -483,11 +487,11 @@ export const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
                     )}
 
                     {(config.isEndNode || node.type === 'end') && (
-                      <div className="flex items-center gap-3 p-3 rounded-lg border border-blue-200 bg-blue-50">
+                      <div className="flex items-center gap-3 p-3 rounded-lg border border-theme-info/30 bg-theme-info/10">
                         <CheckCircle className="h-4 w-4 text-theme-info" />
                         <div className="flex-1">
-                          <span className="text-sm font-medium text-blue-800">End Node</span>
-                          <p className="text-xs text-theme-info mt-1">
+                          <span className="text-sm font-medium text-theme-info">End Node</span>
+                          <p className="text-xs text-theme-info/80 mt-1">
                             Terminal point in workflow execution. Use workflow canvas controls to modify.
                           </p>
                         </div>
@@ -1750,6 +1754,37 @@ export const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
               This node will change the page status to 'published' and make it publicly accessible.
             </p>
           </div>
+        );
+
+      // MCP (Model Context Protocol) Nodes
+      case 'mcp_tool':
+        return (
+          <McpToolConfigPanel
+            configuration={config.configuration}
+            onConfigChange={handleConfigChange}
+            errors={errors}
+            disabled={false}
+          />
+        );
+
+      case 'mcp_resource':
+        return (
+          <McpResourceConfigPanel
+            configuration={config.configuration}
+            onConfigChange={handleConfigChange}
+            errors={errors}
+            disabled={false}
+          />
+        );
+
+      case 'mcp_prompt':
+        return (
+          <McpPromptConfigPanel
+            configuration={config.configuration}
+            onConfigChange={handleConfigChange}
+            errors={errors}
+            disabled={false}
+          />
         );
 
       default:

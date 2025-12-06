@@ -24,6 +24,7 @@ class AiWorkflowNode < ApplicationRecord
       human_approval sub_workflow
       kb_article_create kb_article_read kb_article_update kb_article_search kb_article_publish
       page_create page_read page_update page_publish
+      mcp_tool mcp_resource mcp_prompt
     ],
     message: 'must be a valid node type'
   }
@@ -397,6 +398,46 @@ class AiWorkflowNode < ApplicationRecord
           'data' => 'result'
         }
       }
+    when 'mcp_tool'
+      {
+        'mcp_server_id' => nil,
+        'mcp_tool_id' => nil,
+        'mcp_tool_name' => nil,
+        'execution_mode' => 'sync',
+        'timeout_seconds' => 300,
+        'parameters' => {},
+        'parameter_mappings' => [],
+        'output_variable' => 'mcp_result',
+        'output_mapping' => {
+          'output' => 'result',
+          'result' => 'result',
+          'data' => 'data'
+        }
+      }
+    when 'mcp_resource'
+      {
+        'mcp_server_id' => nil,
+        'resource_uri' => '',
+        'output_variable' => 'resource_content',
+        'output_mapping' => {
+          'output' => 'content',
+          'result' => 'content',
+          'data' => 'metadata'
+        }
+      }
+    when 'mcp_prompt'
+      {
+        'mcp_server_id' => nil,
+        'prompt_name' => '',
+        'arguments' => {},
+        'argument_mappings' => [],
+        'output_variable' => 'prompt_result',
+        'output_mapping' => {
+          'output' => 'messages',
+          'result' => 'messages',
+          'data' => 'data'
+        }
+      }
     else
       {}
     end
@@ -422,6 +463,12 @@ class AiWorkflowNode < ApplicationRecord
       validate_human_approval_configuration
     when 'sub_workflow'
       validate_sub_workflow_configuration
+    when 'mcp_tool'
+      validate_mcp_tool_configuration
+    when 'mcp_resource'
+      validate_mcp_resource_configuration
+    when 'mcp_prompt'
+      validate_mcp_prompt_configuration
     end
   end
 
@@ -487,6 +534,45 @@ class AiWorkflowNode < ApplicationRecord
     end
   end
 
+  def validate_mcp_tool_configuration
+    if configuration['mcp_server_id'].blank?
+      errors.add(:configuration, 'must specify mcp_server_id for MCP tool nodes')
+    elsif !ai_workflow.account.mcp_servers.exists?(id: configuration['mcp_server_id'])
+      errors.add(:configuration, 'specified MCP server does not exist')
+    end
+
+    if configuration['mcp_tool_id'].blank? && configuration['mcp_tool_name'].blank?
+      errors.add(:configuration, 'must specify mcp_tool_id or mcp_tool_name for MCP tool nodes')
+    end
+
+    unless %w[sync async].include?(configuration['execution_mode'])
+      errors.add(:configuration, 'execution_mode must be sync or async')
+    end
+  end
+
+  def validate_mcp_resource_configuration
+    if configuration['mcp_server_id'].blank?
+      errors.add(:configuration, 'must specify mcp_server_id for MCP resource nodes')
+    elsif !ai_workflow.account.mcp_servers.exists?(id: configuration['mcp_server_id'])
+      errors.add(:configuration, 'specified MCP server does not exist')
+    end
+
+    if configuration['resource_uri'].blank?
+      errors.add(:configuration, 'must specify resource_uri for MCP resource nodes')
+    end
+  end
+
+  def validate_mcp_prompt_configuration
+    if configuration['mcp_server_id'].blank?
+      errors.add(:configuration, 'must specify mcp_server_id for MCP prompt nodes')
+    elsif !ai_workflow.account.mcp_servers.exists?(id: configuration['mcp_server_id'])
+      errors.add(:configuration, 'specified MCP server does not exist')
+    end
+
+    if configuration['prompt_name'].blank?
+      errors.add(:configuration, 'must specify prompt_name for MCP prompt nodes')
+    end
+  end
 
   def valid_configuration_for_type?
     case node_type

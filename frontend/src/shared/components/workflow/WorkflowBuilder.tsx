@@ -61,6 +61,10 @@ import { PageCreateNode } from './nodes/PageCreateNode';
 import { PageReadNode } from './nodes/PageReadNode';
 import { PageUpdateNode } from './nodes/PageUpdateNode';
 import { PagePublishNode } from './nodes/PagePublishNode';
+// MCP (Model Context Protocol) Nodes
+import { McpToolNode } from './nodes/McpToolNode';
+import { McpResourceNode } from './nodes/McpResourceNode';
+import { McpPromptNode } from './nodes/McpPromptNode';
 
 // Custom Edge Components
 import { ConditionalEdge } from './edges/ConditionalEdge';
@@ -269,6 +273,10 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
     page_read: PageReadNode,
     page_update: PageUpdateNode,
     page_publish: PagePublishNode,
+    // MCP (Model Context Protocol) Nodes
+    mcp_tool: McpToolNode,
+    mcp_resource: McpResourceNode,
+    mcp_prompt: McpPromptNode,
   }), []);
 
   // Memoized edge types for custom edge components
