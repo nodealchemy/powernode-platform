@@ -793,6 +793,9 @@ Rails.application.routes.draw do
         end
       end
 
+      # MCP (Model Context Protocol) OAuth callback (outside server-specific routes)
+      get 'mcp/oauth/callback', to: 'mcp_oauth#callback', as: :mcp_oauth_callback
+
       # MCP (Model Context Protocol) resources
       resources :mcp_servers do
         collection do
@@ -803,6 +806,14 @@ Rails.application.routes.draw do
           post :disconnect
           post :health_check
           post :discover_tools
+
+          # OAuth endpoints for MCP server authentication
+          namespace :oauth do
+            post '/', to: 'mcp_oauth#authorize', as: :authorize
+            get :status, to: 'mcp_oauth#status'
+            delete :disconnect, to: 'mcp_oauth#disconnect'
+            post :refresh, to: 'mcp_oauth#refresh'
+          end
         end
 
         resources :mcp_tools, only: [:index, :show] do

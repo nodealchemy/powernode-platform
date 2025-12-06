@@ -234,7 +234,7 @@ export const useMcpWebSocket = ({
   const initializeProtocol = useCallback(async (): Promise<{ protocolVersion: string; serverInfo: any }> => {
     try {
       const result = await sendJsonRpcRequest('initialize', {
-        protocolVersion: '2024-11-05',
+        protocolVersion: '2025-06-18',
         capabilities: {
           tools: {},
           workflows: {},

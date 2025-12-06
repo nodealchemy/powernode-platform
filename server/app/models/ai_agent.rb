@@ -457,7 +457,7 @@ class AiAgent < ApplicationRecord
       execution_context: {
         'mcp_execution' => true,
         'connection_id' => execution_options[:connection_id],
-        'protocol_version' => '2024-11-05'
+        'protocol_version' => '2025-06-18'
       }.merge(execution_options.except(:user, :connection_id))
     )
   end

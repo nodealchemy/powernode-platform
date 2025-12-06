@@ -12,8 +12,18 @@ class McpProtocolService
   class ConnectionError < ProtocolError; end
   class PermissionDeniedError < ProtocolError; end
 
-  MCP_VERSION = '2024-11-05'
+  # MCP Protocol Version - Updated to 2025-06-18 specification
+  MCP_VERSION = '2025-06-18'
   JSONRPC_VERSION = '2.0'
+
+  # Supported protocol versions for negotiation (newest first)
+  SUPPORTED_VERSIONS = [
+    '2025-06-18',  # Current version with Streamable HTTP, OAuth 2.1
+    '2024-11-05'   # Legacy version for backward compatibility
+  ].freeze
+
+  # Default version for clients that don't specify one (per spec)
+  DEFAULT_VERSION = '2025-03-26'
 
   attr_accessor :account, :connection_id, :protocol_version
 
@@ -311,8 +321,38 @@ class McpProtocolService
 
 
   def protocol_compatible?(client_version)
-    # For now, accept the standard MCP version
-    client_version == MCP_VERSION
+    # Accept any supported version
+    return true if SUPPORTED_VERSIONS.include?(client_version)
+
+    # Per MCP spec: if client doesn't specify, use default version
+    return true if client_version.nil? || client_version.empty?
+
+    false
+  end
+
+  # Negotiate the best protocol version between client and server
+  # Returns the negotiated version or nil if incompatible
+  def self.negotiate_protocol_version(client_version)
+    # If client doesn't specify, use default per spec
+    return DEFAULT_VERSION if client_version.nil? || client_version.empty?
+
+    # Return the client version if we support it
+    return client_version if SUPPORTED_VERSIONS.include?(client_version)
+
+    # Otherwise, return nil to indicate incompatibility
+    nil
+  end
+
+  # Validate that the message is not a JSON-RPC batch request
+  # MCP 2025-06-18 removed batching support
+  def self.validate_not_batch(data)
+    parsed = data.is_a?(String) ? JSON.parse(data) : data
+    if parsed.is_a?(Array)
+      raise ProtocolError, 'JSON-RPC batching is not supported in MCP 2025-06-18'
+    end
+    parsed
+  rescue JSON::ParserError => e
+    raise ProtocolError, "Invalid JSON: #{e.message}"
   end
 
   def validate_tool_manifest!(manifest)

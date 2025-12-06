@@ -17,7 +17,7 @@ module Mcp
       response = api_client.get("/api/v1/internal/mcp_servers/#{server_id}")
 
       unless response[:success]
-        log_error("Failed to fetch server details", nil, server_id: server_id)
+        log_error('Failed to fetch server details', nil, server_id: server_id)
         return
       end
 
@@ -29,32 +29,32 @@ module Mcp
       when 'disconnect'
         handle_disconnect(server)
       else
-        log_error("Unknown action", nil, server_id: server_id, action: action)
+        log_error('Unknown action', nil, server_id: server_id, action: action)
       end
     rescue BackendApiClient::ApiError => e
       log_error("API error during MCP server #{options['action'] || 'connect'}", e, server_id: server_id)
       raise
     rescue StandardError => e
-      log_error("Unexpected error during MCP server connection", e, server_id: server_id)
+      log_error('Unexpected error during MCP server connection', e, server_id: server_id)
       raise
     end
 
     private
 
     def handle_connect(server)
-      log_info("Connecting to MCP server", server_id: server[:id], name: server[:name])
+      log_info('Connecting to MCP server', server_id: server[:id], name: server[:name])
 
       result = establish_connection(server)
 
       if result[:success]
         # Update server status to connected
         api_client.patch("/api/v1/internal/mcp_servers/#{server[:id]}", {
-          status: 'connected',
-          capabilities: result[:capabilities],
-          last_connected_at: Time.current.iso8601
-        })
+                           status: 'connected',
+                           capabilities: result[:capabilities],
+                           last_connected_at: Time.current.iso8601
+                         })
 
-        log_info("MCP server connected successfully",
+        log_info('MCP server connected successfully',
                  server_id: server[:id],
                  name: server[:name],
                  capabilities: result[:capabilities])
@@ -64,11 +64,11 @@ module Mcp
       else
         # Update server status to error
         api_client.patch("/api/v1/internal/mcp_servers/#{server[:id]}", {
-          status: 'error',
-          last_error: result[:error]
-        })
+                           status: 'error',
+                           last_error: result[:error]
+                         })
 
-        log_error("MCP server connection failed", nil,
+        log_error('MCP server connection failed', nil,
                   server_id: server[:id],
                   name: server[:name],
                   error: result[:error])
@@ -76,17 +76,17 @@ module Mcp
     end
 
     def handle_disconnect(server)
-      log_info("Disconnecting from MCP server", server_id: server[:id], name: server[:name])
+      log_info('Disconnecting from MCP server', server_id: server[:id], name: server[:name])
 
       # Perform any cleanup needed for the connection type
       cleanup_connection(server)
 
       # Update server status
       api_client.patch("/api/v1/internal/mcp_servers/#{server[:id]}", {
-        status: 'disconnected'
-      })
+                         status: 'disconnected'
+                       })
 
-      log_info("MCP server disconnected", server_id: server[:id], name: server[:name])
+      log_info('MCP server disconnected', server_id: server[:id], name: server[:name])
     end
 
     def establish_connection(server)
@@ -106,6 +106,23 @@ module Mcp
       # For stdio connections, we verify the command exists and can respond to initialize
       command = server[:command]
       args = Array(server[:args])
+      env = server[:env] || {}
+
+      # Security validation - command whitelist and environment sanitization
+      begin
+        validated = McpSecurityService.validate_stdio_execution!(
+          command: command,
+          env: env,
+          allow_extended: server.dig(:capabilities, 'allow_extended_commands') == true,
+          strict_env: server.dig(:capabilities, 'strict_environment') == true
+        )
+      rescue McpSecurityService::CommandNotAllowedError => e
+        log_error('Security violation - command blocked', nil, server_id: server[:id], error: e.message)
+        return { success: false, error: "Security error: #{e.message}" }
+      rescue McpSecurityService::EnvironmentViolationError => e
+        log_error('Security violation - environment blocked', nil, server_id: server[:id], error: e.message)
+        return { success: false, error: "Security error: #{e.message}" }
+      end
 
       begin
         require 'open3'
@@ -116,7 +133,7 @@ module Mcp
           id: SecureRandom.uuid,
           method: 'initialize',
           params: {
-            protocolVersion: '2024-11-05',
+            protocolVersion: '2025-06-18',
             capabilities: {
               roots: { listChanged: true }
             },
@@ -128,8 +145,11 @@ module Mcp
         }
 
         stdin_data = init_request.to_json
+        # Use sanitized environment
+        sanitized_env = validated[:env].transform_keys(&:to_s)
+
         stdout, stderr, status = Open3.capture3(
-          server[:env] || {},
+          sanitized_env,
           command,
           *args,
           stdin_data: stdin_data
@@ -158,7 +178,7 @@ module Mcp
       end
     end
 
-    def establish_websocket_connection(server)
+    def establish_websocket_connection(_server)
       # WebSocket connection would be established here
       # For now, return a placeholder success
       { success: true, capabilities: { 'tools' => true } }
@@ -182,7 +202,7 @@ module Mcp
           id: SecureRandom.uuid,
           method: 'initialize',
           params: {
-            protocolVersion: '2024-11-05',
+            protocolVersion: '2025-06-18',
             clientInfo: { name: 'Powernode Worker', version: '1.0.0' }
           }
         }

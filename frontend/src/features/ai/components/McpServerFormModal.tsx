@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, Shield, HelpCircle } from 'lucide-react';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
 import { Input } from '@/shared/components/ui/Input';
@@ -13,6 +13,13 @@ export interface McpServerFormData {
   command?: string;
   args?: string[];
   env?: Record<string, string>;
+  auth_type?: 'none' | 'api_key' | 'oauth2';
+  oauth_provider?: string;
+  oauth_client_id?: string;
+  oauth_client_secret?: string;
+  oauth_authorization_url?: string;
+  oauth_token_url?: string;
+  oauth_scopes?: string;
 }
 
 export interface McpServerFormModalProps {
@@ -37,6 +44,15 @@ export const McpServerFormModal: React.FC<McpServerFormModalProps> = ({
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  // OAuth Configuration
+  const [authType, setAuthType] = useState<'none' | 'api_key' | 'oauth2'>('none');
+  const [oauthProvider, setOauthProvider] = useState('');
+  const [oauthClientId, setOauthClientId] = useState('');
+  const [oauthClientSecret, setOauthClientSecret] = useState('');
+  const [oauthAuthorizationUrl, setOauthAuthorizationUrl] = useState('');
+  const [oauthTokenUrl, setOauthTokenUrl] = useState('');
+  const [oauthScopes, setOauthScopes] = useState('');
+
   const isEditing = !!server;
 
   // Initialize form when server changes
@@ -49,6 +65,14 @@ export const McpServerFormModal: React.FC<McpServerFormModalProps> = ({
       setCommand('');
       setArgs([]);
       setEnvVars([]);
+      // OAuth fields - populated from server object if available
+      setAuthType((server as McpServer & { auth_type?: string }).auth_type as 'none' | 'api_key' | 'oauth2' || 'none');
+      setOauthProvider('');
+      setOauthClientId('');
+      setOauthClientSecret('');
+      setOauthAuthorizationUrl('');
+      setOauthTokenUrl('');
+      setOauthScopes('');
     } else {
       setName('');
       setDescription('');
@@ -56,6 +80,14 @@ export const McpServerFormModal: React.FC<McpServerFormModalProps> = ({
       setCommand('');
       setArgs([]);
       setEnvVars([]);
+      // Reset OAuth fields
+      setAuthType('none');
+      setOauthProvider('');
+      setOauthClientId('');
+      setOauthClientSecret('');
+      setOauthAuthorizationUrl('');
+      setOauthTokenUrl('');
+      setOauthScopes('');
     }
     setErrors({});
   }, [server, isOpen]);
@@ -73,6 +105,19 @@ export const McpServerFormModal: React.FC<McpServerFormModalProps> = ({
 
     if (connectionType !== 'stdio' && !command.trim()) {
       newErrors.command = 'URL is required for HTTP/WebSocket connections';
+    }
+
+    // OAuth validation
+    if (authType === 'oauth2') {
+      if (!oauthClientId.trim()) {
+        newErrors.oauth_client_id = 'Client ID is required for OAuth2';
+      }
+      if (!oauthAuthorizationUrl.trim()) {
+        newErrors.oauth_authorization_url = 'Authorization URL is required for OAuth2';
+      }
+      if (!oauthTokenUrl.trim()) {
+        newErrors.oauth_token_url = 'Token URL is required for OAuth2';
+      }
     }
 
     setErrors(newErrors);
@@ -101,7 +146,15 @@ export const McpServerFormModal: React.FC<McpServerFormModalProps> = ({
         connection_type: connectionType,
         command: command.trim(),
         args: args.filter(a => a.trim()),
-        env: Object.keys(env).length > 0 ? env : undefined
+        env: Object.keys(env).length > 0 ? env : undefined,
+        // OAuth fields
+        auth_type: authType,
+        oauth_provider: oauthProvider.trim() || undefined,
+        oauth_client_id: oauthClientId.trim() || undefined,
+        oauth_client_secret: oauthClientSecret.trim() || undefined,
+        oauth_authorization_url: oauthAuthorizationUrl.trim() || undefined,
+        oauth_token_url: oauthTokenUrl.trim() || undefined,
+        oauth_scopes: oauthScopes.trim() || undefined
       });
     } finally {
       setSubmitting(false);
@@ -314,6 +367,125 @@ export const McpServerFormModal: React.FC<McpServerFormModalProps> = ({
               )}
             </div>
           </div>
+        </div>
+
+        {/* Authentication Configuration */}
+        <div className="border-t border-theme pt-4 space-y-4">
+          <div className="flex items-center gap-2">
+            <Shield className="h-4 w-4 text-theme-info" />
+            <h3 className="text-sm font-medium text-theme-primary">Authentication</h3>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-theme-primary mb-1">
+              Authentication Type
+            </label>
+            <Select
+              value={authType}
+              onChange={(value) => setAuthType(value as 'none' | 'api_key' | 'oauth2')}
+            >
+              <option value="none">None (Public)</option>
+              <option value="api_key">API Key</option>
+              <option value="oauth2">OAuth 2.1</option>
+            </Select>
+          </div>
+
+          {/* OAuth 2.1 Configuration */}
+          {authType === 'oauth2' && (
+            <div className="space-y-4 p-4 bg-theme-hover rounded-lg border border-theme">
+              <div className="flex items-center gap-2 text-sm text-theme-secondary">
+                <HelpCircle className="h-4 w-4" />
+                <span>Configure OAuth 2.1 credentials from your MCP server provider</span>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-theme-primary mb-1">
+                  Provider Name
+                </label>
+                <Input
+                  type="text"
+                  value={oauthProvider}
+                  onChange={(e) => setOauthProvider(e.target.value)}
+                  placeholder="e.g., GitHub, Google, Slack"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-theme-primary mb-1">
+                  Client ID *
+                </label>
+                <Input
+                  type="text"
+                  value={oauthClientId}
+                  onChange={(e) => setOauthClientId(e.target.value)}
+                  placeholder="Your OAuth client ID"
+                  className={errors.oauth_client_id ? 'border-theme-error' : ''}
+                />
+                {errors.oauth_client_id && (
+                  <p className="mt-1 text-sm text-theme-error">{errors.oauth_client_id}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-theme-primary mb-1">
+                  Client Secret
+                </label>
+                <Input
+                  type="password"
+                  value={oauthClientSecret}
+                  onChange={(e) => setOauthClientSecret(e.target.value)}
+                  placeholder="Your OAuth client secret (optional for public clients)"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-theme-primary mb-1">
+                  Authorization URL *
+                </label>
+                <Input
+                  type="url"
+                  value={oauthAuthorizationUrl}
+                  onChange={(e) => setOauthAuthorizationUrl(e.target.value)}
+                  placeholder="https://provider.com/oauth/authorize"
+                  className={errors.oauth_authorization_url ? 'border-theme-error' : ''}
+                />
+                {errors.oauth_authorization_url && (
+                  <p className="mt-1 text-sm text-theme-error">{errors.oauth_authorization_url}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-theme-primary mb-1">
+                  Token URL *
+                </label>
+                <Input
+                  type="url"
+                  value={oauthTokenUrl}
+                  onChange={(e) => setOauthTokenUrl(e.target.value)}
+                  placeholder="https://provider.com/oauth/token"
+                  className={errors.oauth_token_url ? 'border-theme-error' : ''}
+                />
+                {errors.oauth_token_url && (
+                  <p className="mt-1 text-sm text-theme-error">{errors.oauth_token_url}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-theme-primary mb-1">
+                  Scopes
+                </label>
+                <Input
+                  type="text"
+                  value={oauthScopes}
+                  onChange={(e) => setOauthScopes(e.target.value)}
+                  placeholder="read write (space-separated)"
+                />
+                <p className="mt-1 text-xs text-theme-tertiary">
+                  Space-separated list of OAuth scopes required by the MCP server
+                </p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Actions */}

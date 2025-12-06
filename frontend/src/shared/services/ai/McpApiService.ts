@@ -1,5 +1,27 @@
 import { BaseApiService } from './BaseApiService';
 
+export interface McpServerOAuthStatus {
+  auth_type: 'none' | 'api_key' | 'oauth2';
+  oauth_configured: boolean;
+  oauth_connected: boolean;
+  oauth_token_expires_at?: string;
+  oauth_token_expired?: boolean;
+  oauth_last_refreshed_at?: string;
+  oauth_error?: string;
+  oauth_provider?: string;
+  oauth_scopes?: string;
+}
+
+export interface McpServerOAuthConfig {
+  auth_type: 'none' | 'api_key' | 'oauth2';
+  oauth_provider?: string;
+  oauth_client_id?: string;
+  oauth_client_secret?: string;
+  oauth_authorization_url?: string;
+  oauth_token_url?: string;
+  oauth_scopes?: string;
+}
+
 export interface McpServer {
   id: string;
   name: string;
@@ -8,6 +30,7 @@ export interface McpServer {
   protocol_version: string;
   status: 'connected' | 'disconnected' | 'connecting' | 'error';
   connection_type: 'stdio' | 'sse' | 'websocket' | 'http';
+  auth_type?: 'none' | 'api_key' | 'oauth2';
   capabilities: {
     tools?: boolean;
     resources?: boolean;
@@ -24,6 +47,7 @@ export interface McpServer {
     url?: string;
     icon?: string;
   };
+  oauth_status?: McpServerOAuthStatus;
 }
 
 export interface McpTool {
@@ -140,7 +164,7 @@ class McpApiService extends BaseApiService {
       name: s.name,
       description: s.description,
       version: s.config?.version || '1.0.0',
-      protocol_version: s.config?.protocol_version || '2024-11-05',
+      protocol_version: s.config?.protocol_version || '2025-06-18',
       status: s.status,
       connection_type: s.connection_type,
       capabilities: s.config?.capabilities || {
@@ -198,7 +222,7 @@ class McpApiService extends BaseApiService {
       name: s.name,
       description: s.description,
       version: s.config?.version || '1.0.0',
-      protocol_version: s.config?.protocol_version || '2024-11-05',
+      protocol_version: s.config?.protocol_version || '2025-06-18',
       status: s.status,
       connection_type: s.connection_type,
       capabilities: s.config?.capabilities || {
@@ -245,7 +269,7 @@ class McpApiService extends BaseApiService {
         name: s.name,
         description: s.description,
         version: s.config?.version || '1.0.0',
-        protocol_version: s.config?.protocol_version || '2024-11-05',
+        protocol_version: s.config?.protocol_version || '2025-06-18',
         status: s.status,
         connection_type: s.connection_type,
         capabilities: s.config?.capabilities || { tools: true },
@@ -275,7 +299,7 @@ class McpApiService extends BaseApiService {
         name: s.name,
         description: s.description,
         version: s.config?.version || '1.0.0',
-        protocol_version: s.config?.protocol_version || '2024-11-05',
+        protocol_version: s.config?.protocol_version || '2025-06-18',
         status: s.status,
         connection_type: s.connection_type,
         capabilities: s.config?.capabilities || { tools: true },
@@ -319,7 +343,7 @@ class McpApiService extends BaseApiService {
         name: s.name,
         description: s.description,
         version: s.config?.version || '1.0.0',
-        protocol_version: s.config?.protocol_version || '2024-11-05',
+        protocol_version: s.config?.protocol_version || '2025-06-18',
         status: s.status,
         connection_type: s.connection_type,
         capabilities: s.config?.capabilities || { tools: true },
@@ -355,7 +379,7 @@ class McpApiService extends BaseApiService {
         name: s.name,
         description: s.description,
         version: s.config?.version || '1.0.0',
-        protocol_version: s.config?.protocol_version || '2024-11-05',
+        protocol_version: s.config?.protocol_version || '2025-06-18',
         status: s.status,
         connection_type: s.connection_type,
         capabilities: s.config?.capabilities || { tools: true },
@@ -651,7 +675,7 @@ class McpApiService extends BaseApiService {
     return {
       success: response.healthy,
       latency_ms: 0, // Health check doesn't return latency
-      protocol_version: '2024-11-05',
+      protocol_version: '2025-06-18',
       error: response.last_error
     };
   }
@@ -676,6 +700,154 @@ class McpApiService extends BaseApiService {
     return {
       server,
       capabilities_updated: response.tools_discovered > 0
+    };
+  }
+
+  // ==========================================
+  // OAuth 2.1 Methods
+  // ==========================================
+
+  /**
+   * Get OAuth status for an MCP server
+   */
+  async getOAuthStatus(serverId: string): Promise<McpServerOAuthStatus> {
+    const response = await this.get<{
+      mcp_server_id: string;
+      mcp_server_name: string;
+      oauth_status: McpServerOAuthStatus;
+    }>(`/mcp_servers/${serverId}/oauth/status`);
+
+    return response.oauth_status;
+  }
+
+  /**
+   * Initiate OAuth authorization flow
+   * Returns the authorization URL to redirect the user to
+   */
+  async initiateOAuth(serverId: string, redirectUri?: string): Promise<{
+    authorization_url: string;
+    state: string;
+  }> {
+    const response = await this.post<{
+      authorization_url: string;
+      state: string;
+      message: string;
+    }>(`/mcp_servers/${serverId}/oauth`, {
+      redirect_uri: redirectUri || `${window.location.origin}/oauth/mcp/callback`
+    });
+
+    return {
+      authorization_url: response.authorization_url,
+      state: response.state
+    };
+  }
+
+  /**
+   * Complete OAuth flow with authorization code (callback handler)
+   */
+  async completeOAuthCallback(params: {
+    code: string;
+    state: string;
+    redirect_uri?: string;
+  }): Promise<{
+    mcp_server_id: string;
+    mcp_server_name: string;
+    oauth_connected: boolean;
+    token_expires_at?: string;
+  }> {
+    const response = await this.get<{
+      mcp_server_id: string;
+      mcp_server_name: string;
+      oauth_connected: boolean;
+      token_expires_at?: string;
+      message: string;
+    }>(`/mcp/oauth/callback?code=${encodeURIComponent(params.code)}&state=${encodeURIComponent(params.state)}${params.redirect_uri ? `&redirect_uri=${encodeURIComponent(params.redirect_uri)}` : ''}`);
+
+    return {
+      mcp_server_id: response.mcp_server_id,
+      mcp_server_name: response.mcp_server_name,
+      oauth_connected: response.oauth_connected,
+      token_expires_at: response.token_expires_at
+    };
+  }
+
+  /**
+   * Disconnect OAuth (revoke tokens)
+   */
+  async disconnectOAuth(serverId: string): Promise<{
+    oauth_connected: boolean;
+  }> {
+    const response = await this.delete<{
+      mcp_server_id: string;
+      oauth_connected: boolean;
+      message: string;
+    }>(`/mcp_servers/${serverId}/oauth/disconnect`);
+
+    return {
+      oauth_connected: response.oauth_connected
+    };
+  }
+
+  /**
+   * Manually refresh OAuth token
+   */
+  async refreshOAuthToken(serverId: string): Promise<{
+    oauth_connected: boolean;
+    token_expires_at?: string;
+  }> {
+    const response = await this.post<{
+      mcp_server_id: string;
+      oauth_connected: boolean;
+      token_expires_at?: string;
+      message: string;
+    }>(`/mcp_servers/${serverId}/oauth/refresh`, {});
+
+    return {
+      oauth_connected: response.oauth_connected,
+      token_expires_at: response.token_expires_at
+    };
+  }
+
+  /**
+   * Update MCP server OAuth configuration
+   */
+  async updateServerOAuthConfig(
+    serverId: string,
+    config: McpServerOAuthConfig
+  ): Promise<{ server: McpServer }> {
+    const response = await this.patch<{
+      mcp_server: any;
+    }>(`/mcp_servers/${serverId}`, {
+      mcp_server: {
+        auth_type: config.auth_type,
+        oauth_provider: config.oauth_provider,
+        oauth_client_id: config.oauth_client_id,
+        oauth_client_secret: config.oauth_client_secret,
+        oauth_authorization_url: config.oauth_authorization_url,
+        oauth_token_url: config.oauth_token_url,
+        oauth_scopes: config.oauth_scopes
+      }
+    });
+
+    const s = response.mcp_server;
+    return {
+      server: {
+        id: s.id,
+        name: s.name,
+        description: s.description,
+        version: s.config?.version || '1.0.0',
+        protocol_version: s.config?.protocol_version || '2025-06-18',
+        status: s.status,
+        connection_type: s.connection_type,
+        auth_type: s.auth_type,
+        capabilities: s.config?.capabilities || { tools: true },
+        tools_count: s.tools_count || 0,
+        resources_count: s.config?.resources_count || 0,
+        prompts_count: s.config?.prompts_count || 0,
+        last_connected_at: s.last_connected_at,
+        error_message: s.last_error,
+        metadata: s.config?.metadata
+      }
     };
   }
 }

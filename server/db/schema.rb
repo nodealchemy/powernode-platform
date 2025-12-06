@@ -1904,8 +1904,26 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_06_040624) do
     t.datetime "last_health_check"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "auth_type", default: "none", null: false
+    t.string "oauth_provider"
+    t.string "oauth_client_id"
+    t.text "oauth_client_secret_encrypted"
+    t.string "oauth_authorization_url"
+    t.string "oauth_token_url"
+    t.string "oauth_scopes"
+    t.text "oauth_access_token_encrypted"
+    t.text "oauth_refresh_token_encrypted"
+    t.datetime "oauth_token_expires_at"
+    t.string "oauth_token_type", default: "Bearer"
+    t.string "oauth_pkce_code_verifier"
+    t.string "oauth_state"
+    t.datetime "oauth_last_refreshed_at"
+    t.text "oauth_error"
     t.index ["account_id", "status"], name: "index_mcp_servers_on_account_id_and_status"
     t.index ["account_id"], name: "index_mcp_servers_on_account_id"
+    t.index ["auth_type"], name: "index_mcp_servers_on_auth_type"
+    t.index ["oauth_state"], name: "index_mcp_servers_on_oauth_state", unique: true, where: "(oauth_state IS NOT NULL)"
+    t.index ["oauth_token_expires_at"], name: "index_mcp_servers_on_oauth_token_expires_at"
     t.index ["status"], name: "index_mcp_servers_on_status"
   end
 

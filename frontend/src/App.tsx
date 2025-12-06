@@ -29,6 +29,7 @@ import { UnauthorizedPage } from '@/pages/public/UnauthorizedPage';
 import { WelcomePage } from '@/pages/public/WelcomePage';
 import { AcceptInvitationPage } from '@/pages/public/AcceptInvitationPage';
 import { PageViewPage } from '@/pages/public/PageViewPage';
+import { McpOAuthCallbackPage } from '@/pages/public/oauth/McpOAuthCallbackPage';
 
 import './App.css';
 import '@/assets/styles/themes.css';
@@ -281,6 +282,12 @@ const AppContent: React.FC = () => {
           <Route
             path="/pages/:slug"
             element={<PageViewPage />}
+          />
+
+          {/* OAuth callback routes */}
+          <Route
+            path="/oauth/mcp/callback"
+            element={<McpOAuthCallbackPage />}
           />
 
           {/* Default redirects */}

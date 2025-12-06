@@ -133,7 +133,7 @@ export class McpClient {
 
   private async initializeProtocol(): Promise<McpConnectionInfo> {
     const clientInfo = {
-      protocolVersion: '2024-11-05',
+      protocolVersion: '2025-06-18',
       capabilities: {
         tools: { listChanged: true },
         resources: { subscribe: true },
@@ -149,7 +149,7 @@ export class McpClient {
 
     this.connectionInfo = {
       connectionId: response.connection_id,
-      protocolVersion: response.server_capabilities.protocolVersion || '2024-11-05',
+      protocolVersion: response.server_capabilities.protocolVersion || '2025-06-18',
       serverCapabilities: response.server_capabilities,
       availableTools: response.available_tools,
       userPermissions: response.user_permissions

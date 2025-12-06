@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { AlertCircle, CheckCircle } from 'lucide-react';
 import { EnhancedSelect } from '@/shared/components/ui/EnhancedSelect';
 import { Input } from '@/shared/components/ui/Input';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/shared/components/ui/Tabs';
@@ -6,6 +7,7 @@ import { McpServerSelector } from './McpServerSelector';
 import { McpToolSelector } from './McpToolSelector';
 import { JsonSchemaForm } from './JsonSchemaForm';
 import { Textarea } from '@/shared/components/ui/Textarea';
+import { useSchemaValidation } from './validation/useSchemaValidation';
 import type { McpToolForWorkflowBuilder } from '@/shared/types/workflow';
 
 interface McpToolConfigPanelProps {
@@ -27,6 +29,19 @@ export const McpToolConfigPanel: React.FC<McpToolConfigPanelProps> = ({
   const [activeTab, setActiveTab] = useState<'form' | 'json'>('form');
   const [selectedTool, setSelectedTool] = useState<McpToolForWorkflowBuilder | null>(null);
   const [jsonParameters, setJsonParameters] = useState('');
+  const [jsonError, setJsonError] = useState<string | null>(null);
+
+  // Schema validation using AJV
+  const schema = useMemo(() => selectedTool?.input_schema || null, [selectedTool]);
+  const { validate, isSchemaValid } = useSchemaValidation(schema);
+
+  // Validate current parameters
+  const validationResult = useMemo(() => {
+    if (!schema || !configuration.parameters) {
+      return { isValid: true, errors: {} };
+    }
+    return validate(configuration.parameters);
+  }, [schema, configuration.parameters, validate]);
 
   // Initialize JSON parameters from configuration
   useEffect(() => {
@@ -83,10 +98,18 @@ export const McpToolConfigPanel: React.FC<McpToolConfigPanelProps> = ({
     try {
       const parsed = JSON.parse(value);
       onConfigChange('parameters', parsed);
-    } catch {
+      setJsonError(null);
+    } catch (e) {
       // Invalid JSON, don't update parameters
+      setJsonError(e instanceof Error ? e.message : 'Invalid JSON');
     }
   }, [onConfigChange]);
+
+  // Combine validation errors with external errors
+  const combinedErrors = useMemo(() => ({
+    ...errors,
+    ...validationResult.errors,
+  }), [errors, validationResult.errors]);
 
   return (
     <div className="space-y-4">
@@ -149,7 +172,27 @@ export const McpToolConfigPanel: React.FC<McpToolConfigPanelProps> = ({
       {/* Parameters Section */}
       {selectedTool && selectedTool.input_schema && (
         <div className="border border-theme rounded-lg p-3">
-          <h4 className="text-sm font-medium text-theme-primary mb-3">Tool Parameters</h4>
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="text-sm font-medium text-theme-primary">Tool Parameters</h4>
+            {/* Validation Status Indicator */}
+            {isSchemaValid && (
+              <div className="flex items-center gap-1.5">
+                {validationResult.isValid ? (
+                  <>
+                    <CheckCircle className="h-4 w-4 text-theme-success" />
+                    <span className="text-xs text-theme-success">Valid</span>
+                  </>
+                ) : (
+                  <>
+                    <AlertCircle className="h-4 w-4 text-theme-error" />
+                    <span className="text-xs text-theme-error">
+                      {Object.keys(validationResult.errors).length} error(s)
+                    </span>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
 
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'form' | 'json')}>
             <TabsList className="mb-3">
@@ -162,7 +205,7 @@ export const McpToolConfigPanel: React.FC<McpToolConfigPanelProps> = ({
                 schema={selectedTool.input_schema}
                 values={configuration.parameters || {}}
                 onChange={handleParametersChange}
-                errors={errors}
+                errors={combinedErrors}
                 disabled={disabled}
               />
             </TabsContent>
@@ -172,13 +215,30 @@ export const McpToolConfigPanel: React.FC<McpToolConfigPanelProps> = ({
                 value={jsonParameters}
                 onChange={(e) => handleJsonChange(e.target.value)}
                 rows={8}
-                className="font-mono text-sm"
+                className={`font-mono text-sm ${jsonError ? 'border-theme-error' : ''}`}
                 placeholder="{}"
                 disabled={disabled}
               />
+              {jsonError && (
+                <p className="text-xs text-theme-error mt-1 flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" />
+                  {jsonError}
+                </p>
+              )}
               <p className="text-xs text-theme-muted mt-2">
                 Use {'{{variable}}'} syntax to reference workflow variables.
               </p>
+              {/* Show validation errors in JSON mode too */}
+              {!jsonError && !validationResult.isValid && (
+                <div className="mt-2 p-2 bg-theme-error/10 rounded border border-theme-error">
+                  <p className="text-xs text-theme-error font-medium mb-1">Validation Errors:</p>
+                  <ul className="text-xs text-theme-error space-y-0.5">
+                    {Object.entries(validationResult.errors).map(([field, msg]) => (
+                      <li key={field}>• {field}: {msg}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </TabsContent>
           </Tabs>
         </div>

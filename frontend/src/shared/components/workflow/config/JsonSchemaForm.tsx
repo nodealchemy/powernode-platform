@@ -4,6 +4,9 @@ import { Textarea } from '@/shared/components/ui/Textarea';
 import { EnhancedSelect } from '@/shared/components/ui/EnhancedSelect';
 import { Variable } from 'lucide-react';
 import type { WorkflowVariable } from '@/shared/hooks/useWorkflowVariables';
+import { ArrayOfObjectsField } from './schema-fields/ArrayOfObjectsField';
+import { AdditionalPropertiesField } from './schema-fields/AdditionalPropertiesField';
+import { VariableAutocomplete } from './schema-fields/VariableAutocomplete';
 
 export interface JsonSchemaProperty {
   type: 'string' | 'number' | 'integer' | 'boolean' | 'array' | 'object';
@@ -16,9 +19,12 @@ export interface JsonSchemaProperty {
   maximum?: number;
   minLength?: number;
   maxLength?: number;
+  minItems?: number;
+  maxItems?: number;
   pattern?: string;
   items?: JsonSchemaProperty;
   properties?: Record<string, JsonSchemaProperty>;
+  additionalProperties?: boolean | JsonSchemaProperty;
   required?: string[];
 }
 
@@ -236,24 +242,42 @@ const SchemaField: React.FC<SchemaFieldProps> = ({
       const isMultiline = property.format === 'textarea' ||
                          (property.maxLength && property.maxLength > 200);
 
+      // Use VariableAutocomplete when workflow variables are available
+      const hasVariables = workflowVariables && workflowVariables.length > 0;
+
       if (isMultiline) {
         return (
           <div>
-            <div className="flex items-start gap-2">
-              <div className="flex-1">
-                <Textarea
-                  label={label}
-                  value={String(value ?? property.default ?? '')}
-                  onChange={(e) => onChange(e.target.value)}
-                  rows={4}
-                  disabled={disabled}
-                  error={error}
-                  required={required}
-                  placeholder={`Enter ${label.toLowerCase()} or use {{variable}}`}
-                />
+            <label className="block text-sm font-medium text-theme-primary mb-1">
+              {label}
+              {required && <span className="text-theme-error ml-1">*</span>}
+            </label>
+            {hasVariables ? (
+              <VariableAutocomplete
+                value={String(value ?? property.default ?? '')}
+                onChange={(val) => onChange(val)}
+                variables={workflowVariables}
+                disabled={disabled}
+                multiline
+                rows={4}
+                placeholder={`Enter ${label.toLowerCase()} or type {{ for variables`}
+              />
+            ) : (
+              <div className="flex items-start gap-2">
+                <div className="flex-1">
+                  <Textarea
+                    value={String(value ?? property.default ?? '')}
+                    onChange={(e) => onChange(e.target.value)}
+                    rows={4}
+                    disabled={disabled}
+                    error={error}
+                    required={required}
+                    placeholder={`Enter ${label.toLowerCase()}`}
+                  />
+                </div>
               </div>
-              {variableButton}
-            </div>
+            )}
+            {error && <p className="text-xs text-theme-error mt-1">{error}</p>}
             {description && <p className="text-xs text-theme-muted mt-1">{description}</p>}
           </div>
         );
@@ -261,20 +285,33 @@ const SchemaField: React.FC<SchemaFieldProps> = ({
 
       return (
         <div>
-          <div className="flex items-center gap-2">
-            <div className="flex-1">
-              <Input
-                label={label}
-                value={String(value ?? property.default ?? '')}
-                onChange={(e) => onChange(e.target.value)}
-                disabled={disabled}
-                error={error}
-                required={required}
-                placeholder={`Enter ${label.toLowerCase()} or use {{variable}}`}
-              />
+          <label className="block text-sm font-medium text-theme-primary mb-1">
+            {label}
+            {required && <span className="text-theme-error ml-1">*</span>}
+          </label>
+          {hasVariables ? (
+            <VariableAutocomplete
+              value={String(value ?? property.default ?? '')}
+              onChange={(val) => onChange(val)}
+              variables={workflowVariables}
+              disabled={disabled}
+              placeholder={`Enter ${label.toLowerCase()} or type {{ for variables`}
+            />
+          ) : (
+            <div className="flex items-center gap-2">
+              <div className="flex-1">
+                <Input
+                  value={String(value ?? property.default ?? '')}
+                  onChange={(e) => onChange(e.target.value)}
+                  disabled={disabled}
+                  error={error}
+                  required={required}
+                  placeholder={`Enter ${label.toLowerCase()}`}
+                />
+              </div>
             </div>
-            {variableButton}
-          </div>
+          )}
+          {error && <p className="text-xs text-theme-error mt-1">{error}</p>}
           {description && <p className="text-xs text-theme-muted mt-1">{description}</p>}
         </div>
       );
@@ -301,10 +338,42 @@ const ArrayField: React.FC<ArrayFieldProps> = ({
   required = false,
   error,
   disabled = false,
+  workflowVariables = [],
+  onInsertVariable,
 }) => {
   const label = property.title || formatFieldName(name);
+  const itemSchema = property.items;
 
-  // Simple string array handling
+  // Check if this is an array of objects
+  const isArrayOfObjects = itemSchema?.type === 'object' && itemSchema.properties;
+
+  if (isArrayOfObjects) {
+    // Use enhanced ArrayOfObjectsField for object arrays
+    return (
+      <ArrayOfObjectsField
+        name={name}
+        property={property}
+        value={value as Record<string, unknown>[]}
+        onChange={onChange as (value: Record<string, unknown>[]) => void}
+        required={required}
+        error={error}
+        disabled={disabled}
+        workflowVariables={workflowVariables}
+        onInsertVariable={onInsertVariable}
+        renderItemForm={(item, _index, onItemChange, schema) => (
+          <JsonSchemaForm
+            schema={{ type: 'object', properties: schema.properties, required: schema.required }}
+            values={item}
+            onChange={onItemChange}
+            workflowVariables={workflowVariables}
+            disabled={disabled}
+          />
+        )}
+      />
+    );
+  }
+
+  // Simple string/primitive array handling
   const handleArrayChange = (text: string) => {
     const items = text.split(',').map(s => s.trim()).filter(s => s);
     onChange(items);
@@ -347,8 +416,29 @@ const ObjectField: React.FC<ObjectFieldProps> = ({
   required = false,
   error,
   disabled = false,
+  workflowVariables = [],
 }) => {
   const label = property.title || formatFieldName(name);
+
+  // Check if this is an additionalProperties object (dynamic key-value pairs)
+  const hasAdditionalProperties = property.additionalProperties !== undefined &&
+    property.additionalProperties !== false &&
+    !property.properties;
+
+  if (hasAdditionalProperties) {
+    return (
+      <AdditionalPropertiesField
+        name={name}
+        property={property}
+        value={value}
+        onChange={onChange}
+        required={required}
+        error={error}
+        disabled={disabled}
+        workflowVariables={workflowVariables}
+      />
+    );
+  }
 
   // If nested properties defined, render them
   if (property.properties) {
@@ -362,6 +452,7 @@ const ObjectField: React.FC<ObjectFieldProps> = ({
           schema={{ type: 'object', properties: property.properties, required: property.required }}
           values={value}
           onChange={onChange}
+          workflowVariables={workflowVariables}
           disabled={disabled}
         />
         {property.description && (

@@ -30,11 +30,16 @@ class McpServer < ApplicationRecord
     in: %w[stdio websocket http],
     message: 'must be stdio, websocket, or http'
   }
+  validates :auth_type, presence: true, inclusion: {
+    in: %w[none api_key oauth2],
+    message: 'must be none, api_key, or oauth2'
+  }
 
   validate :validate_connection_configuration
   validate :validate_args_format
   validate :validate_env_format
   validate :validate_capabilities_format
+  validate :validate_oauth_configuration, if: -> { auth_type == 'oauth2' }
 
   # ==========================================
   # Scopes
@@ -214,12 +219,122 @@ class McpServer < ApplicationRecord
   end
 
   # ==========================================
+  # OAuth Methods
+  # ==========================================
+
+  # Check if OAuth is configured
+  def oauth_configured?
+    auth_type == 'oauth2' && oauth_client_id.present?
+  end
+
+  # Check if OAuth is connected (has valid tokens)
+  def oauth_connected?
+    oauth_configured? && oauth_access_token.present? && !oauth_token_expired?
+  end
+
+  # Check if OAuth token has expired
+  def oauth_token_expired?
+    return true unless oauth_token_expires_at
+
+    oauth_token_expires_at <= Time.current
+  end
+
+  # Check if OAuth token is expiring soon (within minutes)
+  def oauth_token_expiring_soon?(minutes = 5)
+    return true unless oauth_token_expires_at
+
+    oauth_token_expires_at <= minutes.minutes.from_now
+  end
+
+  # Decrypt and return access token
+  def oauth_access_token
+    return nil unless oauth_access_token_encrypted.present?
+
+    decrypt_oauth_token(oauth_access_token_encrypted)
+  end
+
+  # Encrypt and store access token
+  def oauth_access_token=(token)
+    self.oauth_access_token_encrypted = encrypt_oauth_token(token)
+  end
+
+  # Decrypt and return refresh token
+  def oauth_refresh_token
+    return nil unless oauth_refresh_token_encrypted.present?
+
+    decrypt_oauth_token(oauth_refresh_token_encrypted)
+  end
+
+  # Encrypt and store refresh token
+  def oauth_refresh_token=(token)
+    self.oauth_refresh_token_encrypted = encrypt_oauth_token(token)
+  end
+
+  # Decrypt and return client secret
+  def oauth_client_secret
+    return nil unless oauth_client_secret_encrypted.present?
+
+    decrypt_oauth_token(oauth_client_secret_encrypted)
+  end
+
+  # Encrypt and store client secret
+  def oauth_client_secret=(secret)
+    self.oauth_client_secret_encrypted = encrypt_oauth_token(secret)
+  end
+
+  # Clear all OAuth tokens (for disconnect)
+  def clear_oauth_tokens!
+    update!(
+      oauth_access_token_encrypted: nil,
+      oauth_refresh_token_encrypted: nil,
+      oauth_token_expires_at: nil,
+      oauth_state: nil,
+      oauth_pkce_code_verifier: nil,
+      oauth_error: nil
+    )
+  end
+
+  # Get OAuth status summary
+  def oauth_status
+    {
+      auth_type: auth_type,
+      oauth_configured: oauth_configured?,
+      oauth_connected: oauth_connected?,
+      oauth_token_expires_at: oauth_token_expires_at,
+      oauth_token_expired: oauth_token_expired?,
+      oauth_last_refreshed_at: oauth_last_refreshed_at,
+      oauth_error: oauth_error,
+      oauth_provider: oauth_provider,
+      oauth_scopes: oauth_scopes
+    }
+  end
+
+  # ==========================================
   # Private Methods
   # ==========================================
   private
 
+  # Encrypt OAuth token using application credential encryption service
+  # Uses 'mcp' namespace for key isolation from other components
+  def encrypt_oauth_token(value)
+    return nil if value.blank?
+
+    CredentialEncryptionService.encrypt_value(value, namespace: 'mcp')
+  end
+
+  # Decrypt OAuth token
+  def decrypt_oauth_token(encrypted_value)
+    return nil if encrypted_value.blank?
+
+    CredentialEncryptionService.decrypt_value(encrypted_value, namespace: 'mcp')
+  rescue CredentialEncryptionService::DecryptionError => e
+    Rails.logger.error "Failed to decrypt OAuth token for MCP server #{id}: #{e.message}"
+    nil
+  end
+
   def set_default_values
     self.status ||= 'disconnected'
+    self.auth_type ||= 'none'
     self.args ||= []
     self.env ||= {}
     self.capabilities ||= {}
@@ -258,6 +373,18 @@ class McpServer < ApplicationRecord
 
     unless capabilities.is_a?(Hash)
       errors.add(:capabilities, 'must be a hash')
+    end
+  end
+
+  def validate_oauth_configuration
+    if oauth_client_id.blank?
+      errors.add(:oauth_client_id, 'is required for OAuth2 authentication')
+    end
+    if oauth_authorization_url.blank?
+      errors.add(:oauth_authorization_url, 'is required for OAuth2 authentication')
+    end
+    if oauth_token_url.blank?
+      errors.add(:oauth_token_url, 'is required for OAuth2 authentication')
     end
   end
 
