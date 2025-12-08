@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# WorkflowScheduledValidationJob
+# AiWorkflowScheduledValidationJob
 #
 # Periodically validates workflows to ensure they remain healthy.
 # Runs on a configurable schedule (default: daily) and validates workflows
@@ -14,12 +14,12 @@
 # - Account-scoped processing
 #
 # @example Schedule daily validation
-#   WorkflowScheduledValidationJob.perform_later
+#   AiWorkflowScheduledValidationJob.perform_later
 #
 # @example Schedule validation for specific account
-#   WorkflowScheduledValidationJob.perform_later(account_id: 'uuid')
+#   AiWorkflowScheduledValidationJob.perform_later(account_id: 'uuid')
 #
-class WorkflowScheduledValidationJob < ApplicationJob
+class AiWorkflowScheduledValidationJob < ApplicationJob
   queue_as :default
 
   # Maximum number of workflows to validate per run
@@ -32,11 +32,11 @@ class WorkflowScheduledValidationJob < ApplicationJob
     workflows = find_workflows_to_validate(account_id, batch_size)
 
     if workflows.empty?
-      Rails.logger.info "[WorkflowScheduledValidationJob] No workflows need validation"
+      Rails.logger.info "[AiWorkflowScheduledValidationJob] No workflows need validation"
       return
     end
 
-    Rails.logger.info "[WorkflowScheduledValidationJob] Validating #{workflows.count} workflows"
+    Rails.logger.info "[AiWorkflowScheduledValidationJob] Validating #{workflows.count} workflows"
 
     results = {
       total: workflows.count,
@@ -50,12 +50,12 @@ class WorkflowScheduledValidationJob < ApplicationJob
         validate_workflow(workflow)
         results[:successful] += 1
       rescue => e
-        Rails.logger.error "[WorkflowScheduledValidationJob] Failed to validate workflow #{workflow.id}: #{e.message}"
+        Rails.logger.error "[AiWorkflowScheduledValidationJob] Failed to validate workflow #{workflow.id}: #{e.message}"
         results[:failed] += 1
       end
     end
 
-    Rails.logger.info "[WorkflowScheduledValidationJob] Completed: #{results}"
+    Rails.logger.info "[AiWorkflowScheduledValidationJob] Completed: #{results}"
     results
   end
 
@@ -82,13 +82,13 @@ class WorkflowScheduledValidationJob < ApplicationJob
 
   def validate_workflow(workflow)
     # Run validation
-    service = WorkflowValidationService.new(workflow)
+    service = AiWorkflowValidationService.new(workflow)
     result = service.validate
 
     # Store validation result
     validation = workflow.workflow_validations.create!(result)
 
-    Rails.logger.info "[WorkflowScheduledValidationJob] Validated workflow #{workflow.id}: " \
+    Rails.logger.info "[AiWorkflowScheduledValidationJob] Validated workflow #{workflow.id}: " \
                       "Health Score: #{validation.health_score}, " \
                       "Status: #{validation.overall_status}, " \
                       "Issues: #{validation.issues.size}"

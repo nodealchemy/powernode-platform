@@ -2,9 +2,18 @@
 
 # User model with new permission system
 class User < ApplicationRecord
+  # PII Encryption - GDPR/SOC2 Compliance
+  # Deterministic encryption for email allows querying (find_by email)
+  # Non-deterministic encryption for other PII fields (more secure)
+  encrypts :email, deterministic: true, downcase: true
+  encrypts :name
+  encrypts :two_factor_secret
+  encrypts :backup_codes
+  encrypts :last_login_ip
+
   # Authentication
   has_secure_password
-  
+
   # Include concerns - must come after has_secure_password
   include PasswordSecurity
   include Auditable
@@ -19,14 +28,15 @@ class User < ApplicationRecord
   has_many :audit_logs, dependent: :nullify
   has_many :password_histories, dependent: :destroy
   has_many :pages, foreign_key: 'author_id', dependent: :destroy
-  has_many :impersonation_sessions_as_impersonator, 
+  has_many :impersonation_sessions_as_impersonator,
            class_name: 'ImpersonationSession',
            foreign_key: 'impersonator_id',
            dependent: :destroy
   has_many :impersonation_sessions_as_target,
-           class_name: 'ImpersonationSession', 
+           class_name: 'ImpersonationSession',
            foreign_key: 'impersonated_user_id',
            dependent: :destroy
+  has_many :notifications, dependent: :destroy
 
   # Serialization
   serialize :preferences, coder: JSON

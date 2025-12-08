@@ -196,8 +196,8 @@ module Api
 
         # GET /api/v1/ai/monitoring/circuit_breakers
         def circuit_breakers_index
-          states = WorkflowCircuitBreakerManager.all_states
-          summary = WorkflowCircuitBreakerManager.health_summary
+          states = AiWorkflowCircuitBreakerManager.all_states
+          summary = AiWorkflowCircuitBreakerManager.health_summary
 
           render_success({
             circuit_breakers: states,
@@ -209,7 +209,7 @@ module Api
         # GET /api/v1/ai/monitoring/circuit_breakers/:service_name
         def circuit_breaker_show
           service_name = params[:service_name]
-          breaker = WorkflowCircuitBreakerManager.get_breaker(service_name)
+          breaker = AiWorkflowCircuitBreakerManager.get_breaker(service_name)
 
           if breaker
             render_success({
@@ -225,7 +225,7 @@ module Api
         # POST /api/v1/ai/monitoring/circuit_breakers/:service_name/reset
         def circuit_breaker_reset
           service_name = params[:service_name]
-          breaker = WorkflowCircuitBreakerManager.get_or_create_breaker(service_name)
+          breaker = AiWorkflowCircuitBreakerManager.get_or_create_breaker(service_name)
           breaker.reset!
 
           render_success({
@@ -242,7 +242,7 @@ module Api
         # POST /api/v1/ai/monitoring/circuit_breakers/:service_name/open
         def circuit_breaker_open
           service_name = params[:service_name]
-          breaker = WorkflowCircuitBreakerManager.get_or_create_breaker(service_name)
+          breaker = AiWorkflowCircuitBreakerManager.get_or_create_breaker(service_name)
           breaker.open!
 
           render_success({
@@ -259,7 +259,7 @@ module Api
         # POST /api/v1/ai/monitoring/circuit_breakers/:service_name/close
         def circuit_breaker_close
           service_name = params[:service_name]
-          breaker = WorkflowCircuitBreakerManager.get_or_create_breaker(service_name)
+          breaker = AiWorkflowCircuitBreakerManager.get_or_create_breaker(service_name)
           breaker.close!
 
           render_success({
@@ -275,8 +275,8 @@ module Api
 
         # POST /api/v1/ai/monitoring/circuit_breakers/reset_all
         def circuit_breakers_reset_all
-          WorkflowCircuitBreakerManager.reset_all!
-          summary = WorkflowCircuitBreakerManager.health_summary
+          AiWorkflowCircuitBreakerManager.reset_all!
+          summary = AiWorkflowCircuitBreakerManager.health_summary
 
           render_success({
             message: 'All circuit breakers reset',
@@ -290,7 +290,7 @@ module Api
         # GET /api/v1/ai/monitoring/circuit_breakers/category/:category
         def circuit_breakers_category
           category = params[:category]
-          states = WorkflowCircuitBreakerManager.category_states(category)
+          states = AiWorkflowCircuitBreakerManager.category_states(category)
 
           render_success({
             category: category,
@@ -303,8 +303,8 @@ module Api
         # POST /api/v1/ai/monitoring/circuit_breakers/category/:category/reset
         def circuit_breakers_category_reset
           category = params[:category]
-          WorkflowCircuitBreakerManager.reset_category!(category)
-          states = WorkflowCircuitBreakerManager.category_states(category)
+          AiWorkflowCircuitBreakerManager.reset_category!(category)
+          states = AiWorkflowCircuitBreakerManager.category_states(category)
 
           render_success({
             message: "Circuit breakers reset for category: #{category}",
@@ -319,7 +319,7 @@ module Api
 
         # GET /api/v1/ai/monitoring/circuit_breakers/monitor
         def circuit_breakers_monitor
-          summary = WorkflowCircuitBreakerManager.monitor_and_alert
+          summary = AiWorkflowCircuitBreakerManager.monitor_and_alert
 
           render_success({
             monitored_at: Time.current.iso8601,
@@ -536,7 +536,7 @@ module Api
         end
 
         def circuit_breaker_summary
-          WorkflowCircuitBreakerManager.health_summary
+          AiWorkflowCircuitBreakerManager.health_summary
         end
 
         def provider_is_healthy?(provider)

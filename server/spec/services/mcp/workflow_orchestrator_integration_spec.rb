@@ -2,7 +2,7 @@
 
 require 'rails_helper'
 
-RSpec.describe Mcp::WorkflowOrchestrator, type: :service do
+RSpec.describe Mcp::AiWorkflowOrchestrator, type: :service do
   include AiOrchestrationTestHelpers
 
   let(:account) { create(:account) }
@@ -176,14 +176,14 @@ RSpec.describe Mcp::WorkflowOrchestrator, type: :service do
       end
 
       it 'marks workflow as failed' do
-        expect { orchestrator.execute }.to raise_error(Mcp::WorkflowOrchestrator::WorkflowExecutionError)
+        expect { orchestrator.execute }.to raise_error(Mcp::AiWorkflowOrchestrator::WorkflowExecutionError)
 
         workflow_run.reload
         expect(workflow_run.status).to eq('failed')
       end
 
       it 'records error details' do
-        expect { orchestrator.execute }.to raise_error(Mcp::WorkflowOrchestrator::WorkflowExecutionError)
+        expect { orchestrator.execute }.to raise_error(Mcp::AiWorkflowOrchestrator::WorkflowExecutionError)
 
         workflow_run.reload
         expect(workflow_run.error_details).to be_present
@@ -205,7 +205,7 @@ RSpec.describe Mcp::WorkflowOrchestrator, type: :service do
 
       it 'raises validation error for workflow without nodes' do
         expect { invalid_orchestrator.execute }
-          .to raise_error(Mcp::WorkflowOrchestrator::WorkflowExecutionError, /cannot be executed in current state/)
+          .to raise_error(Mcp::AiWorkflowOrchestrator::WorkflowExecutionError, /cannot be executed in current state/)
       end
     end
   end

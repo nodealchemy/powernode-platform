@@ -144,7 +144,7 @@ class Api::V1::Auth::SessionsController < ApplicationController
       if e.message.include?("Permissions changed")
         render_error("Authentication required - please log in again", status: :unauthorized)
       else
-        render_error("Invalid refresh token", status: :unauthorized)
+        render_error("Invalid or expired refresh token", status: :unauthorized)
       end
     end
   end
@@ -181,9 +181,7 @@ class Api::V1::Auth::SessionsController < ApplicationController
       metadata: { logout_method: "api" }
     )
 
-    render_success(
-      "Successfully logged out"
-    )
+    render_success(message: "Successfully logged out")
   end
 
   # GET /api/v1/sessions/current

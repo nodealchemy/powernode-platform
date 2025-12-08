@@ -1,10 +1,9 @@
 # frozen_string_literal: true
 
 class Api::V1::Admin::RateLimiting::RateLimitingController < ApplicationController
-  include ApiResponse
-
   before_action :authenticate_request
   before_action -> { require_permission('admin.settings.security') }
+  before_action :set_account, only: %i[account_statistics override_tier clear_tier_override]
 
   # GET /api/v1/admin/rate_limiting/statistics
   def statistics
@@ -153,7 +152,140 @@ class Api::V1::Admin::RateLimiting::RateLimitingController < ApplicationControll
     end
   end
 
+  # GET /api/v1/admin/rate_limiting/tiers
+  def tiers
+    render_success({
+      tiers: TieredRateLimitService::TIERS.map do |key, config|
+        { id: key.to_s, **config }
+      end,
+      endpoint_costs: TieredRateLimitService::ENDPOINT_COSTS
+    })
+  end
+
+  # GET /api/v1/admin/rate_limiting/accounts/:account_id/statistics
+  def account_statistics
+    stats = RateLimitService.get_account_statistics(@account)
+
+    if stats
+      render_success(stats)
+    else
+      render_error("Failed to retrieve account statistics", status: :internal_server_error)
+    end
+  rescue StandardError => e
+    Rails.logger.error "Failed to get account rate limit statistics: #{e.message}"
+    render_error("Failed to retrieve account statistics", status: :internal_server_error)
+  end
+
+  # POST /api/v1/admin/rate_limiting/accounts/:account_id/override_tier
+  def override_tier
+    tier = params[:tier]&.to_sym
+    duration_hours = params[:duration_hours]&.to_i
+
+    unless TieredRateLimitService::TIERS.key?(tier)
+      return render_error("Invalid tier: #{tier}. Valid tiers: #{TieredRateLimitService::TIERS.keys.join(', ')}", status: :bad_request)
+    end
+
+    duration = duration_hours.positive? ? duration_hours.hours : nil
+
+    if RateLimitService.override_account_tier(@account, tier, duration: duration)
+      # Log the administrative action
+      AuditLog.create!(
+        user: current_user,
+        account: current_account,
+        action: 'rate_limit_tier_override',
+        resource_type: 'Account',
+        resource_id: @account.id,
+        source: 'api',
+        ip_address: request.remote_ip,
+        metadata: {
+          account_name: @account.name,
+          new_tier: tier.to_s,
+          duration_hours: duration_hours
+        }
+      )
+
+      render_success({
+        message: "Tier override applied successfully",
+        account_id: @account.id,
+        account_name: @account.name,
+        tier: tier.to_s,
+        duration_hours: duration_hours.positive? ? duration_hours : 'permanent',
+        expires_at: duration ? (Time.current + duration).iso8601 : nil
+      })
+    else
+      render_error("Failed to override tier", status: :internal_server_error)
+    end
+  rescue StandardError => e
+    Rails.logger.error "Failed to override account tier: #{e.message}"
+    render_error("Failed to override tier", status: :internal_server_error)
+  end
+
+  # DELETE /api/v1/admin/rate_limiting/accounts/:account_id/override_tier
+  def clear_tier_override
+    if RateLimitService.clear_account_tier_override(@account)
+      # Log the administrative action
+      AuditLog.create!(
+        user: current_user,
+        account: current_account,
+        action: 'rate_limit_tier_override_cleared',
+        resource_type: 'Account',
+        resource_id: @account.id,
+        source: 'api',
+        ip_address: request.remote_ip,
+        metadata: { account_name: @account.name }
+      )
+
+      render_success({
+        message: "Tier override cleared",
+        account_id: @account.id,
+        account_name: @account.name
+      })
+    else
+      render_error("Failed to clear tier override", status: :internal_server_error)
+    end
+  rescue StandardError => e
+    Rails.logger.error "Failed to clear account tier override: #{e.message}"
+    render_error("Failed to clear tier override", status: :internal_server_error)
+  end
+
+  # GET /api/v1/admin/rate_limiting/accounts
+  def accounts_usage
+    page = params[:page]&.to_i || 1
+    per_page = [params[:per_page]&.to_i || 20, 100].min
+
+    accounts = Account.active.order(created_at: :desc).page(page).per(per_page)
+
+    account_stats = accounts.map do |account|
+      {
+        id: account.id,
+        name: account.name,
+        tier: TieredRateLimitService.tier_for_account(account).to_s,
+        usage: TieredRateLimitService.account_usage(account),
+        rate_limited: TieredRateLimitService.account_rate_limited?(account)
+      }
+    end
+
+    render_success({
+      accounts: account_stats,
+      pagination: {
+        current_page: accounts.current_page,
+        total_pages: accounts.total_pages,
+        total_count: accounts.total_count,
+        per_page: accounts.limit_value
+      }
+    })
+  rescue StandardError => e
+    Rails.logger.error "Failed to get accounts usage: #{e.message}"
+    render_error("Failed to retrieve accounts usage", status: :internal_server_error)
+  end
+
   private
+
+  def set_account
+    @account = Account.find(params[:account_id])
+  rescue ActiveRecord::RecordNotFound
+    render_error("Account not found", status: :not_found)
+  end
 
   def get_recent_violations
     violations = []

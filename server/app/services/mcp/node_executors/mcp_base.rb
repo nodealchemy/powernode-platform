@@ -30,7 +30,7 @@ module Mcp
         unless validator.authorized?
           result = validator.authorization_result
           error_messages = result[:errors]&.map { |e| e[:message] }&.join('; ') || 'Permission denied'
-          raise Mcp::WorkflowOrchestrator::NodeExecutionError,
+          raise Mcp::AiWorkflowOrchestrator::NodeExecutionError,
                 "MCP permission denied: #{error_messages}"
         end
       end
@@ -220,15 +220,15 @@ module Mcp
 
       def find_mcp_server
         server_id = configuration['mcp_server_id'] || configuration['server_id']
-        raise Mcp::WorkflowOrchestrator::NodeExecutionError,
+        raise Mcp::AiWorkflowOrchestrator::NodeExecutionError,
               "No mcp_server_id configured" unless server_id
 
         server = @orchestrator.account.mcp_servers.find_by(id: server_id)
-        raise Mcp::WorkflowOrchestrator::NodeExecutionError,
+        raise Mcp::AiWorkflowOrchestrator::NodeExecutionError,
               "MCP server not found: #{server_id}" unless server
 
         unless server.connected?
-          raise Mcp::WorkflowOrchestrator::NodeExecutionError,
+          raise Mcp::AiWorkflowOrchestrator::NodeExecutionError,
                 "MCP server not connected: #{server.name} (status: #{server.status})"
         end
 

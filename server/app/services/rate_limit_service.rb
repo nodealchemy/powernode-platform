@@ -8,8 +8,34 @@ class RateLimitService
         enabled: SystemSettingsService.rate_limiting_enabled?,
         current_violations: count_current_violations,
         active_limits: count_active_limits,
-        configuration: get_current_configuration
+        configuration: get_current_configuration,
+        tier_statistics: TieredRateLimitService.tier_statistics
       }
+    end
+
+    # Get tier-specific statistics for an account
+    def get_account_statistics(account)
+      return nil unless account
+
+      {
+        account_id: account.id,
+        account_name: account.name,
+        tier_info: TieredRateLimitService.account_usage(account),
+        rate_limited: TieredRateLimitService.account_rate_limited?(account),
+        limits: TieredRateLimitService.tier_config(
+          TieredRateLimitService.tier_for_account(account)
+        )
+      }
+    end
+
+    # Override tier for an account
+    def override_account_tier(account, tier, duration: nil)
+      TieredRateLimitService.override_tier(account, tier, duration: duration)
+    end
+
+    # Clear tier override for an account
+    def clear_account_tier_override(account)
+      TieredRateLimitService.clear_tier_override(account)
     end
 
     # Clear rate limits for a specific IP or user

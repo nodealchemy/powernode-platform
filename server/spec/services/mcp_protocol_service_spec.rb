@@ -9,7 +9,7 @@ RSpec.describe McpProtocolService, type: :service do
 
   describe '#initialize' do
     it 'initializes with default protocol version' do
-      expect(service.instance_variable_get(:@protocol_version)).to eq('2024-11-05')
+      expect(service.instance_variable_get(:@protocol_version)).to eq('2025-06-18')
     end
 
     it 'sets up registry and transport services' do
@@ -59,8 +59,9 @@ RSpec.describe McpProtocolService, type: :service do
     end
 
     it 'filters tools by type' do
-      result = service.list_tools(type: 'ai_agent')
+      result = service.list_tools({ type: 'ai_agent' })
 
+      # All formatted tools should have type 'ai_agent' since that's the default
       expect(result['tools']).to all(include('type' => 'ai_agent'))
     end
   end
@@ -112,10 +113,15 @@ RSpec.describe McpProtocolService, type: :service do
              credentials: { 'api_key' => 'test-key-123' },
              is_active: true)
 
-      service.instance_variable_get(:@registry).register_tool(tool_id, agent.mcp_tool_manifest)
+      # Ensure the manifest includes agent_id in metadata
+      manifest = agent.mcp_tool_manifest
+      manifest['metadata'] ||= {}
+      manifest['metadata']['agent_id'] = agent.id.to_s
+
+      service.instance_variable_get(:@registry).register_tool(tool_id, manifest)
 
       # Mock the agent execution to avoid actual API calls
-      allow_any_instance_of(McpAgentExecutor).to receive(:execute).and_return({
+      allow_any_instance_of(AiMcpAgentExecutor).to receive(:execute).and_return({
         'output' => 'test response',
         'metadata' => {
           'tokens_used' => 42,
@@ -146,7 +152,7 @@ RSpec.describe McpProtocolService, type: :service do
   describe '#handle_initialize_request' do
     let(:client_info) do
       {
-        'protocolVersion' => '2024-11-05',
+        'protocolVersion' => '2025-06-18',
         'capabilities' => {
           'tools' => { 'listChanged' => true }
         },
@@ -168,6 +174,7 @@ RSpec.describe McpProtocolService, type: :service do
     end
 
     it 'validates protocol version compatibility' do
+      # Protocol version 1.0.0 is not supported
       invalid_client = client_info.merge('protocolVersion' => '1.0.0')
 
       expect { service.handle_initialize_request(invalid_client) }

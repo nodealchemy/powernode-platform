@@ -18,9 +18,7 @@ class Api::V1::Auth::PasswordsController < ApplicationController
     end
 
     # Always return success to prevent email enumeration
-    render_success(
-      message: "If an account with that email exists, password reset instructions have been sent."
-    )
+    render_success(message: "If an account with that email exists, password reset instructions have been sent.")
   rescue => e
     Rails.logger.error "Password reset error: #{e.message}"
     render_error("An error occurred. Please try again later.", status: :internal_server_error)
@@ -42,9 +40,7 @@ class Api::V1::Auth::PasswordsController < ApplicationController
     end
 
     if user.reset_password!(params[:password], params[:token])
-      render_success({
-        message: "Password has been reset successfully"
-      })
+      render_success(message: "Password has been reset successfully")
     else
       render_validation_error(user)
     end
@@ -61,9 +57,7 @@ class Api::V1::Auth::PasswordsController < ApplicationController
         password_confirmation: change_params[:password_confirmation]
       )
 
-      render_success(
-        message: "Password changed successfully"
-      )
+      render_success(message: "Password changed successfully")
     else
       render_error("Current password is incorrect", status: :unauthorized)
     end

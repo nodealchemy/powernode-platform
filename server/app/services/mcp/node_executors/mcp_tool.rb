@@ -15,7 +15,7 @@ module Mcp
         tool = mcp_tool
 
         unless tool
-          raise Mcp::WorkflowOrchestrator::NodeExecutionError,
+          raise Mcp::AiWorkflowOrchestrator::NodeExecutionError,
                 "MCP tool not found. Please configure mcp_tool_id or mcp_tool_name"
         end
 
@@ -30,7 +30,7 @@ module Mcp
           validation = tool.validate_parameters(parameters)
           unless validation[:valid]
             errors = validation[:errors]&.join(', ') || 'Invalid parameters'
-            raise Mcp::WorkflowOrchestrator::NodeExecutionError,
+            raise Mcp::AiWorkflowOrchestrator::NodeExecutionError,
                   "Invalid parameters for tool '#{tool.name}': #{errors}"
           end
         end
@@ -60,7 +60,7 @@ module Mcp
             execution_mode: 'sync'
           })
         else
-          raise Mcp::WorkflowOrchestrator::NodeExecutionError,
+          raise Mcp::AiWorkflowOrchestrator::NodeExecutionError,
                 "MCP tool execution failed: #{result[:error]}"
         end
       end
@@ -87,7 +87,7 @@ module Mcp
             execution_mode: 'async'
           })
         else
-          raise Mcp::WorkflowOrchestrator::NodeExecutionError,
+          raise Mcp::AiWorkflowOrchestrator::NodeExecutionError,
                 "MCP tool async execution failed: #{result[:error]}"
         end
       end

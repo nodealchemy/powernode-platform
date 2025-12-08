@@ -14,7 +14,7 @@ module Mcp
         article_slug = configuration['article_slug'] || get_variable('article_slug')
 
         unless article_id.present? || article_slug.present?
-          raise Mcp::WorkflowOrchestrator::NodeExecutionError,
+          raise Mcp::AiWorkflowOrchestrator::NodeExecutionError,
                 "Either article_id or article_slug must be provided"
         end
 
@@ -68,7 +68,7 @@ module Mcp
 
         unless article
           identifier = article_id || article_slug
-          raise Mcp::WorkflowOrchestrator::NodeExecutionError,
+          raise Mcp::AiWorkflowOrchestrator::NodeExecutionError,
                 "KB article not found: #{identifier}"
         end
 
@@ -108,14 +108,14 @@ module Mcp
         if data[:status].present?
           valid_statuses = %w[draft review published archived]
           unless valid_statuses.include?(data[:status])
-            raise Mcp::WorkflowOrchestrator::NodeExecutionError,
+            raise Mcp::AiWorkflowOrchestrator::NodeExecutionError,
                   "Invalid status '#{data[:status]}'. Must be one of: #{valid_statuses.join(', ')}"
           end
         end
 
         # Validate category if being updated
         if data[:category_id].present? && !KnowledgeBaseCategory.exists?(data[:category_id])
-          raise Mcp::WorkflowOrchestrator::NodeExecutionError,
+          raise Mcp::AiWorkflowOrchestrator::NodeExecutionError,
                 "Category not found: #{data[:category_id]}"
         end
 
@@ -132,7 +132,7 @@ module Mcp
         end
 
       rescue ActiveRecord::RecordInvalid => e
-        raise Mcp::WorkflowOrchestrator::NodeExecutionError,
+        raise Mcp::AiWorkflowOrchestrator::NodeExecutionError,
               "Failed to update KB article: #{e.message}"
       end
 

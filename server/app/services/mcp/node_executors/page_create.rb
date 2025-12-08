@@ -90,14 +90,14 @@ module Mcp
         errors << "Content is required" if data[:content].blank?
 
         unless errors.empty?
-          raise Mcp::WorkflowOrchestrator::NodeExecutionError,
+          raise Mcp::AiWorkflowOrchestrator::NodeExecutionError,
                 "Page validation failed: #{errors.join(', ')}"
         end
 
         # Validate status
         valid_statuses = %w[draft published]
         unless valid_statuses.include?(data[:status])
-          raise Mcp::WorkflowOrchestrator::NodeExecutionError,
+          raise Mcp::AiWorkflowOrchestrator::NodeExecutionError,
                 "Invalid status '#{data[:status]}'. Must be one of: #{valid_statuses.join(', ')}"
         end
       end
@@ -119,7 +119,7 @@ module Mcp
 
         page
       rescue ActiveRecord::RecordInvalid => e
-        raise Mcp::WorkflowOrchestrator::NodeExecutionError,
+        raise Mcp::AiWorkflowOrchestrator::NodeExecutionError,
               "Failed to create page: #{e.message}"
       end
 

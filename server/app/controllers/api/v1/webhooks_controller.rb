@@ -223,6 +223,94 @@ class Api::V1::WebhooksController < ApplicationController
     )
   end
 
+  # GET /api/v1/webhooks/failed_deliveries
+  # Returns failed deliveries for the retry dashboard
+  def failed_deliveries
+    page = [params[:page].to_i, 1].max
+    per_page = [(params[:per_page] || 25).to_i, 100].min
+    offset = (page - 1) * per_page
+
+    # Base query for failed deliveries
+    failed_query = WebhookDelivery.includes(:webhook_endpoint)
+                                  .where(status: ['failed', 'max_retries_reached'])
+                                  .order(created_at: :desc)
+
+    # Apply filters
+    if params[:webhook_id].present?
+      failed_query = failed_query.where(webhook_endpoint_id: params[:webhook_id])
+    end
+
+    if params[:status].present?
+      failed_query = failed_query.where(status: params[:status])
+    end
+
+    if params[:since].present?
+      since_date = Time.parse(params[:since]) rescue 7.days.ago
+      failed_query = failed_query.where('created_at >= ?', since_date)
+    else
+      # Default to last 7 days
+      failed_query = failed_query.where('created_at >= ?', 7.days.ago)
+    end
+
+    total_count = failed_query.count
+    total_pages = (total_count.to_f / per_page).ceil
+
+    deliveries = failed_query.limit(per_page).offset(offset)
+
+    render_success(
+      data: {
+        deliveries: deliveries.map { |d| failed_delivery_data(d) },
+        pagination: {
+          current_page: page,
+          per_page: per_page,
+          total_pages: total_pages,
+          total_count: total_count
+        },
+        summary: {
+          failed_count: WebhookDelivery.failed.where('created_at >= ?', 7.days.ago).count,
+          max_retries_count: WebhookDelivery.max_retries_reached.where('created_at >= ?', 7.days.ago).count,
+          pending_retry_count: WebhookDelivery.pending_retry.count,
+          can_retry_count: deliveries.count(&:can_retry?)
+        }
+      }
+    )
+  end
+
+  # POST /api/v1/webhooks/:webhook_id/deliveries/:id/retry
+  # Retry a single failed delivery
+  def retry_delivery
+    delivery = WebhookDelivery.find(params[:id])
+
+    unless delivery.failed? || delivery.max_retries_reached?
+      return render_error("Delivery is not in a failed state", status: :unprocessable_entity)
+    end
+
+    # Reset the delivery for retry
+    delivery.update!(
+      status: 'pending',
+      attempt_count: 0,
+      next_retry_at: nil,
+      completed_at: nil,
+      error_message: nil
+    )
+
+    # Queue for immediate retry
+    WebhookRetryJob.perform_later(delivery.id) if defined?(WebhookRetryJob)
+
+    log_webhook_action('webhook_delivery_retry', delivery.webhook_endpoint, {
+      delivery_id: delivery.id,
+      original_status: delivery.status_was,
+      event_type: delivery.event_type
+    })
+
+    render_success(
+      message: "Delivery queued for retry",
+      data: failed_delivery_data(delivery.reload)
+    )
+  rescue ActiveRecord::RecordNotFound
+    render_error("Delivery not found", status: :not_found)
+  end
+
   # GET /api/v1/webhooks/health
   def health_check
     health_service = WebhookHealthService.new(current_user.account)
@@ -427,5 +515,29 @@ class Api::V1::WebhooksController < ApplicationController
         event_types: webhook.event_types
       })
     )
+  end
+
+  def failed_delivery_data(delivery)
+    {
+      id: delivery.id,
+      webhook_endpoint_id: delivery.webhook_endpoint_id,
+      webhook: {
+        id: delivery.webhook_endpoint.id,
+        url: delivery.webhook_endpoint.url,
+        description: delivery.webhook_endpoint.description,
+        status: delivery.webhook_endpoint.status
+      },
+      event_type: delivery.event_type,
+      status: delivery.status,
+      http_status: delivery.http_status,
+      response_time_ms: delivery.response_time_ms,
+      attempt_count: delivery.attempt_count,
+      max_retries: delivery.webhook_endpoint.retry_limit,
+      next_retry_at: delivery.next_retry_at&.iso8601,
+      error_message: delivery.error_message,
+      can_retry: delivery.can_retry? || delivery.max_retries_reached?,
+      created_at: delivery.created_at.iso8601,
+      completed_at: delivery.completed_at&.iso8601
+    }
   end
 end

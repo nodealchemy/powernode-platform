@@ -10,15 +10,15 @@ RSpec.describe AccountDelegation, type: :model do
     role = create(:role, name: 'account.admin', display_name: 'Account Admin', role_type: 'user')
     permission1 = Permission.find_or_create_by!(resource: 'users', action: 'create') do |p|
       p.description = 'Create users'
-      p.category = 'user_management'
+      p.category = 'resource'
     end
     permission2 = Permission.find_or_create_by!(resource: 'analytics', action: 'read') do |p|
       p.description = 'Read analytics'
-      p.category = 'analytics'
+      p.category = 'resource'
     end
     permission3 = Permission.find_or_create_by!(resource: 'account', action: 'manage') do |p|
       p.description = 'Manage account'
-      p.category = 'account'
+      p.category = 'admin'
     end
     role.permissions << [permission1, permission2, permission3] unless role.permissions.include?(permission1)
     role

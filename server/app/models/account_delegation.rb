@@ -124,13 +124,15 @@ class AccountDelegation < ApplicationRecord
 
   def assign_permission(permission)
     return false unless active?
-    return false if has_permission?("#{permission.resource}.#{permission.action}")
-    
+
+    # Only check if custom permission is already assigned (not role permissions)
+    return false if permissions.exists?(id: permission.id)
+
     # Validate permission is within role scope if role is assigned
     if role.present? && !role.permissions.include?(permission)
       return false
     end
-    
+
     delegation_permissions.create(permission: permission)
     true
   rescue ActiveRecord::RecordInvalid

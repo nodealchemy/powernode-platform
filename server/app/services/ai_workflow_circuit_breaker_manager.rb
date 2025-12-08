@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-class WorkflowCircuitBreakerManager
+class AiWorkflowCircuitBreakerManager
   # Service categories for circuit breakers
   SERVICE_CATEGORIES = {
     ai_providers: %w[openai anthropic ollama],
@@ -24,10 +24,9 @@ class WorkflowCircuitBreakerManager
       breaker.allow_request?
     end
 
-    # Get circuit breaker for a service
+    # Get circuit breaker for a service (creates if needed)
     def get_breaker(service_name)
-      @breakers ||= {}
-      @breakers[service_name]
+      get_or_create_breaker(service_name)
     end
 
     # Get or create circuit breaker for a service
@@ -39,9 +38,15 @@ class WorkflowCircuitBreakerManager
       )
     end
 
-    # Get all circuit breaker states
+    # Clear all cached breakers (useful for testing)
+    def clear_breakers!
+      @breakers = {}
+    end
+
+    # Get all circuit breaker states (from in-memory breakers)
     def all_states
-      AiWorkflowCircuitBreakerService.all_states
+      @breakers ||= {}
+      @breakers.values.map(&:stats)
     end
 
     # Get states for a specific category
@@ -75,6 +80,43 @@ class WorkflowCircuitBreakerManager
       end
 
       Rails.logger.info '[CircuitBreakerManager] Reset all circuit breakers'
+    end
+
+    # Reset a specific service's circuit breaker
+    def reset_service(service_name)
+      breaker = get_breaker(service_name)
+      return false unless breaker
+
+      breaker.reset!
+      Rails.logger.info "[CircuitBreakerManager] Reset circuit breaker for service: #{service_name}"
+      true
+    end
+
+    # Execute with circuit breaker protection (wrapper method for tests)
+    def execute_with_breaker(service_name, config: {}, &block)
+      protect(service_name: service_name, config: config, &block)
+    end
+
+    # Get health check data for all services
+    def health_check
+      states = all_states
+      return {} if states.empty?
+
+      states.each_with_object({}) do |state, result|
+        result[state[:service_name]] = {
+          state: state[:state],
+          healthy: state[:state] == 'closed',
+          failure_count: state[:failure_count] || 0,
+          success_count: state[:success_count] || 0,
+          last_failure_at: state[:last_failure_at],
+          last_success_at: state[:last_success_at]
+        }
+      end
+    end
+
+    # Get list of unhealthy service names
+    def unhealthy_services
+      all_states.select { |s| s[:state] == 'open' }.map { |s| s[:service_name] }
     end
 
     # Reset circuit breakers for a specific category

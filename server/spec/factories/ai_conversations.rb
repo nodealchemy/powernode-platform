@@ -3,9 +3,15 @@
 FactoryBot.define do
   factory :ai_conversation do
     account
-    ai_agent
+    user { association :user, account: account }
+    ai_agent { association :ai_agent, account: account }
+    ai_provider { ai_agent&.ai_provider || association(:ai_provider, account: account) }
+    conversation_id { SecureRandom.uuid }
     title { Faker::Lorem.sentence }
     status { 'active' }
+    message_count { 0 }
+    total_tokens { 0 }
+    total_cost { 0.0 }
     metadata do
       {
         created_by: SecureRandom.uuid,

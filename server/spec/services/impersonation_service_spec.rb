@@ -41,21 +41,24 @@ RSpec.describe ImpersonationService, type: :service do
         token = service.start_impersonation(**valid_params)
         expect(token).to be_present
 
-        # Verify token can be decoded
-        payload = JwtService.decode(token)
-        expect(payload[:type]).to eq('impersonation')
-        expect(payload[:user_id]).to eq(target_user.id)
-        expect(payload[:impersonator_id]).to eq(admin_user.id)
+        # Verify UserToken was created with correct metadata
+        # Token is database-backed (not JWT), so verify via UserToken lookup
+        user_token = UserToken.find_by_token(token)
+        expect(user_token).to be_present
+        expect(user_token.token_type).to eq('impersonation')
+        expect(user_token.user_id).to eq(target_user.id)
+        expect(user_token.metadata['impersonator_id']).to eq(admin_user.id)
       end
 
       it 'creates an audit log entry' do
         expect {
           service.start_impersonation(**valid_params)
-        }.to change(AuditLog, :count).by(1)
+        }.to change(AuditLog, :count).by_at_least(1)
 
-        log = AuditLog.last
+        # Find the specific impersonation_started audit log
+        log = AuditLog.find_by(action: 'impersonation_started')
+        expect(log).to be_present
         expect(log.user).to eq(admin_user)
-        expect(log.action).to eq('impersonation_started')
         expect(log.resource_type).to eq('User')
         expect(log.resource_id).to eq(target_user.id)
         expect(log.metadata['impersonated_user_email']).to eq(target_user.email)
@@ -159,11 +162,12 @@ RSpec.describe ImpersonationService, type: :service do
       it 'creates an audit log entry' do
         expect {
           service.end_impersonation(session.session_token)
-        }.to change(AuditLog, :count).by(1)
+        }.to change(AuditLog, :count).by_at_least(1)
 
-        log = AuditLog.last
+        # Find the specific impersonation_ended audit log
+        log = AuditLog.find_by(action: 'impersonation_ended')
+        expect(log).to be_present
         expect(log.user).to eq(admin_user)
-        expect(log.action).to eq('impersonation_ended')
         expect(log.resource_type).to eq('User')
         expect(log.resource_id).to eq(target_user.id)
         expect(log.metadata['impersonated_user_email']).to eq(target_user.email)

@@ -26,12 +26,14 @@ RSpec.describe Api::V1::Auth::EmailVerificationsController, type: :controller do
       end
 
       it 'creates an audit log entry' do
+        # Expect 2 audit logs: one from Auditable concern (user.updated) and one explicit (email_verified)
         expect {
           post :verify, params: { token: user.email_verification_token }
-        }.to change(AuditLog, :count).by(1)
-        
-        audit_log = AuditLog.last
-        expect(audit_log.action).to eq('email_verified')
+        }.to change(AuditLog, :count).by(2)
+
+        # Find the specific email_verified audit log
+        audit_log = AuditLog.find_by(action: 'email_verified')
+        expect(audit_log).to be_present
         expect(audit_log.user).to eq(user)
         expect(audit_log.account).to eq(account)
       end

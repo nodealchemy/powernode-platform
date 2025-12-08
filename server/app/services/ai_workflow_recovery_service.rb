@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# WorkflowRecoveryService - Advanced workflow recovery and checkpoint management
+# AiWorkflowRecoveryService - Advanced workflow recovery and checkpoint management
 #
 # This service provides high-level coordination for workflow recovery operations,
 # acting as a facade that delegates to the MCP checkpoint recovery system.
@@ -15,7 +15,7 @@
 # Architecture:
 # - Facade service that coordinates recovery operations
 # - Delegates checkpoint management to Mcp::WorkflowCheckpointManager
-# - Works alongside Mcp::WorkflowOrchestrator for execution
+# - Works alongside Mcp::AiWorkflowOrchestrator for execution
 # - Provides retry strategies and error handling
 #
 # Recovery Strategies:
@@ -25,7 +25,7 @@
 # - Circuit breaker: Prevent cascading failures
 #
 # @example Create checkpoint and recover
-#   recovery = WorkflowRecoveryService.new(workflow_run: run)
+#   recovery = AiWorkflowRecoveryService.new(workflow_run: run)
 #   checkpoint_id = recovery.create_checkpoint(node_id)
 #   # ... workflow fails ...
 #   recovery.restore_from_checkpoint(checkpoint_id)
@@ -33,7 +33,7 @@
 # @example Retry failed node
 #   recovery.retry_with_backoff(node_execution, max_attempts: 5)
 #
-class WorkflowRecoveryService
+class AiWorkflowRecoveryService
   include ActiveModel::Model
 
   attr_accessor :workflow_run, :account, :user, :logger
@@ -319,7 +319,7 @@ class WorkflowRecoveryService
     )
 
     # Create orchestrator and continue execution
-    orchestrator = Mcp::WorkflowOrchestrator.new(
+    orchestrator = Mcp::AiWorkflowOrchestrator.new(
       workflow_run: @workflow_run,
       account: @account,
       user: @user

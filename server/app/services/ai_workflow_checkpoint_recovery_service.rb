@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-class WorkflowCheckpointRecoveryService
+class AiWorkflowCheckpointRecoveryService
   attr_reader :workflow_run, :checkpoint
 
   # Checkpoint types (must match model validation)
@@ -41,6 +41,9 @@ class WorkflowCheckpointRecoveryService
     )
 
     Rails.logger.info "[Checkpoint] Created checkpoint #{new_checkpoint.id} for workflow run #{workflow_run.run_id}"
+
+    # Broadcast checkpoint creation event
+    broadcast_checkpoint_event(new_checkpoint)
 
     # Cleanup old checkpoints
     cleanup_old_checkpoints
@@ -303,5 +306,21 @@ class WorkflowCheckpointRecoveryService
     if deleted_count > 0
       Rails.logger.info "[Checkpoint] Cleaned up #{deleted_count} old checkpoints for workflow run #{workflow_run.run_id}"
     end
+  end
+
+  def broadcast_checkpoint_event(checkpoint)
+    ActionCable.server.broadcast(
+      "ai_workflow_run_#{workflow_run.id}",
+      {
+        type: 'checkpoint_created',
+        checkpoint_id: checkpoint.id,
+        checkpoint_type: checkpoint.checkpoint_type,
+        node_id: checkpoint.node_id,
+        sequence_number: checkpoint.sequence_number,
+        timestamp: Time.current.iso8601
+      }
+    )
+  rescue StandardError => e
+    Rails.logger.warn "[Checkpoint] Failed to broadcast checkpoint event: #{e.message}"
   end
 end

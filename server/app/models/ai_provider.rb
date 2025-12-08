@@ -19,10 +19,9 @@ class AiProvider < ApplicationRecord
   validates :name, presence: true, length: { maximum: 255 }, uniqueness: { scope: :account_id }
   validates :slug, presence: true, uniqueness: true, length: { maximum: 50 },
                    format: { with: /\A[a-z0-9\-_]+\z/, message: 'can only contain lowercase letters, numbers, hyphens, and underscores' }
-  validates :provider_type, inclusion: {
+  validates :provider_type, presence: true, inclusion: {
     in: %w[openai anthropic google azure huggingface custom ollama local api_gateway],
-    message: 'is not included in the list',
-    allow_blank: true
+    message: 'is not included in the list'
   }
   validates :api_base_url, format: { with: URI::DEFAULT_PARSER.make_regexp(%w[http https]), allow_blank: true }
   validates :api_endpoint, presence: true

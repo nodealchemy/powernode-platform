@@ -215,13 +215,30 @@ class Subscription < ApplicationRecord
       reminder_time = trial_end - days_before.days
       next if reminder_time <= Time.current
 
-      # SubscriptionLifecycleJob.set(wait_until: reminder_time)
-      #                        .perform_later('trial_ending_reminder', id)
+      begin
+        WorkerJobService.enqueue_subscription_lifecycle(
+          'trial_ending_reminder',
+          id,
+          run_at: reminder_time,
+          days_remaining: days_before
+        )
+        Rails.logger.info "Scheduled trial reminder for subscription #{id} at #{reminder_time}"
+      rescue WorkerJobService::WorkerServiceError => e
+        Rails.logger.error "Failed to schedule trial reminder: #{e.message}"
+      end
     end
 
-    # Schedule trial conversion
-    # SubscriptionLifecycleJob.set(wait_until: trial_end)
-    #                        .perform_later('trial_ended', id)
+    # Schedule trial conversion check
+    begin
+      WorkerJobService.enqueue_subscription_lifecycle(
+        'trial_ended',
+        id,
+        run_at: trial_end
+      )
+      Rails.logger.info "Scheduled trial end processing for subscription #{id} at #{trial_end}"
+    rescue WorkerJobService::WorkerServiceError => e
+      Rails.logger.error "Failed to schedule trial end: #{e.message}"
+    end
   end
 
   def schedule_renewal_reminders
@@ -232,13 +249,26 @@ class Subscription < ApplicationRecord
       reminder_time = current_period_end - days_before.days
       next if reminder_time <= Time.current
 
-      # SubscriptionLifecycleJob.set(wait_until: reminder_time)
-      #                        .perform_later('renewal_reminder', id)
+      begin
+        WorkerJobService.enqueue_subscription_lifecycle(
+          'renewal_reminder',
+          id,
+          run_at: reminder_time,
+          days_remaining: days_before
+        )
+        Rails.logger.info "Scheduled renewal reminder for subscription #{id} at #{reminder_time}"
+      rescue WorkerJobService::WorkerServiceError => e
+        Rails.logger.error "Failed to schedule renewal reminder: #{e.message}"
+      end
     end
 
-    # Schedule billing automation
-    # BillingAutomationJob.set(wait_until: current_period_end)
-    #                    .perform_later(id)
+    # Schedule billing automation at period end
+    begin
+      WorkerJobService.enqueue_billing_automation(id, delay: (current_period_end - Time.current).to_i)
+      Rails.logger.info "Scheduled billing automation for subscription #{id} at #{current_period_end}"
+    rescue WorkerJobService::WorkerServiceError => e
+      Rails.logger.error "Failed to schedule billing automation: #{e.message}"
+    end
   end
 
   def handle_activation

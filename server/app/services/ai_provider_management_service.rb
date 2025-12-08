@@ -329,19 +329,20 @@ class AiProviderManagementService
     def validate_provider_credentials(provider, credentials_data)
       raise ValidationError, "Provider is required" unless provider
       raise ValidationError, "Credentials data is required" unless credentials_data.present?
-      
+
       schema = provider.configuration_schema
-      return true unless schema.present? && schema['required'].present?
-      
-      # Check required fields
-      required_fields = schema['required'] || []
-      missing_fields = required_fields - credentials_data.keys.map(&:to_s)
-      
-      if missing_fields.any?
-        raise ValidationError, "Missing required credentials: #{missing_fields.join(', ')}"
+
+      # Check schema-defined required fields if present
+      if schema.present? && schema['required'].present?
+        required_fields = schema['required'] || []
+        missing_fields = required_fields - credentials_data.keys.map(&:to_s)
+
+        if missing_fields.any?
+          raise ValidationError, "Missing required credentials: #{missing_fields.join(', ')}"
+        end
       end
-      
-      # Basic validation for known provider types
+
+      # Basic validation for known provider types (always runs regardless of schema)
       case provider.provider_type&.downcase
       when 'openai'
         validate_openai_credentials(credentials_data)
@@ -350,7 +351,7 @@ class AiProviderManagementService
       when 'huggingface'
         validate_huggingface_credentials(credentials_data)
       end
-      
+
       true
     end
     

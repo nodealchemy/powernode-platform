@@ -13,7 +13,7 @@ module Mcp
         # Get file data from input or variables
         file_data = get_file_data
         unless file_data
-          raise Mcp::WorkflowOrchestrator::NodeExecutionError, "No file data provided for upload"
+          raise Mcp::AiWorkflowOrchestrator::NodeExecutionError, "No file data provided for upload"
         end
 
         # Get file metadata
@@ -88,10 +88,10 @@ module Mcp
         }
       rescue ::FileStorageService::QuotaExceededError => e
         log_error "Storage quota exceeded: #{e.message}"
-        raise Mcp::WorkflowOrchestrator::NodeExecutionError, "Storage quota exceeded: #{e.message}"
+        raise Mcp::AiWorkflowOrchestrator::NodeExecutionError, "Storage quota exceeded: #{e.message}"
       rescue StandardError => e
         log_error "File upload failed: #{e.message}"
-        raise Mcp::WorkflowOrchestrator::NodeExecutionError, "File upload failed: #{e.message}"
+        raise Mcp::AiWorkflowOrchestrator::NodeExecutionError, "File upload failed: #{e.message}"
       end
 
       private
@@ -134,7 +134,7 @@ module Mcp
             account: @orchestrator.account
           )
           unless storage
-            raise Mcp::WorkflowOrchestrator::NodeExecutionError,
+            raise Mcp::AiWorkflowOrchestrator::NodeExecutionError,
                   "Storage configuration not found: #{configuration['storage_id']}"
           end
           storage
@@ -142,7 +142,7 @@ module Mcp
           # Use default storage for account
           storage = @orchestrator.account.file_storages.default.first
           unless storage
-            raise Mcp::WorkflowOrchestrator::NodeExecutionError,
+            raise Mcp::AiWorkflowOrchestrator::NodeExecutionError,
                   "No default storage configuration found for account"
           end
           storage
@@ -156,7 +156,7 @@ module Mcp
         URI.open(url).read
       rescue StandardError => e
         log_error "Failed to download from URL: #{e.message}"
-        raise Mcp::WorkflowOrchestrator::NodeExecutionError,
+        raise Mcp::AiWorkflowOrchestrator::NodeExecutionError,
               "Failed to download file from URL: #{e.message}"
       end
     end

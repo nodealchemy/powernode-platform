@@ -16,7 +16,7 @@ RSpec.describe AiProvider, type: :model do
     it { is_expected.to validate_presence_of(:provider_type) }
     it { is_expected.to validate_presence_of(:api_endpoint) }
 
-    it { is_expected.to validate_inclusion_of(:provider_type).in_array(%w[openai anthropic google azure huggingface custom]) }
+    it { is_expected.to validate_inclusion_of(:provider_type).in_array(%w[openai anthropic google azure huggingface custom ollama local api_gateway]) }
     
     context 'name validation' do
       it 'validates name uniqueness within account' do

@@ -10,13 +10,13 @@ module Mcp
         agent_id = configuration['agent_id'] || configuration['ai_agent_id']
 
         unless agent_id
-          raise Mcp::WorkflowOrchestrator::NodeExecutionError, "No agent_id configured for AI Agent node"
+          raise Mcp::AiWorkflowOrchestrator::NodeExecutionError, "No agent_id configured for AI Agent node"
         end
 
         # Find the AI agent
         agent = ::AiAgent.find_by(id: agent_id)
         unless agent
-          raise Mcp::WorkflowOrchestrator::NodeExecutionError, "AI Agent not found: #{agent_id}"
+          raise Mcp::AiWorkflowOrchestrator::NodeExecutionError, "AI Agent not found: #{agent_id}"
         end
 
         log_info "Executing AI Agent: #{agent.name}"
@@ -211,7 +211,7 @@ module Mcp
         agent_execution&.fail_execution!(e.message, { 'exception_class' => e.class.name })
 
         @logger.error "[AI_AGENT_EXECUTOR] Agent execution failed: #{e.message}"
-        raise Mcp::WorkflowOrchestrator::NodeExecutionError,
+        raise Mcp::AiWorkflowOrchestrator::NodeExecutionError,
               "AI Agent execution failed: #{e.message}"
       end
     end

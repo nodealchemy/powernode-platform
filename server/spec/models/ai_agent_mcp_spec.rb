@@ -151,7 +151,7 @@ RSpec.describe AiAgent, 'MCP functionality', type: :model do
       end
 
       it 'creates an MCP execution record' do
-        allow_any_instance_of(McpAgentExecutor).to receive(:execute).and_return({
+        allow_any_instance_of(AiMcpAgentExecutor).to receive(:execute).and_return({
           'execution_id' => 'test_123',
           'status' => 'completed'
         })
@@ -161,7 +161,7 @@ RSpec.describe AiAgent, 'MCP functionality', type: :model do
       end
 
       it 'returns execution result' do
-        allow_any_instance_of(McpAgentExecutor).to receive(:execute).and_return({
+        allow_any_instance_of(AiMcpAgentExecutor).to receive(:execute).and_return({
           'execution_id' => 'test_123',
           'status' => 'completed',
           'result' => 'test output'
@@ -271,28 +271,20 @@ RSpec.describe AiAgent, 'MCP functionality', type: :model do
     end
   end
 
-  describe 'deprecated method warnings' do
-    # Use a pre-created agent to avoid triggering deprecated methods during creation
+  describe 'MCP API enforcement' do
     let!(:agent) { create(:ai_agent, account: account, creator: user, ai_provider: ai_provider, mcp_capabilities: ['text_generation']) }
 
-    it 'warns when using deprecated capabilities method' do
-      # Clear any existing log expectations from agent creation
-      allow(Rails.logger).to receive(:warn)
-
-      # Set specific expectation for this test
-      expect(Rails.logger).to receive(:warn).with(/DEPRECATED.*capabilities.*method/)
-
-      agent.capabilities
+    it 'uses mcp_capabilities for capability queries' do
+      expect(agent.mcp_capabilities).to eq(['text_generation'])
     end
 
-    it 'warns when using deprecated configuration method' do
-      # Clear any existing log expectations from agent creation
-      allow(Rails.logger).to receive(:warn)
+    it 'uses mcp_metadata for configuration' do
+      expect(agent.mcp_metadata).to be_a(Hash)
+    end
 
-      # Set specific expectation for this test
-      expect(Rails.logger).to receive(:warn).with(/DEPRECATED.*configuration.*method/)
-
-      agent.configuration
+    it 'uses mcp_tool_manifest for tool registration' do
+      expect(agent.mcp_tool_manifest).to be_a(Hash)
+      expect(agent.mcp_tool_manifest['name']).to be_present
     end
   end
 end

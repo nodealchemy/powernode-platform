@@ -13,9 +13,9 @@ RSpec.describe AiProviderTestService, type: :service do
            account: account,
            ai_provider: openai_provider,
            credentials: {
-             api_key: 'sk-1234567890abcdef1234567890abcdef',
-             model: 'gpt-3.5-turbo'
-           }.to_json)
+             'api_key' => 'sk-1234567890abcdef1234567890abcdef',
+             'model' => 'gpt-3.5-turbo'
+           })
   end
 
   let(:anthropic_credential) do
@@ -23,9 +23,9 @@ RSpec.describe AiProviderTestService, type: :service do
            account: account,
            ai_provider: anthropic_provider,
            credentials: {
-             api_key: 'sk-ant-api03-1234567890abcdef',
-             model: 'claude-3-sonnet-20240229'
-           }.to_json)
+             'api_key' => 'sk-ant-api03-1234567890abcdef',
+             'model' => 'claude-3-sonnet-20240229'
+           })
   end
 
   let(:ollama_credential) do
@@ -33,9 +33,9 @@ RSpec.describe AiProviderTestService, type: :service do
            account: account,
            ai_provider: ollama_provider,
            credentials: {
-             base_url: 'http://localhost:11434',
-             model: 'llama2'
-           }.to_json)
+             'base_url' => 'http://localhost:11434',
+             'model' => 'llama2'
+           })
   end
 
   describe '#initialize' do
@@ -150,9 +150,9 @@ RSpec.describe AiProviderTestService, type: :service do
                                  account: account,
                                  ai_provider: ollama_provider,
                                  credentials: {
-                                   base_url: 'http://custom-host:11434',
-                                   model: 'llama2'
-                                 }.to_json)
+                                   'base_url' => 'http://custom-host:11434',
+                                   'model' => 'llama2'
+                                 })
         
         service = described_class.new(custom_credential)
         

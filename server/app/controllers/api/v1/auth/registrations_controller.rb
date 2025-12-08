@@ -64,7 +64,7 @@ class Api::V1::Auth::RegistrationsController < ApplicationController
         end
       end
 
-      tokens = JwtService.generate_tokens(@user)
+      tokens = JwtService.generate_user_tokens(@user)
       @user.record_login!
 
       # Send verification email if not auto-verified
@@ -122,14 +122,28 @@ class Api::V1::Auth::RegistrationsController < ApplicationController
 
 
   def account_params
+    # Support both snake_case and camelCase param names
+    account_name = params[:account_name] || params[:accountName] ||
+                   params.dig(:user, :account_name) || params.dig(:user, :accountName)
     {
-      name: params[:account_name] || params.dig(:user, :account_name)
+      name: account_name
     }
   end
 
   def user_params
+    # Support both single 'name' field and firstName/lastName combination
+    # Also check for snake_case variants (first_name, last_name)
+    name = params[:name] || params.dig(:user, :name)
+    if name.blank?
+      first = params[:firstName] || params[:first_name] ||
+              params.dig(:user, :firstName) || params.dig(:user, :first_name)
+      last = params[:lastName] || params[:last_name] ||
+             params.dig(:user, :lastName) || params.dig(:user, :last_name)
+      name = [first, last].compact.join(' ').presence
+    end
+
     {
-      name: params[:name] || params.dig(:user, :name),
+      name: name,
       email: params[:email] || params.dig(:user, :email),
       password: params[:password] || params.dig(:user, :password)
     }

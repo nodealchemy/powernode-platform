@@ -172,8 +172,9 @@ class McpPermissionValidator
   def user_is_admin?
     return false unless user
 
-    user.permissions&.include?('system.admin') ||
-      user.permissions&.include?('admin.access')
+    # Use permission_names instead of permissions to get string-based comparison
+    user.permission_names&.include?('system.admin') ||
+      user.permission_names&.include?('admin.access')
   end
 
   def user_has_account_access?

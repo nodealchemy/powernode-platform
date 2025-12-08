@@ -14,7 +14,7 @@ module Mcp
         page_slug = configuration['page_slug'] || get_variable('page_slug')
 
         unless page_id.present? || page_slug.present?
-          raise Mcp::WorkflowOrchestrator::NodeExecutionError,
+          raise Mcp::AiWorkflowOrchestrator::NodeExecutionError,
                 "Either page_id or page_slug must be provided"
         end
 
@@ -65,7 +65,7 @@ module Mcp
 
         unless page
           identifier = page_id || page_slug
-          raise Mcp::WorkflowOrchestrator::NodeExecutionError,
+          raise Mcp::AiWorkflowOrchestrator::NodeExecutionError,
                 "Page not found: #{identifier}"
         end
 

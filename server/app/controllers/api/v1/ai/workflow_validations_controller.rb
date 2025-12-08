@@ -137,11 +137,11 @@ module Api
 
         # POST /api/v1/ai/workflows/:workflow_id/validations/auto_fix
         def auto_fix
-          service = WorkflowAutoFixService.new(@workflow)
+          service = AiWorkflowAutoFixService.new(@workflow)
           result = service.fix_all
 
           # Create new validation after fixes
-          validation_service = WorkflowValidationService.new(@workflow.reload)
+          validation_service = AiWorkflowValidationService.new(@workflow.reload)
           validation_result = validation_service.validate
           validation = @workflow.workflow_validations.create!(validation_result)
 
@@ -172,12 +172,12 @@ module Api
           issue_code = params[:issue_code]
           node_id = params[:node_id]
 
-          service = WorkflowAutoFixService.new(@workflow)
+          service = AiWorkflowAutoFixService.new(@workflow)
           result = service.fix_issue(issue_code, node_id: node_id)
 
           if result[:success]
             # Create new validation after fix
-            validation_service = WorkflowValidationService.new(@workflow.reload)
+            validation_service = AiWorkflowValidationService.new(@workflow.reload)
             validation_result = validation_service.validate
             validation = @workflow.workflow_validations.create!(validation_result)
 
@@ -205,7 +205,7 @@ module Api
 
         # GET /api/v1/ai/workflows/:workflow_id/validations/preview_fixes
         def preview_fixes
-          service = WorkflowAutoFixService.new(@workflow)
+          service = AiWorkflowAutoFixService.new(@workflow)
           preview = service.preview_fixes
 
           render_success({
@@ -251,8 +251,8 @@ module Api
         end
 
         def perform_workflow_validation(workflow)
-          # Use comprehensive WorkflowValidationService
-          service = WorkflowValidationService.new(workflow)
+          # Use comprehensive AiWorkflowValidationService
+          service = AiWorkflowValidationService.new(workflow)
           service.validate
         end
 

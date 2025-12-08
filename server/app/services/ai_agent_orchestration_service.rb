@@ -16,7 +16,7 @@
 # - Performance metrics and analytics
 #
 # Architecture:
-# - Facade pattern: Delegates to Mcp::WorkflowOrchestrator for execution
+# - Facade pattern: Delegates to Mcp::AiWorkflowOrchestrator for execution
 # - Load balancing: AiProviderLoadBalancerService for optimal provider selection
 # - Error recovery: AiErrorRecoveryService for resilience
 # - Monitoring: UnifiedMonitoringService for system telemetry
@@ -25,7 +25,7 @@
 # Service Layer Pattern:
 # - This is a ROOT FACADE service (public API)
 # - Delegates to MCP CORE services (implementation):
-#   * Mcp::WorkflowOrchestrator - Actual workflow execution
+#   * Mcp::AiWorkflowOrchestrator - Actual workflow execution
 #   * Mcp::WorkflowCheckpointManager - Checkpoint recovery
 #   * McpProtocolService - MCP protocol handling
 #
@@ -132,7 +132,7 @@ class AiAgentOrchestrationService
       user: @user,
       ai_provider: optimal_provider,
       input_parameters: input_parameters,
-      status: 'queued',
+      status: 'pending',
       execution_id: SecureRandom.uuid,
       metadata: build_execution_metadata(agent, optimal_provider, options)
     )
@@ -153,7 +153,7 @@ class AiAgentOrchestrationService
   
   # Monitor and manage running executions
   def monitor_executions
-    active_executions = @account.ai_agent_executions.where(status: ['queued', 'processing'])
+    active_executions = @account.ai_agent_executions.where(status: ['pending', 'running'])
     
     monitoring_results = {
       total_active: active_executions.count,
@@ -245,7 +245,7 @@ class AiAgentOrchestrationService
     )
 
     begin
-      orchestrator = Mcp::WorkflowOrchestrator.new(
+      orchestrator = Mcp::AiWorkflowOrchestrator.new(
         workflow_run: workflow_run,
         account: @account,
         user: @user
@@ -534,7 +534,7 @@ class AiAgentOrchestrationService
   
   def enforce_resource_limits!(agent, provider)
     # Check account limits
-    current_executions = @account.ai_agent_executions.where(status: ['queued', 'processing']).count
+    current_executions = @account.ai_agent_executions.where(status: ['pending', 'running']).count
     max_concurrent = @account.subscription&.ai_execution_limit || 10
     
     if current_executions >= max_concurrent
@@ -542,7 +542,7 @@ class AiAgentOrchestrationService
     end
     
     # Check provider limits
-    provider_executions = provider.ai_agent_executions.where(status: ['queued', 'processing']).count
+    provider_executions = provider.ai_agent_executions.where(status: ['pending', 'running']).count
     provider_max = provider.metadata&.dig('max_concurrent') || 10
     
     if provider_executions >= provider_max
@@ -606,7 +606,7 @@ class AiAgentOrchestrationService
   def optimize_resource_allocation(agent, historical_data); {}; end
   def optimize_execution_settings(agent, input_parameters, historical_data); {}; end
   def apply_cost_optimization(agent, historical_data); {}; end
-  def calculate_provider_current_load(provider); provider.ai_agent_executions.where(status: ['queued', 'processing']).count; end
+  def calculate_provider_current_load(provider); provider.ai_agent_executions.where(status: ['pending', 'running']).count; end
   def calculate_provider_avg_response_time(provider); provider.ai_agent_executions.where(created_at: 24.hours.ago..Time.current).average(:duration_ms) || 1000; end
   def calculate_provider_success_rate(provider); executions = provider.ai_agent_executions.where(created_at: 24.hours.ago..Time.current); return 95 if executions.empty?; successful = executions.where(status: 'completed').count; (successful.to_f / executions.count * 100).round(2); end
   def rebalance_executions_if_needed(load_metrics); end
@@ -813,7 +813,7 @@ class AiAgentOrchestrationService
 
     begin
       # Execute the workflow using the MCP orchestrator
-      orchestrator = Mcp::WorkflowOrchestrator.new(workflow_run: run, account: @account, user: user || @user)
+      orchestrator = Mcp::AiWorkflowOrchestrator.new(workflow_run: run, account: @account, user: user || @user)
       orchestrator.execute
 
       run.reload
@@ -896,16 +896,16 @@ class AiAgentOrchestrationService
           completed_at: Time.current,
           output_data: result[:output_data] || {},
           cost: result[:cost] || 0,
-          tokens_consumed: result[:tokens_consumed] || 0,
-          tokens_generated: result[:tokens_generated] || 0,
-          duration: ((Time.current - node_execution.started_at) * 1000).to_i
+          duration_ms: ((Time.current - node_execution.started_at) * 1000).to_i
         )
       else
         node_execution.update!(
           status: 'failed',
           completed_at: Time.current,
-          error_message: result[:error_message],
-          error_details: result[:error_details] || {}
+          error_details: {
+            error_message: result[:error_message],
+            **(result[:error_details] || {})
+          }
         )
       end
 
@@ -914,8 +914,8 @@ class AiAgentOrchestrationService
       node_execution.update!(
         status: 'failed',
         completed_at: Time.current,
-        error_message: e.message,
         error_details: {
+          error_message: e.message,
           exception_class: e.class.name,
           backtrace: e.backtrace&.first(5)
         }
@@ -992,7 +992,7 @@ class AiAgentOrchestrationService
       raise StandardError, "Cannot pause workflow run in status: #{run.status}"
     end
 
-    # Create checkpoint data
+    # Create checkpoint data in metadata
     checkpoint_data = {
       execution_state: 'paused',
       paused_at: Time.current.iso8601,
@@ -1003,9 +1003,8 @@ class AiAgentOrchestrationService
     }
 
     run.update!(
-      status: 'paused',
-      paused_at: Time.current,
-      checkpoint_data: checkpoint_data
+      status: 'waiting_approval',  # Use waiting_approval as closest to paused
+      metadata: (run.metadata || {}).merge('checkpoint_data' => checkpoint_data)
     )
 
     @logger.info "Paused workflow run #{run.run_id}"
@@ -1013,18 +1012,20 @@ class AiAgentOrchestrationService
 
   # Resume paused workflow execution
   def resume_execution(run)
-    unless run.status == 'paused'
+    # waiting_approval is used as paused state
+    unless run.status == 'waiting_approval' && run.metadata&.dig('checkpoint_data', 'execution_state') == 'paused'
       raise StandardError, "Cannot resume workflow run that is not paused. Current status: #{run.status}"
     end
 
     run.update!(
       status: 'running',
-      resumed_at: Time.current
+      metadata: (run.metadata || {}).merge('resumed_at' => Time.current.iso8601)
     )
 
-    # Restore execution from checkpoint
-    if run.checkpoint_data.present?
-      execute_from_checkpoint(run.checkpoint_data)
+    # Restore execution from checkpoint stored in metadata
+    checkpoint_data = run.metadata&.dig('checkpoint_data')
+    if checkpoint_data.present?
+      execute_from_checkpoint(checkpoint_data)
     end
 
     @logger.info "Resumed workflow run #{run.run_id}"
@@ -1038,15 +1039,11 @@ class AiAgentOrchestrationService
        .update_all(
          status: 'cancelled',
          completed_at: Time.current,
-         error_message: reason || 'Workflow execution cancelled'
+         error_details: { cancellation_reason: reason || 'Workflow execution cancelled' }.to_json
        )
 
-    # Update run status
-    run.update!(
-      status: 'cancelled',
-      completed_at: Time.current,
-      error_message: reason || 'Workflow execution cancelled'
-    )
+    # Update run status using the model's cancel method
+    run.cancel_execution!(reason || 'Workflow execution cancelled')
 
     # Log cancellation
     log_workflow_event(run, 'workflow_cancelled', {
@@ -1060,22 +1057,26 @@ class AiAgentOrchestrationService
   # Calculate comprehensive execution statistics
   def execution_statistics(run, include_performance: false)
     executions = run.ai_workflow_node_executions
-    
+
+    # AiWorkflowNodeExecution uses cost (not tokens_consumed/tokens_generated)
+    total_cost = executions.sum(:cost) || 0
+
     stats = {
       total_nodes: executions.count,
       completed_nodes: executions.where(status: 'completed').count,
       failed_nodes: executions.where(status: 'failed').count,
       cancelled_nodes: executions.where(status: 'cancelled').count,
       success_rate: calculate_success_rate(executions),
-      total_cost: executions.sum(:cost),
-      total_tokens: executions.sum(:tokens_consumed) + executions.sum(:tokens_generated)
+      total_cost: total_cost,
+      # Estimate tokens based on cost (rough estimation)
+      total_tokens: (total_cost / 0.002 * 1000).to_i  # ~$0.002 per 1K tokens average
     }
 
     if include_performance
-      completed_executions = executions.where(status: 'completed').where.not(duration: nil)
-      
+      completed_executions = executions.where(status: 'completed').where.not(duration_ms: nil)
+
       stats.merge!({
-        average_node_execution_time: completed_executions.average(:duration)&.to_f || 0,
+        average_node_execution_time: completed_executions.average(:duration_ms)&.to_f || 0,
         execution_efficiency_score: calculate_efficiency_score(run),
         cost_per_token: stats[:total_tokens] > 0 ? (stats[:total_cost] / stats[:total_tokens]).round(6) : 0
       })

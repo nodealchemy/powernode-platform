@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-class WorkflowRetryStrategyService
+class AiWorkflowRetryStrategyService
   attr_reader :node_execution, :retry_config, :error_type
 
   # Retry strategies
@@ -71,6 +71,9 @@ class WorkflowRetryStrategyService
     # Update retry metadata
     update_retry_metadata(delay_ms)
 
+    # Broadcast retry scheduled event
+    broadcast_retry_event(delay_ms)
+
     # Schedule retry using worker
     WorkerJobService.enqueue_node_execution_retry(
       node_execution.id,
@@ -78,6 +81,27 @@ class WorkflowRetryStrategyService
     )
 
     true
+  end
+
+  # Broadcast retry event via WebSocket
+  def broadcast_retry_event(delay_ms)
+    workflow_run = node_execution.ai_workflow_run
+
+    ActionCable.server.broadcast(
+      "ai_workflow_run_#{workflow_run.id}",
+      {
+        type: 'node_retry_scheduled',
+        node_execution_id: node_execution.id,
+        node_id: node_execution.node_id,
+        attempt: current_retry_attempt + 1,
+        max_retries: retry_config[:max_retries],
+        delay_ms: delay_ms,
+        error_type: error_type,
+        timestamp: Time.current.iso8601
+      }
+    )
+  rescue StandardError => e
+    Rails.logger.warn "[Retry] Failed to broadcast retry event: #{e.message}"
   end
 
   # Get retry statistics
@@ -143,7 +167,7 @@ class WorkflowRetryStrategyService
     strategy_name = retry_config[:strategy] || :exponential
     strategy_class_name = STRATEGIES[strategy_name.to_sym] || STRATEGIES[:exponential]
 
-    "WorkflowRetryStrategyService::#{strategy_class_name}".constantize
+    "AiWorkflowRetryStrategyService::#{strategy_class_name}".constantize
   end
 
   def update_retry_metadata(delay_ms)

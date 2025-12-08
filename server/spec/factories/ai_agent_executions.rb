@@ -104,7 +104,7 @@ FactoryBot.define do
     end
     
     trait :high_priority do
-      metadata do
+      execution_context do
         {
           priority: 'high',
           retry_count: 0,
@@ -112,6 +112,27 @@ FactoryBot.define do
           urgent: true
         }
       end
+    end
+
+    # Alias traits for test compatibility - use valid statuses
+    trait :queued do
+      # queued is not a valid status, use pending instead
+      status { 'pending' }
+      started_at { nil }
+      completed_at { nil }
+    end
+
+    trait :processing do
+      # processing is not a valid status, use running instead
+      status { 'running' }
+      started_at { 3.minutes.ago }
+      completed_at { nil }
+    end
+
+    trait :pending do
+      status { 'pending' }
+      started_at { nil }
+      completed_at { nil }
     end
   end
 end

@@ -14,7 +14,7 @@ module Mcp
         article_slug = configuration['article_slug'] || get_variable('article_slug')
 
         unless article_id.present? || article_slug.present?
-          raise Mcp::WorkflowOrchestrator::NodeExecutionError,
+          raise Mcp::AiWorkflowOrchestrator::NodeExecutionError,
                 "Either article_id or article_slug must be provided"
         end
 
@@ -65,7 +65,7 @@ module Mcp
 
         unless article
           identifier = article_id || article_slug
-          raise Mcp::WorkflowOrchestrator::NodeExecutionError,
+          raise Mcp::AiWorkflowOrchestrator::NodeExecutionError,
                 "KB article not found: #{identifier}"
         end
 

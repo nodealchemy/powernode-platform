@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-class WorkflowValidationService
+class AiWorkflowValidationService
   attr_reader :workflow, :issues, :validated_nodes
 
   def initialize(workflow)

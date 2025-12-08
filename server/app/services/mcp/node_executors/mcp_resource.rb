@@ -12,7 +12,7 @@ module Mcp
 
         # Validate configuration
         unless resource_uri.present?
-          raise Mcp::WorkflowOrchestrator::NodeExecutionError,
+          raise Mcp::AiWorkflowOrchestrator::NodeExecutionError,
                 "No resource_uri configured for MCP Resource node"
         end
 
@@ -52,7 +52,7 @@ module Mcp
             }
           }
         else
-          raise Mcp::WorkflowOrchestrator::NodeExecutionError,
+          raise Mcp::AiWorkflowOrchestrator::NodeExecutionError,
                 "MCP resource read failed: #{result[:error]}"
         end
       end

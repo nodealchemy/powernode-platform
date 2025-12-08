@@ -2,7 +2,7 @@
 
 require 'rails_helper'
 
-RSpec.describe WorkflowRecoveryService, type: :service do
+RSpec.describe AiWorkflowRecoveryService, type: :service do
   include AiOrchestrationHelpers
 
   let(:env) { setup_ai_orchestration_environment }
@@ -54,10 +54,14 @@ RSpec.describe WorkflowRecoveryService, type: :service do
     let(:checkpoint_data) { { step: 1, progress: 50 } }
 
     before do
-      # Create some completed node executions
-      create_list(:ai_workflow_node_execution, 2, :completed,
-        ai_workflow_run: workflow_run
-      )
+      # Create node executions with unique nodes to avoid unique constraint violation
+      workflow.ai_workflow_nodes.first(2).each do |wf_node|
+        create(:ai_workflow_node_execution, :completed,
+          ai_workflow_run: workflow_run,
+          ai_workflow_node: wf_node,
+          node_id: wf_node.node_id
+        )
+      end
     end
 
     it 'creates a checkpoint with unique ID' do
@@ -318,13 +322,18 @@ RSpec.describe WorkflowRecoveryService, type: :service do
 
   describe '#capture_workflow_state' do
     before do
-      # Setup workflow with some executions
+      # Setup workflow with some executions using unique nodes
+      nodes = workflow.ai_workflow_nodes.first(2)
       create(:ai_workflow_node_execution, :completed,
         ai_workflow_run: workflow_run,
+        ai_workflow_node: nodes.first,
+        node_id: nodes.first.node_id,
         output_data: { result: 'step 1 complete' }
       )
       create(:ai_workflow_node_execution, :running,
-        ai_workflow_run: workflow_run
+        ai_workflow_run: workflow_run,
+        ai_workflow_node: nodes.second,
+        node_id: nodes.second.node_id
       )
     end
 

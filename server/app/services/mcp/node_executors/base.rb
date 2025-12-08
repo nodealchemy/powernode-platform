@@ -45,7 +45,7 @@ module Mcp
 
           @logger.error "[NODE_EXECUTOR] #{node.node_type} execution failed: #{e.message}"
 
-          raise Mcp::WorkflowOrchestrator::NodeExecutionError,
+          raise Mcp::AiWorkflowOrchestrator::NodeExecutionError,
                 "#{node.node_type} execution failed: #{e.message}"
         end
       end

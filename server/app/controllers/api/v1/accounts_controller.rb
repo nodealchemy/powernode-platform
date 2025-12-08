@@ -22,6 +22,70 @@ class Api::V1::AccountsController < ApplicationController
     end
   end
 
+  # GET /api/v1/accounts/accessible
+  # Returns all accounts accessible to the current user
+  def accessible
+    service = AccountSwitchService.new(current_user)
+    accounts = service.accessible_accounts
+
+    render_success(
+      data: {
+        accounts: accounts,
+        current_account_id: current_account.id,
+        primary_account_id: current_user.account_id
+      }
+    )
+  end
+
+  # POST /api/v1/accounts/switch
+  # Switches the current user to a different account context
+  def switch
+    target_account_id = params[:account_id]
+
+    unless target_account_id.present?
+      return render_error("Account ID is required", status: :bad_request)
+    end
+
+    service = AccountSwitchService.new(current_user)
+
+    metadata = {
+      ip: request.remote_ip,
+      user_agent: request.user_agent
+    }
+
+    result = service.switch_to(target_account_id, metadata: metadata)
+
+    render_success(
+      message: "Successfully switched to #{result[:account][:name]}",
+      data: result
+    )
+  rescue AccountSwitchService::UnauthorizedAccountError => e
+    render_error(e.message, status: :forbidden)
+  rescue AccountSwitchService::InactiveAccountError,
+         AccountSwitchService::InactiveDelegationError => e
+    render_error(e.message, status: :unprocessable_entity)
+  rescue ActiveRecord::RecordNotFound
+    render_error("Account not found", status: :not_found)
+  end
+
+  # POST /api/v1/accounts/switch_to_primary
+  # Switches the current user back to their primary account
+  def switch_to_primary
+    service = AccountSwitchService.new(current_user)
+
+    metadata = {
+      ip: request.remote_ip,
+      user_agent: request.user_agent
+    }
+
+    result = service.switch_to_primary(metadata: metadata)
+
+    render_success(
+      message: "Successfully switched back to primary account",
+      data: result
+    )
+  end
+
   private
 
   def set_account

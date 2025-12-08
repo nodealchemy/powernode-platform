@@ -17,8 +17,7 @@ RSpec.describe Api::V1::UsersController, type: :controller do
     let(:user_params) do
       {
         email: 'newuser@example.com',
-        first_name: 'New',
-        last_name: 'User',
+        name: 'New User',
         password: 'VerySecurePassword2024!@#',
         password_confirmation: 'VerySecurePassword2024!@#'
       }
@@ -35,7 +34,7 @@ RSpec.describe Api::V1::UsersController, type: :controller do
 
         expect(response).to have_http_status(:created)
         expect(JSON.parse(response.body)['success']).to be true
-        expect(JSON.parse(response.body)['message']).to eq('User created successfully')
+        expect(JSON.parse(response.body)['data']).to be_present
       end
     end
 

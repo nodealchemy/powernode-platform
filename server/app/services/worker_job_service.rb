@@ -148,12 +148,28 @@ class WorkerJobService
     end
 
     # Enqueue subscription lifecycle job
+    # @param action [String] The lifecycle action: 'trial_ending_reminder', 'trial_ended', 'renewal_reminder'
+    # @param subscription_id [String] The subscription UUID
+    # @param options [Hash] Additional options
+    # @option options [Integer] :delay Delay in seconds before job runs
+    # @option options [Time] :run_at Time to run the job
     def enqueue_subscription_lifecycle(action, subscription_id, **options)
-      new.make_worker_request('POST', '/api/v1/jobs', {
+      delay = options.delete(:delay) || 0
+      run_at = options.delete(:run_at)
+
+      payload = {
         'job_class' => 'Billing::SubscriptionLifecycleJob',
         'args' => [action, subscription_id, options],
         'queue' => 'billing'
-      })
+      }
+
+      if run_at.present?
+        payload['at'] = run_at.to_i
+      elsif delay.positive?
+        payload['at'] = (Time.current + delay).to_i
+      end
+
+      new.make_worker_request('POST', '/api/v1/jobs', payload)
     end
 
     # Enqueue node execution retry job

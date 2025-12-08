@@ -781,7 +781,92 @@ class AiAgent < ApplicationRecord
   end
 
   # =============================================================================
-  # DEPRECATED METHODS (FOR BACKWARDS COMPATIBILITY)
+  # CLASS METHODS
   # =============================================================================
-  # Note: capabilities is already defined at line ~213 as public method
+
+  class << self
+    # Create agent from template data
+    def create_from_template(account, provider, template_data, user)
+      agent = new(
+        account: account,
+        ai_provider: provider,
+        creator: user,
+        name: template_data[:name],
+        description: template_data[:description],
+        agent_type: template_data[:agent_type],
+        mcp_capabilities: template_data[:mcp_capabilities] || [],
+        mcp_tool_manifest: template_data[:mcp_tool_manifest] || {},
+        version: template_data[:version] || '1.0.0',
+        status: 'active'
+      )
+      agent.save
+      agent
+    end
+
+    # Search agents by name or description
+    def search(query)
+      return all if query.blank?
+      where('name ILIKE :q OR description ILIKE :q', q: "%#{query}%")
+    end
+
+    # Get popular agents ordered by execution count
+    def popular(limit: 10)
+      left_joins(:ai_agent_executions)
+        .group(:id)
+        .order('COUNT(ai_agent_executions.id) DESC')
+        .limit(limit)
+    end
+  end
+
+  # =============================================================================
+  # ADDITIONAL INSTANCE METHODS
+  # =============================================================================
+
+  # Get recent executions within a time period
+  def recent_executions(period = 24.hours)
+    ai_agent_executions.where('created_at >= ?', period.ago)
+  end
+
+  # Get average response time from completed executions
+  def average_response_time
+    completed = ai_agent_executions.where(status: 'completed')
+    return 0 if completed.empty?
+    completed.average(:duration_ms)&.to_f || 0
+  end
+
+  # Get total tokens used across all executions
+  def total_tokens_used
+    ai_agent_executions.where(status: 'completed').sum do |exec|
+      exec.output_data&.dig('metrics', 'tokens_used') || 0
+    end
+  end
+
+  # Get estimated total cost across all executions
+  def estimated_total_cost
+    ai_agent_executions.where(status: 'completed').sum do |exec|
+      exec.output_data&.dig('metrics', 'cost_estimate') || 0.0
+    end
+  end
+
+  # Deactivate agent with reason
+  def deactivate!(reason = nil)
+    metadata = self.mcp_metadata || {}
+    metadata['deactivated_reason'] = reason if reason.present?
+    update!(status: 'inactive', mcp_metadata: metadata)
+
+    # Create audit log entry
+    AuditLog.create!(
+      account: account,
+      user: creator,
+      resource_type: 'AiAgent',
+      resource_id: id.to_s,
+      action: 'update',
+      metadata: { 'deactivation_reason' => reason }
+    )
+  end
+
+  # Activate agent
+  def activate!
+    update!(status: 'active')
+  end
 end

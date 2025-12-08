@@ -12,7 +12,7 @@ module Mcp
 
         # Validate configuration
         unless prompt_name.present?
-          raise Mcp::WorkflowOrchestrator::NodeExecutionError,
+          raise Mcp::AiWorkflowOrchestrator::NodeExecutionError,
                 "No prompt_name configured for MCP Prompt node"
         end
 
@@ -53,7 +53,7 @@ module Mcp
             }
           }
         else
-          raise Mcp::WorkflowOrchestrator::NodeExecutionError,
+          raise Mcp::AiWorkflowOrchestrator::NodeExecutionError,
                 "MCP prompt execution failed: #{result[:error]}"
         end
       end

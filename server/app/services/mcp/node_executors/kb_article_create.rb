@@ -99,20 +99,20 @@ module Mcp
         errors << "Category is required" if data[:category_id].blank?
 
         unless errors.empty?
-          raise Mcp::WorkflowOrchestrator::NodeExecutionError,
+          raise Mcp::AiWorkflowOrchestrator::NodeExecutionError,
                 "KB Article validation failed: #{errors.join(', ')}"
         end
 
         # Validate status
         valid_statuses = %w[draft review published archived]
         unless valid_statuses.include?(data[:status])
-          raise Mcp::WorkflowOrchestrator::NodeExecutionError,
+          raise Mcp::AiWorkflowOrchestrator::NodeExecutionError,
                 "Invalid status '#{data[:status]}'. Must be one of: #{valid_statuses.join(', ')}"
         end
 
         # Validate category exists
         unless KnowledgeBaseCategory.exists?(data[:category_id])
-          raise Mcp::WorkflowOrchestrator::NodeExecutionError,
+          raise Mcp::AiWorkflowOrchestrator::NodeExecutionError,
                 "Category not found: #{data[:category_id]}"
         end
       end
@@ -141,7 +141,7 @@ module Mcp
 
         article
       rescue ActiveRecord::RecordInvalid => e
-        raise Mcp::WorkflowOrchestrator::NodeExecutionError,
+        raise Mcp::AiWorkflowOrchestrator::NodeExecutionError,
               "Failed to create KB article: #{e.message}"
       end
 

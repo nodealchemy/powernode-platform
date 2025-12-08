@@ -28,13 +28,13 @@ module Mcp
         file_object = get_source_file
 
         unless file_object
-          raise Mcp::WorkflowOrchestrator::NodeExecutionError, "No source file provided for transformation"
+          raise Mcp::AiWorkflowOrchestrator::NodeExecutionError, "No source file provided for transformation"
         end
 
         # Validate transformation operation
         operation = configuration['operation']
         unless SUPPORTED_OPERATIONS.include?(operation)
-          raise Mcp::WorkflowOrchestrator::NodeExecutionError,
+          raise Mcp::AiWorkflowOrchestrator::NodeExecutionError,
                 "Unsupported operation: #{operation}. Supported: #{SUPPORTED_OPERATIONS.join(', ')}"
         end
 
@@ -129,10 +129,10 @@ module Mcp
         }
       rescue ::FileStorageService::FileNotFoundError => e
         log_error "Source file not found: #{e.message}"
-        raise Mcp::WorkflowOrchestrator::NodeExecutionError, "Source file not found: #{e.message}"
+        raise Mcp::AiWorkflowOrchestrator::NodeExecutionError, "Source file not found: #{e.message}"
       rescue StandardError => e
         log_error "File transformation failed: #{e.message}"
-        raise Mcp::WorkflowOrchestrator::NodeExecutionError, "File transformation failed: #{e.message}"
+        raise Mcp::AiWorkflowOrchestrator::NodeExecutionError, "File transformation failed: #{e.message}"
       end
 
       private
@@ -151,7 +151,7 @@ module Mcp
       def perform_transformation(file_content, content_type, operation)
         # Only support image transformations for now
         unless content_type.start_with?('image/')
-          raise Mcp::WorkflowOrchestrator::NodeExecutionError,
+          raise Mcp::AiWorkflowOrchestrator::NodeExecutionError,
                 "File transformations only support images, got: #{content_type}"
         end
 

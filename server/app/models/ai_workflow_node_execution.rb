@@ -303,7 +303,7 @@ class AiWorkflowNodeExecution < ApplicationRecord
 
   # Retry with strategy service
   def retry_with_strategy!(error_type = nil)
-    retry_service = WorkflowRetryStrategyService.new(
+    retry_service = AiWorkflowRetryStrategyService.new(
       node_execution: self,
       error_type: error_type
     )
@@ -318,13 +318,13 @@ class AiWorkflowNodeExecution < ApplicationRecord
 
   # Get retry statistics
   def retry_statistics
-    retry_service = WorkflowRetryStrategyService.new(node_execution: self)
+    retry_service = AiWorkflowRetryStrategyService.new(node_execution: self)
     retry_service.retry_stats
   end
 
   # Check if error type is retryable
   def error_retryable?(error_type)
-    retry_service = WorkflowRetryStrategyService.new(
+    retry_service = AiWorkflowRetryStrategyService.new(
       node_execution: self,
       error_type: error_type
     )
@@ -507,7 +507,7 @@ class AiWorkflowNodeExecution < ApplicationRecord
   end
 
   # CRITICAL: These methods are called explicitly by the orchestrator after node completion
-  # They cannot be private because they're invoked from Mcp::WorkflowOrchestrator
+  # They cannot be private because they're invoked from Mcp::AiWorkflowOrchestrator
   # These were intentionally converted from callbacks to explicit calls to prevent stack overflow
   def update_run_progress
     # CRITICAL FIX: Use thread-local storage for re-entry protection

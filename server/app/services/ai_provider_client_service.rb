@@ -3,6 +3,26 @@
 class AiProviderClientService
   include HTTParty
 
+  # Custom exception for validation errors
+  class ValidationError < StandardError; end
+
+  # Model pricing per 1K tokens (in USD)
+  MODEL_PRICING = {
+    'gpt-3.5-turbo' => { prompt: 0.0015, completion: 0.002 },
+    'gpt-3.5-turbo-16k' => { prompt: 0.003, completion: 0.004 },
+    'gpt-4' => { prompt: 0.03, completion: 0.06 },
+    'gpt-4-32k' => { prompt: 0.06, completion: 0.12 },
+    'gpt-4-turbo' => { prompt: 0.01, completion: 0.03 },
+    'gpt-4o' => { prompt: 0.005, completion: 0.015 },
+    'claude-3-sonnet-20240229' => { prompt: 0.003, completion: 0.015 },
+    'claude-3-opus-20240229' => { prompt: 0.015, completion: 0.075 },
+    'claude-3-haiku-20240307' => { prompt: 0.00025, completion: 0.00125 }
+  }.freeze
+
+  VALID_ROLES = %w[system user assistant function tool].freeze
+  CIRCUIT_BREAKER_THRESHOLD = 5
+  CIRCUIT_BREAKER_TIMEOUT = 60 # seconds
+
   attr_reader :provider, :credential, :credentials_data
 
   def initialize(ai_provider_credential)
@@ -10,6 +30,18 @@ class AiProviderClientService
     @provider = credential.ai_provider
     @credentials_data = credential.credentials
     @circuit_breaker = AiProviderCircuitBreakerService.new(@provider)
+    @rate_limit_tracker = {}
+    @usage_metrics = {
+      total_requests: 0,
+      failed_requests: 0,
+      total_tokens: 0,
+      prompt_tokens: 0,
+      completion_tokens: 0,
+      total_response_time: 0,
+      avg_response_time: 0.0,
+      success_rate: 100.0
+    }
+    @consecutive_failures = 0
     setup_client_options
   end
 
@@ -92,7 +124,412 @@ class AiProviderClientService
     end
   end
 
+  # Send a chat message to the AI provider
+  # @param messages [Array<Hash>] Array of message objects with role and content
+  # @param options [Hash] Options including model, temperature, max_tokens, etc.
+  # @return [Hash] Response with success status, response data, and metadata
+  def send_message(messages, options = {})
+    validate_message_format(messages)
+
+    # Check circuit breaker state
+    if circuit_breaker_open?
+      return {
+        success: false,
+        error: 'Circuit breaker is open - provider temporarily unavailable',
+        error_type: 'circuit_breaker_open',
+        retry_after: calculate_circuit_breaker_timeout,
+        circuit_breaker_state: 'open'
+      }
+    end
+
+    model_name = options[:model] || default_model_for_capability('text_generation')
+    start_time = Time.current
+
+    begin
+      result = case provider.slug
+               when 'openai'
+                 openai_send_message(messages, model_name, **options)
+               when 'anthropic', 'claude-ai-anthropic'
+                 anthropic_send_message(messages, model_name, **options)
+               when 'ollama', 'remote-ollama-server'
+                 ollama_send_message(messages, model_name, **options)
+               else
+                 raise NotImplementedError, "send_message not implemented for #{provider.name}"
+               end
+
+      response_time_ms = ((Time.current - start_time) * 1000).round
+      track_usage(result[:response] || {}, response_time_ms, result[:success])
+
+      if result[:success]
+        @consecutive_failures = 0
+        result.merge(
+          metadata: {
+            tokens_used: extract_token_count(result[:response]),
+            response_time_ms: response_time_ms,
+            model_used: model_name,
+            stream_enabled: options[:stream] || false,
+            parameters_used: options.except(:model)
+          }
+        )
+      else
+        @consecutive_failures += 1
+        check_circuit_breaker_threshold
+        result.merge(
+          retry_after: extract_retry_after(result),
+          retry_recommended: result[:error_type] == 'server_error'
+        )
+      end
+    rescue Net::OpenTimeout, Net::ReadTimeout, Timeout::Error => e
+      response_time_ms = ((Time.current - start_time) * 1000).round
+      @consecutive_failures += 1
+      check_circuit_breaker_threshold
+      track_usage({}, response_time_ms, false)
+
+      {
+        success: false,
+        error: "Request timeout: #{e.message}",
+        error_type: 'network_error',
+        retry_after: calculate_backoff_time,
+        retry_recommended: true
+      }
+    rescue JSON::ParserError => e
+      response_time_ms = ((Time.current - start_time) * 1000).round
+      track_usage({}, response_time_ms, false)
+
+      {
+        success: false,
+        error: "Failed to parse response: #{e.message}",
+        error_type: 'parse_error',
+        retry_recommended: false
+      }
+    rescue StandardError => e
+      response_time_ms = ((Time.current - start_time) * 1000).round
+      track_usage({}, response_time_ms, false)
+
+      {
+        success: false,
+        error: "Request failed: #{e.message}",
+        error_type: 'unknown_error',
+        retry_recommended: true
+      }
+    end
+  end
+
+  # Perform a health check on the AI provider
+  # @return [Hash] Health status with metrics
+  def health_check
+    start_time = Time.current
+    test_messages = [{ role: 'user', content: 'Hello' }]
+
+    begin
+      result = send_message(test_messages, { model: default_model_for_capability('text_generation'), max_tokens: 5 })
+      response_time = ((Time.current - start_time) * 1000).round
+
+      {
+        healthy: result[:success],
+        response_time_ms: response_time,
+        last_checked_at: Time.current.iso8601,
+        error_rate: calculate_error_rate,
+        circuit_breaker_state: circuit_breaker_state,
+        last_error: result[:success] ? nil : result[:error]
+      }
+    rescue StandardError => e
+      {
+        healthy: false,
+        response_time_ms: ((Time.current - start_time) * 1000).round,
+        last_checked_at: Time.current.iso8601,
+        error_rate: calculate_error_rate,
+        circuit_breaker_state: circuit_breaker_state,
+        last_error: e.message
+      }
+    end
+  end
+
   private
+
+  # Validate message format
+  # @param messages [Array<Hash>] Messages to validate
+  # @raise [ValidationError] if validation fails
+  def validate_message_format(messages)
+    raise ValidationError, 'Messages must contain at least one message' if messages.nil? || messages.empty?
+
+    messages.each_with_index do |msg, index|
+      raise ValidationError, "Message at index #{index}: role is required" unless msg[:role] || msg['role']
+      raise ValidationError, "Message at index #{index}: content is required" unless msg[:content] || msg['content']
+
+      role = msg[:role] || msg['role']
+      unless VALID_ROLES.include?(role.to_s)
+        raise ValidationError, "Message at index #{index}: Invalid role '#{role}'. Must be one of: #{VALID_ROLES.join(', ')}"
+      end
+    end
+  end
+
+  # Track usage metrics
+  # @param response_data [Hash] Response data from the API
+  # @param response_time_ms [Integer] Response time in milliseconds
+  # @param success [Boolean] Whether the request was successful
+  def track_usage(response_data, response_time_ms, success)
+    @usage_metrics[:total_requests] += 1
+    @usage_metrics[:failed_requests] += 1 unless success
+    @usage_metrics[:total_response_time] += response_time_ms
+    @usage_metrics[:avg_response_time] = @usage_metrics[:total_response_time].to_f / @usage_metrics[:total_requests]
+
+    if success && response_data[:usage]
+      usage = response_data[:usage]
+      @usage_metrics[:total_tokens] += usage[:total_tokens] || usage['total_tokens'] || 0
+      @usage_metrics[:prompt_tokens] += usage[:prompt_tokens] || usage['prompt_tokens'] || 0
+      @usage_metrics[:completion_tokens] += usage[:completion_tokens] || usage['completion_tokens'] || 0
+    end
+
+    total = @usage_metrics[:total_requests]
+    failed = @usage_metrics[:failed_requests]
+    @usage_metrics[:success_rate] = total.positive? ? ((total - failed).to_f / total * 100) : 100.0
+  end
+
+  # Estimate the cost of a request
+  # @param tokens_used [Hash] Hash with prompt_tokens and completion_tokens
+  # @param model [String] Model name
+  # @return [BigDecimal] Estimated cost in USD
+  def estimate_cost(tokens_used, model)
+    pricing = MODEL_PRICING[model] || { prompt: 0.001, completion: 0.002 }
+    prompt_tokens = tokens_used[:prompt_tokens] || tokens_used['prompt_tokens'] || 0
+    completion_tokens = tokens_used[:completion_tokens] || tokens_used['completion_tokens'] || 0
+
+    prompt_cost = BigDecimal(prompt_tokens.to_s) / 1000 * BigDecimal(pricing[:prompt].to_s)
+    completion_cost = BigDecimal(completion_tokens.to_s) / 1000 * BigDecimal(pricing[:completion].to_s)
+
+    prompt_cost + completion_cost
+  end
+
+  # Calculate exponential backoff time
+  # @return [Integer] Backoff time in seconds
+  def calculate_backoff_time
+    base_delay = 2
+    max_delay = 120
+    jitter = rand(0.5..1.5)
+
+    delay = [base_delay * (2 ** @consecutive_failures) * jitter, max_delay].min
+    delay.ceil
+  end
+
+  # Check if circuit breaker should be opened
+  def check_circuit_breaker_threshold
+    if @consecutive_failures >= CIRCUIT_BREAKER_THRESHOLD
+      @circuit_breaker_opened_at = Time.current
+    end
+  end
+
+  # Check if circuit breaker is open
+  # @return [Boolean]
+  def circuit_breaker_open?
+    return false unless @circuit_breaker_opened_at
+
+    # Auto-recover after timeout
+    if Time.current - @circuit_breaker_opened_at > CIRCUIT_BREAKER_TIMEOUT
+      @circuit_breaker_opened_at = nil
+      @consecutive_failures = 0
+      return false
+    end
+
+    true
+  end
+
+  # Get circuit breaker state
+  # @return [String]
+  def circuit_breaker_state
+    circuit_breaker_open? ? 'open' : 'closed'
+  end
+
+  # Calculate remaining timeout for circuit breaker
+  # @return [Integer]
+  def calculate_circuit_breaker_timeout
+    return 0 unless @circuit_breaker_opened_at
+
+    remaining = CIRCUIT_BREAKER_TIMEOUT - (Time.current - @circuit_breaker_opened_at)
+    [remaining.ceil, 0].max
+  end
+
+  # Calculate error rate
+  # @return [Float]
+  def calculate_error_rate
+    return 0.0 if @usage_metrics[:total_requests].zero?
+
+    (@usage_metrics[:failed_requests].to_f / @usage_metrics[:total_requests] * 100).round(2)
+  end
+
+  # Extract token count from response
+  # @param response [Hash]
+  # @return [Integer]
+  def extract_token_count(response)
+    return 0 unless response.is_a?(Hash)
+
+    usage = response[:usage] || response['usage']
+    return 0 unless usage
+
+    usage[:total_tokens] || usage['total_tokens'] || 0
+  end
+
+  # Extract retry-after from response or calculate default
+  # @param result [Hash]
+  # @return [Integer]
+  def extract_retry_after(result)
+    result[:retry_after] || calculate_backoff_time
+  end
+
+  # OpenAI chat message implementation
+  def openai_send_message(messages, model, **options)
+    url = '/chat/completions'
+
+    body = {
+      model: model,
+      messages: messages.map { |m| { role: m[:role] || m['role'], content: m[:content] || m['content'] } },
+      max_tokens: options[:max_tokens] || 2000,
+      temperature: options[:temperature] || 0.7
+    }
+
+    # Add optional parameters
+    body[:stream] = options[:stream] if options[:stream]
+    body[:presence_penalty] = options[:presence_penalty] if options[:presence_penalty]
+    body[:frequency_penalty] = options[:frequency_penalty] if options[:frequency_penalty]
+    body[:functions] = options[:functions] if options[:functions]
+    body[:function_call] = options[:function_call] if options[:function_call]
+
+    response = self.class.post(url, headers: @headers, body: body.to_json)
+    handle_chat_response(response)
+  end
+
+  # Anthropic chat message implementation
+  def anthropic_send_message(messages, model, **options)
+    url = '/messages'
+
+    # Separate system messages from other messages for Anthropic
+    system_content = messages.select { |m| (m[:role] || m['role']) == 'system' }
+                            .map { |m| m[:content] || m['content'] }
+                            .join("\n")
+
+    user_messages = messages.reject { |m| (m[:role] || m['role']) == 'system' }
+
+    body = {
+      model: model,
+      messages: user_messages.map { |m| { role: m[:role] || m['role'], content: m[:content] || m['content'] } },
+      max_tokens: options[:max_tokens] || 2000
+    }
+
+    body[:system] = system_content if system_content.present?
+    body[:temperature] = options[:temperature] if options[:temperature]
+
+    response = self.class.post(url, headers: @headers, body: body.to_json)
+    handle_chat_response(response)
+  end
+
+  # Ollama chat message implementation
+  def ollama_send_message(messages, model, **options)
+    url = '/api/chat'
+
+    body = {
+      model: model,
+      messages: messages.map { |m| { role: m[:role] || m['role'], content: m[:content] || m['content'] } },
+      stream: options[:stream] || false
+    }
+
+    # Ollama uses different base URI
+    base_url = credentials_data['base_url'] || 'http://localhost:11434'
+    full_url = "#{base_url}#{url}"
+
+    response = HTTParty.post(full_url, headers: @headers, body: body.to_json)
+    handle_ollama_chat_response(response)
+  end
+
+  # Handle chat response from API
+  def handle_chat_response(response)
+    case response.code
+    when 200, 201
+      parsed = response.parsed_response
+      {
+        success: true,
+        response: parsed.deep_symbolize_keys,
+        status_code: response.code,
+        provider: provider.name
+      }
+    when 401
+      {
+        success: false,
+        error: 'invalid_api_key',
+        error_type: 'authentication_error',
+        status_code: response.code,
+        provider: provider.name
+      }
+    when 429
+      error_body = JSON.parse(response.body) rescue {}
+      error_code = error_body.dig('error', 'code') || 'rate_limit_exceeded'
+      error_type = error_code.include?('quota') ? 'quota_exceeded' : 'rate_limit'
+
+      {
+        success: false,
+        error: error_code,
+        error_type: error_type,
+        status_code: response.code,
+        provider: provider.name,
+        retry_after: response.headers['Retry-After']&.to_i || 60
+      }
+    when 500..599
+      {
+        success: false,
+        error: 'Server error',
+        error_type: 'server_error',
+        status_code: response.code,
+        provider: provider.name
+      }
+    else
+      error_msg = response.parsed_response&.dig('error') || 'Unknown error'
+      {
+        success: false,
+        error: error_msg.is_a?(Hash) ? error_msg.to_json : error_msg.to_s,
+        error_type: 'api_error',
+        status_code: response.code,
+        provider: provider.name
+      }
+    end
+  rescue JSON::ParserError
+    {
+      success: false,
+      error: 'Failed to parse response',
+      error_type: 'parse_error',
+      status_code: response.code,
+      provider: provider.name
+    }
+  end
+
+  # Handle Ollama-specific chat response
+  def handle_ollama_chat_response(response)
+    if response.code == 200
+      data = JSON.parse(response.body).deep_symbolize_keys
+      {
+        success: true,
+        response: {
+          choices: [
+            {
+              message: data[:message],
+              finish_reason: 'stop'
+            }
+          ],
+          model: data[:model]
+        },
+        status_code: response.code,
+        provider: provider.name
+      }
+    else
+      handle_chat_response(response)
+    end
+  rescue JSON::ParserError
+    {
+      success: false,
+      error: 'Failed to parse Ollama response',
+      error_type: 'parse_error',
+      status_code: response.code,
+      provider: provider.name
+    }
+  end
 
   def setup_client_options
     self.class.base_uri(provider.api_base_url)

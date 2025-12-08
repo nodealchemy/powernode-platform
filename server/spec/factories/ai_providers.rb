@@ -213,7 +213,7 @@ FactoryBot.define do
     trait :ollama do
       name { "Ollama" }
       slug { "ollama" }
-      provider_type { "custom" }
+      provider_type { "ollama" }
       api_base_url { "http://localhost:11434/api" }
       capabilities { ["text_generation", "chat"] }
       requires_auth { false }

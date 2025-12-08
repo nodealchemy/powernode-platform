@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# WorkflowAutoFixService
+# AiWorkflowAutoFixService
 #
 # Automatically fixes common workflow validation issues.
 # Supports both full auto-fix (all fixable issues) and targeted fixes.
@@ -14,16 +14,16 @@
 # - missing_configuration: Apply node-type defaults
 #
 # @example Full auto-fix
-#   service = WorkflowAutoFixService.new(workflow)
+#   service = AiWorkflowAutoFixService.new(workflow)
 #   result = service.fix_all
 #   # => { fixed_count: 3, remaining_issues: [...], workflow: <updated_workflow> }
 #
 # @example Targeted fix
-#   service = WorkflowAutoFixService.new(workflow)
+#   service = AiWorkflowAutoFixService.new(workflow)
 #   result = service.fix_issue('missing_start_node')
 #   # => { success: true, message: 'Fixed missing_start_node', workflow: <updated_workflow> }
 #
-class WorkflowAutoFixService
+class AiWorkflowAutoFixService
   attr_reader :workflow, :fixes_applied, :errors
 
   def initialize(workflow)
@@ -42,7 +42,7 @@ class WorkflowAutoFixService
   #   - errors [Array<String>]
   def fix_all
     # Run validation to get current issues
-    validation_service = WorkflowValidationService.new(workflow)
+    validation_service = AiWorkflowValidationService.new(workflow)
     validation_result = validation_service.validate
 
     auto_fixable_issues = validation_result[:issues].select { |issue| issue[:auto_fixable] }
@@ -56,7 +56,7 @@ class WorkflowAutoFixService
     end
 
     # Re-validate to get remaining issues
-    validation_service = WorkflowValidationService.new(workflow.reload)
+    validation_service = AiWorkflowValidationService.new(workflow.reload)
     updated_validation = validation_service.validate
 
     {
@@ -76,7 +76,7 @@ class WorkflowAutoFixService
   # @return [Hash] Result with success status and message
   def fix_issue(issue_code, node_id: nil)
     # Run validation to find the issue
-    validation_service = WorkflowValidationService.new(workflow)
+    validation_service = AiWorkflowValidationService.new(workflow)
     validation_result = validation_service.validate
 
     issue = if node_id
@@ -114,7 +114,7 @@ class WorkflowAutoFixService
   #
   # @return [Hash] Preview result with planned fixes
   def preview_fixes
-    validation_service = WorkflowValidationService.new(workflow)
+    validation_service = AiWorkflowValidationService.new(workflow)
     validation_result = validation_service.validate
 
     auto_fixable_issues = validation_result[:issues].select { |issue| issue[:auto_fixable] }
@@ -357,7 +357,7 @@ class WorkflowAutoFixService
 
   def log_error(message)
     @errors << message
-    Rails.logger.error("[WorkflowAutoFixService] #{message}")
+    Rails.logger.error("[AiWorkflowAutoFixService] #{message}")
     false
   end
 end

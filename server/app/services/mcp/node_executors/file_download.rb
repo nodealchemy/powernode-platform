@@ -16,13 +16,13 @@ module Mcp
                   input_data&.dig('file_id')
 
         unless file_id
-          raise Mcp::WorkflowOrchestrator::NodeExecutionError, "No file_id provided for download"
+          raise Mcp::AiWorkflowOrchestrator::NodeExecutionError, "No file_id provided for download"
         end
 
         # Find file object
         file_object = ::FileObject.find_by(id: file_id, account: @orchestrator.account)
         unless file_object
-          raise Mcp::WorkflowOrchestrator::NodeExecutionError, "File not found: #{file_id}"
+          raise Mcp::AiWorkflowOrchestrator::NodeExecutionError, "File not found: #{file_id}"
         end
 
         log_debug "Downloading file: #{file_object.filename} (#{file_object.human_file_size})"
@@ -110,10 +110,10 @@ module Mcp
         }
       rescue ::FileStorageService::FileNotFoundError => e
         log_error "File not found: #{e.message}"
-        raise Mcp::WorkflowOrchestrator::NodeExecutionError, "File not found: #{e.message}"
+        raise Mcp::AiWorkflowOrchestrator::NodeExecutionError, "File not found: #{e.message}"
       rescue StandardError => e
         log_error "File download failed: #{e.message}"
-        raise Mcp::WorkflowOrchestrator::NodeExecutionError, "File download failed: #{e.message}"
+        raise Mcp::AiWorkflowOrchestrator::NodeExecutionError, "File download failed: #{e.message}"
       end
     end
   end

@@ -7,12 +7,24 @@ module ApiResponse
   extend ActiveSupport::Concern
 
   # Standard success response with data
-  # @param data [Object] The data to return
+  # @param positional_data [Object] The data to return (positional for backward compat)
+  # @param data [Object] The data to return (keyword argument)
   # @param status [Symbol] HTTP status code (default: :ok)
   # @param meta [Hash] Optional metadata (pagination, etc.)
-  def render_success(data = nil, status: :ok, meta: nil)
+  # @param message [String] Optional message for simple success responses
+  def render_success(positional_data = nil, status: :ok, meta: nil, message: nil, data: nil)
     response = { success: true }
-    response[:data] = sanitize_for_json(data) unless data.nil?
+
+    # Determine actual data (keyword takes precedence, then positional)
+    actual_data = data || positional_data
+
+    # Support message-only responses: render_success(message: "Done")
+    if actual_data.nil? && message.present?
+      response[:data] = { message: message }
+    elsif actual_data.present?
+      response[:data] = sanitize_for_json(actual_data)
+    end
+
     response[:meta] = sanitize_for_json(meta) if meta.present?
 
     render json: response, status: status
@@ -20,18 +32,22 @@ module ApiResponse
 
   # Standard error response
   # @param message [String] Error message for client
-  # @param status [Symbol] HTTP status code (default: :bad_request) 
+  # @param positional_status [Symbol] HTTP status code (positional for backward compat)
+  # @param status [Symbol] HTTP status code (default: :bad_request)
   # @param code [String] Optional error code for client handling
   # @param details [Hash] Optional additional error details
-  def render_error(message, status: :bad_request, code: nil, details: nil)
+  def render_error(message, positional_status = nil, status: :bad_request, code: nil, details: nil)
+    # Determine actual status (positional takes precedence for backward compat)
+    actual_status = positional_status || status
+
     response = {
       success: false,
       error: message
     }
     response[:code] = code if code.present?
     response[:details] = details if details.present?
-    
-    render json: response, status: status
+
+    render json: response, status: actual_status
   end
 
   # Validation error response (422 status)

@@ -14,7 +14,7 @@ module WorkflowValidators
       @issues = []
     end
 
-    # Main validation method to be called by WorkflowValidationService
+    # Main validation method to be called by AiWorkflowValidationService
     #
     # @return [Array<Hash>] Array of validation issues
     def validate

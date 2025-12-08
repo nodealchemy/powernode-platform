@@ -3,13 +3,14 @@
 require 'rails_helper'
 
 RSpec.describe AiWorkflowCircuitBreakerService do
+  include ActiveSupport::Testing::TimeHelpers
+
   let(:service_name) { 'test_service' }
   let(:config) do
     {
       failure_threshold: 5,
       success_threshold: 3,
-      timeout_seconds: 60,
-      half_open_max_calls: 2
+      timeout_duration: 60_000 # milliseconds
     }
   end
 
@@ -54,7 +55,7 @@ RSpec.describe AiWorkflowCircuitBreakerService do
         expect(circuit_breaker.state).to eq('open')
       end
 
-      it 'resets failure count after successful execution' do
+      it 'resets consecutive failures after successful execution' do
         3.times do
           begin
             circuit_breaker.execute { raise StandardError }
@@ -65,7 +66,8 @@ RSpec.describe AiWorkflowCircuitBreakerService do
 
         circuit_breaker.execute { 'success' }
         stats = circuit_breaker.stats
-        expect(stats[:failure_count]).to eq(0)
+        # Note: failure_count is cumulative, consecutive_failures resets
+        expect(stats[:consecutive_failures]).to eq(0)
       end
     end
 
@@ -99,11 +101,12 @@ RSpec.describe AiWorkflowCircuitBreakerService do
       end
 
       it 'transitions to half_open after timeout period' do
-        # Simulate timeout passing
-        Timecop.travel(Time.current + config[:timeout_seconds] + 1) do
+        timeout_seconds = config[:timeout_duration] / 1000
+        travel(timeout_seconds + 1) do
           circuit_breaker.execute { 'success' }
-          # After successful execution in half_open, should be closed
-          expect(circuit_breaker.state).to eq('closed')
+          # After executing in half_open, it needs success_threshold successes
+          # One success alone won't close it
+          expect(circuit_breaker.state).to eq('half_open')
         end
       end
 
@@ -129,19 +132,18 @@ RSpec.describe AiWorkflowCircuitBreakerService do
         end
 
         # Move time forward to enter half_open
-        Timecop.travel(Time.current + config[:timeout_seconds] + 1)
+        timeout_seconds = config[:timeout_duration] / 1000
+        travel(timeout_seconds + 1)
       end
 
       after do
-        Timecop.return
+        travel_back
       end
 
-      it 'allows limited number of test calls' do
+      it 'allows execution in half_open state' do
         first_call = circuit_breaker.execute { 'test1' }
-        second_call = circuit_breaker.execute { 'test2' }
-
         expect(first_call).to eq('test1')
-        expect(second_call).to eq('test2')
+        expect(circuit_breaker.state).to eq('half_open')
       end
 
       it 'transitions to closed after success threshold met' do
@@ -160,21 +162,21 @@ RSpec.describe AiWorkflowCircuitBreakerService do
         expect(circuit_breaker.state).to eq('open')
       end
 
-      it 'resets success count on transition to closed' do
+      it 'resets consecutive successes on transition to closed' do
         config[:success_threshold].times do
           circuit_breaker.execute { 'success' }
         end
 
         stats = circuit_breaker.stats
-        expect(stats[:success_count]).to eq(0)
+        expect(stats[:consecutive_successes]).to eq(0)
         expect(stats[:state]).to eq('closed')
       end
 
-      it 'increments success count for each successful call' do
+      it 'increments consecutive success count for each successful call' do
         2.times { circuit_breaker.execute { 'success' } }
 
         stats = circuit_breaker.stats
-        expect(stats[:success_count]).to eq(2)
+        expect(stats[:consecutive_successes]).to eq(2)
       end
     end
   end
@@ -184,7 +186,7 @@ RSpec.describe AiWorkflowCircuitBreakerService do
       expect(circuit_breaker.state).to eq('closed')
     end
 
-    it 'persists state in Redis' do
+    it 'persists state in cache' do
       config[:failure_threshold].times do
         begin
           circuit_breaker.execute { raise StandardError }
@@ -194,13 +196,22 @@ RSpec.describe AiWorkflowCircuitBreakerService do
       end
 
       # Create new instance to verify persistence
-      new_breaker = described_class.new(service: service_name, config: config)
+      new_breaker = described_class.new(service_name: service_name, config: config)
       expect(new_breaker.state).to eq('open')
     end
 
-    it 'returns current state from Redis' do
-      Redis.current.set("circuit_breaker:#{service_name}:state", 'half_open')
-      expect(circuit_breaker.state).to eq('half_open')
+    it 'returns current state from cache' do
+      Rails.cache.write("circuit_breaker:#{service_name}", {
+        state: 'half_open',
+        failure_count: 0,
+        success_count: 0,
+        consecutive_failures: 0,
+        consecutive_successes: 0,
+        last_failure_time: Time.current,
+        state_changed_at: Time.current
+      })
+      new_breaker = described_class.new(service_name: service_name, config: config)
+      expect(new_breaker.state).to eq('half_open')
     end
   end
 
@@ -212,9 +223,12 @@ RSpec.describe AiWorkflowCircuitBreakerService do
         state: 'closed',
         failure_count: 0,
         success_count: 0,
+        consecutive_failures: 0,
+        consecutive_successes: 0
+      )
+      expect(stats[:config]).to include(
         failure_threshold: 5,
-        success_threshold: 3,
-        timeout_seconds: 60
+        success_threshold: 3
       )
     end
 
@@ -239,17 +253,15 @@ RSpec.describe AiWorkflowCircuitBreakerService do
       end
 
       stats = circuit_breaker.stats
-      expect(stats[:retry_at]).to be_present
-      expect(stats[:retry_in_seconds]).to be > 0
+      expect(stats[:next_retry_at]).to be_present
     end
 
     it 'does not include retry time when circuit is closed' do
       stats = circuit_breaker.stats
-      expect(stats[:retry_at]).to be_nil
-      expect(stats[:retry_in_seconds]).to be_nil
+      expect(stats[:next_retry_at]).to be_nil
     end
 
-    it 'tracks total calls' do
+    it 'tracks total successful and failed calls' do
       3.times { circuit_breaker.execute { 'success' } }
       2.times do
         begin
@@ -260,7 +272,8 @@ RSpec.describe AiWorkflowCircuitBreakerService do
       end
 
       stats = circuit_breaker.stats
-      expect(stats[:total_calls]).to eq(5)
+      expect(stats[:success_count]).to eq(3)
+      expect(stats[:failure_count]).to eq(2)
     end
   end
 
@@ -325,23 +338,22 @@ RSpec.describe AiWorkflowCircuitBreakerService do
       expect(stats[:failure_count]).to eq(1)
     end
 
-    it 'handles API errors' do
+    it 'handles connection errors' do
       expect {
-        circuit_breaker.execute { raise RestClient::RequestFailed }
-      }.to raise_error(RestClient::RequestFailed)
+        circuit_breaker.execute { raise Errno::ECONNREFUSED }
+      }.to raise_error(Errno::ECONNREFUSED)
 
       stats = circuit_breaker.stats
       expect(stats[:failure_count]).to eq(1)
     end
 
-    it 'records error types in metadata' do
+    it 'records last failure time' do
       begin
         circuit_breaker.execute { raise ArgumentError, 'test' }
       rescue ArgumentError
         # Expected
       end
 
-      # Error type tracking would be in advanced implementation
       stats = circuit_breaker.stats
       expect(stats[:last_failure_time]).to be_present
     end
@@ -349,21 +361,23 @@ RSpec.describe AiWorkflowCircuitBreakerService do
 
   describe 'configuration inheritance' do
     context 'with default configuration' do
-      subject(:default_breaker) { described_class.new(service: 'default_service') }
+      subject(:default_breaker) { described_class.new(service_name: 'default_service') }
+
+      before { Rails.cache.delete('circuit_breaker:default_service') }
 
       it 'uses default failure threshold' do
         stats = default_breaker.stats
-        expect(stats[:failure_threshold]).to eq(5)
+        expect(stats[:config][:failure_threshold]).to eq(5)
       end
 
       it 'uses default success threshold' do
         stats = default_breaker.stats
-        expect(stats[:success_threshold]).to eq(3)
+        expect(stats[:config][:success_threshold]).to eq(2)
       end
 
-      it 'uses default timeout' do
+      it 'uses default timeout duration' do
         stats = default_breaker.stats
-        expect(stats[:timeout_seconds]).to eq(60)
+        expect(stats[:config][:timeout_duration]).to eq(60_000)
       end
     end
 
@@ -372,17 +386,19 @@ RSpec.describe AiWorkflowCircuitBreakerService do
         {
           failure_threshold: 10,
           success_threshold: 5,
-          timeout_seconds: 120
+          timeout_duration: 120_000
         }
       end
 
-      subject(:custom_breaker) { described_class.new(service: 'custom_service', config: custom_config) }
+      subject(:custom_breaker) { described_class.new(service_name: 'custom_service', config: custom_config) }
+
+      before { Rails.cache.delete('circuit_breaker:custom_service') }
 
       it 'uses custom thresholds' do
         stats = custom_breaker.stats
-        expect(stats[:failure_threshold]).to eq(10)
-        expect(stats[:success_threshold]).to eq(5)
-        expect(stats[:timeout_seconds]).to eq(120)
+        expect(stats[:config][:failure_threshold]).to eq(10)
+        expect(stats[:config][:success_threshold]).to eq(5)
+        expect(stats[:config][:timeout_duration]).to eq(120_000)
       end
     end
   end
@@ -401,7 +417,7 @@ RSpec.describe AiWorkflowCircuitBreakerService do
     end
 
     it 'maintains consistent state across threads' do
-      threads = config[:failure_threshold].times.map do |i|
+      threads = config[:failure_threshold].times.map do |_i|
         Thread.new do
           begin
             circuit_breaker.execute { raise StandardError }
@@ -416,7 +432,7 @@ RSpec.describe AiWorkflowCircuitBreakerService do
     end
   end
 
-  describe 'Redis persistence' do
+  describe 'cache persistence' do
     it 'survives service restarts' do
       # Trip circuit
       config[:failure_threshold].times do
@@ -428,7 +444,7 @@ RSpec.describe AiWorkflowCircuitBreakerService do
       end
 
       # Simulate restart with new instance
-      new_instance = described_class.new(service: service_name, config: config)
+      new_instance = described_class.new(service_name: service_name, config: config)
       expect(new_instance.state).to eq('open')
     end
 
@@ -441,9 +457,22 @@ RSpec.describe AiWorkflowCircuitBreakerService do
         end
       end
 
-      new_instance = described_class.new(service: service_name, config: config)
+      new_instance = described_class.new(service_name: service_name, config: config)
       stats = new_instance.stats
       expect(stats[:failure_count]).to eq(3)
+    end
+  end
+
+  describe '#open! and #close!' do
+    it 'allows force opening the circuit' do
+      circuit_breaker.open!
+      expect(circuit_breaker.state).to eq('open')
+    end
+
+    it 'allows force closing the circuit' do
+      circuit_breaker.open!
+      circuit_breaker.close!
+      expect(circuit_breaker.state).to eq('closed')
     end
   end
 end

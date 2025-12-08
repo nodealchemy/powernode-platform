@@ -297,6 +297,7 @@ RSpec.describe StorageProviders::S3Storage, type: :service do
         bucket: 'test-bucket',
         max_keys: 1
       ).and_return(double(contents: []))
+      allow(s3_client).to receive(:config).and_return(double(endpoint: double(to_s: 'https://s3.us-east-1.amazonaws.com')))
 
       result = provider.test_connection
 
@@ -323,6 +324,7 @@ RSpec.describe StorageProviders::S3Storage, type: :service do
       )
       allow(s3_client).to receive(:get_bucket_encryption).and_return(true)
       allow(s3_client).to receive(:get_bucket_versioning).and_return(double(status: 'Enabled'))
+      allow(s3_client).to receive(:config).and_return(double(endpoint: double(to_s: 'https://s3.us-east-1.amazonaws.com')))
 
       health = provider.health_check
 

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_12_06_040624) do
+ActiveRecord::Schema[8.0].define(version: 2025_12_06_130000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -36,6 +36,36 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_06_040624) do
     t.index ["role_id"], name: "index_account_delegations_on_role_id"
     t.index ["status"], name: "index_account_delegations_on_status"
     t.check_constraint "status::text = ANY (ARRAY['active'::character varying::text, 'inactive'::character varying::text, 'revoked'::character varying::text])", name: "valid_delegation_status"
+  end
+
+  create_table "account_terminations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.uuid "requested_by_id"
+    t.uuid "cancelled_by_id"
+    t.uuid "processed_by_id"
+    t.string "status", default: "pending", null: false
+    t.text "reason"
+    t.text "cancellation_reason"
+    t.datetime "requested_at", null: false
+    t.datetime "grace_period_ends_at", null: false
+    t.datetime "cancelled_at"
+    t.datetime "processing_started_at"
+    t.datetime "completed_at"
+    t.boolean "data_export_requested", default: false
+    t.uuid "data_export_request_id"
+    t.boolean "feedback_submitted", default: false
+    t.text "feedback"
+    t.jsonb "termination_log", default: []
+    t.jsonb "metadata", default: {}
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_account_terminations_on_account_id"
+    t.index ["cancelled_by_id"], name: "index_account_terminations_on_cancelled_by_id"
+    t.index ["data_export_request_id"], name: "index_account_terminations_on_data_export_request_id"
+    t.index ["grace_period_ends_at"], name: "index_account_terminations_on_grace_period_ends_at"
+    t.index ["processed_by_id"], name: "index_account_terminations_on_processed_by_id"
+    t.index ["requested_by_id"], name: "index_account_terminations_on_requested_by_id"
+    t.index ["status"], name: "index_account_terminations_on_status"
   end
 
   create_table "accounts", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1143,13 +1173,20 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_06_040624) do
     t.string "severity", default: "medium", null: false
     t.string "risk_level", default: "low", null: false
     t.string "request_id", limit: 50
+    t.string "integrity_hash"
+    t.string "previous_hash"
+    t.bigint "sequence_number"
+    t.datetime "chain_verified_at"
     t.index ["account_id", "created_at"], name: "idx_audit_logs_on_account_created_at"
     t.index ["account_id"], name: "index_audit_logs_on_account_id"
     t.index ["action"], name: "idx_audit_logs_on_action"
+    t.index ["chain_verified_at"], name: "index_audit_logs_on_chain_verified_at"
     t.index ["created_at"], name: "idx_audit_logs_on_created_at"
+    t.index ["integrity_hash"], name: "index_audit_logs_on_integrity_hash", unique: true, where: "(integrity_hash IS NOT NULL)"
     t.index ["request_id"], name: "index_audit_logs_on_request_id"
     t.index ["resource_type", "resource_id"], name: "idx_audit_logs_on_resource_type_id"
     t.index ["risk_level"], name: "index_audit_logs_on_risk_level"
+    t.index ["sequence_number"], name: "index_audit_logs_on_sequence_number", unique: true, where: "(sequence_number IS NOT NULL)"
     t.index ["severity"], name: "index_audit_logs_on_severity"
     t.index ["user_id"], name: "idx_audit_logs_on_user_id"
     t.index ["user_id"], name: "index_audit_logs_on_user_id"
@@ -1260,6 +1297,103 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_06_040624) do
     t.index ["name", "service"], name: "index_circuit_breakers_on_name_and_service", unique: true
     t.index ["service", "state"], name: "index_circuit_breakers_on_service_and_state"
     t.index ["state"], name: "index_circuit_breakers_on_state"
+  end
+
+  create_table "cookie_consents", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "user_id"
+    t.string "visitor_id"
+    t.boolean "necessary", default: true, null: false
+    t.boolean "functional", default: false
+    t.boolean "analytics", default: false
+    t.boolean "marketing", default: false
+    t.string "ip_address"
+    t.string "user_agent"
+    t.datetime "consented_at", null: false
+    t.datetime "updated_at_user"
+    t.jsonb "metadata", default: {}
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["user_id"], name: "index_cookie_consents_on_user_id", unique: true, where: "(user_id IS NOT NULL)"
+    t.index ["visitor_id"], name: "index_cookie_consents_on_visitor_id", unique: true, where: "(visitor_id IS NOT NULL)"
+  end
+
+  create_table "data_deletion_requests", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "user_id", null: false
+    t.uuid "account_id", null: false
+    t.uuid "requested_by_id"
+    t.uuid "processed_by_id"
+    t.string "status", default: "pending", null: false
+    t.string "deletion_type", default: "full", null: false
+    t.jsonb "data_types_to_delete", default: []
+    t.jsonb "data_types_to_retain", default: []
+    t.text "reason"
+    t.text "rejection_reason"
+    t.datetime "approved_at"
+    t.datetime "processing_started_at"
+    t.datetime "completed_at"
+    t.datetime "grace_period_ends_at"
+    t.boolean "grace_period_extended", default: false
+    t.jsonb "deletion_log", default: []
+    t.jsonb "retention_log", default: []
+    t.text "error_message"
+    t.jsonb "metadata", default: {}
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_data_deletion_requests_on_account_id"
+    t.index ["deletion_type"], name: "index_data_deletion_requests_on_deletion_type"
+    t.index ["grace_period_ends_at"], name: "index_data_deletion_requests_on_grace_period_ends_at"
+    t.index ["processed_by_id"], name: "index_data_deletion_requests_on_processed_by_id"
+    t.index ["requested_by_id"], name: "index_data_deletion_requests_on_requested_by_id"
+    t.index ["status"], name: "index_data_deletion_requests_on_status"
+    t.index ["user_id"], name: "index_data_deletion_requests_on_user_id"
+  end
+
+  create_table "data_export_requests", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "user_id", null: false
+    t.uuid "account_id", null: false
+    t.uuid "requested_by_id"
+    t.string "status", default: "pending", null: false
+    t.string "format", default: "json", null: false
+    t.string "export_type", default: "full"
+    t.jsonb "include_data_types", default: []
+    t.jsonb "exclude_data_types", default: []
+    t.string "file_path"
+    t.integer "file_size_bytes"
+    t.string "download_token"
+    t.datetime "download_token_expires_at"
+    t.datetime "processing_started_at"
+    t.datetime "completed_at"
+    t.datetime "downloaded_at"
+    t.datetime "expires_at"
+    t.text "error_message"
+    t.jsonb "metadata", default: {}
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_data_export_requests_on_account_id"
+    t.index ["download_token"], name: "index_data_export_requests_on_download_token", unique: true, where: "(download_token IS NOT NULL)"
+    t.index ["expires_at"], name: "index_data_export_requests_on_expires_at"
+    t.index ["requested_by_id"], name: "index_data_export_requests_on_requested_by_id"
+    t.index ["status"], name: "index_data_export_requests_on_status"
+    t.index ["user_id"], name: "index_data_export_requests_on_user_id"
+  end
+
+  create_table "data_retention_policies", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id"
+    t.string "data_type", null: false
+    t.integer "retention_days", null: false
+    t.string "action", default: "delete", null: false
+    t.boolean "active", default: true
+    t.string "legal_basis"
+    t.text "description"
+    t.datetime "last_enforced_at"
+    t.integer "records_processed_count", default: 0
+    t.jsonb "metadata", default: {}
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "data_type"], name: "index_data_retention_policies_on_account_id_and_data_type", unique: true
+    t.index ["account_id"], name: "index_data_retention_policies_on_account_id"
+    t.index ["active"], name: "index_data_retention_policies_on_active"
+    t.index ["data_type"], name: "index_data_retention_policies_on_data_type"
   end
 
   create_table "database_backups", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1982,6 +2116,93 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_06_040624) do
     t.check_constraint "amount_cents > 0", name: "valid_missing_payment_amount"
   end
 
+  create_table "notifications", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.uuid "user_id", null: false
+    t.string "notification_type", null: false
+    t.string "title", null: false
+    t.text "message", null: false
+    t.string "severity", default: "info", null: false
+    t.string "action_url"
+    t.string "action_label"
+    t.string "icon"
+    t.string "category", default: "general"
+    t.json "metadata", default: {}
+    t.datetime "read_at"
+    t.datetime "dismissed_at"
+    t.datetime "expires_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "created_at"], name: "index_notifications_on_account_id_and_created_at"
+    t.index ["account_id"], name: "index_notifications_on_account_id"
+    t.index ["category"], name: "index_notifications_on_category"
+    t.index ["expires_at"], name: "index_notifications_on_expires_at"
+    t.index ["notification_type"], name: "index_notifications_on_notification_type"
+    t.index ["user_id", "created_at"], name: "index_notifications_on_user_id_and_created_at"
+    t.index ["user_id", "read_at"], name: "index_notifications_on_user_id_and_read_at"
+    t.index ["user_id"], name: "index_notifications_on_user_id"
+  end
+
+  create_table "oauth_access_grants", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "resource_owner_id", null: false
+    t.uuid "application_id", null: false
+    t.string "token", null: false
+    t.integer "expires_in", null: false
+    t.text "redirect_uri", null: false
+    t.string "scopes", default: "", null: false
+    t.datetime "created_at", null: false
+    t.datetime "revoked_at"
+    t.string "code_challenge"
+    t.string "code_challenge_method"
+    t.index ["application_id"], name: "index_oauth_access_grants_on_application_id"
+    t.index ["resource_owner_id"], name: "index_oauth_access_grants_on_resource_owner_id"
+    t.index ["token"], name: "index_oauth_access_grants_on_token", unique: true
+  end
+
+  create_table "oauth_access_tokens", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "resource_owner_id"
+    t.uuid "application_id"
+    t.string "token", null: false
+    t.string "refresh_token"
+    t.integer "expires_in"
+    t.string "scopes"
+    t.datetime "created_at", null: false
+    t.datetime "revoked_at"
+    t.string "previous_refresh_token", default: "", null: false
+    t.inet "created_from_ip"
+    t.string "user_agent"
+    t.index ["application_id", "created_at"], name: "index_oauth_access_tokens_on_application_id_and_created_at"
+    t.index ["application_id"], name: "index_oauth_access_tokens_on_application_id"
+    t.index ["refresh_token"], name: "index_oauth_access_tokens_on_refresh_token", unique: true
+    t.index ["resource_owner_id"], name: "index_oauth_access_tokens_on_resource_owner_id"
+    t.index ["revoked_at"], name: "index_oauth_access_tokens_on_revoked_at"
+    t.index ["token"], name: "index_oauth_access_tokens_on_token", unique: true
+  end
+
+  create_table "oauth_applications", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "name", null: false
+    t.string "uid", null: false
+    t.string "secret", null: false
+    t.text "redirect_uri"
+    t.string "scopes", default: "", null: false
+    t.boolean "confidential", default: true, null: false
+    t.string "owner_type"
+    t.uuid "owner_id"
+    t.string "description"
+    t.boolean "trusted", default: false, null: false
+    t.boolean "machine_client", default: false, null: false
+    t.string "status", default: "active", null: false
+    t.string "rate_limit_tier", default: "standard"
+    t.jsonb "metadata", default: {}
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["owner_id"], name: "index_oauth_applications_on_owner_id"
+    t.index ["owner_type", "owner_id"], name: "index_oauth_applications_on_owner"
+    t.index ["status"], name: "index_oauth_applications_on_status"
+    t.index ["trusted"], name: "index_oauth_applications_on_trusted"
+    t.index ["uid"], name: "index_oauth_applications_on_uid", unique: true
+  end
+
   create_table "pages", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "author_id"
     t.string "title", limit: 255, null: false
@@ -2694,6 +2915,52 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_06_040624) do
     t.check_constraint "status::text = ANY (ARRAY['running'::character varying::text, 'completed'::character varying::text, 'failed'::character varying::text, 'timeout'::character varying::text])", name: "valid_execution_status"
   end
 
+  create_table "terms_acceptances", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "user_id", null: false
+    t.uuid "account_id", null: false
+    t.string "document_type", null: false
+    t.string "document_version", null: false
+    t.string "document_hash"
+    t.string "ip_address"
+    t.string "user_agent"
+    t.datetime "accepted_at", null: false
+    t.datetime "superseded_at"
+    t.jsonb "metadata", default: {}
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_terms_acceptances_on_account_id"
+    t.index ["document_type"], name: "index_terms_acceptances_on_document_type"
+    t.index ["document_version"], name: "index_terms_acceptances_on_document_version"
+    t.index ["user_id", "document_type", "document_version"], name: "idx_on_user_id_document_type_document_version_8eb2bf3f3a", unique: true
+    t.index ["user_id", "document_type"], name: "index_terms_acceptances_on_user_id_and_document_type"
+    t.index ["user_id"], name: "index_terms_acceptances_on_user_id"
+  end
+
+  create_table "user_consents", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "user_id", null: false
+    t.uuid "account_id", null: false
+    t.string "consent_type", null: false
+    t.boolean "granted", default: false, null: false
+    t.string "version"
+    t.text "consent_text"
+    t.string "collection_method", null: false
+    t.string "ip_address"
+    t.string "user_agent"
+    t.datetime "granted_at"
+    t.datetime "withdrawn_at"
+    t.datetime "expires_at"
+    t.jsonb "metadata", default: {}
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "consent_type"], name: "index_user_consents_on_account_id_and_consent_type"
+    t.index ["account_id"], name: "index_user_consents_on_account_id"
+    t.index ["consent_type"], name: "index_user_consents_on_consent_type"
+    t.index ["expires_at"], name: "index_user_consents_on_expires_at"
+    t.index ["granted"], name: "index_user_consents_on_granted"
+    t.index ["user_id", "consent_type"], name: "index_user_consents_on_user_id_and_consent_type"
+    t.index ["user_id"], name: "index_user_consents_on_user_id"
+  end
+
   create_table "user_roles", id: false, force: :cascade do |t|
     t.uuid "user_id", null: false
     t.uuid "role_id", null: false
@@ -2957,6 +3224,11 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_06_040624) do
   add_foreign_key "account_delegations", "users", column: "delegated_by_id"
   add_foreign_key "account_delegations", "users", column: "delegated_user_id"
   add_foreign_key "account_delegations", "users", column: "revoked_by_id"
+  add_foreign_key "account_terminations", "accounts"
+  add_foreign_key "account_terminations", "data_export_requests"
+  add_foreign_key "account_terminations", "users", column: "cancelled_by_id"
+  add_foreign_key "account_terminations", "users", column: "processed_by_id"
+  add_foreign_key "account_terminations", "users", column: "requested_by_id"
   add_foreign_key "ai_agent_executions", "accounts", on_delete: :cascade
   add_foreign_key "ai_agent_executions", "ai_agent_executions", column: "parent_execution_id", on_delete: :nullify
   add_foreign_key "ai_agent_executions", "ai_agents", on_delete: :cascade
@@ -3034,6 +3306,15 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_06_040624) do
   add_foreign_key "batch_workflow_runs", "users"
   add_foreign_key "blacklisted_tokens", "users"
   add_foreign_key "circuit_breaker_events", "circuit_breakers"
+  add_foreign_key "cookie_consents", "users"
+  add_foreign_key "data_deletion_requests", "accounts"
+  add_foreign_key "data_deletion_requests", "users"
+  add_foreign_key "data_deletion_requests", "users", column: "processed_by_id"
+  add_foreign_key "data_deletion_requests", "users", column: "requested_by_id"
+  add_foreign_key "data_export_requests", "accounts"
+  add_foreign_key "data_export_requests", "users"
+  add_foreign_key "data_export_requests", "users", column: "requested_by_id"
+  add_foreign_key "data_retention_policies", "accounts"
   add_foreign_key "database_backups", "users", column: "created_by_id"
   add_foreign_key "database_restores", "database_backups"
   add_foreign_key "database_restores", "users", column: "initiated_by_id"
@@ -3080,6 +3361,12 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_06_040624) do
   add_foreign_key "mcp_tool_executions", "users"
   add_foreign_key "mcp_tools", "mcp_servers"
   add_foreign_key "missing_payment_logs", "accounts"
+  add_foreign_key "notifications", "accounts"
+  add_foreign_key "notifications", "users"
+  add_foreign_key "oauth_access_grants", "oauth_applications", column: "application_id"
+  add_foreign_key "oauth_access_grants", "users", column: "resource_owner_id", on_delete: :cascade
+  add_foreign_key "oauth_access_tokens", "oauth_applications", column: "application_id"
+  add_foreign_key "oauth_access_tokens", "users", column: "resource_owner_id", on_delete: :cascade
   add_foreign_key "pages", "users", column: "author_id"
   add_foreign_key "password_histories", "users"
   add_foreign_key "payment_methods", "accounts"
@@ -3126,6 +3413,10 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_06_040624) do
   add_foreign_key "subscriptions", "plans"
   add_foreign_key "system_operations", "users", column: "initiated_by_id"
   add_foreign_key "task_executions", "scheduled_tasks"
+  add_foreign_key "terms_acceptances", "accounts"
+  add_foreign_key "terms_acceptances", "users"
+  add_foreign_key "user_consents", "accounts"
+  add_foreign_key "user_consents", "users"
   add_foreign_key "user_roles", "roles"
   add_foreign_key "user_roles", "users"
   add_foreign_key "user_roles", "users", column: "granted_by_id"

@@ -28,6 +28,13 @@ Rails.application.routes.draw do
       # Public endpoints (no authentication required)
       get 'public/plans', to: 'plans#public_index'
       get 'public/footer', to: 'site_settings#public_footer'
+
+      # Public status page endpoints
+      namespace :public do
+        get 'status', to: 'status#index'
+        get 'status/summary', to: 'status#summary'
+        get 'status/history', to: 'status#history'
+      end
       
       # Internal API for worker service
       namespace :internal do
@@ -110,6 +117,26 @@ Rails.application.routes.draw do
         get "permissions/check", to: "permissions#check"
       end
 
+      # OAuth 2.0 Provider (Doorkeeper) - Standard OAuth endpoints
+      use_doorkeeper do
+        # Skip default controllers, we use custom API controllers
+        skip_controllers :applications, :authorized_applications
+      end
+
+      # OAuth Applications Management API
+      namespace :oauth do
+        resources :applications do
+          member do
+            post :regenerate_secret
+            post :suspend
+            post :activate
+            post :revoke
+            get :tokens
+            delete :tokens, to: 'applications#revoke_tokens'
+          end
+        end
+      end
+
       # Two-Factor Authentication endpoints (require authentication)
       resource :two_factor, only: [] do
         collection do
@@ -186,6 +213,11 @@ Rails.application.routes.draw do
 
       # Protected resources (will be added later)
       resources :accounts, only: [ :show, :update ] do
+        collection do
+          get :accessible
+          post :switch
+          post :switch_to_primary
+        end
         resources :delegations, only: [:index, :create, :show, :update, :destroy] do
           collection do
             get :available_permissions
@@ -217,6 +249,20 @@ Rails.application.routes.draw do
           get :stats
         end
       end
+
+      # Notifications
+      resources :notifications, only: [:index, :show, :destroy] do
+        collection do
+          get :unread_count
+          post :mark_all_read
+          delete :dismiss_all
+        end
+        member do
+          put :read, action: :mark_as_read
+          put :unread, action: :mark_as_unread
+        end
+      end
+
       resources :roles do
         collection do
           get :assignable
@@ -383,10 +429,19 @@ Rails.application.routes.draw do
           get :statistics, to: 'rate_limiting#statistics'
           get :violations, to: 'rate_limiting#violations'
           get :status, to: 'rate_limiting#status'
+          get :tiers, to: 'rate_limiting#tiers'
+          get :accounts, to: 'rate_limiting#accounts_usage'
           get 'limits/:identifier', to: 'rate_limiting#user_limits'
           delete 'limits/:identifier', to: 'rate_limiting#clear_user_limits'
           post :disable, to: 'rate_limiting#disable_temporarily'
           post :enable, to: 'rate_limiting#enable'
+
+          # Account tier management
+          scope 'accounts/:account_id' do
+            get :statistics, to: 'rate_limiting#account_statistics', as: :account_statistics
+            post :override_tier, to: 'rate_limiting#override_tier'
+            delete :override_tier, to: 'rate_limiting#clear_tier_override'
+          end
         end
 
         # Review Moderation
@@ -754,10 +809,16 @@ Rails.application.routes.draw do
         collection do
           get :available_events, to: 'webhooks#available_events'
           get :deliveries, to: 'webhooks#delivery_history'
+          get :failed_deliveries, to: 'webhooks#failed_deliveries'
           get :stats
           post :retry_failed
           get :health, to: 'webhooks#health_check'
           get 'health/stats', to: 'webhooks#health_stats'
+        end
+        resources :deliveries, only: [:index, :show], controller: 'webhooks' do
+          member do
+            post :retry, to: 'webhooks#retry_delivery'
+          end
         end
       end
 

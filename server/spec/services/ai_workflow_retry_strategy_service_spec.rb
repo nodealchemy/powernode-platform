@@ -2,18 +2,31 @@
 
 require 'rails_helper'
 
-RSpec.describe WorkflowRetryStrategyService do
+RSpec.describe AiWorkflowRetryStrategyService do
   let(:account) { create(:account) }
   let(:workflow) { create(:ai_workflow, account: account) }
   let(:workflow_run) { create(:ai_workflow_run, ai_workflow: workflow, account: account) }
-  let(:node) { create(:ai_workflow_node, ai_workflow: workflow) }
+  let(:node) { create(:ai_workflow_node, ai_workflow: workflow, configuration: default_node_config) }
+  let(:default_node_config) do
+    {
+      'retry' => {
+        'enabled' => true,
+        'max_retries' => 3,
+        'strategy' => 'exponential',
+        'initial_delay_ms' => 1000,
+        'backoff_multiplier' => 2,
+        'max_delay_ms' => 60_000,
+        'jitter' => false,
+        'retry_on_errors' => %w[timeout rate_limit temporary_failure network_error]
+      }
+    }
+  end
   let(:node_execution) do
     create(:ai_workflow_node_execution,
            ai_workflow_run: workflow_run,
            ai_workflow_node: node,
            status: 'failed',
            retry_count: 0,
-           max_retries: 3,
            metadata: {})
   end
 
@@ -37,7 +50,9 @@ RSpec.describe WorkflowRetryStrategyService do
     end
 
     context 'when max retries reached' do
-      before { node_execution.update(retry_count: 3) }
+      before do
+        node_execution.update(metadata: { 'retry' => { 'attempt_count' => 3 } })
+      end
 
       it 'returns false' do
         service = described_class.new(node_execution: node_execution, error_type: 'timeout')
@@ -200,6 +215,10 @@ RSpec.describe WorkflowRetryStrategyService do
   describe '#execute_retry' do
     let(:service) { described_class.new(node_execution: node_execution, error_type: 'timeout') }
 
+    before do
+      allow(WorkerJobService).to receive(:enqueue_node_execution_retry)
+    end
+
     context 'when retryable' do
       it 'updates retry metadata' do
         expect { service.execute_retry }.to change { node_execution.reload.metadata }
@@ -238,13 +257,12 @@ RSpec.describe WorkflowRetryStrategyService do
       end
 
       it 'returns true' do
-        allow(WorkerJobService).to receive(:enqueue_node_execution_retry)
         expect(service.execute_retry).to be true
       end
     end
 
     context 'when not retryable' do
-      before { node_execution.update(retry_count: 3) }
+      before { node_execution.update(metadata: { 'retry' => { 'attempt_count' => 3 } }) }
 
       it 'does not enqueue job' do
         expect(WorkerJobService).not_to receive(:enqueue_node_execution_retry)
@@ -263,7 +281,6 @@ RSpec.describe WorkflowRetryStrategyService do
     before do
       node_execution.update(
         retry_count: 2,
-        max_retries: 3,
         metadata: {
           'retry' => {
             'attempt_count' => 2,
@@ -292,7 +309,7 @@ RSpec.describe WorkflowRetryStrategyService do
     end
 
     it 'sets next retry delay to nil when not retryable' do
-      node_execution.update(retry_count: 3)
+      node_execution.update(metadata: { 'retry' => { 'attempt_count' => 3 } })
       stats = service.retry_stats
       expect(stats[:next_retry_delay_ms]).to be_nil
     end
@@ -300,6 +317,8 @@ RSpec.describe WorkflowRetryStrategyService do
 
   describe 'configuration inheritance' do
     context 'with workflow-level configuration' do
+      let(:node) { create(:ai_workflow_node, ai_workflow: workflow, configuration: {}) }
+
       before do
         workflow.update(configuration: {
           'retry' => {
@@ -312,24 +331,16 @@ RSpec.describe WorkflowRetryStrategyService do
 
       it 'uses workflow configuration when node config absent' do
         service = described_class.new(node_execution: node_execution)
-        config = service.instance_variable_get(:@retry_config)
+        config = service.retry_config
 
         expect(config[:max_retries]).to eq(5)
-        expect(config[:strategy]).to eq(:linear)
+        expect(config[:strategy]).to eq('linear')
       end
     end
 
     context 'with node-level override' do
-      before do
-        workflow.update(configuration: {
-          'retry' => {
-            'enabled' => true,
-            'max_retries' => 5,
-            'strategy' => 'linear'
-          }
-        })
-
-        node.update(configuration: {
+      let(:node) do
+        create(:ai_workflow_node, ai_workflow: workflow, configuration: {
           'retry' => {
             'enabled' => true,
             'max_retries' => 10,
@@ -338,12 +349,22 @@ RSpec.describe WorkflowRetryStrategyService do
         })
       end
 
+      before do
+        workflow.update(configuration: {
+          'retry' => {
+            'enabled' => true,
+            'max_retries' => 5,
+            'strategy' => 'linear'
+          }
+        })
+      end
+
       it 'node configuration overrides workflow configuration' do
         service = described_class.new(node_execution: node_execution)
-        config = service.instance_variable_get(:@retry_config)
+        config = service.retry_config
 
         expect(config[:max_retries]).to eq(10)
-        expect(config[:strategy]).to eq(:exponential)
+        expect(config[:strategy]).to eq('exponential')
       end
     end
   end

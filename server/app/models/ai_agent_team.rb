@@ -78,6 +78,7 @@ class AiAgentTeam < ApplicationRecord
   # Get team statistics
   def team_stats
     {
+      total_members: ai_agent_team_members.count,
       member_count: ai_agent_team_members.count,
       has_lead: has_lead?,
       team_type: team_type,

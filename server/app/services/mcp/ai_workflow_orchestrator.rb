@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module Mcp
-  # Mcp::WorkflowOrchestrator - Core orchestration engine for MCP workflow execution
+  # Mcp::AiWorkflowOrchestrator - Core orchestration engine for MCP workflow execution
   #
   # This service replaces the legacy dual-system execution with a unified MCP-based
   # orchestrator that properly manages workflow state, node execution, and event sourcing.
@@ -20,10 +20,10 @@ module Mcp
   # - Maintains execution context isolation
   #
   # @example Execute a workflow
-  #   orchestrator = Mcp::WorkflowOrchestrator.new(workflow_run: run)
+  #   orchestrator = Mcp::AiWorkflowOrchestrator.new(workflow_run: run)
   #   result = orchestrator.execute
   #
-  class WorkflowOrchestrator
+  class AiWorkflowOrchestrator
     include ActiveModel::Model
     include ActiveModel::Attributes
 
@@ -1361,4 +1361,7 @@ module Mcp
       end
     end
   end
+
+  # Alias for backwards compatibility
+  WorkflowOrchestrator = AiWorkflowOrchestrator
 end

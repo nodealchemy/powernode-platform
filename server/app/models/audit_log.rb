@@ -32,7 +32,7 @@ class AuditLog < ApplicationRecord
       test_email_sent test_email_failed email_sent email_failed
       email_settings_refreshed notification_sent notification_failed
       api_request api_request_failed
-      ai_analytics.usage_recorded ai_analytics.update
+      ai_execution_cost ai_daily_cost_summary ai_analytics.usage_recorded ai_analytics.update
       ai_conversations.update ai_conversations.create ai_conversations.destroy
       ai_messages.update ai_messages.create ai_messages.destroy
       ai_agents.index ai_agents.create ai_agents.update ai_agents.destroy
@@ -143,6 +143,15 @@ class AuditLog < ApplicationRecord
 
   # Callbacks
   after_initialize :set_defaults
+  before_create :apply_integrity_hash
+
+  # Apply cryptographic integrity hash for immutable audit chain
+  def apply_integrity_hash
+    AuditLogIntegrityService.apply_integrity(self)
+  rescue => e
+    Rails.logger.error "Failed to apply integrity hash to audit log: #{e.message}"
+    # Don't block audit log creation if integrity service fails
+  end
 
   # Class methods for action categorization
   def self.security_actions

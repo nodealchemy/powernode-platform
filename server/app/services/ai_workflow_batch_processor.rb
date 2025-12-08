@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Service for processing multiple workflows in batch
-class WorkflowBatchProcessor
+class AiWorkflowBatchProcessor
   include ActiveModel::Model
 
   attr_accessor :account, :user, :logger
@@ -152,7 +152,7 @@ class WorkflowBatchProcessor
       )
 
       # Execute workflow using MCP orchestrator
-      orchestrator = Mcp::WorkflowOrchestrator.new(
+      orchestrator = Mcp::AiWorkflowOrchestrator.new(
         workflow_run: workflow_run,
         account: @account,
         user: @user

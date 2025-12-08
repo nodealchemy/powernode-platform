@@ -91,5 +91,11 @@ module Server
     # Add proxy security validator middleware
     require Rails.root.join('app/middleware/proxy_security_validator')
     config.middleware.use ProxySecurityValidator
+
+    # Add request inspector for DDoS protection (only in production/staging)
+    if Rails.env.production? || Rails.env.staging? || ENV['ENABLE_DDOS_PROTECTION'] == 'true'
+      require Rails.root.join('app/middleware/request_inspector')
+      config.middleware.use RequestInspector
+    end
   end
 end

@@ -14,7 +14,7 @@ module Mcp
         page_slug = configuration['page_slug'] || get_variable('page_slug')
 
         unless page_id.present? || page_slug.present?
-          raise Mcp::WorkflowOrchestrator::NodeExecutionError,
+          raise Mcp::AiWorkflowOrchestrator::NodeExecutionError,
                 "Either page_id or page_slug must be provided"
         end
 
@@ -68,7 +68,7 @@ module Mcp
 
         unless page
           identifier = page_id || page_slug
-          raise Mcp::WorkflowOrchestrator::NodeExecutionError,
+          raise Mcp::AiWorkflowOrchestrator::NodeExecutionError,
                 "Page not found: #{identifier}"
         end
 
@@ -103,7 +103,7 @@ module Mcp
         if data[:status].present?
           valid_statuses = %w[draft published]
           unless valid_statuses.include?(data[:status])
-            raise Mcp::WorkflowOrchestrator::NodeExecutionError,
+            raise Mcp::AiWorkflowOrchestrator::NodeExecutionError,
                   "Invalid status '#{data[:status]}'. Must be one of: #{valid_statuses.join(', ')}"
           end
         end
@@ -112,7 +112,7 @@ module Mcp
         page.update!(data) if data.present?
 
       rescue ActiveRecord::RecordInvalid => e
-        raise Mcp::WorkflowOrchestrator::NodeExecutionError,
+        raise Mcp::AiWorkflowOrchestrator::NodeExecutionError,
               "Failed to update page: #{e.message}"
       end
 

@@ -16,68 +16,55 @@ RSpec.describe AiAgent, type: :model do
 
     it { should validate_presence_of(:name) }
     it { should validate_presence_of(:agent_type) }
-    it 'validates configuration is present' do
-      agent = build(:ai_agent, configuration: nil)
-      # Skip the set_default_configuration callback for this test
-      allow(agent).to receive(:set_default_configuration)
-      agent.valid?
-      expect(agent.errors[:configuration]).to include("can't be blank")
-    end
+    it { should validate_presence_of(:mcp_capabilities) }
     it { should validate_length_of(:name).is_at_most(255) }
     it { should validate_length_of(:description).is_at_most(1000) }
-    it { should validate_inclusion_of(:agent_type).in_array(%w[assistant code_assistant data_analyst content_generator image_generator workflow_optimizer]) }
-    it { should validate_inclusion_of(:status).in_array(%w[active inactive error]) }
+    it { should validate_inclusion_of(:agent_type).in_array(%w[assistant code_assistant data_analyst content_generator image_generator workflow_optimizer workflow_operations monitor]) }
+    it { should validate_inclusion_of(:status).in_array(%w[active inactive paused error archived]) }
 
     context 'name uniqueness' do
       let!(:existing_agent) { create(:ai_agent) }
 
       it 'validates uniqueness of name within account scope' do
-        duplicate_agent = build(:ai_agent, 
-                                name: existing_agent.name, 
+        duplicate_agent = build(:ai_agent,
+                                name: existing_agent.name,
                                 account: existing_agent.account)
-        
+
         expect(duplicate_agent).not_to be_valid
         expect(duplicate_agent.errors[:name]).to include('has already been taken')
       end
 
       it 'allows same name in different accounts' do
         different_account = create(:account)
-        agent_with_same_name = build(:ai_agent, 
-                                    name: existing_agent.name, 
+        agent_with_same_name = build(:ai_agent,
+                                    name: existing_agent.name,
                                     account: different_account)
-        
+
         expect(agent_with_same_name).to be_valid
       end
     end
 
-    context 'configuration validation' do
-      it 'validates configuration is a hash' do
-        agent = build(:ai_agent, configuration: 'invalid')
-        expect(agent).not_to be_valid
-        expect(agent.errors[:configuration]).to include('must be a hash')
+    context 'MCP validation' do
+      it 'validates mcp_capabilities is present' do
+        agent = build(:ai_agent, mcp_capabilities: nil)
+        agent.valid?
+        expect(agent.errors[:mcp_capabilities]).to include("can't be blank")
       end
 
-      it 'validates required configuration keys for assistant type' do
-        agent = build(:ai_agent, agent_type: 'assistant', configuration: {})
-        # Skip the set_default_configuration callback for this test
-        allow(agent).to receive(:set_default_configuration)
-        expect(agent).not_to be_valid
-        expect(agent.errors[:configuration]).to include('must include model')
+      it 'validates mcp_capabilities as array' do
+        agent = build(:ai_agent, mcp_capabilities: ['text_generation'])
+        expect(agent).to be_valid
       end
 
-      it 'validates model is present in configuration' do
-        agent = build(:ai_agent, configuration: { temperature: 0.7 })
+      it 'validates version format' do
+        agent = build(:ai_agent, version: 'invalid')
         expect(agent).not_to be_valid
-        expect(agent.errors[:configuration]).to include('must include model')
+        expect(agent.errors[:version]).to include('must be in semantic version format (x.y.z)')
       end
 
-      it 'validates temperature range' do
-        agent = build(:ai_agent, configuration: { 
-          model: 'gpt-3.5-turbo', 
-          temperature: 2.0 
-        })
-        expect(agent).not_to be_valid
-        expect(agent.errors[:configuration]).to include('temperature must be between 0 and 1')
+      it 'accepts valid semantic version' do
+        agent = build(:ai_agent, version: '1.2.3')
+        expect(agent).to be_valid
       end
     end
   end
@@ -121,10 +108,11 @@ RSpec.describe AiAgent, type: :model do
         expect(agent.agent_type).to eq('assistant')
       end
 
-      it 'sets default configuration for assistant type' do
-        agent = build(:ai_agent, agent_type: 'assistant', configuration: nil)
+      it 'generates slug from name' do
+        agent = build(:ai_agent, name: 'My Test Agent', slug: nil)
         agent.valid?
-        expect(agent.configuration).to include('model', 'temperature', 'max_tokens')
+        expect(agent.slug).to be_present
+        expect(agent.slug).to match(/^[a-z0-9\-_]+$/)
       end
     end
 
@@ -144,31 +132,39 @@ RSpec.describe AiAgent, type: :model do
   describe 'instance methods' do
     let(:agent) { create(:ai_agent, :with_executions) }
 
-    describe '#can_execute?' do
-      it 'returns true for active agents with active provider' do
-        expect(agent.can_execute?).to be true
+    describe '#mcp_available?' do
+      it 'returns true for active agents with MCP configuration' do
+        expect(agent.mcp_available?).to be true
       end
 
       it 'returns false for inactive agents' do
         agent.update!(status: 'inactive')
-        expect(agent.can_execute?).to be false
+        expect(agent.mcp_available?).to be false
       end
 
       it 'returns false when provider is inactive' do
         agent.ai_provider.update!(is_active: false)
-        expect(agent.can_execute?).to be false
+        expect(agent.mcp_available?).to be false
       end
 
-      it 'returns false when agent status is error' do
-        agent.update!(status: 'error')
-        expect(agent.can_execute?).to be false
+      it 'returns false when mcp_capabilities is empty' do
+        agent.update!(mcp_capabilities: [])
+        expect(agent.mcp_available?).to be false
+      end
+    end
+
+    describe '#mcp_tool_id' do
+      it 'generates consistent tool ID' do
+        tool_id = agent.mcp_tool_id
+        expect(tool_id).to start_with('agent_')
+        expect(tool_id).to include(agent.id)
       end
     end
 
     describe '#execution_stats' do
       it 'returns execution statistics' do
         stats = agent.execution_stats
-        
+
         expect(stats).to include(:total_executions)
         expect(stats).to include(:successful_executions)
         expect(stats).to include(:failed_executions)
@@ -180,9 +176,9 @@ RSpec.describe AiAgent, type: :model do
       it 'calculates success rate correctly' do
         create(:ai_agent_execution, :completed, ai_agent: agent, account: agent.account)
         create(:ai_agent_execution, :failed, ai_agent: agent, account: agent.account)
-        
+
         stats = agent.execution_stats
-        expect(stats[:success_rate]).to be_a(Float)
+        expect(stats[:success_rate]).to be_a(Numeric)
         expect(stats[:success_rate]).to be >= 0
         expect(stats[:success_rate]).to be <= 100
       end
@@ -190,49 +186,30 @@ RSpec.describe AiAgent, type: :model do
 
     describe '#recent_executions' do
       it 'returns executions from last 24 hours by default' do
-        old_execution = create(:ai_agent_execution, 
-                             ai_agent: agent, 
+        old_execution = create(:ai_agent_execution,
+                             ai_agent: agent,
                              account: agent.account,
                              created_at: 2.days.ago)
-        
+
         recent_executions = agent.recent_executions
         expect(recent_executions).not_to include(old_execution)
       end
 
       it 'accepts custom time period' do
-        old_execution = create(:ai_agent_execution, 
-                             ai_agent: agent, 
+        old_execution = create(:ai_agent_execution,
+                             ai_agent: agent,
                              account: agent.account,
                              created_at: 2.days.ago)
-        
+
         recent_executions = agent.recent_executions(3.days)
         expect(recent_executions).to include(old_execution)
-      end
-    end
-
-    describe '#update_configuration' do
-      it 'updates configuration and validates' do
-        new_config = { model: 'gpt-4', temperature: 0.3 }
-        result = agent.update_configuration(new_config)
-        
-        expect(result).to be true
-        expect(agent.configuration['model']).to eq('gpt-4')
-        expect(agent.configuration['temperature']).to eq(0.3)
-      end
-
-      it 'returns false for invalid configuration' do
-        invalid_config = { temperature: 2.0 }
-        result = agent.update_configuration(invalid_config)
-        
-        expect(result).to be false
-        expect(agent.errors).not_to be_empty
       end
     end
 
     describe '#average_response_time' do
       it 'calculates average response time from completed executions' do
         create(:ai_agent_execution, :completed, ai_agent: agent, account: agent.account)
-        
+
         avg_time = agent.average_response_time
         expect(avg_time).to be_a(Numeric)
         expect(avg_time).to be >= 0
@@ -246,13 +223,13 @@ RSpec.describe AiAgent, type: :model do
 
     describe '#total_tokens_used' do
       it 'sums tokens from all completed executions' do
-        create(:ai_agent_execution, :completed, 
-               ai_agent: agent, 
+        create(:ai_agent_execution, :completed,
+               ai_agent: agent,
                account: agent.account,
                output_data: { metrics: { tokens_used: 100 } })
-        
-        create(:ai_agent_execution, :completed, 
-               ai_agent: agent, 
+
+        create(:ai_agent_execution, :completed,
+               ai_agent: agent,
                account: agent.account,
                output_data: { metrics: { tokens_used: 200 } })
 
@@ -267,13 +244,13 @@ RSpec.describe AiAgent, type: :model do
 
     describe '#estimated_total_cost' do
       it 'sums cost estimates from all completed executions' do
-        create(:ai_agent_execution, :completed, 
-               ai_agent: agent, 
+        create(:ai_agent_execution, :completed,
+               ai_agent: agent,
                account: agent.account,
                output_data: { metrics: { cost_estimate: 0.005 } })
-        
-        create(:ai_agent_execution, :completed, 
-               ai_agent: agent, 
+
+        create(:ai_agent_execution, :completed,
+               ai_agent: agent,
                account: agent.account,
                output_data: { metrics: { cost_estimate: 0.012 } })
 
@@ -284,20 +261,20 @@ RSpec.describe AiAgent, type: :model do
     describe '#deactivate!' do
       it 'sets agent as inactive and updates status' do
         agent.deactivate!('Testing deactivation')
-        
+
         expect(agent.reload.status).to eq('inactive')
         expect(agent.metadata['deactivated_reason']).to eq('Testing deactivation')
       end
 
       it 'creates audit log entry' do
         agent.deactivate!('Testing')
-        
+
         deactivation_log = AuditLog.where(
           resource_type: 'AiAgent',
           resource_id: agent.id.to_s,
           action: 'update'
         ).where("metadata ? 'deactivation_reason'").last
-        
+
         expect(deactivation_log).to be_present
         expect(deactivation_log.metadata['deactivation_reason']).to eq('Testing')
       end
@@ -307,7 +284,7 @@ RSpec.describe AiAgent, type: :model do
       it 'sets agent as active and updates status' do
         agent.update!(status: 'inactive')
         agent.activate!
-        
+
         expect(agent.reload.status).to eq('active')
       end
     end
@@ -316,23 +293,26 @@ RSpec.describe AiAgent, type: :model do
   describe 'class methods' do
     describe '.create_from_template' do
       let(:account) { create(:account) }
+      let(:user) { create(:user, account: account) }
       let(:provider) { create(:ai_provider) }
       let(:template_data) do
         {
           name: 'Code Assistant',
           agent_type: 'code_assistant',
           description: 'Helps with coding tasks',
-          configuration: {
-            model: 'claude-3-sonnet',
-            temperature: 0.2,
-            system_prompt: 'You are a coding expert.'
+          mcp_capabilities: ['code_generation', 'code_review'],
+          mcp_tool_manifest: {
+            'name' => 'code_assistant_tool',
+            'description' => 'Code assistance tool',
+            'type' => 'code_assistant',
+            'version' => '1.0.0'
           }
         }
       end
 
       it 'creates agent from template data' do
-        agent = AiAgent.create_from_template(account, provider, template_data)
-        
+        agent = AiAgent.create_from_template(account, provider, template_data, user)
+
         expect(agent).to be_persisted
         expect(agent.name).to eq('Code Assistant')
         expect(agent.agent_type).to eq('code_assistant')
@@ -342,8 +322,8 @@ RSpec.describe AiAgent, type: :model do
 
       it 'returns errors for invalid template data' do
         invalid_template = template_data.merge(agent_type: 'invalid_type')
-        agent = AiAgent.create_from_template(account, provider, invalid_template)
-        
+        agent = AiAgent.create_from_template(account, provider, invalid_template, user)
+
         expect(agent).not_to be_persisted
         expect(agent.errors).not_to be_empty
       end
@@ -375,11 +355,11 @@ RSpec.describe AiAgent, type: :model do
       it 'returns agents ordered by execution count' do
         agent1 = create(:ai_agent)
         agent2 = create(:ai_agent)
-        
+
         # Create more executions for agent2
         create_list(:ai_agent_execution, 3, ai_agent: agent1, account: agent1.account)
         create_list(:ai_agent_execution, 5, ai_agent: agent2, account: agent2.account)
-        
+
         popular_agents = AiAgent.popular(limit: 2)
         expect(popular_agents.first).to eq(agent2)
         expect(popular_agents.second).to eq(agent1)
@@ -388,29 +368,25 @@ RSpec.describe AiAgent, type: :model do
   end
 
   describe 'edge cases and error handling' do
-    it 'handles missing configuration gracefully' do
-      agent = build(:ai_agent, configuration: nil)
+    it 'handles missing mcp_capabilities gracefully' do
+      agent = build(:ai_agent, mcp_capabilities: nil)
       agent.valid?
-      expect(agent.configuration).to be_a(Hash)
+      expect(agent.errors[:mcp_capabilities]).to be_present
     end
 
     it 'handles malformed JSON in metadata' do
       agent = create(:ai_agent)
       # Directly update database to simulate corrupted data
       AiAgent.where(id: agent.id).update_all(metadata: 'invalid json')
-      
+
       expect { agent.reload.metadata }.not_to raise_error
     end
 
-    it 'validates configuration changes atomically' do
+    it 'validates mcp_capabilities changes' do
       agent = create(:ai_agent)
-      
-      expect {
-        agent.update!(configuration: { temperature: 2.0 })
-      }.to raise_error(ActiveRecord::RecordInvalid)
-      
-      # Original configuration should be preserved
-      expect(agent.reload.configuration['temperature']).not_to eq(2.0)
+
+      agent.update(mcp_capabilities: [])
+      expect(agent.errors[:mcp_capabilities]).to be_present
     end
   end
 end

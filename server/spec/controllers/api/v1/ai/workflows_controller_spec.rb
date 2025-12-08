@@ -586,7 +586,7 @@ RSpec.describe Api::V1::Ai::WorkflowsController, type: :controller do
 
     describe 'POST #run_process' do
       it 'processes workflow run via orchestrator' do
-        allow_any_instance_of(Mcp::WorkflowOrchestrator).to receive(:execute).and_return(workflow_run)
+        allow_any_instance_of(Mcp::AiWorkflowOrchestrator).to receive(:execute).and_return(workflow_run)
         workflow_run.update!(status: 'completed', completed_at: Time.current)
 
         post :run_process, params: { workflow_id: workflow.id, run_id: workflow_run.run_id }

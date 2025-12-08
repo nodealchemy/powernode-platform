@@ -2,7 +2,7 @@
 
 require 'rails_helper'
 
-RSpec.describe WorkflowCheckpointRecoveryService do
+RSpec.describe AiWorkflowCheckpointRecoveryService do
   # Stub ActionCable broadcast to prevent NameError in tests
   before do
     stub_const('AiWorkflowExecutionChannel', Class.new do
