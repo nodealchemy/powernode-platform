@@ -41,17 +41,17 @@ export const FileNode: React.FC<NodeProps<any>> = ({
   const getOperationColor = () => {
     switch (data.configuration?.operation) {
       case 'read':
-        return 'text-theme-info bg-blue-100';
+        return 'text-theme-info bg-theme-info/20';
       case 'write':
       case 'create':
-        return 'text-theme-success bg-green-100';
+        return 'text-theme-success bg-theme-success/20';
       case 'download':
-        return 'text-theme-interactive-primary bg-purple-100';
+        return 'text-theme-interactive-primary bg-theme-interactive-primary/20';
       case 'compress':
       case 'archive':
-        return 'text-theme-warning bg-orange-100';
+        return 'text-theme-warning bg-theme-warning/20';
       default:
-        return 'text-slate-600 bg-slate-100';
+        return 'text-theme-muted bg-theme-surface';
     }
   };
 

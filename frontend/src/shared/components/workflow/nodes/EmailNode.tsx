@@ -26,17 +26,17 @@ export const EmailNode: React.FC<NodeProps<any>> = ({
   const getProviderColor = () => {
     switch (data.configuration?.provider) {
       case 'gmail':
-        return 'text-theme-danger bg-red-100';
+        return 'text-theme-danger bg-theme-danger/20';
       case 'outlook':
-        return 'text-theme-info bg-blue-100';
+        return 'text-theme-info bg-theme-info/20';
       case 'sendgrid':
-        return 'text-teal-600 bg-teal-100';
+        return 'text-theme-info bg-theme-info/20';
       case 'mailgun':
-        return 'text-theme-warning bg-orange-100';
+        return 'text-theme-warning bg-theme-warning/20';
       case 'ses':
-        return 'text-theme-warning bg-yellow-100';
+        return 'text-theme-warning bg-theme-warning/20';
       default:
-        return 'text-emerald-600 bg-emerald-100';
+        return 'text-theme-success bg-theme-success/20';
     }
   };
 

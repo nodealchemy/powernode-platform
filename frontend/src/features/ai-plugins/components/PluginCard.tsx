@@ -85,7 +85,7 @@ export const PluginCard: React.FC<PluginCardProps> = ({
       <div className="flex items-center gap-4 text-sm text-theme-tertiary mb-4 flex-wrap">
         {plugin.average_rating && (
           <div className="flex items-center gap-1">
-            <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
+            <Star className="h-4 w-4 text-theme-warning fill-theme-warning" />
             <span>{plugin.average_rating.toFixed(1)}</span>
             <span>({plugin.rating_count})</span>
           </div>

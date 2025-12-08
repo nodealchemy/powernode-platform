@@ -1,8 +1,25 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { Plus } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { AiAgentDashboard } from '@/features/ai-agents/components/AiAgentDashboard';
+import { usePermissions } from '@/shared/hooks/usePermissions';
 
 export const AIAgentsPage: React.FC = () => {
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const { hasPermission } = usePermissions();
+
+  const canCreateAgents = hasPermission('ai.agents.create');
+
+  const pageActions = canCreateAgents ? [
+    {
+      id: 'create-agent',
+      label: 'Create Agent',
+      onClick: () => setShowCreateModal(true),
+      variant: 'primary' as const,
+      icon: Plus
+    }
+  ] : [];
+
   return (
     <PageContainer
       title="AI Agents"
@@ -12,8 +29,12 @@ export const AIAgentsPage: React.FC = () => {
         { label: 'AI', href: '/app/ai' },
         { label: 'Agents' }
       ]}
+      actions={pageActions}
     >
-      <AiAgentDashboard />
+      <AiAgentDashboard
+        showCreateModal={showCreateModal}
+        onShowCreateModalChange={setShowCreateModal}
+      />
     </PageContainer>
   );
 };

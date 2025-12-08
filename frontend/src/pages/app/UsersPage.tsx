@@ -627,10 +627,10 @@ const UsersPage: React.FC = () => {
 
       {/* Error Display */}
       {error && (
-        <div className="bg-orange-50 border border-orange-200 text-orange-700 px-4 py-3 rounded mb-4">
+        <div className="bg-theme-warning/10 border border-theme-warning/30 text-theme-warning px-4 py-3 rounded mb-4">
           <div className="flex">
             <div className="flex-shrink-0">
-              <span className="text-orange-400">⚠️</span>
+              <span className="text-theme-warning">⚠️</span>
             </div>
             <div className="ml-3">
               <p className="text-sm">

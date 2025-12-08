@@ -97,8 +97,8 @@ export const ConditionNode: React.FC<NodeProps<any>> = ({
       )}
 
       {/* Condition Expression */}
-      <div className="mb-3 p-2 bg-orange-50 border border-orange-200 rounded text-xs font-mono">
-        <div className="text-orange-700">
+      <div className="mb-3 p-2 bg-theme-warning/10 border border-theme-warning/30 rounded text-xs font-mono">
+        <div className="text-theme-warning">
           {getConditionExpression()}
         </div>
       </div>

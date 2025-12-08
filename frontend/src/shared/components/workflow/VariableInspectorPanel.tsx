@@ -113,7 +113,7 @@ export const VariableInspectorPanel: React.FC<VariableInspectorPanelProps> = ({
       input: { label: 'Input', color: 'bg-theme-info/10 text-theme-info border-theme-info/20' },
       output: { label: 'Output', color: 'bg-theme-success/10 text-theme-success border-theme-success/20' },
       computed: { label: 'Computed', color: 'bg-theme-interactive-primary/10 text-theme-interactive-primary border-theme-interactive-primary/20' },
-      system: { label: 'System', color: 'bg-theme-surface0/10 text-theme-muted border-gray-500/20' }
+      system: { label: 'System', color: 'bg-theme-surface/10 text-theme-muted border-theme-muted/20' }
     };
 
     const badge = badges[source as keyof typeof badges] || badges.system;

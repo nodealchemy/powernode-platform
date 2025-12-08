@@ -125,9 +125,9 @@ export const RateLimitingSettings: React.FC = () => {
     try {
       setLoading(true);
       const settingsResponse = await adminSettingsApi.getOverview();
-      
-      if (settingsResponse.settings_summary.rate_limiting) {
-        const rateLimitingSettings = settingsResponse.settings_summary.rate_limiting;
+      const settingsSummary = settingsResponse.data?.settings_summary;
+      if (settingsSummary?.rate_limiting) {
+        const rateLimitingSettings = settingsSummary.rate_limiting;
         setConfig({
           enabled: rateLimitingSettings.enabled ?? true,
           api_requests_per_minute: rateLimitingSettings.api_requests_per_minute || 60,
@@ -331,7 +331,7 @@ export const RateLimitingSettings: React.FC = () => {
               className="sr-only"
             />
             <div className={`relative inline-block w-10 h-6 transition duration-200 ease-in-out rounded-full ${
-              config.enabled ? 'bg-theme-success' : 'bg-gray-300'
+              config.enabled ? 'bg-theme-success' : 'bg-theme-muted/50'
             }`}>
               <div className={`absolute left-0 top-0 bg-white w-6 h-6 rounded-full shadow transition-transform duration-200 ease-in-out ${
                 config.enabled ? 'transform translate-x-4' : ''

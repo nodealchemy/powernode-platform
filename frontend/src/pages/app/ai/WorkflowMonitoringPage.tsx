@@ -286,7 +286,7 @@ export const WorkflowMonitoringPage: React.FC = () => {
       >
         <Card>
           <CardContent className="text-center py-8">
-            <AlertTriangle className="h-12 w-12 text-yellow-500 mx-auto mb-4" />
+            <AlertTriangle className="h-12 w-12 text-theme-warning mx-auto mb-4" />
             <h3 className="text-lg font-medium mb-2">Access Denied</h3>
             <p className="text-theme-muted">
               You don't have permission to view workflow monitoring data.
@@ -405,7 +405,7 @@ export const WorkflowMonitoringPage: React.FC = () => {
                     {formatCurrency(stats?.totalCostToday || 0)}
                   </p>
                 </div>
-                <DollarSign className="h-8 w-8 text-yellow-500" />
+                <DollarSign className="h-8 w-8 text-theme-warning" />
               </div>
             </CardContent>
           </Card>
@@ -561,7 +561,7 @@ export const WorkflowMonitoringPage: React.FC = () => {
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="bg-blue-50 text-theme-info">
+                        <Badge variant="outline" className="bg-theme-info/10 text-theme-info">
                           {execution.status}
                         </Badge>
                         <Badge variant="outline">

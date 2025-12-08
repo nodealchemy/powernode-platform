@@ -32,17 +32,17 @@ export const DatabaseNode: React.FC<NodeProps<any>> = ({
     switch (data.configuration?.operation) {
       case 'select':
       case 'query':
-        return 'text-theme-info bg-blue-100';
+        return 'text-theme-info bg-theme-info/20';
       case 'insert':
-        return 'text-theme-success bg-green-100';
+        return 'text-theme-success bg-theme-success/20';
       case 'update':
-        return 'text-theme-warning bg-yellow-100';
+        return 'text-theme-warning bg-theme-warning/20';
       case 'delete':
-        return 'text-theme-danger bg-red-100';
+        return 'text-theme-danger bg-theme-danger/20';
       case 'backup':
-        return 'text-theme-interactive-primary bg-purple-100';
+        return 'text-theme-interactive-primary bg-theme-interactive-primary/20';
       default:
-        return 'text-indigo-600 bg-indigo-100';
+        return 'text-theme-info bg-theme-info/20';
     }
   };
 

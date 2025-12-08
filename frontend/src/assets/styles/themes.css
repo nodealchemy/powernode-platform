@@ -1253,6 +1253,84 @@
   color: var(--color-info);
 }
 
+/* Toast Notification Theme - Solid backgrounds for better readability */
+.toast-theme-success {
+  background-color: var(--color-success-100);
+  border-left: 4px solid var(--color-success);
+  color: var(--color-success-800);
+}
+
+.toast-theme-success .toast-icon {
+  color: var(--color-success-600);
+}
+
+.toast-theme-error {
+  background-color: var(--color-error-100);
+  border-left: 4px solid var(--color-error);
+  color: var(--color-error-800);
+}
+
+.toast-theme-error .toast-icon {
+  color: var(--color-error-600);
+}
+
+.toast-theme-warning {
+  background-color: var(--color-warning-100);
+  border-left: 4px solid var(--color-warning);
+  color: var(--color-warning-800);
+}
+
+.toast-theme-warning .toast-icon {
+  color: var(--color-warning-600);
+}
+
+.toast-theme-info {
+  background-color: var(--color-info-100);
+  border-left: 4px solid var(--color-info);
+  color: var(--color-info-800);
+}
+
+.toast-theme-info .toast-icon {
+  color: var(--color-info-600);
+}
+
+/* Dark mode toast overrides */
+[data-theme="dark"] .toast-theme-success {
+  background-color: var(--color-success-900);
+  color: var(--color-success-100);
+}
+
+[data-theme="dark"] .toast-theme-success .toast-icon {
+  color: var(--color-success-400);
+}
+
+[data-theme="dark"] .toast-theme-error {
+  background-color: var(--color-error-900);
+  color: var(--color-error-100);
+}
+
+[data-theme="dark"] .toast-theme-error .toast-icon {
+  color: var(--color-error-400);
+}
+
+[data-theme="dark"] .toast-theme-warning {
+  background-color: var(--color-warning-900);
+  color: var(--color-warning-100);
+}
+
+[data-theme="dark"] .toast-theme-warning .toast-icon {
+  color: var(--color-warning-400);
+}
+
+[data-theme="dark"] .toast-theme-info {
+  background-color: var(--color-info-900);
+  color: var(--color-info-100);
+}
+
+[data-theme="dark"] .toast-theme-info .toast-icon {
+  color: var(--color-info-400);
+}
+
 /* Elevation Utilities */
 .shadow-theme-xs { box-shadow: var(--shadow-xs); }
 .shadow-theme-sm { box-shadow: var(--shadow-sm); }

@@ -206,7 +206,7 @@ export const DryRunPanel: React.FC<DryRunPanelProps> = ({
 
             {/* Warnings */}
             {result.warnings && result.warnings.length > 0 && (
-              <Card className="p-4 bg-yellow-500/10 border-yellow-500">
+              <Card className="p-4 bg-theme-warning/10 border-theme-warning">
                 <h4 className="text-sm font-medium text-theme-warning mb-2 flex items-center gap-2">
                   <AlertTriangle className="h-4 w-4" />
                   Warnings

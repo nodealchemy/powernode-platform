@@ -285,7 +285,7 @@ export const FileBrowser: React.FC<FileBrowserProps> = ({
         {hasActiveFilters && (
           <button
             onClick={handleClearFilters}
-            className="px-4 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex items-center gap-2"
+            className="px-4 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary hover:bg-theme-danger/10 dark:hover:bg-theme-danger/20 transition-colors flex items-center gap-2"
             aria-label="Clear filters"
           >
             <X className="h-4 w-4" />
@@ -296,7 +296,7 @@ export const FileBrowser: React.FC<FileBrowserProps> = ({
         {/* Refresh Button */}
         <button
           onClick={handleRefresh}
-          className="px-4 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary hover:bg-theme-surface dark:hover:bg-gray-700 transition-colors"
+          className="px-4 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary hover:bg-theme-surface-hover dark:hover:bg-theme-surface-hover transition-colors"
           title="Refresh files"
           aria-label="Refresh"
         >
@@ -306,7 +306,7 @@ export const FileBrowser: React.FC<FileBrowserProps> = ({
 
       {/* Bulk Actions Bar */}
       {selectedFiles.size > 0 && (
-        <div className="flex items-center gap-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+        <div className="flex items-center gap-4 p-3 bg-theme-info/10 dark:bg-theme-info/20 border border-theme-info/30 dark:border-theme-info/50 rounded-lg">
           <span className="text-sm text-theme-primary">
             {selectedFiles.size} selected
           </span>
@@ -319,7 +319,7 @@ export const FileBrowser: React.FC<FileBrowserProps> = ({
           </button>
           <button
             onClick={() => setSelectedFiles(new Set())}
-            className="px-3 py-1 bg-theme-surface border border-theme rounded hover:bg-theme-surface dark:hover:bg-gray-700 transition-colors text-sm text-theme-primary"
+            className="px-3 py-1 bg-theme-surface border border-theme rounded hover:bg-theme-surface-hover dark:hover:bg-theme-surface-hover transition-colors text-sm text-theme-primary"
           >
             Clear Selection
           </button>
@@ -354,7 +354,7 @@ export const FileBrowser: React.FC<FileBrowserProps> = ({
 
       {/* Error State */}
       {error && (
-        <div className="text-center py-8 text-theme-danger bg-red-50 dark:bg-red-900/20 rounded-lg">
+        <div className="text-center py-8 text-theme-danger bg-theme-danger/10 dark:bg-theme-danger/20 rounded-lg">
           <p>Error loading files: {error}</p>
           <button
             onClick={handleRefresh}

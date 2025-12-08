@@ -234,14 +234,14 @@ export const PluginDetailModal: React.FC<PluginDetailModalProps> = ({
 
             {/* Permissions Warning */}
             {plugin.manifest.permissions && plugin.manifest.permissions.length > 0 && (
-              <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-4">
+              <div className="bg-theme-warning/10 dark:bg-theme-warning/20 rounded-lg p-4">
                 <div className="flex items-start gap-3">
                   <AlertCircle className="h-5 w-5 text-theme-warning flex-shrink-0 mt-0.5" />
                   <div>
-                    <h4 className="font-semibold text-yellow-900 dark:text-yellow-200 mb-2">
+                    <h4 className="font-semibold text-theme-warning dark:text-theme-warning mb-2">
                       Required Permissions
                     </h4>
-                    <ul className="text-sm text-yellow-800 dark:text-yellow-300 space-y-1">
+                    <ul className="text-sm text-theme-warning dark:text-theme-warning space-y-1">
                       {plugin.manifest.permissions.map(permission => (
                         <li key={permission}>• {permission}</li>
                       ))}
@@ -270,7 +270,7 @@ export const PluginDetailModal: React.FC<PluginDetailModalProps> = ({
                 <h3 className="text-lg font-semibold text-theme-primary mb-4">Rating</h3>
                 <div className="flex items-center gap-4">
                   <div className="flex items-center gap-2">
-                    <Star className="h-8 w-8 text-yellow-500 fill-yellow-500" />
+                    <Star className="h-8 w-8 text-theme-warning fill-theme-warning" />
                     <span className="text-3xl font-bold text-theme-primary">
                       {plugin.average_rating.toFixed(1)}
                     </span>

@@ -221,7 +221,7 @@ const StorageProvidersPage: React.FC = () => {
           {/* Storage Providers Grid */}
           {loading ? (
             <div className="flex items-center justify-center py-12">
-              <div className="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full" />
+              <div className="animate-spin h-8 w-8 border-4 border-theme-info border-t-transparent rounded-full" />
             </div>
           ) : providers.length === 0 ? (
             <div className="bg-theme-surface border border-theme rounded-lg p-12 text-center">
@@ -235,7 +235,7 @@ const StorageProvidersPage: React.FC = () => {
               {canManage && (
                 <button
                   onClick={handleAddProvider}
-                  className="px-4 py-2 bg-theme-info text-white rounded-lg hover:bg-blue-700 transition-colors inline-flex items-center gap-2"
+                  className="px-4 py-2 bg-theme-info text-white rounded-lg hover:opacity-90 transition-colors inline-flex items-center gap-2"
                 >
                   <Plus className="h-4 w-4" />
                   Add Storage Provider
@@ -259,7 +259,7 @@ const StorageProvidersPage: React.FC = () => {
           )}
 
           {/* Information Panel */}
-          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-6">
+          <div className="bg-theme-info/10 dark:bg-theme-info/20 border border-theme-info/30 dark:border-theme-info/50 rounded-lg p-6">
             <h3 className="text-lg font-semibold text-theme-primary mb-2">
               About Storage Providers
             </h3>

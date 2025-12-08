@@ -51,10 +51,11 @@ export const AdminSettingsSecurityTabPage: React.FC = () => {
       setLoading(true);
       setError(null);
       const response = await adminSettingsApi.getOverview();
-      setSystemSettings(response.settings_summary || {});
-      
+      const settingsSummary = response.data?.settings_summary || {};
+      setSystemSettings(settingsSummary);
+
       // Calculate security scores based on current settings
-      calculateSecurityScores(response.settings_summary || {});
+      calculateSecurityScores(settingsSummary);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to load security settings');
       showNotification('Failed to load security settings', 'error');

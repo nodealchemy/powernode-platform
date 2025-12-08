@@ -241,7 +241,7 @@ export const SiteSettingsPage: React.FC = () => {
         {/* Contact Information */}
         <div className="surface rounded-2xl p-6">
           <div className="flex items-center mb-6">
-            <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center mr-4">
+            <div className="w-10 h-10 bg-theme-info/20 rounded-xl flex items-center justify-center mr-4">
               <Globe className="w-5 h-5 text-theme-info" />
             </div>
             <div>
@@ -296,7 +296,7 @@ export const SiteSettingsPage: React.FC = () => {
         <div className="surface rounded-2xl p-6">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center">
-              <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center mr-4">
+              <div className="w-10 h-10 bg-theme-interactive-primary/20 rounded-xl flex items-center justify-center mr-4">
                 <Globe className="w-5 h-5 text-theme-interactive-primary" />
               </div>
               <div>
@@ -384,7 +384,7 @@ export const SiteSettingsPage: React.FC = () => {
         {/* Performance Settings */}
         <div className="surface rounded-2xl p-6">
           <div className="flex items-center mb-6">
-            <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center mr-4">
+            <div className="w-10 h-10 bg-theme-success/20 rounded-xl flex items-center justify-center mr-4">
               <Settings className="w-5 h-5 text-theme-success" />
             </div>
             <div>
@@ -407,7 +407,7 @@ export const SiteSettingsPage: React.FC = () => {
                     onChange={(e) => handleInputChange('footer_cache_enabled', e.target.checked)}
                     className="sr-only peer"
                   />
-                  <div className="w-11 h-6 bg-theme-border peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-theme after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-theme-info"></div>
+                  <div className="w-11 h-6 bg-theme-border peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-theme-info/30 dark:peer-focus:ring-theme-info/50 rounded-full peer dark:bg-theme-surface-elevated peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-theme after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-theme peer-checked:bg-theme-info"></div>
                 </label>
               </div>
             </div>
@@ -417,7 +417,7 @@ export const SiteSettingsPage: React.FC = () => {
         {/* Settings Summary */}
         <div className="surface rounded-2xl p-6">
           <div className="flex items-center mb-4">
-            <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center mr-4">
+            <div className="w-10 h-10 bg-theme-success/20 rounded-xl flex items-center justify-center mr-4">
               <Globe className="w-5 h-5 text-theme-success" />
             </div>
             <div>
@@ -427,36 +427,36 @@ export const SiteSettingsPage: React.FC = () => {
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+            <div className="bg-theme-success/10 border border-theme-success/30 rounded-lg p-4">
               <div className="flex items-center">
                 <Globe className="w-5 h-5 text-theme-success mr-2" />
-                <span className="text-sm font-medium text-green-800">Public Settings</span>
+                <span className="text-sm font-medium text-theme-success">Public Settings</span>
               </div>
               <p className="text-xs text-theme-success mt-1">Visible to all website visitors</p>
             </div>
-            
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+
+            <div className="bg-theme-info/10 border border-theme-info/30 rounded-lg p-4">
               <div className="flex items-center">
                 <Settings className="w-5 h-5 text-theme-info mr-2" />
-                <span className="text-sm font-medium text-blue-800">Total Settings</span>
+                <span className="text-sm font-medium text-theme-info">Total Settings</span>
               </div>
               <p className="text-xs text-theme-info mt-1">{Object.keys(footerSettings).length - 1} public + 1 admin</p>
             </div>
-            
-            <div className={`border rounded-lg p-4 ${footerSettings.footer_cache_enabled ? 'bg-green-50 border-green-200' : 'bg-orange-50 border-orange-200'}`}>
+
+            <div className={`border rounded-lg p-4 ${footerSettings.footer_cache_enabled ? 'bg-theme-success/10 border-theme-success/30' : 'bg-theme-warning/10 border-theme-warning/30'}`}>
               <div className="flex items-center">
                 <Settings className={`w-5 h-5 mr-2 ${footerSettings.footer_cache_enabled ? 'text-theme-success' : 'text-theme-warning'}`} />
-                <span className={`text-sm font-medium ${footerSettings.footer_cache_enabled ? 'text-green-800' : 'text-orange-800'}`}>Footer Caching</span>
+                <span className={`text-sm font-medium ${footerSettings.footer_cache_enabled ? 'text-theme-success' : 'text-theme-warning'}`}>Footer Caching</span>
               </div>
               <p className={`text-xs mt-1 ${footerSettings.footer_cache_enabled ? 'text-theme-success' : 'text-theme-warning'}`}>
                 {footerSettings.footer_cache_enabled ? 'Enabled (1 hour cache)' : 'Disabled (no caching)'}
               </p>
             </div>
-            
-            <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+
+            <div className="bg-theme-interactive-primary/10 border border-theme-interactive-primary/30 rounded-lg p-4">
               <div className="flex items-center">
                 <Lock className="w-5 h-5 text-theme-interactive-primary mr-2" />
-                <span className="text-sm font-medium text-purple-800">Access Level</span>
+                <span className="text-sm font-medium text-theme-interactive-primary">Access Level</span>
               </div>
               <p className="text-xs text-theme-interactive-primary mt-1">Admin only management</p>
             </div>

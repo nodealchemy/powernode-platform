@@ -95,7 +95,7 @@ export const KbArticleSearchNode: React.FC<NodeProps<any>> = ({
             </span>
             <div className="flex flex-wrap gap-1 mt-1">
               {activeFilters.map((filter, idx) => (
-                <span key={idx} className="px-1.5 py-0.5 bg-purple-100 text-theme-interactive-primary rounded text-xs font-medium">
+                <span key={idx} className="px-1.5 py-0.5 bg-theme-interactive-primary/20 text-theme-interactive-primary rounded text-xs font-medium">
                   {filter}
                 </span>
               ))}

@@ -30,21 +30,21 @@ export const DataProcessorNode: React.FC<NodeProps<any>> = ({
   const getOperationColor = () => {
     switch (data.configuration?.operation) {
       case 'filter':
-        return 'text-theme-info bg-blue-100';
+        return 'text-theme-info bg-theme-info/20';
       case 'transform':
-        return 'text-theme-interactive-primary bg-purple-100';
+        return 'text-theme-interactive-primary bg-theme-interactive-primary/20';
       case 'merge':
-        return 'text-theme-success bg-green-100';
+        return 'text-theme-success bg-theme-success/20';
       case 'split':
-        return 'text-theme-warning bg-orange-100';
+        return 'text-theme-warning bg-theme-warning/20';
       case 'calculate':
-        return 'text-cyan-600 bg-cyan-100';
+        return 'text-cyan-600 bg-cyan-500/20';
       case 'aggregate':
-        return 'text-pink-600 bg-pink-100';
+        return 'text-pink-600 bg-pink-500/20';
       case 'normalize':
-        return 'text-theme-warning bg-yellow-100';
+        return 'text-theme-warning bg-theme-warning/20';
       default:
-        return 'text-violet-600 bg-violet-100';
+        return 'text-violet-600 bg-violet-500/20';
     }
   };
 

@@ -30,17 +30,17 @@ export const ApiCallNode: React.FC<NodeProps<any>> = ({
   const getMethodColor = () => {
     switch (data.configuration?.method?.toUpperCase()) {
       case 'GET':
-        return 'text-theme-success bg-green-100';
+        return 'text-theme-success bg-theme-success/20';
       case 'POST':
-        return 'text-theme-info bg-blue-100';
+        return 'text-theme-info bg-theme-info/20';
       case 'PUT':
-        return 'text-theme-warning bg-yellow-100';
+        return 'text-theme-warning bg-theme-warning/20';
       case 'PATCH':
-        return 'text-theme-warning bg-orange-100';
+        return 'text-theme-warning bg-theme-warning/20';
       case 'DELETE':
-        return 'text-theme-danger bg-red-100';
+        return 'text-theme-danger bg-theme-danger/20';
       default:
-        return 'text-theme-info bg-blue-100';
+        return 'text-theme-info bg-theme-info/20';
     }
   };
 

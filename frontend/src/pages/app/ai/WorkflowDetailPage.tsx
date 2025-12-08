@@ -306,7 +306,7 @@ export const WorkflowDetailPage: React.FC = () => {
       >
         <Card>
           <CardContent className="text-center py-8">
-            <AlertTriangle className="h-12 w-12 text-yellow-500 mx-auto mb-4" />
+            <AlertTriangle className="h-12 w-12 text-theme-warning mx-auto mb-4" />
             <h3 className="text-lg font-medium mb-2">Workflow Not Found</h3>
             <p className="text-theme-muted mb-4">
               The workflow you're looking for doesn't exist or you don't have permission to view it.
@@ -578,7 +578,7 @@ export const WorkflowDetailPage: React.FC = () => {
                         completed: 'bg-theme-success',
                         failed: 'bg-theme-danger',
                         running: 'bg-theme-info',
-                        initializing: 'bg-yellow-500',
+                        initializing: 'bg-theme-warning',
                         pending: 'bg-theme-surface0',
                         cancelled: 'bg-theme-surface0',
                         paused: 'bg-theme-warning',

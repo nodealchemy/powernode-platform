@@ -412,7 +412,7 @@ Position: (${node.position_x}, ${node.position_y})`;
             variant="ghost"
             size="sm"
             onClick={onClose}
-            className="p-2 h-8 w-8 hover:bg-red-100 hover:text-theme-danger transition-colors"
+            className="p-2 h-8 w-8 hover:bg-theme-danger/10 hover:text-theme-danger transition-colors"
             title="Close Node Assistant"
           >
             <X className="h-5 w-5" />

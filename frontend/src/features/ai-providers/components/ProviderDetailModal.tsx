@@ -384,7 +384,7 @@ export const ProviderDetailModal: React.FC<ProviderDetailModalProps> = ({
                   <p className="text-sm text-theme-muted">Priority</p>
                   <div className="flex items-center gap-1">
                     <p className="text-lg font-semibold text-theme-primary">#{provider.priority_order}</p>
-                    {provider.priority_order <= 3 && <Star className="h-4 w-4 text-yellow-500 fill-current" />}
+                    {provider.priority_order <= 3 && <Star className="h-4 w-4 text-theme-warning fill-current" />}
                   </div>
                 </div>
                 <Star className="h-5 w-5 text-theme-muted" />

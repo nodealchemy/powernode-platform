@@ -52,14 +52,14 @@ export const NodeStatusBadge: React.FC<{
       case 'waiting':
         return {
           icon: <Clock className="h-3 w-3" />,
-          color: 'bg-yellow-500',
+          color: 'bg-theme-warning',
           textColor: 'text-white',
           label: 'Waiting'
         };
       case 'skipped':
         return {
           icon: <AlertCircle className="h-3 w-3" />,
-          color: 'bg-gray-400',
+          color: 'bg-theme-muted',
           textColor: 'text-white',
           label: 'Skipped'
         };
@@ -67,7 +67,7 @@ export const NodeStatusBadge: React.FC<{
       default:
         return {
           icon: <Clock className="h-3 w-3" />,
-          color: 'bg-gray-300',
+          color: 'bg-theme-surface',
           textColor: 'text-theme-secondary',
           label: 'Pending'
         };

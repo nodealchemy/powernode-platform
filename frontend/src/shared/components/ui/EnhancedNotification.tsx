@@ -34,39 +34,26 @@ export const EnhancedNotification: React.FC<NotificationProps> = ({
   const getIcon = () => {
     switch (type) {
       case 'success':
-        return <CheckCircle className="h-5 w-5 text-theme-success" />;
+        return <CheckCircle className="h-5 w-5 toast-icon" />;
       case 'error':
-        return <XCircle className="h-5 w-5 text-theme-danger" />;
+        return <XCircle className="h-5 w-5 toast-icon" />;
       case 'warning':
-        return <AlertTriangle className="h-5 w-5 text-theme-warning" />;
+        return <AlertTriangle className="h-5 w-5 toast-icon" />;
       case 'info':
-        return <Info className="h-5 w-5 text-theme-info" />;
+        return <Info className="h-5 w-5 toast-icon" />;
     }
   };
 
-  const getBackgroundColor = () => {
+  const getToastClass = () => {
     switch (type) {
       case 'success':
-        return 'bg-green-50 border-green-200';
+        return 'toast-theme-success';
       case 'error':
-        return 'bg-red-50 border-red-200';
+        return 'toast-theme-error';
       case 'warning':
-        return 'bg-yellow-50 border-yellow-200';
+        return 'toast-theme-warning';
       case 'info':
-        return 'bg-blue-50 border-blue-200';
-    }
-  };
-
-  const getTextColor = () => {
-    switch (type) {
-      case 'success':
-        return 'text-green-800';
-      case 'error':
-        return 'text-red-800';
-      case 'warning':
-        return 'text-yellow-800';
-      case 'info':
-        return 'text-blue-800';
+        return 'toast-theme-info';
     }
   };
 
@@ -99,8 +86,8 @@ export const EnhancedNotification: React.FC<NotificationProps> = ({
   return (
     <div
       className={`
-        ${getBackgroundColor()}
-        border rounded-lg shadow-md transition-all duration-200
+        ${getToastClass()}
+        rounded-lg shadow-lg transition-all duration-200
         min-w-[320px] max-w-[600px] animate-fade-in
       `}
     >
@@ -110,7 +97,7 @@ export const EnhancedNotification: React.FC<NotificationProps> = ({
           <div className="flex items-start space-x-3 flex-1">
             {getIcon()}
             <div className="flex-1 min-w-0">
-              <p className={`text-sm font-medium ${getTextColor()} break-words`}>
+              <p className="text-sm font-medium break-words">
                 {message}
               </p>
             </div>
@@ -121,11 +108,7 @@ export const EnhancedNotification: React.FC<NotificationProps> = ({
             {/* Copy button */}
             <button
               onClick={copyToClipboard}
-              className={`
-                p-1.5 rounded-full transition-colors duration-150
-                hover:bg-black hover:bg-opacity-10
-                ${getTextColor()}
-              `}
+              className="p-1.5 rounded-full transition-colors duration-150 hover:bg-black/10 toast-icon"
               title="Copy notification"
             >
               {copied ? (
@@ -139,11 +122,7 @@ export const EnhancedNotification: React.FC<NotificationProps> = ({
             {hasDetails && (
               <button
                 onClick={() => setIsExpanded(!isExpanded)}
-                className={`
-                  p-1.5 rounded-full transition-colors duration-150
-                  hover:bg-black hover:bg-opacity-10
-                  ${getTextColor()}
-                `}
+                className="p-1.5 rounded-full transition-colors duration-150 hover:bg-black/10 toast-icon"
                 title={isExpanded ? 'Collapse details' : 'Expand details'}
               >
                 {isExpanded ? (
@@ -157,11 +136,7 @@ export const EnhancedNotification: React.FC<NotificationProps> = ({
             {/* Close button */}
             <button
               onClick={() => onRemove(id)}
-              className={`
-                p-1.5 rounded-full transition-colors duration-150
-                hover:bg-black hover:bg-opacity-10
-                ${getTextColor()}
-              `}
+              className="p-1.5 rounded-full transition-colors duration-150 hover:bg-black/10 toast-icon"
               title="Dismiss"
             >
               <X className="h-4 w-4" />
@@ -171,14 +146,14 @@ export const EnhancedNotification: React.FC<NotificationProps> = ({
 
         {/* Expanded details */}
         {hasDetails && isExpanded && (
-          <div className="mt-3 pt-3 border-t border-current border-opacity-20">
+          <div className="mt-3 pt-3 border-t border-current/20">
             <div className="space-y-2">
               {Object.entries(details!).map(([key, value]) => (
                 <div key={key} className="text-xs">
-                  <span className={`font-medium ${getTextColor()}`}>
+                  <span className="font-medium">
                     {key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1')}:
                   </span>
-                  <div className={`mt-1 ${getTextColor()} opacity-80 font-mono whitespace-pre-wrap break-all`}>
+                  <div className="mt-1 opacity-80 font-mono whitespace-pre-wrap break-all">
                     {formatDetailValue(value)}
                   </div>
                 </div>

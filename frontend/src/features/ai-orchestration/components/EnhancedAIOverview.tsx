@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useImperativeHandle, forwardRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Bot,
@@ -9,7 +9,6 @@ import {
   Settings,
   ArrowRight,
   Zap,
-  RefreshCw,
   Upload,
   Activity,
   CheckCircle,
@@ -23,6 +22,13 @@ import { Progress } from '@/shared/components/ui/Progress';
 import { Badge } from '@/shared/components/ui/Badge';
 import { RealTimeActivityFeed } from './RealTimeActivityFeed';
 import { useAIOrchestrationMonitor, resetAIOrchestrationMonitor } from '../services/aiOrchestrationMonitor';
+
+export interface EnhancedAIOverviewHandle {
+  refresh: () => void;
+  toggleLiveUpdates: () => void;
+  isLiveUpdateActive: boolean;
+  isRefreshing: boolean;
+}
 
 interface OverviewStats {
   providers: {
@@ -66,7 +72,7 @@ interface QuickAction {
   permission?: string;
 }
 
-export const EnhancedAIOverview: React.FC = () => {
+export const EnhancedAIOverview = forwardRef<EnhancedAIOverviewHandle>((_, ref) => {
   const navigate = useNavigate();
   // Notifications hook available for future use
   useNotifications();
@@ -74,8 +80,8 @@ export const EnhancedAIOverview: React.FC = () => {
 
   const [stats, setStats] = useState<OverviewStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [isLiveUpdateActive, setIsLiveUpdateActive] = useState(true);
   const [recentUpdates, setRecentUpdates] = useState<string[]>([]);
   const [, setHasConnectionAttempted] = useState(false);
@@ -142,7 +148,6 @@ export const EnhancedAIOverview: React.FC = () => {
           setTimeout(() => setRecentUpdates([]), 3000);
         }
 
-        setLastUpdated(new Date());
       }
     );
     return unsubscribe;
@@ -307,7 +312,6 @@ export const EnhancedAIOverview: React.FC = () => {
       };
 
       setStats(overviewStats);
-      setLastUpdated(new Date());
 
     } catch (error) {
       // More detailed error handling
@@ -354,10 +358,23 @@ export const EnhancedAIOverview: React.FC = () => {
     return () => clearInterval(updateInterval);
   }, [isLiveUpdateActive, isConnected, loadOverviewData]);
 
+  // Expose controls to parent via ref
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    await loadOverviewData();
+    setIsRefreshing(false);
+  }, [loadOverviewData]);
 
   const toggleLiveUpdates = useCallback(() => {
     setIsLiveUpdateActive(prev => !prev);
   }, []);
+
+  useImperativeHandle(ref, () => ({
+    refresh: handleRefresh,
+    toggleLiveUpdates,
+    isLiveUpdateActive,
+    isRefreshing
+  }), [handleRefresh, toggleLiveUpdates, isLiveUpdateActive, isRefreshing]);
 
   const quickActions: QuickAction[] = useMemo(() => [
     {
@@ -465,72 +482,6 @@ export const EnhancedAIOverview: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header with Live Update Controls */}
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="flex items-center gap-3">
-            <h2 className="text-lg font-semibold text-theme-primary">AI System Overview</h2>
-            <div className="flex items-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${
-                isConnected() && isLiveUpdateActive
-                  ? 'bg-theme-success animate-pulse'
-                  : isLiveUpdateActive
-                    ? 'bg-theme-warning'
-                    : 'bg-theme-muted'
-              }`} />
-              <span className="text-xs text-theme-secondary">
-                {isConnected() && isLiveUpdateActive
-                  ? 'Live Updates'
-                  : isLiveUpdateActive
-                    ? 'Fallback Mode'
-                    : 'Updates Paused'
-                }
-              </span>
-              {recentUpdates.length > 0 && (
-                <Badge variant="success" size="sm" className="animate-pulse">
-                  {recentUpdates.length} Updated
-                </Badge>
-              )}
-            </div>
-          </div>
-          {lastUpdated && (
-            <p className="text-sm text-theme-secondary">
-              Last updated: {lastUpdated.toLocaleTimeString()}
-            </p>
-          )}
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            onClick={toggleLiveUpdates}
-            className={`btn-theme btn-theme-sm ${
-              isLiveUpdateActive ? 'btn-theme-primary' : 'btn-theme-outline'
-            }`}
-            title={isLiveUpdateActive ? 'Pause live updates' : 'Resume live updates'}
-          >
-            {isLiveUpdateActive ? (
-              <>
-                <div className="w-2 h-2 bg-current rounded-full animate-pulse mr-1" />
-                Live
-              </>
-            ) : (
-              <>
-                <div className="w-2 h-2 bg-current rounded-full mr-1" />
-                Paused
-              </>
-            )}
-          </button>
-          <button
-            onClick={() => loadOverviewData()}
-            disabled={loading}
-            className="btn-theme btn-theme-sm btn-theme-outline"
-            title="Manually refresh data"
-          >
-            <RefreshCw className={`h-3 w-3 mr-1 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
-        </div>
-      </div>
 
       {/* Enhanced Statistics Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -689,4 +640,6 @@ export const EnhancedAIOverview: React.FC = () => {
       </div>
     </div>
   );
-};
+});
+
+EnhancedAIOverview.displayName = 'EnhancedAIOverview';

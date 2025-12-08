@@ -302,7 +302,7 @@ export const CreateAppModal: React.FC<CreateAppModalProps> = ({
                       type="button"
                       onClick={() => removeTag(tag)}
                       disabled={submitting}
-                      className="text-white hover:text-gray-200 ml-1"
+                      className="text-white hover:opacity-80 ml-1"
                     >
                       <X className="w-3 h-3" />
                     </button>

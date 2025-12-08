@@ -25,7 +25,7 @@ export function KbFeaturedArticles({ articles }: KbFeaturedArticlesProps) {
         className="block bg-gradient-to-br from-theme-primary/5 to-theme-secondary/5 rounded-lg border border-theme-primary/20 p-6 hover:border-theme-primary/30 hover:shadow-lg transition-all"
       >
         <div className="flex items-start gap-4">
-          <StarIconSolid className="h-6 w-6 text-yellow-500 flex-shrink-0 mt-1" />
+          <StarIconSolid className="h-6 w-6 text-theme-warning flex-shrink-0 mt-1" />
           <div className="flex-1">
             <div className="flex items-start justify-between gap-4 mb-3">
               <h2 className="text-xl font-bold text-theme-primary line-clamp-2 leading-tight">
@@ -76,7 +76,7 @@ export function KbFeaturedArticles({ articles }: KbFeaturedArticlesProps) {
             >
               <div className="space-y-3">
                 <div className="flex items-start gap-3">
-                  <StarIconSolid className="h-4 w-4 text-yellow-500 flex-shrink-0 mt-1" />
+                  <StarIconSolid className="h-4 w-4 text-theme-warning flex-shrink-0 mt-1" />
                   <h3 className="font-semibold text-theme-primary line-clamp-2 leading-tight">
                     {article.title}
                   </h3>

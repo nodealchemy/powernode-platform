@@ -51,7 +51,7 @@ const CATEGORY_GROUPS: CategoryGroup[] = [
     name: 'Analytics',
     categories: [],
     icon: '📊',
-    color: 'bg-indigo-500'
+    color: 'bg-theme-info'
   },
   {
     name: 'Security',

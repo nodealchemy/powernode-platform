@@ -272,9 +272,9 @@ function getTypeColor(type: string): string {
     case 'boolean':
       return 'bg-theme-warning/10 text-theme-warning';
     case 'array':
-      return 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400';
+      return 'bg-theme-interactive-primary/20 text-theme-interactive-primary';
     case 'object':
-      return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400';
+      return 'bg-theme-warning/20 text-theme-warning';
     default:
       return 'bg-theme-hover text-theme-secondary';
   }

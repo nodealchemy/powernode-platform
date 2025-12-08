@@ -54,15 +54,15 @@ export const ConditionalEdge = ({
     if (edgeData.edgeType) {
       switch (edgeData.edgeType) {
         case 'success':
-          return 'bg-theme-success border-green-600 text-white';
+          return 'bg-theme-success border-theme-success text-white';
         case 'error':
-          return 'bg-theme-danger border-red-600 text-white';
+          return 'bg-theme-danger border-theme-danger text-white';
         case 'conditional':
         default:
-          return 'bg-theme-info border-blue-600 text-white';
+          return 'bg-theme-info border-theme-info text-white';
       }
     }
-    return 'bg-theme-info border-blue-600 text-white';
+    return 'bg-theme-info border-theme-info text-white';
   };
 
   return (

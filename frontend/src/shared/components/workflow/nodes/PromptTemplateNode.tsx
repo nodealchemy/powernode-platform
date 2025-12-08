@@ -24,15 +24,15 @@ export const PromptTemplateNode: React.FC<NodeProps<any>> = ({
   const getTemplateColor = () => {
     switch (data.configuration?.templateType) {
       case 'conversation':
-        return 'text-theme-info bg-blue-100';
+        return 'text-theme-info bg-theme-info/20';
       case 'code':
-        return 'text-theme-success bg-green-100';
+        return 'text-theme-success bg-theme-success/20';
       case 'analysis':
-        return 'text-theme-interactive-primary bg-purple-100';
+        return 'text-theme-interactive-primary bg-theme-interactive-primary/20';
       case 'creative':
-        return 'text-pink-600 bg-pink-100';
+        return 'text-theme-interactive-primary bg-theme-interactive-primary/20';
       default:
-        return 'text-amber-600 bg-amber-100';
+        return 'text-theme-warning bg-theme-warning/20';
     }
   };
 

@@ -24,15 +24,15 @@ export const SchedulerNode: React.FC<NodeProps<any>> = ({
   const getScheduleColor = () => {
     switch (data.configuration?.scheduleType) {
       case 'cron':
-        return 'text-theme-info bg-blue-100';
+        return 'text-theme-info bg-theme-info/20';
       case 'interval':
-        return 'text-theme-success bg-green-100';
+        return 'text-theme-success bg-theme-success/20';
       case 'once':
-        return 'text-theme-warning bg-orange-100';
+        return 'text-theme-warning bg-theme-warning/20';
       case 'manual':
-        return 'text-theme-interactive-primary bg-purple-100';
+        return 'text-theme-interactive-primary bg-theme-interactive-primary/20';
       default:
-        return 'text-cyan-600 bg-cyan-100';
+        return 'text-theme-info bg-theme-info/20';
     }
   };
 

@@ -454,7 +454,7 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
               isUser
                 ? 'bg-theme-info text-white rounded-br-md ml-auto'
                 : hasError
-                ? 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-theme-danger dark:text-red-300 rounded-bl-md'
+                ? 'bg-theme-danger/10 dark:bg-theme-danger/20 border border-theme-danger/30 dark:border-theme-danger/50 text-theme-danger dark:text-theme-danger rounded-bl-md'
                 : 'bg-theme-surface border border-theme text-theme-primary rounded-bl-md'
             }`}
           >
@@ -482,14 +482,14 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
                         li: ({ children }) => <li className="mb-1">{children}</li>,
                         // Code blocks
                         pre: ({ children }) => (
-                          <pre className="bg-theme-surface dark:bg-theme-surface p-4 rounded-lg overflow-x-auto mb-4 text-sm text-theme-primary dark:text-gray-100">
+                          <pre className="bg-theme-surface dark:bg-theme-surface p-4 rounded-lg overflow-x-auto mb-4 text-sm text-theme-primary dark:text-theme-primary">
                             {children}
                           </pre>
                         ),
                         code: ({ className, children }) => {
                           const isInline = !className?.startsWith('language-');
                           return isInline ? (
-                            <code className="bg-theme-surface dark:bg-theme-surface px-1.5 py-0.5 rounded text-sm font-mono text-theme-primary dark:text-gray-100">
+                            <code className="bg-theme-surface dark:bg-theme-surface px-1.5 py-0.5 rounded text-sm font-mono text-theme-primary dark:text-theme-primary">
                               {children}
                             </code>
                           ) : (
@@ -502,19 +502,19 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
                             href={href}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-theme-info hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 underline"
+                            className="text-theme-info hover:text-theme-info/80 underline"
                           >
                             {children}
                           </a>
                         ),
                         // Blockquotes
                         blockquote: ({ children }) => (
-                          <blockquote className="border-l-4 border-theme dark:border-gray-600 pl-4 italic mb-4">
+                          <blockquote className="border-l-4 border-theme dark:border-theme pl-4 italic mb-4">
                             {children}
                           </blockquote>
                         ),
                         // Horizontal rules
-                        hr: () => <hr className="border-t border-theme dark:border-gray-600 my-4" />,
+                        hr: () => <hr className="border-t border-theme dark:border-theme my-4" />,
                         // Tables
                         table: ({ children }) => (
                           <div className="overflow-x-auto mb-4">
@@ -524,12 +524,12 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
                           </div>
                         ),
                         th: ({ children }) => (
-                          <th className="px-3 py-2 text-left text-xs font-medium text-theme-secondary dark:text-gray-300 uppercase tracking-wider">
+                          <th className="px-3 py-2 text-left text-xs font-medium text-theme-secondary dark:text-theme-secondary uppercase tracking-wider">
                             {children}
                           </th>
                         ),
                         td: ({ children }) => (
-                          <td className="px-3 py-2 text-sm text-theme-primary dark:text-gray-100">
+                          <td className="px-3 py-2 text-sm text-theme-primary dark:text-theme-primary">
                             {children}
                           </td>
                         ),
@@ -550,7 +550,7 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
             )}
 
             {hasError && (
-              <div className="flex items-center gap-2 mt-2 p-2 bg-red-50 rounded border border-red-200">
+              <div className="flex items-center gap-2 mt-2 p-2 bg-theme-danger/10 rounded border border-theme-danger/30">
                 <AlertCircle className="h-4 w-4 text-theme-danger flex-shrink-0" />
                 <span className="text-xs text-theme-danger">
                   {message.metadata.error_message || 'An error occurred'}
@@ -588,7 +588,7 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
                   variant="ghost"
                   size="xs"
                   onClick={() => handleRateMessage(message.id, 'thumbs_up')}
-                  className="h-7 w-7 p-0 hover:bg-green-50 hover:text-theme-success dark:hover:bg-green-900/20 rounded-full transition-all duration-200"
+                  className="h-7 w-7 p-0 hover:bg-theme-success/10 hover:text-theme-success dark:hover:bg-theme-success/20 rounded-full transition-all duration-200"
                   title="Good response"
                 >
                   <ThumbsUp className="h-3.5 w-3.5" />
@@ -598,7 +598,7 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
                   variant="ghost"
                   size="xs"
                   onClick={() => handleRateMessage(message.id, 'thumbs_down')}
-                  className="h-7 w-7 p-0 hover:bg-red-50 hover:text-theme-danger dark:hover:bg-red-900/20 rounded-full transition-all duration-200"
+                  className="h-7 w-7 p-0 hover:bg-theme-danger/10 hover:text-theme-danger dark:hover:bg-theme-danger/20 rounded-full transition-all duration-200"
                   title="Poor response"
                 >
                   <ThumbsDown className="h-3.5 w-3.5" />
@@ -731,7 +731,7 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
               placeholder="Type your message... (Press Enter to send, Shift+Enter for new line)"
-              className="w-full min-h-[40px] max-h-[120px] px-3 py-2 border border-theme/40 rounded-lg resize-none bg-white/90 backdrop-blur-sm text-theme-primary placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary focus:bg-white disabled:bg-theme-surface disabled:text-gray-400 transition-all duration-200"
+              className="w-full min-h-[40px] max-h-[120px] px-3 py-2 border border-theme/40 rounded-lg resize-none bg-white/90 backdrop-blur-sm text-theme-primary placeholder-theme-muted focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary focus:bg-white disabled:bg-theme-surface disabled:text-theme-muted transition-all duration-200"
               disabled={sending}
             />
           </div>

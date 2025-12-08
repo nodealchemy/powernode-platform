@@ -89,8 +89,8 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
           ${fontSize === 'lg' ? 'text-4xl md:text-5xl' : fontSize === 'sm' ? 'text-2xl md:text-3xl' : 'text-3xl md:text-4xl'}
           font-bold mb-8 mt-12 first:mt-0 
           ${lineHeight === 'tight' ? 'leading-tight' : lineHeight === 'relaxed' ? 'leading-relaxed' : 'leading-normal'}
-          ${isPublic 
-            ? 'bg-gradient-to-r from-blue-900 via-blue-600 to-blue-900 dark:from-blue-100 dark:via-blue-200 dark:to-blue-100 bg-clip-text text-transparent'
+          ${isPublic
+            ? 'text-white'
             : 'text-theme-primary'
           }
           transition-all duration-300 ease-out
@@ -106,7 +106,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
           ${fontSize === 'lg' ? 'text-3xl md:text-4xl' : fontSize === 'sm' ? 'text-xl md:text-2xl' : 'text-2xl md:text-3xl'}
           font-bold mb-6 mt-10 first:mt-0
           ${lineHeight === 'tight' ? 'leading-tight' : lineHeight === 'relaxed' ? 'leading-relaxed' : 'leading-normal'}
-          ${isPublic ? 'text-slate-100 dark:text-slate-100' : 'text-theme-primary'}
+          ${isPublic ? 'text-white' : 'text-theme-primary'}
           relative transition-all duration-300 ease-out
           scroll-margin-top-16
           ${enableReadingMode ? 'max-w-4xl' : ''}
@@ -121,7 +121,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
           ${fontSize === 'lg' ? 'text-2xl md:text-3xl' : fontSize === 'sm' ? 'text-lg md:text-xl' : 'text-xl md:text-2xl'}
           font-semibold mb-4 mt-8 first:mt-0
           ${lineHeight === 'tight' ? 'leading-tight' : lineHeight === 'relaxed' ? 'leading-relaxed' : 'leading-normal'}
-          ${isPublic ? 'text-slate-100 dark:text-slate-100' : 'text-theme-primary'}
+          ${isPublic ? 'text-white' : 'text-theme-primary'}
           relative transition-all duration-300 ease-out
           scroll-margin-top-16
           ${enableReadingMode ? 'max-w-4xl' : ''}
@@ -134,7 +134,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
       h4: ({ children }) => (
         <h4 className={`
           text-lg md:text-xl font-semibold mb-2 mt-5 first:mt-0 leading-tight
-          ${isPublic ? 'text-slate-100 dark:text-slate-100' : 'text-theme-primary'}
+          ${isPublic ? 'text-white' : 'text-theme-primary'}
           transition-all duration-300 ease-out
         `}>
           {children}
@@ -144,7 +144,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
       h5: ({ children }) => (
         <h5 className={`
           text-base md:text-lg font-semibold mb-2 mt-4 first:mt-0 leading-tight
-          ${isPublic ? 'text-slate-100 dark:text-slate-100' : 'text-theme-primary'}
+          ${isPublic ? 'text-white' : 'text-theme-primary'}
           transition-all duration-300 ease-out
         `}>
           {children}
@@ -154,7 +154,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
       h6: ({ children }) => (
         <h6 className={`
           text-sm md:text-base font-medium mb-2 mt-3 first:mt-0 leading-tight
-          ${isPublic ? 'text-slate-200 dark:text-slate-200' : 'text-theme-secondary'}
+          ${isPublic ? 'text-white/90' : 'text-theme-secondary'}
           uppercase tracking-wide transition-all duration-300 ease-out
         `}>
           {children}
@@ -165,7 +165,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
       p: ({ children }) => (
         <p className={`
           ${fontSize === 'lg' ? 'text-lg md:text-xl' : fontSize === 'sm' ? 'text-sm md:text-base' : 'text-base md:text-lg'}
-          ${isPublic ? 'text-slate-100 dark:text-slate-100' : 'text-theme-primary'}
+          ${isPublic ? 'text-white' : 'text-theme-primary'}
           mb-6 transition-all duration-300 ease-out
           ${lineHeight === 'tight' ? 'leading-snug' : lineHeight === 'relaxed' ? 'leading-relaxed' : 'leading-normal'}
           ${enableReadingMode ? 'max-w-prose' : ''}
@@ -179,7 +179,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
       ul: ({ children }) => (
         <ul className={`
           list-disc list-outside ml-6 mb-6 space-y-2
-          ${isPublic ? 'text-slate-100 dark:text-slate-100' : 'text-theme-primary'}
+          ${isPublic ? 'text-white' : 'text-theme-primary'}
           ${enableReadingMode ? 'max-w-prose' : ''}
           ${fontSize === 'lg' ? 'text-lg' : fontSize === 'sm' ? 'text-sm' : 'text-base'}
         `}>
@@ -190,7 +190,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
       ol: ({ children }) => (
         <ol className={`
           list-decimal list-inside mb-6 space-y-3
-          ${isPublic ? 'text-slate-100 dark:text-slate-100' : 'text-theme-primary'}
+          ${isPublic ? 'text-white' : 'text-theme-primary'}
           ${enableReadingMode ? 'max-w-prose' : ''}
           ${fontSize === 'lg' ? 'text-lg' : fontSize === 'sm' ? 'text-sm' : 'text-base'}
         `}>
@@ -201,7 +201,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
       li: ({ children }) => (
         <li className={`
           ${lineHeight === 'tight' ? 'leading-snug' : lineHeight === 'relaxed' ? 'leading-relaxed' : 'leading-normal'}
-          mb-1 ${isPublic ? 'text-slate-100 dark:text-slate-100' : 'text-theme-primary'} transition-all duration-200 ease-out hover:translate-x-1
+          mb-1 ${isPublic ? 'text-white' : 'text-theme-primary'} transition-all duration-200 ease-out hover:translate-x-1
         `}>
           {children}
         </li>
@@ -210,17 +210,17 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
       // Glassmorphism blockquotes
       blockquote: ({ children }) => (
         <blockquote className={`
-          relative border-l-4 ${isPublic ? 'border-blue-400' : 'border-theme-link'}
+          relative border-l-4 ${isPublic ? 'border-theme-info' : 'border-theme-link'}
           pl-6 pr-6 py-4 my-6 italic
           backdrop-blur-lg rounded-r-xl
-          ${isPublic ? 'bg-white/10 dark:bg-slate-800/50' : 'bg-theme-surface/80'}
-          shadow-lg ${isPublic ? 'shadow-blue-400/10' : 'shadow-theme-link/10'}
-          transition-all duration-300 ease-out hover:shadow-xl ${isPublic ? 'hover:shadow-blue-400/20' : 'hover:shadow-theme-link/20'}
-          before:absolute before:inset-0 before:-z-10 before:rounded-r-xl 
-          before:bg-gradient-to-r before:from-white/20 before:to-transparent 
+          ${isPublic ? 'bg-white/10' : 'bg-theme-surface/80'}
+          shadow-lg ${isPublic ? 'shadow-theme-info/10' : 'shadow-theme-link/10'}
+          transition-all duration-300 ease-out hover:shadow-xl ${isPublic ? 'hover:shadow-theme-info/20' : 'hover:shadow-theme-link/20'}
+          before:absolute before:inset-0 before:-z-10 before:rounded-r-xl
+          before:bg-gradient-to-r before:from-white/20 before:to-transparent
           before:backdrop-blur-sm dark:before:from-white/5
         `}>
-          <div className={`${isPublic ? 'text-slate-100 dark:text-slate-100' : 'text-theme-primary'}`}>
+          <div className={`${isPublic ? 'text-white' : 'text-theme-primary'}`}>
             {children}
           </div>
         </blockquote>
@@ -233,7 +233,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
           return (
             <code className={`
               px-2 py-1 rounded-lg text-sm font-mono
-              ${isPublic ? 'bg-white/20 text-slate-100 border-white/30' : 'bg-theme-surface text-theme-primary border border-theme'}
+              ${isPublic ? 'bg-white/20 text-white border-white/30' : 'bg-theme-surface text-theme-primary border border-theme'}
               transition-all duration-200 ease-out hover:scale-105
             `}>
               {children}
@@ -253,7 +253,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
           {/* Terminal-style dots */}
           <div className="flex items-center space-x-2 px-4 py-2 bg-theme-background-secondary rounded-t-xl border-b border-theme">
             <div className="w-3 h-3 bg-theme-danger rounded-full opacity-80"></div>
-            <div className="w-3 h-3 bg-yellow-500 rounded-full opacity-80"></div>
+            <div className="w-3 h-3 bg-theme-warning rounded-full opacity-80"></div>
             <div className="w-3 h-3 bg-theme-success rounded-full opacity-80"></div>
           </div>
           <pre className={`
@@ -274,14 +274,14 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
         <a
           href={href}
           className={`
-            ${isPublic 
-              ? 'text-blue-300 hover:text-blue-200 dark:text-blue-300 dark:hover:text-blue-200' 
+            ${isPublic
+              ? 'text-theme-info hover:opacity-80'
               : 'text-theme-link hover:text-theme-link-hover'
             }
-            underline decoration-2 underline-offset-2 
+            underline decoration-2 underline-offset-2
             transition-all duration-200 ease-out
             hover:decoration-4 hover:underline-offset-4
-            focus:outline-none focus:ring-2 ${isPublic ? 'focus:ring-blue-400/50' : 'focus:ring-theme-link/50'} focus:rounded
+            focus:outline-none focus:ring-2 ${isPublic ? 'focus:ring-theme-info/50' : 'focus:ring-theme-link/50'} focus:rounded
           `}
           target={href?.startsWith('http') ? '_blank' : undefined}
           rel={href?.startsWith('http') ? 'noopener noreferrer' : undefined}
@@ -292,13 +292,13 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
 
       // Enhanced text formatting
       strong: ({ children }) => (
-        <strong className={`font-semibold ${isPublic ? 'text-slate-50 dark:text-slate-50' : 'text-theme-primary'}`}>
+        <strong className={`font-semibold ${isPublic ? 'text-white' : 'text-theme-primary'}`}>
           {children}
         </strong>
       ),
 
       em: ({ children }) => (
-        <em className={`italic ${isPublic ? 'text-slate-100 dark:text-slate-100' : 'text-theme-primary'}`}>
+        <em className={`italic ${isPublic ? 'text-white' : 'text-theme-primary'}`}>
           {children}
         </em>
       ),
@@ -338,8 +338,8 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
       th: ({ children }) => (
         <th className={`
           px-5 py-4 text-left font-semibold text-sm
-          bg-gradient-to-br from-blue-50/80 to-blue-100/60
-          dark:from-blue-900/20 dark:to-blue-800/30
+          bg-gradient-to-br from-theme-info/10 to-theme-info/20
+          dark:from-theme-info/20 dark:to-theme-info/30
           text-theme-primary border-b-2 border-theme-info/20
           border-r border-theme/30 last:border-r-0
           uppercase tracking-wide letter-spacing-wide
@@ -359,7 +359,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
           px-5 py-4 text-theme-primary text-sm leading-relaxed
           border-b border-theme/30 border-r border-theme/20 last:border-r-0
           transition-all duration-200 ease-out
-          hover:bg-blue-50/30 dark:hover:bg-blue-900/10
+          hover:bg-theme-info/10 dark:hover:bg-theme-info/10
           relative
         `}>
           {children}

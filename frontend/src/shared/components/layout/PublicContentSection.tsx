@@ -34,9 +34,9 @@ export const PublicContentSection: React.FC<PublicContentSectionProps> = ({
                     <div className="flex items-center gap-2">
                       <span className="label">Status:</span>
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        metaData.status === 'published' 
-                          ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400' 
-                          : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400'
+                        metaData.status === 'published'
+                          ? 'bg-theme-success/20 text-theme-success'
+                          : 'bg-theme-warning/20 text-theme-warning'
                       }`}>
                         {metaData.status.charAt(0).toUpperCase() + metaData.status.slice(1)}
                       </span>

@@ -274,7 +274,7 @@ const MyFilesPage: React.FC = () => {
                   <select
                     value={selectedStorageId}
                     onChange={(e) => setSelectedStorageId(e.target.value)}
-                    className="w-full px-4 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-info"
                   >
                     {storageProviders.map((provider) => (
                       <option key={provider.id} value={provider.id}>
@@ -316,7 +316,7 @@ const MyFilesPage: React.FC = () => {
                 placeholder="Search files..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary placeholder-theme-secondary focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full pl-10 pr-4 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary placeholder-theme-secondary focus:outline-none focus:ring-2 focus:ring-theme-info"
               />
             </div>
           </div>
@@ -325,7 +325,7 @@ const MyFilesPage: React.FC = () => {
           <select
             value={filterCategory}
             onChange={(e) => setFilterCategory(e.target.value)}
-            className="px-4 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-4 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-info"
           >
             <option value="">All Categories</option>
             <option value="user_upload">User Upload</option>
@@ -338,7 +338,7 @@ const MyFilesPage: React.FC = () => {
           <select
             value={filterVisibility}
             onChange={(e) => setFilterVisibility(e.target.value)}
-            className="px-4 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-4 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-info"
           >
             <option value="">All Visibility</option>
             <option value="private">Private</option>
@@ -351,7 +351,7 @@ const MyFilesPage: React.FC = () => {
             <select
               value={selectedStorageId}
               onChange={(e) => setSelectedStorageId(e.target.value)}
-              className="px-4 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-4 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-info"
             >
               <option value="">All Storage</option>
               {storageProviders.map((provider) => (
@@ -365,7 +365,7 @@ const MyFilesPage: React.FC = () => {
 
         {/* Bulk Actions */}
         {selectedFiles.size > 0 && (
-          <div className="flex items-center gap-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+          <div className="flex items-center gap-4 p-4 bg-theme-info/10 dark:bg-theme-info/20 border border-theme-info/30 dark:border-theme-info/50 rounded-lg">
             <span className="text-sm text-theme-primary">
               {selectedFiles.size} file{selectedFiles.size > 1 ? 's' : ''} selected
             </span>
@@ -380,7 +380,7 @@ const MyFilesPage: React.FC = () => {
               {canDelete && (
                 <button
                   onClick={handleBulkDelete}
-                  className="px-3 py-1.5 text-sm bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-theme-danger dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors flex items-center gap-2"
+                  className="px-3 py-1.5 text-sm bg-theme-danger/10 dark:bg-theme-danger/20 border border-theme-danger/30 dark:border-theme-danger/50 rounded-lg text-theme-danger hover:bg-theme-danger/20 dark:hover:bg-theme-danger/30 transition-colors flex items-center gap-2"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                   Delete
@@ -413,7 +413,7 @@ const MyFilesPage: React.FC = () => {
             {canUpload && !searchQuery && !filterCategory && !filterVisibility && (
               <button
                 onClick={() => setShowUploadModal(true)}
-                className="mt-4 px-4 py-2 bg-theme-info text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 mx-auto"
+                className="mt-4 px-4 py-2 bg-theme-info text-white rounded-lg hover:opacity-90 transition-colors flex items-center gap-2 mx-auto"
               >
                 <Upload className="h-4 w-4" />
                 Upload your first file
@@ -470,9 +470,9 @@ const MyFilesPage: React.FC = () => {
         {fileStats && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Storage Usage */}
-            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+            <div className="bg-theme-info/10 dark:bg-theme-info/20 border border-theme-info/30 dark:border-theme-info/50 rounded-lg p-4">
               <div className="flex items-center gap-2 mb-2">
-                <Database className="h-5 w-5 text-theme-info dark:text-blue-400" />
+                <Database className="h-5 w-5 text-theme-info" />
                 <span className="text-sm font-medium text-theme-primary">
                   Storage Used
                 </span>
@@ -498,9 +498,9 @@ const MyFilesPage: React.FC = () => {
             </div>
 
             {/* File Count */}
-            <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+            <div className="bg-theme-success/10 dark:bg-theme-success/20 border border-theme-success/30 dark:border-theme-success/50 rounded-lg p-4">
               <div className="flex items-center gap-2 mb-2">
-                <HardDrive className="h-5 w-5 text-theme-success dark:text-green-400" />
+                <HardDrive className="h-5 w-5 text-theme-success" />
                 <span className="text-sm font-medium text-theme-primary">
                   Total Files
                 </span>

@@ -17,8 +17,8 @@ export const PageCreateNode: React.FC<NodeProps<any>> = ({
 
   const getStatusColor = () => {
     return data.configuration?.status === 'published'
-      ? 'text-theme-success bg-green-100'
-      : 'text-theme-info bg-blue-100';
+      ? 'text-theme-success bg-theme-success/20'
+      : 'text-theme-info bg-theme-info/20';
   };
 
   const hasConfiguration = data.configuration?.title;

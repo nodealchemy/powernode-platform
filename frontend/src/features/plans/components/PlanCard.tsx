@@ -375,9 +375,9 @@ export const PlanCard: React.FC<PlanCardProps> = ({
             {(showAllFeatures ? features : features.slice(0, 5)).map((feature, featureIndex) => (
               <li key={featureIndex} className="flex items-start gap-3 text-sm group transition-all duration-200">
                 <div className={`flex items-center justify-center w-4 h-4 rounded-full flex-shrink-0 mt-0.5 transition-all duration-200 ${
-                  isSelected 
-                    ? 'bg-blue-100 group-hover:bg-blue-200' 
-                    : 'bg-green-100 group-hover:bg-green-200'
+                  isSelected
+                    ? 'bg-theme-info/20 group-hover:bg-theme-info/30'
+                    : 'bg-theme-success/20 group-hover:bg-theme-success/30'
                 }`}>
                   <CheckIcon 
                     className="w-2.5 h-2.5"
@@ -399,14 +399,14 @@ export const PlanCard: React.FC<PlanCardProps> = ({
           
           {/* Show All Features when expanded */}
           {showAllFeatures && features.length > 5 && (
-            <div className="mt-2 pt-2 border-t border-gray-100">
+            <div className="mt-2 pt-2 border-t border-theme">
               <ul className="space-y-1.5">
                 {features.slice(5).map((feature, featureIndex) => (
                   <li key={featureIndex + 5} className="flex items-start gap-3 text-sm group transition-all duration-200">
                     <div className={`flex items-center justify-center w-4 h-4 rounded-full flex-shrink-0 mt-0.5 transition-all duration-200 ${
-                      isSelected 
-                        ? 'bg-blue-100 group-hover:bg-blue-200' 
-                        : 'bg-green-100 group-hover:bg-green-200'
+                      isSelected
+                        ? 'bg-theme-info/20 group-hover:bg-theme-info/30'
+                        : 'bg-theme-success/20 group-hover:bg-theme-success/30'
                     }`}>
                       <CheckIcon 
                         className="w-2.5 h-2.5"
@@ -430,7 +430,7 @@ export const PlanCard: React.FC<PlanCardProps> = ({
           
           {/* Expandable Toggle - Fixed positioning */}
           {features.length > 5 && (
-            <div className="mt-3 pt-2 border-t border-gray-50">
+            <div className="mt-3 pt-2 border-t border-theme/50">
               <button
                 onClick={(e) => {
                   e.stopPropagation();

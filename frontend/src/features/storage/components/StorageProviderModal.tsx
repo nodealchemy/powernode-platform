@@ -290,7 +290,7 @@ export const StorageProviderModal: React.FC<StorageProviderModalProps> = ({
                 onChange={(e) => handleConfigChange('credentials_json', e.target.value)}
                 required
                 rows={4}
-                className="w-full px-3 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-xs"
+                className="w-full px-3 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-info font-mono text-xs"
                 placeholder='{"type":"service_account","project_id":"..."}'
               />
             </div>
@@ -418,7 +418,7 @@ export const StorageProviderModal: React.FC<StorageProviderModalProps> = ({
           <button
             type="submit"
             disabled={saving}
-            className="px-4 py-2 text-sm bg-theme-info text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+            className="px-4 py-2 text-sm bg-theme-info text-white rounded-lg hover:opacity-90 transition-colors disabled:opacity-50 flex items-center gap-2"
           >
             {saving ? (
               <>

@@ -52,6 +52,17 @@ export interface WebhookDelivery {
   };
 }
 
+export interface FailedDelivery extends WebhookDelivery {
+  webhook_endpoint: {
+    id: string;
+    url: string;
+    description?: string;
+    status: 'active' | 'inactive';
+  };
+  payload_preview?: string;
+  last_response_body?: string;
+}
+
 export interface WebhookStats {
   total_endpoints: number;
   active_endpoints: number;
@@ -328,7 +339,7 @@ export const webhooksApi = {
     }
   },
 
-  // Retry failed deliveries
+  // Retry failed deliveries (bulk)
   async retryFailed(): Promise<{ success: boolean; data?: { retry_count: number; total_failed: number }; message?: string; error?: string }> {
     try {
       const response = await api.post('/webhooks/retry_failed');
@@ -338,6 +349,81 @@ export const webhooksApi = {
       const errorMessage = error && typeof error === 'object' && 'response' in error
         ? (error as { response?: { data?: { error?: string } } }).response?.data?.error || 'Failed to retry failed webhooks'
         : 'Failed to retry failed webhooks';
+      return {
+        success: false,
+        error: errorMessage
+      };
+    }
+  },
+
+  // Get failed deliveries with filtering and pagination
+  async getFailedDeliveries(params?: {
+    page?: number;
+    per_page?: number;
+    webhook_id?: string;
+    status?: 'failed' | 'max_retries_reached';
+    event_type?: string;
+    date_from?: string;
+    date_to?: string;
+  }): Promise<{
+    success: boolean;
+    data?: {
+      deliveries: FailedDelivery[];
+      pagination: {
+        current_page: number;
+        per_page: number;
+        total_pages: number;
+        total_count: number;
+      };
+      summary: {
+        total_failed: number;
+        failed_today: number;
+        max_retries_reached: number;
+        unique_endpoints_affected: number;
+        oldest_failure?: string;
+      };
+    };
+    error?: string;
+  }> {
+    try {
+      const urlParams = new URLSearchParams();
+      if (params?.page) urlParams.append('page', params.page.toString());
+      if (params?.per_page) urlParams.append('per_page', params.per_page.toString());
+      if (params?.webhook_id) urlParams.append('webhook_id', params.webhook_id);
+      if (params?.status) urlParams.append('status', params.status);
+      if (params?.event_type) urlParams.append('event_type', params.event_type);
+      if (params?.date_from) urlParams.append('date_from', params.date_from);
+      if (params?.date_to) urlParams.append('date_to', params.date_to);
+
+      const response = await api.get(`/webhooks/failed_deliveries?${urlParams}`);
+      return response.data;
+    } catch (error: unknown) {
+      const errorMessage = error && typeof error === 'object' && 'response' in error
+        ? (error as { response?: { data?: { error?: string } } }).response?.data?.error || 'Failed to fetch failed deliveries'
+        : 'Failed to fetch failed deliveries';
+      return {
+        success: false,
+        error: errorMessage
+      };
+    }
+  },
+
+  // Retry a single failed delivery
+  async retryDelivery(webhookId: string, deliveryId: string): Promise<{
+    success: boolean;
+    data?: {
+      delivery: WebhookDelivery;
+      message: string;
+    };
+    error?: string;
+  }> {
+    try {
+      const response = await api.post(`/webhooks/${webhookId}/deliveries/${deliveryId}/retry`);
+      return response.data;
+    } catch (error: unknown) {
+      const errorMessage = error && typeof error === 'object' && 'response' in error
+        ? (error as { response?: { data?: { error?: string } } }).response?.data?.error || 'Failed to retry delivery'
+        : 'Failed to retry delivery';
       return {
         success: false,
         error: errorMessage

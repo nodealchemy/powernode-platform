@@ -35,9 +35,9 @@ export const FileItem: React.FC<FileItemProps> = ({
       case 'document':
         return <FileText className={`${iconClass} text-theme-info`} />;
       case 'archive':
-        return <Archive className={`${iconClass} text-yellow-500`} />;
+        return <Archive className={`${iconClass} text-theme-warning`} />;
       case 'code':
-        return <Code className={`${iconClass} text-indigo-500`} />;
+        return <Code className={`${iconClass} text-theme-primary`} />;
       default:
         return <FileType className={`${iconClass} text-theme-secondary`} />;
     }
@@ -66,15 +66,15 @@ export const FileItem: React.FC<FileItemProps> = ({
   const getCategoryBadgeColor = (category: string): string => {
     switch (category) {
       case 'user_upload':
-        return 'bg-blue-100 text-theme-info dark:bg-blue-900/30 dark:text-blue-300';
+        return 'bg-theme-info/20 text-theme-info dark:bg-theme-info/30 dark:text-theme-info';
       case 'workflow_output':
-        return 'bg-green-100 text-theme-success dark:bg-green-900/30 dark:text-green-300';
+        return 'bg-theme-success/20 text-theme-success dark:bg-theme-success/30 dark:text-theme-success';
       case 'ai_generated':
-        return 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300';
+        return 'bg-theme-interactive-primary/20 text-theme-interactive-primary dark:bg-theme-interactive-primary/30 dark:text-theme-interactive-primary';
       case 'temp':
-        return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300';
+        return 'bg-theme-warning/20 text-theme-warning dark:bg-theme-warning/30 dark:text-theme-warning';
       default:
-        return 'bg-theme-surface text-theme-secondary dark:bg-gray-700 dark:text-gray-300';
+        return 'bg-theme-surface text-theme-secondary dark:bg-theme-surface dark:text-theme-secondary';
     }
   };
 
@@ -145,7 +145,7 @@ export const FileItem: React.FC<FileItemProps> = ({
               e.stopPropagation();
               onView?.(file);
             }}
-            className="p-2 text-theme-secondary hover:text-theme-info hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded"
+            className="p-2 text-theme-secondary hover:text-theme-info hover:bg-theme-info/10 dark:hover:bg-theme-info/20 rounded"
             title="View details"
           >
             <Eye className="h-4 w-4" />
@@ -156,7 +156,7 @@ export const FileItem: React.FC<FileItemProps> = ({
               e.stopPropagation();
               onDownload?.(file);
             }}
-            className="p-2 text-theme-secondary hover:text-theme-success hover:bg-green-50 dark:hover:bg-green-900/20 rounded"
+            className="p-2 text-theme-secondary hover:text-theme-success hover:bg-theme-success/10 dark:hover:bg-theme-success/20 rounded"
             title="Download"
           >
             <Download className="h-4 w-4" />
@@ -167,7 +167,7 @@ export const FileItem: React.FC<FileItemProps> = ({
               e.stopPropagation();
               onShare?.(file);
             }}
-            className="p-2 text-theme-secondary hover:text-theme-interactive-primary hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded"
+            className="p-2 text-theme-secondary hover:text-theme-interactive-primary hover:bg-theme-interactive-primary/10 dark:hover:bg-theme-interactive-primary/20 rounded"
             title="Share"
           >
             <Share2 className="h-4 w-4" />
@@ -178,7 +178,7 @@ export const FileItem: React.FC<FileItemProps> = ({
               e.stopPropagation();
               onDelete?.(file);
             }}
-            className="p-2 text-theme-secondary hover:text-theme-danger hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
+            className="p-2 text-theme-secondary hover:text-theme-danger hover:bg-theme-danger/10 dark:hover:bg-theme-danger/20 rounded"
             title="Delete"
           >
             <Trash2 className="h-4 w-4" />

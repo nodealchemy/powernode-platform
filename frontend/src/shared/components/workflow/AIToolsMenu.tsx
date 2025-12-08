@@ -39,7 +39,7 @@ export const AIToolsMenu: React.FC<AIToolsMenuProps> = ({
         hover:bg-theme-surface hover:shadow-sm border border-transparent
         hover:border-theme transition-all duration-200
         ${isSelected ? 'opacity-100' : ''}
-        ${hasErrors ? 'text-theme-danger hover:text-theme-danger' : 'text-theme-interactive-primary hover:text-purple-700'}
+        ${hasErrors ? 'text-theme-danger hover:text-theme-danger' : 'text-theme-interactive-primary hover:text-theme-interactive-primary/80'}
         ${className}
       `}
       aria-label={`AI Tools for ${nodeName || nodeType} node`}

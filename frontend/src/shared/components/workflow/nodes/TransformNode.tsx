@@ -39,13 +39,13 @@ export const TransformNode: React.FC<NodeProps<any>> = ({
   const getTransformColor = () => {
     switch (data.configuration?.transformType) {
       case 'javascript':
-        return 'text-theme-warning bg-yellow-100';
+        return 'text-theme-warning bg-theme-warning/20';
       case 'jq':
-        return 'text-theme-info bg-blue-100';
+        return 'text-theme-info bg-theme-info/20';
       case 'template':
-        return 'text-theme-success bg-green-100';
+        return 'text-theme-success bg-theme-success/20';
       default:
-        return 'text-teal-600 bg-teal-100';
+        return 'text-theme-info bg-theme-info/20';
     }
   };
 

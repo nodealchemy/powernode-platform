@@ -48,7 +48,7 @@ export const NodeAgentManager: React.FC<NodeAgentManagerProps> = ({
                       <span className="text-xs text-theme-muted">
                         Priority: {assignment.priority}
                       </span>
-                      <span className="px-2 py-1 bg-blue-100 text-theme-info text-xs rounded-full">
+                      <span className="px-2 py-1 bg-theme-info/20 text-theme-info text-xs rounded-full">
                         Inherited
                       </span>
                     </div>
@@ -75,7 +75,7 @@ export const NodeAgentManager: React.FC<NodeAgentManagerProps> = ({
         />
 
         {assignments.length === 0 && workflowAssignments.length > 0 && (
-          <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="mt-4 p-3 bg-theme-info/10 border border-theme-info/30 rounded-lg">
             <p className="text-sm text-theme-info">
               This node will use the inherited workflow agents. Add node-specific agents above to override workflow assignments for specific roles.
             </p>

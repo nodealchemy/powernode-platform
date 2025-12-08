@@ -87,7 +87,7 @@ export const KbArticleUpdateNode: React.FC<NodeProps<any>> = ({
             </span>
             <div className="flex flex-wrap gap-1 mt-1">
               {updatingFields.map((field, idx) => (
-                <span key={idx} className="px-1.5 py-0.5 bg-orange-100 text-theme-warning rounded text-xs font-medium">
+                <span key={idx} className="px-1.5 py-0.5 bg-theme-warning/20 text-theme-warning rounded text-xs font-medium">
                   {field}
                 </span>
               ))}

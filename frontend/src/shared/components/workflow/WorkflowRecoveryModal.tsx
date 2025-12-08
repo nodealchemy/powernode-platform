@@ -369,7 +369,7 @@ export const WorkflowRecoveryModal: React.FC<WorkflowRecoveryModalProps> = ({
                         <button
                           onClick={handleWorkflowRestart}
                           disabled={recovering === 'restart'}
-                          className="mt-3 w-full px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-600/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                          className="mt-3 w-full px-4 py-2 bg-theme-warning text-white rounded-lg hover:opacity-90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                         >
                           {recovering === 'restart' ? (
                             <>

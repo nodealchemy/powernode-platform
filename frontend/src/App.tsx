@@ -30,6 +30,7 @@ import { WelcomePage } from '@/pages/public/WelcomePage';
 import { AcceptInvitationPage } from '@/pages/public/AcceptInvitationPage';
 import { PageViewPage } from '@/pages/public/PageViewPage';
 import { McpOAuthCallbackPage } from '@/pages/public/oauth/McpOAuthCallbackPage';
+import { StatusPage } from '@/pages/public/StatusPage';
 
 import './App.css';
 import '@/assets/styles/themes.css';
@@ -282,6 +283,12 @@ const AppContent: React.FC = () => {
           <Route
             path="/pages/:slug"
             element={<PageViewPage />}
+          />
+
+          {/* Public Status Page */}
+          <Route
+            path="/status"
+            element={<StatusPage />}
           />
 
           {/* OAuth callback routes */}

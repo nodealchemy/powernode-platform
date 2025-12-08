@@ -3,6 +3,8 @@ import React from 'react';
 import { UserMenu } from './UserMenu';
 import { WebSocketStatusIndicator } from '../ui/WebSocketStatusIndicator';
 import { ThemeToggle } from '../ui/ThemeToggle';
+import { AccountSwitcher } from '@/features/account-switcher';
+import { NotificationBell } from '@/features/notifications';
 
 interface HeaderProps {
   onToggleSidebar: () => void;
@@ -26,15 +28,19 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
           </button>
         </div>
 
-        {/* Center - empty space for balance */}
+        {/* Center - Account Switcher */}
         <div className="flex justify-center">
+          <AccountSwitcher />
         </div>
 
         {/* Right side */}
         <div className="flex items-center justify-end space-x-4">
           {/* WebSocket Connection Status */}
           <WebSocketStatusIndicator />
-          
+
+          {/* Notifications */}
+          <NotificationBell />
+
           {/* Theme Toggle */}
           <ThemeToggle />
 

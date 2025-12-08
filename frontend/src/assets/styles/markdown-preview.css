@@ -1620,5 +1620,72 @@
   }
 }
 
+/* ===== PUBLIC VARIANT STYLES ===== */
+/* Override all theme colors for public pages with dark backgrounds */
+.markdown-renderer.public .markdown-content,
+.markdown-renderer.public .markdown-content *,
+.markdown-content.public,
+.markdown-content.public * {
+  color: #ffffff !important;
+}
+
+.markdown-renderer.public .markdown-content h1,
+.markdown-renderer.public .markdown-content h2,
+.markdown-renderer.public .markdown-content h3,
+.markdown-renderer.public .markdown-content h4,
+.markdown-renderer.public .markdown-content h5,
+.markdown-renderer.public .markdown-content h6,
+.markdown-content.public h1,
+.markdown-content.public h2,
+.markdown-content.public h3,
+.markdown-content.public h4,
+.markdown-content.public h5,
+.markdown-content.public h6 {
+  color: #ffffff !important;
+}
+
+.markdown-renderer.public .markdown-content p,
+.markdown-renderer.public .markdown-content li,
+.markdown-renderer.public .markdown-content span,
+.markdown-renderer.public .markdown-content strong,
+.markdown-renderer.public .markdown-content em,
+.markdown-content.public p,
+.markdown-content.public li,
+.markdown-content.public span,
+.markdown-content.public strong,
+.markdown-content.public em {
+  color: #ffffff !important;
+}
+
+/* Ensure links remain visible on public pages */
+.markdown-renderer.public .markdown-content a,
+.markdown-content.public a {
+  color: #60a5fa !important;
+}
+
+.markdown-renderer.public .markdown-content a:hover,
+.markdown-content.public a:hover {
+  color: #93c5fd !important;
+}
+
+/* Code blocks in public variant */
+.markdown-renderer.public .markdown-content code,
+.markdown-content.public code {
+  color: #ffffff !important;
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Override for any theme context on public pages */
+[data-theme="light"] .markdown-renderer.public .markdown-content,
+[data-theme="light"] .markdown-renderer.public .markdown-content *,
+[data-theme="dark"] .markdown-renderer.public .markdown-content,
+[data-theme="dark"] .markdown-renderer.public .markdown-content *,
+[data-theme="light"] .markdown-content.public,
+[data-theme="light"] .markdown-content.public *,
+[data-theme="dark"] .markdown-content.public,
+[data-theme="dark"] .markdown-content.public * {
+  color: #ffffff !important;
+}
+
 /* ===== LEGACY CLEANUP ===== */
 /* Removed duplicate print styles - consolidated above */

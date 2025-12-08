@@ -107,10 +107,10 @@ export const WorkflowAgentManager: React.FC<WorkflowAgentManagerProps> = ({
 
   const getRoleColor = (role: string) => {
     switch (role) {
-      case 'operations': return 'bg-blue-100 text-blue-800';
-      case 'optimizer': return 'bg-green-100 text-green-800';
-      case 'assistant': return 'bg-purple-100 text-purple-800';
-      case 'monitor': return 'bg-yellow-100 text-yellow-800';
+      case 'operations': return 'bg-theme-info/20 text-theme-info';
+      case 'optimizer': return 'bg-theme-success/20 text-theme-success';
+      case 'assistant': return 'bg-theme-interactive-primary/20 text-theme-interactive-primary';
+      case 'monitor': return 'bg-theme-warning/20 text-theme-warning';
       case 'custom': return 'bg-theme-surface text-theme-primary';
       default: return 'bg-theme-surface text-theme-primary';
     }
@@ -207,8 +207,8 @@ export const WorkflowAgentManager: React.FC<WorkflowAgentManagerProps> = ({
                     onClick={() => updateAssignment(index, { is_active: !assignment.is_active })}
                     className={`p-2 rounded-md transition-colors ${
                       assignment.is_active
-                        ? 'text-theme-success hover:bg-green-50'
-                        : 'text-gray-400 hover:bg-theme-surface'
+                        ? 'text-theme-success hover:bg-theme-success/10'
+                        : 'text-theme-muted hover:bg-theme-surface'
                     }`}
                     title={assignment.is_active ? 'Disable agent' : 'Enable agent'}
                   >
@@ -229,7 +229,7 @@ export const WorkflowAgentManager: React.FC<WorkflowAgentManagerProps> = ({
 
                   <button
                     onClick={() => removeAssignment(index)}
-                    className="p-2 text-theme-danger hover:text-theme-danger hover:bg-red-50 rounded-md transition-colors"
+                    className="p-2 text-theme-danger hover:text-theme-danger hover:bg-theme-danger/10 rounded-md transition-colors"
                     title="Remove agent"
                   >
                     <Trash2 className="h-4 w-4" />

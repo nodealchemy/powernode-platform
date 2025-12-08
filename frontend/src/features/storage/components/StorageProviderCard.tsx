@@ -40,7 +40,7 @@ export const StorageProviderCard: React.FC<StorageProviderCardProps> = ({
       case 's3':
         return <Cloud className="h-6 w-6 text-theme-warning" />;
       case 'azure_blob':
-        return <Cloud className="h-6 w-6 text-blue-400" />;
+        return <Cloud className="h-6 w-6 text-theme-info" />;
       case 'gcs':
         return <Database className="h-6 w-6 text-theme-success" />;
       default:
@@ -68,7 +68,7 @@ export const StorageProviderCard: React.FC<StorageProviderCardProps> = ({
       case 'active':
         return <CheckCircle className="h-5 w-5 text-theme-success" />;
       case 'inactive':
-        return <AlertCircle className="h-5 w-5 text-yellow-500" />;
+        return <AlertCircle className="h-5 w-5 text-theme-warning" />;
       case 'error':
         return <XCircle className="h-5 w-5 text-theme-danger" />;
       default:
@@ -94,7 +94,7 @@ export const StorageProviderCard: React.FC<StorageProviderCardProps> = ({
             <div className="flex items-center gap-2">
               <h3 className="text-lg font-semibold text-theme-primary">{provider.name}</h3>
               {provider.is_default && (
-                <span className="flex items-center gap-1 px-2 py-0.5 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 text-xs rounded-full">
+                <span className="flex items-center gap-1 px-2 py-0.5 bg-theme-warning/20 dark:bg-theme-warning/30 text-theme-warning dark:text-theme-warning text-xs rounded-full">
                   <Star className="h-3 w-3 fill-current" />
                   Default
                 </span>
@@ -161,7 +161,7 @@ export const StorageProviderCard: React.FC<StorageProviderCardProps> = ({
                       setShowMenu(false);
                       onDelete(provider);
                     }}
-                    className="w-full px-4 py-2 text-left text-sm text-theme-danger dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2"
+                    className="w-full px-4 py-2 text-left text-sm text-theme-danger dark:text-theme-danger hover:bg-theme-danger/10 dark:hover:bg-theme-danger/20 flex items-center gap-2"
                   >
                     <Trash2 className="h-4 w-4" />
                     Delete

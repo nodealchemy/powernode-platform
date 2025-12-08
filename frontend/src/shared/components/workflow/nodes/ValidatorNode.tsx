@@ -24,17 +24,17 @@ export const ValidatorNode: React.FC<NodeProps<any>> = ({
   const getValidationColor = () => {
     switch (data.configuration?.validationType) {
       case 'json-schema':
-        return 'text-theme-info bg-blue-100';
+        return 'text-theme-info bg-theme-info/20';
       case 'regex':
-        return 'text-theme-interactive-primary bg-purple-100';
+        return 'text-theme-interactive-primary bg-theme-interactive-primary/20';
       case 'custom':
-        return 'text-theme-warning bg-orange-100';
+        return 'text-theme-warning bg-theme-warning/20';
       case 'email':
-        return 'text-theme-success bg-green-100';
+        return 'text-theme-success bg-theme-success/20';
       case 'url':
-        return 'text-cyan-600 bg-cyan-100';
+        return 'text-theme-info bg-theme-info/20';
       default:
-        return 'text-rose-600 bg-rose-100';
+        return 'text-theme-danger bg-theme-danger/20';
     }
   };
 

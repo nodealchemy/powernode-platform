@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Brain, Plus, Play, Pause, Settings, BarChart3, Users, Clock } from 'lucide-react';
-import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { Card } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
 import { Badge } from '@/shared/components/ui/Badge';
@@ -14,7 +13,15 @@ import { EditAgentModal } from './EditAgentModal';
 
 import type { AiAgent } from '@/shared/types/ai';
 
-export const AiAgentDashboard: React.FC = () => {
+interface AiAgentDashboardProps {
+  showCreateModal?: boolean;
+  onShowCreateModalChange?: (show: boolean) => void;
+}
+
+export const AiAgentDashboard: React.FC<AiAgentDashboardProps> = ({
+  showCreateModal: externalShowCreateModal,
+  onShowCreateModalChange
+}) => {
   const [agents, setAgents] = useState<AiAgent[]>([]);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
@@ -23,9 +30,19 @@ export const AiAgentDashboard: React.FC = () => {
     total_executions: 0,
     success_rate: 0
   });
-  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [internalShowCreateModal, setInternalShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedAgent, setSelectedAgent] = useState<AiAgent | null>(null);
+
+  // Use external state if provided, otherwise use internal state
+  const showCreateModal = externalShowCreateModal !== undefined ? externalShowCreateModal : internalShowCreateModal;
+  const setShowCreateModal = (show: boolean) => {
+    if (onShowCreateModalChange) {
+      onShowCreateModalChange(show);
+    } else {
+      setInternalShowCreateModal(show);
+    }
+  };
 
   const { hasPermission } = usePermissions();
   const { addNotification } = useNotifications();
@@ -78,13 +95,13 @@ export const AiAgentDashboard: React.FC = () => {
       });
     } catch (error) {
       console.error('Failed to load dashboard data:', error);
-      
+
       // Check if it's an authentication error
       const isAuthError = (error as any)?.response?.status === 401;
-      const errorMessage = isAuthError 
-        ? 'Please log in to view AI agents data' 
+      const errorMessage = isAuthError
+        ? 'Please log in to view AI agents data'
         : 'Failed to load AI agents from server, showing sample data';
-      
+
       // Fallback to mock data on error
       setAgents([
         {
@@ -174,7 +191,7 @@ export const AiAgentDashboard: React.FC = () => {
         total_executions: 68,
         success_rate: 94
       });
-      
+
       addNotification({
         type: isAuthError ? 'warning' : 'error',
         title: isAuthError ? 'Authentication Required' : 'Error',
@@ -253,33 +270,14 @@ export const AiAgentDashboard: React.FC = () => {
     }
   };
 
-  const pageActions = canCreateAgents ? [
-    {
-      id: 'create-agent',
-      label: 'Create Agent',
-      onClick: handleCreateAgent,
-      variant: 'primary' as const,
-      icon: Plus
-    }
-  ] : [];
-
   if (loading) {
     return (
-      <PageContainer
-        title="AI Agents"
-        description="Manage and monitor your AI agents"
-      >
-        <LoadingSpinner size="lg" className="py-12" message="Loading AI agents..." />
-      </PageContainer>
+      <LoadingSpinner size="lg" className="py-12" message="Loading AI agents..." />
     );
   }
 
   return (
-    <PageContainer
-      title="AI Agents"
-      description="Manage and monitor your AI agents"
-      actions={pageActions}
-    >
+    <>
       {/* Stats Overview */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <Card className="p-4">
@@ -334,7 +332,7 @@ export const AiAgentDashboard: React.FC = () => {
       {/* Recent Agents */}
       <div className="mb-6">
         <h2 className="text-lg font-semibold text-theme-primary mb-4">Recent Agents</h2>
-        
+
         {agents.length === 0 ? (
           <EmptyState
             icon={Brain}
@@ -342,7 +340,7 @@ export const AiAgentDashboard: React.FC = () => {
             description="Create your first AI agent to get started with automation"
             action={
               canCreateAgents ? (
-                <Button 
+                <Button
                   variant="primary"
                   size="md"
                   className="flex items-center gap-2"
@@ -376,7 +374,7 @@ export const AiAgentDashboard: React.FC = () => {
                     <span className="text-theme-tertiary">AI Provider</span>
                     <span className="text-theme-primary">{agent.ai_provider.name}</span>
                   </div>
-                  
+
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-theme-tertiary">Model</span>
                     <span className="text-theme-primary">
@@ -454,6 +452,6 @@ export const AiAgentDashboard: React.FC = () => {
         onAgentUpdated={handleAgentUpdated}
         onAgentDeleted={handleAgentDeleted}
       />
-    </PageContainer>
+    </>
   );
 };

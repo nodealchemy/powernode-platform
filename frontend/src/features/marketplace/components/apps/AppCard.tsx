@@ -130,7 +130,7 @@ export const AppCard: React.FC<AppCardProps> = ({
               <span className="text-sm text-theme-secondary">5 webhook events</span>
             </div>
             <div className="flex items-center space-x-2">
-              <Star className="w-4 h-4 text-yellow-400 fill-current" />
+              <Star className="w-4 h-4 text-theme-warning fill-current" />
               <span className="text-sm text-theme-secondary">{averageRating.toFixed(1)} rating ({mockReviews.length} reviews)</span>
             </div>
           </div>
@@ -305,7 +305,7 @@ export const AppCard: React.FC<AppCardProps> = ({
             <span>1.2k</span>
           </div>
           <div className="flex items-center space-x-1">
-            <Star className="w-4 h-4 text-yellow-400 fill-current" />
+            <Star className="w-4 h-4 text-theme-warning fill-current" />
             <span>{averageRating.toFixed(1)}</span>
           </div>
         </div>

@@ -38,17 +38,17 @@ export const NotificationNode: React.FC<NodeProps<any>> = ({
   const getChannelColor = () => {
     switch (data.configuration?.channel) {
       case 'email':
-        return 'text-theme-info bg-blue-100';
+        return 'text-theme-info bg-theme-info/20';
       case 'sms':
-        return 'text-theme-success bg-green-100';
+        return 'text-theme-success bg-theme-success/20';
       case 'push':
-        return 'text-theme-interactive-primary bg-purple-100';
+        return 'text-theme-interactive-primary bg-theme-interactive-primary/20';
       case 'slack':
-        return 'text-theme-warning bg-orange-100';
+        return 'text-theme-warning bg-theme-warning/20';
       case 'webhook':
-        return 'text-teal-600 bg-teal-100';
+        return 'text-theme-info bg-theme-info/20';
       default:
-        return 'text-pink-600 bg-pink-100';
+        return 'text-theme-interactive-primary bg-theme-interactive-primary/20';
     }
   };
 

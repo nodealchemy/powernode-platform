@@ -49,7 +49,7 @@ export const EndNode: React.FC<NodeProps<any>> = ({ data = {} as EndNodeData, se
 
   const getBorderColor = (_type: string) => {
     // All end nodes use red theme for consistency
-    return 'border-red-200 hover:border-red-300';
+    return 'border-theme-danger/30 hover:border-theme-danger/50';
   };
 
   return (

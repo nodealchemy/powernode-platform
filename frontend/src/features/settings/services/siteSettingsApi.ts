@@ -189,15 +189,15 @@ class SiteSettingsApiService {
   getSettingTypeColor(settingType: string): string {
     switch (settingType) {
       case 'string':
-        return 'bg-theme-primary text-theme-primary border-theme-primary';
+        return 'bg-theme-primary/20 text-theme-primary border-theme-primary/30';
       case 'text':
-        return 'bg-theme-secondary text-theme-secondary border-theme-secondary';
+        return 'bg-theme-secondary/20 text-theme-secondary border-theme-secondary/30';
       case 'boolean':
-        return 'bg-green-100 text-green-800 border-green-200';
+        return 'bg-theme-success/20 text-theme-success border-theme-success/30';
       case 'integer':
-        return 'bg-blue-100 text-blue-800 border-blue-200';
+        return 'bg-theme-info/20 text-theme-info border-theme-info/30';
       case 'json':
-        return 'bg-purple-100 text-purple-800 border-purple-200';
+        return 'bg-theme-warning/20 text-theme-warning border-theme-warning/30';
       default:
         return 'bg-theme-background-secondary text-theme-secondary border-theme';
     }

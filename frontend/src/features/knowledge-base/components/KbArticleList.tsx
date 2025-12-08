@@ -77,7 +77,7 @@ function ArticleCard({ article, showCategory }: { article: KbArticle; showCatego
             {article.title}
           </h3>
           {article.is_featured && (
-            <StarIconSolid className="h-5 w-5 text-yellow-500 flex-shrink-0" />
+            <StarIconSolid className="h-5 w-5 text-theme-warning flex-shrink-0" />
           )}
         </div>
 
@@ -153,7 +153,7 @@ function ArticleListItem({ article, showCategory }: { article: KbArticle; showCa
               {article.title}
             </h3>
             {article.is_featured && (
-              <StarIconSolid className="h-5 w-5 text-yellow-500 flex-shrink-0" />
+              <StarIconSolid className="h-5 w-5 text-theme-warning flex-shrink-0" />
             )}
           </div>
 

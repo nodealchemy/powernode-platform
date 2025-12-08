@@ -101,12 +101,12 @@ export const KbArticlePublishNode: React.FC<NodeProps<any>> = ({
       {/* Publish Status Indicators */}
       <div className="absolute top-2 right-2 flex gap-1">
         {isPublic && (
-          <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
+          <div className="w-6 h-6 bg-theme-info/20 rounded-full flex items-center justify-center">
             <Globe className="h-3 w-3 text-theme-info" />
           </div>
         )}
         {isFeatured && (
-          <div className="w-6 h-6 bg-yellow-100 rounded-full flex items-center justify-center">
+          <div className="w-6 h-6 bg-theme-warning/20 rounded-full flex items-center justify-center">
             <Star className="h-3 w-3 text-theme-warning" />
           </div>
         )}

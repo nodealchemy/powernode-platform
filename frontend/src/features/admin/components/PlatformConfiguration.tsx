@@ -41,18 +41,19 @@ export const PlatformConfiguration: React.FC = () => {
     try {
       setLoading(true);
       const response = await adminSettingsApi.getOverview();
-      
+
       // Extract platform settings from the response
+      const settingsSummary = response.data?.settings_summary;
       const platformSettings: PlatformSettings = {
-        system_name: response.settings_summary?.system_name || 'Powernode Platform',
-        copyright_text: response.settings_summary?.copyright_text || '© {year} Everett C. Haimes III. All rights reserved.',
-        system_email: response.settings_summary?.system_email || '',
-        support_email: response.settings_summary?.support_email || '',
-        maintenance_mode: response.settings_summary?.maintenance_mode || false,
-        registration_enabled: response.settings_summary?.registration_enabled ?? true,
-        require_email_verification: response.settings_summary?.require_email_verification ?? true,
-        trial_period_days: response.settings_summary?.trial_period_days || 14,
-        session_timeout_minutes: response.settings_summary?.session_timeout_minutes || 60
+        system_name: settingsSummary?.system_name || 'Powernode Platform',
+        copyright_text: settingsSummary?.copyright_text || '© {year} Everett C. Haimes III. All rights reserved.',
+        system_email: settingsSummary?.system_email || '',
+        support_email: settingsSummary?.support_email || '',
+        maintenance_mode: settingsSummary?.maintenance_mode || false,
+        registration_enabled: settingsSummary?.registration_enabled ?? true,
+        require_email_verification: settingsSummary?.require_email_verification ?? true,
+        trial_period_days: settingsSummary?.trial_period_days || 14,
+        session_timeout_minutes: settingsSummary?.session_timeout_minutes || 60
       };
       
       setSettings(platformSettings);

@@ -20,6 +20,7 @@ import MyFilesPage from './content/MyFilesPage';
 import { UsersPage } from './UsersPage';
 import { AuditLogsPage } from './AuditLogsPage';
 import { ApiKeysPage } from './ApiKeysPage';
+import { NotificationsPage } from './NotificationsPage';
 import { MetricsPage } from './MetricsPage';
 import { AnalyticsPage } from './business/AnalyticsPage';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
@@ -432,7 +433,10 @@ const DashboardPage: React.FC = () => {
       <Routes>
         {/* Dashboard Overview */}
         <Route path="/" element={<DashboardOverview />} />
-        
+
+        {/* Notifications Page */}
+        <Route path="/notifications" element={<NotificationsPage />} />
+
         {/* Individual Pages - No More Management Page Groupings */}
         
         {/* Business Pages */}

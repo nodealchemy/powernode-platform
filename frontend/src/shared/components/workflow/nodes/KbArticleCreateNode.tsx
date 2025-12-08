@@ -18,13 +18,13 @@ export const KbArticleCreateNode: React.FC<NodeProps<any>> = ({
   const getStatusColor = () => {
     switch (data.configuration?.status) {
       case 'published':
-        return 'text-theme-success bg-green-100';
+        return 'text-theme-success bg-theme-success/20';
       case 'review':
-        return 'text-theme-warning bg-orange-100';
+        return 'text-theme-warning bg-theme-warning/20';
       case 'archived':
         return 'text-theme-muted bg-theme-surface';
       default: // draft
-        return 'text-theme-info bg-blue-100';
+        return 'text-theme-info bg-theme-info/20';
     }
   };
 
@@ -144,12 +144,12 @@ export const KbArticleCreateNode: React.FC<NodeProps<any>> = ({
       {(data.configuration?.is_public || data.configuration?.is_featured) && (
         <div className="absolute top-2 right-2 flex gap-1">
           {data.configuration.is_public && (
-            <div className="px-1.5 py-0.5 bg-blue-100 text-theme-info rounded text-xs font-medium">
+            <div className="px-1.5 py-0.5 bg-theme-info/20 text-theme-info rounded text-xs font-medium">
               Public
             </div>
           )}
           {data.configuration.is_featured && (
-            <div className="px-1.5 py-0.5 bg-yellow-100 text-theme-warning rounded text-xs font-medium">
+            <div className="px-1.5 py-0.5 bg-theme-warning/20 text-theme-warning rounded text-xs font-medium">
               Featured
             </div>
           )}

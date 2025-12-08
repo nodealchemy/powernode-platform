@@ -209,8 +209,8 @@ export const FileUpload: React.FC<FileUploadProps> = ({
           relative border-2 border-dashed rounded-lg p-8 text-center cursor-pointer
           transition-all duration-200
           ${isDragging
-            ? 'border-theme-info bg-blue-50 dark:bg-blue-900/20'
-            : 'border-theme bg-theme-surface hover:border-blue-400'
+            ? 'border-theme-info bg-theme-info/10 dark:bg-theme-info/20'
+            : 'border-theme bg-theme-surface hover:border-theme-info'
           }
         `}
       >
@@ -269,7 +269,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
                   {/* Progress Bar */}
                   {uploadingFile.status === 'uploading' && (
                     <div
-                      className="mt-2 w-full bg-theme-border dark:bg-gray-700 rounded-full h-1.5"
+                      className="mt-2 w-full bg-theme-border dark:bg-theme-surface rounded-full h-1.5"
                       role="progressbar"
                       aria-valuenow={uploadingFile.progress}
                       aria-valuemin={0}
@@ -308,7 +308,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
                       e.stopPropagation();
                       cancelUpload(uploadingFile.file);
                     }}
-                    className="flex-shrink-0 px-2 py-1 text-xs text-theme-danger hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+                    className="flex-shrink-0 px-2 py-1 text-xs text-theme-danger hover:text-theme-danger/80"
                     aria-label="Cancel upload"
                   >
                     Cancel

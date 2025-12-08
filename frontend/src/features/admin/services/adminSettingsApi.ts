@@ -118,13 +118,13 @@ export interface PaymentGatewayStatus {
     connected: boolean;
     environment: 'live' | 'test';
     last_webhook: string | null;
-    webhook_status: 'healthy' | 'delayed' | 'failed';
+    webhook_status: 'healthy' | 'warning' | 'unhealthy' | 'no_data';
   };
   paypal: {
     connected: boolean;
     environment: 'live' | 'sandbox';
     last_webhook: string | null;
-    webhook_status: 'healthy' | 'delayed' | 'failed';
+    webhook_status: 'healthy' | 'warning' | 'unhealthy' | 'no_data';
   };
 }
 
@@ -149,9 +149,24 @@ export interface AdminOverviewData {
  */
 class AdminSettingsApi {
   // Get admin overview data
-  async getOverview(): Promise<AdminOverviewData> {
-    const response = await api.get('/admin_settings');
-    return response.data;
+  async getOverview(): Promise<{ success: boolean; data?: AdminOverviewData; error?: string }> {
+    try {
+      const response = await api.get('/admin_settings');
+      // Backend returns data in the response directly or wrapped in success/data
+      const responseData = response.data;
+      if (responseData.success !== undefined) {
+        return responseData;
+      }
+      // Handle case where data is returned directly
+      return { success: true, data: responseData };
+    } catch (error: unknown) {
+      const errorMessage =
+        error && typeof error === 'object' && 'response' in error
+          ? (error as { response?: { data?: { error?: string } } }).response?.data?.error ||
+            'Failed to fetch admin overview'
+          : 'Failed to fetch admin overview';
+      return { success: false, error: errorMessage };
+    }
   }
 
   // Get detailed system metrics

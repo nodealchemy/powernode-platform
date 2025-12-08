@@ -283,7 +283,7 @@ export const planFeaturesApi = {
       case 'advanced': return 'bg-theme-success bg-opacity-10 text-theme-success';
       case 'integrations': return 'bg-theme-info bg-opacity-10 text-theme-info';
       case 'support': return 'bg-theme-warning bg-opacity-10 text-theme-warning';
-      case 'analytics': return 'bg-purple-100 text-purple-800';
+      case 'analytics': return 'bg-theme-interactive-primary/10 text-theme-interactive-primary';
       default: return 'bg-theme-surface text-theme-secondary';
     }
   },

@@ -406,7 +406,7 @@ export const CreditCardForm: React.FC<CreditCardFormProps> = ({
           <button
             type="submit"
             disabled={form.isSubmitting}
-            className="flex-1 bg-theme-info text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 bg-theme-info text-white py-2 px-4 rounded-md hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-theme-info disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {form.isSubmitting ? 'Processing...' : submitButtonText}
           </button>
@@ -415,7 +415,7 @@ export const CreditCardForm: React.FC<CreditCardFormProps> = ({
             <button
               type="button"
               onClick={onCancel}
-              className="flex-1 bg-theme-surface border border-theme text-theme-primary py-2 px-4 rounded-md hover:bg-theme-surface/80 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="flex-1 bg-theme-surface border border-theme text-theme-primary py-2 px-4 rounded-md hover:bg-theme-surface/80 focus:outline-none focus:ring-2 focus:ring-theme-info"
             >
               Cancel
             </button>

@@ -39,16 +39,16 @@ export const PublicPageContainer: React.FC<PublicPageContainerProps> = ({
   }, [title]);
 
   return (
-    <div className={`min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 ${className}`}>
+    <div className={`min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 ${className}`}>
       {/* Modern Header */}
-      <header className="sticky top-0 z-50 backdrop-blur-lg bg-white/80 dark:bg-slate-900/80 border-b border-slate-200/50 dark:border-slate-700/50">
+      <header className="sticky top-0 z-50 backdrop-blur-lg bg-slate-900/95 border-b border-white/10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-20">
             <Link to="/" className="flex items-center space-x-3 group">
-              <div className="w-11 h-11 bg-theme-info rounded-xl flex items-center justify-center transform group-hover:scale-105 transition-transform duration-200">
+              <div className="w-11 h-11 bg-blue-600 rounded-xl flex items-center justify-center transform group-hover:scale-105 transition-transform duration-200 shadow-lg">
                 <span className="text-white font-bold text-xl">P</span>
               </div>
-              <h1 className="text-lg font-bold bg-gradient-to-r from-slate-800 to-slate-600 dark:from-white dark:to-slate-200 bg-clip-text text-transparent">
+              <h1 className="text-lg font-bold text-white">
                 Powernode
               </h1>
             </Link>
@@ -57,21 +57,21 @@ export const PublicPageContainer: React.FC<PublicPageContainerProps> = ({
               {showBackButton && (
                 <Link
                   to={backButtonHref}
-                  className="inline-flex items-center space-x-2 text-sm font-semibold text-slate-600 hover:text-theme-info dark:text-slate-300 dark:hover:text-blue-400 transition-colors duration-200"
+                  className="inline-flex items-center space-x-2 text-sm font-semibold text-white/80 hover:text-white transition-colors duration-200"
                 >
                   <ArrowLeft className="w-4 h-4" />
                   <span>{backButtonLabel}</span>
                 </Link>
               )}
-              
+
               {isAuthenticated && user ? (
                 <div className="flex items-center space-x-4">
-                  <span className="text-sm text-slate-600 dark:text-slate-300">
+                  <span className="text-sm text-white/80">
                     Welcome, {user.name}
                   </span>
                   <Link
                     to="/app"
-                    className="inline-flex items-center space-x-2 px-4 py-2 bg-theme-info hover:bg-blue-700 text-white font-semibold rounded-lg transition-all duration-200 text-sm"
+                    className="inline-flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-all duration-200 text-sm shadow-lg"
                   >
                     <User className="w-4 h-4" />
                     <span>Dashboard</span>
@@ -81,13 +81,13 @@ export const PublicPageContainer: React.FC<PublicPageContainerProps> = ({
                 <>
                   <Link
                     to="/login"
-                    className="text-sm font-semibold text-slate-600 hover:text-theme-info dark:text-slate-300 dark:hover:text-blue-400 transition-colors duration-200"
+                    className="text-sm font-semibold text-white/80 hover:text-white transition-colors duration-200"
                   >
                     Sign in
                   </Link>
                   <Link
                     to="/plans"
-                    className="inline-flex items-center space-x-2 px-6 py-3 bg-theme-info hover:bg-blue-700 text-white font-semibold rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl"
+                    className="inline-flex items-center space-x-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl"
                   >
                     <span>Get Started</span>
                   </Link>
@@ -106,18 +106,16 @@ export const PublicPageContainer: React.FC<PublicPageContainerProps> = ({
             <div className="absolute top-20 left-10 w-72 h-72 bg-blue-400/10 rounded-full blur-3xl"></div>
             <div className="absolute top-10 right-20 w-96 h-96 bg-blue-400/10 rounded-full blur-3xl"></div>
           </div>
-          
+
           <div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
             {title && (
-              <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold leading-tight mb-6">
-                <span className="bg-gradient-to-r from-slate-800 via-blue-800 to-indigo-800 dark:from-white dark:via-blue-100 dark:to-indigo-100 bg-clip-text text-transparent">
-                  {title}
-                </span>
+              <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold leading-tight mb-6 text-white">
+                {title}
               </h1>
             )}
-            
+
             {description && (
-              <p className="text-xl md:text-2xl text-slate-600 dark:text-slate-300 max-w-3xl mx-auto leading-relaxed">
+              <p className="text-xl md:text-2xl text-white/80 max-w-3xl mx-auto leading-relaxed">
                 {description}
               </p>
             )}
@@ -139,7 +137,7 @@ export const PublicPageContainer: React.FC<PublicPageContainerProps> = ({
               {/* Company Info */}
               <div className="lg:col-span-1">
                 <div className="flex items-center space-x-3 mb-6">
-                  <div className="w-10 h-10 bg-theme-info rounded-xl flex items-center justify-center">
+                  <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">
                     <span className="text-white font-bold text-lg">P</span>
                   </div>
                   <div>
@@ -255,7 +253,7 @@ export const PublicPageContainer: React.FC<PublicPageContainerProps> = ({
               
               <div className="flex items-center space-x-6">
                 <div className="flex items-center space-x-2 bg-slate-800/50 px-3 py-2 rounded-full">
-                  <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                   <span className="text-xs text-slate-300 font-medium">All systems operational</span>
                 </div>
                 <div className="flex items-center space-x-2 text-xs text-slate-400">

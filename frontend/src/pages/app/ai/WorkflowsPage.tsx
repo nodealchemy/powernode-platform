@@ -493,6 +493,11 @@ export const WorkflowsPage: React.FC = () => {
     <PageContainer
       title="AI Workflows"
       description="Create, manage, and execute automated AI workflows"
+      breadcrumbs={[
+        { label: 'Dashboard', href: '/app' },
+        { label: 'AI', href: '/app/ai' },
+        { label: 'Workflows' }
+      ]}
       actions={[
         {
           id: 'templates',
