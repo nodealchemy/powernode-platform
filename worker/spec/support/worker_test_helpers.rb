@@ -24,7 +24,9 @@ module WorkerTestHelpers
     app_double = double('Application')
     allow(app_double).to receive(:config).and_return(config_double)
     allow(app_double).to receive(:logger).and_return(Logger.new('/dev/null'))
-    
+    allow(app_double).to receive(:root).and_return('/tmp/powernode_worker_test')
+    allow(app_double).to receive(:env).and_return('test')
+
     allow(PowernodeWorker).to receive(:application).and_return(app_double)
     
     config_double

@@ -284,10 +284,12 @@ RSpec.describe Notifications::EmailDeliveryJob, type: :job do
     it 'processes job inline when configured' do
       allow(EmailDeliveryWorkerService).to receive(:new).and_return(email_service_double)
       allow(email_service_double).to receive(:send_email).and_return({ success: true })
-      
+      # Disable runaway loop protection for inline testing
+      allow_any_instance_of(BaseJob).to receive(:check_runaway_loop).and_return(nil)
+
       with_sidekiq_testing_mode(:inline) do
         described_class.perform_async(email_data)
-        
+
         expect(email_service_double).to have_received(:send_email)
       end
     end

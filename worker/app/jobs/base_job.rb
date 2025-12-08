@@ -68,6 +68,9 @@ class BaseJob
     @api_client ||= BackendApiClient.new
   end
 
+  # Alias for backward compatibility with reports job
+  alias_method :backend_api_client, :api_client
+
   # Logger instance
   def logger
     PowernodeWorker.application.logger

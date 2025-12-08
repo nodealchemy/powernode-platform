@@ -8,6 +8,9 @@ require 'bundler/setup' if File.exist?(ENV['BUNDLE_GEMFILE'])
 require 'active_support/all'
 require 'action_mailer'
 
+# Configure Time.zone (required for jobs using Time.zone.parse)
+Time.zone = 'UTC'
+
 # Load all application files
 $LOAD_PATH.unshift(File.expand_path('../app', __dir__))
 $LOAD_PATH.unshift(File.expand_path('../lib', __dir__))
@@ -17,6 +20,11 @@ require_relative '../app/services/backend_api_client'
 require_relative '../app/services/web_auth_api_client'
 require_relative '../app/middleware/sidekiq_web_auth'
 require_relative '../app/controllers/jobs_controller'
+
+# Auto-require external service integrations
+require_relative '../app/services/clamav_service'
+require_relative '../app/services/firebase_service'
+require_relative '../app/services/twilio_service'
 
 # Require base job first
 require_relative '../app/jobs/base_job'

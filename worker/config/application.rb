@@ -8,6 +8,11 @@ class PowernodeWorker
     @application ||= new
   end
 
+  # Convenience class method to access logger
+  def self.logger
+    application.logger
+  end
+
   def initialize
     @root = File.expand_path('..', __dir__)
     load_environment

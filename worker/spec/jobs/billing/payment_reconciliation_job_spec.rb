@@ -2,6 +2,19 @@
 
 require 'rails_helper'
 
+# Stub PayPal SDK module for tests (actual PayPal SDK not installed in worker)
+module PayPal
+  module SDK
+    def self.configure(**options); end
+
+    module Core
+      module Exceptions
+        class UnauthorizedAccess < StandardError; end
+      end
+    end
+  end
+end
+
 RSpec.describe Billing::PaymentReconciliationJob, type: :job do
   subject { described_class }
 
@@ -333,13 +346,14 @@ RSpec.describe Billing::PaymentReconciliationJob, type: :job do
       expect(result[:paypal_reconciliation][:local_count]).to eq(0)
     end
 
-    it 'logs not implemented message' do
+    it 'logs PayPal reconciliation start' do
       job = described_class.new
       capture_logs_for(job)
 
       job.execute(reconciliation_type)
 
-      expect_logged(:info, /PayPal API reconciliation not yet implemented/)
+      # PayPal reconciliation is now fully implemented
+      expect_logged(:info, /Reconciling PayPal payments for/)
     end
   end
 

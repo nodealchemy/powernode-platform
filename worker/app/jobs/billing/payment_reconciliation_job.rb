@@ -157,18 +157,157 @@ class Billing::PaymentReconciliationJob < BaseJob
   
   def get_paypal_api_payments(date_range)
     payments = []
-    
+
     begin
-      # Use PayPal API to get payments in the date range
-      # This would require implementing PayPal's reporting API
-      # For now, return empty array
-      log_info("PayPal API reconciliation not yet implemented")
-      
+      configure_paypal
+
+      # Use PayPal Transaction Search API
+      # API docs: https://developer.paypal.com/docs/api/transaction-search/v1/
+      access_token = get_paypal_access_token
+
+      return payments unless access_token
+
+      # Format dates for PayPal API (ISO 8601)
+      start_date = date_range.begin.utc.iso8601
+      end_date = date_range.end.utc.iso8601
+
+      # Paginate through results
+      page = 1
+      total_pages = 1
+
+      while page <= total_pages
+        response = fetch_paypal_transactions(access_token, start_date, end_date, page)
+
+        break unless response && response['transaction_details']
+
+        response['transaction_details'].each do |transaction|
+          # Only include completed sale transactions
+          transaction_info = transaction['transaction_info']
+          next unless transaction_info
+          next unless transaction_info['transaction_status'] == 'S' # S = Success
+          next unless %w[T0006 T0007 T0011].include?(transaction_info['transaction_event_code'])
+          # T0006 = PayPal Checkout, T0007 = Smart Payment Button, T0011 = Web Accept
+
+          amount_info = transaction_info['transaction_amount']
+
+          payments << {
+            'id' => transaction_info['transaction_id'],
+            'amount_cents' => parse_paypal_amount(amount_info['value']),
+            'currency' => amount_info['currency_code'],
+            'created' => Time.parse(transaction_info['transaction_initiation_date']),
+            'payer_email' => transaction['payer_info']&.dig('email_address'),
+            'payer_name' => transaction['payer_info']&.dig('payer_name', 'alternate_full_name'),
+            'transaction_type' => transaction_info['transaction_event_code'],
+            'paypal_reference_id' => transaction_info['paypal_reference_id']
+          }
+        end
+
+        total_pages = response['total_pages'] || 1
+        page += 1
+
+        # Rate limiting - PayPal recommends max 30 requests per minute
+        sleep(0.5) if page <= total_pages
+      end
+
+      log_info("Fetched #{payments.count} PayPal transactions for reconciliation")
+
+    rescue PayPal::SDK::Core::Exceptions::UnauthorizedAccess => e
+      log_error("PayPal authentication failed: #{e.message}")
     rescue => e
       log_error("Failed to fetch PayPal payments: #{e.message}")
+      log_error(e.backtrace.first(5).join("\n")) if e.backtrace
     end
-    
+
     payments
+  end
+
+  def configure_paypal
+    PayPal::SDK.configure(
+      mode: paypal_mode,
+      client_id: ENV['PAYPAL_CLIENT_ID'],
+      client_secret: ENV['PAYPAL_CLIENT_SECRET']
+    )
+  end
+
+  def paypal_mode
+    ENV.fetch('PAYPAL_MODE', 'sandbox')
+  end
+
+  def get_paypal_access_token
+    # Get OAuth2 access token from PayPal
+    require 'net/http'
+    require 'uri'
+
+    base_url = paypal_mode == 'live' ?
+      'https://api-m.paypal.com' :
+      'https://api-m.sandbox.paypal.com'
+
+    uri = URI("#{base_url}/v1/oauth2/token")
+
+    http = Net::HTTP.new(uri.host, uri.port)
+    http.use_ssl = true
+    http.read_timeout = 30
+
+    request = Net::HTTP::Post.new(uri)
+    request.basic_auth(ENV['PAYPAL_CLIENT_ID'], ENV['PAYPAL_CLIENT_SECRET'])
+    request['Content-Type'] = 'application/x-www-form-urlencoded'
+    request.body = 'grant_type=client_credentials'
+
+    response = http.request(request)
+
+    if response.code.to_i == 200
+      result = JSON.parse(response.body)
+      result['access_token']
+    else
+      log_error("PayPal OAuth failed: #{response.code} - #{response.body}")
+      nil
+    end
+  end
+
+  def fetch_paypal_transactions(access_token, start_date, end_date, page)
+    require 'net/http'
+    require 'uri'
+
+    base_url = paypal_mode == 'live' ?
+      'https://api-m.paypal.com' :
+      'https://api-m.sandbox.paypal.com'
+
+    # Build query params
+    params = {
+      start_date: start_date,
+      end_date: end_date,
+      fields: 'all',
+      page_size: 100,
+      page: page
+    }
+
+    query_string = URI.encode_www_form(params)
+    uri = URI("#{base_url}/v1/reporting/transactions?#{query_string}")
+
+    http = Net::HTTP.new(uri.host, uri.port)
+    http.use_ssl = true
+    http.read_timeout = 60
+
+    request = Net::HTTP::Get.new(uri)
+    request['Authorization'] = "Bearer #{access_token}"
+    request['Content-Type'] = 'application/json'
+
+    response = http.request(request)
+
+    if response.code.to_i == 200
+      JSON.parse(response.body)
+    else
+      log_error("PayPal transaction search failed: #{response.code} - #{response.body}")
+      nil
+    end
+  end
+
+  def parse_paypal_amount(amount_string)
+    # PayPal returns amounts as strings like "10.00"
+    # Convert to cents (integer)
+    return 0 unless amount_string
+
+    (BigDecimal(amount_string) * 100).to_i
   end
   
   def find_payment_discrepancies(local_payments, provider_payments, provider)

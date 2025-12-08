@@ -972,8 +972,331 @@ class AiAgentExecutionJob < BaseJob
   end
 
   def call_generic_provider(provider, credentials, prompt, context)
-    # Fallback for unsupported providers
-    { success: false, error: "Provider #{provider['name']} not yet implemented" }
+    start_time = Time.current
+
+    # Decrypt credentials
+    creds_response = backend_api_post("/api/v1/ai/credentials/#{credentials['id']}/decrypt")
+    return { success: false, error: 'Failed to decrypt credentials' } unless creds_response['success']
+
+    decrypted_creds = creds_response['data']['credentials']
+
+    # Extract provider configuration
+    api_endpoint = provider['api_endpoint'] || decrypted_creds['api_endpoint'] || decrypted_creds['base_url']
+    return { success: false, error: "No API endpoint configured for provider #{provider['name']}" } unless api_endpoint.present?
+
+    # Determine auth method and headers
+    headers = build_generic_auth_headers(provider, decrypted_creds)
+    headers['Content-Type'] = 'application/json'
+    headers['Accept'] = 'application/json'
+
+    # Build request body based on provider configuration
+    request_body = build_generic_request_body(provider, decrypted_creds, prompt, context)
+
+    # Determine model
+    agent = @agent_execution['ai_agent']
+    model = agent&.dig('configuration', 'model') ||
+            decrypted_creds['model'] ||
+            provider.dig('configuration', 'default_model') ||
+            'default'
+
+    log_info("Calling generic AI provider",
+      provider_name: provider['name'],
+      api_endpoint: api_endpoint,
+      model: model
+    )
+
+    begin
+      # Make the API request
+      timeout = provider.dig('configuration', 'timeout') || 120
+      response = make_http_request(
+        api_endpoint,
+        method: :post,
+        headers: headers,
+        body: request_body.to_json,
+        timeout: timeout
+      )
+
+      response_time = ((Time.current - start_time) * 1000).to_i
+
+      if response.code.to_i >= 200 && response.code.to_i < 300
+        data = JSON.parse(response.body)
+
+        # Extract response based on provider's response mapping
+        extracted_response = extract_generic_response(provider, data)
+
+        if extracted_response[:content].present?
+          {
+            success: true,
+            response: extracted_response[:content],
+            model: model,
+            metadata: {
+              tokens_used: extracted_response[:tokens_used] || 0,
+              prompt_tokens: extracted_response[:prompt_tokens] || 0,
+              response_time_ms: response_time,
+              provider_response: data
+            },
+            cost: calculate_generic_cost(provider, decrypted_creds, extracted_response)
+          }
+        else
+          { success: false, error: "Empty response from provider #{provider['name']}" }
+        end
+      else
+        error_data = JSON.parse(response.body) rescue { 'message' => response.body }
+        error_message = extract_generic_error(provider, error_data) || "API error: #{response.code}"
+        { success: false, error: "#{provider['name']} API error: #{error_message}" }
+      end
+
+    rescue Net::ReadTimeout, Net::OpenTimeout, Timeout::Error => e
+      log_error("Generic provider timeout", e)
+      { success: false, error: "#{provider['name']} connection timeout: #{e.message}" }
+    rescue JSON::ParserError => e
+      log_error("Failed to parse provider response", e)
+      { success: false, error: "Invalid JSON response from #{provider['name']}" }
+    rescue StandardError => e
+      log_error("Generic provider error", e)
+      { success: false, error: "#{provider['name']} connection failed: #{e.message}" }
+    end
+  end
+
+  def build_generic_auth_headers(provider, credentials)
+    headers = {}
+    auth_type = provider.dig('configuration', 'auth_type') || credentials['auth_type'] || 'api_key'
+
+    case auth_type.to_s.downcase
+    when 'api_key', 'apikey'
+      api_key = credentials['api_key']
+      header_name = provider.dig('configuration', 'api_key_header') || 'Authorization'
+      header_prefix = provider.dig('configuration', 'api_key_prefix') || 'Bearer'
+
+      if api_key.present?
+        if header_prefix.present?
+          headers[header_name] = "#{header_prefix} #{api_key}"
+        else
+          headers[header_name] = api_key
+        end
+      end
+
+    when 'bearer', 'bearer_token'
+      token = credentials['api_key'] || credentials['access_token'] || credentials['bearer_token']
+      headers['Authorization'] = "Bearer #{token}" if token.present?
+
+    when 'basic', 'basic_auth'
+      username = credentials['username'] || credentials['api_key']
+      password = credentials['password'] || credentials['api_secret']
+      if username.present?
+        encoded = Base64.strict_encode64("#{username}:#{password}")
+        headers['Authorization'] = "Basic #{encoded}"
+      end
+
+    when 'custom_header'
+      custom_header_name = provider.dig('configuration', 'custom_header_name')
+      custom_header_value = credentials['api_key'] || credentials['custom_header_value']
+      if custom_header_name.present? && custom_header_value.present?
+        headers[custom_header_name] = custom_header_value
+      end
+
+    when 'oauth', 'oauth2'
+      # OAuth would typically require a token refresh flow
+      access_token = credentials['access_token']
+      headers['Authorization'] = "Bearer #{access_token}" if access_token.present?
+    end
+
+    # Add any custom headers from provider configuration
+    custom_headers = provider.dig('configuration', 'custom_headers') || {}
+    headers.merge!(custom_headers)
+
+    headers
+  end
+
+  def build_generic_request_body(provider, credentials, prompt, context)
+    # Get the request format from provider configuration
+    request_format = provider.dig('configuration', 'request_format') || 'openai'
+    model = @agent_execution.dig('ai_agent', 'configuration', 'model') ||
+            credentials['model'] ||
+            provider.dig('configuration', 'default_model')
+
+    case request_format.to_s.downcase
+    when 'openai', 'openai_compatible'
+      # OpenAI-compatible format (most common)
+      messages = context.dup
+      messages << { role: 'user', content: prompt }
+      {
+        model: model,
+        messages: messages,
+        max_tokens: provider.dig('configuration', 'max_tokens') || 2000,
+        temperature: provider.dig('configuration', 'temperature') || 0.7
+      }
+
+    when 'anthropic', 'claude'
+      # Anthropic Claude format
+      system_message = context.find { |m| m[:role] == 'system' }&.dig(:content)
+      user_messages = context.reject { |m| m[:role] == 'system' } + [{ role: 'user', content: prompt }]
+      {
+        model: model,
+        max_tokens: provider.dig('configuration', 'max_tokens') || 2000,
+        system: system_message,
+        messages: user_messages
+      }
+
+    when 'ollama'
+      # Ollama format
+      messages = context.dup
+      messages << { role: 'user', content: prompt }
+      {
+        model: model,
+        messages: messages,
+        stream: false
+      }
+
+    when 'simple', 'text'
+      # Simple text completion format
+      {
+        prompt: prompt,
+        model: model,
+        max_tokens: provider.dig('configuration', 'max_tokens') || 2000
+      }
+
+    when 'custom'
+      # Custom format - use template from provider configuration
+      template = provider.dig('configuration', 'request_template') || {}
+      rendered = deep_render_template(template, {
+        'prompt' => prompt,
+        'model' => model,
+        'messages' => context + [{ role: 'user', content: prompt }],
+        'system' => context.find { |m| m[:role] == 'system' }&.dig(:content) || ''
+      })
+      rendered
+
+    else
+      # Default to OpenAI format
+      messages = context.dup
+      messages << { role: 'user', content: prompt }
+      {
+        model: model,
+        messages: messages,
+        max_tokens: 2000
+      }
+    end
+  end
+
+  def deep_render_template(template, variables)
+    case template
+    when Hash
+      template.transform_values { |v| deep_render_template(v, variables) }
+    when Array
+      template.map { |v| deep_render_template(v, variables) }
+    when String
+      rendered = template.dup
+      variables.each do |key, value|
+        rendered.gsub!("{{#{key}}}", value.to_s)
+        rendered.gsub!("{#{key}}", value.to_s)
+      end
+      rendered
+    else
+      template
+    end
+  end
+
+  def extract_generic_response(provider, response_data)
+    response_format = provider.dig('configuration', 'response_format') || 'openai'
+
+    case response_format.to_s.downcase
+    when 'openai', 'openai_compatible'
+      {
+        content: response_data.dig('choices', 0, 'message', 'content'),
+        tokens_used: response_data.dig('usage', 'total_tokens'),
+        prompt_tokens: response_data.dig('usage', 'prompt_tokens')
+      }
+
+    when 'anthropic', 'claude'
+      {
+        content: response_data.dig('content', 0, 'text'),
+        tokens_used: response_data.dig('usage', 'output_tokens'),
+        prompt_tokens: response_data.dig('usage', 'input_tokens')
+      }
+
+    when 'ollama'
+      {
+        content: response_data.dig('message', 'content'),
+        tokens_used: response_data['eval_count'],
+        prompt_tokens: response_data['prompt_eval_count']
+      }
+
+    when 'simple', 'text'
+      {
+        content: response_data['text'] || response_data['completion'] || response_data['response'] || response_data['output'],
+        tokens_used: response_data['tokens_used'] || response_data['total_tokens'],
+        prompt_tokens: response_data['prompt_tokens']
+      }
+
+    when 'custom'
+      # Use custom response path from configuration
+      content_path = provider.dig('configuration', 'response_content_path') || 'choices.0.message.content'
+      tokens_path = provider.dig('configuration', 'response_tokens_path') || 'usage.total_tokens'
+
+      {
+        content: dig_path(response_data, content_path),
+        tokens_used: dig_path(response_data, tokens_path),
+        prompt_tokens: dig_path(response_data, provider.dig('configuration', 'response_prompt_tokens_path'))
+      }
+
+    else
+      # Try common response paths
+      content = response_data.dig('choices', 0, 'message', 'content') ||
+                response_data.dig('message', 'content') ||
+                response_data.dig('content', 0, 'text') ||
+                response_data['text'] ||
+                response_data['response'] ||
+                response_data['output']
+
+      {
+        content: content,
+        tokens_used: response_data.dig('usage', 'total_tokens') || response_data['tokens_used'],
+        prompt_tokens: response_data.dig('usage', 'prompt_tokens')
+      }
+    end
+  end
+
+  def dig_path(data, path)
+    return nil unless path.present? && data.is_a?(Hash)
+
+    path.to_s.split('.').reduce(data) do |obj, key|
+      return nil unless obj
+
+      if key =~ /^\d+$/
+        obj.is_a?(Array) ? obj[key.to_i] : nil
+      else
+        obj.is_a?(Hash) ? obj[key] : nil
+      end
+    end
+  end
+
+  def extract_generic_error(provider, error_data)
+    error_path = provider.dig('configuration', 'error_message_path') || 'error.message'
+
+    # Try common error paths
+    dig_path(error_data, error_path) ||
+      error_data.dig('error', 'message') ||
+      error_data.dig('error') ||
+      error_data['message'] ||
+      error_data['detail']
+  end
+
+  def calculate_generic_cost(provider, credentials, response)
+    # Check if provider has custom pricing configuration
+    pricing = provider.dig('configuration', 'pricing') || credentials['pricing'] || {}
+
+    return 0.0 if pricing.empty?
+
+    tokens_used = response[:tokens_used] || 0
+    prompt_tokens = response[:prompt_tokens] || 0
+    completion_tokens = tokens_used - prompt_tokens
+
+    # Calculate cost based on pricing configuration
+    prompt_cost = (prompt_tokens / 1000.0) * (pricing['prompt_cost_per_1k'] || 0)
+    completion_cost = (completion_tokens / 1000.0) * (pricing['completion_cost_per_1k'] || 0)
+
+    prompt_cost + completion_cost
   end
 
   def clean_ai_response(response)

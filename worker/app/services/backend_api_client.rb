@@ -175,6 +175,11 @@ class BackendApiClient
     post("/api/v1/worker/files/#{file_id}/processed", payload)
   end
 
+  # Quarantine an infected file
+  def quarantine_file(file_id, quarantine_data = {})
+    post("/api/v1/worker/files/#{file_id}/quarantine", quarantine_data)
+  end
+
   def make_request(method, path, data = {})
     # Use circuit breaker for all backend API requests
     with_backend_api_circuit_breaker do
@@ -267,8 +272,8 @@ class BackendApiClient
     make_request(:patch, path, data)
   end
 
-  def delete(path)
-    make_request(:delete, path)
+  def delete(path, params = {})
+    make_request(:delete, path, params)
   end
 
   private

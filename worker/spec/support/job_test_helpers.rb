@@ -153,6 +153,8 @@ module JobTestHelpers
     before do
       mock_powernode_worker_config
       allow(PowernodeWorker.application).to receive(:logger).and_return(logger_double)
+      # Disable runaway loop protection for testing
+      allow_any_instance_of(BaseJob).to receive(:check_runaway_loop).and_return(nil)
     end
 
     it 'logs job start and completion' do
@@ -166,7 +168,7 @@ module JobTestHelpers
       elsif respond_to?(:email_data)
         # Email jobs use positional arguments
         job_instance.perform(email_data)
-      elsif respond_to?(:job_args)
+      elsif respond_to?(:job_args) && !job_args.nil?
         # Generic positional arguments (can be single value or array)
         args = job_args.is_a?(Array) ? job_args : [job_args]
         job_instance.perform(*args)
@@ -191,7 +193,7 @@ module JobTestHelpers
         elsif respond_to?(:email_data)
           # Email jobs use positional arguments
           job_instance.perform(email_data)
-        elsif respond_to?(:job_args)
+        elsif respond_to?(:job_args) && !job_args.nil?
           # Generic positional arguments (can be single value or array)
           args = job_args.is_a?(Array) ? job_args : [job_args]
           job_instance.perform(*args)
@@ -209,16 +211,18 @@ module JobTestHelpers
     it 'tracks execution duration' do
       job_instance = subject.new
       mock_powernode_worker_config
-      
+      # Disable runaway loop protection for testing
+      allow_any_instance_of(BaseJob).to receive(:check_runaway_loop).and_return(nil)
+
       start_time = Time.current
       freeze_time_at(start_time)
-      
+
       # Mock the job to run for a specific duration
       allow(job_instance).to receive(:execute) do
         freeze_time_at(start_time + 2.5) # 2.5 seconds later
         { success: true }
       end
-      
+
       logger_double = double('Logger', info: nil, warn: nil, error: nil, level: Logger::INFO)
       allow(PowernodeWorker.application).to receive(:logger).and_return(logger_double)
       
@@ -227,7 +231,7 @@ module JobTestHelpers
         job_instance.perform(**workflow_job_args)
       elsif respond_to?(:email_data)
         job_instance.perform(email_data)
-      elsif respond_to?(:job_args)
+      elsif respond_to?(:job_args) && !job_args.nil?
         # Generic positional arguments (can be single value or array)
         args = job_args.is_a?(Array) ? job_args : [job_args]
         job_instance.perform(*args)
