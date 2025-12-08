@@ -98,14 +98,26 @@ class Api::V1::AnalyticsController < ApplicationController
         growth_rate: latest_snapshot&.growth_rate_percentage || 0
       },
       historical_data: mrr_trend.map do |snapshot|
-        {
-          date: snapshot.date,
-          mrr: snapshot.respond_to?(:mrr_cents) ? snapshot.mrr_cents / 100.0 : 0,
-          arr: snapshot.respond_to?(:arr_cents) ? snapshot.arr_cents / 100.0 : 0,
-          active_subscriptions: snapshot.respond_to?(:active_subscriptions) ? snapshot.active_subscriptions : 0,
-          new_subscriptions: snapshot.respond_to?(:new_subscriptions) ? snapshot.new_subscriptions : 0,
-          churned_subscriptions: snapshot.respond_to?(:churned_subscriptions) ? snapshot.churned_subscriptions : 0
-        }
+        # Handle both hash format (from service) and object format (from model)
+        if snapshot.is_a?(Hash)
+          {
+            date: snapshot[:date],
+            mrr: snapshot[:mrr] || 0,
+            arr: snapshot[:arr] || 0,
+            active_subscriptions: snapshot[:subscriber_count] || snapshot[:active_subscriptions] || 0,
+            new_subscriptions: snapshot[:new_subscriptions] || 0,
+            churned_subscriptions: snapshot[:churned_subscriptions] || 0
+          }
+        else
+          {
+            date: snapshot.date,
+            mrr: snapshot.respond_to?(:mrr_cents) ? snapshot.mrr_cents / 100.0 : 0,
+            arr: snapshot.respond_to?(:arr_cents) ? snapshot.arr_cents / 100.0 : 0,
+            active_subscriptions: snapshot.respond_to?(:active_subscriptions) ? snapshot.active_subscriptions : 0,
+            new_subscriptions: snapshot.respond_to?(:new_subscriptions) ? snapshot.new_subscriptions : 0,
+            churned_subscriptions: snapshot.respond_to?(:churned_subscriptions) ? snapshot.churned_subscriptions : 0
+          }
+        end
       end,
       period: {
         start_date: @start_date,
@@ -266,28 +278,75 @@ class Api::V1::AnalyticsController < ApplicationController
     cohort_data = analytics_service.cohort_analysis(cohort_months: 12)
 
     # Transform cohort data for frontend consumption
+    # Service returns: { cohort, cohort_date, size, retention (array of rates), current_mrr, churned, active }
     formatted_cohorts = cohort_data.map do |cohort|
+      # Get cohort date - handle both string and Date formats
+      cohort_date_str = if cohort[:cohort_date].is_a?(String)
+                          cohort[:cohort_date][0..6] # Already ISO format, take YYYY-MM
+                        else
+                          cohort[:cohort_date].strftime("%Y-%m")
+                        end
+
+      # Get cohort size - service uses :size, might also have :cohort_size
+      cohort_size = cohort[:size] || cohort[:cohort_size] || 0
+
+      # Get retention data - service returns array of rates, transform to expected format
+      retention_array = cohort[:retention] || cohort[:retention_by_month] || []
+      retention_rates = if retention_array.is_a?(Array) && retention_array.first.is_a?(Numeric)
+                          # Simple array of rates from service
+                          retention_array.map.with_index do |rate, index|
+                            {
+                              month: index,
+                              retention_rate: rate.round(2),
+                              retained_customers: (cohort_size * rate / 100.0).round
+                            }
+                          end
+                        elsif retention_array.is_a?(Array) && retention_array.first.is_a?(Hash)
+                          # Already in expected format
+                          retention_array.map do |r|
+                            {
+                              month: r[:month],
+                              retention_rate: (r[:retention_rate].is_a?(Numeric) && r[:retention_rate] <= 1 ? r[:retention_rate] * 100 : r[:retention_rate]).round(2),
+                              retained_customers: r[:retained_customers] || 0
+                            }
+                          end
+                        else
+                          []
+                        end
+
       {
-        cohort_date: cohort[:cohort_date].strftime("%Y-%m"),
-        cohort_size: cohort[:cohort_size],
-        retention_rates: cohort[:retention_by_month].map do |retention|
-          {
-            month: retention[:month],
-            retention_rate: (retention[:retention_rate] * 100).round(2),
-            retained_customers: retention[:retained_customers]
-          }
-        end
+        cohort_date: cohort_date_str,
+        cohort_size: cohort_size,
+        retention_rates: retention_rates,
+        current_mrr: cohort[:current_mrr] || 0,
+        churned: cohort[:churned] || 0,
+        active: cohort[:active] || 0
       }
+    end
+
+    # Calculate summary safely
+    first_month_sum = 0
+    six_month_sum = 0
+    cohorts_with_first_month = 0
+    cohorts_with_six_month = 0
+
+    formatted_cohorts.each do |c|
+      if c[:retention_rates].any?
+        first_month_sum += c[:retention_rates][0][:retention_rate]
+        cohorts_with_first_month += 1
+      end
+      if c[:retention_rates].length > 5 && c[:retention_rates][5]
+        six_month_sum += c[:retention_rates][5][:retention_rate]
+        cohorts_with_six_month += 1
+      end
     end
 
     data = {
       cohorts: formatted_cohorts,
       summary: {
         total_cohorts: formatted_cohorts.length,
-        average_first_month_retention: formatted_cohorts.any? ?
-          (formatted_cohorts.sum { |c| c[:retention_rates][0][:retention_rate] } / formatted_cohorts.length).round(2) : 0,
-        average_six_month_retention: formatted_cohorts.any? ?
-          (formatted_cohorts.sum { |c| c[:retention_rates][5] ? c[:retention_rates][5][:retention_rate] : 0 } / formatted_cohorts.length).round(2) : 0
+        average_first_month_retention: cohorts_with_first_month > 0 ? (first_month_sum / cohorts_with_first_month).round(2) : 0,
+        average_six_month_retention: cohorts_with_six_month > 0 ? (six_month_sum / cohorts_with_six_month).round(2) : 0
       }
     }
 

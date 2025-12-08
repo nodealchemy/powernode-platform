@@ -86,12 +86,24 @@ export const GrowthChart: React.FC<GrowthChartProps> = ({
     return null;
   };
 
+  // Guard against empty data
+  if (!data || data.length === 0) {
+    return (
+      <div className="card-theme rounded-lg shadow-sm border-theme p-6">
+        <h3 className="text-lg font-semibold text-theme-primary mb-4">{title}</h3>
+        <div className="h-64 flex items-center justify-center">
+          <p className="text-theme-secondary">No growth data available</p>
+        </div>
+      </div>
+    );
+  }
+
   if (compact) {
     return (
       <div className="card-theme rounded-lg shadow-sm border-theme p-6">
         <h3 className="text-lg font-semibold text-theme-primary mb-4">{title}</h3>
-        <div className="h-64">
-          <ResponsiveContainer width="100%" height="100%">
+        <div className="h-64" style={{ minHeight: 256, minWidth: 0 }}>
+          <ResponsiveContainer width="100%" height={256} debounce={100}>
             <LineChart data={data}>
               <CartesianGrid strokeDasharray="3 3" stroke={colors.border} />
               <XAxis 
@@ -155,8 +167,8 @@ export const GrowthChart: React.FC<GrowthChartProps> = ({
       {/* Growth Rate Trend */}
       <div className="card-theme rounded-lg shadow-sm border-theme p-4 sm:p-6">
         <h3 className="text-lg font-semibold text-theme-primary mb-4">Monthly Growth Rate</h3>
-        <div className="h-64 sm:h-80 lg:h-96">
-          <ResponsiveContainer width="100%" height="100%">
+        <div className="h-64 sm:h-80 lg:h-96" style={{ minHeight: 256, minWidth: 0 }}>
+          <ResponsiveContainer width="100%" height={256} debounce={100}>
             <AreaChart data={data}>
               <defs>
                 <linearGradient id="growthGradient" x1="0" y1="0" x2="0" y2="1">
@@ -190,8 +202,8 @@ export const GrowthChart: React.FC<GrowthChartProps> = ({
       {/* Revenue Components */}
       <div className="card-theme rounded-lg shadow-sm border-theme p-4 sm:p-6">
         <h3 className="text-lg font-semibold text-theme-primary mb-4">Revenue Growth Components</h3>
-        <div className="h-64 sm:h-80 lg:h-96">
-          <ResponsiveContainer width="100%" height="100%">
+        <div className="h-64 sm:h-80 lg:h-96" style={{ minHeight: 256, minWidth: 0 }}>
+          <ResponsiveContainer width="100%" height={256} debounce={100}>
             <ComposedChart data={data}>
               <CartesianGrid strokeDasharray="3 3" stroke={colors.border} />
               <XAxis 

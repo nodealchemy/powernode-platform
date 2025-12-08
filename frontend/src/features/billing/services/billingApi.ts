@@ -1,12 +1,12 @@
 import { api } from '@/shared/services/api';
 
 export interface BillingOverview {
-  outstanding: number;
-  this_month: number;
-  collected: number;
-  success_rate: number;
-  recent_invoices: Invoice[];
-  payment_methods: PaymentMethod[];
+  outstanding?: number;
+  this_month?: number;
+  collected?: number;
+  success_rate?: number;
+  recent_invoices?: Invoice[];
+  payment_methods?: PaymentMethod[];
 }
 
 export interface Invoice {
@@ -236,8 +236,14 @@ class BillingApi {
   }
 
   // Utility methods
-  formatCurrency(amountCents: number | string, currency = 'USD'): string {
-    const amount = typeof amountCents === 'string' ? parseInt(amountCents) : amountCents;
+  formatCurrency(amountCents: number | string | undefined | null, currency = 'USD'): string {
+    if (amountCents === undefined || amountCents === null) {
+      return '$0.00';
+    }
+    const amount = typeof amountCents === 'string' ? parseInt(amountCents) || 0 : amountCents;
+    if (isNaN(amount)) {
+      return '$0.00';
+    }
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: currency.toUpperCase(),

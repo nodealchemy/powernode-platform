@@ -172,8 +172,8 @@ export const BillingPage: React.FC = () => {
                 title="Outstanding"
                 value={overview ? billingApi.formatCurrency(overview.outstanding) : '$0.00'}
                 icon="💳"
-                description={overview ? 
-                  `${overview.recent_invoices.filter(i => i.status === 'overdue').length} overdue` : 
+                description={overview ?
+                  `${(overview.recent_invoices || []).filter(i => i.status === 'overdue').length} overdue` :
                   '0 overdue'
                 }
               />
@@ -191,7 +191,7 @@ export const BillingPage: React.FC = () => {
               />
               <MetricCard
                 title="Success Rate"
-                value={overview ? `${overview.success_rate}%` : '0%'}
+                value={overview?.success_rate != null ? `${overview.success_rate}%` : '0%'}
                 icon="✅"
                 description="Payment success"
               />
@@ -303,8 +303,8 @@ export const BillingPage: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="card-theme divide-y divide-theme">
-                    {overview && overview.recent_invoices.length > 0 ? (
-                      overview.recent_invoices.map((invoice) => (
+                    {overview && (overview.recent_invoices || []).length > 0 ? (
+                      (overview.recent_invoices || []).map((invoice) => (
                         <tr key={invoice.id} className="hover:bg-theme-surface-hover">
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-theme-primary">
                             {invoice.invoice_number}
@@ -364,52 +364,55 @@ export const BillingPage: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <MetricCard
                 title="Total Invoices"
-                value={overview ? overview.recent_invoices.length : 0}
+                value={overview ? (overview.recent_invoices || []).length : 0}
                 icon="📄"
                 description="All time"
               />
               <MetricCard
                 title="Paid Invoices"
-                value={overview ? overview.recent_invoices.filter(i => i.status === 'paid').length : 0}
+                value={overview ? (overview.recent_invoices || []).filter(i => i.status === 'paid').length : 0}
                 icon="✅"
                 description="Success rate"
               />
               <MetricCard
                 title="Success Rate"
-                value={overview ? `${overview.success_rate}%` : '0%'}
+                value={overview?.success_rate != null ? `${overview.success_rate}%` : '0%'}
                 icon="📊"
                 description="Payment success"
               />
             </div>
             
-            {/* Payment Trends */}
+            {/* Payment Methods */}
             <div className="card-theme p-6">
-              <h3 className="text-lg font-semibold text-theme-primary mb-4">Payment Trends</h3>
+              <h3 className="text-lg font-semibold text-theme-primary mb-4">Payment Methods</h3>
               <div className="space-y-3">
-                <div className="flex items-center justify-between py-2">
-                  <div className="flex items-center space-x-3">
-                    <span className="text-theme-secondary font-medium">1</span>
-                    <span className="text-lg">💳</span>
-                    <span className="text-theme-primary">Credit Card</span>
-                  </div>
-                  <div className="text-sm text-theme-secondary">85% of payments</div>
-                </div>
-                <div className="flex items-center justify-between py-2">
-                  <div className="flex items-center space-x-3">
-                    <span className="text-theme-secondary font-medium">2</span>
-                    <span className="text-lg">🏛️</span>
-                    <span className="text-theme-primary">Bank Transfer</span>
-                  </div>
-                  <div className="text-sm text-theme-secondary">10% of payments</div>
-                </div>
-                <div className="flex items-center justify-between py-2">
-                  <div className="flex items-center space-x-3">
-                    <span className="text-theme-secondary font-medium">3</span>
-                    <span className="text-lg">📱</span>
-                    <span className="text-theme-primary">Digital Wallet</span>
-                  </div>
-                  <div className="text-sm text-theme-secondary">5% of payments</div>
-                </div>
+                {(() => {
+                  const methods = overview?.payment_methods || [];
+                  if (methods.length === 0) {
+                    return (
+                      <div className="text-center py-4">
+                        <span className="text-4xl">💳</span>
+                        <p className="text-theme-secondary mt-2">No payment methods configured</p>
+                      </div>
+                    );
+                  }
+                  return methods.map((method, index) => (
+                    <div key={method.id} className="flex items-center justify-between py-2">
+                      <div className="flex items-center space-x-3">
+                        <span className="text-theme-secondary font-medium">{index + 1}</span>
+                        <span className="text-lg">
+                          {method.provider === 'stripe' ? '💳' : method.provider === 'paypal' ? '📱' : '🏛️'}
+                        </span>
+                        <span className="text-theme-primary">
+                          {billingApi.getPaymentMethodDisplay(method)}
+                        </span>
+                      </div>
+                      <div className="text-sm text-theme-secondary">
+                        {method.is_default ? 'Default' : method.provider}
+                      </div>
+                    </div>
+                  ));
+                })()}
               </div>
             </div>
 
@@ -417,10 +420,11 @@ export const BillingPage: React.FC = () => {
             <div className="card-theme p-6">
               <h3 className="text-lg font-semibold text-theme-primary mb-4">Invoice Status Breakdown</h3>
               <div className="space-y-4">
-                {overview && overview.recent_invoices.length > 0 ? (
+                {overview && (overview.recent_invoices || []).length > 0 ? (
                   ['paid', 'sent', 'draft', 'overdue'].map((status) => {
-                    const count = overview.recent_invoices.filter(i => i.status === status).length;
-                    const percentage = ((count / overview.recent_invoices.length) * 100).toFixed(1);
+                    const invoices = overview.recent_invoices || [];
+                    const count = invoices.filter(i => i.status === status).length;
+                    const percentage = ((count / invoices.length) * 100).toFixed(1);
                     return (
                       <div key={status} className="flex items-center justify-between py-2">
                         <div className="flex items-center space-x-3">

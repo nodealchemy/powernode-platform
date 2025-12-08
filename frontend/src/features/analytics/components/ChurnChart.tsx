@@ -91,12 +91,24 @@ export const ChurnChart: React.FC<ChurnChartProps> = ({
     return null;
   };
 
+  // Guard against empty data
+  if (!data || data.length === 0) {
+    return (
+      <div className="card-theme rounded-lg shadow-sm border-theme p-6">
+        <h3 className="text-lg font-semibold text-theme-primary mb-4">{title}</h3>
+        <div className="h-64 flex items-center justify-center">
+          <p className="text-theme-secondary">No churn data available</p>
+        </div>
+      </div>
+    );
+  }
+
   if (compact) {
     return (
       <div className="card-theme rounded-lg shadow-sm border-theme p-6">
         <h3 className="text-lg font-semibold text-theme-primary mb-4">{title}</h3>
-        <div className="h-64">
-          <ResponsiveContainer width="100%" height="100%">
+        <div className="h-64" style={{ minHeight: 256, minWidth: 0 }}>
+          <ResponsiveContainer width="100%" height={256} debounce={100}>
             <AreaChart data={data}>
               <defs>
                 <linearGradient id="churnGradient" x1="0" y1="0" x2="0" y2="1">
@@ -190,8 +202,8 @@ export const ChurnChart: React.FC<ChurnChartProps> = ({
       {/* Churn Rate Trends */}
       <div className="card-theme rounded-lg shadow-sm border-theme p-6">
         <h3 className="text-lg font-semibold text-theme-primary mb-4">Churn Rate Trends</h3>
-        <div className="h-96">
-          <ResponsiveContainer width="100%" height="100%">
+        <div className="h-96" style={{ minHeight: 384, minWidth: 0 }}>
+          <ResponsiveContainer width="100%" height={384} debounce={100}>
             <ComposedChart data={data}>
               <defs>
                 <linearGradient id="customerChurnGradient" x1="0" y1="0" x2="0" y2="1">
@@ -237,12 +249,12 @@ export const ChurnChart: React.FC<ChurnChartProps> = ({
       {/* Churned Volumes */}
       <div className="card-theme rounded-lg shadow-sm border-theme p-6">
         <h3 className="text-lg font-semibold text-theme-primary mb-4">Churned Volume Analysis</h3>
-        <div className="h-96">
-          <ResponsiveContainer width="100%" height="100%">
+        <div className="h-96" style={{ minHeight: 384, minWidth: 0 }}>
+          <ResponsiveContainer width="100%" height={384} debounce={100}>
             <ComposedChart data={data}>
               <CartesianGrid strokeDasharray="3 3" stroke={colors.border} />
-              <XAxis 
-                dataKey="date" 
+              <XAxis
+                dataKey="date"
                 tickFormatter={formatDate}
               />
               <YAxis yAxisId="left" />
