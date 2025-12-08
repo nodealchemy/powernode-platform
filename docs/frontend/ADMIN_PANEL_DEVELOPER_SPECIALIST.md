@@ -1,5 +1,11 @@
 # Admin Panel Developer Specialist Guide
 
+## Related References
+
+For common patterns used across multiple specialists, see these consolidated references:
+- **[Permission System Reference](../platform/PERMISSION_SYSTEM_REFERENCE.md)** - Permission-based access control for admin features
+- **[Theme System Reference](../platform/THEME_SYSTEM_REFERENCE.md)** - Theme-aware styling classes
+
 ## Role & Responsibilities
 
 The Admin Panel Developer specializes in creating comprehensive administrative interfaces, system management panels, and complex data management tools for Powernode's subscription platform.

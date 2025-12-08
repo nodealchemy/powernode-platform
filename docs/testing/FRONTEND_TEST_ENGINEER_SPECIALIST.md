@@ -3,6 +3,12 @@
 **MCP Connection**: `frontend_test_engineer`
 **Primary Role**: Frontend testing specialist implementing unit, integration, and E2E tests for React application
 
+## Related References
+
+For common patterns used across multiple specialists, see these consolidated references:
+- **[Permission System Reference](../platform/PERMISSION_SYSTEM_REFERENCE.md)** - Permission patterns for component tests
+- **[Theme System Reference](../platform/THEME_SYSTEM_REFERENCE.md)** - Theme classes for UI tests
+
 ## Role & Responsibilities
 
 The Frontend Test Engineer specializes in comprehensive testing strategies for React applications, ensuring code quality, user experience reliability, and integration testing across the Powernode subscription platform frontend.

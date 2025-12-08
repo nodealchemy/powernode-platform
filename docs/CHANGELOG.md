@@ -8,13 +8,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Future features will be listed here
+- **AI Orchestration System**: Complete AI workflow orchestration with database schema, models, services, API endpoints, and WebSocket channels
+- **MCP Integration**: Model Context Protocol implementation with OAuth 2.1 and security hardening (2025-06-18 spec compliance)
+- **Workflow Builder**: MCP nodes integration into visual workflow builder
+- **GDPR Compliance**: Data privacy features including consent management and data export
+- **Notification System**: Comprehensive notification infrastructure with email, in-app, and WebSocket delivery
+- **Account Switcher**: UI component for managing multiple accounts
+- **Privacy Features**: Enhanced user privacy controls and data management
+- **Knowledge Base Enhancement**: Comprehensive knowledge base system with improved search and categorization
+- **Security Scanning**: Added security scanning tools and infrastructure configurations
+- **Compliance Jobs**: GDPR compliance, notification, and virus scan background jobs
+- **MCP Browser**: Enhanced UI for browsing MCP servers and tools
+- **Database-driven CORS**: Dynamic CORS and Vite allowed hosts management
 
 ### Changed
-- Future changes will be listed here
+- **Build System**: Migrated frontend from Create React App to Vite for faster builds
+- **Reverse Proxy**: Added reverse proxy configuration with smart port detection
+- **Worker Authentication**: Unified worker authentication system across services
+- **Database Schema**: Comprehensive consolidation and optimization
+- **Service Naming**: Renamed AI orchestration services with `ai_` prefix for clarity
 
 ### Fixed
-- Future fixes will be listed here
+- Login persistence issues
+- MCP streamable HTTP test assertions
+- Zeitwerk autoloading conflicts for workflow services
+- Non-deterministic worker test failures
+- Frontend test assertions and expectations
+- Hardcoded colors converted to theme classes
+
+### Security
+- Comprehensive JWT authentication system with enhanced security
+- OAuth 2.1 integration for MCP
+- Security hardening across all API endpoints
+
+### Infrastructure
+- Proxy host management scripts
+- Development scripts and frontend tooling updates
+- Package updates across all platform dependencies
 
 ## [0.0.2] - 2025-08-24
 
@@ -107,59 +137,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CI/CD pipeline foundation
 - Automated testing and validation
 
-## [0.0.1-dev] - 2024-12-XX
-
-### Added
-- Initial platform foundation
-- Rails 8 API backend with core models
-- React TypeScript frontend
-- Sidekiq worker service
-- JWT authentication system
-- UUIDv7 primary keys
-- Money gem integration
-- State machine implementations
-- Comprehensive test suite (203+ backend, 45+ frontend tests)
-
-### Infrastructure
-- PostgreSQL database setup
-- Development environment automation
-- Docker configuration
-- CI/CD pipeline foundation
-
 ---
 
 ## Version History
 
-- `0.0.1-dev` - Initial development version
-- `0.1.0` - Planned first minor release
-
-## Release Notes Template
-
-```markdown
-## [X.Y.Z] - YYYY-MM-DD
-
-### Added
-- New features
-
-### Changed
-- Changes in existing functionality
-
-### Deprecated
-- Soon-to-be removed features
-
-### Removed
-- Now removed features
-
-### Fixed
-- Bug fixes
-
-### Security
-- Security improvements
-```
-
-## Migration Guides
-
-### Upgrading to 0.1.0 (Planned)
-- Migration steps will be documented here
-- Breaking changes and how to address them
-- Updated API endpoints and parameters
+- `0.0.1` - Initial release with core platform features
+- `0.0.2` - Marketplace infrastructure
+- `0.1.0` - Planned next release (AI Orchestration & MCP integration)

@@ -1,83 +1,82 @@
-# Platform Pattern Usage Statistics
+# Pattern Usage Statistics
 
-**Generated**: August 24, 2025  
-**Platform Version**: 0.0.2  
-**Compliance Rate**: 86% (26/30 checks passing)
+**Generated**: $(date)  
+**Platform Version**: $(cat VERSION 2>/dev/null || echo 'Unknown')
 
-## Backend Patterns (Rails API)
+This document provides comprehensive statistics about architectural pattern usage across the Powernode platform.
 
-### ✅ Fully Compliant
-- **API Response Format**: 119 ApiResponse method usages
-- **Success Response Usage**: 15 render_success implementations
-- **Error Response Usage**: 122 render_error implementations
-- **Api::V1 Namespace**: 44 controllers properly organized
-- **Permission Authorization**: 32 require_permission implementations
-- **UUID Primary Keys**: 20 models using string UUIDs
-- **Frozen String Literals**: 100% compliance
-- **Permission Methods**: 7 has_permission? implementations
-- **Model Concerns**: 2 concerns implemented (PasswordSecurity, Auditable)
 
-## Frontend Patterns (React TypeScript)
+## Backend Patterns
 
-### ✅ Fully Compliant  
-- **Permission-Based Access Control**: 105 correct implementations
-- **No Role-Based Access**: 0 forbidden patterns (✓)
-- **Theme-Aware CSS**: 6,450+ theme class usages
-- **Component DisplayNames**: 182 components with displayName
-- **ForwardRef Usage**: 11 proper implementations
+- **API Controllers with Api::V1 namespace**: 107
+- **Controllers using success/error response format**: 29
+- **Controllers with permission-based authorization**: 110
+- **Controllers using serialization concerns**: 3
+- **Models with UUID primary keys**: 0
+- **Models using security concerns**: 1
+- **Models with permission methods**: 8
+- **Service objects**: 158
+- **Files with frozen_string_literal**: 439
 
-### ⚠️ Minor Warnings
-- **Hardcoded Colors**: 32 instances (improved from 48, target: 5)
+## Frontend Patterns
 
-## Worker Patterns (Sidekiq Service)
+- **Components using permission-based access**: 285
+- **Components using theme-aware classes**: 12784
+- **Components with forwardRef**: 13
+- **Components with displayName**: 4
+- **TypeScript interface definitions**: 504
+- **Custom hooks (useXxx)**: 44
+- **API service files**: 45
 
-### ✅ Fully Compliant
-- **BaseJob Inheritance**: 25 jobs inheriting correctly
-- **Execute Method Pattern**: 25 jobs with execute() method
-- **No ApplicationJob**: 0 legacy inheritance (✓)
-- **No Perform Overrides**: 0 inappropriate overrides (✓)
-- **API-Only Communication**: 0 direct database access (✓)
-- **Frozen String Literals**: 100% compliance
+## Worker Patterns
 
-## Code Quality Patterns
+- **Jobs inheriting from BaseJob**: 66
+- **Jobs using execute method**: 85
+- **Jobs with API client usage**: 301
+- **Jobs with retry logic**: 136
 
-### ✅ Compliant
-- **Backend Frozen Strings**: 100% compliance
-- **Worker Frozen Strings**: 100% compliance  
-- **Frontend Debug Code**: 0 console.log statements (✓)
+## Code Quality
 
-### ⚠️ Warnings
-- **TypeScript Any Types**: 320 instances (architectural, target: 5)
-- **Backend Debug Pattern**: False positives from comments
+- **Backend files missing frozen_string_literal**: 0
+- **Worker files missing frozen_string_literal**: 0
+- **Debug statements in backend (should be 0)**: 989
+- **Console.log statements in frontend (should be 0)**: 14
+- **TypeScript any types**: 456
 
-## Architecture Patterns
+## Anti-Patterns (Should be Zero)
 
-### ✅ Fully Compliant
-- **Service Object Usage**: 28 service implementations
-- **Job Service Integration**: 51 worker integrations
-- **No Submenu Navigation**: 0 forbidden patterns (✓)
+- **Role-based access in frontend**: 26
+- **Hardcoded colors in frontend**: 32
+- **ApplicationJob inheritance in worker**: 0
+- **ActiveRecord usage in worker**: 5
+- **Direct perform method in worker jobs**: 2
 
-## Summary Statistics
+## Architecture Overview
 
-- **Total Pattern Checks**: 30
-- **Passing Checks**: 26 (86%)
-- **Failed Checks**: 1 (pattern matching artifact)
-- **Warning Checks**: 3 (minor improvements)
+- **Total Backend Controllers**: 117
+- **Total Models**: 135
+- **Total React Components**: 526
+- **Total Worker Jobs**: 81
+- **Total Database Migrations**: 76
 
-## Key Achievements
+## Pattern Compliance Summary
 
-1. **API Response Standardization**: Complete migration to ApiResponse concern
-2. **Component Standardization**: 182 React components with displayName
-3. **Memory Optimization**: Frozen string literals across all Ruby files
-4. **Permission-Based Security**: 105 correct permission implementations
-5. **Worker Pattern Consistency**: All 25 jobs following BaseJob pattern
-6. **Theme System**: 6,450+ theme-aware CSS class usages
+To check current compliance with these patterns, run:
 
-## Platform Health: ✅ EXCELLENT
-The Powernode platform has achieved comprehensive standardization with 86% compliance across all architectural layers. Remaining items are minor warnings that don't impact functionality or maintainability.
+```bash
+# Comprehensive pattern audit
+./scripts/pattern-validation.sh
 
-## Next Steps
-- Continue feature development using established patterns
-- Monitor compliance through automated validation tools
-- Address TypeScript any types gradually as features evolve
-- Maintain pattern consistency through pre-commit hooks
+# Quick development check
+./scripts/quick-pattern-check.sh
+
+# Pre-commit validation
+./scripts/pre-commit-pattern-check.sh
+```
+
+## References
+
+- [Platform Patterns Analysis](PLATFORM_PATTERNS_ANALYSIS.md)
+- [MCP Documentation Enhancement Plan](MCP_DOCUMENTATION_ENHANCEMENT_PLAN.md)
+- [Platform Standardization Recommendations](PLATFORM_STANDARDIZATION_RECOMMENDATIONS.md)
+

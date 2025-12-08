@@ -1,5 +1,11 @@
 # Rails Architect Specialist Guide
 
+## Related References
+
+For common patterns used across multiple specialists, see these consolidated references:
+- **[API Response Standards](../platform/API_RESPONSE_STANDARDS.md)** - Unified response format documentation
+- **[Permission System Reference](../platform/PERMISSION_SYSTEM_REFERENCE.md)** - Backend permission patterns
+
 ## Role & Responsibilities
 
 The Rails Architect specializes in Rails 8 API setup, configuration, and architectural decisions for Powernode's subscription platform.

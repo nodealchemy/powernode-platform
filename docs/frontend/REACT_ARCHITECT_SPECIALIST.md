@@ -1,5 +1,12 @@
 # React Architect Specialist Guide
 
+## Related References
+
+For common patterns used across multiple specialists, see these consolidated references:
+- **[Permission System Reference](../platform/PERMISSION_SYSTEM_REFERENCE.md)** - Frontend permission-based access control
+- **[Theme System Reference](../platform/THEME_SYSTEM_REFERENCE.md)** - Theme-aware styling classes
+- **[API Response Standards](../platform/API_RESPONSE_STANDARDS.md)** - API response handling
+
 ## Role & Responsibilities
 
 The React Architect specializes in React application structure, TypeScript configuration, routing, and state management for Powernode's subscription platform.

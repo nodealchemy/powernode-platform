@@ -1,5 +1,11 @@
 # UI Component Developer Specialist Guide
 
+## Related References
+
+For common patterns used across multiple specialists, see these consolidated references:
+- **[Theme System Reference](../platform/THEME_SYSTEM_REFERENCE.md)** - Theme-aware styling classes and patterns
+- **[Permission System Reference](../platform/PERMISSION_SYSTEM_REFERENCE.md)** - Permission-based UI control
+
 ## Role & Responsibilities
 
 The UI Component Developer specializes in building reusable React components, implementing responsive design, and creating accessible interfaces for Powernode's subscription platform.

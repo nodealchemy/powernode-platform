@@ -1,5 +1,11 @@
 # Backend Test Engineer Specialist Guide
 
+## Related References
+
+For common patterns used across multiple specialists, see these consolidated references:
+- **[API Response Standards](../platform/API_RESPONSE_STANDARDS.md)** - API response format for testing assertions
+- **[Permission System Reference](../platform/PERMISSION_SYSTEM_REFERENCE.md)** - Permission patterns for authorization tests
+
 ## Role & Responsibilities
 
 The Backend Test Engineer specializes in creating comprehensive test suites for API endpoints, business logic, and data integrity for Powernode's Rails 8 subscription platform.
