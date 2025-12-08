@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_12_06_130000) do
+ActiveRecord::Schema[8.0].define(version: 2025_12_08_000001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -3348,6 +3348,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_06_130000) do
   add_foreign_key "invoices", "subscriptions"
   add_foreign_key "jwt_blacklists", "users", on_delete: :nullify
   add_foreign_key "knowledge_base_article_views", "users"
+  add_foreign_key "knowledge_base_articles", "knowledge_base_categories", column: "category_id", on_delete: :cascade
   add_foreign_key "knowledge_base_articles", "users", column: "author_id"
   add_foreign_key "knowledge_base_articles", "users", column: "last_edited_by_id"
   add_foreign_key "knowledge_base_attachments", "users", column: "uploaded_by_id"

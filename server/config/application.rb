@@ -97,5 +97,9 @@ module Server
       require Rails.root.join('app/middleware/request_inspector')
       config.middleware.use RequestInspector
     end
+
+    # Add security headers middleware for all responses
+    require Rails.root.join('app/middleware/security_headers')
+    config.middleware.use SecurityHeaders
   end
 end

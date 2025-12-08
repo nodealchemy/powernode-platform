@@ -115,6 +115,58 @@ class BackendApiClient
     get("/api/v1/health")
   end
 
+  # Subscription operations (for billing jobs)
+  def get_subscription_data(account_id: nil, status: nil)
+    params = {}
+    params[:account_id] = account_id if account_id
+    params[:status] = status if status
+    get('/api/v1/subscriptions', params)
+  end
+
+  def update_subscription_status(subscription_id, status, metadata = {})
+    patch("/api/v1/subscriptions/#{subscription_id}", {
+      status: status,
+      metadata: metadata
+    })
+  end
+
+  # Invoice operations
+  def get_invoice_data(account_id: nil, status: nil, **params)
+    query_params = params.dup
+    query_params[:account_id] = account_id if account_id
+    query_params[:status] = status if status
+    get('/api/v1/invoices', query_params)
+  end
+
+  def create_invoice(subscription_id, line_items)
+    post('/api/v1/invoices', {
+      subscription_id: subscription_id,
+      line_items: line_items
+    })
+  end
+
+  # Report generation
+  def generate_pdf_report(report_type, account_id: nil, start_date: nil, end_date: nil, user_id: nil)
+    post('/api/v1/reports/generate', {
+      reports: [{
+        type: report_type,
+        format: 'pdf'
+      }],
+      account_id: account_id,
+      start_date: start_date,
+      end_date: end_date,
+      user_id: user_id
+    })
+  end
+
+  # Webhook event updates
+  def update_webhook_event(event_id, status, error_message = nil)
+    patch("/api/v1/webhooks/events/#{event_id}", {
+      status: status,
+      error_message: error_message
+    })
+  end
+
   # File processing operations
   def get_file_processing_job(job_id)
     get("/api/v1/worker/processing_jobs/#{job_id}")

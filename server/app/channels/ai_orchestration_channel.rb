@@ -794,7 +794,7 @@ class AiOrchestrationChannel < ApplicationCable::Channel
       current_user.account_id.to_s == resource_id.to_s
     when 'system'
       # System-level monitoring requires special permission
-      current_user.permissions.include?('system.admin')
+      current_user.has_permission?('system.admin')
     when 'batch_execution'
       # User can subscribe to batch executions in their account
       batch_execution = BatchWorkflowRun.find_by(batch_id: resource_id)
@@ -803,17 +803,17 @@ class AiOrchestrationChannel < ApplicationCable::Channel
       # User can subscribe to circuit breakers in their account
       # If resource_id is 'all', allow subscription for monitoring all breakers
       if resource_id == 'all'
-        current_user.permissions.include?('ai_orchestration.read') ||
-          current_user.permissions.include?('system.admin')
+        current_user.has_permission?('ai_orchestration.read') ||
+          current_user.has_permission?('system.admin')
       else
         # Specific breaker subscription - would need to check breaker ownership
         # For now, allow if user has monitoring permissions
-        current_user.permissions.include?('ai_orchestration.read')
+        current_user.has_permission?('ai_orchestration.read')
       end
     when 'circuit_breaker_service'
       # User can subscribe to all breakers for a specific service
-      current_user.permissions.include?('ai_orchestration.read') ||
-        current_user.permissions.include?('system.admin')
+      current_user.has_permission?('ai_orchestration.read') ||
+        current_user.has_permission?('system.admin')
     else
       false
     end

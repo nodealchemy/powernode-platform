@@ -67,12 +67,11 @@ class AiWorkflowExecutionJob < BaseJob
     end
 
     # Check for rapid job creation pattern (multiple jobs for same workflow in short time)
+    # Use Sidekiq's built-in Redis connection instead of creating direct Redis connections
     begin
-      require 'redis'
-      redis = Redis.new(url: ENV['REDIS_URL'] || 'redis://localhost:6379/1')
       job_key = "workflow_job_count:#{workflow_run_id}"
-      current_count = redis.incr(job_key)
-      redis.expire(job_key, 60) # 1 minute window
+      current_count = Sidekiq.redis { |conn| conn.incr(job_key) }
+      Sidekiq.redis { |conn| conn.expire(job_key, 60) } # 1 minute window
 
       if current_count > 5  # More than 5 jobs for same workflow in 1 minute
         log_error("Rapid job creation detected for workflow #{workflow_run_id}: #{current_count} jobs in 1 minute")

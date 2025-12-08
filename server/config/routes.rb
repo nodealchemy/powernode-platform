@@ -444,6 +444,13 @@ Rails.application.routes.draw do
           end
         end
 
+        # Database health monitoring (for worker service)
+        namespace :database do
+          get :pool_stats
+          get :ping
+          get :health
+        end
+
         # Review Moderation
         resource :review_moderation, only: [] do
           collection do

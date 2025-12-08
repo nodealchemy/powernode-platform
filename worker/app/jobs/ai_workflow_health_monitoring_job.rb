@@ -472,11 +472,13 @@ class AiWorkflowHealthMonitoringJob < BaseJob
   end
 
   def fetch_database_pool_stats
+    # Use API endpoint to get database pool stats (workers should not access database directly)
+    stats = api_client.get('admin/database/pool_stats')
     {
-      size: ActiveRecord::Base.connection_pool.size,
-      checked_out: ActiveRecord::Base.connection_pool.stat[:busy],
-      checked_in: ActiveRecord::Base.connection_pool.stat[:idle],
-      dead: ActiveRecord::Base.connection_pool.stat[:dead]
+      size: stats['size'] || 0,
+      checked_out: stats['checked_out'] || 0,
+      checked_in: stats['checked_in'] || 0,
+      dead: stats['dead'] || 0
     }
   rescue
     { size: 0, checked_out: 0, checked_in: 0, dead: 0 }

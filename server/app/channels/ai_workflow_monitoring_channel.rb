@@ -132,9 +132,9 @@ class AiWorkflowMonitoringChannel < ApplicationCable::Channel
   private
 
   def authorized_for_monitoring?
-    current_user.permissions.include?('ai.monitor') ||
-      current_user.permissions.include?('ai.workflows.read') ||
-      current_user.permissions.include?('system.admin')
+    current_user.has_permission?('ai.monitor') ||
+      current_user.has_permission?('ai.workflows.read') ||
+      current_user.has_permission?('system.admin')
   end
 
   def serialize_workflow_run(workflow_run)
