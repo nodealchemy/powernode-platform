@@ -227,11 +227,17 @@ describe('AiAgentDashboard', () => {
   };
 
   describe('Component Rendering', () => {
-    it('renders the dashboard header', async () => {
+    it('renders the dashboard sections', async () => {
       renderComponent();
 
-      expect(screen.getByText('AI Agents')).toBeInTheDocument();
-      expect(screen.getByText('Manage and monitor your AI agents')).toBeInTheDocument();
+      // Wait for loading to complete
+      await waitFor(() => {
+        expect(screen.queryByTestId('loading-spinner')).not.toBeInTheDocument();
+      });
+
+      // Dashboard renders stats overview and recent agents section
+      expect(screen.getByText('Total Agents')).toBeInTheDocument();
+      expect(screen.getByText('Recent Agents')).toBeInTheDocument();
     });
 
     it('displays loading state initially', () => {
@@ -250,6 +256,9 @@ describe('AiAgentDashboard', () => {
     });
 
     it('shows create agent button when user has create permissions', async () => {
+      // Button appears in EmptyState when no agents exist
+      (agentsApi.getAgents as jest.Mock).mockResolvedValue({ items: [] });
+
       renderComponent();
 
       await waitFor(() => {
@@ -338,26 +347,34 @@ describe('AiAgentDashboard', () => {
 
   describe('Agent Actions', () => {
     it('opens create modal when create button is clicked', async () => {
+      // Start with empty agents so "Create Agent" button appears in EmptyState
+      (agentsApi.getAgents as jest.Mock).mockResolvedValue({ items: [] });
+
       renderComponent();
 
       await waitFor(() => {
-        const createButton = screen.getByText('Create Agent');
-        fireEvent.click(createButton);
+        expect(screen.getByText('Create Agent')).toBeInTheDocument();
       });
+      fireEvent.click(screen.getByText('Create Agent'));
 
-      expect(screen.getByTestId('create-agent-modal')).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByTestId('create-agent-modal')).toBeInTheDocument();
+      });
     });
 
     it('opens edit modal when manage button is clicked', async () => {
       renderComponent();
 
       await waitFor(() => {
-        const manageButtons = screen.getAllByText('Manage');
-        fireEvent.click(manageButtons[0]);
+        expect(screen.getAllByText('Manage').length).toBeGreaterThan(0);
       });
+      const manageButtons = screen.getAllByText('Manage');
+      fireEvent.click(manageButtons[0]);
 
-      expect(screen.getByTestId('edit-agent-modal')).toBeInTheDocument();
-      expect(screen.getByText('Editing: Data Processor')).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByTestId('edit-agent-modal')).toBeInTheDocument();
+        expect(screen.getByText('Editing: Data Processor')).toBeInTheDocument();
+      });
     });
 
     it('toggles agent status when pause button is clicked', async () => {
@@ -369,9 +386,10 @@ describe('AiAgentDashboard', () => {
       renderComponent();
 
       await waitFor(() => {
-        const pauseButtons = screen.getAllByText('Pause');
-        fireEvent.click(pauseButtons[0]);
+        expect(screen.getAllByText('Pause').length).toBeGreaterThan(0);
       });
+      const pauseButtons = screen.getAllByText('Pause');
+      fireEvent.click(pauseButtons[0]);
 
       await waitFor(() => {
         expect(agentsApi.pauseAgent).toHaveBeenCalledWith('agent-1');
@@ -387,9 +405,10 @@ describe('AiAgentDashboard', () => {
       renderComponent();
 
       await waitFor(() => {
-        const startButtons = screen.getAllByText('Start');
-        fireEvent.click(startButtons[0]);
+        expect(screen.getAllByText('Start').length).toBeGreaterThan(0);
       });
+      const startButtons = screen.getAllByText('Start');
+      fireEvent.click(startButtons[0]);
 
       await waitFor(() => {
         expect(agentsApi.resumeAgent).toHaveBeenCalledWith('agent-2');
@@ -429,18 +448,22 @@ describe('AiAgentDashboard', () => {
 
   describe('Modal Callbacks', () => {
     it('closes create modal and refreshes on agent created', async () => {
+      // Start with empty agents so "Create Agent" button appears in EmptyState
       (agentsApi.getAgents as jest.Mock)
-        .mockResolvedValueOnce({ items: mockAgents })
+        .mockResolvedValueOnce({ items: [] })
         .mockResolvedValueOnce({ items: mockAgents });
 
       renderComponent();
 
-      // Open create modal
+      // Wait for component to load and then open create modal (button appears in EmptyState)
       await waitFor(() => {
-        fireEvent.click(screen.getByText('Create Agent'));
+        expect(screen.getByText('Create Agent')).toBeInTheDocument();
       });
+      fireEvent.click(screen.getByText('Create Agent'));
 
-      expect(screen.getByTestId('create-agent-modal')).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByTestId('create-agent-modal')).toBeInTheDocument();
+      });
 
       // Trigger agent created callback (first "Create Agent" button opens modal, second is inside modal)
       const createButtons = screen.getAllByText('Create Agent');
@@ -459,13 +482,16 @@ describe('AiAgentDashboard', () => {
 
       renderComponent();
 
-      // Open edit modal
+      // Wait for component to load and then open edit modal
       await waitFor(() => {
-        const manageButtons = screen.getAllByText('Manage');
-        fireEvent.click(manageButtons[0]);
+        expect(screen.getAllByText('Manage').length).toBeGreaterThan(0);
       });
+      const manageButtons = screen.getAllByText('Manage');
+      fireEvent.click(manageButtons[0]);
 
-      expect(screen.getByTestId('edit-agent-modal')).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByTestId('edit-agent-modal')).toBeInTheDocument();
+      });
 
       // Trigger agent updated callback
       fireEvent.click(screen.getByText('Update Agent'));
@@ -482,13 +508,16 @@ describe('AiAgentDashboard', () => {
 
       renderComponent();
 
-      // Open edit modal
+      // Wait for component to load and then open edit modal
       await waitFor(() => {
-        const manageButtons = screen.getAllByText('Manage');
-        fireEvent.click(manageButtons[0]);
+        expect(screen.getAllByText('Manage').length).toBeGreaterThan(0);
       });
+      const manageButtons = screen.getAllByText('Manage');
+      fireEvent.click(manageButtons[0]);
 
-      expect(screen.getByTestId('edit-agent-modal')).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByTestId('edit-agent-modal')).toBeInTheDocument();
+      });
 
       // Trigger agent deleted callback
       fireEvent.click(screen.getByText('Delete Agent'));

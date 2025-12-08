@@ -8,7 +8,7 @@ import { useNotifications } from '@/shared/hooks/useNotifications';
 interface ServiceDetailsProps {
   service: Service;
   onTokenRegenerate: (serviceId: string) => Promise<string>;
-  onStatusChange: (serviceId: string, action: 'suspend' | 'activate' | 'revoke') => Promise<any>;
+  onStatusChange: (serviceId: string, action: 'suspend' | 'activate' | 'revoke') => Promise<void>;
 }
 
 export const ServiceDetails: React.FC<ServiceDetailsProps> = ({
@@ -31,8 +31,12 @@ export const ServiceDetails: React.FC<ServiceDetailsProps> = ({
       setError(null);
       const response = await service_api.getService(service.id);
       setDetails(response);
-    } catch (error: any) {
-      setError(error.response?.data?.error || 'Failed to load service details');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error && 'response' in error &&
+                          typeof (error as { response?: { data?: { error?: string } } }).response?.data?.error === 'string'
+                          ? (error as { response: { data: { error: string } } }).response.data.error
+                          : 'Failed to load service details';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -48,8 +52,9 @@ export const ServiceDetails: React.FC<ServiceDetailsProps> = ({
       setNewToken(token);
       setShowToken(true);
       await loadServiceDetails(); // Reload to get updated details
-    } catch (error: any) {
-      addNotification({ type: 'error', message: error.message || 'Failed to regenerate token' });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to regenerate token';
+      addNotification({ type: 'error', message: errorMessage });
     }
   };
 
@@ -113,7 +118,7 @@ export const ServiceDetails: React.FC<ServiceDetailsProps> = ({
           {['overview', 'activities', 'settings'].map((tab) => (
             <button
               key={tab}
-              onClick={() => setActiveTab(tab as any)}
+              onClick={() => setActiveTab(tab as 'overview' | 'activities' | 'settings')}
               className={`pb-2 border-b-2 text-sm font-medium ${
                 activeTab === tab
                   ? 'border-theme-link text-theme-link'

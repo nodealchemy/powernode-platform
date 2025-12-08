@@ -45,8 +45,8 @@ describe('NotificationContainer', () => {
     expect(notification).toBeInTheDocument();
 
     // Verify the success notification is rendered with appropriate styling
-    // The implementation uses bg-green-50 for success notifications
-    const rootContainer = notification.closest('[class*="bg-green-50"]');
+    // The implementation uses toast-theme-success for success notifications
+    const rootContainer = notification.closest('[class*="toast-theme-success"]');
     expect(rootContainer).toBeInTheDocument();
 
     // Check for success icon (CheckCircle from lucide-react)
@@ -76,8 +76,8 @@ describe('NotificationContainer', () => {
     expect(notification).toBeInTheDocument();
 
     // Verify the error notification is rendered with appropriate styling
-    // The implementation uses bg-red-50 for error notifications
-    const rootContainer = notification.closest('[class*="bg-red-50"]');
+    // The implementation uses toast-theme-error for error notifications
+    const rootContainer = notification.closest('[class*="toast-theme-error"]');
     expect(rootContainer).toBeInTheDocument();
 
     // Check for error icon (XCircle from lucide-react)
@@ -107,8 +107,8 @@ describe('NotificationContainer', () => {
     expect(notification).toBeInTheDocument();
 
     // Verify the warning notification is rendered with appropriate styling
-    // The implementation uses bg-yellow-50 for warning notifications
-    const rootContainer = notification.closest('[class*="bg-yellow-50"]');
+    // The implementation uses toast-theme-warning for warning notifications
+    const rootContainer = notification.closest('[class*="toast-theme-warning"]');
     expect(rootContainer).toBeInTheDocument();
 
     // Check for warning icon (AlertTriangle from lucide-react)
@@ -138,8 +138,8 @@ describe('NotificationContainer', () => {
     expect(notification).toBeInTheDocument();
 
     // Verify the info notification is rendered with appropriate styling
-    // The implementation uses bg-blue-50 for info notifications
-    const rootContainer = notification.closest('[class*="bg-blue-50"]');
+    // The implementation uses toast-theme-info for info notifications
+    const rootContainer = notification.closest('[class*="toast-theme-info"]');
     expect(rootContainer).toBeInTheDocument();
 
     // Check for info icon (Info from lucide-react)
@@ -438,7 +438,8 @@ describe('NotificationContainer', () => {
     });
 
     const dismissButton = screen.getByTitle('Dismiss');
-    expect(dismissButton).toHaveClass('hover:bg-black', 'hover:bg-opacity-10', 'transition-colors');
+    // The implementation uses hover:bg-black/10 shorthand
+    expect(dismissButton).toHaveClass('hover:bg-black/10', 'transition-colors');
   });
 
   it('maintains proper spacing between multiple notifications', () => {
@@ -485,7 +486,7 @@ describe('NotificationContainer', () => {
 
     // Icons should have proper SVG structure for screen readers
     // Find the root notification container and then the icon
-    const rootContainer = screen.getByText('Accessibility test').closest('[class*="bg-red-50"]');
+    const rootContainer = screen.getByText('Accessibility test').closest('[class*="toast-theme-error"]');
     const errorIcon = rootContainer?.querySelector('svg');
     expect(errorIcon).toBeInTheDocument();
   });

@@ -33,6 +33,18 @@ export interface FileTag {
   description?: string;
 }
 
+export interface FileShare {
+  id: string;
+  file_id: string;
+  share_type: string;
+  access_level: string;
+  expires_at?: string;
+  max_downloads?: number;
+  download_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface FileUploadProgress {
   loaded: number;
   total: number;
@@ -48,6 +60,13 @@ export interface UploadOptions {
   tags?: string[];
 }
 
+export interface PaginationInfo {
+  current_page: number;
+  per_page: number;
+  total_pages: number;
+  total_count: number;
+}
+
 export const filesApi = {
   // List files with filtering and pagination
   async getFiles(params?: {
@@ -59,7 +78,7 @@ export const filesApi = {
     include_deleted?: boolean;
     page?: number;
     per_page?: number;
-  }): Promise<{ files: FileObject[]; pagination: any }> {
+  }): Promise<{ files: FileObject[]; pagination: PaginationInfo }> {
     const response = await api.get('/files', { params });
     return response.data.data;
   },
@@ -148,7 +167,7 @@ export const filesApi = {
     password?: string;
     share_type?: string;
     access_level?: string;
-  }): Promise<{ share: any; url: string }> {
+  }): Promise<{ share: FileShare; url: string }> {
     const response = await api.post(`/files/${id}/share`, options);
     return response.data.data;
   },

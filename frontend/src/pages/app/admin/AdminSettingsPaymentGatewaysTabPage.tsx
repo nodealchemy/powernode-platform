@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
-import { 
-  paymentGatewaysApi, 
-  PaymentGatewaysOverview, 
-  TestConnectionResult
+import {
+  paymentGatewaysApi,
+  PaymentGatewaysOverview,
+  TestConnectionResult,
+  PaymentGatewayConfig,
+  PaymentGatewayStatus,
+  GatewayStats
 } from '@/features/payment-gateways/services/paymentGatewaysApi';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { GatewayConfigModal } from '@/features/payment-gateways/components/GatewayConfigModal';
@@ -43,9 +46,9 @@ const StatusBadge: React.FC<StatusBadgeProps> = ({ status, text }) => {
 
 interface GatewayCardProps {
   gateway: 'stripe' | 'paypal';
-  config: any;
-  status: any;
-  stats: any;
+  config: PaymentGatewayConfig;
+  status: PaymentGatewayStatus;
+  stats?: GatewayStats;
   onTestConnection: (gateway: 'stripe' | 'paypal') => void;
   onViewDetails: (gateway: 'stripe' | 'paypal') => void;
   onConfigure: (gateway: 'stripe' | 'paypal') => void;

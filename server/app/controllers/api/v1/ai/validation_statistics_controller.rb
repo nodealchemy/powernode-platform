@@ -9,7 +9,6 @@ module Api
       # Supports platform-wide and account-scoped statistics.
       #
       class ValidationStatisticsController < ApplicationController
-        include ApiResponse
         include AuditLogging
 
         before_action :authenticate_request

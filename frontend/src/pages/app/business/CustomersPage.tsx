@@ -8,20 +8,49 @@ import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
 import { Input } from '@/shared/components/ui/Input';
 
+interface Customer {
+  id: string;
+  name: string;
+  status: string;
+  subdomain?: string;
+  created_at: string;
+  mrr: number;
+  user?: {
+    first_name?: string;
+    email: string;
+  };
+  subscription?: {
+    status: string;
+    plan: {
+      name: string;
+      price_cents: number;
+    };
+  };
+}
+
+interface CustomerStats {
+  total_customers: number;
+  active_customers: number;
+  active_subscriptions: number;
+  new_this_month: number;
+  total_mrr: number;
+  churn_rate: number;
+}
+
 export const CustomersPage: React.FC = () => {
   const { addNotification } = useNotifications();
-  const [customers, setCustomers] = useState<any[]>([]);
-  const [stats, setStats] = useState<any>(null);
-  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [stats, setStats] = useState<CustomerStats | null>(null);
+  const [searchResults, setSearchResults] = useState<Customer[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [addingCustomer, setAddingCustomer] = useState(false);
 
   // Type guards for WebSocket data
-  const isCustomerUpdateData = (data: unknown): data is { customer?: any; stats?: any } => {
+  const isCustomerUpdateData = (data: unknown): data is { customer?: Customer; stats?: CustomerStats } => {
     return typeof data === 'object' && data !== null;
   };
 
-  const isSearchResultData = (data: unknown): data is { results?: any[] } => {
+  const isSearchResultData = (data: unknown): data is { results?: Customer[] } => {
     return typeof data === 'object' && data !== null && 'results' in data;
   };
 
@@ -36,8 +65,9 @@ export const CustomersPage: React.FC = () => {
       
       // Handle customer updates
       if (data.customer) {
-        setCustomers(prev => prev.map(c => 
-          c.id === data.customer.id ? { ...c, ...data.customer } : c
+        const updatedCustomer = data.customer;
+        setCustomers(prev => prev.map(c =>
+          c.id === updatedCustomer.id ? { ...c, ...updatedCustomer } : c
         ));
       }
       if (data.stats) {

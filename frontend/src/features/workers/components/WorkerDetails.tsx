@@ -26,9 +26,9 @@ const formatMaskedToken = (maskedToken: string): string => {
 interface WorkerDetailsProps {
   worker: Worker;
   editMode?: boolean;
-  onWorkerUpdate: (workerId: string, data: any) => Promise<any>;
+  onWorkerUpdate: (workerId: string, data: UpdateWorkerData) => Promise<void>;
   onTokenRegenerate: (workerId: string) => Promise<string>;
-  onStatusChange: (workerId: string, action: 'suspend' | 'activate' | 'revoke') => Promise<any>;
+  onStatusChange: (workerId: string, action: 'suspend' | 'activate' | 'revoke') => Promise<void>;
   initialTab?: 'overview' | 'activities' | 'settings' | 'edit';
 }
 
@@ -57,8 +57,9 @@ export const WorkerDetails: React.FC<WorkerDetailsProps> = ({
       setError(null);
       const response = await workerApi.getWorker(worker.id);
       setDetails(response);
-    } catch (error: any) {
-      setError(error.message || 'Failed to load worker details');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load worker details';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -74,7 +75,7 @@ export const WorkerDetails: React.FC<WorkerDetailsProps> = ({
       setNewToken(newTokenValue);
       setShowToken(true);
       await loadWorkerDetails();
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (process.env.NODE_ENV === 'development') {
         console.error('[WorkerDetails] Token regeneration failed:', error);
       }
@@ -88,7 +89,7 @@ export const WorkerDetails: React.FC<WorkerDetailsProps> = ({
       if (action === 'revoke') {
         setShowConfirmRevoke(false);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (process.env.NODE_ENV === 'development') {
         console.error('[WorkerDetails] Status change failed:', action, error);
       }
@@ -102,7 +103,8 @@ export const WorkerDetails: React.FC<WorkerDetailsProps> = ({
       const results = await workerApi.testWorkerHealth(worker.id);
       setTestResults(results);
       setShowTestResults(true);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to test worker health';
       setTestResults({
         status: 'error',
         checks: {
@@ -112,7 +114,7 @@ export const WorkerDetails: React.FC<WorkerDetailsProps> = ({
           monitoring: 'fail'
         },
         response_time_ms: 0,
-        details: [error.message || 'Failed to test worker health']
+        details: [errorMessage]
       });
       setShowTestResults(true);
     } finally {
@@ -207,7 +209,7 @@ export const WorkerDetails: React.FC<WorkerDetailsProps> = ({
           {['overview', 'activities', 'settings', 'edit'].map((tab) => (
             <button
               key={tab}
-              onClick={() => setActiveTab(tab as any)}
+              onClick={() => setActiveTab(tab as 'overview' | 'activities' | 'settings' | 'edit')}
               className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
                 activeTab === tab
                   ? 'border-theme-interactive-primary text-theme-interactive-primary'

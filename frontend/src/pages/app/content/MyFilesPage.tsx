@@ -45,7 +45,12 @@ const MyFilesPage: React.FC = () => {
 
     try {
       setLoading(true);
-      const params: any = {};
+      const params: {
+        category?: string;
+        visibility?: string;
+        storage_id?: string;
+        search?: string;
+      } = {};
 
       if (filterCategory) params.category = filterCategory;
       if (filterVisibility) params.visibility = filterVisibility;
@@ -54,9 +59,11 @@ const MyFilesPage: React.FC = () => {
 
       const response = await filesApi.getFiles(params);
       setFiles(response.files);
-    } catch (error: any) {
+    } catch (error) {
       dispatch(addNotification({ type: 'error', message: 'Failed to load files' }));
-      console.error('Error loading files:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error loading files:', error);
+      }
     } finally {
       setLoading(false);
     }

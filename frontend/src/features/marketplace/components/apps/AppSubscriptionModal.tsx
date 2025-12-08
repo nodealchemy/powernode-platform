@@ -184,7 +184,7 @@ export const AppSubscriptionModal: React.FC<AppSubscriptionModalProps> = ({
                   {/* Selection indicator */}
                   {selectedPlanId === plan.id && (
                     <div className="absolute -top-2 -right-2">
-                      <CheckCircle className="w-6 h-6 text-theme-success bg-white rounded-full" />
+                      <CheckCircle className="w-6 h-6 text-theme-success bg-theme-surface rounded-full" />
                     </div>
                   )}
                   

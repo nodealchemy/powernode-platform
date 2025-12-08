@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 class Api::V1::McpToolsController < ApplicationController
-  include ApiResponse
   include AuditLogging
 
   before_action :authenticate_request

@@ -48,7 +48,7 @@ export const InvoicesManager: React.FC<InvoicesManagerProps> = ({
       } else {
         showNotification('Failed to load invoices', 'error');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       showNotification('Failed to load invoices', 'error');
     } finally {
       setLoading(false);
@@ -59,7 +59,7 @@ export const InvoicesManager: React.FC<InvoicesManagerProps> = ({
     try {
       const statsData = await invoicesApi.getInvoiceStats();
       setStats(statsData);
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (process.env.NODE_ENV === 'development') {
         console.error('[InvoicesManager] Failed to load invoice stats:', error);
       }
@@ -73,7 +73,7 @@ export const InvoicesManager: React.FC<InvoicesManagerProps> = ({
     }
   }, [currentPage, filters, loadInvoices, showStats]);
 
-  const handleAction = async (action: string, invoiceId: string, data?: any) => {
+  const handleAction = async (action: string, invoiceId: string, data?: { reason?: string; amount?: number; payment_method?: string; notes?: string }) => {
     try {
       setActionLoading(prev => ({ ...prev, [invoiceId]: true }));
       let response;
@@ -89,7 +89,7 @@ export const InvoicesManager: React.FC<InvoicesManagerProps> = ({
           response = await invoicesApi.retryPayment(invoiceId);
           break;
         case 'mark_paid':
-          response = await invoicesApi.markAsPaid(invoiceId, data);
+          response = await invoicesApi.markAsPaid(invoiceId, data as { amount: number; payment_method: string; payment_date?: string; notes?: string });
           break;
         default:
           throw new Error('Unknown action');
@@ -104,7 +104,7 @@ export const InvoicesManager: React.FC<InvoicesManagerProps> = ({
       } else {
         showNotification(response.error || 'Action failed', 'error');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       showNotification('Action failed', 'error');
     } finally {
       setActionLoading(prev => ({ ...prev, [invoiceId]: false }));
@@ -127,7 +127,7 @@ export const InvoicesManager: React.FC<InvoicesManagerProps> = ({
       window.URL.revokeObjectURL(url);
       
       showNotification('Invoice PDF downloaded', 'success');
-    } catch (error: any) {
+    } catch (error: unknown) {
       showNotification('Failed to download invoice PDF', 'error');
     } finally {
       setActionLoading(prev => ({ ...prev, [invoiceId]: false }));
@@ -306,7 +306,7 @@ export const InvoicesManager: React.FC<InvoicesManagerProps> = ({
                 value={filters.sort_by || 'created_at'}
                 onChange={(e) => setFilters(prev => ({
                   ...prev,
-                  sort_by: e.target.value as any
+                  sort_by: e.target.value as 'created_at' | 'due_date' | 'amount_due' | 'status'
                 }))}
                 className="w-full px-3 py-2 border border-theme rounded-md bg-theme-background text-theme-primary focus:outline-none focus:border-theme-focus"
               >

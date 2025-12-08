@@ -76,11 +76,14 @@ export const SiteSettingsPage: React.FC = () => {
         };
         
         response.data.settings.forEach(setting => {
-          if (setting.key in formData) {
+          const key = setting.key as keyof FooterSettingsForm;
+          if (key in formData) {
             if (setting.setting_type === 'boolean') {
-              (formData as any)[setting.key] = setting.parsed_value === true || setting.value === 'true';
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              (formData as any)[key] = setting.parsed_value === true || setting.value === 'true';
             } else {
-              (formData as any)[setting.key] = setting.value || '';
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              (formData as any)[key] = setting.value || '';
             }
           }
         });
@@ -89,8 +92,9 @@ export const SiteSettingsPage: React.FC = () => {
       } else {
         showNotification('Failed to load site settings', 'error');
       }
-    } catch (error: any) {
-      showNotification(error.message || 'Failed to load site settings', 'error');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load site settings';
+      showNotification(errorMessage, 'error');
     } finally {
       setLoading(false);
     }
@@ -108,7 +112,7 @@ export const SiteSettingsPage: React.FC = () => {
       setSaving(true);
       
       // Convert form data to bulk update format
-      const bulkUpdateData: Record<string, any> = {};
+      const bulkUpdateData: Record<string, { value: string; setting_type: string; is_public: boolean }> = {};
       Object.entries(footerSettings).forEach(([key, value]) => {
         // Determine setting type and public visibility
         const settingType = key === 'footer_cache_enabled' ? 'boolean' : 'string';
@@ -128,8 +132,9 @@ export const SiteSettingsPage: React.FC = () => {
       } else {
         showNotification('Failed to update site settings', 'error');
       }
-    } catch (error: any) {
-      showNotification(error.message || 'Failed to update site settings', 'error');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to update site settings';
+      showNotification(errorMessage, 'error');
     } finally {
       setSaving(false);
     }

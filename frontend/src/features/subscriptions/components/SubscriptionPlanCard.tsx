@@ -17,7 +17,16 @@ interface SubscriptionPlanCardProps {
   onComparisonToggle?: (planId: string) => void;
 }
 
-const formatPrice = (price: {cents: number; currency_iso: string} | number | null | undefined, currency?: string, interval?: string, plan?: any, billingCycle?: string) => {
+interface PlanWithDiscounts {
+  billing_cycle?: string;
+  has_annual_discount?: boolean;
+  annual_discount_percent?: number | string;
+  has_promotional_discount?: boolean;
+  promotional_discount_percent?: number | string;
+  promotional_discount_code?: string;
+}
+
+const formatPrice = (price: {cents: number; currency_iso: string} | number | null | undefined, currency?: string, interval?: string, plan?: PlanWithDiscounts, billingCycle?: string) => {
   let priceCents: number;
   let actualCurrency = currency;
   
@@ -63,7 +72,7 @@ const formatPrice = (price: {cents: number; currency_iso: string} | number | nul
 };
 
 
-const getFeatureList = (features: Record<string, any>, limits?: Record<string, any>) => {
+const getFeatureList = (features: Record<string, boolean | string | number>, limits?: Record<string, number>) => {
   const featureList = [];
   
   if (limits) {
@@ -230,7 +239,7 @@ export const SubscriptionPlanCard: React.FC<SubscriptionPlanCardProps> = ({
       
       <div className="mt-2">
         <p className="text-3xl font-bold text-theme-primary">
-          {formatPrice((plan as any).price_cents || (plan as any).price, plan.currency, billingCycle === 'yearly' ? 'yearly' : (plan as any).billing_cycle || (plan as any).interval, plan, billingCycle)}
+          {formatPrice((plan as any).price_cents || (plan as any).price, plan.currency, billingCycle === 'yearly' ? 'yearly' : (plan as any).billing_cycle || (plan as any).interval, plan as PlanWithDiscounts, billingCycle)}
         </p>
         {/* Show original price with strikethrough if discounted */}
         {((billingCycle === 'yearly' && plan.has_annual_discount && plan.annual_discount_percent) ||

@@ -96,11 +96,14 @@ export const PlatformConfiguration: React.FC = () => {
           window.location.reload();
         }, 1000);
       }
-    } catch (error: any) {
-      showNotification(
-        error.response?.data?.error || 'Failed to update platform configuration',
-        'error'
-      );
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error && 'response' in error &&
+        typeof error.response === 'object' && error.response !== null &&
+        'data' in error.response && typeof error.response.data === 'object' &&
+        error.response.data !== null && 'error' in error.response.data
+        ? String(error.response.data.error)
+        : 'Failed to update platform configuration';
+      showNotification(errorMessage, 'error');
     } finally {
       setSaving(false);
     }

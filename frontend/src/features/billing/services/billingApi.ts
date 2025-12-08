@@ -184,7 +184,7 @@ class BillingApi {
     provider?: string;
   }): Promise<{
     success: boolean;
-    data?: any;
+    data?: PaymentMethod | { payment_methods: PaymentMethod[] };
     payment_method?: PaymentMethod;
     error?: string;
   }> {

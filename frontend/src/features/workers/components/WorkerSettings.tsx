@@ -104,7 +104,7 @@ export const WorkerSettings: React.FC<WorkerSettingsProps> = ({
     }
   };
 
-  const updateConfig = (section: keyof WorkerConfig, key: string, value: any) => {
+  const updateConfig = (section: keyof WorkerConfig, key: string, value: string | number | boolean | string[]) => {
     setConfig(prev => ({
       ...prev,
       [section]: {

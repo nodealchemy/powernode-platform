@@ -60,12 +60,24 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
     }
   };
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  interface TooltipPayload {
+    name: string;
+    value: number;
+    color: string;
+  }
+
+  interface CustomTooltipProps {
+    active?: boolean;
+    payload?: TooltipPayload[];
+    label?: string;
+  }
+
+  const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
     if (active && payload && payload.length) {
       return (
         <div className="card-theme p-4 border-theme rounded-lg shadow-lg">
-          <p className="font-semibold text-theme-primary">{formatDate(label)}</p>
-          {payload.map((entry: any, index: number) => (
+          <p className="font-semibold text-theme-primary">{formatDate(label || '')}</p>
+          {payload.map((entry, index: number) => (
             <p key={index} className="text-sm" style={{ color: entry.color }}>
               {entry.name}: {entry.name.includes('MRR') || entry.name.includes('ARR')
                 ? formatCurrency(entry.value)

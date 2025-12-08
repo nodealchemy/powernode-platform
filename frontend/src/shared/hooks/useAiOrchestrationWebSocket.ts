@@ -72,7 +72,7 @@ type AiOrchestrationEventType =
 interface WorkflowEvent {
   type: WorkflowEventType;
   workflow_id: string;
-  data: any;
+  data: Record<string, unknown>;
   timestamp: string;
 }
 
@@ -81,7 +81,7 @@ interface WorkflowRunEvent {
   workflow_id: string;
   run_id: string;
   node_id?: string;
-  data: any;
+  data: Record<string, unknown>;
   timestamp: string;
 }
 
@@ -89,35 +89,35 @@ interface AgentEvent {
   type: AgentEventType;
   agent_id: string;
   execution_id?: string;
-  data: any;
+  data: Record<string, unknown>;
   timestamp: string;
 }
 
 interface AgentTeamEvent {
   type: AgentTeamEventType;
   team_id: string;
-  data: any;
+  data: Record<string, unknown>;
   timestamp: string;
 }
 
 interface BatchEvent {
   type: BatchEventType;
   batch_id: string;
-  data: any;
+  data: Record<string, unknown>;
   timestamp: string;
 }
 
 interface CircuitBreakerEvent {
   type: CircuitBreakerEventType;
   circuit_breaker_id: string;
-  data: any;
+  data: Record<string, unknown>;
   timestamp: string;
 }
 
 interface ProviderEvent {
   type: ProviderEventType;
   provider_id: string;
-  data: any;
+  data: Record<string, unknown>;
   timestamp: string;
 }
 
@@ -185,7 +185,7 @@ export const useAiOrchestrationWebSocket = ({
   onErrorRef.current = onError;
 
   // Type guard for WebSocket message data
-  const isWebSocketMessage = (data: unknown): data is { type: string; data?: any; message?: string } => {
+  const isWebSocketMessage = (data: unknown): data is { type: string; data?: unknown; message?: string } => {
     return typeof data === 'object' && data !== null && 'type' in data;
   };
 
@@ -285,7 +285,7 @@ export const useAiOrchestrationWebSocket = ({
     if (!isWebSocketMessage(data)) return;
 
     if (data.type === 'ai_orchestration_event' && data.data) {
-      routeEvent(data.data);
+      routeEvent(data.data as AiOrchestrationEvent);
     } else if (data.type === 'error') {
       onErrorRef.current?.(data.message || 'AI orchestration error');
     }

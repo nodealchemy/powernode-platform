@@ -3,8 +3,6 @@
 # Internal Workers Controller
 # Handles worker-to-backend communication using service authentication
 class Api::V1::Internal::WorkersController < ApplicationController
-  include ApiResponse
-  
   skip_before_action :authenticate_request
   before_action :authenticate_worker_service!
 

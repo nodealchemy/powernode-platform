@@ -14,7 +14,7 @@ interface WebSocketState {
 // Channel subscription interface
 interface ChannelSubscription {
   channel: string;
-  params?: Record<string, any>;
+  params?: Record<string, unknown>;
   onMessage?: (data: unknown) => void;
   onError?: (error: string) => void;
 }
@@ -24,7 +24,7 @@ interface UseWebSocketReturn {
   error: string | null;
   lastConnected: Date | null;
   subscribe: (subscription: ChannelSubscription) => () => void;
-  sendMessage: (channel: string, action: string, data?: any, params?: Record<string, any>) => Promise<boolean>;
+  sendMessage: (channel: string, action: string, data?: unknown, params?: Record<string, unknown>) => Promise<boolean>;
 }
 
 /**
@@ -98,8 +98,8 @@ export const useWebSocket = (): UseWebSocketReturn => {
   const sendMessage = useCallback(async (
     channel: string,
     action: string,
-    data?: any,
-    params?: Record<string, any>
+    data?: unknown,
+    params?: Record<string, unknown>
   ): Promise<boolean> => {
     return wsManager.sendMessage(channel, action, data, params);
   }, []);

@@ -159,9 +159,9 @@ export const PlanCard: React.FC<PlanCardProps> = ({
         min-h-[680px] bg-theme-surface overflow-visible
         ${
           isSelected
-            ? 'ring-4 ring-blue-500 ring-offset-4 ring-offset-blue-100/50 scale-110 shadow-2xl z-20 hover:scale-110 border-2 border-blue-400'
-            : featured 
-              ? 'ring-1 ring-blue-200 ring-offset-1 shadow-2xl scale-100 hover:scale-105 hover:shadow-xl border-primary'
+            ? 'ring-4 ring-theme-primary ring-offset-4 ring-offset-theme-primary/10 scale-110 shadow-2xl z-20 hover:scale-110 border-2 border-theme-primary'
+            : featured
+              ? 'ring-1 ring-theme-primary/30 ring-offset-1 shadow-2xl scale-100 hover:scale-105 hover:shadow-xl border-primary'
               : 'border border-theme hover:scale-105 scale-100 shadow-lg hover:shadow-xl hover:border-theme'
         }
         ${className}
@@ -178,23 +178,23 @@ export const PlanCard: React.FC<PlanCardProps> = ({
           absolute inset-0 rounded-3xl -z-10 transition-opacity duration-500
           ${
             isSelected
-              ? 'bg-gradient-to-br from-blue-100 via-blue-50/60 to-indigo-100/60 opacity-100'
-              : featured 
-                ? 'bg-gradient-to-br from-blue-50/60 via-white to-purple-50/30 opacity-90'
-                : 'bg-gradient-to-br from-gray-50/80 via-white to-slate-50/60 opacity-70'
+              ? 'bg-gradient-to-br from-theme-primary/10 via-theme-primary/5 to-theme-info/10 opacity-100'
+              : featured
+                ? 'bg-gradient-to-br from-theme-primary/5 via-theme-surface to-theme-info/5 opacity-90'
+                : 'bg-gradient-to-br from-theme-background/80 via-theme-surface to-theme-background/60 opacity-70'
           }
         `}
       />
       
       {/* Subtle Decorative Elements */}
-      <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-blue-100/25 to-transparent rounded-full -mr-12 -mt-12 transition-transform duration-700 group-hover:scale-110" />
-      <div className="absolute bottom-0 left-0 w-20 h-20 bg-gradient-to-tr from-indigo-100/20 to-transparent rounded-full -ml-10 -mb-10 transition-transform duration-700 group-hover:scale-110" />
+      <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-theme-primary/10 to-transparent rounded-full -mr-12 -mt-12 transition-transform duration-700 group-hover:scale-110" />
+      <div className="absolute bottom-0 left-0 w-20 h-20 bg-gradient-to-tr from-theme-info/10 to-transparent rounded-full -ml-10 -mb-10 transition-transform duration-700 group-hover:scale-110" />
       
       {/* Selected Plan Glow Effect */}
       {isSelected && (
         <div className="absolute inset-0 rounded-3xl -z-20">
-          <div className="absolute inset-0 bg-gradient-to-r from-blue-400 via-blue-500 to-indigo-500 rounded-3xl blur-lg opacity-30 animate-pulse"></div>
-          <div className="absolute inset-2 bg-gradient-to-r from-blue-300 via-blue-400 to-indigo-400 rounded-3xl blur-md opacity-20 animate-pulse"></div>
+          <div className="absolute inset-0 bg-gradient-to-r from-theme-primary via-theme-primary to-theme-info rounded-3xl blur-lg opacity-30 animate-pulse"></div>
+          <div className="absolute inset-2 bg-gradient-to-r from-theme-primary/80 via-theme-primary to-theme-info/80 rounded-3xl blur-md opacity-20 animate-pulse"></div>
         </div>
       )}
       
@@ -203,8 +203,8 @@ export const PlanCard: React.FC<PlanCardProps> = ({
         {/* Popular Badge - Most prominent */}
         {featured && (
           <div className="relative">
-            <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full blur-sm opacity-60"></div>
-            <span className="relative bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-4 py-2 rounded-full text-sm font-bold shadow-xl border border-blue-400/30 whitespace-nowrap">
+            <div className="absolute inset-0 bg-gradient-to-r from-theme-primary to-theme-info rounded-full blur-sm opacity-60"></div>
+            <span className="relative bg-gradient-to-r from-theme-primary to-theme-info text-white px-4 py-2 rounded-full text-sm font-bold shadow-xl border border-theme-primary/30 whitespace-nowrap">
               <span className="mr-2">⭐</span>Most Popular
             </span>
           </div>
@@ -212,7 +212,7 @@ export const PlanCard: React.FC<PlanCardProps> = ({
         
         {/* Free Plan Badge */}
         {displayPrice === 0 && (
-          <span className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-3 py-1.5 rounded-full text-xs font-bold shadow-lg border border-green-400/30 whitespace-nowrap">
+          <span className="bg-theme-success text-white px-3 py-1.5 rounded-full text-xs font-bold shadow-lg border border-theme-success/30 whitespace-nowrap">
             <span className="mr-1">🎯</span>Free
           </span>
         )}
@@ -289,7 +289,7 @@ export const PlanCard: React.FC<PlanCardProps> = ({
           
           {billingPeriod === 'annually' && plan.has_annual_discount && plan.annual_discount_percent && displayPrice > 0 && (
             <div className="mt-1">
-              <span className="inline-flex items-center bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 text-sm font-bold px-3 py-1 rounded-full shadow-md border border-green-200">
+              <span className="inline-flex items-center bg-theme-success/20 text-theme-success text-sm font-bold px-3 py-1 rounded-full shadow-md border border-theme-success/30">
                 <span className="mr-1">💰</span>Save {plan.annual_discount_percent}%
               </span>
             </div>
@@ -308,10 +308,10 @@ export const PlanCard: React.FC<PlanCardProps> = ({
 
       {/* Limits Display */}
       <div className={`mb-3 rounded-xl p-2 backdrop-blur-sm transition-all duration-300 ${
-        isSelected 
-          ? 'bg-blue-50/80 border border-blue-200/50 shadow-md' 
+        isSelected
+          ? 'bg-theme-primary/10 border border-theme-primary/20 shadow-md'
           : featured
-            ? 'bg-indigo-50/60 border border-indigo-200/40 shadow-md'
+            ? 'bg-theme-info/10 border border-theme-info/20 shadow-md'
             : 'bg-theme-surface/80 border border-theme/50 shadow-sm'
       }`}>
         <div className="grid grid-cols-3 gap-2 text-center">
@@ -475,14 +475,14 @@ export const PlanCard: React.FC<PlanCardProps> = ({
             }}
             disabled={disabled || loading}
             className={`
-              group relative w-full text-center px-6 py-4 text-base font-bold rounded-xl 
-              transition-all duration-300 flex items-center justify-center 
+              group relative w-full text-center px-6 py-4 text-base font-bold rounded-xl
+              transition-all duration-300 flex items-center justify-center
               transform hover:scale-105 active:scale-95 overflow-hidden
               disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100
               ${
                 isSelected
-                  ? 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-xl hover:shadow-2xl text-white'
-                  : 'bg-white border-2 border-theme hover:border-blue-400 hover:bg-blue-50 shadow-lg hover:shadow-xl'
+                  ? 'bg-gradient-to-r from-theme-primary to-theme-info hover:from-theme-primary-hover hover:to-theme-info shadow-xl hover:shadow-2xl text-white'
+                  : 'bg-theme-surface border-2 border-theme hover:border-theme-primary hover:bg-theme-primary/5 shadow-lg hover:shadow-xl'
               }
             `}
             style={{

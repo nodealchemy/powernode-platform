@@ -78,12 +78,24 @@ export const CustomerChart: React.FC<CustomerChartProps> = ({
   // Use the chart palette from the theme hook
   const COLORS = colors.chartPalette;
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  interface TooltipPayload {
+    name: string;
+    value: number;
+    color: string;
+  }
+
+  interface CustomTooltipProps {
+    active?: boolean;
+    payload?: TooltipPayload[];
+    label?: string;
+  }
+
+  const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
     if (active && payload && payload.length) {
       return (
         <div className="card-theme p-4 border-theme rounded-lg shadow-lg">
           <p className="font-semibold text-theme-primary">{label ? formatDate(label) : ''}</p>
-          {payload.map((entry: any, index: number) => (
+          {payload.map((entry, index: number) => (
             <p key={index} className="text-sm" style={{ color: entry.color }}>
               {entry.name}: {
                 entry.name.includes('ARPU') || entry.name.includes('LTV') || entry.name.includes('$')
@@ -98,7 +110,20 @@ export const CustomerChart: React.FC<CustomerChartProps> = ({
     return null;
   };
 
-  const PieTooltip = ({ active, payload }: any) => {
+  interface PiePayloadItem {
+    name: string;
+    value: number;
+    payload: {
+      total: number;
+    };
+  }
+
+  interface PieTooltipProps {
+    active?: boolean;
+    payload?: PiePayloadItem[];
+  }
+
+  const PieTooltip = ({ active, payload }: PieTooltipProps) => {
     if (active && payload && payload.length) {
       const data = payload[0];
       return (

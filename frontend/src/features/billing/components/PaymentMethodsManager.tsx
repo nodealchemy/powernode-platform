@@ -35,7 +35,7 @@ export const PaymentMethodsManager: React.FC<PaymentMethodsManagerProps> = ({
       } else {
         showNotification(response.error || 'Failed to load payment methods', 'error');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       showNotification('Failed to load payment methods', 'error');
     } finally {
       setLoading(false);
@@ -63,7 +63,7 @@ export const PaymentMethodsManager: React.FC<PaymentMethodsManagerProps> = ({
       } else {
         showNotification(response.error || 'Failed to setup payment method', 'error');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       showNotification('Failed to setup payment method', 'error');
     } finally {
       setAddingMethod(false);
@@ -81,7 +81,7 @@ export const PaymentMethodsManager: React.FC<PaymentMethodsManagerProps> = ({
       } else {
         showNotification(response.error || 'Failed to set default payment method', 'error');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       showNotification('Failed to set default payment method', 'error');
     } finally {
       setSettingDefault('');
@@ -109,7 +109,7 @@ export const PaymentMethodsManager: React.FC<PaymentMethodsManagerProps> = ({
       } else {
         showNotification(response.error || 'Failed to delete payment method', 'error');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       showNotification('Failed to delete payment method', 'error');
     } finally {
       setDeletingMethod('');

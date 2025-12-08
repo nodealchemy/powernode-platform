@@ -731,7 +731,7 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
               placeholder="Type your message... (Press Enter to send, Shift+Enter for new line)"
-              className="w-full min-h-[40px] max-h-[120px] px-3 py-2 border border-theme/40 rounded-lg resize-none bg-white/90 backdrop-blur-sm text-theme-primary placeholder-theme-muted focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary focus:bg-white disabled:bg-theme-surface disabled:text-theme-muted transition-all duration-200"
+              className="w-full min-h-[40px] max-h-[120px] px-3 py-2 border border-theme/40 rounded-lg resize-none bg-theme-surface/90 backdrop-blur-sm text-theme-primary placeholder-theme-muted focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary focus:bg-theme-surface disabled:bg-theme-surface disabled:text-theme-muted transition-all duration-200"
               disabled={sending}
             />
           </div>

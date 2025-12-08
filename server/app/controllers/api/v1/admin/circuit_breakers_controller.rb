@@ -1,8 +1,6 @@
 # frozen_string_literal: true
 
 class Api::V1::Admin::CircuitBreakersController < ApplicationController
-  include ApiResponse
-
   before_action :authenticate_request
   before_action :require_read_permission, only: [:index, :show, :health, :events]
   before_action :require_write_permission, only: [:create, :update, :destroy, :reset]

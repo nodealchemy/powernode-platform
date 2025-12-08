@@ -129,7 +129,7 @@ export const WorkflowMonitoringPage: React.FC = () => {
       const newExecution: AiWorkflowRun = {
         run_id,
         status: 'running',
-        trigger_type: data?.trigger_type || 'manual',
+        trigger_type: (data?.trigger_type as 'manual' | 'scheduled' | 'api' | 'event') || 'manual',
         created_at: new Date().toISOString(),
         started_at: new Date().toISOString(),
         input_variables: data?.input_variables || {},

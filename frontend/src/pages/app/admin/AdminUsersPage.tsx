@@ -122,7 +122,8 @@ const AdminUsersPage: React.FC<AdminUsersPageProps> = () => {
 
     // Apply sorting
     filtered.sort((a, b) => {
-      let aVal: any, bVal: any;
+      let aVal: string | Date;
+      let bVal: string | Date;
 
       switch (sortBy) {
         case 'name':
@@ -649,7 +650,7 @@ const AdminUsersPage: React.FC<AdminUsersPageProps> = () => {
                   <label className="block text-sm font-medium text-theme-primary mb-2">Status</label>
                   <select
                     value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value as any)}
+                    onChange={(e) => setStatusFilter(e.target.value as 'all' | 'active' | 'suspended' | 'inactive')}
                     className="select-theme"
                   >
                     <option value="all">All Statuses</option>
@@ -667,7 +668,7 @@ const AdminUsersPage: React.FC<AdminUsersPageProps> = () => {
                   <div className="flex gap-2">
                     <select
                       value={sortBy}
-                      onChange={(e) => setSortBy(e.target.value as any)}
+                      onChange={(e) => setSortBy(e.target.value as 'name' | 'email' | 'created_at' | 'last_login_at')}
                       className="select-theme w-full"
                     >
                       <option value="name">Name</option>

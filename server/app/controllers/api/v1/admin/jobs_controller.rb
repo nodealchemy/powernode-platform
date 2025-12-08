@@ -1,8 +1,6 @@
 # frozen_string_literal: true
 
 class Api::V1::Admin::JobsController < ApplicationController
-  include ApiResponse
-  
   before_action :authenticate_request
   before_action :require_system_admin_permission
 

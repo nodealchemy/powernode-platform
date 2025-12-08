@@ -8,7 +8,7 @@ interface ServiceListProps {
   onServiceSelect: (service: Service) => void;
   onServiceDelete: (serviceId: string) => Promise<void>;
   onTokenRegenerate: (serviceId: string) => Promise<string>;
-  onStatusChange: (serviceId: string, action: 'suspend' | 'activate' | 'revoke') => Promise<any>;
+  onStatusChange: (serviceId: string, action: 'suspend' | 'activate' | 'revoke') => Promise<void>;
 }
 
 interface ServiceItemProps {
@@ -17,7 +17,7 @@ interface ServiceItemProps {
   onSelect: () => void;
   onDelete: () => Promise<void>;
   onTokenRegenerate: () => Promise<string>;
-  onStatusChange: (action: 'suspend' | 'activate' | 'revoke') => Promise<any>;
+  onStatusChange: (action: 'suspend' | 'activate' | 'revoke') => Promise<void>;
 }
 
 const ServiceItem: React.FC<ServiceItemProps> = ({
@@ -60,13 +60,14 @@ const ServiceItem: React.FC<ServiceItemProps> = ({
     }
   };
 
-  const handleAction = async (action: () => Promise<any>, loadingKey: string) => {
+  const handleAction = async (action: () => Promise<void | string>, loadingKey: string) => {
     try {
       setLoading(loadingKey);
       await action();
       setShowActions(false);
-    } catch (error: any) {
-      addNotification({ type: 'error', message: error.message || 'Operation failed' });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Operation failed';
+      addNotification({ type: 'error', message: errorMessage });
     } finally {
       setLoading(null);
     }

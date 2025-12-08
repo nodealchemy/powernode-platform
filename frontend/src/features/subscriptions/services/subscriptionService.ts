@@ -1,6 +1,18 @@
 import { api } from '@/shared/services/api';
 
 /**
+ * HTTP Error Response Structure
+ */
+interface HttpErrorResponse {
+  response?: {
+    data?: {
+      error?: string;
+      details?: string[];
+    };
+  };
+}
+
+/**
  * @deprecated Use Plan from '@/features/plans/services/plansApi' instead
  * Kept for backward compatibility with subscription service responses
  */
@@ -14,8 +26,8 @@ export interface Plan {
   interval?: string;
   billing_cycle?: string;
   billingCycle?: string;
-  features: Record<string, any>;
-  limits?: Record<string, any>;
+  features: Record<string, boolean | string | number>;
+  limits?: Record<string, number>;
   status: string;
   isPublic?: boolean;
   currency?: string;
@@ -72,7 +84,7 @@ class SubscriptionService {
       const response = await api.get<SubscriptionResponse>('/subscriptions');
       return response.data;
     } catch (error: unknown) {
-      const httpError = error as { response?: { data?: { error?: string; details?: any[] } } };
+      const httpError = error as HttpErrorResponse;
       return {
         success: false,
         error: httpError.response?.data?.error || 'Failed to fetch subscriptions',
@@ -86,7 +98,7 @@ class SubscriptionService {
       const response = await api.get<SubscriptionResponse>(`/subscriptions/${id}`);
       return response.data;
     } catch (error: unknown) {
-      const httpError = error as { response?: { data?: { error?: string; details?: any[] } } };
+      const httpError = error as HttpErrorResponse;
       return {
         success: false,
         error: httpError.response?.data?.error || 'Failed to fetch subscription',
@@ -100,7 +112,7 @@ class SubscriptionService {
       const response = await api.post<SubscriptionResponse>('/subscriptions', { subscription: data });
       return response.data;
     } catch (error: unknown) {
-      const httpError = error as { response?: { data?: { error?: string; details?: any[] } } };
+      const httpError = error as HttpErrorResponse;
       return {
         success: false,
         error: httpError.response?.data?.error || 'Failed to create subscription',
@@ -114,7 +126,7 @@ class SubscriptionService {
       const response = await api.patch<SubscriptionResponse>(`/subscriptions/${id}`, { subscription: data });
       return response.data;
     } catch (error: unknown) {
-      const httpError = error as { response?: { data?: { error?: string; details?: any[] } } };
+      const httpError = error as HttpErrorResponse;
       return {
         success: false,
         error: httpError.response?.data?.error || 'Failed to update subscription',
@@ -128,7 +140,7 @@ class SubscriptionService {
       const response = await api.delete<SubscriptionResponse>(`/subscriptions/${id}`);
       return response.data;
     } catch (error: unknown) {
-      const httpError = error as { response?: { data?: { error?: string; details?: any[] } } };
+      const httpError = error as HttpErrorResponse;
       return {
         success: false,
         error: httpError.response?.data?.error || 'Failed to cancel subscription',

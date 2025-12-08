@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   DndContext,
   DragEndEvent,
+  DragStartEvent,
   DragOverlay,
   PointerSensor,
   useSensor,
@@ -257,8 +258,8 @@ export const MultiTenancyConfigPanel: React.FC<MultiTenancyConfigPanelProps> = (
     }
   };
 
-  const handleDragStart = (event: any) => {
-    setActiveId(event.active.id);
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(String(event.active.id));
   };
 
   const handleDragEnd = async (event: DragEndEvent) => {

@@ -5,17 +5,17 @@ import { useWebSocket } from './useWebSocket';
 interface JsonRpcRequest {
   jsonrpc: '2.0';
   method: string;
-  params?: any;
+  params?: Record<string, unknown>;
   id: string | number;
 }
 
 interface JsonRpcResponse {
   jsonrpc: '2.0';
-  result?: any;
+  result?: unknown;
   error?: {
     code: number;
     message: string;
-    data?: any;
+    data?: unknown;
   };
   id: string | number;
 }
@@ -23,15 +23,15 @@ interface JsonRpcResponse {
 interface JsonRpcNotification {
   jsonrpc: '2.0';
   method: string;
-  params?: any;
+  params?: Record<string, unknown>;
 }
 
 // MCP-specific types
 interface McpTool {
   name: string;
   description: string;
-  inputSchema: Record<string, any>;
-  outputSchema?: Record<string, any>;
+  inputSchema: Record<string, unknown>;
+  outputSchema?: Record<string, unknown>;
 }
 
 interface McpWorkflowExecution {
@@ -51,7 +51,7 @@ interface McpToolExecution {
   tool_id: string;
   tool_name: string;
   status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
-  result?: any;
+  result?: unknown;
   error?: string;
   duration_ms?: number;
   timestamp: string;
@@ -68,8 +68,8 @@ interface McpWebSocketOptions {
 }
 
 interface PendingRequest {
-  resolve: (result: any) => void;
-  reject: (error: any) => void;
+  resolve: (result: unknown) => void;
+  reject: (error: Error) => void;
   timeout: NodeJS.Timeout;
 }
 
@@ -109,22 +109,22 @@ export const useMcpWebSocket = ({
   }, []);
 
   // Type guard for WebSocket message data
-  const isWebSocketMessage = (data: unknown): data is { type: string; data?: any; message?: string } => {
+  const isWebSocketMessage = (data: unknown): data is { type: string; data?: unknown; message?: string } => {
     return typeof data === 'object' && data !== null && 'type' in data;
   };
 
   // Type guard for JSON-RPC response
-  const isJsonRpcResponse = (data: any): data is JsonRpcResponse => {
-    return data && data.jsonrpc === '2.0' && 'id' in data;
+  const isJsonRpcResponse = (data: unknown): data is JsonRpcResponse => {
+    return typeof data === 'object' && data !== null && 'jsonrpc' in data && data.jsonrpc === '2.0' && 'id' in data;
   };
 
   // Type guard for JSON-RPC notification
-  const isJsonRpcNotification = (data: any): data is JsonRpcNotification => {
-    return data && data.jsonrpc === '2.0' && 'method' in data && !('id' in data);
+  const isJsonRpcNotification = (data: unknown): data is JsonRpcNotification => {
+    return typeof data === 'object' && data !== null && 'jsonrpc' in data && data.jsonrpc === '2.0' && 'method' in data && !('id' in data);
   };
 
   // Send JSON-RPC request and wait for response
-  const sendJsonRpcRequest = useCallback((method: string, params?: any): Promise<any> => {
+  const sendJsonRpcRequest = useCallback((method: string, params?: Record<string, unknown>): Promise<unknown> => {
     return new Promise((resolve, reject) => {
       if (!isConnected) {
         reject(new Error('WebSocket not connected'));
@@ -189,16 +189,24 @@ export const useMcpWebSocket = ({
         // Route notifications to appropriate handlers
         switch (notification.method) {
           case 'tools/list_changed':
-            onToolsUpdatedRef.current?.(notification.params?.tools || []);
+            if (notification.params && 'tools' in notification.params) {
+              onToolsUpdatedRef.current?.(notification.params.tools as McpTool[]);
+            }
             break;
           case 'workflow/status_changed':
-            onWorkflowUpdateRef.current?.(notification.params);
+            if (notification.params) {
+              onWorkflowUpdateRef.current?.(notification.params as unknown as McpWorkflowExecution);
+            }
             break;
           case 'agent/status_changed':
-            onAgentUpdateRef.current?.(notification.params);
+            if (notification.params) {
+              onAgentUpdateRef.current?.(notification.params as unknown as McpAgentExecution);
+            }
             break;
           case 'tool_execution/status_changed':
-            onToolExecutionUpdateRef.current?.(notification.params);
+            if (notification.params) {
+              onToolExecutionUpdateRef.current?.(notification.params as unknown as McpToolExecution);
+            }
             break;
           default:
             onNotificationRef.current?.(notification);
@@ -231,7 +239,7 @@ export const useMcpWebSocket = ({
   }, [subscribe, handleMessage, handleError]);
 
   // Initialize MCP protocol
-  const initializeProtocol = useCallback(async (): Promise<{ protocolVersion: string; serverInfo: any }> => {
+  const initializeProtocol = useCallback(async (): Promise<{ protocolVersion: string; serverInfo: Record<string, unknown> }> => {
     try {
       const result = await sendJsonRpcRequest('initialize', {
         protocolVersion: '2025-06-18',
@@ -247,7 +255,7 @@ export const useMcpWebSocket = ({
       });
 
       setProtocolInitialized(true);
-      return result;
+      return result as { protocolVersion: string; serverInfo: Record<string, unknown> };
     } catch (error) {
       setProtocolInitialized(false);
       throw error;
@@ -257,11 +265,14 @@ export const useMcpWebSocket = ({
   // List available tools
   const listTools = useCallback(async (): Promise<McpTool[]> => {
     const result = await sendJsonRpcRequest('tools/list');
-    return result?.tools || [];
+    if (result && typeof result === 'object' && 'tools' in result) {
+      return (result as { tools: McpTool[] }).tools;
+    }
+    return [];
   }, [sendJsonRpcRequest]);
 
   // Call a tool
-  const callTool = useCallback(async (name: string, args?: Record<string, any>): Promise<any> => {
+  const callTool = useCallback(async (name: string, args?: Record<string, unknown>): Promise<unknown> => {
     return sendJsonRpcRequest('tools/call', {
       name,
       arguments: args || {}
@@ -271,28 +282,28 @@ export const useMcpWebSocket = ({
   // Execute workflow via MCP
   const executeWorkflow = useCallback(async (
     workflowId: string,
-    variables?: Record<string, any>
+    variables?: Record<string, unknown>
   ): Promise<McpWorkflowExecution> => {
     return sendJsonRpcRequest('workflow/execute', {
       workflow_id: workflowId,
       variables: variables || {}
-    });
+    }) as Promise<McpWorkflowExecution>;
   }, [sendJsonRpcRequest]);
 
   // Execute agent via MCP
   const executeAgent = useCallback(async (
     agentId: string,
-    params?: Record<string, any>
+    params?: Record<string, unknown>
   ): Promise<McpAgentExecution> => {
     return sendJsonRpcRequest('agent/execute', {
       agent_id: agentId,
       parameters: params || {}
-    });
+    }) as Promise<McpAgentExecution>;
   }, [sendJsonRpcRequest]);
 
   // Get tool description
   const describeTool = useCallback(async (name: string): Promise<McpTool> => {
-    return sendJsonRpcRequest('tools/describe', { name });
+    return sendJsonRpcRequest('tools/describe', { name }) as Promise<McpTool>;
   }, [sendJsonRpcRequest]);
 
   // Auto-subscribe when connected

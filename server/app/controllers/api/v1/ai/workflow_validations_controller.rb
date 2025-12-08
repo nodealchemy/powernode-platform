@@ -4,7 +4,6 @@ module Api
   module V1
     module Ai
       class WorkflowValidationsController < ApplicationController
-        include ApiResponse
         include AuditLogging
 
         before_action :authenticate_request

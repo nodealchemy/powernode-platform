@@ -11,12 +11,12 @@ import { getErrorMessage } from '@/shared/utils/errorHandling';
 
 
 // Submission state interface
-export interface SubmissionState {
+export interface SubmissionState<T = unknown> {
   isSubmitting: boolean;
   isSuccess: boolean;
   isError: boolean;
   error: string | null;
-  data: any | null;
+  data: T | null;
 }
 
 // Submission options
@@ -28,19 +28,19 @@ export interface SubmissionOptions<T, R> {
   resetOnSuccess?: boolean;
   preventDefault?: boolean;
   validateBeforeSubmit?: () => boolean | Promise<boolean>;
-  transformData?: (data: T) => any;
+  transformData?: (data: T) => unknown;
   extractFieldErrors?: (error: unknown) => Record<string, string> | null;
 }
 
 /**
  * Hook for handling form submissions with consistent error handling and notifications
  */
-export function useFormSubmission<T = any, R = any>(
+export function useFormSubmission<T = unknown, R = unknown>(
   submitFn: (data: T) => Promise<R>,
   options: SubmissionOptions<T, R> = {}
 ) {
   const dispatch = useDispatch<AppDispatch>();
-  const [state, setState] = useState<SubmissionState>({
+  const [state, setState] = useState<SubmissionState<R>>({
     isSubmitting: false,
     isSuccess: false,
     isError: false,
@@ -97,7 +97,7 @@ export function useFormSubmission<T = any, R = any>(
 
     try {
       // Transform data if needed
-      const submitData = transformData ? transformData(data) : data;
+      const submitData = (transformData ? transformData(data) : data) as T;
 
       // Submit form
       const result = await submitFn(submitData);
@@ -155,14 +155,20 @@ export function useFormSubmission<T = any, R = any>(
       } else {
         // Default field error extraction
         if (error && typeof error === 'object' && 'response' in error) {
-          const response = (error as any).response;
-          if (response?.data?.errors && typeof (response.data as any).errors === 'object') {
-            fieldErrors = {};
-            Object.entries((response.data as any).errors).forEach(([field, messages]) => {
-              if (Array.isArray(messages) && messages.length > 0) {
-                fieldErrors![field] = messages[0];
+          const response = (error as Record<string, unknown>).response;
+          if (response && typeof response === 'object' && 'data' in response) {
+            const data = response.data;
+            if (data && typeof data === 'object' && 'errors' in data) {
+              const errors = (data as Record<string, unknown>).errors;
+              if (errors && typeof errors === 'object') {
+                fieldErrors = {};
+                Object.entries(errors).forEach(([field, messages]) => {
+                  if (Array.isArray(messages) && messages.length > 0) {
+                    fieldErrors![field] = messages[0];
+                  }
+                });
               }
-            });
+            }
           }
         }
       }
@@ -233,7 +239,7 @@ export function useFormSubmission<T = any, R = any>(
 /**
  * Hook for handling API form submissions with automatic retry
  */
-export function useApiFormSubmission<T = any, R = any>(
+export function useApiFormSubmission<T = unknown, R = unknown>(
   apiEndpoint: (data: T) => Promise<R>,
   options: SubmissionOptions<T, R> & {
     retryAttempts?: number;
@@ -243,19 +249,22 @@ export function useApiFormSubmission<T = any, R = any>(
   const { retryAttempts = 0, retryDelay = 1000, ...submitOptions } = options;
 
   const submitWithRetry = useCallback(async (data: T): Promise<R> => {
-    let lastError: any;
+    let lastError: unknown;
     
     for (let attempt = 0; attempt <= retryAttempts; attempt++) {
       try {
         return await apiEndpoint(data);
       } catch (error: unknown) {
         lastError = error;
-        
+
         // Don't retry on validation errors (4xx)
         if (error && typeof error === 'object' && 'response' in error) {
-          const status = (error as any).response?.status;
-          if (status >= 400 && status < 500) {
-            throw error;
+          const response = (error as Record<string, unknown>).response;
+          if (response && typeof response === 'object' && 'status' in response) {
+            const status = response.status;
+            if (typeof status === 'number' && status >= 400 && status < 500) {
+              throw error;
+            }
           }
         }
         
@@ -275,18 +284,18 @@ export function useApiFormSubmission<T = any, R = any>(
 /**
  * Hook for multi-step form submissions
  */
-export function useMultiStepFormSubmission<T = any, R = any>(
+export function useMultiStepFormSubmission<T = unknown, R = unknown>(
   steps: Array<{
     name: string;
-    submitFn: (data: T) => Promise<any>;
+    submitFn: (data: T) => Promise<unknown>;
     onStepComplete?: (result: unknown) => void;
   }>,
   options: SubmissionOptions<T, R> = {}
 ) {
   const dispatch = useDispatch<AppDispatch>();
   const [currentStep, setCurrentStep] = useState(0);
-  const [stepResults, setStepResults] = useState<any[]>([]);
-  const [state, setState] = useState<SubmissionState>({
+  const [stepResults, setStepResults] = useState<unknown[]>([]);
+  const [state, setState] = useState<SubmissionState<R>>({
     isSubmitting: false,
     isSuccess: false,
     isError: false,
@@ -296,7 +305,7 @@ export function useMultiStepFormSubmission<T = any, R = any>(
 
   const handleSubmit = useCallback(async (data: T): Promise<R | null> => {
     setState(prev => ({ ...prev, isSubmitting: true, error: null }));
-    const results: any[] = [];
+    const results: unknown[] = [];
 
     try {
       for (let i = 0; i < steps.length; i++) {
@@ -388,7 +397,7 @@ export function useMultiStepFormSubmission<T = any, R = any>(
 /**
  * Hook for optimistic form submissions with rollback
  */
-export function useOptimisticFormSubmission<T = any, R = any>(
+export function useOptimisticFormSubmission<T = unknown, R = unknown>(
   submitFn: (data: T) => Promise<R>,
   options: SubmissionOptions<T, R> & {
     optimisticUpdate: (data: T) => void;

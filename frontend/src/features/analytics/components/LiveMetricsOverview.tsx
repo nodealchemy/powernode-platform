@@ -74,12 +74,30 @@ export const LiveMetricsOverview: React.FC<LiveMetricsOverviewProps> = ({
 
   // Stable callbacks to prevent WebSocket reconnections
   const handleAnalyticsUpdate = useCallback((data: unknown) => {
-    const analyticsData = data as { 
-      current_metrics?: any; 
-      today_activity?: any; 
-      weekly_trend?: any[]; 
-      timestamp?: string; 
-      account_id?: string 
+    const analyticsData = data as {
+      current_metrics?: {
+        mrr: number;
+        arr: number;
+        active_customers: number;
+        churn_rate: number;
+        arpu: number;
+        growth_rate: number;
+      };
+      today_activity?: {
+        new_subscriptions: number;
+        cancelled_subscriptions: number;
+        payments_processed: number;
+        failed_payments: number;
+        revenue_today: number;
+      };
+      weekly_trend?: Array<{
+        date: string;
+        new_subscriptions: number;
+        revenue: number;
+        payments_count: number;
+      }>;
+      timestamp?: string;
+      account_id?: string
     };
     if (analyticsData.current_metrics) {
       // Throttle updates to prevent excessive re-renders
@@ -99,7 +117,7 @@ export const LiveMetricsOverview: React.FC<LiveMetricsOverviewProps> = ({
         // If we don't have initial metrics, create them from the WebSocket data
         if (!prevMetrics) {
           return {
-            current_metrics: analyticsData.current_metrics,
+            current_metrics: analyticsData.current_metrics || { mrr: 0, arr: 0, active_customers: 0, churn_rate: 0, arpu: 0, growth_rate: 0 },
             today_activity: analyticsData.today_activity || {
               new_subscriptions: 0,
               cancelled_subscriptions: 0,

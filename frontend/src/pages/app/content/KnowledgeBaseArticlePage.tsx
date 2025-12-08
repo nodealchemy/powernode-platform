@@ -271,7 +271,7 @@ export default function KnowledgeBaseArticlePage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
           {/* Article Content */}
           <div className="lg:col-span-2 space-y-12">
-            <div className="bg-white dark:bg-theme-surface rounded-xl border border-theme p-8 lg:p-12 shadow-sm">
+            <div className="bg-theme-surface rounded-xl border border-theme p-8 lg:p-12 shadow-sm">
               <KbArticleContent article={article} />
             </div>
 

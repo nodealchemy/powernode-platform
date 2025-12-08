@@ -213,12 +213,12 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
           relative border-l-4 ${isPublic ? 'border-theme-info' : 'border-theme-link'}
           pl-6 pr-6 py-4 my-6 italic
           backdrop-blur-lg rounded-r-xl
-          ${isPublic ? 'bg-white/10' : 'bg-theme-surface/80'}
+          ${isPublic ? 'bg-theme-surface/10' : 'bg-theme-surface/80'}
           shadow-lg ${isPublic ? 'shadow-theme-info/10' : 'shadow-theme-link/10'}
           transition-all duration-300 ease-out hover:shadow-xl ${isPublic ? 'hover:shadow-theme-info/20' : 'hover:shadow-theme-link/20'}
           before:absolute before:inset-0 before:-z-10 before:rounded-r-xl
-          before:bg-gradient-to-r before:from-white/20 before:to-transparent
-          before:backdrop-blur-sm dark:before:from-white/5
+          before:bg-gradient-to-r before:from-theme-surface/20 before:to-transparent
+          before:backdrop-blur-sm dark:before:from-theme-surface/5
         `}>
           <div className={`${isPublic ? 'text-white' : 'text-theme-primary'}`}>
             {children}
@@ -233,7 +233,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
           return (
             <code className={`
               px-2 py-1 rounded-lg text-sm font-mono
-              ${isPublic ? 'bg-white/20 text-white border-white/30' : 'bg-theme-surface text-theme-primary border border-theme'}
+              ${isPublic ? 'bg-theme-surface/20 text-white border-theme-surface/30' : 'bg-theme-surface text-theme-primary border border-theme'}
               transition-all duration-200 ease-out hover:scale-105
             `}>
               {children}
