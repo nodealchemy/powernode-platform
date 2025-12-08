@@ -3,165 +3,193 @@
 require 'rails_helper'
 
 RSpec.describe AiWorkflowEdge, type: :model do
-  subject(:edge) { build(:ai_workflow_edge) }
-
   describe 'associations' do
-    it { is_expected.to belong_to(:ai_workflow) }
-    it { is_expected.to belong_to(:source_node).class_name('AiWorkflowNode') }
-    it { is_expected.to belong_to(:target_node).class_name('AiWorkflowNode') }
+    it { should belong_to(:ai_workflow) }
+    it { should belong_to(:source_node).class_name('AiWorkflowNode').with_foreign_key('source_node_id').with_primary_key('node_id') }
+    it { should belong_to(:target_node).class_name('AiWorkflowNode').with_foreign_key('target_node_id').with_primary_key('node_id') }
   end
 
   describe 'validations' do
-    context 'basic validations' do
-      it { is_expected.to validate_presence_of(:ai_workflow) }
-      it { is_expected.to validate_presence_of(:source_node) }
-      it { is_expected.to validate_presence_of(:target_node) }
-      it { is_expected.to validate_presence_of(:edge_type) }
-      it { is_expected.to validate_inclusion_of(:edge_type).in_array(%w[default conditional loop error parallel merge]) }
+    subject { build(:ai_workflow_edge) }
+
+    it { should validate_presence_of(:edge_id) }
+    it { should validate_presence_of(:source_node_id) }
+    it { should validate_presence_of(:target_node_id) }
+    it { should validate_presence_of(:edge_type) }
+    it { should validate_numericality_of(:priority).is_greater_than_or_equal_to(0) }
+
+    it 'validates inclusion of edge_type' do
+      valid_types = %w[default success error conditional retry timeout skip fallback compensation loop]
+
+      valid_types.each do |type|
+        edge = build(:ai_workflow_edge, edge_type: type)
+        # Clear condition for non-conditional types
+        edge.condition = {} unless type == 'conditional'
+        edge.is_conditional = false unless type == 'conditional'
+        expect(edge).to be_valid, "Expected #{type} to be valid but got errors: #{edge.errors.full_messages.join(', ')}"
+      end
     end
 
-    context 'workflow consistency' do
-      let(:workflow1) { create(:ai_workflow) }
-      let(:workflow2) { create(:ai_workflow) }
-      let(:source_node) { create(:ai_workflow_node, ai_workflow: workflow1) }
-      let(:target_node) { create(:ai_workflow_node, ai_workflow: workflow2) }
+    it 'rejects invalid edge_type' do
+      edge = build(:ai_workflow_edge, edge_type: 'invalid_type')
+      expect(edge).not_to be_valid
+      expect(edge.errors[:edge_type]).to include('must be a valid edge type')
+    end
 
-      it 'validates that source and target nodes belong to the same workflow' do
-        edge = build(:ai_workflow_edge, 
-                    ai_workflow: workflow1,
-                    source_node: source_node,
-                    target_node: target_node)
-        
-        expect(edge).not_to be_valid
-        expect(edge.errors[:target_node]).to include('must belong to the same workflow as source node')
+    context 'edge_id uniqueness' do
+      let!(:existing_edge) { create(:ai_workflow_edge) }
+
+      it 'validates uniqueness of edge_id within workflow scope' do
+        workflow = existing_edge.ai_workflow
+        node1 = create(:ai_workflow_node, ai_workflow: workflow)
+        node2 = create(:ai_workflow_node, ai_workflow: workflow)
+
+        duplicate_edge = build(:ai_workflow_edge,
+                              edge_id: existing_edge.edge_id,
+                              ai_workflow: workflow,
+                              source_node_id: node1.node_id,
+                              target_node_id: node2.node_id)
+
+        expect(duplicate_edge).not_to be_valid
+        expect(duplicate_edge.errors[:edge_id]).to include('has already been taken')
       end
 
-      it 'validates that edge workflow matches node workflows' do
-        target_node_same = create(:ai_workflow_node, ai_workflow: workflow1)
+      it 'allows same edge_id in different workflows' do
+        workflow1 = create(:ai_workflow)
+        workflow2 = create(:ai_workflow)
+
+        node1_w1 = create(:ai_workflow_node, ai_workflow: workflow1)
+        node2_w1 = create(:ai_workflow_node, ai_workflow: workflow1)
+        node1_w2 = create(:ai_workflow_node, ai_workflow: workflow2)
+        node2_w2 = create(:ai_workflow_node, ai_workflow: workflow2)
+
+        edge1 = create(:ai_workflow_edge,
+                      ai_workflow: workflow1,
+                      source_node_id: node1_w1.node_id,
+                      target_node_id: node2_w1.node_id,
+                      edge_id: 'same-edge-id')
+
+        edge2 = build(:ai_workflow_edge,
+                     ai_workflow: workflow2,
+                     source_node_id: node1_w2.node_id,
+                     target_node_id: node2_w2.node_id,
+                     edge_id: 'same-edge-id')
+
+        expect(edge2).to be_valid
+      end
+    end
+
+    context 'self-loop validation' do
+      it 'prevents edges from connecting a node to itself' do
+        workflow = create(:ai_workflow)
+        node = create(:ai_workflow_node, ai_workflow: workflow)
+
         edge = build(:ai_workflow_edge,
-                    ai_workflow: workflow2,
-                    source_node: source_node,
-                    target_node: target_node_same)
-        
+                    ai_workflow: workflow,
+                    source_node_id: node.node_id,
+                    target_node_id: node.node_id)
+
         expect(edge).not_to be_valid
-        expect(edge.errors[:ai_workflow]).to include('must match the workflow of the connected nodes')
+        expect(edge.errors[:target_node_id]).to include('cannot be the same as source node (self-loops not allowed)')
       end
     end
 
-    context 'self-reference validation' do
-      let(:node) { create(:ai_workflow_node) }
-      
-      it 'prevents nodes from connecting to themselves' do
+    context 'node existence validation' do
+      it 'validates source node exists in workflow' do
+        workflow = create(:ai_workflow)
+        node = create(:ai_workflow_node, ai_workflow: workflow)
+
         edge = build(:ai_workflow_edge,
-                    source_node: node,
-                    target_node: node,
-                    ai_workflow: node.ai_workflow)
-        
+                    ai_workflow: workflow,
+                    source_node_id: 'non-existent-id',
+                    target_node_id: node.node_id)
+
         expect(edge).not_to be_valid
-        expect(edge.errors[:target_node]).to include('cannot be the same as source node')
+        expect(edge.errors[:source_node_id]).to include('does not exist in this workflow')
+      end
+
+      it 'validates target node exists in workflow' do
+        workflow = create(:ai_workflow)
+        node = create(:ai_workflow_node, ai_workflow: workflow)
+
+        edge = build(:ai_workflow_edge,
+                    ai_workflow: workflow,
+                    source_node_id: node.node_id,
+                    target_node_id: 'non-existent-id')
+
+        expect(edge).not_to be_valid
+        expect(edge.errors[:target_node_id]).to include('does not exist in this workflow')
       end
     end
 
-    context 'conditional edge validations' do
-      it 'requires condition when edge_type is conditional' do
-        edge = build(:ai_workflow_edge, :conditional, condition: nil)
+    context 'conditional configuration validation' do
+      it 'validates condition has expression or rules' do
+        edge = build(:ai_workflow_edge, :conditional, condition: { 'metadata' => {} })
+        edge.is_conditional = true
         expect(edge).not_to be_valid
-        expect(edge.errors[:condition]).to include("can't be blank for conditional edges")
+        expect(edge.errors[:condition]).to include('must contain either expression or rules')
       end
 
-      it 'validates condition format for conditional edges' do
-        edge = build(:ai_workflow_edge, :conditional, condition: 'invalid condition')
-        expect(edge).not_to be_valid
-        expect(edge.errors[:condition]).to include('must be a valid conditional expression')
+      it 'accepts valid expression conditions' do
+        edge = build(:ai_workflow_edge, :conditional,
+                    condition: { 'expression' => 'output.status == "success"' })
+        expect(edge).to be_valid
       end
 
-      it 'accepts valid conditional expressions' do
-        valid_conditions = [
-          'output.status == "success"',
-          'result.score > 0.8',
-          'data.type === "premium"',
-          'variables.count >= 10',
-          'response.error == null'
-        ]
-
-        valid_conditions.each do |condition|
-          edge = build(:ai_workflow_edge, :conditional, condition: condition)
-          expect(edge).to be_valid, "Expected '#{condition}' to be valid"
-        end
-      end
-    end
-
-    context 'loop edge validations' do
-      it 'requires loop_config when edge_type is loop' do
-        edge = build(:ai_workflow_edge, :loop, loop_config: nil)
-        expect(edge).not_to be_valid
-        expect(edge.errors[:loop_config]).to include("can't be blank for loop edges")
-      end
-
-      it 'validates loop_config structure' do
-        edge = build(:ai_workflow_edge, :loop, 
-                    loop_config: { invalid: 'config' })
-        expect(edge).not_to be_valid
-        expect(edge.errors[:loop_config]).to include('must contain max_iterations')
-      end
-
-      it 'validates max_iterations is positive' do
-        edge = build(:ai_workflow_edge, :loop,
-                    loop_config: { max_iterations: -1 })
-        expect(edge).not_to be_valid
-        expect(edge.errors[:loop_config]).to include('max_iterations must be positive')
-      end
-
-      it 'accepts valid loop configuration' do
-        edge = build(:ai_workflow_edge, :loop,
-                    loop_config: {
-                      max_iterations: 10,
-                      break_condition: 'output.complete == true',
-                      iteration_variable: 'current_item'
+      it 'accepts valid rules conditions' do
+        edge = build(:ai_workflow_edge, :conditional,
+                    condition: {
+                      'rules' => [
+                        { 'variable' => 'status', 'operator' => '==', 'value' => 'success' }
+                      ]
                     })
         expect(edge).to be_valid
       end
     end
 
-    context 'parallel edge validations' do
-      it 'validates parallel_config structure when provided' do
-        edge = build(:ai_workflow_edge, :parallel,
-                    parallel_config: { invalid: 'structure' })
+    context 'start/end node connection validation' do
+      let(:workflow) { create(:ai_workflow) }
+      let(:start_node) { create(:ai_workflow_node, :start_node, ai_workflow: workflow) }
+      let(:end_node) { create(:ai_workflow_node, :end_node, ai_workflow: workflow) }
+      let(:regular_node) { create(:ai_workflow_node, ai_workflow: workflow) }
+
+      it 'prevents outgoing edges from end nodes' do
+        edge = build(:ai_workflow_edge,
+                    ai_workflow: workflow,
+                    source_node_id: end_node.node_id,
+                    target_node_id: regular_node.node_id)
+
         expect(edge).not_to be_valid
-        expect(edge.errors[:parallel_config]).to include('must contain valid parallel execution settings')
+        expect(edge.errors[:source_node_id]).to include('end nodes cannot have outgoing edges')
       end
 
-      it 'accepts valid parallel configuration' do
-        edge = build(:ai_workflow_edge, :parallel,
-                    parallel_config: {
-                      max_concurrent: 5,
-                      wait_for_completion: true,
-                      merge_strategy: 'combine_outputs'
-                    })
-        expect(edge).to be_valid
+      it 'prevents incoming edges to start nodes' do
+        edge = build(:ai_workflow_edge,
+                    ai_workflow: workflow,
+                    source_node_id: regular_node.node_id,
+                    target_node_id: start_node.node_id)
+
+        expect(edge).not_to be_valid
+        expect(edge.errors[:target_node_id]).to include('start nodes cannot have incoming edges')
       end
     end
   end
 
   describe 'scopes' do
-    let!(:default_edge) { create(:ai_workflow_edge, edge_type: 'default') }
-    let!(:conditional_edge) { create(:ai_workflow_edge, :conditional) }
-    let!(:loop_edge) { create(:ai_workflow_edge, :loop) }
-    let!(:error_edge) { create(:ai_workflow_edge, :error) }
-    let!(:active_edge) { create(:ai_workflow_edge, is_active: true) }
-    let!(:inactive_edge) { create(:ai_workflow_edge, is_active: false) }
+    let(:workflow) { create(:ai_workflow) }
+    let(:node1) { create(:ai_workflow_node, ai_workflow: workflow) }
+    let(:node2) { create(:ai_workflow_node, ai_workflow: workflow) }
+    let(:node3) { create(:ai_workflow_node, ai_workflow: workflow) }
+
+    let!(:default_edge) { create(:ai_workflow_edge, ai_workflow: workflow, source_node_id: node1.node_id, target_node_id: node2.node_id, edge_type: 'default') }
+    let!(:success_edge) { create(:ai_workflow_edge, ai_workflow: workflow, source_node_id: node1.node_id, target_node_id: node3.node_id, edge_type: 'success') }
+    let!(:error_edge) { create(:ai_workflow_edge, ai_workflow: workflow, source_node_id: node2.node_id, target_node_id: node3.node_id, edge_type: 'error') }
+    let!(:conditional_edge) { create(:ai_workflow_edge, :conditional, ai_workflow: workflow, source_node_id: node3.node_id, target_node_id: node1.node_id) }
 
     describe '.by_type' do
       it 'filters edges by type' do
-        expect(described_class.by_type('conditional')).to include(conditional_edge)
-        expect(described_class.by_type('conditional')).not_to include(default_edge)
-      end
-    end
-
-    describe '.active' do
-      it 'returns only active edges' do
-        expect(described_class.active).to include(active_edge)
-        expect(described_class.active).not_to include(inactive_edge)
+        expect(described_class.by_type('default')).to include(default_edge)
+        expect(described_class.by_type('default')).not_to include(success_edge, error_edge)
       end
     end
 
@@ -172,468 +200,311 @@ RSpec.describe AiWorkflowEdge, type: :model do
       end
     end
 
-    describe '.loops' do
-      it 'returns only loop edges' do
-        expect(described_class.loops).to include(loop_edge)
-        expect(described_class.loops).not_to include(default_edge)
+    describe '.default_edges' do
+      it 'returns only default edges' do
+        expect(described_class.default_edges).to include(default_edge)
+        expect(described_class.default_edges).not_to include(success_edge)
       end
     end
 
-    describe '.error_handling' do
+    describe '.success_edges' do
+      it 'returns only success edges' do
+        expect(described_class.success_edges).to include(success_edge)
+        expect(described_class.success_edges).not_to include(default_edge)
+      end
+    end
+
+    describe '.error_edges' do
       it 'returns only error edges' do
-        expect(described_class.error_handling).to include(error_edge)
-        expect(described_class.error_handling).not_to include(default_edge)
+        expect(described_class.error_edges).to include(error_edge)
+        expect(described_class.error_edges).not_to include(default_edge)
+      end
+    end
+
+    describe '.ordered_by_priority' do
+      it 'orders edges by priority' do
+        default_edge.update!(priority: 10)
+        success_edge.update!(priority: 1)
+
+        ordered = described_class.ordered_by_priority
+        expect(ordered.first.priority).to be <= ordered.last.priority
       end
     end
   end
 
   describe 'callbacks' do
     describe 'before_validation' do
-      it 'normalizes edge_type' do
-        edge = build(:ai_workflow_edge, edge_type: '  CONDITIONAL  ')
+      it 'sets conditional flag based on condition presence' do
+        edge = build(:ai_workflow_edge, condition: { 'expression' => 'test' })
         edge.valid?
-        expect(edge.edge_type).to eq('conditional')
+        expect(edge.is_conditional).to be true
       end
 
-      it 'sets default priority if not provided' do
-        edge = build(:ai_workflow_edge, priority: nil)
+      it 'does not set conditional flag for empty conditions' do
+        edge = build(:ai_workflow_edge, condition: {})
         edge.valid?
-        expect(edge.priority).to eq(1)
+        expect(edge.is_conditional).to be false
       end
     end
 
     describe 'after_create' do
-      it 'invalidates workflow cache' do
+      it 'updates workflow metadata' do
         workflow = create(:ai_workflow)
-        source_node = create(:ai_workflow_node, ai_workflow: workflow)
-        target_node = create(:ai_workflow_node, ai_workflow: workflow)
-        
-        expect(workflow).to receive(:invalidate_structure_cache)
-        
-        create(:ai_workflow_edge,
-               ai_workflow: workflow,
-               source_node: source_node,
-               target_node: target_node)
+        node1 = create(:ai_workflow_node, ai_workflow: workflow)
+        node2 = create(:ai_workflow_node, ai_workflow: workflow)
+
+        expect {
+          create(:ai_workflow_edge, ai_workflow: workflow,
+                source_node_id: node1.node_id, target_node_id: node2.node_id)
+        }.to change { workflow.reload.updated_at }
       end
     end
   end
 
   describe 'instance methods' do
-    describe '#evaluable?' do
-      it 'returns true for conditional edges with valid conditions' do
-        edge = create(:ai_workflow_edge, :conditional)
-        expect(edge.evaluable?).to be true
+    describe 'edge type check methods' do
+      it '#default_edge? returns true for default edges' do
+        edge = build(:ai_workflow_edge, edge_type: 'default')
+        expect(edge.default_edge?).to be true
+        expect(edge.error_edge?).to be false
       end
 
-      it 'returns false for non-conditional edges' do
-        edge = create(:ai_workflow_edge, edge_type: 'default')
-        expect(edge.evaluable?).to be false
+      it '#success_edge? returns true for success edges' do
+        edge = build(:ai_workflow_edge, edge_type: 'success')
+        expect(edge.success_edge?).to be true
       end
 
-      it 'returns false for conditional edges without conditions' do
-        edge = create(:ai_workflow_edge, edge_type: 'conditional', condition: nil)
-        expect(edge.evaluable?).to be false
+      it '#error_edge? returns true for error edges' do
+        edge = build(:ai_workflow_edge, edge_type: 'error')
+        expect(edge.error_edge?).to be true
+      end
+
+      it '#conditional_edge? returns true for conditional edges' do
+        edge = build(:ai_workflow_edge, edge_type: 'conditional')
+        expect(edge.conditional_edge?).to be true
+      end
+
+      it '#loop_edge? returns true for loop edges' do
+        edge = build(:ai_workflow_edge, edge_type: 'loop')
+        expect(edge.loop_edge?).to be true
+      end
+
+      it '#retry_edge? returns true for retry edges' do
+        edge = build(:ai_workflow_edge, edge_type: 'retry')
+        expect(edge.retry_edge?).to be true
+      end
+
+      it '#timeout_edge? returns true for timeout edges' do
+        edge = build(:ai_workflow_edge, edge_type: 'timeout')
+        expect(edge.timeout_edge?).to be true
+      end
+
+      it '#fallback_edge? returns true for fallback edges' do
+        edge = build(:ai_workflow_edge, edge_type: 'fallback')
+        expect(edge.fallback_edge?).to be true
+      end
+
+      it '#compensation_edge? returns true for compensation edges' do
+        edge = build(:ai_workflow_edge, edge_type: 'compensation')
+        expect(edge.compensation_edge?).to be true
       end
     end
 
     describe '#evaluate_condition' do
-      let(:edge) { create(:ai_workflow_edge, :conditional, 
-                         condition: 'output.status == "success"') }
+      let(:edge) { create(:ai_workflow_edge) }
 
-      it 'evaluates true when condition is met' do
-        context = { 'output' => { 'status' => 'success' } }
-        expect(edge.evaluate_condition(context)).to be true
+      it 'returns true when no condition is set' do
+        edge.update!(condition: {}, is_conditional: false)
+        expect(edge.evaluate_condition({})).to be true
       end
 
-      it 'evaluates false when condition is not met' do
-        context = { 'output' => { 'status' => 'failed' } }
-        expect(edge.evaluate_condition(context)).to be false
+      it 'evaluates expression conditions' do
+        edge.update!(condition: { 'expression' => 'true' }, is_conditional: true)
+        expect(edge.evaluate_condition({})).to be true
       end
 
-      it 'handles missing context gracefully' do
-        expect(edge.evaluate_condition({})).to be false
+      it 'evaluates rule conditions with AND logic' do
+        edge.update!(condition: {
+          'rules' => [
+            { 'variable' => 'status', 'operator' => '==', 'value' => 'success' },
+            { 'variable' => 'count', 'operator' => '>', 'value' => 5 }
+          ],
+          'logic' => 'AND'
+        }, is_conditional: true)
+
+        expect(edge.evaluate_condition({ 'status' => 'success', 'count' => 10 })).to be true
+        expect(edge.evaluate_condition({ 'status' => 'success', 'count' => 3 })).to be false
       end
 
-      it 'handles complex nested conditions' do
-        edge = create(:ai_workflow_edge, :conditional,
-                     condition: 'data.user.score > 0.8 && data.user.verified == true')
-        
-        context = {
-          'data' => {
-            'user' => {
-              'score' => 0.9,
-              'verified' => true
-            }
-          }
-        }
-        
-        expect(edge.evaluate_condition(context)).to be true
-      end
+      it 'evaluates rule conditions with OR logic' do
+        edge.update!(condition: {
+          'rules' => [
+            { 'variable' => 'status', 'operator' => '==', 'value' => 'success' },
+            { 'variable' => 'override', 'operator' => '==', 'value' => true }
+          ],
+          'logic' => 'OR'
+        }, is_conditional: true)
 
-      it 'returns false for non-conditional edges' do
-        edge = create(:ai_workflow_edge, edge_type: 'default')
-        expect(edge.evaluate_condition({ 'test' => 'data' })).to be false
-      end
-    end
-
-    describe '#should_execute?' do
-      let(:context) { { 'status' => 'success' } }
-
-      it 'returns true for active default edges' do
-        edge = create(:ai_workflow_edge, edge_type: 'default', is_active: true)
-        expect(edge.should_execute?(context)).to be true
-      end
-
-      it 'returns false for inactive edges' do
-        edge = create(:ai_workflow_edge, is_active: false)
-        expect(edge.should_execute?(context)).to be false
-      end
-
-      it 'evaluates condition for conditional edges' do
-        edge = create(:ai_workflow_edge, :conditional,
-                     condition: 'status == "success"')
-        
-        expect(edge.should_execute?(context)).to be true
-        expect(edge.should_execute?({ 'status' => 'failed' })).to be false
+        expect(edge.evaluate_condition({ 'status' => 'failed', 'override' => true })).to be true
+        expect(edge.evaluate_condition({ 'status' => 'failed', 'override' => false })).to be false
       end
     end
 
-    describe '#execution_weight' do
-      it 'returns priority for default edges' do
-        edge = create(:ai_workflow_edge, priority: 5)
-        expect(edge.execution_weight).to eq(5)
+    describe '#condition_summary' do
+      it 'returns "Always" for non-conditional edges' do
+        edge = build(:ai_workflow_edge, condition: {}, is_conditional: false)
+        expect(edge.condition_summary).to eq('Always')
       end
 
-      it 'factors in condition complexity for conditional edges' do
-        simple_edge = create(:ai_workflow_edge, :conditional,
-                           condition: 'status == "success"',
-                           priority: 1)
-        
-        complex_edge = create(:ai_workflow_edge, :conditional,
-                            condition: 'data.user.score > 0.8 && data.user.verified == true && data.premium == true',
-                            priority: 1)
-        
-        expect(complex_edge.execution_weight).to be > simple_edge.execution_weight
-      end
-    end
-
-    describe '#can_loop?' do
-      it 'returns true for loop edges with valid config' do
-        edge = create(:ai_workflow_edge, :loop)
-        expect(edge.can_loop?).to be true
+      it 'returns expression for expression conditions' do
+        edge = build(:ai_workflow_edge, condition: { 'expression' => 'status == "success"' }, is_conditional: true)
+        expect(edge.condition_summary).to eq('status == "success"')
       end
 
-      it 'returns false for non-loop edges' do
-        edge = create(:ai_workflow_edge, edge_type: 'default')
-        expect(edge.can_loop?).to be false
-      end
+      it 'summarizes rule conditions' do
+        edge = build(:ai_workflow_edge, condition: {
+          'rules' => [
+            { 'variable' => 'status', 'operator' => '==', 'value' => 'success' }
+          ],
+          'logic' => 'AND'
+        }, is_conditional: true)
 
-      it 'returns false for loop edges without config' do
-        edge = create(:ai_workflow_edge, edge_type: 'loop', loop_config: nil)
-        expect(edge.can_loop?).to be false
+        expect(edge.condition_summary).to include('status')
       end
     end
 
-    describe '#max_iterations' do
-      it 'returns max_iterations from loop_config' do
-        edge = create(:ai_workflow_edge, :loop,
-                     loop_config: { max_iterations: 15 })
-        expect(edge.max_iterations).to eq(15)
+    describe '#has_condition?' do
+      it 'returns true when is_conditional is set' do
+        edge = build(:ai_workflow_edge, is_conditional: true, condition: { 'expression' => 'test' })
+        expect(edge.has_condition?).to be true
       end
 
-      it 'returns 0 for non-loop edges' do
-        edge = create(:ai_workflow_edge, edge_type: 'default')
-        expect(edge.max_iterations).to eq(0)
-      end
-    end
-
-    describe '#supports_parallel_execution?' do
-      it 'returns true for parallel edges' do
-        edge = create(:ai_workflow_edge, :parallel)
-        expect(edge.supports_parallel_execution?).to be true
+      it 'returns true when condition is present' do
+        edge = build(:ai_workflow_edge, condition: { 'expression' => 'test' })
+        expect(edge.has_condition?).to be true
       end
 
-      it 'returns true for merge edges' do
-        edge = create(:ai_workflow_edge, :merge)
-        expect(edge.supports_parallel_execution?).to be true
-      end
-
-      it 'returns false for other edge types' do
-        edge = create(:ai_workflow_edge, edge_type: 'default')
-        expect(edge.supports_parallel_execution?).to be false
+      it 'returns false when no condition' do
+        edge = build(:ai_workflow_edge, condition: {}, is_conditional: false)
+        expect(edge.has_condition?).to be false
       end
     end
 
-    describe '#to_graph_representation' do
-      it 'returns hash representation for graph visualization' do
-        edge = create(:ai_workflow_edge, :conditional)
-        
-        representation = edge.to_graph_representation
-        
-        expect(representation).to include(
-          :id,
-          :source_node_id,
-          :target_node_id,
-          :edge_type,
-          :condition,
-          :priority,
-          :is_active
-        )
-        expect(representation[:id]).to eq(edge.id)
-        expect(representation[:source_node_id]).to eq(edge.source_node_id)
-        expect(representation[:target_node_id]).to eq(edge.target_node_id)
+    describe '#condition_variables' do
+      it 'extracts variables from expression' do
+        edge = build(:ai_workflow_edge, condition: {
+          'expression' => '${status} == "success" && $count > 5'
+        })
+
+        variables = edge.condition_variables
+        expect(variables).to include('status', 'count')
       end
 
-      it 'includes loop configuration for loop edges' do
-        edge = create(:ai_workflow_edge, :loop)
-        representation = edge.to_graph_representation
-        
-        expect(representation).to include(:loop_config)
-        expect(representation[:loop_config]).to eq(edge.loop_config)
+      it 'extracts variables from rules' do
+        edge = build(:ai_workflow_edge, condition: {
+          'rules' => [
+            { 'variable' => 'status', 'operator' => '==', 'value' => 'success' },
+            { 'variable' => 'count', 'operator' => '>', 'value' => 5 }
+          ]
+        })
+
+        variables = edge.condition_variables
+        expect(variables).to include('status', 'count')
       end
 
-      it 'includes parallel configuration for parallel edges' do
-        edge = create(:ai_workflow_edge, :parallel)
-        representation = edge.to_graph_representation
-        
-        expect(representation).to include(:parallel_config)
-        expect(representation[:parallel_config]).to eq(edge.parallel_config)
-      end
-    end
-  end
-
-  describe 'class methods' do
-    describe '.validate_condition_syntax' do
-      it 'validates JavaScript-like condition syntax' do
-        valid_conditions = [
-          'output.status == "success"',
-          'result.score > 0.8',
-          'data.count >= 10',
-          'user.verified === true',
-          'response.error == null'
-        ]
-
-        valid_conditions.each do |condition|
-          expect(described_class.validate_condition_syntax(condition)).to be true
-        end
-      end
-
-      it 'rejects invalid syntax' do
-        invalid_conditions = [
-          'output.status =',
-          'result.score > ',
-          'invalid syntax here',
-          'SELECT * FROM users',
-          'function() { return true; }'
-        ]
-
-        invalid_conditions.each do |condition|
-          expect(described_class.validate_condition_syntax(condition)).to be false
-        end
+      it 'returns empty array when no condition' do
+        edge = build(:ai_workflow_edge, condition: {})
+        expect(edge.condition_variables).to eq([])
       end
     end
 
-    describe '.validate_loop_config' do
-      it 'validates required loop configuration fields' do
-        valid_config = {
-          max_iterations: 10,
-          break_condition: 'output.complete == true'
-        }
-        
-        expect(described_class.validate_loop_config(valid_config)).to be true
+    describe '#is_error_fallback?' do
+      it 'returns true for error edges' do
+        edge = build(:ai_workflow_edge, edge_type: 'error')
+        expect(edge.is_error_fallback?).to be true
       end
 
-      it 'rejects config without max_iterations' do
-        invalid_config = { break_condition: 'output.complete == true' }
-        expect(described_class.validate_loop_config(invalid_config)).to be false
-      end
-
-      it 'rejects config with invalid max_iterations' do
-        invalid_config = { max_iterations: -1 }
-        expect(described_class.validate_loop_config(invalid_config)).to be false
+      it 'returns true when configuration specifies error fallback' do
+        edge = build(:ai_workflow_edge, configuration: { 'is_error_fallback' => true })
+        expect(edge.is_error_fallback?).to be true
       end
     end
 
-    describe '.validate_parallel_config' do
-      it 'validates parallel execution configuration' do
-        valid_config = {
-          max_concurrent: 5,
-          wait_for_completion: true,
-          merge_strategy: 'combine_outputs'
-        }
-        
-        expect(described_class.validate_parallel_config(valid_config)).to be true
+    describe '#should_execute_on_success?' do
+      it 'returns true for default edges' do
+        edge = build(:ai_workflow_edge, edge_type: 'default')
+        expect(edge.should_execute_on_success?).to be true
       end
 
-      it 'accepts minimal valid configuration' do
-        minimal_config = { max_concurrent: 1 }
-        expect(described_class.validate_parallel_config(minimal_config)).to be true
+      it 'returns true for success edges' do
+        edge = build(:ai_workflow_edge, edge_type: 'success')
+        expect(edge.should_execute_on_success?).to be true
       end
 
-      it 'rejects invalid merge strategies' do
-        invalid_config = {
-          max_concurrent: 5,
-          merge_strategy: 'invalid_strategy'
-        }
-        
-        expect(described_class.validate_parallel_config(invalid_config)).to be false
+      it 'returns false for error edges' do
+        edge = build(:ai_workflow_edge, edge_type: 'error')
+        expect(edge.should_execute_on_success?).to be false
       end
     end
 
-    describe '.execution_order' do
-      let(:workflow) { create(:ai_workflow) }
-      let(:source) { create(:ai_workflow_node, ai_workflow: workflow) }
-      let(:target1) { create(:ai_workflow_node, ai_workflow: workflow) }
-      let(:target2) { create(:ai_workflow_node, ai_workflow: workflow) }
-      let(:target3) { create(:ai_workflow_node, ai_workflow: workflow) }
+    describe '#should_execute_on_error?' do
+      it 'returns true for error edges' do
+        edge = build(:ai_workflow_edge, edge_type: 'error')
+        expect(edge.should_execute_on_error?).to be true
+      end
 
-      let!(:edge1) { create(:ai_workflow_edge, ai_workflow: workflow, source_node: source, target_node: target1, priority: 3) }
-      let!(:edge2) { create(:ai_workflow_edge, ai_workflow: workflow, source_node: source, target_node: target2, priority: 1) }
-      let!(:edge3) { create(:ai_workflow_edge, ai_workflow: workflow, source_node: source, target_node: target3, priority: 2) }
+      it 'returns true when configuration specifies execute_on_error' do
+        edge = build(:ai_workflow_edge, configuration: { 'execute_on_error' => true })
+        expect(edge.should_execute_on_error?).to be true
+      end
 
-      it 'returns edges in priority order' do
-        ordered_edges = described_class.execution_order
-        expect(ordered_edges.first).to eq(edge2)  # priority 1
-        expect(ordered_edges.second).to eq(edge3) # priority 2
-        expect(ordered_edges.third).to eq(edge1)  # priority 3
+      it 'returns false for default edges' do
+        edge = build(:ai_workflow_edge, edge_type: 'default')
+        expect(edge.should_execute_on_error?).to be false
       end
     end
 
-    describe '.find_circular_references' do
+    describe '#creates_cycle?' do
       let(:workflow) { create(:ai_workflow) }
       let(:node1) { create(:ai_workflow_node, ai_workflow: workflow) }
       let(:node2) { create(:ai_workflow_node, ai_workflow: workflow) }
       let(:node3) { create(:ai_workflow_node, ai_workflow: workflow) }
 
-      it 'detects circular references in workflow' do
-        # Create a circle: node1 -> node2 -> node3 -> node1
-        create(:ai_workflow_edge, ai_workflow: workflow, source_node: node1, target_node: node2)
-        create(:ai_workflow_edge, ai_workflow: workflow, source_node: node2, target_node: node3)
-        create(:ai_workflow_edge, ai_workflow: workflow, source_node: node3, target_node: node1)
-
-        circular_refs = described_class.find_circular_references(workflow.id)
-        expect(circular_refs).not_to be_empty
-        expect(circular_refs.flatten).to include(node1.id, node2.id, node3.id)
+      before do
+        create(:ai_workflow_edge, ai_workflow: workflow,
+              source_node_id: node1.node_id, target_node_id: node2.node_id)
+        create(:ai_workflow_edge, ai_workflow: workflow,
+              source_node_id: node2.node_id, target_node_id: node3.node_id)
       end
 
-      it 'returns empty array for acyclic workflows' do
-        # Create a linear flow: node1 -> node2 -> node3
-        create(:ai_workflow_edge, ai_workflow: workflow, source_node: node1, target_node: node2)
-        create(:ai_workflow_edge, ai_workflow: workflow, source_node: node2, target_node: node3)
+      it 'detects cycles' do
+        # This edge would create: node1 -> node2 -> node3 -> node1 (cycle)
+        edge = build(:ai_workflow_edge, ai_workflow: workflow,
+                    source_node_id: node3.node_id, target_node_id: node1.node_id)
 
-        circular_refs = described_class.find_circular_references(workflow.id)
-        expect(circular_refs).to be_empty
+        expect(edge.creates_cycle?).to be true
+      end
+
+      it 'returns false when no cycle' do
+        node4 = create(:ai_workflow_node, ai_workflow: workflow)
+        edge = build(:ai_workflow_edge, ai_workflow: workflow,
+                    source_node_id: node3.node_id, target_node_id: node4.node_id)
+
+        expect(edge.creates_cycle?).to be false
       end
     end
   end
 
-  describe 'edge cases and performance' do
-    describe 'large condition strings' do
-      it 'handles very long condition expressions' do
-        long_condition = Array.new(100) { |i| "data.field#{i} == 'value#{i}'" }.join(' && ')
-        edge = build(:ai_workflow_edge, :conditional, condition: long_condition)
-        
-        expect { edge.save! }.not_to raise_error
-        expect(edge.condition.length).to be > 1000
-      end
-    end
+  describe 'edge cases and error handling' do
+    it 'handles unicode in configuration' do
+      edge = create(:ai_workflow_edge,
+                   configuration: {
+                     'label' => 'Connexion spéciale 🔗',
+                     'description' => '日本語テスト'
+                   })
 
-    describe 'complex nested context evaluation' do
-      it 'evaluates deeply nested object conditions' do
-        edge = create(:ai_workflow_edge, :conditional,
-                     condition: 'data.level1.level2.level3.level4.value == "deep"')
-        
-        context = {
-          'data' => {
-            'level1' => {
-              'level2' => {
-                'level3' => {
-                  'level4' => {
-                    'value' => 'deep'
-                  }
-                }
-              }
-            }
-          }
-        }
-        
-        expect(edge.evaluate_condition(context)).to be true
-      end
-
-      it 'handles missing nested properties gracefully' do
-        edge = create(:ai_workflow_edge, :conditional,
-                     condition: 'data.missing.property == "value"')
-        
-        context = { 'data' => {} }
-        expect(edge.evaluate_condition(context)).to be false
-      end
-    end
-
-    describe 'unicode and special character handling' do
-      it 'handles unicode characters in conditions' do
-        edge = create(:ai_workflow_edge, :conditional,
-                     condition: 'output.message == "完成"')
-        
-        context = { 'output' => { 'message' => '完成' } }
-        expect(edge.evaluate_condition(context)).to be true
-      end
-
-      it 'handles special characters in node metadata' do
-        edge = build(:ai_workflow_edge,
-                    metadata: {
-                      'description' => 'Edge with émojis 🚀 and spëcial chars',
-                      'tags' => ['tëst', 'spëcial']
-                    })
-        
-        expect(edge).to be_valid
-        expect(edge.metadata['description']).to include('🚀')
-      end
-    end
-
-    describe 'concurrent edge execution scenarios' do
-      let(:workflow) { create(:ai_workflow) }
-      let(:source) { create(:ai_workflow_node, ai_workflow: workflow) }
-
-      it 'handles multiple parallel edges from same source' do
-        targets = create_list(:ai_workflow_node, 5, ai_workflow: workflow)
-        
-        edges = targets.map do |target|
-          create(:ai_workflow_edge, :parallel,
-                 ai_workflow: workflow,
-                 source_node: source,
-                 target_node: target)
-        end
-        
-        expect(edges.all?(&:supports_parallel_execution?)).to be true
-        expect(edges.map(&:source_node).uniq.size).to eq(1)
-      end
-    end
-
-    describe 'performance with large numbers of edges' do
-      it 'efficiently queries edges for large workflows' do
-        workflow = create(:ai_workflow)
-        nodes = create_list(:ai_workflow_node, 50, ai_workflow: workflow)
-        
-        # Create a complex network of edges
-        nodes.each_with_index do |source, i|
-          targets = nodes[(i + 1)..(i + 5)] || []
-          targets.each do |target|
-            create(:ai_workflow_edge,
-                   ai_workflow: workflow,
-                   source_node: source,
-                   target_node: target)
-          end
-        end
-        
-        expect {
-          described_class.joins(:source_node, :target_node)
-                        .where(ai_workflow: workflow)
-                        .active
-                        .execution_order
-                        .limit(100)
-                        .to_a
-        }.not_to exceed_query_limit(5)
-      end
+      expect(edge.reload.configuration['label']).to include('🔗')
+      expect(edge.configuration['description']).to include('日本語')
     end
   end
 end

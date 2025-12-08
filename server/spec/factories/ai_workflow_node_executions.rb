@@ -2,15 +2,19 @@
 
 FactoryBot.define do
   factory :ai_workflow_node_execution do
-    ai_workflow_run
-    ai_workflow_node {
-      ai_workflow_run.ai_workflow.ai_workflow_nodes.first ||
-        create(:ai_workflow_node, ai_workflow: ai_workflow_run.ai_workflow)
-    }
+    transient do
+      workflow { create(:ai_workflow) }
+    end
+
+    ai_workflow_run { association :ai_workflow_run, ai_workflow: workflow }
+    ai_workflow_node { association :ai_workflow_node, ai_workflow: workflow }
     execution_id { SecureRandom.uuid }
     node_id { ai_workflow_node.node_id }
     node_type { ai_workflow_node.node_type }
     status { 'pending' }
+    retry_count { 0 }
+    max_retries { 3 }
+    cost { 0.0 }
     input_data do
       {
         previous_output: 'Input from previous node',

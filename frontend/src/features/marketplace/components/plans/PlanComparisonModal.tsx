@@ -7,6 +7,7 @@ import { App, AppPlan } from '../../types';
 import { formatPriceCents, formatBillingInterval, getPriorityBadgeClass } from '../../utils/themeHelpers';
 import { Check, X, Star, TrendingUp, Shield, Zap, Users, Crown } from 'lucide-react';
 import { useNotifications } from '@/shared/hooks/useNotifications';
+import { getErrorMessage } from '@/shared/utils/errorHandling';
 
 interface PlanComparisonModalProps {
   isOpen: boolean;
@@ -122,8 +123,8 @@ export const PlanComparisonModal: React.FC<PlanComparisonModalProps> = ({
       await onSelectPlan(selectedPlanId);
       showNotification('Successfully subscribed to plan!', 'success');
       onClose();
-    } catch (error: any) {
-      showNotification(error.message || 'Failed to subscribe to plan', 'error');
+    } catch (error: unknown) {
+      showNotification(getErrorMessage(error) || 'Failed to subscribe to plan', 'error');
     } finally {
       setSubscribing(false);
     }

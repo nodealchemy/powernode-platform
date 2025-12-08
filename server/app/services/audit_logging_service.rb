@@ -20,10 +20,10 @@ class AuditLoggingService
   def log(action:, resource:, user: nil, account: nil, **options)
     # Extract context from current request/session
     enriched_options = enrich_context(options)
-    
+
     # Add automatic account detection if not provided
     account ||= detect_account(user, resource)
-    
+
     # Rate limiting check
     return if should_rate_limit?(action, user, enriched_options[:ip_address])
     
@@ -46,7 +46,10 @@ class AuditLoggingService
   rescue => e
     Rails.logger.error "Audit logging failed: #{e.message}"
     Rails.logger.error e.backtrace.join("\n")
-    
+
+    # Re-raise in test environment to surface audit logging errors
+    raise if Rails.env.test?
+
     # Attempt to log the error itself
     log_system_error(e, action, resource, user, account)
     nil
@@ -272,9 +275,12 @@ class AuditLoggingService
   end
 
   def should_rate_limit?(action, user, ip_address)
+    # Disable rate limiting in test environment
+    return false if Rails.env.test?
+
     # Implement rate limiting logic
     key = "audit_log:#{action}:#{user&.id || ip_address}"
-    
+
     current_count = Rails.cache.read(key) || 0
     
     # Different limits for different actions

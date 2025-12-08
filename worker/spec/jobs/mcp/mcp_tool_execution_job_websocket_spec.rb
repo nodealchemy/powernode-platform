@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'spec_helper'
+require 'websocket-client-simple'
 
 RSpec.describe Mcp::McpToolExecutionJob, 'WebSocket execution' do
   let(:execution_id) { SecureRandom.uuid }
@@ -94,7 +95,7 @@ RSpec.describe Mcp::McpToolExecutionJob, 'WebSocket execution' do
         result = job.send(:execute_websocket_tool, server, tool, { query: 'test' })
 
         expect(result[:success]).to be false
-        expect(result[:error]).to include('timeout')
+        expect(result[:error]).to match(/timed out/i)
       end
     end
 
@@ -145,7 +146,7 @@ RSpec.describe Mcp::McpToolExecutionJob, 'WebSocket execution' do
 
       result = job.send(:parse_mcp_response, json_response)
 
-      expect(result[:result]).to eq({ 'content' => 'Success' })
+      expect(result[:result]).to eq({ content: 'Success' })
       expect(result[:error]).to be_nil
     end
 
@@ -179,12 +180,19 @@ RSpec.describe Mcp::McpToolExecutionJob, 'WebSocket execution' do
       expect(mock_api_client).to receive(:patch).with(
         "/api/v1/internal/mcp_tool_executions/#{execution_id}",
         { status: 'running' }
-      )
+      ).ordered
 
-      # Will fail on WebSocket connect, but status update happens first
-      expect { described_class.new.execute(execution_id) }
-        .to raise_error(StandardError)
-        .or not_to raise_error
+      # Allow subsequent patch calls for final status
+      allow(mock_api_client).to receive(:patch)
+
+      # Mock the MCP execution to fail gracefully
+      allow_any_instance_of(described_class).to receive(:execute_mcp_tool).and_return({
+        success: false,
+        error: 'Connection failed'
+      })
+
+      # Should not raise - will handle the error internally
+      expect { described_class.new.execute(execution_id) }.not_to raise_error
     end
 
     it 'updates status to completed on success' do

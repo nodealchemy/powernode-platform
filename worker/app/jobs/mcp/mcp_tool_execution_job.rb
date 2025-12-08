@@ -430,13 +430,28 @@ module Mcp
 
         begin
           parsed = JSON.parse(line)
-          return parsed.transform_keys(&:to_sym) if parsed['result'] || parsed['error']
+          if parsed['result'] || parsed['error']
+            return deep_symbolize_keys(parsed)
+          end
         rescue JSON::ParserError
           next
         end
       end
 
       { error: { message: 'No valid MCP response received' } }
+    end
+
+    def deep_symbolize_keys(obj)
+      case obj
+      when Hash
+        obj.each_with_object({}) do |(key, value), result|
+          result[key.to_sym] = deep_symbolize_keys(value)
+        end
+      when Array
+        obj.map { |item| deep_symbolize_keys(item) }
+      else
+        obj
+      end
     end
   end
 end

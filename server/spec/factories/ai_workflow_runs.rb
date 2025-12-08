@@ -50,6 +50,7 @@ FactoryBot.define do
       when 'cancelled'
         run.started_at ||= 8.minutes.ago
         run.completed_at ||= 3.minutes.ago
+        run.cancelled_at ||= 3.minutes.ago
         # Always set error_details for cancelled runs if not explicitly provided
         run.error_details = {
           cancellation_reason: 'test_cancellation',
@@ -119,6 +120,7 @@ FactoryBot.define do
       status { 'cancelled' }
       started_at { 8.minutes.ago }
       completed_at { 3.minutes.ago }
+      cancelled_at { 3.minutes.ago }
       duration_ms { 300_000 }
       total_cost { 0.008 }
       error_details do

@@ -5,10 +5,17 @@ import {
   AppEndpointFilters
 } from '../types';
 
+export interface PaginationInfo {
+  current_page: number;
+  total_pages: number;
+  total_count: number;
+  per_page: number;
+}
+
 export const appEndpointsApi = {
   async getEndpoints(appId: string, filters: AppEndpointFilters = {}): Promise<{
     data: AppEndpoint[];
-    pagination: any;
+    pagination: PaginationInfo;
   }> {
     const params = new URLSearchParams();
     if (filters.search) params.append('search', filters.search);
@@ -54,7 +61,7 @@ export const appEndpointsApi = {
     return response.data;
   },
 
-  async testEndpoint(appId: string, endpointId: string, testData?: any, testHeaders?: Record<string, string>): Promise<{
+  async testEndpoint(appId: string, endpointId: string, testData?: Record<string, unknown>, testHeaders?: Record<string, string>): Promise<{
     call_id: string;
     status_code: number;
     response_time_ms: number;

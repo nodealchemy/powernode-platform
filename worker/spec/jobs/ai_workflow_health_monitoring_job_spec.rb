@@ -764,6 +764,8 @@ RSpec.describe AiWorkflowHealthMonitoringJob, type: :job do
     )
 
     allow(api_client_double).to receive(:get).with('admin/database/ping')
+    allow(api_client_double).to receive(:get).with('admin/database/pool_stats')
+      .and_return({ 'size' => 10, 'checked_out' => 2, 'checked_in' => 8, 'dead' => 0 })
   end
 
   def stub_unhealthy_database_performance
@@ -775,6 +777,8 @@ RSpec.describe AiWorkflowHealthMonitoringJob, type: :job do
     allow(api_client_double).to receive(:get).with('admin/database/ping') do
       sleep(1.2) # Simulate slow response
     end
+    allow(api_client_double).to receive(:get).with('admin/database/pool_stats')
+      .and_return({ 'size' => 10, 'checked_out' => 8, 'checked_in' => 2, 'dead' => 0 })
   end
 
   def stub_healthy_resource_utilization

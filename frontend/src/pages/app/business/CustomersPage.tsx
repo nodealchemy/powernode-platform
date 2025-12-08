@@ -7,6 +7,8 @@ import { useNotifications } from '@/shared/hooks/useNotifications';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
 import { Input } from '@/shared/components/ui/Input';
+import { formatCurrency, formatDate } from '@/shared/utils/formatters';
+import { getCustomerStatusColor, getCustomerStatusText, getSubscriptionStatusColor, getSubscriptionStatusText } from '@/shared/utils/statusHelpers';
 
 interface Customer {
   id: string;
@@ -157,28 +159,28 @@ export const CustomersPage: React.FC = () => {
   };
 
   const getStatusBadge = (status: string) => {
-    const colors = customersApi.getStatusColor(status);
+    const colors = getCustomerStatusColor(status);
     const colorClasses = {
       green: 'bg-theme-success text-theme-success',
-      yellow: 'bg-theme-warning text-theme-warning', 
+      yellow: 'bg-theme-warning text-theme-warning',
       red: 'bg-theme-error text-theme-error',
       gray: 'bg-theme-background-tertiary text-theme-secondary'
     };
-    
+
     const colorClass = colors === 'green' ? colorClasses.green :
                       colors === 'yellow' ? colorClasses.yellow :
                       colors === 'red' ? colorClasses.red :
                       colorClasses.gray;
-    
+
     return (
       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colorClass}`}>
-        {customersApi.getStatusText(status)}
+        {getCustomerStatusText(status)}
       </span>
     );
   };
 
   const getSubscriptionBadge = (status: string) => {
-    const colors = customersApi.getSubscriptionStatusColor(status);
+    const colors = getSubscriptionStatusColor(status);
     const colorClasses = {
       green: 'bg-theme-success text-theme-success',
       blue: 'bg-theme-info text-theme-info',
@@ -186,16 +188,16 @@ export const CustomersPage: React.FC = () => {
       red: 'bg-theme-error text-theme-error',
       gray: 'bg-theme-background-tertiary text-theme-secondary'
     };
-    
+
     const colorClass = colors === 'green' ? colorClasses.green :
                       colors === 'blue' ? colorClasses.blue :
                       colors === 'yellow' ? colorClasses.yellow :
                       colors === 'red' ? colorClasses.red :
                       colorClasses.gray;
-    
+
     return (
       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colorClass}`}>
-        {customersApi.formatSubscriptionStatus(status)}
+        {getSubscriptionStatusText(status)}
       </span>
     );
   };
@@ -285,7 +287,7 @@ export const CustomersPage: React.FC = () => {
         </div>
         <div className="card-theme p-6">
           <h3 className="text-sm font-medium text-theme-secondary">Total MRR</h3>
-          <p className="text-2xl font-bold text-theme-primary">{customersApi.formatCurrency(stats?.total_mrr || 0)}</p>
+          <p className="text-2xl font-bold text-theme-primary">{formatCurrency(stats?.total_mrr || 0)}</p>
           <p className="text-xs text-theme-success mt-1">Monthly recurring</p>
         </div>
         <div className="card-theme p-6">
@@ -422,7 +424,7 @@ export const CustomersPage: React.FC = () => {
                             {customer.subscription.plan.name}
                           </div>
                           <div className="text-sm text-theme-secondary">
-                            {customersApi.formatCurrency(customer.subscription.plan.price_cents)}
+                            {formatCurrency(customer.subscription.plan.price_cents)}
                           </div>
                           {getSubscriptionBadge(customer.subscription.status)}
                         </div>
@@ -434,10 +436,10 @@ export const CustomersPage: React.FC = () => {
                       {getStatusBadge(customer.status)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-theme-primary">
-                      {customersApi.formatJoinDate(customer.created_at)}
+                      {formatDate(customer.created_at)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-theme-primary">
-                      {customersApi.calculateMrrDisplay(customer.mrr)}
+                      {customer.mrr === 0 ? '$0' : formatCurrency(customer.mrr)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex items-center gap-2">

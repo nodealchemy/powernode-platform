@@ -6,7 +6,11 @@ import {
   CheckCircle2,
   RefreshCw,
   Download,
-  Activity
+  Activity,
+  Lightbulb,
+  TrendingUp,
+  TrendingDown,
+  Zap
 } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { Card } from '@/shared/components/ui/Card';
@@ -14,7 +18,7 @@ import { Badge } from '@/shared/components/ui/Badge';
 import { Select } from '@/shared/components/ui/Select';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { useNotifications } from '@/shared/hooks/useNotifications';
-import { analyticsApi } from '@/shared/services/ai';
+import { analyticsApi, CostAnalytics, Insight, Recommendation } from '@/shared/services/ai';
 
 interface AnalyticsData {
   systemHealth: {
@@ -57,7 +61,11 @@ export const AnalyticsDashboardComponent: React.FC = () => {
   const [timeRange, setTimeRange] = useState('7d');
   const [selectedProvider, setSelectedProvider] = useState<string>('all');
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
+  const [costAnalytics, setCostAnalytics] = useState<CostAnalytics | null>(null);
+  const [insights, setInsights] = useState<Insight[]>([]);
+  const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [realtimeUpdates, setRealtimeUpdates] = useState(true);
+  const [exporting, setExporting] = useState(false);
 
   const { addNotification } = useNotifications();
 
@@ -72,13 +80,20 @@ export const AnalyticsDashboardComponent: React.FC = () => {
       };
 
       // Fetch data in parallel for better performance
-      const [dashboard, overview, performance, , usage] = await Promise.all([
+      const [dashboard, overview, performance, costs, usage, insightsData, recommendationsData] = await Promise.all([
         analyticsApi.getDashboard(filters),
         analyticsApi.getOverview(filters),
         analyticsApi.getPerformance(filters),
         analyticsApi.getCosts(filters),
-        analyticsApi.getUsage(filters)
+        analyticsApi.getUsage(filters),
+        analyticsApi.getInsights(filters),
+        analyticsApi.getRecommendations(filters)
       ]);
+
+      // Store cost analytics, insights, and recommendations
+      setCostAnalytics(costs);
+      setInsights(insightsData);
+      setRecommendations(recommendationsData);
 
       // Transform API data to component format
       const transformedData: AnalyticsData = {
@@ -131,30 +146,45 @@ export const AnalyticsDashboardComponent: React.FC = () => {
 
   const handleExportData = useCallback(async () => {
     try {
+      setExporting(true);
       addNotification({
         type: 'info',
         title: 'Exporting Data',
         message: 'Preparing analytics report for download...'
       });
-      
-      // In real implementation, this would trigger a report generation
-      setTimeout(() => {
+
+      // Use real API to export data
+      const result = await analyticsApi.exportData({
+        format: 'csv',
+        data_type: 'dashboard',
+        filters: {
+          time_range: timeRange as '24h' | '7d' | '30d' | '90d'
+        }
+      });
+
+      // Open download URL in new tab
+      if (result.download_url) {
+        window.open(result.download_url, '_blank');
         addNotification({
           type: 'success',
           title: 'Export Complete',
-          message: 'Analytics report has been downloaded'
+          message: 'Analytics report is ready for download'
         });
-      }, 2000);
-      
+      }
+
     } catch (error) {
-      console.error('Failed to export data:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to export data:', error);
+      }
       addNotification({
         type: 'error',
         title: 'Export Failed',
         message: 'Failed to export analytics data'
       });
+    } finally {
+      setExporting(false);
     }
-  }, [addNotification]);
+  }, [addNotification, timeRange]);
 
   const getHealthBadge = (health: string) => {
     switch (health) {
@@ -202,7 +232,8 @@ export const AnalyticsDashboardComponent: React.FC = () => {
       label: 'Export',
       onClick: handleExportData,
       variant: 'outline' as const,
-      icon: Download
+      icon: Download,
+      disabled: exporting
     }
   ];
 
@@ -381,7 +412,7 @@ export const AnalyticsDashboardComponent: React.FC = () => {
                     </p>
                   </div>
                 </div>
-                
+
                 <div className="text-right">
                   <p className="font-semibold text-theme-primary">
                     {agent.success_rate.toFixed(1)}%
@@ -395,6 +426,145 @@ export const AnalyticsDashboardComponent: React.FC = () => {
           </div>
         </Card>
       </div>
+
+      {/* Cost Analytics Section */}
+      {costAnalytics && (
+        <div className="mt-6">
+          <Card className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-theme-primary">
+                Cost Analytics
+              </h3>
+              {costAnalytics.optimization_potential_usd > 0 && (
+                <Badge variant="success" size="sm">
+                  <Zap className="h-3 w-3 mr-1" />
+                  ${costAnalytics.optimization_potential_usd.toFixed(2)} savings potential
+                </Badge>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <div className="p-4 bg-theme-surface rounded-lg">
+                <p className="text-sm text-theme-tertiary">Total Cost</p>
+                <p className="text-2xl font-semibold text-theme-primary">
+                  ${costAnalytics.total_cost_usd.toFixed(2)}
+                </p>
+              </div>
+
+              <div className="p-4 bg-theme-surface rounded-lg">
+                <p className="text-sm text-theme-tertiary">Cost by Provider</p>
+                <div className="mt-2 space-y-1">
+                  {Object.entries(costAnalytics.cost_by_provider).slice(0, 3).map(([provider, cost]) => (
+                    <div key={provider} className="flex justify-between text-sm">
+                      <span className="text-theme-secondary">{provider}</span>
+                      <span className="font-medium text-theme-primary">${(cost as number).toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="p-4 bg-theme-surface rounded-lg">
+                <p className="text-sm text-theme-tertiary">Top Expensive Workflows</p>
+                <div className="mt-2 space-y-1">
+                  {costAnalytics.top_expensive_workflows.slice(0, 3).map((workflow) => (
+                    <div key={workflow.id} className="flex justify-between text-sm">
+                      <span className="text-theme-secondary truncate max-w-[120px]">{workflow.name}</span>
+                      <span className="font-medium text-theme-primary">${workflow.total_cost_usd.toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Insights & Recommendations Section */}
+      {(insights.length > 0 || recommendations.length > 0) && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+          {/* Insights */}
+          {insights.length > 0 && (
+            <Card className="p-6">
+              <h3 className="text-lg font-semibold text-theme-primary mb-4 flex items-center gap-2">
+                <Lightbulb className="h-5 w-5 text-theme-warning" />
+                Insights
+              </h3>
+              <div className="space-y-3">
+                {insights.slice(0, 5).map((insight, index) => (
+                  <div
+                    key={index}
+                    className={`p-3 rounded-lg border ${
+                      insight.severity === 'critical'
+                        ? 'bg-theme-error-background border-theme-error'
+                        : insight.severity === 'warning'
+                        ? 'bg-theme-warning-background border-theme-warning'
+                        : 'bg-theme-surface border-theme'
+                    }`}
+                  >
+                    <div className="flex items-start gap-2">
+                      {insight.severity === 'critical' && <AlertTriangle className="h-4 w-4 text-theme-error mt-0.5" />}
+                      {insight.severity === 'warning' && <AlertTriangle className="h-4 w-4 text-theme-warning mt-0.5" />}
+                      <div>
+                        <p className="font-medium text-theme-primary">{insight.title}</p>
+                        <p className="text-sm text-theme-tertiary mt-1">{insight.description}</p>
+                        {insight.impact && (
+                          <p className="text-xs text-theme-tertiary mt-1">Impact: {insight.impact}</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
+
+          {/* Recommendations */}
+          {recommendations.length > 0 && (
+            <Card className="p-6">
+              <h3 className="text-lg font-semibold text-theme-primary mb-4 flex items-center gap-2">
+                <Zap className="h-5 w-5 text-theme-success" />
+                Recommendations
+              </h3>
+              <div className="space-y-3">
+                {recommendations.slice(0, 5).map((rec) => (
+                  <div key={rec.id} className="p-3 bg-theme-surface rounded-lg">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium text-theme-primary">{rec.title}</p>
+                          <Badge
+                            variant={rec.priority === 'high' ? 'danger' : rec.priority === 'medium' ? 'warning' : 'outline'}
+                            size="sm"
+                          >
+                            {rec.priority}
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-theme-tertiary mt-1">{rec.description}</p>
+                        {(rec.potential_savings_usd || rec.potential_improvement_percentage) && (
+                          <div className="flex items-center gap-3 mt-2">
+                            {rec.potential_savings_usd && (
+                              <span className="text-xs text-theme-success flex items-center gap-1">
+                                <TrendingDown className="h-3 w-3" />
+                                Save ${rec.potential_savings_usd.toFixed(2)}
+                              </span>
+                            )}
+                            {rec.potential_improvement_percentage && (
+                              <span className="text-xs text-theme-success flex items-center gap-1">
+                                <TrendingUp className="h-3 w-3" />
+                                +{rec.potential_improvement_percentage}% improvement
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
+        </div>
+      )}
 
     </PageContainer>
   );

@@ -2,11 +2,16 @@
 
 FactoryBot.define do
   factory :ai_workflow_template do
-    name { Faker::App.name + " Template" }
+    sequence(:name) { |n| "#{Faker::App.name} Template #{n}" }
     description { Faker::Lorem.paragraph }
     category { 'general' }
     version { '1.0.0' }
+    difficulty_level { 'beginner' }
     is_public { false }
+    is_featured { false }
+    usage_count { 0 }
+    rating { 0.0 }
+    rating_count { 0 }
 
     # Set workflow_definition with required nodes and edges structure
     workflow_definition do

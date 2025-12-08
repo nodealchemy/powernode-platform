@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { appPlansApi } from '../services/marketplaceApi';
 import type { AppPlan, AppPlanFormData } from '../types';
 import { useNotifications } from '@/shared/hooks/useNotifications';
+import { getErrorMessage } from '@/shared/utils/errorHandling';
 
 interface UseAppPlansResult {
   plans: AppPlan[];
@@ -34,8 +35,8 @@ export const useAppPlans = (appId: string | null | undefined, initialLoad = true
       
       const response = await appPlansApi.getAppPlans(appId);
       setPlans(response.data || []);
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.error || 'Failed to load app plans';
+    } catch (error: unknown) {
+      const errorMessage = getErrorMessage(error) || 'Failed to load app plans';
       setError(errorMessage);
       setPlans([]);
     } finally {
@@ -57,8 +58,8 @@ export const useAppPlans = (appId: string | null | undefined, initialLoad = true
       setPlans(prev => [newPlan.data, ...prev]);
       showNotification('App plan created successfully', 'success');
       return newPlan.data;
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.error || 'Failed to create app plan';
+    } catch (error: unknown) {
+      const errorMessage = getErrorMessage(error) || 'Failed to create app plan';
       showNotification(errorMessage, 'error');
       return null;
     } finally {
@@ -79,8 +80,8 @@ export const useAppPlans = (appId: string | null | undefined, initialLoad = true
       
       showNotification('App plan updated successfully', 'success');
       return updatedPlan.data;
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.error || 'Failed to update app plan';
+    } catch (error: unknown) {
+      const errorMessage = getErrorMessage(error) || 'Failed to update app plan';
       showNotification(errorMessage, 'error');
       return null;
     } finally {
@@ -98,8 +99,8 @@ export const useAppPlans = (appId: string | null | undefined, initialLoad = true
       setPlans(prev => prev.filter(plan => plan.id !== id));
       showNotification('App plan deleted successfully', 'success');
       return true;
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.error || 'Failed to delete app plan';
+    } catch (error: unknown) {
+      const errorMessage = getErrorMessage(error) || 'Failed to delete app plan';
       showNotification(errorMessage, 'error');
       return false;
     } finally {
@@ -120,8 +121,8 @@ export const useAppPlans = (appId: string | null | undefined, initialLoad = true
       
       showNotification('App plan activated successfully', 'success');
       return activatedPlan.data;
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.error || 'Failed to activate app plan';
+    } catch (error: unknown) {
+      const errorMessage = getErrorMessage(error) || 'Failed to activate app plan';
       showNotification(errorMessage, 'error');
       return null;
     } finally {
@@ -142,8 +143,8 @@ export const useAppPlans = (appId: string | null | undefined, initialLoad = true
       
       showNotification('App plan deactivated successfully', 'success');
       return deactivatedPlan.data;
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.error || 'Failed to deactivate app plan';
+    } catch (error: unknown) {
+      const errorMessage = getErrorMessage(error) || 'Failed to deactivate app plan';
       showNotification(errorMessage, 'error');
       return null;
     } finally {

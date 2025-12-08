@@ -21,12 +21,12 @@ RSpec.describe 'Api::V1::FileObjects', type: :request do
   end
 
   let(:headers) do
-    token = JwtService.encode_access_token(user)
+    token = JwtService.generate_user_tokens(user)[:access_token]
     { 'Authorization' => "Bearer #{token}", 'Content-Type' => 'application/json' }
   end
 
   let(:read_only_headers) do
-    token = JwtService.encode_access_token(read_only_user)
+    token = JwtService.generate_user_tokens(read_only_user)[:access_token]
     { 'Authorization' => "Bearer #{token}", 'Content-Type' => 'application/json' }
   end
 
@@ -70,7 +70,7 @@ RSpec.describe 'Api::V1::FileObjects', type: :request do
 
     it 'rejects upload without required permission' do
       no_permission_user = create(:user, account: account, permissions: [])
-      token = JwtService.encode_access_token(no_permission_user)
+      token = JwtService.generate_user_tokens(no_permission_user)[:access_token]
       headers_no_permission = { 'Authorization' => "Bearer #{token}" }
 
       post '/api/v1/file_objects',
@@ -231,7 +231,7 @@ RSpec.describe 'Api::V1::FileObjects', type: :request do
     it 'prevents access to files from different account' do
       other_account = create(:account)
       other_user = create(:user, account: other_account, permissions: ['files.read'])
-      other_token = JwtService.encode_access_token(other_user)
+      other_token = JwtService.generate_user_tokens(other_user)[:access_token]
       other_headers = { 'Authorization' => "Bearer #{other_token}", 'Content-Type' => 'application/json' }
 
       get "/api/v1/file_objects/#{file_object.id}", headers: other_headers
@@ -280,7 +280,7 @@ RSpec.describe 'Api::V1::FileObjects', type: :request do
 
     it 'requires read permission' do
       no_permission_user = create(:user, account: account, permissions: [])
-      token = JwtService.encode_access_token(no_permission_user)
+      token = JwtService.generate_user_tokens(no_permission_user)[:access_token]
       no_permission_headers = { 'Authorization' => "Bearer #{token}", 'Content-Type' => 'application/json' }
 
       get "/api/v1/file_objects/#{file_object.id}/download", headers: no_permission_headers

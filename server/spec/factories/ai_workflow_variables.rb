@@ -3,10 +3,13 @@
 FactoryBot.define do
   factory :ai_workflow_variable do
     ai_workflow
-    name { Faker::Lorem.word.downcase }
+    sequence(:name) { |n| "variable_#{n}" }
     variable_type { 'string' }
+    scope { 'workflow' }
     default_value { 'default_test_value' }
     is_required { false }
+    is_input { true }
+    is_output { false }
     is_secret { false }
     description { "Test variable for #{name}" }
     validation_rules { {} }
@@ -25,7 +28,7 @@ FactoryBot.define do
 
     trait :sensitive do
       is_secret { true }
-      variable_type { 'password' }
+      is_output { false }
       default_value { nil }
       metadata do
         {
@@ -53,20 +56,20 @@ FactoryBot.define do
       default_value { 42 }
       validation_rules do
         {
-          min: 0,
-          max: 1000,
-          integer_only: false
+          min_value: 0,
+          max_value: 1000
         }
       end
     end
 
+    # Note: 'integer' is not a supported type, use 'number' instead
     trait :integer_type do
-      variable_type { 'integer' }
+      variable_type { 'number' }
       default_value { 10 }
       validation_rules do
         {
-          min: 1,
-          max: 100
+          min_value: 1,
+          max_value: 100
         }
       end
     end
@@ -141,53 +144,50 @@ FactoryBot.define do
       end
     end
 
+    # Note: 'text' is not a supported type, use 'string' instead
     trait :text_type do
-      variable_type { 'text' }
+      variable_type { 'string' }
       default_value { 'This is a longer text value that can contain multiple lines and paragraphs.' }
       validation_rules do
         {
           min_length: 10,
-          max_length: 10000,
-          allow_html: false
+          max_length: 10000
         }
       end
     end
 
+    # Note: 'url' is not a supported type, use 'string' with format validation
     trait :url_type do
-      variable_type { 'url' }
+      variable_type { 'string' }
       default_value { 'https://example.com/api/endpoint' }
       validation_rules do
         {
-          allowed_protocols: ['http', 'https'],
-          require_https: false,
-          validate_domain: true
+          format: 'url'
         }
       end
     end
 
+    # Note: 'email' is not a supported type, use 'string' with format validation
     trait :email_type do
-      variable_type { 'email' }
+      variable_type { 'string' }
       default_value { 'test@example.com' }
       validation_rules do
         {
-          validate_mx_record: false,
-          allow_personal_domains: true
+          format: 'email'
         }
       end
     end
 
+    # Note: 'password' is not a supported type, use 'string' with is_secret flag
     trait :password_type do
-      variable_type { 'password' }
+      variable_type { 'string' }
       is_secret { true }
+      is_output { false }
       default_value { nil }
       validation_rules do
         {
           min_length: 8,
-          max_length: 128,
-          require_uppercase: true,
-          require_lowercase: true,
-          require_numbers: true,
-          require_special_chars: true
+          max_length: 128
         }
       end
     end
@@ -228,13 +228,13 @@ FactoryBot.define do
       end
     end
 
+    # Note: 'enum' is not a supported type, use 'string' with allowed_values
     trait :enum_type do
-      variable_type { 'enum' }
+      variable_type { 'string' }
       default_value { 'option1' }
       validation_rules do
         {
-          allowed_values: ['option1', 'option2', 'option3'],
-          case_sensitive: true
+          allowed_values: ['option1', 'option2', 'option3']
         }
       end
     end

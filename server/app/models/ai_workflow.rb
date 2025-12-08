@@ -514,7 +514,9 @@ class AiWorkflow < ApplicationRecord
       node_id_mapping = {}
       nodes_data.each do |node_data|
         old_node_id = node_data[:node_id] || node_data['node_id']
+        new_node_id = SecureRandom.uuid
         new_node = workflow.ai_workflow_nodes.create!(
+          node_id: new_node_id,
           node_type: node_data[:node_type] || node_data['node_type'],
           name: node_data[:name] || node_data['name'],
           position: node_data[:position] || node_data['position'] || {},
@@ -531,6 +533,7 @@ class AiWorkflow < ApplicationRecord
         old_target = edge_data[:target_node_id] || edge_data['target_node_id']
 
         workflow.ai_workflow_edges.create!(
+          edge_id: SecureRandom.uuid,
           source_node_id: node_id_mapping[old_source],
           target_node_id: node_id_mapping[old_target],
           edge_type: edge_data[:edge_type] || edge_data['edge_type'] || 'default',

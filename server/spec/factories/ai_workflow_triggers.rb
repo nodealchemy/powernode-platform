@@ -6,6 +6,9 @@ FactoryBot.define do
     trigger_type { 'event' }
     name { "#{trigger_type.humanize} Trigger" }
     is_active { true }
+    status { 'active' }
+    # webhook_url is required by database constraint for webhook triggers
+    webhook_url { trigger_type == 'webhook' ? "https://api.example.com/webhooks/#{SecureRandom.hex(16)}" : nil }
     configuration do
       case trigger_type
       when 'event'
@@ -59,6 +62,7 @@ FactoryBot.define do
     trait :webhook_trigger do
       trigger_type { 'webhook' }
       name { 'Webhook Trigger' }
+      webhook_url { "https://api.example.com/webhooks/#{SecureRandom.hex(16)}" }
       configuration do
         {
           webhook_path: "/webhooks/#{SecureRandom.hex(8)}",
@@ -86,6 +90,7 @@ FactoryBot.define do
     trait :github_webhook do
       trigger_type { 'webhook' }
       name { 'GitHub Webhook' }
+      webhook_url { "https://api.example.com/webhooks/github/#{SecureRandom.hex(16)}" }
       configuration do
         {
           webhook_path: '/webhooks/github',
@@ -114,6 +119,7 @@ FactoryBot.define do
     trait :slack_webhook do
       trigger_type { 'webhook' }
       name { 'Slack Webhook' }
+      webhook_url { "https://api.example.com/webhooks/slack/#{SecureRandom.hex(16)}" }
       configuration do
         {
           webhook_path: '/webhooks/slack',

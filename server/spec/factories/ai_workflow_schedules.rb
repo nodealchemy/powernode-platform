@@ -3,11 +3,13 @@
 FactoryBot.define do
   factory :ai_workflow_schedule do
     ai_workflow
-    account { ai_workflow.account }
+    created_by { association :user, account: ai_workflow.account }
     name { "#{ai_workflow.name} Schedule" }
     cron_expression { '0 9 * * *' } # Daily at 9 AM
     timezone { 'UTC' }
+    status { 'active' }
     is_active { true }
+    execution_count { 0 }
     input_variables do
       {
         scheduled_execution: true,
@@ -245,9 +247,8 @@ FactoryBot.define do
     end
 
     trait :paused do
+      status { 'paused' }
       is_active { false }
-      paused_at { 2.hours.ago }
-      pause_reason { 'too_many_failures' }
       metadata do
         {
           pause_details: {

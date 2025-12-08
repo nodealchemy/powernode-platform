@@ -819,8 +819,10 @@ class AiAgent < ApplicationRecord
   end
 
   # =============================================================================
-  # ADDITIONAL INSTANCE METHODS
+  # ADDITIONAL INSTANCE METHODS (PUBLIC)
   # =============================================================================
+
+  public
 
   # Get recent executions within a time period
   def recent_executions(period = 24.hours)
@@ -850,9 +852,9 @@ class AiAgent < ApplicationRecord
 
   # Deactivate agent with reason
   def deactivate!(reason = nil)
-    metadata = self.mcp_metadata || {}
-    metadata['deactivated_reason'] = reason if reason.present?
-    update!(status: 'inactive', mcp_metadata: metadata)
+    agent_metadata = self.mcp_metadata || {}
+    agent_metadata['deactivated_reason'] = reason if reason.present?
+    update!(status: 'inactive', mcp_metadata: agent_metadata)
 
     # Create audit log entry
     AuditLog.create!(
@@ -860,7 +862,10 @@ class AiAgent < ApplicationRecord
       user: creator,
       resource_type: 'AiAgent',
       resource_id: id.to_s,
-      action: 'update',
+      action: 'updated',
+      source: 'system',
+      severity: 'medium',
+      risk_level: 'low',
       metadata: { 'deactivation_reason' => reason }
     )
   end

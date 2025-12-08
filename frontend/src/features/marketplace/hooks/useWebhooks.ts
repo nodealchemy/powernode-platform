@@ -105,7 +105,7 @@ export const useAppWebhooks = (appId: string, filters: AppWebhookFilters = {}) =
     }
   };
 
-  const testWebhook = async (webhookId: string, testData?: any) => {
+  const testWebhook = async (webhookId: string, testData?: Record<string, unknown>) => {
     try {
       const result = await appWebhooksApi.testWebhook(appId, webhookId, testData);
       showNotification('Webhook test initiated successfully', 'success');

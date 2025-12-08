@@ -2,7 +2,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useSelector } from 'react-redux';
 import { useLocation } from 'react-router-dom';
 import { RootState } from '@/shared/services';
-import { billingApi, BillingOverview } from '@/features/billing/services/billingApi';
+import { billingApi, BillingOverview, PaymentMethod } from '@/features/billing/services/billingApi';
+import { formatCurrency, formatCardDisplay, formatBankAccountDisplay } from '@/shared/utils/formatters';
+import { getInvoiceStatusColor, getInvoiceStatusText } from '@/shared/utils/statusHelpers';
 import { DateRangePicker } from '@/shared/components/ui/DateRangePicker';
 import { CreateInvoiceModal, InvoiceFormData } from '@/features/billing/components/CreateInvoiceModal';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
@@ -11,6 +13,17 @@ import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer'
 import { FileText, RefreshCw } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { MetricCard, ActionCard } from '@/shared/components/ui/Card';
+
+// Helper function for payment method display
+function getPaymentMethodDisplay(method: PaymentMethod): string {
+  if (method.card_brand && method.card_last_four) {
+    return formatCardDisplay(method.card_last_four, method.card_brand);
+  }
+  if (method.bank_account_last_four) {
+    return formatBankAccountDisplay(method.bank_account_last_four);
+  }
+  return `${method.provider} ${method.payment_method_type}`;
+}
 
 export const BillingPage: React.FC = () => {
   const { user } = useSelector((state: RootState) => state.auth);
@@ -170,7 +183,7 @@ export const BillingPage: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
               <MetricCard
                 title="Outstanding"
-                value={overview ? billingApi.formatCurrency(overview.outstanding) : '$0.00'}
+                value={overview ? formatCurrency(overview.outstanding) : '$0.00'}
                 icon="💳"
                 description={overview ?
                   `${(overview.recent_invoices || []).filter(i => i.status === 'overdue').length} overdue` :
@@ -179,13 +192,13 @@ export const BillingPage: React.FC = () => {
               />
               <MetricCard
                 title="This Month"
-                value={overview ? billingApi.formatCurrency(overview.this_month) : '$0.00'}
+                value={overview ? formatCurrency(overview.this_month) : '$0.00'}
                 icon="📊"
                 description="Invoiced"
               />
               <MetricCard
                 title="Collected"
-                value={overview ? billingApi.formatCurrency(overview.collected) : '$0.00'}
+                value={overview ? formatCurrency(overview.collected) : '$0.00'}
                 icon="💰"
                 description="All time"
               />
@@ -313,17 +326,17 @@ export const BillingPage: React.FC = () => {
                             Account Customer
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-theme-primary">
-                            {billingApi.formatCurrency(parseInt(invoice.total_amount), invoice.currency)}
+                            {formatCurrency(parseInt(invoice.total_amount), invoice.currency)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                              billingApi.getStatusColor(invoice.status) === 'green' ? 'bg-theme-success text-theme-success' :
-                              billingApi.getStatusColor(invoice.status) === 'yellow' ? 'bg-theme-warning text-theme-warning' :
-                              billingApi.getStatusColor(invoice.status) === 'red' ? 'bg-theme-error text-theme-error' :
-                              billingApi.getStatusColor(invoice.status) === 'blue' ? 'bg-theme-info text-theme-info' :
+                              getInvoiceStatusColor(invoice.status) === 'green' ? 'bg-theme-success text-theme-success' :
+                              getInvoiceStatusColor(invoice.status) === 'yellow' ? 'bg-theme-warning text-theme-warning' :
+                              getInvoiceStatusColor(invoice.status) === 'red' ? 'bg-theme-error text-theme-error' :
+                              getInvoiceStatusColor(invoice.status) === 'blue' ? 'bg-theme-info text-theme-info' :
                               'bg-theme-background-tertiary text-theme-secondary'
                             }`}>
-                              {billingApi.getStatusText(invoice.status)}
+                              {getInvoiceStatusText(invoice.status)}
                             </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-theme-secondary">
@@ -404,7 +417,7 @@ export const BillingPage: React.FC = () => {
                           {method.provider === 'stripe' ? '💳' : method.provider === 'paypal' ? '📱' : '🏛️'}
                         </span>
                         <span className="text-theme-primary">
-                          {billingApi.getPaymentMethodDisplay(method)}
+                          {getPaymentMethodDisplay(method)}
                         </span>
                       </div>
                       <div className="text-sm text-theme-secondary">

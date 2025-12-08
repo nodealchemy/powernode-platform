@@ -150,14 +150,24 @@ class AiWorkflowSchedule < ApplicationRecord
     return nil unless cron_expression.present?
 
     begin
-      cron = Fugit::Cron.new(cron_expression, timezone: timezone)
-      next_time = cron.next_time(from_time)
-      
+      cron = Fugit::Cron.new(cron_expression)
+      return nil unless cron
+
+      # Convert from_time to the schedule's timezone for calculation
+      tz = timezone.present? ? TZInfo::Timezone.get(timezone) : TZInfo::Timezone.get('UTC')
+      from_time_in_tz = tz.to_local(from_time.utc)
+
+      next_time = cron.next_time(from_time_in_tz)
+      return nil unless next_time
+
+      # Convert EtOrbi::EoTime to Time
+      next_time = next_time.to_t if next_time.respond_to?(:to_t)
+
       # Apply date range constraints
-      if ends_at.present? && next_time && next_time > ends_at
+      if ends_at.present? && next_time > ends_at
         return nil
       end
-      
+
       next_time
     rescue StandardError => e
       Rails.logger.error "Failed to calculate next execution time for schedule #{id}: #{e.message}"
@@ -169,8 +179,14 @@ class AiWorkflowSchedule < ApplicationRecord
     return nil unless cron_expression.present?
 
     begin
-      cron = Fugit::Cron.new(cron_expression, timezone: timezone)
-      cron.previous_time(from_time)
+      cron = Fugit::Cron.new(cron_expression)
+      return nil unless cron
+
+      prev_time = cron.previous_time(from_time)
+      return nil unless prev_time
+
+      # Convert EtOrbi::EoTime to Time
+      prev_time.respond_to?(:to_t) ? prev_time.to_t : prev_time
     rescue StandardError => e
       Rails.logger.error "Failed to calculate previous execution time for schedule #{id}: #{e.message}"
       nil

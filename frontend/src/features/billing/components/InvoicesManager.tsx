@@ -7,6 +7,8 @@ import {
 import { invoicesApi, Invoice, InvoiceFilters, InvoiceStats } from '@/shared/services/invoicesApi';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
+import { formatCurrency } from '@/shared/utils/formatters';
+import { getInvoiceStatusColor, getInvoiceStatusText } from '@/shared/utils/statusHelpers';
 
 interface InvoicesManagerProps {
   customerId?: string;
@@ -134,15 +136,15 @@ export const InvoicesManager: React.FC<InvoicesManagerProps> = ({
     }
   };
 
-  const getStatusColor = (status: string): string => {
-    const colorMap = {
+  const getStatusColorClass = (status: string): string => {
+    const colorMap: Record<string, string> = {
       green: 'bg-theme-success-background text-theme-success border-theme-success',
       yellow: 'bg-theme-warning-background text-theme-warning border-theme-warning',
       red: 'bg-theme-error-background text-theme-error border-theme-error',
       blue: 'bg-theme-info-background text-theme-info border-theme-info',
       gray: 'bg-theme-surface text-theme-secondary border-theme'
     };
-    return colorMap[invoicesApi.getStatusColor(status)] || colorMap.gray;
+    return colorMap[getInvoiceStatusColor(status)] || colorMap.gray;
   };
 
   const filteredInvoices = invoices.filter(invoice =>
@@ -172,19 +174,19 @@ export const InvoicesManager: React.FC<InvoicesManagerProps> = ({
               <div>
                 <p className="text-sm text-theme-secondary">Outstanding</p>
                 <p className="text-2xl font-semibold text-theme-primary">
-                  {invoicesApi.formatAmount(stats.outstanding_amount)}
+                  {formatCurrency(stats.outstanding_amount)}
                 </p>
               </div>
               <Clock className="w-8 h-8 text-theme-warning" />
             </div>
           </div>
-          
+
           <div className="bg-theme-surface rounded-lg border border-theme p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-theme-secondary">Overdue</p>
                 <p className="text-2xl font-semibold text-theme-error">
-                  {invoicesApi.formatAmount(stats.overdue_amount)}
+                  {formatCurrency(stats.overdue_amount)}
                 </p>
               </div>
               <AlertTriangle className="w-8 h-8 text-theme-error" />
@@ -386,18 +388,18 @@ export const InvoicesManager: React.FC<InvoicesManagerProps> = ({
                     
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-theme-primary">
-                        {invoicesApi.formatAmount(invoice.total, invoice.currency)}
+                        {formatCurrency(invoice.total, invoice.currency)}
                       </div>
                       {invoice.amount_remaining > 0 && (
                         <div className="text-sm text-theme-secondary">
-                          {invoicesApi.formatAmount(invoice.amount_remaining, invoice.currency)} remaining
+                          {formatCurrency(invoice.amount_remaining, invoice.currency)} remaining
                         </div>
                       )}
                     </td>
-                    
+
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full border ${getStatusColor(invoice.status)}`}>
-                        {invoicesApi.getStatusText(invoice.status)}
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full border ${getStatusColorClass(invoice.status)}`}>
+                        {getInvoiceStatusText(invoice.status)}
                       </span>
                       {invoicesApi.isOverdue(invoice) && (
                         <div className="text-xs text-theme-error mt-1">

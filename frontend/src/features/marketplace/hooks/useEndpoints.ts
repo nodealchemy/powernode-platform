@@ -105,7 +105,7 @@ export const useAppEndpoints = (appId: string, filters: AppEndpointFilters = {})
     }
   };
 
-  const testEndpoint = async (endpointId: string, testData?: any, testHeaders?: Record<string, string>) => {
+  const testEndpoint = async (endpointId: string, testData?: Record<string, unknown>, testHeaders?: Record<string, string>) => {
     try {
       const result = await appEndpointsApi.testEndpoint(appId, endpointId, testData, testHeaders);
       showNotification('API endpoint test completed successfully', 'success');

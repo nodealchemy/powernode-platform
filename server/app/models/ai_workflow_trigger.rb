@@ -44,7 +44,7 @@ class AiWorkflowTrigger < ApplicationRecord
 
   # Callbacks
   before_validation :set_default_configuration
-  before_save :update_next_execution_time, if: -> { schedule_trigger? && (schedule_cron_changed? || saved_change_to_status?) }
+  before_save :update_next_execution_time, if: -> { schedule_trigger? && schedule_cron.present? && (new_record? || schedule_cron_changed? || status_changed?) }
   after_create :generate_webhook_url_if_needed
   after_update :update_trigger_metadata
 
@@ -131,7 +131,11 @@ class AiWorkflowTrigger < ApplicationRecord
 
     begin
       cron = Fugit::Cron.new(schedule_cron)
-      cron.next_time(Time.current)
+      return nil unless cron
+
+      next_time = cron.next_time(Time.current)
+      # Convert EtOrbi::EoTime to Time using to_t method
+      next_time.respond_to?(:to_t) ? next_time.to_t : next_time
     rescue StandardError => e
       Rails.logger.error "Failed to calculate next execution time for trigger #{id}: #{e.message}"
       nil
@@ -142,7 +146,13 @@ class AiWorkflowTrigger < ApplicationRecord
     return unless schedule_trigger?
 
     next_time = next_execution_time
-    update_column(:next_execution_at, next_time) if next_time
+    return unless next_time
+
+    if persisted?
+      update_column(:next_execution_at, next_time)
+    else
+      self.next_execution_at = next_time
+    end
   end
 
   def due_for_execution?
@@ -368,7 +378,8 @@ class AiWorkflowTrigger < ApplicationRecord
 
     if schedule_cron.present?
       begin
-        Fugit::Cron.new(schedule_cron)
+        cron = Fugit::Cron.new(schedule_cron)
+        errors.add(:schedule_cron, 'is not a valid cron expression') if cron.nil?
       rescue StandardError
         errors.add(:schedule_cron, 'is not a valid cron expression')
       end

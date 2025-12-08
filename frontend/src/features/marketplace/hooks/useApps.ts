@@ -71,7 +71,7 @@ export const useApps = (filters: AppFilters = {}) => {
     }
   };
 
-  const updateApp = async (id: string, data: any) => {
+  const updateApp = async (id: string, data: Partial<AppFormData>) => {
     try {
       const response = await appsApi.updateApp(id, data);
       

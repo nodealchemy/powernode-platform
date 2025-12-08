@@ -37,6 +37,8 @@ module AuditLogging
   rescue => e
     Rails.logger.error "Failed to log audit event '#{action}': #{e.message}"
     Rails.logger.error e.backtrace.join("\n")
+    # Re-raise in test environment to surface audit logging errors
+    raise if Rails.env.test?
   end
 
   def log_resource_created(resource, **options)
