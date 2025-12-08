@@ -1,0 +1,150 @@
+# Gitleaks Configuration for Powernode Platform
+# https://github.com/gitleaks/gitleaks
+# Run: gitleaks detect --config .gitleaks.toml
+
+title = "Powernode Secret Scanner"
+
+[extend]
+# Extend default gitleaks rules
+useDefault = true
+
+# Custom rules for Powernode-specific secrets
+[[rules]]
+id = "powernode-jwt-secret"
+description = "Powernode JWT Secret"
+regex = '''(?i)(jwt[_-]?secret|secret[_-]?key[_-]?base)\s*[:=]\s*['"]?([a-zA-Z0-9+/=]{32,})['"]?'''
+tags = ["jwt", "secret", "powernode"]
+
+[[rules]]
+id = "powernode-encryption-key"
+description = "Rails Encryption Keys"
+regex = '''(?i)(primary[_-]?key|deterministic[_-]?key|key[_-]?derivation[_-]?salt)\s*[:=]\s*['"]?([a-zA-Z0-9+/=]{32,})['"]?'''
+tags = ["encryption", "rails", "powernode"]
+
+[[rules]]
+id = "stripe-secret-key"
+description = "Stripe Secret Key"
+regex = '''(?i)sk_live_[a-zA-Z0-9]{24,}'''
+tags = ["stripe", "payment", "critical"]
+
+[[rules]]
+id = "stripe-test-key"
+description = "Stripe Test Key"
+regex = '''(?i)sk_test_[a-zA-Z0-9]{24,}'''
+tags = ["stripe", "payment", "test"]
+
+[[rules]]
+id = "paypal-client-secret"
+description = "PayPal Client Secret"
+regex = '''(?i)(paypal[_-]?client[_-]?secret|paypal[_-]?secret)\s*[:=]\s*['"]?([a-zA-Z0-9_-]{40,})['"]?'''
+tags = ["paypal", "payment", "critical"]
+
+[[rules]]
+id = "twilio-auth-token"
+description = "Twilio Auth Token"
+regex = '''(?i)(twilio[_-]?auth[_-]?token|twilio[_-]?token)\s*[:=]\s*['"]?([a-f0-9]{32})['"]?'''
+tags = ["twilio", "sms", "critical"]
+
+[[rules]]
+id = "firebase-api-key"
+description = "Firebase API Key"
+regex = '''(?i)AIza[0-9A-Za-z_-]{35}'''
+tags = ["firebase", "google", "critical"]
+
+[[rules]]
+id = "database-url"
+description = "Database Connection URL"
+regex = '''(?i)(postgres|mysql|mongodb)://[^:]+:[^@]+@[^/]+/[^\s'"]+'''
+tags = ["database", "credentials", "critical"]
+
+[[rules]]
+id = "redis-url"
+description = "Redis Connection URL with Password"
+regex = '''(?i)redis://:[^@]+@[^/]+'''
+tags = ["redis", "credentials"]
+
+[[rules]]
+id = "sendgrid-api-key"
+description = "SendGrid API Key"
+regex = '''SG\.[a-zA-Z0-9_-]{22}\.[a-zA-Z0-9_-]{43}'''
+tags = ["sendgrid", "email", "critical"]
+
+[[rules]]
+id = "aws-access-key"
+description = "AWS Access Key ID"
+regex = '''(?i)AKIA[0-9A-Z]{16}'''
+tags = ["aws", "cloud", "critical"]
+
+[[rules]]
+id = "aws-secret-key"
+description = "AWS Secret Access Key"
+regex = '''(?i)(aws[_-]?secret[_-]?access[_-]?key|aws[_-]?secret[_-]?key)\s*[:=]\s*['"]?([a-zA-Z0-9+/]{40})['"]?'''
+tags = ["aws", "cloud", "critical"]
+
+[[rules]]
+id = "private-key"
+description = "Private Key"
+regex = '''-----BEGIN (RSA|DSA|EC|OPENSSH|PGP) PRIVATE KEY-----'''
+tags = ["key", "critical"]
+
+[[rules]]
+id = "generic-api-key"
+description = "Generic API Key Pattern"
+regex = '''(?i)(api[_-]?key|apikey|api[_-]?secret)\s*[:=]\s*['"]?([a-zA-Z0-9_-]{20,})['"]?'''
+tags = ["api", "generic"]
+
+[[rules]]
+id = "oauth-client-secret"
+description = "OAuth Client Secret"
+regex = '''(?i)(client[_-]?secret|oauth[_-]?secret)\s*[:=]\s*['"]?([a-zA-Z0-9_-]{20,})['"]?'''
+tags = ["oauth", "critical"]
+
+# Allowlist - paths and patterns to ignore
+[allowlist]
+description = "Global Allowlist"
+
+# Ignore specific files
+paths = [
+    '''\.gitleaks\.toml$''',
+    '''\.env\.example$''',
+    '''\.env\.sample$''',
+    '''\.env\.template$''',
+    '''config/credentials\.yml\.enc$''',
+    '''config/master\.key\.example$''',
+    '''spec/fixtures/''',
+    '''test/fixtures/''',
+    '''\.github/workflows/''',
+    '''docs/''',
+    '''node_modules/''',
+    '''vendor/''',
+    '''tmp/''',
+    '''log/''',
+]
+
+# Ignore specific regex patterns in content
+regexes = [
+    '''(?i)example[_-]?key''',
+    '''(?i)placeholder''',
+    '''(?i)your[_-]?api[_-]?key''',
+    '''(?i)xxx+''',
+    '''(?i)fake[_-]?secret''',
+    '''(?i)test[_-]?secret''',
+    '''(?i)dummy''',
+    '''REPLACE_ME''',
+    '''<your[_-]?.*>''',
+]
+
+# Commits to ignore (add SHA hashes of commits with false positives)
+commits = []
+
+# Stop words - ignore secrets containing these
+stopwords = [
+    "example",
+    "placeholder",
+    "your_api_key",
+    "test_key",
+    "dummy",
+    "fake",
+    "sample",
+    "redacted",
+]

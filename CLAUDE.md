@@ -391,11 +391,31 @@ git commit --no-verify  # Skip pre-commit checks
 ./scripts/pre-commit-quality-check.sh  # Run all checks manually
 ```
 
+### 🧪 Test Execution Rules (CRITICAL)
+
+**MANDATORY: Before running ANY RSpec tests**, Claude MUST:
+1. **Check for existing rspec processes**: `ps aux | grep rspec | grep -v grep | wc -l`
+2. **Kill any existing rspec processes**: `pkill -f rspec` if count > 0
+3. **Wait for cleanup**: `sleep 2` after killing processes
+4. **Then run tests**: Only after confirming no rspec processes are running
+
+**Root Cause Prevention**: Background shells from previous conversation sessions can persist, causing multiple concurrent test runs. This wastes resources and can cause test interference.
+
+**Example Correct Test Execution**:
+```bash
+# ALWAYS do this before running tests
+pkill -f rspec 2>/dev/null || true; sleep 1; bundle exec rspec --exclude-pattern "**/channels/**/*_spec.rb" --format progress
+```
+
+**NEVER**: Start a new rspec run without first verifying no other rspec processes are running.
+
 ### 🔧 Development Commands
 ```bash
 # Database operations
 cd $POWERNODE_ROOT/server && rails db:migrate db:seed         # Database setup
-cd $POWERNODE_ROOT/server && bundle exec rspec                # Run backend tests
+
+# Backend tests - ALWAYS cleanup first
+pkill -f rspec 2>/dev/null || true && bundle exec rspec       # Run backend tests (with cleanup)
 
 # Frontend tests - ALWAYS use CI=true to prevent watch mode
 cd $POWERNODE_ROOT/frontend && CI=true npm test               # Run all frontend tests
