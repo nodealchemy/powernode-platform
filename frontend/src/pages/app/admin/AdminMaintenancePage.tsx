@@ -19,7 +19,7 @@ import {
 import { SettingsCard, ToggleSwitch, StatsCard } from '@/features/admin/components/settings/SettingsComponents';
 import { RefreshCw, Plus, Trash2 } from 'lucide-react';
 
-type MaintenanceTab = 'mode' | 'health' | 'backups' | 'cleanup' | 'operations' | 'schedules';
+type MaintenanceTab = 'overview' | 'mode' | 'health' | 'backups' | 'cleanup' | 'operations' | 'schedules';
 
 interface MaintenancePageActions {
   refreshData?: () => void;
@@ -40,7 +40,7 @@ export const AdminMaintenancePage: React.FC = () => {
     if (['mode', 'health', 'backups', 'cleanup', 'operations', 'schedules'].includes(lastSegment)) {
       return lastSegment as MaintenanceTab;
     }
-    return 'mode';
+    return 'overview';
   };
 
   const [activeTab, setActiveTab] = useState<MaintenanceTab>(getActiveTabFromPath());
@@ -62,6 +62,7 @@ export const AdminMaintenancePage: React.FC = () => {
 
   // Tab definitions
   const tabs = [
+    { id: 'overview', label: 'Overview', icon: '📊', path: '' },
     { id: 'mode', label: 'Maintenance Mode', icon: '🔧', path: '/mode' },
     { id: 'health', label: 'System Health', icon: '💚', path: '/health' },
     { id: 'backups', label: 'Database Backups', icon: '💾', path: '/backups' },
@@ -109,16 +110,26 @@ export const AdminMaintenancePage: React.FC = () => {
   const handleTabChange = (tabId: MaintenanceTab) => {
     const tab = tabs.find(t => t.id === tabId);
     if (tab) {
-      const targetPath = tabId === 'mode' ? '/app/admin/maintenance' : `/app/admin/maintenance${tab.path}`;
+      const targetPath = tabId === 'overview' ? '/app/admin/maintenance' : `/app/admin/maintenance${tab.path}`;
       navigate(targetPath);
     }
   };
 
-  const getBreadcrumbs = () => [
-    { label: 'Dashboard', href: '/app', icon: '🏠' },
-    { label: 'Admin', href: '/app/admin', icon: '👥' },
-    { label: 'Maintenance', icon: '🔧' }
-  ];
+  const getBreadcrumbs = () => {
+    const activeTabInfo = tabs.find(tab => tab.id === activeTab);
+    const breadcrumbs: { label: string; href?: string; icon: string }[] = [
+      { label: 'Dashboard', href: '/app', icon: '🏠' },
+      { label: 'Admin', href: '/app/admin', icon: '👥' },
+      { label: 'Maintenance', href: '/app/admin/maintenance', icon: '🔧' }
+    ];
+
+    // Don't add overview tab to breadcrumbs
+    if (activeTabInfo && activeTabInfo.id !== 'overview') {
+      breadcrumbs.push({ label: activeTabInfo.label, icon: activeTabInfo.icon });
+    }
+
+    return breadcrumbs;
+  };
 
   const getPageActions = (): PageAction[] => {
     const baseActions: PageAction[] = [
@@ -196,6 +207,18 @@ export const AdminMaintenancePage: React.FC = () => {
 
   const renderTabContent = () => {
     switch (activeTab) {
+      case 'overview':
+        return (
+          <MaintenanceOverviewTab
+            maintenanceStatus={maintenanceStatus}
+            systemHealth={systemHealth}
+            systemMetrics={systemMetrics}
+            backups={backups}
+            cleanupStats={cleanupStats}
+            schedules={schedules}
+            onNavigateToTab={handleTabChange}
+          />
+        );
       case 'mode':
         return <MaintenanceModeTab status={maintenanceStatus} onUpdate={loadMaintenanceData} />;
       case 'health':
@@ -240,6 +263,469 @@ export const AdminMaintenancePage: React.FC = () => {
         {renderTabContent()}
       </div>
     </PageContainer>
+  );
+};
+
+// Maintenance Overview Tab
+const MaintenanceOverviewTab: React.FC<{
+  maintenanceStatus: MaintenanceStatus;
+  systemHealth: SystemHealth | null;
+  systemMetrics: MaintenanceSystemMetrics | null;
+  backups: BackupInfo[];
+  cleanupStats: CleanupStats | null;
+  schedules: MaintenanceSchedule[];
+  onNavigateToTab: (tab: MaintenanceTab) => void;
+}> = ({ maintenanceStatus, systemHealth, systemMetrics, backups, cleanupStats, schedules, onNavigateToTab }) => {
+  // Helper to get health status color
+  const getHealthColor = (status: string) => {
+    switch (status) {
+      case 'healthy': return 'text-theme-success';
+      case 'warning': return 'text-theme-warning';
+      case 'critical': return 'text-theme-error';
+      default: return 'text-theme-secondary';
+    }
+  };
+
+  const getHealthBgColor = (status: string) => {
+    switch (status) {
+      case 'healthy': return 'bg-theme-success-background';
+      case 'warning': return 'bg-theme-warning-background';
+      case 'critical': return 'bg-theme-error-background';
+      default: return 'bg-theme-surface';
+    }
+  };
+
+  // Calculate overall system status
+  const getOverallStatus = () => {
+    if (!systemHealth) return { status: 'unknown', label: 'Unknown', icon: '❓' };
+    const { overall_status } = systemHealth;
+
+    if (overall_status === 'healthy') {
+      return { status: 'healthy', label: 'All Systems Operational', icon: '✅' };
+    }
+    if (overall_status === 'critical') {
+      return { status: 'critical', label: 'Critical Issues Detected', icon: '🚨' };
+    }
+    return { status: 'warning', label: 'Some Services Degraded', icon: '⚠️' };
+  };
+
+  // Count healthy services
+  const getHealthyServiceCount = () => {
+    if (!systemHealth) return 0;
+    let count = 0;
+    if (systemHealth.database?.status === 'healthy') count++;
+    if (systemHealth.redis?.status === 'healthy') count++;
+    if (systemHealth.storage?.status === 'healthy') count++;
+    // Count services
+    const healthyServices = systemHealth.services?.filter(s => s.status === 'healthy').length || 0;
+    return count + healthyServices;
+  };
+
+  // Get total cleanup items
+  const getTotalCleanupItems = () => {
+    if (!cleanupStats) return 0;
+    return (cleanupStats.old_logs || 0) +
+           (cleanupStats.expired_sessions || 0) +
+           (cleanupStats.temporary_files || 0) +
+           (cleanupStats.orphaned_uploads || 0);
+  };
+
+  const overallStatus = getOverallStatus();
+  const latestBackup = backups[0];
+  const activeSchedules = schedules.filter(s => s.enabled).length;
+
+  return (
+    <div className="space-y-6">
+      {/* System Status Banner */}
+      <div className={`rounded-lg border border-theme p-6 ${getHealthBgColor(overallStatus.status)}`}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <span className="text-4xl">{overallStatus.icon}</span>
+            <div>
+              <h3 className="text-xl font-semibold text-theme-primary">{overallStatus.label}</h3>
+              <p className="text-theme-secondary">
+                {maintenanceStatus.mode ? (
+                  <span className="text-theme-warning font-medium">Maintenance mode is currently active</span>
+                ) : (
+                  'System is running normally'
+                )}
+              </p>
+            </div>
+          </div>
+          {maintenanceStatus.mode && (
+            <span className="px-3 py-1 rounded-full bg-theme-warning-background text-theme-warning text-sm font-medium">
+              Maintenance Mode Active
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Quick Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Health Status Card */}
+        <button
+          onClick={() => onNavigateToTab('health')}
+          className="bg-theme-surface rounded-lg border border-theme p-4 hover:border-theme-interactive-primary transition-colors text-left"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-2xl">💚</span>
+            <span className={`text-sm font-medium ${getHealthColor(systemHealth?.overall_status || 'unknown')}`}>
+              {systemHealth?.overall_status || 'Unknown'}
+            </span>
+          </div>
+          <h4 className="font-medium text-theme-primary">System Health</h4>
+          <p className="text-sm text-theme-secondary mt-1">
+            {systemHealth ? `${getHealthyServiceCount()} services healthy` : 'Loading...'}
+          </p>
+        </button>
+
+        {/* Backups Card */}
+        <button
+          onClick={() => onNavigateToTab('backups')}
+          className="bg-theme-surface rounded-lg border border-theme p-4 hover:border-theme-interactive-primary transition-colors text-left"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-2xl">💾</span>
+            <span className="text-sm font-medium text-theme-secondary">{backups.length} total</span>
+          </div>
+          <h4 className="font-medium text-theme-primary">Database Backups</h4>
+          <p className="text-sm text-theme-secondary mt-1">
+            {latestBackup ? `Last: ${new Date(latestBackup.created_at).toLocaleDateString()}` : 'No backups found'}
+          </p>
+        </button>
+
+        {/* Cleanup Stats Card */}
+        <button
+          onClick={() => onNavigateToTab('cleanup')}
+          className="bg-theme-surface rounded-lg border border-theme p-4 hover:border-theme-interactive-primary transition-colors text-left"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-2xl">🗑️</span>
+            <span className="text-sm font-medium text-theme-secondary">
+              {getTotalCleanupItems()} items
+            </span>
+          </div>
+          <h4 className="font-medium text-theme-primary">Data Cleanup</h4>
+          <p className="text-sm text-theme-secondary mt-1">
+            {cleanupStats?.orphaned_uploads || 0} orphaned uploads
+          </p>
+        </button>
+
+        {/* Scheduled Tasks Card */}
+        <button
+          onClick={() => onNavigateToTab('schedules')}
+          className="bg-theme-surface rounded-lg border border-theme p-4 hover:border-theme-interactive-primary transition-colors text-left"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-2xl">📅</span>
+            <span className="text-sm font-medium text-theme-secondary">{activeSchedules} active</span>
+          </div>
+          <h4 className="font-medium text-theme-primary">Scheduled Tasks</h4>
+          <p className="text-sm text-theme-secondary mt-1">
+            {schedules.length} total schedules
+          </p>
+        </button>
+      </div>
+
+      {/* Service Health Details */}
+      <SettingsCard
+        title="Service Health Overview"
+        description="Current status of all system services"
+        icon="🏥"
+      >
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {/* Database */}
+          <div className={`p-4 rounded-lg ${getHealthBgColor(systemHealth?.database?.status || 'unknown')}`}>
+            <div className="flex items-center space-x-3">
+              <span className="text-2xl">🗄️</span>
+              <div>
+                <h5 className="font-medium text-theme-primary">Database</h5>
+                <p className={`text-sm font-medium ${getHealthColor(systemHealth?.database?.status || 'unknown')}`}>
+                  {systemHealth?.database?.status || 'Unknown'}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Redis */}
+          <div className={`p-4 rounded-lg ${getHealthBgColor(systemHealth?.redis?.status || 'unknown')}`}>
+            <div className="flex items-center space-x-3">
+              <span className="text-2xl">⚡</span>
+              <div>
+                <h5 className="font-medium text-theme-primary">Redis</h5>
+                <p className={`text-sm font-medium ${getHealthColor(systemHealth?.redis?.status || 'unknown')}`}>
+                  {systemHealth?.redis?.status || 'Unknown'}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Storage */}
+          <div className={`p-4 rounded-lg ${getHealthBgColor(systemHealth?.storage?.status || 'unknown')}`}>
+            <div className="flex items-center space-x-3">
+              <span className="text-2xl">💿</span>
+              <div>
+                <h5 className="font-medium text-theme-primary">Storage</h5>
+                <p className={`text-sm font-medium ${getHealthColor(systemHealth?.storage?.status || 'unknown')}`}>
+                  {systemHealth?.storage?.status || 'Unknown'}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Dynamic Services */}
+          {systemHealth?.services?.map((service, index) => (
+            <div key={index} className={`p-4 rounded-lg ${getHealthBgColor(service.status)}`}>
+              <div className="flex items-center space-x-3">
+                <span className="text-2xl">⚙️</span>
+                <div>
+                  <h5 className="font-medium text-theme-primary">{service.name}</h5>
+                  <p className={`text-sm font-medium ${getHealthColor(service.status)}`}>
+                    {service.status}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </SettingsCard>
+
+      {/* System Metrics */}
+      {systemMetrics && (
+        <SettingsCard
+          title="System Metrics"
+          description="Current resource utilization and performance metrics"
+          icon="📈"
+        >
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* CPU Usage */}
+            <div>
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-sm font-medium text-theme-primary">CPU Usage</span>
+                <span className="text-sm text-theme-secondary">{systemMetrics.cpu_usage?.toFixed(1) || 0}%</span>
+              </div>
+              <div className="h-2 bg-theme-background rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all ${
+                    (systemMetrics.cpu_usage || 0) > 80 ? 'bg-theme-error' :
+                    (systemMetrics.cpu_usage || 0) > 60 ? 'bg-theme-warning' : 'bg-theme-success'
+                  }`}
+                  style={{ width: `${Math.min(systemMetrics.cpu_usage || 0, 100)}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Memory Usage */}
+            <div>
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-sm font-medium text-theme-primary">Memory Usage</span>
+                <span className="text-sm text-theme-secondary">{systemMetrics.memory_usage?.toFixed(1) || 0}%</span>
+              </div>
+              <div className="h-2 bg-theme-background rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all ${
+                    (systemMetrics.memory_usage || 0) > 80 ? 'bg-theme-error' :
+                    (systemMetrics.memory_usage || 0) > 60 ? 'bg-theme-warning' : 'bg-theme-success'
+                  }`}
+                  style={{ width: `${Math.min(systemMetrics.memory_usage || 0, 100)}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Disk Usage */}
+            <div>
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-sm font-medium text-theme-primary">Disk Usage</span>
+                <span className="text-sm text-theme-secondary">{systemMetrics.disk_usage?.toFixed(1) || 0}%</span>
+              </div>
+              <div className="h-2 bg-theme-background rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all ${
+                    (systemMetrics.disk_usage || 0) > 80 ? 'bg-theme-error' :
+                    (systemMetrics.disk_usage || 0) > 60 ? 'bg-theme-warning' : 'bg-theme-success'
+                  }`}
+                  style={{ width: `${Math.min(systemMetrics.disk_usage || 0, 100)}%` }}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Additional Metrics */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-6 border-t border-theme">
+            <div className="text-center">
+              <p className="text-2xl font-semibold text-theme-primary">{systemMetrics.database_connections || 0}</p>
+              <p className="text-sm text-theme-secondary">DB Connections</p>
+            </div>
+            <div className="text-center">
+              <p className="text-2xl font-semibold text-theme-primary">{systemMetrics.queue_size || 0}</p>
+              <p className="text-sm text-theme-secondary">Queue Size</p>
+            </div>
+            <div className="text-center">
+              <p className="text-2xl font-semibold text-theme-primary">{systemMetrics.active_users || 0}</p>
+              <p className="text-sm text-theme-secondary">Active Users</p>
+            </div>
+            <div className="text-center">
+              <p className="text-2xl font-semibold text-theme-primary">{systemMetrics.response_time_avg || 0}ms</p>
+              <p className="text-sm text-theme-secondary">Avg Response Time</p>
+            </div>
+          </div>
+        </SettingsCard>
+      )}
+
+      {/* Recent Activity / Quick Actions */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Recent Backups */}
+        <SettingsCard
+          title="Recent Backups"
+          description="Latest database backup activity"
+          icon="💾"
+        >
+          {backups.length === 0 ? (
+            <div className="text-center py-6">
+              <p className="text-theme-secondary">No backups available</p>
+              <button
+                onClick={() => onNavigateToTab('backups')}
+                className="btn-theme btn-theme-primary mt-3"
+              >
+                Create First Backup
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {backups.slice(0, 3).map((backup) => (
+                <div key={backup.id} className="flex items-center justify-between p-3 bg-theme-background rounded-lg">
+                  <div className="flex items-center space-x-3">
+                    <span className={`w-2 h-2 rounded-full ${
+                      backup.status === 'completed' ? 'bg-theme-success' :
+                      backup.status === 'in_progress' ? 'bg-theme-warning' : 'bg-theme-error'
+                    }`} />
+                    <div>
+                      <p className="text-sm font-medium text-theme-primary">
+                        {new Date(backup.created_at).toLocaleString()}
+                      </p>
+                      <p className="text-xs text-theme-secondary">
+                        {maintenanceApi.formatBytes(backup.size)}
+                      </p>
+                    </div>
+                  </div>
+                  <span className={`px-2 py-1 rounded text-xs font-medium ${
+                    backup.status === 'completed' ? 'bg-theme-success-background text-theme-success' :
+                    backup.status === 'in_progress' ? 'bg-theme-warning-background text-theme-warning' :
+                    'bg-theme-error-background text-theme-error'
+                  }`}>
+                    {backup.status}
+                  </span>
+                </div>
+              ))}
+              {backups.length > 3 && (
+                <button
+                  onClick={() => onNavigateToTab('backups')}
+                  className="w-full text-center text-sm text-theme-link hover:text-theme-link-hover py-2"
+                >
+                  View all {backups.length} backups →
+                </button>
+              )}
+            </div>
+          )}
+        </SettingsCard>
+
+        {/* Scheduled Tasks */}
+        <SettingsCard
+          title="Active Schedules"
+          description="Currently enabled maintenance schedules"
+          icon="📅"
+        >
+          {schedules.length === 0 ? (
+            <div className="text-center py-6">
+              <p className="text-theme-secondary">No scheduled tasks configured</p>
+              <button
+                onClick={() => onNavigateToTab('schedules')}
+                className="btn-theme btn-theme-primary mt-3"
+              >
+                Create Schedule
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {schedules.filter(s => s.enabled).slice(0, 3).map((schedule) => (
+                <div key={schedule.id} className="flex items-center justify-between p-3 bg-theme-background rounded-lg">
+                  <div>
+                    <p className="text-sm font-medium text-theme-primary">{schedule.description}</p>
+                    <p className="text-xs text-theme-secondary">
+                      {schedule.frequency} • Next: {new Date(schedule.next_run).toLocaleString()}
+                    </p>
+                  </div>
+                  <span className="px-2 py-1 rounded text-xs font-medium bg-theme-success-background text-theme-success">
+                    Active
+                  </span>
+                </div>
+              ))}
+              {schedules.length > 3 && (
+                <button
+                  onClick={() => onNavigateToTab('schedules')}
+                  className="w-full text-center text-sm text-theme-link hover:text-theme-link-hover py-2"
+                >
+                  View all {schedules.length} schedules →
+                </button>
+              )}
+            </div>
+          )}
+        </SettingsCard>
+      </div>
+
+      {/* Quick Actions */}
+      <SettingsCard
+        title="Quick Actions"
+        description="Common maintenance operations"
+        icon="⚡"
+      >
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <button
+            onClick={() => onNavigateToTab('mode')}
+            className="flex items-center space-x-3 p-4 rounded-lg border border-theme hover:bg-theme-background transition-colors"
+          >
+            <span className="text-2xl">🔧</span>
+            <div className="text-left">
+              <p className="font-medium text-theme-primary">Maintenance Mode</p>
+              <p className="text-xs text-theme-secondary">Enable/disable site access</p>
+            </div>
+          </button>
+
+          <button
+            onClick={() => onNavigateToTab('backups')}
+            className="flex items-center space-x-3 p-4 rounded-lg border border-theme hover:bg-theme-background transition-colors"
+          >
+            <span className="text-2xl">💾</span>
+            <div className="text-left">
+              <p className="font-medium text-theme-primary">Create Backup</p>
+              <p className="text-xs text-theme-secondary">Backup database now</p>
+            </div>
+          </button>
+
+          <button
+            onClick={() => onNavigateToTab('cleanup')}
+            className="flex items-center space-x-3 p-4 rounded-lg border border-theme hover:bg-theme-background transition-colors"
+          >
+            <span className="text-2xl">🗑️</span>
+            <div className="text-left">
+              <p className="font-medium text-theme-primary">Run Cleanup</p>
+              <p className="text-xs text-theme-secondary">Clean orphaned data</p>
+            </div>
+          </button>
+
+          <button
+            onClick={() => onNavigateToTab('operations')}
+            className="flex items-center space-x-3 p-4 rounded-lg border border-theme hover:bg-theme-background transition-colors"
+          >
+            <span className="text-2xl">⚙️</span>
+            <div className="text-left">
+              <p className="font-medium text-theme-primary">System Operations</p>
+              <p className="text-xs text-theme-secondary">Advanced operations</p>
+            </div>
+          </button>
+        </div>
+      </SettingsCard>
+    </div>
   );
 };
 

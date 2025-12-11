@@ -1,6 +1,6 @@
 // Main Admin Settings Page with Tabbed Interface
 import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/shared/services';
 import { hasPermissions } from '@/shared/utils/permissionUtils';
@@ -16,22 +16,52 @@ import AdminSettingsRateLimitingTabPage from './AdminSettingsRateLimitingTabPage
 import { AdminSettingsPerformanceTabPage } from './AdminSettingsPerformanceTabPage';
 import { AdminSettingsProxyTabPage } from './AdminSettingsProxyTabPage';
 
+// Tab definitions for breadcrumbs
+const settingsTabs = [
+  { id: 'overview', label: 'Overview', path: '/app/admin/settings', icon: '📊' },
+  { id: 'payment-gateways', label: 'Payment Gateways', path: '/app/admin/settings/payment-gateways', icon: '💳' },
+  { id: 'email', label: 'Email Settings', path: '/app/admin/settings/email', icon: '📧' },
+  { id: 'proxy', label: 'Reverse Proxy', path: '/app/admin/settings/proxy', icon: '🌐' },
+  { id: 'security', label: 'Security', path: '/app/admin/settings/security', icon: '🔒' },
+  { id: 'rate-limiting', label: 'Rate Limiting', path: '/app/admin/settings/rate-limiting', icon: '🛡️' },
+  { id: 'performance', label: 'Performance', path: '/app/admin/settings/performance', icon: '⚡' }
+];
+
 export const AdminSettingsPage: React.FC = () => {
+  const location = useLocation();
   const { user } = useSelector((state: RootState) => state.auth);
-  
+
   // Check if user has admin settings permission
   const canAccessAdminSettings = hasPermissions(user, ['admin.settings.read']);
-  
+
   // Redirect if user doesn't have permission
   if (!canAccessAdminSettings) {
     return <Navigate to="/app" replace />;
   }
 
-  const getBreadcrumbs = () => [
-    { label: 'Dashboard', href: '/app', icon: '🏠' },
-    { label: 'Admin', icon: '🔧' },
-    { label: 'Settings', icon: '⚙️' }
-  ];
+  // Get active tab from current path
+  const getActiveTab = () => {
+    const currentPath = location.pathname;
+    return settingsTabs.find(tab =>
+      tab.path === currentPath || (currentPath.startsWith(tab.path) && tab.path !== '/app/admin/settings')
+    ) || settingsTabs[0];
+  };
+
+  const getBreadcrumbs = () => {
+    const activeTab = getActiveTab();
+    const breadcrumbs: { label: string; href?: string; icon: string }[] = [
+      { label: 'Dashboard', href: '/app', icon: '🏠' },
+      { label: 'Admin', href: '/app/admin', icon: '🔧' },
+      { label: 'Settings', href: '/app/admin/settings', icon: '⚙️' }
+    ];
+
+    // Add active tab if not on overview
+    if (activeTab && activeTab.id !== 'overview') {
+      breadcrumbs.push({ label: activeTab.label, icon: activeTab.icon });
+    }
+
+    return breadcrumbs;
+  };
 
   return (
     <PageContainer

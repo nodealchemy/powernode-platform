@@ -148,7 +148,7 @@ class MaintenanceApiService {
     const response = await apiRequest('/admin/maintenance/backups', {
       method: 'GET'
     });
-    return response.data;
+    return response.data ?? [];
   }
 
   async createBackup(): Promise<{ backup_id: string }> {
@@ -247,7 +247,7 @@ class MaintenanceApiService {
     const response = await apiRequest('/admin/maintenance/schedules', {
       method: 'GET'
     });
-    return response.data;
+    return response.data ?? [];
   }
 
   async createMaintenanceSchedule(schedule: Omit<MaintenanceSchedule, 'id' | 'next_run' | 'last_run'>): Promise<MaintenanceSchedule> {
