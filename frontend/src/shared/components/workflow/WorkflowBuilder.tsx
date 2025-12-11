@@ -18,7 +18,7 @@ import {
 } from '@xyflow/react';
 import { Workflow } from 'lucide-react';
 import '@xyflow/react/dist/style.css';
-import { autoArrangeNodes, getOptimalLayoutOptions } from '@/shared/utils/workflowLayout';
+import { autoArrangeNodes, getLayoutOptions } from '@/shared/utils/workflowLayout';
 import { useWorkflowHistory } from '@/shared/hooks/useWorkflowHistory';
 import { useWorkflowExecution } from '@/shared/hooks/useWorkflowExecution';
 import { HistoryControls } from './HistoryControls';
@@ -27,6 +27,7 @@ import { ExecutionStats } from './ExecutionOverlay';
 // Custom Node Components
 import { StartNode } from './nodes/StartNode';
 import { EndNode } from './nodes/EndNode';
+import { getDefaultHandlePositions, type HandlePositions } from './nodes/DynamicNodeHandles';
 import { AiAgentNode } from './nodes/AiAgentNode';
 import { ApiCallNode } from './nodes/ApiCallNode';
 import { ConditionNode } from './nodes/ConditionNode';
@@ -50,25 +51,15 @@ import { DataProcessorNode } from './nodes/DataProcessorNode';
 // Integration Nodes
 import { SchedulerNode } from './nodes/SchedulerNode';
 import { NotificationNode } from './nodes/NotificationNode';
-// Knowledge Base Article Management Nodes
-import { KbArticleCreateNode } from './nodes/KbArticleCreateNode';
-import { KbArticleReadNode } from './nodes/KbArticleReadNode';
-import { KbArticleUpdateNode } from './nodes/KbArticleUpdateNode';
-import { KbArticleSearchNode } from './nodes/KbArticleSearchNode';
-import { KbArticlePublishNode } from './nodes/KbArticlePublishNode';
-// Page Content Management Nodes
-import { PageCreateNode } from './nodes/PageCreateNode';
-import { PageReadNode } from './nodes/PageReadNode';
-import { PageUpdateNode } from './nodes/PageUpdateNode';
-import { PagePublishNode } from './nodes/PagePublishNode';
-// MCP (Model Context Protocol) Nodes
-import { McpToolNode } from './nodes/McpToolNode';
-import { McpResourceNode } from './nodes/McpResourceNode';
-import { McpPromptNode } from './nodes/McpPromptNode';
+// Consolidated Node Components (Phase 1A)
+import { KbArticleNode } from './nodes/KbArticleNode';
+import { PageNode } from './nodes/PageNode';
+import { McpOperationNode } from './nodes/McpOperationNode';
 
 // Custom Edge Components
 import { ConditionalEdge } from './edges/ConditionalEdge';
 import { CurvedEdge } from './edges/CurvedEdge';
+import { ColoredEdge } from './edges/ColoredEdge';
 
 // Components
 import { NodePalette } from './NodePalette';
@@ -84,6 +75,31 @@ import { agentsApi } from '@/shared/services/ai';
 // Helper function to generate absolutely unique edge IDs
 const generateUniqueEdgeId = (baseId: string = 'edge'): string => {
   return `${baseId}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}-${performance.now().toString(36)}`;
+};
+
+// Migrate obsolete handle IDs to new utilitarian IDs
+const migrateHandleId = (handleId: string | null | undefined, isSource: boolean): string => {
+  // Map obsolete IDs to new IDs
+  const sourceMap: Record<string, string> = {
+    'default': 'output',
+    'out1': 'branch-1',
+    'out2': 'branch-2',
+    'out3': 'branch-3',
+    'loop-continue': 'exit',
+  };
+  const targetMap: Record<string, string> = {
+    'default': 'input',
+    'in1': 'merge-1',
+    'in2': 'merge-2',
+    'in3': 'merge-3',
+  };
+
+  if (!handleId) {
+    return isSource ? 'output' : 'input';
+  }
+
+  const map = isSource ? sourceMap : targetMap;
+  return map[handleId] || handleId;
 };
 
 
@@ -189,10 +205,12 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
 
         if (operationsAgentCandidate) {
           setOperationsAgent(operationsAgentCandidate);
-        } else {
         }
+        // No operations agent available - chat feature will be disabled
       } catch (error) {
-        console.error('[WorkflowBuilder] Failed to load operations agent:', error);
+        if (process.env.NODE_ENV === 'development') {
+          console.error('[WorkflowBuilder] Failed to load operations agent:', error);
+        }
       }
     };
 
@@ -262,51 +280,32 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
     // Process Nodes
     human_approval: HumanApprovalNode,
     sub_workflow: SubWorkflowNode,
-    // Knowledge Base Article Management
-    kb_article_create: KbArticleCreateNode,
-    kb_article_read: KbArticleReadNode,
-    kb_article_update: KbArticleUpdateNode,
-    kb_article_search: KbArticleSearchNode,
-    kb_article_publish: KbArticlePublishNode,
-    // Page Content Management
-    page_create: PageCreateNode,
-    page_read: PageReadNode,
-    page_update: PageUpdateNode,
-    page_publish: PagePublishNode,
-    // MCP (Model Context Protocol) Nodes
-    mcp_tool: McpToolNode,
-    mcp_resource: McpResourceNode,
-    mcp_prompt: McpPromptNode,
+    // Consolidated Node Types (Phase 1A)
+    // KB Article: unified node with action parameter (create, read, update, search, publish)
+    kb_article: KbArticleNode,
+    // Page: unified node with action parameter (create, read, update, publish)
+    page: PageNode,
+    // MCP Operation: unified node with operation_type parameter (tool, resource, prompt)
+    mcp_operation: McpOperationNode,
   }), []);
 
   // Memoized edge types for custom edge components
   const edgeTypes = useMemo(() => ({
-    conditional: ConditionalEdge, // Original conditional edge
+    default: ColoredEdge, // Color-coded edges based on handle type
+    colored: ColoredEdge, // Explicit colored edge
+    conditional: ConditionalEdge, // Dashed conditional edge with label
     bezier: CurvedEdge,
     curved: CurvedEdge,
   }), []);
 
-  // Default edge options with standard curves
+  // Default edge options - ColoredEdge handles styling based on handle type
   const defaultEdgeOptions = useMemo(() => ({
-    type: 'default', // Use default React Flow edge type
+    type: 'default', // Uses ColoredEdge component for color-coded edges
     animated: false,
-    style: {
-      strokeWidth: 2,
-      stroke: '#94a3b8', // theme-secondary color
-    },
     markerEnd: {
       type: 'arrowclosed' as const,
       width: 8,
       height: 8,
-      color: '#94a3b8',
-    },
-    labelStyle: {
-      fill: '#64748b',
-      fontSize: 12,
-    },
-    labelBgStyle: {
-      fill: '#ffffff',
-      fillOpacity: 0.8,
     },
   }), []);
 
@@ -358,9 +357,19 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
     setHasChanges(nodesChanged || edgesChanged);
   }, [originalNodes, originalEdges]);
 
+  // Track the workflow ID we've initialized to prevent re-initialization after save
+  const initializedWorkflowIdRef = useRef<string | null>(null);
+
   // Initialize nodes and edges from workflow data
   useEffect(() => {
     if (workflow) {
+      // Skip re-initialization if we already initialized this workflow
+      // This prevents canvas reset after save when workflow prop is updated
+      // Note: We check the ref only, not nodes.length, to avoid re-running during auto-arrange
+      if (initializedWorkflowIdRef.current === workflow.id) {
+        return;
+      }
+
       // Handle workflow with nodes and edges
       if (workflow.nodes && workflow.edges) {
         // Check for duplicate node_ids in source data
@@ -382,9 +391,10 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
             }
             usedNodeIds.add(nodeId);
 
-            // Extract position from separate columns (backend uses position_x and position_y)
-            const positionX = Number(node.position_x) || 0;
-            const positionY = Number(node.position_y) || 0;
+            // Extract position - handle both formats:
+            // Backend uses position_x/position_y columns, but save response may use position object
+            const positionX = Number(node.position_x) || Number((node as any).position?.x) || 0;
+            const positionY = Number(node.position_y) || Number((node as any).position?.y) || 0;
 
             return {
               id: nodeId,
@@ -403,8 +413,13 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
                 is_end_node: node.is_end_node || false,
                 timeout_seconds: node.timeout_seconds || 3600,
                 retry_count: node.retry_count || 0,
-                // Restore handle orientation from saved metadata
-                handleOrientation: node.metadata?.handleOrientation || 'vertical'
+                // Per-handle positions from top-level, or use defaults
+                // Check both top-level and inside metadata for handlePositions (saved inside metadata)
+                handlePositions: node.handlePositions || node.metadata?.handlePositions || getDefaultHandlePositions(
+                  node.node_type,
+                  node.is_start_node || node.node_type === 'start' || node.node_type === 'trigger',
+                  node.is_end_node || node.node_type === 'end'
+                )
               }
             };
           });
@@ -423,32 +438,37 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
             }
             usedEdgeIds.add(edgeId);
 
+            // Use 'conditional' type for edges from true/false handles (condition nodes)
+            // This provides animated green/red styling for decision branches
+            const migratedSourceHandle = migrateHandleId(edge.source_handle, true);
+            const isConditionalEdge = migratedSourceHandle === 'true' ||
+                                      migratedSourceHandle === 'false' ||
+                                      edge.edge_type === 'conditional' ||
+                                      edge.edge_type === 'success' ||
+                                      edge.edge_type === 'error' ||
+                                      edge.is_conditional;
             return {
             id: edgeId,
             source: edge.source_node_id,
             target: edge.target_node_id,
-            type: edge.is_conditional ? 'conditional' : 'default',
-            animated: edge.is_conditional || false,
-            // Explicitly set handle IDs to ensure proper connections - use 'default' for compatibility
-            sourceHandle: 'default', // Backend doesn't store handle IDs
-            targetHandle: 'default', // Backend doesn't store handle IDs
-            style: {
-              strokeWidth: 2,
-              stroke: edge.is_conditional ? '#f59e0b' : '#94a3b8', // Orange for conditional, gray for normal
-            },
+            type: isConditionalEdge ? 'conditional' : 'default',
+            animated: false, // ConditionalEdge has its own animation
+            // Migrate obsolete handle IDs to new utilitarian IDs
+            sourceHandle: migratedSourceHandle,
+            targetHandle: migrateHandleId(edge.target_handle, false),
             markerEnd: {
               type: 'arrowclosed' as const,
               width: 8,
               height: 8,
-              color: edge.is_conditional ? '#f59e0b' : '#94a3b8',
             },
             data: {
-              condition_type: edge.condition_type,
-              condition_value: edge.condition_value,
+              conditionType: edge.condition_type,
+              conditionValue: edge.condition_value,
               metadata: edge.metadata || {},
-              edge_type: edge.edge_type || 'default'
+              edgeType: edge.edge_type || 'default',
+              // Store source handle for edge color lookup
+              sourceHandle: migratedSourceHandle,
             },
-            label: edge.condition_type ? `${edge.condition_type}: ${edge.condition_value}` : undefined
           };
           });
 
@@ -479,6 +499,9 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
         setOriginalNodes([...reactFlowNodes]);
         setOriginalEdges([...reactFlowEdges]);
         setHasChanges(false);
+
+        // Track that we've initialized this workflow
+        initializedWorkflowIdRef.current = workflow.id;
       } else {
         // Initialize empty workflow with clean slate
         setNodes([]);
@@ -486,6 +509,7 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
         setOriginalNodes([]);
         setOriginalEdges([]);
         setHasChanges(false);
+        initializedWorkflowIdRef.current = workflow.id;
       }
     }
   }, [workflow, setNodes, setEdges]);
@@ -536,18 +560,50 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
     (params: Connection) => {
       if (readOnly) return;
 
+      // Validate connection: prevent connections TO start/trigger nodes
+      const targetNode = nodes.find(n => n.id === params.target);
+      if (targetNode) {
+        const targetType = targetNode.type || '';
+        const targetData = targetNode.data as Record<string, unknown> | undefined;
+        if (targetType === 'start' || targetType === 'trigger' || targetData?.isStartNode === true) {
+          // Start nodes cannot have incoming connections
+          return;
+        }
+      }
+
+      // Validate connection: prevent connections FROM end nodes
+      const sourceNode = nodes.find(n => n.id === params.source);
+      if (sourceNode) {
+        const sourceType = sourceNode.type || '';
+        const sourceData = sourceNode.data as Record<string, unknown> | undefined;
+        if (sourceType === 'end' || sourceData?.isEndNode === true) {
+          // End nodes cannot have outgoing connections
+          return;
+        }
+      }
+
+      const migratedSourceHandle = migrateHandleId(params.sourceHandle, true);
+      // Use conditional edge type for true/false handles (from condition nodes)
+      const isConditionalEdge = migratedSourceHandle === 'true' ||
+                                migratedSourceHandle === 'false';
       const newEdge = {
         ...params,
         ...defaultEdgeOptions,
         id: generateUniqueEdgeId(`${params.source}-${params.target}`),
-        // Force handle IDs if not provided - use 'default' for compatibility with backend
-        sourceHandle: params.sourceHandle || 'default',
-        targetHandle: params.targetHandle || 'default',
+        type: isConditionalEdge ? 'conditional' : defaultEdgeOptions.type,
+        animated: false, // ConditionalEdge has its own animation
+        // Migrate handle IDs to ensure consistency
+        sourceHandle: migratedSourceHandle,
+        targetHandle: migrateHandleId(params.targetHandle, false),
+        // Store source handle in data for edge component lookup
+        data: {
+          sourceHandle: migratedSourceHandle,
+        },
       };
 
       setEdges((eds) => addEdge(newEdge as any, eds));
     },
-    [setEdges, readOnly, defaultEdgeOptions]
+    [setEdges, readOnly, defaultEdgeOptions, nodes]
   );
 
   // Handle node selection
@@ -651,32 +707,29 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
 
   // Handle node updates from config panel
   const onUpdateNode = useCallback((nodeId: string, updates: Partial<Node['data']>) => {
-    // Check if orientation is changing
+    // Check if handle positions are changing
     const currentNode = nodes.find(n => n.id === nodeId);
-    const newOrientation = (updates as any).metadata?.handleOrientation;
-    const currentOrientation = (currentNode?.data as any)?.metadata?.handleOrientation || (currentNode?.data as any)?.handleOrientation;
-    const orientationChanging = newOrientation && newOrientation !== currentOrientation;
+    const newPositions = (updates as any).handlePositions as HandlePositions | undefined;
+    const currentPositions = (currentNode?.data as any)?.handlePositions as HandlePositions | undefined;
 
-    // If orientation is changing, we need to remount the node to rebuild handles
-    if (orientationChanging && currentNode) {
+    // Deep compare positions to check if they changed
+    const positionsChanging = newPositions && JSON.stringify(newPositions) !== JSON.stringify(currentPositions);
+
+    // If positions are changing, we need to remount the node to rebuild handles
+    if (positionsChanging && currentNode) {
       const affectedEdges = edges.filter(edge => edge.source === nodeId || edge.target === nodeId);
 
-      // Prepare updated node
+      // Prepare updated node - handlePositions comes directly from updates
       const updatedNode = {
         ...currentNode,
         data: {
           ...currentNode.data,
           ...updates,
-          handleOrientation: newOrientation,
+          handlePositions: (updates as any).handlePositions,
           is_start_node: currentNode.data.is_start_node || currentNode.data.node_type === 'trigger' || currentNode.data.node_type === 'start',
           is_end_node: currentNode.data.is_end_node || currentNode.data.node_type === 'end',
         }
       };
-
-      // Extract orientation from metadata if present
-      if ((updatedNode.data as any).metadata?.handleOrientation) {
-        (updatedNode.data as any).handleOrientation = (updatedNode.data as any).metadata.handleOrientation;
-      }
 
       // Step 1: Remove the node and its edges to force React Flow to rebuild
       setNodes((nds) => nds.filter(n => n.id !== nodeId));
@@ -688,24 +741,30 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
 
         // Step 3: Re-add edges after node is mounted with new handle positions
         setTimeout(() => {
-          const rebuiltEdges = affectedEdges.map(edge => ({
-            ...edge,
-            id: generateUniqueEdgeId(`${edge.source}-${edge.target}`),
-            // Preserve all edge properties including type, style, markers
-            type: edge.type,
-            animated: edge.animated,
-            style: edge.style,
-            markerEnd: edge.markerEnd,
-            label: edge.label,
-            data: edge.data,
-            sourceHandle: edge.sourceHandle || 'default',
-            targetHandle: edge.targetHandle || 'default',
-          }));
+          const rebuiltEdges = affectedEdges.map(edge => {
+            const migratedSourceHandle = migrateHandleId(edge.sourceHandle, true);
+            return {
+              ...edge,
+              id: generateUniqueEdgeId(`${edge.source}-${edge.target}`),
+              // Preserve all edge properties including type, style, markers
+              type: edge.type,
+              animated: edge.animated,
+              style: edge.style,
+              markerEnd: edge.markerEnd,
+              label: edge.label,
+              data: {
+                ...edge.data,
+                sourceHandle: migratedSourceHandle,
+              },
+              sourceHandle: migratedSourceHandle,
+              targetHandle: migrateHandleId(edge.targetHandle, false),
+            };
+          });
           setEdges((eds) => [...eds, ...rebuiltEdges]);
         }, 100);
       }, 50);
     } else {
-      // Normal update without orientation change
+      // Normal update without handle position change
       setNodes((nds) =>
         nds.map((node) => {
           if (node.id === nodeId) {
@@ -715,13 +774,6 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
             if (updatedData.node_type) {
               updatedData.is_start_node = updatedData.is_start_node || updatedData.node_type === 'trigger' || updatedData.node_type === 'start';
               updatedData.is_end_node = updatedData.is_end_node || updatedData.node_type === 'end';
-            }
-
-            // Extract handleOrientation from metadata and put it directly in data for easy access
-            if ((updatedData as any).metadata?.handleOrientation) {
-              (updatedData as any).handleOrientation = (updatedData as any).metadata.handleOrientation;
-            } else if ((updates as any).metadata?.handleOrientation) {
-              (updatedData as any).handleOrientation = (updates as any).metadata.handleOrientation;
             }
 
             return { ...node, data: updatedData };
@@ -752,8 +804,8 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
 
     // Convert React Flow nodes/edges back to workflow format (using snake_case for backend)
     const workflowNodes: any[] = nodes.map(node => {
-      const isStartNode = node.data.is_start_node || node.data.node_type === 'trigger' || node.data.node_type === 'start';
-      const isEndNode = node.data.is_end_node || node.data.node_type === 'end';
+      const isStartNode = Boolean(node.data.is_start_node || node.data.node_type === 'trigger' || node.data.node_type === 'start');
+      const isEndNode = Boolean(node.data.is_end_node || node.data.node_type === 'end');
 
       const savedNode = {
         id: node.id,
@@ -768,8 +820,12 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
         configuration: node.data.configuration || {},
         metadata: {
           ...node.data.metadata || {},
-          // Preserve handle orientation for proper display after save/reload
-          handleOrientation: node.data.handleOrientation || 'vertical'
+          // Preserve per-handle positions for proper display after save/reload
+          handlePositions: node.data.handlePositions || getDefaultHandlePositions(
+            node.data.node_type as string,
+            isStartNode,
+            isEndNode
+          )
         },
         is_start_node: isStartNode,
         is_end_node: isEndNode,
@@ -786,8 +842,8 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
       edge_id: edge.id,
       source_node_id: edge.source,
       target_node_id: edge.target,
-      source_handle: edge.sourceHandle || 'default',
-      target_handle: edge.targetHandle || 'default',
+      source_handle: migrateHandleId(edge.sourceHandle, true),
+      target_handle: migrateHandleId(edge.targetHandle, false),
       edge_type: edge.data?.edge_type || (edge.data?.condition_type ? 'conditional' : 'default'),
       is_conditional: Boolean(edge.data?.condition_type),
       condition_type: edge.data?.condition_type,
@@ -821,70 +877,142 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
     // Use setTimeout to ensure UI updates showing the loading state
     setTimeout(() => {
       try {
-        // Get optimal layout options based on workflow size
-        const layoutOptions = getOptimalLayoutOptions(nodes.length, edges.length);
-
         // Use orientation override if provided, otherwise use current preference
         const orientation = orientationOverride || layoutOrientation;
-        // 'vertical' = top-to-bottom flow (TB), 'horizontal' = left-to-right flow (LR)
-        layoutOptions.direction = orientation === 'horizontal' ? 'LR' : 'TB';
+        const layoutOptions = getLayoutOptions(orientation);
 
-        // Optimize spacing configuration based on orientation
-        if (orientation === 'horizontal') {
-          // For horizontal (LR) flow: optimize for left-to-right reading
-          // Increase vertical spacing between rows (ranksep) for better vertical separation
-          // Decrease horizontal spacing (nodesep) for more compact horizontal flow
-          layoutOptions.ranksep = (layoutOptions.ranksep || 60) * 1.5; // More vertical space between columns
-          layoutOptions.nodesep = (layoutOptions.nodesep || 50) * 0.8; // Less horizontal space between nodes
-          layoutOptions.nodeWidth = 200; // Slightly narrower nodes for horizontal flow
-          layoutOptions.nodeHeight = 140; // Slightly taller nodes for better readability
-        } else {
-          // For vertical (TB) flow: optimize for top-to-bottom reading
-          // Increase horizontal spacing between columns (nodesep) for better horizontal separation
-          // Increase vertical spacing (ranksep) for better visual separation between rows
-          layoutOptions.nodesep = (layoutOptions.nodesep || 50) * 1.2; // More horizontal space between columns
-          layoutOptions.ranksep = (layoutOptions.ranksep || 60) * 2.0; // More vertical space between rows (120px)
-          layoutOptions.nodeWidth = 220; // Standard width for vertical flow
-          layoutOptions.nodeHeight = 120; // Standard height for vertical flow
-        }
+        // Calculate new positions for all nodes
+        const arrangedNodes = autoArrangeNodes(nodes, edges, layoutOptions);
 
-        // Get default canvas dimensions for centering (canvas can expand beyond these)
-        const defaultCanvasWidth = 1200;
-        const defaultCanvasHeight = 800;
-
-        // Calculate new positions for all nodes, centered on default canvas size
-        const arrangedNodes = autoArrangeNodes(nodes, edges, layoutOptions, defaultCanvasWidth, defaultCanvasHeight);
-
-        // Apply grid snapping to all arranged nodes and configure handle orientation for ALL nodes
+        // Apply grid snapping to all arranged nodes
         const snappedArrangedNodes = arrangedNodes.map(node => ({
           ...node,
-          position: snapToGridPosition(node.position),
+          position: snapToGridPosition(node.position)
+        }));
+
+        // Build a position lookup map for quick access
+        const nodePositions = new Map<string, { x: number; y: number }>();
+        snappedArrangedNodes.forEach(node => {
+          nodePositions.set(node.id, node.position);
+        });
+        // Also include original positions for nodes not in arrangedNodes
+        nodes.forEach(node => {
+          if (!nodePositions.has(node.id)) {
+            nodePositions.set(node.id, node.position);
+          }
+        });
+
+        // Calculate optimal handle position based on relative node positions
+        const calculateOptimalSide = (
+          sourcePos: { x: number; y: number },
+          targetPos: { x: number; y: number },
+          isSource: boolean
+        ): 'top' | 'bottom' | 'left' | 'right' => {
+          const dx = targetPos.x - sourcePos.x;
+          const dy = targetPos.y - sourcePos.y;
+
+          // Determine the dominant direction
+          if (Math.abs(dx) > Math.abs(dy)) {
+            // Horizontal relationship is stronger
+            if (dx > 0) {
+              // Target is to the right of source
+              return isSource ? 'right' : 'left';
+            } else {
+              // Target is to the left of source
+              return isSource ? 'left' : 'right';
+            }
+          } else {
+            // Vertical relationship is stronger
+            if (dy > 0) {
+              // Target is below source
+              return isSource ? 'bottom' : 'top';
+            } else {
+              // Target is above source
+              return isSource ? 'top' : 'bottom';
+            }
+          }
+        };
+
+        // Build handle positions for each node based on its connections
+        const calculateNodeHandlePositions = (nodeId: string, nodeData: any): HandlePositions => {
+          const nodeType = nodeData.node_type;
+          const isStart = nodeData.is_start_node || nodeType === 'start' || nodeType === 'trigger';
+          const isEnd = nodeData.is_end_node || nodeType === 'end';
+
+          // Start with default positions
+          const positions = getDefaultHandlePositions(nodeType, isStart, isEnd);
+          const nodePos = nodePositions.get(nodeId);
+
+          if (!nodePos) return positions;
+
+          // Find all edges connected to this node
+          const outgoingEdges = edges.filter(e => e.source === nodeId);
+          const incomingEdges = edges.filter(e => e.target === nodeId);
+
+          // Calculate optimal positions for output handles based on where targets are
+          outgoingEdges.forEach(edge => {
+            const targetPos = nodePositions.get(edge.target);
+            if (targetPos && edge.sourceHandle) {
+              const handleId = edge.sourceHandle;
+              if (positions[handleId] !== undefined) {
+                positions[handleId] = calculateOptimalSide(nodePos, targetPos, true);
+              }
+            }
+          });
+
+          // Calculate optimal positions for input handles based on where sources are
+          incomingEdges.forEach(edge => {
+            const sourcePos = nodePositions.get(edge.source);
+            if (sourcePos && edge.targetHandle) {
+              const handleId = edge.targetHandle;
+              if (positions[handleId] !== undefined) {
+                positions[handleId] = calculateOptimalSide(sourcePos, nodePos, false);
+              }
+            }
+          });
+
+          // For nodes without connections, use layout-appropriate defaults
+          if (outgoingEdges.length === 0 && incomingEdges.length === 0) {
+            if (orientation === 'horizontal') {
+              // Swap top/bottom with left/right for horizontal layout
+              const horizontalPositions: HandlePositions = {};
+              for (const [handleId, position] of Object.entries(positions)) {
+                if (position === 'top') horizontalPositions[handleId] = 'left';
+                else if (position === 'bottom') horizontalPositions[handleId] = 'right';
+                else if (position === 'left') horizontalPositions[handleId] = 'top';
+                else if (position === 'right') horizontalPositions[handleId] = 'bottom';
+                else horizontalPositions[handleId] = position;
+              }
+              return horizontalPositions;
+            }
+          }
+
+          return positions;
+        };
+
+        // Apply handle positions to all arranged nodes
+        const arrangedNodesWithHandles = snappedArrangedNodes.map(node => ({
+          ...node,
           data: {
             ...node.data,
-            // Add handle orientation configuration based on layout direction
-            handleOrientation: orientation === 'horizontal' ? 'horizontal' : 'vertical',
-            // Force re-render by updating a timestamp when orientation changes
-            orientationUpdated: Date.now()
+            handlePositions: calculateNodeHandlePositions(node.id, node.data),
+            positionsUpdated: Date.now()
           }
         }));
 
-        // Ensure ALL nodes in the workflow get the orientation update, even if not rearranged
-        // This handles nodes that might not have been processed by autoArrangeNodes
-        const allNodesWithOrientation = nodes.map(originalNode => {
-          // Find the corresponding arranged node
-          const arrangedNode = snappedArrangedNodes.find(an => an.id === originalNode.id);
+        // Ensure ALL nodes in the workflow get the positions update, even if not rearranged
+        const allNodesWithPositions = nodes.map(originalNode => {
+          const arrangedNode = arrangedNodesWithHandles.find(an => an.id === originalNode.id);
 
           if (arrangedNode) {
-            // Use the arranged node (with new position and orientation)
             return arrangedNode;
           } else {
-            // For nodes not processed by arrangement, just update orientation
             return {
               ...originalNode,
               data: {
                 ...originalNode.data,
-                handleOrientation: orientation === 'horizontal' ? 'horizontal' : 'vertical',
-                orientationUpdated: Date.now()
+                handlePositions: calculateNodeHandlePositions(originalNode.id, originalNode.data),
+                positionsUpdated: Date.now()
               }
             };
           }
@@ -897,26 +1025,32 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
         setNodes([]);
         setEdges([]);
 
-        // Step 2: Re-add nodes with new positions and orientations after React Flow processes removal
+        // Step 2: Re-add nodes with new positions and handle positions after React Flow processes removal
         setTimeout(() => {
-          setNodes(allNodesWithOrientation);
+          setNodes(allNodesWithPositions);
 
           // Step 3: Re-add edges after nodes have fully mounted with new handle positions
           setTimeout(() => {
-            const rebuiltEdges = currentEdges.map(edge => ({
-              ...edge,
-              // Generate new ID to ensure fresh edge rendering
-              id: generateUniqueEdgeId(`${edge.source}-${edge.target}`),
-              // Preserve all edge properties
-              type: edge.type,
-              animated: edge.animated,
-              style: edge.style,
-              markerEnd: edge.markerEnd,
-              label: edge.label,
-              data: edge.data,
-              sourceHandle: edge.sourceHandle || 'default',
-              targetHandle: edge.targetHandle || 'default',
-            }));
+            const rebuiltEdges = currentEdges.map(edge => {
+              const migratedSourceHandle = migrateHandleId(edge.sourceHandle, true);
+              return {
+                ...edge,
+                // Generate new ID to ensure fresh edge rendering
+                id: generateUniqueEdgeId(`${edge.source}-${edge.target}`),
+                // Preserve all edge properties
+                type: edge.type,
+                animated: edge.animated,
+                style: edge.style,
+                markerEnd: edge.markerEnd,
+                label: edge.label,
+                data: {
+                  ...edge.data,
+                  sourceHandle: migratedSourceHandle,
+                },
+                sourceHandle: migratedSourceHandle,
+                targetHandle: migrateHandleId(edge.targetHandle, false),
+              };
+            });
             setEdges(rebuiltEdges);
 
             // Mark as changed since we modified positions
@@ -934,7 +1068,9 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
           }, 100); // Wait for nodes to mount before adding edges
         }, 50); // Wait for React Flow to process removal
       } catch (error) {
-        console.error('Error arranging nodes:', error);
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Error arranging nodes:', error);
+        }
       } finally {
         setIsArranging(false);
       }
@@ -1161,7 +1297,9 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
           minZoom: 0.1,
         }}
         onError={(id, error) => {
-          console.error('ReactFlow error:', id, error);
+          if (process.env.NODE_ENV === 'development') {
+            console.error('ReactFlow error:', id, error);
+          }
         }}
       >
         {showGrid && (
