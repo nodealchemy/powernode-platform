@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_12_08_000001) do
+ActiveRecord::Schema[8.0].define(version: 2025_12_08_103206) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -587,7 +587,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_08_000001) do
     t.index ["mcp_tool_id", "mcp_tool_version"], name: "index_workflow_nodes_on_mcp_tool_and_version"
     t.index ["mcp_tool_id"], name: "index_ai_workflow_nodes_on_mcp_tool_id"
     t.index ["plugin_id"], name: "index_ai_workflow_nodes_on_plugin_id"
-    t.check_constraint "node_type::text = ANY (ARRAY['start'::character varying::text, 'end'::character varying::text, 'trigger'::character varying::text, 'ai_agent'::character varying::text, 'prompt_template'::character varying::text, 'data_processor'::character varying::text, 'transform'::character varying::text, 'condition'::character varying::text, 'loop'::character varying::text, 'delay'::character varying::text, 'merge'::character varying::text, 'split'::character varying::text, 'database'::character varying::text, 'file'::character varying::text, 'validator'::character varying::text, 'email'::character varying::text, 'notification'::character varying::text, 'api_call'::character varying::text, 'webhook'::character varying::text, 'scheduler'::character varying::text, 'human_approval'::character varying::text, 'sub_workflow'::character varying::text, 'kb_article_create'::character varying::text, 'kb_article_read'::character varying::text, 'kb_article_update'::character varying::text, 'kb_article_search'::character varying::text, 'kb_article_publish'::character varying::text, 'page_create'::character varying::text, 'page_read'::character varying::text, 'page_update'::character varying::text, 'page_publish'::character varying::text])", name: "ai_workflow_nodes_type_check"
+    t.check_constraint "node_type::text = ANY (ARRAY['start'::character varying::text, 'end'::character varying::text, 'trigger'::character varying::text, 'ai_agent'::character varying::text, 'prompt_template'::character varying::text, 'data_processor'::character varying::text, 'transform'::character varying::text, 'condition'::character varying::text, 'loop'::character varying::text, 'delay'::character varying::text, 'merge'::character varying::text, 'split'::character varying::text, 'database'::character varying::text, 'file'::character varying::text, 'validator'::character varying::text, 'email'::character varying::text, 'notification'::character varying::text, 'api_call'::character varying::text, 'webhook'::character varying::text, 'scheduler'::character varying::text, 'human_approval'::character varying::text, 'sub_workflow'::character varying::text, 'kb_article'::character varying::text, 'page'::character varying::text, 'mcp_operation'::character varying::text])", name: "ai_workflow_nodes_type_check"
     t.check_constraint "retry_count >= 0", name: "ai_workflow_nodes_retry_check"
     t.check_constraint "timeout_seconds > 0", name: "ai_workflow_nodes_timeout_check"
   end

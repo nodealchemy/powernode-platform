@@ -104,55 +104,101 @@ class Billing::PaymentReconciliationJob < BaseJob
   end
   
   def get_local_stripe_payments(date_range)
-    with_api_retry do
+    response = with_api_retry do
       api_client.get('/api/v1/reconciliation/stripe_payments', {
         start_date: date_range.begin.iso8601,
         end_date: date_range.end.iso8601
       })
-    end || []
+    end
+
+    unless response
+      raise BillingExceptions::ReconciliationError.new(
+        "Failed to fetch local Stripe payments from API",
+        provider: 'stripe',
+        discrepancy_type: 'fetch_failure',
+        details: { date_range: date_range.to_s }
+      )
+    end
+
+    response
   end
-  
+
   def get_local_paypal_payments(date_range)
-    with_api_retry do
+    response = with_api_retry do
       api_client.get('/api/v1/reconciliation/paypal_payments', {
         start_date: date_range.begin.iso8601,
         end_date: date_range.end.iso8601
       })
-    end || []
+    end
+
+    unless response
+      raise BillingExceptions::ReconciliationError.new(
+        "Failed to fetch local PayPal payments from API",
+        provider: 'paypal',
+        discrepancy_type: 'fetch_failure',
+        details: { date_range: date_range.to_s }
+      )
+    end
+
+    response
   end
   
   def get_stripe_api_payments(date_range)
     payments = []
-    
-    begin
-      # Use Stripe API to get payments in the date range
-      charges = Stripe::Charge.list(
-        created: {
-          gte: date_range.begin.to_i,
-          lte: date_range.end.to_i
-        },
-        limit: 100
-      )
-      
-      charges.auto_paging_each do |charge|
-        next unless charge.status == 'succeeded'
-        
-        payments << {
-          'id' => charge.id,
-          'amount' => charge.amount,
-          'currency' => charge.currency,
-          'created' => Time.at(charge.created),
-          'payment_intent' => charge.payment_intent,
-          'customer' => charge.customer,
-          'description' => charge.description
-        }
-      end
-      
-    rescue Stripe::StripeError => e
-      log_error("Failed to fetch Stripe payments: #{e.message}")
+
+    # Use Stripe API to get payments in the date range
+    charges = Stripe::Charge.list(
+      created: {
+        gte: date_range.begin.to_i,
+        lte: date_range.end.to_i
+      },
+      limit: 100
+    )
+
+    charges.auto_paging_each do |charge|
+      next unless charge.status == 'succeeded'
+
+      payments << {
+        'id' => charge.id,
+        'amount' => charge.amount,
+        'currency' => charge.currency,
+        'created' => Time.at(charge.created),
+        'payment_intent' => charge.payment_intent,
+        'customer' => charge.customer,
+        'description' => charge.description
+      }
     end
-    
+
     payments
+  rescue Stripe::RateLimitError => e
+    log_error("Stripe rate limited during reconciliation: #{e.message}")
+    raise BillingExceptions::RateLimitError.new(
+      "Stripe API rate limited during reconciliation",
+      provider: 'stripe',
+      retry_after: 60
+    )
+  rescue Stripe::AuthenticationError => e
+    log_error("Stripe authentication failed: #{e.message}")
+    raise BillingExceptions::ConfigurationError.new(
+      "Stripe authentication failed - check API keys",
+      provider: 'stripe',
+      missing_config: ['STRIPE_SECRET_KEY']
+    )
+  rescue Stripe::APIConnectionError => e
+    log_error("Stripe connection failed: #{e.message}")
+    raise BillingExceptions::GatewayError.new(
+      "Failed to connect to Stripe API: #{e.message}",
+      gateway: 'stripe',
+      operation: 'fetch_charges'
+    )
+  rescue Stripe::StripeError => e
+    log_error("Stripe API error during reconciliation: #{e.message}")
+    raise BillingExceptions::ReconciliationError.new(
+      "Failed to fetch Stripe payments: #{e.message}",
+      provider: 'stripe',
+      discrepancy_type: 'fetch_failure',
+      details: { original_error: e.class.name }
+    )
   end
   
   def get_paypal_api_payments(date_range)
@@ -213,19 +259,44 @@ class Billing::PaymentReconciliationJob < BaseJob
 
     rescue PayPal::SDK::Core::Exceptions::UnauthorizedAccess => e
       log_error("PayPal authentication failed: #{e.message}")
-    rescue => e
+      raise BillingExceptions::GatewayError.new(
+        "PayPal authentication failed: #{e.message}",
+        gateway: 'paypal',
+        operation: 'fetch_transactions'
+      )
+    rescue StandardError => e
       log_error("Failed to fetch PayPal payments: #{e.message}")
       log_error(e.backtrace.first(5).join("\n")) if e.backtrace
+      raise BillingExceptions::ReconciliationError.new(
+        "Failed to fetch PayPal payments: #{e.message}",
+        provider: 'paypal',
+        discrepancy_type: 'fetch_failure',
+        details: { original_error: e.class.name }
+      )
     end
 
     payments
   end
 
   def configure_paypal
+    client_id = ENV['PAYPAL_CLIENT_ID']
+    client_secret = ENV['PAYPAL_CLIENT_SECRET']
+
+    if client_id.blank? || client_secret.blank?
+      raise BillingExceptions::ConfigurationError.new(
+        "PayPal credentials not configured. PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET must be set.",
+        provider: 'paypal',
+        missing_config: [
+          ('PAYPAL_CLIENT_ID' if client_id.blank?),
+          ('PAYPAL_CLIENT_SECRET' if client_secret.blank?)
+        ].compact
+      )
+    end
+
     PayPal::SDK.configure(
       mode: paypal_mode,
-      client_id: ENV['PAYPAL_CLIENT_ID'],
-      client_secret: ENV['PAYPAL_CLIENT_SECRET']
+      client_id: client_id,
+      client_secret: client_secret
     )
   end
 

@@ -21,7 +21,7 @@ class AiMonitoringHealthCheckJob < BaseJob
       # Schedule the next health check in 30 seconds
       AiMonitoringHealthCheckJob.perform_in(30.seconds, account_id)
       
-    rescue => e
+    rescue StandardError => e
       log_error("AI monitoring health check failed for account #{account_id}: #{e.message}")
       raise
     end

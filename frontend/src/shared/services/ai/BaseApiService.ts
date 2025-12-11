@@ -1,5 +1,6 @@
 import { api } from '../api';
 import { AxiosRequestConfig, AxiosResponse } from 'axios';
+import { handleApiError, isRecoverableError, logError, ApiError, ErrorCodes } from '../errorHandler';
 
 /**
  * BaseApiService - Foundation for all AI Orchestration API services
@@ -46,9 +47,63 @@ export interface QueryFilters {
 /**
  * Base API Service class providing common functionality for all AI services
  */
+export type SafeApiResult<T> = {
+  success: true;
+  data: T;
+} | {
+  success: false;
+  error: ApiError;
+}
+
 export abstract class BaseApiService {
   protected client = api;
   protected baseNamespace = '/ai';
+
+  /**
+   * Handle API errors with consistent logging and transformation
+   *
+   * @param error - The caught error
+   * @param context - Additional context for debugging
+   * @returns Structured ApiError
+   */
+  protected handleError(error: unknown, context?: Record<string, unknown>): ApiError {
+    logError(error, context);
+    return handleApiError(error);
+  }
+
+  /**
+   * Check if an error is recoverable (can be retried)
+   */
+  protected isRecoverable(error: unknown): boolean {
+    return isRecoverableError(error);
+  }
+
+  /**
+   * Execute an API call with standardized error handling
+   * Returns a result object instead of throwing
+   *
+   * @param operation - Async operation to execute
+   * @param context - Context for error logging
+   * @returns SafeApiResult with success/error
+   */
+  protected async safeExecute<T>(
+    operation: () => Promise<T>,
+    context?: Record<string, unknown>
+  ): Promise<SafeApiResult<T>> {
+    try {
+      const data = await operation();
+      return { success: true, data };
+    } catch (error) {
+      return { success: false, error: this.handleError(error, context) };
+    }
+  }
+
+  /**
+   * Check if error is a specific type
+   */
+  protected isErrorType(error: ApiError, code: keyof typeof ErrorCodes): boolean {
+    return error.code === code;
+  }
 
   /**
    * Build a resource path with optional parent resource

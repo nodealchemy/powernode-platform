@@ -160,7 +160,7 @@ RSpec.describe Api::V1::Ai::WorkflowsController, type: :controller do
         }.to change { AuditLog.where(resource_type: 'AiWorkflow').count }.by(1)
 
         audit_log = AuditLog.where(resource_type: 'AiWorkflow').last
-        expect(audit_log.action).to eq('created')
+        expect(audit_log.action).to eq('ai.workflows.create')
       end
     end
 
@@ -218,7 +218,7 @@ RSpec.describe Api::V1::Ai::WorkflowsController, type: :controller do
         }.to change { AuditLog.where(resource_type: 'AiWorkflow').count }.by(1)
 
         audit_log = AuditLog.where(resource_type: 'AiWorkflow').last
-        expect(audit_log.action).to eq('updated')
+        expect(audit_log.action).to eq('ai.workflows.update')
       end
     end
   end

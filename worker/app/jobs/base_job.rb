@@ -186,6 +186,19 @@ class BaseJob
     end
   end
 
+  # Idempotency helpers for preventing duplicate processing
+  # Check if a job with the given idempotency key has already been processed
+  def already_processed?(idempotency_key, ttl: 86400)
+    redis = Sidekiq.redis_pool.with { |conn| conn }
+    redis.exists?("idempotency:#{idempotency_key}")
+  end
+
+  # Mark a job as processed with the given idempotency key
+  def mark_processed(idempotency_key, ttl: 86400)
+    redis = Sidekiq.redis_pool.with { |conn| conn }
+    redis.setex("idempotency:#{idempotency_key}", ttl, Time.current.to_f)
+  end
+
   # Helper to handle API errors with retry logic
   def with_api_retry(max_attempts: 3, &block)
     attempts = 0

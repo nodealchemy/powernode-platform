@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
 
 RSpec.describe User, 'Password Security', type: :model do
@@ -85,7 +87,7 @@ RSpec.describe User, 'Password Security', type: :model do
 
       user.password = 'old_password_1!'
       expect(user).not_to be_valid
-      expect(user.errors[:password]).to include('cannot be one of your last 12 passwords')
+      expect(user.errors[:password]).to include("has been used recently. For security, please choose a different password that you haven't used in your last 12 password changes")
     end
 
     it 'allows passwords not in history' do

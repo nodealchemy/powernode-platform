@@ -66,9 +66,13 @@ class PaypalService
         details: payment.error_details
       }
     end
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "PayPal payment creation error: #{e.message}"
-    { success: false, error: e.message }
+    raise BillingExceptions::PaymentError.new(
+      "PayPal payment creation failed: #{e.message}",
+      provider: 'paypal',
+      details: { original_error: e.class.name }
+    )
   end
 
   # Execute approved PayPal payment
@@ -92,9 +96,14 @@ class PaypalService
         details: payment.error_details
       }
     end
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "PayPal payment execution error: #{e.message}"
-    { success: false, error: e.message }
+    raise BillingExceptions::PaymentError.new(
+      "PayPal payment execution failed: #{e.message}",
+      provider: 'paypal',
+      payment_id: payment_id,
+      details: { original_error: e.class.name }
+    )
   end
 
   # Create PayPal subscription plan
@@ -163,9 +172,13 @@ class PaypalService
         details: billing_plan.error_details
       }
     end
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "PayPal subscription plan creation error: #{e.message}"
-    { success: false, error: e.message }
+    raise BillingExceptions::SubscriptionError.new(
+      "PayPal subscription plan creation failed: #{e.message}",
+      action: 'create_plan',
+      details: { provider: 'paypal', original_error: e.class.name }
+    )
   end
 
   # Create PayPal subscription agreement
@@ -204,9 +217,13 @@ class PaypalService
         details: agreement.error_details
       }
     end
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "PayPal subscription agreement creation error: #{e.message}"
-    { success: false, error: e.message }
+    raise BillingExceptions::SubscriptionError.new(
+      "PayPal subscription agreement creation failed: #{e.message}",
+      action: 'create_agreement',
+      details: { provider: 'paypal', plan_id: plan_id, original_error: e.class.name }
+    )
   end
 
   # Execute approved subscription agreement
@@ -229,9 +246,13 @@ class PaypalService
         details: agreement.error_details
       }
     end
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "PayPal agreement execution error: #{e.message}"
-    { success: false, error: e.message }
+    raise BillingExceptions::SubscriptionError.new(
+      "PayPal agreement execution failed: #{e.message}",
+      action: 'execute_agreement',
+      details: { provider: 'paypal', agreement_id: agreement_id, original_error: e.class.name }
+    )
   end
 
   # Cancel PayPal subscription
@@ -258,9 +279,13 @@ class PaypalService
         details: agreement.error_details
       }
     end
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "PayPal subscription cancellation error: #{e.message}"
-    { success: false, error: e.message }
+    raise BillingExceptions::SubscriptionError.new(
+      "PayPal subscription cancellation failed: #{e.message}",
+      action: 'cancel',
+      details: { provider: 'paypal', agreement_id: agreement_id, original_error: e.class.name }
+    )
   end
 
   # Create refund for PayPal payment
@@ -300,9 +325,12 @@ class PaypalService
         details: refund.error_details
       }
     end
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "PayPal refund creation error: #{e.message}"
-    { success: false, error: e.message }
+    raise BillingExceptions::RefundError.new(
+      "PayPal refund creation failed: #{e.message}",
+      details: { provider: 'paypal', transaction_id: transaction_id, original_error: e.class.name }
+    )
   end
 
   # Get payment details
@@ -316,9 +344,14 @@ class PaypalService
       amount: payment.transactions.first&.amount,
       payer_info: payment.payer&.payer_info
     }
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "PayPal payment details error: #{e.message}"
-    { success: false, error: e.message }
+    raise BillingExceptions::PaymentError.new(
+      "PayPal payment details retrieval failed: #{e.message}",
+      provider: 'paypal',
+      payment_id: payment_id,
+      details: { original_error: e.class.name }
+    )
   end
 
   # Get subscription details
@@ -332,9 +365,13 @@ class PaypalService
       next_billing_date: agreement.agreement_details&.next_billing_date,
       last_payment_date: agreement.agreement_details&.last_payment_date
     }
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "PayPal subscription details error: #{e.message}"
-    { success: false, error: e.message }
+    raise BillingExceptions::SubscriptionError.new(
+      "PayPal subscription details retrieval failed: #{e.message}",
+      action: 'get_details',
+      details: { provider: 'paypal', agreement_id: agreement_id, original_error: e.class.name }
+    )
   end
 
   # Verify webhook signature
@@ -359,10 +396,18 @@ class PaypalService
       }
     rescue JSON::ParserError => e
       Rails.logger.error "PayPal webhook signature verification error: #{e.message}"
-      { success: false, error: "Invalid JSON payload" }
-    rescue => e
+      raise BillingExceptions::WebhookError.new(
+        "PayPal webhook verification failed: Invalid JSON payload",
+        provider: 'paypal',
+        details: { original_error: e.class.name }
+      )
+    rescue StandardError => e
       Rails.logger.error "PayPal webhook verification error: #{e.message}"
-      { success: false, error: e.message }
+      raise BillingExceptions::WebhookError.new(
+        "PayPal webhook verification failed: #{e.message}",
+        provider: 'paypal',
+        details: { webhook_id: webhook_id, original_error: e.class.name }
+      )
     end
   end
 

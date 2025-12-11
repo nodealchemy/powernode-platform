@@ -1,25 +1,17 @@
 import React from 'react';
-import { NodeProps, useEdges, Handle, Position } from '@xyflow/react';
-import { Clock, Timer, Pause } from 'lucide-react';
+import { NodeProps } from '@xyflow/react';
+import { Clock } from 'lucide-react';
 import { DynamicNodeHandles } from './DynamicNodeHandles';
+import { NodeActionsMenu } from '../NodeActionsMenu';
+import { useWorkflowContext } from '../WorkflowContext';
+import { DelayNode as DelayNodeType } from '@/shared/types/workflow';
 
-export const DelayNode: React.FC<NodeProps<any>> = ({
+export const DelayNode: React.FC<NodeProps<DelayNodeType>> = ({
   id,
   data,
   selected
 }) => {
-  const edges = useEdges();
-  const hasOutboundConnection = edges.some(edge => edge.source === id);
-  const getDelayIcon = () => {
-    switch (data.configuration?.delayType) {
-      case 'dynamic':
-        return <Timer className="h-4 w-4" />;
-      case 'until':
-        return <Clock className="h-4 w-4" />;
-      default:
-        return <Pause className="h-4 w-4" />;
-    }
-  };
+  const { onOpenChat } = useWorkflowContext();
 
   const getDelayLabel = () => {
     const config = data.configuration;
@@ -50,42 +42,37 @@ export const DelayNode: React.FC<NodeProps<any>> = ({
 
   return (
     <div className={`
-      relative bg-theme-surface border-2 rounded-lg p-4 w-48 shadow-lg
-      ${selected ? 'border-theme-interactive-primary ring-2 ring-theme-interactive-primary/20' : 'border-amber-500'}
+      group relative bg-theme-surface border-2 rounded-lg w-64 shadow-lg
+      ${selected ? 'border-theme-interactive-primary ring-2 ring-theme-interactive-primary/20' : 'border-theme hover:border-theme-interactive-primary/50'}
       hover:shadow-xl transition-all duration-200
     `}>
-      {/* Input Handle */}
-      <Handle
-        type="target"
-        position={Position.Left}
-        className="w-3 h-3 bg-amber-500 border-2 border-theme-surface"
-        style={{ left: -6 }}
-      />
-
       {/* Header */}
-      <div className="flex items-center gap-3 mb-3">
-        <div className="w-8 h-8 bg-amber-500 rounded-lg flex items-center justify-center text-white">
-          {getDelayIcon()}
-        </div>
-        <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-theme-primary truncate">
-            {data.name || 'Delay'}
-          </h3>
-          <p className="text-xs text-amber-600 font-medium">
-            {getDelayLabel()}
-          </p>
+      <div className="px-4 py-3 rounded-t-lg bg-node-delay">
+        <div className="flex items-center gap-2 text-white">
+          <Clock className="h-4 w-4" />
+          <span className="font-medium text-sm">DELAY</span>
         </div>
       </div>
 
-      {/* Description */}
-      {data.description && (
-        <p className="text-sm text-theme-primary mb-3 line-clamp-2">
-          {data.description}
-        </p>
-      )}
+      {/* Content */}
+      <div className="p-4 space-y-3">
+        <div>
+          <h3 className="font-medium text-theme-primary text-sm truncate">
+            {data.name || 'Delay'}
+          </h3>
+          {data.description && (
+            <p className="text-xs text-theme-secondary mt-1 line-clamp-2">
+              {data.description}
+            </p>
+          )}
+        </div>
 
-      {/* Configuration Details */}
-      <div className="space-y-2">
+        {/* Delay Label */}
+        <div className="text-xs text-theme-muted font-medium">
+          {getDelayLabel()}
+        </div>
+
+        {/* Duration */}
         {data.configuration?.delayType === 'fixed' && formatDuration() && (
           <div className="text-xs">
             <span className="text-theme-muted">Duration:</span>
@@ -94,37 +81,22 @@ export const DelayNode: React.FC<NodeProps<any>> = ({
             </span>
           </div>
         )}
-
-        {data.configuration?.dynamicField && (
-          <div className="text-xs">
-            <span className="text-theme-muted">Field:</span>
-            <span className="ml-1 text-theme-secondary font-mono">
-              {data.configuration.dynamicField}
-            </span>
-          </div>
-        )}
-
-        {data.configuration?.untilDateTime && (
-          <div className="text-xs">
-            <span className="text-theme-muted">Until:</span>
-            <span className="ml-1 text-theme-secondary font-mono">
-              {new Date(data.configuration.untilDateTime).toLocaleString()}
-            </span>
-          </div>
-        )}
       </div>
 
-      {/* Status Indicator */}
-      <div className="absolute top-2 right-2">
-        <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
-      </div>
+      {/* Node Actions Menu */}
+      <NodeActionsMenu
+        nodeId={id}
+        nodeType="delay"
+        nodeName={data.name}
+        isSelected={selected}
+        hasErrors={false}
+        onOpenChat={onOpenChat}
+      />
 
       {/* Dynamic Handles */}
       <DynamicNodeHandles
         nodeType="delay"
-        nodeColor="bg-amber-500"
-        hasOutboundConnection={hasOutboundConnection}
-        orientation={data.handleOrientation || data.configuration?.orientation || 'vertical'}
+        handlePositions={data.handlePositions}
       />
     </div>
   );

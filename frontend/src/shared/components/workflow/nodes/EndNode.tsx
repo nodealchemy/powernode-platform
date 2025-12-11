@@ -3,29 +3,9 @@ import { NodeProps } from '@xyflow/react';
 import { CheckCircle, XCircle, Settings, OctagonX } from 'lucide-react';
 import { Badge } from '@/shared/components/ui/Badge';
 import { DynamicNodeHandles } from './DynamicNodeHandles';
+import { EndNode as EndNodeType, EndNodeData } from '@/shared/types/workflow';
 
-export interface EndNodeData extends Record<string, unknown> {
-  name?: string;
-  description?: string;
-  nodeType: 'end';
-  configuration?: {
-    end_trigger?: string;
-    success_message?: string;
-    failure_message?: string;
-    deployment_approved?: boolean;
-    artifacts?: string[];
-    orientation?: 'horizontal' | 'vertical';
-  };
-  metadata?: Record<string, any>;
-  isStartNode?: boolean;
-  isEndNode?: boolean;
-  isErrorHandler?: boolean;
-  timeoutSeconds?: number;
-  retryCount?: number;
-  handleOrientation?: 'horizontal' | 'vertical';
-}
-
-export const EndNode: React.FC<NodeProps<any>> = ({ data = {} as EndNodeData, selected }) => {
+export const EndNode: React.FC<NodeProps<EndNodeType>> = ({ data = {} as EndNodeData, selected }) => {
   const configuration = data?.configuration || {};
   const endType = configuration.end_trigger || 'success';
   const isSuccess = endType === 'success' || configuration.deployment_approved;
@@ -43,21 +23,21 @@ export const EndNode: React.FC<NodeProps<any>> = ({ data = {} as EndNodeData, se
   };
 
   const getEndColor = (_type: string) => {
-    // All end nodes use red theme for consistency
-    return 'bg-theme-danger';
+    // All end nodes use themed end node color for consistency
+    return 'bg-node-end';
   };
 
   const getBorderColor = (_type: string) => {
-    // All end nodes use red theme for consistency
-    return 'border-theme-danger/30 hover:border-theme-danger/50';
+    // All end nodes use red border for consistency
+    return 'border-node-end';
   };
 
   return (
     <div
       className={`
-        relative w-48 rounded-lg border-2 shadow-lg transition-all duration-200
-        ${selected 
-          ? 'border-theme-interactive-primary shadow-theme-interactive-primary/20' 
+        relative w-64 rounded-lg border-2 shadow-lg transition-all duration-200
+        ${selected
+          ? 'border-theme-interactive-primary shadow-theme-interactive-primary/20'
           : `border-theme hover:border-theme-interactive-primary/50 ${getBorderColor(endType)}`
         }
         bg-theme-surface
@@ -117,10 +97,8 @@ export const EndNode: React.FC<NodeProps<any>> = ({ data = {} as EndNodeData, se
       {/* Auto-positioning Handle for End Node */}
       <DynamicNodeHandles
         nodeType="end"
-        nodeColor="bg-theme-danger"
         isEndNode={true}
-        hasOutboundConnection={false}
-        orientation={data?.handleOrientation || data?.configuration?.orientation || 'vertical'}
+        handlePositions={data?.handlePositions}
       />
     </div>
   );

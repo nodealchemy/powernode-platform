@@ -35,7 +35,7 @@ class AiWorkflowHealthMonitoringJob < BaseJob
     log_info("AI Workflow Health Monitoring completed: #{health_report[:overall_status]}")
     
     health_report
-  rescue => e
+  rescue StandardError => e
     log_error("AI Workflow Health Monitoring failed: #{e.message}")
     log_error(e.backtrace.join("\n"))
 
@@ -91,7 +91,7 @@ class AiWorkflowHealthMonitoringJob < BaseJob
       active_workflows = count_active_workflows
       check_result[:metrics][:active_workflows] = active_workflows
 
-    rescue => e
+    rescue StandardError => e
       check_result[:status] = 'failed'
       check_result[:error] = e.message
       log_error("Workflow execution health check failed: #{e.message}")
@@ -135,7 +135,7 @@ class AiWorkflowHealthMonitoringJob < BaseJob
         end
       end
 
-    rescue => e
+    rescue StandardError => e
       check_result[:status] = 'failed'
       check_result[:error] = e.message
       log_error("Provider connectivity check failed: #{e.message}")
@@ -182,7 +182,7 @@ class AiWorkflowHealthMonitoringJob < BaseJob
         check_result[:status] = 'critical'
       end
 
-    rescue => e
+    rescue StandardError => e
       check_result[:status] = 'failed'
       check_result[:error] = e.message
       log_error("Worker queue health check failed: #{e.message}")
@@ -230,7 +230,7 @@ class AiWorkflowHealthMonitoringJob < BaseJob
         check_result[:status] = 'warning'
       end
 
-    rescue => e
+    rescue StandardError => e
       check_result[:status] = 'failed'
       check_result[:error] = e.message
       log_error("Event system health check failed: #{e.message}")
@@ -272,7 +272,7 @@ class AiWorkflowHealthMonitoringJob < BaseJob
         check_result[:status] = 'warning' if check_result[:status] == 'healthy'
       end
 
-    rescue => e
+    rescue StandardError => e
       check_result[:status] = 'failed'
       check_result[:error] = e.message
       log_error("Database performance check failed: #{e.message}")
@@ -309,7 +309,7 @@ class AiWorkflowHealthMonitoringJob < BaseJob
         check_result[:status] = 'warning'
       end
 
-    rescue => e
+    rescue StandardError => e
       check_result[:status] = 'failed'
       check_result[:error] = e.message
       log_error("Resource utilization check failed: #{e.message}")
@@ -337,7 +337,7 @@ class AiWorkflowHealthMonitoringJob < BaseJob
       overall_status: health_report[:overall_status],
       checks: health_report[:checks]
     })
-  rescue => e
+  rescue StandardError => e
     log_error("Failed to store health metrics: #{e.message}")
   end
 
@@ -357,14 +357,14 @@ class AiWorkflowHealthMonitoringJob < BaseJob
     api_client.post('admin/system_alerts', alert_data)
     
     log_info("Health alert sent for #{health_report[:overall_status]} status")
-  rescue => e
+  rescue StandardError => e
     log_error("Failed to process health alerts: #{e.message}")
   end
 
   def broadcast_health_status(health_report)
     # Broadcast via WebSocket for real-time monitoring
     AiWorkflowMonitoringChannel.broadcast_health_status(health_report)
-  rescue => e
+  rescue StandardError => e
     log_error("Failed to broadcast health status: #{e.message}")
   end
 
@@ -372,36 +372,36 @@ class AiWorkflowHealthMonitoringJob < BaseJob
 
   def fetch_stuck_workflows
     api_client.get('admin/ai_workflows/stuck_analysis')['workflows'] || []
-  rescue
+  rescue StandardError
     []
   end
 
   def calculate_recent_failure_rate
     stats = api_client.get('admin/ai_workflows/execution_stats?period=1h')
     return 0.0 unless stats['total_executions'] && stats['total_executions'] > 0
-    
+
     (stats['failed_executions'].to_f / stats['total_executions'] * 100).round(2)
-  rescue
+  rescue StandardError
     0.0
   end
 
   def calculate_average_execution_time
     stats = api_client.get('admin/ai_workflows/performance_stats?period=1h')
     stats['average_execution_time_ms'] || 0
-  rescue
+  rescue StandardError
     0
   end
 
   def count_active_workflows
     stats = api_client.get('admin/ai_workflows/status_counts')
     stats['running'] || 0
-  rescue
+  rescue StandardError
     0
   end
 
   def fetch_ai_providers
     api_client.get('admin/ai_providers')['providers'] || []
-  rescue
+  rescue StandardError
     []
   end
 
@@ -413,7 +413,7 @@ class AiWorkflowHealthMonitoringJob < BaseJob
       last_check: Time.current.iso8601,
       error: result['error']
     }
-  rescue => e
+  rescue StandardError => e
     {
       status: 'failed',
       error: e.message,
@@ -424,7 +424,7 @@ class AiWorkflowHealthMonitoringJob < BaseJob
   def fetch_sidekiq_stats
     stats = api_client.get('admin/sidekiq/stats')
     stats || {}
-  rescue
+  rescue StandardError
     {}
   end
 
@@ -435,28 +435,28 @@ class AiWorkflowHealthMonitoringJob < BaseJob
       latency: stats['latency'] || 0,
       busy: stats['busy'] || 0
     }
-  rescue
+  rescue StandardError
     { size: 0, latency: 0, busy: 0 }
   end
 
   def fetch_event_dispatcher_health
     health = api_client.get('admin/ai_workflow_events/health')
     health['event_dispatcher'] || { status: 'unknown' }
-  rescue
+  rescue StandardError
     { status: 'failed', error: 'Unable to fetch event dispatcher health' }
   end
 
   def fetch_trigger_service_health
     health = api_client.get('admin/ai_workflow_events/health')
     health['trigger_service'] || { status: 'unknown' }
-  rescue
+  rescue StandardError
     { status: 'failed', error: 'Unable to fetch trigger service health' }
   end
 
   def fetch_integration_service_health
     # Integration service health would be checked here
     { status: 'healthy', last_check: Time.current.iso8601 }
-  rescue
+  rescue StandardError
     { status: 'failed', error: 'Unable to fetch integration service health' }
   end
 
@@ -467,7 +467,7 @@ class AiWorkflowHealthMonitoringJob < BaseJob
       average_processing_time_ms: stats['average_processing_time_ms'] || 0,
       failed_events_last_hour: stats['failed_events_last_hour'] || 0
     }
-  rescue
+  rescue StandardError
     { events_processed_last_hour: 0, average_processing_time_ms: 0, failed_events_last_hour: 0 }
   end
 
@@ -480,7 +480,7 @@ class AiWorkflowHealthMonitoringJob < BaseJob
       checked_in: stats['checked_in'] || 0,
       dead: stats['dead'] || 0
     }
-  rescue
+  rescue StandardError
     { size: 0, checked_out: 0, checked_in: 0, dead: 0 }
   end
 
@@ -488,7 +488,7 @@ class AiWorkflowHealthMonitoringJob < BaseJob
     # This would integrate with database monitoring tools
     # For now, return empty array
     []
-  rescue
+  rescue StandardError
     []
   end
 
@@ -497,7 +497,7 @@ class AiWorkflowHealthMonitoringJob < BaseJob
     # Simple query to test database responsiveness
     api_client.get('admin/database/ping')
     ((Time.current - start_time) * 1000).round(2)
-  rescue
+  rescue StandardError
     999999 # Return high value if unable to measure
   end
 
@@ -507,21 +507,21 @@ class AiWorkflowHealthMonitoringJob < BaseJob
       used_mb: (GC.stat[:heap_allocated_pages] * GC::INTERNAL_CONSTANTS[:HEAP_PAGE_SIZE]) / (1024 * 1024),
       usage_percentage: nil # Would need system integration
     }
-  rescue
+  rescue StandardError
     { used_mb: 0, usage_percentage: nil }
   end
 
   def fetch_cpu_stats
     # Would integrate with system monitoring tools
     nil
-  rescue
+  rescue StandardError
     nil
   end
 
   def fetch_disk_stats
-    # Would integrate with system monitoring tools  
+    # Would integrate with system monitoring tools
     nil
-  rescue
+  rescue StandardError
     nil
   end
 

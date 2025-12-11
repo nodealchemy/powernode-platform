@@ -64,11 +64,11 @@ export const WorkflowTemplatesPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [addNotification]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     loadTemplates();
-  }, [loadTemplates]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Filter templates
   const filteredTemplates = templates.filter(template => {
@@ -153,7 +153,6 @@ export const WorkflowTemplatesPage: React.FC = () => {
       description="Pre-built workflow templates for common automation tasks"
       breadcrumbs={[
         { label: 'AI', href: '/app/ai' },
-        { label: 'Workflows', href: '/app/ai/workflows' },
         { label: 'Templates' }
       ]}
     >

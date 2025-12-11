@@ -377,5 +377,229 @@ FactoryBot.define do
         )
       end
     end
+
+    # Consolidated Node Types (Phase 1A)
+
+    # KB Article Node - unified node for all KB article operations
+    trait :kb_article do
+      node_type { 'kb_article' }
+      name { 'KB Article' }
+      configuration do
+        {
+          action: 'create',
+          title: 'Sample Knowledge Base Article',
+          content: 'This is the article content',
+          category_id: SecureRandom.uuid,
+          status: 'draft',
+          tags: ['documentation', 'help'],
+          is_public: true,
+          is_featured: false
+        }
+      end
+    end
+
+    trait :kb_article_create do
+      node_type { 'kb_article' }
+      name { 'Create KB Article' }
+      configuration do
+        {
+          action: 'create',
+          title: 'New Knowledge Base Article',
+          content: 'Article content goes here',
+          category_id: SecureRandom.uuid,
+          status: 'draft',
+          tags: ['new', 'documentation'],
+          is_public: false,
+          is_featured: false
+        }
+      end
+    end
+
+    trait :kb_article_read do
+      node_type { 'kb_article' }
+      name { 'Read KB Article' }
+      configuration do
+        {
+          action: 'read',
+          article_id: SecureRandom.uuid,
+          output_variable: 'kb_article_content'
+        }
+      end
+    end
+
+    trait :kb_article_update do
+      node_type { 'kb_article' }
+      name { 'Update KB Article' }
+      configuration do
+        {
+          action: 'update',
+          article_id: SecureRandom.uuid,
+          title: 'Updated Article Title',
+          content: 'Updated content',
+          status: 'review'
+        }
+      end
+    end
+
+    trait :kb_article_search do
+      node_type { 'kb_article' }
+      name { 'Search KB Articles' }
+      configuration do
+        {
+          action: 'search',
+          query: 'search term',
+          category_id: SecureRandom.uuid,
+          status: 'published',
+          tags: ['documentation'],
+          limit: 10,
+          sort_by: 'recent'
+        }
+      end
+    end
+
+    trait :kb_article_publish do
+      node_type { 'kb_article' }
+      name { 'Publish KB Article' }
+      configuration do
+        {
+          action: 'publish',
+          article_id: SecureRandom.uuid
+        }
+      end
+    end
+
+    # Page Node - unified node for all page operations
+    trait :page do
+      node_type { 'page' }
+      name { 'Page' }
+      configuration do
+        {
+          action: 'create',
+          title: 'Sample Page',
+          slug: 'sample-page',
+          content: 'Page content here',
+          status: 'draft',
+          meta_description: 'SEO description',
+          meta_keywords: 'page, sample'
+        }
+      end
+    end
+
+    trait :page_create do
+      node_type { 'page' }
+      name { 'Create Page' }
+      configuration do
+        {
+          action: 'create',
+          title: 'New Page Title',
+          slug: 'new-page',
+          content: 'New page content',
+          status: 'draft',
+          meta_description: 'Page description for SEO',
+          meta_keywords: 'keywords, seo'
+        }
+      end
+    end
+
+    trait :page_read do
+      node_type { 'page' }
+      name { 'Read Page' }
+      configuration do
+        {
+          action: 'read',
+          page_id: SecureRandom.uuid,
+          output_variable: 'page_content'
+        }
+      end
+    end
+
+    trait :page_update do
+      node_type { 'page' }
+      name { 'Update Page' }
+      configuration do
+        {
+          action: 'update',
+          page_id: SecureRandom.uuid,
+          title: 'Updated Page Title',
+          content: 'Updated page content',
+          status: 'published'
+        }
+      end
+    end
+
+    trait :page_publish do
+      node_type { 'page' }
+      name { 'Publish Page' }
+      configuration do
+        {
+          action: 'publish',
+          page_id: SecureRandom.uuid
+        }
+      end
+    end
+
+    # MCP Operation Node - unified node for all MCP operations
+    trait :mcp_operation do
+      node_type { 'mcp_operation' }
+      name { 'MCP Operation' }
+      configuration do
+        {
+          operation_type: 'tool',
+          mcp_server_id: SecureRandom.uuid,
+          mcp_server_name: 'Test MCP Server',
+          mcp_tool_id: SecureRandom.uuid,
+          mcp_tool_name: 'sample_tool',
+          parameters: { key: 'value' },
+          execution_mode: 'sync'
+        }
+      end
+    end
+
+    trait :mcp_tool do
+      node_type { 'mcp_operation' }
+      name { 'MCP Tool' }
+      configuration do
+        {
+          operation_type: 'tool',
+          mcp_server_id: SecureRandom.uuid,
+          mcp_server_name: 'MCP Tool Server',
+          mcp_tool_id: SecureRandom.uuid,
+          mcp_tool_name: 'execute_command',
+          parameters: { command: 'ls -la' },
+          execution_mode: 'sync',
+          timeout: 30
+        }
+      end
+    end
+
+    trait :mcp_resource do
+      node_type { 'mcp_operation' }
+      name { 'MCP Resource' }
+      configuration do
+        {
+          operation_type: 'resource',
+          mcp_server_id: SecureRandom.uuid,
+          mcp_server_name: 'MCP Resource Server',
+          resource_uri: 'file:///data/sample.json',
+          resource_name: 'sample_data',
+          mime_type: 'application/json'
+        }
+      end
+    end
+
+    trait :mcp_prompt do
+      node_type { 'mcp_operation' }
+      name { 'MCP Prompt' }
+      configuration do
+        {
+          operation_type: 'prompt',
+          mcp_server_id: SecureRandom.uuid,
+          mcp_server_name: 'MCP Prompt Server',
+          prompt_name: 'analyze_data',
+          prompt_description: 'Analyze the provided data set',
+          arguments: { data_format: 'json', output_format: 'summary' }
+        }
+      end
+    end
   end
 end

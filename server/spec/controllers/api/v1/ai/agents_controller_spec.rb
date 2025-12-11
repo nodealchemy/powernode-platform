@@ -211,7 +211,7 @@ RSpec.describe Api::V1::Ai::AgentsController, type: :controller do
           post :create, params: valid_agent_params
         }.to change { AuditLog.count }.by_at_least(1)
 
-        audit_log = AuditLog.where(resource_type: 'AiAgent', action: 'created').last
+        audit_log = AuditLog.where(resource_type: 'AiAgent', action: 'ai.agents.create').last
         expect(audit_log).to be_present
       end
     end
@@ -278,7 +278,7 @@ RSpec.describe Api::V1::Ai::AgentsController, type: :controller do
           patch :update, params: update_params
         }.to change { AuditLog.count }.by_at_least(1)
 
-        audit_log = AuditLog.where(resource_type: 'AiAgent', action: 'updated').last
+        audit_log = AuditLog.where(resource_type: 'AiAgent', action: 'ai.agents.update').last
         expect(audit_log).to be_present
       end
     end
@@ -312,7 +312,8 @@ RSpec.describe Api::V1::Ai::AgentsController, type: :controller do
           delete :destroy, params: { id: agent.id }
         }.to change { AuditLog.count }.by_at_least(1)
 
-        audit_log = AuditLog.where(resource_type: 'AiAgent', action: 'deleted').last
+        # The controller logs to the account after agent is destroyed
+        audit_log = AuditLog.where(action: 'ai.agents.delete').last
         expect(audit_log).to be_present
       end
     end
@@ -360,8 +361,8 @@ RSpec.describe Api::V1::Ai::AgentsController, type: :controller do
           post :execute, params: execution_params
         }.to change { AuditLog.count }.by_at_least(1)
 
-        # Execute creates an AiAgentExecution record which triggers audit log
-        audit_log = AuditLog.where(resource_type: 'AiAgentExecution', action: 'created').last
+        # Execute creates an AiAgentExecution record with ai.agents.execute action
+        audit_log = AuditLog.where(action: 'ai.agents.execute').last
         expect(audit_log).to be_present
       end
     end

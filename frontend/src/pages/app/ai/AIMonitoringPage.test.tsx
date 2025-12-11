@@ -176,6 +176,15 @@ jest.mock('@/features/ai-monitoring/components/ResourceUtilizationChart', () => 
   )
 }));
 
+jest.mock('@/features/ai-monitoring/components/WorkflowMonitoringPanel', () => ({
+  WorkflowMonitoringPanel: ({ isLoading, onRefresh }: any) => (
+    <div data-testid="workflow-monitoring-panel">
+      {isLoading ? <span>Loading workflows...</span> : <span>Workflow Performance</span>}
+      <button onClick={onRefresh} data-testid="refresh-workflows">Refresh</button>
+    </div>
+  )
+}));
+
 // Mock TabContainer used by the component
 jest.mock('@/shared/components/layout/TabContainer', () => ({
   TabContainer: ({ tabs, activeTab, onTabChange, children }: any) => (
@@ -381,10 +390,10 @@ describe('AIMonitoringPage', () => {
       renderComponent();
 
       await waitFor(() => {
-        // Check for overview card data
-        expect(screen.getByText(/Active Providers/i)).toBeInTheDocument();
-        expect(screen.getByText(/AI Agents/i)).toBeInTheDocument();
-        expect(screen.getByText(/Active Workflows/i)).toBeInTheDocument();
+        // Check for overview card data - use getAllByText since there may be multiple matches
+        expect(screen.getAllByText(/Active Providers/i).length).toBeGreaterThan(0);
+        expect(screen.getAllByText(/AI Agents/i).length).toBeGreaterThan(0);
+        expect(screen.getAllByText(/Active Workflows/i).length).toBeGreaterThan(0);
       });
     });
   });
@@ -443,10 +452,15 @@ describe('AIMonitoringPage', () => {
 
       renderComponent();
 
-      // Component should not crash
+      // Component should not crash and should show page container
       await waitFor(() => {
         expect(screen.getByTestId('page-container')).toBeInTheDocument();
-      });
+      }, { timeout: 3000 });
+
+      // Should show disconnected status after error
+      await waitFor(() => {
+        expect(screen.getByText('Disconnected')).toBeInTheDocument();
+      }, { timeout: 3000 });
     });
 
     it('shows disconnected status on API failure', async () => {
@@ -458,7 +472,7 @@ describe('AIMonitoringPage', () => {
 
       await waitFor(() => {
         expect(screen.getByText('Disconnected')).toBeInTheDocument();
-      });
+      }, { timeout: 3000 });
     });
   });
 

@@ -46,13 +46,13 @@ export interface SwitchAccountResponse {
 export const accountSwitcherApi = {
   // Get all accessible accounts for the current user
   getAccessibleAccounts: async (): Promise<AccessibleAccountsResponse> => {
-    const response = await apiClient.get('/api/v1/accounts/accessible');
+    const response = await apiClient.get('/accounts/accessible');
     return response.data.data;
   },
 
   // Switch to a different account
   switchAccount: async (accountId: string): Promise<SwitchAccountResponse> => {
-    const response = await apiClient.post('/api/v1/accounts/switch', {
+    const response = await apiClient.post('/accounts/switch', {
       account_id: accountId,
     });
     return response.data.data;
@@ -60,7 +60,7 @@ export const accountSwitcherApi = {
 
   // Switch back to primary account
   switchToPrimary: async (): Promise<SwitchAccountResponse> => {
-    const response = await apiClient.post('/api/v1/accounts/switch_to_primary');
+    const response = await apiClient.post('/accounts/switch_to_primary');
     return response.data.data;
   },
 };

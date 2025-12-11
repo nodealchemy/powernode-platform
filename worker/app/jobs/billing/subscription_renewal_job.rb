@@ -9,6 +9,13 @@ class Billing::SubscriptionRenewalJob < BaseJob
                   retry: 3
 
   def execute(subscription_id)
+    # Idempotency check - prevent duplicate renewals on same day
+    idempotency_key = "renewal:#{subscription_id}:#{Date.current}"
+    if already_processed?(idempotency_key)
+      log_info("Renewal already processed for subscription #{subscription_id} today, skipping")
+      return { success: true, skipped: true, reason: 'already_processed' }
+    end
+
     log_info("Processing renewal for subscription #{subscription_id}")
     
     # Get subscription details from backend
@@ -46,12 +53,14 @@ class Billing::SubscriptionRenewalJob < BaseJob
     
     if renewal_result['success']
       log_info("Successfully renewed subscription #{subscription_id}")
+      # Mark as processed to prevent duplicate renewals
+      mark_processed(idempotency_key)
       schedule_next_renewal(subscription_id, renewal_result)
     else
       log_error("Failed to renew subscription #{subscription_id}: #{renewal_result['error']}")
       handle_renewal_failure(subscription_data, renewal_result)
     end
-    
+
     renewal_result
   end
   

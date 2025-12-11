@@ -39,10 +39,17 @@ class AccountTerminationService
         begin
           process_termination(termination)
           results[:processed] += 1
-        rescue => e
+        rescue StandardError => e
           results[:failed] += 1
           results[:errors] << { termination_id: termination.id, error: e.message }
           Rails.logger.error "Failed to process termination #{termination.id}: #{e.message}"
+          # Re-raise for Sidekiq retry if this is a critical error
+          raise BillingExceptions::AccountBillingError.new(
+            "Account termination processing failed: #{e.message}",
+            account_id: termination.account_id,
+            action: 'terminate',
+            details: { termination_id: termination.id, original_error: e.class.name }
+          ) if e.is_a?(ActiveRecord::ActiveRecordError)
         end
       end
 

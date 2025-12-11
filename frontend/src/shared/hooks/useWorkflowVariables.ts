@@ -202,31 +202,32 @@ function getNodeOutputFields(node: AiWorkflowNode): Array<{
       );
       break;
 
-    case 'mcp_tool':
+    case 'mcp_operation':
+      // Consolidated MCP operation node (tool, resource, prompt)
+      // Output fields vary based on operation_type in configuration
       fields.push(
-        { name: 'Result', path: 'result', dataType: 'any', description: 'MCP tool execution result' },
-        { name: 'Data', path: 'data', dataType: 'object', description: 'Full tool response data' }
+        { name: 'Result', path: 'result', dataType: 'any', description: 'MCP operation result' },
+        { name: 'Data', path: 'data', dataType: 'object', description: 'Full operation response data' },
+        { name: 'Content', path: 'data.content', dataType: 'any', description: 'Resource/prompt content' },
+        { name: 'Messages', path: 'data.messages', dataType: 'array', description: 'Prompt messages (if prompt operation)' }
       );
       break;
 
-    case 'mcp_resource':
+    case 'kb_article':
+      // Consolidated KB article node (create, read, update, search, publish)
+      // Output fields vary based on action in configuration
       fields.push(
-        { name: 'Content', path: 'data.content', dataType: 'any', description: 'Resource content' },
-        { name: 'MIME Type', path: 'data.mime_type', dataType: 'string', description: 'Content type' }
+        { name: 'Article', path: 'result', dataType: 'object', description: 'Article data' },
+        { name: 'Articles', path: 'data.articles', dataType: 'array', description: 'Search results (if search action)' },
+        { name: 'Count', path: 'data.total', dataType: 'number', description: 'Result count (if search action)' }
       );
       break;
 
-    case 'mcp_prompt':
+    case 'page':
+      // Consolidated page node (create, read, update, publish)
       fields.push(
-        { name: 'Messages', path: 'data.messages', dataType: 'array', description: 'Prompt messages array' },
-        { name: 'Text', path: 'result', dataType: 'string', description: 'Combined prompt text' }
-      );
-      break;
-
-    case 'kb_article_search':
-      fields.push(
-        { name: 'Articles', path: 'data.articles', dataType: 'array', description: 'Search results' },
-        { name: 'Count', path: 'data.total', dataType: 'number', description: 'Result count' }
+        { name: 'Page', path: 'result', dataType: 'object', description: 'Page data' },
+        { name: 'Content', path: 'data.content', dataType: 'string', description: 'Page content' }
       );
       break;
 

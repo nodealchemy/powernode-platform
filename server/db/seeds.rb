@@ -837,14 +837,11 @@ if Rails.env.development? || Rails.env.test?
   puts "\n📊 Loading Monitoring and Analytics Agents..."
   load Rails.root.join('db', 'seeds', 'monitoring_analytics_agents_seed.rb')
 
-  puts "\n🔊 Loading Simple Echo Test Workflow..."
-  load Rails.root.join('db', 'seeds', 'simple_echo_test_workflow_seed.rb')
+  puts "\n🔌 Loading MCP Servers..."
+  load Rails.root.join('db', 'seeds', 'mcp_servers_seeds.rb')
 
-  puts "\n📝 Loading Simple Blog Generation Workflow..."
-  load Rails.root.join('db', 'seeds', 'simple_blog_generation_workflow_seed.rb')
-
-  puts "\n📝 Loading Enhanced Blog Generation Workflow..."
-  load Rails.root.join('db', 'seeds', 'enhanced_blog_generation_workflow_seed.rb')
+  puts "\n🚀 Loading AI Workflow Showcase Examples..."
+  load Rails.root.join('db', 'seeds', 'ai_workflow_showcase_seeds.rb')
 
   puts "\n🗄️  Loading File Storage configurations..."
   load Rails.root.join('db', 'seeds', 'file_storage_seeds.rb')

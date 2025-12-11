@@ -13,21 +13,37 @@ class AiWorkflowNode < ApplicationRecord
 
   # Validations
   validates :node_id, presence: true, uniqueness: { scope: :ai_workflow_id }
+  # Consolidated node types (24 total):
+  # - Core: start, end, trigger
+  # - AI/Processing: ai_agent, prompt_template, data_processor, transform
+  # - Flow control: condition, loop, delay, merge, split
+  # - Data: database, file, validator
+  # - Communication: email, notification, api_call, webhook, scheduler
+  # - Advanced: human_approval, sub_workflow
+  # - Consolidated: kb_article (action: create|read|update|search|publish)
+  #                 page (action: create|read|update|publish)
+  #                 mcp_operation (operation_type: tool|resource|prompt)
+  VALID_NODE_TYPES = %w[
+    start end trigger
+    ai_agent prompt_template data_processor transform
+    condition loop delay merge split
+    database file validator
+    email notification
+    api_call webhook scheduler
+    human_approval sub_workflow
+    kb_article page mcp_operation
+  ].freeze
+
+  # Valid actions for consolidated node types
+  KB_ARTICLE_ACTIONS = %w[create read update search publish].freeze
+  PAGE_ACTIONS = %w[create read update publish].freeze
+  MCP_OPERATION_TYPES = %w[tool resource prompt].freeze
+
   validates :node_type, presence: true, inclusion: {
-    in: %w[
-      start end trigger
-      ai_agent prompt_template data_processor transform
-      condition loop delay merge split
-      database file validator
-      email notification
-      api_call webhook scheduler
-      human_approval sub_workflow
-      kb_article_create kb_article_read kb_article_update kb_article_search kb_article_publish
-      page_create page_read page_update page_publish
-      mcp_tool mcp_resource mcp_prompt
-    ],
+    in: VALID_NODE_TYPES,
     message: 'must be a valid node type'
   }
+  validate :validate_consolidated_node_action
   validates :name, presence: true, length: { maximum: 255 }
   validates :position, presence: true
   validates :configuration, presence: true, unless: :configuration_optional_for_type?
@@ -98,6 +114,38 @@ class AiWorkflowNode < ApplicationRecord
 
   def split_node?
     node_type == 'split'
+  end
+
+  # Consolidated node type check methods
+  def kb_article_node?
+    node_type == 'kb_article'
+  end
+
+  def page_node?
+    node_type == 'page'
+  end
+
+  def mcp_operation_node?
+    node_type == 'mcp_operation'
+  end
+
+  # Action/operation type helpers for consolidated nodes
+  def kb_article_action
+    return nil unless kb_article_node?
+
+    configuration['action']
+  end
+
+  def page_action
+    return nil unless page_node?
+
+    configuration['action']
+  end
+
+  def mcp_operation_type
+    return nil unless mcp_operation_node?
+
+    configuration['operation_type']
   end
 
   def start_node?
@@ -382,52 +430,55 @@ class AiWorkflowNode < ApplicationRecord
           'data' => 'trigger_data'
         }
       }
-    when 'kb_article_create', 'kb_article_read', 'kb_article_update', 'kb_article_search', 'kb_article_publish'
+    when 'kb_article'
+      # Consolidated KB article node with action parameter
       {
+        'action' => 'create', # create, read, update, search, publish
+        'article_id' => nil,
+        'title' => '',
+        'content' => '',
+        'category_id' => nil,
+        'tags' => [],
+        'status' => 'draft',
+        'search_query' => '',
         'output_mapping' => {
           'output' => 'result',
           'result' => 'result',
           'data' => 'result'
         }
       }
-    when 'page_create', 'page_read', 'page_update', 'page_publish'
+    when 'page'
+      # Consolidated Page node with action parameter
       {
+        'action' => 'create', # create, read, update, publish
+        'page_id' => nil,
+        'title' => '',
+        'slug' => '',
+        'content' => '',
+        'status' => 'draft',
+        'meta_description' => '',
+        'meta_keywords' => '',
         'output_mapping' => {
           'output' => 'result',
           'result' => 'result',
           'data' => 'result'
         }
       }
-    when 'mcp_tool'
+    when 'mcp_operation'
+      # Consolidated MCP node with operation_type parameter
       {
+        'operation_type' => 'tool', # tool, resource, prompt
         'mcp_server_id' => nil,
+        'mcp_server_name' => nil,
+        # Tool-specific fields
         'mcp_tool_id' => nil,
         'mcp_tool_name' => nil,
         'execution_mode' => 'sync',
-        'timeout_seconds' => 300,
         'parameters' => {},
         'parameter_mappings' => [],
-        'output_variable' => 'mcp_result',
-        'output_mapping' => {
-          'output' => 'result',
-          'result' => 'result',
-          'data' => 'data'
-        }
-      }
-    when 'mcp_resource'
-      {
-        'mcp_server_id' => nil,
+        # Resource-specific fields
         'resource_uri' => '',
-        'output_variable' => 'resource_content',
-        'output_mapping' => {
-          'output' => 'content',
-          'result' => 'content',
-          'data' => 'metadata'
-        }
-      }
-    when 'mcp_prompt'
-      {
-        'mcp_server_id' => nil,
+        # Prompt-specific fields
         'prompt_name' => '',
         'arguments' => {},
         'argument_mappings' => [],
@@ -463,12 +514,32 @@ class AiWorkflowNode < ApplicationRecord
       validate_human_approval_configuration
     when 'sub_workflow'
       validate_sub_workflow_configuration
-    when 'mcp_tool'
-      validate_mcp_tool_configuration
-    when 'mcp_resource'
-      validate_mcp_resource_configuration
-    when 'mcp_prompt'
-      validate_mcp_prompt_configuration
+    when 'kb_article'
+      validate_kb_article_configuration
+    when 'page'
+      validate_page_configuration
+    when 'mcp_operation'
+      validate_mcp_operation_configuration
+    end
+  end
+
+  def validate_consolidated_node_action
+    case node_type
+    when 'kb_article'
+      action = configuration['action']
+      unless KB_ARTICLE_ACTIONS.include?(action)
+        errors.add(:configuration, "action must be one of: #{KB_ARTICLE_ACTIONS.join(', ')}")
+      end
+    when 'page'
+      action = configuration['action']
+      unless PAGE_ACTIONS.include?(action)
+        errors.add(:configuration, "action must be one of: #{PAGE_ACTIONS.join(', ')}")
+      end
+    when 'mcp_operation'
+      operation_type = configuration['operation_type']
+      unless MCP_OPERATION_TYPES.include?(operation_type)
+        errors.add(:configuration, "operation_type must be one of: #{MCP_OPERATION_TYPES.join(', ')}")
+      end
     end
   end
 
@@ -534,43 +605,66 @@ class AiWorkflowNode < ApplicationRecord
     end
   end
 
-  def validate_mcp_tool_configuration
-    if configuration['mcp_server_id'].blank?
-      errors.add(:configuration, 'must specify mcp_server_id for MCP tool nodes')
-    elsif !ai_workflow.account.mcp_servers.exists?(id: configuration['mcp_server_id'])
-      errors.add(:configuration, 'specified MCP server does not exist')
-    end
+  def validate_kb_article_configuration
+    action = configuration['action']
 
-    if configuration['mcp_tool_id'].blank? && configuration['mcp_tool_name'].blank?
-      errors.add(:configuration, 'must specify mcp_tool_id or mcp_tool_name for MCP tool nodes')
-    end
-
-    unless %w[sync async].include?(configuration['execution_mode'])
-      errors.add(:configuration, 'execution_mode must be sync or async')
-    end
-  end
-
-  def validate_mcp_resource_configuration
-    if configuration['mcp_server_id'].blank?
-      errors.add(:configuration, 'must specify mcp_server_id for MCP resource nodes')
-    elsif !ai_workflow.account.mcp_servers.exists?(id: configuration['mcp_server_id'])
-      errors.add(:configuration, 'specified MCP server does not exist')
-    end
-
-    if configuration['resource_uri'].blank?
-      errors.add(:configuration, 'must specify resource_uri for MCP resource nodes')
+    case action
+    when 'read', 'update', 'publish'
+      if configuration['article_id'].blank?
+        errors.add(:configuration, "must specify article_id for KB article #{action} action")
+      end
+    when 'search'
+      if configuration['search_query'].blank?
+        errors.add(:configuration, 'must specify search_query for KB article search action')
+      end
+    when 'create'
+      if configuration['title'].blank?
+        errors.add(:configuration, 'must specify title for KB article create action')
+      end
     end
   end
 
-  def validate_mcp_prompt_configuration
+  def validate_page_configuration
+    action = configuration['action']
+
+    case action
+    when 'read', 'update', 'publish'
+      if configuration['page_id'].blank?
+        errors.add(:configuration, "must specify page_id for page #{action} action")
+      end
+    when 'create'
+      if configuration['title'].blank?
+        errors.add(:configuration, 'must specify title for page create action')
+      end
+    end
+  end
+
+  def validate_mcp_operation_configuration
     if configuration['mcp_server_id'].blank?
-      errors.add(:configuration, 'must specify mcp_server_id for MCP prompt nodes')
+      errors.add(:configuration, 'must specify mcp_server_id for MCP operation nodes')
     elsif !ai_workflow.account.mcp_servers.exists?(id: configuration['mcp_server_id'])
       errors.add(:configuration, 'specified MCP server does not exist')
     end
 
-    if configuration['prompt_name'].blank?
-      errors.add(:configuration, 'must specify prompt_name for MCP prompt nodes')
+    operation_type = configuration['operation_type']
+
+    case operation_type
+    when 'tool'
+      if configuration['mcp_tool_id'].blank? && configuration['mcp_tool_name'].blank?
+        errors.add(:configuration, 'must specify mcp_tool_id or mcp_tool_name for MCP tool operation')
+      end
+
+      unless %w[sync async].include?(configuration['execution_mode'])
+        errors.add(:configuration, 'execution_mode must be sync or async')
+      end
+    when 'resource'
+      if configuration['resource_uri'].blank?
+        errors.add(:configuration, 'must specify resource_uri for MCP resource operation')
+      end
+    when 'prompt'
+      if configuration['prompt_name'].blank?
+        errors.add(:configuration, 'must specify prompt_name for MCP prompt operation')
+      end
     end
   end
 
@@ -586,6 +680,13 @@ class AiWorkflowNode < ApplicationRecord
       configuration['conditions'].present?
     when 'delay'
       configuration['delay_seconds'].present? || configuration['delay_expression'].present?
+    when 'kb_article'
+      KB_ARTICLE_ACTIONS.include?(configuration['action'])
+    when 'page'
+      PAGE_ACTIONS.include?(configuration['action'])
+    when 'mcp_operation'
+      MCP_OPERATION_TYPES.include?(configuration['operation_type']) &&
+        configuration['mcp_server_id'].present?
     else
       true
     end

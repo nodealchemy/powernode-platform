@@ -31,8 +31,9 @@ module Mcp
 
     attr_reader :workflow_run, :workflow, :execution_context, :node_results
 
-    class ExecutionError < StandardError; end
-    class NodeExecutionError < StandardError; end
+    # Use unified exception hierarchy
+    ExecutionError = AiExceptions::ExecutionError
+    NodeExecutionError = AiExceptions::NodeExecutionError
 
     def initialize(workflow_run:, state_manager: nil, event_store: nil, **options)
       super(account: workflow_run.account, user: workflow_run.triggered_by_user, **options)

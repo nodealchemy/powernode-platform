@@ -21,7 +21,11 @@ class Billing::DunningProcessJob < BaseJob
 
     unless subscription_response['success']
       log_error "Failed to fetch subscription: #{subscription_response['error']}"
-      return { success: false, error: subscription_response['error'] }
+      raise BillingExceptions::SubscriptionError.new(
+        subscription_response['error'] || 'Failed to fetch subscription',
+        subscription_id: subscription_id,
+        action: 'dunning_fetch'
+      )
     end
 
     subscription_data = subscription_response['data']
@@ -30,7 +34,11 @@ class Billing::DunningProcessJob < BaseJob
 
     unless dunning_config
       log_error "Invalid dunning stage: #{dunning_stage}"
-      return { success: false, error: 'Invalid dunning stage' }
+      raise BillingExceptions::ValidationError.new(
+        "Invalid dunning stage: #{dunning_stage}",
+        field: 'dunning_stage',
+        value: dunning_stage
+      )
     end
 
     # Execute dunning action via API
@@ -53,11 +61,23 @@ class Billing::DunningProcessJob < BaseJob
       { success: true, action: dunning_config[:action], next_stage: dunning_stage + 1 }
     else
       log_error "Dunning action failed: #{result[:error]}"
-      { success: false, error: result[:error] }
+      raise BillingExceptions::DunningError.new(
+        result[:error] || 'Dunning action failed',
+        subscription_id: subscription_id,
+        attempt: dunning_stage
+      )
     end
+  rescue BillingExceptions::BillingError
+    # Re-raise billing exceptions for Sidekiq retry
+    raise
   rescue StandardError => e
     log_error "Dunning process job failed: #{e.message}"
-    { success: false, error: e.message }
+    raise BillingExceptions::DunningError.new(
+      "Dunning process failed: #{e.message}",
+      subscription_id: subscription_id,
+      attempt: dunning_stage,
+      details: { original_error: e.class.name }
+    )
   end
 
   private

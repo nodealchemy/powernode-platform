@@ -5,6 +5,8 @@ import { Button } from '@/shared/components/ui/Button';
 import { useForm, FormValidationRules } from '@/shared/hooks/useForm';
 import { Wrench, Save } from 'lucide-react';
 import { rolesApi, Role } from '@/features/roles/services/rolesApi';
+import { useNotifications } from '@/shared/hooks/useNotifications';
+import { getErrorMessage } from '@/shared/services/errorHandler';
 
 interface CreateWorkerModalProps {
   isOpen: boolean;
@@ -15,6 +17,8 @@ interface CreateWorkerModalProps {
 export const CreateWorkerModal: React.FC<CreateWorkerModalProps> = ({ isOpen, onClose, onCreate }) => {
   const [allRoles, setAllRoles] = useState<Role[]>([]);
   const [rolesLoading, setRolesLoading] = useState(true);
+  const [rolesError, setRolesError] = useState<string | null>(null);
+  const { showNotification } = useNotifications();
 
   const defaultValues: CreateWorkerData = {
     name: '',
@@ -40,17 +44,21 @@ export const CreateWorkerModal: React.FC<CreateWorkerModalProps> = ({ isOpen, on
   useEffect(() => {
     if (isOpen) {
       setRolesLoading(true);
+      setRolesError(null);
       rolesApi.getRoles()
         .then((response) => {
           setAllRoles(response.data || []);
         })
-        .catch((_error: unknown) => {
+        .catch((error: unknown) => {
+          const errorMessage = getErrorMessage(error);
+          setRolesError(errorMessage);
+          showNotification(`Failed to load roles: ${errorMessage}`, 'error');
         })
         .finally(() => {
           setRolesLoading(false);
         });
     }
-  }, [isOpen]);
+  }, [isOpen, showNotification]);
 
   // Account workers can only have specific user roles (matches backend Worker#assignable_roles)
   // Filter by role name - these are the allowed user roles for account workers
@@ -156,6 +164,10 @@ export const CreateWorkerModal: React.FC<CreateWorkerModalProps> = ({ isOpen, on
           {rolesLoading ? (
             <div className="flex items-center justify-center p-4 border border-theme rounded bg-theme-background">
               <span className="text-theme-secondary">Loading roles...</span>
+            </div>
+          ) : rolesError ? (
+            <div className="flex items-center justify-center p-4 border border-theme-error rounded bg-theme-error/10">
+              <span className="text-theme-error text-sm">{rolesError}</span>
             </div>
           ) : (
             <div className="space-y-2 max-h-32 overflow-y-auto border border-theme rounded p-3 bg-theme-background">

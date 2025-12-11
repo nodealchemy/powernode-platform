@@ -754,40 +754,67 @@ class AiWorkflow < ApplicationRecord
   end
 
   def has_circular_dependencies?
-    # Cycle detection that allows intentional loops (retry, loop, compensation edges)
-    # These edge types create valid feedback loops for quality improvement and saga patterns
-    visited = Set.new
-    rec_stack = Set.new
+    # Cycle detection that allows intentional loops and branching/merging patterns
+    # Intentional loops include:
+    # - Edges explicitly typed as: retry, loop, compensation
+    # - Edges from condition nodes that create feedback loops (revision patterns)
+    # - Edges that go "backwards" to enable iteration/retry workflows
+    #
+    # Uses Kahn's algorithm (topological sort) which properly handles DAGs with
+    # multiple paths that reconverge - these are NOT cycles.
 
-    start_nodes.each do |start_node|
-      return true if has_cycle_from_node(start_node.node_id, visited, rec_stack)
+    # Build adjacency list and in-degree count
+    in_degree = Hash.new(0)
+    adjacency = Hash.new { |h, k| h[k] = [] }
+
+    # Get all node IDs and build node info map
+    all_node_ids = ai_workflow_nodes.pluck(:node_id).to_set
+    node_types = ai_workflow_nodes.pluck(:node_id, :node_type).to_h
+
+    # Initialize in_degree for all nodes
+    all_node_ids.each { |id| in_degree[id] = 0 }
+
+    # Identify nodes that can have intentional feedback loops
+    # (condition, loop, split nodes can create valid revision/retry patterns)
+    feedback_source_types = %w[condition loop split].freeze
+
+    # Build the graph, excluding intentional loop edges
+    ai_workflow_edges.each do |edge|
+      next unless all_node_ids.include?(edge.source_node_id) && all_node_ids.include?(edge.target_node_id)
+
+      # Skip edges explicitly marked as intentional loops
+      next if %w[retry loop compensation feedback revision].include?(edge.edge_type)
+
+      # Skip "false" branch edges from condition nodes - these often create valid feedback loops
+      # A condition node returning "false" to retry/revise is a common workflow pattern
+      source_type = node_types[edge.source_node_id]
+      if feedback_source_types.include?(source_type)
+        # Check if this edge goes to an earlier node (feedback pattern)
+        # by checking source_handle - false/retry paths are intentional loops
+        next if edge.source_handle.to_s.match?(/false|retry|loop|back|revision/i)
+      end
+
+      adjacency[edge.source_node_id] << edge.target_node_id
+      in_degree[edge.target_node_id] += 1
     end
 
-    false
-  end
+    # Kahn's algorithm: start with nodes that have no incoming edges
+    queue = all_node_ids.select { |id| in_degree[id] == 0 }
+    processed_count = 0
 
-  def has_cycle_from_node(node_id, visited, rec_stack)
-    visited.add(node_id)
-    rec_stack.add(node_id)
+    while queue.any?
+      node_id = queue.shift
+      processed_count += 1
 
-    # Get all outgoing edges from this node
-    # Exclude intentional loop edges (retry, loop, compensation) from cycle detection
-    outgoing_edges = ai_workflow_edges.where(source_node_id: node_id)
-                                      .where.not(edge_type: %w[retry loop compensation])
-
-    outgoing_edges.each do |edge|
-      target_id = edge.target_node_id
-
-      if !visited.include?(target_id)
-        return true if has_cycle_from_node(target_id, visited, rec_stack)
-      elsif rec_stack.include?(target_id)
-        # Found a cycle - but only through non-intentional edges
-        return true
+      adjacency[node_id].each do |neighbor|
+        in_degree[neighbor] -= 1
+        queue << neighbor if in_degree[neighbor] == 0
       end
     end
 
-    rec_stack.delete(node_id)
-    false
+    # If we couldn't process all nodes, there's a real cycle
+    # (not just reconvergent branching paths or intentional feedback loops)
+    processed_count < all_node_ids.size
   end
 
   def calculate_success_rate(runs)

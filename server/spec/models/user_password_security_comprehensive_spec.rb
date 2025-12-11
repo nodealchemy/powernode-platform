@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
 
 RSpec.describe User, 'Comprehensive Password Security', type: :model do
@@ -59,7 +61,7 @@ RSpec.describe User, 'Comprehensive Password Security', type: :model do
       user.password = original_password
       user.password_confirmation = original_password
       expect(user).not_to be_valid
-      expect(user.errors[:password].first).to include('cannot be one of your last')
+      expect(user.errors[:password].first).to include('has been used recently')
     end
 
     it 'creates password history entries on password change' do

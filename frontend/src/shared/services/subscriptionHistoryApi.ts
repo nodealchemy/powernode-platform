@@ -1,4 +1,5 @@
 import { api } from '@/shared/services/api';
+import { getErrorMessage } from '@/shared/utils/errorHandling';
 
 export interface SubscriptionHistoryEvent {
   id: string;
@@ -24,10 +25,19 @@ export interface SubscriptionHistoryResponse {
   total_events: number;
 }
 
+export interface SubscriptionHistoryApiResponse extends SubscriptionHistoryResponse {
+  error?: string;
+}
+
 export const subscriptionHistoryApi = {
-  async getHistory(): Promise<SubscriptionHistoryResponse> {
-    const response = await api.get('/api/v1/subscriptions/history');
-    return response.data.data;
+  async getHistory(): Promise<SubscriptionHistoryApiResponse> {
+    try {
+      const response = await api.get('/api/v1/subscriptions/history');
+      return response.data.data;
+    } catch (error: unknown) {
+      const message = getErrorMessage(error);
+      return { current_subscription: null, history: [], total_events: 0, error: message };
+    }
   },
 
   formatEventType(eventType: string): string {

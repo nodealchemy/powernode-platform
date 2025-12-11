@@ -161,11 +161,53 @@
   --node-end-bg: #f87171;            /* red-400 */
   --node-start-bg: #22c55e;          /* green-500 */
   --node-prompt-template-bg: #a855f7; /* purple-500 */
+  --node-human-approval-bg: #f97316; /* orange-500 */
+  --node-sub-workflow-bg: #6366f1;   /* indigo-500 */
+
+  /* Consolidated Node Type Colors (24 total node types) */
+  /* KB Article - unified node for create/read/update/search/publish actions */
   --node-kb-article-bg: #10b981;     /* emerald-500 */
-  --node-page-bg: #3b82f6;           /* blue-500 */
+  --node-kb-article-text: #ffffff;
+  --node-kb-article-border: #059669; /* emerald-600 */
+
+  /* Page - unified node for create/read/update/publish actions */
+  --node-page-bg: #14b8a6;           /* teal-500 */
+  --node-page-text: #ffffff;
+  --node-page-border: #0d9488;       /* teal-600 */
+
+  /* MCP Operation - unified node for tool/resource/prompt operations */
+  --node-mcp-operation-bg: #8b5cf6;  /* violet-500 */
+  --node-mcp-operation-text: #ffffff;
+  --node-mcp-operation-border: #7c3aed; /* violet-600 */
+
+  /* Legacy colors (deprecated - kept for backwards compatibility during migration) */
   --node-mcp-tool-bg: #8b5cf6;       /* violet-500 */
   --node-mcp-resource-bg: #06b6d4;   /* cyan-500 */
   --node-mcp-prompt-bg: #f59e0b;     /* amber-500 */
+
+  /* ===== WORKFLOW HANDLE COLORS ===== */
+  /* Semantic colors for workflow node connection handles */
+  --handle-default: #000000;         /* black - standard input/output handles */
+  --handle-input: #000000;           /* black - input/entry point */
+  --handle-output: #000000;          /* black - default output */
+  --handle-true: #000000;            /* black - conditional true path */
+  --handle-false: #ef4444;           /* red-500 - conditional false/error path */
+  --handle-loop-back: #f59e0b;       /* amber-500 - loop continuation */
+  --handle-loop-exit: #f59e0b;       /* amber-500 - loop exit */
+
+  /* ===== WORKFLOW EDGE COLORS ===== */
+  /* Colors for workflow edges based on their semantic meaning */
+  --edge-default: var(--color-neutral-400);        /* #94a3b8 - default/fallback */
+  --edge-flow: var(--color-neutral-500);           /* #64748b - standard flow */
+  --edge-true: var(--color-success-500);           /* #22c55e - condition true path */
+  --edge-false: var(--color-error-500);            /* #ef4444 - condition false path */
+  --edge-success: var(--color-success-500);        /* #22c55e - success outcome */
+  --edge-error: var(--color-error-500);            /* #ef4444 - error outcome */
+  --edge-loop: #8b5cf6;                            /* violet-500 - loop body/continue */
+  --edge-exit: var(--color-warning-500);           /* #f59e0b - loop exit */
+  --edge-branch-1: var(--color-primary-500);       /* #3b82f6 - first branch */
+  --edge-branch-2: #06b6d4;                        /* cyan-500 - second branch */
+  --edge-branch-3: #ec4899;                        /* pink-500 - third branch */
 }
 
 /* ===== LIGHT THEME ===== */
@@ -403,6 +445,19 @@
 .bg-theme-warning { background-color: var(--color-warning-background); }
 .bg-theme-error { background-color: var(--color-error-background); }
 .bg-theme-info { background-color: var(--color-info-background); }
+
+/* Workflow Edge Background Utilities (solid colors for edge labels) */
+.bg-theme-edge-default { background-color: var(--edge-default); }
+.bg-theme-edge-flow { background-color: var(--edge-flow); }
+.bg-theme-edge-true { background-color: var(--edge-true); }
+.bg-theme-edge-false { background-color: var(--edge-false); }
+.bg-theme-edge-success { background-color: var(--edge-success); }
+.bg-theme-edge-error { background-color: var(--edge-error); }
+.bg-theme-edge-loop { background-color: var(--edge-loop); }
+.bg-theme-edge-exit { background-color: var(--edge-exit); }
+.bg-theme-edge-branch-1 { background-color: var(--edge-branch-1); }
+.bg-theme-edge-branch-2 { background-color: var(--edge-branch-2); }
+.bg-theme-edge-branch-3 { background-color: var(--edge-branch-3); }
 
 /* Card Theme */
 .card-theme {

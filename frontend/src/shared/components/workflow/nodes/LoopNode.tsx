@@ -2,11 +2,16 @@ import React from 'react';
 import { NodeProps } from '@xyflow/react';
 import { RotateCcw, Hash, Infinity } from 'lucide-react';
 import { DynamicNodeHandles } from './DynamicNodeHandles';
+import { NodeActionsMenu } from '../NodeActionsMenu';
+import { useWorkflowContext } from '../WorkflowContext';
+import { LoopNode as LoopNodeType } from '@/shared/types/workflow';
 
-export const LoopNode: React.FC<NodeProps<any>> = ({ 
-  data, 
-  selected 
+export const LoopNode: React.FC<NodeProps<LoopNodeType>> = ({
+  id,
+  data,
+  selected
 }) => {
+  const { onOpenChat } = useWorkflowContext();
   const getLoopIcon = () => {
     switch (data.configuration?.loopType) {
       case 'count':
@@ -33,64 +38,67 @@ export const LoopNode: React.FC<NodeProps<any>> = ({
 
   return (
     <div className={`
-      relative bg-theme-surface border-2 rounded-lg p-4 w-48 shadow-lg
-      ${selected ? 'border-theme-interactive-primary ring-2 ring-theme-interactive-primary/20' : 'border-theme-warning'}
+      group relative bg-theme-surface border-2 rounded-lg w-64 shadow-lg
+      ${selected ? 'border-theme-interactive-primary ring-2 ring-theme-interactive-primary/20' : 'border-theme hover:border-theme-interactive-primary/50'}
       hover:shadow-xl transition-all duration-200
     `}>
       {/* Header */}
-      <div className="flex items-center gap-3 mb-3">
-        <div className="w-8 h-8 bg-theme-warning rounded-lg flex items-center justify-center text-white">
+      <div className="px-4 py-3 rounded-t-lg bg-node-loop">
+        <div className="flex items-center justify-between text-white">
+          <div className="flex items-center gap-2">
+            <RotateCcw className="h-4 w-4" />
+            <span className="font-medium text-sm">LOOP</span>
+          </div>
           {getLoopIcon()}
-        </div>
-        <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-theme-primary truncate">
-            {data.name || 'Loop'}
-          </h3>
-          <p className="text-xs text-theme-warning font-medium">
-            {getLoopLabel()}
-          </p>
         </div>
       </div>
 
-      {/* Description */}
-      {data.description && (
-        <p className="text-sm text-theme-primary mb-3 line-clamp-2">
-          {data.description}
-        </p>
-      )}
+      {/* Content */}
+      <div className="p-4 space-y-3">
+        <div>
+          <h3 className="font-medium text-theme-primary text-sm truncate">
+            {data.name || 'Loop'}
+          </h3>
+          {data.description && (
+            <p className="text-xs text-theme-secondary mt-1 line-clamp-2">
+              {data.description}
+            </p>
+          )}
+        </div>
 
-      {/* Configuration Details */}
-      <div className="space-y-2">
+        {/* Loop Type Label */}
+        <div className="text-xs text-node-loop font-medium">
+          {getLoopLabel()}
+        </div>
+
+        {/* Configuration Details */}
         {data.configuration?.condition && (
           <div className="text-xs">
             <span className="text-theme-muted">Condition:</span>
             <span className="ml-1 text-theme-secondary font-mono">
-              {data.configuration.condition.length > 30 
-                ? `${data.configuration.condition.substring(0, 30)}...`
+              {data.configuration.condition.length > 25
+                ? `${data.configuration.condition.substring(0, 25)}...`
                 : data.configuration.condition
               }
             </span>
           </div>
         )}
-
-        {data.configuration?.breakOnError && (
-          <div className="text-xs">
-            <span className="text-theme-muted">Break on error:</span>
-            <span className="ml-1 text-theme-warning font-semibold">Yes</span>
-          </div>
-        )}
       </div>
 
-      {/* Status Indicator */}
-      <div className="absolute top-2 right-2">
-        <div className="w-2 h-2 bg-theme-warning rounded-full animate-pulse" />
-      </div>
+      {/* Node Actions Menu */}
+      <NodeActionsMenu
+        nodeId={id}
+        nodeType="loop"
+        nodeName={data.name}
+        isSelected={selected}
+        hasErrors={false}
+        onOpenChat={onOpenChat}
+      />
 
       {/* Dynamic Handles for Loop Node */}
       <DynamicNodeHandles
         nodeType="loop"
-        nodeColor="bg-theme-warning"
-        orientation={data?.handleOrientation || 'vertical'}
+        handlePositions={data?.handlePositions}
       />
     </div>
   );

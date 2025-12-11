@@ -83,18 +83,64 @@ class Webhooks::PaypalController < ApplicationController
 
   def extract_account_id_from_event
     # Try to extract account ID from PayPal event
-    case @event_data["event_type"]
+    event_type = @event_data["event_type"]
+    event_id = @event_data["id"]
+    account_id = nil
+    resource_id = nil
+
+    case event_type
     when /^BILLING\.SUBSCRIPTION\./
-      subscription_id = @event_data.dig("resource", "id")
-      subscription = Subscription.find_by(paypal_subscription_id: subscription_id)
-      subscription&.account_id
+      resource_id = @event_data.dig("resource", "id")
+      if resource_id.present?
+        subscription = Subscription.find_by(paypal_subscription_id: resource_id)
+        if subscription.nil?
+          Rails.logger.warn(
+            "PayPal webhook received for unknown subscription: " \
+            "event_type=#{event_type} " \
+            "event_id=#{event_id} " \
+            "paypal_subscription_id=#{resource_id} " \
+            "- webhook will be recorded without account association"
+          )
+        else
+          account_id = subscription.account_id
+        end
+      else
+        Rails.logger.debug "PayPal subscription webhook missing resource.id"
+      end
     when /^PAYMENT\./
       # Extract from payment resource
       custom_id = @event_data.dig("resource", "custom_id")
-      # Assuming custom_id contains account_id
-      custom_id
+      if custom_id.present?
+        # Validate custom_id looks like a UUID before using it
+        if custom_id.match?(/\A[0-9a-f-]{36}\z/i)
+          # Verify the account exists
+          account = Account.find_by(id: custom_id)
+          if account.nil?
+            Rails.logger.warn(
+              "PayPal payment webhook references unknown account: " \
+              "event_type=#{event_type} " \
+              "event_id=#{event_id} " \
+              "custom_id=#{custom_id} " \
+              "- webhook will be recorded without account association"
+            )
+          else
+            account_id = custom_id
+          end
+        else
+          Rails.logger.warn(
+            "PayPal payment webhook has invalid custom_id format: " \
+            "event_type=#{event_type} " \
+            "event_id=#{event_id} " \
+            "custom_id=#{custom_id}"
+          )
+        end
+      else
+        Rails.logger.debug "PayPal payment webhook missing resource.custom_id"
+      end
     else
-      nil
+      Rails.logger.debug "PayPal webhook event type '#{event_type}' not mapped for account extraction"
     end
+
+    account_id
   end
 end

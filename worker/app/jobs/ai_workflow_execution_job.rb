@@ -77,7 +77,7 @@ class AiWorkflowExecutionJob < BaseJob
         log_error("Rapid job creation detected for workflow #{workflow_run_id}: #{current_count} jobs in 1 minute")
         return true
       end
-    rescue => redis_error
+    rescue StandardError => redis_error
       log_warn("Redis unavailable for loop detection: #{redis_error.message}")
     end
 

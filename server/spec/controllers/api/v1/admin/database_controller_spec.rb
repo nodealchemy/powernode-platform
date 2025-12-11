@@ -11,8 +11,16 @@ RSpec.describe Api::V1::Admin::DatabaseController, type: :controller do
   before do
     # Grant system.admin permission to admin user
     admin_role = Role.find_or_create_by!(name: 'system.admin') do |role|
-      role.permissions = Permission.where(name: 'system.admin').presence || [Permission.create!(name: 'system.admin')]
+      role.display_name = 'System Administrator'
+      role.role_type = 'admin'
+      role.description = 'Full system administration access'
     end
+    # Ensure the permission exists and is assigned
+    system_admin_permission = Permission.find_or_create_by!(name: 'system.admin') do |p|
+      p.description = 'Full system admin access'
+      p.category = 'admin'
+    end
+    admin_role.permissions << system_admin_permission unless admin_role.permissions.include?(system_admin_permission)
     admin_user.roles << admin_role unless admin_user.roles.include?(admin_role)
 
     # Set worker token in environment

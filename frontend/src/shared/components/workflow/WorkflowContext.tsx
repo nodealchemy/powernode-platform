@@ -7,6 +7,8 @@ export interface WorkflowContextType {
   operationsAgent?: AiAgent | null;
   workflowId?: string;
   onNodeUpdate?: (nodeId: string, updates: Partial<AiWorkflowNode>) => void;
+  agents?: AiAgent[];
+  getAgentName?: (agentId: string) => string | undefined;
 }
 
 const WorkflowContext = createContext<WorkflowContextType>({});

@@ -1,31 +1,22 @@
 import React from 'react';
-import { NodeProps, useEdges } from '@xyflow/react';
-import { Bot, Brain, Cpu, Sparkles, OctagonX } from 'lucide-react';
+import { NodeProps } from '@xyflow/react';
+import { Bot } from 'lucide-react';
 import { DynamicNodeHandles } from './DynamicNodeHandles';
 import { NodeActionsMenu } from '../NodeActionsMenu';
 import { useWorkflowContext } from '../WorkflowContext';
 import { NodeStatusBadge } from '../ExecutionOverlay';
+import { AiAgentNode as AiAgentNodeType } from '@/shared/types/workflow';
 
-export const AiAgentNode: React.FC<NodeProps<any>> = ({
+export const AiAgentNode: React.FC<NodeProps<AiAgentNodeType>> = ({
   id,
   data,
   selected
 }) => {
-  const edges = useEdges();
-  const hasOutboundConnection = edges.some(edge => edge.source === id);
-  const { onOpenChat } = useWorkflowContext();
-  const getProviderIcon = () => {
-    switch (data.configuration?.provider) {
-      case 'openai':
-        return <Brain className="h-4 w-4" />;
-      case 'anthropic':
-        return <Sparkles className="h-4 w-4" />;
-      case 'google':
-        return <Cpu className="h-4 w-4" />;
-      default:
-        return <Bot className="h-4 w-4" />;
-    }
-  };
+  const { onOpenChat, getAgentName } = useWorkflowContext();
+
+  // Resolve agent name from configuration or context
+  const agentName = data.configuration?.agent_name ||
+    (data.configuration?.agent_id && getAgentName?.(data.configuration.agent_id));
 
   const getProviderColor = () => {
     switch (data.configuration?.provider) {
@@ -55,10 +46,53 @@ export const AiAgentNode: React.FC<NodeProps<any>> = ({
 
   return (
     <div className={`
-      group relative bg-theme-surface border-2 rounded-lg p-4 w-48 h-48 shadow-lg overflow-hidden
-      ${selected ? 'border-theme-interactive-primary ring-2 ring-theme-interactive-primary/20' : 'border-theme-interactive-primary'}
+      group relative bg-theme-surface border-2 rounded-lg w-64 shadow-lg
+      ${selected ? 'border-theme-interactive-primary ring-2 ring-theme-interactive-primary/20' : 'border-theme hover:border-theme-interactive-primary/50'}
       hover:shadow-xl transition-all duration-200
     `}>
+      {/* Header */}
+      <div className="px-4 py-3 rounded-t-lg bg-node-ai-agent">
+        <div className="flex items-center gap-2 text-white">
+          <Bot className="h-4 w-4" />
+          <span className="font-medium text-sm">AI AGENT</span>
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="p-4 space-y-3">
+        <div>
+          <h3 className="font-medium text-theme-primary text-sm truncate">
+            {data.name || 'AI Agent'}
+          </h3>
+          {data.description && (
+            <p className="text-xs text-theme-secondary mt-1 line-clamp-2">
+              {data.description}
+            </p>
+          )}
+        </div>
+
+        {/* Provider Badge */}
+        <span className={`inline-block text-xs font-medium ${getProviderColor()}`}>
+          {getProviderName()}
+        </span>
+
+        {/* Agent Name */}
+        {agentName && (
+          <div className="text-xs">
+            <span className="text-theme-muted">Agent:</span>
+            <span className="ml-1 text-theme-secondary">{agentName}</span>
+          </div>
+        )}
+
+        {/* Model */}
+        {data.configuration?.model && (
+          <div className="text-xs">
+            <span className="text-theme-muted">Model:</span>
+            <span className="ml-1 text-theme-secondary font-mono">{data.configuration.model}</span>
+          </div>
+        )}
+      </div>
+
       {/* Execution Status Badge */}
       {data.executionStatus && (
         <NodeStatusBadge
@@ -68,79 +102,21 @@ export const AiAgentNode: React.FC<NodeProps<any>> = ({
         />
       )}
 
-      {/* End Node Indicator */}
-      {data.isEndNode && (
-        <div className="absolute -top-2 -left-2 w-6 h-6 bg-theme-danger rounded-lg border-2 border-theme-surface shadow-sm flex items-center justify-center">
-          <OctagonX className="h-4 w-4 text-white" />
-        </div>
-      )}
-
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-2">
-        <div className="w-8 h-8 bg-theme-interactive-primary rounded-lg flex items-center justify-center text-white">
-          {getProviderIcon()}
-        </div>
-        <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-theme-primary truncate text-sm">
-            {data.name || 'AI Agent'}
-          </h3>
-          <p className={`text-xs font-medium ${getProviderColor()}`}>
-            {getProviderName()}
-          </p>
-        </div>
-      </div>
-
-      {/* Description */}
-      {data.description && (
-        <p className="text-xs text-theme-primary mb-2 line-clamp-2">
-          {data.description}
-        </p>
-      )}
-
-      {/* Configuration Details - scrollable section */}
-      <div className="space-y-1 overflow-y-auto max-h-20 pr-1 custom-scrollbar">
-        {(data.configuration?.agent_name || data.configuration?.agent_id) && (
-          <div className="text-xs">
-            <span className="text-theme-primary font-medium">Agent:</span>
-            <span className="ml-1 text-theme-secondary truncate block">
-              {data.configuration.agent_name || `ID: ${data.configuration.agent_id?.substring(0, 8)}...`}
-            </span>
-          </div>
-        )}
-
-        {data.configuration?.model && (
-          <div className="text-xs">
-            <span className="text-theme-primary font-medium">Model:</span>
-            <span className="ml-1 text-theme-secondary font-mono truncate block">
-              {data.configuration.model}
-            </span>
-          </div>
-        )}
-
-        {!data.configuration?.agent_id && (
-          <div className="text-xs text-theme-warning">
-            ⚠️ No agent selected
-          </div>
-        )}
-      </div>
-
       {/* Node Actions Menu */}
       <NodeActionsMenu
         nodeId={id}
         nodeType="ai_agent"
         nodeName={data.name}
         isSelected={selected}
-        hasErrors={false} // Could be based on execution state
+        hasErrors={false}
         onOpenChat={onOpenChat}
       />
 
       {/* Auto-positioning Handles */}
       <DynamicNodeHandles
         nodeType="ai_agent"
-        nodeColor="bg-theme-interactive-primary"
         isEndNode={data.isEndNode}
-        hasOutboundConnection={hasOutboundConnection}
-        orientation={data.handleOrientation || data.configuration?.orientation || 'vertical'}
+        handlePositions={data.handlePositions}
       />
     </div>
   );

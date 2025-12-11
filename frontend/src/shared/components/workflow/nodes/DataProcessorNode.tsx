@@ -1,31 +1,13 @@
 import React from 'react';
-import { Handle, Position, NodeProps } from '@xyflow/react';
-import { Cpu, Filter, Shuffle, GitMerge, SplitSquareHorizontal, Calculator, Zap, TrendingUp } from 'lucide-react';
+import { NodeProps } from '@xyflow/react';
+import { Cpu } from 'lucide-react';
+import { DynamicNodeHandles } from './DynamicNodeHandles';
+import { DataProcessorNode as DataProcessorNodeType } from '@/shared/types/workflow';
 
-export const DataProcessorNode: React.FC<NodeProps<any>> = ({
+export const DataProcessorNode: React.FC<NodeProps<DataProcessorNodeType>> = ({
   data,
   selected
 }) => {
-  const getOperationIcon = () => {
-    switch (data.configuration?.operation) {
-      case 'filter':
-        return <Filter className="h-4 w-4" />;
-      case 'transform':
-        return <Shuffle className="h-4 w-4" />;
-      case 'merge':
-        return <GitMerge className="h-4 w-4" />;
-      case 'split':
-        return <SplitSquareHorizontal className="h-4 w-4" />;
-      case 'calculate':
-        return <Calculator className="h-4 w-4" />;
-      case 'aggregate':
-        return <TrendingUp className="h-4 w-4" />;
-      case 'normalize':
-        return <Zap className="h-4 w-4" />;
-      default:
-        return <Cpu className="h-4 w-4" />;
-    }
-  };
 
   const getOperationColor = () => {
     switch (data.configuration?.operation) {
@@ -38,13 +20,13 @@ export const DataProcessorNode: React.FC<NodeProps<any>> = ({
       case 'split':
         return 'text-theme-warning bg-theme-warning/20';
       case 'calculate':
-        return 'text-cyan-600 bg-cyan-500/20';
+        return 'text-theme-info bg-theme-info/20';
       case 'aggregate':
-        return 'text-pink-600 bg-pink-500/20';
+        return 'text-theme-danger bg-theme-danger/20';
       case 'normalize':
         return 'text-theme-warning bg-theme-warning/20';
       default:
-        return 'text-violet-600 bg-violet-500/20';
+        return 'text-node-data-processor bg-node-data-processor/20';
     }
   };
 
@@ -84,98 +66,49 @@ export const DataProcessorNode: React.FC<NodeProps<any>> = ({
 
   return (
     <div className={`
-      relative bg-theme-surface border-2 rounded-lg p-4 w-48 shadow-lg
-      ${selected ? 'border-theme-interactive-primary ring-2 ring-theme-interactive-primary/20' : 'border-violet-500'}
+      relative bg-theme-surface border-2 rounded-lg w-64 shadow-lg
+      ${selected ? 'border-theme-interactive-primary ring-2 ring-theme-interactive-primary/20' : 'border-theme hover:border-theme-interactive-primary/50'}
       hover:shadow-xl transition-all duration-200
     `}>
       {/* Header */}
-      <div className="flex items-center gap-3 mb-3">
-        <div className="w-8 h-8 bg-violet-500 rounded-lg flex items-center justify-center text-white">
+      <div className="px-4 py-3 rounded-t-lg bg-node-data-processor">
+        <div className="flex items-center gap-2 text-white">
           <Cpu className="h-4 w-4" />
+          <span className="font-medium text-sm">DATA PROCESSOR</span>
         </div>
-        <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-theme-primary truncate">
+      </div>
+
+      {/* Content */}
+      <div className="p-4 space-y-3">
+        <div>
+          <h3 className="font-medium text-theme-primary text-sm truncate">
             {data.name || 'Data Processor'}
           </h3>
-          <div className="flex items-center gap-2">
-            {data.configuration?.operation && (
-              <span className={`
-                text-xs font-medium px-2 py-0.5 rounded-full
-                ${getOperationColor()}
-              `}>
-                {getOperationLabel()}
-              </span>
-            )}
-            {data.configuration?.parallel && (
-              <span className="text-xs text-theme-success font-medium">PARALLEL</span>
-            )}
-          </div>
+          {data.description && (
+            <p className="text-xs text-theme-secondary mt-1 line-clamp-2">
+              {data.description}
+            </p>
+          )}
         </div>
-      </div>
 
-      {/* Description */}
-      {data.description && (
-        <p className="text-sm text-theme-primary mb-3 line-clamp-2">
-          {data.description}
-        </p>
-      )}
-
-      {/* Format Display */}
-      <div className="mb-3 p-2 bg-theme-background border border-theme-border rounded">
-        <div className="text-xs text-theme-muted mb-1">Data Format:</div>
-        <div className="text-sm text-theme-secondary font-mono">
-          {getFormatDisplay()}
-        </div>
-      </div>
-
-      {/* Configuration Details */}
-      <div className="space-y-1 text-xs">
-        {data.configuration?.processingRules && data.configuration.processingRules.length > 0 && (
-          <div>
-            <span className="text-theme-muted">Rules:</span>
-            <span className="ml-1 text-theme-secondary">
-              {data.configuration.processingRules.length} rule{data.configuration.processingRules.length !== 1 ? 's' : ''}
-            </span>
-          </div>
+        {/* Operation Badge */}
+        {data.configuration?.operation && (
+          <span className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full ${getOperationColor()}`}>
+            {getOperationLabel()}
+          </span>
         )}
-        {data.configuration?.batchSize && (
-          <div>
-            <span className="text-theme-muted">Batch size:</span>
-            <span className="ml-1 text-theme-secondary">
-              {data.configuration.batchSize}
-            </span>
-          </div>
-        )}
-      </div>
 
-      {/* Operation Icon Indicator */}
-      <div className="absolute top-2 right-2">
-        <div className="w-6 h-6 bg-violet-500/10 rounded-full flex items-center justify-center text-violet-600">
-          {getOperationIcon()}
+        {/* Format Display */}
+        <div className="text-xs">
+          <span className="text-theme-muted">Format:</span>
+          <span className="ml-1 text-theme-secondary font-mono">{getFormatDisplay()}</span>
         </div>
       </div>
 
-      {/* Processing Indicator */}
-      <div className="absolute bottom-2 right-2">
-        <div className="flex space-x-1">
-          <div className="w-1 h-3 bg-violet-500 rounded-full animate-pulse" style={{ animationDelay: '0ms' }} />
-          <div className="w-1 h-3 bg-violet-500 rounded-full animate-pulse" style={{ animationDelay: '100ms' }} />
-          <div className="w-1 h-3 bg-violet-500 rounded-full animate-pulse" style={{ animationDelay: '200ms' }} />
-        </div>
-      </div>
-
-      {/* Handles - orientation-aware */}
-      <Handle
-        type="target"
-        position={data.handleOrientation === 'horizontal' ? Position.Left : Position.Top}
-        className="w-3 h-3 bg-violet-500 border-2 border-theme-surface"
-        style={data.handleOrientation === 'horizontal' ? { left: -6 } : { top: -6 }}
-      />
-      <Handle
-        type="source"
-        position={data.handleOrientation === 'horizontal' ? Position.Right : Position.Bottom}
-        className="w-3 h-3 bg-violet-500 border-2 border-theme-surface"
-        style={data.handleOrientation === 'horizontal' ? { right: -6 } : { bottom: -6 }}
+      {/* Dynamic Handles */}
+      <DynamicNodeHandles
+        nodeType="data_processor"
+        handlePositions={data.handlePositions}
       />
     </div>
   );

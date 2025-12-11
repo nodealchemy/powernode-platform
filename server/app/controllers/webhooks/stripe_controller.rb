@@ -61,28 +61,42 @@ class Webhooks::StripeController < ApplicationController
 
   def extract_account_id_from_event
     # Try to extract account ID from various event object metadata
+    customer_id = nil
+    account = nil
+
     case @event.type
     when /^customer\./
       customer_id = @event.data.object.id
       account = Account.find_by(stripe_customer_id: customer_id)
-      account&.id
     when /^invoice\./
       invoice = @event.data.object
       customer_id = invoice.customer
-      account = Account.find_by(stripe_customer_id: customer_id)
-      account&.id
+      account = Account.find_by(stripe_customer_id: customer_id) if customer_id.present?
     when /^payment_intent\./
       payment_intent = @event.data.object
       customer_id = payment_intent.customer
-      account = Account.find_by(stripe_customer_id: customer_id)
-      account&.id
+      account = Account.find_by(stripe_customer_id: customer_id) if customer_id.present?
     when /^subscription\./
       subscription = @event.data.object
       customer_id = subscription.customer
-      account = Account.find_by(stripe_customer_id: customer_id)
-      account&.id
+      account = Account.find_by(stripe_customer_id: customer_id) if customer_id.present?
     else
-      nil
+      # Event type not mapped to account extraction
+      Rails.logger.debug "Stripe webhook event type '#{@event.type}' not mapped for account extraction"
+      return nil
     end
+
+    # Log warning if customer exists but no matching account found
+    if customer_id.present? && account.nil?
+      Rails.logger.warn(
+        "Stripe webhook received for unknown customer: " \
+        "event_type=#{@event.type} " \
+        "event_id=#{@event.id} " \
+        "customer_id=#{customer_id} " \
+        "- webhook will be recorded without account association"
+      )
+    end
+
+    account&.id
   end
 end

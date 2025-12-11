@@ -3,7 +3,7 @@ import {
   Home, BarChart3, Users, User, Settings, CreditCard,
   FileText, Package, UserCheck, Store, Smartphone,
   HelpCircle, LogOut, Bot, Brain, MessageSquare,
-  HardDrive, Workflow, Activity, Server
+  HardDrive, Workflow, Activity, Server, FileStack
 } from 'lucide-react';
 import { NavigationConfig } from '../types/navigation';
 
@@ -80,13 +80,22 @@ export const defaultNavigationConfig: NavigationConfig = {
           order: 4
         },
         {
+          id: 'ai-templates',
+          name: 'Templates',
+          href: '/app/ai/workflows/templates',
+          icon: FileStack,
+          description: 'Pre-built workflow templates',
+          permissions: ['ai.workflows.read'],
+          order: 5
+        },
+        {
           id: 'ai-conversations',
           name: 'Conversations',
           href: '/app/ai/conversations',
           icon: MessageSquare,
           description: 'AI-powered conversations',
           permissions: ['ai.conversations.read'],
-          order: 5
+          order: 6
         },
         {
           id: 'ai-analytics',
@@ -95,7 +104,7 @@ export const defaultNavigationConfig: NavigationConfig = {
           icon: BarChart3,
           description: 'AI performance insights',
           permissions: ['ai.analytics.read'],
-          order: 6
+          order: 7
         },
         {
           id: 'ai-monitoring',
@@ -104,7 +113,7 @@ export const defaultNavigationConfig: NavigationConfig = {
           icon: Activity,
           description: 'System health and alerts',
           permissions: ['ai.monitoring.view', 'admin.access'],
-          order: 7
+          order: 8
         },
         {
           id: 'ai-mcp',
@@ -113,7 +122,7 @@ export const defaultNavigationConfig: NavigationConfig = {
           icon: Server,
           description: 'Browse MCP servers and tools',
           permissions: ['ai_orchestration.read', 'admin.access'],
-          order: 8
+          order: 9
         }
       ],
       permissions: ['ai.providers.read', 'ai.agents.read', 'ai.workflows.read', 'ai.conversations.read'],

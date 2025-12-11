@@ -144,23 +144,19 @@ class Api::V1::Admin::ValidationRulesController < ApplicationController
 
   def validation_rule_params
     params.require(:validation_rule).permit(
-      :code,
       :name,
       :description,
       :category,
       :severity,
       :enabled,
       :auto_fixable,
-      :fix_description,
-      validation_logic: {},
-      metadata: {}
+      configuration: {}
     )
   end
 
   def serialize_validation_rule(rule, include_details: false)
     result = {
       id: rule.id,
-      code: rule.code,
       name: rule.name,
       description: rule.description,
       category: rule.category,
@@ -173,9 +169,7 @@ class Api::V1::Admin::ValidationRulesController < ApplicationController
 
     if include_details
       result.merge!({
-        fix_description: rule.fix_description,
-        validation_logic: rule.validation_logic,
-        metadata: rule.metadata
+        configuration: rule.configuration
       })
     end
 

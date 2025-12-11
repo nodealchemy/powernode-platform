@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Activity,
   AlertTriangle,
@@ -39,10 +40,13 @@ import { AgentPerformancePanel } from '@/features/ai-monitoring/components/Agent
 import { ConversationAnalytics } from '@/features/ai-monitoring/components/ConversationAnalytics';
 import { AlertManagementCenter } from '@/features/ai-monitoring/components/AlertManagementCenter';
 import { ResourceUtilizationChart } from '@/features/ai-monitoring/components/ResourceUtilizationChart';
+import { WorkflowMonitoringPanel } from '@/features/ai-monitoring/components/WorkflowMonitoringPanel';
+import { AiErrorBoundary } from '@/shared/components/error/AiErrorBoundary';
 
 export const AIMonitoringPage: React.FC = () => {
   const { currentUser } = useAuth();
   const { addNotification } = useNotifications();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   // Use ref to avoid infinite loop from addNotification dependency
   const addNotificationRef = useRef(addNotification);
@@ -64,8 +68,23 @@ export const AIMonitoringPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
 
-  // Monitoring configuration
-  const [activeTab, setActiveTab] = useState('overview');
+  // Monitoring configuration - read from URL params
+  const validTabs = ['overview', 'providers', 'agents', 'workflows', 'conversations', 'alerts'];
+  const tabFromUrl = searchParams.get('tab');
+  const activeTab = validTabs.includes(tabFromUrl || '') ? tabFromUrl! : 'overview';
+
+  const setActiveTab = useCallback((tab: string) => {
+    setSearchParams(prev => {
+      const newParams = new URLSearchParams(prev);
+      if (tab === 'overview') {
+        newParams.delete('tab');
+      } else {
+        newParams.set('tab', tab);
+      }
+      return newParams;
+    });
+  }, [setSearchParams]);
+
   const [monitoringInterval, setMonitoringInterval] = useState<MonitoringInterval>('normal');
   const [timeRange, setTimeRange] = useState('1h');
   const [isRealTimeEnabled, setIsRealTimeEnabled] = useState(false);
@@ -221,8 +240,39 @@ export const AIMonitoringPage: React.FC = () => {
         })));
       }
 
-      // Set agents data from dashboard
-      if (dashboardResponse.agents) {
+      // Set agents data from dashboard - use individual agents if available
+      if (dashboardResponse.agentsList && dashboardResponse.agentsList.length > 0) {
+        // Transform individual agents from the dashboard
+        setAgents(dashboardResponse.agentsList.map(a => ({
+          id: a.id,
+          name: a.name,
+          status: a.status === 'active' ? 'active' : a.status === 'error' ? 'error' : 'inactive',
+          health_score: a.success_rate || 100,
+          performance: {
+            success_rate: a.success_rate || 100,
+            avg_response_time: a.avg_execution_time || 0,
+            throughput: 0,
+            error_rate: a.success_rate ? (100 - a.success_rate) : 0
+          },
+          usage: {
+            executions_count: a.executions || 0,
+            tokens_consumed: 0,
+            cost: a.total_cost || 0
+          },
+          executions: {
+            running: 0,
+            completed: a.executions || 0,
+            failed: 0,
+            cancelled: 0
+          },
+          provider_distribution: [],
+          alerts: [],
+          last_execution: null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })));
+      } else if (dashboardResponse.agents && dashboardResponse.agents.total > 0) {
+        // Fallback to summary agent if no individual agents list
         const successRate = dashboardResponse.agents.total > 0
           ? ((dashboardResponse.agents.total - dashboardResponse.agents.errored) / dashboardResponse.agents.total * 100)
           : 100;
@@ -429,12 +479,13 @@ export const AIMonitoringPage: React.FC = () => {
   }
 
   return (
-    <PageContainer
-      title="AI System Monitoring"
-      description="Comprehensive real-time monitoring of AI providers, agents, workflows, and system health"
-      breadcrumbs={getBreadcrumbs()}
-      actions={[
-        {
+    <AiErrorBoundary>
+      <PageContainer
+        title="AI System Monitoring"
+        description="Comprehensive real-time monitoring of AI providers, agents, workflows, and system health"
+        breadcrumbs={getBreadcrumbs()}
+        actions={[
+          {
           label: isRealTimeEnabled ? 'Disable Real-time' : 'Enable Real-time',
           onClick: toggleRealTimeMonitoring,
           icon: isRealTimeEnabled ? Pause : Play,
@@ -697,56 +748,10 @@ export const AIMonitoringPage: React.FC = () => {
           </TabPanel>
 
           <TabPanel tabId="workflows" activeTab={activeTab}>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-medium text-theme-primary">Workflow Performance</h3>
-                <Button
-                  onClick={refreshAllData}
-                  variant="outline"
-                  size="sm"
-                  disabled={!isConnected || isLoading}
-                >
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Refresh
-                </Button>
-              </div>
-
-              {/* Workflow metrics summary */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <Card>
-                  <CardContent className="p-4">
-                    <p className="text-sm text-theme-muted">Total Workflows</p>
-                    <p className="text-2xl font-bold text-theme-primary">
-                      {dashboardData?.overview?.total_workflows || 0}
-                    </p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-4">
-                    <p className="text-sm text-theme-muted">Running</p>
-                    <p className="text-2xl font-bold text-theme-success">
-                      {dashboardData?.overview?.active_conversations || 0}
-                    </p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-4">
-                    <p className="text-sm text-theme-muted">Success Rate</p>
-                    <p className="text-2xl font-bold text-theme-info">
-                      {systemHealth?.overall_health ? `${systemHealth.overall_health}%` : 'N/A'}
-                    </p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-4">
-                    <p className="text-sm text-theme-muted">Active Alerts</p>
-                    <p className="text-2xl font-bold text-theme-warning">
-                      {alerts.filter(a => !a.resolved).length}
-                    </p>
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
+            <WorkflowMonitoringPanel
+              isLoading={isLoading}
+              onRefresh={refreshAllData}
+            />
           </TabPanel>
 
           <TabPanel tabId="conversations" activeTab={activeTab}>
@@ -799,6 +804,7 @@ export const AIMonitoringPage: React.FC = () => {
           </TabPanel>
         </TabContainer>
       </div>
-    </PageContainer>
+      </PageContainer>
+    </AiErrorBoundary>
   );
 };

@@ -23,7 +23,8 @@ import {
   Hash,
   FileText,
   Activity,
-  FileStack
+  FileStack,
+  RefreshCw
 } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { DataTable } from '@/shared/components/ui/DataTable';
@@ -40,6 +41,7 @@ import { WorkflowCreateModal } from '@/features/ai-workflows/components/Workflow
 import { WorkflowDetailModal } from '@/features/ai-workflows/components/WorkflowDetailModal';
 import { WorkflowExecutionForm } from '@/features/ai-workflows/components/WorkflowExecutionForm';
 import { WorkflowBuilderModal } from '@/shared/components/workflow/WorkflowBuilderModal';
+import { AiErrorBoundary } from '@/shared/components/error/AiErrorBoundary';
 
 export const WorkflowsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -490,15 +492,23 @@ export const WorkflowsPage: React.FC = () => {
   ];
 
   return (
-    <PageContainer
-      title="AI Workflows"
-      description="Create, manage, and execute automated AI workflows"
-      breadcrumbs={[
-        { label: 'Dashboard', href: '/app' },
-        { label: 'AI', href: '/app/ai' },
+    <AiErrorBoundary>
+      <PageContainer
+        title="AI Workflows"
+        description="Create, manage, and execute automated AI workflows"
+        breadcrumbs={[
+          { label: 'Dashboard', href: '/app' },
+          { label: 'AI', href: '/app/ai' },
         { label: 'Workflows' }
       ]}
       actions={[
+        {
+          id: 'refresh',
+          label: 'Refresh',
+          onClick: () => loadWorkflows(pagination.current_page, perPage),
+          icon: RefreshCw,
+          variant: 'outline'
+        },
         {
           id: 'templates',
           label: 'Templates',
@@ -509,7 +519,7 @@ export const WorkflowsPage: React.FC = () => {
         {
           id: 'monitoring',
           label: 'Monitoring',
-          onClick: () => navigate('/app/ai/workflows/monitoring'),
+          onClick: () => navigate('/app/ai/monitoring?tab=workflows'),
           icon: Activity,
           variant: 'outline'
         },
@@ -695,6 +705,7 @@ export const WorkflowsPage: React.FC = () => {
           onSuccess={handleBuilderSuccess}
         />
       )}
-    </PageContainer>
+      </PageContainer>
+    </AiErrorBoundary>
   );
 };

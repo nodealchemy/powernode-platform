@@ -261,14 +261,21 @@ class Billing::BillingAutomationJob < BaseJob
       message: 'Payment method required for subscription renewal',
       severity: 'high'
     }
-    
+
     with_api_retry do
       api_client.post('/api/v1/notifications', notification_params)
     end
-    
+
     log_info("Sent payment method required notification for subscription #{subscription['id']}")
   rescue StandardError => e
     log_error("Failed to send payment method notification: #{e.message}")
+    # Re-raise to ensure notification delivery is retried
+    raise BillingExceptions::SubscriptionError.new(
+      "Failed to send payment method notification: #{e.message}",
+      subscription_id: subscription['id'],
+      action: 'send_payment_method_required_notification',
+      details: { original_error: e.class.name }
+    )
   end
 
   def send_trial_conversion_success_notification(subscription)
@@ -279,14 +286,21 @@ class Billing::BillingAutomationJob < BaseJob
       message: 'Trial successfully converted to paid subscription',
       severity: 'info'
     }
-    
+
     with_api_retry do
       api_client.post('/api/v1/notifications', notification_params)
     end
-    
+
     log_info("Sent trial conversion success notification for subscription #{subscription['id']}")
   rescue StandardError => e
     log_error("Failed to send trial conversion notification: #{e.message}")
+    # Re-raise to ensure notification delivery is retried
+    raise BillingExceptions::SubscriptionError.new(
+      "Failed to send trial conversion notification: #{e.message}",
+      subscription_id: subscription['id'],
+      action: 'send_trial_conversion_success_notification',
+      details: { original_error: e.class.name }
+    )
   end
 
   def send_renewal_success_notification(subscription, invoice)
@@ -298,14 +312,21 @@ class Billing::BillingAutomationJob < BaseJob
       message: 'Subscription renewed successfully',
       severity: 'info'
     }
-    
+
     with_api_retry do
       api_client.post('/api/v1/notifications', notification_params)
     end
-    
+
     log_info("Sent renewal success notification for subscription #{subscription['id']}")
   rescue StandardError => e
     log_error("Failed to send renewal notification: #{e.message}")
+    # Re-raise to ensure notification delivery is retried
+    raise BillingExceptions::SubscriptionError.new(
+      "Failed to send renewal notification: #{e.message}",
+      subscription_id: subscription['id'],
+      action: 'send_renewal_success_notification',
+      details: { original_error: e.class.name }
+    )
   end
 
   def send_payment_failure_notification(subscription, payment_result)
@@ -316,14 +337,21 @@ class Billing::BillingAutomationJob < BaseJob
       message: "Payment failed: #{payment_result['error']}",
       severity: 'warning'
     }
-    
+
     with_api_retry do
       api_client.post('/api/v1/notifications', notification_params)
     end
-    
+
     log_info("Sent payment failure notification for subscription #{subscription['id']}")
   rescue StandardError => e
     log_error("Failed to send payment failure notification: #{e.message}")
+    # Re-raise to ensure notification delivery is retried
+    raise BillingExceptions::SubscriptionError.new(
+      "Failed to send payment failure notification: #{e.message}",
+      subscription_id: subscription['id'],
+      action: 'send_payment_failure_notification',
+      details: { original_error: e.class.name }
+    )
   end
 
   def send_reactivation_notification(subscription)
@@ -334,14 +362,21 @@ class Billing::BillingAutomationJob < BaseJob
       message: 'Subscription reactivated after successful payment',
       severity: 'info'
     }
-    
+
     with_api_retry do
       api_client.post('/api/v1/notifications', notification_params)
     end
-    
+
     log_info("Sent reactivation notification for subscription #{subscription['id']}")
   rescue StandardError => e
     log_error("Failed to send reactivation notification: #{e.message}")
+    # Re-raise to ensure notification delivery is retried
+    raise BillingExceptions::SubscriptionError.new(
+      "Failed to send reactivation notification: #{e.message}",
+      subscription_id: subscription['id'],
+      action: 'send_reactivation_notification',
+      details: { original_error: e.class.name }
+    )
   end
 
   def send_billing_failure_alert(subscription, error_message)
@@ -353,13 +388,20 @@ class Billing::BillingAutomationJob < BaseJob
       severity: 'critical',
       admin_alert: true
     }
-    
+
     with_api_retry do
       api_client.post('/api/v1/notifications', alert_params)
     end
-    
+
     log_error("ADMIN ALERT: Billing failure for subscription #{subscription['id']}: #{error_message}")
   rescue StandardError => e
     log_error("Failed to send billing failure alert: #{e.message}")
+    # Re-raise to ensure critical alert delivery is retried
+    raise BillingExceptions::SubscriptionError.new(
+      "Failed to send billing failure alert: #{e.message}",
+      subscription_id: subscription['id'],
+      action: 'send_billing_failure_alert',
+      details: { original_error: e.class.name }
+    )
   end
 end

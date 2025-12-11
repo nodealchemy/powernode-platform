@@ -29,9 +29,11 @@ module BaseAiService
     attr_accessor :account, :user
     attr_reader :logger, :telemetry
 
-    class ServiceError < StandardError; end
-    class ValidationError < ServiceError; end
-    class ExecutionError < ServiceError; end
+    # Legacy exception aliases for backward compatibility
+    # New code should use AiExceptions module directly
+    ServiceError = AiExceptions::ServiceError
+    ValidationError = AiExceptions::ValidationError
+    ExecutionError = AiExceptions::ExecutionError
   end
 
   # =============================================================================

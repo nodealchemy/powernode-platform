@@ -53,6 +53,17 @@ export interface McpSubscription {
 // MCP CLIENT CLASS
 // =============================================================================
 
+// Error event types for global error handling
+export interface McpErrorEvent {
+  code: string;
+  message: string;
+  recoverable: boolean;
+  timestamp: Date;
+  context?: Record<string, unknown>;
+}
+
+export type McpErrorHandler = (error: McpErrorEvent) => void;
+
 export class McpClient {
   private ws: WebSocket | null = null;
   private messageId = 0;
@@ -63,6 +74,7 @@ export class McpClient {
   }>();
   private subscriptions = new Map<string, McpSubscription>();
   private eventHandlers = new Map<string, ((data: any) => void)[]>();
+  private errorHandlers: McpErrorHandler[] = [];
   private connectionInfo: McpConnectionInfo | null = null;
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
@@ -70,6 +82,50 @@ export class McpClient {
 
   constructor() {
     this.setupRequestTimeout();
+  }
+
+  /**
+   * Register a global error handler for MCP errors
+   * Returns unsubscribe function
+   */
+  onError(handler: McpErrorHandler): () => void {
+    this.errorHandlers.push(handler);
+    return () => {
+      const index = this.errorHandlers.indexOf(handler);
+      if (index > -1) {
+        this.errorHandlers.splice(index, 1);
+      }
+    };
+  }
+
+  /**
+   * Emit error to all registered error handlers
+   */
+  private emitError(code: string, message: string, recoverable: boolean, context?: Record<string, unknown>): void {
+    const errorEvent: McpErrorEvent = {
+      code,
+      message,
+      recoverable,
+      timestamp: new Date(),
+      context
+    };
+
+    // Log in development
+    if (process.env.NODE_ENV === 'development') {
+      console.error('[MCP_CLIENT] Error:', errorEvent);
+    }
+
+    // Notify all error handlers
+    this.errorHandlers.forEach(handler => {
+      try {
+        handler(errorEvent);
+      } catch (handlerError) {
+        // Don't let handler errors crash the client
+        if (process.env.NODE_ENV === 'development') {
+          console.error('[MCP_CLIENT] Error handler threw:', handlerError);
+        }
+      }
+    });
   }
 
   // =============================================================================
@@ -106,8 +162,8 @@ export class McpClient {
       };
 
       this.ws.onerror = (error) => {
-        console.error('[MCP_CLIENT] WebSocket error:', error);
         clearTimeout(connectionTimeout);
+        this.emitError('CONNECTION_ERROR', 'MCP connection failed', true, { error: String(error) });
         reject(new Error('MCP connection failed'));
       };
     });
@@ -387,12 +443,25 @@ export class McpClient {
       this.reconnectAttempts++;
       const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
 
+      this.emitError(
+        'CONNECTION_LOST',
+        `Connection lost. Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`,
+        true,
+        { attempt: this.reconnectAttempts, nextRetryMs: delay }
+      );
+
       setTimeout(() => {
         this.connect().catch(() => {
           // Reconnection failed, will retry
         });
       }, delay);
     } else {
+      this.emitError(
+        'CONNECTION_FAILED',
+        'Unable to establish MCP connection after multiple attempts. Please refresh the page.',
+        false,
+        { maxAttempts: this.maxReconnectAttempts }
+      );
       this.emit('connection_failed', { reason: 'max_attempts_reached' });
     }
   }

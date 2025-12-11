@@ -14,7 +14,7 @@ class Api::V1::PaymentGatewaysController < ApplicationController
         recent_transactions: recent_transactions_data,
         statistics: gateway_statistics
       })
-    rescue => e
+    rescue StandardError => e
       Rails.logger.error "Payment gateways overview error: #{e.message}"
       Rails.logger.error e.backtrace.first(5).join("\n")
 
@@ -56,8 +56,16 @@ class Api::V1::PaymentGatewaysController < ApplicationController
           configuration: gateway_configuration_for(gateway)
         }
       )
-    rescue => e
+    rescue BillingExceptions::GatewayError, BillingExceptions::ValidationError => e
       render_error(e.message, status: :unprocessable_content)
+    rescue StandardError => e
+      Rails.logger.error "Gateway configuration update error: #{e.message}"
+      raise BillingExceptions::GatewayError.new(
+        "Failed to update gateway configuration: #{e.message}",
+        gateway: gateway,
+        operation: 'update',
+        details: { original_error: e.class.name }
+      )
     end
   end
 
@@ -85,9 +93,14 @@ class Api::V1::PaymentGatewaysController < ApplicationController
         message: 'Gateway connection test started',
         poll_url: "/api/v1/gateway_connection_jobs/#{job.id}"
       })
-    rescue => e
+    rescue StandardError => e
       Rails.logger.error "Failed to start gateway connection test: #{e.message}"
-      render_error("Failed to start connection test: #{e.message}", status: :internal_server_error)
+      raise BillingExceptions::GatewayError.new(
+        "Failed to start connection test: #{e.message}",
+        gateway: gateway,
+        operation: 'test_connection',
+        details: { original_error: e.class.name }
+      )
     end
   end
 
@@ -311,7 +324,7 @@ class Api::V1::PaymentGatewaysController < ApplicationController
       else
         { status: 'unsupported', message: 'Gateway not supported', last_checked: Time.current }
       end
-    rescue => e
+    rescue StandardError => e
       Rails.logger.error "Gateway status check failed for #{gateway}: #{e.message}"
       { status: 'error', message: 'Status check failed', last_checked: Time.current }
     end
@@ -376,7 +389,7 @@ class Api::V1::PaymentGatewaysController < ApplicationController
           created_at: payment.created_at
         }
       end
-    rescue => e
+    rescue StandardError => e
       Rails.logger.error "Recent transactions error: #{e.message}"
       []
     end
@@ -414,7 +427,7 @@ class Api::V1::PaymentGatewaysController < ApplicationController
           volume: sum_amount_for_status(payments.where(created_at: 30.days.ago..Time.current), 'succeeded')
         }
       }
-    rescue => e
+    rescue StandardError => e
       Rails.logger.error "Statistics error for #{gateway}: #{e.message}"
       empty_statistics
     end
@@ -434,7 +447,7 @@ class Api::V1::PaymentGatewaysController < ApplicationController
         total_volume: sum_amount_for_status(payments, 'succeeded'),
         success_rate: calculate_success_rate(payments)
       }
-    rescue => e
+    rescue StandardError => e
       Rails.logger.error "Overall statistics error: #{e.message}"
       empty_statistics
     end
@@ -462,7 +475,7 @@ class Api::V1::PaymentGatewaysController < ApplicationController
           gateway_transaction_id: payment.respond_to?(:gateway_transaction_id) ? payment.gateway_transaction_id : nil
         }
       end
-    rescue => e
+    rescue StandardError => e
       Rails.logger.error "Transactions error for #{gateway}: #{e.message}"
       []
     end
@@ -486,7 +499,7 @@ class Api::V1::PaymentGatewaysController < ApplicationController
           processed_at: event.respond_to?(:processed_at) ? event.processed_at : nil
         }
       end
-    rescue => e
+    rescue StandardError => e
       Rails.logger.error "Webhooks error for #{gateway}: #{e.message}"
       []
     end
@@ -548,9 +561,14 @@ class Api::V1::PaymentGatewaysController < ApplicationController
     end
     
     Rails.logger.info "Enqueued gateway test job #{job_id} for #{gateway}"
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to enqueue gateway test job: #{e.message}"
-    raise
+    raise BillingExceptions::GatewayError.new(
+      "Failed to enqueue gateway test job: #{e.message}",
+      gateway: gateway,
+      operation: 'enqueue_job',
+      details: { job_id: job_id, original_error: e.class.name }
+    )
   end
 
   def build_worker_client
@@ -659,18 +677,18 @@ class Api::V1::PaymentGatewaysController < ApplicationController
     else
       {}
     end
-  rescue => e
+  rescue StandardError => e
     Rails.logger.warn "Failed to access #{provider} config: #{e.message}"
     {}
   end
-  
+
   def get_stripe_api_version
     defined?(Stripe) ? Stripe.api_version : 'unknown'
-  rescue => e
+  rescue StandardError => e
     Rails.logger.warn "Failed to get Stripe API version: #{e.message}"
     'unknown'
   end
-  
+
   # Statistics helper methods
   def empty_statistics
     {
@@ -693,11 +711,11 @@ class Api::V1::PaymentGatewaysController < ApplicationController
     else
       payments.where(status: status).count
     end
-  rescue => e
+  rescue StandardError => e
     Rails.logger.warn "Failed to count payments by status #{status}: #{e.message}"
     0
   end
-  
+
   def sum_amount_for_status(payments, status)
     target_payments = if payments.respond_to?(status.to_sym)
       payments.public_send(status.to_sym)
@@ -713,11 +731,11 @@ class Api::V1::PaymentGatewaysController < ApplicationController
     end
     
     0
-  rescue => e
+  rescue StandardError => e
     Rails.logger.warn "Failed to sum amounts for status #{status}: #{e.message}"
     0
   end
-  
+
   def sum_fees_for_status(payments, status)
     target_payments = if payments.respond_to?(status.to_sym)
       payments.public_send(status.to_sym)
@@ -733,11 +751,11 @@ class Api::V1::PaymentGatewaysController < ApplicationController
     end
     
     0
-  rescue => e
+  rescue StandardError => e
     Rails.logger.warn "Failed to sum fees for status #{status}: #{e.message}"
     0
   end
-  
+
   def safe_get_amount(payment)
     # Try different amount attribute names and methods
     %w[amount amount_cents].each do |attr|
@@ -753,7 +771,7 @@ class Api::V1::PaymentGatewaysController < ApplicationController
     end
     
     '0'
-  rescue => e
+  rescue StandardError => e
     Rails.logger.warn "Failed to get amount for payment #{payment.id}: #{e.message}"
     '0'
   end

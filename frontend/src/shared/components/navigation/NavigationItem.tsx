@@ -28,20 +28,48 @@ export const NavigationItem: React.FC<NavigationItemProps> = ({
     return null;
   }
 
-  // Check if item is active - exact match for section root paths, startsWith for others
+  // Check if item is active - exact match or most specific prefix match
   const isActive = (() => {
-    // Dashboard must be exact match
-    if (item.href === '/app') {
-      return location.pathname === item.href;
+    const pathname = location.pathname;
+
+    // Exact match is always active
+    if (pathname === item.href) {
+      return true;
     }
+
+    // Dashboard must be exact match only
+    if (item.href === '/app') {
+      return false;
+    }
+
     // Section overview pages (like /app/ai, /app/business) - exact match only
-    // These are paths with exactly 2 segments after /app
     const hrefSegments = item.href.split('/').filter(Boolean);
     if (hrefSegments.length === 2 && hrefSegments[0] === 'app') {
-      return location.pathname === item.href;
+      return false;
     }
-    // For deeper paths, use startsWith
-    return location.pathname.startsWith(item.href);
+
+    // For deeper paths, check if this is a prefix match
+    // Only match if pathname starts with href followed by '/' or end
+    // This prevents /app/ai/workflows from matching when on /app/ai/workflows/templates
+    // if templates is its own nav item
+    if (pathname.startsWith(item.href)) {
+      const nextChar = pathname.charAt(item.href.length);
+      // Only match if this is a parent path (next char is /) but NOT if
+      // the next segment is also a named route in navigation
+      // Check if it's a direct child route (like /123, /edit) vs another nav item (/templates)
+      if (nextChar === '/') {
+        const remainingPath = pathname.slice(item.href.length);
+        // Don't match if the remaining path matches another known nav route
+        // Common nav sub-routes to exclude
+        const knownSubRoutes = ['/templates', '/monitoring', '/import'];
+        const hasKnownSubRoute = knownSubRoutes.some(route =>
+          remainingPath === route || remainingPath.startsWith(route + '/')
+        );
+        return !hasKnownSubRoute;
+      }
+    }
+
+    return false;
   })();
 
   // Render icon

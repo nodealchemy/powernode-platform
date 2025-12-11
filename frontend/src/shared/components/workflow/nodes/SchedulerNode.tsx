@@ -1,40 +1,17 @@
 import React from 'react';
-import { Handle, Position, NodeProps } from '@xyflow/react';
-import { Clock, Calendar, Play, Pause, RotateCcw, Timer } from 'lucide-react';
+import { NodeProps } from '@xyflow/react';
+import { Calendar } from 'lucide-react';
+import { DynamicNodeHandles } from './DynamicNodeHandles';
+import { NodeActionsMenu } from '../NodeActionsMenu';
+import { useWorkflowContext } from '../WorkflowContext';
+import { SchedulerNode as SchedulerNodeType } from '@/shared/types/workflow';
 
-export const SchedulerNode: React.FC<NodeProps<any>> = ({
+export const SchedulerNode: React.FC<NodeProps<SchedulerNodeType>> = ({
+  id,
   data,
   selected
 }) => {
-  const getScheduleIcon = () => {
-    switch (data.configuration?.scheduleType) {
-      case 'cron':
-        return <Calendar className="h-4 w-4" />;
-      case 'interval':
-        return <RotateCcw className="h-4 w-4" />;
-      case 'once':
-        return <Timer className="h-4 w-4" />;
-      case 'manual':
-        return <Play className="h-4 w-4" />;
-      default:
-        return <Clock className="h-4 w-4" />;
-    }
-  };
-
-  const getScheduleColor = () => {
-    switch (data.configuration?.scheduleType) {
-      case 'cron':
-        return 'text-theme-info bg-theme-info/20';
-      case 'interval':
-        return 'text-theme-success bg-theme-success/20';
-      case 'once':
-        return 'text-theme-warning bg-theme-warning/20';
-      case 'manual':
-        return 'text-theme-interactive-primary bg-theme-interactive-primary/20';
-      default:
-        return 'text-theme-info bg-theme-info/20';
-    }
-  };
+  const { onOpenChat } = useWorkflowContext();
 
   const getScheduleLabel = () => {
     switch (data.configuration?.scheduleType) {
@@ -80,130 +57,76 @@ export const SchedulerNode: React.FC<NodeProps<any>> = ({
     return 'Custom schedule';
   };
 
-  const getStatusIcon = () => {
-    if (data.configuration?.enabled === false) {
-      return <Pause className="h-3 w-3 text-theme-muted" />;
-    }
-    return <Play className="h-3 w-3 text-theme-success" />;
-  };
-
-  const getStatusColor = () => {
-    if (data.configuration?.enabled === false) {
-      return 'bg-theme-surface0';
-    }
-    return 'bg-cyan-500';
-  };
-
   return (
     <div className={`
-      relative bg-theme-surface border-2 rounded-lg p-4 w-48 shadow-lg
-      ${selected ? 'border-theme-interactive-primary ring-2 ring-theme-interactive-primary/20' : 'border-cyan-500'}
+      group relative bg-theme-surface border-2 rounded-lg w-64 shadow-lg
+      ${selected ? 'border-theme-interactive-primary ring-2 ring-theme-interactive-primary/20' : 'border-theme hover:border-theme-interactive-primary/50'}
       hover:shadow-xl transition-all duration-200
       ${data.configuration?.enabled === false ? 'opacity-75' : ''}
     `}>
       {/* Header */}
-      <div className="flex items-center gap-3 mb-3">
-        <div className={`w-8 h-8 ${getStatusColor()} rounded-lg flex items-center justify-center text-white`}>
-          <Clock className="h-4 w-4" />
+      <div className="px-4 py-3 rounded-t-lg bg-node-scheduler">
+        <div className="flex items-center justify-between text-white">
+          <div className="flex items-center gap-2">
+            <Calendar className="h-4 w-4" />
+            <span className="font-medium text-sm">SCHEDULER</span>
+          </div>
         </div>
-        <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-theme-primary truncate">
+      </div>
+
+      {/* Content */}
+      <div className="p-4 space-y-3">
+        <div>
+          <h3 className="font-medium text-theme-primary text-sm truncate">
             {data.name || 'Scheduler'}
           </h3>
-          <div className="flex items-center gap-2">
-            {data.configuration?.scheduleType && (
-              <span className={`
-                text-xs font-medium px-2 py-0.5 rounded-full
-                ${getScheduleColor()}
-              `}>
+          {data.description && (
+            <p className="text-sm text-theme-muted mt-1 line-clamp-2">
+              {data.description}
+            </p>
+          )}
+        </div>
+
+        <div className="p-2 bg-theme-background border border-theme-border rounded">
+          <div className="text-xs text-theme-muted mb-1">Schedule:</div>
+          <div className="text-sm text-theme-primary font-mono">
+            {getScheduleDisplay()}
+          </div>
+        </div>
+
+        <div className="space-y-2 text-xs">
+          {data.configuration?.scheduleType && (
+            <div>
+              <span className="text-theme-muted">Type:</span>
+              <span className="ml-2 text-theme-primary font-medium">
                 {getScheduleLabel()}
               </span>
-            )}
-            <div className="flex items-center gap-1">
-              {getStatusIcon()}
-              <span className={`text-xs font-medium ${data.configuration?.enabled === false ? 'text-theme-muted' : 'text-theme-success'}`}>
-                {data.configuration?.enabled === false ? 'PAUSED' : 'ACTIVE'}
-              </span>
             </div>
-          </div>
-        </div>
-      </div>
+          )}
 
-      {/* Description */}
-      {data.description && (
-        <p className="text-sm text-theme-primary mb-3 line-clamp-2">
-          {data.description}
-        </p>
-      )}
-
-      {/* Schedule Display */}
-      <div className="mb-3 p-2 bg-theme-background border border-theme-border rounded">
-        <div className="text-xs text-theme-muted mb-1">Schedule:</div>
-        <div className="text-sm text-theme-secondary font-mono">
-          {getScheduleDisplay()}
-        </div>
-      </div>
-
-      {/* Configuration Details */}
-      <div className="space-y-1 text-xs">
-        {data.configuration?.timezone && (
           <div>
-            <span className="text-theme-muted">Timezone:</span>
-            <span className="ml-1 text-theme-secondary">
-              {data.configuration.timezone}
+            <span className="text-theme-muted">Status:</span>
+            <span className={`ml-2 font-medium ${data.configuration?.enabled === false ? 'text-theme-muted' : 'text-theme-success'}`}>
+              {data.configuration?.enabled === false ? 'PAUSED' : 'ACTIVE'}
             </span>
           </div>
-        )}
-        {data.configuration?.startTime && data.configuration?.endTime && (
-          <div>
-            <span className="text-theme-muted">Active period:</span>
-            <span className="ml-1 text-theme-secondary">
-              {new Date(data.configuration.startTime).toLocaleDateString()} - {new Date(data.configuration.endTime).toLocaleDateString()}
-            </span>
-          </div>
-        )}
-      </div>
-
-      {/* Schedule Type Icon Indicator */}
-      <div className="absolute top-2 right-2">
-        <div className="w-6 h-6 bg-cyan-500/10 rounded-full flex items-center justify-center text-cyan-600">
-          {getScheduleIcon()}
         </div>
       </div>
 
-      {/* Processing Indicator */}
-      <div className="absolute bottom-2 right-2">
-        <div className="flex space-x-1">
-          <div className={`w-1 h-3 ${getStatusColor()} rounded-full animate-pulse`} style={{ animationDelay: '0ms' }} />
-          <div className={`w-1 h-3 ${getStatusColor()} rounded-full animate-pulse`} style={{ animationDelay: '100ms' }} />
-          <div className={`w-1 h-3 ${getStatusColor()} rounded-full animate-pulse`} style={{ animationDelay: '200ms' }} />
-        </div>
-      </div>
-
-      {/* Trigger Handle (Manual) - orientation-aware */}
-      <Handle
-        type="target"
-        position={data.handleOrientation === 'horizontal' ? Position.Left : Position.Top}
-        id="trigger"
-        className={`w-3 h-3 ${getStatusColor()} border-2 border-theme-surface`}
-        style={data.handleOrientation === 'horizontal' ? { left: -6, top: '30%' } : { top: -6, left: '30%' }}
+      {/* Node Actions Menu */}
+      <NodeActionsMenu
+        nodeId={id}
+        nodeType="scheduler"
+        nodeName={data.name}
+        isSelected={selected}
+        hasErrors={false}
+        onOpenChat={onOpenChat}
       />
 
-      {/* Data Input Handle - orientation-aware */}
-      <Handle
-        type="target"
-        position={data.handleOrientation === 'horizontal' ? Position.Left : Position.Top}
-        id="data"
-        className={`w-3 h-3 ${getStatusColor()} border-2 border-theme-surface`}
-        style={data.handleOrientation === 'horizontal' ? { left: -6, top: '70%' } : { top: -6, left: '70%' }}
-      />
-
-      {/* Output Handle - orientation-aware */}
-      <Handle
-        type="source"
-        position={data.handleOrientation === 'horizontal' ? Position.Right : Position.Bottom}
-        className={`w-3 h-3 ${getStatusColor()} border-2 border-theme-surface`}
-        style={data.handleOrientation === 'horizontal' ? { right: -6 } : { bottom: -6 }}
+      {/* Dynamic Handles */}
+      <DynamicNodeHandles
+        nodeType="scheduler"
+        handlePositions={data?.handlePositions}
       />
     </div>
   );

@@ -150,14 +150,10 @@ describe('billingApi', () => {
         }
       });
 
-      await expect(billingApi.createPaymentIntent(paymentData)).rejects.toMatchObject({
-        response: {
-          data: {
-            success: false,
-            error: 'Payment failed: insufficient funds'
-          }
-        }
-      });
+      // Now returns error response instead of throwing
+      const result = await billingApi.createPaymentIntent(paymentData);
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('Payment failed: insufficient funds');
     });
   });
 
@@ -319,7 +315,11 @@ describe('billingApi', () => {
     it('should handle network errors', async () => {
       mockApi.get.mockRejectedValue(new Error('Network Error'));
 
-      await expect(billingApi.getInvoices()).rejects.toThrow('Network Error');
+      // getInvoices now catches errors and throws error response object
+      await expect(billingApi.getInvoices()).rejects.toMatchObject({
+        success: false,
+        error: 'Network Error'
+      });
     });
 
     it('should handle API errors with error messages', async () => {
@@ -332,18 +332,15 @@ describe('billingApi', () => {
         }
       });
 
-      await expect(billingApi.processPayment({
+      // processPayment now catches errors and returns error response
+      const result = await billingApi.processPayment({
         invoice_id: 'inv_123',
         payment_method_id: 'invalid',
         amount_cents: 1000
-      })).rejects.toMatchObject({
-        response: {
-          data: {
-            success: false,
-            error: 'Invalid payment method'
-          }
-        }
       });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('Invalid payment method');
     });
   });
 });

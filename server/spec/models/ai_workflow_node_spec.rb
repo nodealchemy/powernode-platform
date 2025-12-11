@@ -171,6 +171,85 @@ RSpec.describe AiWorkflowNode, type: :model do
           expect(node.errors[:configuration]).to include('specified workflow_id does not exist')
         end
       end
+
+      # Consolidated Node Types (Phase 1A)
+      context 'kb_article node type' do
+        let(:node) { build(:ai_workflow_node, :kb_article) }
+
+        it 'validates valid actions' do
+          %w[create read update search publish].each do |action|
+            node.configuration = node.configuration.merge('action' => action)
+            node.valid?
+            expect(node.errors[:configuration]).not_to include('action must be one of: create, read, update, search, publish')
+          end
+        end
+
+        it 'rejects invalid action' do
+          node.configuration = node.configuration.merge('action' => 'invalid_action')
+          expect(node).not_to be_valid
+          expect(node.errors[:configuration]).to include('action must be one of: create, read, update, search, publish')
+        end
+
+        it 'requires action in configuration' do
+          node.configuration = node.configuration.except('action')
+          expect(node).not_to be_valid
+          expect(node.errors[:configuration]).to include('action must be one of: create, read, update, search, publish')
+        end
+      end
+
+      context 'page node type' do
+        let(:node) { build(:ai_workflow_node, :page) }
+
+        it 'validates valid actions' do
+          %w[create read update publish].each do |action|
+            node.configuration = node.configuration.merge('action' => action)
+            node.valid?
+            expect(node.errors[:configuration]).not_to include('action must be one of: create, read, update, publish')
+          end
+        end
+
+        it 'rejects invalid action' do
+          node.configuration = node.configuration.merge('action' => 'delete')
+          expect(node).not_to be_valid
+          expect(node.errors[:configuration]).to include('action must be one of: create, read, update, publish')
+        end
+
+        it 'requires action in configuration' do
+          node.configuration = node.configuration.except('action')
+          expect(node).not_to be_valid
+          expect(node.errors[:configuration]).to include('action must be one of: create, read, update, publish')
+        end
+      end
+
+      context 'mcp_operation node type' do
+        let(:node) { build(:ai_workflow_node, :mcp_operation) }
+
+        it 'validates valid operation types' do
+          %w[tool resource prompt].each do |operation_type|
+            node.configuration = node.configuration.merge('operation_type' => operation_type)
+            node.valid?
+            expect(node.errors[:configuration]).not_to include('operation_type must be one of: tool, resource, prompt')
+          end
+        end
+
+        it 'rejects invalid operation type' do
+          node.configuration = node.configuration.merge('operation_type' => 'invalid_type')
+          expect(node).not_to be_valid
+          expect(node.errors[:configuration]).to include('operation_type must be one of: tool, resource, prompt')
+        end
+
+        it 'requires operation_type in configuration' do
+          node.configuration = node.configuration.except('operation_type')
+          expect(node).not_to be_valid
+          expect(node.errors[:configuration]).to include('operation_type must be one of: tool, resource, prompt')
+        end
+
+        it 'requires mcp_server_id in configuration' do
+          node.configuration = node.configuration.merge('mcp_server_id' => nil)
+          expect(node).not_to be_valid
+          expect(node.errors[:configuration]).to include('must specify mcp_server_id for MCP operation nodes')
+        end
+      end
     end
   end
 
@@ -281,6 +360,46 @@ RSpec.describe AiWorkflowNode, type: :model do
       it '#end_node? returns true for end nodes' do
         node = build(:ai_workflow_node, node_type: 'end')
         expect(node.end_node?).to be true
+      end
+
+      # Consolidated Node Type Helper Methods (Phase 1A)
+      it '#kb_article_node? returns true for kb_article nodes' do
+        node = build(:ai_workflow_node, :kb_article)
+        expect(node.kb_article_node?).to be true
+        expect(node.page_node?).to be false
+        expect(node.mcp_operation_node?).to be false
+      end
+
+      it '#page_node? returns true for page nodes' do
+        node = build(:ai_workflow_node, :page)
+        expect(node.page_node?).to be true
+        expect(node.kb_article_node?).to be false
+        expect(node.mcp_operation_node?).to be false
+      end
+
+      it '#mcp_operation_node? returns true for mcp_operation nodes' do
+        node = build(:ai_workflow_node, :mcp_operation)
+        expect(node.mcp_operation_node?).to be true
+        expect(node.kb_article_node?).to be false
+        expect(node.page_node?).to be false
+      end
+
+      it '#kb_article_action returns the action from configuration' do
+        node = build(:ai_workflow_node, :kb_article)
+        node.configuration = node.configuration.merge('action' => 'search')
+        expect(node.kb_article_action).to eq('search')
+      end
+
+      it '#page_action returns the action from configuration' do
+        node = build(:ai_workflow_node, :page)
+        node.configuration = node.configuration.merge('action' => 'publish')
+        expect(node.page_action).to eq('publish')
+      end
+
+      it '#mcp_operation_type returns the operation_type from configuration' do
+        node = build(:ai_workflow_node, :mcp_operation)
+        node.configuration = node.configuration.merge('operation_type' => 'resource')
+        expect(node.mcp_operation_type).to eq('resource')
       end
     end
 

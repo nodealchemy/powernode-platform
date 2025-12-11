@@ -22,6 +22,9 @@ import { McpToolConfigPanel } from './config/McpToolConfigPanel';
 import { McpResourceConfigPanel } from './config/McpResourceConfigPanel';
 import { McpPromptConfigPanel } from './config/McpPromptConfigPanel';
 
+import type { HandlePosition, HandlePositions } from './nodes/DynamicNodeHandles';
+import { getHandleIdsForNodeType, getDefaultHandlePositions } from './nodes/DynamicNodeHandles';
+
 // Define the workflow node data structure
 export interface WorkflowNodeData {
   name?: string;
@@ -31,7 +34,7 @@ export interface WorkflowNodeData {
   isErrorHandler?: boolean;
   timeoutSeconds?: number;
   retryCount?: number;
-  handleOrientation?: 'vertical' | 'horizontal';
+  handlePositions?: HandlePositions;
   configuration?: Record<string, any>;
   metadata?: Record<string, any>;
   _handleUpdateTimestamp?: number;
@@ -54,6 +57,7 @@ interface NodeConfiguration {
   isErrorHandler: boolean;
   timeoutSeconds: number;
   retryCount: number;
+  handlePositions?: HandlePositions;
   configuration: Record<string, any>;
   metadata: Record<string, any>;
 }
@@ -71,20 +75,21 @@ export const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
   const agentsLoadedRef = useRef(false);
   const loadingAgentsRef = useRef(false);
   const currentNodeRef = useRef(node.id);
+  // Compute initial handlePositions - only from data.handlePositions or defaults
+  const initialHandlePositions = node.data?.handlePositions ||
+    getDefaultHandlePositions(node.type || 'default', node.data?.isStartNode, node.data?.isEndNode);
+
   const [config, setConfig] = useState<NodeConfiguration>({
     name: node.data?.name || '',
     description: node.data?.description || '',
-    isStartNode: node.data?.isStartNode || false, // Respect existing flags only
+    isStartNode: node.data?.isStartNode || false,
     isEndNode: node.data?.isEndNode || false,
     isErrorHandler: node.data?.isErrorHandler || false,
     timeoutSeconds: node.data?.timeoutSeconds || 300,
     retryCount: node.data?.retryCount || 0,
+    handlePositions: initialHandlePositions,
     configuration: node.data?.configuration || {},
-    metadata: {
-      ...(node.data?.metadata || {}),
-      // Sync handleOrientation from node.data if it's set at the top level
-      handleOrientation: node.data?.handleOrientation || node.data?.metadata?.handleOrientation || 'vertical'
-    }
+    metadata: node.data?.metadata || {}
   });
 
   const [activeTab, setActiveTab] = useState('basic');
@@ -135,7 +140,9 @@ export const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
       setAgents(agentList);
       agentsLoadedRef.current = true;
     } catch (error: any) {
-      console.error('Failed to load available agents:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to load available agents:', error);
+      }
 
       // Set empty array but mark as loaded to prevent infinite retries
       setAgents([]);
@@ -175,10 +182,12 @@ export const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
 
           return [...prev, response];
         });
-      } else {
       }
+      // Agent response was empty/null - agent may have been deleted
     } catch (error) {
-      console.error('Failed to fetch agent details for ID:', agentId, error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to fetch agent details for ID:', agentId, error);
+      }
       // Create placeholder entry for unavailable agent
       setAgents(prev => {
         const existingAgent = prev.find(a => a.id === agentId);
@@ -224,13 +233,10 @@ export const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
       isErrorHandler: cleanNodeData.isErrorHandler || false,
       timeoutSeconds: cleanNodeData.timeoutSeconds || 300,
       retryCount: cleanNodeData.retryCount || 0,
+      handlePositions: cleanNodeData.handlePositions ||
+        getDefaultHandlePositions(node.type || 'default', cleanNodeData.isStartNode, cleanNodeData.isEndNode),
       configuration: cleanNodeData.configuration || {},
-      metadata: {
-        ...(cleanNodeData.metadata || {}),
-        // Sync handleOrientation from node.data if it's set at the top level
-        // This ensures auto-arrange updates are reflected in the config panel
-        handleOrientation: cleanNodeData.handleOrientation || cleanNodeData.metadata?.handleOrientation || 'vertical'
-      }
+      metadata: cleanNodeData.metadata || {}
     });
 
     // Reset other states when node changes
@@ -325,8 +331,9 @@ export const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
     markAsChanged();
   };
 
-  // Handle metadata changes
-  const handleMetadataChange = (key: string, value: any) => {
+  // Handle metadata changes - used by handlePositionChange for non-handlePositions metadata
+  // handlePositions is handled specially by handlePositionChange to sync both locations
+  const _handleMetadataChange = (key: string, value: unknown) => {
     setConfig(prev => {
       const updatedMetadata = {
         ...prev.metadata,
@@ -340,6 +347,8 @@ export const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
     });
     markAsChanged();
   };
+  // Suppress unused variable warning - may be needed for future metadata changes
+  void _handleMetadataChange;
 
   // Handle agent selection change
   const handleAgentChange = (agentId: string) => {
@@ -369,7 +378,7 @@ export const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
       return;
     }
 
-    onUpdate(node.id, {
+    const updateData: Record<string, unknown> = {
       name: config.name,
       description: config.description,
       isStartNode: config.isStartNode,
@@ -377,9 +386,12 @@ export const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
       isErrorHandler: config.isErrorHandler,
       timeoutSeconds: config.timeoutSeconds,
       retryCount: config.retryCount,
+      handlePositions: config.handlePositions,
       configuration: config.configuration,
       metadata: config.metadata
-    });
+    };
+
+    onUpdate(node.id, updateData);
 
     setHasChanges(false);
   };
@@ -628,21 +640,55 @@ export const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
 
   // Render node-specific configuration options
   function renderNodeSpecificConfig() {
-    // Common orientation configuration for all nodes
-    const orientationConfig = (
+    // Get handle definitions for this node type
+    const handleDefs = getHandleIdsForNodeType(
+      node.type || 'default',
+      node.data?.isStartNode || node.type === 'start',
+      node.data?.isEndNode || node.type === 'end'
+    );
+
+    // Current handle positions (top-level only, no backward compat)
+    const currentPositions: HandlePositions = config.handlePositions ||
+      getDefaultHandlePositions(node.type || 'default', node.data?.isStartNode, node.data?.isEndNode);
+
+    // Position options for dropdowns
+    const positionOptions = [
+      { value: 'top', label: 'Top' },
+      { value: 'bottom', label: 'Bottom' },
+      { value: 'left', label: 'Left' },
+      { value: 'right', label: 'Right' }
+    ];
+
+    // Handler for per-handle position changes
+    const handlePositionChange = (handleId: string, position: HandlePosition) => {
+      const updatedPositions = {
+        ...currentPositions,
+        [handleId]: position
+      };
+      setConfig(prev => ({
+        ...prev,
+        handlePositions: updatedPositions
+      }));
+      markAsChanged();
+    };
+
+    // Common per-handle position configuration for all nodes
+    const handlePositionsConfig = (
       <div className="mb-6">
-        <h4 className="text-sm font-medium text-theme-primary mb-3">Connection Orientation</h4>
-        <EnhancedSelect
-          label="Handle Position"
-          value={config.metadata?.handleOrientation || node.data?.handleOrientation || 'vertical'}
-          onChange={(value) => handleMetadataChange('handleOrientation', value)}
-          options={[
-            { value: 'vertical', label: 'Vertical (Top/Bottom)' },
-            { value: 'horizontal', label: 'Horizontal (Left/Right)' }
-          ]}
-        />
+        <h4 className="text-sm font-medium text-theme-primary mb-3">Handle Positions</h4>
+        <div className="space-y-3">
+          {handleDefs.map((handle) => (
+            <EnhancedSelect
+              key={handle.id}
+              label={`${handle.label} (${handle.type})`}
+              value={currentPositions[handle.id] || 'bottom'}
+              onChange={(value) => handlePositionChange(handle.id, value as HandlePosition)}
+              options={positionOptions}
+            />
+          ))}
+        </div>
         <p className="text-xs text-theme-muted mt-2">
-          Determines where connection handles appear on the node. Vertical places handles on top and bottom, horizontal places them on left and right sides.
+          Configure where each connection handle appears on the node.
         </p>
       </div>
     );
@@ -651,7 +697,7 @@ export const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
       case 'start':
         return (
           <div className="space-y-4">
-            {orientationConfig}
+            {handlePositionsConfig}
             <EnhancedSelect
               label="Start Trigger Type"
               value={config.configuration.start_trigger || config.configuration.trigger_type || 'manual'}
@@ -688,45 +734,10 @@ export const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
           </div>
         );
 
-      case 'trigger':
-        return (
-          <div className="space-y-4">
-            <EnhancedSelect
-              label="Trigger Type"
-              value={config.configuration.triggerType || 'manual'}
-              onChange={(value) => handleConfigChange('triggerType', value)}
-              options={[
-                { value: 'manual', label: 'Manual Trigger' },
-                { value: 'webhook', label: 'Webhook' },
-                { value: 'schedule', label: 'Scheduled' },
-                { value: 'event', label: 'Event-based' }
-              ]}
-            />
-
-            {config.configuration.triggerType === 'webhook' && (
-              <Input
-                label="Webhook URL"
-                value={config.configuration.webhookUrl || ''}
-                onChange={(e) => handleConfigChange('webhookUrl', e.target.value)}
-                placeholder="https://example.com/webhook"
-              />
-            )}
-
-            {config.configuration.triggerType === 'schedule' && (
-              <Input
-                label="Cron Expression"
-                value={config.configuration.cronExpression || ''}
-                onChange={(e) => handleConfigChange('cronExpression', e.target.value)}
-                placeholder="0 0 * * *"
-              />
-            )}
-          </div>
-        );
-
       case 'end':
         return (
           <div className="space-y-4">
-            {orientationConfig}
+            {handlePositionsConfig}
             <EnhancedSelect
               label="End Trigger Type"
               value={config.configuration.end_trigger || 'success'}
@@ -796,7 +807,7 @@ export const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
 
         return (
           <div className="space-y-4">
-            {orientationConfig}
+            {handlePositionsConfig}
 
             {/* Agent Selection */}
             <div>
@@ -937,7 +948,7 @@ export const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
       case 'api_call':
         return (
           <div className="space-y-4">
-            {orientationConfig}
+            {handlePositionsConfig}
             <EnhancedSelect
               label="HTTP Method"
               value={config.configuration.method || 'GET'}
@@ -1018,7 +1029,7 @@ export const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
       case 'condition':
         return (
           <div className="space-y-4">
-            {orientationConfig}
+            {handlePositionsConfig}
             <EnhancedSelect
               label="Condition Type"
               value={config.configuration.conditionType || 'equals'}
@@ -1052,7 +1063,7 @@ export const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
       case 'transform':
         return (
           <div className="space-y-4">
-            {orientationConfig}
+            {handlePositionsConfig}
             <EnhancedSelect
               label="Transform Type"
               value={config.configuration.transformType || 'javascript'}
@@ -1078,7 +1089,7 @@ export const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
       case 'kb_article_create':
         return (
           <div className="space-y-4">
-            {orientationConfig}
+            {handlePositionsConfig}
             <Input
               label="Article Title"
               value={config.configuration.title || ''}
@@ -1169,7 +1180,7 @@ export const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
       case 'kb_article_read':
         return (
           <div className="space-y-4">
-            {orientationConfig}
+            {handlePositionsConfig}
             <div>
               <h4 className="text-sm font-medium text-theme-primary mb-3">Article Identifier</h4>
               <p className="text-xs text-theme-muted mb-3">Provide either Article ID or Slug</p>
@@ -1203,7 +1214,7 @@ export const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
       case 'kb_article_update':
         return (
           <div className="space-y-4">
-            {orientationConfig}
+            {handlePositionsConfig}
             <div>
               <h4 className="text-sm font-medium text-theme-primary mb-3">Article Identifier</h4>
               <div className="space-y-3">
@@ -1318,7 +1329,7 @@ export const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
       case 'kb_article_search':
         return (
           <div className="space-y-4">
-            {orientationConfig}
+            {handlePositionsConfig}
             <Input
               label="Search Query"
               value={config.configuration.query || ''}
@@ -1423,7 +1434,7 @@ export const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
       case 'kb_article_publish':
         return (
           <div className="space-y-4">
-            {orientationConfig}
+            {handlePositionsConfig}
             <div>
               <h4 className="text-sm font-medium text-theme-primary mb-3">Article Identifier</h4>
               <div className="space-y-3">
@@ -1476,7 +1487,7 @@ export const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
       case 'page_create':
         return (
           <div className="space-y-4">
-            {orientationConfig}
+            {handlePositionsConfig}
             <Input
               label="Page Title"
               value={config.configuration.title || ''}
@@ -1540,7 +1551,7 @@ export const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
       case 'page_read':
         return (
           <div className="space-y-4">
-            {orientationConfig}
+            {handlePositionsConfig}
             <div>
               <h4 className="text-sm font-medium text-theme-primary mb-3">Page Identifier</h4>
               <p className="text-xs text-theme-muted mb-3">Provide either Page ID or Slug</p>
@@ -1574,7 +1585,7 @@ export const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
       case 'page_update':
         return (
           <div className="space-y-4">
-            {orientationConfig}
+            {handlePositionsConfig}
             <div>
               <h4 className="text-sm font-medium text-theme-primary mb-3">Page Identifier</h4>
               <div className="space-y-3">
@@ -1728,7 +1739,7 @@ export const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
       case 'page_publish':
         return (
           <div className="space-y-4">
-            {orientationConfig}
+            {handlePositionsConfig}
             <div>
               <h4 className="text-sm font-medium text-theme-primary mb-3">Page Identifier</h4>
               <p className="text-xs text-theme-muted mb-3">Provide either Page ID or Slug</p>
@@ -1787,10 +1798,786 @@ export const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
           />
         );
 
+      // Unified KB Article Node - dispatches based on action
+      case 'kb_article': {
+        const kbAction = config.configuration.action || 'create';
+        return (
+          <div className="space-y-4">
+            {handlePositionsConfig}
+            <EnhancedSelect
+              label="Action"
+              value={kbAction}
+              onChange={(value) => handleConfigChange('action', value)}
+              options={[
+                { value: 'create', label: 'Create Article' },
+                { value: 'read', label: 'Read Article' },
+                { value: 'update', label: 'Update Article' },
+                { value: 'search', label: 'Search Articles' },
+                { value: 'publish', label: 'Publish Article' }
+              ]}
+            />
+            {/* Action-specific fields rendered inline */}
+            {kbAction === 'create' && (
+              <>
+                <Input
+                  label="Article Title"
+                  value={config.configuration.title || ''}
+                  onChange={(e) => handleConfigChange('title', e.target.value)}
+                  placeholder="Enter article title or use {{variable}}"
+                />
+                <Textarea
+                  label="Content"
+                  value={config.configuration.content || ''}
+                  onChange={(e) => handleConfigChange('content', e.target.value)}
+                  placeholder="Article content supports {{variables}}"
+                  rows={6}
+                />
+                <Input
+                  label="Category ID"
+                  value={config.configuration.category_id || ''}
+                  onChange={(e) => handleConfigChange('category_id', e.target.value)}
+                  placeholder="Knowledge base category ID"
+                />
+              </>
+            )}
+            {kbAction === 'read' && (
+              <Input
+                label="Article ID"
+                value={config.configuration.article_id || ''}
+                onChange={(e) => handleConfigChange('article_id', e.target.value)}
+                placeholder="Article ID or {{variable}}"
+              />
+            )}
+            {kbAction === 'update' && (
+              <>
+                <Input
+                  label="Article ID"
+                  value={config.configuration.article_id || ''}
+                  onChange={(e) => handleConfigChange('article_id', e.target.value)}
+                  placeholder="Article ID to update"
+                />
+                <Input
+                  label="Title"
+                  value={config.configuration.title || ''}
+                  onChange={(e) => handleConfigChange('title', e.target.value)}
+                  placeholder="New title (optional)"
+                />
+                <Textarea
+                  label="Content"
+                  value={config.configuration.content || ''}
+                  onChange={(e) => handleConfigChange('content', e.target.value)}
+                  placeholder="New content (optional)"
+                  rows={6}
+                />
+              </>
+            )}
+            {kbAction === 'search' && (
+              <>
+                <Input
+                  label="Search Query"
+                  value={config.configuration.query || ''}
+                  onChange={(e) => handleConfigChange('query', e.target.value)}
+                  placeholder="Search query or {{variable}}"
+                />
+                <Input
+                  label="Category ID (optional)"
+                  value={config.configuration.category_id || ''}
+                  onChange={(e) => handleConfigChange('category_id', e.target.value)}
+                  placeholder="Filter by category"
+                />
+                <Input
+                  label="Max Results"
+                  type="number"
+                  value={config.configuration.limit || 10}
+                  onChange={(e) => handleConfigChange('limit', parseInt(e.target.value) || 10)}
+                />
+              </>
+            )}
+            {kbAction === 'publish' && (
+              <Input
+                label="Article ID"
+                value={config.configuration.article_id || ''}
+                onChange={(e) => handleConfigChange('article_id', e.target.value)}
+                placeholder="Article ID to publish"
+              />
+            )}
+          </div>
+        );
+      }
+
+      // Unified Page Node - dispatches based on action
+      case 'page': {
+        const pageAction = config.configuration.action || 'create';
+        return (
+          <div className="space-y-4">
+            {handlePositionsConfig}
+            <EnhancedSelect
+              label="Action"
+              value={pageAction}
+              onChange={(value) => handleConfigChange('action', value)}
+              options={[
+                { value: 'create', label: 'Create Page' },
+                { value: 'read', label: 'Read Page' },
+                { value: 'update', label: 'Update Page' },
+                { value: 'publish', label: 'Publish Page' }
+              ]}
+            />
+            {pageAction === 'create' && (
+              <>
+                <Input
+                  label="Page Title"
+                  value={config.configuration.title || ''}
+                  onChange={(e) => handleConfigChange('title', e.target.value)}
+                  placeholder="Enter page title or use {{variable}}"
+                />
+                <Textarea
+                  label="Content"
+                  value={config.configuration.content || ''}
+                  onChange={(e) => handleConfigChange('content', e.target.value)}
+                  placeholder="Page content supports {{variables}}"
+                  rows={6}
+                />
+                <Input
+                  label="Slug"
+                  value={config.configuration.slug || ''}
+                  onChange={(e) => handleConfigChange('slug', e.target.value)}
+                  placeholder="URL slug (auto-generated if empty)"
+                />
+              </>
+            )}
+            {pageAction === 'read' && (
+              <Input
+                label="Page ID or Slug"
+                value={config.configuration.page_id || ''}
+                onChange={(e) => handleConfigChange('page_id', e.target.value)}
+                placeholder="Page ID/slug or {{variable}}"
+              />
+            )}
+            {pageAction === 'update' && (
+              <>
+                <Input
+                  label="Page ID"
+                  value={config.configuration.page_id || ''}
+                  onChange={(e) => handleConfigChange('page_id', e.target.value)}
+                  placeholder="Page ID to update"
+                />
+                <Input
+                  label="Title"
+                  value={config.configuration.title || ''}
+                  onChange={(e) => handleConfigChange('title', e.target.value)}
+                  placeholder="New title (optional)"
+                />
+                <Textarea
+                  label="Content"
+                  value={config.configuration.content || ''}
+                  onChange={(e) => handleConfigChange('content', e.target.value)}
+                  placeholder="New content (optional)"
+                  rows={6}
+                />
+              </>
+            )}
+            {pageAction === 'publish' && (
+              <Input
+                label="Page ID"
+                value={config.configuration.page_id || ''}
+                onChange={(e) => handleConfigChange('page_id', e.target.value)}
+                placeholder="Page ID to publish"
+              />
+            )}
+          </div>
+        );
+      }
+
+      // Unified MCP Operation Node - dispatches based on operation_type
+      case 'mcp_operation': {
+        const mcpOpType = config.configuration.operation_type || 'tool';
+        return (
+          <div className="space-y-4">
+            {handlePositionsConfig}
+            <EnhancedSelect
+              label="Operation Type"
+              value={mcpOpType}
+              onChange={(value) => handleConfigChange('operation_type', value)}
+              options={[
+                { value: 'tool', label: 'Tool Call' },
+                { value: 'resource', label: 'Resource Access' },
+                { value: 'prompt', label: 'Prompt Template' }
+              ]}
+            />
+            {mcpOpType === 'tool' && (
+              <McpToolConfigPanel
+                configuration={config.configuration}
+                onConfigChange={handleConfigChange}
+                errors={errors}
+                disabled={false}
+              />
+            )}
+            {mcpOpType === 'resource' && (
+              <McpResourceConfigPanel
+                configuration={config.configuration}
+                onConfigChange={handleConfigChange}
+                errors={errors}
+                disabled={false}
+              />
+            )}
+            {mcpOpType === 'prompt' && (
+              <McpPromptConfigPanel
+                configuration={config.configuration}
+                onConfigChange={handleConfigChange}
+                errors={errors}
+                disabled={false}
+              />
+            )}
+          </div>
+        );
+      }
+
+      // Loop Node
+      case 'loop':
+        return (
+          <div className="space-y-4">
+            {handlePositionsConfig}
+            <EnhancedSelect
+              label="Loop Type"
+              value={config.configuration.loop_type || 'for_each'}
+              onChange={(value) => handleConfigChange('loop_type', value)}
+              options={[
+                { value: 'for_each', label: 'For Each Item' },
+                { value: 'while', label: 'While Condition' },
+                { value: 'count', label: 'Fixed Count' }
+              ]}
+            />
+            {config.configuration.loop_type === 'for_each' && (
+              <Input
+                label="Collection Variable"
+                value={config.configuration.collection || ''}
+                onChange={(e) => handleConfigChange('collection', e.target.value)}
+                placeholder="{{items}} or variable path"
+              />
+            )}
+            {config.configuration.loop_type === 'while' && (
+              <Input
+                label="Condition Expression"
+                value={config.configuration.condition || ''}
+                onChange={(e) => handleConfigChange('condition', e.target.value)}
+                placeholder="{{counter}} < 10"
+              />
+            )}
+            {config.configuration.loop_type === 'count' && (
+              <Input
+                label="Iteration Count"
+                type="number"
+                value={config.configuration.count || 10}
+                onChange={(e) => handleConfigChange('count', parseInt(e.target.value) || 10)}
+              />
+            )}
+            <Input
+              label="Max Iterations"
+              type="number"
+              value={config.configuration.max_iterations || 100}
+              onChange={(e) => handleConfigChange('max_iterations', parseInt(e.target.value) || 100)}
+            />
+          </div>
+        );
+
+      // Merge Node
+      case 'merge':
+        return (
+          <div className="space-y-4">
+            {handlePositionsConfig}
+            <EnhancedSelect
+              label="Merge Strategy"
+              value={config.configuration.merge_strategy || 'wait_all'}
+              onChange={(value) => handleConfigChange('merge_strategy', value)}
+              options={[
+                { value: 'wait_all', label: 'Wait for All Inputs' },
+                { value: 'wait_any', label: 'Continue on First Input' },
+                { value: 'wait_n', label: 'Wait for N Inputs' }
+              ]}
+            />
+            {config.configuration.merge_strategy === 'wait_n' && (
+              <Input
+                label="Required Input Count"
+                type="number"
+                value={config.configuration.required_count || 2}
+                onChange={(e) => handleConfigChange('required_count', parseInt(e.target.value) || 2)}
+              />
+            )}
+            <Input
+              label="Timeout (seconds)"
+              type="number"
+              value={config.configuration.timeout || 300}
+              onChange={(e) => handleConfigChange('timeout', parseInt(e.target.value) || 300)}
+            />
+          </div>
+        );
+
+      // Split Node
+      case 'split':
+        return (
+          <div className="space-y-4">
+            {handlePositionsConfig}
+            <EnhancedSelect
+              label="Split Type"
+              value={config.configuration.split_type || 'parallel'}
+              onChange={(value) => handleConfigChange('split_type', value)}
+              options={[
+                { value: 'parallel', label: 'Parallel Execution' },
+                { value: 'sequential', label: 'Sequential Execution' },
+                { value: 'conditional', label: 'Conditional Routing' },
+                { value: 'batch', label: 'Batch Processing' }
+              ]}
+            />
+            {config.configuration.split_type === 'batch' && (
+              <Input
+                label="Batch Size"
+                type="number"
+                value={config.configuration.batch_size || 10}
+                onChange={(e) => handleConfigChange('batch_size', parseInt(e.target.value) || 10)}
+              />
+            )}
+            <Input
+              label="Output Count"
+              type="number"
+              value={config.configuration.output_count || 2}
+              onChange={(e) => handleConfigChange('output_count', parseInt(e.target.value) || 2)}
+            />
+          </div>
+        );
+
+      // Trigger Node
+      case 'trigger':
+        return (
+          <div className="space-y-4">
+            {handlePositionsConfig}
+            <EnhancedSelect
+              label="Trigger Type"
+              value={config.configuration.trigger_type || 'manual'}
+              onChange={(value) => handleConfigChange('trigger_type', value)}
+              options={[
+                { value: 'manual', label: 'Manual Trigger' },
+                { value: 'webhook', label: 'Webhook' },
+                { value: 'schedule', label: 'Schedule' },
+                { value: 'event', label: 'Event-Based' }
+              ]}
+            />
+            {config.configuration.trigger_type === 'schedule' && (
+              <Input
+                label="Cron Expression"
+                value={config.configuration.cron || ''}
+                onChange={(e) => handleConfigChange('cron', e.target.value)}
+                placeholder="0 0 * * * (daily at midnight)"
+              />
+            )}
+            {config.configuration.trigger_type === 'event' && (
+              <Input
+                label="Event Name"
+                value={config.configuration.event_name || ''}
+                onChange={(e) => handleConfigChange('event_name', e.target.value)}
+                placeholder="user.created, order.completed"
+              />
+            )}
+          </div>
+        );
+
+      // Human Approval Node
+      case 'human_approval':
+        return (
+          <div className="space-y-4">
+            {handlePositionsConfig}
+            <Input
+              label="Approval Title"
+              value={config.configuration.title || ''}
+              onChange={(e) => handleConfigChange('title', e.target.value)}
+              placeholder="Approval required for..."
+            />
+            <Textarea
+              label="Description"
+              value={config.configuration.approval_description || ''}
+              onChange={(e) => handleConfigChange('approval_description', e.target.value)}
+              placeholder="Please review and approve the following..."
+              rows={3}
+            />
+            <Input
+              label="Approver Email/Role"
+              value={config.configuration.approver || ''}
+              onChange={(e) => handleConfigChange('approver', e.target.value)}
+              placeholder="admin@example.com or role:manager"
+            />
+            <Input
+              label="Timeout (hours)"
+              type="number"
+              value={config.configuration.timeout_hours || 24}
+              onChange={(e) => handleConfigChange('timeout_hours', parseInt(e.target.value) || 24)}
+            />
+          </div>
+        );
+
+      // Sub-Workflow Node
+      case 'sub_workflow':
+        return (
+          <div className="space-y-4">
+            {handlePositionsConfig}
+            <Input
+              label="Workflow ID"
+              value={config.configuration.workflow_id || ''}
+              onChange={(e) => handleConfigChange('workflow_id', e.target.value)}
+              placeholder="UUID of the workflow to execute"
+            />
+            <Input
+              label="Workflow Name (display)"
+              value={config.configuration.workflow_name || ''}
+              onChange={(e) => handleConfigChange('workflow_name', e.target.value)}
+              placeholder="Human-readable workflow name"
+            />
+            <div className="flex items-start gap-3 p-3 rounded-lg border border-theme-border bg-theme-surface">
+              <input
+                type="checkbox"
+                checked={config.configuration.wait_for_completion !== false}
+                onChange={(e) => handleConfigChange('wait_for_completion', e.target.checked)}
+                className="mt-0.5 rounded border-theme-border"
+              />
+              <div className="flex-1">
+                <label className="text-sm font-medium text-theme-primary">Wait for Completion</label>
+                <p className="text-xs text-theme-muted mt-1">Block until sub-workflow finishes</p>
+              </div>
+            </div>
+          </div>
+        );
+
+      // Webhook Node
+      case 'webhook':
+        return (
+          <div className="space-y-4">
+            {handlePositionsConfig}
+            <EnhancedSelect
+              label="HTTP Method"
+              value={config.configuration.method || 'POST'}
+              onChange={(value) => handleConfigChange('method', value)}
+              options={[
+                { value: 'GET', label: 'GET' },
+                { value: 'POST', label: 'POST' },
+                { value: 'PUT', label: 'PUT' },
+                { value: 'PATCH', label: 'PATCH' },
+                { value: 'DELETE', label: 'DELETE' }
+              ]}
+            />
+            <Input
+              label="URL"
+              value={config.configuration.url || ''}
+              onChange={(e) => handleConfigChange('url', e.target.value)}
+              placeholder="https://api.example.com/webhook"
+            />
+            <Textarea
+              label="Headers (JSON)"
+              value={config.configuration.headers ? JSON.stringify(config.configuration.headers, null, 2) : ''}
+              onChange={(e) => {
+                try {
+                  handleConfigChange('headers', JSON.parse(e.target.value));
+                } catch {
+                  // Invalid JSON, store as string temporarily
+                }
+              }}
+              placeholder='{"Authorization": "Bearer {{token}}"}'
+              rows={3}
+            />
+          </div>
+        );
+
+      // Database Node
+      case 'database':
+        return (
+          <div className="space-y-4">
+            {handlePositionsConfig}
+            <EnhancedSelect
+              label="Operation"
+              value={config.configuration.operation || 'query'}
+              onChange={(value) => handleConfigChange('operation', value)}
+              options={[
+                { value: 'query', label: 'Query (SELECT)' },
+                { value: 'insert', label: 'Insert' },
+                { value: 'update', label: 'Update' },
+                { value: 'delete', label: 'Delete' }
+              ]}
+            />
+            <Input
+              label="Table/Collection"
+              value={config.configuration.table || ''}
+              onChange={(e) => handleConfigChange('table', e.target.value)}
+              placeholder="users, orders, etc."
+            />
+            <Textarea
+              label="Query/Filter"
+              value={config.configuration.query || ''}
+              onChange={(e) => handleConfigChange('query', e.target.value)}
+              placeholder="SQL query or JSON filter"
+              rows={4}
+            />
+          </div>
+        );
+
+      // Email Node
+      case 'email':
+        return (
+          <div className="space-y-4">
+            {handlePositionsConfig}
+            <Input
+              label="To"
+              value={config.configuration.to || ''}
+              onChange={(e) => handleConfigChange('to', e.target.value)}
+              placeholder="recipient@example.com or {{user.email}}"
+            />
+            <Input
+              label="Subject"
+              value={config.configuration.subject || ''}
+              onChange={(e) => handleConfigChange('subject', e.target.value)}
+              placeholder="Email subject with {{variables}}"
+            />
+            <Textarea
+              label="Body"
+              value={config.configuration.body || ''}
+              onChange={(e) => handleConfigChange('body', e.target.value)}
+              placeholder="Email content with {{variables}}"
+              rows={6}
+            />
+            <EnhancedSelect
+              label="Content Type"
+              value={config.configuration.content_type || 'html'}
+              onChange={(value) => handleConfigChange('content_type', value)}
+              options={[
+                { value: 'html', label: 'HTML' },
+                { value: 'text', label: 'Plain Text' }
+              ]}
+            />
+          </div>
+        );
+
+      // File Node
+      case 'file':
+        return (
+          <div className="space-y-4">
+            {handlePositionsConfig}
+            <EnhancedSelect
+              label="Operation"
+              value={config.configuration.operation || 'read'}
+              onChange={(value) => handleConfigChange('operation', value)}
+              options={[
+                { value: 'read', label: 'Read File' },
+                { value: 'write', label: 'Write File' },
+                { value: 'append', label: 'Append to File' },
+                { value: 'delete', label: 'Delete File' }
+              ]}
+            />
+            <Input
+              label="File Path"
+              value={config.configuration.path || ''}
+              onChange={(e) => handleConfigChange('path', e.target.value)}
+              placeholder="/path/to/file.txt or {{variable}}"
+            />
+            {(config.configuration.operation === 'write' || config.configuration.operation === 'append') && (
+              <Textarea
+                label="Content"
+                value={config.configuration.content || ''}
+                onChange={(e) => handleConfigChange('content', e.target.value)}
+                placeholder="File content to write"
+                rows={4}
+              />
+            )}
+          </div>
+        );
+
+      // Validator Node
+      case 'validator':
+        return (
+          <div className="space-y-4">
+            {handlePositionsConfig}
+            <EnhancedSelect
+              label="Validation Type"
+              value={config.configuration.validation_type || 'json-schema'}
+              onChange={(value) => handleConfigChange('validation_type', value)}
+              options={[
+                { value: 'json-schema', label: 'JSON Schema' },
+                { value: 'regex', label: 'Regular Expression' },
+                { value: 'custom', label: 'Custom Expression' }
+              ]}
+            />
+            <Textarea
+              label="Schema/Pattern"
+              value={config.configuration.schema || ''}
+              onChange={(e) => handleConfigChange('schema', e.target.value)}
+              placeholder="JSON schema or regex pattern"
+              rows={6}
+            />
+            <EnhancedSelect
+              label="On Failure"
+              value={config.configuration.on_failure || 'error'}
+              onChange={(value) => handleConfigChange('on_failure', value)}
+              options={[
+                { value: 'error', label: 'Throw Error' },
+                { value: 'skip', label: 'Skip to Next' },
+                { value: 'default', label: 'Use Default Value' }
+              ]}
+            />
+          </div>
+        );
+
+      // Prompt Template Node
+      case 'prompt_template':
+        return (
+          <div className="space-y-4">
+            {handlePositionsConfig}
+            <Input
+              label="Template Name"
+              value={config.configuration.template_name || ''}
+              onChange={(e) => handleConfigChange('template_name', e.target.value)}
+              placeholder="Name for this template"
+            />
+            <Textarea
+              label="Prompt Template"
+              value={config.configuration.template || ''}
+              onChange={(e) => handleConfigChange('template', e.target.value)}
+              placeholder="You are a {{role}}. Please {{action}} the following: {{input}}"
+              rows={8}
+            />
+            <Input
+              label="Output Variable"
+              value={config.configuration.output_variable || ''}
+              onChange={(e) => handleConfigChange('output_variable', e.target.value)}
+              placeholder="Variable name for the result"
+            />
+          </div>
+        );
+
+      // Data Processor Node
+      case 'data_processor':
+        return (
+          <div className="space-y-4">
+            {handlePositionsConfig}
+            <EnhancedSelect
+              label="Processing Type"
+              value={config.configuration.processing_type || 'map'}
+              onChange={(value) => handleConfigChange('processing_type', value)}
+              options={[
+                { value: 'map', label: 'Map (Transform Each)' },
+                { value: 'filter', label: 'Filter' },
+                { value: 'reduce', label: 'Reduce/Aggregate' },
+                { value: 'sort', label: 'Sort' },
+                { value: 'group', label: 'Group By' }
+              ]}
+            />
+            <Textarea
+              label="Expression"
+              value={config.configuration.expression || ''}
+              onChange={(e) => handleConfigChange('expression', e.target.value)}
+              placeholder="item.value * 2, item.status === 'active'"
+              rows={4}
+            />
+            <Input
+              label="Input Variable"
+              value={config.configuration.input_variable || ''}
+              onChange={(e) => handleConfigChange('input_variable', e.target.value)}
+              placeholder="{{items}} or data path"
+            />
+          </div>
+        );
+
+      // Notification Node
+      case 'notification':
+        return (
+          <div className="space-y-4">
+            {handlePositionsConfig}
+            <EnhancedSelect
+              label="Channel"
+              value={config.configuration.channel || 'email'}
+              onChange={(value) => handleConfigChange('channel', value)}
+              options={[
+                { value: 'email', label: 'Email' },
+                { value: 'slack', label: 'Slack' },
+                { value: 'webhook', label: 'Webhook' },
+                { value: 'sms', label: 'SMS' }
+              ]}
+            />
+            <Input
+              label="Recipient"
+              value={config.configuration.recipient || ''}
+              onChange={(e) => handleConfigChange('recipient', e.target.value)}
+              placeholder="Email, Slack channel, or phone number"
+            />
+            <Input
+              label="Title/Subject"
+              value={config.configuration.title || ''}
+              onChange={(e) => handleConfigChange('title', e.target.value)}
+              placeholder="Notification title"
+            />
+            <Textarea
+              label="Message"
+              value={config.configuration.message || ''}
+              onChange={(e) => handleConfigChange('message', e.target.value)}
+              placeholder="Notification message with {{variables}}"
+              rows={4}
+            />
+          </div>
+        );
+
+      // Scheduler Node
+      case 'scheduler':
+        return (
+          <div className="space-y-4">
+            {handlePositionsConfig}
+            <EnhancedSelect
+              label="Schedule Type"
+              value={config.configuration.schedule_type || 'delay'}
+              onChange={(value) => handleConfigChange('schedule_type', value)}
+              options={[
+                { value: 'delay', label: 'Delay Execution' },
+                { value: 'at_time', label: 'Execute at Specific Time' },
+                { value: 'cron', label: 'Cron Schedule' }
+              ]}
+            />
+            {config.configuration.schedule_type === 'delay' && (
+              <>
+                <Input
+                  label="Delay Duration"
+                  type="number"
+                  value={config.configuration.delay_value || 5}
+                  onChange={(e) => handleConfigChange('delay_value', parseInt(e.target.value) || 5)}
+                />
+                <EnhancedSelect
+                  label="Unit"
+                  value={config.configuration.delay_unit || 'minutes'}
+                  onChange={(value) => handleConfigChange('delay_unit', value)}
+                  options={[
+                    { value: 'seconds', label: 'Seconds' },
+                    { value: 'minutes', label: 'Minutes' },
+                    { value: 'hours', label: 'Hours' },
+                    { value: 'days', label: 'Days' }
+                  ]}
+                />
+              </>
+            )}
+            {config.configuration.schedule_type === 'at_time' && (
+              <Input
+                label="Execute At (ISO DateTime)"
+                value={config.configuration.execute_at || ''}
+                onChange={(e) => handleConfigChange('execute_at', e.target.value)}
+                placeholder="2024-01-01T09:00:00Z or {{variable}}"
+              />
+            )}
+            {config.configuration.schedule_type === 'cron' && (
+              <Input
+                label="Cron Expression"
+                value={config.configuration.cron || ''}
+                onChange={(e) => handleConfigChange('cron', e.target.value)}
+                placeholder="0 9 * * 1-5 (9am weekdays)"
+              />
+            )}
+          </div>
+        );
+
       default:
         return (
           <div>
-            {orientationConfig}
+            {handlePositionsConfig}
             <div className="text-center py-8 text-theme-muted">
               <Settings className="h-8 w-8 mx-auto mb-2 opacity-50" />
               <p>No specific configuration available for this node type.</p>

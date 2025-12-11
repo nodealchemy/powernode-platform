@@ -1,24 +1,17 @@
 import React from 'react';
 import { NodeProps } from '@xyflow/react';
-import { Merge, ArrowDown, Shuffle, Plus } from 'lucide-react';
+import { GitMerge } from 'lucide-react';
 import { DynamicNodeHandles } from './DynamicNodeHandles';
+import { NodeActionsMenu } from '../NodeActionsMenu';
+import { useWorkflowContext } from '../WorkflowContext';
+import { MergeNode as MergeNodeType } from '@/shared/types/workflow';
 
-export const MergeNode: React.FC<NodeProps<any>> = ({ 
-  data, 
-  selected 
+export const MergeNode: React.FC<NodeProps<MergeNodeType>> = ({
+  id,
+  data,
+  selected
 }) => {
-  const getMergeIcon = () => {
-    switch (data.configuration?.mergeType) {
-      case 'combine':
-        return <Plus className="h-4 w-4" />;
-      case 'aggregate':
-        return <ArrowDown className="h-4 w-4" />;
-      case 'first':
-        return <Shuffle className="h-4 w-4" />;
-      default:
-        return <Merge className="h-4 w-4" />;
-    }
-  };
+  const { onOpenChat } = useWorkflowContext();
 
   const getMergeLabel = () => {
     const config = data.configuration;
@@ -56,84 +49,75 @@ export const MergeNode: React.FC<NodeProps<any>> = ({
 
   return (
     <div className={`
-      relative bg-theme-surface border-2 rounded-lg p-4 w-48 shadow-lg
-      ${selected ? 'border-theme-interactive-primary ring-2 ring-theme-interactive-primary/20' : 'border-teal-500'}
+      group relative bg-theme-surface border-2 rounded-lg w-64 shadow-lg
+      ${selected ? 'border-theme-interactive-primary ring-2 ring-theme-interactive-primary/20' : 'border-theme hover:border-theme-interactive-primary/50'}
       hover:shadow-xl transition-all duration-200
     `}>
       {/* Header */}
-      <div className="flex items-center gap-3 mb-3">
-        <div className="w-8 h-8 bg-teal-500 rounded-lg flex items-center justify-center text-white">
-          {getMergeIcon()}
+      <div className="px-4 py-3 rounded-t-lg bg-node-merge">
+        <div className="flex items-center justify-between text-white">
+          <div className="flex items-center gap-2">
+            <GitMerge className="h-4 w-4" />
+            <span className="font-medium text-sm">MERGE</span>
+          </div>
         </div>
-        <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-theme-primary truncate">
+      </div>
+
+      {/* Content */}
+      <div className="p-4 space-y-3">
+        <div>
+          <h3 className="font-medium text-theme-primary text-sm truncate">
             {data.name || 'Merge'}
           </h3>
-          <p className="text-xs text-teal-600 font-medium">
-            {getMergeLabel()}
-          </p>
+          {data.description && (
+            <p className="text-sm text-theme-muted mt-1 line-clamp-2">
+              {data.description}
+            </p>
+          )}
+        </div>
+
+        <div className="space-y-2 text-xs">
+          <div>
+            <span className="text-theme-muted">Type:</span>
+            <span className="ml-2 text-theme-primary font-medium">
+              {getMergeLabel()}
+            </span>
+          </div>
+
+          {data.configuration?.outputFormat && (
+            <div>
+              <span className="text-theme-muted">Output:</span>
+              <span className="ml-2 text-theme-primary font-medium">
+                {data.configuration.outputFormat}
+              </span>
+            </div>
+          )}
+
+          {formatTimeout() && (
+            <div>
+              <span className="text-theme-muted">Timeout:</span>
+              <span className="ml-2 text-theme-primary font-medium">
+                {formatTimeout()}
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Description */}
-      {data.description && (
-        <p className="text-sm text-theme-primary mb-3 line-clamp-2">
-          {data.description}
-        </p>
-      )}
+      {/* Node Actions Menu */}
+      <NodeActionsMenu
+        nodeId={id}
+        nodeType="merge"
+        nodeName={data.name}
+        isSelected={selected}
+        hasErrors={false}
+        onOpenChat={onOpenChat}
+      />
 
-      {/* Configuration Details */}
-      <div className="space-y-2">
-        {data.configuration?.outputFormat && (
-          <div className="text-xs">
-            <span className="text-theme-muted">Output:</span>
-            <span className="ml-1 text-theme-secondary font-semibold">
-              {data.configuration.outputFormat}
-            </span>
-          </div>
-        )}
-
-        {data.configuration?.aggregationFunction && (
-          <div className="text-xs">
-            <span className="text-theme-muted">Function:</span>
-            <span className="ml-1 text-theme-secondary font-mono">
-              {data.configuration.aggregationFunction}
-            </span>
-          </div>
-        )}
-
-        {formatTimeout() && (
-          <div className="text-xs">
-            <span className="text-theme-muted">Timeout:</span>
-            <span className="ml-1 text-theme-secondary">
-              {formatTimeout()}
-            </span>
-          </div>
-        )}
-
-        {data.configuration?.waitForAll === false && (
-          <div className="text-xs">
-            <span className="text-theme-muted">Mode:</span>
-            <span className="ml-1 text-theme-warning font-semibold">First available</span>
-          </div>
-        )}
-      </div>
-
-      {/* Status Indicator */}
-      <div className="absolute top-2 right-2">
-        <div className="w-2 h-2 bg-teal-500 rounded-full animate-pulse" />
-      </div>
-
-      {/* Input Counter */}
-      <div className="absolute -top-2 left-2 bg-teal-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
-        3
-      </div>
-
-      {/* Dynamic Handles for Merge Node */}
+      {/* Dynamic Handles */}
       <DynamicNodeHandles
         nodeType="merge"
-        nodeColor="bg-teal-500"
-        orientation={data?.handleOrientation || 'vertical'}
+        handlePositions={data?.handlePositions}
       />
     </div>
   );

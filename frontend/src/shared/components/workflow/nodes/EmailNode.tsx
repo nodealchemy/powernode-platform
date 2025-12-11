@@ -1,27 +1,17 @@
 import React from 'react';
-import { NodeProps, useEdges } from '@xyflow/react';
-import { Mail, Send, Users, User, AtSign, Paperclip } from 'lucide-react';
+import { NodeProps } from '@xyflow/react';
+import { Mail } from 'lucide-react';
 import { DynamicNodeHandles } from './DynamicNodeHandles';
+import { NodeActionsMenu } from '../NodeActionsMenu';
+import { useWorkflowContext } from '../WorkflowContext';
+import { EmailNode as EmailNodeType } from '@/shared/types/workflow';
 
-export const EmailNode: React.FC<NodeProps<any>> = ({
+export const EmailNode: React.FC<NodeProps<EmailNodeType>> = ({
   id,
   data,
   selected
 }) => {
-  const edges = useEdges();
-  const hasOutboundConnection = edges.some(edge => edge.source === id);
-  const getRecipientIcon = () => {
-    switch (data.configuration?.recipientType) {
-      case 'single':
-        return <User className="h-4 w-4" />;
-      case 'multiple':
-        return <Users className="h-4 w-4" />;
-      case 'list':
-        return <AtSign className="h-4 w-4" />;
-      default:
-        return <Mail className="h-4 w-4" />;
-    }
-  };
+  const { onOpenChat } = useWorkflowContext();
 
   const getProviderColor = () => {
     switch (data.configuration?.provider) {
@@ -37,17 +27,6 @@ export const EmailNode: React.FC<NodeProps<any>> = ({
         return 'text-theme-warning bg-theme-warning/20';
       default:
         return 'text-theme-success bg-theme-success/20';
-    }
-  };
-
-  const getPriorityColor = () => {
-    switch (data.configuration?.priority) {
-      case 'high':
-        return 'text-theme-danger';
-      case 'low':
-        return 'text-theme-success';
-      default:
-        return 'text-theme-info';
     }
   };
 
@@ -77,100 +56,62 @@ export const EmailNode: React.FC<NodeProps<any>> = ({
 
   return (
     <div className={`
-      relative bg-theme-surface border-2 rounded-lg p-4 w-48 shadow-lg
-      ${selected ? 'border-theme-interactive-primary ring-2 ring-theme-interactive-primary/20' : 'border-emerald-500'}
+      group relative bg-theme-surface border-2 rounded-lg w-64 shadow-lg
+      ${selected ? 'border-theme-interactive-primary ring-2 ring-theme-interactive-primary/20' : 'border-theme hover:border-theme-interactive-primary/50'}
       hover:shadow-xl transition-all duration-200
     `}>
       {/* Header */}
-      <div className="flex items-center gap-3 mb-3">
-        <div className="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center text-white">
+      <div className="px-4 py-3 rounded-t-lg bg-node-email">
+        <div className="flex items-center gap-2 text-white">
           <Mail className="h-4 w-4" />
+          <span className="font-medium text-sm">EMAIL</span>
         </div>
-        <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-theme-primary truncate">
+      </div>
+
+      {/* Content */}
+      <div className="p-4 space-y-3">
+        <div>
+          <h3 className="font-medium text-theme-primary text-sm truncate">
             {data.name || 'Send Email'}
           </h3>
-          <div className="flex items-center gap-2">
-            {data.configuration?.provider && (
-              <span className={`
-                text-xs font-medium px-2 py-0.5 rounded-full
-                ${getProviderColor()}
-              `}>
-                {getProviderLabel()}
-              </span>
-            )}
-            {data.configuration?.priority && data.configuration.priority !== 'normal' && (
-              <span className={`text-xs font-medium ${getPriorityColor()}`}>
-                {data.configuration.priority.toUpperCase()}
-              </span>
-            )}
-          </div>
+          {data.description && (
+            <p className="text-xs text-theme-secondary mt-1 line-clamp-2">
+              {data.description}
+            </p>
+          )}
         </div>
-      </div>
 
-      {/* Description */}
-      {data.description && (
-        <p className="text-sm text-theme-primary mb-3 line-clamp-2">
-          {data.description}
-        </p>
-      )}
-
-      {/* Subject Preview */}
-      {data.configuration?.subject && (
-        <div className="mb-3 p-2 bg-theme-background border border-theme-border rounded">
-          <div className="text-xs text-theme-muted mb-1">Subject:</div>
-          <div className="text-sm text-theme-secondary font-medium">
-            {getSubjectPreview()}
-          </div>
-        </div>
-      )}
-
-      {/* Configuration Details */}
-      <div className="space-y-1 text-xs">
-        <div className="flex items-center gap-2">
-          {getRecipientIcon()}
-          <span className="text-theme-muted">
-            {data.configuration?.recipientType || 'Recipients'}
+        {/* Provider Badge */}
+        {data.configuration?.provider && (
+          <span className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full ${getProviderColor()}`}>
+            {getProviderLabel()}
           </span>
-        </div>
-        <div className="flex items-center gap-2">
-          {data.configuration?.hasAttachments && (
-            <>
-              <Paperclip className="h-3 w-3 text-theme-muted" />
-              <span className="text-theme-secondary">Has attachments</span>
-            </>
-          )}
-          {data.configuration?.isTemplate && (
-            <>
-              <span className="text-theme-muted">Template-based</span>
-            </>
-          )}
-        </div>
+        )}
+
+        {/* Subject Preview */}
+        {data.configuration?.subject && (
+          <div className="text-xs">
+            <span className="text-theme-muted">Subject:</span>
+            <span className="ml-1 text-theme-secondary">{getSubjectPreview()}</span>
+          </div>
+        )}
       </div>
 
-      {/* Send Icon Indicator */}
-      <div className="absolute top-2 right-2">
-        <div className="w-6 h-6 bg-emerald-500/10 rounded-full flex items-center justify-center text-emerald-600">
-          <Send className="h-4 w-4" />
-        </div>
-      </div>
-
-      {/* Processing Indicator */}
-      <div className="absolute bottom-2 right-2">
-        <div className="flex space-x-1">
-          <div className="w-1 h-3 bg-emerald-500 rounded-full animate-pulse" style={{ animationDelay: '0ms' }} />
-          <div className="w-1 h-3 bg-emerald-500 rounded-full animate-pulse" style={{ animationDelay: '100ms' }} />
-          <div className="w-1 h-3 bg-emerald-500 rounded-full animate-pulse" style={{ animationDelay: '200ms' }} />
-        </div>
-      </div>
+      {/* Node Actions Menu */}
+      <NodeActionsMenu
+        nodeId={id}
+        nodeType="email"
+        nodeName={data.name}
+        isSelected={selected}
+        hasErrors={false}
+        onOpenChat={onOpenChat}
+      />
 
       {/* Auto-positioning Handles */}
       <DynamicNodeHandles
         nodeType="email"
-        nodeColor="bg-emerald-500"
         isEndNode={data.isEndNode}
-        hasOutboundConnection={hasOutboundConnection}
-        orientation={data.handleOrientation || data.configuration?.orientation || 'vertical'}
+        handlePositions={data.handlePositions}
       />
     </div>
   );

@@ -1,42 +1,17 @@
 import React from 'react';
-import { Handle, Position, NodeProps } from '@xyflow/react';
-import { File, FileText, Download, Upload, FolderOpen, Archive, FileImage, FileVideo } from 'lucide-react';
+import { NodeProps } from '@xyflow/react';
+import { File } from 'lucide-react';
+import { DynamicNodeHandles } from './DynamicNodeHandles';
+import { NodeActionsMenu } from '../NodeActionsMenu';
+import { useWorkflowContext } from '../WorkflowContext';
+import { FileNode as FileNodeType } from '@/shared/types/workflow';
 
-export const FileNode: React.FC<NodeProps<any>> = ({
+export const FileNode: React.FC<NodeProps<FileNodeType>> = ({
+  id,
   data,
   selected
 }) => {
-  const getOperationIcon = () => {
-    switch (data.configuration?.operation) {
-      case 'read':
-        return <FolderOpen className="h-4 w-4" />;
-      case 'write':
-      case 'create':
-        return <Upload className="h-4 w-4" />;
-      case 'download':
-        return <Download className="h-4 w-4" />;
-      case 'compress':
-      case 'archive':
-        return <Archive className="h-4 w-4" />;
-      default:
-        return <File className="h-4 w-4" />;
-    }
-  };
-
-  const getFileTypeIcon = () => {
-    switch (data.configuration?.fileType) {
-      case 'text':
-      case 'csv':
-      case 'json':
-        return <FileText className="h-4 w-4" />;
-      case 'image':
-        return <FileImage className="h-4 w-4" />;
-      case 'video':
-        return <FileVideo className="h-4 w-4" />;
-      default:
-        return <File className="h-4 w-4" />;
-    }
-  };
+  const { onOpenChat } = useWorkflowContext();
 
   const getOperationColor = () => {
     switch (data.configuration?.operation) {
@@ -88,108 +63,61 @@ export const FileNode: React.FC<NodeProps<any>> = ({
 
   return (
     <div className={`
-      relative bg-theme-surface border-2 rounded-lg p-4 w-48 shadow-lg
-      ${selected ? 'border-theme-interactive-primary ring-2 ring-theme-interactive-primary/20' : 'border-slate-500'}
+      group relative bg-theme-surface border-2 rounded-lg w-64 shadow-lg
+      ${selected ? 'border-theme-interactive-primary ring-2 ring-theme-interactive-primary/20' : 'border-theme hover:border-theme-interactive-primary/50'}
       hover:shadow-xl transition-all duration-200
     `}>
       {/* Header */}
-      <div className="flex items-center gap-3 mb-3">
-        <div className="w-8 h-8 bg-slate-500 rounded-lg flex items-center justify-center text-white">
+      <div className="px-4 py-3 rounded-t-lg bg-node-file">
+        <div className="flex items-center gap-2 text-white">
           <File className="h-4 w-4" />
+          <span className="font-medium text-sm">FILE</span>
         </div>
-        <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-theme-primary truncate">
+      </div>
+
+      {/* Content */}
+      <div className="p-4 space-y-3">
+        <div>
+          <h3 className="font-medium text-theme-primary text-sm truncate">
             {data.name || 'File Operation'}
           </h3>
-          <div className="flex items-center gap-2">
-            {data.configuration?.operation && (
-              <span className={`
-                text-xs font-medium px-2 py-0.5 rounded-full
-                ${getOperationColor()}
-              `}>
-                {getOperationLabel()}
-              </span>
-            )}
-            {data.configuration?.fileType && (
-              <span className="text-xs text-theme-muted">
-                {data.configuration.fileType.toUpperCase()}
-              </span>
-            )}
-          </div>
+          {data.description && (
+            <p className="text-xs text-theme-secondary mt-1 line-clamp-2">
+              {data.description}
+            </p>
+          )}
         </div>
-      </div>
 
-      {/* Description */}
-      {data.description && (
-        <p className="text-sm text-theme-primary mb-3 line-clamp-2">
-          {data.description}
-        </p>
-      )}
-
-      {/* File Path Preview */}
-      {data.configuration?.filePath && (
-        <div className="mb-3 p-2 bg-theme-background border border-theme-border rounded text-xs font-mono">
-          <div className="text-theme-secondary truncate">
-            {getFilePathPreview()}
-          </div>
-        </div>
-      )}
-
-      {/* Configuration Details */}
-      <div className="space-y-1 text-xs">
-        {data.configuration?.encoding && (
-          <div>
-            <span className="text-theme-muted">Encoding:</span>
-            <span className="ml-1 text-theme-secondary">
-              {data.configuration.encoding}
-            </span>
-          </div>
+        {/* Operation Badge */}
+        {data.configuration?.operation && (
+          <span className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full ${getOperationColor()}`}>
+            {getOperationLabel()}
+          </span>
         )}
-        {data.configuration?.format && (
-          <div>
-            <span className="text-theme-muted">Format:</span>
-            <span className="ml-1 text-theme-secondary">
-              {data.configuration.format}
-            </span>
+
+        {/* File Path */}
+        {data.configuration?.filePath && (
+          <div className="text-xs">
+            <span className="text-theme-muted">Path:</span>
+            <span className="ml-1 text-theme-secondary font-mono">{getFilePathPreview()}</span>
           </div>
         )}
       </div>
 
-      {/* File Type Icon Indicator */}
-      <div className="absolute top-2 right-2">
-        <div className="w-6 h-6 bg-slate-500/10 rounded-full flex items-center justify-center text-slate-600">
-          {getFileTypeIcon()}
-        </div>
-      </div>
-
-      {/* Operation Icon Indicator */}
-      <div className="absolute top-2 right-9">
-        <div className="w-6 h-6 bg-slate-500/10 rounded-full flex items-center justify-center text-slate-600">
-          {getOperationIcon()}
-        </div>
-      </div>
-
-      {/* Processing Indicator */}
-      <div className="absolute bottom-2 right-2">
-        <div className="flex space-x-1">
-          <div className="w-1 h-3 bg-slate-500 rounded-full animate-pulse" style={{ animationDelay: '0ms' }} />
-          <div className="w-1 h-3 bg-slate-500 rounded-full animate-pulse" style={{ animationDelay: '100ms' }} />
-          <div className="w-1 h-3 bg-slate-500 rounded-full animate-pulse" style={{ animationDelay: '200ms' }} />
-        </div>
-      </div>
-
-      {/* Handles - orientation-aware */}
-      <Handle
-        type="target"
-        position={data.handleOrientation === 'horizontal' ? Position.Left : Position.Top}
-        className="w-3 h-3 bg-slate-500 border-2 border-theme-surface"
-        style={data.handleOrientation === 'horizontal' ? { left: -6 } : { top: -6 }}
+      {/* Node Actions Menu */}
+      <NodeActionsMenu
+        nodeId={id}
+        nodeType="file"
+        nodeName={data.name}
+        isSelected={selected}
+        hasErrors={false}
+        onOpenChat={onOpenChat}
       />
-      <Handle
-        type="source"
-        position={data.handleOrientation === 'horizontal' ? Position.Right : Position.Bottom}
-        className="w-3 h-3 bg-slate-500 border-2 border-theme-surface"
-        style={data.handleOrientation === 'horizontal' ? { right: -6 } : { bottom: -6 }}
+
+      {/* Dynamic Handles */}
+      <DynamicNodeHandles
+        nodeType="file"
+        handlePositions={data.handlePositions}
       />
     </div>
   );

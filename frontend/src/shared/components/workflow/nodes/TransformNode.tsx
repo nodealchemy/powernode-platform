@@ -1,27 +1,17 @@
 import React from 'react';
-import { NodeProps, useEdges } from '@xyflow/react';
-import { RotateCcw, Code, Filter, FileText } from 'lucide-react';
+import { NodeProps } from '@xyflow/react';
+import { ArrowRightLeft } from 'lucide-react';
 import { DynamicNodeHandles } from './DynamicNodeHandles';
+import { NodeActionsMenu } from '../NodeActionsMenu';
+import { useWorkflowContext } from '../WorkflowContext';
+import { TransformNode as TransformNodeType } from '@/shared/types/workflow';
 
-export const TransformNode: React.FC<NodeProps<any>> = ({
+export const TransformNode: React.FC<NodeProps<TransformNodeType>> = ({
   id,
   data,
   selected
 }) => {
-  const edges = useEdges();
-  const hasOutboundConnection = edges.some(edge => edge.source === id);
-  const getTransformIcon = () => {
-    switch (data.configuration?.transformType) {
-      case 'javascript':
-        return <Code className="h-4 w-4" />;
-      case 'jq':
-        return <Filter className="h-4 w-4" />;
-      case 'template':
-        return <FileText className="h-4 w-4" />;
-      default:
-        return <RotateCcw className="h-4 w-4" />;
-    }
-  };
+  const { onOpenChat } = useWorkflowContext();
 
   const getTransformLabel = () => {
     switch (data.configuration?.transformType) {
@@ -36,19 +26,6 @@ export const TransformNode: React.FC<NodeProps<any>> = ({
     }
   };
 
-  const getTransformColor = () => {
-    switch (data.configuration?.transformType) {
-      case 'javascript':
-        return 'text-theme-warning bg-theme-warning/20';
-      case 'jq':
-        return 'text-theme-info bg-theme-info/20';
-      case 'template':
-        return 'text-theme-success bg-theme-success/20';
-      default:
-        return 'text-theme-info bg-theme-info/20';
-    }
-  };
-
   const getCodePreview = () => {
     const code = data.configuration?.code;
     if (!code) return 'No transformation code';
@@ -60,80 +37,76 @@ export const TransformNode: React.FC<NodeProps<any>> = ({
 
   return (
     <div className={`
-      relative bg-theme-surface border-2 rounded-lg p-4 w-48 shadow-lg
-      ${selected ? 'border-theme-interactive-primary ring-2 ring-theme-interactive-primary/20' : 'border-teal-500'}
+      group relative bg-theme-surface border-2 rounded-lg w-64 shadow-lg
+      ${selected ? 'border-theme-interactive-primary ring-2 ring-theme-interactive-primary/20' : 'border-theme hover:border-theme-interactive-primary/50'}
       hover:shadow-xl transition-all duration-200
     `}>
       {/* Header */}
-      <div className="flex items-center gap-3 mb-3">
-        <div className="w-8 h-8 bg-teal-500 rounded-lg flex items-center justify-center text-white">
-          <RotateCcw className="h-4 w-4" />
+      <div className="px-4 py-3 rounded-t-lg bg-node-transformer">
+        <div className="flex items-center justify-between text-white">
+          <div className="flex items-center gap-2">
+            <ArrowRightLeft className="h-4 w-4" />
+            <span className="font-medium text-sm">TRANSFORM</span>
+          </div>
         </div>
-        <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-theme-primary truncate">
+      </div>
+
+      {/* Content */}
+      <div className="p-4 space-y-3">
+        <div>
+          <h3 className="font-medium text-theme-primary text-sm truncate">
             {data.name || 'Transform'}
           </h3>
-          <div className="flex items-center gap-2">
-            {data.configuration?.transformType && (
-              <span className={`
-                text-xs font-medium px-2 py-0.5 rounded-full
-                ${getTransformColor()}
-              `}>
-                {getTransformLabel()}
-              </span>
-            )}
-          </div>
+          {data.description && (
+            <p className="text-sm text-theme-muted mt-1 line-clamp-2">
+              {data.description}
+            </p>
+          )}
         </div>
-      </div>
 
-      {/* Description */}
-      {data.description && (
-        <p className="text-sm text-theme-primary mb-3 line-clamp-2">
-          {data.description}
-        </p>
-      )}
-
-      {/* Code Preview */}
-      <div className="mb-3 p-2 bg-theme-background border border-theme-border rounded text-xs font-mono">
-        <div className="text-theme-secondary">
-          {getCodePreview()}
-        </div>
-      </div>
-
-      {/* Configuration Details */}
-      <div className="space-y-1 text-xs">
         {data.configuration?.code && (
-          <div>
-            <span className="text-theme-muted">Lines:</span>
-            <span className="ml-1 text-theme-secondary">
-              {data.configuration.code.split('\n').length}
-            </span>
+          <div className="p-2 bg-theme-background border border-theme-border rounded text-xs font-mono">
+            <div className="text-theme-secondary line-clamp-2">
+              {getCodePreview()}
+            </div>
           </div>
         )}
-      </div>
 
-      {/* Transform Type Icon Indicator */}
-      <div className="absolute top-2 right-2">
-        <div className="w-6 h-6 bg-teal-500/10 rounded-full flex items-center justify-center text-teal-600">
-          {getTransformIcon()}
+        <div className="space-y-2 text-xs">
+          {data.configuration?.transformType && (
+            <div>
+              <span className="text-theme-muted">Type:</span>
+              <span className="ml-2 text-theme-primary font-medium">
+                {getTransformLabel()}
+              </span>
+            </div>
+          )}
+
+          {data.configuration?.code && (
+            <div>
+              <span className="text-theme-muted">Lines:</span>
+              <span className="ml-2 text-theme-primary font-medium">
+                {data.configuration.code.split('\n').length}
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Processing Indicator */}
-      <div className="absolute bottom-2 right-2">
-        <div className="flex space-x-1">
-          <div className="w-1 h-3 bg-teal-500 rounded-full animate-pulse" style={{ animationDelay: '0ms' }} />
-          <div className="w-1 h-3 bg-teal-500 rounded-full animate-pulse" style={{ animationDelay: '100ms' }} />
-          <div className="w-1 h-3 bg-teal-500 rounded-full animate-pulse" style={{ animationDelay: '200ms' }} />
-        </div>
-      </div>
+      {/* Node Actions Menu */}
+      <NodeActionsMenu
+        nodeId={id}
+        nodeType="transform"
+        nodeName={data.name}
+        isSelected={selected}
+        hasErrors={false}
+        onOpenChat={onOpenChat}
+      />
 
       {/* Dynamic Handles */}
       <DynamicNodeHandles
         nodeType="transform"
-        nodeColor="bg-teal-500"
-        hasOutboundConnection={hasOutboundConnection}
-        orientation={data.handleOrientation || data.configuration?.orientation || 'vertical'}
+        handlePositions={data?.handlePositions}
       />
     </div>
   );

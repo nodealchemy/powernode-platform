@@ -172,8 +172,9 @@ class AccountSwitchService
         user_agent: Current.user_agent
       }
     )
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to log account switch: #{e.message}"
-    # Don't fail the switch if logging fails
+    # Don't fail the switch if logging fails - but track the error
+    # for alerting. This is intentionally swallowed.
   end
 end

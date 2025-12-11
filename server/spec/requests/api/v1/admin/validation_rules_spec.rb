@@ -18,7 +18,7 @@ RSpec.describe 'Api::V1::Admin::ValidationRules', type: :request do
         get '/api/v1/admin/validation_rules', headers: admin_headers, as: :json
 
         expect_success_response
-        data = json_response
+        data = json_response_data
         expect(data['validation_rules']).to be_an(Array)
         expect(data['validation_rules'].length).to eq(2)
         expect(data['meta']).to include(
@@ -33,11 +33,10 @@ RSpec.describe 'Api::V1::Admin::ValidationRules', type: :request do
       it 'filters by category' do
         get '/api/v1/admin/validation_rules',
             params: { category: 'structure' },
-            headers: admin_headers,
-            as: :json
+            headers: admin_headers
 
         expect_success_response
-        data = json_response
+        data = json_response_data
         expect(data['validation_rules'].length).to eq(1)
         expect(data['validation_rules'].first['category']).to eq('structure')
       end
@@ -45,11 +44,10 @@ RSpec.describe 'Api::V1::Admin::ValidationRules', type: :request do
       it 'filters by severity' do
         get '/api/v1/admin/validation_rules',
             params: { severity: 'warning' },
-            headers: admin_headers,
-            as: :json
+            headers: admin_headers
 
         expect_success_response
-        data = json_response
+        data = json_response_data
         expect(data['validation_rules'].length).to eq(1)
         expect(data['validation_rules'].first['severity']).to eq('warning')
       end
@@ -57,11 +55,10 @@ RSpec.describe 'Api::V1::Admin::ValidationRules', type: :request do
       it 'filters by enabled status' do
         get '/api/v1/admin/validation_rules',
             params: { enabled: 'true' },
-            headers: admin_headers,
-            as: :json
+            headers: admin_headers
 
         expect_success_response
-        data = json_response
+        data = json_response_data
         expect(data['validation_rules'].all? { |r| r['enabled'] }).to be true
       end
 
@@ -70,11 +67,10 @@ RSpec.describe 'Api::V1::Admin::ValidationRules', type: :request do
 
         get '/api/v1/admin/validation_rules',
             params: { auto_fixable: 'true' },
-            headers: admin_headers,
-            as: :json
+            headers: admin_headers
 
         expect_success_response
-        data = json_response
+        data = json_response_data
         expect(data['validation_rules'].all? { |r| r['auto_fixable'] }).to be true
       end
     end
@@ -104,17 +100,14 @@ RSpec.describe 'Api::V1::Admin::ValidationRules', type: :request do
         get "/api/v1/admin/validation_rules/#{rule.id}", headers: admin_headers, as: :json
 
         expect_success_response
-        data = json_response
+        data = json_response_data
         expect(data['validation_rule']).to include(
           'id' => rule.id,
-          'code' => rule.code,
           'name' => rule.name,
           'category' => rule.category,
           'severity' => rule.severity
         )
-        expect(data['validation_rule']).to have_key('fix_description')
-        expect(data['validation_rule']).to have_key('validation_logic')
-        expect(data['validation_rule']).to have_key('metadata')
+        expect(data['validation_rule']).to have_key('configuration')
       end
 
       it 'returns not found for non-existent rule' do
@@ -137,16 +130,13 @@ RSpec.describe 'Api::V1::Admin::ValidationRules', type: :request do
     let(:valid_params) do
       {
         validation_rule: {
-          code: 'test_rule',
           name: 'Test Rule',
           description: 'A test validation rule',
           category: 'structure',
           severity: 'warning',
           enabled: true,
           auto_fixable: false,
-          fix_description: 'Fix manually',
-          validation_logic: { check_type: 'node_count' },
-          metadata: { priority: 'low' }
+          configuration: { check_type: 'node_count', priority: 'low' }
         }
       }
     end
@@ -158,9 +148,8 @@ RSpec.describe 'Api::V1::Admin::ValidationRules', type: :request do
         }.to change(ValidationRule, :count).by(1)
 
         expect(response).to have_http_status(:created)
-        data = json_response
+        data = json_response_data
         expect(data['validation_rule']).to include(
-          'code' => 'test_rule',
           'name' => 'Test Rule',
           'category' => 'structure',
           'severity' => 'warning'
@@ -169,7 +158,7 @@ RSpec.describe 'Api::V1::Admin::ValidationRules', type: :request do
       end
 
       it 'returns validation errors for invalid params' do
-        invalid_params = valid_params.deep_merge(validation_rule: { code: nil })
+        invalid_params = valid_params.deep_merge(validation_rule: { name: nil })
 
         post '/api/v1/admin/validation_rules', params: invalid_params, headers: admin_headers, as: :json
 
@@ -177,8 +166,8 @@ RSpec.describe 'Api::V1::Admin::ValidationRules', type: :request do
         expect(json_response['success']).to be false
       end
 
-      it 'returns error for duplicate code' do
-        create(:validation_rule, code: 'test_rule')
+      it 'returns error for duplicate name' do
+        create(:validation_rule, name: 'Test Rule')
 
         post '/api/v1/admin/validation_rules', params: valid_params, headers: admin_headers, as: :json
 
@@ -214,7 +203,7 @@ RSpec.describe 'Api::V1::Admin::ValidationRules', type: :request do
               as: :json
 
         expect_success_response
-        data = json_response
+        data = json_response_data
         expect(data['validation_rule']['severity']).to eq('info')
         expect(data['validation_rule']['enabled']).to be false
         expect(data['message']).to eq('Validation rule updated successfully')
@@ -254,7 +243,7 @@ RSpec.describe 'Api::V1::Admin::ValidationRules', type: :request do
         }.to change(ValidationRule, :count).by(-1)
 
         expect_success_response
-        expect(json_response['message']).to eq('Validation rule deleted successfully')
+        expect(json_response_data['message']).to eq('Validation rule deleted successfully')
       end
     end
 
@@ -275,7 +264,7 @@ RSpec.describe 'Api::V1::Admin::ValidationRules', type: :request do
         patch "/api/v1/admin/validation_rules/#{rule.id}/enable", headers: admin_headers, as: :json
 
         expect_success_response
-        data = json_response
+        data = json_response_data
         expect(data['validation_rule']['enabled']).to be true
         expect(data['message']).to eq('Validation rule enabled successfully')
       end
@@ -298,7 +287,7 @@ RSpec.describe 'Api::V1::Admin::ValidationRules', type: :request do
         patch "/api/v1/admin/validation_rules/#{rule.id}/disable", headers: admin_headers, as: :json
 
         expect_success_response
-        data = json_response
+        data = json_response_data
         expect(data['validation_rule']['enabled']).to be false
         expect(data['message']).to eq('Validation rule disabled successfully')
       end

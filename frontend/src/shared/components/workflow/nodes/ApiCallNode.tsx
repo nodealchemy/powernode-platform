@@ -1,31 +1,17 @@
 import React from 'react';
-import { NodeProps, useEdges } from '@xyflow/react';
-import { Globe, Send, Download, Upload, RefreshCw } from 'lucide-react';
+import { NodeProps } from '@xyflow/react';
+import { Globe } from 'lucide-react';
 import { DynamicNodeHandles } from './DynamicNodeHandles';
 import { NodeActionsMenu } from '../NodeActionsMenu';
 import { useWorkflowContext } from '../WorkflowContext';
+import { ApiCallNode as ApiCallNodeType } from '@/shared/types/workflow';
 
-export const ApiCallNode: React.FC<NodeProps<any>> = ({
+export const ApiCallNode: React.FC<NodeProps<ApiCallNodeType>> = ({
   id,
   data,
   selected
 }) => {
-  const edges = useEdges();
-  const hasOutboundConnection = edges.some(edge => edge.source === id);
   const { onOpenChat } = useWorkflowContext();
-  const getMethodIcon = () => {
-    switch (data.configuration?.method?.toUpperCase()) {
-      case 'POST':
-        return <Upload className="h-4 w-4" />;
-      case 'GET':
-        return <Download className="h-4 w-4" />;
-      case 'PUT':
-      case 'PATCH':
-        return <RefreshCw className="h-4 w-4" />;
-      default:
-        return <Send className="h-4 w-4" />;
-    }
-  };
 
   const getMethodColor = () => {
     switch (data.configuration?.method?.toUpperCase()) {
@@ -55,82 +41,50 @@ export const ApiCallNode: React.FC<NodeProps<any>> = ({
 
   return (
     <div className={`
-      group relative bg-theme-surface border-2 rounded-lg p-4 w-48 shadow-lg
-      ${selected ? 'border-theme-interactive-primary ring-2 ring-theme-interactive-primary/20' : 'border-theme-info'}
+      group relative bg-theme-surface border-2 rounded-lg w-64 shadow-lg
+      ${selected ? 'border-theme-interactive-primary ring-2 ring-theme-interactive-primary/20' : 'border-theme hover:border-theme-interactive-primary/50'}
       hover:shadow-xl transition-all duration-200
     `}>
       {/* Header */}
-      <div className="flex items-center gap-3 mb-3">
-        <div className="w-8 h-8 bg-theme-info rounded-lg flex items-center justify-center text-white">
+      <div className="px-4 py-3 rounded-t-lg bg-node-api-call">
+        <div className="flex items-center gap-2 text-white">
           <Globe className="h-4 w-4" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-theme-primary truncate">
-            {data.name || 'API Call'}
-          </h3>
-          <div className="flex items-center gap-2">
-            {data.configuration?.method && (
-              <span className={`
-                text-xs font-bold px-2 py-0.5 rounded-full
-                ${getMethodColor()}
-              `}>
-                {data.configuration.method.toUpperCase()}
-              </span>
-            )}
-          </div>
+          <span className="font-medium text-sm">API CALL</span>
         </div>
       </div>
 
-      {/* Description */}
-      {data.description && (
-        <p className="text-sm text-theme-primary mb-3 line-clamp-2">
-          {data.description}
-        </p>
-      )}
+      {/* Content */}
+      <div className="p-4 space-y-3">
+        <div>
+          <h3 className="font-medium text-theme-primary text-sm truncate">
+            {data.name || 'API Call'}
+          </h3>
+          {data.description && (
+            <p className="text-xs text-theme-secondary mt-1 line-clamp-2">
+              {data.description}
+            </p>
+          )}
+        </div>
 
-      {/* Configuration Details */}
-      <div className="space-y-2">
+        {/* Method Badge */}
+        {data.configuration?.method && (
+          <span className={`inline-block text-xs font-bold px-2 py-0.5 rounded-full ${getMethodColor()}`}>
+            {data.configuration.method.toUpperCase()}
+          </span>
+        )}
+
+        {/* Endpoint */}
         {data.configuration?.url && (
           <div className="text-xs">
             <span className="text-theme-muted">Endpoint:</span>
             <span className="ml-1 text-theme-secondary font-mono">
-              {data.configuration.url.length > 35 
+              {data.configuration.url.length > 35
                 ? extractDomain(data.configuration.url)
                 : data.configuration.url
               }
             </span>
           </div>
         )}
-
-        {data.configuration?.headers && Object.keys(data.configuration.headers).length > 0 && (
-          <div className="text-xs">
-            <span className="text-theme-muted">Headers:</span>
-            <span className="ml-1 text-theme-secondary">
-              {Object.keys(data.configuration.headers).length} configured
-            </span>
-          </div>
-        )}
-
-        {data.configuration?.timeout && (
-          <div className="text-xs">
-            <span className="text-theme-muted">Timeout:</span>
-            <span className="ml-1 text-theme-secondary">
-              {data.configuration.timeout}s
-            </span>
-          </div>
-        )}
-      </div>
-
-      {/* Method Icon Indicator */}
-      <div className="absolute top-2 right-2">
-        <div className="w-6 h-6 bg-theme-info/10 rounded-full flex items-center justify-center">
-          {getMethodIcon()}
-        </div>
-      </div>
-
-      {/* Status Indicator */}
-      <div className="absolute bottom-2 right-2">
-        <div className="w-2 h-2 bg-theme-info rounded-full" />
       </div>
 
       {/* Node Actions Menu */}
@@ -139,17 +93,15 @@ export const ApiCallNode: React.FC<NodeProps<any>> = ({
         nodeType="api_call"
         nodeName={data.name}
         isSelected={selected}
-        hasErrors={false} // Could be based on response status
+        hasErrors={false}
         onOpenChat={onOpenChat}
       />
 
       {/* Auto-positioning Handles */}
       <DynamicNodeHandles
         nodeType="api_call"
-        nodeColor="bg-theme-info"
         isEndNode={data.isEndNode}
-        hasOutboundConnection={hasOutboundConnection}
-        orientation={data.handleOrientation || data.configuration?.orientation || 'vertical'}
+        handlePositions={data.handlePositions}
       />
     </div>
   );

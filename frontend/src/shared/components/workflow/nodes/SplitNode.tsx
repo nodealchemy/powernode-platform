@@ -1,26 +1,17 @@
 import React from 'react';
 import { NodeProps } from '@xyflow/react';
-import { Split, Copy, ArrowDownFromLine, Zap } from 'lucide-react';
+import { Split } from 'lucide-react';
 import { DynamicNodeHandles } from './DynamicNodeHandles';
+import { NodeActionsMenu } from '../NodeActionsMenu';
+import { useWorkflowContext } from '../WorkflowContext';
+import { SplitNode as SplitNodeType } from '@/shared/types/workflow';
 
-export const SplitNode: React.FC<NodeProps<any>> = ({ 
-  data, 
-  selected 
+export const SplitNode: React.FC<NodeProps<SplitNodeType>> = ({
+  id,
+  data,
+  selected
 }) => {
-  const getSplitIcon = () => {
-    switch (data.configuration?.splitType) {
-      case 'parallel':
-        return <Zap className="h-4 w-4" />;
-      case 'sequential':
-        return <ArrowDownFromLine className="h-4 w-4" />;
-      case 'conditional':
-        return <Split className="h-4 w-4" />;
-      case 'batch':
-        return <Copy className="h-4 w-4" />;
-      default:
-        return <Split className="h-4 w-4" />;
-    }
-  };
+  const { onOpenChat } = useWorkflowContext();
 
   const getSplitLabel = () => {
     const config = data.configuration;
@@ -50,75 +41,80 @@ export const SplitNode: React.FC<NodeProps<any>> = ({
 
   return (
     <div className={`
-      relative bg-theme-surface border-2 rounded-lg p-4 w-48 shadow-lg
-      ${selected ? 'border-theme-interactive-primary ring-2 ring-theme-interactive-primary/20' : 'border-cyan-500'}
+      group relative bg-theme-surface border-2 rounded-lg w-64 shadow-lg
+      ${selected ? 'border-theme-interactive-primary ring-2 ring-theme-interactive-primary/20' : 'border-theme hover:border-theme-interactive-primary/50'}
       hover:shadow-xl transition-all duration-200
     `}>
       {/* Header */}
-      <div className="flex items-center gap-3 mb-3">
-        <div className="w-8 h-8 bg-cyan-500 rounded-lg flex items-center justify-center text-white">
-          {getSplitIcon()}
+      <div className="px-4 py-3 rounded-t-lg bg-node-split">
+        <div className="flex items-center justify-between text-white">
+          <div className="flex items-center gap-2">
+            <Split className="h-4 w-4" />
+            <span className="font-medium text-sm">SPLIT</span>
+          </div>
         </div>
-        <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-theme-primary truncate">
+      </div>
+
+      {/* Content */}
+      <div className="p-4 space-y-3">
+        <div>
+          <h3 className="font-medium text-theme-primary text-sm truncate">
             {data.name || 'Split'}
           </h3>
-          <p className="text-xs text-cyan-600 font-medium">
-            {getSplitLabel()}
-          </p>
+          {data.description && (
+            <p className="text-sm text-theme-muted mt-1 line-clamp-2">
+              {data.description}
+            </p>
+          )}
+        </div>
+
+        <div className="space-y-2 text-xs">
+          <div>
+            <span className="text-theme-muted">Type:</span>
+            <span className="ml-2 text-theme-primary font-medium">
+              {getSplitLabel()}
+            </span>
+          </div>
+
+          {data.configuration?.splitType === 'batch' && data.configuration.batchSize && (
+            <div>
+              <span className="text-theme-muted">Batch size:</span>
+              <span className="ml-2 text-theme-primary font-medium">
+                {data.configuration.batchSize}
+              </span>
+            </div>
+          )}
+
+          {data.configuration?.preserveOrder && (
+            <div>
+              <span className="text-theme-muted">Order:</span>
+              <span className="ml-2 text-theme-info font-medium">Preserved</span>
+            </div>
+          )}
+
+          <div>
+            <span className="text-theme-muted">Outputs:</span>
+            <span className="ml-2 text-theme-primary font-medium">
+              {getOutputCount()}
+            </span>
+          </div>
         </div>
       </div>
 
-      {/* Description */}
-      {data.description && (
-        <p className="text-sm text-theme-primary mb-3 line-clamp-2">
-          {data.description}
-        </p>
-      )}
+      {/* Node Actions Menu */}
+      <NodeActionsMenu
+        nodeId={id}
+        nodeType="split"
+        nodeName={data.name}
+        isSelected={selected}
+        hasErrors={false}
+        onOpenChat={onOpenChat}
+      />
 
-      {/* Configuration Details */}
-      <div className="space-y-2">
-        {data.configuration?.splitType === 'batch' && data.configuration.batchSize && (
-          <div className="text-xs">
-            <span className="text-theme-muted">Batch size:</span>
-            <span className="ml-1 text-theme-secondary font-semibold">
-              {data.configuration.batchSize}
-            </span>
-          </div>
-        )}
-
-        {data.configuration?.preserveOrder && (
-          <div className="text-xs">
-            <span className="text-theme-muted">Order:</span>
-            <span className="ml-1 text-cyan-600 font-semibold">Preserved</span>
-          </div>
-        )}
-
-        {data.configuration?.splitType === 'conditional' && data.configuration.conditions && (
-          <div className="text-xs">
-            <span className="text-theme-muted">Conditions:</span>
-            <span className="ml-1 text-theme-secondary">
-              {data.configuration.conditions.length} rules
-            </span>
-          </div>
-        )}
-      </div>
-
-      {/* Status Indicator */}
-      <div className="absolute top-2 right-2">
-        <div className="w-2 h-2 bg-cyan-500 rounded-full animate-pulse" />
-      </div>
-
-      {/* Output Counter */}
-      <div className="absolute -top-2 right-2 bg-cyan-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
-        {getOutputCount()}
-      </div>
-
-      {/* Dynamic Handles for Split Node */}
+      {/* Dynamic Handles */}
       <DynamicNodeHandles
         nodeType="split"
-        nodeColor="bg-cyan-500"
-        orientation={data?.handleOrientation || 'vertical'}
+        handlePositions={data?.handlePositions}
       />
     </div>
   );

@@ -12,10 +12,10 @@ RSpec.describe McpServer, type: :model do
     subject { build(:mcp_server) }
 
     it { should validate_presence_of(:name) }
-    it { should validate_presence_of(:status) }
-    it { should validate_inclusion_of(:status).in_array(%w[connected disconnected connecting error]) }
+    # Note: status has a default value set in before_validation, so presence validation would never fail
+    it { should validate_inclusion_of(:status).in_array(%w[connected disconnected connecting error]).with_message('must be a valid status') }
     it { should validate_presence_of(:connection_type) }
-    it { should validate_inclusion_of(:connection_type).in_array(%w[stdio websocket http]) }
+    it { should validate_inclusion_of(:connection_type).in_array(%w[stdio websocket http]).with_message('must be stdio, websocket, or http') }
 
     context 'name uniqueness' do
       let(:account) { create(:account) }
@@ -191,20 +191,24 @@ RSpec.describe McpServer, type: :model do
   describe '#connect!' do
     let(:server) { create(:mcp_server, :disconnected) }
 
+    before do
+      allow(WorkerJobService).to receive(:enqueue_mcp_server_connection).and_return(true)
+    end
+
     it 'changes status to connecting' do
-      allow(server).to receive(:establish_connection).and_return({ success: true, capabilities: {} })
       server.connect!
-      expect(server.reload.status).to eq('connected')
+      expect(server.reload.status).to eq('connecting')
     end
 
-    it 'updates last_health_check on successful connection' do
-      allow(server).to receive(:establish_connection).and_return({ success: true, capabilities: {} })
+    it 'queues a connection job' do
+      expect(WorkerJobService).to receive(:enqueue_mcp_server_connection).with(server.id, action: 'connect')
       server.connect!
-      expect(server.reload.last_health_check).to be_within(1.second).of(Time.current)
     end
 
-    it 'sets error status on connection failure' do
-      allow(server).to receive(:establish_connection).and_return({ success: false, error: 'Connection failed' })
+    it 'sets error status when worker service fails' do
+      allow(WorkerJobService).to receive(:enqueue_mcp_server_connection).and_raise(
+        WorkerJobService::WorkerServiceError.new('Connection failed')
+      )
       server.connect!
       expect(server.reload.status).to eq('error')
     end
@@ -212,6 +216,10 @@ RSpec.describe McpServer, type: :model do
 
   describe '#disconnect!' do
     let(:server) { create(:mcp_server, :connected) }
+
+    before do
+      allow(WorkerJobService).to receive(:enqueue_mcp_server_connection).and_return(true)
+    end
 
     it 'changes status to disconnected' do
       server.disconnect!
@@ -227,34 +235,35 @@ RSpec.describe McpServer, type: :model do
   describe '#health_check!' do
     let(:server) { create(:mcp_server, :connected) }
 
-    it 'returns true for healthy server' do
-      allow(server).to receive(:perform_health_check).and_return({ healthy: true })
+    before do
+      allow(WorkerJobService).to receive(:enqueue_mcp_health_check).and_return(true)
+    end
+
+    it 'returns true for connected server' do
       expect(server.health_check!).to be true
     end
 
-    it 'disconnects unhealthy server' do
-      allow(server).to receive(:perform_health_check).and_return({ healthy: false })
+    it 'queues a health check job' do
+      expect(WorkerJobService).to receive(:enqueue_mcp_health_check).with(server.id)
       server.health_check!
-      expect(server.reload.status).to eq('disconnected')
     end
 
-    it 'updates last_health_check' do
-      allow(server).to receive(:perform_health_check).and_return({ healthy: true })
-      server.health_check!
-      expect(server.reload.last_health_check).to be_within(1.second).of(Time.current)
+    it 'returns false for disconnected server' do
+      server.update!(status: 'disconnected')
+      expect(server.health_check!).to be false
     end
   end
 
   describe '#discover_tools' do
     let(:server) { create(:mcp_server, :connected) }
 
-    it 'creates tools from server response' do
-      tool_data = [
-        { name: 'read_file', description: 'Read file', input_schema: { type: 'object' } }
-      ]
-      allow(server).to receive(:fetch_tools_list).and_return(tool_data)
+    before do
+      allow(WorkerJobService).to receive(:enqueue_mcp_tool_discovery).and_return(true)
+    end
 
-      expect { server.discover_tools }.to change { server.mcp_tools.count }.by(1)
+    it 'queues tool discovery job for connected server' do
+      expect(WorkerJobService).to receive(:enqueue_mcp_tool_discovery).with(server.id)
+      server.discover_tools
     end
 
     it 'returns empty array for disconnected server' do

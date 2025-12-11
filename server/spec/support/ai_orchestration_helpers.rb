@@ -10,7 +10,8 @@ module AiOrchestrationHelpers
     model: 'gpt-4',
     provider: 'OpenAI',
     success: true,
-    error: nil
+    error: nil,
+    processing_time: nil
   )
     if success
       {

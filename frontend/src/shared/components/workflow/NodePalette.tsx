@@ -26,20 +26,13 @@ import {
   Bell,
   Play,
   Square,
-  BookPlus,
   BookOpen,
-  BookCheck,
-  FilePlus,
-  FileSearch,
-  FileEdit,
-  FileCheck,
-  Wrench,
-  MessageSquareText
+  Wrench
 } from 'lucide-react';
 import { Input } from '@/shared/components/ui/Input';
 
 export interface NodePaletteProps {
-  onAddNode: (nodeType: string, position: { x: number; y: number }) => void;
+  onAddNode: (nodeType: string, position: { x: number; y: number }, defaultConfig?: Record<string, string>) => void;
   className?: string;
 }
 
@@ -50,6 +43,7 @@ interface NodeTypeDefinition {
   icon: React.ReactNode;
   category: string;
   color: keyof typeof nodeColorThemes;
+  defaultConfig?: Record<string, string>; // Default configuration for consolidated nodes (action, operation_type)
 }
 
 // Node color theme mapping - Using CSS custom properties for theme support
@@ -155,68 +149,24 @@ const nodeColorThemes = {
     indicator: 'bg-[var(--node-notification-bg)]',
     text: 'text-theme-success'
   },
-  // Knowledge Base Article Management
-  'kb_article_create': {
-    bg: 'bg-[var(--node-kb-article-bg)]',
-    indicator: 'bg-[var(--node-kb-article-bg)]',
-    text: 'text-theme-success'
+  // Consolidated Node Types (Phase 1A)
+  // KB Article - unified node with action parameter
+  'kb_article': {
+    bg: 'bg-node-kb-article',
+    indicator: 'bg-node-kb-article',
+    text: 'text-node-kb-article'
   },
-  'kb_article_read': {
-    bg: 'bg-[var(--node-kb-article-bg)]',
-    indicator: 'bg-[var(--node-kb-article-bg)]',
-    text: 'text-theme-success'
+  // Page - unified node with action parameter
+  'page': {
+    bg: 'bg-node-page',
+    indicator: 'bg-node-page',
+    text: 'text-node-page'
   },
-  'kb_article_update': {
-    bg: 'bg-[var(--node-kb-article-bg)]',
-    indicator: 'bg-[var(--node-kb-article-bg)]',
-    text: 'text-theme-success'
-  },
-  'kb_article_search': {
-    bg: 'bg-[var(--node-kb-article-bg)]',
-    indicator: 'bg-[var(--node-kb-article-bg)]',
-    text: 'text-theme-success'
-  },
-  'kb_article_publish': {
-    bg: 'bg-[var(--node-kb-article-bg)]',
-    indicator: 'bg-[var(--node-kb-article-bg)]',
-    text: 'text-theme-success'
-  },
-  // Page Content Management
-  'page_create': {
-    bg: 'bg-[var(--node-page-bg)]',
-    indicator: 'bg-[var(--node-page-bg)]',
-    text: 'text-theme-info'
-  },
-  'page_read': {
-    bg: 'bg-[var(--node-page-bg)]',
-    indicator: 'bg-[var(--node-page-bg)]',
-    text: 'text-theme-info'
-  },
-  'page_update': {
-    bg: 'bg-[var(--node-page-bg)]',
-    indicator: 'bg-[var(--node-page-bg)]',
-    text: 'text-theme-info'
-  },
-  'page_publish': {
-    bg: 'bg-[var(--node-page-bg)]',
-    indicator: 'bg-[var(--node-page-bg)]',
-    text: 'text-theme-info'
-  },
-  // MCP (Model Context Protocol) Nodes
-  'mcp_tool': {
-    bg: 'bg-[var(--node-mcp-tool-bg)]',
-    indicator: 'bg-[var(--node-mcp-tool-bg)]',
-    text: 'text-[var(--node-mcp-tool-bg)]'
-  },
-  'mcp_resource': {
-    bg: 'bg-[var(--node-mcp-resource-bg)]',
-    indicator: 'bg-[var(--node-mcp-resource-bg)]',
-    text: 'text-[var(--node-mcp-resource-bg)]'
-  },
-  'mcp_prompt': {
-    bg: 'bg-[var(--node-mcp-prompt-bg)]',
-    indicator: 'bg-[var(--node-mcp-prompt-bg)]',
-    text: 'text-[var(--node-mcp-prompt-bg)]'
+  // MCP Operation - unified node with operation_type parameter
+  'mcp_operation': {
+    bg: 'bg-node-mcp-operation',
+    indicator: 'bg-node-mcp-operation',
+    text: 'text-node-mcp-operation'
   }
 } as const;
 
@@ -401,104 +351,31 @@ const nodeTypes: NodeTypeDefinition[] = [
     category: 'Integration',
     color: 'scheduler'
   },
-  // Knowledge Base Article Management
+  // Consolidated Content Management Nodes (Phase 1A)
   {
-    type: 'kb_article_create',
-    label: 'Create KB Article',
-    description: 'Create knowledge base articles with content and metadata',
-    icon: <BookPlus className="h-4 w-4" />,
-    category: 'Content',
-    color: 'kb_article_create'
-  },
-  {
-    type: 'kb_article_read',
-    label: 'Read KB Article',
-    description: 'Retrieve knowledge base article by ID or slug',
+    type: 'kb_article',
+    label: 'KB Article',
+    description: 'Manage knowledge base articles (create, read, update, search, publish)',
     icon: <BookOpen className="h-4 w-4" />,
     category: 'Content',
-    color: 'kb_article_read'
+    color: 'kb_article'
   },
   {
-    type: 'kb_article_update',
-    label: 'Update KB Article',
-    description: 'Update existing knowledge base article fields',
-    icon: <FileEdit className="h-4 w-4" />,
+    type: 'page',
+    label: 'Page',
+    description: 'Manage content pages (create, read, update, publish)',
+    icon: <FileText className="h-4 w-4" />,
     category: 'Content',
-    color: 'kb_article_update'
+    color: 'page'
   },
+  // MCP Operation - consolidated
   {
-    type: 'kb_article_search',
-    label: 'Search KB Articles',
-    description: 'Search and filter knowledge base articles',
-    icon: <Search className="h-4 w-4" />,
-    category: 'Content',
-    color: 'kb_article_search'
-  },
-  {
-    type: 'kb_article_publish',
-    label: 'Publish KB Article',
-    description: 'Publish knowledge base article to make it public',
-    icon: <BookCheck className="h-4 w-4" />,
-    category: 'Content',
-    color: 'kb_article_publish'
-  },
-  // Page Content Management
-  {
-    type: 'page_create',
-    label: 'Create Page',
-    description: 'Create content pages with SEO metadata',
-    icon: <FilePlus className="h-4 w-4" />,
-    category: 'Content',
-    color: 'page_create'
-  },
-  {
-    type: 'page_read',
-    label: 'Read Page',
-    description: 'Retrieve page content by ID or slug',
-    icon: <FileSearch className="h-4 w-4" />,
-    category: 'Content',
-    color: 'page_read'
-  },
-  {
-    type: 'page_update',
-    label: 'Update Page',
-    description: 'Update existing page content and metadata',
-    icon: <FileEdit className="h-4 w-4" />,
-    category: 'Content',
-    color: 'page_update'
-  },
-  {
-    type: 'page_publish',
-    label: 'Publish Page',
-    description: 'Publish page to make it publicly accessible',
-    icon: <FileCheck className="h-4 w-4" />,
-    category: 'Content',
-    color: 'page_publish'
-  },
-  // MCP (Model Context Protocol) Nodes
-  {
-    type: 'mcp_tool',
-    label: 'MCP Tool',
-    description: 'Execute tools from connected MCP servers',
+    type: 'mcp_operation',
+    label: 'MCP Operation',
+    description: 'Execute MCP server operations (tools, resources, prompts)',
     icon: <Wrench className="h-4 w-4" />,
     category: 'MCP',
-    color: 'mcp_tool'
-  },
-  {
-    type: 'mcp_resource',
-    label: 'MCP Resource',
-    description: 'Read resources from MCP servers (files, databases, etc.)',
-    icon: <Database className="h-4 w-4" />,
-    category: 'MCP',
-    color: 'mcp_resource'
-  },
-  {
-    type: 'mcp_prompt',
-    label: 'MCP Prompt',
-    description: 'Use prompt templates from MCP servers for AI interactions',
-    icon: <MessageSquareText className="h-4 w-4" />,
-    category: 'MCP',
-    color: 'mcp_prompt'
+    color: 'mcp_operation'
   }
 ];
 
@@ -527,17 +404,21 @@ export const NodePalette: React.FC<NodePaletteProps> = ({
     return acc;
   }, {} as Record<string, NodeTypeDefinition[]>);
 
-  const handleNodeClick = (nodeType: string) => {
+  const handleNodeClick = (nodeType: string, defaultConfig?: Record<string, string>) => {
     // Add node at a default position - the workflow builder will handle positioning
     const position = {
       x: Math.random() * 300 + 100,
       y: Math.random() * 300 + 100
     };
-    onAddNode(nodeType, position);
+    onAddNode(nodeType, position, defaultConfig);
   };
 
-  const handleDragStart = (event: React.DragEvent, nodeType: string) => {
-    event.dataTransfer.setData('application/reactflow', nodeType);
+  const handleDragStart = (event: React.DragEvent, nodeType: string, defaultConfig?: Record<string, string>) => {
+    // Store both node type and default config for drag-drop
+    const dragData = defaultConfig
+      ? JSON.stringify({ type: nodeType, defaultConfig })
+      : nodeType;
+    event.dataTransfer.setData('application/reactflow', dragData);
     event.dataTransfer.effectAllowed = 'move';
   };
 
@@ -617,12 +498,12 @@ export const NodePalette: React.FC<NodePaletteProps> = ({
                   {category}
                 </h4>
                 <div className="space-y-2">
-                  {nodes.map(node => (
+                  {nodes.map((node, index) => (
                     <NodePaletteItem
-                      key={node.type}
+                      key={`${node.type}-${node.label}-${index}`}
                       node={node}
-                      onAdd={() => handleNodeClick(node.type)}
-                      onDragStart={(e) => handleDragStart(e, node.type)}
+                      onAdd={() => handleNodeClick(node.type, node.defaultConfig)}
+                      onDragStart={(e) => handleDragStart(e, node.type, node.defaultConfig)}
                     />
                   ))}
                 </div>
@@ -633,12 +514,12 @@ export const NodePalette: React.FC<NodePaletteProps> = ({
           // Show filtered nodes
           <div className="p-3">
             <div className="space-y-2">
-              {filteredNodes.map(node => (
+              {filteredNodes.map((node, index) => (
                 <NodePaletteItem
-                  key={node.type}
+                  key={`${node.type}-${node.label}-${index}`}
                   node={node}
-                  onAdd={() => handleNodeClick(node.type)}
-                  onDragStart={(e) => handleDragStart(e, node.type)}
+                  onAdd={() => handleNodeClick(node.type, node.defaultConfig)}
+                  onDragStart={(e) => handleDragStart(e, node.type, node.defaultConfig)}
                 />
               ))}
             </div>

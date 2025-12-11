@@ -6,6 +6,7 @@ module Api
       # DatabaseController - Database monitoring and health endpoints
       # Used by worker service and admin dashboard for database health monitoring
       class DatabaseController < ApplicationController
+        skip_before_action :authenticate_request
         before_action :require_admin_or_worker_token
 
         # GET /api/v1/admin/database/pool_stats
@@ -72,7 +73,10 @@ module Api
           # Allow worker service token authentication
           return if worker_token_valid?
 
-          # Otherwise require admin permission
+          # Otherwise try JWT authentication and require admin permission
+          authenticate_request
+          return if performed?
+
           require_permission('system.admin')
         end
 

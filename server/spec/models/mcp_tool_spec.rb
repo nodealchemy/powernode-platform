@@ -91,27 +91,35 @@ RSpec.describe McpTool, type: :model do
   end
 
   describe '#execute' do
-    let(:tool) { create(:mcp_tool) }
-    let(:user) { create(:user) }
+    let(:account) { create(:account) }
+    let(:tool) { create(:mcp_tool, mcp_server: create(:mcp_server, account: account)) }
+    let(:user) { create(:user, account: account) }
     let(:parameters) { { path: '/test/file.txt' } }
 
+    before do
+      allow(McpPermissionValidator).to receive(:new).and_return(
+        instance_double(McpPermissionValidator, authorized?: true)
+      )
+      allow(WorkerJobService).to receive(:enqueue_mcp_tool_execution).and_return(true)
+    end
+
     it 'creates an execution record' do
-      expect { tool.execute(user: user, parameters: parameters) }
+      expect { tool.execute(user: user, account: account, parameters: parameters) }
         .to change { tool.mcp_tool_executions.count }.by(1)
     end
 
     it 'sets execution status to pending' do
-      execution = tool.execute(user: user, parameters: parameters)
+      execution = tool.execute(user: user, account: account, parameters: parameters)
       expect(execution.status).to eq('pending')
     end
 
     it 'stores parameters' do
-      execution = tool.execute(user: user, parameters: parameters)
+      execution = tool.execute(user: user, account: account, parameters: parameters)
       expect(execution.parameters).to eq(parameters.stringify_keys)
     end
 
     it 'returns the execution record' do
-      execution = tool.execute(user: user, parameters: parameters)
+      execution = tool.execute(user: user, account: account, parameters: parameters)
       expect(execution).to be_a(McpToolExecution)
       expect(execution).to be_persisted
     end
@@ -142,7 +150,12 @@ RSpec.describe McpTool, type: :model do
     end
 
     context 'with empty schema' do
-      let(:tool) { create(:mcp_tool, input_schema: {}) }
+      let(:tool) { build(:mcp_tool) }
+
+      before do
+        # Manually set blank input_schema after build to test validate_parameters behavior
+        tool.input_schema = {}
+      end
 
       it 'returns valid for any parameters' do
         result = tool.validate_parameters({ anything: 'goes' })

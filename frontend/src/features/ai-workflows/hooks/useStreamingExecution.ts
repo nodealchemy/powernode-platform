@@ -61,7 +61,6 @@ interface UseStreamingExecutionReturn {
  *   stopStreaming
  * } = useStreamingExecution({
  *   onMessageReceived: (message) => {
- *     console.log('New message:', message);
  *   },
  *   maxMessages: 1000
  * });
@@ -308,11 +307,21 @@ export const useStreamingExecution = (
         channel: 'AiOrchestrationChannel',
         params: { type: 'workflow_run', id: executionState.run_id },
         onMessage: handleStreamingMessage,
-        onError: (error) => {
-          if (process.env.NODE_ENV === 'development') {
-            console.error('[StreamingExecution] WebSocket error:', error);
-          }
-          setError(error);
+        onError: (wsError) => {
+          // Log error (always visible for debugging production issues)
+          console.error('[StreamingExecution] WebSocket error:', wsError);
+
+          // Set error state
+          const errorMessage = typeof wsError === 'string' ? wsError : 'Connection error occurred';
+          setError(errorMessage);
+          setIsStreaming(false);
+
+          // Notify user of connection failure
+          addNotification({
+            type: 'error',
+            title: 'Connection Error',
+            message: 'Workflow streaming connection lost. Please try again.'
+          });
         }
       });
 

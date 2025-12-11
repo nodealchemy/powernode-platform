@@ -18,35 +18,35 @@ RSpec.describe 'Api::V1::Admin::CircuitBreakers', type: :request do
         get '/api/v1/admin/circuit_breakers', headers: admin_headers, as: :json
 
         expect_success_response
-        data = json_response
+        data = json_response_data
         expect(data['circuit_breakers']).to be_an(Array)
         expect(data['circuit_breakers'].length).to eq(2)
         expect(data['meta']).to include('total', 'healthy_count', 'unhealthy_count')
       end
 
       it 'filters by service' do
-        get '/api/v1/admin/circuit_breakers', params: { service: 'ai_provider' }, headers: admin_headers, as: :json
+        get '/api/v1/admin/circuit_breakers', params: { service: 'ai_provider' }, headers: admin_headers
 
         expect_success_response
-        data = json_response
+        data = json_response_data
         expect(data['circuit_breakers'].length).to eq(1)
         expect(data['circuit_breakers'].first['service']).to eq('ai_provider')
       end
 
       it 'filters by state' do
-        get '/api/v1/admin/circuit_breakers', params: { state: 'open' }, headers: admin_headers, as: :json
+        get '/api/v1/admin/circuit_breakers', params: { state: 'open' }, headers: admin_headers
 
         expect_success_response
-        data = json_response
+        data = json_response_data
         expect(data['circuit_breakers'].length).to eq(1)
         expect(data['circuit_breakers'].first['state']).to eq('open')
       end
 
       it 'filters by health status' do
-        get '/api/v1/admin/circuit_breakers', params: { health_status: 'healthy' }, headers: admin_headers, as: :json
+        get '/api/v1/admin/circuit_breakers', params: { health_status: 'healthy' }, headers: admin_headers
 
         expect_success_response
-        data = json_response
+        data = json_response_data
         expect(data['circuit_breakers'].all? { |cb| cb['state'] == 'closed' }).to be true
       end
     end
@@ -76,7 +76,7 @@ RSpec.describe 'Api::V1::Admin::CircuitBreakers', type: :request do
         get "/api/v1/admin/circuit_breakers/#{breaker.id}", headers: admin_headers, as: :json
 
         expect_success_response
-        data = json_response
+        data = json_response_data
         expect(data['circuit_breaker']).to include(
           'id' => breaker.id,
           'name' => breaker.name,
@@ -124,7 +124,7 @@ RSpec.describe 'Api::V1::Admin::CircuitBreakers', type: :request do
         }.to change(CircuitBreaker, :count).by(1)
 
         expect(response).to have_http_status(:created)
-        data = json_response
+        data = json_response_data
         expect(data['circuit_breaker']).to include(
           'name' => 'test_breaker',
           'service' => 'ai_provider',
@@ -171,7 +171,7 @@ RSpec.describe 'Api::V1::Admin::CircuitBreakers', type: :request do
               as: :json
 
         expect_success_response
-        data = json_response
+        data = json_response_data
         expect(data['circuit_breaker']['failure_threshold']).to eq(10)
         expect(data['circuit_breaker']['success_threshold']).to eq(3)
         expect(data['message']).to eq('Circuit breaker updated successfully')
@@ -211,7 +211,7 @@ RSpec.describe 'Api::V1::Admin::CircuitBreakers', type: :request do
         }.to change(CircuitBreaker, :count).by(-1)
 
         expect_success_response
-        expect(json_response['message']).to eq('Circuit breaker deleted successfully')
+        expect(json_response_data['message']).to eq('Circuit breaker deleted successfully')
       end
     end
 
@@ -232,7 +232,7 @@ RSpec.describe 'Api::V1::Admin::CircuitBreakers', type: :request do
         post "/api/v1/admin/circuit_breakers/#{breaker.id}/reset", headers: admin_headers, as: :json
 
         expect_success_response
-        data = json_response
+        data = json_response_data
         expect(data['circuit_breaker']['state']).to eq('closed')
         expect(data['circuit_breaker']['failure_count']).to eq(0)
         expect(data['message']).to eq('Circuit breaker reset successfully')
@@ -261,7 +261,7 @@ RSpec.describe 'Api::V1::Admin::CircuitBreakers', type: :request do
         get "/api/v1/admin/circuit_breakers/#{breaker.id}/health", headers: admin_headers, as: :json
 
         expect_success_response
-        data = json_response
+        data = json_response_data
         expect(data['circuit_breaker_id']).to eq(breaker.id)
         expect(data['health_metrics']).to include(
           'state' => 'closed',
@@ -293,7 +293,7 @@ RSpec.describe 'Api::V1::Admin::CircuitBreakers', type: :request do
         get "/api/v1/admin/circuit_breakers/#{breaker.id}/events", headers: admin_headers, as: :json
 
         expect_success_response
-        data = json_response
+        data = json_response_data
         expect(data['circuit_breaker_id']).to eq(breaker.id)
         expect(data['events']).to be_an(Array)
         expect(data['events'].length).to be <= 50
@@ -303,11 +303,10 @@ RSpec.describe 'Api::V1::Admin::CircuitBreakers', type: :request do
       it 'respects limit parameter' do
         get "/api/v1/admin/circuit_breakers/#{breaker.id}/events",
             params: { limit: 5 },
-            headers: admin_headers,
-            as: :json
+            headers: admin_headers
 
         expect_success_response
-        data = json_response
+        data = json_response_data
         expect(data['events'].length).to eq(5)
         expect(data['meta']['limit']).to eq(5)
       end

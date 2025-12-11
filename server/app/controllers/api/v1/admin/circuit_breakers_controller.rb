@@ -199,7 +199,9 @@ class Api::V1::Admin::CircuitBreakersController < ApplicationController
       event_type: event.event_type,
       duration_ms: event.duration_ms,
       error_message: event.error_message,
-      metadata: event.metadata,
+      old_state: event.old_state,
+      new_state: event.new_state,
+      failure_count: event.failure_count,
       created_at: event.created_at
     }
   end

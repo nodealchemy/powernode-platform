@@ -52,6 +52,16 @@ export interface MonitoringDashboard {
     paused: number;
     errored: number;
   };
+  // Individual agents list for detailed view
+  agentsList?: Array<{
+    id: string;
+    name: string;
+    status: string;
+    executions?: number;
+    success_rate?: number;
+    avg_execution_time?: number;
+    total_cost?: number;
+  }>;
   workflows: {
     total: number;
     running: number;
@@ -130,21 +140,124 @@ class MonitoringApiService extends BaseApiService {
   /**
    * Get monitoring dashboard data
    * GET /api/v1/ai/monitoring/dashboard
+   *
+   * Backend returns nested structure in components, this transforms to flat format.
    */
   async getDashboard(): Promise<MonitoringDashboard> {
+    interface BackendDashboard {
+      timestamp?: string;
+      time_range_seconds?: number;
+      overview?: {
+        status?: string;
+        active_workflows?: number;
+        active_agents?: number;
+        total_executions_today?: number;
+        total_cost_today?: number;
+        avg_response_time?: number;
+        success_rate?: number;
+      };
+      health_score?: number;
+      components?: {
+        providers?: {
+          total_providers?: number;
+          active_providers?: number;
+          providers?: Array<{
+            id: string;
+            name: string;
+            status: string;
+            executions?: number;
+            success_rate?: number;
+            avg_response_time?: number;
+            total_cost?: number;
+          }>;
+        };
+        agents?: {
+          total_agents?: number;
+          active_agents?: number;
+          agents?: Array<{
+            id: string;
+            name: string;
+            status: string;
+            executions?: number;
+            success_rate?: number;
+          }>;
+        };
+        workflows?: {
+          total_workflows?: number;
+          active_workflows?: number;
+          aggregated?: {
+            total_runs?: number;
+            successful_runs?: number;
+            failed_runs?: number;
+          };
+        };
+      };
+    }
+
     const response = await this.get<{
-      dashboard: MonitoringDashboard;
+      dashboard: BackendDashboard;
       generated_at: string;
     }>(`${this.basePath}/dashboard`);
 
-    // Extract dashboard from nested response
-    return response?.dashboard || {
-      system_health: { status: 'healthy', uptime_percentage: 100 },
-      providers: [],
-      agents: { total: 0, active: 0, paused: 0, errored: 0 },
-      workflows: { total: 0, running: 0, completed_today: 0, failed_today: 0 },
-      alerts: [],
-      recent_activity: []
+    const dashboard = response?.dashboard;
+
+    // Transform nested components structure to flat format expected by frontend
+    const providerComponents = dashboard?.components?.providers;
+    const agentComponents = dashboard?.components?.agents;
+    const workflowComponents = dashboard?.components?.workflows;
+
+    // Map providers from nested structure
+    const providers = (providerComponents?.providers || []).map(p => ({
+      id: p.id,
+      name: p.name,
+      status: (p.status === 'active' ? 'healthy' : p.status === 'inactive' ? 'down' : 'degraded') as 'healthy' | 'degraded' | 'down',
+      latency_ms: p.avg_response_time || 0,
+      error_rate: p.success_rate ? (100 - p.success_rate) : 0
+    }));
+
+    // Calculate agent stats from nested structure
+    const agentsList = agentComponents?.agents || [];
+    const totalAgents = agentComponents?.total_agents || agentsList.length;
+    const activeAgents = agentComponents?.active_agents || agentsList.filter(a => a.status === 'active').length;
+    const erroredAgents = agentsList.filter(a => a.status === 'error' || a.status === 'failed').length;
+    const pausedAgents = agentsList.filter(a => a.status === 'paused' || a.status === 'inactive').length;
+
+    // Calculate workflow stats
+    const totalWorkflows = workflowComponents?.total_workflows || 0;
+    const runningWorkflows = workflowComponents?.active_workflows || 0;
+    const completedToday = workflowComponents?.aggregated?.successful_runs || 0;
+    const failedToday = workflowComponents?.aggregated?.failed_runs || 0;
+
+    return {
+      system_health: {
+        status: dashboard?.overview?.status === 'healthy' ? 'healthy' :
+                dashboard?.overview?.status === 'degraded' ? 'degraded' : 'healthy',
+        uptime_percentage: dashboard?.health_score || 100
+      },
+      providers,
+      agents: {
+        total: totalAgents,
+        active: activeAgents,
+        paused: pausedAgents,
+        errored: erroredAgents
+      },
+      // Include individual agents list for detailed monitoring
+      agentsList: agentsList.map(a => ({
+        id: a.id,
+        name: a.name,
+        status: a.status,
+        executions: a.executions || 0,
+        success_rate: a.success_rate || 100,
+        avg_execution_time: 0,
+        total_cost: 0
+      })),
+      workflows: {
+        total: totalWorkflows,
+        running: runningWorkflows,
+        completed_today: completedToday,
+        failed_today: failedToday
+      },
+      alerts: []
     };
   }
 

@@ -25,8 +25,8 @@ RSpec.describe 'AI Orchestration Performance Tests', type: :performance do
 
       it 'executes simple workflow within acceptable time limits' do
         execution_time = Benchmark.realtime do
-          orchestration_service = AiAgentOrchestrationService.new(account)
-          workflow_run = create(:ai_workflow_run, ai_workflow: simple_workflow, status: 'pending')
+          orchestration_service = AiAgentOrchestrationService.new(account: account)
+          workflow_run = create(:ai_workflow_run, ai_workflow: simple_workflow, status: 'initializing')
 
           orchestration_service.orchestrate_workflow(workflow_run)
         end
@@ -39,8 +39,8 @@ RSpec.describe 'AI Orchestration Performance Tests', type: :performance do
         complex_workflow = create_complex_workflow(account, node_count: 10)
 
         execution_time = Benchmark.realtime do
-          orchestration_service = AiAgentOrchestrationService.new(account)
-          workflow_run = create(:ai_workflow_run, ai_workflow: complex_workflow, status: 'pending')
+          orchestration_service = AiAgentOrchestrationService.new(account: account)
+          workflow_run = create(:ai_workflow_run, ai_workflow: complex_workflow, status: 'initializing')
 
           orchestration_service.orchestrate_workflow(workflow_run)
         end
@@ -53,7 +53,7 @@ RSpec.describe 'AI Orchestration Performance Tests', type: :performance do
     context 'concurrent workflow executions' do
       it 'handles multiple concurrent workflows without performance degradation' do
         workflows = 5.times.map { create_simple_workflow(account) }
-        workflow_runs = workflows.map { |w| create(:ai_workflow_run, ai_workflow: w, status: 'pending') }
+        workflow_runs = workflows.map { |w| create(:ai_workflow_run, ai_workflow: w, status: 'initializing') }
 
         execution_times = []
         threads = []
@@ -61,7 +61,7 @@ RSpec.describe 'AI Orchestration Performance Tests', type: :performance do
         workflow_runs.each do |run|
           threads << Thread.new do
             execution_time = Benchmark.realtime do
-              orchestration_service = AiAgentOrchestrationService.new(account)
+              orchestration_service = AiAgentOrchestrationService.new(account: account)
               orchestration_service.orchestrate_workflow(run)
             end
             execution_times << execution_time
@@ -80,7 +80,7 @@ RSpec.describe 'AI Orchestration Performance Tests', type: :performance do
 
       it 'maintains consistent performance under high concurrency' do
         workflows = 20.times.map { create_simple_workflow(account) }
-        workflow_runs = workflows.map { |w| create(:ai_workflow_run, ai_workflow: w, status: 'pending') }
+        workflow_runs = workflows.map { |w| create(:ai_workflow_run, ai_workflow: w, status: 'initializing') }
 
         start_time = Time.current
         execution_results = []
@@ -90,7 +90,7 @@ RSpec.describe 'AI Orchestration Performance Tests', type: :performance do
           batch_threads = batch.map do |run|
             Thread.new do
               begin
-                orchestration_service = AiAgentOrchestrationService.new(account)
+                orchestration_service = AiAgentOrchestrationService.new(account: account)
                 result = orchestration_service.orchestrate_workflow(run)
                 execution_results << { success: true, workflow_id: run.ai_workflow.id }
               rescue => e
@@ -139,7 +139,7 @@ RSpec.describe 'AI Orchestration Performance Tests', type: :performance do
 
       selection_time = Benchmark.realtime do
         1000.times do
-          orchestration_service = AiAgentOrchestrationService.new(account)
+          orchestration_service = AiAgentOrchestrationService.new(account: account)
           selected_provider = orchestration_service.send(:select_optimal_provider, providers, {})
           expect(selected_provider).to be_present
         end
@@ -164,10 +164,10 @@ RSpec.describe 'AI Orchestration Performance Tests', type: :performance do
         .and_return(mock_ai_provider_response)
 
       workflow = create_simple_workflow(account)
-      workflow_run = create(:ai_workflow_run, ai_workflow: workflow, status: 'pending')
+      workflow_run = create(:ai_workflow_run, ai_workflow: workflow, status: 'initializing')
 
       failover_time = Benchmark.realtime do
-        orchestration_service = AiAgentOrchestrationService.new(account)
+        orchestration_service = AiAgentOrchestrationService.new(account: account)
         orchestration_service.orchestrate_workflow(workflow_run)
       end
 
@@ -184,9 +184,9 @@ RSpec.describe 'AI Orchestration Performance Tests', type: :performance do
       # Execute many workflows to test memory management
       50.times do |i|
         workflow = create_simple_workflow(account)
-        workflow_run = create(:ai_workflow_run, ai_workflow: workflow, status: 'pending')
+        workflow_run = create(:ai_workflow_run, ai_workflow: workflow, status: 'initializing')
 
-        orchestration_service = AiAgentOrchestrationService.new(account)
+        orchestration_service = AiAgentOrchestrationService.new(account: account)
         orchestration_service.orchestrate_workflow(workflow_run)
 
         # Force garbage collection every 10 iterations
@@ -202,11 +202,11 @@ RSpec.describe 'AI Orchestration Performance Tests', type: :performance do
 
     it 'properly cleans up resources after workflow completion' do
       workflow = create_complex_workflow(account, node_count: 15)
-      workflow_run = create(:ai_workflow_run, ai_workflow: workflow, status: 'pending')
+      workflow_run = create(:ai_workflow_run, ai_workflow: workflow, status: 'initializing')
 
       initial_objects = ObjectSpace.count_objects
 
-      orchestration_service = AiAgentOrchestrationService.new(account)
+      orchestration_service = AiAgentOrchestrationService.new(account: account)
       orchestration_service.orchestrate_workflow(workflow_run)
 
       # Force garbage collection
@@ -223,7 +223,7 @@ RSpec.describe 'AI Orchestration Performance Tests', type: :performance do
   describe 'database query performance' do
     it 'executes workflow queries efficiently' do
       workflow = create_complex_workflow(account, node_count: 20)
-      workflow_run = create(:ai_workflow_run, ai_workflow: workflow, status: 'pending')
+      workflow_run = create(:ai_workflow_run, ai_workflow: workflow, status: 'initializing')
 
       query_count = 0
       original_method = ActiveRecord::Base.connection.method(:execute)
@@ -233,7 +233,7 @@ RSpec.describe 'AI Orchestration Performance Tests', type: :performance do
         original_method.call(*args)
       end
 
-      orchestration_service = AiAgentOrchestrationService.new(account)
+      orchestration_service = AiAgentOrchestrationService.new(account: account)
       orchestration_service.orchestrate_workflow(workflow_run)
 
       # Should not generate excessive database queries
@@ -327,7 +327,7 @@ RSpec.describe 'AI Orchestration Performance Tests', type: :performance do
       selected_providers = []
       selection_time = Benchmark.realtime do
         100.times do
-          orchestration_service = AiAgentOrchestrationService.new(account)
+          orchestration_service = AiAgentOrchestrationService.new(account: account)
           selected = orchestration_service.send(:select_optimal_provider, providers, {})
           selected_providers << selected.id
         end
@@ -345,11 +345,11 @@ RSpec.describe 'AI Orchestration Performance Tests', type: :performance do
   describe 'error handling performance' do
     it 'recovers from errors quickly without cascading delays' do
       workflow = create_simple_workflow(account)
-      workflow_run = create(:ai_workflow_run, ai_workflow: workflow, status: 'pending')
+      workflow_run = create(:ai_workflow_run, ai_workflow: workflow, status: 'initializing')
 
       # Mock random failures
       failure_count = 0
-      allow_any_instance_of(AiProviderClientService).to receive(:execute_request) do
+      allow_any_instance_of(AiProviderClientService).to receive(:generate_text) do
         failure_count += 1
         if failure_count <= 3
           raise StandardError, 'Simulated failure'
@@ -359,7 +359,7 @@ RSpec.describe 'AI Orchestration Performance Tests', type: :performance do
       end
 
       recovery_time = Benchmark.realtime do
-        orchestration_service = AiAgentOrchestrationService.new(account)
+        orchestration_service = AiAgentOrchestrationService.new(account: account)
         orchestration_service.orchestrate_workflow(workflow_run)
       end
 
@@ -377,15 +377,15 @@ RSpec.describe 'AI Orchestration Performance Tests', type: :performance do
     start_node = create(:ai_workflow_node,
       ai_workflow: workflow,
       node_id: 'start-1',
-      node_type: 'start_node',
-      configuration: {}
+      node_type: 'start',
+      configuration: { label: 'Start' }
     )
 
     agent_node = create(:ai_workflow_node,
       ai_workflow: workflow,
       node_id: 'agent-1',
       node_type: 'ai_agent',
-      configuration: { agent_id: ai_agent.id }
+      configuration: { agent_id: ai_agent.id, label: 'AI Agent' }
     )
 
     create(:ai_workflow_edge,
@@ -406,8 +406,8 @@ RSpec.describe 'AI Orchestration Performance Tests', type: :performance do
     start_node = create(:ai_workflow_node,
       ai_workflow: workflow,
       node_id: 'start-1',
-      node_type: 'start_node',
-      configuration: {}
+      node_type: 'start',
+      configuration: { label: 'Start' }
     )
     nodes << start_node
 
@@ -416,8 +416,9 @@ RSpec.describe 'AI Orchestration Performance Tests', type: :performance do
       node = create(:ai_workflow_node,
         ai_workflow: workflow,
         node_id: "node-#{i + 1}",
-        node_type: ['ai_agent', 'condition', 'transform', 'webhook'].sample,
+        node_type: %w[ai_agent condition transform webhook].sample,
         configuration: {
+          label: "Node #{i + 1}",
           agent_id: ai_agent.id,
           condition: 'result.success == true',
           transformation: 'result.processed = true'
@@ -445,7 +446,7 @@ RSpec.describe 'AI Orchestration Performance Tests', type: :performance do
   end
 
   def mock_ai_provider_responses
-    allow_any_instance_of(AiProviderClientService).to receive(:execute_request)
+    allow_any_instance_of(AiProviderClientService).to receive(:generate_text)
       .and_return(mock_ai_provider_response(
         content: 'Performance test response',
         processing_time: 100

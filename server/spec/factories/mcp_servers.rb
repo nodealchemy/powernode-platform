@@ -7,6 +7,7 @@ FactoryBot.define do
     description { "MCP server for testing" }
     status { 'disconnected' }
     connection_type { 'stdio' }
+    auth_type { 'none' }
     command { 'node' }
     args { ['server.js', '--port', '3000'] }
     env do

@@ -102,8 +102,8 @@ class Billing::PaymentRetryJob < BaseJob
   end
   
   def handle_retry_failure(subscription_id, failure_type, attempt_number, retry_result)
-    # Check if error is retryable
-    unless retry_result['retryable'] != false
+    # Check if error is retryable (explicit false check - nil/missing means retryable)
+    if retry_result['retryable'] == false
       log_info("Non-retryable error for subscription #{subscription_id}, stopping retries")
       handle_final_failure(subscription_id, failure_type)
       return

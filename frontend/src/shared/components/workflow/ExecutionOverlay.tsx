@@ -1,7 +1,8 @@
 import React from 'react';
 import { CheckCircle, XCircle, Loader2, Clock, AlertCircle } from 'lucide-react';
+import { NodeExecutionStatus } from '@/shared/types/workflow';
 
-export type NodeExecutionStatus = 'pending' | 'running' | 'success' | 'error' | 'skipped' | 'waiting';
+export type { NodeExecutionStatus };
 
 export interface NodeExecutionState {
   nodeId: string;
