@@ -212,9 +212,10 @@ export default defineConfig(({ mode }: { mode: string }) => {
       },
       
       // API proxy configuration
+      // Use 127.0.0.1 instead of localhost to force IPv4 (Rails binds to IPv4 only)
       proxy: {
         '/api/v1': {
-          target: 'http://localhost:3000/api/v1',
+          target: 'http://127.0.0.1:3000/api/v1',
           changeOrigin: true,
           secure: false,
           ws: true,
@@ -232,7 +233,7 @@ export default defineConfig(({ mode }: { mode: string }) => {
           },
         },
         '/cable': {
-          target: env.VITE_WS_BASE_URL || 'ws://localhost:3000',
+          target: env.VITE_WS_BASE_URL || 'ws://127.0.0.1:3000',
           changeOrigin: true,
           ws: true,
           secure: false,

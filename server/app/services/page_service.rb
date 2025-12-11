@@ -39,7 +39,10 @@ class PageService
     # Bold and italic
     html.gsub!(/\*\*(.+?)\*\*/, '<strong>\1</strong>')
     html.gsub!(/\*(.+?)\*/, '<em>\1</em>')
-    
+
+    # Images (must be before links to handle ![alt](url) before [text](url))
+    html.gsub!(/!\[([^\]]*)\]\(([^)]+)\)/, '<img src="\2" alt="\1" loading="lazy" />')
+
     # Links
     html.gsub!(/\[(.+?)\]\((.+?)\)/, '<a href="\2">\1</a>')
     

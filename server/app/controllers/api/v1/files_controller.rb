@@ -5,7 +5,11 @@ module Api
     # Files management controller
     # Provides endpoints for file upload, download, management across all storage providers
     class FilesController < ApplicationController
+      # Skip authentication for public file download - allows <img src="..."> to work
+      skip_before_action :authenticate_request, only: [:download_public]
+
       before_action :set_file_object, only: %i[show download update destroy restore create_version add_tags remove_tags share]
+      before_action :set_public_file_object, only: [:download_public]
       before_action :set_storage_config, only: %i[index upload]
       before_action :validate_permissions!
 
@@ -34,6 +38,14 @@ module Api
         # Search by filename
         if params[:search].present?
           files = files.where('filename ILIKE ?', "%#{params[:search]}%")
+        end
+
+        # Filter by file type (image, document, etc.)
+        files = files.where(file_type: params[:file_type]) if params[:file_type].present?
+
+        # Filter by attachable (for page-specific images)
+        if params[:attachable_type].present? && params[:attachable_id].present?
+          files = files.where(attachable_type: params[:attachable_type], attachable_id: params[:attachable_id])
         end
 
         # Exclude deleted by default unless specifically requested
@@ -70,14 +82,7 @@ module Api
                 download: file_service.file_url(@file_object, download: true),
                 signed: file_service.file_url(@file_object, signed: true, expires_in: 1.hour)
               },
-              versions: @file_object.versions.map do |version|
-                {
-                  id: version.id,
-                  version: version.version,
-                  created_at: version.created_at,
-                  created_by: version.created_by&.name
-                }
-              end,
+              versions: @file_object.file_versions.map(&:version_summary),
               tags: @file_object.file_tags.map(&:tag_summary)
             )
           }
@@ -102,7 +107,8 @@ module Api
           visibility: params[:visibility] || 'private',
           metadata: params[:metadata] || {},
           uploaded_by_id: current_user&.id,
-          processing_tasks: params[:processing_tasks] || []
+          processing_tasks: params[:processing_tasks] || [],
+          attachable: find_attachable
         )
 
         # Add tags if provided
@@ -154,6 +160,26 @@ module Api
         render_error(e.message, status: :not_found)
       rescue StandardError => e
         Rails.logger.error "[FilesController] Download failed: #{e.message}"
+        render_error('File download failed', status: :internal_server_error)
+      end
+
+      # GET /api/v1/files/:id/public - Public endpoint for serving public files (no auth required)
+      # This allows <img src="..."> tags to work without needing authentication
+      def download_public
+        file_service = FileStorageService.new(@file_object.account, storage_config: @file_object.file_storage)
+        file_content = file_service.download_file(@file_object)
+
+        # Set cache headers for public files
+        response.headers['Cache-Control'] = 'public, max-age=31536000'
+
+        send_data file_content,
+                  filename: @file_object.filename,
+                  type: @file_object.content_type,
+                  disposition: params[:disposition] || 'inline'
+      rescue FileStorageService::FileNotFoundError => e
+        render_error(e.message, status: :not_found)
+      rescue StandardError => e
+        Rails.logger.error "[FilesController] Public download failed: #{e.message}"
         render_error('File download failed', status: :internal_server_error)
       end
 
@@ -360,6 +386,15 @@ module Api
         end
       end
 
+      # Set file object for public endpoint - only allows public visibility files
+      def set_public_file_object
+        @file_object = FileObject.where(visibility: 'public').find_by(id: params[:id])
+
+        unless @file_object
+          render_error('File not found or not public', status: :not_found)
+        end
+      end
+
       def set_storage_config
         if params[:storage_id].present?
           @storage_config = current_account.file_storages.find_by(id: params[:storage_id])
@@ -391,6 +426,17 @@ module Api
 
       def file_update_params
         params.permit(:filename, :description, :visibility, :category, metadata: {})
+      end
+
+      def find_attachable
+        return nil unless params[:attachable_type].present? && params[:attachable_id].present?
+
+        case params[:attachable_type]
+        when 'Page'
+          Page.find_by(id: params[:attachable_id])
+        else
+          nil
+        end
       end
     end
   end

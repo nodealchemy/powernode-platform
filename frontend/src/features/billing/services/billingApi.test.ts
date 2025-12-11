@@ -315,11 +315,8 @@ describe('billingApi', () => {
     it('should handle network errors', async () => {
       mockApi.get.mockRejectedValue(new Error('Network Error'));
 
-      // getInvoices now catches errors and throws error response object
-      await expect(billingApi.getInvoices()).rejects.toMatchObject({
-        success: false,
-        error: 'Network Error'
-      });
+      // getInvoices throws Error on failure
+      await expect(billingApi.getInvoices()).rejects.toThrow('Network Error');
     });
 
     it('should handle API errors with error messages', async () => {

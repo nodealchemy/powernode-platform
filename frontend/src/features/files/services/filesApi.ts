@@ -58,6 +58,8 @@ export interface UploadOptions {
   description?: string;
   metadata?: Record<string, unknown>;
   tags?: string[];
+  attachableType?: string;
+  attachableId?: string;
 }
 
 export interface PaginationInfo {
@@ -100,6 +102,8 @@ export const filesApi = {
     if (options.description) formData.append('description', options.description);
     if (options.metadata) formData.append('metadata', JSON.stringify(options.metadata));
     if (options.tags) formData.append('tags', options.tags.join(','));
+    if (options.attachableType) formData.append('attachable_type', options.attachableType);
+    if (options.attachableId) formData.append('attachable_id', options.attachableId);
 
     const response = await api.post('/files/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
@@ -118,6 +122,49 @@ export const filesApi = {
     return response.data.data.file;
   },
 
+  // Upload image for page content
+  async uploadPageImage(
+    file: File,
+    pageId: string | null,
+    options: Omit<UploadOptions, 'category' | 'attachableType' | 'attachableId'> = {}
+  ): Promise<FileObject> {
+    return this.uploadFile(file, {
+      ...options,
+      category: 'page_content',
+      visibility: options.visibility || 'public',
+      attachableType: pageId ? 'Page' : undefined,
+      attachableId: pageId || undefined
+    });
+  },
+
+  // Get available images for gallery browse
+  async getAvailableImages(params?: {
+    category?: string;
+    search?: string;
+    page?: number;
+    per_page?: number;
+  }): Promise<{ files: FileObject[]; pagination: PaginationInfo }> {
+    const response = await api.get('/files', {
+      params: {
+        ...params,
+        file_type: 'image'
+      }
+    });
+    return response.data.data;
+  },
+
+  // Get images attached to a specific page
+  async getPageImages(pageId: string): Promise<{ files: FileObject[]; pagination: PaginationInfo }> {
+    const response = await api.get('/files', {
+      params: {
+        attachable_type: 'Page',
+        attachable_id: pageId,
+        file_type: 'image'
+      }
+    });
+    return response.data.data;
+  },
+
   // Download file
   async downloadFile(id: string, filename?: string): Promise<void> {
     const response = await api.get(`/files/${id}/download`, {
@@ -133,6 +180,15 @@ export const filesApi = {
     link.click();
     link.remove();
     window.URL.revokeObjectURL(url);
+  },
+
+  // Get file as blob URL (for displaying images with authentication)
+  async getFileBlobUrl(id: string): Promise<string> {
+    const response = await api.get(`/files/${id}/download`, {
+      responseType: 'blob',
+      params: { disposition: 'inline' }
+    });
+    return window.URL.createObjectURL(new Blob([response.data]));
   },
 
   // Update file metadata

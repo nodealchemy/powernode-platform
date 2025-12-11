@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_12_08_103206) do
+ActiveRecord::Schema[8.0].define(version: 2025_12_11_080651) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -1544,7 +1544,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_08_103206) do
     t.index ["parent_file_id"], name: "index_file_objects_on_parent_file_id"
     t.index ["processing_status"], name: "index_file_objects_on_processing_status"
     t.index ["uploaded_by_id"], name: "index_file_objects_on_uploaded_by_id"
-    t.check_constraint "category::text = ANY (ARRAY['user_upload'::character varying::text, 'workflow_output'::character varying::text, 'ai_generated'::character varying::text, 'temp'::character varying::text, 'system'::character varying::text, 'import'::character varying::text])", name: "file_objects_category_check"
+    t.check_constraint "category::text = ANY (ARRAY['user_upload'::character varying, 'workflow_output'::character varying, 'ai_generated'::character varying, 'temp'::character varying, 'system'::character varying, 'import'::character varying, 'page_content'::character varying]::text[])", name: "file_objects_category_check"
     t.check_constraint "file_type::text = ANY (ARRAY['image'::character varying::text, 'document'::character varying::text, 'video'::character varying::text, 'audio'::character varying::text, 'archive'::character varying::text, 'code'::character varying::text, 'data'::character varying::text, 'other'::character varying::text])", name: "file_objects_file_type_check"
     t.check_constraint "processing_status::text = ANY (ARRAY['pending'::character varying::text, 'processing'::character varying::text, 'completed'::character varying::text, 'failed'::character varying::text])", name: "file_objects_processing_status_check"
     t.check_constraint "visibility::text = ANY (ARRAY['private'::character varying::text, 'public'::character varying::text, 'shared'::character varying::text, 'internal'::character varying::text])", name: "file_objects_visibility_check"

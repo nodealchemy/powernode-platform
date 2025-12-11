@@ -42,7 +42,7 @@ class FileObject < ApplicationRecord
     allow_nil: true
   }
   validates :category, inclusion: {
-    in: %w[user_upload workflow_output ai_generated temp system import],
+    in: %w[user_upload workflow_output ai_generated temp system import page_content],
     allow_nil: true
   }
   validates :visibility, presence: true, inclusion: {
@@ -482,6 +482,11 @@ class FileObject < ApplicationRecord
       processing_status: processing_status,
       tags: tag_list,
       url: url,
+      urls: {
+        view: url,
+        download: download_url,
+        signed: signed_url
+      },
       dimensions: dimensions,
       checksum_sha256: checksum_sha256
     }

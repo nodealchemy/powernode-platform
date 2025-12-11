@@ -1330,6 +1330,7 @@ Rails.application.routes.draw do
       resources :files, except: [:new, :edit] do
         member do
           get :download
+          get :download_public, path: 'public'  # Public endpoint for serving public files (no auth)
           post :restore
           post :share
           post :create_version, path: 'versions'

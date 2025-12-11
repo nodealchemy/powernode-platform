@@ -711,3 +711,50 @@
     box-shadow: 0 0 0 10px rgba(34, 197, 94, 0);
   }
 }
+
+/* ========================================
+   Public Plan Card Override Styles
+   High specificity to ensure text visibility on dark cards
+   These rules force light text colors without overriding backgrounds
+   ======================================== */
+
+/* Force all text inside plan cards to be light - covers h3, p, span, div, button, etc. */
+.theme-public [data-public-plan-card="true"],
+.theme-public [data-public-plan-card="true"] * {
+  /* Base light color for text inheritance */
+  color: #f8fafc;
+}
+
+/* Plan title - bright white */
+.theme-public [data-public-plan-card="true"] h3 {
+  color: #f8fafc !important;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.6) !important;
+}
+
+/* Description text - slightly muted but still readable */
+.theme-public [data-public-plan-card="true"] p {
+  color: #cbd5e1 !important;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.4) !important;
+}
+
+/* All spans (features, prices, etc.) - light gray */
+.theme-public [data-public-plan-card="true"] span {
+  color: #e2e8f0 !important;
+}
+
+/* Feature list items specifically */
+.theme-public [data-public-plan-card="true"] ul li,
+.theme-public [data-public-plan-card="true"] ul li span {
+  color: #e2e8f0 !important;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.4) !important;
+}
+
+/* Divs with text content (limits, stats, etc.) */
+.theme-public [data-public-plan-card="true"] div {
+  color: #f8fafc;
+}
+
+/* Buttons inside cards */
+.theme-public [data-public-plan-card="true"] button {
+  color: #f8fafc !important;
+}

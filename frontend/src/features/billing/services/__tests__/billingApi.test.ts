@@ -62,20 +62,14 @@ describe('billingApi', () => {
 
       mockApi.get.mockRejectedValue(error);
 
-      await expect(billingApi.getOverview()).rejects.toEqual({
-        success: false,
-        error: 'Failed to fetch billing overview',
-      });
+      await expect(billingApi.getOverview()).rejects.toThrow('Failed to fetch billing overview');
     });
 
     it('handles network errors', async () => {
       const networkError = new TypeError('Network request failed');
       mockApi.get.mockRejectedValue(networkError);
 
-      await expect(billingApi.getOverview()).rejects.toEqual({
-        success: false,
-        error: 'Network request failed',
-      });
+      await expect(billingApi.getOverview()).rejects.toThrow('Network request failed');
     });
   });
 
@@ -104,10 +98,7 @@ describe('billingApi', () => {
 
       mockApi.get.mockRejectedValue(error);
 
-      await expect(billingApi.getSubscriptionBilling()).rejects.toEqual({
-        success: false,
-        error: 'Subscription not found',
-      });
+      await expect(billingApi.getSubscriptionBilling()).rejects.toThrow('Subscription not found');
     });
   });
 
@@ -142,10 +133,7 @@ describe('billingApi', () => {
         response: { data: { error: 'Failed to fetch invoices' } },
       });
 
-      await expect(billingApi.getInvoices()).rejects.toEqual({
-        success: false,
-        error: 'Failed to fetch invoices',
-      });
+      await expect(billingApi.getInvoices()).rejects.toThrow('Failed to fetch invoices');
     });
   });
 

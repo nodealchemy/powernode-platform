@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
 
 RSpec.describe Page, type: :model do
@@ -7,6 +9,46 @@ RSpec.describe Page, type: :model do
   describe 'associations' do
     it { should belong_to(:user).with_foreign_key('author_id') }
     it { should respond_to(:author) }
+    it { should have_many(:file_objects).dependent(:nullify) }
+    it { should have_many(:images) }
+  end
+
+  describe 'file_objects association' do
+    let(:page) { create(:page) }
+    let(:account) { create(:account) }
+    let(:file_storage) { create(:file_storage, account: account, is_default: true) }
+
+    it 'can have file_objects attached' do
+      file = create(:file_object, account: account, attachable: page, file_storage: file_storage)
+      expect(page.file_objects).to include(file)
+    end
+
+    it 'nullifies file_objects when page is deleted' do
+      file = create(:file_object, account: account, attachable: page, file_storage: file_storage)
+      page.destroy
+      file.reload
+      expect(file.attachable).to be_nil
+    end
+
+    it 'images scope returns only image file_objects' do
+      image_file = create(:file_object,
+                          account: account,
+                          attachable: page,
+                          file_type: 'image',
+                          content_type: 'image/png',
+                          file_storage: file_storage)
+      doc_file = create(:file_object,
+                        account: account,
+                        attachable: page,
+                        file_type: 'document',
+                        content_type: 'application/pdf',
+                        file_storage: file_storage)
+
+      expect(page.images).to include(image_file)
+      expect(page.images).not_to include(doc_file)
+      expect(page.file_objects).to include(image_file)
+      expect(page.file_objects).to include(doc_file)
+    end
   end
 
   # Validations

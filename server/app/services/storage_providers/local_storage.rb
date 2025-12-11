@@ -202,26 +202,27 @@ module StorageProviders
       full_path(file_object.storage_key).exist?
     end
 
-    # Get file URL
+    # Get file URL (for viewing/displaying the file)
     def file_url(file_object)
-      # For local storage, return a relative URL
-      # This assumes files are served through Rails or a web server
-      "/files/#{file_object.id}"
+      # Return public endpoint for public files (no auth), or download endpoint for others
+      if file_object.visibility == 'public'
+        "/api/v1/files/#{file_object.id}/public"
+      else
+        "/api/v1/files/#{file_object.id}/download?disposition=inline"
+      end
     end
 
-    # Get download URL
+    # Get download URL (for downloading as attachment)
     def download_url(file_object, expires_in: 1.hour)
       # Local storage doesn't support expiring URLs
-      # Return URL that includes storage key for reference
-      base_url = config('url_base') || '/files'
-      "#{base_url}/#{file_object.storage_key}"
+      "/api/v1/files/#{file_object.id}/download"
     end
 
     # Get signed URL
     def signed_url(file_object, expires_in: 1.hour, disposition: 'inline')
       # Local storage doesn't support signed URLs
-      # Could be implemented with JWT tokens if needed
-      download_url(file_object, expires_in: expires_in)
+      # Return the same as file_url with disposition
+      "/api/v1/files/#{file_object.id}/download?disposition=#{disposition}"
     end
 
     # Get file metadata

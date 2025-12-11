@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Upload, X, File, CheckCircle, AlertCircle } from 'lucide-react';
 import { filesApi, FileObject, UploadOptions } from '../services/filesApi';
 import { useNotifications } from '@/shared/hooks/useNotifications';
@@ -11,6 +11,8 @@ interface FileUploadProps {
   maxSizeMB?: number;
   multiple?: boolean;
   className?: string;
+  /** When true, automatically opens file picker on mount */
+  triggerOnMount?: boolean;
 }
 
 interface UploadingFile {
@@ -29,12 +31,24 @@ export const FileUpload: React.FC<FileUploadProps> = ({
   accept,
   maxSizeMB = 100,
   multiple = false,
-  className = ''
+  className = '',
+  triggerOnMount = false
 }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { showNotification } = useNotifications();
+
+  // Trigger file picker on mount if requested
+  useEffect(() => {
+    if (triggerOnMount && fileInputRef.current) {
+      // Small delay to ensure the input is mounted and modal is fully rendered
+      const timeoutId = setTimeout(() => {
+        fileInputRef.current?.click();
+      }, 100);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [triggerOnMount]);
 
   const validateFile = (file: File): string | null => {
     const maxSizeBytes = maxSizeMB * 1024 * 1024;
