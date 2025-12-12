@@ -45,7 +45,7 @@ export const PublicPageContainer: React.FC<PublicPageContainerProps> = ({
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-20">
             <Link to="/" className="flex items-center space-x-3 group">
-              <div className="w-11 h-11 bg-theme-info rounded-xl flex items-center justify-center transform group-hover:scale-105 transition-transform duration-200 shadow-lg">
+              <div className="w-11 h-11 bg-theme-info-solid rounded-xl flex items-center justify-center transform group-hover:scale-105 transition-transform duration-200 shadow-lg">
                 <span className="text-white font-bold text-xl">P</span>
               </div>
               <h1 className="text-lg font-bold text-white">
@@ -71,7 +71,7 @@ export const PublicPageContainer: React.FC<PublicPageContainerProps> = ({
                   </span>
                   <Link
                     to="/app"
-                    className="inline-flex items-center space-x-2 px-4 py-2 bg-theme-info hover:bg-blue-700 text-white font-semibold rounded-lg transition-all duration-200 text-sm shadow-lg"
+                    className="inline-flex items-center space-x-2 px-4 py-2 bg-theme-info-solid hover:bg-theme-interactive-primary-hover text-white font-semibold rounded-lg transition-all duration-200 text-sm shadow-lg"
                   >
                     <User className="w-4 h-4" />
                     <span>Dashboard</span>
@@ -87,7 +87,7 @@ export const PublicPageContainer: React.FC<PublicPageContainerProps> = ({
                   </Link>
                   <Link
                     to="/plans"
-                    className="inline-flex items-center space-x-2 px-6 py-3 bg-theme-info hover:bg-blue-700 text-white font-semibold rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl"
+                    className="inline-flex items-center space-x-2 px-6 py-3 bg-theme-info-solid hover:bg-theme-interactive-primary-hover text-white font-semibold rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl"
                   >
                     <span>Get Started</span>
                   </Link>
@@ -137,7 +137,7 @@ export const PublicPageContainer: React.FC<PublicPageContainerProps> = ({
               {/* Company Info */}
               <div className="lg:col-span-1">
                 <div className="flex items-center space-x-3 mb-6">
-                  <div className="w-10 h-10 bg-theme-info rounded-xl flex items-center justify-center">
+                  <div className="w-10 h-10 bg-theme-info-solid rounded-xl flex items-center justify-center">
                     <span className="text-white font-bold text-lg">P</span>
                   </div>
                   <div>

@@ -441,10 +441,21 @@
 .text-theme-error { color: var(--color-error); }
 .text-theme-info { color: var(--color-info); }
 
+/* Light background variants (for subtle backgrounds) */
 .bg-theme-success { background-color: var(--color-success-background); }
 .bg-theme-warning { background-color: var(--color-warning-background); }
 .bg-theme-error { background-color: var(--color-error-background); }
 .bg-theme-info { background-color: var(--color-info-background); }
+
+/* Solid color variants (for buttons, badges, prominent UI) */
+.bg-theme-success-solid { background-color: var(--color-success); }
+.bg-theme-warning-solid { background-color: var(--color-warning); }
+.bg-theme-error-solid { background-color: var(--color-error); }
+.bg-theme-info-solid { background-color: var(--color-info); }
+
+/* Interactive primary background (solid blue for buttons) */
+.bg-theme-interactive-primary { background-color: var(--color-interactive-primary); }
+.bg-theme-interactive-primary-hover { background-color: var(--color-interactive-primary-hover); }
 
 /* Workflow Edge Background Utilities (solid colors for edge labels) */
 .bg-theme-edge-default { background-color: var(--edge-default); }

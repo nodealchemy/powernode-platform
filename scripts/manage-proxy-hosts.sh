@@ -56,6 +56,58 @@ run_rails_command() {
     cd server && bundle exec rails runner "$command" 2>/dev/null
 }
 
+# Function to update Vite's proxy config cache
+update_vite_cache() {
+    local project_root
+    project_root=$(cd "$(dirname "$0")/.." && pwd)
+    local cache_file="$project_root/frontend/.proxy-config-cache.json"
+
+    print_info "Syncing Vite proxy cache..."
+
+    # Get all trusted hosts from Rails
+    local hosts_json
+    hosts_json=$(run_rails_command "
+        config = AdminSetting.reverse_proxy_url_config
+        hosts = config[:trusted_hosts] || []
+        # Strip ports for Vite allowedHosts (Vite handles ports separately)
+        # But preserve IPv6 addresses like ::1
+        hosts_without_ports = hosts.map do |h|
+          # Only strip port if it's hostname:port format (not IPv6)
+          if h.include?(':') && !h.start_with?(':') && h.match?(/:\\d+\$/)
+            h.gsub(/:\\d+\$/, '')
+          else
+            h
+          end
+        end.uniq
+        puts hosts_without_ports.to_json
+    ")
+
+    if [ -z "$hosts_json" ] || [ "$hosts_json" = "null" ]; then
+        print_warning "Could not retrieve hosts for Vite cache"
+        return 1
+    fi
+
+    # Generate the cache file with timestamp
+    local timestamp
+    timestamp=$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")
+
+    cat > "$cache_file" << EOF
+{
+  "allowedHosts": $hosts_json,
+  "fetchedAt": "$timestamp",
+  "source": "backend"
+}
+EOF
+
+    print_success "Vite cache updated: $cache_file"
+
+    # Check if frontend is running and notify user
+    if pgrep -f "vite" > /dev/null 2>&1; then
+        print_warning "Frontend is running - restart required for changes to take effect"
+        print_info "Run: ./scripts/frontend-manager.sh restart"
+    fi
+}
+
 # Function to show usage
 show_usage() {
     print_header "Powernode Proxy Host Management"
@@ -66,6 +118,7 @@ show_usage() {
     echo "  add <host>           Add a host to the trusted hosts list"
     echo "  remove <host>        Remove a host from the trusted hosts list"
     echo "  list                 List all trusted hosts"
+    echo "  sync                 Sync Vite cache with backend trusted hosts"
     echo "  validate <host>      Validate a host pattern"
     echo "  status               Show proxy configuration status"
     echo "  enable-proxy         Enable reverse proxy URL configuration"
@@ -137,6 +190,7 @@ add_host() {
     case "$add_result" in
         "success")
             print_success "Host '$host' added successfully"
+            update_vite_cache
             ;;
         "failed")
             print_error "Failed to add host '$host'"
@@ -178,6 +232,7 @@ remove_host() {
     case "$remove_result" in
         "success")
             print_success "Host '$host' removed successfully"
+            update_vite_cache
             ;;
         "failed")
             print_error "Failed to remove host '$host'"
@@ -387,6 +442,9 @@ case "${1:-}" in
         ;;
     "list")
         list_hosts
+        ;;
+    "sync")
+        update_vite_cache
         ;;
     "validate")
         validate_host "$2"
