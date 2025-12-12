@@ -28,6 +28,7 @@ export const useCustomerWebSocket = ({
   onErrorRef.current = onError;
 
   // Type guard for WebSocket message data
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const isWebSocketMessage = (data: unknown): data is { type: string; data?: any; message?: string } => {
     return typeof data === 'object' && data !== null && 'type' in data;
   };

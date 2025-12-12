@@ -53,9 +53,10 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
           setThemeState('light');
           applyThemeToDocument('light');
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         // Check if this is an authentication error
-        if (error?.response?.status === 401) {
+        const apiError = error as { response?: { status?: number } };
+        if (apiError?.response?.status === 401) {
           // Authentication failed, use light theme
           setThemeState('light');
           applyThemeToDocument('light');
@@ -119,9 +120,10 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
       
       // Update user preferences
       await settingsApi.updateUserSettings({ user_preferences: { theme: newTheme } });
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Check if authentication error
-      if (error?.response?.status === 401) {
+      const apiError = error as { response?: { status?: number } };
+      if (apiError?.response?.status === 401) {
         // Authentication failed, keep the local theme change but don't try to save
         return;
       }

@@ -1,6 +1,7 @@
 /**
  * Safely sends a message through WebSocket with proper state checking
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const safeWebSocketSend = (ws: WebSocket | null, message: any, maxRetries = 3, retryDelay = 100): Promise<boolean> => {
   return new Promise((resolve) => {
     if (!ws) {
