@@ -2,6 +2,16 @@
 
 class Api::V1::AppEndpointsController < ApplicationController
   include AuditLogging
+  include Paginatable
+  include SearchableController
+  include ActivatableResource
+  include AnalyticsQueryable
+
+  # Configure activate/deactivate actions
+  activatable_resource :app_endpoint,
+                       permission: "apps.update",
+                       serializer: :endpoint_data,
+                       resource_label: "API endpoint"
 
   before_action :set_app
   before_action :set_app_endpoint, only: [ :show, :update, :destroy, :activate, :deactivate, :test ]
@@ -11,27 +21,17 @@ class Api::V1::AppEndpointsController < ApplicationController
     authorize_permission!("apps.read")
 
     endpoints = @app.app_endpoints.includes(:app_endpoint_calls)
-    endpoints = endpoints.where("name ILIKE ?", "%#{params[:search]}%") if params[:search].present?
+    endpoints = apply_search(endpoints)
     endpoints = endpoints.where(http_method: params[:method].upcase) if params[:method].present?
     endpoints = endpoints.where(is_active: params[:active]) if params[:active].present?
     endpoints = endpoints.where(version: params[:version]) if params[:version].present?
 
-    page = (params[:page] || 1).to_i
-    per_page = [ (params[:per_page] || 20).to_i, 100 ].min
-    offset = (page - 1) * per_page
-
-    total_count = endpoints.count
-    endpoints = endpoints.order(:name).limit(per_page).offset(offset)
+    endpoints = paginate(endpoints.order(:name))
 
     render_success(
       data: {
         endpoints: endpoints.map { |endpoint| endpoint_data(endpoint) },
-        pagination: {
-          current_page: page,
-          per_page: per_page,
-          total_count: total_count,
-          total_pages: (total_count / per_page.to_f).ceil
-        }
+        pagination: pagination_meta
       }
     )
   end
@@ -87,29 +87,7 @@ class Api::V1::AppEndpointsController < ApplicationController
     )
   end
 
-  # POST /api/v1/apps/:app_id/endpoints/:id/activate
-  def activate
-    authorize_permission!("apps.update")
-
-    @app_endpoint.update!(is_active: true)
-
-    render_success(
-      data: endpoint_data(@app_endpoint),
-      message: "API endpoint activated successfully"
-    )
-  end
-
-  # POST /api/v1/apps/:app_id/endpoints/:id/deactivate
-  def deactivate
-    authorize_permission!("apps.update")
-
-    @app_endpoint.update!(is_active: false)
-
-    render_success(
-      data: endpoint_data(@app_endpoint),
-      message: "API endpoint deactivated successfully"
-    )
-  end
+  # activate and deactivate actions are provided by ActivatableResource concern
 
   # POST /api/v1/apps/:app_id/endpoints/:id/test
   def test
@@ -148,13 +126,13 @@ class Api::V1::AppEndpointsController < ApplicationController
   def analytics
     authorize_permission!("apps.read")
 
-    days = [ (params[:days] || 30).to_i, 90 ].min
-    calls = @app_endpoint.app_endpoint_calls.where("called_at > ?", days.days.ago)
+    days = analytics_days_param(default: 30, max: 90)
+    calls = in_analytics_period(@app_endpoint.app_endpoint_calls, days, date_column: :called_at)
 
     analytics_data = {
       total_calls: calls.count,
-      calls_by_day: calls.group_by_day(:called_at, last: days).count,
-      calls_by_status: calls.group(:status_code).count,
+      calls_by_day: group_by_day(calls, :called_at, days),
+      calls_by_status: group_by_column(calls, :status_code),
       average_response_time: calls.average(:response_time_ms)&.to_f&.round(2) || 0,
       success_rate: @app_endpoint.success_rate,
       error_rate: @app_endpoint.error_rate,
@@ -166,9 +144,7 @@ class Api::V1::AppEndpointsController < ApplicationController
                        .to_h
     }
 
-    render_success(
-      data: analytics_data
-    )
+    render_success(data: analytics_data)
   end
 
   private

@@ -28,38 +28,30 @@ RSpec.describe StorageProviderFactory, type: :service do
       end
     end
 
-    context 'with GCS storage' do
-      let(:storage_config) { create(:file_storage, :gcs, account: account) }
-
-      it 'raises ProviderNotAvailableError since GcsStorage class is not implemented' do
-        expect {
-          described_class.create(storage_config)
-        }.to raise_error(StorageProviderFactory::ProviderNotAvailableError, /GcsStorage/)
-      end
-    end
-
-    context 'with Azure storage' do
-      let(:storage_config) do
-        # Build with correct Azure configuration keys that pass model validation
-        create(:file_storage, account: account, provider_type: 'azure', configuration: {
-          'container' => 'test-container',
-          'storage_account_name' => 'testaccount',
-          'access_key' => 'encrypted:test_key'
-        })
-      end
-
-      it 'raises ProviderNotAvailableError since AzureStorage class is not implemented' do
-        expect {
-          described_class.create(storage_config)
-        }.to raise_error(StorageProviderFactory::ProviderNotAvailableError, /AzureStorage/)
-      end
-    end
-
-    context 'with unknown provider type' do
-      it 'raises UnsupportedProviderError' do
+    context 'with unsupported provider type' do
+      it 'raises UnsupportedProviderError for GCS' do
         # Build the storage config without saving to avoid model validation
+        storage_config = build(:file_storage, account: account, provider_type: 'gcs')
+        storage_config.instance_variable_set(:@new_record, false)
+        allow(storage_config).to receive(:provider_type).and_return('gcs')
+
+        expect {
+          described_class.create(storage_config)
+        }.to raise_error(StorageProviderFactory::UnsupportedProviderError, /Unsupported provider type/)
+      end
+
+      it 'raises UnsupportedProviderError for Azure' do
+        storage_config = build(:file_storage, account: account, provider_type: 'azure')
+        storage_config.instance_variable_set(:@new_record, false)
+        allow(storage_config).to receive(:provider_type).and_return('azure')
+
+        expect {
+          described_class.create(storage_config)
+        }.to raise_error(StorageProviderFactory::UnsupportedProviderError, /Unsupported provider type/)
+      end
+
+      it 'raises UnsupportedProviderError for unknown provider' do
         storage_config = build(:file_storage, account: account, provider_type: 'unknown')
-        # Manually set attributes to bypass validation
         storage_config.instance_variable_set(:@new_record, false)
         allow(storage_config).to receive(:provider_type).and_return('unknown')
 
@@ -74,14 +66,14 @@ RSpec.describe StorageProviderFactory, type: :service do
     it 'returns list of supported providers' do
       providers = described_class.supported_providers
 
-      expect(providers).to include('local', 's3', 'gcs', 'azure')
+      expect(providers).to include('local', 's3')
       expect(providers).to be_a(Array)
     end
 
-    it 'includes all configured provider types' do
+    it 'includes only implemented provider types' do
       providers = described_class.supported_providers
 
-      expect(providers).to contain_exactly('local', 's3', 'gcs', 'azure', 'ftp', 'webdav', 'custom')
+      expect(providers).to contain_exactly('local', 's3')
     end
   end
 
@@ -89,12 +81,13 @@ RSpec.describe StorageProviderFactory, type: :service do
     it 'returns true for supported providers' do
       expect(described_class.supported?('local')).to be true
       expect(described_class.supported?('s3')).to be true
-      expect(described_class.supported?('gcs')).to be true
     end
 
     it 'returns false for unsupported providers' do
       expect(described_class.supported?('unknown')).to be false
       expect(described_class.supported?('dropbox')).to be false
+      expect(described_class.supported?('gcs')).to be false
+      expect(described_class.supported?('azure')).to be false
     end
 
     it 'is case insensitive' do
@@ -124,11 +117,11 @@ RSpec.describe StorageProviderFactory, type: :service do
       expect(capabilities['lifecycle_policies']).to be true
     end
 
-    it 'returns capabilities for GCS storage' do
+    it 'returns default capabilities for unsupported provider' do
       capabilities = described_class.provider_capabilities('gcs')
 
-      expect(capabilities['multipart_upload']).to be true
-      expect(capabilities['signed_urls']).to be true
+      expect(capabilities['multipart_upload']).to be false
+      expect(capabilities['versioning']).to be false
     end
 
     it 'returns default capabilities for unknown provider' do
@@ -154,18 +147,11 @@ RSpec.describe StorageProviderFactory, type: :service do
       expect(result).to have_key(:missing)
     end
 
-    it 'checks GCS dependencies' do
+    it 'returns unavailable for unsupported provider' do
       result = described_class.check_dependencies('gcs')
 
-      expect(result).to have_key(:available)
-      expect(result).to have_key(:missing)
-    end
-
-    it 'checks Azure dependencies' do
-      result = described_class.check_dependencies('azure')
-
-      expect(result).to have_key(:available)
-      expect(result).to have_key(:missing)
+      expect(result[:available]).to be false
+      expect(result[:missing]).to include('Unknown provider type')
     end
 
     it 'returns unavailable for unknown provider' do
@@ -185,6 +171,16 @@ RSpec.describe StorageProviderFactory, type: :service do
     it 'raises error for invalid provider' do
       expect {
         described_class.get_provider_class('invalid')
+      }.to raise_error(StorageProviderFactory::UnsupportedProviderError)
+    end
+
+    it 'raises error for removed providers' do
+      expect {
+        described_class.get_provider_class('gcs')
+      }.to raise_error(StorageProviderFactory::UnsupportedProviderError)
+
+      expect {
+        described_class.get_provider_class('azure')
       }.to raise_error(StorageProviderFactory::UnsupportedProviderError)
     end
 

@@ -336,18 +336,20 @@ RSpec.describe StorageProviders::LocalStorage, type: :service do
   end
 
   describe '#download_url' do
-    it 'returns download URL with storage key' do
+    it 'returns download URL with file ID' do
       url = provider.download_url(file_object, expires_in: 1.hour)
       expect(url).to be_present
-      expect(url).to include(file_object.storage_key)
+      expect(url).to include(file_object.id)
+      expect(url).to eq("/api/v1/files/#{file_object.id}/download")
     end
   end
 
   describe '#signed_url' do
-    it 'returns same as download_url for local storage' do
+    it 'returns download URL with disposition parameter for local storage' do
       download = provider.download_url(file_object)
       signed = provider.signed_url(file_object)
-      expect(signed).to eq(download)
+      # Local storage signed_url adds disposition parameter
+      expect(signed).to eq("#{download}?disposition=inline")
     end
   end
 end

@@ -39,7 +39,12 @@ RSpec.configure do |config|
   end
 
   # Performance testing configuration
-  config.before(:each, :performance) do
+  # Uses truncation strategy to support concurrent database access in threads
+  # Matches both :performance tag and type: :performance
+  config.before(:each, type: :performance) do
+    # Use truncation strategy to allow threads to see committed data
+    DatabaseCleaner.strategy = :truncation
+
     @performance_threshold = {
       response_time: 2.0, # seconds
       memory_increase: 50, # MB
@@ -55,18 +60,22 @@ RSpec.configure do |config|
     end
   end
 
-  config.after(:each, :performance) do
+  config.after(:each, type: :performance) do
     final_memory = get_memory_usage
     memory_increase = final_memory - @initial_memory
 
     # Check performance thresholds
     if memory_increase > @performance_threshold[:memory_increase]
-      puts "Warning: Test used #{memory_increase}MB memory (threshold: #{@performance_threshold[:memory_increase]}MB)"
+      Rails.logger.warn "Test used #{memory_increase}MB memory (threshold: #{@performance_threshold[:memory_increase]}MB)"
     end
 
     if @query_count > @performance_threshold[:database_queries]
-      puts "Warning: Test executed #{@query_count} queries (threshold: #{@performance_threshold[:database_queries]})"
+      Rails.logger.warn "Test executed #{@query_count} queries (threshold: #{@performance_threshold[:database_queries]})"
     end
+
+    # Restore normal database cleaning strategy
+    DatabaseCleaner.clean
+    DatabaseCleaner.strategy = :transaction
   end
 
   # Security testing configuration

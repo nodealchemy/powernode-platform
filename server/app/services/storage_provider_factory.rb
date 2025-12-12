@@ -1,19 +1,14 @@
 # frozen_string_literal: true
 
 # Factory for creating storage provider instances
-# Supports multiple storage backends: local, S3, GCS, Azure, etc.
+# Supports local and S3 storage backends
 class StorageProviderFactory
   class UnsupportedProviderError < StandardError; end
   class ProviderNotAvailableError < StandardError; end
 
   PROVIDER_CLASSES = {
     "local" => "StorageProviders::LocalStorage",
-    "s3" => "StorageProviders::S3Storage",
-    "gcs" => "StorageProviders::GcsStorage",
-    "azure" => "StorageProviders::AzureStorage",
-    "ftp" => "StorageProviders::FtpStorage",
-    "webdav" => "StorageProviders::WebdavStorage",
-    "custom" => "StorageProviders::CustomStorage"
+    "s3" => "StorageProviders::S3Storage"
   }.freeze
 
   class << self
@@ -71,10 +66,6 @@ class StorageProviderFactory
       case provider_type.to_s.downcase
       when "s3"
         check_s3_dependencies
-      when "gcs"
-        check_gcs_dependencies
-      when "azure"
-        check_azure_dependencies
       when "local"
         { available: true, missing: [] }
       else
@@ -91,10 +82,6 @@ class StorageProviderFactory
         local_capabilities
       when "s3"
         s3_capabilities
-      when "gcs"
-        gcs_capabilities
-      when "azure"
-        azure_capabilities
       else
         default_capabilities
       end
@@ -131,36 +118,6 @@ class StorageProviderFactory
       }
     end
 
-    def check_gcs_dependencies
-      missing = []
-
-      begin
-        require "google/cloud/storage"
-      rescue LoadError
-        missing << "google-cloud-storage gem"
-      end
-
-      {
-        available: missing.empty?,
-        missing: missing
-      }
-    end
-
-    def check_azure_dependencies
-      missing = []
-
-      begin
-        require "azure/storage/blob"
-      rescue LoadError
-        missing << "azure-storage-blob gem"
-      end
-
-      {
-        available: missing.empty?,
-        missing: missing
-      }
-    end
-
     def local_capabilities
       {
         "multipart_upload" => false,
@@ -177,38 +134,6 @@ class StorageProviderFactory
     end
 
     def s3_capabilities
-      {
-        "multipart_upload" => true,
-        "resumable_upload" => true,
-        "direct_upload" => true,
-        "cdn" => true,
-        "versioning" => true,
-        "encryption" => true,
-        "access_control" => true,
-        "signed_urls" => true,
-        "streaming" => true,
-        "batch_operations" => true,
-        "lifecycle_policies" => true
-      }
-    end
-
-    def gcs_capabilities
-      {
-        "multipart_upload" => true,
-        "resumable_upload" => true,
-        "direct_upload" => true,
-        "cdn" => true,
-        "versioning" => true,
-        "encryption" => true,
-        "access_control" => true,
-        "signed_urls" => true,
-        "streaming" => true,
-        "batch_operations" => true,
-        "lifecycle_policies" => true
-      }
-    end
-
-    def azure_capabilities
       {
         "multipart_upload" => true,
         "resumable_upload" => true,

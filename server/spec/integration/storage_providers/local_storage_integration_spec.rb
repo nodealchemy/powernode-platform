@@ -267,14 +267,16 @@ RSpec.describe 'StorageProviders::LocalStorage Integration', type: :integration 
       download_url = provider.download_url(file_object, expires_in: 1.hour)
 
       expect(download_url).to be_present
-      expect(download_url).to include(file_object.storage_key)
+      expect(download_url).to include(file_object.id)
+      expect(download_url).to eq("/api/v1/files/#{file_object.id}/download")
     end
 
     it 'generates signed URL with expiration' do
       signed_url = provider.signed_url(file_object, expires_in: 30.minutes, disposition: 'attachment')
 
       expect(signed_url).to be_present
-      expect(signed_url).to include(file_object.storage_key)
+      expect(signed_url).to include(file_object.id)
+      expect(signed_url).to include('disposition=attachment')
     end
   end
 

@@ -184,6 +184,87 @@ module AiOrchestrationHelpers
     end
   end
 
+  # Mock MCP orchestration services for testing
+  def mock_mcp_orchestration_services
+    # Mock state machine
+    state_machine_double = instance_double(Mcp::WorkflowStateMachine)
+    allow(Mcp::WorkflowStateMachine).to receive(:new).and_return(state_machine_double)
+    allow(state_machine_double).to receive(:initialize_state)
+    allow(state_machine_double).to receive(:transition!)
+    allow(state_machine_double).to receive(:execute_node)
+    allow(state_machine_double).to receive(:current_state).and_return(:running)
+
+    # Mock event store
+    event_store_double = instance_double(Mcp::ExecutionEventStore)
+    allow(Mcp::ExecutionEventStore).to receive(:new).and_return(event_store_double)
+    allow(event_store_double).to receive(:record_event)
+
+    # Mock execution tracer
+    tracer_double = instance_double(Mcp::ExecutionTracer)
+    allow(Mcp::ExecutionTracer).to receive(:new).and_return(tracer_double)
+    allow(tracer_double).to receive(:trace_start)
+    allow(tracer_double).to receive(:trace_node_completion)
+    allow(tracer_double).to receive(:trace_node_failure)
+    allow(tracer_double).to receive(:trace_completion)
+    allow(tracer_double).to receive(:trace_failure)
+
+    # Mock workflow monitor
+    monitor_double = instance_double(Mcp::WorkflowMonitor)
+    allow(Mcp::WorkflowMonitor).to receive(:new).and_return(monitor_double)
+    allow(monitor_double).to receive(:start_monitoring)
+    allow(monitor_double).to receive(:node_completed)
+    allow(monitor_double).to receive(:node_failed)
+    allow(monitor_double).to receive(:finalize)
+
+    # Mock MCP protocol service
+    protocol_double = instance_double(McpProtocolService)
+    allow(McpProtocolService).to receive(:new).and_return(protocol_double)
+
+    # Mock MCP registry service - use allow_any_instance_of for flexibility
+    allow_any_instance_of(McpRegistryService).to receive(:get_tool).and_return({ 'version' => '1.0.0' })
+    allow_any_instance_of(McpRegistryService).to receive(:register_tool).and_return(true)
+    allow_any_instance_of(McpRegistryService).to receive(:unregister_tool).and_return(true)
+
+    # Mock MCP broadcast service
+    allow(McpBroadcastService).to receive(:broadcast_workflow_event)
+
+    # Mock AiOrchestrationChannel
+    allow(AiOrchestrationChannel).to receive(:broadcast_workflow_run_event)
+
+    # Mock node executors to return successful results
+    mock_node_executor_results
+  end
+
+  # Mock node executor results for different node types
+  def mock_node_executor_results
+    # Define a mock result for successful node execution
+    mock_result = {
+      success: true,
+      output: 'Test output',
+      data: { processed: true },
+      result: { status: 'completed' },
+      metadata: {
+        duration_ms: 100,
+        cost: 0.001
+      }
+    }
+
+    # Mock each node executor type
+    [
+      Mcp::NodeExecutors::Start,
+      Mcp::NodeExecutors::End,
+      Mcp::NodeExecutors::AiAgent,
+      Mcp::NodeExecutors::Transform,
+      Mcp::NodeExecutors::Condition,
+      Mcp::NodeExecutors::ApiCall,
+      Mcp::NodeExecutors::Webhook
+    ].each do |executor_class|
+      executor_double = instance_double(executor_class)
+      allow(executor_class).to receive(:new).and_return(executor_double)
+      allow(executor_double).to receive(:execute).and_return(mock_result)
+    end
+  end
+
   # Helper to access captured broadcast messages
   def broadcast_messages
     @broadcast_messages || []
@@ -387,4 +468,5 @@ RSpec.configure do |config|
   config.include AiOrchestrationHelpers, type: :channel
   config.include AiOrchestrationHelpers, type: :job
   config.include AiOrchestrationHelpers, type: :integration
+  config.include AiOrchestrationHelpers, type: :performance
 end

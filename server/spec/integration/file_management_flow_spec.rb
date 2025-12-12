@@ -69,7 +69,7 @@ RSpec.describe 'File Management Flow Integration', type: :integration do
       # Step 3: Get download URL
       download_url = provider.download_url(file_object)
       expect(download_url).to be_present
-      expect(download_url).to include(file_object.storage_key)
+      expect(download_url).to include(file_object.id)
 
       # Step 4: Update file metadata
       file_object.update!(download_count: file_object.download_count + 1)

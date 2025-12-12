@@ -117,6 +117,23 @@ Rails.application.routes.draw do
         get "permissions/check", to: "permissions#check"
       end
 
+      # Privacy and GDPR compliance endpoints
+      namespace :privacy do
+        get :dashboard
+        get :consents
+        put :consents, action: :update_consents
+        post :export, action: :request_export
+        get :exports, action: :export_requests
+        get "exports/:id/download", action: :download_export
+        post :deletion, action: :request_deletion
+        get :deletion, action: :deletion_request_status
+        delete "deletion/:id", action: :cancel_deletion
+        get :terms, action: :terms_status
+        post "terms/:document_type/accept", action: :accept_terms
+        get :cookies, action: :cookie_preferences
+        put :cookies, action: :update_cookie_preferences
+      end
+
       # OAuth 2.0 Provider (Doorkeeper) - Standard OAuth endpoints
       use_doorkeeper do
         # Skip default controllers, we use custom API controllers

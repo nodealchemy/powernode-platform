@@ -2,6 +2,16 @@
 
 class Api::V1::AppWebhooksController < ApplicationController
   include AuditLogging
+  include Paginatable
+  include SearchableController
+  include ActivatableResource
+  include AnalyticsQueryable
+
+  # Configure activate/deactivate actions
+  activatable_resource :app_webhook,
+                       permission: "apps.update",
+                       serializer: :webhook_data,
+                       resource_label: "Webhook"
 
   before_action :set_app
   before_action :set_app_webhook, only: [ :show, :update, :destroy, :activate, :deactivate, :test, :regenerate_secret ]
@@ -11,25 +21,15 @@ class Api::V1::AppWebhooksController < ApplicationController
     authorize_permission!("apps.read")
 
     webhooks = @app.app_webhooks.includes(:app_webhook_deliveries)
-    webhooks = webhooks.where("name ILIKE ?", "%#{params[:search]}%") if params[:search].present?
+    webhooks = apply_search(webhooks)
     webhooks = webhooks.where(event_type: params[:event_type]) if params[:event_type].present?
     webhooks = webhooks.where(is_active: params[:active]) if params[:active].present?
 
-    page = (params[:page] || 1).to_i
-    per_page = [ (params[:per_page] || 20).to_i, 100 ].min
-    offset = (page - 1) * per_page
-
-    total_count = webhooks.count
-    webhooks = webhooks.order(:name).limit(per_page).offset(offset)
+    webhooks = paginate(webhooks.order(:name))
 
     render_success(
       data: webhooks.map { |webhook| webhook_data(webhook) },
-      pagination: {
-        current_page: page,
-        per_page: per_page,
-        total_count: total_count,
-        total_pages: (total_count / per_page.to_f).ceil
-      }
+      meta: { pagination: pagination_meta }
     )
   end
 
@@ -84,29 +84,7 @@ class Api::V1::AppWebhooksController < ApplicationController
     )
   end
 
-  # POST /api/v1/apps/:app_id/webhooks/:id/activate
-  def activate
-    authorize_permission!("apps.update")
-
-    @app_webhook.update!(is_active: true)
-
-    render_success(
-      message: "Webhook activated successfully",
-      data: webhook_data(@app_webhook)
-    )
-  end
-
-  # POST /api/v1/apps/:app_id/webhooks/:id/deactivate
-  def deactivate
-    authorize_permission!("apps.update")
-
-    @app_webhook.update!(is_active: false)
-
-    render_success(
-      message: "Webhook deactivated successfully",
-      data: webhook_data(@app_webhook)
-    )
-  end
+  # activate and deactivate actions are provided by ActivatableResource concern
 
   # POST /api/v1/apps/:app_id/webhooks/:id/test
   def test
@@ -158,29 +136,18 @@ class Api::V1::AppWebhooksController < ApplicationController
   def deliveries
     authorize_permission!("apps.read")
 
-    days = [ (params[:days] || 7).to_i, 30 ].min
-    deliveries = @app_webhook.app_webhook_deliveries
-                            .where("created_at > ?", days.days.ago)
-                            .order(created_at: :desc)
+    days = analytics_days_param(default: 7, max: 30)
+    deliveries = in_analytics_period(@app_webhook.app_webhook_deliveries, days)
+                   .order(created_at: :desc)
 
     deliveries = deliveries.where(status: params[:status]) if params[:status].present?
     deliveries = deliveries.where(event_id: params[:event_id]) if params[:event_id].present?
 
-    page = (params[:page] || 1).to_i
-    per_page = [ (params[:per_page] || 50).to_i, 100 ].min
-    offset = (page - 1) * per_page
-
-    total_count = deliveries.count
-    deliveries = deliveries.limit(per_page).offset(offset)
+    deliveries = paginate(deliveries, default_per_page: 50)
 
     render_success(
       data: deliveries.map { |delivery| delivery_data(delivery) },
-      pagination: {
-        current_page: page,
-        per_page: per_page,
-        total_count: total_count,
-        total_pages: (total_count / per_page.to_f).ceil
-      }
+      meta: { pagination: pagination_meta }
     )
   end
 
@@ -188,24 +155,25 @@ class Api::V1::AppWebhooksController < ApplicationController
   def analytics
     authorize_permission!("apps.read")
 
-    days = [ (params[:days] || 30).to_i, 90 ].min
-    deliveries = @app_webhook.app_webhook_deliveries.where("created_at > ?", days.days.ago)
+    days = analytics_days_param(default: 30, max: 90)
+    deliveries = in_analytics_period(@app_webhook.app_webhook_deliveries, days)
 
-    analytics_data = {
-      total_deliveries: deliveries.count,
-      deliveries_by_day: deliveries.group_by_day(:created_at, last: days).count,
-      deliveries_by_status: deliveries.group(:status).count,
+    analytics_data = build_analytics_data(deliveries, days: days, group_columns: [ :status ])
+    analytics_data.merge!(
       success_rate: @app_webhook.success_rate,
       failure_rate: @app_webhook.failure_rate,
       average_response_time: @app_webhook.average_response_time,
       pending_deliveries: @app_webhook.pending_deliveries_count,
       failed_deliveries: @app_webhook.failed_deliveries_count,
       retry_stats: deliveries.retry_stats
-    }
-
-    render_success(
-      data: analytics_data
     )
+
+    # Rename keys for backward compatibility
+    analytics_data[:total_deliveries] = analytics_data.delete(:total)
+    analytics_data[:deliveries_by_day] = analytics_data.delete(:by_day)
+    analytics_data[:deliveries_by_status] = analytics_data.delete(:by_status)
+
+    render_success(data: analytics_data)
   end
 
   private
