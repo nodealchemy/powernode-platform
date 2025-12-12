@@ -4,7 +4,7 @@ FactoryBot.define do
   factory :ai_provider_credential do
     association :account
     association :ai_provider
-    
+
     sequence(:name) { |n| "Test Credential #{n}" }
     credentials do
       {
@@ -78,14 +78,14 @@ FactoryBot.define do
     end
 
     # Factory for creating credentials with specific provider types
-    factory :openai_credential, traits: [:openai]
-    factory :ollama_credential, traits: [:ollama]
-    factory :anthropic_credential, traits: [:anthropic]
+    factory :openai_credential, traits: [ :openai ]
+    factory :ollama_credential, traits: [ :ollama ]
+    factory :anthropic_credential, traits: [ :anthropic ]
 
     # Factory for default credentials
-    factory :default_ai_credential, traits: [:default, :successful_test]
+    factory :default_ai_credential, traits: [ :default, :successful_test ]
 
     # Factory for failed credentials
-    factory :failed_ai_credential, traits: [:failed_test]
+    factory :failed_ai_credential, traits: [ :failed_test ]
   end
 end

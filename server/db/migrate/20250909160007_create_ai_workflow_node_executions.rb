@@ -24,9 +24,9 @@ class CreateAiWorkflowNodeExecutions < ActiveRecord::Migration[7.1]
       t.integer :max_retries, null: false, default: 0
       t.timestamps
 
-      t.index [:ai_workflow_run_id, :node_id], unique: true, name: 'index_node_executions_on_run_node'
-      t.index [:ai_workflow_run_id, :status]
-      t.index [:execution_id], unique: true
+      t.index [ :ai_workflow_run_id, :node_id ], unique: true, name: 'index_node_executions_on_run_node'
+      t.index [ :ai_workflow_run_id, :status ]
+      t.index [ :execution_id ], unique: true
       t.index :node_type
       t.index :started_at
       t.index :completed_at

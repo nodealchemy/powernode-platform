@@ -15,10 +15,10 @@ class Api::V1::Internal::McpToolExecutionsController < ApplicationController
       mcp_tool_execution: serialize_execution(execution)
     })
   rescue ActiveRecord::RecordNotFound
-    render_error('MCP tool execution not found', status: :not_found)
+    render_error("MCP tool execution not found", status: :not_found)
   rescue StandardError => e
     Rails.logger.error "Failed to get MCP tool execution: #{e.message}"
-    render_error('Failed to get MCP tool execution', status: :internal_server_error)
+    render_error("Failed to get MCP tool execution", status: :internal_server_error)
   end
 
   # PATCH /api/v1/internal/mcp_tool_executions/:id
@@ -26,13 +26,13 @@ class Api::V1::Internal::McpToolExecutionsController < ApplicationController
     execution = McpToolExecution.find(params[:id])
 
     case params[:status]
-    when 'running'
+    when "running"
       execution.start!
-    when 'completed'
+    when "completed"
       execution.complete!(params[:result] || {})
-    when 'failed'
-      execution.fail!(params[:error] || 'Execution failed')
-    when 'cancelled'
+    when "failed"
+      execution.fail!(params[:error] || "Execution failed")
+    when "cancelled"
       execution.cancel!
     else
       execution.update!(execution_params)
@@ -43,13 +43,13 @@ class Api::V1::Internal::McpToolExecutionsController < ApplicationController
 
     render_success({
       mcp_tool_execution: serialize_execution(execution),
-      message: 'Execution status updated successfully'
+      message: "Execution status updated successfully"
     })
   rescue ActiveRecord::RecordNotFound
-    render_error('MCP tool execution not found', status: :not_found)
+    render_error("MCP tool execution not found", status: :not_found)
   rescue StandardError => e
     Rails.logger.error "Failed to update MCP tool execution: #{e.message}"
-    render_error('Failed to update MCP tool execution', status: :internal_server_error)
+    render_error("Failed to update MCP tool execution", status: :internal_server_error)
   end
 
   private
@@ -101,7 +101,7 @@ class Api::V1::Internal::McpToolExecutionsController < ApplicationController
     ActionCable.server.broadcast(
       "mcp_tool_execution_#{execution.id}",
       {
-        type: 'execution_update',
+        type: "execution_update",
         execution_id: execution.id,
         status: execution.status,
         result: execution.result,
@@ -116,7 +116,7 @@ class Api::V1::Internal::McpToolExecutionsController < ApplicationController
     ActionCable.server.broadcast(
       "mcp_tool_#{execution.mcp_tool_id}",
       {
-        type: 'execution_complete',
+        type: "execution_complete",
         execution_id: execution.id,
         status: execution.status,
         timestamp: Time.current.iso8601
@@ -125,23 +125,23 @@ class Api::V1::Internal::McpToolExecutionsController < ApplicationController
   end
 
   def authenticate_service_token
-    token = request.headers['Authorization']&.split(' ')&.last
+    token = request.headers["Authorization"]&.split(" ")&.last
 
     unless token.present?
-      render_error('Service token required', status: :unauthorized)
+      render_error("Service token required", status: :unauthorized)
       return
     end
 
     begin
-      payload = JWT.decode(token, Rails.application.config.jwt_secret_key, true, algorithm: 'HS256').first
+      payload = JWT.decode(token, Rails.application.config.jwt_secret_key, true, algorithm: "HS256").first
 
-      unless payload['service'] == 'worker' && payload['type'] == 'service'
-        render_error('Invalid service token', status: :unauthorized)
-        return
+      unless payload["service"] == "worker" && payload["type"] == "service"
+        render_error("Invalid service token", status: :unauthorized)
+        nil
       end
 
     rescue JWT::DecodeError, JWT::ExpiredSignature
-      render_error('Invalid service token', status: :unauthorized)
+      render_error("Invalid service token", status: :unauthorized)
     end
   end
 end

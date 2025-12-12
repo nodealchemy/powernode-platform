@@ -20,11 +20,11 @@ module Api
       # - Ratings (nested resource): template ratings and reviews
       #
       class MarketplaceController < ApplicationController
-        skip_before_action :authenticate_request, only: [:index, :show, :discover, :search, :featured, :popular, :categories, :tags, :statistics, :validate_template]
-        before_action :authenticate_request, except: [:index, :show, :discover, :search, :featured, :popular, :categories, :tags, :statistics, :validate_template]
-        before_action :set_template, only: [:show, :update, :destroy, :install, :publish, :rate, :validate_template, :template_analytics]
-        before_action :validate_permissions, except: [:index, :show, :discover, :search, :featured, :popular, :categories, :tags, :statistics, :validate_template]
-        before_action :set_marketplace_service, only: [:discover, :search, :recommendations, :compare, :template_analytics, :statistics, :tags, :publish_workflow]
+        skip_before_action :authenticate_request, only: [ :index, :show, :discover, :search, :featured, :popular, :categories, :tags, :statistics, :validate_template ]
+        before_action :authenticate_request, except: [ :index, :show, :discover, :search, :featured, :popular, :categories, :tags, :statistics, :validate_template ]
+        before_action :set_template, only: [ :show, :update, :destroy, :install, :publish, :rate, :validate_template, :template_analytics ]
+        before_action :validate_permissions, except: [ :index, :show, :discover, :search, :featured, :popular, :categories, :tags, :statistics, :validate_template ]
+        before_action :set_marketplace_service, only: [ :discover, :search, :recommendations, :compare, :template_analytics, :statistics, :tags, :publish_workflow ]
 
         # ===================================================================
         # TEMPLATES - PRIMARY RESOURCE CRUD
@@ -32,14 +32,14 @@ module Api
 
         # GET /api/v1/ai/marketplace/templates
         def index
-          templates = AiWorkflowTemplate.accessible_to_account(current_user&.account&.id || 'public')
+          templates = AiWorkflowTemplate.accessible_to_account(current_user&.account&.id || "public")
                                         .includes(:created_by_user, :source_workflow)
 
           # Apply filters
           templates = apply_template_filters(templates)
 
           # Apply sorting
-          templates = apply_sorting(templates, params[:sort_by] || 'recent')
+          templates = apply_sorting(templates, params[:sort_by] || "recent")
 
           # Apply pagination
           templates = apply_pagination(templates)
@@ -82,11 +82,11 @@ module Api
           @template = AiWorkflowTemplate.new(template_params_data)
 
           if @template.save
-            log_audit_event('ai.marketplace.template_created', @template)
+            log_audit_event("ai.marketplace.template_created", @template)
 
             render_success({
               template: serialize_template_detail(@template),
-              message: 'Template created successfully'
+              message: "Template created successfully"
             }, status: :created)
           else
             render_validation_error(@template.errors)
@@ -96,15 +96,15 @@ module Api
         # PATCH /api/v1/ai/marketplace/templates/:id
         def update
           unless @template.can_edit?(current_user, current_user.account)
-            return render_error('You do not have permission to edit this template', status: :forbidden)
+            return render_error("You do not have permission to edit this template", status: :forbidden)
           end
 
           if @template.update(template_params)
-            log_audit_event('ai.marketplace.template_updated', @template)
+            log_audit_event("ai.marketplace.template_updated", @template)
 
             render_success({
               template: serialize_template_detail(@template),
-              message: 'Template updated successfully'
+              message: "Template updated successfully"
             })
           else
             render_validation_error(@template.errors)
@@ -114,13 +114,13 @@ module Api
         # DELETE /api/v1/ai/marketplace/templates/:id
         def destroy
           unless @template.can_delete?(current_user, current_user.account)
-            return render_error('Cannot delete template with active installations', status: :unprocessable_content)
+            return render_error("Cannot delete template with active installations", status: :unprocessable_content)
           end
 
           @template.destroy
-          log_audit_event('ai.marketplace.template_deleted', @template)
+          log_audit_event("ai.marketplace.template_deleted", @template)
 
-          render_success({ message: 'Template deleted successfully' })
+          render_success({ message: "Template deleted successfully" })
         end
 
         # ===================================================================
@@ -137,12 +137,12 @@ module Api
           template_data = {
             name: params[:name] || "#{workflow.name} Template",
             description: params[:description] || workflow.description || "Template created from #{workflow.name}",
-            category: params[:category] || 'custom',
-            difficulty_level: params[:difficulty_level] || 'intermediate',
-            tags: params[:tags] || workflow.metadata&.dig('tags') || [],
+            category: params[:category] || "custom",
+            difficulty_level: params[:difficulty_level] || "intermediate",
+            tags: params[:tags] || workflow.metadata&.dig("tags") || [],
             is_public: params[:is_public] || false,
-            version: params[:version] || '1.0.0',
-            license: params[:license] || 'private',
+            version: params[:version] || "1.0.0",
+            license: params[:license] || "private",
             account_id: account.id,
             created_by_user_id: current_user&.id,
             workflow_definition: extract_workflow_template_data(workflow),
@@ -150,9 +150,9 @@ module Api
               node_count: workflow.nodes.count,
               edge_count: workflow.edges.count,
               complexity_score: calculate_complexity_score(workflow),
-              has_ai_agents: workflow.nodes.where(node_type: 'ai_agent').exists?,
-              has_webhooks: workflow.nodes.where(node_type: 'webhook').exists?,
-              has_schedules: workflow.triggers.where(trigger_type: 'schedule').exists?,
+              has_ai_agents: workflow.nodes.where(node_type: "ai_agent").exists?,
+              has_webhooks: workflow.nodes.where(node_type: "webhook").exists?,
+              has_schedules: workflow.triggers.where(trigger_type: "schedule").exists?,
               source_workflow_id: workflow.id,
               configuration_schema: generate_configuration_schema(workflow)
             }
@@ -161,17 +161,17 @@ module Api
           template = AiWorkflowTemplate.create(template_data)
 
           if template.persisted?
-            log_audit_event('ai.marketplace.template_created_from_workflow', template)
+            log_audit_event("ai.marketplace.template_created_from_workflow", template)
 
             render_success({
               template: serialize_template_detail(template),
-              message: 'Template created from workflow successfully'
+              message: "Template created from workflow successfully"
             }, status: :created)
           else
             render_validation_error(template.errors)
           end
         rescue ActiveRecord::RecordNotFound
-          render_error('Workflow not found', status: :not_found)
+          render_error("Workflow not found", status: :not_found)
         end
 
         # POST /api/v1/ai/marketplace/templates/:id/install
@@ -195,7 +195,7 @@ module Api
           installation = @template.install_to_account(**installation_params)
 
           if installation.persisted?
-            log_audit_event('ai.marketplace.template_installed', @template, {
+            log_audit_event("ai.marketplace.template_installed", @template, {
               installation_id: installation.id,
               workflow_id: workflow.id
             })
@@ -203,7 +203,7 @@ module Api
             render_success({
               installation: serialize_installation(installation),
               workflow: serialize_created_workflow(workflow),
-              message: 'Template installed successfully'
+              message: "Template installed successfully"
             }, status: :created)
           else
             # Rollback workflow if installation fails
@@ -215,15 +215,15 @@ module Api
         # POST /api/v1/ai/marketplace/templates/:id/publish
         def publish
           unless @template.can_publish?(current_user, current_user.account)
-            return render_error('You do not have permission to publish this template', status: :forbidden)
+            return render_error("You do not have permission to publish this template", status: :forbidden)
           end
 
           if @template.publish!
-            log_audit_event('ai.marketplace.template_published', @template)
+            log_audit_event("ai.marketplace.template_published", @template)
 
             render_success({
               template: serialize_template_detail(@template),
-              message: 'Template published successfully'
+              message: "Template published successfully"
             })
           else
             render_validation_error(@template.errors)
@@ -242,15 +242,15 @@ module Api
               difficulty_level: params[:difficulty_level],
               tags: params[:tags] || [],
               author_url: params[:author_url],
-              license: params[:license] || 'MIT',
-              version: params[:version] || '1.0.0',
-              is_public: params[:is_public] == 'true',
-              publish_immediately: params[:publish_immediately] == 'true'
+              license: params[:license] || "MIT",
+              version: params[:version] || "1.0.0",
+              is_public: params[:is_public] == "true",
+              publish_immediately: params[:publish_immediately] == "true"
             }
           )
 
           if result[:success]
-            log_audit_event('ai.marketplace.workflow_published', result[:template])
+            log_audit_event("ai.marketplace.workflow_published", result[:template])
 
             render_success({
               template: result[:template],
@@ -258,7 +258,7 @@ module Api
             })
           else
             render_error(
-              message: 'Publishing failed',
+              message: "Publishing failed",
               errors: result[:errors],
               status: :unprocessable_content
             )
@@ -276,16 +276,16 @@ module Api
 
           # Additional validation checks
           if @template.workflow_definition.blank?
-            validation_result[:warnings] << 'Template data is empty'
+            validation_result[:warnings] << "Template data is empty"
           end
 
-          tags = @template.metadata&.dig('tags') || []
+          tags = @template.metadata&.dig("tags") || []
           if tags.empty?
-            validation_result[:suggestions] << 'Add tags to improve discoverability'
+            validation_result[:suggestions] << "Add tags to improve discoverability"
           end
 
           if @template.description.to_s.length < 50
-            validation_result[:suggestions] << 'Add a more detailed description (minimum 50 characters recommended)'
+            validation_result[:suggestions] << "Add a more detailed description (minimum 50 characters recommended)"
           end
 
           render_success({ validation: validation_result })
@@ -301,9 +301,9 @@ module Api
             result = @marketplace_service.discover_templates(
               category: params[:category],
               difficulty: params[:difficulty],
-              tags: params[:tags]&.split(','),
-              featured: params[:featured] == 'true',
-              highly_rated: params[:highly_rated] == 'true',
+              tags: params[:tags]&.split(","),
+              featured: params[:featured] == "true",
+              highly_rated: params[:highly_rated] == "true",
               sort_by: params[:sort_by],
               limit: params[:limit]&.to_i || 20,
               offset: params[:offset]&.to_i || 0
@@ -316,21 +316,21 @@ module Api
             })
           else
             # Fallback to basic discover
-            templates = AiWorkflowTemplate.accessible_to_account(current_user&.account&.id || 'public')
+            templates = AiWorkflowTemplate.accessible_to_account(current_user&.account&.id || "public")
 
             # Apply filters
             templates = templates.where(category: params[:category]) if params[:category].present?
-            templates = templates.where('tags ?| array[:tags]', tags: params[:tags].split(',')) if params[:tags].present?
-            templates = templates.where(is_featured: true) if params[:featured] == 'true'
-            templates = templates.where('rating >= ?', 4.0) if params[:highly_rated] == 'true'
+            templates = templates.where("tags ?| array[:tags]", tags: params[:tags].split(",")) if params[:tags].present?
+            templates = templates.where(is_featured: true) if params[:featured] == "true"
+            templates = templates.where("rating >= ?", 4.0) if params[:highly_rated] == "true"
 
             # Apply sorting
             templates = case params[:sort_by]
-                       when 'popularity' then templates.order(usage_count: :desc)
-                       when 'rating' then templates.order(rating: :desc)
-                       when 'recent' then templates.order(created_at: :desc)
-                       else templates.order(usage_count: :desc, created_at: :desc)
-                       end
+            when "popularity" then templates.order(usage_count: :desc)
+            when "rating" then templates.order(rating: :desc)
+            when "recent" then templates.order(created_at: :desc)
+            else templates.order(usage_count: :desc, created_at: :desc)
+            end
 
             limit = params[:limit]&.to_i || 20
             offset = params[:offset]&.to_i || 0
@@ -359,9 +359,9 @@ module Api
               tags: query_params[:tags],
               min_complexity: query_params[:min_complexity]&.to_i,
               max_complexity: query_params[:max_complexity]&.to_i,
-              has_ai_agents: query_params[:has_ai_agents] == 'true',
-              has_webhooks: query_params[:has_webhooks] == 'true',
-              has_schedules: query_params[:has_schedules] == 'true',
+              has_ai_agents: query_params[:has_ai_agents] == "true",
+              has_webhooks: query_params[:has_webhooks] == "true",
+              has_schedules: query_params[:has_schedules] == "true",
               min_rating: query_params[:min_rating]&.to_f,
               min_usage: query_params[:min_usage]&.to_i
             )
@@ -381,7 +381,7 @@ module Api
               search_query: query_params[:query] || query_params[:q],
               filters: {
                 category: query_params[:category],
-                tags: query_params[:tags]&.split(',')
+                tags: query_params[:tags]&.split(",")
               }
             })
           end
@@ -401,7 +401,7 @@ module Api
           template_ids = params[:template_ids] || []
 
           unless template_ids.size.between?(2, 5)
-            return render_error('Please provide 2-5 template IDs to compare', status: :bad_request)
+            return render_error("Please provide 2-5 template IDs to compare", status: :bad_request)
           end
 
           result = @marketplace_service.compare_templates(template_ids)
@@ -473,7 +473,7 @@ module Api
               tags: all_tags.map do |tag|
                 {
                   name: tag,
-                  count: AiWorkflowTemplate.where('tags @> ?', [tag].to_json).count
+                  count: AiWorkflowTemplate.where("tags @> ?", [ tag ].to_json).count
                 }
               end
             })
@@ -492,7 +492,7 @@ module Api
             if current_user
               account_templates = AiWorkflowTemplate.where(account_id: current_user.account.id)
               # Use string key to match service response format
-              result['account'] = {
+              result["account"] = {
                 my_templates: account_templates.count,
                 published_templates: account_templates.where(is_public: true).count,
                 private_templates: account_templates.where(is_public: false).count,
@@ -531,7 +531,7 @@ module Api
               trending: {
                 categories: AiWorkflowTemplate.public_templates
                                               .group(:category)
-                                              .order(Arel.sql('COUNT(*) DESC'))
+                                              .order(Arel.sql("COUNT(*) DESC"))
                                               .limit(5)
                                               .count,
                 tags: AiWorkflowTemplate.public_templates
@@ -584,7 +584,7 @@ module Api
             installation: serialize_installation_detail(installation)
           })
         rescue ActiveRecord::RecordNotFound
-          render_error('Installation not found', status: :not_found)
+          render_error("Installation not found", status: :not_found)
         end
 
         # DELETE /api/v1/ai/marketplace/installations/:id
@@ -592,16 +592,16 @@ module Api
           installation = current_user.account.ai_workflow_template_installations.find(params[:id])
 
           # Optionally delete the created workflow
-          if params[:delete_workflow] == 'true' && installation.ai_workflow
+          if params[:delete_workflow] == "true" && installation.ai_workflow
             installation.ai_workflow.destroy
           end
 
           installation.destroy
-          log_audit_event('ai.marketplace.installation_deleted', installation)
+          log_audit_event("ai.marketplace.installation_deleted", installation)
 
-          render_success({ message: 'Installation deleted successfully' })
+          render_success({ message: "Installation deleted successfully" })
         rescue ActiveRecord::RecordNotFound
-          render_error('Installation not found', status: :not_found)
+          render_error("Installation not found", status: :not_found)
         end
 
         # GET /api/v1/ai/marketplace/updates
@@ -634,7 +634,7 @@ module Api
         def apply_updates
           if @marketplace_service
             result = @marketplace_service.update_all_templates(
-              preserve_customizations: params[:preserve_customizations] != 'false'
+              preserve_customizations: params[:preserve_customizations] != "false"
             )
 
             render_success({
@@ -642,7 +642,7 @@ module Api
               message: "Updated #{result[:successful]} of #{result[:total_attempted]} templates"
             })
           else
-            render_error('Update service not available', status: :service_unavailable)
+            render_error("Update service not available", status: :service_unavailable)
           end
         end
 
@@ -653,12 +653,12 @@ module Api
         # POST /api/v1/ai/marketplace/templates/:id/rate
         def rate
           unless params[:rating].present?
-            return render_error('Rating is required', status: :bad_request)
+            return render_error("Rating is required", status: :bad_request)
           end
 
           rating_value = params[:rating].to_i
           unless rating_value.between?(1, 5)
-            return render_error('Rating must be between 1 and 5', status: :bad_request)
+            return render_error("Rating must be between 1 and 5", status: :bad_request)
           end
 
           if @marketplace_service
@@ -669,7 +669,7 @@ module Api
             )
 
             if result[:success]
-              log_audit_event('ai.marketplace.template_rated', @template, { rating: rating_value })
+              log_audit_event("ai.marketplace.template_rated", @template, { rating: rating_value })
 
               render_success({
                 rating: result,
@@ -689,7 +689,7 @@ module Api
                 average_rating: @template.rating,
                 total_ratings: @template.rating_count
               },
-              message: 'Template rated successfully'
+              message: "Template rated successfully"
             })
           end
         end
@@ -707,7 +707,7 @@ module Api
             @template = AiWorkflowTemplate.public_templates.find(params[:id])
           end
         rescue ActiveRecord::RecordNotFound
-          render_error('Template not found', status: :not_found)
+          render_error("Template not found", status: :not_found)
         end
 
         def set_marketplace_service
@@ -731,19 +731,19 @@ module Api
           return if current_worker
 
           case action_name
-          when 'index', 'template_index', 'show', 'template_show', 'discover', 'search', 'featured', 'popular', 'categories', 'tags', 'statistics'
+          when "index", "template_index", "show", "template_show", "discover", "search", "featured", "popular", "categories", "tags", "statistics"
             # Public read access - no authentication required
             true
-          when 'recommendations', 'installations_index', 'installation_show', 'check_updates', 'template_analytics'
-            require_permission('ai.workflows.read')
-          when 'create', 'template_create', 'create_from_workflow', 'install'
-            require_permission('ai.workflows.create')
-          when 'update', 'template_update', 'publish', 'publish_workflow', 'rate'
-            require_permission('ai.workflows.update')
-          when 'destroy', 'template_destroy', 'installation_destroy'
-            require_permission('ai.workflows.delete')
-          when 'compare', 'apply_updates'
-            require_permission('ai.workflows.manage')
+          when "recommendations", "installations_index", "installation_show", "check_updates", "template_analytics"
+            require_permission("ai.workflows.read")
+          when "create", "template_create", "create_from_workflow", "install"
+            require_permission("ai.workflows.create")
+          when "update", "template_update", "publish", "publish_workflow", "rate"
+            require_permission("ai.workflows.update")
+          when "destroy", "template_destroy", "installation_destroy"
+            require_permission("ai.workflows.delete")
+          when "compare", "apply_updates"
+            require_permission("ai.workflows.manage")
           end
         end
 
@@ -759,12 +759,12 @@ module Api
             :source_workflow_id, :is_featured, :is_public, :difficulty_level, :license,
             tags: [],
             metadata: {}
-          )
+          ).to_h.with_indifferent_access
 
-          # Permit nested hashes for workflow definitions - these contain arbitrary JSON structures
-          # Use permit! to allow all nested keys
-          permitted[:template_data] = template_params[:template_data].permit! if template_params[:template_data].present?
-          permitted[:configuration_schema] = template_params[:configuration_schema].permit! if template_params[:configuration_schema].present?
+          # Allow nested hashes for workflow definitions - these contain arbitrary JSON structures
+          # Using to_unsafe_h as template_data/configuration_schema have dynamic schemas
+          permitted[:template_data] = template_params[:template_data].to_unsafe_h if template_params[:template_data].present?
+          permitted[:configuration_schema] = template_params[:configuration_schema].to_unsafe_h if template_params[:configuration_schema].present?
 
           permitted
         rescue ActionController::ParameterMissing
@@ -774,11 +774,11 @@ module Api
             :source_workflow_id, :is_featured, :is_public, :difficulty_level, :license,
             tags: [],
             metadata: {}
-          )
+          ).to_h.with_indifferent_access
 
-          # Permit nested hashes for workflow definitions
-          permitted[:template_data] = params[:template_data].permit! if params[:template_data].present?
-          permitted[:configuration_schema] = params[:configuration_schema].permit! if params[:configuration_schema].present?
+          # Allow nested hashes for workflow definitions (dynamic JSON schemas)
+          permitted[:template_data] = params[:template_data].to_unsafe_h if params[:template_data].present?
+          permitted[:configuration_schema] = params[:configuration_schema].to_unsafe_h if params[:configuration_schema].present?
 
           permitted
         end
@@ -790,25 +790,27 @@ module Api
         def apply_template_filters(templates)
           templates = templates.where(category: params[:category]) if params[:category].present?
           if params[:visibility].present?
-            templates = templates.where(is_public: params[:visibility] == 'public')
+            templates = templates.where(is_public: params[:visibility] == "public")
           end
           templates = templates.where(difficulty_level: params[:difficulty_level]) if params[:difficulty_level].present?
 
           if params[:tags].present?
-            tag_array = params[:tags].is_a?(Array) ? params[:tags] : params[:tags].split(',')
-            # Use ?| operator for JSONB array overlap (checks if any of the tags exist)
-            # Sanitize and build PostgreSQL array literal to avoid Rails bind variable conflicts with ? operator
-            sanitized_tags = tag_array.map { |tag| ActiveRecord::Base.connection.quote(tag) }.join(',')
-            templates = templates.where("tags ?| ARRAY[#{sanitized_tags}]")
+            tag_array = params[:tags].is_a?(Array) ? params[:tags] : params[:tags].split(",")
+            # Use PostgreSQL array overlap operator with proper sanitization
+            # Convert to PG array using Arel to avoid SQL injection
+            templates = templates.where(
+              "tags ?| ARRAY[:tags]::text[]",
+              tags: tag_array.map(&:to_s)
+            )
           end
 
-          if params[:is_featured] == 'true'
+          if params[:is_featured] == "true"
             templates = templates.where(is_featured: true)
           end
 
           if params[:q].present? || params[:query].present?
             query = params[:q] || params[:query]
-            templates = templates.where('name ILIKE ? OR description ILIKE ?', "%#{query}%", "%#{query}%")
+            templates = templates.where("name ILIKE ? OR description ILIKE ?", "%#{query}%", "%#{query}%")
           end
 
           templates
@@ -816,17 +818,17 @@ module Api
 
         def apply_sorting(collection, sort_by)
           case sort_by
-          when 'name', 'title'
+          when "name", "title"
             collection.order(:name)
-          when 'category'
+          when "category"
             collection.order(:category, :name)
-          when 'popular', 'installs'
+          when "popular", "installs"
             collection.order(install_count: :desc, created_at: :desc)
-          when 'rating'
+          when "rating"
             collection.order(rating: :desc, rating_count: :desc)
-          when 'recent', 'created_at'
+          when "recent", "created_at"
             collection.order(created_at: :desc)
-          when 'updated_at'
+          when "updated_at"
             collection.order(updated_at: :desc)
           else
             collection.order(created_at: :desc)
@@ -857,16 +859,16 @@ module Api
         def perform_basic_search(query_params)
           query = query_params[:query] || query_params[:q]
           category = query_params[:category]
-          tags = query_params[:tags]&.split(',')
+          tags = query_params[:tags]&.split(",")
 
-          templates = AiWorkflowTemplate.accessible_to_account(current_user&.account&.id || 'public')
+          templates = AiWorkflowTemplate.accessible_to_account(current_user&.account&.id || "public")
 
           if query.present?
-            templates = templates.where('name ILIKE ? OR description ILIKE ?', "%#{query}%", "%#{query}%")
+            templates = templates.where("name ILIKE ? OR description ILIKE ?", "%#{query}%", "%#{query}%")
           end
 
           templates = templates.where(category: category) if category.present?
-          templates = templates.where('tags && ARRAY[?]::varchar[]', tags) if tags.present?
+          templates = templates.where("tags && ARRAY[?]::varchar[]", tags) if tags.present?
 
           templates.includes(:created_by_user)
                    .order(install_count: :desc, created_at: :desc)
@@ -935,7 +937,7 @@ module Api
 
         def generate_configuration_schema(workflow)
           {
-            type: 'object',
+            type: "object",
             properties: {},
             required: [],
             description: "Configuration schema for #{workflow.name}"
@@ -958,7 +960,7 @@ module Api
           workflow = current_user.account.ai_workflows.create!(
             name: template.name,
             description: template.description,
-            status: 'draft',
+            status: "draft",
             version: template.version,
             configuration: { enabled: true, from_template: true },
             creator: current_user
@@ -1089,7 +1091,7 @@ module Api
         end
 
         def serialize_template_detail(template)
-          source_workflow_id = template.metadata&.dig('source_workflow_id')
+          source_workflow_id = template.metadata&.dig("source_workflow_id")
           source_workflow_data = if source_workflow_id
             workflow = AiWorkflow.find_by(id: source_workflow_id)
             workflow ? { id: workflow.id, name: workflow.name } : nil
@@ -1097,7 +1099,7 @@ module Api
 
           serialize_template(template).merge(
             template_data: template.workflow_definition,
-            configuration_schema: template.metadata&.dig('configuration_schema') || {},
+            configuration_schema: template.metadata&.dig("configuration_schema") || {},
             license: template.license,
             updated_at: template.updated_at.iso8601,
             source_workflow: source_workflow_data,
@@ -1174,12 +1176,12 @@ module Api
 
         def category_description(category)
           descriptions = {
-            'automation' => 'Automate repetitive tasks and workflows',
-            'data_processing' => 'Process and transform data efficiently',
-            'integration' => 'Connect and integrate different services',
-            'analytics' => 'Analyze data and generate insights',
-            'notification' => 'Send notifications and alerts',
-            'custom' => 'Custom workflow templates'
+            "automation" => "Automate repetitive tasks and workflows",
+            "data_processing" => "Process and transform data efficiently",
+            "integration" => "Connect and integrate different services",
+            "analytics" => "Analyze data and generate insights",
+            "notification" => "Send notifications and alerts",
+            "custom" => "Custom workflow templates"
           }
 
           descriptions[category] || category.humanize

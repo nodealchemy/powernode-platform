@@ -6,10 +6,10 @@ module Api
     # Provides endpoints for file upload, download, management across all storage providers
     class FilesController < ApplicationController
       # Skip authentication for public file download - allows <img src="..."> to work
-      skip_before_action :authenticate_request, only: [:download_public]
+      skip_before_action :authenticate_request, only: [ :download_public ]
 
       before_action :set_file_object, only: %i[show download update destroy restore create_version add_tags remove_tags share]
-      before_action :set_public_file_object, only: [:download_public]
+      before_action :set_public_file_object, only: [ :download_public ]
       before_action :set_storage_config, only: %i[index upload]
       before_action :validate_permissions!
 
@@ -30,14 +30,14 @@ module Api
 
         # Filter by tags
         if params[:tags].present?
-          tag_names = params[:tags].split(',').map(&:strip)
+          tag_names = params[:tags].split(",").map(&:strip)
           tag_ids = FileTag.where(account: current_account, name: tag_names).pluck(:id)
           files = files.joins(:file_object_tags).where(file_object_tags: { file_tag_id: tag_ids })
         end
 
         # Search by filename
         if params[:search].present?
-          files = files.where('filename ILIKE ?', "%#{params[:search]}%")
+          files = files.where("filename ILIKE ?", "%#{params[:search]}%")
         end
 
         # Filter by file type (image, document, etc.)
@@ -49,11 +49,11 @@ module Api
         end
 
         # Exclude deleted by default unless specifically requested
-        files = files.active unless params[:include_deleted] == 'true'
+        files = files.active unless params[:include_deleted] == "true"
 
         # Pagination
         page = params[:page]&.to_i || 1
-        per_page = [params[:per_page]&.to_i || 25, 100].min
+        per_page = [ params[:per_page]&.to_i || 25, 100 ].min
 
         paginated_files = files.page(page).per(per_page)
 
@@ -92,7 +92,7 @@ module Api
       # POST /api/v1/files
       def upload
         unless params[:file].present?
-          return render_validation_error('File is required', field: 'file')
+          return render_validation_error("File is required", field: "file")
         end
 
         uploaded_file = params[:file]
@@ -104,7 +104,7 @@ module Api
           content_type: params[:content_type] || uploaded_file.content_type,
           category: params[:category],
           description: params[:description],
-          visibility: params[:visibility] || 'private',
+          visibility: params[:visibility] || "private",
           metadata: params[:metadata] || {},
           uploaded_by_id: current_user&.id,
           processing_tasks: params[:processing_tasks] || [],
@@ -113,7 +113,7 @@ module Api
 
         # Add tags if provided
         if params[:tags].present?
-          tag_names = params[:tags].is_a?(Array) ? params[:tags] : params[:tags].split(',')
+          tag_names = params[:tags].is_a?(Array) ? params[:tags] : params[:tags].split(",")
           file_service.add_tags(file_object, tag_names)
         end
 
@@ -127,20 +127,20 @@ module Api
       rescue FileStorageService::QuotaExceededError => e
         render_error(e.message, status: :unprocessable_content)
       rescue FileStorageService::InvalidFileError => e
-        render_validation_error(e.message, field: 'file')
+        render_validation_error(e.message, field: "file")
       rescue StandardError => e
         Rails.logger.error "[FilesController] Upload failed: #{e.message}"
-        render_error('File upload failed', status: :internal_server_error)
+        render_error("File upload failed", status: :internal_server_error)
       end
 
       # GET /api/v1/files/:id/download
       def download
         file_service = FileStorageService.new(current_account, storage_config: @file_object.file_storage)
 
-        if params[:stream] == 'true'
+        if params[:stream] == "true"
           # Stream file for large files
-          response.headers['Content-Type'] = @file_object.content_type
-          response.headers['Content-Disposition'] = "attachment; filename=\"#{@file_object.filename}\""
+          response.headers["Content-Type"] = @file_object.content_type
+          response.headers["Content-Disposition"] = "attachment; filename=\"#{@file_object.filename}\""
 
           self.response_body = Enumerator.new do |yielder|
             file_service.stream_file(@file_object) do |chunk|
@@ -154,13 +154,13 @@ module Api
           send_data file_content,
                     filename: @file_object.filename,
                     type: @file_object.content_type,
-                    disposition: params[:disposition] || 'attachment'
+                    disposition: params[:disposition] || "attachment"
         end
       rescue FileStorageService::FileNotFoundError => e
         render_error(e.message, status: :not_found)
       rescue StandardError => e
         Rails.logger.error "[FilesController] Download failed: #{e.message}"
-        render_error('File download failed', status: :internal_server_error)
+        render_error("File download failed", status: :internal_server_error)
       end
 
       # GET /api/v1/files/:id/public - Public endpoint for serving public files (no auth required)
@@ -170,17 +170,17 @@ module Api
         file_content = file_service.download_file(@file_object)
 
         # Set cache headers for public files
-        response.headers['Cache-Control'] = 'public, max-age=31536000'
+        response.headers["Cache-Control"] = "public, max-age=31536000"
 
         send_data file_content,
                   filename: @file_object.filename,
                   type: @file_object.content_type,
-                  disposition: params[:disposition] || 'inline'
+                  disposition: params[:disposition] || "inline"
       rescue FileStorageService::FileNotFoundError => e
         render_error(e.message, status: :not_found)
       rescue StandardError => e
         Rails.logger.error "[FilesController] Public download failed: #{e.message}"
-        render_error('File download failed', status: :internal_server_error)
+        render_error("File download failed", status: :internal_server_error)
       end
 
       # PATCH/PUT /api/v1/files/:id
@@ -190,29 +190,29 @@ module Api
         if @file_object.update(update_params)
           render_success({ file: @file_object.file_summary })
         else
-          render_validation_error(@file_object.errors.full_messages.join(', '))
+          render_validation_error(@file_object.errors.full_messages.join(", "))
         end
       end
 
       # DELETE /api/v1/files/:id
       def destroy
         file_service = FileStorageService.new(current_account, storage_config: @file_object.file_storage)
-        permanent = params[:permanent] == 'true'
+        permanent = params[:permanent] == "true"
 
         if file_service.delete_file(@file_object, permanent: permanent, deleted_by_user: current_user)
           render_success(
             {
               deleted: true,
               permanent: permanent,
-              message: permanent ? 'File permanently deleted' : 'File moved to trash'
+              message: permanent ? "File permanently deleted" : "File moved to trash"
             }
           )
         else
-          render_error('Failed to delete file', status: :unprocessable_content)
+          render_error("Failed to delete file", status: :unprocessable_content)
         end
       rescue StandardError => e
         Rails.logger.error "[FilesController] Delete failed: #{e.message}"
-        render_error('File deletion failed', status: :internal_server_error)
+        render_error("File deletion failed", status: :internal_server_error)
       end
 
       # POST /api/v1/files/:id/restore
@@ -223,21 +223,21 @@ module Api
           render_success(
             {
               file: @file_object.reload.file_summary,
-              message: 'File restored successfully'
+              message: "File restored successfully"
             }
           )
         else
-          render_error('Failed to restore file', status: :unprocessable_content)
+          render_error("Failed to restore file", status: :unprocessable_content)
         end
       rescue StandardError => e
         Rails.logger.error "[FilesController] Restore failed: #{e.message}"
-        render_error('File restoration failed', status: :internal_server_error)
+        render_error("File restoration failed", status: :internal_server_error)
       end
 
       # POST /api/v1/files/:id/versions
       def create_version
         unless params[:file].present?
-          return render_validation_error('File is required', field: 'file')
+          return render_validation_error("File is required", field: "file")
         end
 
         file_service = FileStorageService.new(current_account, storage_config: @file_object.file_storage)
@@ -252,23 +252,23 @@ module Api
         render_success(
           {
             file: new_version.file_summary,
-            message: 'New version created successfully'
+            message: "New version created successfully"
           },
           status: :created
         )
       rescue StandardError => e
         Rails.logger.error "[FilesController] Version creation failed: #{e.message}"
-        render_error('Version creation failed', status: :internal_server_error)
+        render_error("Version creation failed", status: :internal_server_error)
       end
 
       # POST /api/v1/files/:id/tags
       def add_tags
         unless params[:tags].present?
-          return render_validation_error('Tags are required', field: 'tags')
+          return render_validation_error("Tags are required", field: "tags")
         end
 
         file_service = FileStorageService.new(current_account, storage_config: @file_object.file_storage)
-        tag_names = params[:tags].is_a?(Array) ? params[:tags] : params[:tags].split(',')
+        tag_names = params[:tags].is_a?(Array) ? params[:tags] : params[:tags].split(",")
 
         tags = file_service.add_tags(@file_object, tag_names)
 
@@ -276,34 +276,34 @@ module Api
           {
             file: @file_object.reload.file_summary,
             tags: tags.map(&:tag_summary),
-            message: 'Tags added successfully'
+            message: "Tags added successfully"
           }
         )
       rescue StandardError => e
         Rails.logger.error "[FilesController] Add tags failed: #{e.message}"
-        render_error('Failed to add tags', status: :internal_server_error)
+        render_error("Failed to add tags", status: :internal_server_error)
       end
 
       # DELETE /api/v1/files/:id/tags
       def remove_tags
         unless params[:tags].present?
-          return render_validation_error('Tags are required', field: 'tags')
+          return render_validation_error("Tags are required", field: "tags")
         end
 
         file_service = FileStorageService.new(current_account, storage_config: @file_object.file_storage)
-        tag_names = params[:tags].is_a?(Array) ? params[:tags] : params[:tags].split(',')
+        tag_names = params[:tags].is_a?(Array) ? params[:tags] : params[:tags].split(",")
 
         file_service.remove_tags(@file_object, tag_names)
 
         render_success(
           {
             file: @file_object.reload.file_summary,
-            message: 'Tags removed successfully'
+            message: "Tags removed successfully"
           }
         )
       rescue StandardError => e
         Rails.logger.error "[FilesController] Remove tags failed: #{e.message}"
-        render_error('Failed to remove tags', status: :internal_server_error)
+        render_error("Failed to remove tags", status: :internal_server_error)
       end
 
       # POST /api/v1/files/:id/share
@@ -332,13 +332,13 @@ module Api
               download_count: file_share.download_count,
               password_protected: file_share.password_protected?
             },
-            message: 'File share created successfully'
+            message: "File share created successfully"
           },
           status: :created
         )
       rescue StandardError => e
         Rails.logger.error "[FilesController] Share creation failed: #{e.message}"
-        render_error('Failed to create share', status: :internal_server_error)
+        render_error("Failed to create share", status: :internal_server_error)
       end
 
       # GET /api/v1/files/stats
@@ -350,13 +350,13 @@ module Api
         category_stats = active_files
                           .group(:category)
                           .count
-                          .transform_keys { |k| k || 'uncategorized' }
+                          .transform_keys { |k| k || "uncategorized" }
 
         # Get file type statistics
         type_stats = active_files
                       .group(:file_type)
                       .count
-                      .transform_keys { |k| k || 'unknown' }
+                      .transform_keys { |k| k || "unknown" }
 
         # Calculate totals
         total_files = active_files.count
@@ -373,7 +373,7 @@ module Api
       rescue StandardError => e
         Rails.logger.error "[FilesController#stats] Error: #{e.class} - #{e.message}"
         Rails.logger.error e.backtrace.first(10).join("\n")
-        render_error('Failed to retrieve file statistics', status: :internal_server_error)
+        render_error("Failed to retrieve file statistics", status: :internal_server_error)
       end
 
       private
@@ -382,16 +382,16 @@ module Api
         @file_object = current_account.file_objects.find_by(id: params[:id])
 
         unless @file_object
-          render_error('File not found', status: :not_found)
+          render_error("File not found", status: :not_found)
         end
       end
 
       # Set file object for public endpoint - only allows public visibility files
       def set_public_file_object
-        @file_object = FileObject.where(visibility: 'public').find_by(id: params[:id])
+        @file_object = FileObject.where(visibility: "public").find_by(id: params[:id])
 
         unless @file_object
-          render_error('File not found or not public', status: :not_found)
+          render_error("File not found or not public", status: :not_found)
         end
       end
 
@@ -400,27 +400,27 @@ module Api
           @storage_config = current_account.file_storages.find_by(id: params[:storage_id])
 
           unless @storage_config
-            return render_error('Storage configuration not found', status: :not_found)
+            render_error("Storage configuration not found", status: :not_found)
           end
         else
           @storage_config = current_account.file_storages.default.first
 
           unless @storage_config
-            return render_error('No default storage configuration found', status: :not_found)
+            render_error("No default storage configuration found", status: :not_found)
           end
         end
       end
 
       def validate_permissions!
         case action_name
-        when 'index', 'show', 'download', 'stats'
-          require_permission('files.read')
-        when 'upload'
-          require_permission('files.create')
-        when 'update', 'create_version', 'add_tags', 'remove_tags', 'share'
-          require_permission('files.update')
-        when 'destroy', 'restore'
-          require_permission('files.delete')
+        when "index", "show", "download", "stats"
+          require_permission("files.read")
+        when "upload"
+          require_permission("files.create")
+        when "update", "create_version", "add_tags", "remove_tags", "share"
+          require_permission("files.update")
+        when "destroy", "restore"
+          require_permission("files.delete")
         end
       end
 
@@ -432,7 +432,7 @@ module Api
         return nil unless params[:attachable_type].present? && params[:attachable_id].present?
 
         case params[:attachable_type]
-        when 'Page'
+        when "Page"
           Page.find_by(id: params[:attachable_id])
         else
           nil

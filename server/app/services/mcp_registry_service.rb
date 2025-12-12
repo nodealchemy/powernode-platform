@@ -53,8 +53,8 @@ class McpRegistryService
     update_discovery_indexes(tool_id, enhanced_manifest)
 
     # Update name-to-ID mapping for tool lookup by name
-    if enhanced_manifest['name'].present?
-      @name_to_id_index[enhanced_manifest['name']] = tool_id
+    if enhanced_manifest["name"].present?
+      @name_to_id_index[enhanced_manifest["name"]] = tool_id
       @logger.debug "[MCP_REGISTRY] Added name mapping: #{enhanced_manifest['name']} -> #{tool_id}"
     end
 
@@ -126,8 +126,8 @@ class McpRegistryService
     tools = filter_by_search(tools, filters[:search]) if filters[:search]
 
     # Sort tools
-    sort_key = filters[:sort_by] || 'name'
-    tools.sort_by { |tool| tool[sort_key] || '' }
+    sort_key = filters[:sort_by] || "name"
+    tools.sort_by { |tool| tool[sort_key] || "" }
   end
 
   # Find tools by capability requirements
@@ -141,7 +141,7 @@ class McpRegistryService
           next unless tool
 
           # Check if tool supports ALL required capabilities
-          tool_capabilities = tool['capabilities'] || []
+          tool_capabilities = tool["capabilities"] || []
           if (required_capabilities - tool_capabilities).empty?
             matching_tools << tool unless matching_tools.include?(tool)
           end
@@ -168,7 +168,7 @@ class McpRegistryService
     # Check health status
     if tool && !tool_healthy?(actual_tool_id)
       @logger.warn "[MCP_REGISTRY] Tool unhealthy: #{actual_tool_id}"
-      tool = tool.merge('health_status' => 'unhealthy')
+      tool = tool.merge("health_status" => "unhealthy")
     end
 
     tool
@@ -204,7 +204,7 @@ class McpRegistryService
   # Mark tool as healthy
   def mark_tool_healthy(tool_id)
     @tool_health[tool_id] = {
-      status: 'healthy',
+      status: "healthy",
       last_check: Time.current,
       last_error: nil
     }
@@ -215,7 +215,7 @@ class McpRegistryService
   # Mark tool as unhealthy with error details
   def mark_tool_unhealthy(tool_id, error_message = nil)
     @tool_health[tool_id] = {
-      status: 'unhealthy',
+      status: "unhealthy",
       last_check: Time.current,
       last_error: error_message
     }
@@ -223,7 +223,7 @@ class McpRegistryService
     persist_health_status(tool_id, @tool_health[tool_id])
 
     # Broadcast health change
-    broadcast_tool_health_changed(tool_id, 'unhealthy')
+    broadcast_tool_health_changed(tool_id, "unhealthy")
 
     @logger.warn "[MCP_REGISTRY] Tool marked unhealthy: #{tool_id} - #{error_message}"
   end
@@ -233,7 +233,7 @@ class McpRegistryService
     health = @tool_health[tool_id]
     return false unless health
 
-    health[:status] == 'healthy'
+    health[:status] == "healthy"
   end
 
   # Get dependency chain for a tool
@@ -297,13 +297,13 @@ class McpRegistryService
   def import_registry(registry_data)
     @logger.info "[MCP_REGISTRY] Importing registry data"
 
-    @tools = registry_data['tools'] || {}
-    @tool_dependencies = registry_data['dependencies'] || {}
-    @tool_health = registry_data['health'] || {}
+    @tools = registry_data["tools"] || {}
+    @tool_dependencies = registry_data["dependencies"] || {}
+    @tool_health = registry_data["health"] || {}
 
-    if registry_data['indexes']
-      @version_index = registry_data['indexes']['version'] || {}
-      @capability_index = registry_data['indexes']['capability'] || {}
+    if registry_data["indexes"]
+      @version_index = registry_data["indexes"]["version"] || {}
+      @capability_index = registry_data["indexes"]["capability"] || {}
     end
 
     @logger.info "[MCP_REGISTRY] Registry import completed"
@@ -329,8 +329,8 @@ class McpRegistryService
       update_discovery_indexes(tool_id, tool_manifest)
 
       # Add name-to-ID mapping for tool lookup by name
-      if tool_manifest['name'].present?
-        @name_to_id_index[tool_manifest['name']] = tool_id
+      if tool_manifest["name"].present?
+        @name_to_id_index[tool_manifest["name"]] = tool_id
       end
 
       mark_tool_healthy(tool_id)
@@ -348,18 +348,18 @@ class McpRegistryService
     end
 
     # Validate version format (semantic versioning)
-    unless manifest['version'].match?(/\A\d+\.\d+\.\d+\z/)
+    unless manifest["version"].match?(/\A\d+\.\d+\.\d+\z/)
       raise RegistryError, "Invalid version format: #{manifest['version']}"
     end
 
     # Validate permission fields if present
-    validate_permission_level!(manifest) if manifest['permissionLevel']
-    validate_required_permissions!(manifest) if manifest['requiredPermissions']
-    validate_allowed_scopes!(manifest) if manifest['allowedScopes']
+    validate_permission_level!(manifest) if manifest["permissionLevel"]
+    validate_required_permissions!(manifest) if manifest["requiredPermissions"]
+    validate_allowed_scopes!(manifest) if manifest["allowedScopes"]
   end
 
   def validate_permission_level!(manifest)
-    permission_level = manifest['permissionLevel']
+    permission_level = manifest["permissionLevel"]
     valid_levels = %w[public account admin]
 
     unless valid_levels.include?(permission_level)
@@ -368,7 +368,7 @@ class McpRegistryService
   end
 
   def validate_required_permissions!(manifest)
-    required_permissions = manifest['requiredPermissions']
+    required_permissions = manifest["requiredPermissions"]
 
     unless required_permissions.is_a?(Array)
       raise RegistryError, "requiredPermissions must be an array"
@@ -383,7 +383,7 @@ class McpRegistryService
   end
 
   def validate_allowed_scopes!(manifest)
-    allowed_scopes = manifest['allowedScopes']
+    allowed_scopes = manifest["allowedScopes"]
 
     unless allowed_scopes.is_a?(Hash)
       raise RegistryError, "allowedScopes must be a hash"
@@ -416,14 +416,14 @@ class McpRegistryService
     return unless existing_tool
 
     # Check if this is a version conflict
-    if existing_tool['name'] == manifest['name'] &&
-       existing_tool['version'] == manifest['version']
+    if existing_tool["name"] == manifest["name"] &&
+       existing_tool["version"] == manifest["version"]
       raise ToolConflictError, "Tool with same name and version already exists: #{tool_id}"
     end
   end
 
   def resolve_dependencies!(manifest)
-    dependencies = manifest['dependencies'] || []
+    dependencies = manifest["dependencies"] || []
 
     dependencies.each do |dep_name|
       unless find_tool_by_name(dep_name)
@@ -434,9 +434,9 @@ class McpRegistryService
 
   def enhance_tool_manifest(manifest)
     manifest.merge(
-      'registered_at' => Time.current.iso8601,
-      'account_id' => @account&.id,
-      'registry_version' => '1.0.0'
+      "registered_at" => Time.current.iso8601,
+      "account_id" => @account&.id,
+      "registry_version" => "1.0.0"
     )
   end
 
@@ -466,14 +466,14 @@ class McpRegistryService
 
   def update_discovery_indexes(tool_id, manifest)
     # Update version index
-    tool_name = manifest['name']
-    tool_version = manifest['version']
+    tool_name = manifest["name"]
+    tool_version = manifest["version"]
 
     @version_index[tool_name] ||= {}
     @version_index[tool_name][tool_version] = tool_id
 
     # Update capability index
-    capabilities = manifest['capabilities'] || []
+    capabilities = manifest["capabilities"] || []
     capabilities.each do |capability|
       @capability_index[capability] ||= []
       @capability_index[capability] << tool_id unless @capability_index[capability].include?(tool_id)
@@ -485,8 +485,8 @@ class McpRegistryService
     return unless tool
 
     # Remove from version index
-    tool_name = tool['name']
-    tool_version = tool['version']
+    tool_name = tool["name"]
+    tool_version = tool["version"]
     @version_index[tool_name]&.delete(tool_version)
 
     # Remove from name-to-ID mapping
@@ -496,22 +496,22 @@ class McpRegistryService
     end
 
     # Remove from capability index
-    capabilities = tool['capabilities'] || []
+    capabilities = tool["capabilities"] || []
     capabilities.each do |capability|
       @capability_index[capability]&.delete(tool_id)
     end
   end
 
   def filter_by_capability(tools, capability)
-    tools.select { |tool| (tool['capabilities'] || []).include?(capability) }
+    tools.select { |tool| (tool["capabilities"] || []).include?(capability) }
   end
 
   def filter_by_version(tools, version_constraint)
-    tools.select { |tool| version_satisfies_constraint?(tool['version'], version_constraint) }
+    tools.select { |tool| version_satisfies_constraint?(tool["version"], version_constraint) }
   end
 
   def filter_by_account(tools, account_id)
-    tools.select { |tool| tool['account_id'] == account_id }
+    tools.select { |tool| tool["account_id"] == account_id }
   end
 
   def filter_by_health(tools, health_status)
@@ -525,8 +525,8 @@ class McpRegistryService
   def filter_by_search(tools, search_term)
     search_regex = Regexp.new(search_term, Regexp::IGNORECASE)
     tools.select do |tool|
-      tool['name'].match?(search_regex) ||
-      tool['description'].match?(search_regex)
+      tool["name"].match?(search_regex) ||
+      tool["description"].match?(search_regex)
     end
   end
 
@@ -576,8 +576,8 @@ class McpRegistryService
 
   def validate_compatibility!(existing_tool, updated_manifest)
     # Check major version compatibility
-    existing_version = Gem::Version.new(existing_tool['version'])
-    updated_version = Gem::Version.new(updated_manifest['version'])
+    existing_version = Gem::Version.new(existing_tool["version"])
+    updated_version = Gem::Version.new(updated_manifest["version"])
 
     if updated_version.segments[0] != existing_version.segments[0]
       @logger.warn "[MCP_REGISTRY] Major version change detected for tool update"
@@ -586,55 +586,55 @@ class McpRegistryService
 
   def generate_agent_tool_manifest(agent)
     {
-      'name' => agent.name,
-      'description' => agent.description || "AI Agent: #{agent.name}",
-      'type' => 'ai_agent',
-      'version' => agent.version.to_s,
-      'capabilities' => agent.mcp_capabilities || [],
-      'inputSchema' => agent.mcp_input_schema || default_agent_input_schema,
-      'outputSchema' => agent.mcp_output_schema || default_agent_output_schema,
-      'agent_id' => agent.id,
-      'provider_id' => agent.ai_provider_id
+      "name" => agent.name,
+      "description" => agent.description || "AI Agent: #{agent.name}",
+      "type" => "ai_agent",
+      "version" => agent.version.to_s,
+      "capabilities" => agent.mcp_capabilities || [],
+      "inputSchema" => agent.mcp_input_schema || default_agent_input_schema,
+      "outputSchema" => agent.mcp_output_schema || default_agent_output_schema,
+      "agent_id" => agent.id,
+      "provider_id" => agent.ai_provider_id
     }
   end
 
   def find_tool_by_name(name)
-    @tools.values.find { |tool| tool['name'] == name }
+    @tools.values.find { |tool| tool["name"] == name }
   end
 
   def generate_tool_id_from_manifest(manifest)
-    name = manifest['name'].downcase.gsub(/[^a-z0-9]/, '_')
-    version = manifest['version'].gsub('.', '_')
+    name = manifest["name"].downcase.gsub(/[^a-z0-9]/, "_")
+    version = manifest["version"].gsub(".", "_")
     "#{name}_v#{version}"
   end
 
   def default_agent_input_schema
     {
-      'type' => 'object',
-      'properties' => {
-        'input' => {
-          'type' => 'string',
-          'description' => 'Input text for the AI agent'
+      "type" => "object",
+      "properties" => {
+        "input" => {
+          "type" => "string",
+          "description" => "Input text for the AI agent"
         }
       },
-      'required' => ['input']
+      "required" => [ "input" ]
     }
   end
 
   def default_agent_output_schema
     {
-      'type' => 'object',
-      'properties' => {
-        'output' => {
-          'type' => 'string',
-          'description' => 'Generated response from the AI agent'
+      "type" => "object",
+      "properties" => {
+        "output" => {
+          "type" => "string",
+          "description" => "Generated response from the AI agent"
         },
-        'metadata' => {
-          'type' => 'object',
-          'description' => 'Additional metadata about the response'
+        "metadata" => {
+          "type" => "object",
+          "description" => "Additional metadata about the response"
         }
       },
-      'required' => ['output']
+      "required" => [ "output" ]
     }
   end
 
@@ -664,18 +664,18 @@ class McpRegistryService
   end
 
   def broadcast_tool_registered(tool_id, manifest)
-    McpBroadcastService.broadcast_tool_event('registered', tool_id, manifest, @account)
+    McpBroadcastService.broadcast_tool_event("registered", tool_id, manifest, @account)
   end
 
   def broadcast_tool_unregistered(tool_id)
-    McpBroadcastService.broadcast_tool_event('unregistered', tool_id, nil, @account)
+    McpBroadcastService.broadcast_tool_event("unregistered", tool_id, nil, @account)
   end
 
   def broadcast_tool_updated(tool_id, manifest)
-    McpBroadcastService.broadcast_tool_event('updated', tool_id, manifest, @account)
+    McpBroadcastService.broadcast_tool_event("updated", tool_id, manifest, @account)
   end
 
   def broadcast_tool_health_changed(tool_id, health_status)
-    McpBroadcastService.broadcast_tool_event('health_changed', tool_id, { health_status: health_status }, @account)
+    McpBroadcastService.broadcast_tool_event("health_changed", tool_id, { health_status: health_status }, @account)
   end
 end

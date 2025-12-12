@@ -13,7 +13,7 @@ class FileStorageService
   def initialize(account, storage_config: nil)
     @account = account
     @storage_config = storage_config || account.file_storages.default.first
-    raise StorageNotFoundError, 'No storage configuration found' unless @storage_config
+    raise StorageNotFoundError, "No storage configuration found" unless @storage_config
 
     @provider = @storage_config.storage_provider
     @logger = Rails.logger
@@ -44,7 +44,7 @@ class FileStorageService
       content_type: content_type || detect_content_type(uploaded_file, filename),
       file_size: file_size,
       storage_key: storage_key,
-      visibility: options[:visibility] || 'private',
+      visibility: options[:visibility] || "private",
       category: options[:category],
       metadata: options[:metadata] || {},
       attachable: options[:attachable],
@@ -180,9 +180,9 @@ class FileStorageService
       file_object: file_object,
       account: account,
       created_by_id: options[:created_by_id],
-      share_type: options[:share_type] || 'public_link',
-      access_level: options[:access_level] || 'download',
-      status: 'active',
+      share_type: options[:share_type] || "public_link",
+      access_level: options[:access_level] || "download",
+      status: "active",
       expires_at: options[:expires_at],
       max_downloads: options[:max_downloads],
       password_digest: options[:password] ? BCrypt::Password.create(options[:password]) : nil,
@@ -195,7 +195,7 @@ class FileStorageService
   # @return [String] share URL
   def share_url(file_share)
     # This should be configured based on your application's base URL
-    base_url = ENV.fetch('APP_BASE_URL', 'http://localhost:3000')
+    base_url = ENV.fetch("APP_BASE_URL", "http://localhost:3000")
     "#{base_url}/shares/#{file_share.share_token}"
   end
 
@@ -206,16 +206,16 @@ class FileStorageService
   # @return [FileObject] file object if access granted
   def access_shared_file(share_token, password: nil, **options)
     file_share = FileShare.active.find_by(share_token: share_token)
-    raise FileNotFoundError, 'Share not found or expired' unless file_share
+    raise FileNotFoundError, "Share not found or expired" unless file_share
 
     # Verify password if required
     if file_share.password_protected? && !file_share.verify_password(password)
-      raise InvalidFileError, 'Invalid password'
+      raise InvalidFileError, "Invalid password"
     end
 
     # Check download limit
     if file_share.has_download_limit? && file_share.download_count >= file_share.max_downloads
-      raise InvalidFileError, 'Download limit exceeded'
+      raise InvalidFileError, "Download limit exceeded"
     end
 
     # Record access
@@ -273,38 +273,38 @@ class FileStorageService
       account: account,
       job_type: job_type,
       configuration: configuration,
-      status: 'pending'
+      status: "pending"
     )
 
     # Dispatch Sidekiq job based on type
     # Note: Job classes exist in worker service, so we push via Sidekiq client
     job_class = case job_type
-                when 'thumbnail'
-                  'ThumbnailGenerationJob'
-                when 'metadata_extract'
-                  'MetadataExtractionJob'
-                when 'video_processing'
-                  'VideoProcessingJob'
-                when 'audio_processing'
-                  'AudioProcessingJob'
-                when 'ocr'
+    when "thumbnail"
+                  "ThumbnailGenerationJob"
+    when "metadata_extract"
+                  "MetadataExtractionJob"
+    when "video_processing"
+                  "VideoProcessingJob"
+    when "audio_processing"
+                  "AudioProcessingJob"
+    when "ocr"
                   # Future: OCR job
-                  'MetadataExtractionJob'
-                when 'virus_scan'
+                  "MetadataExtractionJob"
+    when "virus_scan"
                   # Future: Virus scan job
                   log_info("Virus scan job queued but not implemented: #{job.id}")
                   nil
-                else
+    else
                   log_warn("Unknown job type #{job_type}, using metadata extraction")
-                  'MetadataExtractionJob'
-                end
+                  "MetadataExtractionJob"
+    end
 
     # Push job to Sidekiq queue
     if job_class
       Sidekiq::Client.push(
-        'class' => job_class,
-        'queue' => 'file_processing',
-        'args' => [job.id]
+        "class" => job_class,
+        "queue" => "file_processing",
+        "args" => [ job.id ]
       )
       log_info("Queued #{job_class} for processing job #{job.id}")
     end
@@ -359,7 +359,7 @@ class FileStorageService
       provider.signed_url(
         file_object,
         expires_in: options[:expires_in] || 1.hour,
-        disposition: options[:disposition] || 'inline'
+        disposition: options[:disposition] || "inline"
       )
     elsif options[:download]
       provider.download_url(file_object, expires_in: options[:expires_in] || 1.hour)
@@ -428,8 +428,8 @@ class FileStorageService
   private
 
   def validate_file!(uploaded_file, filename)
-    raise InvalidFileError, 'File is required' if uploaded_file.nil?
-    raise InvalidFileError, 'Filename is required' if filename.blank?
+    raise InvalidFileError, "File is required" if uploaded_file.nil?
+    raise InvalidFileError, "Filename is required" if filename.blank?
 
     # Validate file extension
     extension = File.extname(filename).downcase
@@ -455,9 +455,9 @@ class FileStorageService
   end
 
   def validate_file_access!(file_object)
-    raise FileNotFoundError, 'File not found' unless file_object
-    raise InvalidFileError, 'File belongs to different account' unless file_object.account_id == account.id
-    raise InvalidFileError, 'File belongs to different storage' unless file_object.file_storage_id == storage_config.id
+    raise FileNotFoundError, "File not found" unless file_object
+    raise InvalidFileError, "File belongs to different account" unless file_object.account_id == account.id
+    raise InvalidFileError, "File belongs to different storage" unless file_object.file_storage_id == storage_config.id
   end
 
   def get_file_size(file)
@@ -483,12 +483,12 @@ class FileStorageService
 
     # Fallback to filename extension
     extension = File.extname(filename).downcase
-    MIME::Types.type_for(filename).first&.content_type || 'application/octet-stream'
+    MIME::Types.type_for(filename).first&.content_type || "application/octet-stream"
   end
 
   def generate_storage_key(filename, category = nil)
     # Generate unique storage key with optional category prefix
-    timestamp = Time.current.strftime('%Y%m%d')
+    timestamp = Time.current.strftime("%Y%m%d")
     random = SecureRandom.hex(16)
     extension = File.extname(filename)
     base_name = File.basename(filename, extension).parameterize

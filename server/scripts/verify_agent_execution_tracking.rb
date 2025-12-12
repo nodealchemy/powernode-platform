@@ -64,11 +64,11 @@ if recent_runs.any?
     total = agent_nodes.count
 
     status_icon = case run.status
-                  when 'completed' then '✅'
-                  when 'failed' then '❌'
-                  when 'running' then '🔄'
-                  else '⏸️ '
-                  end
+    when 'completed' then '✅'
+    when 'failed' then '❌'
+    when 'running' then '🔄'
+    else '⏸️ '
+    end
 
     linkage_icon = total > 0 && linked == total ? '✅' : (total > 0 ? '⚠️ ' : '➖')
 
@@ -107,7 +107,7 @@ recent_linked_rate = if total_agent_nodes > 0
                        else
                          nil
                        end
-                     end
+end
 
 if recent_linked_rate
   if recent_linked_rate == 100
@@ -129,11 +129,11 @@ end
 
 validations.each do |validation|
   icon = case validation[:status]
-         when :pass then '✅'
-         when :warn then '⚠️ '
-         when :fail then '❌'
-         when :info then 'ℹ️ '
-         end
+  when :pass then '✅'
+  when :warn then '⚠️ '
+  when :fail then '❌'
+  when :info then 'ℹ️ '
+  end
 
   puts "#{icon} #{validation[:message]}"
 end

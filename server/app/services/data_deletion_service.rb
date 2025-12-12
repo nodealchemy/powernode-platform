@@ -34,11 +34,11 @@ class DataDeletionService
 
   def process_deletion
     case @request.deletion_type
-    when 'full'
+    when "full"
       process_full_deletion
-    when 'partial'
+    when "partial"
       process_partial_deletion
-    when 'anonymize'
+    when "anonymize"
       process_anonymization
     end
   end
@@ -74,33 +74,33 @@ class DataDeletionService
 
   def delete_data_type(data_type)
     count = case data_type
-            when 'profile'
+    when "profile"
               delete_profile_data
-            when 'activity'
+    when "activity"
               delete_activity_data
-            when 'audit_logs'
+    when "audit_logs"
               # Audit logs are retained for compliance - anonymize instead
               anonymize_audit_logs
-            when 'payments'
+    when "payments"
               # Payment records retained for tax - anonymize
               anonymize_payments
-            when 'files'
+    when "files"
               delete_files
-            when 'settings'
+    when "settings"
               delete_settings
-            when 'consents'
+    when "consents"
               delete_consents
-            when 'communications'
+    when "communications"
               delete_communications
-            when 'analytics'
+    when "analytics"
               delete_analytics
-            else
+    else
               0
-            end
+    end
 
     @deletion_log << {
       data_type: data_type,
-      action: 'deleted',
+      action: "deleted",
       records_affected: count,
       processed_at: Time.current.iso8601
     }
@@ -118,7 +118,7 @@ class DataDeletionService
   def delete_profile_data
     # Clear non-essential profile data
     @user.update_columns(
-      name: 'Deleted User',
+      name: "Deleted User",
       preferences: {},
       notification_preferences: {}
     )
@@ -128,7 +128,7 @@ class DataDeletionService
   def delete_activity_data
     # Delete activity older than legal retention period
     count = AuditLog.where(user: @user)
-                    .where('created_at < ?', 7.years.ago)
+                    .where("created_at < ?", 7.years.ago)
                     .delete_all
     count
   end
@@ -199,9 +199,9 @@ class DataDeletionService
 
     @user.update_columns(
       email: "#{anonymous_id}@deleted.powernode.local",
-      name: 'Deleted User',
+      name: "Deleted User",
       password_digest: nil,
-      status: 'deleted',
+      status: "deleted",
       two_factor_secret: nil,
       backup_codes: nil,
       last_login_ip: nil,
@@ -210,8 +210,8 @@ class DataDeletionService
     )
 
     @deletion_log << {
-      data_type: 'user_record',
-      action: 'anonymized',
+      data_type: "user_record",
+      action: "anonymized",
       anonymous_id: anonymous_id,
       processed_at: Time.current.iso8601
     }
@@ -223,36 +223,36 @@ class DataDeletionService
     anonymize_payments if defined?(Payment)
 
     @deletion_log << {
-      data_type: 'all_pii',
-      action: 'anonymized',
+      data_type: "all_pii",
+      action: "anonymized",
       processed_at: Time.current.iso8601
     }
   end
 
   def retention_reason_for(data_type)
     {
-      'financial_records' => 'Required for tax and accounting purposes',
-      'tax_documents' => 'Required by tax regulations',
-      'legal_agreements' => 'Required for contract enforcement',
-      'audit_logs' => 'Required for security and compliance auditing'
-    }[data_type] || 'Legal retention requirement'
+      "financial_records" => "Required for tax and accounting purposes",
+      "tax_documents" => "Required by tax regulations",
+      "legal_agreements" => "Required for contract enforcement",
+      "audit_logs" => "Required for security and compliance auditing"
+    }[data_type] || "Legal retention requirement"
   end
 
   def legal_basis_for(data_type)
     {
-      'financial_records' => 'GDPR Art. 17(3)(b) - Legal obligation',
-      'tax_documents' => 'National tax regulations',
-      'legal_agreements' => 'GDPR Art. 17(3)(e) - Legal claims',
-      'audit_logs' => 'SOC 2 / PCI DSS requirements'
-    }[data_type] || 'GDPR Art. 17(3)'
+      "financial_records" => "GDPR Art. 17(3)(b) - Legal obligation",
+      "tax_documents" => "National tax regulations",
+      "legal_agreements" => "GDPR Art. 17(3)(e) - Legal claims",
+      "audit_logs" => "SOC 2 / PCI DSS requirements"
+    }[data_type] || "GDPR Art. 17(3)"
   end
 
   def retention_period_for(data_type)
     {
-      'financial_records' => '7 years',
-      'tax_documents' => '7 years',
-      'legal_agreements' => '10 years',
-      'audit_logs' => '7 years'
-    }[data_type] || 'As required by law'
+      "financial_records" => "7 years",
+      "tax_documents" => "7 years",
+      "legal_agreements" => "10 years",
+      "audit_logs" => "7 years"
+    }[data_type] || "As required by law"
   end
 end

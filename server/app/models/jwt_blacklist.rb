@@ -17,8 +17,8 @@ class JwtBlacklist < ApplicationRecord
   serialize :metadata, coder: JSON
 
   # Scopes
-  scope :active, -> { where('expires_at > ?', Time.current) }
-  scope :expired, -> { where('expires_at <= ?', Time.current) }
+  scope :active, -> { where("expires_at > ?", Time.current) }
+  scope :expired, -> { where("expires_at <= ?", Time.current) }
   scope :user_blacklists, -> { where(user_blacklist: true) }
   scope :token_blacklists, -> { where(user_blacklist: false) }
   scope :recent, -> { order(created_at: :desc) }
@@ -32,7 +32,7 @@ class JwtBlacklist < ApplicationRecord
     active.exists?(jti: jti)
   end
 
-  def self.blacklist_user(user_id, reason: 'logout')
+  def self.blacklist_user(user_id, reason: "logout")
     create!(
       jti: "user_blacklist_#{user_id}",
       user_id: user_id,
@@ -47,17 +47,17 @@ class JwtBlacklist < ApplicationRecord
 
   def self.cleanup_expired(batch_size: 1000)
     total_deleted = 0
-    
+
     loop do
       deleted_count = expired.limit(batch_size).delete_all
       total_deleted += deleted_count
-      
+
       break if deleted_count == 0
-      
+
       # Sleep briefly to avoid overwhelming the database
       sleep(0.1) if deleted_count == batch_size
     end
-    
+
     Rails.logger.info "Cleaned up #{total_deleted} expired JWT blacklist entries"
     total_deleted
   end
@@ -66,7 +66,7 @@ class JwtBlacklist < ApplicationRecord
     active_count = active.count
     expired_count = expired.count
     user_blacklists = user_blacklists().count
-    
+
     {
       total: count,
       active: active_count,
@@ -90,7 +90,7 @@ class JwtBlacklist < ApplicationRecord
   end
 
   def masked_jti
-    return '' if jti.blank?
+    return "" if jti.blank?
     # Show first 8 and last 4 characters
     if jti.length > 12
       "#{jti[0..7]}...#{jti[-4..-1]}"
@@ -105,8 +105,8 @@ class JwtBlacklist < ApplicationRecord
   end
 
   def expires_in_words
-    return 'expired' if expired?
-    
+    return "expired" if expired?
+
     remaining = time_remaining
     if remaining < 1.hour
       "#{remaining / 60} minutes"

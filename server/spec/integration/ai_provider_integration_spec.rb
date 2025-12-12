@@ -24,7 +24,7 @@ RSpec.describe 'AI Provider Integration', type: :request do
       allow_any_instance_of(ApplicationController).to receive(:current_user).and_return(admin_user)
 
       post '/api/v1/ai/providers/setup_defaults'
-      expect(response.status).to be_in([200, 201, 422])
+      expect(response.status).to be_in([ 200, 201, 422 ])
 
       # Step 2: List providers
       get '/api/v1/ai/providers'
@@ -44,7 +44,7 @@ RSpec.describe 'AI Provider Integration', type: :request do
       }
 
       # Credential creation may require valid test or return 404 if route not implemented
-      expect(response.status).to be_in([200, 201, 404, 422])
+      expect(response.status).to be_in([ 200, 201, 404, 422 ])
 
       # Step 4: Create an AI agent using the provider
       post '/api/v1/ai/agents', params: {
@@ -61,9 +61,9 @@ RSpec.describe 'AI Provider Integration', type: :request do
         }
       }
 
-      expect(response.status).to be_in([200, 201, 422])
+      expect(response.status).to be_in([ 200, 201, 422 ])
 
-      if response.status.in?([200, 201])
+      if response.status.in?([ 200, 201 ])
         agent = AiAgent.last
         expect(agent.name).to eq('Code Assistant')
 
@@ -74,7 +74,7 @@ RSpec.describe 'AI Provider Integration', type: :request do
           }
         }
 
-        expect(response.status).to be_in([200, 201, 422])
+        expect(response.status).to be_in([ 200, 201, 422 ])
       end
     end
   end
@@ -95,7 +95,7 @@ RSpec.describe 'AI Provider Integration', type: :request do
       }
 
       # May be 404 if route not implemented, or various error codes
-      expect(response.status).to be_in([400, 403, 404, 422])
+      expect(response.status).to be_in([ 400, 403, 404, 422 ])
     end
 
     it 'handles credential test failures' do
@@ -113,7 +113,7 @@ RSpec.describe 'AI Provider Integration', type: :request do
       }
 
       # Various responses depending on implementation
-      expect(response.status).to be_in([200, 201, 404, 422])
+      expect(response.status).to be_in([ 200, 201, 404, 422 ])
     end
 
     it 'handles provider unavailability' do
@@ -136,7 +136,7 @@ RSpec.describe 'AI Provider Integration', type: :request do
       }
 
       # Should get forbidden or validation error
-      expect(response.status).to be_in([403, 422])
+      expect(response.status).to be_in([ 403, 422 ])
     end
   end
 
@@ -150,15 +150,15 @@ RSpec.describe 'AI Provider Integration', type: :request do
       allow_any_instance_of(AiProviderTestService).to receive(:test_with_details)
         .and_return({ success: true, response_time_ms: 1000 })
 
-      [ollama, openai, anthropic].each_with_index do |provider, idx|
+      [ ollama, openai, anthropic ].each_with_index do |provider, idx|
         credentials = case provider.slug
-                     when 'ollama'
+        when 'ollama'
                        { base_url: 'http://localhost:11434', model: 'llama2' }
-                     when 'openai-multi'
+        when 'openai-multi'
                        { api_key: 'sk-test123', model: 'gpt-3.5-turbo' }
-                     when 'anthropic-multi'
+        when 'anthropic-multi'
                        { api_key: 'ant-test123', model: 'claude-3-sonnet' }
-                     end
+        end
 
         # Use hash directly, not to_json
         create(:ai_provider_credential,
@@ -186,17 +186,17 @@ RSpec.describe 'AI Provider Integration', type: :request do
       post "/api/v1/ai/providers/test_all"
 
       # May or may not exist
-      expect(response.status).to be_in([200, 404])
+      expect(response.status).to be_in([ 200, 404 ])
     end
 
     it 'shows available providers for account' do
       get '/api/v1/ai/providers/available'
 
-      expect(response.status).to be_in([200, 404])
+      expect(response.status).to be_in([ 200, 404 ])
     end
 
     it 'creates agents with different providers' do
-      [ollama, openai, anthropic].each do |provider|
+      [ ollama, openai, anthropic ].each do |provider|
         post '/api/v1/ai/agents', params: {
           agent: {
             ai_provider_id: provider.id,
@@ -206,7 +206,7 @@ RSpec.describe 'AI Provider Integration', type: :request do
           }
         }
 
-        expect(response.status).to be_in([200, 201, 422])
+        expect(response.status).to be_in([ 200, 201, 422 ])
       end
     end
   end
@@ -219,7 +219,7 @@ RSpec.describe 'AI Provider Integration', type: :request do
     it 'provides comprehensive usage analytics' do
       get '/api/v1/ai/analytics/overview', params: { period: 30 }
 
-      expect(response.status).to be_in([200, 403])
+      expect(response.status).to be_in([ 200, 403 ])
     end
 
     it 'filters analytics by time period' do
@@ -229,7 +229,7 @@ RSpec.describe 'AI Provider Integration', type: :request do
         end_date: Date.current
       }
 
-      expect(response.status).to be_in([200, 403])
+      expect(response.status).to be_in([ 200, 403 ])
     end
 
     it 'provides system-wide capability listing' do
@@ -243,7 +243,7 @@ RSpec.describe 'AI Provider Integration', type: :request do
     it 'lists all provider types' do
       get '/api/v1/ai/providers/available'
 
-      expect(response.status).to be_in([200, 404])
+      expect(response.status).to be_in([ 200, 404 ])
     end
   end
 

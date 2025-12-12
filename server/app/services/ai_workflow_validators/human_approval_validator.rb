@@ -17,27 +17,27 @@ module WorkflowValidators
     def validate_approvers_list
       return unless node.configuration.present?
 
-      approvers = node.configuration['approvers'] || node.configuration[:approvers]
+      approvers = node.configuration["approvers"] || node.configuration[:approvers]
       return if approvers.blank?
 
       unless approvers.is_a?(Array)
         add_issue(
-          code: 'approvers_not_array',
-          severity: 'error',
-          category: 'configuration',
-          message: 'Approvers must be an array',
-          suggestion: 'Configure approvers as an array of user IDs or email addresses'
+          code: "approvers_not_array",
+          severity: "error",
+          category: "configuration",
+          message: "Approvers must be an array",
+          suggestion: "Configure approvers as an array of user IDs or email addresses"
         )
         return
       end
 
       if approvers.empty?
         add_issue(
-          code: 'no_approvers',
-          severity: 'error',
-          category: 'configuration',
-          message: 'No approvers configured',
-          suggestion: 'Add at least one approver'
+          code: "no_approvers",
+          severity: "error",
+          category: "configuration",
+          message: "No approvers configured",
+          suggestion: "Add at least one approver"
         )
       end
     end
@@ -45,8 +45,8 @@ module WorkflowValidators
     def validate_approval_criteria
       return unless node.configuration.present?
 
-      min_approvals = node.configuration['min_approvals'] || node.configuration[:min_approvals]
-      approvers = node.configuration['approvers'] || node.configuration[:approvers]
+      min_approvals = node.configuration["min_approvals"] || node.configuration[:min_approvals]
+      approvers = node.configuration["approvers"] || node.configuration[:approvers]
 
       return if min_approvals.blank? || approvers.blank?
 
@@ -55,11 +55,11 @@ module WorkflowValidators
 
       if min_approvals_int > approvers_count
         add_issue(
-          code: 'min_approvals_exceeds_approvers',
-          severity: 'error',
-          category: 'configuration',
+          code: "min_approvals_exceeds_approvers",
+          severity: "error",
+          category: "configuration",
           message: "Minimum approvals (#{min_approvals_int}) exceeds number of approvers (#{approvers_count})",
-          suggestion: 'Reduce min_approvals or add more approvers'
+          suggestion: "Reduce min_approvals or add more approvers"
         )
       end
     end
@@ -67,15 +67,15 @@ module WorkflowValidators
     def validate_timeout_configuration
       return unless node.configuration.present?
 
-      timeout_seconds = node.configuration['approval_timeout_seconds'] || node.configuration[:approval_timeout_seconds]
+      timeout_seconds = node.configuration["approval_timeout_seconds"] || node.configuration[:approval_timeout_seconds]
 
       if timeout_seconds.blank?
         add_issue(
-          code: 'missing_approval_timeout',
-          severity: 'warning',
-          category: 'configuration',
-          message: 'No approval timeout configured',
-          suggestion: 'Set an approval timeout to prevent workflow from waiting indefinitely',
+          code: "missing_approval_timeout",
+          severity: "warning",
+          category: "configuration",
+          message: "No approval timeout configured",
+          suggestion: "Set an approval timeout to prevent workflow from waiting indefinitely",
           auto_fixable: true,
           metadata: { recommended_timeout: 86400 } # 1 day
         )

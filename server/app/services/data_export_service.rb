@@ -1,8 +1,10 @@
 # frozen_string_literal: true
 
+require "shellwords"
+
 # Service for generating GDPR Article 20 data exports
 class DataExportService
-  EXPORT_DIR = Rails.root.join('tmp', 'data_exports')
+  EXPORT_DIR = Rails.root.join("tmp", "data_exports")
 
   class ExportError < StandardError; end
 
@@ -54,25 +56,25 @@ class DataExportService
 
   def export_data_type(data_type)
     case data_type
-    when 'profile'
+    when "profile"
       export_profile
-    when 'activity'
+    when "activity"
       export_activity
-    when 'audit_logs'
+    when "audit_logs"
       export_audit_logs
-    when 'payments'
+    when "payments"
       export_payments
-    when 'invoices'
+    when "invoices"
       export_invoices
-    when 'subscriptions'
+    when "subscriptions"
       export_subscriptions
-    when 'files'
+    when "files"
       export_files_metadata
-    when 'settings'
+    when "settings"
       export_settings
-    when 'consents'
+    when "consents"
       export_consents
-    when 'communications'
+    when "communications"
       export_communications
     else
       { note: "Data type '#{data_type}' not supported" }
@@ -96,7 +98,7 @@ class DataExportService
   def export_activity
     # Export last 365 days of activity
     AuditLog.where(user: @user)
-            .where('created_at > ?', 365.days.ago)
+            .where("created_at > ?", 365.days.ago)
             .order(created_at: :desc)
             .limit(10_000)
             .map do |log|
@@ -218,19 +220,19 @@ class DataExportService
 
   def export_communications
     # Export email/notification history if available
-    { note: 'Communication history export not yet implemented' }
+    { note: "Communication history export not yet implemented" }
   end
 
   def write_export_file(data)
-    timestamp = Time.current.strftime('%Y%m%d_%H%M%S')
+    timestamp = Time.current.strftime("%Y%m%d_%H%M%S")
     filename = "export_#{@user.id}_#{timestamp}"
 
     case @request.format
-    when 'json'
+    when "json"
       write_json_export(data, filename)
-    when 'csv'
+    when "csv"
       write_csv_export(data, filename)
-    when 'zip'
+    when "zip"
       write_zip_export(data, filename)
     else
       write_json_export(data, filename)
@@ -244,7 +246,7 @@ class DataExportService
   end
 
   def write_csv_export(data, filename)
-    require 'csv'
+    require "csv"
     dir_path = EXPORT_DIR.join(filename)
     FileUtils.mkdir_p(dir_path)
 
@@ -252,26 +254,31 @@ class DataExportService
       next unless value.is_a?(Array) && value.any?
 
       csv_path = dir_path.join("#{key}.csv")
-      CSV.open(csv_path, 'w') do |csv|
+      CSV.open(csv_path, "w") do |csv|
         csv << value.first.keys
         value.each { |row| csv << row.values }
       end
     end
 
-    # Create zip of CSV files
+    # Create zip of CSV files (using safe shell escaping)
     zip_path = EXPORT_DIR.join("#{filename}.zip")
-    system("cd #{dir_path} && zip -r #{zip_path} *.csv")
+    escaped_dir = Shellwords.shellescape(dir_path.to_s)
+    escaped_zip = Shellwords.shellescape(zip_path.to_s)
+    system("cd #{escaped_dir} && zip -r #{escaped_zip} *.csv")
     FileUtils.rm_rf(dir_path)
 
     zip_path.to_s
   end
 
   def write_zip_export(data, filename)
-    # Write JSON and create zip
+    # Write JSON and create zip (using safe shell escaping)
     json_path = write_json_export(data, filename)
     zip_path = EXPORT_DIR.join("#{filename}.zip")
 
-    system("cd #{EXPORT_DIR} && zip #{zip_path} #{File.basename(json_path)}")
+    escaped_dir = Shellwords.shellescape(EXPORT_DIR.to_s)
+    escaped_zip = Shellwords.shellescape(zip_path.to_s)
+    escaped_json = Shellwords.shellescape(File.basename(json_path))
+    system("cd #{escaped_dir} && zip #{escaped_zip} #{escaped_json}")
     FileUtils.rm(json_path)
 
     zip_path.to_s

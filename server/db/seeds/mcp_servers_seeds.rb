@@ -30,7 +30,7 @@ filesystem_server = McpServer.find_or_create_by!(account: account, name: 'Filesy
   server.connection_type = 'stdio'
   server.auth_type = 'none'
   server.command = 'npx'
-  server.args = ['-y', '@anthropic-ai/mcp-server-filesystem']
+  server.args = [ '-y', '@anthropic-ai/mcp-server-filesystem' ]
   server.env = { 'MCP_ALLOWED_DIRS' => '/tmp,/home' }
   server.capabilities = {
     'tools' => true,
@@ -50,7 +50,7 @@ filesystem_tools = [
       'properties' => {
         'path' => { 'type' => 'string', 'description' => 'Path to the file to read' }
       },
-      'required' => ['path']
+      'required' => [ 'path' ]
     },
     permission_level: 'account'
   },
@@ -63,7 +63,7 @@ filesystem_tools = [
         'path' => { 'type' => 'string', 'description' => 'Path to the file to write' },
         'content' => { 'type' => 'string', 'description' => 'Content to write to the file' }
       },
-      'required' => ['path', 'content']
+      'required' => [ 'path', 'content' ]
     },
     permission_level: 'admin'
   },
@@ -75,7 +75,7 @@ filesystem_tools = [
       'properties' => {
         'path' => { 'type' => 'string', 'description' => 'Path to the directory to list' }
       },
-      'required' => ['path']
+      'required' => [ 'path' ]
     },
     permission_level: 'account'
   },
@@ -88,7 +88,7 @@ filesystem_tools = [
         'path' => { 'type' => 'string', 'description' => 'Base path to search from' },
         'pattern' => { 'type' => 'string', 'description' => 'Glob pattern to match files' }
       },
-      'required' => ['path', 'pattern']
+      'required' => [ 'path', 'pattern' ]
     },
     permission_level: 'account'
   }
@@ -136,10 +136,10 @@ content_tools = [
       'type' => 'object',
       'properties' => {
         'content' => { 'type' => 'string', 'description' => 'Content to enhance' },
-        'style' => { 'type' => 'string', 'enum' => ['formal', 'casual', 'technical'], 'description' => 'Writing style' },
-        'tone' => { 'type' => 'string', 'enum' => ['professional', 'friendly', 'neutral'], 'description' => 'Desired tone' }
+        'style' => { 'type' => 'string', 'enum' => [ 'formal', 'casual', 'technical' ], 'description' => 'Writing style' },
+        'tone' => { 'type' => 'string', 'enum' => [ 'professional', 'friendly', 'neutral' ], 'description' => 'Desired tone' }
       },
-      'required' => ['content']
+      'required' => [ 'content' ]
     },
     permission_level: 'account'
   },
@@ -153,7 +153,7 @@ content_tools = [
         'target_keywords' => { 'type' => 'array', 'items' => { 'type' => 'string' }, 'description' => 'Target keywords' },
         'max_length' => { 'type' => 'integer', 'description' => 'Maximum content length' }
       },
-      'required' => ['content']
+      'required' => [ 'content' ]
     },
     permission_level: 'account'
   },
@@ -165,9 +165,9 @@ content_tools = [
       'properties' => {
         'content' => { 'type' => 'string', 'description' => 'Content to summarize' },
         'max_sentences' => { 'type' => 'integer', 'description' => 'Maximum sentences in summary' },
-        'style' => { 'type' => 'string', 'enum' => ['bullet', 'paragraph', 'tldr'], 'description' => 'Summary format' }
+        'style' => { 'type' => 'string', 'enum' => [ 'bullet', 'paragraph', 'tldr' ], 'description' => 'Summary format' }
       },
-      'required' => ['content']
+      'required' => [ 'content' ]
     },
     permission_level: 'account'
   },
@@ -181,7 +181,7 @@ content_tools = [
         'target_language' => { 'type' => 'string', 'description' => 'Target language code (e.g., es, fr, de)' },
         'preserve_formatting' => { 'type' => 'boolean', 'description' => 'Preserve original formatting' }
       },
-      'required' => ['content', 'target_language']
+      'required' => [ 'content', 'target_language' ]
     },
     permission_level: 'account'
   }
@@ -212,7 +212,7 @@ database_server = McpServer.find_or_create_by!(account: account, name: 'Database
   server.connection_type = 'stdio'
   server.auth_type = 'none'
   server.command = 'npx'
-  server.args = ['-y', '@anthropic-ai/mcp-server-postgres']
+  server.args = [ '-y', '@anthropic-ai/mcp-server-postgres' ]
   server.env = { 'DATABASE_URL' => 'postgresql://localhost/powernode_development' }
   server.capabilities = {
     'tools' => true,
@@ -232,7 +232,7 @@ database_tools = [
         'sql' => { 'type' => 'string', 'description' => 'SQL query to execute' },
         'params' => { 'type' => 'array', 'description' => 'Query parameters' }
       },
-      'required' => ['sql']
+      'required' => [ 'sql' ]
     },
     permission_level: 'admin'
   },
@@ -255,7 +255,7 @@ database_tools = [
       'properties' => {
         'table_name' => { 'type' => 'string', 'description' => 'Name of the table' }
       },
-      'required' => ['table_name']
+      'required' => [ 'table_name' ]
     },
     permission_level: 'account'
   }
@@ -286,7 +286,7 @@ web_server = McpServer.find_or_create_by!(account: account, name: 'Web Fetch MCP
   server.connection_type = 'stdio'
   server.auth_type = 'none'
   server.command = 'npx'
-  server.args = ['-y', '@anthropic-ai/mcp-server-fetch']
+  server.args = [ '-y', '@anthropic-ai/mcp-server-fetch' ]
   server.env = {}
   server.capabilities = {
     'tools' => true,
@@ -306,7 +306,7 @@ web_tools = [
         'url' => { 'type' => 'string', 'format' => 'uri', 'description' => 'URL to fetch' },
         'headers' => { 'type' => 'object', 'description' => 'Optional HTTP headers' }
       },
-      'required' => ['url']
+      'required' => [ 'url' ]
     },
     permission_level: 'account'
   },
@@ -319,7 +319,7 @@ web_tools = [
         'url' => { 'type' => 'string', 'format' => 'uri', 'description' => 'URL to extract text from' },
         'selector' => { 'type' => 'string', 'description' => 'CSS selector for specific content' }
       },
-      'required' => ['url']
+      'required' => [ 'url' ]
     },
     permission_level: 'account'
   }
@@ -371,7 +371,7 @@ slack_tools = [
         'text' => { 'type' => 'string', 'description' => 'Message text' },
         'thread_ts' => { 'type' => 'string', 'description' => 'Thread timestamp for replies' }
       },
-      'required' => ['channel', 'text']
+      'required' => [ 'channel', 'text' ]
     },
     permission_level: 'admin'
   },

@@ -3,7 +3,7 @@
 require 'rails_helper'
 
 RSpec.describe SecurityHeaders do
-  let(:app) { ->(env) { [200, { 'Content-Type' => 'text/html' }, ['OK']] } }
+  let(:app) { ->(env) { [ 200, { 'Content-Type' => 'text/html' }, [ 'OK' ] ] } }
   let(:middleware) { described_class.new(app) }
   let(:env) { Rack::MockRequest.env_for('/test') }
 
@@ -18,7 +18,7 @@ RSpec.describe SecurityHeaders do
     end
 
     it 'passes through the original body' do
-      expect(body).to eq(['OK'])
+      expect(body).to eq([ 'OK' ])
     end
 
     describe 'X-Frame-Options header' do
@@ -27,7 +27,7 @@ RSpec.describe SecurityHeaders do
       end
 
       context 'when header is already set' do
-        let(:app) { ->(env) { [200, { 'X-Frame-Options' => 'SAMEORIGIN' }, ['OK']] } }
+        let(:app) { ->(env) { [ 200, { 'X-Frame-Options' => 'SAMEORIGIN' }, [ 'OK' ] ] } }
 
         it 'does not override existing header' do
           expect(headers['X-Frame-Options']).to eq('SAMEORIGIN')
@@ -67,7 +67,7 @@ RSpec.describe SecurityHeaders do
 
     describe 'Content-Security-Policy header' do
       context 'for HTML responses' do
-        let(:app) { ->(env) { [200, { 'Content-Type' => 'text/html' }, ['OK']] } }
+        let(:app) { ->(env) { [ 200, { 'Content-Type' => 'text/html' }, [ 'OK' ] ] } }
 
         it 'sets Content-Security-Policy' do
           expect(headers['Content-Security-Policy']).to be_present
@@ -95,7 +95,7 @@ RSpec.describe SecurityHeaders do
       end
 
       context 'for JSON API responses' do
-        let(:app) { ->(env) { [200, { 'Content-Type' => 'application/json' }, ['{"status":"ok"}']] } }
+        let(:app) { ->(env) { [ 200, { 'Content-Type' => 'application/json' }, [ '{"status":"ok"}' ] ] } }
 
         it 'does not set Content-Security-Policy for API responses' do
           expect(headers['Content-Security-Policy']).to be_nil

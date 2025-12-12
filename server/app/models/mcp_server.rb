@@ -24,34 +24,34 @@ class McpServer < ApplicationRecord
   validates :name, uniqueness: { scope: :account_id }
   validates :status, presence: true, inclusion: {
     in: %w[connected disconnected connecting error],
-    message: 'must be a valid status'
+    message: "must be a valid status"
   }
   validates :connection_type, presence: true, inclusion: {
     in: %w[stdio websocket http],
-    message: 'must be stdio, websocket, or http'
+    message: "must be stdio, websocket, or http"
   }
   validates :auth_type, presence: true, inclusion: {
     in: %w[none api_key oauth2],
-    message: 'must be none, api_key, or oauth2'
+    message: "must be none, api_key, or oauth2"
   }
 
   validate :validate_connection_configuration
   validate :validate_args_format
   validate :validate_env_format
   validate :validate_capabilities_format
-  validate :validate_oauth_configuration, if: -> { auth_type == 'oauth2' }
+  validate :validate_oauth_configuration, if: -> { auth_type == "oauth2" }
 
   # ==========================================
   # Scopes
   # ==========================================
-  scope :connected, -> { where(status: 'connected') }
-  scope :disconnected, -> { where(status: 'disconnected') }
-  scope :active, -> { where(status: 'connected') }
+  scope :connected, -> { where(status: "connected") }
+  scope :disconnected, -> { where(status: "disconnected") }
+  scope :active, -> { where(status: "connected") }
   scope :inactive, -> { where(status: %w[disconnected error]) }
   scope :for_account, ->(account_id) { where(account_id: account_id) }
   scope :by_connection_type, ->(type) { where(connection_type: type) }
-  scope :recently_checked, -> { where('last_health_check > ?', 5.minutes.ago) }
-  scope :needs_health_check, -> { where('last_health_check IS NULL OR last_health_check < ?', 5.minutes.ago) }
+  scope :recently_checked, -> { where("last_health_check > ?", 5.minutes.ago) }
+  scope :needs_health_check, -> { where("last_health_check IS NULL OR last_health_check < ?", 5.minutes.ago) }
 
   # ==========================================
   # Callbacks
@@ -66,16 +66,16 @@ class McpServer < ApplicationRecord
 
   # URL for http/websocket connections - stored in command or env
   def url
-    return command if connection_type.in?(%w[http websocket]) && command&.start_with?('http')
+    return command if connection_type.in?(%w[http websocket]) && command&.start_with?("http")
 
-    env&.dig('MCP_URL') || env&.dig('URL')
+    env&.dig("MCP_URL") || env&.dig("URL")
   end
 
   def url=(value)
     if connection_type.in?(%w[http websocket])
       self.command = value
       self.env ||= {}
-      self.env['MCP_URL'] = value
+      self.env["MCP_URL"] = value
     end
   end
 
@@ -86,22 +86,22 @@ class McpServer < ApplicationRecord
 
   # Last error is stored in capabilities or a default message
   def last_error
-    capabilities&.dig('last_error')
+    capabilities&.dig("last_error")
   end
 
   def last_error=(value)
     self.capabilities ||= {}
-    self.capabilities['last_error'] = value
+    self.capabilities["last_error"] = value
   end
 
   # Config stored in capabilities for API compatibility
   def config
-    capabilities&.dig('config') || {}
+    capabilities&.dig("config") || {}
   end
 
   def config=(value)
     self.capabilities ||= {}
-    self.capabilities['config'] = value
+    self.capabilities["config"] = value
   end
 
   # ==========================================
@@ -110,34 +110,34 @@ class McpServer < ApplicationRecord
 
   # Status check methods
   def connected?
-    status == 'connected'
+    status == "connected"
   end
 
   def disconnected?
-    status == 'disconnected'
+    status == "disconnected"
   end
 
   def connecting?
-    status == 'connecting'
+    status == "connecting"
   end
 
   def error?
-    status == 'error'
+    status == "error"
   end
 
   # Connection management - delegates to worker service for async execution
   def connect!
-    update!(status: 'connecting')
+    update!(status: "connecting")
 
     begin
       # Queue connection job in worker service
-      WorkerJobService.enqueue_mcp_server_connection(id, action: 'connect')
+      WorkerJobService.enqueue_mcp_server_connection(id, action: "connect")
       Rails.logger.info "Queued MCP server connection job for #{name} (#{id})"
     rescue WorkerJobService::WorkerServiceError => e
       Rails.logger.error "Failed to queue MCP server connection job for #{name}: #{e.message}"
       update!(
-        status: 'error',
-        capabilities: (capabilities || {}).merge('last_error' => "Failed to queue connection: #{e.message}")
+        status: "error",
+        capabilities: (capabilities || {}).merge("last_error" => "Failed to queue connection: #{e.message}")
       )
     end
   end
@@ -145,13 +145,13 @@ class McpServer < ApplicationRecord
   def disconnect!
     begin
       # Queue disconnection job in worker service
-      WorkerJobService.enqueue_mcp_server_connection(id, action: 'disconnect')
-      update!(status: 'disconnected', last_health_check: Time.current)
+      WorkerJobService.enqueue_mcp_server_connection(id, action: "disconnect")
+      update!(status: "disconnected", last_health_check: Time.current)
       Rails.logger.info "Queued MCP server disconnection job for #{name} (#{id})"
     rescue WorkerJobService::WorkerServiceError => e
       Rails.logger.error "Failed to queue MCP server disconnection job for #{name}: #{e.message}"
       # Still mark as disconnected locally
-      update!(status: 'disconnected', last_health_check: Time.current)
+      update!(status: "disconnected", last_health_check: Time.current)
     end
   end
 
@@ -213,8 +213,8 @@ class McpServer < ApplicationRecord
   # Get environment variables for connection
   def connection_env
     env.merge(
-      'MCP_SERVER_NAME' => name,
-      'MCP_SERVER_ID' => id
+      "MCP_SERVER_NAME" => name,
+      "MCP_SERVER_ID" => id
     )
   end
 
@@ -224,7 +224,7 @@ class McpServer < ApplicationRecord
 
   # Check if OAuth is configured
   def oauth_configured?
-    auth_type == 'oauth2' && oauth_client_id.present?
+    auth_type == "oauth2" && oauth_client_id.present?
   end
 
   # Check if OAuth is connected (has valid tokens)
@@ -319,22 +319,22 @@ class McpServer < ApplicationRecord
   def encrypt_oauth_token(value)
     return nil if value.blank?
 
-    CredentialEncryptionService.encrypt_value(value, namespace: 'mcp')
+    CredentialEncryptionService.encrypt_value(value, namespace: "mcp")
   end
 
   # Decrypt OAuth token
   def decrypt_oauth_token(encrypted_value)
     return nil if encrypted_value.blank?
 
-    CredentialEncryptionService.decrypt_value(encrypted_value, namespace: 'mcp')
+    CredentialEncryptionService.decrypt_value(encrypted_value, namespace: "mcp")
   rescue CredentialEncryptionService::DecryptionError => e
     Rails.logger.error "Failed to decrypt OAuth token for MCP server #{id}: #{e.message}"
     nil
   end
 
   def set_default_values
-    self.status ||= 'disconnected'
-    self.auth_type ||= 'none'
+    self.status ||= "disconnected"
+    self.auth_type ||= "none"
     self.args ||= []
     self.env ||= {}
     self.capabilities ||= {}
@@ -342,11 +342,11 @@ class McpServer < ApplicationRecord
 
   def validate_connection_configuration
     case connection_type
-    when 'stdio'
+    when "stdio"
       if command.blank?
-        errors.add(:command, 'is required for stdio connection')
+        errors.add(:command, "is required for stdio connection")
       end
-    when 'websocket', 'http'
+    when "websocket", "http"
       # URL would typically be in configuration
       # Validation can be added based on your implementation
     end
@@ -356,7 +356,7 @@ class McpServer < ApplicationRecord
     return if args.blank?
 
     unless args.is_a?(Array)
-      errors.add(:args, 'must be an array')
+      errors.add(:args, "must be an array")
     end
   end
 
@@ -364,7 +364,7 @@ class McpServer < ApplicationRecord
     return if env.blank?
 
     unless env.is_a?(Hash)
-      errors.add(:env, 'must be a hash')
+      errors.add(:env, "must be a hash")
     end
   end
 
@@ -372,26 +372,26 @@ class McpServer < ApplicationRecord
     return if capabilities.blank?
 
     unless capabilities.is_a?(Hash)
-      errors.add(:capabilities, 'must be a hash')
+      errors.add(:capabilities, "must be a hash")
     end
   end
 
   def validate_oauth_configuration
     if oauth_client_id.blank?
-      errors.add(:oauth_client_id, 'is required for OAuth2 authentication')
+      errors.add(:oauth_client_id, "is required for OAuth2 authentication")
     end
     if oauth_authorization_url.blank?
-      errors.add(:oauth_authorization_url, 'is required for OAuth2 authentication')
+      errors.add(:oauth_authorization_url, "is required for OAuth2 authentication")
     end
     if oauth_token_url.blank?
-      errors.add(:oauth_token_url, 'is required for OAuth2 authentication')
+      errors.add(:oauth_token_url, "is required for OAuth2 authentication")
     end
   end
 
   def initialize_connection
     # Queue connection job for async processing in worker service
     begin
-      WorkerJobService.enqueue_mcp_server_connection(id, action: 'connect')
+      WorkerJobService.enqueue_mcp_server_connection(id, action: "connect")
       Rails.logger.info "Initialized MCP server #{name} (#{connection_type}) - queued connection job"
     rescue WorkerJobService::WorkerServiceError => e
       Rails.logger.warn "Could not queue initial connection for MCP server #{name}: #{e.message}"
@@ -403,30 +403,30 @@ class McpServer < ApplicationRecord
     # This is a placeholder for actual connection logic
     # Implementation would vary based on connection_type
     case connection_type
-    when 'stdio'
+    when "stdio"
       establish_stdio_connection
-    when 'websocket'
+    when "websocket"
       establish_websocket_connection
-    when 'http'
+    when "http"
       establish_http_connection
     else
-      { success: false, error: 'Unknown connection type' }
+      { success: false, error: "Unknown connection type" }
     end
   end
 
   def establish_stdio_connection
     # Placeholder for stdio connection
-    { success: true, capabilities: { 'tools' => true, 'resources' => true } }
+    { success: true, capabilities: { "tools" => true, "resources" => true } }
   end
 
   def establish_websocket_connection
     # Placeholder for websocket connection
-    { success: true, capabilities: { 'tools' => true, 'resources' => true } }
+    { success: true, capabilities: { "tools" => true, "resources" => true } }
   end
 
   def establish_http_connection
     # Placeholder for HTTP connection
-    { success: true, capabilities: { 'tools' => true, 'resources' => true } }
+    { success: true, capabilities: { "tools" => true, "resources" => true } }
   end
 
   def perform_health_check
@@ -449,7 +449,7 @@ class McpServer < ApplicationRecord
     ActionCable.server.broadcast(
       "mcp_server_#{id}",
       {
-        type: 'status_change',
+        type: "status_change",
         server_id: id,
         status: status,
         timestamp: Time.current.iso8601

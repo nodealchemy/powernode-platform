@@ -17,11 +17,11 @@ class FileStorage < ApplicationRecord
   validates :name, uniqueness: { scope: :account_id, case_sensitive: false }
   validates :provider_type, presence: true, inclusion: {
     in: %w[local s3 gcs azure ftp webdav custom],
-    message: 'must be a valid provider type'
+    message: "must be a valid provider type"
   }
   validates :status, presence: true, inclusion: {
     in: %w[active inactive maintenance failed],
-    message: 'must be a valid status'
+    message: "must be a valid status"
   }
   validates :priority, presence: true, numericality: {
     only_integer: true,
@@ -41,16 +41,16 @@ class FileStorage < ApplicationRecord
   attribute :health_details, :json, default: -> { {} }
 
   # Scopes
-  scope :active, -> { where(status: 'active') }
-  scope :inactive, -> { where(status: 'inactive') }
+  scope :active, -> { where(status: "active") }
+  scope :inactive, -> { where(status: "inactive") }
   scope :default, -> { where(is_default: true) }
-  scope :healthy, -> { where(health_status: 'healthy') }
-  scope :degraded, -> { where(health_status: 'degraded') }
-  scope :failed, -> { where(health_status: 'failed') }
+  scope :healthy, -> { where(health_status: "healthy") }
+  scope :degraded, -> { where(health_status: "degraded") }
+  scope :failed, -> { where(health_status: "failed") }
   scope :by_priority, -> { order(:priority, :created_at) }
   scope :by_type, ->(type) { where(provider_type: type) }
-  scope :available, -> { active.where('quota_bytes IS NULL OR total_size_bytes < quota_bytes') }
-  scope :with_space, -> { active.where('quota_bytes IS NULL OR (quota_bytes - total_size_bytes) > ?', 100.megabytes) }
+  scope :available, -> { active.where("quota_bytes IS NULL OR total_size_bytes < quota_bytes") }
+  scope :with_space, -> { active.where("quota_bytes IS NULL OR (quota_bytes - total_size_bytes) > ?", 100.megabytes) }
 
   # Callbacks
   before_validation :set_defaults, on: :create
@@ -61,49 +61,49 @@ class FileStorage < ApplicationRecord
 
   # Status methods
   def active?
-    status == 'active'
+    status == "active"
   end
 
   def inactive?
-    status == 'inactive'
+    status == "inactive"
   end
 
   def maintenance_mode?
-    status == 'maintenance'
+    status == "maintenance"
   end
 
   def failed?
-    status == 'failed'
+    status == "failed"
   end
 
   # Health methods
   def healthy?
-    health_status == 'healthy'
+    health_status == "healthy"
   end
 
   def degraded?
-    health_status == 'degraded'
+    health_status == "degraded"
   end
 
   def health_failed?
-    health_status == 'failed'
+    health_status == "failed"
   end
 
   # Provider type methods
   def local?
-    provider_type == 'local'
+    provider_type == "local"
   end
 
   def s3?
-    provider_type == 's3'
+    provider_type == "s3"
   end
 
   def gcs?
-    provider_type == 'gcs'
+    provider_type == "gcs"
   end
 
   def azure?
-    provider_type == 'azure'
+    provider_type == "azure"
   end
 
   def cloud?
@@ -125,7 +125,7 @@ class FileStorage < ApplicationRecord
   def available_space_bytes
     return Float::INFINITY unless quota_enabled?
 
-    [quota_bytes - total_size_bytes, 0].max
+    [ quota_bytes - total_size_bytes, 0 ].max
   end
 
   def available_space_percentage
@@ -173,14 +173,14 @@ class FileStorage < ApplicationRecord
       last_health_check_at: Time.current
     )
 
-    result[:status] == 'healthy'
+    result[:status] == "healthy"
   rescue StandardError => e
     update!(
-      health_status: 'failed',
+      health_status: "failed",
       health_details: {
-        'error' => e.message,
-        'error_class' => e.class.name,
-        'checked_at' => Time.current.iso8601
+        "error" => e.message,
+        "error_class" => e.class.name,
+        "checked_at" => Time.current.iso8601
       },
       last_health_check_at: Time.current
     )
@@ -218,11 +218,11 @@ class FileStorage < ApplicationRecord
 
   # Security methods
   def blocked_extensions
-    capabilities['blocked_extensions'] || default_blocked_extensions
+    capabilities["blocked_extensions"] || default_blocked_extensions
   end
 
   def blocked_mime_types
-    capabilities['blocked_mime_types'] || default_blocked_mime_types
+    capabilities["blocked_mime_types"] || default_blocked_mime_types
   end
 
   # Display methods
@@ -241,10 +241,10 @@ class FileStorage < ApplicationRecord
       files_count: files_count,
       total_size: human_file_size(total_size_bytes),
       total_size_bytes: total_size_bytes,
-      quota: quota_bytes ? human_file_size(quota_bytes) : 'Unlimited',
+      quota: quota_bytes ? human_file_size(quota_bytes) : "Unlimited",
       quota_bytes: quota_bytes,
       quota_used_percentage: quota_percentage_used,
-      available_space: quota_bytes ? human_file_size(available_space_bytes) : 'Unlimited',
+      available_space: quota_bytes ? human_file_size(available_space_bytes) : "Unlimited",
       priority: priority,
       last_health_check: last_health_check_at&.iso8601,
       created_at: created_at&.iso8601,
@@ -257,10 +257,10 @@ class FileStorage < ApplicationRecord
     return true if active?
 
     if perform_health_check!
-      update!(status: 'active')
+      update!(status: "active")
       true
     else
-      errors.add(:base, 'Cannot activate storage with failed health check')
+      errors.add(:base, "Cannot activate storage with failed health check")
       false
     end
   end
@@ -268,11 +268,11 @@ class FileStorage < ApplicationRecord
   def deactivate!
     return true if inactive?
 
-    update!(status: 'inactive')
+    update!(status: "inactive")
   end
 
   def maintenance_mode!
-    update!(status: 'maintenance')
+    update!(status: "maintenance")
   end
 
   # Test connection
@@ -289,7 +289,7 @@ class FileStorage < ApplicationRecord
   private
 
   def set_defaults
-    self.status ||= 'active'
+    self.status ||= "active"
     self.priority ||= 100
     self.configuration ||= {}
     self.capabilities ||= default_capabilities_for_provider
@@ -307,20 +307,20 @@ class FileStorage < ApplicationRecord
     return if configuration.blank?
 
     case provider_type
-    when 'local'
+    when "local"
       validate_local_configuration
-    when 's3'
+    when "s3"
       validate_s3_configuration
-    when 'gcs'
+    when "gcs"
       validate_gcs_configuration
-    when 'azure'
+    when "azure"
       validate_azure_configuration
     end
   end
 
   def validate_local_configuration
-    unless configuration['root_path'].present?
-      errors.add(:configuration, 'must include root_path for local storage')
+    unless configuration["root_path"].present?
+      errors.add(:configuration, "must include root_path for local storage")
     end
   end
 
@@ -334,8 +334,8 @@ class FileStorage < ApplicationRecord
   end
 
   def validate_gcs_configuration
-    unless configuration['bucket'].present?
-      errors.add(:configuration, 'must include bucket for GCS storage')
+    unless configuration["bucket"].present?
+      errors.add(:configuration, "must include bucket for GCS storage")
     end
   end
 
@@ -351,7 +351,7 @@ class FileStorage < ApplicationRecord
   def validate_quota_not_exceeded
     return unless quota_bytes.present? && total_size_bytes > quota_bytes
 
-    errors.add(:quota_bytes, 'quota has been exceeded')
+    errors.add(:quota_bytes, "quota has been exceeded")
   end
 
   def encrypt_sensitive_configuration
@@ -361,7 +361,7 @@ class FileStorage < ApplicationRecord
     sensitive_keys = %w[access_key_id secret_access_key credentials_json storage_access_key password api_key]
 
     sensitive_keys.each do |key|
-      next unless configuration[key].present? && !configuration[key].start_with?('encrypted:')
+      next unless configuration[key].present? && !configuration[key].start_with?("encrypted:")
 
       configuration[key] = encrypt_value(configuration[key])
     end
@@ -374,10 +374,10 @@ class FileStorage < ApplicationRecord
   end
 
   def decrypt_value(value)
-    return value unless value.to_s.start_with?('encrypted:')
+    return value unless value.to_s.start_with?("encrypted:")
 
     encryptor = AiCredentialEncryptionService.new
-    encrypted_value = value.to_s.sub('encrypted:', '')
+    encrypted_value = value.to_s.sub("encrypted:", "")
     encryptor.decrypt(encrypted_value)
   end
 
@@ -397,53 +397,53 @@ class FileStorage < ApplicationRecord
 
   def default_capabilities_for_provider
     case provider_type
-    when 'local'
+    when "local"
       {
-        'multipart_upload' => false,
-        'resumable_upload' => false,
-        'direct_upload' => false,
-        'cdn' => false,
-        'versioning' => true,
-        'encryption' => false,
-        'access_control' => true,
-        'signed_urls' => false,
-        'streaming' => true
+        "multipart_upload" => false,
+        "resumable_upload" => false,
+        "direct_upload" => false,
+        "cdn" => false,
+        "versioning" => true,
+        "encryption" => false,
+        "access_control" => true,
+        "signed_urls" => false,
+        "streaming" => true
       }
-    when 's3'
+    when "s3"
       {
-        'multipart_upload' => true,
-        'resumable_upload' => true,
-        'direct_upload' => true,
-        'cdn' => true,
-        'versioning' => true,
-        'encryption' => true,
-        'access_control' => true,
-        'signed_urls' => true,
-        'streaming' => true
+        "multipart_upload" => true,
+        "resumable_upload" => true,
+        "direct_upload" => true,
+        "cdn" => true,
+        "versioning" => true,
+        "encryption" => true,
+        "access_control" => true,
+        "signed_urls" => true,
+        "streaming" => true
       }
-    when 'gcs'
+    when "gcs"
       {
-        'multipart_upload' => true,
-        'resumable_upload' => true,
-        'direct_upload' => true,
-        'cdn' => true,
-        'versioning' => true,
-        'encryption' => true,
-        'access_control' => true,
-        'signed_urls' => true,
-        'streaming' => true
+        "multipart_upload" => true,
+        "resumable_upload" => true,
+        "direct_upload" => true,
+        "cdn" => true,
+        "versioning" => true,
+        "encryption" => true,
+        "access_control" => true,
+        "signed_urls" => true,
+        "streaming" => true
       }
-    when 'azure'
+    when "azure"
       {
-        'multipart_upload' => true,
-        'resumable_upload' => true,
-        'direct_upload' => true,
-        'cdn' => true,
-        'versioning' => true,
-        'encryption' => true,
-        'access_control' => true,
-        'signed_urls' => true,
-        'streaming' => true
+        "multipart_upload" => true,
+        "resumable_upload" => true,
+        "direct_upload" => true,
+        "cdn" => true,
+        "versioning" => true,
+        "encryption" => true,
+        "access_control" => true,
+        "signed_urls" => true,
+        "streaming" => true
       }
     else
       {}
@@ -451,13 +451,13 @@ class FileStorage < ApplicationRecord
   end
 
   def human_file_size(bytes)
-    return '0 B' if bytes.zero?
+    return "0 B" if bytes.zero?
 
     units = %w[B KB MB GB TB PB]
     exp = (Math.log(bytes) / Math.log(1024)).to_i
-    exp = [exp, units.size - 1].min
+    exp = [ exp, units.size - 1 ].min
 
-    format('%.2f %s', bytes.to_f / (1024**exp), units[exp])
+    format("%.2f %s", bytes.to_f / (1024**exp), units[exp])
   end
 
   def default_blocked_extensions

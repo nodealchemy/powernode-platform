@@ -128,7 +128,7 @@ RSpec.describe RolePermission, type: :model do
       edit_permission = create(:permission, name: "posts.edit")
 
       initial_count = RolePermission.count
-      
+
       # Create first assignment
       first_assignment = create(:role_permission, role: manager_role, permission: edit_permission)
 

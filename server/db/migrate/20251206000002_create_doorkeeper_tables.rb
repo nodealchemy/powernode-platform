@@ -64,7 +64,7 @@ class CreateDoorkeeperTables < ActiveRecord::Migration[8.0]
       t.index :token, unique: true
       t.index :refresh_token, unique: true
       # Note: resource_owner_id index is already created by t.references
-      t.index [:application_id, :created_at]
+      t.index [ :application_id, :created_at ]
       t.index :revoked_at
     end
 

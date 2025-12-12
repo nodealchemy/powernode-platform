@@ -67,7 +67,7 @@ class CreateMarketplaceInfrastructure < ActiveRecord::Migration[8.0]
       t.jsonb :metadata, default: {}
       t.timestamps null: false
 
-      t.index [:app_id, :slug], unique: true, name: 'idx_app_plans_on_app_slug_unique'
+      t.index [ :app_id, :slug ], unique: true, name: 'idx_app_plans_on_app_slug_unique'
       t.index :is_public, name: 'idx_app_plans_on_is_public'
       t.index :is_active, name: 'idx_app_plans_on_is_active'
     end
@@ -85,7 +85,7 @@ class CreateMarketplaceInfrastructure < ActiveRecord::Migration[8.0]
       t.jsonb :dependencies, default: []
       t.timestamps null: false
 
-      t.index [:app_id, :slug], unique: true, name: 'idx_app_features_on_app_slug_unique'
+      t.index [ :app_id, :slug ], unique: true, name: 'idx_app_features_on_app_slug_unique'
       t.index :feature_type, name: 'idx_app_features_on_feature_type'
     end
 
@@ -128,7 +128,7 @@ class CreateMarketplaceInfrastructure < ActiveRecord::Migration[8.0]
       t.jsonb :usage_metrics, default: {}
       t.timestamps null: false
 
-      t.index [:account_id, :app_id], unique: true, name: 'idx_app_subscriptions_on_account_app_unique'
+      t.index [ :account_id, :app_id ], unique: true, name: 'idx_app_subscriptions_on_account_app_unique'
       t.index :status, name: 'idx_app_subscriptions_on_status'
       t.index :next_billing_at, name: 'idx_app_subscriptions_on_next_billing_at'
     end
@@ -150,13 +150,13 @@ class CreateMarketplaceInfrastructure < ActiveRecord::Migration[8.0]
       t.jsonb :metadata, default: {}
       t.timestamps null: false
 
-      t.index [:app_id, :http_method, :path], unique: true, name: 'index_app_endpoints_unique'
-      t.index [:app_id, :slug], unique: true, name: 'idx_app_endpoints_on_app_slug_unique'
-      t.index [:app_id], name: 'idx_app_endpoints_on_app_id'
-      t.index [:http_method], name: 'idx_app_endpoints_on_http_method'
-      t.index [:is_public], name: 'idx_app_endpoints_on_is_public'
-      t.index [:is_active], name: 'idx_app_endpoints_on_is_active'
-      t.index [:version], name: 'idx_app_endpoints_on_version'
+      t.index [ :app_id, :http_method, :path ], unique: true, name: 'index_app_endpoints_unique'
+      t.index [ :app_id, :slug ], unique: true, name: 'idx_app_endpoints_on_app_slug_unique'
+      t.index [ :app_id ], name: 'idx_app_endpoints_on_app_id'
+      t.index [ :http_method ], name: 'idx_app_endpoints_on_http_method'
+      t.index [ :is_public ], name: 'idx_app_endpoints_on_is_public'
+      t.index [ :is_active ], name: 'idx_app_endpoints_on_is_active'
+      t.index [ :version ], name: 'idx_app_endpoints_on_version'
     end
 
     # Create app_webhooks table
@@ -177,11 +177,11 @@ class CreateMarketplaceInfrastructure < ActiveRecord::Migration[8.0]
       t.jsonb :metadata, default: {}
       t.timestamps null: false
 
-      t.index [:app_id, :event_type], name: 'idx_app_webhooks_on_app_event_type'
-      t.index [:app_id, :slug], unique: true, name: 'idx_app_webhooks_on_app_slug_unique'
-      t.index [:app_id], name: 'idx_app_webhooks_on_app_id'
-      t.index [:event_type], name: 'idx_app_webhooks_on_event_type'
-      t.index [:is_active], name: 'idx_app_webhooks_on_is_active'
+      t.index [ :app_id, :event_type ], name: 'idx_app_webhooks_on_app_event_type'
+      t.index [ :app_id, :slug ], unique: true, name: 'idx_app_webhooks_on_app_slug_unique'
+      t.index [ :app_id ], name: 'idx_app_webhooks_on_app_id'
+      t.index [ :event_type ], name: 'idx_app_webhooks_on_event_type'
+      t.index [ :is_active ], name: 'idx_app_webhooks_on_is_active'
     end
 
     # Create app_endpoint_calls table - API usage tracking
@@ -202,10 +202,10 @@ class CreateMarketplaceInfrastructure < ActiveRecord::Migration[8.0]
       t.jsonb :response_headers, default: {}
       t.timestamps null: false
 
-      t.index [:app_endpoint_id], name: 'idx_app_endpoint_calls_on_app_endpoint_id'
-      t.index [:account_id], name: 'idx_app_endpoint_calls_on_account_id'
-      t.index [:called_at], name: 'idx_app_endpoint_calls_on_called_at'
-      t.index [:status_code], name: 'idx_app_endpoint_calls_on_status_code'
+      t.index [ :app_endpoint_id ], name: 'idx_app_endpoint_calls_on_app_endpoint_id'
+      t.index [ :account_id ], name: 'idx_app_endpoint_calls_on_account_id'
+      t.index [ :called_at ], name: 'idx_app_endpoint_calls_on_called_at'
+      t.index [ :status_code ], name: 'idx_app_endpoint_calls_on_status_code'
     end
 
     # Create app_webhook_deliveries table - Webhook delivery tracking
@@ -223,11 +223,11 @@ class CreateMarketplaceInfrastructure < ActiveRecord::Migration[8.0]
       t.jsonb :payload, default: {}
       t.timestamps null: false
 
-      t.index [:app_webhook_id], name: 'idx_app_webhook_deliveries_on_app_webhook_id'
-      t.index [:event_id], name: 'idx_app_webhook_deliveries_on_event_id'
-      t.index [:status], name: 'idx_app_webhook_deliveries_on_status'
-      t.index [:attempted_at], name: 'idx_app_webhook_deliveries_on_attempted_at'
-      t.index [:next_retry_at], name: 'idx_app_webhook_deliveries_on_next_retry_at'
+      t.index [ :app_webhook_id ], name: 'idx_app_webhook_deliveries_on_app_webhook_id'
+      t.index [ :event_id ], name: 'idx_app_webhook_deliveries_on_event_id'
+      t.index [ :status ], name: 'idx_app_webhook_deliveries_on_status'
+      t.index [ :attempted_at ], name: 'idx_app_webhook_deliveries_on_attempted_at'
+      t.index [ :next_retry_at ], name: 'idx_app_webhook_deliveries_on_next_retry_at'
     end
 
     # Create app_analytics table - App metrics and analytics
@@ -240,9 +240,9 @@ class CreateMarketplaceInfrastructure < ActiveRecord::Migration[8.0]
       t.jsonb :dimensions, default: {}
       t.jsonb :metadata, default: {}
 
-      t.index [:app_id, :metric_name, :recorded_at], name: 'idx_app_analytics_on_app_metric_recorded_at'
-      t.index [:metric_name], name: 'idx_app_analytics_on_metric_name'
-      t.index [:recorded_at], name: 'idx_app_analytics_on_recorded_at'
+      t.index [ :app_id, :metric_name, :recorded_at ], name: 'idx_app_analytics_on_app_metric_recorded_at'
+      t.index [ :metric_name ], name: 'idx_app_analytics_on_metric_name'
+      t.index [ :recorded_at ], name: 'idx_app_analytics_on_recorded_at'
     end
 
     # Add check constraints

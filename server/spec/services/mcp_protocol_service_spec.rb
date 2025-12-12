@@ -31,8 +31,8 @@ RSpec.describe McpProtocolService, type: :service do
   end
 
   describe '#list_tools' do
-    let(:ai_provider) { create(:ai_provider, account: account, provider_type: 'openai', capabilities: ['text_generation', 'chat']) }
-    let!(:agent) { create(:ai_agent, account: account, ai_provider: ai_provider, mcp_capabilities: ['text_generation']) }
+    let(:ai_provider) { create(:ai_provider, account: account, provider_type: 'openai', capabilities: [ 'text_generation', 'chat' ]) }
+    let!(:agent) { create(:ai_agent, account: account, ai_provider: ai_provider, mcp_capabilities: [ 'text_generation' ]) }
 
     before do
       # Create credentials for the provider
@@ -67,8 +67,8 @@ RSpec.describe McpProtocolService, type: :service do
   end
 
   describe '#describe_tool' do
-    let(:ai_provider) { create(:ai_provider, account: account, provider_type: 'openai', capabilities: ['text_generation', 'chat']) }
-    let!(:agent) { create(:ai_agent, account: account, ai_provider: ai_provider, mcp_capabilities: ['text_generation']) }
+    let(:ai_provider) { create(:ai_provider, account: account, provider_type: 'openai', capabilities: [ 'text_generation', 'chat' ]) }
+    let!(:agent) { create(:ai_agent, account: account, ai_provider: ai_provider, mcp_capabilities: [ 'text_generation' ]) }
     let(:tool_id) { agent.mcp_tool_manifest['name'] }
 
     before do
@@ -99,8 +99,8 @@ RSpec.describe McpProtocolService, type: :service do
   end
 
   describe '#invoke_tool' do
-    let(:ai_provider) { create(:ai_provider, account: account, provider_type: 'openai', capabilities: ['text_generation', 'chat']) }
-    let!(:agent) { create(:ai_agent, account: account, ai_provider: ai_provider, mcp_capabilities: ['text_generation']) }
+    let(:ai_provider) { create(:ai_provider, account: account, provider_type: 'openai', capabilities: [ 'text_generation', 'chat' ]) }
+    let!(:agent) { create(:ai_agent, account: account, ai_provider: ai_provider, mcp_capabilities: [ 'text_generation' ]) }
     let(:tool_id) { agent.mcp_tool_manifest['name'] }
     let(:params) { { 'input' => 'test input' } }
     let(:options) { { user_id: user.id } }
@@ -141,9 +141,9 @@ RSpec.describe McpProtocolService, type: :service do
       result = service.invoke_tool(tool_id, params, options)
 
       expect(result).to include(
-        :jsonrpc => '2.0',
-        :id => be_a(String),
-        :result => be_a(Hash)
+        jsonrpc: '2.0',
+        id: be_a(String),
+        result: be_a(Hash)
       )
       expect(result[:result]).to include('output' => be_a(String))
     end

@@ -58,7 +58,7 @@ module Mcp
     # Record workflow execution started
     def record_execution_started
       record_event(
-        event_type: 'workflow.execution.started',
+        event_type: "workflow.execution.started",
         event_data: {
           workflow_id: @workflow_run.ai_workflow_id,
           workflow_name: @workflow_run.ai_workflow.name,
@@ -74,11 +74,11 @@ module Mcp
     # @param result [Hash] Execution result
     def record_execution_completed(result)
       record_event(
-        event_type: 'workflow.execution.completed',
+        event_type: "workflow.execution.completed",
         event_data: {
           workflow_id: @workflow_run.ai_workflow_id,
           run_id: @workflow_run.run_id,
-          status: 'completed',
+          status: "completed",
           duration_ms: result[:duration_ms],
           node_count: result[:node_count],
           total_cost: result[:total_cost],
@@ -92,11 +92,11 @@ module Mcp
     # @param error [StandardError] Error that occurred
     def record_execution_failed(error)
       record_event(
-        event_type: 'workflow.execution.failed',
+        event_type: "workflow.execution.failed",
         event_data: {
           workflow_id: @workflow_run.ai_workflow_id,
           run_id: @workflow_run.run_id,
-          status: 'failed',
+          status: "failed",
           error_message: error.message,
           error_class: error.class.name,
           backtrace: error.backtrace&.first(10)
@@ -110,7 +110,7 @@ module Mcp
     # @param to_state [String] New state
     def record_state_transition(from_state, to_state)
       record_event(
-        event_type: 'workflow.state.transitioned',
+        event_type: "workflow.state.transitioned",
         event_data: {
           workflow_id: @workflow_run.ai_workflow_id,
           run_id: @workflow_run.run_id,
@@ -126,7 +126,7 @@ module Mcp
     # @param node_execution [AiWorkflowNodeExecution] Execution record
     def record_node_started(node, node_execution)
       record_event(
-        event_type: 'node.execution.started',
+        event_type: "node.execution.started",
         event_data: {
           workflow_id: @workflow_run.ai_workflow_id,
           run_id: @workflow_run.run_id,
@@ -146,7 +146,7 @@ module Mcp
     # @param result [Hash] Execution result
     def record_node_completed(node, node_execution, result)
       record_event(
-        event_type: 'node.execution.completed',
+        event_type: "node.execution.completed",
         event_data: {
           workflow_id: @workflow_run.ai_workflow_id,
           run_id: @workflow_run.run_id,
@@ -168,7 +168,7 @@ module Mcp
     # @param error [StandardError] Error that occurred
     def record_node_failed(node, node_execution, error)
       record_event(
-        event_type: 'node.execution.failed',
+        event_type: "node.execution.failed",
         event_data: {
           workflow_id: @workflow_run.ai_workflow_id,
           run_id: @workflow_run.run_id,
@@ -190,7 +190,7 @@ module Mcp
     # @param reason [String] Retry reason
     def record_retry_attempt(node_id, attempt, reason)
       record_event(
-        event_type: 'node.retry.attempted',
+        event_type: "node.retry.attempted",
         event_data: {
           workflow_id: @workflow_run.ai_workflow_id,
           run_id: @workflow_run.run_id,
@@ -207,7 +207,7 @@ module Mcp
     # @param context [Hash] Error context
     def record_error(error, context = {})
       record_event(
-        event_type: 'error.occurred',
+        event_type: "error.occurred",
         event_data: {
           workflow_id: @workflow_run.ai_workflow_id,
           run_id: @workflow_run.run_id,
@@ -225,7 +225,7 @@ module Mcp
     # @param reason [String] Compensation reason
     def record_compensation(node_id, reason)
       record_event(
-        event_type: 'compensation.triggered',
+        event_type: "compensation.triggered",
         event_data: {
           workflow_id: @workflow_run.ai_workflow_id,
           run_id: @workflow_run.run_id,
@@ -245,7 +245,7 @@ module Mcp
     # @param event_data [Hash] Event data
     # @param metadata [Hash] Additional metadata
     def record_event(event_type:, event_data: {}, metadata: {})
-      with_monitoring('event_recording', event_type: event_type) do
+      with_monitoring("event_recording", event_type: event_type) do
         # Increment sequence
         @event_sequence += 1
 
@@ -433,13 +433,13 @@ module Mcp
     def determine_log_level(event_type)
       case event_type
       when /failed|error/
-        'error'
+        "error"
       when /retry|compensation/
-        'warn'
+        "warn"
       when /started|completed/
-        'info'
+        "info"
       else
-        'debug'
+        "debug"
       end
     end
 
@@ -449,17 +449,17 @@ module Mcp
     # @return [String] Event summary
     def summarize_event(event)
       case event[:event_type]
-      when 'workflow.execution.started'
+      when "workflow.execution.started"
         "Workflow execution started: #{event[:event_data][:workflow_name]}"
-      when 'workflow.execution.completed'
+      when "workflow.execution.completed"
         "Workflow execution completed (#{event[:event_data][:duration_ms]}ms)"
-      when 'workflow.execution.failed'
+      when "workflow.execution.failed"
         "Workflow execution failed: #{event[:event_data][:error_message]}"
-      when 'node.execution.started'
+      when "node.execution.started"
         "Node started: #{event[:event_data][:node_name]} (#{event[:event_data][:node_type]})"
-      when 'node.execution.completed'
+      when "node.execution.completed"
         "Node completed: #{event[:event_data][:node_name]} (#{event[:event_data][:duration_ms]}ms)"
-      when 'node.execution.failed'
+      when "node.execution.failed"
         "Node failed: #{event[:event_data][:node_name]} - #{event[:event_data][:error_message]}"
       else
         event[:event_type]
@@ -470,7 +470,7 @@ module Mcp
     #
     # @return [Integer, nil] Duration in milliseconds
     def calculate_duration_from_events
-      start_event = @events.find { |e| e[:event_type] == 'workflow.execution.started' }
+      start_event = @events.find { |e| e[:event_type] == "workflow.execution.started" }
       end_event = @events.find { |e| e[:event_type] =~ /workflow.execution.(completed|failed)/ }
 
       return nil unless start_event && end_event
@@ -482,7 +482,7 @@ module Mcp
     #
     # @return [Integer] Number of nodes executed
     def count_nodes_executed
-      @events.count { |e| e[:event_type] == 'node.execution.started' }
+      @events.count { |e| e[:event_type] == "node.execution.started" }
     end
 
     # Count errors
@@ -496,7 +496,7 @@ module Mcp
     #
     # @return [Integer] Number of retries
     def count_retries
-      @events.count { |e| e[:event_type] == 'node.retry.attempted' }
+      @events.count { |e| e[:event_type] == "node.retry.attempted" }
     end
 
     # Get event type counts
@@ -511,7 +511,7 @@ module Mcp
     #
     # @return [String] CSV representation
     def events_to_csv
-      require 'csv'
+      require "csv"
 
       CSV.generate do |csv|
         # Headers

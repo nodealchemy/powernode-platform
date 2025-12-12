@@ -34,13 +34,13 @@ module Api
           send_data file_content,
                     filename: @file_object.filename,
                     type: @file_object.content_type,
-                    disposition: 'attachment'
+                    disposition: "attachment"
 
         rescue FileStorageService::FileNotFoundError => e
           render_error(e.message, status: :not_found)
         rescue StandardError => e
           Rails.logger.error "[WorkerFilesController] Download failed: #{e.message}"
-          render_error('File download failed', status: :internal_server_error)
+          render_error("File download failed", status: :internal_server_error)
         end
 
         # PATCH /api/v1/worker/files/:id
@@ -63,19 +63,19 @@ module Api
           if @file_object.update(update_params)
             render_success({ file: @file_object.file_summary })
           else
-            render_validation_error(@file_object.errors.full_messages.join(', '))
+            render_validation_error(@file_object.errors.full_messages.join(", "))
           end
 
         rescue StandardError => e
           Rails.logger.error "[WorkerFilesController] Update failed: #{e.message}"
-          render_error('File update failed', status: :internal_server_error)
+          render_error("File update failed", status: :internal_server_error)
         end
 
         # POST /api/v1/worker/files/:id/processed
         # Uploads processed file results (thumbnails, transcoded versions, etc.)
         def processed
           unless params[:file_content]
-            return render_validation_error('file_content is required', field: 'file_content')
+            return render_validation_error("file_content is required", field: "file_content")
           end
 
           # Decode base64 file content
@@ -83,13 +83,13 @@ module Api
 
           # Get metadata
           metadata = params[:metadata] || {}
-          storage_key = metadata['storage_key'] || "processed/#{@file_object.id}/#{SecureRandom.hex(8)}"
+          storage_key = metadata["storage_key"] || "processed/#{@file_object.id}/#{SecureRandom.hex(8)}"
 
           # Upload to storage
           file_service = FileStorageService.new(@file_object.account, storage_config: @file_object.file_storage)
 
           # Create temp file
-          temp_file = Tempfile.new(['processed', '.tmp'], binmode: true)
+          temp_file = Tempfile.new([ "processed", ".tmp" ], binmode: true)
           temp_file.write(file_content)
           temp_file.rewind
 
@@ -101,19 +101,19 @@ module Api
           temp_file.unlink
 
           # Update file metadata with processed file reference
-          processed_files = @file_object.metadata['processed_files'] || []
+          processed_files = @file_object.metadata["processed_files"] || []
           processed_files << {
-            type: metadata['type'],
-            size: metadata['size'],
+            type: metadata["type"],
+            size: metadata["size"],
             storage_key: storage_key,
             created_at: Time.current.iso8601
           }
 
-          @file_object.update!(metadata: @file_object.metadata.merge('processed_files' => processed_files))
+          @file_object.update!(metadata: @file_object.metadata.merge("processed_files" => processed_files))
 
           render_success(
             {
-              message: 'Processed file uploaded successfully',
+              message: "Processed file uploaded successfully",
               storage_key: storage_key,
               file: @file_object.file_summary
             },
@@ -121,10 +121,10 @@ module Api
           )
 
         rescue ArgumentError => e
-          render_validation_error('Invalid base64 file_content', field: 'file_content')
+          render_validation_error("Invalid base64 file_content", field: "file_content")
         rescue StandardError => e
           Rails.logger.error "[WorkerFilesController] Processed file upload failed: #{e.message}"
-          render_error('Failed to upload processed file', status: :internal_server_error)
+          render_error("Failed to upload processed file", status: :internal_server_error)
         end
 
         private
@@ -133,7 +133,7 @@ module Api
           @file_object = FileObject.find_by(id: params[:id])
 
           unless @file_object
-            render_error('File not found', status: :not_found)
+            render_error("File not found", status: :not_found)
           end
         end
       end

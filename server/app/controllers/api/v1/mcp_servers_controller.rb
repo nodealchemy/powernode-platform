@@ -4,9 +4,9 @@ class Api::V1::McpServersController < ApplicationController
   include AuditLogging
 
   before_action :authenticate_request
-  before_action :require_read_permission, only: [:index, :show, :health_check, :for_workflow_builder]
-  before_action :require_write_permission, only: [:create, :update, :destroy, :connect, :disconnect, :discover_tools]
-  before_action :set_mcp_server, only: [:show, :update, :destroy, :connect, :disconnect, :health_check, :discover_tools]
+  before_action :require_read_permission, only: [ :index, :show, :health_check, :for_workflow_builder ]
+  before_action :require_write_permission, only: [ :create, :update, :destroy, :connect, :disconnect, :discover_tools ]
+  before_action :set_mcp_server, only: [ :show, :update, :destroy, :connect, :disconnect, :health_check, :discover_tools ]
 
   # GET /api/v1/mcp_servers
   def index
@@ -22,16 +22,16 @@ class Api::V1::McpServersController < ApplicationController
       mcp_servers: servers.map { |server| serialize_mcp_server(server) },
       meta: {
         total: servers.count,
-        connected_count: current_user.account.mcp_servers.where(status: 'connected').count,
-        disconnected_count: current_user.account.mcp_servers.where(status: 'disconnected').count,
-        error_count: current_user.account.mcp_servers.where(status: 'error').count
+        connected_count: current_user.account.mcp_servers.where(status: "connected").count,
+        disconnected_count: current_user.account.mcp_servers.where(status: "disconnected").count,
+        error_count: current_user.account.mcp_servers.where(status: "error").count
       }
     })
 
-    log_audit_event('mcp.servers.read', current_user.account)
+    log_audit_event("mcp.servers.read", current_user.account)
   rescue => e
     Rails.logger.error "Failed to list MCP servers: #{e.message}"
-    render_error('Failed to list MCP servers', status: :internal_server_error)
+    render_error("Failed to list MCP servers", status: :internal_server_error)
   end
 
   # GET /api/v1/mcp_servers/:id
@@ -40,10 +40,10 @@ class Api::V1::McpServersController < ApplicationController
       mcp_server: serialize_mcp_server(@mcp_server, include_tools: true)
     })
 
-    log_audit_event('mcp.servers.read', @mcp_server)
+    log_audit_event("mcp.servers.read", @mcp_server)
   rescue => e
     Rails.logger.error "Failed to get MCP server: #{e.message}"
-    render_error('Failed to get MCP server', status: :internal_server_error)
+    render_error("Failed to get MCP server", status: :internal_server_error)
   end
 
   # POST /api/v1/mcp_servers
@@ -53,16 +53,16 @@ class Api::V1::McpServersController < ApplicationController
     if server.save
       render_success({
         mcp_server: serialize_mcp_server(server),
-        message: 'MCP server created successfully'
+        message: "MCP server created successfully"
       }, status: :created)
 
-      log_audit_event('mcp.servers.create', server)
+      log_audit_event("mcp.servers.create", server)
     else
       render_validation_error(server.errors)
     end
   rescue => e
     Rails.logger.error "Failed to create MCP server: #{e.message}"
-    render_error('Failed to create MCP server', status: :internal_server_error)
+    render_error("Failed to create MCP server", status: :internal_server_error)
   end
 
   # PATCH/PUT /api/v1/mcp_servers/:id
@@ -70,16 +70,16 @@ class Api::V1::McpServersController < ApplicationController
     if @mcp_server.update(mcp_server_params)
       render_success({
         mcp_server: serialize_mcp_server(@mcp_server),
-        message: 'MCP server updated successfully'
+        message: "MCP server updated successfully"
       })
 
-      log_audit_event('mcp.servers.update', @mcp_server)
+      log_audit_event("mcp.servers.update", @mcp_server)
     else
       render_validation_error(@mcp_server.errors)
     end
   rescue => e
     Rails.logger.error "Failed to update MCP server: #{e.message}"
-    render_error('Failed to update MCP server', status: :internal_server_error)
+    render_error("Failed to update MCP server", status: :internal_server_error)
   end
 
   # DELETE /api/v1/mcp_servers/:id
@@ -87,13 +87,13 @@ class Api::V1::McpServersController < ApplicationController
     @mcp_server.destroy!
 
     render_success({
-      message: 'MCP server deleted successfully'
+      message: "MCP server deleted successfully"
     })
 
-    log_audit_event('mcp.servers.delete', @mcp_server)
+    log_audit_event("mcp.servers.delete", @mcp_server)
   rescue => e
     Rails.logger.error "Failed to delete MCP server: #{e.message}"
-    render_error('Failed to delete MCP server', status: :internal_server_error)
+    render_error("Failed to delete MCP server", status: :internal_server_error)
   end
 
   # POST /api/v1/mcp_servers/:id/connect
@@ -103,13 +103,13 @@ class Api::V1::McpServersController < ApplicationController
 
       render_success({
         mcp_server: serialize_mcp_server(@mcp_server, include_tools: true),
-        message: 'MCP server connected successfully'
+        message: "MCP server connected successfully"
       })
 
-      log_audit_event('mcp.servers.connect', @mcp_server)
+      log_audit_event("mcp.servers.connect", @mcp_server)
     rescue StandardError => e
       Rails.logger.error "Failed to connect to MCP server: #{e.message}"
-      @mcp_server.update(status: 'error', last_error: e.message)
+      @mcp_server.update(status: "error", last_error: e.message)
       render_error("Failed to connect: #{e.message}", status: :unprocessable_content)
     end
   end
@@ -121,10 +121,10 @@ class Api::V1::McpServersController < ApplicationController
 
       render_success({
         mcp_server: serialize_mcp_server(@mcp_server),
-        message: 'MCP server disconnected successfully'
+        message: "MCP server disconnected successfully"
       })
 
-      log_audit_event('mcp.servers.disconnect', @mcp_server)
+      log_audit_event("mcp.servers.disconnect", @mcp_server)
     rescue StandardError => e
       Rails.logger.error "Failed to disconnect from MCP server: #{e.message}"
       render_error("Failed to disconnect: #{e.message}", status: :unprocessable_content)
@@ -145,7 +145,7 @@ class Api::V1::McpServersController < ApplicationController
         checked_at: Time.current
       })
 
-      log_audit_event('mcp.servers.health_check', @mcp_server)
+      log_audit_event("mcp.servers.health_check", @mcp_server)
     rescue => e
       Rails.logger.error "Health check failed: #{e.message}"
       render_error("Health check failed: #{e.message}", status: :internal_server_error)
@@ -164,7 +164,7 @@ class Api::V1::McpServersController < ApplicationController
         message: "Discovered #{tools.count} tools"
       })
 
-      log_audit_event('mcp.servers.discover_tools', @mcp_server)
+      log_audit_event("mcp.servers.discover_tools", @mcp_server)
     rescue StandardError => e
       Rails.logger.error "Failed to discover tools: #{e.message}"
       render_error("Failed to discover tools: #{e.message}", status: :unprocessable_content)
@@ -176,7 +176,7 @@ class Api::V1::McpServersController < ApplicationController
   def for_workflow_builder
     servers = current_user.account.mcp_servers
                           .includes(:mcp_tools)
-                          .where(status: 'connected')
+                          .where(status: "connected")
                           .order(:name)
 
     render_success({
@@ -187,10 +187,10 @@ class Api::V1::McpServersController < ApplicationController
       }
     })
 
-    log_audit_event('mcp.servers.workflow_builder_read', current_user.account)
+    log_audit_event("mcp.servers.workflow_builder_read", current_user.account)
   rescue => e
     Rails.logger.error "Failed to load MCP servers for workflow builder: #{e.message}"
-    render_error('Failed to load MCP servers', status: :internal_server_error)
+    render_error("Failed to load MCP servers", status: :internal_server_error)
   end
 
   private
@@ -198,18 +198,18 @@ class Api::V1::McpServersController < ApplicationController
   def set_mcp_server
     @mcp_server = current_user.account.mcp_servers.find(params[:id])
   rescue ActiveRecord::RecordNotFound
-    render_error('MCP server not found', status: :not_found)
+    render_error("MCP server not found", status: :not_found)
   end
 
   def require_read_permission
-    unless current_user.has_permission?('mcp.servers.read')
-      render_error('Insufficient permissions to view MCP servers', status: :forbidden)
+    unless current_user.has_permission?("mcp.servers.read")
+      render_error("Insufficient permissions to view MCP servers", status: :forbidden)
     end
   end
 
   def require_write_permission
-    unless current_user.has_permission?('mcp.servers.write')
-      render_error('Insufficient permissions to manage MCP servers', status: :forbidden)
+    unless current_user.has_permission?("mcp.servers.write")
+      render_error("Insufficient permissions to manage MCP servers", status: :forbidden)
     end
   end
 
@@ -290,25 +290,25 @@ class Api::V1::McpServersController < ApplicationController
 
   def extract_resources_from_capabilities(server)
     capabilities = server.capabilities || {}
-    resources = capabilities['resources'] || capabilities[:resources] || []
+    resources = capabilities["resources"] || capabilities[:resources] || []
     resources.map do |resource|
       {
-        uri: resource['uri'] || resource[:uri],
-        name: resource['name'] || resource[:name],
-        description: resource['description'] || resource[:description],
-        mime_type: resource['mimeType'] || resource[:mimeType]
+        uri: resource["uri"] || resource[:uri],
+        name: resource["name"] || resource[:name],
+        description: resource["description"] || resource[:description],
+        mime_type: resource["mimeType"] || resource[:mimeType]
       }
     end
   end
 
   def extract_prompts_from_capabilities(server)
     capabilities = server.capabilities || {}
-    prompts = capabilities['prompts'] || capabilities[:prompts] || []
+    prompts = capabilities["prompts"] || capabilities[:prompts] || []
     prompts.map do |prompt|
       {
-        name: prompt['name'] || prompt[:name],
-        description: prompt['description'] || prompt[:description],
-        arguments: prompt['arguments'] || prompt[:arguments] || []
+        name: prompt["name"] || prompt[:name],
+        description: prompt["description"] || prompt[:description],
+        arguments: prompt["arguments"] || prompt[:arguments] || []
       }
     end
   end

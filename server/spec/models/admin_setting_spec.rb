@@ -67,7 +67,7 @@ RSpec.describe AdminSetting, type: :model do
     it 'can check boolean values' do
       true_setting = AdminSetting.create!(key: 'enabled', value: 'true')
       false_setting = AdminSetting.create!(key: 'disabled', value: 'false')
-      
+
       expect(true_setting.value == 'true').to be true
       expect(false_setting.value == 'false').to be true
     end
@@ -83,10 +83,10 @@ RSpec.describe AdminSetting, type: :model do
     it 'updates timestamp on value change' do
       setting = AdminSetting.create!(key: 'changeable', value: 'original')
       original_time = setting.updated_at
-      
+
       sleep(0.1) # Ensure time difference
       setting.update!(value: 'changed')
-      
+
       expect(setting.updated_at).to be > original_time
     end
   end

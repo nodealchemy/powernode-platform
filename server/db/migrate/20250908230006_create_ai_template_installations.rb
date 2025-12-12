@@ -21,7 +21,7 @@ class CreateAiTemplateInstallations < ActiveRecord::Migration[8.0]
       t.index :user_id
       t.index :ai_agent_id
       t.index :installation_status
-      t.index [:account_id, :ai_agent_template_id], unique: true
+      t.index [ :account_id, :ai_agent_template_id ], unique: true
       t.index :installed_at
       t.index :last_used_at
 

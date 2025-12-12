@@ -23,10 +23,10 @@ class AiConversation < ApplicationRecord
   validates :websocket_channel, format: { with: /\A[a-z0-9_\-]+\z/ }, allow_blank: true
 
   # Scopes
-  scope :active, -> { where(status: 'active') }
-  scope :paused, -> { where(status: 'paused') }
-  scope :completed, -> { where(status: 'completed') }
-  scope :archived, -> { where(status: 'archived') }
+  scope :active, -> { where(status: "active") }
+  scope :paused, -> { where(status: "paused") }
+  scope :completed, -> { where(status: "completed") }
+  scope :archived, -> { where(status: "archived") }
   scope :collaborative, -> { where(is_collaborative: true) }
   scope :recent, -> { order(last_activity_at: :desc) }
   scope :for_user, ->(user) { where(user: user) }
@@ -40,7 +40,7 @@ class AiConversation < ApplicationRecord
 
   # Methods
   def active?
-    status == 'active'
+    status == "active"
   end
 
   def can_send_message?
@@ -48,8 +48,8 @@ class AiConversation < ApplicationRecord
   end
 
   def add_message(role, content, user: nil, **options)
-    raise ArgumentError, 'Cannot add message to inactive conversation' unless can_send_message?
-    
+    raise ArgumentError, "Cannot add message to inactive conversation" unless can_send_message?
+
     message = ai_messages.build(
       user: user,
       message_id: UUID7.generate,
@@ -58,7 +58,7 @@ class AiConversation < ApplicationRecord
       sequence_number: next_sequence_number,
       **options
     )
-    
+
     if message.save
       increment_message_count!
       update_activity_timestamp!
@@ -70,62 +70,62 @@ class AiConversation < ApplicationRecord
   end
 
   def add_user_message(content, user:, **options)
-    add_message('user', content, user: user, **options)
+    add_message("user", content, user: user, **options)
   end
 
   def add_assistant_message(content, **options)
-    add_message('assistant', content, **options)
+    add_message("assistant", content, **options)
   end
 
   def add_system_message(content, **options)
-    add_message('system', content, **options)
+    add_message("system", content, **options)
   end
 
   def pause_conversation!
-    update!(status: 'paused')
+    update!(status: "paused")
   end
 
   def resume_conversation!
-    update!(status: 'active')
+    update!(status: "active")
   end
 
   def complete_conversation!(summary = nil)
     update!(
-      status: 'completed',
+      status: "completed",
       summary: summary || generate_summary
     )
   end
 
   def archive_conversation!
-    update!(status: 'archived')
+    update!(status: "archived")
   end
 
   def add_participant(user)
     return false unless is_collaborative?
     return false if participants.include?(user.id)
-    
-    new_participants = participants + [user.id]
+
+    new_participants = participants + [ user.id ]
     update!(participants: new_participants)
   end
 
   def remove_participant(user)
     return false unless is_collaborative?
-    
-    new_participants = participants - [user.id]
+
+    new_participants = participants - [ user.id ]
     update!(participants: new_participants)
   end
 
   def participant_users
     return [] unless is_collaborative?
-    
+
     User.where(id: participants)
   end
 
   def can_access?(user)
     return true if self.user == user
     return true if is_collaborative? && participants.include?(user.id)
-    return true if user.permissions.include?('ai.conversations.manage')
-    
+    return true if user.permissions.include?("ai.conversations.manage")
+
     false
   end
 
@@ -144,11 +144,11 @@ class AiConversation < ApplicationRecord
 
   def broadcast_message(message)
     return unless websocket_channel.present?
-    
+
     ActionCable.server.broadcast(
       websocket_channel,
       {
-        type: 'message',
+        type: "message",
         conversation_id: conversation_id,
         message: message_data(message)
       }
@@ -157,11 +157,11 @@ class AiConversation < ApplicationRecord
 
   def broadcast_typing_indicator(user, typing: true)
     return unless websocket_channel.present?
-    
+
     ActionCable.server.broadcast(
       websocket_channel,
       {
-        type: 'typing',
+        type: "typing",
         conversation_id: conversation_id,
         user_id: user.id,
         typing: typing
@@ -214,11 +214,11 @@ class AiConversation < ApplicationRecord
 
   def broadcast_status_change
     return unless websocket_channel.present?
-    
+
     ActionCable.server.broadcast(
       websocket_channel,
       {
-        type: 'status_change',
+        type: "status_change",
         conversation_id: conversation_id,
         status: status
       }
@@ -239,7 +239,7 @@ class AiConversation < ApplicationRecord
 
   def generate_summary
     return nil if message_count.zero?
-    
+
     # This could be enhanced with AI-generated summaries
     "Conversation with #{message_count} messages using #{ai_provider.name}"
   end

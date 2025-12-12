@@ -2,17 +2,17 @@
 
 class Api::V1::ReconciliationController < ApplicationController
   before_action :authenticate_service_request
-  
+
   # Get Stripe payments for reconciliation
   def stripe_payments
     start_date = Time.parse(params[:start_date])
     end_date = Time.parse(params[:end_date])
 
     payments = Payment.joins(invoice: :subscription)
-                     .where(payment_method: ['stripe_card', 'stripe_bank'])
+                     .where(payment_method: [ "stripe_card", "stripe_bank" ])
                      .where(created_at: start_date..end_date)
-                     .where(status: 'succeeded')
-                     .includes(invoice: [:subscription, :account])
+                     .where(status: "succeeded")
+                     .includes(invoice: [ :subscription, :account ])
 
     payments_data = payments.map do |payment|
       {
@@ -29,17 +29,17 @@ class Api::V1::ReconciliationController < ApplicationController
 
     render_success(payments_data)
   end
-  
+
   # Get PayPal payments for reconciliation
   def paypal_payments
     start_date = Time.parse(params[:start_date])
     end_date = Time.parse(params[:end_date])
 
     payments = Payment.joins(invoice: :subscription)
-                     .where(payment_method: 'paypal')
+                     .where(payment_method: "paypal")
                      .where(created_at: start_date..end_date)
-                     .where(status: 'succeeded')
-                     .includes(invoice: [:subscription, :account])
+                     .where(status: "succeeded")
+                     .includes(invoice: [ :subscription, :account ])
 
     payments_data = payments.map do |payment|
       {
@@ -56,7 +56,7 @@ class Api::V1::ReconciliationController < ApplicationController
 
     render_success(payments_data)
   end
-  
+
   # Receive reconciliation reports
   def report
     reconciliation_report = ReconciliationReport.create!(
@@ -69,12 +69,12 @@ class Api::V1::ReconciliationController < ApplicationController
       high_severity_count: params[:high_severity_count],
       medium_severity_count: params[:medium_severity_count]
     )
-    
+
     # Log the reconciliation report
     AuditLog.log_action(
-      action: 'reconciliation_report_created',
+      action: "reconciliation_report_created",
       resource: reconciliation_report,
-      source: 'worker_service',
+      source: "worker_service",
       metadata: {
         reconciliation_type: params[:reconciliation_type],
         discrepancies_found: params[:discrepancies_count]
@@ -83,19 +83,19 @@ class Api::V1::ReconciliationController < ApplicationController
 
     render_success({ report_id: reconciliation_report.id })
   end
-  
+
   # Handle reconciliation corrections
   def corrections
     correction_type = params[:type]
 
     case correction_type
-    when 'create_missing_payment'
+    when "create_missing_payment"
       handle_create_missing_payment(params)
     else
       render_error("Unknown correction type: #{correction_type}", status: :bad_request)
     end
   end
-  
+
   # Handle reconciliation flags for manual review
   def flags
     reconciliation_flag = ReconciliationFlag.create!(
@@ -105,12 +105,12 @@ class Api::V1::ReconciliationController < ApplicationController
       external_id: params[:external_id],
       requires_manual_review: params[:requires_manual_review],
       metadata: params.except(:type, :provider, :local_payment_id, :external_id, :requires_manual_review),
-      status: 'pending'
+      status: "pending"
     )
 
     render_success({ flag_id: reconciliation_flag.id })
   end
-  
+
   # Handle reconciliation investigations
   def investigations
     reconciliation_investigation = ReconciliationInvestigation.create!(
@@ -121,42 +121,42 @@ class Api::V1::ReconciliationController < ApplicationController
       provider_amount: params[:provider_amount],
       amount_difference: params[:difference],
       requires_investigation: params[:requires_investigation],
-      status: 'pending'
+      status: "pending"
     )
 
     render_success({ investigation_id: reconciliation_investigation.id })
   end
-  
+
   private
-  
+
   def handle_create_missing_payment(params)
     # Find the associated invoice/account for this payment
     # This would require looking up by provider payment ID
     provider_payment_id = params[:provider_payment_id]
     provider = params[:provider]
-    
+
     # For now, log the missing payment for manual review
     missing_payment_log = MissingPaymentLog.create!(
       provider: provider,
       provider_payment_id: provider_payment_id,
       amount_cents: params[:amount],
       currency: params[:currency],
-      status: 'pending_creation',
+      status: "pending_creation",
       discovered_at: Time.current
     )
 
     render_success(
-      message: 'Missing payment logged for manual review',
+      message: "Missing payment logged for manual review",
       data: { log_id: missing_payment_log.id }
     )
   end
-  
+
   def authenticate_service_request
-    service_token = request.headers['X-Service-Token']
+    service_token = request.headers["X-Service-Token"]
     expected_token = Rails.application.credentials.dig(:worker_service, :api_token)
 
     unless service_token == expected_token
-      render_error('Unauthorized service request', status: :unauthorized)
+      render_error("Unauthorized service request", status: :unauthorized)
     end
   end
 end

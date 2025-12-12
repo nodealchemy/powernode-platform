@@ -3,10 +3,10 @@
 class Invitation < ApplicationRecord
   # Associations
   belongs_to :account
-  belongs_to :inviter, class_name: 'User', foreign_key: 'inviter_id'
+  belongs_to :inviter, class_name: "User", foreign_key: "inviter_id"
 
   # Validations
-  validates :email, presence: true, 
+  validates :email, presence: true,
                     format: { with: URI::MailTo::EMAIL_REGEXP },
                     uniqueness: { scope: :account_id, message: "has already been invited to this account" }
   validates :status, presence: true, inclusion: { in: %w[pending accepted expired cancelled] }
@@ -18,9 +18,9 @@ class Invitation < ApplicationRecord
   validate :inviter_can_send_invitations
 
   # Scopes
-  scope :pending, -> { where(status: 'pending') }
-  scope :expired, -> { where('expires_at < ?', Time.current) }
-  scope :active, -> { pending.where('expires_at >= ?', Time.current) }
+  scope :pending, -> { where(status: "pending") }
+  scope :expired, -> { where("expires_at < ?", Time.current) }
+  scope :active, -> { pending.where("expires_at >= ?", Time.current) }
 
   # Callbacks
   before_validation :generate_token, on: :create
@@ -31,16 +31,16 @@ class Invitation < ApplicationRecord
   # State management
   def accept!
     return false if expired? || !pending?
-    
+
     transaction do
-      update!(status: 'accepted', accepted_at: Time.current)
+      update!(status: "accepted", accepted_at: Time.current)
       # User creation would happen in the controller
     end
   end
 
   def cancel!
     return false if expired? || !pending?
-    update!(status: 'cancelled')
+    update!(status: "cancelled")
   end
 
   def expired?
@@ -48,15 +48,15 @@ class Invitation < ApplicationRecord
   end
 
   def pending?
-    status == 'pending'
+    status == "pending"
   end
 
   def accepted?
-    status == 'accepted'
+    status == "accepted"
   end
 
   def cancelled?
-    status == 'cancelled'
+    status == "cancelled"
   end
 
   # Class method to find invitation by token
@@ -105,18 +105,18 @@ class Invitation < ApplicationRecord
   end
 
   def set_defaults
-    self.status = 'pending' if status.blank?
-    self.role_names ||= ['member'] # Default to member role if not specified
+    self.status = "pending" if status.blank?
+    self.role_names ||= [ "member" ] # Default to member role if not specified
   end
 
   def validate_role_names
     return if role_names.blank?
-    
+
     unless role_names.is_a?(Array)
       errors.add(:role_names, "must be an array")
       return
     end
-    
+
     invalid_roles = role_names - Role.pluck(:name)
     if invalid_roles.any?
       errors.add(:role_names, "contains invalid roles: #{invalid_roles.join(', ')}")
@@ -125,8 +125,8 @@ class Invitation < ApplicationRecord
 
   def inviter_can_send_invitations
     return if inviter.blank?
-    
-    unless inviter.has_permission?('team.invite') || inviter.has_permission?('users.create')
+
+    unless inviter.has_permission?("team.invite") || inviter.has_permission?("users.create")
       errors.add(:inviter, "does not have permission to send invitations")
     end
   end

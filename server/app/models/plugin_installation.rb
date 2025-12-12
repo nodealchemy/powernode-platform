@@ -7,7 +7,7 @@ class PluginInstallation < ApplicationRecord
 
   belongs_to :account
   belongs_to :plugin
-  belongs_to :installed_by, class_name: 'User'
+  belongs_to :installed_by, class_name: "User"
 
   # Validations
   validates :status, inclusion: { in: %w[active inactive error updating] }
@@ -19,10 +19,10 @@ class PluginInstallation < ApplicationRecord
   attribute :installation_metadata, :json, default: -> { {} }
 
   # Scopes
-  scope :active, -> { where(status: 'active') }
-  scope :inactive, -> { where(status: 'inactive') }
-  scope :with_errors, -> { where(status: 'error') }
-  scope :recently_used, -> { where('last_used_at >= ?', 7.days.ago) }
+  scope :active, -> { where(status: "active") }
+  scope :inactive, -> { where(status: "inactive") }
+  scope :with_errors, -> { where(status: "error") }
+  scope :recently_used, -> { where("last_used_at >= ?", 7.days.ago) }
 
   # Callbacks
   before_create :set_installed_at
@@ -31,12 +31,12 @@ class PluginInstallation < ApplicationRecord
 
   # Status management
   def activate!
-    update!(status: 'active', last_activated_at: Time.current)
+    update!(status: "active", last_activated_at: Time.current)
     register_plugin_resources
   end
 
   def deactivate!
-    update!(status: 'inactive')
+    update!(status: "inactive")
     unregister_plugin_resources
   end
 

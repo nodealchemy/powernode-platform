@@ -73,7 +73,7 @@ RSpec.describe ImpersonationService, type: :service do
 
         expect {
           service.start_impersonation(**valid_params)
-        }.to raise_error(ImpersonationService::PermissionDeniedError, 
+        }.to raise_error(ImpersonationService::PermissionDeniedError,
                         'You do not have permission to impersonate other users')
       end
 
@@ -103,14 +103,14 @@ RSpec.describe ImpersonationService, type: :service do
 
         expect {
           service.start_impersonation(target_user_id: other_user.id)
-        }.to raise_error(ImpersonationService::InvalidUserError, 
+        }.to raise_error(ImpersonationService::InvalidUserError,
                         'You can only impersonate users in your own account')
       end
 
       it 'raises SelfImpersonationError when trying to impersonate self' do
         expect {
           service.start_impersonation(target_user_id: admin_user.id)
-        }.to raise_error(ImpersonationService::SelfImpersonationError, 
+        }.to raise_error(ImpersonationService::SelfImpersonationError,
                         'You cannot impersonate yourself')
       end
 
@@ -119,7 +119,7 @@ RSpec.describe ImpersonationService, type: :service do
 
         expect {
           service.start_impersonation(**valid_params)
-        }.to raise_error(ImpersonationService::InvalidUserError, 
+        }.to raise_error(ImpersonationService::InvalidUserError,
                         'Cannot impersonate inactive user')
       end
 
@@ -128,7 +128,7 @@ RSpec.describe ImpersonationService, type: :service do
 
         expect {
           service.start_impersonation(target_user_id: owner_user.id)
-        }.to raise_error(ImpersonationService::PermissionDeniedError, 
+        }.to raise_error(ImpersonationService::PermissionDeniedError,
                         'Only owners can impersonate other owners')
       end
 
@@ -194,7 +194,7 @@ RSpec.describe ImpersonationService, type: :service do
 
         expect {
           other_service.end_impersonation(session.session_token)
-        }.to raise_error(ImpersonationService::PermissionDeniedError, 
+        }.to raise_error(ImpersonationService::PermissionDeniedError,
                         'You can only end your own impersonation sessions')
       end
     end
@@ -255,7 +255,7 @@ RSpec.describe ImpersonationService, type: :service do
       create_list(:impersonation_session, 3,
                   impersonator: admin_user,
                   impersonated_user: target_user)
-      
+
       sessions = service.get_session_history(limit: 2)
       expect(sessions.count).to eq(2)
     end
@@ -306,12 +306,12 @@ RSpec.describe ImpersonationService, type: :service do
 
     it 'returns nil for expired session' do
       # Create a session that started too long ago (expired) but with a valid JWT token
-      expired_session = create(:impersonation_session, 
+      expired_session = create(:impersonation_session,
                                impersonator: admin_user,
                                impersonated_user: target_user,
                                                               started_at: ImpersonationSession::MAX_SESSION_DURATION.ago - 1.hour,
                   )
-      
+
       expired_token = JwtService.encode({
         user_id: target_user.id,
         impersonator_id: admin_user.id,
@@ -319,7 +319,7 @@ RSpec.describe ImpersonationService, type: :service do
         type: 'impersonation',
         exp: 1.hour.from_now.to_i  # JWT token is still valid
       })
-      
+
       result = service.validate_impersonation_token(expired_token)
       expect(result).to be_nil
       expect(expired_session.reload.active?).to be false
@@ -349,9 +349,9 @@ RSpec.describe ImpersonationService, type: :service do
   describe '.cleanup_expired_sessions' do
     it 'delegates to ImpersonationSession.cleanup_expired_sessions' do
       allow(ImpersonationSession).to receive(:cleanup_expired_sessions)
-      
+
       described_class.cleanup_expired_sessions
-      
+
       expect(ImpersonationSession).to have_received(:cleanup_expired_sessions)
     end
   end

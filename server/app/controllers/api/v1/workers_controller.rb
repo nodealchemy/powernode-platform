@@ -3,11 +3,11 @@
 # Workers Controller
 # Manages worker authentication tokens and permissions
 class Api::V1::WorkersController < ApplicationController
-  before_action -> { require_permission('system.workers.read') }, only: [:index, :show, :test_worker, :health_check, :stats, :config]
-  before_action -> { require_permission('system.workers.create') }, only: [:create]
-  before_action -> { require_permission('system.workers.edit') }, only: [:update, :regenerate_token, :suspend, :activate, :revoke, :update_config, :reset_config]
-  before_action -> { require_permission('system.workers.delete') }, only: [:destroy]
-  before_action :set_worker, only: [:show, :update, :destroy, :regenerate_token, :suspend, :activate, :revoke, :test_worker, :health_check, :config, :update_config, :reset_config]
+  before_action -> { require_permission("system.workers.read") }, only: [ :index, :show, :test_worker, :health_check, :stats, :config ]
+  before_action -> { require_permission("system.workers.create") }, only: [ :create ]
+  before_action -> { require_permission("system.workers.edit") }, only: [ :update, :regenerate_token, :suspend, :activate, :revoke, :update_config, :reset_config ]
+  before_action -> { require_permission("system.workers.delete") }, only: [ :destroy ]
+  before_action :set_worker, only: [ :show, :update, :destroy, :regenerate_token, :suspend, :activate, :revoke, :test_worker, :health_check, :config, :update_config, :reset_config ]
 
   # GET /api/v1/workers/stats
   # Returns aggregated statistics about worker jobs
@@ -40,7 +40,7 @@ class Api::V1::WorkersController < ApplicationController
         queues: {},
         workers_active: 0,
         timestamp: Time.current.iso8601,
-        error: 'Unable to fetch live stats from worker service'
+        error: "Unable to fetch live stats from worker service"
       })
     end
   end
@@ -49,11 +49,11 @@ class Api::V1::WorkersController < ApplicationController
   def index
     # Admin users can see all workers (including system workers)
     # Regular users can only see workers for their account
-    @workers = if current_user.has_permission?('system.workers.read') || current_user.has_permission?('super_admin')
+    @workers = if current_user.has_permission?("system.workers.read") || current_user.has_permission?("super_admin")
                  Worker.order(:name)
-               else
+    else
                  current_account.workers.order(:name)
-               end
+    end
 
     account_workers_count = @workers.count { |w| w.account_id.present? }
     system_workers_count = @workers.count { |w| w.account_id.nil? }
@@ -86,7 +86,7 @@ class Api::V1::WorkersController < ApplicationController
   def create
     # Check usage limit before creating worker
     unless UsageLimitService.can_create_worker?(current_account)
-      render_error('Worker limit reached for your current plan')
+      render_error("Worker limit reached for your current plan")
       return
     end
 
@@ -117,7 +117,7 @@ class Api::V1::WorkersController < ApplicationController
   def update
     # Update basic attributes
     @worker.update!(name: worker_update_params[:name], description: worker_update_params[:description])
-    
+
     # Update roles if provided
     if worker_update_params[:roles]
       @worker.roles.clear
@@ -127,7 +127,7 @@ class Api::V1::WorkersController < ApplicationController
           failed_roles << role_name
         end
       end
-      
+
       # If any roles failed to assign, return an error
       if failed_roles.any?
         render_validation_error("Invalid role assignments: #{failed_roles.join(', ')}. Check role compatibility with worker type.")
@@ -234,7 +234,7 @@ class Api::V1::WorkersController < ApplicationController
     begin
       # Enqueue test job for the worker
       WorkerJobService.enqueue_test_worker_job(@worker.id, @worker.name)
-      
+
       @worker.record_activity!("job_enqueue", {
         test_type: "connectivity_test",
         enqueued_by_user_id: current_user.id,
@@ -266,25 +266,25 @@ class Api::V1::WorkersController < ApplicationController
   # POST /api/v1/workers/:id/test_results
   def test_results
     test_data = params[:test_results] || {}
-    
+
     # Record the test completion activity
     @worker.record_activity!("test_completed", {
-      test_type: test_data[:test_type] || 'unknown',
-      status: test_data[:status] || 'unknown',
+      test_type: test_data[:test_type] || "unknown",
+      status: test_data[:status] || "unknown",
       duration_seconds: test_data[:duration_seconds],
       redis_check: test_data[:redis_check],
       backend_check: test_data[:backend_check],
-      performed_by: 'test_worker_job',
+      performed_by: "test_worker_job",
       timestamp: test_data[:timestamp] || Time.current.iso8601
     })
 
     # Update worker last_seen_at
     @worker.touch(:last_seen_at)
-    
+
     render_success({
       message: "Test results recorded for worker '#{@worker.name}'",
       worker_id: @worker.id,
-      test_status: test_data[:status] || 'completed'
+      test_status: test_data[:status] || "completed"
     })
   rescue StandardError => e
     Rails.logger.error "Failed to record test results for worker #{@worker.id}: #{e.message}"
@@ -295,22 +295,22 @@ class Api::V1::WorkersController < ApplicationController
   # Special endpoint to retrieve the current system worker token
   def current_token
     # Only allow for system workers and with super admin permissions
-    unless @worker.system? && current_user.has_permission?('super_admin')
-      render_error('Access denied - requires super admin access to system worker', status: :forbidden)
+    unless @worker.system? && current_user.has_permission?("super_admin")
+      render_error("Access denied - requires super admin access to system worker", status: :forbidden)
       return
     end
 
     # Get the current system worker token from environment
-    current_token = ENV['WORKER_TOKEN']
+    current_token = ENV["WORKER_TOKEN"]
 
     unless current_token.present?
-      render_error('System worker token not configured', status: :service_unavailable)
+      render_error("System worker token not configured", status: :service_unavailable)
       return
     end
 
     # Verify this token actually works with this worker
     unless @worker.token_matches?(current_token)
-      render_error('Environment token does not match worker', status: :conflict)
+      render_error("Environment token does not match worker", status: :conflict)
       return
     end
 
@@ -330,55 +330,55 @@ class Api::V1::WorkersController < ApplicationController
   # POST /api/v1/workers/:id/health_check
   def health_check
     start_time = Time.current
-    
+
     # Initialize check results - all start as pending
     checks = {
-      connectivity: 'pending',
-      authentication: 'pending',
-      rate_limiting: 'pending',
-      monitoring: 'pending'
+      connectivity: "pending",
+      authentication: "pending",
+      rate_limiting: "pending",
+      monitoring: "pending"
     }
     details = []
-    overall_status = 'healthy'
+    overall_status = "healthy"
 
 
     # Check 1: Connectivity (worker exists and is found)
     if @worker.nil?
-      checks[:connectivity] = 'fail'
-      details << 'Worker not found or inaccessible'
-      overall_status = 'error'
+      checks[:connectivity] = "fail"
+      details << "Worker not found or inaccessible"
+      overall_status = "error"
     else
-      checks[:connectivity] = 'pass'
-      details << 'Worker connectivity verified'
+      checks[:connectivity] = "pass"
+      details << "Worker connectivity verified"
     end
 
-    # Check 2: Authentication (worker status and token)  
+    # Check 2: Authentication (worker status and token)
     if @worker.present? && @worker.revoked?
-      checks[:authentication] = 'fail'
-      details << 'Worker is revoked and cannot authenticate'
-      overall_status = 'error'
+      checks[:authentication] = "fail"
+      details << "Worker is revoked and cannot authenticate"
+      overall_status = "error"
     elsif @worker.present? && @worker.suspended?
-      checks[:authentication] = 'fail'
-      details << 'Worker is suspended'
-      overall_status = 'warning'
+      checks[:authentication] = "fail"
+      details << "Worker is suspended"
+      overall_status = "warning"
     elsif @worker.present? && @worker.token_digest.blank?
-      checks[:authentication] = 'fail'
-      details << 'Worker has no authentication token'
-      overall_status = 'error'
+      checks[:authentication] = "fail"
+      details << "Worker has no authentication token"
+      overall_status = "error"
     elsif @worker.present?
-      checks[:authentication] = 'pass'
-      details << 'Worker authentication status is valid'
+      checks[:authentication] = "pass"
+      details << "Worker authentication status is valid"
     end
 
     # Check 3: Rate limiting (check recent activity)
     if @worker
       recent_requests = @worker.worker_activities.count
       if recent_requests > 10000 # Arbitrary high threshold
-        checks[:rate_limiting] = 'fail'
+        checks[:rate_limiting] = "fail"
         details << "High request volume detected: #{recent_requests} total requests"
-        overall_status = overall_status == 'healthy' ? 'warning' : overall_status
+        overall_status = overall_status == "healthy" ? "warning" : overall_status
       else
-        checks[:rate_limiting] = 'pass'
+        checks[:rate_limiting] = "pass"
         details << "Request volume normal: #{recent_requests} total requests"
       end
     end
@@ -387,16 +387,16 @@ class Api::V1::WorkersController < ApplicationController
     if @worker
       last_seen = @worker.last_seen_at
       if last_seen.nil?
-        checks[:monitoring] = 'fail'
-        details << 'Worker has never been seen (no activity recorded)'
-        overall_status = overall_status == 'healthy' ? 'warning' : overall_status
+        checks[:monitoring] = "fail"
+        details << "Worker has never been seen (no activity recorded)"
+        overall_status = overall_status == "healthy" ? "warning" : overall_status
       elsif last_seen < 24.hours.ago
-        checks[:monitoring] = 'fail'
+        checks[:monitoring] = "fail"
         hours_ago = ((Time.current - last_seen) / 1.hour).round
         details << "Worker last seen #{hours_ago} hours ago"
-        overall_status = overall_status == 'healthy' ? 'warning' : overall_status
+        overall_status = overall_status == "healthy" ? "warning" : overall_status
       else
-        checks[:monitoring] = 'pass'
+        checks[:monitoring] = "pass"
         minutes_ago = ((Time.current - last_seen) / 1.minute).round
         details << "Worker last seen #{minutes_ago} minutes ago"
       end
@@ -474,11 +474,11 @@ class Api::V1::WorkersController < ApplicationController
   def set_worker
     # Admin users can access all workers (including system workers)
     # Regular users can only access workers for their account
-    @worker = if current_user.has_permission?('system.workers.view') || current_user.has_permission?('super_admin')
+    @worker = if current_user.has_permission?("system.workers.view") || current_user.has_permission?("super_admin")
                 Worker.find(params[:id])
-              else
+    else
                 current_account.workers.find(params[:id])
-              end
+    end
   rescue ActiveRecord::RecordNotFound
     render_error("Worker not found", status: :not_found)
   end
@@ -493,12 +493,12 @@ class Api::V1::WorkersController < ApplicationController
 
   def worker_config_params
     params.require(:worker_config).permit(
-      security: [:token_rotation_enabled, :token_expiry_days, :require_ip_whitelist,
-                 :max_concurrent_sessions, :enforce_https, allowed_ips: []],
-      rate_limiting: [:enabled, :requests_per_minute, :burst_limit, :throttle_delay_ms],
-      monitoring: [:activity_logging, :performance_tracking, :error_reporting, :metrics_retention_days],
-      notifications: [:alert_on_failures, :alert_threshold, :notify_on_token_rotation, :notify_on_suspension],
-      operational: [:auto_cleanup_activities, :cleanup_after_days, :enable_health_checks, :health_check_interval_minutes]
+      security: [ :token_rotation_enabled, :token_expiry_days, :require_ip_whitelist,
+                 :max_concurrent_sessions, :enforce_https, allowed_ips: [] ],
+      rate_limiting: [ :enabled, :requests_per_minute, :burst_limit, :throttle_delay_ms ],
+      monitoring: [ :activity_logging, :performance_tracking, :error_reporting, :metrics_retention_days ],
+      notifications: [ :alert_on_failures, :alert_threshold, :notify_on_token_rotation, :notify_on_suspension ],
+      operational: [ :auto_cleanup_activities, :cleanup_after_days, :enable_health_checks, :health_check_interval_minutes ]
     ).to_h.deep_stringify_keys
   end
 
@@ -520,7 +520,7 @@ class Api::V1::WorkersController < ApplicationController
       roles: roles,  # Array of role names for editing
       permissions: permissions,  # Inherited permissions (read-only)
       status: worker.status,
-      account_name: worker.account&.name || 'System',
+      account_name: worker.account&.name || "System",
       masked_token: worker.masked_token,
       full_token_hash: worker.full_token_hash,
       request_count: worker.worker_activities.count,
@@ -544,8 +544,8 @@ class Api::V1::WorkersController < ApplicationController
       id: activity.id,
       action: activity.activity_type,
       performed_at: activity.occurred_at.iso8601,
-      ip_address: activity.details['ip_address'],
-      user_agent: activity.details['user_agent'],
+      ip_address: activity.details["ip_address"],
+      user_agent: activity.details["user_agent"],
       successful: activity.successful?,
       failed: activity.failed?,
       duration: activity.duration,
@@ -558,12 +558,12 @@ class Api::V1::WorkersController < ApplicationController
 
   def fetch_worker_stats
     # Fetch Sidekiq stats from worker service
-    worker_url = ENV.fetch('WORKER_URL', 'http://localhost:4000')
+    worker_url = ENV.fetch("WORKER_URL", "http://localhost:4000")
     worker_token = Rails.application.config.worker_token
 
     response = Faraday.get("#{worker_url}/api/sidekiq/stats") do |req|
-      req.headers['Authorization'] = "Bearer #{worker_token}"
-      req.headers['Content-Type'] = 'application/json'
+      req.headers["Authorization"] = "Bearer #{worker_token}"
+      req.headers["Content-Type"] = "application/json"
       req.options.timeout = 5
       req.options.open_timeout = 2
     end

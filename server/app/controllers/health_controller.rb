@@ -6,7 +6,7 @@ class HealthController < ApplicationController
 
   def index
     render_success({
-      status: 'healthy',
+      status: "healthy",
       timestamp: Time.current.iso8601,
       uptime_seconds: (Time.current - Rails.application.config.boot_time).round
     })

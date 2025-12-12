@@ -48,7 +48,7 @@ RSpec.describe User, 'Password Security Integration', type: :model do
         # Use password that will definitely be validated by service
         user = build(:user, account: account, password: valid_password, password_confirmation: valid_password)
         expect(user).to be_valid
-        
+
         # Test that validation service is called
         expect(PasswordStrengthService).to receive(:validate_password).with(valid_password).and_call_original
         user.valid?
@@ -169,7 +169,7 @@ RSpec.describe User, 'Password Security Integration', type: :model do
 
     it 'generates secure time-limited reset token' do
       token = user.generate_reset_token!
-      
+
       expect(token).to be_present
       expect(user.reset_token_digest).to be_present
       # Check that expiration is set to sometime in the future
@@ -183,24 +183,24 @@ RSpec.describe User, 'Password Security Integration', type: :model do
 
     it 'rejects expired reset tokens' do
       token = user.generate_reset_token!
-      
+
       # Simulate token expiration
       user.update!(reset_token_expires_at: 1.hour.ago)
-      
+
       expect(user.reset_token_valid?(token)).to be false
     end
 
     it 'rejects invalid reset tokens' do
       user.generate_reset_token!
       fake_token = 'invalid.token.here'
-      
+
       expect(user.reset_token_valid?(fake_token)).to be false
     end
 
     it 'successfully resets password with valid token' do
       token = user.generate_reset_token!
       new_password = 'NewSecureEntry4!9@'
-      
+
       expect(user.reset_password!(new_password, token)).to be true
       expect(user.reset_token_digest).to be_nil
       expect(user.reset_token_expires_at).to be_nil
@@ -208,9 +208,9 @@ RSpec.describe User, 'Password Security Integration', type: :model do
 
     it 'clears reset token after password change' do
       token = user.generate_reset_token!
-      
+
       user.update!(password: 'AnotherEntry4!9@', password_confirmation: 'AnotherEntry4!9@')
-      
+
       expect(user.reset_token_digest).to be_nil
       expect(user.reset_token_expires_at).to be_nil
     end
@@ -218,9 +218,9 @@ RSpec.describe User, 'Password Security Integration', type: :model do
     it 'single-use reset tokens' do
       token = user.generate_reset_token!
       new_password = 'NewSecureEntry4!9@'
-      
+
       user.reset_password!(new_password, token)
-      
+
       # Token should no longer be valid
       expect(user.reset_token_valid?(token)).to be false
     end

@@ -32,10 +32,10 @@ class CreateFileManagementSystem < ActiveRecord::Migration[8.0]
 
       t.timestamps
 
-      t.index [:account_id, :name], unique: true
-      t.index [:account_id, :provider_type]
-      t.index [:account_id, :status]
-      t.index [:account_id, :is_default], where: 'is_default = true'
+      t.index [ :account_id, :name ], unique: true
+      t.index [ :account_id, :provider_type ]
+      t.index [ :account_id, :status ]
+      t.index [ :account_id, :is_default ], where: 'is_default = true'
       t.index :priority
       t.index :health_status
       t.index :configuration, using: :gin
@@ -93,18 +93,18 @@ class CreateFileManagementSystem < ActiveRecord::Migration[8.0]
       t.timestamps
 
       # Indexes for performance
-      t.index [:account_id, :filename]
-      t.index [:account_id, :file_type]
-      t.index [:account_id, :category]
-      t.index [:account_id, :visibility]
-      t.index [:account_id, :is_latest_version]
-      t.index [:account_id, :created_at]
-      t.index [:file_storage_id, :storage_key], unique: true
-      t.index [:attachable_type, :attachable_id]
-      t.index [:parent_file_id]
-      t.index [:processing_status]
-      t.index [:deleted_at]
-      t.index [:expires_at], where: "expires_at IS NOT NULL"
+      t.index [ :account_id, :filename ]
+      t.index [ :account_id, :file_type ]
+      t.index [ :account_id, :category ]
+      t.index [ :account_id, :visibility ]
+      t.index [ :account_id, :is_latest_version ]
+      t.index [ :account_id, :created_at ]
+      t.index [ :file_storage_id, :storage_key ], unique: true
+      t.index [ :attachable_type, :attachable_id ]
+      t.index [ :parent_file_id ]
+      t.index [ :processing_status ]
+      t.index [ :deleted_at ]
+      t.index [ :expires_at ], where: "expires_at IS NOT NULL"
       t.index :checksum_sha256
       t.index :metadata, using: :gin
     end
@@ -133,9 +133,9 @@ class CreateFileManagementSystem < ActiveRecord::Migration[8.0]
 
       t.timestamps
 
-      t.index [:file_object_id, :version_number], unique: true
-      t.index [:account_id, :created_at]
-      t.index [:deleted_at]
+      t.index [ :file_object_id, :version_number ], unique: true
+      t.index [ :account_id, :created_at ]
+      t.index [ :deleted_at ]
       t.index :storage_key
     end
 
@@ -171,10 +171,10 @@ class CreateFileManagementSystem < ActiveRecord::Migration[8.0]
 
       t.timestamps
 
-      t.index [:share_token], unique: true
-      t.index [:status]
-      t.index [:expires_at], where: "expires_at IS NOT NULL"
-      t.index [:created_at]
+      t.index [ :share_token ], unique: true
+      t.index [ :status ]
+      t.index [ :expires_at ], where: "expires_at IS NOT NULL"
+      t.index [ :created_at ]
     end
 
     # File Processing Jobs (for async operations)
@@ -209,10 +209,10 @@ class CreateFileManagementSystem < ActiveRecord::Migration[8.0]
 
       t.timestamps
 
-      t.index [:job_type]
-      t.index [:status]
-      t.index [:priority]
-      t.index [:created_at]
+      t.index [ :job_type ]
+      t.index [ :status ]
+      t.index [ :priority ]
+      t.index [ :created_at ]
     end
 
     # File Tags (for organization)
@@ -225,7 +225,7 @@ class CreateFileManagementSystem < ActiveRecord::Migration[8.0]
 
       t.timestamps
 
-      t.index [:account_id, :name], unique: true
+      t.index [ :account_id, :name ], unique: true
     end
 
     # File Object Tags (join table)
@@ -236,7 +236,7 @@ class CreateFileManagementSystem < ActiveRecord::Migration[8.0]
 
       t.timestamps
 
-      t.index [:file_object_id, :file_tag_id], unique: true
+      t.index [ :file_object_id, :file_tag_id ], unique: true
     end
 
     # Constraints

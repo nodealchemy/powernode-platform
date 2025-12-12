@@ -22,8 +22,8 @@ class CreateGdprComplianceTables < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :user_consents, [:user_id, :consent_type]
-    add_index :user_consents, [:account_id, :consent_type]
+    add_index :user_consents, [ :user_id, :consent_type ]
+    add_index :user_consents, [ :account_id, :consent_type ]
     add_index :user_consents, :consent_type
     add_index :user_consents, :granted
     add_index :user_consents, :expires_at
@@ -101,7 +101,7 @@ class CreateGdprComplianceTables < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :data_retention_policies, [:account_id, :data_type], unique: true
+    add_index :data_retention_policies, [ :account_id, :data_type ], unique: true
     add_index :data_retention_policies, :data_type
     add_index :data_retention_policies, :active
 
@@ -121,8 +121,8 @@ class CreateGdprComplianceTables < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :terms_acceptances, [:user_id, :document_type]
-    add_index :terms_acceptances, [:user_id, :document_type, :document_version], unique: true
+    add_index :terms_acceptances, [ :user_id, :document_type ]
+    add_index :terms_acceptances, [ :user_id, :document_type, :document_version ], unique: true
     add_index :terms_acceptances, :document_type
     add_index :terms_acceptances, :document_version
 
@@ -171,6 +171,6 @@ class CreateGdprComplianceTables < ActiveRecord::Migration[8.0]
     end
 
     add_index :cookie_consents, :visitor_id, unique: true, where: 'visitor_id IS NOT NULL'
-    add_index :cookie_consents, [:user_id], unique: true, where: 'user_id IS NOT NULL'
+    add_index :cookie_consents, [ :user_id ], unique: true, where: 'user_id IS NOT NULL'
   end
 end

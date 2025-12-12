@@ -8,14 +8,14 @@ RSpec.describe Api::V1::Ai::ProvidersController, type: :controller do
   let(:worker) { create(:worker) }
 
   # Provider permissions
-  let(:provider_read_user) { create(:user, account: account, permissions: ['ai.providers.read']) }
-  let(:provider_manage_user) { create(:user, account: account, permissions: ['ai.providers.read', 'ai.providers.create', 'ai.providers.update', 'ai.providers.delete']) }
-  let(:admin_user) { create(:user, account: account, permissions: ['ai.providers.read', 'ai.providers.create', 'ai.providers.update', 'ai.providers.delete', 'ai.credentials.create', 'ai.credentials.update', 'ai.credentials.delete', 'ai.credentials.read', 'ai.credentials.decrypt', 'admin.ai.providers.read']) }
+  let(:provider_read_user) { create(:user, account: account, permissions: [ 'ai.providers.read' ]) }
+  let(:provider_manage_user) { create(:user, account: account, permissions: [ 'ai.providers.read', 'ai.providers.create', 'ai.providers.update', 'ai.providers.delete' ]) }
+  let(:admin_user) { create(:user, account: account, permissions: [ 'ai.providers.read', 'ai.providers.create', 'ai.providers.update', 'ai.providers.delete', 'ai.credentials.create', 'ai.credentials.update', 'ai.credentials.delete', 'ai.credentials.read', 'ai.credentials.decrypt', 'admin.ai.providers.read' ]) }
   let(:user_without_permissions) { create(:user, account: account, permissions: []) }
 
   # Credential permissions
-  let(:credential_read_user) { create(:user, account: account, permissions: ['ai.providers.read', 'ai.credentials.read']) }
-  let(:credential_manage_user) { create(:user, account: account, permissions: ['ai.providers.read', 'ai.credentials.read', 'ai.credentials.create', 'ai.credentials.update', 'ai.credentials.delete']) }
+  let(:credential_read_user) { create(:user, account: account, permissions: [ 'ai.providers.read', 'ai.credentials.read' ]) }
+  let(:credential_manage_user) { create(:user, account: account, permissions: [ 'ai.providers.read', 'ai.credentials.read', 'ai.credentials.create', 'ai.credentials.update', 'ai.credentials.delete' ]) }
 
   before do
     @request.headers['Content-Type'] = 'application/json'
@@ -66,8 +66,8 @@ RSpec.describe Api::V1::Ai::ProvidersController, type: :controller do
       end
 
       it 'filters by capability' do
-        provider1.update!(capabilities: ['text_generation', 'chat'])
-        provider2.update!(capabilities: ['text_generation'])
+        provider1.update!(capabilities: [ 'text_generation', 'chat' ])
+        provider2.update!(capabilities: [ 'text_generation' ])
 
         get :index, params: { capability: 'chat' }
 
@@ -89,7 +89,7 @@ RSpec.describe Api::V1::Ai::ProvidersController, type: :controller do
 
         json = JSON.parse(response.body)
         names = json['data']['items'].map { |p| p['name'] }
-        expect(names).to eq(['Anthropic Provider', 'OpenAI Provider'])
+        expect(names).to eq([ 'Anthropic Provider', 'OpenAI Provider' ])
       end
 
       it 'sorts by priority order' do
@@ -97,7 +97,7 @@ RSpec.describe Api::V1::Ai::ProvidersController, type: :controller do
 
         json = JSON.parse(response.body)
         priorities = json['data']['items'].map { |p| p['priority_order'] }
-        expect(priorities).to eq([1, 2])
+        expect(priorities).to eq([ 1, 2 ])
       end
 
       it 'supports pagination' do
@@ -219,7 +219,7 @@ RSpec.describe Api::V1::Ai::ProvidersController, type: :controller do
           name: 'New Provider',
           provider_type: 'custom',
           api_endpoint: 'https://api.example.com/v1',
-          capabilities: ['text_generation', 'chat'],
+          capabilities: [ 'text_generation', 'chat' ],
           supported_models: [
             { name: 'model-1', id: 'model-1', context_length: 4096 }
           ],
@@ -259,7 +259,7 @@ RSpec.describe Api::V1::Ai::ProvidersController, type: :controller do
         expect(provider_data).to include(
           'name' => 'New Provider',
           'provider_type' => 'custom',
-          'capabilities' => ['text_generation', 'chat']
+          'capabilities' => [ 'text_generation', 'chat' ]
         )
       end
     end
@@ -492,7 +492,7 @@ RSpec.describe Api::V1::Ai::ProvidersController, type: :controller do
       end
 
       it 'returns updated provider with models' do
-        provider.update!(supported_models: [{ 'name' => 'model-1' }, { 'name' => 'model-2' }])
+        provider.update!(supported_models: [ { 'name' => 'model-1' }, { 'name' => 'model-2' } ])
 
         post :sync_models, params: { id: provider.id }
 
@@ -709,7 +709,7 @@ RSpec.describe Api::V1::Ai::ProvidersController, type: :controller do
 
         json = JSON.parse(response.body)
         names = json['data']['credentials'].map { |c| c['name'] }
-        expect(names).to eq(['Credential 1', 'Credential 2'])
+        expect(names).to eq([ 'Credential 1', 'Credential 2' ])
       end
     end
 
@@ -942,7 +942,7 @@ RSpec.describe Api::V1::Ai::ProvidersController, type: :controller do
         sign_in credential_manage_user
         allow_any_instance_of(AiProviderCredential).to receive(:destroy).and_return(false)
         allow_any_instance_of(AiProviderCredential).to receive(:errors).and_return(
-          double(any?: true, full_messages: ['Cannot delete the only credential'])
+          double(any?: true, full_messages: [ 'Cannot delete the only credential' ])
         )
       end
 
@@ -1087,7 +1087,7 @@ RSpec.describe Api::V1::Ai::ProvidersController, type: :controller do
 
   describe 'cross-account isolation' do
     let(:other_account) { create(:account) }
-    let(:other_user) { create(:user, account: other_account, permissions: ['ai.providers.read', 'ai.credentials.read']) }
+    let(:other_user) { create(:user, account: other_account, permissions: [ 'ai.providers.read', 'ai.credentials.read' ]) }
     let!(:other_provider) { create(:ai_provider, account: other_account) }
 
     before { sign_in other_user }
@@ -1098,7 +1098,7 @@ RSpec.describe Api::V1::Ai::ProvidersController, type: :controller do
       get :index
 
       json = JSON.parse(response.body)
-      expect(json['data']['items'].map { |p| p['account_id'] }.uniq).to eq([other_account.id])
+      expect(json['data']['items'].map { |p| p['account_id'] }.uniq).to eq([ other_account.id ])
     end
 
     it 'does not allow accessing other account providers' do

@@ -13,17 +13,17 @@ class McpProtocolService
   class PermissionDeniedError < ProtocolError; end
 
   # MCP Protocol Version - Updated to 2025-06-18 specification
-  MCP_VERSION = '2025-06-18'
-  JSONRPC_VERSION = '2.0'
+  MCP_VERSION = "2025-06-18"
+  JSONRPC_VERSION = "2.0"
 
   # Supported protocol versions for negotiation (newest first)
   SUPPORTED_VERSIONS = [
-    '2025-06-18',  # Current version with Streamable HTTP, OAuth 2.1
-    '2024-11-05'   # Legacy version for backward compatibility
+    "2025-06-18",  # Current version with Streamable HTTP, OAuth 2.1
+    "2024-11-05"   # Legacy version for backward compatibility
   ].freeze
 
   # Default version for clients that don't specify one (per spec)
-  DEFAULT_VERSION = '2025-03-26'
+  DEFAULT_VERSION = "2025-03-26"
 
   attr_accessor :account, :connection_id, :protocol_version
 
@@ -55,13 +55,13 @@ class McpProtocolService
 
     # Create initialization response
     init_response = create_mcp_message(
-      method: 'initialize',
+      method: "initialize",
       params: {
         protocolVersion: @protocol_version,
         capabilities: server_capabilities,
         serverInfo: {
-          name: 'Powernode AI Platform',
-          version: Rails.application.config.version || '1.0.0'
+          name: "Powernode AI Platform",
+          version: Rails.application.config.version || "1.0.0"
         }
       }
     )
@@ -78,11 +78,11 @@ class McpProtocolService
   # Handle ping requests
   def handle_ping
     {
-      'pong' => true,
-      'timestamp' => Time.current.iso8601,
-      'server_info' => {
-        'name' => 'Powernode MCP Server',
-        'version' => Rails.application.config.version || '1.0.0'
+      "pong" => true,
+      "timestamp" => Time.current.iso8601,
+      "server_info" => {
+        "name" => "Powernode MCP Server",
+        "version" => Rails.application.config.version || "1.0.0"
       }
     }
   end
@@ -92,17 +92,17 @@ class McpProtocolService
     @logger.info "[MCP] Handling initialize request from #{client_info['clientInfo']&.dig('name')}"
 
     # Validate protocol version compatibility
-    client_version = client_info['protocolVersion']
+    client_version = client_info["protocolVersion"]
     unless protocol_version_compatible?(client_version)
       raise ProtocolError, "Unsupported protocol version: #{client_version}"
     end
 
     # Build response
     {
-      'connection_id' => @connection_id,
-      'server_capabilities' => build_server_capabilities,
-      'available_tools' => @registry.list_tools.size,
-      'user_permissions' => extract_user_permissions
+      "connection_id" => @connection_id,
+      "server_capabilities" => build_server_capabilities,
+      "available_tools" => @registry.list_tools.size,
+      "user_permissions" => extract_user_permissions
     }
   end
 
@@ -117,7 +117,7 @@ class McpProtocolService
 
     tool_id = generate_tool_id(tool_manifest)
     @registry.register_tool(tool_id, tool_manifest)
-    @tool_schemas[tool_id] = tool_manifest['inputSchema']
+    @tool_schemas[tool_id] = tool_manifest["inputSchema"]
 
     @logger.info "[MCP] Registered tool: #{tool_id}"
     @telemetry.track_tool_registration(tool_id, tool_manifest)
@@ -133,7 +133,7 @@ class McpProtocolService
     if user && @account
       tools = tools.select do |tool_manifest|
         # Get the database record for permission checking
-        mcp_tool = McpTool.find_by(name: tool_manifest['name'])
+        mcp_tool = McpTool.find_by(name: tool_manifest["name"])
         next true unless mcp_tool # Include if no database record (legacy tools)
 
         # Check if user can access this tool
@@ -147,7 +147,7 @@ class McpProtocolService
     end
 
     {
-      'tools' => tools.map { |tool| format_tool_for_discovery(tool) }
+      "tools" => tools.map { |tool| format_tool_for_discovery(tool) }
     }
   end
 
@@ -157,13 +157,13 @@ class McpProtocolService
     raise ToolNotFoundError, "Tool not found: #{tool_id}" unless tool_manifest
 
     {
-      'name' => tool_manifest['name'],
-      'description' => tool_manifest['description'],
-      'type' => tool_manifest['type'] || 'ai_agent',
-      'inputSchema' => tool_manifest['inputSchema'],
-      'outputSchema' => tool_manifest['outputSchema'],
-      'capabilities' => tool_manifest['capabilities'] || [],
-      'version' => tool_manifest['version'] || '1.0.0'
+      "name" => tool_manifest["name"],
+      "description" => tool_manifest["description"],
+      "type" => tool_manifest["type"] || "ai_agent",
+      "inputSchema" => tool_manifest["inputSchema"],
+      "outputSchema" => tool_manifest["outputSchema"],
+      "capabilities" => tool_manifest["capabilities"] || [],
+      "version" => tool_manifest["version"] || "1.0.0"
     }
   end
 
@@ -180,7 +180,7 @@ class McpProtocolService
     raise ToolNotFoundError, "Tool not found: #{tool_id}" unless tool_manifest
 
     # Get the actual McpTool database record for permission checking
-    mcp_tool = McpTool.find_by(name: tool_manifest['name'])
+    mcp_tool = McpTool.find_by(name: tool_manifest["name"])
     user = options[:user]
 
     # Validate permissions before execution
@@ -193,7 +193,7 @@ class McpProtocolService
 
       unless validator.authorized?
         auth_result = validator.authorization_result
-        error_messages = auth_result[:errors].map { |e| e[:message] }.join('; ')
+        error_messages = auth_result[:errors].map { |e| e[:message] }.join("; ")
 
         @logger.warn "[MCP] Permission denied for tool #{tool_id}: #{error_messages}"
         @telemetry.track_tool_permission_denied(tool_id, user, auth_result)
@@ -248,19 +248,19 @@ class McpProtocolService
     validate_mcp_message!(message)
 
     # Route based on message type
-    case message['method']
-    when 'initialize'
-      handle_initialize_request(message['params'] || {})
-    when 'tools/list'
-      list_tools(message['params'] || {})
-    when 'tools/call'
-      tool_id = message.dig('params', 'name')
-      arguments = message.dig('params', 'arguments') || {}
+    case message["method"]
+    when "initialize"
+      handle_initialize_request(message["params"] || {})
+    when "tools/list"
+      list_tools(message["params"] || {})
+    when "tools/call"
+      tool_id = message.dig("params", "name")
+      arguments = message.dig("params", "arguments") || {}
       invoke_tool(tool_id, arguments)
-    when 'tools/describe'
-      tool_id = message.dig('params', 'name')
+    when "tools/describe"
+      tool_id = message.dig("params", "name")
       describe_tool(tool_id)
-    when 'ping'
+    when "ping"
       { pong: true, timestamp: Time.current.iso8601 }
     else
       raise ProtocolError, "Unknown method: #{message['method']}"
@@ -299,16 +299,16 @@ class McpProtocolService
   # Build server capabilities for MCP protocol
   def build_server_capabilities
     {
-      'protocolVersion' => @protocol_version,
-      'tools' => {
-        'listChanged' => true
+      "protocolVersion" => @protocol_version,
+      "tools" => {
+        "listChanged" => true
       },
-      'resources' => {
-        'subscribe' => true,
-        'listChanged' => true
+      "resources" => {
+        "subscribe" => true,
+        "listChanged" => true
       },
-      'prompts' => {
-        'listChanged' => false
+      "prompts" => {
+        "listChanged" => false
       }
     }
   end
@@ -348,7 +348,7 @@ class McpProtocolService
   def self.validate_not_batch(data)
     parsed = data.is_a?(String) ? JSON.parse(data) : data
     if parsed.is_a?(Array)
-      raise ProtocolError, 'JSON-RPC batching is not supported in MCP 2025-06-18'
+      raise ProtocolError, "JSON-RPC batching is not supported in MCP 2025-06-18"
     end
     parsed
   rescue JSON::ParserError => e
@@ -364,24 +364,24 @@ class McpProtocolService
     end
 
     # Validate JSON schema format
-    validate_json_schema!(manifest['inputSchema'])
-    validate_json_schema!(manifest['outputSchema'])
+    validate_json_schema!(manifest["inputSchema"])
+    validate_json_schema!(manifest["outputSchema"])
   end
 
   def generate_tool_id(manifest)
     # Create deterministic tool ID from manifest
-    name = manifest['name']
-    version = manifest['version'] || '1.0.0'
+    name = manifest["name"]
+    version = manifest["version"] || "1.0.0"
     "#{name.downcase.gsub(/[^a-z0-9]/, '_')}_v#{version.gsub('.', '_')}"
   end
 
   def format_tool_for_discovery(tool)
     {
-      'name' => tool['name'],
-      'description' => tool['description'],
-      'type' => tool['type'] || 'ai_agent',
-      'version' => tool['version'] || '1.0.0',
-      'capabilities' => tool['capabilities'] || []
+      "name" => tool["name"],
+      "description" => tool["description"],
+      "type" => tool["type"] || "ai_agent",
+      "version" => tool["version"] || "1.0.0",
+      "capabilities" => tool["capabilities"] || []
     }
   end
 
@@ -398,7 +398,7 @@ class McpProtocolService
 
   def validate_tool_output!(tool_id, result)
     tool_manifest = @registry.get_tool(tool_id)
-    schema = tool_manifest['outputSchema']
+    schema = tool_manifest["outputSchema"]
     return unless schema
 
     validator = JsonSchemaValidator.new(schema)
@@ -420,16 +420,16 @@ class McpProtocolService
   end
 
   def execute_tool_by_type(tool_manifest, params, context)
-    tool_type = tool_manifest['type'] || 'ai_agent'
+    tool_type = tool_manifest["type"] || "ai_agent"
 
     case tool_type
-    when 'ai_agent'
-      agent_id = tool_manifest['metadata']['agent_id']
+    when "ai_agent"
+      agent_id = tool_manifest["metadata"]["agent_id"]
       agent = @account.ai_agents.find(agent_id)
       executor = AiMcpAgentExecutor.new(agent: agent, account: @account)
       executor.execute(params)
-    when 'workflow'
-      workflow_id = tool_manifest['metadata']['workflow_id']
+    when "workflow"
+      workflow_id = tool_manifest["metadata"]["workflow_id"]
       workflow = @account.ai_workflows.find(workflow_id)
       executor = McpWorkflowExecutor.new(workflow: workflow, account: @account)
       executor.execute(params)
@@ -452,11 +452,11 @@ class McpProtocolService
   end
 
   def validate_mcp_message!(message)
-    unless message['jsonrpc'] == JSONRPC_VERSION
+    unless message["jsonrpc"] == JSONRPC_VERSION
       raise ProtocolError, "Invalid JSON-RPC version: #{message['jsonrpc']}"
     end
 
-    unless message['method'].present?
+    unless message["method"].present?
       raise ProtocolError, "Missing method field"
     end
   end
@@ -465,7 +465,7 @@ class McpProtocolService
     # Basic JSON Schema validation
     return if schema.blank?
 
-    unless schema.is_a?(Hash) && schema['type'].present?
+    unless schema.is_a?(Hash) && schema["type"].present?
       raise SchemaValidationError, "Invalid JSON schema format"
     end
   end
@@ -506,8 +506,8 @@ class McpProtocolService
     return true if client_version.nil? || client_version == @protocol_version
 
     # Allow compatible versions (same major version)
-    client_major = client_version.split('-').first
-    server_major = @protocol_version.split('-').first
+    client_major = client_version.split("-").first
+    server_major = @protocol_version.split("-").first
     client_major == server_major
   end
 
@@ -516,22 +516,22 @@ class McpProtocolService
 
     # Return account-level permissions for MCP operations
     [
-      'ai.agents.read',
-      'ai.workflows.read',
-      'ai.providers.read'
+      "ai.agents.read",
+      "ai.workflows.read",
+      "ai.providers.read"
     ]
   end
 
 
   def create_error_response(message_id, error_message, error_code)
     {
-      'jsonrpc' => JSONRPC_VERSION,
-      'id' => message_id,
-      'error' => {
-        'code' => error_code,
-        'message' => error_message,
-        'data' => {
-          'timestamp' => Time.current.iso8601
+      "jsonrpc" => JSONRPC_VERSION,
+      "id" => message_id,
+      "error" => {
+        "code" => error_code,
+        "message" => error_message,
+        "data" => {
+          "timestamp" => Time.current.iso8601
         }
       }
     }

@@ -20,7 +20,7 @@ RSpec.describe PaymentMethodSecurityValidator do
     }
   end
   let(:request_metadata) { { ip_address: '192.168.1.1' } }
-  
+
   let(:validator) do
     described_class.new(
       account: account,
@@ -38,10 +38,10 @@ RSpec.describe PaymentMethodSecurityValidator do
         # Set user country in preferences to match IP geolocation
         user.update!(preferences: { 'country' => 'US' })
       end
-      
+
       it 'recommends approval' do
         result = validator.validate
-        
+
         expect(result[:recommendation]).to eq('approve')
         expect(result[:overall_risk_score]).to be < 30
         expect(result[:requires_additional_verification]).to be_falsy
@@ -68,8 +68,8 @@ RSpec.describe PaymentMethodSecurityValidator do
 
       it 'recommends rejection or additional verification' do
         result = validator.validate
-        
-        expect(result[:recommendation]).to be_in(['reject', 'additional_verification'])
+
+        expect(result[:recommendation]).to be_in([ 'reject', 'additional_verification' ])
         expect(result[:overall_risk_score]).to be >= 60
         expect(result[:risk_factors]).to include('high_risk_country')
         expect(result[:risk_factors]).to include('high_risk_funding_source')
@@ -84,7 +84,7 @@ RSpec.describe PaymentMethodSecurityValidator do
 
       it 'increases risk score' do
         result = validator.validate
-        
+
         expect(result[:risk_factors]).to include('new_account')
         expect(result[:risk_factors]).to include('high_payment_method_velocity')
         expect(result[:overall_risk_score]).to be >= 40
@@ -100,7 +100,7 @@ RSpec.describe PaymentMethodSecurityValidator do
 
       it 'considers payment history' do
         result = validator.validate
-        
+
         expect(result[:validations][:account_history][:details][:failed_payments]).to eq(3)
       end
     end
@@ -112,7 +112,7 @@ RSpec.describe PaymentMethodSecurityValidator do
 
       it 'returns rejection with error' do
         result = validator.validate
-        
+
         expect(result[:overall_risk_score]).to eq(100)
         expect(result[:recommendation]).to eq('reject')
         expect(result[:risk_factors]).to include('validation_error')

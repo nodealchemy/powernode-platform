@@ -25,9 +25,9 @@ class CreateAiWorkflowRuns < ActiveRecord::Migration[7.1]
       t.decimal :total_cost, precision: 10, scale: 6, default: 0.0
       t.timestamps
 
-      t.index [:ai_workflow_id, :status]
-      t.index [:account_id, :status]
-      t.index [:run_id], unique: true
+      t.index [ :ai_workflow_id, :status ]
+      t.index [ :account_id, :status ]
+      t.index [ :run_id ], unique: true
       t.index :trigger_type
       t.index :started_at
       t.index :completed_at

@@ -31,7 +31,7 @@ FactoryBot.define do
 
     trait :email_share do
       share_type { 'email' }
-      recipients { ['test@example.com'] }
+      recipients { [ 'test@example.com' ] }
     end
 
     trait :user_share do

@@ -24,7 +24,7 @@ class CreateAiSearchIndices < ActiveRecord::Migration[8.0]
       t.index :status
       t.index :last_updated_at
       t.index :last_indexed_at
-      t.index [:account_id, :index_type]
+      t.index [ :account_id, :index_type ]
 
       t.foreign_key :accounts, on_delete: :cascade
     end

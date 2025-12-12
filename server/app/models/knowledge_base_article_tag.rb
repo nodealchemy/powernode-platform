@@ -4,8 +4,8 @@ class KnowledgeBaseArticleTag < ApplicationRecord
   # Authentication
 
   # Associations
-  belongs_to :article, class_name: 'KnowledgeBaseArticle'
-  belongs_to :tag, class_name: 'KnowledgeBaseTag'
+  belongs_to :article, class_name: "KnowledgeBaseArticle"
+  belongs_to :tag, class_name: "KnowledgeBaseTag"
 
   # Validations
   validates :article_id, uniqueness: { scope: :tag_id }

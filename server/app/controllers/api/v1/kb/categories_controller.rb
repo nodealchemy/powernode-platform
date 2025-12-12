@@ -1,16 +1,16 @@
 # frozen_string_literal: true
 
 class Api::V1::Kb::CategoriesController < ApplicationController
-  skip_before_action :authenticate_request, only: [:index, :show, :tree]
-  before_action :set_category, only: [:show, :update, :destroy]
-  before_action :authorize_kb_manage, only: [:create, :update, :destroy]
+  skip_before_action :authenticate_request, only: [ :index, :show, :tree ]
+  before_action :set_category, only: [ :show, :update, :destroy ]
+  before_action :authorize_kb_manage, only: [ :create, :update, :destroy ]
 
   # GET /api/v1/kb/categories
   def index
     if editing_mode?
       # Admin view - all categories for editing
       categories = KnowledgeBaseCategory.includes(:children, :articles, :parent)
-      categories = categories.where('name ILIKE ?', "%#{params[:search]}%") if params[:search].present?
+      categories = categories.where("name ILIKE ?", "%#{params[:search]}%") if params[:search].present?
       categories = categories.ordered.page(params[:page]).per(params[:per_page] || 50)
 
       render_success({
@@ -43,18 +43,18 @@ class Api::V1::Kb::CategoriesController < ApplicationController
 
   # GET /api/v1/kb/categories/:id
   def show
-    return render_error('Category not found', status: :not_found) unless @category
+    return render_error("Category not found", status: :not_found) unless @category
 
     if editing_mode?
       # Admin view - detailed category info for editing
-      return render_error('Access denied', status: :forbidden) unless can_manage_kb?
+      return render_error("Access denied", status: :forbidden) unless can_manage_kb?
 
       render_success({
         category: serialize_category_detailed(@category)
       })
     else
       # Public view - category with articles
-      return render_error('Category not found', status: :not_found) unless @category.is_public
+      return render_error("Category not found", status: :not_found) unless @category.is_public
 
       articles = @category.articles
         .published
@@ -76,7 +76,7 @@ class Api::V1::Kb::CategoriesController < ApplicationController
     if category.save
       render_success({
         category: serialize_category_admin(category)
-      }, 'Category created successfully')
+      }, "Category created successfully")
     else
       render_validation_error(category)
     end
@@ -84,12 +84,12 @@ class Api::V1::Kb::CategoriesController < ApplicationController
 
   # PATCH /api/v1/kb/categories/:id
   def update
-    return render_error('Category not found', status: :not_found) unless @category
+    return render_error("Category not found", status: :not_found) unless @category
 
     if @category.update(category_params)
       render_success({
         category: serialize_category_admin(@category)
-      }, 'Category updated successfully')
+      }, "Category updated successfully")
     else
       render_validation_error(@category)
     end
@@ -97,11 +97,11 @@ class Api::V1::Kb::CategoriesController < ApplicationController
 
   # DELETE /api/v1/kb/categories/:id
   def destroy
-    return render_error('Category not found', status: :not_found) unless @category
-    return render_error('Cannot delete category with articles', status: :bad_request) if @category.articles.any?
+    return render_error("Category not found", status: :not_found) unless @category
+    return render_error("Cannot delete category with articles", status: :bad_request) if @category.articles.any?
 
     @category.destroy
-    render_success(message: 'Category deleted successfully')
+    render_success(message: "Category deleted successfully")
   end
 
   private
@@ -111,21 +111,21 @@ class Api::V1::Kb::CategoriesController < ApplicationController
   end
 
   def editing_mode?
-    params[:admin] == 'true' || params[:edit] == 'true' || 
-    request.path.include?('/admin') || can_manage_kb?
+    params[:admin] == "true" || params[:edit] == "true" ||
+    request.path.include?("/admin") || can_manage_kb?
   end
 
   def can_manage_kb?
-    current_user&.has_permission?('kb.manage')
+    current_user&.has_permission?("kb.manage")
   end
 
   def authorize_kb_manage
-    return render_error('Access denied', status: :forbidden) unless can_manage_kb?
+    render_error("Access denied", status: :forbidden) unless can_manage_kb?
   end
 
   def category_params
     params.require(:category).permit(
-      :name, :slug, :description, :parent_id, :is_public, :sort_order, 
+      :name, :slug, :description, :parent_id, :is_public, :sort_order,
       :icon, :color, metadata: {}
     )
   end

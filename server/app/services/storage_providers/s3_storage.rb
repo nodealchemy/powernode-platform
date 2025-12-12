@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require 'aws-sdk-s3'
+require "aws-sdk-s3"
 
 module StorageProviders
   # AWS S3 storage provider
@@ -10,8 +10,8 @@ module StorageProviders
 
     def initialize(storage_config)
       super
-      @bucket_name = config('bucket')
-      @region = config('region') || 'us-east-1'
+      @bucket_name = config("bucket")
+      @region = config("region") || "us-east-1"
       @s3_client = create_s3_client
       @s3_resource = Aws::S3::Resource.new(client: @s3_client)
     end
@@ -26,9 +26,9 @@ module StorageProviders
       end
 
       # Configure bucket settings
-      configure_bucket_encryption(bucket) if config('encryption')
-      configure_bucket_lifecycle(bucket) if config('lifecycle_rules')
-      configure_bucket_cors(bucket) if config('enable_cors')
+      configure_bucket_encryption(bucket) if config("encryption")
+      configure_bucket_lifecycle(bucket) if config("lifecycle_rules")
+      configure_bucket_cors(bucket) if config("enable_cors")
 
       log_info("Initialized S3 storage: #{@bucket_name} in #{@region}")
       true
@@ -39,14 +39,14 @@ module StorageProviders
 
     # Test connection
     def test_connection
-      return { success: false, error: 'Bucket name not configured' } unless @bucket_name
+      return { success: false, error: "Bucket name not configured" } unless @bucket_name
 
       # Try to list objects (with limit 1 for performance)
       @s3_client.list_objects_v2(bucket: @bucket_name, max_keys: 1)
 
       {
         success: true,
-        message: 'S3 storage is accessible',
+        message: "S3 storage is accessible",
         bucket: @bucket_name,
         region: @region,
         endpoint: @s3_client.config.endpoint.to_s
@@ -71,26 +71,26 @@ module StorageProviders
         bucket_stats = get_bucket_statistics
 
         {
-          status: 'healthy',
+          status: "healthy",
           details: {
-            'bucket' => @bucket_name,
-            'region' => @region,
-            'accessible' => true,
-            'files_count' => storage_config.files_count,
-            'total_size_bytes' => storage_config.total_size_bytes,
-            'bucket_files_count' => bucket_stats[:object_count],
-            'bucket_size_bytes' => bucket_stats[:total_size],
-            'encryption_enabled' => bucket_stats[:encryption_enabled],
-            'versioning_enabled' => bucket_stats[:versioning_enabled],
-            'checked_at' => Time.current.iso8601
+            "bucket" => @bucket_name,
+            "region" => @region,
+            "accessible" => true,
+            "files_count" => storage_config.files_count,
+            "total_size_bytes" => storage_config.total_size_bytes,
+            "bucket_files_count" => bucket_stats[:object_count],
+            "bucket_size_bytes" => bucket_stats[:total_size],
+            "encryption_enabled" => bucket_stats[:encryption_enabled],
+            "versioning_enabled" => bucket_stats[:versioning_enabled],
+            "checked_at" => Time.current.iso8601
           }
         }
       else
         {
-          status: 'failed',
+          status: "failed",
           details: {
-            'error' => connection_test[:error],
-            'checked_at' => Time.current.iso8601
+            "error" => connection_test[:error],
+            "checked_at" => Time.current.iso8601
           }
         }
       end
@@ -225,7 +225,7 @@ module StorageProviders
 
     # Get file URL
     def file_url(file_object)
-      if config('cdn_domain')
+      if config("cdn_domain")
         "https://#{config('cdn_domain')}/#{file_object.storage_key}"
       else
         "https://#{@bucket_name}.s3.#{@region}.amazonaws.com/#{file_object.storage_key}"
@@ -246,7 +246,7 @@ module StorageProviders
     end
 
     # Get signed URL
-    def signed_url(file_object, expires_in: 1.hour, disposition: 'inline')
+    def signed_url(file_object, expires_in: 1.hour, disposition: "inline")
       signer = Aws::S3::Presigner.new(client: @s3_client)
 
       signer.presigned_url(
@@ -269,7 +269,7 @@ module StorageProviders
         expires_in: expires_in.to_i,
         content_type: content_type,
         metadata: {
-          'original-filename' => filename
+          "original-filename" => filename
         }
       )
     end
@@ -282,14 +282,14 @@ module StorageProviders
       )
 
       {
-        'size' => response.content_length,
-        'content_type' => response.content_type,
-        'etag' => response.etag,
-        'last_modified' => response.last_modified.iso8601,
-        'storage_class' => response.storage_class,
-        'server_side_encryption' => response.server_side_encryption,
-        'metadata' => response.metadata,
-        'version_id' => response.version_id
+        "size" => response.content_length,
+        "content_type" => response.content_type,
+        "etag" => response.etag,
+        "last_modified" => response.last_modified.iso8601,
+        "storage_class" => response.storage_class,
+        "server_side_encryption" => response.server_side_encryption,
+        "metadata" => response.metadata,
+        "version_id" => response.version_id
       }
     rescue Aws::S3::Errors::NotFound
       raise "File not found: #{file_object.storage_key}"
@@ -307,11 +307,11 @@ module StorageProviders
       @s3_client.list_objects_v2(list_options).each do |response|
         response.contents.each do |object|
           files << {
-            'key' => object.key,
-            'size' => object.size,
-            'modified_at' => object.last_modified.iso8601,
-            'etag' => object.etag,
-            'storage_class' => object.storage_class
+            "key" => object.key,
+            "size" => object.size,
+            "modified_at" => object.last_modified.iso8601,
+            "etag" => object.etag,
+            "storage_class" => object.storage_class
           }
         end
       end
@@ -380,7 +380,7 @@ module StorageProviders
 
       # Check versioning
       versioning_response = @s3_client.get_bucket_versioning(bucket: @bucket_name)
-      versioning_enabled = versioning_response.status == 'Enabled'
+      versioning_enabled = versioning_response.status == "Enabled"
 
       {
         object_count: object_count,
@@ -407,17 +407,17 @@ module StorageProviders
       }
 
       # Support for S3-compatible services (Minio, DigitalOcean Spaces, etc.)
-      if config('endpoint')
-        client_options[:endpoint] = config('endpoint')
-        client_options[:force_path_style] = config('force_path_style') || true
+      if config("endpoint")
+        client_options[:endpoint] = config("endpoint")
+        client_options[:force_path_style] = config("force_path_style") || true
       end
 
       Aws::S3::Client.new(client_options)
     end
 
     def create_credentials
-      access_key_id = decrypt_config('access_key_id')
-      secret_access_key = decrypt_config('secret_access_key')
+      access_key_id = decrypt_config("access_key_id")
+      secret_access_key = decrypt_config("secret_access_key")
 
       if access_key_id && secret_access_key
         Aws::Credentials.new(access_key_id, secret_access_key)
@@ -434,19 +434,19 @@ module StorageProviders
       upload_opts[:content_type] = options[:content_type] if options[:content_type]
 
       # Server-side encryption
-      if config('encryption')
-        upload_opts[:server_side_encryption] = config('encryption')
-        upload_opts[:ssekms_key_id] = config('kms_key_id') if config('kms_key_id')
+      if config("encryption")
+        upload_opts[:server_side_encryption] = config("encryption")
+        upload_opts[:ssekms_key_id] = config("kms_key_id") if config("kms_key_id")
       end
 
       # Storage class
-      if config('storage_class')
-        upload_opts[:storage_class] = config('storage_class')
+      if config("storage_class")
+        upload_opts[:storage_class] = config("storage_class")
       end
 
       # ACL
-      if config('acl')
-        upload_opts[:acl] = config('acl')
+      if config("acl")
+        upload_opts[:acl] = config("acl")
       end
 
       # Metadata
@@ -455,8 +455,8 @@ module StorageProviders
       end
 
       # Cache control
-      if config('cache_control')
-        upload_opts[:cache_control] = config('cache_control')
+      if config("cache_control")
+        upload_opts[:cache_control] = config("cache_control")
       end
 
       upload_opts
@@ -514,7 +514,7 @@ module StorageProviders
     end
 
     def configure_bucket_encryption(bucket)
-      encryption_config = config('encryption')
+      encryption_config = config("encryption")
 
       bucket.encryption.put(
         server_side_encryption_configuration: {
@@ -522,7 +522,7 @@ module StorageProviders
             {
               apply_server_side_encryption_by_default: {
                 sse_algorithm: encryption_config,
-                kms_master_key_id: config('kms_key_id')
+                kms_master_key_id: config("kms_key_id")
               }.compact
             }
           ]
@@ -535,7 +535,7 @@ module StorageProviders
     end
 
     def configure_bucket_lifecycle(bucket)
-      lifecycle_rules = config('lifecycle_rules')
+      lifecycle_rules = config("lifecycle_rules")
 
       bucket.lifecycle_configuration.put(
         lifecycle_configuration: {
@@ -552,9 +552,9 @@ module StorageProviders
       cors_config = {
         cors_rules: [
           {
-            allowed_headers: ['*'],
-            allowed_methods: ['GET', 'PUT', 'POST', 'DELETE'],
-            allowed_origins: config('cors_origins') || ['*'],
+            allowed_headers: [ "*" ],
+            allowed_methods: [ "GET", "PUT", "POST", "DELETE" ],
+            allowed_origins: config("cors_origins") || [ "*" ],
             max_age_seconds: 3600
           }
         ]

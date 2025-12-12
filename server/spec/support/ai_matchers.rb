@@ -32,7 +32,7 @@ module AiMatchers
   RSpec::Matchers.define :have_valid_node_configuration do
     match do |node|
       return false unless node.is_a?(AiWorkflowNode)
-      
+
       case node.node_type
       when 'ai_agent'
         node.configuration&.key?('agent_id')
@@ -78,7 +78,7 @@ module AiMatchers
       @initial_count = AuditLog.count
       block.call
       @final_count = AuditLog.count
-      
+
       if action
         @audit_log = AuditLog.where(action: action).order(:created_at).last
         @audit_log.present? && @final_count > @initial_count
@@ -103,11 +103,11 @@ module AiMatchers
       @initial_count = AuditLog.count
       block.call
       @final_count = AuditLog.count
-      
+
       if action
         @audit_log = AuditLog.where(action: action).order(:created_at).last
         return false unless @audit_log.present? && @final_count > @initial_count
-        
+
         if @expected_metadata
           @expected_metadata.all? { |key, value| @audit_log.metadata[key.to_s] == value }
         else
@@ -208,7 +208,7 @@ module AiMatchers
       errors << "has no nodes" if workflow.ai_workflow_nodes.count == 0
       errors << "missing start node" unless has_start_node?(workflow)
       errors << "has disconnected nodes" unless has_connected_nodes?(workflow)
-      
+
       "expected workflow to be valid, but #{errors.join(', ')}"
     end
 
@@ -220,11 +220,11 @@ module AiMatchers
 
     def has_connected_nodes?(workflow)
       return true if workflow.ai_workflow_nodes.count <= 1
-      
+
       # Simple check - all nodes except start should have incoming edges
       nodes_with_edges = workflow.ai_workflow_edges.pluck(:target_node_id).uniq
       start_nodes = workflow.ai_workflow_nodes.select { |n| n.node_type == 'start' || n.is_start_node }
-      
+
       expected_connected = workflow.ai_workflow_nodes.count - start_nodes.count
       nodes_with_edges.count >= expected_connected
     end

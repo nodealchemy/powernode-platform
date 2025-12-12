@@ -4,13 +4,13 @@ require 'rails_helper'
 
 RSpec.describe ImpersonationSession, type: :model do
   include ActiveSupport::Testing::TimeHelpers
-  
+
   subject { build(:impersonation_session) }
 
   # Associations
   describe 'associations' do
     subject { create(:impersonation_session) }
-    
+
     it { should belong_to(:impersonator).class_name('User') }
     it { should belong_to(:impersonated_user).class_name('User') }
     # Account is delegated through impersonated_user
@@ -20,7 +20,7 @@ RSpec.describe ImpersonationSession, type: :model do
   # Validations
   describe 'validations' do
     subject { create(:impersonation_session) }
-    
+
     it { should validate_presence_of(:session_token) }
     it { should validate_uniqueness_of(:session_token) }
     it { should validate_length_of(:reason).is_at_most(500) }
@@ -48,8 +48,8 @@ RSpec.describe ImpersonationSession, type: :model do
 
     it 'prevents self-impersonation' do
       user = create(:user)
-      session = build(:impersonation_session, 
-                     impersonator: user, 
+      session = build(:impersonation_session,
+                     impersonator: user,
                      impersonated_user: user)
 
       expect(session).not_to be_valid
@@ -76,7 +76,7 @@ RSpec.describe ImpersonationSession, type: :model do
       old_session = create(:impersonation_session, started_at: 2.days.ago)
       new_session = create(:impersonation_session, started_at: 1.hour.ago)
 
-      expect(ImpersonationSession.recent).to eq([active_session, ended_session, new_session, old_session])
+      expect(ImpersonationSession.recent).to eq([ active_session, ended_session, new_session, old_session ])
     end
   end
 
@@ -93,8 +93,8 @@ RSpec.describe ImpersonationSession, type: :model do
     end
 
     it 'returns false when expired' do
-      session = create(:impersonation_session, 
-                      ended_at: nil, 
+      session = create(:impersonation_session,
+                      ended_at: nil,
                       started_at: ImpersonationSession::MAX_SESSION_DURATION.ago - 1.hour)
       expect(session.active?).to be false
     end
@@ -107,7 +107,7 @@ RSpec.describe ImpersonationSession, type: :model do
     end
 
     it 'returns true for old session' do
-      session = create(:impersonation_session, 
+      session = create(:impersonation_session,
                       started_at: ImpersonationSession::MAX_SESSION_DURATION.ago - 1.hour)
       expect(session.expired?).to be true
     end
@@ -227,7 +227,7 @@ RSpec.describe ImpersonationSession, type: :model do
     it 'ends existing active sessions for the target user' do
       # Create existing session with same account users
       existing_impersonator = create(:user, account: account)
-      existing_session = create(:impersonation_session, 
+      existing_session = create(:impersonation_session,
                                impersonator: existing_impersonator,
                                impersonated_user: target_user,
                                ended_at: nil)

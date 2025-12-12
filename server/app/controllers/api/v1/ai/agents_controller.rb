@@ -54,7 +54,7 @@ module Api
             pagination: pagination_data(agents)
           })
 
-          log_audit_event('ai.agents.read', current_user.account)
+          log_audit_event("ai.agents.read", current_user.account)
         end
 
         # GET /api/v1/ai/agents/:id
@@ -63,15 +63,15 @@ module Api
             agent: serialize_agent_detail(@agent)
           })
 
-          log_audit_event('ai.agents.read', @agent)
+          log_audit_event("ai.agents.read", @agent)
         end
 
         # POST /api/v1/ai/agents
         def create
           @agent = current_user.account.ai_agents.build(agent_params)
           @agent.creator = current_user
-          @agent.status = 'inactive'
-          @agent.version = '1.0.0'
+          @agent.status = "inactive"
+          @agent.version = "1.0.0"
           @agent.metadata ||= {}
 
           if @agent.save
@@ -79,7 +79,7 @@ module Api
               agent: serialize_agent_detail(@agent)
             }, status: :created)
 
-            log_audit_event('ai.agents.create', @agent,
+            log_audit_event("ai.agents.create", @agent,
               agent_type: @agent.agent_type,
               mcp_capabilities: @agent.mcp_capabilities
             )
@@ -95,8 +95,8 @@ module Api
               agent: serialize_agent_detail(@agent)
             })
 
-            log_audit_event('ai.agents.update', @agent,
-              changes: @agent.previous_changes.except('updated_at')
+            log_audit_event("ai.agents.update", @agent,
+              changes: @agent.previous_changes.except("updated_at")
             )
           else
             render_validation_error(@agent.errors)
@@ -108,9 +108,9 @@ module Api
           agent_name = @agent.name
           @agent.destroy
 
-          render_success({ message: 'AI agent deleted successfully' })
+          render_success({ message: "AI agent deleted successfully" })
 
-          log_audit_event('ai.agents.delete', current_user.account,
+          log_audit_event("ai.agents.delete", current_user.account,
             agent_name: agent_name
           )
         end
@@ -122,7 +122,7 @@ module Api
         # POST /api/v1/ai/agents/:id/execute
         def execute
           unless @agent.mcp_available?
-            return render_error('Agent cannot be executed in current state', status: :unprocessable_content)
+            return render_error("Agent cannot be executed in current state", status: :unprocessable_content)
           end
 
           input_parameters = params[:input_parameters] || {}
@@ -131,7 +131,7 @@ module Api
           provider = nil
           if provider_id.present?
             provider = current_user.account.ai_providers.find_by(id: provider_id)
-            return render_error('AI provider not found', status: :not_found) unless provider
+            return render_error("AI provider not found", status: :not_found) unless provider
           end
 
           begin
@@ -146,7 +146,7 @@ module Api
               agent: serialize_agent(@agent.reload)
             }, status: :created)
 
-            log_audit_event('ai.agents.execute', @agent,
+            log_audit_event("ai.agents.execute", @agent,
               execution_id: execution.execution_id,
               provider_id: execution.ai_provider_id
             )
@@ -167,7 +167,7 @@ module Api
               agent: serialize_agent_detail(cloned_agent)
             }, status: :created)
 
-            log_audit_event('ai.agents.clone', cloned_agent,
+            log_audit_event("ai.agents.clone", cloned_agent,
               original_agent_id: @agent.id
             )
 
@@ -186,10 +186,10 @@ module Api
 
             render_success({
               test_result: result,
-              message: 'Test execution completed'
+              message: "Test execution completed"
             })
 
-            log_audit_event('ai.agents.test', @agent)
+            log_audit_event("ai.agents.test", @agent)
 
           rescue StandardError => e
             render_error("Test execution failed: #{e.message}", status: :unprocessable_content)
@@ -203,7 +203,7 @@ module Api
           if validation_result[:valid]
             render_success({
               valid: true,
-              message: 'Agent configuration is valid'
+              message: "Agent configuration is valid"
             })
           else
             render_success({
@@ -217,45 +217,45 @@ module Api
         # POST /api/v1/ai/agents/:id/pause
         def pause
           if @agent.active?
-            @agent.update!(status: 'paused')
+            @agent.update!(status: "paused")
 
             render_success({
               agent: serialize_agent(@agent),
-              message: 'Agent paused successfully'
+              message: "Agent paused successfully"
             })
 
-            log_audit_event('ai.agents.pause', @agent)
+            log_audit_event("ai.agents.pause", @agent)
           else
-            render_error('Agent must be active to pause', status: :unprocessable_content)
+            render_error("Agent must be active to pause", status: :unprocessable_content)
           end
         end
 
         # POST /api/v1/ai/agents/:id/resume
         def resume
           if @agent.paused?
-            @agent.update!(status: 'active')
+            @agent.update!(status: "active")
 
             render_success({
               agent: serialize_agent(@agent),
-              message: 'Agent resumed successfully'
+              message: "Agent resumed successfully"
             })
 
-            log_audit_event('ai.agents.resume', @agent)
+            log_audit_event("ai.agents.resume", @agent)
           else
-            render_error('Agent must be paused to resume', status: :unprocessable_content)
+            render_error("Agent must be paused to resume", status: :unprocessable_content)
           end
         end
 
         # POST /api/v1/ai/agents/:id/archive
         def archive
-          @agent.update!(status: 'archived')
+          @agent.update!(status: "archived")
 
           render_success({
             agent: serialize_agent(@agent),
-            message: 'Agent archived successfully'
+            message: "Agent archived successfully"
           })
 
-          log_audit_event('ai.agents.archive', @agent)
+          log_audit_event("ai.agents.archive", @agent)
         end
 
         # GET /api/v1/ai/agents/:id/stats
@@ -264,11 +264,11 @@ module Api
 
           stats = {
             total_executions: executions.count,
-            successful_executions: executions.where(status: 'completed').count,
-            failed_executions: executions.where(status: 'failed').count,
-            running_executions: executions.where(status: 'running').count,
+            successful_executions: executions.where(status: "completed").count,
+            failed_executions: executions.where(status: "failed").count,
+            running_executions: executions.where(status: "running").count,
             average_duration: executions.where.not(completed_at: nil)
-                                        .average('EXTRACT(epoch FROM (completed_at - started_at))'),
+                                        .average("EXTRACT(epoch FROM (completed_at - started_at))"),
             total_cost: executions.sum(:cost_usd),
             last_executed_at: executions.maximum(:created_at),
             success_rate: calculate_success_rate(executions)
@@ -282,7 +282,7 @@ module Api
           date_range = params[:date_range]&.to_i || 30
 
           executions = @agent.ai_agent_executions
-                            .where('created_at >= ?', date_range.days.ago)
+                            .where("created_at >= ?", date_range.days.ago)
 
           analytics = {
             executions_over_time: executions.group_by_day(:created_at).count,
@@ -344,15 +344,15 @@ module Api
 
           stats = {
             total_agents: agents.count,
-            active_agents: agents.where(status: 'active').count,
-            paused_agents: agents.where(status: 'paused').count,
+            active_agents: agents.where(status: "active").count,
+            paused_agents: agents.where(status: "paused").count,
             total_executions: AiAgentExecution.joins(:ai_agent)
                                              .where(ai_agents: { account_id: current_user.account_id })
                                              .count,
             agents_by_type: agents.group(:agent_type).count,
             recent_activity: agents.joins(:ai_agent_executions)
                                   .where(ai_agent_executions: { created_at: 7.days.ago.. })
-                                  .group('ai_agents.id')
+                                  .group("ai_agents.id")
                                   .count
           }
 
@@ -370,11 +370,11 @@ module Api
                         # Nested under specific agent
                         agent = current_user.account.ai_agents.find(params[:agent_id])
                         agent.ai_agent_executions
-                      else
+          else
                         # All executions across all agents
                         AiAgentExecution.joins(:ai_agent)
                                        .where(ai_agents: { account_id: current_user.account_id })
-                      end
+          end
 
           executions = executions.includes(:ai_agent, :ai_provider, :user)
           executions = apply_execution_filters(executions)
@@ -401,7 +401,7 @@ module Api
         def execution_update
           # Allow worker/service updates without full permission check
           unless current_worker || current_service
-            require_permission('ai.agents.update')
+            require_permission("ai.agents.update")
           end
 
           if @execution.update(execution_update_params)
@@ -410,7 +410,7 @@ module Api
 
             render_success({
               execution: clean_data,
-              message: 'Execution updated successfully'
+              message: "Execution updated successfully"
             })
           else
             render_validation_error(@execution.errors)
@@ -423,26 +423,26 @@ module Api
         # DELETE /api/v1/ai/agents/:agent_id/executions/:execution_id
         def execution_destroy
           if @execution.destroy
-            render_success({ message: 'Execution deleted successfully' })
+            render_success({ message: "Execution deleted successfully" })
 
-            log_audit_event('ai.agents.execution.delete', @execution)
+            log_audit_event("ai.agents.execution.delete", @execution)
           else
-            render_error('Failed to delete execution', status: :unprocessable_content)
+            render_error("Failed to delete execution", status: :unprocessable_content)
           end
         end
 
         # POST /api/v1/ai/agents/:agent_id/executions/:execution_id/cancel
         def execution_cancel
           begin
-            reason = params[:reason] || 'Cancelled by user'
+            reason = params[:reason] || "Cancelled by user"
             @execution.cancel_execution!(reason)
 
             render_success({
               execution: serialize_execution(@execution),
-              message: 'Execution cancelled successfully'
+              message: "Execution cancelled successfully"
             })
 
-            log_audit_event('ai.agents.execution.cancel', @execution)
+            log_audit_event("ai.agents.execution.cancel", @execution)
 
           rescue StandardError => e
             render_error("Failed to cancel execution: #{e.message}", status: :unprocessable_content)
@@ -461,14 +461,14 @@ module Api
 
             render_success({
               execution: serialize_execution(new_execution),
-              message: 'Execution retried successfully'
+              message: "Execution retried successfully"
             }, status: :created)
 
-            log_audit_event('ai.agents.execution.retry', new_execution,
+            log_audit_event("ai.agents.execution.retry", new_execution,
               original_execution_id: @execution.execution_id
             )
           else
-            render_error('Cannot retry execution that is not finished', status: :unprocessable_content)
+            render_error("Cannot retry execution that is not finished", status: :unprocessable_content)
           end
         end
 
@@ -521,7 +521,7 @@ module Api
               conversation: serialize_conversation_detail(conversation)
             }, status: :created)
 
-            log_audit_event('ai.conversations.create', conversation)
+            log_audit_event("ai.conversations.create", conversation)
           else
             render_validation_error(conversation.errors)
           end
@@ -536,7 +536,7 @@ module Api
               conversation: serialize_conversation(conversation)
             })
 
-            log_audit_event('ai.conversations.update', conversation)
+            log_audit_event("ai.conversations.update", conversation)
           else
             render_validation_error(conversation.errors)
           end
@@ -547,11 +547,11 @@ module Api
           conversation = @agent.ai_conversations.find(params[:conversation_id] || params[:id])
 
           if conversation.destroy
-            render_success({ message: 'Conversation deleted successfully' })
+            render_success({ message: "Conversation deleted successfully" })
 
-            log_audit_event('ai.conversations.delete', conversation)
+            log_audit_event("ai.conversations.delete", conversation)
           else
-            render_error('Failed to delete conversation', status: :unprocessable_content)
+            render_error("Failed to delete conversation", status: :unprocessable_content)
           end
         end
 
@@ -575,7 +575,7 @@ module Api
             message: serialize_message(message)
           })
 
-          log_audit_event('ai.conversations.message.send', message)
+          log_audit_event("ai.conversations.message.send", message)
         end
 
         # POST /api/v1/ai/agents/:agent_id/conversations/:conversation_id/pause
@@ -585,10 +585,10 @@ module Api
 
           render_success({
             conversation: serialize_conversation(conversation),
-            message: 'Conversation paused successfully'
+            message: "Conversation paused successfully"
           })
 
-          log_audit_event('ai.conversations.pause', conversation)
+          log_audit_event("ai.conversations.pause", conversation)
         end
 
         # POST /api/v1/ai/agents/:agent_id/conversations/:conversation_id/resume
@@ -598,10 +598,10 @@ module Api
 
           render_success({
             conversation: serialize_conversation(conversation),
-            message: 'Conversation resumed successfully'
+            message: "Conversation resumed successfully"
           })
 
-          log_audit_event('ai.conversations.resume', conversation)
+          log_audit_event("ai.conversations.resume", conversation)
         end
 
         # POST /api/v1/ai/agents/:agent_id/conversations/:conversation_id/complete
@@ -611,10 +611,10 @@ module Api
 
           render_success({
             conversation: serialize_conversation(conversation),
-            message: 'Conversation completed successfully'
+            message: "Conversation completed successfully"
           })
 
-          log_audit_event('ai.conversations.complete', conversation)
+          log_audit_event("ai.conversations.complete", conversation)
         end
 
         # POST /api/v1/ai/agents/:agent_id/conversations/:conversation_id/archive
@@ -624,10 +624,10 @@ module Api
 
           render_success({
             conversation: serialize_conversation(conversation),
-            message: 'Conversation archived successfully'
+            message: "Conversation archived successfully"
           })
 
-          log_audit_event('ai.conversations.archive', conversation)
+          log_audit_event("ai.conversations.archive", conversation)
         end
 
         # GET /api/v1/ai/agents/:agent_id/conversations/:conversation_id/messages
@@ -646,11 +646,11 @@ module Api
 
           render_success({
             conversation: serialize_conversation_detail(conversation),
-            export_format: params[:format] || 'json',
+            export_format: params[:format] || "json",
             exported_at: Time.current.iso8601
           })
 
-          log_audit_event('ai.conversations.export', conversation)
+          log_audit_event("ai.conversations.export", conversation)
         end
 
         # =============================================================================
@@ -666,22 +666,22 @@ module Api
           message = conversation.ai_messages.find(params[:id])
 
           # Only allow regenerating assistant messages
-          unless message.role == 'assistant'
-            return render_error('Can only regenerate assistant messages', status: :unprocessable_content)
+          unless message.role == "assistant"
+            return render_error("Can only regenerate assistant messages", status: :unprocessable_content)
           end
 
           # Find the previous user message to use as context (for future job)
           _previous_messages = conversation.ai_messages
-                                          .where('sequence_number < ?', message.sequence_number)
+                                          .where("sequence_number < ?", message.sequence_number)
                                           .order(sequence_number: :asc)
 
           # Mark the old message as replaced
           old_content = message.content
           message.update!(
             metadata: (message.metadata || {}).merge(
-              'regenerated' => true,
-              'regenerated_at' => Time.current.iso8601,
-              'original_content' => old_content
+              "regenerated" => true,
+              "regenerated_at" => Time.current.iso8601,
+              "original_content" => old_content
             )
           )
 
@@ -704,7 +704,7 @@ module Api
             regeneration_request: regeneration_request
           })
 
-          log_audit_event('ai.messages.regenerate', message)
+          log_audit_event("ai.messages.regenerate", message)
         rescue ActiveRecord::RecordNotFound => e
           render_error(e.message, status: :not_found)
         end
@@ -718,27 +718,27 @@ module Api
           message = conversation.ai_messages.find(params[:id])
 
           # Only allow rating assistant messages
-          unless message.role == 'assistant'
-            return render_error('Can only rate assistant messages', status: :unprocessable_content)
+          unless message.role == "assistant"
+            return render_error("Can only rate assistant messages", status: :unprocessable_content)
           end
 
           rating = params[:rating]
           unless %w[thumbs_up thumbs_down].include?(rating)
-            return render_error('Rating must be thumbs_up or thumbs_down', status: :unprocessable_content)
+            return render_error("Rating must be thumbs_up or thumbs_down", status: :unprocessable_content)
           end
 
           feedback = params[:feedback]
 
           # Update message metadata with rating
           rating_data = {
-            'rating' => rating,
-            'rated_at' => Time.current.iso8601,
-            'rated_by' => current_user.id
+            "rating" => rating,
+            "rated_at" => Time.current.iso8601,
+            "rated_by" => current_user.id
           }
-          rating_data['feedback'] = feedback if feedback.present?
+          rating_data["feedback"] = feedback if feedback.present?
 
           message.update!(
-            metadata: (message.metadata || {}).merge('user_rating' => rating_data)
+            metadata: (message.metadata || {}).merge("user_rating" => rating_data)
           )
 
           render_success({
@@ -746,7 +746,7 @@ module Api
             rating: rating_data
           })
 
-          log_audit_event('ai.messages.rate', message, rating: rating)
+          log_audit_event("ai.messages.rate", message, rating: rating)
         rescue ActiveRecord::RecordNotFound => e
           render_error(e.message, status: :not_found)
         end
@@ -760,7 +760,7 @@ module Api
         def set_agent
           @agent = current_user.account.ai_agents.find(params[:id] || params[:agent_id])
         rescue ActiveRecord::RecordNotFound
-          return render_error('Agent not found', status: :not_found)
+          render_error("Agent not found", status: :not_found)
         end
 
         def set_agent_execution
@@ -775,10 +775,10 @@ module Api
             # Worker/service context - trusted access
             @execution = AiAgentExecution.find_by!(execution_id: execution_id)
           else
-            return render_unauthorized('Authentication required')
+            render_unauthorized("Authentication required")
           end
         rescue ActiveRecord::RecordNotFound
-          return render_error('Execution not found', status: :not_found)
+          render_error("Execution not found", status: :not_found)
         end
 
         # =============================================================================
@@ -790,38 +790,38 @@ module Api
           return if current_worker || current_service
 
           case action_name
-          when 'index', 'show', 'my_agents', 'public_agents', 'agent_types', 'statistics'
-            require_permission('ai.agents.read')
-          when 'executions_index', 'execution_show', 'execution_logs'
-            require_permission('ai.agents.read')
-          when 'conversations_index', 'conversation_show', 'conversation_messages'
-            require_permission('ai.conversations.read')
-          when 'create', 'clone'
-            require_permission('ai.agents.create')
-          when 'conversation_create', 'send_message'
-            require_permission('ai.conversations.create')
-          when 'update', 'validate'
-            require_permission('ai.agents.update')
-          when 'conversation_update', 'pause_conversation', 'resume_conversation', 'complete_conversation'
-            require_permission('ai.conversations.update')
-          when 'execution_update'
+          when "index", "show", "my_agents", "public_agents", "agent_types", "statistics"
+            require_permission("ai.agents.read")
+          when "executions_index", "execution_show", "execution_logs"
+            require_permission("ai.agents.read")
+          when "conversations_index", "conversation_show", "conversation_messages"
+            require_permission("ai.conversations.read")
+          when "create", "clone"
+            require_permission("ai.agents.create")
+          when "conversation_create", "send_message"
+            require_permission("ai.conversations.create")
+          when "update", "validate"
+            require_permission("ai.agents.update")
+          when "conversation_update", "pause_conversation", "resume_conversation", "complete_conversation"
+            require_permission("ai.conversations.update")
+          when "execution_update"
             # Already handled in action
-          when 'destroy', 'execution_destroy'
-            require_permission('ai.agents.delete')
-          when 'conversation_destroy'
-            require_permission('ai.conversations.delete')
-          when 'execute', 'test', 'pause', 'resume', 'archive'
-            require_permission('ai.agents.execute')
-          when 'execution_cancel', 'execution_retry'
-            require_permission('ai.agents.execute')
-          when 'archive_conversation', 'export_conversation'
-            require_permission('ai.conversations.manage')
-          when 'stats', 'analytics'
-            require_permission('ai.agents.read')
-          when 'regenerate'
-            require_permission('ai.conversations.update')
-          when 'rate'
-            require_permission('ai.conversations.read')
+          when "destroy", "execution_destroy"
+            require_permission("ai.agents.delete")
+          when "conversation_destroy"
+            require_permission("ai.conversations.delete")
+          when "execute", "test", "pause", "resume", "archive"
+            require_permission("ai.agents.execute")
+          when "execution_cancel", "execution_retry"
+            require_permission("ai.agents.execute")
+          when "archive_conversation", "export_conversation"
+            require_permission("ai.conversations.manage")
+          when "stats", "analytics"
+            require_permission("ai.agents.read")
+          when "regenerate"
+            require_permission("ai.conversations.update")
+          when "rate"
+            require_permission("ai.conversations.read")
           end
         end
 
@@ -882,8 +882,8 @@ module Api
         def apply_agent_filters(agents)
           agents = agents.where(agent_type: params[:agent_type]) if params[:agent_type].present?
           agents = agents.where(status: params[:status]) if params[:status].present?
-          agents = agents.where(creator: current_user) if params[:my_agents] == 'true'
-          agents = agents.where(is_public: true) if params[:public_only] == 'true'
+          agents = agents.where(creator: current_user) if params[:my_agents] == "true"
+          agents = agents.where(is_public: true) if params[:public_only] == "true"
           agents = agents.search_by_text(params[:search]) if params[:search].present?
           agents
         end
@@ -893,27 +893,27 @@ module Api
           executions = executions.where(user_id: params[:user_id]) if params[:user_id].present?
 
           if params[:start_date].present?
-            executions = executions.where('created_at >= ?', Date.parse(params[:start_date]))
+            executions = executions.where("created_at >= ?", Date.parse(params[:start_date]))
           end
 
           if params[:end_date].present?
-            executions = executions.where('created_at <= ?', Date.parse(params[:end_date]))
+            executions = executions.where("created_at <= ?", Date.parse(params[:end_date]))
           end
 
           executions
         end
 
         def apply_sorting(collection)
-          sort = params[:sort] || 'updated_at'
+          sort = params[:sort] || "updated_at"
 
           case sort
-          when 'name'
+          when "name"
             collection.order(:name)
-          when 'created_at'
+          when "created_at"
             collection.order(created_at: :desc)
-          when 'last_executed'
+          when "last_executed"
             collection.order(last_executed_at: :desc, created_at: :desc)
-          when 'agent_type'
+          when "agent_type"
             collection.order(:agent_type, :name)
           else
             collection.order(updated_at: :desc)
@@ -922,7 +922,7 @@ module Api
 
         def apply_pagination(collection)
           page = params[:page]&.to_i || 1
-          per_page = [params[:per_page]&.to_i || 20, 100].min
+          per_page = [ params[:per_page]&.to_i || 20, 100 ].min
 
           collection.page(page).per(per_page)
         end
@@ -976,11 +976,11 @@ module Api
             # Frontend expects 'execution_stats' key with detailed breakdown
             execution_stats: {
               total_executions: executions.count,
-              successful_executions: executions.where(status: 'completed').count,
-              failed_executions: executions.where(status: 'failed').count,
+              successful_executions: executions.where(status: "completed").count,
+              failed_executions: executions.where(status: "failed").count,
               success_rate: agent.success_rate || 0,
               avg_execution_time: executions.where.not(completed_at: nil)
-                                            .average('EXTRACT(epoch FROM (completed_at - started_at))')&.to_f&.round(2) || 0
+                                            .average("EXTRACT(epoch FROM (completed_at - started_at))")&.to_f&.round(2) || 0
             }
           }
         end
@@ -995,10 +995,10 @@ module Api
             # Detailed stats with cost and timing
             detailed_stats: {
               total_executions: executions.count,
-              successful_executions: executions.where(status: 'completed').count,
-              failed_executions: executions.where(status: 'failed').count,
+              successful_executions: executions.where(status: "completed").count,
+              failed_executions: executions.where(status: "failed").count,
               average_duration: executions.where.not(completed_at: nil)
-                                          .average('EXTRACT(epoch FROM (completed_at - started_at))')&.to_f&.round(2) || 0,
+                                          .average("EXTRACT(epoch FROM (completed_at - started_at))")&.to_f&.round(2) || 0,
               total_cost: executions.sum(:cost_usd)&.to_f&.round(4) || 0,
               success_rate: calculate_success_rate(executions)
             }
@@ -1106,30 +1106,30 @@ module Api
 
         def agent_type_description(type)
           descriptions = {
-            'conversational' => 'Interactive chat agents for natural conversations',
-            'workflow' => 'Agents designed for multi-step workflow execution',
-            'automation' => 'Task automation and process management agents',
-            'content_generator' => 'Content creation and generation agents',
-            'code_assistant' => 'Programming and code-related assistance',
-            'data_analyzer' => 'Data analysis and insights generation',
-            'creative' => 'Creative content and ideation agents',
-            'specialist' => 'Domain-specific specialist agents'
+            "conversational" => "Interactive chat agents for natural conversations",
+            "workflow" => "Agents designed for multi-step workflow execution",
+            "automation" => "Task automation and process management agents",
+            "content_generator" => "Content creation and generation agents",
+            "code_assistant" => "Programming and code-related assistance",
+            "data_analyzer" => "Data analysis and insights generation",
+            "creative" => "Creative content and ideation agents",
+            "specialist" => "Domain-specific specialist agents"
           }
 
-          descriptions[type] || 'Custom agent type'
+          descriptions[type] || "Custom agent type"
         end
 
         def calculate_success_rate(executions)
           total = executions.count
           return 0 if total.zero?
 
-          successful = executions.where(status: 'completed').count
+          successful = executions.where(status: "completed").count
           ((successful.to_f / total) * 100).round(2)
         end
 
         def calculate_performance_metrics(executions)
           durations = executions.where.not(completed_at: nil)
-                                .pluck(Arel.sql('EXTRACT(epoch FROM (completed_at - started_at))'))
+                                .pluck(Arel.sql("EXTRACT(epoch FROM (completed_at - started_at))"))
                                 .compact
 
           {
@@ -1159,17 +1159,17 @@ module Api
           if execution.started_at
             logs << {
               timestamp: execution.started_at.iso8601,
-              level: 'info',
-              message: 'Execution started',
-              data: { status: 'running' }
+              level: "info",
+              message: "Execution started",
+              data: { status: "running" }
             }
           end
 
           if execution.completed_at
             logs << {
               timestamp: execution.completed_at.iso8601,
-              level: execution.successful? ? 'info' : 'error',
-              message: execution.successful? ? 'Execution completed' : 'Execution failed',
+              level: execution.successful? ? "info" : "error",
+              message: execution.successful? ? "Execution completed" : "Execution failed",
               data: {
                 status: execution.status,
                 duration_ms: execution.duration_ms,
@@ -1181,8 +1181,8 @@ module Api
           if execution.error_details.present?
             logs << {
               timestamp: execution.completed_at&.iso8601 || Time.current.iso8601,
-              level: 'error',
-              message: 'Execution error',
+              level: "error",
+              message: "Execution error",
               data: execution.error_details
             }
           end

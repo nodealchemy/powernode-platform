@@ -42,16 +42,16 @@ class NotificationChannel < ApplicationCable::Channel
 
     def broadcast_new_notification(notification)
       broadcast_to_account(notification.account, {
-        type: 'new_notification',
+        type: "new_notification",
         notification: notification.as_json(
-          only: [:id, :notification_type, :title, :message, :severity, :action_url, :action_label, :icon, :category, :created_at]
+          only: [ :id, :notification_type, :title, :message, :severity, :action_url, :action_label, :icon, :category, :created_at ]
         )
       })
     end
 
     def broadcast_notification_read(notification)
       broadcast_to_account(notification.account, {
-        type: 'notification_read',
+        type: "notification_read",
         notification_id: notification.id
       })
     end

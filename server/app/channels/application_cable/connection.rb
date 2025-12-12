@@ -17,16 +17,16 @@ module ApplicationCable
       if token
         begin
           # Try JWT authentication first (new system)
-          if token.include?('.') # JWT tokens contain dots
+          if token.include?(".") # JWT tokens contain dots
             payload = JwtService.decode(token)
-            
+
             # Only accept access tokens for WebSocket connections
-            if payload[:type] == 'access'
+            if payload[:type] == "access"
               user = User.find(payload[:sub])
-              
+
               if user&.active? && user.account&.active?
                 Rails.logger.info "ActionCable: JWT authentication successful for #{user.email}"
-                return user
+                user
               else
                 Rails.logger.warn "ActionCable: User inactive (JWT)"
                 reject_unauthorized_connection
@@ -38,16 +38,16 @@ module ApplicationCable
           else
             # Fallback to UserToken authentication for legacy support
             user_token = UserToken.authenticate(token)
-            
+
             if user_token&.user&.active?
               # Update token usage tracking for legacy tokens
               user_token.touch_last_used!(
                 ip: request.remote_ip,
-                user_agent: request.headers['User-Agent']
+                user_agent: request.headers["User-Agent"]
               )
-              
+
               Rails.logger.info "ActionCable: UserToken authentication successful for #{user_token.user.email}"
-              return user_token.user
+              user_token.user
             else
               Rails.logger.warn "ActionCable: Invalid UserToken or inactive user"
               reject_unauthorized_connection

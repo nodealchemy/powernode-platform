@@ -11,8 +11,8 @@ class DatabaseBackup < ApplicationRecord
   validates :status, presence: true, inclusion: { in: %w[pending in_progress completed failed] }
 
   # Scopes
-  scope :completed, -> { where(status: 'completed') }
-  scope :failed, -> { where(status: 'failed') }
+  scope :completed, -> { where(status: "completed") }
+  scope :failed, -> { where(status: "failed") }
   scope :recent, -> { order(created_at: :desc) }
   scope :by_type, ->(type) { where(backup_type: type) }
 
@@ -21,19 +21,19 @@ class DatabaseBackup < ApplicationRecord
   after_update :log_backup_status_change, if: :saved_change_to_status?
 
   def completed?
-    status == 'completed'
+    status == "completed"
   end
 
   def failed?
-    status == 'failed'
+    status == "failed"
   end
 
   def in_progress?
-    status == 'in_progress'
+    status == "in_progress"
   end
 
   def pending?
-    status == 'pending'
+    status == "pending"
   end
 
   def duration
@@ -46,13 +46,13 @@ class DatabaseBackup < ApplicationRecord
   end
 
   def file_size_human
-    return 'N/A' unless file_size
+    return "N/A" unless file_size
 
-    units = ['B', 'KB', 'MB', 'GB', 'TB']
+    units = [ "B", "KB", "MB", "GB", "TB" ]
     base = 1024
     exp = (Math.log(file_size) / Math.log(base)).floor
     exp = units.length - 1 if exp >= units.length
-    
+
     formatted = (file_size.to_f / (base ** exp)).round(2)
     "#{formatted} #{units[exp]}"
   end
@@ -63,8 +63,8 @@ class DatabaseBackup < ApplicationRecord
     AuditLog.create!(
       user: user,
       account: user.account,
-      action: 'database_backup_created',
-      resource_type: 'DatabaseBackup',
+      action: "database_backup_created",
+      resource_type: "DatabaseBackup",
       resource_id: id,
       details: {
         backup_type: backup_type,
@@ -80,8 +80,8 @@ class DatabaseBackup < ApplicationRecord
     AuditLog.create!(
       user: user,
       account: user.account,
-      action: 'database_backup_status_changed',
-      resource_type: 'DatabaseBackup',
+      action: "database_backup_status_changed",
+      resource_type: "DatabaseBackup",
       resource_id: id,
       details: {
         previous_status: status_before_last_save,

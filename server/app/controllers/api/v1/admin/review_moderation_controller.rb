@@ -10,12 +10,12 @@ class Api::V1::Admin::ReviewModerationController < ApplicationController
 
     # Apply filters
     case params[:status]
-    when 'pending'
+    when "pending"
       @reviews = @reviews.pending_moderation
-    when 'flagged'
+    when "flagged"
       @reviews = @reviews.flagged
-    when 'all'
-      @reviews = @reviews.where.not(moderation_status: 'approved')
+    when "all"
+      @reviews = @reviews.where.not(moderation_status: "approved")
     else # default to flagged
       @reviews = @reviews.flagged
     end
@@ -41,11 +41,11 @@ class Api::V1::Admin::ReviewModerationController < ApplicationController
 
     # Apply sorting
     case params[:sort_by]
-    when 'rating'
+    when "rating"
       @reviews = @reviews.order(rating: :asc, created_at: :desc)
-    when 'helpful'
+    when "helpful"
       @reviews = @reviews.order(helpful_count: :desc, created_at: :desc)
-    when 'flagged_date'
+    when "flagged_date"
       @reviews = @reviews.order(updated_at: :desc)
     else # 'created' or default
       @reviews = @reviews.order(created_at: :desc)
@@ -53,7 +53,7 @@ class Api::V1::Admin::ReviewModerationController < ApplicationController
 
     # Pagination
     page = params[:page]&.to_i || 1
-    per_page = [params[:per_page]&.to_i || 20, 100].min
+    per_page = [ params[:per_page]&.to_i || 20, 100 ].min
     offset = (page - 1) * per_page
 
     @total_count = @reviews.count
@@ -80,7 +80,7 @@ class Api::V1::Admin::ReviewModerationController < ApplicationController
     reason = params[:reason]
 
     unless review_ids.is_a?(Array) && review_ids.any?
-      return render_error('No reviews selected', status: :unprocessable_content)
+      return render_error("No reviews selected", status: :unprocessable_content)
     end
 
     reviews = AppReview.where(id: review_ids)
@@ -89,26 +89,26 @@ class Api::V1::Admin::ReviewModerationController < ApplicationController
     reviews.each do |review|
       begin
         case action
-        when 'approve'
+        when "approve"
           review.approve_after_review!(current_user.account)
-        when 'reject'
-          review.update!(moderation_status: 'rejected')
+        when "reject"
+          review.update!(moderation_status: "rejected")
           review.review_moderation_actions.create!(
             moderator: current_user.account,
-            action_type: 'reject',
+            action_type: "reject",
             reason: reason,
-            new_status: 'rejected'
+            new_status: "rejected"
           )
-        when 'remove'
+        when "remove"
           review.remove_after_review!(reason, current_user.account)
-        when 'flag'
+        when "flag"
           review.flag_for_review!(reason, current_user.account) unless review.flagged?
         else
           results[:errors] << "Invalid action: #{action}"
           results[:failed] += 1
           next
         end
-        
+
         results[:success] += 1
       rescue => e
         results[:errors] << "Review #{review.id}: #{e.message}"
@@ -135,26 +135,26 @@ class Api::V1::Admin::ReviewModerationController < ApplicationController
         total_removed: AppReview.where(removed: true).count,
         avg_resolution_time: calculate_avg_resolution_time(start_date)
       },
-      moderation_actions: ReviewModerationAction.where('created_at >= ?', start_date)
+      moderation_actions: ReviewModerationAction.where("created_at >= ?", start_date)
                                                .group(:action_type)
                                                .count,
-      moderator_activity: ReviewModerationAction.where('created_at >= ?', start_date)
+      moderator_activity: ReviewModerationAction.where("created_at >= ?", start_date)
                                                .joins(:moderator)
-                                               .group('accounts.name')
+                                               .group("accounts.name")
                                                .count,
-      daily_activity: ReviewModerationAction.where('created_at >= ?', start_date)
+      daily_activity: ReviewModerationAction.where("created_at >= ?", start_date)
                                            .group_by_day(:created_at)
                                            .count,
-      automated_vs_manual: ReviewModerationAction.where('created_at >= ?', start_date)
+      automated_vs_manual: ReviewModerationAction.where("created_at >= ?", start_date)
                                                  .group(:automated)
                                                  .count,
-      confidence_distribution: ReviewModerationAction.where('created_at >= ? AND confidence_score IS NOT NULL', start_date)
+      confidence_distribution: ReviewModerationAction.where("created_at >= ? AND confidence_score IS NOT NULL", start_date)
                                                      .group_by do |action|
                                                        score = action.confidence_score.to_f
                                                        case score
-                                                       when 0.0..0.3 then 'low'
-                                                       when 0.3..0.7 then 'medium'
-                                                       else 'high'
+                                                       when 0.0..0.3 then "low"
+                                                       when 0.3..0.7 then "medium"
+                                                       else "high"
                                                        end
                                                      end
                                                      .transform_values(&:count)
@@ -200,31 +200,31 @@ class Api::V1::Admin::ReviewModerationController < ApplicationController
   # POST /api/v1/admin/review_moderation/settings
   def update_settings
     settings = params[:settings]
-    
+
     # Update admin settings for moderation
     settings.each do |key, value|
       case key
-      when 'auto_flag_threshold'
-        AdminSetting.set('review_auto_flag_threshold', value.to_f)
-      when 'auto_approve_threshold'
-        AdminSetting.set('review_auto_approve_threshold', value.to_f)
-      when 'spam_keywords'
-        AdminSetting.set('review_spam_keywords', value.join(','))
-      when 'require_verification_for_reviews'
-        AdminSetting.set('require_verification_for_reviews', value.to_s)
+      when "auto_flag_threshold"
+        AdminSetting.set("review_auto_flag_threshold", value.to_f)
+      when "auto_approve_threshold"
+        AdminSetting.set("review_auto_approve_threshold", value.to_f)
+      when "spam_keywords"
+        AdminSetting.set("review_spam_keywords", value.join(","))
+      when "require_verification_for_reviews"
+        AdminSetting.set("require_verification_for_reviews", value.to_s)
       end
     end
 
-    render_success(message: 'Moderation settings updated successfully')
+    render_success(message: "Moderation settings updated successfully")
   end
 
   # GET /api/v1/admin/review_moderation/settings
   def settings
     settings = {
-      auto_flag_threshold: AdminSetting.get('review_auto_flag_threshold', '2.0').to_f,
-      auto_approve_threshold: AdminSetting.get('review_auto_approve_threshold', '4.0').to_f,
-      spam_keywords: AdminSetting.get('review_spam_keywords', '').split(',').map(&:strip),
-      require_verification_for_reviews: AdminSetting.get('require_verification_for_reviews', 'false') == 'true'
+      auto_flag_threshold: AdminSetting.get("review_auto_flag_threshold", "2.0").to_f,
+      auto_approve_threshold: AdminSetting.get("review_auto_approve_threshold", "4.0").to_f,
+      spam_keywords: AdminSetting.get("review_spam_keywords", "").split(",").map(&:strip),
+      require_verification_for_reviews: AdminSetting.get("require_verification_for_reviews", "false") == "true"
     }
 
     render_success({ settings: settings })
@@ -233,8 +233,8 @@ class Api::V1::Admin::ReviewModerationController < ApplicationController
   private
 
   def check_admin_permissions
-    unless current_user.has_permission?('reviews.moderate')
-      render_error('Insufficient permissions', status: :forbidden)
+    unless current_user.has_permission?("reviews.moderate")
+      render_error("Insufficient permissions", status: :forbidden)
     end
   end
 
@@ -242,26 +242,26 @@ class Api::V1::Admin::ReviewModerationController < ApplicationController
     {
       total_flagged: AppReview.flagged.count,
       total_pending: AppReview.pending_moderation.count,
-      today_flagged: AppReview.flagged.where('updated_at >= ?', Date.current).count,
-      this_week_resolved: ReviewModerationAction.where('created_at >= ?', 1.week.ago)
-                                                 .where(action_type: ['approve', 'reject', 'remove'])
+      today_flagged: AppReview.flagged.where("updated_at >= ?", Date.current).count,
+      this_week_resolved: ReviewModerationAction.where("created_at >= ?", 1.week.ago)
+                                                 .where(action_type: [ "approve", "reject", "remove" ])
                                                  .count
     }
   end
 
   def calculate_avg_resolution_time(start_date)
-    resolved_actions = ReviewModerationAction.where('created_at >= ?', start_date)
-                                           .where(action_type: ['approve', 'reject', 'remove'])
+    resolved_actions = ReviewModerationAction.where("created_at >= ?", start_date)
+                                           .where(action_type: [ "approve", "reject", "remove" ])
                                            .joins(:app_review)
 
     return 0 if resolved_actions.empty?
 
     total_time = resolved_actions.sum do |action|
       flag_time = action.app_review.review_moderation_actions
-                                   .where(action_type: 'flag')
-                                   .where('created_at <= ?', action.created_at)
+                                   .where(action_type: "flag")
+                                   .where("created_at <= ?", action.created_at)
                                    .maximum(:created_at)
-      
+
       flag_time ? (action.created_at - flag_time) / 1.hour : 0
     end
 

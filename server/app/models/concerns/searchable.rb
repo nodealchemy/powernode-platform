@@ -13,10 +13,12 @@ module Searchable
     # Search by text using PostgreSQL full-text search
     def search_by_text(query)
       return all if query.blank?
-      
+
       # Use plainto_tsquery for simple text search
+      # Properly quote the query parameter to prevent SQL injection
+      quoted_query = connection.quote(query)
       where("search_vector @@ plainto_tsquery('english', ?)", query)
-        .order(Arel.sql("ts_rank(search_vector, plainto_tsquery('english', '#{sanitize_sql_like(query)}')) DESC"))
+        .order(Arel.sql("ts_rank(search_vector, plainto_tsquery('english', #{quoted_query})) DESC"))
     end
   end
 end

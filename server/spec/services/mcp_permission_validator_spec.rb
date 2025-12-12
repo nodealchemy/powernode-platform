@@ -4,8 +4,8 @@ require 'rails_helper'
 
 RSpec.describe McpPermissionValidator, type: :service do
   let(:account) { create(:account) }
-  let(:admin_user) { create(:user, account: account, permissions: ['system.admin', 'ai.workflows.read']) }
-  let(:account_user) { create(:user, account: account, permissions: ['ai.workflows.read']) }
+  let(:admin_user) { create(:user, account: account, permissions: [ 'system.admin', 'ai.workflows.read' ]) }
+  let(:account_user) { create(:user, account: account, permissions: [ 'ai.workflows.read' ]) }
   let(:public_user) { create(:user, account: account, permissions: []) }
   let(:mcp_server) { create(:mcp_server, account: account) }
 
@@ -72,18 +72,18 @@ RSpec.describe McpPermissionValidator, type: :service do
         create(:mcp_tool,
                mcp_server: mcp_server,
                permission_level: 'public',
-               required_permissions: ['ai.workflows.read', 'ai.agents.execute'],
+               required_permissions: [ 'ai.workflows.read', 'ai.agents.execute' ],
                allowed_scopes: {})
       end
 
       it 'allows users with all required permissions' do
-        user = create(:user, account: account, permissions: ['ai.workflows.read', 'ai.agents.execute'])
+        user = create(:user, account: account, permissions: [ 'ai.workflows.read', 'ai.agents.execute' ])
         validator = described_class.new(tool: tool, user: user, account: account)
         expect(validator.authorized?).to be true
       end
 
       it 'denies users missing some permissions' do
-        user = create(:user, account: account, permissions: ['ai.workflows.read'])
+        user = create(:user, account: account, permissions: [ 'ai.workflows.read' ])
         validator = described_class.new(tool: tool, user: user, account: account)
         expect(validator.authorized?).to be false
       end
@@ -96,8 +96,8 @@ RSpec.describe McpPermissionValidator, type: :service do
                permission_level: 'public',
                required_permissions: [],
                allowed_scopes: {
-                 'file_access' => ['read_files', 'list_directories'],
-                 'network' => ['http_get']
+                 'file_access' => [ 'read_files', 'list_directories' ],
+                 'network' => [ 'http_get' ]
                })
       end
 
@@ -107,7 +107,7 @@ RSpec.describe McpPermissionValidator, type: :service do
       end
 
       it 'rejects invalid scope categories' do
-        tool.update(allowed_scopes: { 'invalid_category' => ['something'] })
+        tool.update(allowed_scopes: { 'invalid_category' => [ 'something' ] })
         validator = described_class.new(tool: tool, user: public_user, account: account)
         expect(validator.authorized?).to be false
       end
@@ -119,8 +119,8 @@ RSpec.describe McpPermissionValidator, type: :service do
       create(:mcp_tool,
              mcp_server: mcp_server,
              permission_level: 'account',
-             required_permissions: ['ai.workflows.read'],
-             allowed_scopes: { 'file_access' => ['read_files'] })
+             required_permissions: [ 'ai.workflows.read' ],
+             allowed_scopes: { 'file_access' => [ 'read_files' ] })
     end
 
     it 'returns detailed authorization information' do
@@ -148,8 +148,8 @@ RSpec.describe McpPermissionValidator, type: :service do
       create(:mcp_tool,
              mcp_server: mcp_server,
              allowed_scopes: {
-               'file_access' => ['read_files', 'write_files'],
-               'network' => ['http_get']
+               'file_access' => [ 'read_files', 'write_files' ],
+               'network' => [ 'http_get' ]
              })
     end
 

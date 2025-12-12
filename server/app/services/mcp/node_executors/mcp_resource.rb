@@ -7,7 +7,7 @@ module Mcp
       protected
 
       def perform_execution
-        resource_uri = configuration['resource_uri']
+        resource_uri = configuration["resource_uri"]
         log_info "Reading MCP Resource: #{resource_uri}"
 
         # Validate configuration
@@ -46,7 +46,7 @@ module Mcp
             result: result[:content],
             metadata: {
               node_id: @node.node_id,
-              node_type: 'mcp_resource',
+              node_type: "mcp_resource",
               executed_at: Time.current.iso8601,
               resource_uri: resolved_uri
             }

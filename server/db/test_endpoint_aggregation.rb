@@ -23,20 +23,20 @@ puts
 # Test the endpoint aggregation logic
 def get_top_endpoints(activities, limit = 10)
   endpoint_counts = {}
-  
+
   # Aggregate endpoint usage from activities
   activities.each do |activity|
     details = activity.details || {}
-    
+
     # Check for endpoint in different possible fields
     endpoint = details['endpoint'] || details['request_path']
     next unless endpoint
-    
+
     # Clean up endpoint (remove query parameters)
     clean_endpoint = endpoint.split('?').first
     endpoint_counts[clean_endpoint] = (endpoint_counts[clean_endpoint] || 0) + 1
   end
-  
+
   # Sort by count and return top endpoints
   endpoint_counts
     .sort_by { |endpoint, count| -count }

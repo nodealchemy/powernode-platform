@@ -7,8 +7,8 @@ class KnowledgeBaseTag < ApplicationRecord
   include Auditable
 
   # Associations
-  has_many :article_tags, class_name: 'KnowledgeBaseArticleTag', foreign_key: 'tag_id', dependent: :destroy
-  has_many :articles, class_name: 'KnowledgeBaseArticle', through: :article_tags
+  has_many :article_tags, class_name: "KnowledgeBaseArticleTag", foreign_key: "tag_id", dependent: :destroy
+  has_many :articles, class_name: "KnowledgeBaseArticle", through: :article_tags
 
   # Validations
   validates :name, presence: true, uniqueness: { case_sensitive: false }, length: { maximum: 100 }
@@ -18,7 +18,7 @@ class KnowledgeBaseTag < ApplicationRecord
   validates :usage_count, numericality: { greater_than_or_equal_to: 0 }
 
   # Scopes
-  scope :popular, -> { where('usage_count > 0').order(usage_count: :desc) }
+  scope :popular, -> { where("usage_count > 0").order(usage_count: :desc) }
   scope :alphabetical, -> { order(:name) }
   scope :by_color, ->(color) { where(color: color) }
 
@@ -54,7 +54,7 @@ class KnowledgeBaseTag < ApplicationRecord
   private
 
   def generate_slug
-    self.slug = name.downcase.gsub(/[^a-z0-9\s]/, '').gsub(/\s+/, '-').strip
+    self.slug = name.downcase.gsub(/[^a-z0-9\s]/, "").gsub(/\s+/, "-").strip
   end
 
   def normalize_name
@@ -62,6 +62,6 @@ class KnowledgeBaseTag < ApplicationRecord
   end
 
   def ensure_color
-    self.color = '#3B82F6' if color.blank?
+    self.color = "#3B82F6" if color.blank?
   end
 end

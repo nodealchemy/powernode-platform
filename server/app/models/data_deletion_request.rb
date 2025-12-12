@@ -8,8 +8,8 @@ class DataDeletionRequest < ApplicationRecord
   # Associations
   belongs_to :user
   belongs_to :account
-  belongs_to :requested_by, class_name: 'User', optional: true
-  belongs_to :processed_by, class_name: 'User', optional: true
+  belongs_to :requested_by, class_name: "User", optional: true
+  belongs_to :processed_by, class_name: "User", optional: true
 
   # Validations
   validates :status, presence: true, inclusion: {
@@ -20,12 +20,12 @@ class DataDeletionRequest < ApplicationRecord
   }
 
   # Scopes
-  scope :pending, -> { where(status: 'pending') }
-  scope :approved, -> { where(status: 'approved') }
-  scope :processing, -> { where(status: 'processing') }
-  scope :completed, -> { where(status: 'completed') }
+  scope :pending, -> { where(status: "pending") }
+  scope :approved, -> { where(status: "approved") }
+  scope :processing, -> { where(status: "processing") }
+  scope :completed, -> { where(status: "completed") }
   scope :active, -> { where(status: %w[pending approved processing]) }
-  scope :grace_period_expired, -> { where('grace_period_ends_at < ?', Time.current) }
+  scope :grace_period_expired, -> { where("grace_period_ends_at < ?", Time.current) }
   scope :ready_for_processing, -> { approved.grace_period_expired }
   scope :recent, -> { order(created_at: :desc) }
 
@@ -56,25 +56,25 @@ class DataDeletionRequest < ApplicationRecord
   # Instance methods
   def approve!(processor)
     update!(
-      status: 'approved',
+      status: "approved",
       processed_by: processor,
       approved_at: Time.current,
       grace_period_ends_at: GRACE_PERIOD_DAYS.days.from_now
     )
 
-    log_status_change('approved')
+    log_status_change("approved")
     notify_user_of_approval
   end
 
   def reject!(processor, reason)
     update!(
-      status: 'rejected',
+      status: "rejected",
       processed_by: processor,
       rejection_reason: reason,
       completed_at: Time.current
     )
 
-    log_status_change('rejected')
+    log_status_change("rejected")
     notify_user_of_rejection
   end
 
@@ -82,13 +82,13 @@ class DataDeletionRequest < ApplicationRecord
     return false unless can_be_cancelled?
 
     update!(
-      status: 'cancelled',
+      status: "cancelled",
       processed_by: canceller,
       cancellation_reason: reason,
       completed_at: Time.current
     )
 
-    log_status_change('cancelled')
+    log_status_change("cancelled")
     true
   end
 
@@ -96,23 +96,23 @@ class DataDeletionRequest < ApplicationRecord
     return false unless can_start_processing?
 
     update!(
-      status: 'processing',
+      status: "processing",
       processing_started_at: Time.current
     )
 
-    log_status_change('processing')
+    log_status_change("processing")
     true
   end
 
   def complete!(deletion_log:, retention_log: [])
     update!(
-      status: 'completed',
+      status: "completed",
       completed_at: Time.current,
       deletion_log: deletion_log,
       retention_log: retention_log
     )
 
-    log_status_change('completed')
+    log_status_change("completed")
     notify_user_of_completion
   end
 
@@ -141,11 +141,11 @@ class DataDeletionRequest < ApplicationRecord
   end
 
   def can_start_processing?
-    status == 'approved' && grace_period_ends_at <= Time.current
+    status == "approved" && grace_period_ends_at <= Time.current
   end
 
   def in_grace_period?
-    status == 'approved' && grace_period_ends_at > Time.current
+    status == "approved" && grace_period_ends_at > Time.current
   end
 
   def grace_period_remaining
@@ -163,20 +163,20 @@ class DataDeletionRequest < ApplicationRecord
   private
 
   def set_defaults
-    self.status ||= 'pending'
-    self.deletion_type ||= 'full'
+    self.status ||= "pending"
+    self.deletion_type ||= "full"
     self.requested_by ||= user
     self.data_types_to_retain ||= LEGALLY_RETAINED_DATA_TYPES
   end
 
   def log_deletion_requested
     AuditLog.log_compliance_event(
-      action: 'data_deletion',
+      action: "data_deletion",
       resource: self,
       user: requested_by || user,
       account: account,
       metadata: {
-        event_type: 'deletion_requested',
+        event_type: "deletion_requested",
         deletion_type: deletion_type,
         reason: reason
       }
@@ -185,7 +185,7 @@ class DataDeletionRequest < ApplicationRecord
 
   def log_status_change(new_status)
     AuditLog.log_compliance_event(
-      action: 'data_deletion',
+      action: "data_deletion",
       resource: self,
       user: processed_by || user,
       account: account,
@@ -198,13 +198,13 @@ class DataDeletionRequest < ApplicationRecord
 
   def log_processing_error
     AuditLog.log_compliance_event(
-      action: 'data_deletion',
+      action: "data_deletion",
       resource: self,
       user: user,
       account: account,
-      severity: 'high',
+      severity: "high",
       metadata: {
-        event_type: 'deletion_error',
+        event_type: "deletion_error",
         error: error_message
       }
     )
@@ -212,12 +212,12 @@ class DataDeletionRequest < ApplicationRecord
 
   def log_grace_period_extended(days)
     AuditLog.log_compliance_event(
-      action: 'data_deletion',
+      action: "data_deletion",
       resource: self,
       user: user,
       account: account,
       metadata: {
-        event_type: 'grace_period_extended',
+        event_type: "grace_period_extended",
         extension_days: days,
         new_end_date: grace_period_ends_at
       }

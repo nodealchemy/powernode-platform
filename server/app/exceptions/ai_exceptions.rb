@@ -19,7 +19,7 @@ module AiExceptions
 
     def initialize(message, code: nil, details: {}, recoverable: true)
       super(message)
-      @code = code || 'SERVICE_ERROR'
+      @code = code || "SERVICE_ERROR"
       @details = details
       @recoverable = recoverable
     end
@@ -44,7 +44,7 @@ module AiExceptions
   # These are NOT recoverable - user must fix their input
   class ValidationError < ServiceError
     def initialize(message, details: {})
-      super(message, code: 'VALIDATION_ERROR', details: details, recoverable: false)
+      super(message, code: "VALIDATION_ERROR", details: details, recoverable: false)
     end
   end
 
@@ -52,7 +52,7 @@ module AiExceptions
   # These may be recoverable with retry
   class ExecutionError < ServiceError
     def initialize(message, details: {})
-      super(message, code: 'EXECUTION_ERROR', details: details, recoverable: true)
+      super(message, code: "EXECUTION_ERROR", details: details, recoverable: true)
     end
   end
 
@@ -65,7 +65,7 @@ module AiExceptions
       @node_id = node_id
       @node_type = node_type
       super(message, details: details.merge(node_id: node_id, node_type: node_type))
-      @code = 'NODE_EXECUTION_ERROR'
+      @code = "NODE_EXECUTION_ERROR"
     end
   end
 
@@ -76,7 +76,7 @@ module AiExceptions
 
     def initialize(message, provider: nil, details: {})
       @provider = provider
-      super(message, code: 'PROVIDER_ERROR', details: details.merge(provider: provider), recoverable: true)
+      super(message, code: "PROVIDER_ERROR", details: details.merge(provider: provider), recoverable: true)
     end
   end
 
@@ -87,7 +87,7 @@ module AiExceptions
 
     def initialize(message, timeout_seconds: nil, details: {})
       @timeout_seconds = timeout_seconds
-      super(message, code: 'TIMEOUT_ERROR', details: details.merge(timeout_seconds: timeout_seconds), recoverable: true)
+      super(message, code: "TIMEOUT_ERROR", details: details.merge(timeout_seconds: timeout_seconds), recoverable: true)
     end
   end
 
@@ -98,7 +98,7 @@ module AiExceptions
 
     def initialize(message, service: nil, details: {})
       @service = service
-      super(message, code: 'CIRCUIT_OPEN_ERROR', details: details.merge(service: service), recoverable: true)
+      super(message, code: "CIRCUIT_OPEN_ERROR", details: details.merge(service: service), recoverable: true)
     end
   end
 
@@ -109,7 +109,7 @@ module AiExceptions
 
     def initialize(message, recovery_strategy: nil, details: {})
       @recovery_strategy = recovery_strategy
-      super(message, code: 'RECOVERY_ERROR', details: details.merge(recovery_strategy: recovery_strategy), recoverable: false)
+      super(message, code: "RECOVERY_ERROR", details: details.merge(recovery_strategy: recovery_strategy), recoverable: false)
     end
   end
 
@@ -117,7 +117,7 @@ module AiExceptions
   # NOT recoverable - requires configuration fix
   class ConfigurationError < ServiceError
     def initialize(message, details: {})
-      super(message, code: 'CONFIGURATION_ERROR', details: details, recoverable: false)
+      super(message, code: "CONFIGURATION_ERROR", details: details, recoverable: false)
     end
   end
 
@@ -131,7 +131,7 @@ module AiExceptions
       @resource_id = resource_id
       super(
         message,
-        code: 'NOT_FOUND_ERROR',
+        code: "NOT_FOUND_ERROR",
         details: details.merge(resource_type: resource_type, resource_id: resource_id),
         recoverable: false
       )
@@ -147,7 +147,7 @@ module AiExceptions
       @required_permission = required_permission
       super(
         message,
-        code: 'AUTHORIZATION_ERROR',
+        code: "AUTHORIZATION_ERROR",
         details: details.merge(required_permission: required_permission),
         recoverable: false
       )

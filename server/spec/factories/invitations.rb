@@ -28,7 +28,7 @@ FactoryBot.define do
       end
     end
 
-    role_names { ['member'] }
+    role_names { [ 'member' ] }
     status { 'pending' }
     expires_at { 7.days.from_now }
 
@@ -46,11 +46,11 @@ FactoryBot.define do
     end
 
     trait :with_multiple_roles do
-      role_names { ['member', 'billing.viewer'] }
+      role_names { [ 'member', 'billing.viewer' ] }
     end
 
     trait :manager_role do
-      role_names { ['account.manager'] }
+      role_names { [ 'account.manager' ] }
     end
   end
 end

@@ -58,7 +58,7 @@ RSpec.describe StorageProviders::S3Storage, type: :service do
   describe '#upload_file' do
     let(:file_content) { 'Test file content for S3 upload' }
     let(:temp_file) do
-      file = Tempfile.new(['test', '.txt'])
+      file = Tempfile.new([ 'test', '.txt' ])
       file.write(file_content)
       file.rewind
       file
@@ -122,7 +122,7 @@ RSpec.describe StorageProviders::S3Storage, type: :service do
 
       provider.stream_file(file_object) { |chunk| chunks_received << chunk }
 
-      expect(chunks_received).to eq(['chunk1', 'chunk2', 'chunk3'])
+      expect(chunks_received).to eq([ 'chunk1', 'chunk2', 'chunk3' ])
     end
   end
 
@@ -381,7 +381,7 @@ RSpec.describe StorageProviders::S3Storage, type: :service do
 
   describe '#batch_delete' do
     it 'deletes multiple files using S3 batch delete' do
-      file_objects_to_delete = [file_object, create(:file_object, account: account, file_storage: storage_config)]
+      file_objects_to_delete = [ file_object, create(:file_object, account: account, file_storage: storage_config) ]
 
       response = double(
         deleted: file_objects_to_delete.map { |fo| double(key: fo.storage_key) },

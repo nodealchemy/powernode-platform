@@ -192,7 +192,7 @@ class Api::V1::Admin::PagesController < ApplicationController
   end
 
   def ensure_admin_access!
-    unless current_user.has_permission?('admin.access')
+    unless current_user.has_permission?("admin.access")
       render_error(
         "Access denied: You don't have permission to access this resource",
         :forbidden

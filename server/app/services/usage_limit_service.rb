@@ -3,32 +3,32 @@
 class UsageLimitService
   # Main limit checking methods for each resource type
   def self.can_add_user?(account)
-    check_limit(account, 'max_users', account.users.count)
+    check_limit(account, "max_users", account.users.count)
   end
 
   def self.can_create_api_key?(account)
-    check_limit(account, 'max_api_keys', account.api_keys.active.count)
+    check_limit(account, "max_api_keys", account.api_keys.active.count)
   end
 
   def self.can_create_webhook?(account)
-    webhook_count = account.webhook_endpoints.where(status: 'active').count
-    check_limit(account, 'max_webhooks', webhook_count)
+    webhook_count = account.webhook_endpoints.where(status: "active").count
+    check_limit(account, "max_webhooks", webhook_count)
   end
 
   def self.can_create_worker?(account)
-    check_limit(account, 'max_workers', account.workers.count)
+    check_limit(account, "max_workers", account.workers.count)
   end
 
   # Helper method to get current usage for a specific limit type
   def self.current_usage(account, limit_type)
     case limit_type
-    when 'max_users'
+    when "max_users"
       account.users.count
-    when 'max_api_keys'
+    when "max_api_keys"
       account.api_keys.active.count
-    when 'max_webhooks'
-      account.webhook_endpoints.where(status: 'active').count
-    when 'max_workers'
+    when "max_webhooks"
+      account.webhook_endpoints.where(status: "active").count
+    when "max_workers"
       account.workers.count
     else
       0
@@ -50,7 +50,7 @@ class UsageLimitService
         limit: limit,
         unlimited: is_unlimited,
         percentage: is_unlimited ? 0 : (current.to_f / limit * 100).round(1),
-        available: is_unlimited ? Float::INFINITY : [limit - current, 0].max
+        available: is_unlimited ? Float::INFINITY : [ limit - current, 0 ].max
       }
     end
   end

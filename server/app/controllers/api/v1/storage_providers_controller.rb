@@ -51,16 +51,16 @@ module Api
           render_success(
             {
               storage: storage.storage_summary.merge(configuration: storage.configuration),
-              message: 'Storage configuration created successfully'
+              message: "Storage configuration created successfully"
             },
             status: :created
           )
         else
-          render_validation_error(storage.errors.full_messages.join(', '))
+          render_validation_error(storage.errors.full_messages.join(", "))
         end
       rescue StandardError => e
         Rails.logger.error "[StorageProvidersController] Create failed: #{e.message}"
-        render_error('Failed to create storage configuration', status: :internal_server_error)
+        render_error("Failed to create storage configuration", status: :internal_server_error)
       end
 
       # PATCH/PUT /api/v1/storage_providers/:id
@@ -76,25 +76,25 @@ module Api
         if @storage.update(update_params)
           render_success({
             storage: @storage.storage_summary.merge(configuration: @storage.configuration),
-            message: 'Storage configuration updated successfully'
+            message: "Storage configuration updated successfully"
           })
         else
-          render_validation_error(@storage.errors.full_messages.join(', '))
+          render_validation_error(@storage.errors.full_messages.join(", "))
         end
       rescue StandardError => e
         Rails.logger.error "[StorageProvidersController] Update failed: #{e.message}"
-        render_error('Failed to update storage configuration', status: :internal_server_error)
+        render_error("Failed to update storage configuration", status: :internal_server_error)
       end
 
       # DELETE /api/v1/storage_providers/:id
       def destroy
         if @storage.is_default?
-          return render_error('Cannot delete default storage configuration', status: :unprocessable_content)
+          return render_error("Cannot delete default storage configuration", status: :unprocessable_content)
         end
 
         if @storage.files_count > 0
           return render_error(
-            'Cannot delete storage with existing files. Move files to another storage first.',
+            "Cannot delete storage with existing files. Move files to another storage first.",
             status: :unprocessable_content
           )
         end
@@ -102,10 +102,10 @@ module Api
         if @storage.destroy
           render_success({
             deleted: true,
-            message: 'Storage configuration deleted successfully'
+            message: "Storage configuration deleted successfully"
           })
         else
-          render_error('Failed to delete storage configuration', status: :unprocessable_content)
+          render_error("Failed to delete storage configuration", status: :unprocessable_content)
         end
       end
 
@@ -118,7 +118,7 @@ module Api
             connected: true,
             provider_type: @storage.provider_type,
             details: result,
-            message: 'Storage connection successful'
+            message: "Storage connection successful"
           })
         else
           render_error(
@@ -156,10 +156,10 @@ module Api
         if @storage.update(is_default: true)
           render_success({
             storage: @storage.storage_summary,
-            message: 'Default storage updated successfully'
+            message: "Default storage updated successfully"
           })
         else
-          render_error('Failed to set default storage', status: :unprocessable_content)
+          render_error("Failed to set default storage", status: :unprocessable_content)
         end
       end
 
@@ -191,10 +191,10 @@ module Api
           render_success({
             initialized: true,
             storage: @storage.storage_summary,
-            message: 'Storage backend initialized successfully'
+            message: "Storage backend initialized successfully"
           })
         else
-          render_error('Failed to initialize storage backend', status: :unprocessable_content)
+          render_error("Failed to initialize storage backend", status: :unprocessable_content)
         end
       rescue StandardError => e
         Rails.logger.error "[StorageProvidersController] Initialize failed: #{e.message}"
@@ -262,20 +262,20 @@ module Api
         @storage = current_account.file_storages.find_by(id: params[:id])
 
         unless @storage
-          render_error('Storage configuration not found', status: :not_found)
+          render_error("Storage configuration not found", status: :not_found)
         end
       end
 
       def validate_permissions!
         case action_name
-        when 'index', 'show', 'supported_providers', 'aggregate_stats', 'health_check', 'list_files'
-          require_any_permission('admin.storage.read', 'admin.storage.manage')
-        when 'create'
-          require_any_permission('admin.storage.create', 'admin.storage.manage')
-        when 'update', 'set_default', 'initialize_storage', 'test_connection'
-          require_any_permission('admin.storage.edit', 'admin.storage.manage')
-        when 'destroy'
-          require_any_permission('admin.storage.delete', 'admin.storage.manage')
+        when "index", "show", "supported_providers", "aggregate_stats", "health_check", "list_files"
+          require_any_permission("admin.storage.read", "admin.storage.manage")
+        when "create"
+          require_any_permission("admin.storage.create", "admin.storage.manage")
+        when "update", "set_default", "initialize_storage", "test_connection"
+          require_any_permission("admin.storage.edit", "admin.storage.manage")
+        when "destroy"
+          require_any_permission("admin.storage.delete", "admin.storage.manage")
         end
       end
 
@@ -318,7 +318,7 @@ module Api
           next unless encrypted[key].present?
 
           # Skip if already encrypted
-          next if encrypted[key].to_s.start_with?('encrypted:')
+          next if encrypted[key].to_s.start_with?("encrypted:")
 
           # Encrypt sensitive value
           encryptor = AiCredentialEncryptionService.new

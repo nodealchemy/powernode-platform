@@ -246,7 +246,7 @@ FactoryBot.define do
       edge_type { 'data' }
       condition do
         {
-          required_data: ['input.user_id', 'input.session_token'],
+          required_data: [ 'input.user_id', 'input.session_token' ],
           data_validation: true
         }
       end

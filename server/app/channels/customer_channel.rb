@@ -67,7 +67,7 @@ class CustomerChannel < ApplicationCable::Channel
 
       # Broadcast to accounts with users who have admin permissions
       admin_accounts = Account.joins(users: :permissions)
-                              .where(permissions: { name: ['admin.access', 'users.manage', 'accounts.manage'] })
+                              .where(permissions: { name: [ "admin.access", "users.manage", "accounts.manage" ] })
                               .distinct
       admin_accounts.each do |admin_account|
         ActionCable.server.broadcast("customer_updates_#{admin_account.id}", broadcast_data)

@@ -6,7 +6,7 @@ RSpec.describe 'AI Security Integration', type: :request do
   let(:account) { create(:account) }
   let(:user) { create(:user, account: account) }
   let(:admin_user) { create(:user, :system_admin, account: account) }
-  let(:regular_user) { create(:user, account: account, permissions: ['ai.conversations.read', 'ai.agents.read']) }
+  let(:regular_user) { create(:user, account: account, permissions: [ 'ai.conversations.read', 'ai.agents.read' ]) }
 
   # Security-focused AI components
   let!(:provider) { create(:ai_provider, slug: 'openai') }
@@ -30,9 +30,9 @@ RSpec.describe 'AI Security Integration', type: :request do
         # Simulate expired token
         allow_any_instance_of(ApplicationController).to receive(:authenticate_request)
           .and_raise(JWT::ExpiredSignature)
-        
+
         get '/api/v1/ai/agents'
-        
+
         expect(response).to have_http_status(:unauthorized)
         expect(json_response['error']).to eq('Token has expired')
       end
@@ -40,9 +40,9 @@ RSpec.describe 'AI Security Integration', type: :request do
       it 'rejects invalid JWT signatures' do
         allow_any_instance_of(ApplicationController).to receive(:authenticate_request)
           .and_raise(JWT::VerificationError)
-        
+
         get '/api/v1/ai/agents'
-        
+
         expect(response).to have_http_status(:unauthorized)
         expect(json_response['error']).to eq('Invalid token signature')
       end
@@ -50,12 +50,12 @@ RSpec.describe 'AI Security Integration', type: :request do
       it 'handles malformed tokens gracefully' do
         # Send request with malformed Authorization header
         headers = { 'Authorization' => 'Bearer invalid-token-format' }
-        
+
         allow_any_instance_of(ApplicationController).to receive(:authenticate_request)
           .and_raise(JWT::DecodeError)
-        
+
         get '/api/v1/ai/agents', headers: headers
-        
+
         expect(response).to have_http_status(:unauthorized)
         expect(json_response['error']).to eq('Invalid token format')
       end
@@ -64,9 +64,9 @@ RSpec.describe 'AI Security Integration', type: :request do
     context 'permission-based access control' do
       it 'enforces read permissions for AI agents' do
         allow_any_instance_of(ApplicationController).to receive(:current_user).and_return(regular_user)
-        
+
         get '/api/v1/ai/agents'
-        
+
         expect(response).to have_http_status(:ok)
       end
 
@@ -83,7 +83,7 @@ RSpec.describe 'AI Security Integration', type: :request do
         }
 
         # Should get forbidden or validation error depending on when check happens
-        expect(response.status).to be_in([403, 422])
+        expect(response.status).to be_in([ 403, 422 ])
       end
 
       it 'enforces account-level data isolation' do
@@ -99,9 +99,9 @@ RSpec.describe 'AI Security Integration', type: :request do
       it 'prevents cross-account conversation access' do
         other_account = create(:account)
         other_conversation = create(:ai_conversation, account: other_account, ai_agent: agent)
-        
+
         get "/api/v1/ai/conversations/#{other_conversation.id}"
-        
+
         expect(response).to have_http_status(:not_found)
       end
     end
@@ -118,7 +118,7 @@ RSpec.describe 'AI Security Integration', type: :request do
         }
 
         # Should process the request
-        expect(response.status).to be_in([200, 201, 202, 422])
+        expect(response.status).to be_in([ 200, 201, 202, 422 ])
       end
 
       it 'allows requests within rate limits' do
@@ -131,7 +131,7 @@ RSpec.describe 'AI Security Integration', type: :request do
           input_parameters: { prompt: 'Test prompt' }
         }
 
-        expect(response.status).to be_in([200, 201, 202, 422])
+        expect(response.status).to be_in([ 200, 201, 202, 422 ])
       end
     end
   end
@@ -154,9 +154,9 @@ RSpec.describe 'AI Security Integration', type: :request do
       }
 
       # May return 404 if route not implemented, or various success/error codes
-      expect(response.status).to be_in([200, 201, 404, 422])
+      expect(response.status).to be_in([ 200, 201, 404, 422 ])
 
-      if response.status.in?([200, 201])
+      if response.status.in?([ 200, 201 ])
         # Verify credentials are stored (encryption happens at model level)
         new_credential = AiProviderCredential.last
         expect(new_credential).to be_present
@@ -168,7 +168,7 @@ RSpec.describe 'AI Security Integration', type: :request do
       get "/api/v1/ai/providers/#{provider.id}/credentials/#{credential.id}"
 
       # Response should be successful or route may not exist
-      expect(response.status).to be_in([200, 404])
+      expect(response.status).to be_in([ 200, 404 ])
 
       if response.status == 200
         # Credentials should not be exposed in API responses in plain text
@@ -190,7 +190,7 @@ RSpec.describe 'AI Security Integration', type: :request do
       }
 
       # Should fail validation (422), succeed, or route not found
-      expect(response.status).to be_in([200, 201, 404, 422])
+      expect(response.status).to be_in([ 200, 201, 404, 422 ])
     end
 
     it 'masks sensitive data in audit logs' do
@@ -227,7 +227,7 @@ RSpec.describe 'AI Security Integration', type: :request do
           }
 
           # Various responses depending on implementation
-          expect(response.status).to be_in([200, 201, 403, 422, 500])
+          expect(response.status).to be_in([ 200, 201, 403, 422, 500 ])
         end
       end
 
@@ -242,7 +242,7 @@ RSpec.describe 'AI Security Integration', type: :request do
         }
 
         # Various responses depending on implementation
-        expect(response.status).to be_in([200, 201, 403, 422, 500])
+        expect(response.status).to be_in([ 200, 201, 403, 422, 500 ])
       end
 
       it 'handles large content in messages' do
@@ -256,7 +256,7 @@ RSpec.describe 'AI Security Integration', type: :request do
         }
 
         # Should handle large content (reject, truncate, or accept)
-        expect(response.status).to be_in([200, 201, 413, 422, 500])
+        expect(response.status).to be_in([ 200, 201, 413, 422, 500 ])
       end
     end
 
@@ -274,7 +274,7 @@ RSpec.describe 'AI Security Integration', type: :request do
         }
 
         # Should create agent or reject invalid config
-        expect(response.status).to be_in([200, 201, 422])
+        expect(response.status).to be_in([ 200, 201, 422 ])
       end
 
       it 'processes agent names with special characters' do
@@ -287,7 +287,7 @@ RSpec.describe 'AI Security Integration', type: :request do
         }
 
         # Should create the agent or return validation error
-        expect(response.status).to be_in([200, 201, 422])
+        expect(response.status).to be_in([ 200, 201, 422 ])
       end
     end
   end
@@ -307,7 +307,7 @@ RSpec.describe 'AI Security Integration', type: :request do
       }
 
       # Various responses depending on implementation
-      expect(response.status).to be_in([200, 201, 422, 500])
+      expect(response.status).to be_in([ 200, 201, 422, 500 ])
     end
 
     it 'tracks PII-related conversations' do
@@ -330,7 +330,7 @@ RSpec.describe 'AI Security Integration', type: :request do
       get "/api/v1/ai/agents/#{agent.id}/conversations/#{conversation.id}/export"
 
       # Should return export data or appropriate status
-      expect(response.status).to be_in([200, 403, 404, 422])
+      expect(response.status).to be_in([ 200, 403, 404, 422 ])
     end
   end
 
@@ -349,7 +349,7 @@ RSpec.describe 'AI Security Integration', type: :request do
       end
 
       # Verify requests were processed
-      expect(response.status).to be_in([200, 201, 202, 422])
+      expect(response.status).to be_in([ 200, 201, 202, 422 ])
     end
 
     it 'handles authentication failures gracefully' do
@@ -376,7 +376,7 @@ RSpec.describe 'AI Security Integration', type: :request do
       }
 
       # Request should still be processed
-      expect(response.status).to be_in([200, 201, 202, 422])
+      expect(response.status).to be_in([ 200, 201, 202, 422 ])
     end
 
     it 'handles authentication errors appropriately' do
@@ -403,7 +403,7 @@ RSpec.describe 'AI Security Integration', type: :request do
         input_parameters: { prompt: 'Audited request' }
       }
 
-      expect(response.status).to be_in([200, 201, 202, 422])
+      expect(response.status).to be_in([ 200, 201, 202, 422 ])
 
       # Verify audit logging occurs (any audit log related to AI operations)
       audit_entries = AuditLog.where("resource_type LIKE ?", "Ai%").order(created_at: :desc)
@@ -417,7 +417,7 @@ RSpec.describe 'AI Security Integration', type: :request do
         period: 30
       }
 
-      expect(response.status).to be_in([200, 403, 404])
+      expect(response.status).to be_in([ 200, 403, 404 ])
     end
 
     it 'tracks conversation data lifecycle' do
@@ -438,7 +438,7 @@ RSpec.describe 'AI Security Integration', type: :request do
       # Verify conversation is accessible
       get "/api/v1/ai/agents/#{agent.id}/conversations/#{old_conversation.id}"
 
-      expect(response.status).to be_in([200, 404])
+      expect(response.status).to be_in([ 200, 404 ])
     end
 
     it 'supports user data management' do
@@ -451,7 +451,7 @@ RSpec.describe 'AI Security Integration', type: :request do
       # Verify user's conversations can be retrieved
       get "/api/v1/ai/agents/#{agent.id}/conversations"
 
-      expect(response.status).to be_in([200, 403])
+      expect(response.status).to be_in([ 200, 403 ])
     end
   end
 
@@ -461,7 +461,7 @@ RSpec.describe 'AI Security Integration', type: :request do
       post "/api/v1/ai/providers/#{provider.id}/credentials/#{credential.id}/rotate"
 
       # Should process rotation request or return 404 if route not implemented
-      expect(response.status).to be_in([200, 201, 403, 404, 422])
+      expect(response.status).to be_in([ 200, 201, 403, 404, 422 ])
     end
 
     it 'handles provider connection testing securely' do
@@ -469,7 +469,7 @@ RSpec.describe 'AI Security Integration', type: :request do
       post "/api/v1/ai/providers/#{provider.id}/test_connection"
 
       # Should process test request (404 if route not set up, or various results)
-      expect(response.status).to be_in([200, 404, 422, 500, 503])
+      expect(response.status).to be_in([ 200, 404, 422, 500, 503 ])
     end
 
     it 'sanitizes AI provider responses' do
@@ -482,10 +482,10 @@ RSpec.describe 'AI Security Integration', type: :request do
         input_parameters: { prompt: 'Safe request' }
       }
 
-      expect(response.status).to be_in([200, 201, 202, 422])
+      expect(response.status).to be_in([ 200, 201, 202, 422 ])
 
       # If successful, response should be returned
-      if response.status.in?([200, 201, 202])
+      if response.status.in?([ 200, 201, 202 ])
         expect(json_response['success']).to be true
       end
     end

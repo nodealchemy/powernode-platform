@@ -17,12 +17,12 @@ FactoryBot.define do
     started_at { nil }
     completed_at { nil }
     output_data { {} }
-    
+
     trait :running do
       status { 'running' }
       started_at { 5.minutes.ago }
     end
-    
+
     trait :completed do
       status { 'completed' }
       started_at { 10.minutes.ago }
@@ -40,7 +40,7 @@ FactoryBot.define do
         }
       end
     end
-    
+
     trait :failed do
       status { 'failed' }
       started_at { 15.minutes.ago }
@@ -57,7 +57,7 @@ FactoryBot.define do
         }
       end
     end
-    
+
     trait :cancelled do
       status { 'cancelled' }
       started_at { 20.minutes.ago }
@@ -70,7 +70,7 @@ FactoryBot.define do
         }
       end
     end
-    
+
     trait :with_artifacts do
       status { 'completed' }
       started_at { 10.minutes.ago }
@@ -102,7 +102,7 @@ FactoryBot.define do
         }
       end
     end
-    
+
     trait :high_priority do
       execution_context do
         {

@@ -10,10 +10,10 @@ module Mcp
         log_info "Merging node outputs"
 
         # Get merge strategy from configuration
-        merge_strategy = configuration['merge_strategy'] || 'combine'
+        merge_strategy = configuration["merge_strategy"] || "combine"
 
         # Get source node IDs from configuration or incoming edges
-        source_node_ids = configuration['source_nodes'] || []
+        source_node_ids = configuration["source_nodes"] || []
 
         # Collect outputs from source nodes
         # STANDARD (v1.0): Use standard keys ONLY - no backward compatibility
@@ -32,19 +32,19 @@ module Mcp
 
         # Apply merge strategy
         final_output = case merge_strategy
-                      when 'combine'
+        when "combine"
                         combine_outputs(merged_data)
-                      when 'concatenate'
+        when "concatenate"
                         concatenate_outputs(merged_data)
-                      when 'reduce'
+        when "reduce"
                         reduce_outputs(merged_data)
-                      else
+        else
                         merged_data
-                      end
+        end
 
         # Store merged output in variable if configured
-        if configuration['output_variable']
-          set_variable(configuration['output_variable'], final_output)
+        if configuration["output_variable"]
+          set_variable(configuration["output_variable"], final_output)
         end
 
         log_debug "Merged output: #{final_output.keys.join(', ')}"
@@ -62,7 +62,7 @@ module Mcp
           },
           metadata: {
             node_id: @node.node_id,
-            node_type: 'merge',
+            node_type: "merge",
             executed_at: Time.current.iso8601,
             merge_strategy: merge_strategy,
             source_count: source_node_ids.count
@@ -92,7 +92,7 @@ module Mcp
 
       def reduce_outputs(data)
         # Reduce outputs based on configuration
-        reducer_key = configuration['reducer_key'] || 'value'
+        reducer_key = configuration["reducer_key"] || "value"
         data.values.map { |output| output[reducer_key] }.compact
       end
     end

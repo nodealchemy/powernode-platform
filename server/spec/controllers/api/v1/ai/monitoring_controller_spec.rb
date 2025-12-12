@@ -15,8 +15,8 @@ RSpec.describe Api::V1::Ai::MonitoringController, type: :controller do
   let(:worker) { create(:worker) }
 
   # Permission-based users
-  let(:monitoring_read_user) { create(:user, account: account, permissions: ['ai.monitoring.read']) }
-  let(:monitoring_manage_user) { create(:user, account: account, permissions: ['ai.monitoring.read', 'ai.monitoring.manage']) }
+  let(:monitoring_read_user) { create(:user, account: account, permissions: [ 'ai.monitoring.read' ]) }
+  let(:monitoring_manage_user) { create(:user, account: account, permissions: [ 'ai.monitoring.read', 'ai.monitoring.manage' ]) }
 
   before do
     @request.headers['Content-Type'] = 'application/json'
@@ -82,7 +82,7 @@ RSpec.describe Api::V1::Ai::MonitoringController, type: :controller do
 
       it 'filters by specific components' do
         expect_any_instance_of(UnifiedMonitoringService).to receive(:get_dashboard).with(
-          hash_including(components: ['system', 'providers'])
+          hash_including(components: [ 'system', 'providers' ])
         )
 
         get :dashboard, params: { components: 'system,providers' }

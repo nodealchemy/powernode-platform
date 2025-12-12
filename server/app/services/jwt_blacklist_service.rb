@@ -5,12 +5,12 @@
 # Falls back to database storage when Redis is unavailable
 
 class JwtBlacklistService
-  REDIS_KEY_PREFIX = 'jwt_blacklist:'
+  REDIS_KEY_PREFIX = "jwt_blacklist:"
   CLEANUP_BATCH_SIZE = 1000
 
   class << self
     # Blacklist a JWT token by its JTI
-    def blacklist(jti, expires_at, reason: 'logout', user_id: nil)
+    def blacklist(jti, expires_at, reason: "logout", user_id: nil)
       return false unless jti.present?
 
       ttl = calculate_ttl(expires_at)
@@ -46,7 +46,7 @@ class JwtBlacklistService
     end
 
     # Blacklist all tokens for a user (e.g., on account suspension)
-    def blacklist_user_tokens(user_id, reason: 'account_suspended')
+    def blacklist_user_tokens(user_id, reason: "account_suspended")
       if redis_available?
         blacklist_user_tokens_redis(user_id, reason)
       else
@@ -91,11 +91,11 @@ class JwtBlacklistService
 
     # Get Redis connection
     def redis
-      @redis ||= if defined?(Redis) && ENV['REDIS_URL']
-                   Redis.new(url: ENV['REDIS_URL'])
-                 else
+      @redis ||= if defined?(Redis) && ENV["REDIS_URL"]
+                   Redis.new(url: ENV["REDIS_URL"])
+      else
                    Rails.cache.redis
-                 end
+      end
     end
 
     # Calculate TTL in seconds
@@ -148,14 +148,14 @@ class JwtBlacklistService
 
     def statistics_redis
       keys = redis.scan_each(match: "#{REDIS_KEY_PREFIX}*").to_a
-      user_keys = keys.select { |k| k.include?(':user:') }
+      user_keys = keys.select { |k| k.include?(":user:") }
       token_keys = keys - user_keys
 
       {
         total: keys.size,
         user_blacklists: user_keys.size,
         token_blacklists: token_keys.size,
-        storage: 'redis'
+        storage: "redis"
       }
     end
 
@@ -178,7 +178,7 @@ class JwtBlacklistService
     def blacklisted_in_database?(jti)
       return false unless defined?(JwtBlacklist)
 
-      JwtBlacklist.where(jti: jti).where('expires_at > ?', Time.current).exists?
+      JwtBlacklist.where(jti: jti).where("expires_at > ?", Time.current).exists?
     end
 
     def blacklist_user_tokens_database(user_id, reason)
@@ -201,23 +201,23 @@ class JwtBlacklistService
     def cleanup_expired_database
       return 0 unless defined?(JwtBlacklist)
 
-      deleted = JwtBlacklist.where('expires_at <= ?', Time.current).delete_all
+      deleted = JwtBlacklist.where("expires_at <= ?", Time.current).delete_all
       Rails.logger.info "Database JWT blacklist cleanup: #{deleted} expired entries removed"
       deleted
     end
 
     def statistics_database
-      return { total: 0, storage: 'none' } unless defined?(JwtBlacklist)
+      return { total: 0, storage: "none" } unless defined?(JwtBlacklist)
 
-      total = JwtBlacklist.where('expires_at > ?', Time.current).count
-      user_blacklists = JwtBlacklist.where('expires_at > ?', Time.current)
+      total = JwtBlacklist.where("expires_at > ?", Time.current).count
+      user_blacklists = JwtBlacklist.where("expires_at > ?", Time.current)
                                    .where(user_blacklist: true).count
 
       {
         total: total,
         user_blacklists: user_blacklists,
         token_blacklists: total - user_blacklists,
-        storage: 'database'
+        storage: "database"
       }
     end
 
@@ -227,13 +227,13 @@ class JwtBlacklistService
 
       # Create the model dynamically if it doesn't exist
       Object.const_set(:JwtBlacklist, Class.new(ApplicationRecord) do
-        self.table_name = 'jwt_blacklists'
+        self.table_name = "jwt_blacklists"
 
         validates :jti, presence: true, uniqueness: true
         validates :expires_at, presence: true
 
-        scope :active, -> { where('expires_at > ?', Time.current) }
-        scope :expired, -> { where('expires_at <= ?', Time.current) }
+        scope :active, -> { where("expires_at > ?", Time.current) }
+        scope :expired, -> { where("expires_at <= ?", Time.current) }
         scope :user_blacklists, -> { where(user_blacklist: true) }
 
         def self.blacklisted?(jti)

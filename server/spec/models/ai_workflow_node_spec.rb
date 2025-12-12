@@ -557,18 +557,18 @@ RSpec.describe AiWorkflowNode, type: :model do
     end
 
     describe '#required_inputs' do
-      let(:node) { create(:ai_workflow_node, validation_rules: { 'required_inputs' => ['input1', 'input2'] }) }
+      let(:node) { create(:ai_workflow_node, validation_rules: { 'required_inputs' => [ 'input1', 'input2' ] }) }
 
       it 'returns required inputs from validation rules' do
-        expect(node.required_inputs).to eq(['input1', 'input2'])
+        expect(node.required_inputs).to eq([ 'input1', 'input2' ])
       end
     end
 
     describe '#expected_outputs' do
-      let(:node) { create(:ai_workflow_node, validation_rules: { 'expected_outputs' => ['output1'] }) }
+      let(:node) { create(:ai_workflow_node, validation_rules: { 'expected_outputs' => [ 'output1' ] }) }
 
       it 'returns expected outputs from validation rules' do
-        expect(node.expected_outputs).to eq(['output1'])
+        expect(node.expected_outputs).to eq([ 'output1' ])
       end
     end
 

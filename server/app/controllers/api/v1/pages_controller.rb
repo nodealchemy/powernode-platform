@@ -2,9 +2,9 @@
 
 class Api::V1::PagesController < ApplicationController
   # Public endpoint - no authentication required for viewing published pages
-  skip_before_action :authenticate_request, only: [:index, :show]
-  
-  before_action :set_page, only: [:show]
+  skip_before_action :authenticate_request, only: [ :index, :show ]
+
+  before_action :set_page, only: [ :show ]
 
   # GET /api/v1/pages/:slug
   def show
@@ -35,23 +35,23 @@ class Api::V1::PagesController < ApplicationController
   # GET /api/v1/pages (public index for published pages)
   def index
     pages = Page.published.recent
-    
+
     # Simple pagination without using pagination_params method
     page = 1
     per_page = 20
-    
+
     if params[:page].present?
       page = params[:page].to_i
     end
-    
+
     if params[:per_page].present?
-      per_page = [[params[:per_page].to_i, 1].max, 100].min
+      per_page = [ [ params[:per_page].to_i, 1 ].max, 100 ].min
     end
-    
-    page = [page, 1].max
-    
+
+    page = [ page, 1 ].max
+
     pages = pages.limit(per_page).offset((page - 1) * per_page)
-    
+
     total_count = Page.published.count
     total_pages = (total_count.to_f / per_page).ceil
 

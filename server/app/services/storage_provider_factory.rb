@@ -7,13 +7,13 @@ class StorageProviderFactory
   class ProviderNotAvailableError < StandardError; end
 
   PROVIDER_CLASSES = {
-    'local' => 'StorageProviders::LocalStorage',
-    's3' => 'StorageProviders::S3Storage',
-    'gcs' => 'StorageProviders::GcsStorage',
-    'azure' => 'StorageProviders::AzureStorage',
-    'ftp' => 'StorageProviders::FtpStorage',
-    'webdav' => 'StorageProviders::WebdavStorage',
-    'custom' => 'StorageProviders::CustomStorage'
+    "local" => "StorageProviders::LocalStorage",
+    "s3" => "StorageProviders::S3Storage",
+    "gcs" => "StorageProviders::GcsStorage",
+    "azure" => "StorageProviders::AzureStorage",
+    "ftp" => "StorageProviders::FtpStorage",
+    "webdav" => "StorageProviders::WebdavStorage",
+    "custom" => "StorageProviders::CustomStorage"
   }.freeze
 
   class << self
@@ -69,16 +69,16 @@ class StorageProviderFactory
     # @return [Hash] availability status and missing dependencies
     def check_dependencies(provider_type)
       case provider_type.to_s.downcase
-      when 's3'
+      when "s3"
         check_s3_dependencies
-      when 'gcs'
+      when "gcs"
         check_gcs_dependencies
-      when 'azure'
+      when "azure"
         check_azure_dependencies
-      when 'local'
+      when "local"
         { available: true, missing: [] }
       else
-        { available: false, missing: ['Unknown provider type'] }
+        { available: false, missing: [ "Unknown provider type" ] }
       end
     end
 
@@ -87,13 +87,13 @@ class StorageProviderFactory
     # @return [Hash] provider capabilities
     def provider_capabilities(provider_type)
       case provider_type.to_s.downcase
-      when 'local'
+      when "local"
         local_capabilities
-      when 's3'
+      when "s3"
         s3_capabilities
-      when 'gcs'
+      when "gcs"
         gcs_capabilities
-      when 'azure'
+      when "azure"
         azure_capabilities
       else
         default_capabilities
@@ -108,11 +108,11 @@ class StorageProviderFactory
       end
 
       unless storage_config.provider_type.present?
-        raise ArgumentError, 'Provider type must be specified'
+        raise ArgumentError, "Provider type must be specified"
       end
 
       unless storage_config.configuration.is_a?(Hash)
-        raise ArgumentError, 'Configuration must be a Hash'
+        raise ArgumentError, "Configuration must be a Hash"
       end
     end
 
@@ -120,9 +120,9 @@ class StorageProviderFactory
       missing = []
 
       begin
-        require 'aws-sdk-s3'
+        require "aws-sdk-s3"
       rescue LoadError
-        missing << 'aws-sdk-s3 gem'
+        missing << "aws-sdk-s3 gem"
       end
 
       {
@@ -135,9 +135,9 @@ class StorageProviderFactory
       missing = []
 
       begin
-        require 'google/cloud/storage'
+        require "google/cloud/storage"
       rescue LoadError
-        missing << 'google-cloud-storage gem'
+        missing << "google-cloud-storage gem"
       end
 
       {
@@ -150,9 +150,9 @@ class StorageProviderFactory
       missing = []
 
       begin
-        require 'azure/storage/blob'
+        require "azure/storage/blob"
       rescue LoadError
-        missing << 'azure-storage-blob gem'
+        missing << "azure-storage-blob gem"
       end
 
       {
@@ -163,79 +163,79 @@ class StorageProviderFactory
 
     def local_capabilities
       {
-        'multipart_upload' => false,
-        'resumable_upload' => false,
-        'direct_upload' => false,
-        'cdn' => false,
-        'versioning' => true,
-        'encryption' => false,
-        'access_control' => true,
-        'signed_urls' => false,
-        'streaming' => true,
-        'batch_operations' => true
+        "multipart_upload" => false,
+        "resumable_upload" => false,
+        "direct_upload" => false,
+        "cdn" => false,
+        "versioning" => true,
+        "encryption" => false,
+        "access_control" => true,
+        "signed_urls" => false,
+        "streaming" => true,
+        "batch_operations" => true
       }
     end
 
     def s3_capabilities
       {
-        'multipart_upload' => true,
-        'resumable_upload' => true,
-        'direct_upload' => true,
-        'cdn' => true,
-        'versioning' => true,
-        'encryption' => true,
-        'access_control' => true,
-        'signed_urls' => true,
-        'streaming' => true,
-        'batch_operations' => true,
-        'lifecycle_policies' => true
+        "multipart_upload" => true,
+        "resumable_upload" => true,
+        "direct_upload" => true,
+        "cdn" => true,
+        "versioning" => true,
+        "encryption" => true,
+        "access_control" => true,
+        "signed_urls" => true,
+        "streaming" => true,
+        "batch_operations" => true,
+        "lifecycle_policies" => true
       }
     end
 
     def gcs_capabilities
       {
-        'multipart_upload' => true,
-        'resumable_upload' => true,
-        'direct_upload' => true,
-        'cdn' => true,
-        'versioning' => true,
-        'encryption' => true,
-        'access_control' => true,
-        'signed_urls' => true,
-        'streaming' => true,
-        'batch_operations' => true,
-        'lifecycle_policies' => true
+        "multipart_upload" => true,
+        "resumable_upload" => true,
+        "direct_upload" => true,
+        "cdn" => true,
+        "versioning" => true,
+        "encryption" => true,
+        "access_control" => true,
+        "signed_urls" => true,
+        "streaming" => true,
+        "batch_operations" => true,
+        "lifecycle_policies" => true
       }
     end
 
     def azure_capabilities
       {
-        'multipart_upload' => true,
-        'resumable_upload' => true,
-        'direct_upload' => true,
-        'cdn' => true,
-        'versioning' => true,
-        'encryption' => true,
-        'access_control' => true,
-        'signed_urls' => true,
-        'streaming' => true,
-        'batch_operations' => true,
-        'lifecycle_policies' => true
+        "multipart_upload" => true,
+        "resumable_upload" => true,
+        "direct_upload" => true,
+        "cdn" => true,
+        "versioning" => true,
+        "encryption" => true,
+        "access_control" => true,
+        "signed_urls" => true,
+        "streaming" => true,
+        "batch_operations" => true,
+        "lifecycle_policies" => true
       }
     end
 
     def default_capabilities
       {
-        'multipart_upload' => false,
-        'resumable_upload' => false,
-        'direct_upload' => false,
-        'cdn' => false,
-        'versioning' => false,
-        'encryption' => false,
-        'access_control' => false,
-        'signed_urls' => false,
-        'streaming' => false,
-        'batch_operations' => false
+        "multipart_upload" => false,
+        "resumable_upload" => false,
+        "direct_upload" => false,
+        "cdn" => false,
+        "versioning" => false,
+        "encryption" => false,
+        "access_control" => false,
+        "signed_urls" => false,
+        "streaming" => false,
+        "batch_operations" => false
       }
     end
   end

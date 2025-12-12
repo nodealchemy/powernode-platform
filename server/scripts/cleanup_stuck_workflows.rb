@@ -8,7 +8,7 @@ puts '=' * 80
 puts ''
 
 # Find all running or initializing workflow runs
-stuck_runs = AiWorkflowRun.where(status: ['running', 'initializing'])
+stuck_runs = AiWorkflowRun.where(status: [ 'running', 'initializing' ])
 
 if stuck_runs.empty?
   puts '✓ No stuck workflow runs found'
@@ -26,7 +26,7 @@ stuck_runs.each do |run|
   puts "   Topic: #{run.input_variables['topic']}" if run.input_variables['topic']
 
   # Count active node executions
-  active_nodes = run.ai_workflow_node_executions.where(status: ['running', 'pending'])
+  active_nodes = run.ai_workflow_node_executions.where(status: [ 'running', 'pending' ])
   puts "   Active nodes: #{active_nodes.count}"
   puts ''
 
@@ -77,5 +77,5 @@ puts '✅ Cleanup complete!'
 puts ''
 
 # Show summary
-remaining = AiWorkflowRun.where(status: ['running', 'initializing'])
+remaining = AiWorkflowRun.where(status: [ 'running', 'initializing' ])
 puts "Remaining stuck runs: #{remaining.count}"

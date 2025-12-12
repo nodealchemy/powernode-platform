@@ -419,7 +419,7 @@ RSpec.describe AiWorkflowRecoveryService, type: :service do
           state: { run_status: 'paused', progress: 50 },
           variables: { 'count' => 5 },
           output_data: { 'result' => 'partial' },
-          completed_nodes: ['node-1', 'node-2']
+          completed_nodes: [ 'node-1', 'node-2' ]
         }.with_indifferent_access
       end
 
@@ -443,7 +443,7 @@ RSpec.describe AiWorkflowRecoveryService, type: :service do
         service.send(:restore_workflow_state, checkpoint)
 
         expect(service).to have_received(:mark_nodes_as_completed)
-          .with(['node-1', 'node-2'])
+          .with([ 'node-1', 'node-2' ])
       end
     end
 

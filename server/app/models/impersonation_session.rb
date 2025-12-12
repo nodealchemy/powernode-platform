@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
 class ImpersonationSession < ApplicationRecord
-  belongs_to :impersonator, class_name: 'User'
-  belongs_to :impersonated_user, class_name: 'User'
-  
+  belongs_to :impersonator, class_name: "User"
+  belongs_to :impersonated_user, class_name: "User"
+
   # Get account through impersonated user
   delegate :account, to: :impersonated_user
 
@@ -33,13 +33,13 @@ class ImpersonationSession < ApplicationRecord
 
   def expired?
     return false unless started_at
-    
+
     Time.current > (started_at + MAX_SESSION_DURATION)
   end
 
   def duration
     return nil unless started_at
-    
+
     end_time = ended_at || Time.current
     end_time - started_at
   end
@@ -49,11 +49,11 @@ class ImpersonationSession < ApplicationRecord
   end
 
   def self.cleanup_expired_sessions
-    expired_sessions = active.where('started_at < ?', MAX_SESSION_DURATION.ago)
+    expired_sessions = active.where("started_at < ?", MAX_SESSION_DURATION.ago)
     count = expired_sessions.count
-    
+
     expired_sessions.update_all(ended_at: Time.current)
-    
+
     count
   end
 
@@ -88,18 +88,18 @@ class ImpersonationSession < ApplicationRecord
 
   def same_account_validation
     return unless impersonator && impersonated_user
-    
+
     # System administrators can impersonate users from any account
     unless impersonator.admin? || impersonator.account == impersonated_user.account
-      errors.add(:base, 'Impersonator and impersonated user must be in the same account')
+      errors.add(:base, "Impersonator and impersonated user must be in the same account")
     end
   end
 
   def prevent_self_impersonation
     return unless impersonator && impersonated_user
-    
+
     if impersonator == impersonated_user
-      errors.add(:base, 'Cannot impersonate yourself')
+      errors.add(:base, "Cannot impersonate yourself")
     end
   end
 end

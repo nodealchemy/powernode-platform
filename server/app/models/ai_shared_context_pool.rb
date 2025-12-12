@@ -8,11 +8,11 @@ class AiSharedContextPool < ApplicationRecord
   validates :pool_id, presence: true, uniqueness: true
   validates :pool_type, presence: true, inclusion: {
     in: %w[shared_memory tool_cache result_cache knowledge_base blackboard],
-    message: '%{value} is not a valid pool type'
+    message: "%{value} is not a valid pool type"
   }
   validates :scope, presence: true, inclusion: {
     in: %w[workflow agent_group global temporary],
-    message: '%{value} is not a valid scope'
+    message: "%{value} is not a valid scope"
   }
   validates :context_data, presence: true
   validates :version, presence: true, numericality: { only_integer: true, greater_than: 0 }
@@ -23,15 +23,15 @@ class AiSharedContextPool < ApplicationRecord
   scope :by_scope, ->(scope) { where(scope: scope) }
   scope :owned_by, ->(agent_id) { where(owner_agent_id: agent_id) }
   scope :accessible_by, ->(agent_id) do
-    where("access_control->>'agents' @> ?", [agent_id].to_json)
+    where("access_control->>'agents' @> ?", [ agent_id ].to_json)
       .or(where(owner_agent_id: agent_id))
       .or(where("access_control->>'public' = 'true'"))
   end
-  scope :active, -> { where('expires_at IS NULL OR expires_at > ?', Time.current) }
-  scope :expired, -> { where('expires_at <= ?', Time.current) }
-  scope :shared_memories, -> { where(pool_type: 'shared_memory') }
-  scope :tool_caches, -> { where(pool_type: 'tool_cache') }
-  scope :blackboards, -> { where(pool_type: 'blackboard') }
+  scope :active, -> { where("expires_at IS NULL OR expires_at > ?", Time.current) }
+  scope :expired, -> { where("expires_at <= ?", Time.current) }
+  scope :shared_memories, -> { where(pool_type: "shared_memory") }
+  scope :tool_caches, -> { where(pool_type: "tool_cache") }
+  scope :blackboards, -> { where(pool_type: "blackboard") }
 
   # ==================== Callbacks ====================
   before_validation :generate_pool_id, on: :create
@@ -68,34 +68,34 @@ class AiSharedContextPool < ApplicationRecord
   # Check if agent has access
   def accessible_by?(agent_id)
     return true if owner_agent_id == agent_id
-    return true if access_control.dig('public') == true
+    return true if access_control.dig("public") == true
 
-    allowed_agents = access_control.dig('agents') || []
+    allowed_agents = access_control.dig("agents") || []
     allowed_agents.include?(agent_id)
   end
 
   # Grant access to agent
   def grant_access(agent_id)
-    access_control['agents'] ||= []
-    access_control['agents'] << agent_id unless access_control['agents'].include?(agent_id)
+    access_control["agents"] ||= []
+    access_control["agents"] << agent_id unless access_control["agents"].include?(agent_id)
     save!
   end
 
   # Revoke access from agent
   def revoke_access(agent_id)
-    access_control['agents'] ||= []
-    access_control['agents'].delete(agent_id)
+    access_control["agents"] ||= []
+    access_control["agents"].delete(agent_id)
     save!
   end
 
   # Make pool public
   def make_public!
-    update!(access_control: access_control.merge('public' => true))
+    update!(access_control: access_control.merge("public" => true))
   end
 
   # Make pool private
   def make_private!
-    update!(access_control: access_control.merge('public' => false))
+    update!(access_control: access_control.merge("public" => false))
   end
 
   # Read data from pool
@@ -103,7 +103,7 @@ class AiSharedContextPool < ApplicationRecord
     raise ArgumentError, "Access denied" unless accessible_by?(agent_id)
 
     touch(:last_accessed_at)
-    context_data.dig(*key.to_s.split('.'))
+    context_data.dig(*key.to_s.split("."))
   end
 
   # Write data to pool
@@ -111,7 +111,7 @@ class AiSharedContextPool < ApplicationRecord
     raise ArgumentError, "Access denied" unless accessible_by?(agent_id)
     raise ArgumentError, "Only owner can write" unless owner_agent_id == agent_id
 
-    keys = key.to_s.split('.')
+    keys = key.to_s.split(".")
     update_nested_hash(context_data, keys, value)
 
     self.last_accessed_at = Time.current
@@ -153,7 +153,7 @@ class AiSharedContextPool < ApplicationRecord
       data_size_bytes: context_data.to_json.bytesize,
       version: version,
       age_seconds: (Time.current - created_at).to_i,
-      access_count: metadata.dig('access_count') || 0,
+      access_count: metadata.dig("access_count") || 0,
       last_access_ago: last_accessed_at ? (Time.current - last_accessed_at).to_i : nil
     }
   end
@@ -166,8 +166,8 @@ class AiSharedContextPool < ApplicationRecord
       snapshot_at: Time.current.iso8601,
       data: context_data.deep_dup,
       metadata: {
-        'snapshot_version' => version,
-        'data_hash' => Digest::SHA256.hexdigest(context_data.to_json)
+        "snapshot_version" => version,
+        "data_hash" => Digest::SHA256.hexdigest(context_data.to_json)
       }
     }
   end
@@ -176,10 +176,10 @@ class AiSharedContextPool < ApplicationRecord
   def restore_from_snapshot(snapshot, agent_id:)
     raise ArgumentError, "Only owner can restore" unless owner_agent_id == agent_id
 
-    self.context_data = snapshot['data']
+    self.context_data = snapshot["data"]
     self.metadata = metadata.merge(
-      'restored_from_version' => snapshot['version'],
-      'restored_at' => Time.current.iso8601
+      "restored_from_version" => snapshot["version"],
+      "restored_at" => Time.current.iso8601
     )
     save!
   end
@@ -203,7 +203,7 @@ class AiSharedContextPool < ApplicationRecord
     McpChannel.broadcast_to(
       "account_#{ai_workflow_run.account_id}",
       {
-        type: 'context_pool_update',
+        type: "context_pool_update",
         workflow_run_id: ai_workflow_run.run_id,
         pool_id: pool_id,
         version: version

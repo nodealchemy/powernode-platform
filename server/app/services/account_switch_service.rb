@@ -17,13 +17,13 @@ class AccountSwitchService
     accounts = []
 
     # Add primary account (always accessible)
-    accounts << format_account(@primary_account, 'owner', true)
+    accounts << format_account(@primary_account, "owner", true)
 
     # Add delegated accounts
     active_delegations.each do |delegation|
       accounts << format_account(
         delegation.account,
-        delegation.role&.name || 'delegated',
+        delegation.role&.name || "delegated",
         false,
         delegation
       )
@@ -124,9 +124,9 @@ class AccountSwitchService
       switched_at: Time.current.to_i
     }
 
-    access_token = JwtService.encode(payload.merge(type: 'access'), metadata: metadata)
+    access_token = JwtService.encode(payload.merge(type: "access"), metadata: metadata)
     refresh_token = JwtService.encode(
-      payload.slice(:sub, :account_id, :primary_account_id).merge(type: 'refresh'),
+      payload.slice(:sub, :account_id, :primary_account_id).merge(type: "refresh"),
       metadata: metadata
     )
 
@@ -137,7 +137,7 @@ class AccountSwitchService
       access_token: access_token,
       refresh_token: refresh_token,
       expires_at: JwtService::EXPIRATION_TIMES[:access].from_now,
-      account: format_account(target_account, delegation&.role&.name || 'owner', target_account.id == @primary_account.id, delegation),
+      account: format_account(target_account, delegation&.role&.name || "owner", target_account.id == @primary_account.id, delegation),
       permissions: permissions,
       user: format_user(@user, target_account)
     }
@@ -160,8 +160,8 @@ class AccountSwitchService
     AuditLog.create!(
       account: @primary_account,
       user: @user,
-      action: 'account.switch',
-      resource_type: 'Account',
+      action: "account.switch",
+      resource_type: "Account",
       resource_id: target_account.id,
       details: {
         target_account_id: target_account.id,

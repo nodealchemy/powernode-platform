@@ -1,16 +1,16 @@
 # frozen_string_literal: true
 
-require 'fileutils'
+require "fileutils"
 
 module StorageProviders
   # Local filesystem storage provider
   # Stores files on the local disk with configurable root path
   class LocalStorage < Base
-    DEFAULT_ROOT_PATH = Rails.root.join('storage', 'files')
+    DEFAULT_ROOT_PATH = Rails.root.join("storage", "files")
 
     def initialize(storage_config)
       super
-      @root_path = Pathname.new(config('root_path') || DEFAULT_ROOT_PATH)
+      @root_path = Pathname.new(config("root_path") || DEFAULT_ROOT_PATH)
       ensure_root_directory_exists
     end
 
@@ -28,7 +28,7 @@ module StorageProviders
 
     # Test connection
     def test_connection
-      return { success: false, error: 'Root path not set' } unless @root_path
+      return { success: false, error: "Root path not set" } unless @root_path
 
       unless @root_path.directory?
         return { success: false, error: "Directory does not exist: #{@root_path}" }
@@ -39,13 +39,13 @@ module StorageProviders
       end
 
       # Try to create a test file
-      test_file = @root_path.join('.health_check')
-      File.write(test_file, 'test')
+      test_file = @root_path.join(".health_check")
+      File.write(test_file, "test")
       File.delete(test_file)
 
       {
         success: true,
-        message: 'Local storage is accessible',
+        message: "Local storage is accessible",
         root_path: @root_path.to_s,
         writable: true
       }
@@ -64,24 +64,24 @@ module StorageProviders
         disk_stats = get_disk_statistics
 
         {
-          status: disk_stats[:usage_percentage] < 90 ? 'healthy' : 'degraded',
+          status: disk_stats[:usage_percentage] < 90 ? "healthy" : "degraded",
           details: {
-            'root_path' => @root_path.to_s,
-            'writable' => true,
-            'disk_total_bytes' => disk_stats[:total_bytes],
-            'disk_free_bytes' => disk_stats[:free_bytes],
-            'disk_usage_percentage' => disk_stats[:usage_percentage],
-            'files_count' => storage_config.files_count,
-            'total_size_bytes' => storage_config.total_size_bytes,
-            'checked_at' => Time.current.iso8601
+            "root_path" => @root_path.to_s,
+            "writable" => true,
+            "disk_total_bytes" => disk_stats[:total_bytes],
+            "disk_free_bytes" => disk_stats[:free_bytes],
+            "disk_usage_percentage" => disk_stats[:usage_percentage],
+            "files_count" => storage_config.files_count,
+            "total_size_bytes" => storage_config.total_size_bytes,
+            "checked_at" => Time.current.iso8601
           }
         }
       else
         {
-          status: 'failed',
+          status: "failed",
           details: {
-            'error' => connection_test[:error],
-            'checked_at' => Time.current.iso8601
+            "error" => connection_test[:error],
+            "checked_at" => Time.current.iso8601
           }
         }
       end
@@ -96,12 +96,12 @@ module StorageProviders
 
       # Write file
       if file_data.respond_to?(:read)
-        File.open(file_path, 'wb') do |f|
+        File.open(file_path, "wb") do |f|
           file_data.rewind if file_data.respond_to?(:rewind)
           IO.copy_stream(file_data, f)
         end
       else
-        File.write(file_path, file_data, mode: 'wb')
+        File.write(file_path, file_data, mode: "wb")
       end
 
       # Calculate checksums
@@ -125,7 +125,7 @@ module StorageProviders
         raise "File not found: #{file_object.storage_key}"
       end
 
-      File.read(file_path, mode: 'rb')
+      File.read(file_path, mode: "rb")
     end
 
     # Stream file content
@@ -136,7 +136,7 @@ module StorageProviders
         raise "File not found: #{file_object.storage_key}"
       end
 
-      File.open(file_path, 'rb') do |file|
+      File.open(file_path, "rb") do |file|
         while (chunk = file.read(64.kilobytes))
           yield chunk
         end
@@ -205,7 +205,7 @@ module StorageProviders
     # Get file URL (for viewing/displaying the file)
     def file_url(file_object)
       # Return public endpoint for public files (no auth), or download endpoint for others
-      if file_object.visibility == 'public'
+      if file_object.visibility == "public"
         "/api/v1/files/#{file_object.id}/public"
       else
         "/api/v1/files/#{file_object.id}/download?disposition=inline"
@@ -219,7 +219,7 @@ module StorageProviders
     end
 
     # Get signed URL
-    def signed_url(file_object, expires_in: 1.hour, disposition: 'inline')
+    def signed_url(file_object, expires_in: 1.hour, disposition: "inline")
       # Local storage doesn't support signed URLs
       # Return the same as file_url with disposition
       "/api/v1/files/#{file_object.id}/download?disposition=#{disposition}"
@@ -236,13 +236,13 @@ module StorageProviders
       stat = file_path.stat
 
       {
-        'size' => stat.size,
-        'modified_at' => stat.mtime.iso8601,
-        'created_at' => stat.ctime.iso8601,
-        'mode' => stat.mode.to_s(8),
-        'readable' => file_path.readable?,
-        'writable' => file_path.writable?,
-        'path' => file_path.to_s
+        "size" => stat.size,
+        "modified_at" => stat.mtime.iso8601,
+        "created_at" => stat.ctime.iso8601,
+        "mode" => stat.mode.to_s(8),
+        "readable" => file_path.readable?,
+        "writable" => file_path.writable?,
+        "path" => file_path.to_s
       }
     end
 
@@ -259,10 +259,10 @@ module StorageProviders
         relative_path = path.relative_path_from(@root_path).to_s
 
         files << {
-          'key' => relative_path,
-          'size' => path.size,
-          'modified_at' => path.mtime.iso8601,
-          'etag' => Digest::MD5.hexdigest(path.to_s)
+          "key" => relative_path,
+          "size" => path.size,
+          "modified_at" => path.mtime.iso8601,
+          "etag" => Digest::MD5.hexdigest(path.to_s)
         }
       end
 

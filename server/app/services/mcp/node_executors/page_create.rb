@@ -19,8 +19,8 @@ module Mcp
         page = create_page(page_data)
 
         # Store page ID in variable if configured
-        if configuration['output_variable']
-          set_variable(configuration['output_variable'], page.id)
+        if configuration["output_variable"]
+          set_variable(configuration["output_variable"], page.id)
         end
 
         log_info "Created page: #{page.title} (#{page.id})"
@@ -50,10 +50,10 @@ module Mcp
           },
           metadata: {
             node_id: @node.node_id,
-            node_type: 'page_create',
+            node_type: "page_create",
             executed_at: Time.current.iso8601,
-            operation: 'create',
-            record_type: 'Page'
+            operation: "create",
+            record_type: "Page"
           }
         }
       end
@@ -64,20 +64,20 @@ module Mcp
         data = {}
 
         # Get data from configuration or variables
-        data[:title] = configuration['title'] || get_variable('title')
-        data[:content] = configuration['content'] || get_variable('content')
-        data[:slug] = configuration['slug'] || get_variable('slug')
-        data[:status] = configuration['status'] || get_variable('status') || 'draft'
-        data[:meta_description] = configuration['meta_description'] || get_variable('meta_description')
-        data[:meta_keywords] = configuration['meta_keywords'] || get_variable('meta_keywords')
+        data[:title] = configuration["title"] || get_variable("title")
+        data[:content] = configuration["content"] || get_variable("content")
+        data[:slug] = configuration["slug"] || get_variable("slug")
+        data[:status] = configuration["status"] || get_variable("status") || "draft"
+        data[:meta_description] = configuration["meta_description"] || get_variable("meta_description")
+        data[:meta_keywords] = configuration["meta_keywords"] || get_variable("meta_keywords")
 
         # Apply template rendering to content if needed
-        if data[:content].present? && data[:content].include?('{{')
+        if data[:content].present? && data[:content].include?("{{")
           data[:content] = render_template(data[:content])
         end
 
         # Apply template rendering to title if needed
-        if data[:title].present? && data[:title].include?('{{')
+        if data[:title].present? && data[:title].include?("{{")
           data[:title] = render_template(data[:title])
         end
 
@@ -104,7 +104,7 @@ module Mcp
 
       def create_page(data)
         # Get author from workflow context
-        author = @orchestrator.user || User.find_by(email: 'system@powernode.ai')
+        author = @orchestrator.user || User.find_by(email: "system@powernode.ai")
 
         # Create the page
         page = Page.create!(

@@ -31,10 +31,10 @@ class Api::V1::Internal::ReviewNotificationsController < ApplicationController
       status: notification.status
     })
   rescue ActiveRecord::RecordNotFound
-    render_error('Review notification not found', status: :not_found)
+    render_error("Review notification not found", status: :not_found)
   rescue StandardError => e
     Rails.logger.error "Failed to fetch review notification: #{e.message}"
-    render_error('Failed to fetch notification', status: :internal_server_error)
+    render_error("Failed to fetch notification", status: :internal_server_error)
   end
 
   # PATCH /api/v1/internal/review_notifications/:id
@@ -47,9 +47,9 @@ class Api::V1::Internal::ReviewNotificationsController < ApplicationController
       update_params[:status] = params[:status]
 
       case params[:status]
-      when 'sent'
+      when "sent"
         update_params[:sent_at] = params[:sent_at] || Time.current
-      when 'failed'
+      when "failed"
         update_params[:error_message] = params[:error_message]
       end
     end
@@ -61,35 +61,35 @@ class Api::V1::Internal::ReviewNotificationsController < ApplicationController
     render_success({
       id: notification.id,
       status: notification.status,
-      message: 'Notification status updated'
+      message: "Notification status updated"
     })
   rescue ActiveRecord::RecordNotFound
-    render_error('Review notification not found', status: :not_found)
+    render_error("Review notification not found", status: :not_found)
   rescue StandardError => e
     Rails.logger.error "Failed to update review notification: #{e.message}"
-    render_error('Failed to update notification', status: :internal_server_error)
+    render_error("Failed to update notification", status: :internal_server_error)
   end
 
   private
 
   def authenticate_service_token
-    token = request.headers['Authorization']&.split(' ')&.last
+    token = request.headers["Authorization"]&.split(" ")&.last
 
     unless token.present?
-      render_error('Service token required', status: :unauthorized)
+      render_error("Service token required", status: :unauthorized)
       return
     end
 
     begin
-      payload = JWT.decode(token, Rails.application.config.jwt_secret_key, true, algorithm: 'HS256').first
+      payload = JWT.decode(token, Rails.application.config.jwt_secret_key, true, algorithm: "HS256").first
 
-      unless payload['service'] == 'worker' && payload['type'] == 'service'
-        render_error('Invalid service token', status: :unauthorized)
-        return
+      unless payload["service"] == "worker" && payload["type"] == "service"
+        render_error("Invalid service token", status: :unauthorized)
+        nil
       end
 
     rescue JWT::DecodeError, JWT::ExpiredSignature
-      render_error('Invalid service token', status: :unauthorized)
+      render_error("Invalid service token", status: :unauthorized)
     end
   end
 end

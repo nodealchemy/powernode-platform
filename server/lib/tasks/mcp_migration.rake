@@ -15,7 +15,7 @@ namespace :mcp do
     puts ""
 
     # Auto-confirm for non-interactive execution
-    confirmation = ENV['MCP_AUTO_CONFIRM'] || 'y'
+    confirmation = ENV["MCP_AUTO_CONFIRM"] || "y"
     puts "🔄 Auto-confirming migration (MCP_AUTO_CONFIRM=#{confirmation})"
 
     begin
@@ -104,7 +104,7 @@ namespace :mcp do
     print "❓ Continue with legacy removal? (y/N): "
     confirmation = STDIN.gets.chomp.downcase
 
-    unless confirmation == 'y' || confirmation == 'yes'
+    unless confirmation == "y" || confirmation == "yes"
       puts "❌ Legacy removal cancelled"
       exit
     end
@@ -177,8 +177,8 @@ namespace :mcp do
     begin
       mcp_protocol = McpProtocolService.new
       init_response = mcp_protocol.initialize_connection({
-        'protocolVersion' => '2024-11-05',
-        'clientInfo' => { 'name' => 'rake_test' }
+        "protocolVersion" => "2024-11-05",
+        "clientInfo" => { "name" => "rake_test" }
       })
       puts "✅ MCP Protocol Service working"
     rescue StandardError => e

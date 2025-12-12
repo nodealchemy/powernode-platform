@@ -88,7 +88,7 @@ RSpec.describe 'API::V1::Invitations', type: :request do
           email: 'newuser@example.com',
           first_name: 'John',
           last_name: 'Doe',
-          role_names: ['member']
+          role_names: [ 'member' ]
         }
       }
     end
@@ -268,7 +268,7 @@ RSpec.describe 'API::V1::Invitations', type: :request do
     end
 
     it 'assigns roles from invitation to new user' do
-      invitation.update(role_names: ['member'])
+      invitation.update(role_names: [ 'member' ])
 
       post '/api/v1/invitations/accept', params: accept_params, as: :json
 

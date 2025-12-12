@@ -31,7 +31,7 @@ module Mcp
             created_by: user.id,
             created_at: Time.current.iso8601,
             changes: changes,
-            migration_strategy: changes[:migration_strategy] || 'immediate'
+            migration_strategy: changes[:migration_strategy] || "immediate"
           }
         )
 
@@ -57,7 +57,7 @@ module Mcp
       target_workflow = find_version(to_version)
       raise ArgumentError, "Target version #{to_version} not found" unless target_workflow
 
-      running_workflows = AiWorkflowRun.where(ai_workflow_id: workflow.id, status: 'running')
+      running_workflows = AiWorkflowRun.where(ai_workflow_id: workflow.id, status: "running")
 
       case strategy
       when :graceful
@@ -101,9 +101,9 @@ module Mcp
           is_active: wf.is_active,
           change_summary: wf.change_summary,
           created_at: wf.created_at,
-          created_by: wf.version_metadata&.dig('created_by'),
+          created_by: wf.version_metadata&.dig("created_by"),
           parent_version_id: wf.parent_version_id,
-          active_runs: wf.ai_workflow_runs.where(status: ['running', 'paused']).count
+          active_runs: wf.ai_workflow_runs.where(status: [ "running", "paused" ]).count
         }
       end
     end
@@ -131,7 +131,7 @@ module Mcp
 
     # Calculate next version number based on semver
     def calculate_next_version(version_type)
-      current = workflow.version.split('.').map(&:to_i)
+      current = workflow.version.split(".").map(&:to_i)
 
       case version_type
       when :major
@@ -176,10 +176,10 @@ module Mcp
       target_workflow.update!(is_active: true)
 
       {
-        strategy: 'graceful',
+        strategy: "graceful",
         migrated_count: 0,
         continuing_on_old_version: running_workflows.count,
-        message: 'New runs will use version ' + target_workflow.version
+        message: "New runs will use version " + target_workflow.version
       }
     end
 
@@ -200,7 +200,7 @@ module Mcp
       end
 
       {
-        strategy: 'immediate',
+        strategy: "immediate",
         migrated_count: migrated_count,
         failed_count: running_workflows.count - migrated_count
       }
@@ -216,11 +216,11 @@ module Mcp
         if checkpoint
           run.update!(
             ai_workflow_id: target_workflow.id,
-            status: 'paused',
+            status: "paused",
             runtime_context: run.runtime_context.merge(
-              'migration_checkpoint_id' => checkpoint.id,
-              'migrated_from_version' => workflow.version,
-              'migrated_to_version' => target_workflow.version
+              "migration_checkpoint_id" => checkpoint.id,
+              "migrated_from_version" => workflow.version,
+              "migrated_to_version" => target_workflow.version
             )
           )
           migrated_count += 1
@@ -230,10 +230,10 @@ module Mcp
       end
 
       {
-        strategy: 'checkpoint',
+        strategy: "checkpoint",
         migrated_count: migrated_count,
         paused_count: migrated_count,
-        message: 'Workflows paused at checkpoint - resume to continue on new version'
+        message: "Workflows paused at checkpoint - resume to continue on new version"
       }
     end
 
@@ -241,11 +241,11 @@ module Mcp
     def create_migration_checkpoint(run)
       AiWorkflowCheckpoint.create(
         ai_workflow_run: run,
-        checkpoint_type: 'manual_checkpoint',
-        node_id: run.current_node_id || 'migration',
-        workflow_state: run.runtime_context['state'] || {},
+        checkpoint_type: "manual_checkpoint",
+        node_id: run.current_node_id || "migration",
+        workflow_state: run.runtime_context["state"] || {},
         execution_context: run.runtime_context,
-        variable_snapshot: run.runtime_context['variables'] || {},
+        variable_snapshot: run.runtime_context["variables"] || {},
         description: "Migration checkpoint: #{workflow.version} → target version",
         metadata: {
           migration: true,
@@ -276,8 +276,8 @@ module Mcp
 
     # Compare edges between versions
     def compare_edges(workflow_a, workflow_b)
-      edges_a = workflow_a.ai_workflow_edges.map { |e| [e.source_node_id, e.target_node_id] }
-      edges_b = workflow_b.ai_workflow_edges.map { |e| [e.source_node_id, e.target_node_id] }
+      edges_a = workflow_a.ai_workflow_edges.map { |e| [ e.source_node_id, e.target_node_id ] }
+      edges_b = workflow_b.ai_workflow_edges.map { |e| [ e.source_node_id, e.target_node_id ] }
 
       {
         added: edges_b - edges_a,

@@ -64,9 +64,9 @@ class AiWorkflowCircuitBreakerManager
 
       {
         total_services: states.length,
-        healthy: states.count { |s| s[:state] == 'closed' },
-        degraded: states.count { |s| s[:state] == 'half_open' },
-        unhealthy: states.count { |s| s[:state] == 'open' },
+        healthy: states.count { |s| s[:state] == "closed" },
+        degraded: states.count { |s| s[:state] == "half_open" },
+        unhealthy: states.count { |s| s[:state] == "open" },
         services_by_state: states.group_by { |s| s[:state] },
         last_updated: Time.current.iso8601
       }
@@ -79,7 +79,7 @@ class AiWorkflowCircuitBreakerManager
         breaker.reset!
       end
 
-      Rails.logger.info '[CircuitBreakerManager] Reset all circuit breakers'
+      Rails.logger.info "[CircuitBreakerManager] Reset all circuit breakers"
     end
 
     # Reset a specific service's circuit breaker
@@ -105,7 +105,7 @@ class AiWorkflowCircuitBreakerManager
       states.each_with_object({}) do |state, result|
         result[state[:service_name]] = {
           state: state[:state],
-          healthy: state[:state] == 'closed',
+          healthy: state[:state] == "closed",
           failure_count: state[:failure_count] || 0,
           success_count: state[:success_count] || 0,
           last_failure_at: state[:last_failure_at],
@@ -116,7 +116,7 @@ class AiWorkflowCircuitBreakerManager
 
     # Get list of unhealthy service names
     def unhealthy_services
-      all_states.select { |s| s[:state] == 'open' }.map { |s| s[:service_name] }
+      all_states.select { |s| s[:state] == "open" }.map { |s| s[:service_name] }
     end
 
     # Reset circuit breakers for a specific category
@@ -173,20 +173,20 @@ class AiWorkflowCircuitBreakerManager
       node_type = node.node_type
 
       case node_type
-      when 'ai_agent'
+      when "ai_agent"
         # Use AI provider as service name
-        agent_id = node.configuration['agent_id']
+        agent_id = node.configuration["agent_id"]
         agent = AiAgent.find_by(id: agent_id)
-        provider = agent&.ai_provider&.provider_type || 'unknown_ai_provider'
+        provider = agent&.ai_provider&.provider_type || "unknown_ai_provider"
         "ai_provider:#{provider}"
 
-      when 'api_call'
+      when "api_call"
         # Use API endpoint domain
-        url = node.configuration['url']
+        url = node.configuration["url"]
         domain = extract_domain(url)
         "external_api:#{domain}"
 
-      when 'webhook'
+      when "webhook"
         # Use webhook target
         "webhook:#{node.configuration['webhook_name']}"
 
@@ -198,9 +198,9 @@ class AiWorkflowCircuitBreakerManager
 
     def extract_domain(url)
       uri = URI.parse(url)
-      uri.host || 'unknown'
+      uri.host || "unknown"
     rescue StandardError
-      'unknown'
+      "unknown"
     end
 
     def extract_circuit_breaker_config(node_execution)
@@ -208,8 +208,8 @@ class AiWorkflowCircuitBreakerManager
       workflow = node_execution.ai_workflow_run.ai_workflow
 
       # Node-level configuration overrides workflow-level
-      node_config = node.configuration['circuit_breaker'] || {}
-      workflow_config = workflow.configuration['circuit_breaker'] || {}
+      node_config = node.configuration["circuit_breaker"] || {}
+      workflow_config = workflow.configuration["circuit_breaker"] || {}
 
       workflow_config.merge(node_config).symbolize_keys
     end
@@ -219,12 +219,12 @@ class AiWorkflowCircuitBreakerManager
 
       # Update node execution with circuit breaker error
       node_execution.update(
-        status: 'failed',
-        error_type: 'circuit_breaker_open',
+        status: "failed",
+        error_type: "circuit_breaker_open",
         error_details: {
           message: error.message,
           service: service_name,
-          circuit_state: 'open',
+          circuit_state: "open",
           timestamp: Time.current.iso8601
         }
       )
@@ -241,8 +241,8 @@ class AiWorkflowCircuitBreakerManager
 
     def should_pause_workflow?(workflow_run, service_name)
       # Check workflow configuration for circuit breaker pause policy
-      config = workflow_run.ai_workflow.configuration['circuit_breaker'] || {}
-      pause_on_open = config['pause_on_open'] != false # Default true
+      config = workflow_run.ai_workflow.configuration["circuit_breaker"] || {}
+      pause_on_open = config["pause_on_open"] != false # Default true
 
       pause_on_open
     end
@@ -252,11 +252,11 @@ class AiWorkflowCircuitBreakerManager
                         "due to open circuit for #{service_name}"
 
       workflow_run.update(
-        status: 'paused',
+        status: "paused",
         metadata: (workflow_run.metadata || {}).merge(
-          'paused_reason' => 'circuit_breaker_open',
-          'paused_service' => service_name,
-          'paused_at' => Time.current.iso8601
+          "paused_reason" => "circuit_breaker_open",
+          "paused_service" => service_name,
+          "paused_at" => Time.current.iso8601
         )
       )
 
@@ -264,8 +264,8 @@ class AiWorkflowCircuitBreakerManager
       ActionCable.server.broadcast(
         "ai_workflow_run_#{workflow_run.run_id}",
         {
-          type: 'workflow_paused',
-          reason: 'circuit_breaker_open',
+          type: "workflow_paused",
+          reason: "circuit_breaker_open",
           service: service_name,
           timestamp: Time.current.iso8601
         }
@@ -273,16 +273,16 @@ class AiWorkflowCircuitBreakerManager
     end
 
     def alert_unhealthy_services(summary)
-      unhealthy = summary[:services_by_state]['open'] || []
+      unhealthy = summary[:services_by_state]["open"] || []
 
       Rails.logger.error "[CircuitBreakerManager] ALERT: #{unhealthy.length} services unhealthy"
 
       # Broadcast alert
       ActionCable.server.broadcast(
-        'ai_monitoring_channel',
+        "ai_monitoring_channel",
         {
-          type: 'circuit_breaker_alert',
-          severity: 'high',
+          type: "circuit_breaker_alert",
+          severity: "high",
           message: "#{unhealthy.length} services have open circuit breakers",
           services: unhealthy.map { |s| s[:service_name] },
           timestamp: Time.current.iso8601
@@ -291,16 +291,16 @@ class AiWorkflowCircuitBreakerManager
     end
 
     def alert_degraded_services(summary)
-      degraded = summary[:services_by_state]['half_open'] || []
+      degraded = summary[:services_by_state]["half_open"] || []
 
       Rails.logger.warn "[CircuitBreakerManager] WARNING: #{degraded.length} services degraded"
 
       # Broadcast warning
       ActionCable.server.broadcast(
-        'ai_monitoring_channel',
+        "ai_monitoring_channel",
         {
-          type: 'circuit_breaker_warning',
-          severity: 'medium',
+          type: "circuit_breaker_warning",
+          severity: "medium",
           message: "#{degraded.length} services in degraded state",
           services: degraded.map { |s| s[:service_name] },
           timestamp: Time.current.iso8601

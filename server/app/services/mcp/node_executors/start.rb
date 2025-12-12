@@ -34,9 +34,9 @@ module Mcp
           },
           metadata: {
             node_id: @node.node_id,
-            node_type: 'start',
+            node_type: "start",
             executed_at: Time.current.iso8601,
-            trigger_type: configuration['start_type'] || 'manual'
+            trigger_type: configuration["start_type"] || "manual"
           }
         }
       end

@@ -10,11 +10,11 @@ class AppWebhook < ApplicationRecord
   validates :slug, presence: true, length: { minimum: 1, maximum: 255 }
   validates :event_type, presence: true, length: { minimum: 1, maximum: 100 }
   validates :url, presence: true, length: { minimum: 1, maximum: 1000 }
-  validates :http_method, presence: true, inclusion: { 
+  validates :http_method, presence: true, inclusion: {
     in: %w[POST PUT PATCH],
     message: "must be POST, PUT, or PATCH"
   }
-  validates :timeout_seconds, presence: true, 
+  validates :timeout_seconds, presence: true,
             numericality: { greater_than: 0, less_than_or_equal_to: 300 }
   validates :max_retries, presence: true,
             numericality: { greater_than_or_equal_to: 0, less_than_or_equal_to: 10 }
@@ -45,11 +45,11 @@ class AppWebhook < ApplicationRecord
 
   def retry_config_json
     default_config = {
-      'backoff_type' => 'exponential',
-      'initial_delay' => 1,
-      'max_delay' => 300
+      "backoff_type" => "exponential",
+      "initial_delay" => 1,
+      "max_delay" => 300
     }
-    
+
     return default_config if retry_config.blank?
     retry_config.is_a?(Hash) ? retry_config.merge(default_config) : default_config
   end
@@ -61,10 +61,10 @@ class AppWebhook < ApplicationRecord
 
   def headers_json
     default_headers = {
-      'Content-Type' => content_type,
-      'User-Agent' => "Powernode-Webhook/1.0"
+      "Content-Type" => content_type,
+      "User-Agent" => "Powernode-Webhook/1.0"
     }
-    
+
     return default_headers if headers.blank?
     custom_headers = headers.is_a?(Hash) ? headers : {}
     default_headers.merge(custom_headers)
@@ -78,7 +78,7 @@ class AppWebhook < ApplicationRecord
     delivery = app_webhook_deliveries.create!(
       delivery_id: delivery_id,
       event_id: event_id,
-      status: 'pending',
+      status: "pending",
       attempt_number: 1,
       request_body: build_payload(event_data).to_json
     )
@@ -90,7 +90,7 @@ class AppWebhook < ApplicationRecord
 
   def build_payload(event_data)
     template = payload_template_json
-    
+
     if template.empty?
       # Default payload structure
       {
@@ -111,14 +111,14 @@ class AppWebhook < ApplicationRecord
   end
 
   def deliveries_last_24h
-    app_webhook_deliveries.where('created_at > ?', 24.hours.ago).count
+    app_webhook_deliveries.where("created_at > ?", 24.hours.ago).count
   end
 
   def success_rate
     total = app_webhook_deliveries.count
     return 0 if total.zero?
-    
-    successful = app_webhook_deliveries.where(status: 'delivered').count
+
+    successful = app_webhook_deliveries.where(status: "delivered").count
     ((successful.to_f / total) * 100).round(2)
   end
 
@@ -128,16 +128,16 @@ class AppWebhook < ApplicationRecord
 
   def average_response_time
     app_webhook_deliveries.where.not(response_time_ms: nil)
-                          .where(status: 'delivered')
+                          .where(status: "delivered")
                           .average(:response_time_ms)&.to_f&.round(2) || 0
   end
 
   def pending_deliveries_count
-    app_webhook_deliveries.where(status: 'pending').count
+    app_webhook_deliveries.where(status: "pending").count
   end
 
   def failed_deliveries_count
-    app_webhook_deliveries.where(status: 'failed').count
+    app_webhook_deliveries.where(status: "failed").count
   end
 
   private
@@ -153,8 +153,8 @@ class AppWebhook < ApplicationRecord
 
   def generate_slug
     return unless name.present?
-    
-    base_slug = name.downcase.gsub(/[^a-z0-9\s]/, '').gsub(/\s+/, '_')
+
+    base_slug = name.downcase.gsub(/[^a-z0-9\s]/, "").gsub(/\s+/, "_")
     counter = 0
     potential_slug = base_slug
 
@@ -173,17 +173,17 @@ class AppWebhook < ApplicationRecord
   def substitute_variables(template, event_data)
     # Simple variable substitution in JSON template
     json_string = template.to_json
-    
+
     # Replace common variables
-    json_string = json_string.gsub('{{app_id}}', app.id)
-    json_string = json_string.gsub('{{event_type}}', event_type)
-    json_string = json_string.gsub('{{timestamp}}', Time.current.iso8601)
-    
+    json_string = json_string.gsub("{{app_id}}", app.id)
+    json_string = json_string.gsub("{{event_type}}", event_type)
+    json_string = json_string.gsub("{{timestamp}}", Time.current.iso8601)
+
     # Replace event data variables
     event_data.each do |key, value|
       json_string = json_string.gsub("{{#{key}}}", value.to_s)
     end
-    
+
     JSON.parse(json_string)
   rescue JSON::ParserError
     # Fallback to default payload if template parsing fails
@@ -192,7 +192,7 @@ class AppWebhook < ApplicationRecord
       app_id: app.id,
       timestamp: Time.current.iso8601,
       data: event_data,
-      error: 'Template parsing failed, using default payload'
+      error: "Template parsing failed, using default payload"
     }
   end
 

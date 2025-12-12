@@ -28,7 +28,7 @@ class Api::V1::Auth::SessionsController < ApplicationController
             user_agent: request.user_agent
           }
           two_fa_result = JwtService.generate_2fa_token(user, metadata: metadata)
-          
+
           # Create partial audit log entry
           AuditLog.create!(
             user: user,
@@ -56,7 +56,7 @@ class Api::V1::Auth::SessionsController < ApplicationController
           ip: request.remote_ip,
           user_agent: request.user_agent
         }
-        
+
         token_result = JwtService.generate_user_tokens(user, metadata: metadata)
         user.record_login!
 
@@ -139,7 +139,7 @@ class Api::V1::Auth::SessionsController < ApplicationController
     rescue StandardError => e
       Rails.logger.error "Token refresh error: #{e.message}"
       Rails.logger.error "Token refresh backtrace: #{e.backtrace.join("\n")}"
-      
+
       # Check if this is a permissions change that requires re-login
       if e.message.include?("Permissions changed")
         render_error("Authentication required - please log in again", status: :unauthorized)
@@ -213,7 +213,7 @@ class Api::V1::Auth::SessionsController < ApplicationController
     begin
       # Use JWT service to verify 2FA and get full tokens
       token_result = JwtService.verify_2fa_token(verification_token, two_factor_code)
-      
+
       # Get user from the token result (user info should be in the JWT)
       payload = JwtService.decode(token_result[:access_token])
       user = User.find(payload[:sub])
@@ -280,5 +280,4 @@ class Api::V1::Auth::SessionsController < ApplicationController
   def should_rate_limit?
     action_name == "create"
   end
-
 end

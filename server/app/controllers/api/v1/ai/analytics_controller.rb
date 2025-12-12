@@ -24,7 +24,7 @@ module Api
 
         # Authentication and permission handling
         before_action :validate_permissions
-        before_action :set_time_range, only: [:dashboard, :overview, :metrics, :cost_analysis, :performance_analysis, :insights, :recommendations, :workflow_analytics, :agent_analytics, :export]
+        before_action :set_time_range, only: [ :dashboard, :overview, :metrics, :cost_analysis, :performance_analysis, :insights, :recommendations, :workflow_analytics, :agent_analytics, :export ]
         before_action :set_account_scope
 
         # =============================================================================
@@ -40,12 +40,12 @@ module Api
             time_range: {
               start: @time_range.ago.iso8601,
               end: Time.current.iso8601,
-              period: params[:time_range] || '30d'
+              period: params[:time_range] || "30d"
             },
             generated_at: Time.current.iso8601
           })
 
-          log_audit_event('ai.analytics.dashboard', current_user.account) if current_user
+          log_audit_event("ai.analytics.dashboard", current_user.account) if current_user
         end
 
         # GET /api/v1/ai/analytics/overview
@@ -113,7 +113,7 @@ module Api
             timestamp: Time.current.iso8601
           })
 
-          log_audit_event('ai.analytics.cost_analysis', current_user.account) if current_user
+          log_audit_event("ai.analytics.cost_analysis", current_user.account) if current_user
         end
 
         # GET /api/v1/ai/analytics/performance_analysis
@@ -154,7 +154,7 @@ module Api
             time_range: time_range_info
           })
 
-          log_audit_event('ai.analytics.insights', current_user.account) if current_user
+          log_audit_event("ai.analytics.insights", current_user.account) if current_user
         end
 
         # GET /api/v1/ai/analytics/recommendations
@@ -192,7 +192,7 @@ module Api
             timestamp: Time.current.iso8601
           })
         rescue ActiveRecord::RecordNotFound
-          render_error('Workflow not found', status: :not_found)
+          render_error("Workflow not found", status: :not_found)
         end
 
         # GET /api/v1/ai/analytics/agents/:agent_id
@@ -214,7 +214,7 @@ module Api
             timestamp: Time.current.iso8601
           })
         rescue ActiveRecord::RecordNotFound
-          render_error('Agent not found', status: :not_found)
+          render_error("Agent not found", status: :not_found)
         end
 
         # =============================================================================
@@ -224,7 +224,7 @@ module Api
         # GET /api/v1/ai/analytics/reports
         def reports_index
           page = params[:page]&.to_i || 1
-          per_page = [params[:per_page]&.to_i || 20, 100].min
+          per_page = [ params[:per_page]&.to_i || 20, 100 ].min
 
           reports = ReportRequest.where(account: @account_scope)
                                 .order(created_at: :desc)
@@ -245,7 +245,7 @@ module Api
             report: serialize_report_request_detail(report)
           })
         rescue ActiveRecord::RecordNotFound
-          render_error('Report not found', status: :not_found)
+          render_error("Report not found", status: :not_found)
         end
 
         # POST /api/v1/ai/analytics/reports
@@ -258,7 +258,7 @@ module Api
             account: current_user.account,
             user: current_user,
             report_type: report_params[:template_id],
-            status: 'pending',
+            status: "pending",
             parameters: report_params[:parameters] || {},
             requested_at: Time.current
           )
@@ -267,7 +267,7 @@ module Api
           GenerateReportJob.perform_later(report.id)
 
           # Log audit event BEFORE rendering
-          log_audit_event('ai.analytics.report.create', report,
+          log_audit_event("ai.analytics.report.create", report,
             metadata: { template_id: report_params[:template_id] }
           )
 
@@ -283,33 +283,42 @@ module Api
         def report_cancel
           report = current_user.account.report_requests.find(params[:id])
 
-          if report.status == 'completed'
-            return render_error('Cannot cancel completed report', status: :unprocessable_content)
+          if report.status == "completed"
+            return render_error("Cannot cancel completed report", status: :unprocessable_content)
           end
 
-          if report.status == 'failed'
-            return render_error('Report already cancelled or failed', status: :unprocessable_content)
+          if report.status == "failed"
+            return render_error("Report already cancelled or failed", status: :unprocessable_content)
           end
 
           # Mark as failed since 'cancelled' is not in the status constraint
-          report.update!(status: 'failed')
+          report.update!(status: "failed")
 
           render_success({
-            message: 'Report cancelled successfully',
+            message: "Report cancelled successfully",
             report: serialize_report_request(report)
           })
 
-          log_audit_event('ai.analytics.report.cancel', report)
+          log_audit_event("ai.analytics.report.cancel", report)
         rescue ActiveRecord::RecordNotFound
-          render_error('Report not found', status: :not_found)
+          render_error("Report not found", status: :not_found)
         end
 
         # GET /api/v1/ai/analytics/reports/:id/download
         def report_download
           report = current_user.account.report_requests.find(params[:id])
 
-          unless report.status == 'completed' && report.file_path
-            return render_error('Report not ready for download', status: :unprocessable_content)
+          unless report.status == "completed" && report.file_path
+            return render_error("Report not ready for download", status: :unprocessable_content)
+          end
+
+          # Security: Validate file path is within allowed reports directory
+          reports_base = Rails.root.join("tmp", "reports").to_s
+          # Use File.expand_path to resolve path without requiring file to exist
+          expanded_path = File.expand_path(report.file_path)
+          unless expanded_path.start_with?(reports_base)
+            Rails.logger.error "Attempted access to file outside reports directory: #{report.file_path}"
+            return render_error("Invalid report file path", status: :forbidden)
           end
 
           if report.file_path && File.exist?(report.file_path)
@@ -318,76 +327,76 @@ module Api
 
             # Infer content type from file extension
             content_type = case File.extname(report.file_path).downcase
-            when '.pdf' then 'application/pdf'
-            when '.csv' then 'text/csv'
-            when '.xlsx' then 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-            when '.json' then 'application/json'
-            else 'application/octet-stream'
+            when ".pdf" then "application/pdf"
+            when ".csv" then "text/csv"
+            when ".xlsx" then "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            when ".json" then "application/json"
+            else "application/octet-stream"
             end
 
             send_file report.file_path,
                       filename: filename,
                       type: content_type,
-                      disposition: 'attachment'
+                      disposition: "attachment"
           else
-            render_error('Report file not found', status: :not_found)
+            render_error("Report file not found", status: :not_found)
           end
 
-          log_audit_event('ai.analytics.report.download', report,
+          log_audit_event("ai.analytics.report.download", report,
             metadata: { file_path: report.file_path }
           )
         rescue ActiveRecord::RecordNotFound
-          render_error('Report not found', status: :not_found)
+          render_error("Report not found", status: :not_found)
         end
 
         # GET /api/v1/ai/analytics/reports/templates
         def report_templates
           templates = [
             {
-              id: 'ai_performance',
-              name: 'AI Performance Report',
-              description: 'Comprehensive AI performance analysis with response times and success rates',
-              category: 'performance',
-              formats: ['pdf', 'csv'],
+              id: "ai_performance",
+              name: "AI Performance Report",
+              description: "Comprehensive AI performance analysis with response times and success rates",
+              category: "performance",
+              formats: [ "pdf", "csv" ],
               parameters: []
             },
             {
-              id: 'cost_optimization',
-              name: 'Cost Optimization Report',
-              description: 'AI cost analysis with optimization recommendations',
-              category: 'cost',
-              formats: ['pdf', 'csv'],
+              id: "cost_optimization",
+              name: "Cost Optimization Report",
+              description: "AI cost analysis with optimization recommendations",
+              category: "cost",
+              formats: [ "pdf", "csv" ],
               parameters: []
             },
             {
-              id: 'workflow_analytics',
-              name: 'Workflow Analytics Report',
-              description: 'Detailed workflow execution analytics and insights',
-              category: 'workflows',
-              formats: ['pdf', 'csv', 'xlsx'],
+              id: "workflow_analytics",
+              name: "Workflow Analytics Report",
+              description: "Detailed workflow execution analytics and insights",
+              category: "workflows",
+              formats: [ "pdf", "csv", "xlsx" ],
               parameters: [
                 {
-                  name: 'workflow_id',
-                  type: 'select',
-                  label: 'Workflow',
+                  name: "workflow_id",
+                  type: "select",
+                  label: "Workflow",
                   required: false
                 }
               ]
             },
             {
-              id: 'agent_performance',
-              name: 'Agent Performance Report',
-              description: 'AI agent performance metrics and comparisons',
-              category: 'agents',
-              formats: ['pdf', 'csv'],
+              id: "agent_performance",
+              name: "Agent Performance Report",
+              description: "AI agent performance metrics and comparisons",
+              category: "agents",
+              formats: [ "pdf", "csv" ],
               parameters: []
             },
             {
-              id: 'executive_summary',
-              name: 'Executive Summary',
-              description: 'High-level AI orchestration metrics for executives',
-              category: 'executive',
-              formats: ['pdf'],
+              id: "executive_summary",
+              name: "Executive Summary",
+              description: "High-level AI orchestration metrics for executives",
+              category: "executive",
+              formats: [ "pdf" ],
               parameters: []
             }
           ]
@@ -403,37 +412,37 @@ module Api
 
         # POST /api/v1/ai/analytics/export
         def export
-          format = params[:format] || 'json'
-          export_type = params[:export_type] || 'dashboard'
+          format = params[:format] || "json"
+          export_type = params[:export_type] || "dashboard"
 
           unless %w[json csv xlsx].include?(format)
-            return render_error('Invalid export format', status: :bad_request)
+            return render_error("Invalid export format", status: :bad_request)
           end
 
           exported_data = generate_export_data(export_type, format)
 
           # Log audit event BEFORE rendering
-          log_audit_event('ai.analytics.export', current_user.account,
+          log_audit_event("ai.analytics.export", current_user.account,
             metadata: { format: format, export_type: export_type }
           ) if current_user
 
           case format
-          when 'json'
+          when "json"
             render_success(exported_data)
-          when 'csv'
+          when "csv"
             send_data exported_data,
                       filename: "analytics_#{export_type}_#{Date.current.strftime('%Y%m%d')}.csv",
-                      type: 'text/csv',
-                      disposition: 'attachment'
-          when 'xlsx'
+                      type: "text/csv",
+                      disposition: "attachment"
+          when "xlsx"
             send_data exported_data,
                       filename: "analytics_#{export_type}_#{Date.current.strftime('%Y%m%d')}.xlsx",
-                      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                      disposition: 'attachment'
+                      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                      disposition: "attachment"
           end
         rescue StandardError => e
           Rails.logger.error "Analytics export failed: #{e.message}"
-          render_error('Export failed', status: :internal_server_error)
+          render_error("Export failed", status: :internal_server_error)
         end
 
         private
@@ -447,22 +456,22 @@ module Api
           return if current_worker
 
           case action_name
-          when 'dashboard', 'overview', 'metrics', 'real_time'
-            require_permission('ai.analytics.read')
-          when 'cost_analysis', 'performance_analysis'
-            require_permission('ai.analytics.read')
-          when 'insights', 'recommendations'
-            require_permission('ai.analytics.read')
-          when 'workflow_analytics', 'agent_analytics'
-            require_permission('ai.analytics.read')
-          when 'reports_index', 'report_show', 'report_templates'
-            require_permission('ai.analytics.read')
-          when 'report_create'
-            require_permission('ai.analytics.create')
-          when 'report_cancel'
-            require_permission('ai.analytics.manage')
-          when 'report_download', 'export'
-            require_permission('ai.analytics.export')
+          when "dashboard", "overview", "metrics", "real_time"
+            require_permission("ai.analytics.read")
+          when "cost_analysis", "performance_analysis"
+            require_permission("ai.analytics.read")
+          when "insights", "recommendations"
+            require_permission("ai.analytics.read")
+          when "workflow_analytics", "agent_analytics"
+            require_permission("ai.analytics.read")
+          when "reports_index", "report_show", "report_templates"
+            require_permission("ai.analytics.read")
+          when "report_create"
+            require_permission("ai.analytics.create")
+          when "report_cancel"
+            require_permission("ai.analytics.manage")
+          when "report_download", "export"
+            require_permission("ai.analytics.export")
           end
         end
 
@@ -474,14 +483,14 @@ module Api
           range_param = params[:time_range]
 
           @time_range = case range_param
-                       when '1h' then 1.hour
-                       when '24h', '1d' then 1.day
-                       when '7d', '1w' then 1.week
-                       when '30d', '1m' then 30.days
-                       when '90d', '3m' then 90.days
-                       when '1y' then 1.year
-                       else 30.days
-                       end
+          when "1h" then 1.hour
+          when "24h", "1d" then 1.day
+          when "7d", "1w" then 1.week
+          when "30d", "1m" then 30.days
+          when "90d", "3m" then 90.days
+          when "1y" then 1.year
+          else 30.days
+          end
         end
 
         def set_account_scope
@@ -492,9 +501,9 @@ module Api
           end
 
           # Global analytics permission allows cross-account analytics
-          if current_user.has_permission?('ai.analytics.global') && params[:account_id].blank?
+          if current_user.has_permission?("ai.analytics.global") && params[:account_id].blank?
             @account_scope = nil # Global analytics
-          elsif params[:account_id].present? && current_user.has_permission?('ai.analytics.global')
+          elsif params[:account_id].present? && current_user.has_permission?("ai.analytics.global")
             @account_scope = Account.find(params[:account_id])
           else
             @account_scope = current_user.account
@@ -505,7 +514,7 @@ module Api
           {
             start: @time_range.ago.iso8601,
             end: Time.current.iso8601,
-            period: params[:time_range] || '30d',
+            period: params[:time_range] || "30d",
             seconds: @time_range.to_i
           }
         end
@@ -531,18 +540,18 @@ module Api
           workflows = account.ai_workflows
           agents = account.ai_agents
           runs = AiWorkflowRun.where(ai_workflow: workflows)
-                             .where('created_at >= ?', @time_range.ago)
+                             .where("created_at >= ?", @time_range.ago)
 
           {
             total_workflows: workflows.count,
             active_workflows: workflows.where(is_active: true).count,
             total_agents: agents.count,
             total_executions: runs.count,
-            successful_executions: runs.where(status: 'completed').count,
-            failed_executions: runs.where(status: 'failed').count,
+            successful_executions: runs.where(status: "completed").count,
+            failed_executions: runs.where(status: "failed").count,
             success_rate: calculate_success_rate(runs),
             total_cost: runs.sum(:total_cost) || 0.0,
-            average_execution_time: runs.where(status: 'completed').average(:duration_ms)&.to_f || 0
+            average_execution_time: runs.where(status: "completed").average(:duration_ms)&.to_f || 0
           }
         end
 
@@ -550,7 +559,7 @@ module Api
           account = @account_scope || current_user&.account
           workflows = account.ai_workflows
           runs = AiWorkflowRun.where(ai_workflow: workflows)
-                             .where('created_at >= ?', 24.hours.ago)
+                             .where("created_at >= ?", 24.hours.ago)
 
           {
             executions_24h: runs.count,
@@ -568,13 +577,13 @@ module Api
           (0..29).each do |days_ago|
             date = days_ago.days.ago.to_date
             runs = AiWorkflowRun.where(ai_workflow: account.ai_workflows)
-                               .where('DATE(created_at) = ?', date)
+                               .where("DATE(created_at) = ?", date)
 
             daily_metrics << {
               date: date.iso8601,
               executions: runs.count,
-              successful: runs.where(status: 'completed').count,
-              failed: runs.where(status: 'failed').count,
+              successful: runs.where(status: "completed").count,
+              failed: runs.where(status: "failed").count,
               cost: runs.sum(:total_cost) || 0.0
             }
           end
@@ -586,7 +595,7 @@ module Api
           account = @account_scope || current_user&.account
           workflows = account.ai_workflows
           runs = AiWorkflowRun.where(ai_workflow: workflows)
-                             .where('created_at >= ?', @time_range.ago)
+                             .where("created_at >= ?", @time_range.ago)
 
           highlights = []
 
@@ -594,8 +603,8 @@ module Api
           success_rate = calculate_success_rate(runs)
           if success_rate >= 95
             highlights << {
-              type: 'positive',
-              title: 'Excellent Success Rate',
+              type: "positive",
+              title: "Excellent Success Rate",
               description: "#{success_rate.round(1)}% of executions completed successfully",
               metric: success_rate
             }
@@ -605,19 +614,19 @@ module Api
           avg_cost = runs.average(:total_cost)&.to_f || 0
           if avg_cost < 0.10
             highlights << {
-              type: 'positive',
-              title: 'Cost Efficient',
+              type: "positive",
+              title: "Cost Efficient",
               description: "Average execution cost: $#{avg_cost.round(4)}",
               metric: avg_cost
             }
           end
 
           # Performance
-          avg_time = runs.where(status: 'completed').average(:duration_ms)&.to_f || 0
+          avg_time = runs.where(status: "completed").average(:duration_ms)&.to_f || 0
           if avg_time < 30000 # 30 seconds
             highlights << {
-              type: 'positive',
-              title: 'Fast Execution',
+              type: "positive",
+              title: "Fast Execution",
               description: "Average execution time: #{(avg_time / 1000).round(1)}s",
               metric: avg_time
             }
@@ -645,7 +654,7 @@ module Api
           agents = account.ai_agents
           {
             total: agents.count,
-            active: agents.where(status: 'active').count,
+            active: agents.where(status: "active").count,
             by_provider: agents.group(:ai_provider_id).count
           }
         end
@@ -662,12 +671,12 @@ module Api
         def execution_metrics
           account = @account_scope || current_user&.account
           runs = AiWorkflowRun.where(ai_workflow: account.ai_workflows)
-                             .where('created_at >= ?', @time_range.ago)
+                             .where("created_at >= ?", @time_range.ago)
 
           {
             total: runs.count,
-            completed: runs.where(status: 'completed').count,
-            failed: runs.where(status: 'failed').count,
+            completed: runs.where(status: "completed").count,
+            failed: runs.where(status: "failed").count,
             running: runs.where(status: %w[initializing running waiting_approval]).count,
             success_rate: calculate_success_rate(runs)
           }
@@ -676,8 +685,8 @@ module Api
         def performance_metrics_data
           account = @account_scope || current_user&.account
           runs = AiWorkflowRun.where(ai_workflow: account.ai_workflows)
-                             .where('created_at >= ?', @time_range.ago)
-                             .where(status: 'completed')
+                             .where("created_at >= ?", @time_range.ago)
+                             .where(status: "completed")
 
           {
             average_duration_ms: runs.average(:duration_ms)&.to_f || 0,
@@ -691,13 +700,13 @@ module Api
           workflows = account.ai_workflows.limit(10)
 
           workflows.map do |workflow|
-            runs = workflow.ai_workflow_runs.where('created_at >= ?', @time_range.ago)
+            runs = workflow.ai_workflow_runs.where("created_at >= ?", @time_range.ago)
             {
               id: workflow.id,
               name: workflow.name,
               executions: runs.count,
               success_rate: calculate_success_rate(runs),
-              average_duration: runs.where(status: 'completed').average(:duration_ms)&.to_f || 0,
+              average_duration: runs.where(status: "completed").average(:duration_ms)&.to_f || 0,
               total_cost: runs.sum(:total_cost) || 0.0
             }
           end
@@ -708,13 +717,13 @@ module Api
           agents = account.ai_agents.limit(10)
 
           agents.map do |agent|
-            executions = agent.ai_agent_executions.where('created_at >= ?', @time_range.ago)
+            executions = agent.ai_agent_executions.where("created_at >= ?", @time_range.ago)
             {
               id: agent.id,
               name: agent.name,
               executions: executions.count,
               success_rate: calculate_success_rate(executions),
-              average_response_time: executions.where(status: 'completed').average(:duration_ms)&.to_f || 0,
+              average_response_time: executions.where(status: "completed").average(:duration_ms)&.to_f || 0,
               total_cost: executions.sum(:cost_usd) || 0.0
             }
           end
@@ -726,7 +735,7 @@ module Api
 
           providers.map do |provider|
             executions = AiAgentExecution.where(ai_agent: AiAgent.where(ai_provider: provider))
-                                        .where('created_at >= ?', @time_range.ago)
+                                        .where("created_at >= ?", @time_range.ago)
 
             {
               id: provider.id,
@@ -742,7 +751,7 @@ module Api
         def cost_dashboard_metrics
           account = @account_scope || current_user&.account
           runs = AiWorkflowRun.where(ai_workflow: account.ai_workflows)
-                             .where('created_at >= ?', @time_range.ago)
+                             .where("created_at >= ?", @time_range.ago)
 
           {
             total_cost: runs.sum(:total_cost) || 0.0,
@@ -754,11 +763,11 @@ module Api
         def performance_dashboard_metrics
           account = @account_scope || current_user&.account
           runs = AiWorkflowRun.where(ai_workflow: account.ai_workflows)
-                             .where('created_at >= ?', @time_range.ago)
+                             .where("created_at >= ?", @time_range.ago)
 
           {
             success_rate: calculate_success_rate(runs),
-            average_duration: runs.where(status: 'completed').average(:duration_ms)&.to_f || 0,
+            average_duration: runs.where(status: "completed").average(:duration_ms)&.to_f || 0,
             throughput: runs.count.to_f / (@time_range.to_f / 1.hour)
           }
         end
@@ -771,7 +780,7 @@ module Api
           account = @account_scope || current_user&.account
           workflows = account.ai_workflows
           runs = AiWorkflowRun.where(ai_workflow: workflows)
-                             .where('created_at >= ?', 1.hour.ago)
+                             .where("created_at >= ?", 1.hour.ago)
 
           {
             active_executions: AiWorkflowRun.where(ai_workflow: workflows)
@@ -779,9 +788,9 @@ module Api
                                            .count,
             recent_executions: runs.count,
             success_rate: calculate_success_rate(runs),
-            average_response_time: runs.where(status: 'completed').average(:duration_ms)&.to_f || 0,
+            average_response_time: runs.where(status: "completed").average(:duration_ms)&.to_f || 0,
             cost_last_hour: runs.sum(:total_cost) || 0.0,
-            errors_last_hour: runs.where(status: 'failed').count
+            errors_last_hour: runs.where(status: "failed").count
           }
         end
 
@@ -792,7 +801,7 @@ module Api
         def calculate_total_cost
           account = @account_scope || current_user&.account
           (AiWorkflowRun.where(ai_workflow: account.ai_workflows)
-                       .where('created_at >= ?', @time_range.ago)
+                       .where("created_at >= ?", @time_range.ago)
                        .sum(:total_cost) || 0.0).to_f
         end
 
@@ -803,7 +812,7 @@ module Api
           (0..29).each do |days_ago|
             date = days_ago.days.ago.to_date
             cost = AiWorkflowRun.where(ai_workflow: account.ai_workflows)
-                               .where('DATE(created_at) = ?', date)
+                               .where("DATE(created_at) = ?", date)
                                .sum(:total_cost) || 0.0
 
             daily_costs << {
@@ -819,8 +828,8 @@ module Api
           account = @account_scope || current_user&.account
           AiAgentExecution.joins(ai_agent: :ai_provider)
                          .where(ai_agents: { account_id: account.id })
-                         .where('ai_agent_executions.created_at >= ?', @time_range.ago)
-                         .group('ai_providers.id', 'ai_providers.name')
+                         .where("ai_agent_executions.created_at >= ?", @time_range.ago)
+                         .group("ai_providers.id", "ai_providers.name")
                          .sum(:cost_usd)
                          .map { |k, v| { provider: k[1], cost: v } }
         end
@@ -829,8 +838,8 @@ module Api
           account = @account_scope || current_user&.account
           AiAgentExecution.joins(:ai_agent)
                          .where(ai_agents: { account_id: account.id })
-                         .where('ai_agent_executions.created_at >= ?', @time_range.ago)
-                         .group('ai_agents.id', 'ai_agents.name')
+                         .where("ai_agent_executions.created_at >= ?", @time_range.ago)
+                         .group("ai_agents.id", "ai_agents.name")
                          .sum(:cost_usd)
                          .map { |k, v| { agent: k[1], cost: v } }
                          .sort_by { |h| -h[:cost] }
@@ -841,8 +850,8 @@ module Api
           account = @account_scope || current_user&.account
           AiWorkflowRun.joins(:ai_workflow)
                       .where(ai_workflows: { account_id: account.id })
-                      .where('ai_workflow_runs.created_at >= ?', @time_range.ago)
-                      .group('ai_workflows.id', 'ai_workflows.name')
+                      .where("ai_workflow_runs.created_at >= ?", @time_range.ago)
+                      .group("ai_workflows.id", "ai_workflows.name")
                       .sum(:total_cost)
                       .map { |k, v| { workflow: k[1], cost: v } }
                       .sort_by { |h| -h[:cost] }
@@ -856,9 +865,9 @@ module Api
             current_cost: total_cost,
             potential_savings: total_cost * 0.20, # Estimate 20% savings
             optimization_areas: [
-              'Provider selection optimization',
-              'Caching frequently used results',
-              'Batch processing similar requests'
+              "Provider selection optimization",
+              "Caching frequently used results",
+              "Batch processing similar requests"
             ]
           }
         end
@@ -881,8 +890,8 @@ module Api
         def analyze_response_times
           account = @account_scope || current_user&.account
           runs = AiWorkflowRun.where(ai_workflow: account.ai_workflows)
-                             .where('created_at >= ?', @time_range.ago)
-                             .where(status: 'completed')
+                             .where("created_at >= ?", @time_range.ago)
+                             .where(status: "completed")
 
           {
             average_ms: runs.average(:duration_ms)&.to_f || 0,
@@ -896,10 +905,10 @@ module Api
         def analyze_success_rates
           account = @account_scope || current_user&.account
           runs = AiWorkflowRun.where(ai_workflow: account.ai_workflows)
-                             .where('created_at >= ?', @time_range.ago)
+                             .where("created_at >= ?", @time_range.ago)
 
           total = runs.count
-          successful = runs.where(status: 'completed').count
+          successful = runs.where(status: "completed").count
 
           {
             overall_rate: calculate_success_rate(runs),
@@ -912,7 +921,7 @@ module Api
         def analyze_throughput
           account = @account_scope || current_user&.account
           runs = AiWorkflowRun.where(ai_workflow: account.ai_workflows)
-                             .where('created_at >= ?', @time_range.ago)
+                             .where("created_at >= ?", @time_range.ago)
 
           hours = @time_range.to_f / 1.hour
 
@@ -926,10 +935,10 @@ module Api
         def analyze_error_rates
           account = @account_scope || current_user&.account
           runs = AiWorkflowRun.where(ai_workflow: account.ai_workflows)
-                             .where('created_at >= ?', @time_range.ago)
+                             .where("created_at >= ?", @time_range.ago)
 
           total = runs.count
-          failed = runs.where(status: 'failed').count
+          failed = runs.where(status: "failed").count
 
           {
             error_rate: total > 0 ? (failed.to_f / total * 100).round(2) : 0,
@@ -942,7 +951,7 @@ module Api
           account = @account_scope || current_user&.account
           {
             active_workflows: account.ai_workflows.where(is_active: true).count,
-            active_agents: account.ai_agents.where(status: 'active').count,
+            active_agents: account.ai_agents.where(status: "active").count,
             running_executions: AiWorkflowRun.where(ai_workflow: account.ai_workflows)
                                             .where(status: %w[initializing running waiting_approval])
                                             .count
@@ -954,16 +963,16 @@ module Api
           # Identify slow workflows
           slow_workflows = AiWorkflowRun.joins(:ai_workflow)
                                        .where(ai_workflows: { account_id: account.id })
-                                       .where('ai_workflow_runs.created_at >= ?', @time_range.ago)
-                                       .where(status: 'completed')
-                                       .group('ai_workflows.id', 'ai_workflows.name')
+                                       .where("ai_workflow_runs.created_at >= ?", @time_range.ago)
+                                       .where(status: "completed")
+                                       .group("ai_workflows.id", "ai_workflows.name")
                                        .average(:duration_ms)
                                        .select { |_, avg| avg.to_f > 60000 } # > 1 minute
                                        .map { |k, v| { workflow: k[1], average_duration_ms: v.to_f.round(2) } }
 
           {
             slow_workflows: slow_workflows,
-            recommendations: slow_workflows.any? ? ['Consider optimizing slow workflows', 'Review parallel execution options'] : []
+            recommendations: slow_workflows.any? ? [ "Consider optimizing slow workflows", "Review parallel execution options" ] : []
           }
         end
 
@@ -974,7 +983,7 @@ module Api
         def generate_optimization_recommendations
           account = @account_scope || current_user&.account
           runs = AiWorkflowRun.where(ai_workflow: account.ai_workflows)
-                             .where('created_at >= ?', @time_range.ago)
+                             .where("created_at >= ?", @time_range.ago)
 
           recommendations = []
 
@@ -982,11 +991,11 @@ module Api
           expensive_workflows = cost_breakdown_by_workflow.select { |w| w[:cost].to_f > 10.0 }
           if expensive_workflows.any?
             recommendations << {
-              type: 'cost_optimization',
-              priority: 'high',
-              title: 'Optimize High-Cost Workflows',
+              type: "cost_optimization",
+              priority: "high",
+              title: "Optimize High-Cost Workflows",
               description: "#{expensive_workflows.size} workflows are generating high costs",
-              action: 'Review provider selection and optimize configurations',
+              action: "Review provider selection and optimize configurations",
               potential_savings: expensive_workflows.sum { |w| w[:cost].to_f } * 0.3,
               affected_workflows: expensive_workflows.first(3).map { |w| w[:workflow] }
             }
@@ -996,12 +1005,12 @@ module Api
           slow_workflows = identify_bottlenecks[:slow_workflows]
           if slow_workflows.any?
             recommendations << {
-              type: 'performance_optimization',
-              priority: 'medium',
-              title: 'Optimize Slow Workflows',
+              type: "performance_optimization",
+              priority: "medium",
+              title: "Optimize Slow Workflows",
               description: "#{slow_workflows.size} workflows have slow execution times",
-              action: 'Consider parallel execution and caching strategies',
-              potential_improvement: '40-60% faster execution',
+              action: "Consider parallel execution and caching strategies",
+              potential_improvement: "40-60% faster execution",
               affected_workflows: slow_workflows.first(3).map { |w| w[:workflow] }
             }
           end
@@ -1010,12 +1019,12 @@ module Api
           error_rate = analyze_error_rates[:error_rate]
           if error_rate > 5.0
             recommendations << {
-              type: 'reliability_improvement',
-              priority: 'high',
-              title: 'Reduce Error Rate',
+              type: "reliability_improvement",
+              priority: "high",
+              title: "Reduce Error Rate",
               description: "Current error rate is #{error_rate.round(1)}% (target: <5%)",
-              action: 'Implement better error handling and retry mechanisms',
-              potential_improvement: 'Reduce error rate to under 3%',
+              action: "Implement better error handling and retry mechanisms",
+              potential_improvement: "Reduce error rate to under 3%",
               current_error_rate: error_rate
             }
           end
@@ -1028,19 +1037,19 @@ module Api
         # =============================================================================
 
         def analyze_workflow_runs(workflow)
-          runs = workflow.ai_workflow_runs.where('created_at >= ?', @time_range.ago)
+          runs = workflow.ai_workflow_runs.where("created_at >= ?", @time_range.ago)
 
           {
             total: runs.count,
-            completed: runs.where(status: 'completed').count,
-            failed: runs.where(status: 'failed').count,
+            completed: runs.where(status: "completed").count,
+            failed: runs.where(status: "failed").count,
             running: runs.where(status: %w[initializing running waiting_approval]).count
           }
         end
 
         def analyze_workflow_performance(workflow)
-          runs = workflow.ai_workflow_runs.where('created_at >= ?', @time_range.ago)
-                        .where(status: 'completed')
+          runs = workflow.ai_workflow_runs.where("created_at >= ?", @time_range.ago)
+                        .where(status: "completed")
 
           {
             average_duration_ms: runs.average(:duration_ms)&.to_f || 0,
@@ -1051,7 +1060,7 @@ module Api
         end
 
         def analyze_workflow_costs(workflow)
-          runs = workflow.ai_workflow_runs.where('created_at >= ?', @time_range.ago)
+          runs = workflow.ai_workflow_runs.where("created_at >= ?", @time_range.ago)
 
           {
             total_cost: runs.sum(:total_cost) || 0.0,
@@ -1061,13 +1070,13 @@ module Api
         end
 
         def calculate_workflow_success_rate(workflow)
-          runs = workflow.ai_workflow_runs.where('created_at >= ?', @time_range.ago)
+          runs = workflow.ai_workflow_runs.where("created_at >= ?", @time_range.ago)
           calculate_success_rate(runs)
         end
 
         def calculate_workflow_average_duration(workflow)
-          workflow.ai_workflow_runs.where('created_at >= ?', @time_range.ago)
-                                  .where(status: 'completed')
+          workflow.ai_workflow_runs.where("created_at >= ?", @time_range.ago)
+                                  .where(status: "completed")
                                   .average(:duration_ms)&.to_f || 0
         end
 
@@ -1077,18 +1086,18 @@ module Api
         end
 
         def analyze_agent_executions(agent)
-          executions = agent.ai_agent_executions.where('created_at >= ?', @time_range.ago)
+          executions = agent.ai_agent_executions.where("created_at >= ?", @time_range.ago)
 
           {
             total: executions.count,
-            completed: executions.where(status: 'completed').count,
-            failed: executions.where(status: 'failed').count
+            completed: executions.where(status: "completed").count,
+            failed: executions.where(status: "failed").count
           }
         end
 
         def analyze_agent_performance(agent)
-          executions = agent.ai_agent_executions.where('created_at >= ?', @time_range.ago)
-                                                .where(status: 'completed')
+          executions = agent.ai_agent_executions.where("created_at >= ?", @time_range.ago)
+                                                .where(status: "completed")
 
           {
             average_response_time_ms: executions.average(:duration_ms)&.to_f || 0,
@@ -1097,7 +1106,7 @@ module Api
         end
 
         def analyze_agent_costs(agent)
-          executions = agent.ai_agent_executions.where('created_at >= ?', @time_range.ago)
+          executions = agent.ai_agent_executions.where("created_at >= ?", @time_range.ago)
 
           {
             total_cost: executions.sum(:cost_usd) || 0.0,
@@ -1106,13 +1115,13 @@ module Api
         end
 
         def calculate_agent_success_rate(agent)
-          executions = agent.ai_agent_executions.where('created_at >= ?', @time_range.ago)
+          executions = agent.ai_agent_executions.where("created_at >= ?", @time_range.ago)
           calculate_success_rate(executions)
         end
 
         def calculate_agent_average_response_time(agent)
-          agent.ai_agent_executions.where('created_at >= ?', @time_range.ago)
-                                  .where(status: 'completed')
+          agent.ai_agent_executions.where("created_at >= ?", @time_range.ago)
+                                  .where(status: "completed")
                                   .average(:duration_ms)&.to_f || 0
         end
 
@@ -1122,16 +1131,16 @@ module Api
 
         def generate_export_data(export_type, format)
           case export_type
-          when 'dashboard'
+          when "dashboard"
             data = generate_dashboard_analytics
-          when 'cost_analysis'
+          when "cost_analysis"
             data = {
               total_cost: calculate_total_cost,
               cost_trend: calculate_cost_trend,
               cost_by_provider: cost_breakdown_by_provider,
               cost_by_workflow: cost_breakdown_by_workflow
             }
-          when 'performance'
+          when "performance"
             data = {
               response_times: analyze_response_times,
               success_rates: analyze_success_rates,
@@ -1142,29 +1151,29 @@ module Api
           end
 
           case format
-          when 'json'
+          when "json"
             data.to_json
-          when 'csv'
+          when "csv"
             generate_csv_export(data)
-          when 'xlsx'
+          when "xlsx"
             generate_xlsx_export(data)
           end
         end
 
         def generate_csv_export(data)
-          require 'csv'
+          require "csv"
 
           CSV.generate(headers: true) do |csv|
-            csv << ['Metric', 'Value']
+            csv << [ "Metric", "Value" ]
             flatten_hash(data).each do |key, value|
-              csv << [key, value]
+              csv << [ key, value ]
             end
           end
         end
 
         def generate_xlsx_export(_data)
           # Placeholder for Excel export
-          'Excel export not yet implemented'
+          "Excel export not yet implemented"
         end
 
         # =============================================================================
@@ -1175,7 +1184,7 @@ module Api
           {
             id: workflow.id,
             name: workflow.name,
-            status: workflow.is_active ? 'active' : 'inactive',
+            status: workflow.is_active ? "active" : "inactive",
             created_at: workflow.created_at.iso8601
           }
         end
@@ -1217,7 +1226,7 @@ module Api
           total = collection.count
           return 0.0 if total.zero?
 
-          successful = collection.where(status: 'completed').count
+          successful = collection.where(status: "completed").count
           (successful.to_f / total * 100).round(2)
         end
 
@@ -1242,15 +1251,15 @@ module Api
             recent = runs.order(created_at: :desc).limit(runs.count / 2).sum(:total_cost)
             older = runs.order(created_at: :asc).limit(runs.count / 2).sum(:total_cost)
 
-            return 'stable' if recent == older
-            recent > older ? 'increasing' : 'decreasing'
+            return "stable" if recent == older
+            recent > older ? "increasing" : "decreasing"
           else
-            'stable'
+            "stable"
           end
         end
 
         def identify_common_errors(runs)
-          runs.where(status: 'failed')
+          runs.where(status: "failed")
               .group(:error_details)
               .count
               .sort_by { |_, count| -count }
@@ -1267,7 +1276,7 @@ module Api
           }
         end
 
-        def flatten_hash(hash, parent_key = '', result = {})
+        def flatten_hash(hash, parent_key = "", result = {})
           hash.each do |key, value|
             new_key = parent_key.empty? ? key.to_s : "#{parent_key}.#{key}"
             if value.is_a?(Hash)

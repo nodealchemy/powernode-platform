@@ -180,7 +180,7 @@ RSpec.describe 'Api::V1::McpTools', type: :request do
         it 'returns validation error' do
           allow_any_instance_of(McpTool).to receive(:validate_parameters).and_return({
             valid: false,
-            errors: ['query is required', 'limit must be positive']
+            errors: [ 'query is required', 'limit must be positive' ]
           })
 
           post "/api/v1/mcp_servers/#{server.id}/mcp_tools/#{tool.id}/execute",

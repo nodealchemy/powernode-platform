@@ -55,7 +55,7 @@ module Mcp
     #
     # @return [Hash] Execution result
     def execute
-      with_monitoring('workflow_execution', workflow_id: @workflow.id, run_id: @workflow_run.run_id) do
+      with_monitoring("workflow_execution", workflow_id: @workflow.id, run_id: @workflow_run.run_id) do
         with_workflow_context(@workflow_run) do
           log_info "Starting workflow execution", {
             workflow: @workflow.name,
@@ -86,18 +86,18 @@ module Mcp
 
     # Execute workflow based on configured mode
     def execute_by_mode
-      execution_mode = @workflow.mcp_orchestration_config&.dig('execution_mode') || 'sequential'
+      execution_mode = @workflow.mcp_orchestration_config&.dig("execution_mode") || "sequential"
 
       log_info "Executing in #{execution_mode} mode"
 
       case execution_mode
-      when 'sequential'
+      when "sequential"
         execute_sequential
-      when 'parallel'
+      when "parallel"
         execute_parallel
-      when 'conditional'
+      when "conditional"
         execute_conditional
-      when 'dag'
+      when "dag"
         execute_dag
       else
         log_warn "Unknown execution mode: #{execution_mode}, defaulting to sequential"
@@ -188,7 +188,7 @@ module Mcp
     # @param node [AiWorkflowNode] Node to execute
     # @return [Hash] Node execution result
     def execute_node(node)
-      with_monitoring('node_execution', node_id: node.node_id, node_type: node.node_type) do
+      with_monitoring("node_execution", node_id: node.node_id, node_type: node.node_type) do
         log_info "Executing node: #{node.name} (#{node.node_type})"
 
         # Create execution record
@@ -251,35 +251,35 @@ module Mcp
     # @return [Mcp::NodeExecutors::Base] Node executor instance
     def get_node_executor(node, node_execution)
       executor_class = case node.node_type
-                      when 'ai_agent'
+      when "ai_agent"
                         Mcp::NodeExecutors::AiAgent
-                      when 'api_call'
+      when "api_call"
                         Mcp::NodeExecutors::ApiCall
-                      when 'transform'
+      when "transform"
                         Mcp::NodeExecutors::Transform
-                      when 'condition'
+      when "condition"
                         Mcp::NodeExecutors::Condition
-                      when 'webhook'
+      when "webhook"
                         Mcp::NodeExecutors::Webhook
-                      when 'delay'
+      when "delay"
                         Mcp::NodeExecutors::Delay
-                      when 'loop'
+      when "loop"
                         Mcp::NodeExecutors::Loop
-                      when 'merge'
+      when "merge"
                         Mcp::NodeExecutors::Merge
-                      when 'split'
+      when "split"
                         Mcp::NodeExecutors::Split
-                      when 'sub_workflow'
+      when "sub_workflow"
                         Mcp::NodeExecutors::SubWorkflow
-                      when 'human_approval'
+      when "human_approval"
                         Mcp::NodeExecutors::HumanApproval
-                      when 'start'
+      when "start"
                         Mcp::NodeExecutors::Start
-                      when 'end'
+      when "end"
                         Mcp::NodeExecutors::End
-                      else
+      else
                         raise NodeExecutionError, "Unknown node type: #{node.node_type}"
-                      end
+      end
 
       node_context = Mcp::NodeExecutionContext.new(
         node: node,
@@ -335,10 +335,10 @@ module Mcp
       @event_store.record_node_completed(node, node_execution, result)
 
       # Broadcast to WebSocket
-      broadcast_node_execution(node, 'completed', result)
+      broadcast_node_execution(node, "completed", result)
 
       # Track cost if present
-      track_cost('node_execution', result[:cost]) if result[:cost].present?
+      track_cost("node_execution", result[:cost]) if result[:cost].present?
     end
 
     # Handle failed node execution
@@ -366,7 +366,7 @@ module Mcp
       @event_store.record_node_failed(node, node_execution, error)
 
       # Broadcast to WebSocket
-      broadcast_node_execution(node, 'failed', { error: error.message })
+      broadcast_node_execution(node, "failed", { error: error.message })
     end
 
     # =============================================================================
@@ -462,7 +462,7 @@ module Mcp
         ai_workflow_node_id: node.id,
         node_id: node.node_id,
         node_type: node.node_type,
-        status: 'pending',
+        status: "pending",
         started_at: Time.current,
         input_data: build_node_input_data(node),
         metadata: {
@@ -494,7 +494,7 @@ module Mcp
 
       # Process data mapping from each incoming edge
       incoming_edges.each do |edge|
-        mapping_config = edge.configuration&.dig('data_mapping')
+        mapping_config = edge.configuration&.dig("data_mapping")
 
         if mapping_config.present?
           has_explicit_mapping = true
@@ -544,7 +544,7 @@ module Mcp
               input_data[namespaced_key] = value
 
               # Also pass without namespace if it's a standard key
-              if key == 'agent_output' || key == 'output' || key == 'result'
+              if key == "agent_output" || key == "output" || key == "result"
                 input_data[key] = value
               end
             end
@@ -590,11 +590,11 @@ module Mcp
         key = $2
 
         case source
-        when 'input'
+        when "input"
           # Resolve from workflow input variables
           @execution_context[:variables]&.dig(key)
 
-        when 'context'
+        when "context"
           # Resolve from execution context
           @execution_context&.dig(key.to_sym)
 
@@ -624,7 +624,7 @@ module Mcp
     def resolve_nested_path(data, path)
       return data if path.blank?
 
-      keys = path.split('.')
+      keys = path.split(".")
       keys.reduce(data) do |current, key|
         break nil unless current.is_a?(Hash) || current.respond_to?(:[])
 
@@ -652,8 +652,8 @@ module Mcp
     #
     # @return [String] Status (completed or failed)
     def determine_final_status
-      failed_nodes = @workflow_run.ai_workflow_node_executions.where(status: 'failed')
-      failed_nodes.any? ? 'failed' : 'completed'
+      failed_nodes = @workflow_run.ai_workflow_node_executions.where(status: "failed")
+      failed_nodes.any? ? "failed" : "completed"
     end
 
     # Calculate total execution duration
@@ -690,7 +690,7 @@ module Mcp
 
       # Update workflow run
       @workflow_run.update!(
-        status: 'failed',
+        status: "failed",
         error_details: {
           error_message: error.message,
           exception_class: error.class.name,
@@ -715,7 +715,7 @@ module Mcp
         # and broadcasts to all appropriate streams (run, workflow, account)
         AiOrchestrationChannel.broadcast_node_execution(
           node_execution,
-          'workflow.node.execution.updated'
+          "workflow.node.execution.updated"
         )
       else
         log_warn "Node execution not found for broadcast", {
@@ -761,8 +761,8 @@ module Mcp
       edges = @workflow.ai_workflow_edges.to_a
 
       # Check for start and end nodes
-      start_nodes = nodes.select { |n| n.node_type == 'start' }
-      end_nodes = nodes.select { |n| n.node_type == 'end' }
+      start_nodes = nodes.select { |n| n.node_type == "start" }
+      end_nodes = nodes.select { |n| n.node_type == "end" }
 
       if start_nodes.empty?
         raise ExecutionError, "Workflow must have at least one start node"
@@ -778,7 +778,7 @@ module Mcp
 
       nodes.each do |node|
         # Skip start nodes (they don't need incoming edges)
-        next if node.node_type == 'start'
+        next if node.node_type == "start"
 
         # Get incoming edges
         incoming = edges.select { |e| e.target_node_id == node.node_id }
@@ -794,7 +794,7 @@ module Mcp
         log_debug "Node '#{node.name}' will receive #{incoming.count} predecessor outputs automatically"
 
         # Check for explicit data mapping (optional enhancement)
-        has_data_mapping = incoming.any? { |e| e.configuration&.dig('data_mapping').present? }
+        has_data_mapping = incoming.any? { |e| e.configuration&.dig("data_mapping").present? }
 
         if has_data_mapping
           log_debug "Node '#{node.name}' has explicit data mapping configured"
@@ -806,7 +806,7 @@ module Mcp
       unreachable_nodes = nodes.reject { |n| reachable_nodes.include?(n.node_id) }
 
       if unreachable_nodes.any?
-        unreachable_names = unreachable_nodes.map { |n| "'#{n.name}'" }.join(', ')
+        unreachable_names = unreachable_nodes.map { |n| "'#{n.name}'" }.join(", ")
         validation_errors << "Disconnected nodes (not reachable from start): #{unreachable_names}"
       end
 
@@ -814,7 +814,7 @@ module Mcp
       nodes_without_path_to_end = find_nodes_without_path_to_end(nodes, edges, end_nodes)
 
       if nodes_without_path_to_end.any?
-        dead_end_names = nodes_without_path_to_end.map { |n| "'#{n.name}'" }.join(', ')
+        dead_end_names = nodes_without_path_to_end.map { |n| "'#{n.name}'" }.join(", ")
         validation_warnings << "Dead-end nodes (no path to end node): #{dead_end_names}"
       end
 
@@ -898,7 +898,7 @@ module Mcp
       end
 
       # Return nodes that can't reach end
-      nodes.reject { |n| can_reach_end.include?(n.node_id) || n.node_type == 'end' }
+      nodes.reject { |n| can_reach_end.include?(n.node_id) || n.node_type == "end" }
     end
   end
 end

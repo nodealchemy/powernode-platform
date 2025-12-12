@@ -29,7 +29,7 @@ FactoryBot.define do
           },
           execution_context: {
             current_node: 'ai_agent_node_1',
-            next_nodes: ['transform_node_1'],
+            next_nodes: [ 'transform_node_1' ],
             loop_iteration: nil
           }
         }
@@ -239,7 +239,7 @@ FactoryBot.define do
           event_type: 'approval_requested',
           approval_id: SecureRandom.uuid,
           approval_type: 'content_review',
-          requested_from: ['admin@example.com'],
+          requested_from: [ 'admin@example.com' ],
           timeout_minutes: 60,
           approval_url: 'https://app.example.com/approvals/abc123',
           notification_sent: true
@@ -399,7 +399,7 @@ FactoryBot.define do
           pause_reason: 'human_approval_required',
           paused_at_node: SecureRandom.uuid,
           pause_duration_estimate: 3600, # seconds
-          resume_conditions: ['approval_granted'],
+          resume_conditions: [ 'approval_granted' ],
           pause_token: SecureRandom.hex(32)
         }
       end

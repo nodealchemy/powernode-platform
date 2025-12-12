@@ -91,7 +91,7 @@ module AiMonitoringConcern
 
     # Keep only last 24 hours of data
     cutoff = 24.hours.ago.to_i
-    redis.zremrangebyscore("metrics:#{metric_key}", '-inf', cutoff)
+    redis.zremrangebyscore("metrics:#{metric_key}", "-inf", cutoff)
   end
 
   # Get metrics for a time range
@@ -194,15 +194,15 @@ module AiMonitoringConcern
   def determine_health_status
     components = check_component_health
 
-    unhealthy = components.values.count { |v| v[:status] == 'unhealthy' }
-    degraded = components.values.count { |v| v[:status] == 'degraded' }
+    unhealthy = components.values.count { |v| v[:status] == "unhealthy" }
+    degraded = components.values.count { |v| v[:status] == "degraded" }
 
     if unhealthy > 0
-      'unhealthy'
+      "unhealthy"
     elsif degraded > 0
-      'degraded'
+      "degraded"
     else
-      'healthy'
+      "healthy"
     end
   end
 
@@ -250,7 +250,7 @@ module AiMonitoringConcern
     broadcast_alert(alert)
 
     # Send notifications if critical
-    send_alert_notifications(alert) if severity == 'critical'
+    send_alert_notifications(alert) if severity == "critical"
 
     alert
   end
@@ -315,11 +315,11 @@ module AiMonitoringConcern
   # =============================================================================
 
   def redis
-    @redis ||= Redis.new(url: Rails.application.credentials.redis_url || 'redis://localhost:6379')
+    @redis ||= Redis.new(url: Rails.application.credentials.redis_url || "redis://localhost:6379")
   end
 
   def build_metric_key(metric_name, tags = {})
-    tag_string = tags.map { |k, v| "#{k}:#{v}" }.join('.')
+    tag_string = tags.map { |k, v| "#{k}:#{v}" }.join(".")
     tag_string.present? ? "#{metric_name}.#{tag_string}" : metric_name
   end
 
@@ -331,8 +331,8 @@ module AiMonitoringConcern
 
   def default_metrics
     {
-      status: 'error',
-      message: 'Failed to collect metrics',
+      status: "error",
+      message: "Failed to collect metrics",
       timestamp: Time.current.iso8601
     }
   end
@@ -359,27 +359,27 @@ module AiMonitoringConcern
   end
 
   def check_database_health
-    ActiveRecord::Base.connection.execute('SELECT 1')
-    { status: 'healthy', response_time_ms: 1 }
+    ActiveRecord::Base.connection.execute("SELECT 1")
+    { status: "healthy", response_time_ms: 1 }
   rescue StandardError => e
-    { status: 'unhealthy', error: e.message }
+    { status: "unhealthy", error: e.message }
   end
 
   def check_redis_health
     redis.ping
-    { status: 'healthy', response_time_ms: 1 }
+    { status: "healthy", response_time_ms: 1 }
   rescue StandardError => e
-    { status: 'unhealthy', error: e.message }
+    { status: "unhealthy", error: e.message }
   end
 
   def check_providers_health
     # Check AI provider availability
-    { status: 'healthy' }
+    { status: "healthy" }
   end
 
   def check_workers_health
     # Check Sidekiq workers
-    { status: 'healthy' }
+    { status: "healthy" }
   end
 
   def calculate_uptime
@@ -390,11 +390,11 @@ module AiMonitoringConcern
   def should_trigger_alert?(alert_type, metrics)
     # Implement alert thresholds
     case alert_type
-    when 'high_cost'
+    when "high_cost"
       metrics[:total_cost].to_f > 100.0
-    when 'low_success_rate'
+    when "low_success_rate"
       metrics[:success_rate].to_f < 90.0
-    when 'high_latency'
+    when "high_latency"
       metrics[:avg_response_time].to_f > 5000
     else
       false
@@ -403,14 +403,14 @@ module AiMonitoringConcern
 
   def determine_alert_severity(alert_type, data)
     case alert_type
-    when 'provider_failure', 'resource_exhaustion'
-      'critical'
-    when 'high_cost', 'circuit_breaker_open'
-      'high'
-    when 'low_success_rate', 'high_latency'
-      'medium'
+    when "provider_failure", "resource_exhaustion"
+      "critical"
+    when "high_cost", "circuit_breaker_open"
+      "high"
+    when "low_success_rate", "high_latency"
+      "medium"
     else
-      'low'
+      "low"
     end
   end
 
@@ -424,7 +424,7 @@ module AiMonitoringConcern
 
     # Keep only last 7 days of alerts
     cutoff = 7.days.ago.to_i
-    redis.zremrangebyscore(alerts_key, '-inf', cutoff)
+    redis.zremrangebyscore(alerts_key, "-inf", cutoff)
   end
 
   def broadcast_alert(alert)

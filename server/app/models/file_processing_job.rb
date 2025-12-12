@@ -13,11 +13,11 @@ class FileProcessingJob < ApplicationRecord
   # Validations
   validates :job_type, presence: true, inclusion: {
     in: %w[thumbnail resize convert scan ocr metadata_extract compress watermark transform],
-    message: 'must be a valid job type'
+    message: "must be a valid job type"
   }
   validates :status, presence: true, inclusion: {
     in: %w[pending processing completed failed cancelled],
-    message: 'must be a valid status'
+    message: "must be a valid status"
   }
   validates :priority, presence: true, numericality: {
     only_integer: true,
@@ -35,40 +35,40 @@ class FileProcessingJob < ApplicationRecord
   attribute :metadata, :json, default: -> { {} }
 
   # Scopes
-  scope :pending, -> { where(status: 'pending') }
-  scope :processing, -> { where(status: 'processing') }
-  scope :completed, -> { where(status: 'completed') }
-  scope :failed, -> { where(status: 'failed') }
-  scope :cancelled, -> { where(status: 'cancelled') }
+  scope :pending, -> { where(status: "pending") }
+  scope :processing, -> { where(status: "processing") }
+  scope :completed, -> { where(status: "completed") }
+  scope :failed, -> { where(status: "failed") }
+  scope :cancelled, -> { where(status: "cancelled") }
   scope :active, -> { where(status: %w[pending processing]) }
   scope :finished, -> { where(status: %w[completed failed cancelled]) }
   scope :by_priority, -> { order(priority: :desc, created_at: :asc) }
   scope :by_type, ->(type) { where(job_type: type) }
   scope :recent, -> { order(created_at: :desc) }
-  scope :retriable, -> { failed.where('retry_count < max_retries') }
+  scope :retriable, -> { failed.where("retry_count < max_retries") }
 
   # Callbacks
   before_validation :set_defaults, on: :create
 
   # Status methods
   def pending?
-    status == 'pending'
+    status == "pending"
   end
 
   def processing?
-    status == 'processing'
+    status == "processing"
   end
 
   def completed?
-    status == 'completed'
+    status == "completed"
   end
 
   def failed?
-    status == 'failed'
+    status == "failed"
   end
 
   def cancelled?
-    status == 'cancelled'
+    status == "cancelled"
   end
 
   def active?
@@ -84,9 +84,9 @@ class FileProcessingJob < ApplicationRecord
     return false unless pending?
 
     update!(
-      status: 'processing',
+      status: "processing",
       started_at: Time.current,
-      metadata: metadata.merge('processing_started_at' => Time.current.iso8601)
+      metadata: metadata.merge("processing_started_at" => Time.current.iso8601)
     )
   end
 
@@ -96,11 +96,11 @@ class FileProcessingJob < ApplicationRecord
     duration = started_at ? ((Time.current - started_at) * 1000).to_i : 0
 
     update!(
-      status: 'completed',
+      status: "completed",
       completed_at: Time.current,
       duration_ms: duration,
       result_data: result_data.merge(result),
-      metadata: metadata.merge('completed_at' => Time.current.iso8601)
+      metadata: metadata.merge("completed_at" => Time.current.iso8601)
     )
   end
 
@@ -110,14 +110,14 @@ class FileProcessingJob < ApplicationRecord
     duration = started_at ? ((Time.current - started_at) * 1000).to_i : 0
 
     update!(
-      status: 'failed',
+      status: "failed",
       completed_at: Time.current,
       duration_ms: duration,
       error_details: error_details.merge({
-        'error_message' => error_message,
-        'failed_at' => Time.current.iso8601
+        "error_message" => error_message,
+        "failed_at" => Time.current.iso8601
       }.merge(error_data)),
-      metadata: metadata.merge('failed_at' => Time.current.iso8601)
+      metadata: metadata.merge("failed_at" => Time.current.iso8601)
     )
   end
 
@@ -125,9 +125,9 @@ class FileProcessingJob < ApplicationRecord
     return false if finished?
 
     update!(
-      status: 'cancelled',
+      status: "cancelled",
       completed_at: Time.current,
-      metadata: metadata.merge('cancelled_at' => Time.current.iso8601)
+      metadata: metadata.merge("cancelled_at" => Time.current.iso8601)
     )
   end
 
@@ -143,13 +143,13 @@ class FileProcessingJob < ApplicationRecord
       increment!(:retry_count)
 
       update!(
-        status: 'pending',
+        status: "pending",
         started_at: nil,
         completed_at: nil,
         error_details: {},
         metadata: metadata.merge({
-          'retry_attempt' => retry_count,
-          'retried_at' => Time.current.iso8601
+          "retry_attempt" => retry_count,
+          "retried_at" => Time.current.iso8601
         })
       )
     end
@@ -211,7 +211,7 @@ class FileProcessingJob < ApplicationRecord
       completed_at: completed_at&.iso8601,
       duration_ms: duration_ms,
       has_error: error_details.present?,
-      error_message: error_details['error_message'],
+      error_message: error_details["error_message"],
       created_at: created_at.iso8601
     }
   end
@@ -220,7 +220,7 @@ class FileProcessingJob < ApplicationRecord
 
   def set_defaults
     self.priority ||= 50
-    self.status ||= 'pending'
+    self.status ||= "pending"
     self.retry_count ||= 0
     self.max_retries ||= 3
     self.job_parameters ||= {}
@@ -233,7 +233,7 @@ class FileProcessingJob < ApplicationRecord
     return unless retry_count.present? && max_retries.present?
 
     if retry_count > max_retries
-      errors.add(:retry_count, 'cannot exceed max_retries')
+      errors.add(:retry_count, "cannot exceed max_retries")
     end
   end
 end

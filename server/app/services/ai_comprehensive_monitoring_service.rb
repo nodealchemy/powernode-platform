@@ -24,7 +24,7 @@ class AiComprehensiveMonitoringService
   def initialize(account: nil)
     @account = account
     @logger = Rails.logger
-    @redis = Redis.new(url: Rails.application.credentials.redis_url || 'redis://localhost:6379')
+    @redis = Redis.new(url: Rails.application.credentials.redis_url || "redis://localhost:6379")
     @base_monitoring_service = AiMonitoringService.new(account: account)
   end
 
@@ -39,21 +39,21 @@ class AiComprehensiveMonitoringService
 
     components.each do |component|
       case component
-      when 'system'
+      when "system"
         dashboard_data[:components][:system] = get_system_metrics(time_range)
-      when 'providers'
+      when "providers"
         dashboard_data[:components][:providers] = get_providers_dashboard_summary(time_range)
-      when 'agents'
+      when "agents"
         dashboard_data[:components][:agents] = get_agents_dashboard_summary(time_range)
-      when 'workflows'
+      when "workflows"
         dashboard_data[:components][:workflows] = get_workflows_dashboard_summary(time_range)
-      when 'conversations'
+      when "conversations"
         dashboard_data[:components][:conversations] = get_conversations_dashboard_summary(time_range)
-      when 'costs'
+      when "costs"
         dashboard_data[:components][:costs] = get_costs_dashboard_summary(time_range)
-      when 'alerts'
+      when "alerts"
         dashboard_data[:components][:alerts] = get_alerts_dashboard_summary
-      when 'resources'
+      when "resources"
         dashboard_data[:components][:resources] = get_resources_dashboard_summary
       end
     end
@@ -134,9 +134,9 @@ class AiComprehensiveMonitoringService
 
     {
       total_count: total_providers,
-      healthy: providers.count { |p| get_provider_status(p) == 'healthy' },
-      degraded: providers.count { |p| get_provider_status(p) == 'degraded' },
-      unhealthy: providers.count { |p| get_provider_status(p) == 'unhealthy' },
+      healthy: providers.count { |p| get_provider_status(p) == "healthy" },
+      degraded: providers.count { |p| get_provider_status(p) == "degraded" },
+      unhealthy: providers.count { |p| get_provider_status(p) == "unhealthy" },
       circuit_breakers: {
         closed: providers.count { |p| AiProviderCircuitBreakerService.new(p).circuit_state == :closed },
         open: providers.count { |p| AiProviderCircuitBreakerService.new(p).circuit_state == :open },
@@ -157,7 +157,7 @@ class AiComprehensiveMonitoringService
 
   def get_agent_detailed_metrics(agent, time_range: 1.hour)
     recent_executions = agent.ai_agent_executions
-                            .where('created_at > ?', Time.current - time_range)
+                            .where("created_at > ?", Time.current - time_range)
 
     {
       id: agent.id,
@@ -172,14 +172,14 @@ class AiComprehensiveMonitoringService
       },
       usage: {
         executions_count: recent_executions.count,
-        total_tokens: recent_executions.sum { |e| e.result&.dig('tokens_used') || 0 },
-        total_cost: recent_executions.sum { |e| e.result&.dig('cost') || 0 }
+        total_tokens: recent_executions.sum { |e| e.result&.dig("tokens_used") || 0 },
+        total_cost: recent_executions.sum { |e| e.result&.dig("cost") || 0 }
       },
       executions: {
-        running: recent_executions.where(status: 'running').count,
-        completed: recent_executions.where(status: 'completed').count,
-        failed: recent_executions.where(status: 'failed').count,
-        cancelled: recent_executions.where(status: 'cancelled').count
+        running: recent_executions.where(status: "running").count,
+        completed: recent_executions.where(status: "completed").count,
+        failed: recent_executions.where(status: "failed").count,
+        cancelled: recent_executions.where(status: "cancelled").count
       },
       provider_distribution: get_agent_provider_distribution(recent_executions),
       alerts: get_agent_alerts(agent),
@@ -195,8 +195,8 @@ class AiComprehensiveMonitoringService
 
     {
       total_count: total_agents,
-      active: agents.where(status: 'active').count,
-      inactive: agents.where(status: 'inactive').count,
+      active: agents.where(status: "active").count,
+      inactive: agents.where(status: "inactive").count,
       healthy: agents.count { |a| calculate_agent_health_score(a, 1.hour) >= 80 },
       degraded: agents.count { |a| (50..79).include?(calculate_agent_health_score(a, 1.hour)) },
       unhealthy: agents.count { |a| calculate_agent_health_score(a, 1.hour) < 50 },
@@ -216,7 +216,7 @@ class AiComprehensiveMonitoringService
 
   def get_workflow_detailed_metrics(workflow, time_range: 1.hour)
     recent_runs = workflow.ai_workflow_runs
-                          .where('created_at > ?', Time.current - time_range)
+                          .where("created_at > ?", Time.current - time_range)
 
     {
       id: workflow.id,
@@ -236,10 +236,10 @@ class AiComprehensiveMonitoringService
         total_cost: recent_runs.sum(&:cost) || 0
       },
       runs: {
-        running: recent_runs.where(status: 'running').count,
-        completed: recent_runs.where(status: 'completed').count,
-        failed: recent_runs.where(status: 'failed').count,
-        cancelled: recent_runs.where(status: 'cancelled').count
+        running: recent_runs.where(status: "running").count,
+        completed: recent_runs.where(status: "completed").count,
+        failed: recent_runs.where(status: "failed").count,
+        cancelled: recent_runs.where(status: "cancelled").count
       },
       nodes: {
         total_nodes: workflow.ai_workflow_nodes.count,
@@ -259,9 +259,9 @@ class AiComprehensiveMonitoringService
 
     {
       total_count: total_workflows,
-      active: workflows.where(status: 'active').count,
-      draft: workflows.where(status: 'draft').count,
-      inactive: workflows.where(status: 'inactive').count,
+      active: workflows.where(status: "active").count,
+      draft: workflows.where(status: "draft").count,
+      inactive: workflows.where(status: "inactive").count,
       healthy: workflows.count { |w| calculate_workflow_health_score(w, 1.hour) >= 80 },
       degraded: workflows.count { |w| (50..79).include?(calculate_workflow_health_score(w, 1.hour)) },
       unhealthy: workflows.count { |w| calculate_workflow_health_score(w, 1.hour) < 50 },
@@ -281,7 +281,7 @@ class AiComprehensiveMonitoringService
 
   def get_conversation_detailed_metrics(conversation, time_range: 1.hour)
     recent_messages = conversation.ai_messages
-                                  .where('created_at > ?', Time.current - time_range)
+                                  .where("created_at > ?", Time.current - time_range)
 
     {
       id: conversation.id,
@@ -299,9 +299,9 @@ class AiComprehensiveMonitoringService
         total_cost: recent_messages.sum(&:cost) || 0
       },
       participants: {
-        human_messages: recent_messages.where(role: 'user').count,
-        ai_messages: recent_messages.where(role: 'assistant').count,
-        system_messages: recent_messages.where(role: 'system').count
+        human_messages: recent_messages.where(role: "user").count,
+        ai_messages: recent_messages.where(role: "assistant").count,
+        system_messages: recent_messages.where(role: "system").count
       },
       agent_usage: get_conversation_agent_usage(recent_messages),
       alerts: get_conversation_alerts(conversation),
@@ -313,28 +313,28 @@ class AiComprehensiveMonitoringService
 
   def get_conversations_summary
     conversations = get_monitored_conversations(24.hours)
-    active_conversations = conversations.where('updated_at > ?', 1.hour.ago)
+    active_conversations = conversations.where("updated_at > ?", 1.hour.ago)
 
     {
       total_count: conversations.count,
       active_count: active_conversations.count,
-      recent_activity: conversations.where('updated_at > ?', 24.hours.ago).count,
-      avg_messages_per_conversation: conversations.joins(:ai_messages).group('ai_conversations.id').average('ai_messages.id').values.sum / conversations.count.to_f,
+      recent_activity: conversations.where("updated_at > ?", 24.hours.ago).count,
+      avg_messages_per_conversation: conversations.joins(:ai_messages).group("ai_conversations.id").average("ai_messages.id").values.sum / conversations.count.to_f,
       healthy: conversations.count { |c| calculate_conversation_health_score(c, 1.hour) >= 80 },
       active_alerts: get_conversations_active_alerts_count
     }
   end
 
   # Cost Analysis
-  def get_cost_analysis(time_range: 24.hours, breakdown: 'provider')
+  def get_cost_analysis(time_range: 24.hours, breakdown: "provider")
     case breakdown
-    when 'provider'
+    when "provider"
       get_cost_by_provider(time_range)
-    when 'agent'
+    when "agent"
       get_cost_by_agent(time_range)
-    when 'workflow'
+    when "workflow"
       get_cost_by_workflow(time_range)
-    when 'conversation'
+    when "conversation"
       get_cost_by_conversation(time_range)
     else
       get_cost_overview(time_range)
@@ -342,15 +342,15 @@ class AiComprehensiveMonitoringService
   end
 
   # Performance Metrics
-  def get_performance_metrics(time_range: 1.hour, metric_type: 'response_time')
+  def get_performance_metrics(time_range: 1.hour, metric_type: "response_time")
     case metric_type
-    when 'response_time'
+    when "response_time"
       get_response_time_metrics(time_range)
-    when 'success_rate'
+    when "success_rate"
       get_success_rate_metrics(time_range)
-    when 'throughput'
+    when "throughput"
       get_throughput_metrics(time_range)
-    when 'resource_usage'
+    when "resource_usage"
       get_resource_usage_metrics(time_range)
     else
       get_performance_overview(time_range)
@@ -444,11 +444,11 @@ class AiComprehensiveMonitoringService
   # Component Testing
   def test_component(component_type:, component_id:, test_params: {})
     case component_type
-    when 'provider'
+    when "provider"
       test_provider_component(component_id, test_params)
-    when 'agent'
+    when "agent"
       test_agent_component(component_id, test_params)
-    when 'workflow'
+    when "workflow"
       test_workflow_component(component_id, test_params)
     else
       raise ArgumentError, "Unknown component type: #{component_type}"
@@ -472,7 +472,7 @@ class AiComprehensiveMonitoringService
 
   def get_monitored_conversations(time_range = 24.hours)
     scope = @account ? @account.ai_conversations : AiConversation.where(account: nil)
-    scope.where('updated_at > ?', Time.current - time_range)
+    scope.where("updated_at > ?", Time.current - time_range)
   end
 
   def calculate_system_health_score
@@ -489,15 +489,15 @@ class AiComprehensiveMonitoringService
     score = calculate_system_health_score
     case score
     when 90..100
-      'excellent'
+      "excellent"
     when 80..89
-      'good'
+      "good"
     when 70..79
-      'fair'
+      "fair"
     when 50..69
-      'degraded'
+      "degraded"
     else
-      'critical'
+      "critical"
     end
   end
 
@@ -596,7 +596,7 @@ class AiComprehensiveMonitoringService
   end
 
   def get_costs_dashboard_summary(time_range)
-    { total_today: 25.50, by_provider: {}, trending: 'up' }
+    { total_today: 25.50, by_provider: {}, trending: "up" }
   end
 
   def get_alerts_dashboard_summary

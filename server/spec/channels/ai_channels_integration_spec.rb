@@ -108,8 +108,8 @@ RSpec.describe 'AI Channels Integration', type: :integration do
   end
 
   describe 'real-time collaboration features' do
-    let(:user_a) { create(:user, account: account, permissions: ['ai.workflows.update']) }
-    let(:user_b) { create(:user, account: account, permissions: ['ai.workflows.update']) }
+    let(:user_a) { create(:user, account: account, permissions: [ 'ai.workflows.update' ]) }
+    let(:user_b) { create(:user, account: account, permissions: [ 'ai.workflows.update' ]) }
 
     it 'broadcasts collaborative updates between multiple users' do
       # User A connects to orchestration channel
@@ -293,7 +293,7 @@ RSpec.describe 'AI Channels Integration', type: :integration do
 
     it 'handles invalid channel subscriptions gracefully' do
       # Try to subscribe to orchestration with invalid permissions
-      unauthorized_user = create(:user, account: account, permissions: ['billing.read'])
+      unauthorized_user = create(:user, account: account, permissions: [ 'billing.read' ])
 
       channel = subscribe_to_channel(AiWorkflowOrchestrationChannel, unauthorized_user)
       expect(channel).to be_rejected

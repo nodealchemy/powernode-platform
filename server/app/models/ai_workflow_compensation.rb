@@ -9,12 +9,12 @@ class AiWorkflowCompensation < ApplicationRecord
   validates :compensation_id, presence: true, uniqueness: true
   validates :compensation_type, presence: true, inclusion: {
     in: %w[rollback undo compensate revert cancel],
-    message: '%{value} is not a valid compensation type'
+    message: "%{value} is not a valid compensation type"
   }
   validates :trigger_reason, presence: true
   validates :status, presence: true, inclusion: {
     in: %w[pending executing completed failed skipped],
-    message: '%{value} is not a valid status'
+    message: "%{value} is not a valid status"
   }
   validates :original_action, presence: true
   validates :compensation_action, presence: true
@@ -25,13 +25,13 @@ class AiWorkflowCompensation < ApplicationRecord
   scope :for_run, ->(run_id) { where(ai_workflow_run_id: run_id) }
   scope :by_type, ->(type) { where(compensation_type: type) }
   scope :by_status, ->(status) { where(status: status) }
-  scope :pending, -> { where(status: 'pending') }
-  scope :executing, -> { where(status: 'executing') }
-  scope :completed, -> { where(status: 'completed') }
-  scope :failed, -> { where(status: 'failed') }
+  scope :pending, -> { where(status: "pending") }
+  scope :executing, -> { where(status: "executing") }
+  scope :completed, -> { where(status: "completed") }
+  scope :failed, -> { where(status: "failed") }
   scope :chronological, -> { order(created_at: :asc) }
   scope :reverse_chronological, -> { order(created_at: :desc) }
-  scope :retryable, -> { where('retry_count < max_retries').where(status: 'failed') }
+  scope :retryable, -> { where("retry_count < max_retries").where(status: "failed") }
 
   # ==================== Callbacks ====================
   before_validation :generate_compensation_id, on: :create
@@ -69,20 +69,20 @@ class AiWorkflowCompensation < ApplicationRecord
   def execute!
     return false if completed? || executing?
 
-    update!(status: 'executing', executed_at: Time.current)
+    update!(status: "executing", executed_at: Time.current)
 
     begin
       # Execute compensation based on type
       result = case compensation_type
-      when 'rollback'
+      when "rollback"
         execute_rollback
-      when 'undo'
+      when "undo"
         execute_undo
-      when 'compensate'
+      when "compensate"
         execute_compensate
-      when 'revert'
+      when "revert"
         execute_revert
-      when 'cancel'
+      when "cancel"
         execute_cancel
       end
 
@@ -103,27 +103,27 @@ class AiWorkflowCompensation < ApplicationRecord
   # Mark compensation as completed
   def complete_compensation!(result)
     update!(
-      status: 'completed',
+      status: "completed",
       compensation_result: result,
       completed_at: Time.current
     )
 
-    broadcast_compensation_event('completed')
+    broadcast_compensation_event("completed")
   end
 
   # Mark compensation as failed
   def fail_compensation!(error_message)
     update!(
-      status: 'failed',
+      status: "failed",
       failed_at: Time.current,
       compensation_result: { error: error_message },
       metadata: metadata.merge(
-        'failure_count' => (metadata['failure_count'] || 0) + 1,
-        'last_error' => error_message
+        "failure_count" => (metadata["failure_count"] || 0) + 1,
+        "last_error" => error_message
       )
     )
 
-    broadcast_compensation_event('failed')
+    broadcast_compensation_event("failed")
   end
 
   # Retry failed compensation
@@ -131,7 +131,7 @@ class AiWorkflowCompensation < ApplicationRecord
     return false unless can_retry?
 
     update!(
-      status: 'pending',
+      status: "pending",
       retry_count: retry_count + 1,
       failed_at: nil
     )
@@ -146,30 +146,30 @@ class AiWorkflowCompensation < ApplicationRecord
 
   # Status checks
   def pending?
-    status == 'pending'
+    status == "pending"
   end
 
   def executing?
-    status == 'executing'
+    status == "executing"
   end
 
   def completed?
-    status == 'completed'
+    status == "completed"
   end
 
   def failed?
-    status == 'failed'
+    status == "failed"
   end
 
   def skipped?
-    status == 'skipped'
+    status == "skipped"
   end
 
   # Skip compensation (if deemed unnecessary)
   def skip!(reason:)
     update!(
-      status: 'skipped',
-      metadata: metadata.merge('skip_reason' => reason)
+      status: "skipped",
+      metadata: metadata.merge("skip_reason" => reason)
     )
   end
 
@@ -188,14 +188,14 @@ class AiWorkflowCompensation < ApplicationRecord
 
   # Execute rollback compensation
   def execute_rollback
-    action = compensation_action['rollback_action']
+    action = compensation_action["rollback_action"]
 
-    case action['type']
-    when 'api_call'
+    case action["type"]
+    when "api_call"
       execute_api_rollback(action)
-    when 'database'
+    when "database"
       execute_database_rollback(action)
-    when 'message'
+    when "message"
       execute_message_rollback(action)
     else
       { success: false, error: "Unknown rollback type: #{action['type']}" }
@@ -207,7 +207,7 @@ class AiWorkflowCompensation < ApplicationRecord
     # Reverse the original action
     {
       success: true,
-      action: 'undo_executed',
+      action: "undo_executed",
       original_action: original_action,
       timestamp: Time.current.iso8601
     }
@@ -216,11 +216,11 @@ class AiWorkflowCompensation < ApplicationRecord
   # Execute compensate action
   def execute_compensate
     # Execute compensating transaction
-    action = compensation_action['compensate_action']
+    action = compensation_action["compensate_action"]
 
     {
       success: true,
-      action: 'compensation_executed',
+      action: "compensation_executed",
       compensation: action,
       timestamp: Time.current.iso8601
     }
@@ -231,8 +231,8 @@ class AiWorkflowCompensation < ApplicationRecord
     # Revert to previous state
     {
       success: true,
-      action: 'reverted',
-      reverted_to: compensation_action['previous_state'],
+      action: "reverted",
+      reverted_to: compensation_action["previous_state"],
       timestamp: Time.current.iso8601
     }
   end
@@ -242,8 +242,8 @@ class AiWorkflowCompensation < ApplicationRecord
     # Cancel pending operations
     {
       success: true,
-      action: 'cancelled',
-      cancelled_operations: compensation_action['operations_to_cancel'],
+      action: "cancelled",
+      cancelled_operations: compensation_action["operations_to_cancel"],
       timestamp: Time.current.iso8601
     }
   end
@@ -254,9 +254,9 @@ class AiWorkflowCompensation < ApplicationRecord
     {
       success: true,
       api_response: {
-        url: action['url'],
-        method: action['method'],
-        status: 'rolled_back'
+        url: action["url"],
+        method: action["method"],
+        status: "rolled_back"
       }
     }
   end
@@ -267,9 +267,9 @@ class AiWorkflowCompensation < ApplicationRecord
     {
       success: true,
       database_action: {
-        query: action['rollback_query'],
+        query: action["rollback_query"],
         rows_affected: 0,
-        status: 'rolled_back'
+        status: "rolled_back"
       }
     }
   end
@@ -280,19 +280,19 @@ class AiWorkflowCompensation < ApplicationRecord
     {
       success: true,
       message_sent: {
-        to: action['recipient'],
-        type: 'rollback_notification',
-        status: 'sent'
+        to: action["recipient"],
+        type: "rollback_notification",
+        status: "sent"
       }
     }
   end
 
   # Broadcast compensation event
-  def broadcast_compensation_event(event_type = 'created')
+  def broadcast_compensation_event(event_type = "created")
     McpChannel.broadcast_to(
       "account_#{ai_workflow_run.account_id}",
       {
-        type: 'compensation_event',
+        type: "compensation_event",
         event: event_type,
         workflow_run_id: ai_workflow_run.run_id,
         compensation: compensation_summary

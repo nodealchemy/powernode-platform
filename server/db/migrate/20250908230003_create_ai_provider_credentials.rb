@@ -21,8 +21,8 @@ class CreateAiProviderCredentials < ActiveRecord::Migration[8.0]
 
       t.index :ai_provider_id
       t.index :account_id
-      t.index [:account_id, :ai_provider_id]
-      t.index [:account_id, :is_default]
+      t.index [ :account_id, :ai_provider_id ]
+      t.index [ :account_id, :is_default ]
       t.index :is_active
       t.index :expires_at
       t.index :last_used_at
@@ -32,7 +32,7 @@ class CreateAiProviderCredentials < ActiveRecord::Migration[8.0]
       t.foreign_key :accounts, on_delete: :cascade
     end
 
-    add_index :ai_provider_credentials, [:account_id, :ai_provider_id, :is_default],
+    add_index :ai_provider_credentials, [ :account_id, :ai_provider_id, :is_default ],
               unique: true, where: "is_default = true",
               name: 'index_ai_provider_credentials_unique_default'
   end

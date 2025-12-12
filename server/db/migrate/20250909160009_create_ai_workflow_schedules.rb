@@ -22,8 +22,8 @@ class CreateAiWorkflowSchedules < ActiveRecord::Migration[7.1]
       t.boolean :is_active, null: false, default: true
       t.timestamps
 
-      t.index [:ai_workflow_id, :status]
-      t.index [:next_execution_at, :is_active]
+      t.index [ :ai_workflow_id, :status ]
+      t.index [ :next_execution_at, :is_active ]
       t.index :cron_expression
       t.index :timezone
       t.index :last_execution_at

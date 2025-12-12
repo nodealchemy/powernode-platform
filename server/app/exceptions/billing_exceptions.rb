@@ -10,7 +10,7 @@ module BillingExceptions
 
     def initialize(message, code: nil, details: {}, recoverable: true, retry_after: nil)
       super(message)
-      @code = code || 'BILLING_ERROR'
+      @code = code || "BILLING_ERROR"
       @details = details
       @recoverable = recoverable
       @retry_after = retry_after
@@ -32,7 +32,7 @@ module BillingExceptions
     def initialize(message, provider: nil, payment_id: nil, details: {})
       super(
         message,
-        code: 'PAYMENT_ERROR',
+        code: "PAYMENT_ERROR",
         details: details.merge(provider: provider, payment_id: payment_id).compact,
         recoverable: true
       )
@@ -44,7 +44,7 @@ module BillingExceptions
     def initialize(message, payment_id: nil, refund_amount: nil, details: {})
       super(
         message,
-        code: 'REFUND_ERROR',
+        code: "REFUND_ERROR",
         details: details.merge(payment_id: payment_id, refund_amount: refund_amount).compact,
         recoverable: false
       )
@@ -56,7 +56,7 @@ module BillingExceptions
     def initialize(message, subscription_id: nil, action: nil, details: {})
       super(
         message,
-        code: 'SUBSCRIPTION_ERROR',
+        code: "SUBSCRIPTION_ERROR",
         details: details.merge(subscription_id: subscription_id, action: action).compact,
         recoverable: true
       )
@@ -68,7 +68,7 @@ module BillingExceptions
     def initialize(message, gateway: nil, operation: nil, details: {})
       super(
         message,
-        code: 'GATEWAY_ERROR',
+        code: "GATEWAY_ERROR",
         details: details.merge(gateway: gateway, operation: operation).compact,
         recoverable: true
       )
@@ -80,7 +80,7 @@ module BillingExceptions
     def initialize(message, field: nil, value: nil, details: {})
       super(
         message,
-        code: 'VALIDATION_ERROR',
+        code: "VALIDATION_ERROR",
         details: details.merge(field: field, value: value).compact,
         recoverable: false
       )
@@ -92,7 +92,7 @@ module BillingExceptions
     def initialize(message, invoice_id: nil, action: nil, details: {})
       super(
         message,
-        code: 'INVOICE_ERROR',
+        code: "INVOICE_ERROR",
         details: details.merge(invoice_id: invoice_id, action: action).compact,
         recoverable: true
       )
@@ -104,7 +104,7 @@ module BillingExceptions
     def initialize(message, provider: nil, retry_after: 60, details: {})
       super(
         message,
-        code: 'RATE_LIMIT_ERROR',
+        code: "RATE_LIMIT_ERROR",
         details: details.merge(provider: provider).compact,
         recoverable: true,
         retry_after: retry_after
@@ -117,7 +117,7 @@ module BillingExceptions
     def initialize(message, account_id: nil, action: nil, details: {})
       super(
         message,
-        code: 'ACCOUNT_BILLING_ERROR',
+        code: "ACCOUNT_BILLING_ERROR",
         details: details.merge(account_id: account_id, action: action).compact,
         recoverable: true
       )
@@ -129,7 +129,7 @@ module BillingExceptions
     def initialize(message, subscription_id: nil, attempt: nil, details: {})
       super(
         message,
-        code: 'DUNNING_ERROR',
+        code: "DUNNING_ERROR",
         details: details.merge(subscription_id: subscription_id, attempt: attempt).compact,
         recoverable: true
       )
@@ -141,7 +141,7 @@ module BillingExceptions
     def initialize(message, provider: nil, discrepancy_type: nil, details: {})
       super(
         message,
-        code: 'RECONCILIATION_ERROR',
+        code: "RECONCILIATION_ERROR",
         details: details.merge(provider: provider, discrepancy_type: discrepancy_type).compact,
         recoverable: false
       )
@@ -153,7 +153,7 @@ module BillingExceptions
     def initialize(message, provider: nil, event_type: nil, details: {})
       super(
         message,
-        code: 'WEBHOOK_ERROR',
+        code: "WEBHOOK_ERROR",
         details: details.merge(provider: provider, event_type: event_type).compact,
         recoverable: true
       )
@@ -165,7 +165,7 @@ module BillingExceptions
     def initialize(message, idempotency_key: nil, details: {})
       super(
         message,
-        code: 'IDEMPOTENCY_ERROR',
+        code: "IDEMPOTENCY_ERROR",
         details: details.merge(idempotency_key: idempotency_key).compact,
         recoverable: false
       )
@@ -177,7 +177,7 @@ module BillingExceptions
     def initialize(message, provider: nil, missing_config: nil, details: {})
       super(
         message,
-        code: 'CONFIGURATION_ERROR',
+        code: "CONFIGURATION_ERROR",
         details: details.merge(provider: provider, missing_config: missing_config).compact,
         recoverable: false
       )

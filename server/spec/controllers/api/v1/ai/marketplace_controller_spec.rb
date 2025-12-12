@@ -9,8 +9,8 @@ RSpec.describe Api::V1::Ai::MarketplaceController, type: :controller do
   let(:worker) { create(:worker, account: account) }
 
   # Permission-based users
-  let(:workflow_read_user) { create(:user, account: account, permissions: ['ai.workflows.read']) }
-  let(:workflow_manage_user) { create(:user, account: account, permissions: ['ai.workflows.read', 'ai.workflows.create', 'ai.workflows.update', 'ai.workflows.delete', 'ai.workflows.manage']) }
+  let(:workflow_read_user) { create(:user, account: account, permissions: [ 'ai.workflows.read' ]) }
+  let(:workflow_manage_user) { create(:user, account: account, permissions: [ 'ai.workflows.read', 'ai.workflows.create', 'ai.workflows.update', 'ai.workflows.delete', 'ai.workflows.manage' ]) }
 
   # Test data
   let(:workflow) { create(:ai_workflow, account: account, name: 'Source Workflow') }
@@ -55,11 +55,11 @@ RSpec.describe Api::V1::Ai::MarketplaceController, type: :controller do
 
       json = JSON.parse(response.body)
       categories = json['data']['items'].map { |t| t['category'] }.uniq
-      expect(categories).to eq(['automation'])
+      expect(categories).to eq([ 'automation' ])
     end
 
     it 'filters by tags' do
-      tagged_template = create(:ai_workflow_template, is_public: true, tags: ['test', 'automation'])
+      tagged_template = create(:ai_workflow_template, is_public: true, tags: [ 'test', 'automation' ])
 
       get :index, params: { tags: 'test' }
 
@@ -158,7 +158,7 @@ RSpec.describe Api::V1::Ai::MarketplaceController, type: :controller do
           is_public: false,
           version: '1.0.0',
           difficulty_level: 'intermediate',
-          tags: ['test', 'automation'],
+          tags: [ 'test', 'automation' ],
           template_data: { nodes: [], edges: [] },
           configuration_schema: { type: 'object' }
         }
@@ -228,7 +228,7 @@ RSpec.describe Api::V1::Ai::MarketplaceController, type: :controller do
     end
 
     it 'prevents unauthorized users from updating' do
-      other_user = create(:user, account: account, permissions: ['ai.workflows.update'])
+      other_user = create(:user, account: account, permissions: [ 'ai.workflows.update' ])
       other_template = create(:ai_workflow_template, created_by_user: other_user)
 
       sign_in other_user
@@ -514,7 +514,7 @@ RSpec.describe Api::V1::Ai::MarketplaceController, type: :controller do
     context 'with read permission' do
       before do
         sign_in workflow_read_user
-        allow_any_instance_of(Mcp::WorkflowMarketplaceService).to receive(:get_recommendations_for_account).and_return([recommended_template])
+        allow_any_instance_of(Mcp::WorkflowMarketplaceService).to receive(:get_recommendations_for_account).and_return([ recommended_template ])
       end
 
       it 'returns personalized recommendations' do
@@ -551,11 +551,11 @@ RSpec.describe Api::V1::Ai::MarketplaceController, type: :controller do
 
     it 'compares multiple templates' do
       allow_any_instance_of(Mcp::WorkflowMarketplaceService).to receive(:compare_templates).and_return({
-        templates: [template1.id, template2.id],
+        templates: [ template1.id, template2.id ],
         comparison: {}
       })
 
-      post :compare, params: { template_ids: [template1.id, template2.id] }
+      post :compare, params: { template_ids: [ template1.id, template2.id ] }
 
       expect(response).to have_http_status(:success)
       json = JSON.parse(response.body)
@@ -563,7 +563,7 @@ RSpec.describe Api::V1::Ai::MarketplaceController, type: :controller do
     end
 
     it 'requires 2-5 templates' do
-      post :compare, params: { template_ids: [template1.id] }
+      post :compare, params: { template_ids: [ template1.id ] }
 
       expect(response).to have_http_status(:bad_request)
       json = JSON.parse(response.body)
@@ -573,7 +573,7 @@ RSpec.describe Api::V1::Ai::MarketplaceController, type: :controller do
     it 'requires manage permission' do
       sign_in workflow_read_user
 
-      post :compare, params: { template_ids: [template1.id, template2.id] }
+      post :compare, params: { template_ids: [ template1.id, template2.id ] }
 
       expect(response).to have_http_status(:forbidden)
     end
@@ -641,7 +641,7 @@ RSpec.describe Api::V1::Ai::MarketplaceController, type: :controller do
   end
 
   describe 'GET #tags' do
-    let!(:tagged_template) { create(:ai_workflow_template, is_public: true, tags: ['automation', 'test']) }
+    let!(:tagged_template) { create(:ai_workflow_template, is_public: true, tags: [ 'automation', 'test' ]) }
 
     it 'returns all tags' do
       get :tags

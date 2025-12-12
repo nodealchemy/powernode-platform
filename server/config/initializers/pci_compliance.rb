@@ -2,7 +2,7 @@
 Rails.application.configure do
   # Add PCI security headers middleware (disabled for testing - would be enabled in production)
   # config.middleware.use 'PciSecurityHeaders'
-  
+
   # Force SSL in production for PCI DSS requirement
   if Rails.env.production?
     config.force_ssl = true
@@ -14,19 +14,19 @@ Rails.application.configure do
       },
       secure_cookies: true,
       redirect: {
-        exclude: ->(request) { request.path.start_with?('/health') }
+        exclude: ->(request) { request.path.start_with?("/health") }
       }
     }
   end
-  
+
   # Session security for PCI compliance
   config.session_store :cookie_store,
-    key: '_powernode_session',
+    key: "_powernode_session",
     secure: Rails.env.production?,
     httponly: true,
     same_site: :strict,
     expire_after: 30.minutes
-  
+
   # Configure sensitive parameter filtering for PCI DSS
   config.filter_parameters += [
     :password, :password_confirmation,
@@ -43,36 +43,36 @@ Rails.application.configure do
     /\Aexp.*date\z/i, /\Aexpir/i,
     /\Asecurity.*code\z/i, /\Averification/i
   ]
-  
+
   # PCI-compliant logging configuration
   config.log_level = Rails.env.production? ? :info : :debug
-  
+
   # Custom log formatter that sanitizes sensitive data
   config.log_formatter = proc do |severity, timestamp, progname, msg|
     sanitized_msg = if msg.is_a?(String)
                       SensitiveDataSanitizer.sanitize_string(msg)
-                    else
+    else
                       msg
-                    end
-    
+    end
+
     "[#{timestamp}] #{severity} -- #{progname}: #{sanitized_msg}\n"
   end
-  
+
   # Configure ActionController parameter filtering (Rails 8 compatible)
   # Note: parameter_filter_policy is not available in Rails 8, using filter_parameters instead
-  
+
   # Additional security configurations
   config.assume_ssl = true if Rails.env.production?
-  
+
   # Rate limiting configuration (if using rack-attack)
   if defined?(Rack::Attack)
     # Throttle payment endpoints more aggressively
-    Rack::Attack.throttle('payment_api', limit: 10, period: 1.minute) do |req|
-      req.ip if req.path.start_with?('/api/v1/payment', '/api/v1/billing')
+    Rack::Attack.throttle("payment_api", limit: 10, period: 1.minute) do |req|
+      req.ip if req.path.start_with?("/api/v1/payment", "/api/v1/billing")
     end
-    
+
     # Block requests from known malicious IPs
-    Rack::Attack.blocklist('block_malicious_ips') do |req|
+    Rack::Attack.blocklist("block_malicious_ips") do |req|
       # This would be populated with actual malicious IP data
       false
     end
@@ -81,17 +81,17 @@ end
 
 # PCI DSS Requirement: Regularly test security systems
 # This initializer also sets up security monitoring hooks
-ActiveSupport::Notifications.subscribe('process_action.action_controller') do |*args|
+ActiveSupport::Notifications.subscribe("process_action.action_controller") do |*args|
   event = ActiveSupport::Notifications::Event.new(*args)
-  
+
   # Log security-relevant events
-  if event.payload[:controller]&.include?('Payment') || 
-     event.payload[:controller]&.include?('Billing') ||
-     event.payload[:action]&.include?('webhook')
-    
+  if event.payload[:controller]&.include?("Payment") ||
+     event.payload[:controller]&.include?("Billing") ||
+     event.payload[:action]&.include?("webhook")
+
     # Sanitize and log security events
     sanitized_params = SensitiveDataSanitizer.sanitize_hash(event.payload[:params] || {})
-    
+
     Rails.logger.info "SECURITY_EVENT: #{event.payload[:controller]}##{event.payload[:action]} " \
                       "IP: #{event.payload[:remote_ip]} " \
                       "Duration: #{event.duration.round(2)}ms " \
@@ -100,7 +100,7 @@ ActiveSupport::Notifications.subscribe('process_action.action_controller') do |*
 end
 
 # Monitor for potential security violations
-ActiveSupport::Notifications.subscribe('security.data_access') do |name, start, finish, id, payload|
+ActiveSupport::Notifications.subscribe("security.data_access") do |name, start, finish, id, payload|
   # Log all payment data access for audit trails (PCI DSS requirement)
   Rails.logger.info "DATA_ACCESS: #{payload[:resource_type]} " \
                     "User: #{payload[:user_id]} " \

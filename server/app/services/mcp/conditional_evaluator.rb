@@ -17,12 +17,12 @@ module Mcp
   class ConditionalEvaluator
     # Supported comparison operators
     OPERATORS = {
-      '>' => ->(a, b) { a > b },
-      '<' => ->(a, b) { a < b },
-      '>=' => ->(a, b) { a >= b },
-      '<=' => ->(a, b) { a <= b },
-      '==' => ->(a, b) { a == b },
-      '!=' => ->(a, b) { a != b }
+      ">" => ->(a, b) { a > b },
+      "<" => ->(a, b) { a < b },
+      ">=" => ->(a, b) { a >= b },
+      "<=" => ->(a, b) { a <= b },
+      "==" => ->(a, b) { a == b },
+      "!=" => ->(a, b) { a != b }
     }.freeze
 
     # Operator precedence for parsing (longest first to avoid partial matches)
@@ -47,7 +47,7 @@ module Mcp
     # @raise [ArgumentError] if expression is missing or invalid
     def evaluate
       expression = extract_expression
-      raise ArgumentError, 'Expression cannot be blank' if expression.blank?
+      raise ArgumentError, "Expression cannot be blank" if expression.blank?
 
       # Parse expression into components
       left_operand, operator, right_operand = parse_expression(expression)
@@ -67,7 +67,7 @@ module Mcp
     # @return [String] The expression string
     def extract_expression
       # Handle both string and symbol keys
-      @condition['expression'] || @condition[:expression] || ''
+      @condition["expression"] || @condition[:expression] || ""
     end
 
     # Parse expression into left operand, operator, and right operand
@@ -91,7 +91,7 @@ module Mcp
         raise ArgumentError, "Unsupported operator: '#{operator}'. Supported: #{OPERATORS.keys.join(', ')}"
       end
 
-      [left_operand, operator, right_operand]
+      [ left_operand, operator, right_operand ]
     end
 
     # Resolve a variable name to its value from context or node_result
@@ -131,7 +131,7 @@ module Mcp
     # @param str [String] Numeric string
     # @return [Numeric]
     def parse_numeric(str)
-      str.include?('.') ? str.to_f : str.to_i
+      str.include?(".") ? str.to_f : str.to_i
     end
 
     # Check if string is boolean literal
@@ -147,7 +147,7 @@ module Mcp
     # @param str [String] Boolean string
     # @return [Boolean]
     def parse_boolean(str)
-      str.downcase == 'true'
+      str.downcase == "true"
     end
 
     # Check if string is a quoted string literal
@@ -175,7 +175,7 @@ module Mcp
     def resolve_variable(variable_name)
       # Try node_result first (output_data hash)
       if @node_result.is_a?(Hash)
-        output_data = @node_result['output_data'] || @node_result[:output_data] || {}
+        output_data = @node_result["output_data"] || @node_result[:output_data] || {}
 
         # Check with string key
         if output_data.key?(variable_name)
@@ -200,7 +200,7 @@ module Mcp
       # Try context (input_variables or variables)
       if @context.is_a?(Hash)
         # Try input_variables key (used in some contexts)
-        input_vars = @context['input_variables'] || @context[:input_variables]
+        input_vars = @context["input_variables"] || @context[:input_variables]
         if input_vars.is_a?(Hash)
           if input_vars.key?(variable_name)
             return input_vars[variable_name]
@@ -212,7 +212,7 @@ module Mcp
         end
 
         # Try variables key (used in execution context)
-        vars = @context['variables'] || @context[:variables]
+        vars = @context["variables"] || @context[:variables]
         if vars.is_a?(Hash)
           if vars.key?(variable_name)
             return vars[variable_name]

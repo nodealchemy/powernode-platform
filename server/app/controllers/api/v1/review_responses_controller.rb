@@ -2,16 +2,16 @@
 
 class Api::V1::ReviewResponsesController < ApplicationController
   before_action :authenticate_user!
-  before_action :set_app_review, only: [:index, :create]
-  before_action :set_review_response, only: [:show, :update, :destroy, :approve, :reject]
-  before_action :check_permissions, only: [:update, :destroy, :approve, :reject]
+  before_action :set_app_review, only: [ :index, :create ]
+  before_action :set_review_response, only: [ :show, :update, :destroy, :approve, :reject ]
+  before_action :check_permissions, only: [ :update, :destroy, :approve, :reject ]
 
   # GET /api/v1/app_reviews/:app_review_id/responses
   def index
     @responses = @app_review.review_responses.includes(:account, :approved_by)
 
     # Filter by status for non-moderators
-    unless current_user.has_permission?('reviews.moderate')
+    unless current_user.has_permission?("reviews.moderate")
       @responses = @responses.approved
     else
       @responses = @responses.where(status: params[:status]) if params[:status].present?
@@ -19,7 +19,7 @@ class Api::V1::ReviewResponsesController < ApplicationController
 
     # Apply sorting
     case params[:sort_by]
-    when 'oldest'
+    when "oldest"
       @responses = @responses.order(created_at: :asc)
     else # 'newest' or default
       @responses = @responses.order(created_at: :desc)
@@ -52,19 +52,19 @@ class Api::V1::ReviewResponsesController < ApplicationController
 
     # Auto-approve for certain users or set to pending
     if can_auto_approve?
-      @review_response.status = 'approved'
+      @review_response.status = "approved"
       @review_response.approved_at = Time.current
       @review_response.approved_by = current_user.account
     else
-      @review_response.status = 'pending'
+      @review_response.status = "pending"
     end
 
     if @review_response.save
       render_success(
         data: { response: serialize_response(@review_response, include_extended: true) },
-        message: @review_response.approved? ? 
-          'Response posted successfully' : 
-          'Response submitted for approval'
+        message: @review_response.approved? ?
+          "Response posted successfully" :
+          "Response submitted for approval"
       )
     else
       render_validation_error(@review_response)
@@ -76,12 +76,12 @@ class Api::V1::ReviewResponsesController < ApplicationController
     if @review_response.update(response_params)
       # Reset to pending if content was changed and not auto-approved
       if @review_response.saved_change_to_content? && !can_auto_approve?
-        @review_response.update!(status: 'pending', approved_at: nil, approved_by: nil)
+        @review_response.update!(status: "pending", approved_at: nil, approved_by: nil)
       end
 
       render_success(
         data: { response: serialize_response(@review_response, include_extended: true) },
-        message: 'Response updated successfully'
+        message: "Response updated successfully"
       )
     else
       render_validation_error(@review_response)
@@ -91,35 +91,35 @@ class Api::V1::ReviewResponsesController < ApplicationController
   # DELETE /api/v1/review_responses/:id
   def destroy
     @review_response.destroy
-    render_success(message: 'Response deleted successfully')
+    render_success(message: "Response deleted successfully")
   end
 
   # POST /api/v1/review_responses/:id/approve
   def approve
-    unless current_user.has_permission?('reviews.moderate')
-      return render_error('Insufficient permissions', status: :forbidden)
+    unless current_user.has_permission?("reviews.moderate")
+      return render_error("Insufficient permissions", status: :forbidden)
     end
 
     if @review_response.approved?
-      return render_error('Response is already approved', status: :unprocessable_content)
+      return render_error("Response is already approved", status: :unprocessable_content)
     end
 
     @review_response.approve!(current_user.account)
 
     render_success(
       data: { response: serialize_response(@review_response) },
-      message: 'Response approved successfully'
+      message: "Response approved successfully"
     )
   end
 
   # POST /api/v1/review_responses/:id/reject
   def reject
-    unless current_user.has_permission?('reviews.moderate')
-      return render_error('Insufficient permissions', status: :forbidden)
+    unless current_user.has_permission?("reviews.moderate")
+      return render_error("Insufficient permissions", status: :forbidden)
     end
 
     if @review_response.rejected?
-      return render_error('Response is already rejected', status: :unprocessable_content)
+      return render_error("Response is already rejected", status: :unprocessable_content)
     end
 
     reason = params[:reason]
@@ -127,7 +127,7 @@ class Api::V1::ReviewResponsesController < ApplicationController
 
     render_success(
       data: { response: serialize_response(@review_response) },
-      message: 'Response rejected'
+      message: "Response rejected"
     )
   end
 
@@ -143,9 +143,9 @@ class Api::V1::ReviewResponsesController < ApplicationController
 
   def check_permissions
     # Users can only modify their own responses unless they're moderators
-    unless @review_response.account == current_user.account || 
-           current_user.has_permission?('reviews.moderate')
-      render_error('Insufficient permissions', status: :forbidden)
+    unless @review_response.account == current_user.account ||
+           current_user.has_permission?("reviews.moderate")
+      render_error("Insufficient permissions", status: :forbidden)
     end
   end
 
@@ -156,8 +156,8 @@ class Api::V1::ReviewResponsesController < ApplicationController
   def can_auto_approve?
     # Auto-approve if user is the app owner or has moderation permissions
     app = @app_review.app
-    current_user.account == app.account || 
-    current_user.has_permission?('reviews.moderate')
+    current_user.account == app.account ||
+    current_user.has_permission?("reviews.moderate")
   end
 
   def serialize_responses(responses)

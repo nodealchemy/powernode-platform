@@ -2,18 +2,18 @@
 
 class Api::V1::ApiKeysController < ApplicationController
   before_action :require_admin_access
-  before_action :find_api_key, only: [:show, :update, :destroy, :regenerate, :toggle_status]
+  before_action :find_api_key, only: [ :show, :update, :destroy, :regenerate, :toggle_status ]
 
   # GET /api/v1/api_keys
   def index
     page = (params[:page] || 1).to_i
-    per_page = [(params[:per_page] || 20).to_i, 100].min # Max 100 per page
+    per_page = [ (params[:per_page] || 20).to_i, 100 ].min # Max 100 per page
     offset = (page - 1) * per_page
-    
+
     api_keys_query = ApiKey.includes(:created_by, :account).order(:created_at)
     total_count = api_keys_query.count
     api_keys = api_keys_query.limit(per_page).offset(offset)
-    
+
     total_pages = (total_count.to_f / per_page).ceil
 
     render_success(
@@ -41,20 +41,20 @@ class Api::V1::ApiKeysController < ApplicationController
   def create
     # Check usage limit before creating API key
     unless UsageLimitService.can_create_api_key?(current_account)
-      render_error('API key limit reached for your current plan')
+      render_error("API key limit reached for your current plan")
       return
     end
 
     api_key = ApiKey.new(api_key_params)
     api_key.created_by = current_user
-    api_key.account = current_user.account unless current_user.has_permission?('admin.access')
+    api_key.account = current_user.account unless current_user.has_permission?("admin.access")
 
     if api_key.save
       # Log API key creation
-      log_api_key_action('api_key_created', api_key)
+      log_api_key_action("api_key_created", api_key)
 
       render_success(
-        message: 'API key created successfully',
+        message: "API key created successfully",
         data: detailed_api_key_data(api_key).merge({
           key_value: api_key.key_value # Only show full key on creation
         }),
@@ -68,10 +68,10 @@ class Api::V1::ApiKeysController < ApplicationController
   # PUT /api/v1/api_keys/:id
   def update
     if @api_key.update(api_key_update_params)
-      log_api_key_action('api_key_updated', @api_key)
+      log_api_key_action("api_key_updated", @api_key)
 
       render_success(
-        message: 'API key updated successfully',
+        message: "API key updated successfully",
         data: detailed_api_key_data(@api_key)
       )
     else
@@ -82,12 +82,12 @@ class Api::V1::ApiKeysController < ApplicationController
   # DELETE /api/v1/api_keys/:id
   def destroy
     api_key_data = api_key_summary(@api_key)
-    
+
     if @api_key.destroy
-      log_api_key_action('api_key_deleted', @api_key, api_key_data)
+      log_api_key_action("api_key_deleted", @api_key, api_key_data)
 
       render_success(
-        message: 'API key deleted successfully'
+        message: "API key deleted successfully"
       )
     else
       render_validation_error(@api_key)
@@ -97,14 +97,14 @@ class Api::V1::ApiKeysController < ApplicationController
   # POST /api/v1/api_keys/:id/regenerate
   def regenerate
     old_key_preview = @api_key.masked_key
-    
+
     if @api_key.regenerate_key!
-      log_api_key_action('api_key_regenerated', @api_key, {
+      log_api_key_action("api_key_regenerated", @api_key, {
         old_key_preview: old_key_preview
       })
 
       render_success(
-        message: 'API key regenerated successfully',
+        message: "API key regenerated successfully",
         data: detailed_api_key_data(@api_key).merge({
           key_value: @api_key.key_value # Only show full key on regeneration
         })
@@ -116,10 +116,10 @@ class Api::V1::ApiKeysController < ApplicationController
 
   # POST /api/v1/api_keys/:id/toggle_status
   def toggle_status
-    new_status = @api_key.active? ? 'revoked' : 'active'
-    
+    new_status = @api_key.active? ? "revoked" : "active"
+
     if @api_key.update(status: new_status)
-      log_api_key_action('api_key_status_changed', @api_key, {
+      log_api_key_action("api_key_status_changed", @api_key, {
         old_status: @api_key.status_was,
         new_status: new_status
       })
@@ -136,13 +136,13 @@ class Api::V1::ApiKeysController < ApplicationController
   # GET /api/v1/api_keys/usage
   def usage_stats
     api_key_id = params[:api_key_id]
-    
+
     usage_query = ApiKeyUsage.includes(:api_key)
     usage_query = usage_query.where(api_key_id: api_key_id) if api_key_id.present?
-    
+
     date_range = parse_date_range
     usage_query = usage_query.where(created_at: date_range) if date_range
-    
+
     usage_stats = usage_query.group(:api_key_id)
                             .group_by_day(:created_at)
                             .sum(:request_count)
@@ -175,7 +175,7 @@ class Api::V1::ApiKeysController < ApplicationController
   # POST /api/v1/api_keys/validate
   def validate_key
     key_value = params[:key]
-    return render_error('API key required', status: :bad_request) unless key_value.present?
+    return render_error("API key required", status: :bad_request) unless key_value.present?
 
     api_key = ApiKey.find_by(key_hash: ApiKey.hash_key(key_value))
 
@@ -194,7 +194,7 @@ class Api::V1::ApiKeysController < ApplicationController
       render_success(
         data: {
           valid: false,
-          reason: api_key ? api_key.invalid_reason : 'API key not found'
+          reason: api_key ? api_key.invalid_reason : "API key not found"
         }
       )
     end
@@ -203,23 +203,23 @@ class Api::V1::ApiKeysController < ApplicationController
   private
 
   def require_admin_access
-    unless current_user.has_permission?('account.manage') || current_user.has_permission?('admin.access')
+    unless current_user.has_permission?("account.manage") || current_user.has_permission?("admin.access")
       render_error("Access denied: Admin privileges required", status: :forbidden)
     end
   end
 
   def find_api_key
     @api_key = ApiKey.find(params[:id])
-    
+
     # Non-admin users can only manage their account's API keys
-    unless current_user.has_permission?('admin.access') || @api_key.account == current_user.account
-      render_error('Access denied: You can only manage your account\'s API keys', status: :forbidden)
+    unless current_user.has_permission?("admin.access") || @api_key.account == current_user.account
+      render_error("Access denied: You can only manage your account's API keys", status: :forbidden)
       return false
     end
 
     true
   rescue ActiveRecord::RecordNotFound
-    render_error('API key not found', status: :not_found)
+    render_error("API key not found", status: :not_found)
     false
   end
 
@@ -293,19 +293,19 @@ class Api::V1::ApiKeysController < ApplicationController
       expired_keys: ApiKey.expired.count,
       requests_today: ApiKeyUsage.where(created_at: Date.current.beginning_of_day..Date.current.end_of_day).sum(:request_count),
       most_used_keys: ApiKey.joins(:api_key_usages)
-                           .group('api_keys.name')
-                           .order('SUM(api_key_usages.request_count) DESC')
+                           .group("api_keys.name")
+                           .order("SUM(api_key_usages.request_count) DESC")
                            .limit(5)
-                           .sum('api_key_usages.request_count')
+                           .sum("api_key_usages.request_count")
     }
   end
 
   def parse_date_range
     return nil unless params[:date_from] || params[:date_to]
-    
+
     start_date = params[:date_from]&.to_date&.beginning_of_day || 30.days.ago.beginning_of_day
     end_date = params[:date_to]&.to_date&.end_of_day || Time.current
-    
+
     start_date..end_date
   end
 
@@ -314,9 +314,9 @@ class Api::V1::ApiKeysController < ApplicationController
       user: current_user,
       account: current_user.account,
       action: action,
-      resource_type: 'ApiKey',
+      resource_type: "ApiKey",
       resource_id: api_key.id,
-      source: 'admin_panel',
+      source: "admin_panel",
       ip_address: request.remote_ip,
       user_agent: request.user_agent,
       metadata: metadata.merge({

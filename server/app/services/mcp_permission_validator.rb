@@ -46,7 +46,7 @@ class McpPermissionValidator
     # Check permission level
     unless permission_level_authorized?
       errors << {
-        type: 'permission_level',
+        type: "permission_level",
         message: "Tool requires '#{tool.permission_level}' level access",
         required: tool.permission_level,
         actual: user_permission_level
@@ -57,7 +57,7 @@ class McpPermissionValidator
     missing_permissions = missing_required_permissions
     if missing_permissions.any?
       errors << {
-        type: 'required_permissions',
+        type: "required_permissions",
         message: "Missing required permissions: #{missing_permissions.join(', ')}",
         missing: missing_permissions,
         required: tool.required_permissions
@@ -68,7 +68,7 @@ class McpPermissionValidator
     unless all_scopes_permitted?
       unauthorized_scopes = find_unauthorized_scopes
       errors << {
-        type: 'scope_permissions',
+        type: "scope_permissions",
         message: "Unauthorized scopes: #{unauthorized_scopes.join(', ')}",
         unauthorized: unauthorized_scopes,
         allowed: tool.allowed_scopes
@@ -150,11 +150,11 @@ class McpPermissionValidator
 
   def permission_level_authorized?
     case tool.permission_level
-    when 'public'
+    when "public"
       true # Everyone can use public tools
-    when 'account'
+    when "account"
       user_has_account_access?
-    when 'admin'
+    when "admin"
       # Admin tools require both admin permission AND account access
       user_is_admin? && user_has_account_access?
     else
@@ -163,18 +163,18 @@ class McpPermissionValidator
   end
 
   def user_permission_level
-    return 'admin' if user_is_admin?
-    return 'account' if user_has_account_access?
+    return "admin" if user_is_admin?
+    return "account" if user_has_account_access?
 
-    'public'
+    "public"
   end
 
   def user_is_admin?
     return false unless user
 
     # Use permission_names instead of permissions to get string-based comparison
-    user.permission_names&.include?('system.admin') ||
-      user.permission_names&.include?('admin.access')
+    user.permission_names&.include?("system.admin") ||
+      user.permission_names&.include?("admin.access")
   end
 
   def user_has_account_access?

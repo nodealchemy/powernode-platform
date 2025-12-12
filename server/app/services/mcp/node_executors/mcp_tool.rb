@@ -7,7 +7,7 @@ module Mcp
       protected
 
       def perform_execution
-        tool_name = configuration['mcp_tool_name'] || configuration['tool_name']
+        tool_name = configuration["mcp_tool_name"] || configuration["tool_name"]
         log_info "Executing MCP Tool: #{tool_name}"
 
         # Validate server and tool exist
@@ -29,7 +29,7 @@ module Mcp
         if tool.input_schema.present?
           validation = tool.validate_parameters(parameters)
           unless validation[:valid]
-            errors = validation[:errors]&.join(', ') || 'Invalid parameters'
+            errors = validation[:errors]&.join(", ") || "Invalid parameters"
             raise Mcp::AiWorkflowOrchestrator::NodeExecutionError,
                   "Invalid parameters for tool '#{tool.name}': #{errors}"
           end
@@ -57,7 +57,7 @@ module Mcp
           transform_mcp_result(result, {
             mcp_tool_id: tool.id,
             mcp_tool_name: tool.name,
-            execution_mode: 'sync'
+            execution_mode: "sync"
           })
         else
           raise Mcp::AiWorkflowOrchestrator::NodeExecutionError,
@@ -71,7 +71,7 @@ module Mcp
 
         # Wait for execution to complete
         execution_id = pending_result[:execution_id]
-        timeout = configuration['timeout_seconds'] || 300
+        timeout = configuration["timeout_seconds"] || 300
 
         log_info "Waiting for async execution #{execution_id} (timeout: #{timeout}s)"
 
@@ -84,7 +84,7 @@ module Mcp
             mcp_tool_id: tool.id,
             mcp_tool_name: tool.name,
             execution_id: execution_id,
-            execution_mode: 'async'
+            execution_mode: "async"
           })
         else
           raise Mcp::AiWorkflowOrchestrator::NodeExecutionError,

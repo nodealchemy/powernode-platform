@@ -27,8 +27,8 @@ class CreateAiWorkflowTemplates < ActiveRecord::Migration[7.1]
       t.timestamps
 
       t.index :slug, unique: true
-      t.index [:category, :is_public]
-      t.index [:is_featured, :is_public]
+      t.index [ :category, :is_public ]
+      t.index [ :is_featured, :is_public ]
       t.index :difficulty_level
       t.index :usage_count
       t.index :rating

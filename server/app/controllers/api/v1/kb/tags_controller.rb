@@ -1,24 +1,24 @@
 # frozen_string_literal: true
 
 class Api::V1::Kb::TagsController < ApplicationController
-  skip_before_action :authenticate_request, only: [:index, :articles]
-  
+  skip_before_action :authenticate_request, only: [ :index, :articles ]
+
   # GET /api/v1/kb/tags
   def index
     tags = KnowledgeBaseTag.popular.limit(50)
-    
+
     render_success(
       data: tags.map { |tag| serialize_tag(tag) },
-      message: 'Tags retrieved successfully'
+      message: "Tags retrieved successfully"
     )
   end
 
   # GET /api/v1/kb/tags/:id/articles
   def articles
-    tag = KnowledgeBaseTag.find_by(id: params[:id]) || 
+    tag = KnowledgeBaseTag.find_by(id: params[:id]) ||
           KnowledgeBaseTag.find_by(slug: params[:id])
-    
-    return render_error('Tag not found', status: :not_found) unless tag
+
+    return render_error("Tag not found", status: :not_found) unless tag
 
     articles = tag.articles.published.public_articles
       .includes(:author, :category, :tags)
@@ -31,7 +31,7 @@ class Api::V1::Kb::TagsController < ApplicationController
         articles: articles.map { |article| serialize_article_summary(article) },
         pagination: pagination_meta(articles)
       },
-      message: 'Tag articles retrieved successfully'
+      message: "Tag articles retrieved successfully"
     )
   end
 

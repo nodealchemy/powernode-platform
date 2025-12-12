@@ -17,7 +17,7 @@ module AiTestHelpers
       }
 
       @provider_credentials = {}
-      [@ollama_provider, @openai_provider, @anthropic_provider].each do |provider|
+      [ @ollama_provider, @openai_provider, @anthropic_provider ].each do |provider|
         slug = provider.slug.to_sym
         @provider_credentials[slug] = create(:ai_provider_credential,
           account: account,
@@ -128,7 +128,7 @@ module AiTestHelpers
 
     def create_conversation_with_messages(account, message_count = 5)
       conversation = create_test_conversation(account)
-      
+
       message_count.times do |i|
         create(:ai_message,
           ai_conversation: conversation,
@@ -143,7 +143,7 @@ module AiTestHelpers
 
     def send_test_message(conversation, content = 'Test message', user = nil)
       user ||= conversation.account.users.first
-      
+
       create(:ai_message,
         ai_conversation: conversation,
         account: conversation.account,
@@ -355,7 +355,7 @@ module AiTestHelpers
       result = yield
       end_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
       elapsed_time = end_time - start_time
-      
+
       { result: result, elapsed_time: elapsed_time }
     end
 
@@ -364,30 +364,30 @@ module AiTestHelpers
       yield
       end_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
       elapsed_time = end_time - start_time
-      
+
       expect(elapsed_time).to be < max_seconds
     end
 
     def create_load_test_data(count = 100)
       account = create(:account)
-      
+
       # Create providers
       providers = create_list(:ai_provider, 5)
-      
+
       # Create agents
       agents = providers.flat_map do |provider|
         create_list(:ai_agent, count / 5, account: account, ai_provider: provider)
       end
-      
+
       # Create conversations and executions
       conversations = agents.flat_map do |agent|
         create_list(:ai_conversation, 2, account: account, ai_agent: agent)
       end
-      
+
       executions = agents.flat_map do |agent|
         create_list(:ai_agent_execution, 5, ai_agent: agent, account: account)
       end
-      
+
       {
         account: account,
         providers: providers,
@@ -403,16 +403,16 @@ module AiTestHelpers
     def create_analytics_test_data(account, days_back = 30)
       provider = create(:ai_provider, slug: 'openai')
       agent = create(:ai_agent, account: account, ai_provider: provider)
-      
+
       # Create historical data
       (0..days_back).each do |days_ago|
         date = days_ago.days.ago.to_date
-        
+
         # Create executions for each day
         executions_count = rand(5..15)
         successful_count = (executions_count * 0.8).to_i
         failed_count = executions_count - successful_count
-        
+
         successful_count.times do
           create(:ai_agent_execution, :completed,
             ai_agent: agent,
@@ -424,16 +424,16 @@ module AiTestHelpers
               tokens_used: rand(100..500)
             })
         end
-        
+
         failed_count.times do
           create(:ai_agent_execution, :failed,
             ai_agent: agent,
             account: account,
             created_at: date,
-            metadata: { error_type: ['timeout', 'rate_limit', 'invalid_input'].sample })
+            metadata: { error_type: [ 'timeout', 'rate_limit', 'invalid_input' ].sample })
         end
       end
-      
+
       { provider: provider, agent: agent, total_days: days_back + 1 }
     end
 

@@ -19,13 +19,13 @@ class Webhooks::PaypalController < ApplicationController
 
     # Process webhook asynchronously via worker service
     webhook_data = {
-      provider: 'paypal',
+      provider: "paypal",
       event_type: @event_data["event_type"],
       payload: @event_data,
       webhook_event_id: webhook_event.id,
       account_id: webhook_event.account_id
     }
-    
+
     begin
       WorkerJobService.enqueue_webhook_processing(webhook_data)
     rescue WorkerJobService::WorkerServiceError => e
@@ -46,16 +46,16 @@ class Webhooks::PaypalController < ApplicationController
     @event_data = JSON.parse(payload)
 
     webhook_id = Rails.application.config.paypal[:webhook_id]
-    
+
     # Use proper PayPal webhook signature verification
     verifier = PaypalWebhookVerifier.new(
       webhook_id: webhook_id,
       event_body: payload,
       headers: extract_paypal_headers
     )
-    
+
     verification_result = verifier.verify_signature
-    
+
     unless verification_result[:success] && verification_result[:verified]
       Rails.logger.error "PayPal webhook signature verification failed: #{verification_result[:error]}"
       raise StandardError, "PayPal webhook signature verification failed"
@@ -64,20 +64,20 @@ class Webhooks::PaypalController < ApplicationController
     unless @event_data["id"] && @event_data["event_type"]
       raise StandardError, "Invalid PayPal webhook payload structure"
     end
-    
+
     Rails.logger.info "PayPal webhook signature verified for event: #{@event_data['event_type']}"
   rescue JSON::ParserError => e
     Rails.logger.error "PayPal webhook payload parsing failed: #{e.message}"
     raise e
   end
-  
+
   def extract_paypal_headers
     {
-      'PAYPAL-AUTH-ALGO' => request.headers['PAYPAL-AUTH-ALGO'],
-      'PAYPAL-CERT-ID' => request.headers['PAYPAL-CERT-ID'],
-      'PAYPAL-TRANSMISSION-ID' => request.headers['PAYPAL-TRANSMISSION-ID'],
-      'PAYPAL-TRANSMISSION-SIG' => request.headers['PAYPAL-TRANSMISSION-SIG'],
-      'PAYPAL-TRANSMISSION-TIME' => request.headers['PAYPAL-TRANSMISSION-TIME']
+      "PAYPAL-AUTH-ALGO" => request.headers["PAYPAL-AUTH-ALGO"],
+      "PAYPAL-CERT-ID" => request.headers["PAYPAL-CERT-ID"],
+      "PAYPAL-TRANSMISSION-ID" => request.headers["PAYPAL-TRANSMISSION-ID"],
+      "PAYPAL-TRANSMISSION-SIG" => request.headers["PAYPAL-TRANSMISSION-SIG"],
+      "PAYPAL-TRANSMISSION-TIME" => request.headers["PAYPAL-TRANSMISSION-TIME"]
     }
   end
 

@@ -29,36 +29,36 @@ class SubscriptionBroadcastService
 
   def broadcast_updated
     broadcast_to_account({
-      type: 'subscription_updated',
+      type: "subscription_updated",
       subscription: serialize_subscription,
-      message: 'Subscription has been updated',
+      message: "Subscription has been updated",
       timestamp: Time.current.iso8601
     })
   end
 
   def broadcast_created
     broadcast_to_account({
-      type: 'subscription_created',
+      type: "subscription_created",
       subscription: serialize_subscription,
-      message: 'New subscription created',
+      message: "New subscription created",
       timestamp: Time.current.iso8601
     })
   end
 
   def broadcast_cancelled
     broadcast_to_account({
-      type: 'subscription_cancelled',
+      type: "subscription_cancelled",
       subscription: serialize_subscription,
-      message: 'Subscription has been cancelled',
+      message: "Subscription has been cancelled",
       timestamp: Time.current.iso8601
     })
   end
 
   def broadcast_trial_ending
     days_left = (@subscription.trial_end - Time.current).to_i / 1.day
-    
+
     broadcast_to_account({
-      type: 'trial_ending',
+      type: "trial_ending",
       subscription: serialize_subscription,
       message: "Trial ending in #{days_left} day#{'s' if days_left != 1}",
       days_remaining: days_left,
@@ -68,7 +68,7 @@ class SubscriptionBroadcastService
 
   def broadcast_payment_processed(payment)
     broadcast_to_account({
-      type: 'payment_processed',
+      type: "payment_processed",
       subscription: serialize_subscription,
       payment: {
         id: payment.id,
@@ -77,7 +77,7 @@ class SubscriptionBroadcastService
         status: payment.status,
         processed_at: payment.processed_at&.iso8601
       },
-      message: 'Payment processed successfully',
+      message: "Payment processed successfully",
       timestamp: Time.current.iso8601
     })
   end

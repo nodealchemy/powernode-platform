@@ -3,7 +3,7 @@
 module Api
   module V1
     class PluginsController < ApplicationController
-      before_action :set_plugin, only: [:show, :update, :destroy, :install, :uninstall]
+      before_action :set_plugin, only: [ :show, :update, :destroy, :install, :uninstall ]
 
       # GET /api/v1/plugins
       def index
@@ -17,13 +17,13 @@ module Api
         render_success(
           plugins: plugins.as_json(
             include: {
-              source_marketplace: { only: [:id, :name] },
+              source_marketplace: { only: [ :id, :name ] },
               plugin_installations: {
-                only: [:id, :status, :installed_at],
-                methods: [:execution_count]
+                only: [ :id, :status, :installed_at ],
+                methods: [ :execution_count ]
               }
             },
-            methods: [:install_count, :average_rating]
+            methods: [ :install_count, :average_rating ]
           )
         )
       end
@@ -35,16 +35,16 @@ module Api
         render_success(
           plugin: @plugin.as_json(
             include: {
-              source_marketplace: { only: [:id, :name] },
+              source_marketplace: { only: [ :id, :name ] },
               ai_provider_plugin: {},
               workflow_node_plugins: {},
               plugin_reviews: {
-                include: { user: { only: [:id, :email, :full_name] } }
+                include: { user: { only: [ :id, :email, :full_name ] } }
               }
             }
           ),
-          installation: installation&.as_json(methods: [:execution_count, :total_cost]),
-          is_installed: installation&.status == 'active'
+          installation: installation&.as_json(methods: [ :execution_count, :total_cost ]),
+          is_installed: installation&.status == "active"
         )
       end
 
@@ -56,7 +56,7 @@ module Api
         if plugin.save
           render_success(
             plugin: plugin.as_json,
-            message: 'Plugin created successfully'
+            message: "Plugin created successfully"
           )
         else
           render_validation_error(plugin.errors)
@@ -68,7 +68,7 @@ module Api
         if @plugin.update(plugin_params)
           render_success(
             plugin: @plugin.as_json,
-            message: 'Plugin updated successfully'
+            message: "Plugin updated successfully"
           )
         else
           render_validation_error(@plugin.errors)
@@ -78,7 +78,7 @@ module Api
       # DELETE /api/v1/plugins/:id
       def destroy
         @plugin.destroy!
-        render_success(message: 'Plugin deleted successfully')
+        render_success(message: "Plugin deleted successfully")
       rescue StandardError => e
         render_error("Failed to delete plugin: #{e.message}", status: :unprocessable_content)
       end
@@ -106,7 +106,7 @@ module Api
         installation = @plugin.installation_for(current_account)
 
         if installation.nil?
-          return render_error('Plugin is not installed', status: :unprocessable_content)
+          return render_error("Plugin is not installed", status: :unprocessable_content)
         end
 
         service = PluginInstallationService.new
@@ -138,7 +138,7 @@ module Api
       def set_plugin
         @plugin = current_account.plugins.find(params[:id])
       rescue ActiveRecord::RecordNotFound
-        render_not_found('Plugin not found')
+        render_not_found("Plugin not found")
       end
 
       def plugin_params
@@ -158,8 +158,8 @@ module Api
       def apply_filters(plugins)
         plugins = plugins.by_type(params[:type]) if params[:type].present?
         plugins = plugins.where(status: params[:status]) if params[:status].present?
-        plugins = plugins.verified if params[:verified] == 'true'
-        plugins = plugins.official if params[:official] == 'true'
+        plugins = plugins.verified if params[:verified] == "true"
+        plugins = plugins.official if params[:official] == "true"
         plugins
       end
     end

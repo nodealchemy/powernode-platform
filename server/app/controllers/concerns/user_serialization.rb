@@ -17,13 +17,13 @@ module UserSerialization
       full_name: user.full_name,
       email: user.email,
       email_verified: user.email_verified?,
-      
+
       # Keep roles for display and backend processing
       roles: user.role_names,
-      
+
       # ADD: permissions array for frontend access control
       permissions: user_permissions(user),
-      
+
       status: user.status,
       locked: user.locked?,
       failed_login_attempts: user.failed_login_attempts,
@@ -31,7 +31,7 @@ module UserSerialization
       created_at: user.created_at,
       updated_at: user.updated_at,
       preferences: user.preferences || {},
-      
+
       account: user.account ? account_data(user.account) : nil
     }
   end
@@ -81,8 +81,8 @@ module UserSerialization
 
   # Check if current user has permission to view sensitive user data
   def can_view_sensitive_data?(target_user)
-    return true if current_user&.has_permission?('admin.users.view')
-    return true if current_user&.has_permission?('users.manage') && same_account?(target_user)
+    return true if current_user&.has_permission?("admin.users.view")
+    return true if current_user&.has_permission?("users.manage") && same_account?(target_user)
     return true if current_user == target_user
     false
   end

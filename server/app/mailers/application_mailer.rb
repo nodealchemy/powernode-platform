@@ -5,7 +5,7 @@
 class ApplicationMailer < ActionMailer::Base
   default from: "noreply@powernode.dev"
   layout "mailer"
-  
+
   # Prevent accidental usage - all emails should go through worker service
   def self.method_missing(method_name, *args, &block)
     Rails.logger.warn "Attempted to use backend mailer #{method_name}. Use WorkerJobService instead."

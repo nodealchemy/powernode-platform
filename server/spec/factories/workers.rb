@@ -4,7 +4,7 @@ FactoryBot.define do
     description { "A test worker" }
     status { 'active' }
     association :account
-    
+
     # Create worker with assigned roles after creation
     after(:create) do |worker|
       # Create a basic worker role if it doesn't exist
@@ -13,7 +13,7 @@ FactoryBot.define do
         role_type: 'user',
         description: 'Basic worker role for testing'
       )
-      
+
       # Assign the role to the worker
       worker.assign_role('worker')
     end
@@ -28,7 +28,7 @@ FactoryBot.define do
 
     trait :system_worker do
       account { nil }
-      
+
       after(:create) do |worker|
         # Create system worker role if it doesn't exist
         system_role = Role.find_or_create_by(
@@ -36,7 +36,7 @@ FactoryBot.define do
           role_type: 'system',
           description: 'System worker role for testing'
         )
-        
+
         # Assign the system role
         worker.assign_role('system_worker')
       end

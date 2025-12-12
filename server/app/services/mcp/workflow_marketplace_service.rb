@@ -66,12 +66,12 @@ module Mcp
 
       # Rating filter
       if criteria[:min_rating].present?
-        scope = scope.where('rating >= ?', criteria[:min_rating])
+        scope = scope.where("rating >= ?", criteria[:min_rating])
       end
 
       # Usage filter
       if criteria[:min_usage].present?
-        scope = scope.where('usage_count >= ?', criteria[:min_usage])
+        scope = scope.where("usage_count >= ?", criteria[:min_usage])
       end
 
       build_search_results(scope, criteria)
@@ -136,7 +136,7 @@ module Mcp
       if template.installed_by_account?(account)
         return {
           success: false,
-          errors: ['Template already installed for this account']
+          errors: [ "Template already installed for this account" ]
         }
       end
 
@@ -156,7 +156,7 @@ module Mcp
       else
         {
           success: false,
-          errors: ['Installation failed. Please try again.']
+          errors: [ "Installation failed. Please try again." ]
         }
       end
     end
@@ -169,7 +169,7 @@ module Mcp
       unless template.installed_by_account?(account)
         return {
           success: false,
-          error: 'You must install the template before rating it'
+          error: "You must install the template before rating it"
         }
       end
 
@@ -184,19 +184,19 @@ module Mcp
           success: true,
           new_rating: template.rating,
           rating_count: template.rating_count,
-          message: 'Thank you for your feedback!'
+          message: "Thank you for your feedback!"
         }
       else
         {
           success: false,
-          error: 'Invalid rating value (must be 1-5)'
+          error: "Invalid rating value (must be 1-5)"
         }
       end
     end
 
     # Template comparison
     def compare_templates(template_ids)
-      return { error: 'Provide 2-5 templates to compare' } unless template_ids.size.between?(2, 5)
+      return { error: "Provide 2-5 templates to compare" } unless template_ids.size.between?(2, 5)
 
       templates = AiWorkflowTemplate.where(id: template_ids)
 
@@ -234,7 +234,7 @@ module Mcp
       all_tags.map do |tag|
         templates_with_tag = AiWorkflowTemplate.public_templates
                                               .published
-                                              .with_tags([tag])
+                                              .with_tags([ tag ])
 
         {
           tag: tag,
@@ -341,15 +341,15 @@ module Mcp
         description: template_metadata[:description],
         long_description: template_metadata[:long_description],
         category: template_metadata[:category],
-        difficulty_level: template_metadata[:difficulty_level] || 'intermediate',
+        difficulty_level: template_metadata[:difficulty_level] || "intermediate",
         workflow_definition: build_template_definition(workflow),
         default_variables: extract_workflow_variables(workflow),
         tags: template_metadata[:tags] || [],
         author_name: user&.full_name || account.name,
         author_email: user&.email,
         author_url: template_metadata[:author_url],
-        license: template_metadata[:license] || 'MIT',
-        version: template_metadata[:version] || '1.0.0',
+        license: template_metadata[:license] || "MIT",
+        version: template_metadata[:version] || "1.0.0",
         is_public: template_metadata[:is_public] || false,
         metadata: {
           source_workflow_id: workflow.id,
@@ -420,7 +420,7 @@ module Mcp
     def recommend_based_on_installed_templates(limit:)
       installed_templates = account.ai_workflows
                                    .joins(:ai_workflow_template_installations)
-                                   .pluck('ai_workflow_template_installations.ai_workflow_template_id')
+                                   .pluck("ai_workflow_template_installations.ai_workflow_template_id")
 
       return [] if installed_templates.empty?
 
@@ -441,10 +441,10 @@ module Mcp
       # Analyze workflow execution patterns
       recent_runs = account.ai_workflows
                           .joins(:ai_workflow_runs)
-                          .where('ai_workflow_runs.created_at >= ?', 30.days.ago)
-                          .group('ai_workflows.id')
-                          .having('COUNT(ai_workflow_runs.id) > 5')
-                          .pluck('ai_workflows.id')
+                          .where("ai_workflow_runs.created_at >= ?", 30.days.ago)
+                          .group("ai_workflows.id")
+                          .having("COUNT(ai_workflow_runs.id) > 5")
+                          .pluck("ai_workflows.id")
 
       return [] if recent_runs.empty?
 
@@ -459,8 +459,8 @@ module Mcp
       # Find templates with increasing installation rates
       AiWorkflowTemplate.public_templates
                        .published
-                       .where('usage_count >= ?', 10)
-                       .order(Arel.sql('usage_count * rating DESC'))
+                       .where("usage_count >= ?", 10)
+                       .order(Arel.sql("usage_count * rating DESC"))
                        .limit(limit)
     end
 
@@ -471,19 +471,19 @@ module Mcp
       score += (template.rating / 5.0 * 40)
 
       # Usage contribution (30%)
-      normalized_usage = [template.usage_count.to_f / 100, 1.0].min
+      normalized_usage = [ template.usage_count.to_f / 100, 1.0 ].min
       score += (normalized_usage * 30)
 
       # Recency contribution (20%)
       days_since_publish = (Time.current - template.published_at).to_i / 1.day
-      recency_score = [1.0 - (days_since_publish / 365.0), 0.0].max
+      recency_score = [ 1.0 - (days_since_publish / 365.0), 0.0 ].max
       score += (recency_score * 20)
 
       # Category match (10%)
       installed_categories = account.ai_workflows
                                    .joins(:ai_workflow_template_installations)
                                    .joins(ai_workflow_template_installations: :ai_workflow_template)
-                                   .pluck('ai_workflow_templates.category')
+                                   .pluck("ai_workflow_templates.category")
                                    .uniq
 
       score += 10 if installed_categories.include?(template.category)
@@ -505,7 +505,7 @@ module Mcp
       installed_categories = account.ai_workflows
                                    .joins(:ai_workflow_template_installations)
                                    .joins(ai_workflow_template_installations: :ai_workflow_template)
-                                   .pluck('ai_workflow_templates.category')
+                                   .pluck("ai_workflow_templates.category")
                                    .uniq
 
       if installed_categories.include?(template.category)
@@ -513,7 +513,7 @@ module Mcp
       end
 
       if template.published_at >= 30.days.ago
-        reasons << 'Recently published'
+        reasons << "Recently published"
       end
 
       reasons
@@ -521,7 +521,7 @@ module Mcp
 
     def analyze_installation_trend(template)
       installations = template.ai_workflow_template_installations
-                             .where('created_at >= ?', 6.months.ago)
+                             .where("created_at >= ?", 6.months.ago)
                              .group_by_month(:created_at)
                              .count
 
@@ -555,20 +555,20 @@ module Mcp
 
     def calculate_sentiment(rating)
       case rating
-      when 4.5..5.0 then 'Very Positive'
-      when 4.0...4.5 then 'Positive'
-      when 3.0...4.0 then 'Mixed'
-      when 2.0...3.0 then 'Negative'
-      else 'Very Negative'
+      when 4.5..5.0 then "Very Positive"
+      when 4.0...4.5 then "Positive"
+      when 3.0...4.0 then "Mixed"
+      when 2.0...3.0 then "Negative"
+      else "Very Negative"
       end
     end
 
     def validate_installation(template)
       errors = []
 
-      errors << 'Template is not published' unless template.published?
-      errors << 'Template is not public' unless template.public?
-      errors << 'Account already has this template installed' if template.installed_by_account?(account)
+      errors << "Template is not published" unless template.published?
+      errors << "Template is not public" unless template.public?
+      errors << "Account already has this template installed" if template.installed_by_account?(account)
 
       {
         valid: errors.empty?,
@@ -581,7 +581,7 @@ module Mcp
       ActionCable.server.broadcast(
         "account_#{account.id}",
         {
-          type: 'template_installed',
+          type: "template_installed",
           template_id: template.id,
           template_name: template.name,
           installation_id: installation.installation_id,
@@ -594,11 +594,11 @@ module Mcp
       # In a real implementation, store in a dedicated feedback table
       template.update(
         metadata: template.metadata.merge(
-          'recent_feedback' => (template.metadata['recent_feedback'] || []).push({
-            'account_id' => account.id,
-            'rating' => rating,
-            'feedback' => feedback,
-            'created_at' => Time.current.iso8601
+          "recent_feedback" => (template.metadata["recent_feedback"] || []).push({
+            "account_id" => account.id,
+            "rating" => rating,
+            "feedback" => feedback,
+            "created_at" => Time.current.iso8601
           }).last(50)
         )
       )
@@ -626,7 +626,7 @@ module Mcp
 
       matrix = {}
       attributes.each do |attr|
-        matrix[attr] = templates.map { |t| [t.id, t.send(attr)] }.to_h
+        matrix[attr] = templates.map { |t| [ t.id, t.send(attr) ] }.to_h
       end
 
       matrix
@@ -639,7 +639,7 @@ module Mcp
       {
         template_id: best.id,
         template_name: best.name,
-        reason: 'Highest combination of rating and popularity'
+        reason: "Highest combination of rating and popularity"
       }
     end
 
@@ -653,9 +653,9 @@ module Mcp
 
     def trending_categories
       recent_installations = AiWorkflowTemplateInstallation
-                              .where('created_at >= ?', 30.days.ago)
+                              .where("created_at >= ?", 30.days.ago)
                               .joins(:ai_workflow_template)
-                              .group('ai_workflow_templates.category')
+                              .group("ai_workflow_templates.category")
                               .count
                               .sort_by { |_, count| -count }
                               .first(5)
@@ -671,7 +671,7 @@ module Mcp
 
     def calculate_marketplace_growth
       total_installations = AiWorkflowTemplateInstallation
-                             .where('created_at >= ?', 12.months.ago)
+                             .where("created_at >= ?", 12.months.ago)
                              .group_by_month(:created_at)
                              .count
 
@@ -688,14 +688,14 @@ module Mcp
       if criteria[:tags].present?
         related_templates = AiWorkflowTemplate.public_templates.with_tags(criteria[:tags])
         all_tags = related_templates.pluck(:tags).flatten.uniq - criteria[:tags]
-        suggestions << { type: 'tags', items: all_tags.first(5) } if all_tags.any?
+        suggestions << { type: "tags", items: all_tags.first(5) } if all_tags.any?
       end
 
       # Suggest related categories
       if criteria[:categories].present?
         # Find categories commonly installed together
         # This is a simplified version
-        suggestions << { type: 'categories', items: [] }
+        suggestions << { type: "categories", items: [] }
       end
 
       suggestions

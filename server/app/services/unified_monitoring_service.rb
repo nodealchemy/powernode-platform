@@ -36,7 +36,7 @@ class UnifiedMonitoringService
   # @param components [Array<String>] Components to include
   # @return [Hash] Complete dashboard data
   def get_dashboard(time_range: 1.hour, components: COMPONENTS)
-    with_monitoring('get_dashboard', { time_range: time_range }) do
+    with_monitoring("get_dashboard", { time_range: time_range }) do
       dashboard = {
         timestamp: Time.current.iso8601,
         time_range_seconds: time_range.to_i,
@@ -103,19 +103,19 @@ class UnifiedMonitoringService
   # @return [Hash] Component metrics
   def collect_component_metrics(component, time_range)
     case component
-    when 'system'
+    when "system"
       get_system_metrics(time_range)
-    when 'providers'
+    when "providers"
       get_provider_metrics(time_range)
-    when 'agents'
+    when "agents"
       get_agent_metrics(time_range)
-    when 'workflows'
+    when "workflows"
       get_workflow_metrics(time_range)
-    when 'conversations'
+    when "conversations"
       get_conversation_metrics(time_range)
-    when 'costs'
+    when "costs"
       get_cost_metrics(time_range)
-    when 'resources'
+    when "resources"
       get_resource_metrics(time_range)
     else
       {}
@@ -153,7 +153,7 @@ class UnifiedMonitoringService
 
     {
       total_providers: providers.count,
-      active_providers: providers.where(status: 'active').count,
+      active_providers: providers.where(status: "active").count,
       providers: providers.map { |provider| provider_summary(provider, time_range) },
       aggregated: aggregate_provider_metrics(providers, time_range)
     }
@@ -181,7 +181,7 @@ class UnifiedMonitoringService
 
     {
       total_agents: agents.count,
-      active_agents: agents.where(status: 'active').count,
+      active_agents: agents.where(status: "active").count,
       agents: agents.limit(10).map { |agent| agent_summary(agent, time_range) },
       aggregated: aggregate_agent_metrics(agents, time_range)
     }
@@ -215,17 +215,17 @@ class UnifiedMonitoringService
   end
 
   def workflow_summary(workflow, time_range)
-    runs = workflow.ai_workflow_runs.where('created_at >= ?', time_range.ago)
+    runs = workflow.ai_workflow_runs.where("created_at >= ?", time_range.ago)
 
     {
       id: workflow.id,
       name: workflow.name,
       status: workflow.status,
       total_runs: runs.count,
-      successful_runs: runs.where(status: 'completed').count,
-      failed_runs: runs.where(status: 'failed').count,
+      successful_runs: runs.where(status: "completed").count,
+      failed_runs: runs.where(status: "failed").count,
       success_rate: calculate_success_rate(
-        runs.where(status: 'completed').count,
+        runs.where(status: "completed").count,
         runs.count
       ),
       avg_duration: runs.average(:duration_ms)&.to_f || 0,
@@ -242,8 +242,8 @@ class UnifiedMonitoringService
 
     {
       total_conversations: conversations.count,
-      active_conversations: conversations.where(status: 'active').count,
-      avg_message_count: conversations.average('message_count')&.to_f || 0,
+      active_conversations: conversations.where(status: "active").count,
+      avg_message_count: conversations.average("message_count")&.to_f || 0,
       total_messages: get_total_messages(time_range),
       avg_response_time: get_conversation_avg_response_time(time_range)
     }
@@ -332,7 +332,7 @@ class UnifiedMonitoringService
   def get_account_conversations(time_range)
     return AiConversation.none unless @account
 
-    @account.ai_conversations.where('created_at >= ?', time_range.ago)
+    @account.ai_conversations.where("created_at >= ?", time_range.ago)
   end
 
   # =============================================================================
@@ -348,43 +348,43 @@ class UnifiedMonitoringService
   def count_active_agents
     return 0 unless @account
 
-    @account.ai_agents.where(status: 'active').count
+    @account.ai_agents.where(status: "active").count
   end
 
   def count_executions_today
     AiWorkflowRun.where(account: @account)
-                 .where('created_at >= ?', Time.current.beginning_of_day)
+                 .where("created_at >= ?", Time.current.beginning_of_day)
                  .count
   end
 
   def calculate_cost_today
     AiWorkflowRun.where(account: @account)
-                 .where('created_at >= ?', Time.current.beginning_of_day)
+                 .where("created_at >= ?", Time.current.beginning_of_day)
                  .sum(:total_cost) || 0.0
   end
 
   def get_avg_response_time(time_range = 1.hour)
-    metrics = get_metrics('response_time', start_time: time_range.ago)
+    metrics = get_metrics("response_time", start_time: time_range.ago)
     aggregate_metrics(metrics)[:avg]
   end
 
   def get_p95_response_time(time_range = 1.hour)
-    metrics = get_metrics('response_time', start_time: time_range.ago)
+    metrics = get_metrics("response_time", start_time: time_range.ago)
     aggregate_metrics(metrics)[:p95]
   end
 
   def get_success_rate(time_range = 1.hour)
     runs = AiWorkflowRun.where(account: @account)
-                       .where('created_at >= ?', time_range.ago)
+                       .where("created_at >= ?", time_range.ago)
 
     calculate_success_rate(
-      runs.where(status: 'completed').count,
+      runs.where(status: "completed").count,
       runs.count
     )
   end
 
   def get_provider_health_percentage
-    providers = get_account_providers.where(status: 'active')
+    providers = get_account_providers.where(status: "active")
     return 100 if providers.empty?
 
     healthy_count = providers.count { |p| provider_is_healthy?(p) }
@@ -394,12 +394,12 @@ class UnifiedMonitoringService
   def provider_is_healthy?(provider)
     # Check recent execution success rate
     recent_executions = AiAgentExecution.where(ai_provider: provider)
-                                       .where('created_at >= ?', 5.minutes.ago)
+                                       .where("created_at >= ?", 5.minutes.ago)
 
     return true if recent_executions.empty?
 
     success_rate = calculate_success_rate(
-      recent_executions.where(status: 'completed').count,
+      recent_executions.where(status: "completed").count,
       recent_executions.count
     )
 
@@ -427,8 +427,8 @@ class UnifiedMonitoringService
     redis_health = check_redis_health
 
     scores = []
-    scores << (db_health[:status] == 'healthy' ? 100 : 0)
-    scores << (redis_health[:status] == 'healthy' ? 100 : 0)
+    scores << (db_health[:status] == "healthy" ? 100 : 0)
+    scores << (redis_health[:status] == "healthy" ? 100 : 0)
 
     scores.sum / scores.count
   end
@@ -446,77 +446,77 @@ class UnifiedMonitoringService
   # Stub methods for metrics that need implementation
   def count_provider_executions(provider, time_range)
     AiAgentExecution.where(ai_provider: provider)
-                   .where('created_at >= ?', time_range.ago)
+                   .where("created_at >= ?", time_range.ago)
                    .count
   end
 
   def calculate_provider_success_rate(provider, time_range)
     executions = AiAgentExecution.where(ai_provider: provider)
-                                .where('created_at >= ?', time_range.ago)
+                                .where("created_at >= ?", time_range.ago)
 
     calculate_success_rate(
-      executions.where(status: 'completed').count,
+      executions.where(status: "completed").count,
       executions.count
     )
   end
 
   def get_provider_avg_response_time(provider, time_range)
     AiAgentExecution.where(ai_provider: provider)
-                   .where('created_at >= ?', time_range.ago)
+                   .where("created_at >= ?", time_range.ago)
                    .average(:duration_ms)&.to_f || 0
   end
 
   def calculate_provider_cost(provider, time_range)
     AiAgentExecution.where(ai_provider: provider)
-                   .where('created_at >= ?', time_range.ago)
+                   .where("created_at >= ?", time_range.ago)
                    .sum(:cost_usd) || 0.0
   end
 
   def get_circuit_breaker_status(provider)
     breaker = CircuitBreaker.find_by(
       service: "ai_provider_#{provider.id}",
-      circuit_type: 'provider'
+      circuit_type: "provider"
     )
 
-    return 'closed' unless breaker
+    return "closed" unless breaker
 
     {
       state: breaker.state,
       failure_count: breaker.failure_count,
       last_failure_at: breaker.last_failure_at&.iso8601,
-      next_retry_at: breaker.state == 'open' ? (breaker.last_failure_at + breaker.reset_timeout_seconds.seconds)&.iso8601 : nil
+      next_retry_at: breaker.state == "open" ? (breaker.last_failure_at + breaker.reset_timeout_seconds.seconds)&.iso8601 : nil
     }
   end
 
   def count_agent_executions(agent, time_range)
-    agent.ai_agent_executions.where('created_at >= ?', time_range.ago).count
+    agent.ai_agent_executions.where("created_at >= ?", time_range.ago).count
   end
 
   def calculate_agent_success_rate(agent, time_range)
-    executions = agent.ai_agent_executions.where('created_at >= ?', time_range.ago)
+    executions = agent.ai_agent_executions.where("created_at >= ?", time_range.ago)
 
     calculate_success_rate(
-      executions.where(status: 'completed').count,
+      executions.where(status: "completed").count,
       executions.count
     )
   end
 
   def get_agent_avg_execution_time(agent, time_range)
     agent.ai_agent_executions
-         .where('created_at >= ?', time_range.ago)
+         .where("created_at >= ?", time_range.ago)
          .average(:duration_ms)&.to_f || 0
   end
 
   def calculate_agent_cost(agent, time_range)
     agent.ai_agent_executions
-         .where('created_at >= ?', time_range.ago)
+         .where("created_at >= ?", time_range.ago)
          .sum(:cost_usd) || 0.0
   end
 
   def aggregate_provider_metrics(providers, time_range)
     {
       total_executions: providers.sum { |p| count_provider_executions(p, time_range) },
-      avg_success_rate: providers.map { |p| calculate_provider_success_rate(p, time_range) }.sum / [providers.count, 1].max,
+      avg_success_rate: providers.map { |p| calculate_provider_success_rate(p, time_range) }.sum / [ providers.count, 1 ].max,
       total_cost: providers.sum { |p| calculate_provider_cost(p, time_range) }
     }
   end
@@ -524,21 +524,21 @@ class UnifiedMonitoringService
   def aggregate_agent_metrics(agents, time_range)
     {
       total_executions: agents.sum { |a| count_agent_executions(a, time_range) },
-      avg_success_rate: agents.map { |a| calculate_agent_success_rate(a, time_range) }.sum / [agents.count, 1].max,
+      avg_success_rate: agents.map { |a| calculate_agent_success_rate(a, time_range) }.sum / [ agents.count, 1 ].max,
       total_cost: agents.sum { |a| calculate_agent_cost(a, time_range) }
     }
   end
 
   def aggregate_workflow_metrics(workflows, time_range)
     all_runs = AiWorkflowRun.where(ai_workflow: workflows)
-                           .where('created_at >= ?', time_range.ago)
+                           .where("created_at >= ?", time_range.ago)
 
     {
       total_runs: all_runs.count,
-      successful_runs: all_runs.where(status: 'completed').count,
-      failed_runs: all_runs.where(status: 'failed').count,
+      successful_runs: all_runs.where(status: "completed").count,
+      failed_runs: all_runs.where(status: "failed").count,
       success_rate: calculate_success_rate(
-        all_runs.where(status: 'completed').count,
+        all_runs.where(status: "completed").count,
         all_runs.count
       ),
       total_cost: all_runs.sum(:total_cost) || 0
@@ -548,7 +548,7 @@ class UnifiedMonitoringService
   def get_total_messages(time_range)
     AiMessage.joins(:ai_conversation)
             .where(ai_conversations: { account: @account })
-            .where('ai_messages.created_at >= ?', time_range.ago)
+            .where("ai_messages.created_at >= ?", time_range.ago)
             .count
   end
 
@@ -556,7 +556,7 @@ class UnifiedMonitoringService
     # Calculate average time between user message and AI response
     messages = AiMessage.joins(:ai_conversation)
                        .where(ai_conversations: { account: @account })
-                       .where('ai_messages.created_at >= ?', time_range.ago)
+                       .where("ai_messages.created_at >= ?", time_range.ago)
                        .order(:created_at)
 
     return 0 if messages.count < 2
@@ -565,9 +565,9 @@ class UnifiedMonitoringService
     user_message_time = nil
 
     messages.each do |message|
-      if message.role == 'user'
+      if message.role == "user"
         user_message_time = message.created_at
-      elsif message.role == 'assistant' && user_message_time
+      elsif message.role == "assistant" && user_message_time
         response_times << (message.created_at - user_message_time) * 1000 # Convert to ms
         user_message_time = nil
       end
@@ -580,12 +580,12 @@ class UnifiedMonitoringService
 
   def calculate_total_cost(time_range)
     workflow_cost = AiWorkflowRun.where(account: @account)
-                                .where('created_at >= ?', time_range.ago)
+                                .where("created_at >= ?", time_range.ago)
                                 .sum(:total_cost) || 0.0
 
     agent_cost = AiAgentExecution.joins(:ai_agent)
                                 .where(ai_agents: { account: @account })
-                                .where('ai_agent_executions.created_at >= ?', time_range.ago)
+                                .where("ai_agent_executions.created_at >= ?", time_range.ago)
                                 .sum(:cost_usd) || 0.0
 
     workflow_cost + agent_cost
@@ -594,12 +594,12 @@ class UnifiedMonitoringService
   def calculate_cost_by_provider(time_range)
     AiAgentExecution.joins(ai_agent: :ai_provider)
                    .where(ai_agents: { account: @account })
-                   .where('ai_agent_executions.created_at >= ?', time_range.ago)
-                   .group('ai_providers.id', 'ai_providers.name')
-                   .select('ai_providers.id as provider_id',
-                          'ai_providers.name as provider_name',
-                          'SUM(ai_agent_executions.cost_usd) as total_cost',
-                          'COUNT(ai_agent_executions.id) as execution_count')
+                   .where("ai_agent_executions.created_at >= ?", time_range.ago)
+                   .group("ai_providers.id", "ai_providers.name")
+                   .select("ai_providers.id as provider_id",
+                          "ai_providers.name as provider_name",
+                          "SUM(ai_agent_executions.cost_usd) as total_cost",
+                          "COUNT(ai_agent_executions.id) as execution_count")
                    .map do |result|
       {
         provider_id: result.provider_id,
@@ -613,12 +613,12 @@ class UnifiedMonitoringService
   def calculate_cost_by_agent(time_range)
     AiAgentExecution.joins(:ai_agent)
                    .where(ai_agents: { account: @account })
-                   .where('ai_agent_executions.created_at >= ?', time_range.ago)
-                   .group('ai_agents.id', 'ai_agents.name')
-                   .select('ai_agents.id as agent_id',
-                          'ai_agents.name as agent_name',
-                          'SUM(ai_agent_executions.cost_usd) as total_cost',
-                          'COUNT(ai_agent_executions.id) as execution_count')
+                   .where("ai_agent_executions.created_at >= ?", time_range.ago)
+                   .group("ai_agents.id", "ai_agents.name")
+                   .select("ai_agents.id as agent_id",
+                          "ai_agents.name as agent_name",
+                          "SUM(ai_agent_executions.cost_usd) as total_cost",
+                          "COUNT(ai_agent_executions.id) as execution_count")
                    .map do |result|
       {
         agent_id: result.agent_id,
@@ -632,12 +632,12 @@ class UnifiedMonitoringService
   def calculate_cost_by_workflow(time_range)
     AiWorkflowRun.joins(:ai_workflow)
                 .where(ai_workflows: { account: @account })
-                .where('ai_workflow_runs.created_at >= ?', time_range.ago)
-                .group('ai_workflows.id', 'ai_workflows.name')
-                .select('ai_workflows.id as workflow_id',
-                       'ai_workflows.name as workflow_name',
-                       'SUM(ai_workflow_runs.total_cost) as total_cost',
-                       'COUNT(ai_workflow_runs.id) as run_count')
+                .where("ai_workflow_runs.created_at >= ?", time_range.ago)
+                .group("ai_workflows.id", "ai_workflows.name")
+                .select("ai_workflows.id as workflow_id",
+                       "ai_workflows.name as workflow_name",
+                       "SUM(ai_workflow_runs.total_cost) as total_cost",
+                       "COUNT(ai_workflow_runs.id) as run_count")
                 .map do |result|
       {
         workflow_id: result.workflow_id,
@@ -651,14 +651,14 @@ class UnifiedMonitoringService
   def calculate_cost_trend(time_range)
     # Calculate daily cost trend for the time range
     workflow_costs = AiWorkflowRun.where(account: @account)
-                                  .where('created_at >= ?', time_range.ago)
+                                  .where("created_at >= ?", time_range.ago)
                                   .group("DATE(created_at)")
                                   .select("DATE(created_at) as date",
                                          "SUM(total_cost) as daily_cost")
 
     agent_costs = AiAgentExecution.joins(:ai_agent)
                                  .where(ai_agents: { account: @account })
-                                 .where('ai_agent_executions.created_at >= ?', time_range.ago)
+                                 .where("ai_agent_executions.created_at >= ?", time_range.ago)
                                  .group("DATE(ai_agent_executions.created_at)")
                                  .select("DATE(ai_agent_executions.created_at) as date",
                                         "SUM(cost_usd) as daily_cost")
@@ -692,8 +692,8 @@ class UnifiedMonitoringService
     info = redis.info
     {
       status: check_redis_health[:status],
-      used_memory: info['used_memory_human'],
-      connected_clients: info['connected_clients']&.to_i || 0
+      used_memory: info["used_memory_human"],
+      connected_clients: info["connected_clients"]&.to_i || 0
     }
   end
 
@@ -754,7 +754,7 @@ class UnifiedMonitoringService
   end
 
   def fallback_cpu_metrics
-    load_avg = `cat /proc/loadavg 2>/dev/null`.split[0..2].join(', ') rescue 'N/A'
+    load_avg = `cat /proc/loadavg 2>/dev/null`.split[0..2].join(", ") rescue "N/A"
     {
       load_average: load_avg,
       usage_percent: 0
@@ -764,12 +764,12 @@ class UnifiedMonitoringService
   def get_requests_per_second(time_range)
     # Calculate requests per second from workflow runs and agent executions
     workflow_requests = AiWorkflowRun.where(account: @account)
-                                    .where('created_at >= ?', time_range.ago)
+                                    .where("created_at >= ?", time_range.ago)
                                     .count
 
     agent_requests = AiAgentExecution.joins(:ai_agent)
                                     .where(ai_agents: { account: @account })
-                                    .where('ai_agent_executions.created_at >= ?', time_range.ago)
+                                    .where("ai_agent_executions.created_at >= ?", time_range.ago)
                                     .count
 
     total_requests = workflow_requests + agent_requests
@@ -785,7 +785,7 @@ class UnifiedMonitoringService
     db_connections = ActiveRecord::Base.connection_pool.stat[:busy] || 0
 
     redis_connections = begin
-      redis.info['connected_clients']&.to_i || 0
+      redis.info["connected_clients"]&.to_i || 0
     rescue => e
       Rails.logger.warn "Failed to get Redis connections: #{e.message}"
       0
@@ -801,23 +801,23 @@ class UnifiedMonitoringService
   def get_error_metrics(time_range)
     # Count failed workflow runs and agent executions
     failed_workflows = AiWorkflowRun.where(account: @account)
-                                   .where('created_at >= ?', time_range.ago)
-                                   .where(status: 'failed')
+                                   .where("created_at >= ?", time_range.ago)
+                                   .where(status: "failed")
                                    .count
 
     failed_agents = AiAgentExecution.joins(:ai_agent)
                                    .where(ai_agents: { account: @account })
-                                   .where('ai_agent_executions.created_at >= ?', time_range.ago)
-                                   .where(status: 'failed')
+                                   .where("ai_agent_executions.created_at >= ?", time_range.ago)
+                                   .where(status: "failed")
                                    .count
 
     total_workflows = AiWorkflowRun.where(account: @account)
-                                  .where('created_at >= ?', time_range.ago)
+                                  .where("created_at >= ?", time_range.ago)
                                   .count
 
     total_agents = AiAgentExecution.joins(:ai_agent)
                                   .where(ai_agents: { account: @account })
-                                  .where('ai_agent_executions.created_at >= ?', time_range.ago)
+                                  .where("ai_agent_executions.created_at >= ?", time_range.ago)
                                   .count
 
     total_errors = failed_workflows + failed_agents

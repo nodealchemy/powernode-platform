@@ -9,7 +9,7 @@ FactoryBot.define do
     connection_type { 'stdio' }
     auth_type { 'none' }
     command { 'node' }
-    args { ['server.js', '--port', '3000'] }
+    args { [ 'server.js', '--port', '3000' ] }
     env do
       {
         'NODE_ENV' => 'production',
@@ -63,7 +63,7 @@ FactoryBot.define do
     trait :stdio do
       connection_type { 'stdio' }
       command { 'npx' }
-      args { ['-y', '@modelcontextprotocol/server-filesystem', '/tmp'] }
+      args { [ '-y', '@modelcontextprotocol/server-filesystem', '/tmp' ] }
       env do
         {
           'MCP_SERVER_TYPE' => 'stdio',
@@ -76,7 +76,7 @@ FactoryBot.define do
     trait :stdio_connection do
       connection_type { 'stdio' }
       command { 'npx' }
-      args { ['-y', '@modelcontextprotocol/server-filesystem', '/tmp'] }
+      args { [ '-y', '@modelcontextprotocol/server-filesystem', '/tmp' ] }
       env do
         {
           'MCP_SERVER_TYPE' => 'stdio',
@@ -120,14 +120,14 @@ FactoryBot.define do
       description { 'Provides filesystem operations for AI agents' }
       connection_type { 'stdio' }
       command { 'npx' }
-      args { ['-y', '@modelcontextprotocol/server-filesystem', '/workspace'] }
+      args { [ '-y', '@modelcontextprotocol/server-filesystem', '/workspace' ] }
       status { 'connected' }
       capabilities do
         {
           'tools' => true,
           'resources' => true,
           'prompts' => false,
-          'capabilities' => ['read', 'write', 'list', 'search']
+          'capabilities' => [ 'read', 'write', 'list', 'search' ]
         }
       end
     end
@@ -137,14 +137,14 @@ FactoryBot.define do
       description { 'Execute database queries safely' }
       connection_type { 'stdio' }
       command { 'python' }
-      args { ['mcp_database_server.py'] }
+      args { [ 'mcp_database_server.py' ] }
       status { 'connected' }
       capabilities do
         {
           'tools' => true,
           'resources' => false,
           'prompts' => true,
-          'databases' => ['postgresql', 'mysql']
+          'databases' => [ 'postgresql', 'mysql' ]
         }
       end
     end
@@ -167,7 +167,7 @@ FactoryBot.define do
           'tools' => true,
           'resources' => true,
           'prompts' => false,
-          'search_engines' => ['google', 'bing', 'duckduckgo']
+          'search_engines' => [ 'google', 'bing', 'duckduckgo' ]
         }
       end
     end

@@ -20,8 +20,8 @@ class AiAgentExecutionChannel < ApplicationCable::Channel
     stream_from "ai_agent_execution:#{execution_id}"
 
     transmit({
-      type: 'subscription.confirmed',
-      channel: 'agent_execution',
+      type: "subscription.confirmed",
+      channel: "agent_execution",
       execution_id: execution_id,
       timestamp: Time.current.iso8601
     })
@@ -35,12 +35,12 @@ class AiAgentExecutionChannel < ApplicationCable::Channel
 
   # Request execution status
   def request_status(_data = {})
-    return transmit_error('Execution not found') unless @execution
+    return transmit_error("Execution not found") unless @execution
 
     @execution.reload
 
     transmit({
-      type: 'execution_status',
+      type: "execution_status",
       execution: serialize_execution(@execution),
       timestamp: Time.current.iso8601
     })
@@ -50,10 +50,10 @@ class AiAgentExecutionChannel < ApplicationCable::Channel
 
   # Request agent status through orchestration channel
   def request_agent_status(data)
-    return transmit_error('Missing agent_id') unless data['agent_id']
+    return transmit_error("Missing agent_id") unless data["agent_id"]
 
-    agent = AiAgent.find_by(id: data['agent_id'], account_id: current_user.account_id)
-    return transmit_error('Agent not found') unless agent
+    agent = AiAgent.find_by(id: data["agent_id"], account_id: current_user.account_id)
+    return transmit_error("Agent not found") unless agent
 
     # Get recent executions for the agent
     recent_executions = AiAgentExecution.where(
@@ -62,7 +62,7 @@ class AiAgentExecutionChannel < ApplicationCable::Channel
     ).order(created_at: :desc).limit(5)
 
     transmit({
-      type: 'agent_status',
+      type: "agent_status",
       agent_id: agent.id,
       agent_name: agent.name,
       status: agent.status,
@@ -88,7 +88,7 @@ class AiAgentExecutionChannel < ApplicationCable::Channel
       ActionCable.server.broadcast(
         "ai_agent_execution:#{execution_id}",
         {
-          type: 'status_change',
+          type: "status_change",
           execution_id: execution_id,
           status: status,
           **details,
@@ -119,7 +119,7 @@ class AiAgentExecutionChannel < ApplicationCable::Channel
 
   def transmit_error(message)
     transmit({
-      type: 'error',
+      type: "error",
       error: message,
       timestamp: Time.current.iso8601
     })

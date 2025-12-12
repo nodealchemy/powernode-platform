@@ -6,11 +6,11 @@
 # Only enabled in production/staging to avoid issues with Rails 8 frozen arrays in test/development
 
 # Only configure lograge for production-like environments
-return unless Rails.env.production? || Rails.env.staging? || ENV['LOGRAGE_ENABLED'] == 'true'
+return unless Rails.env.production? || Rails.env.staging? || ENV["LOGRAGE_ENABLED"] == "true"
 
 # Require the gems since they're set to require: false in Gemfile
-require 'lograge'
-require 'logstash-event'
+require "lograge"
+require "logstash-event"
 
 Rails.application.config.lograge.enabled = true
 Rails.application.config.lograge.formatter = Lograge::Formatters::Logstash.new
@@ -38,7 +38,7 @@ Rails.application.config.lograge.custom_options = lambda do |event|
     account_id: payload[:account_id],
 
     # API versioning
-    api_version: payload[:api_version] || 'v1',
+    api_version: payload[:api_version] || "v1",
 
     # Additional metrics
     db_runtime_ms: payload[:db_runtime]&.round(2),
@@ -51,8 +51,8 @@ Rails.application.config.lograge.custom_options = lambda do |event|
     user_agent: payload[:user_agent],
 
     # Application name for multi-service environments
-    application: 'powernode-api',
-    service: 'backend'
+    application: "powernode-api",
+    service: "backend"
   }
 
   # Add rate limit info if present
@@ -85,7 +85,7 @@ Rails.application.config.lograge.custom_payload do |controller|
 
     # Request metadata
     request_id: controller.request.request_id,
-    correlation_id: controller.request.headers['X-Correlation-ID'],
+    correlation_id: controller.request.headers["X-Correlation-ID"],
     host: controller.request.host,
     remote_ip: controller.request.remote_ip,
     user_agent: controller.request.user_agent&.truncate(200),

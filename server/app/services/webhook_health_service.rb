@@ -12,16 +12,16 @@ class WebhookHealthService
   # Get overall webhook system health
   def overall_health
     endpoints = @account ? @account.webhook_endpoints : WebhookEndpoint.all
-    return { status: 'no_webhooks', message: 'No webhook endpoints configured' } if endpoints.empty?
+    return { status: "no_webhooks", message: "No webhook endpoints configured" } if endpoints.empty?
 
     endpoint_healths = endpoints.map { |endpoint| check_endpoint_health(endpoint) }
-    
-    healthy_count = endpoint_healths.count { |h| h[:status] == 'healthy' }
-    unhealthy_count = endpoint_healths.count { |h| h[:status] == 'unhealthy' }
-    warning_count = endpoint_healths.count { |h| h[:status] == 'warning' }
+
+    healthy_count = endpoint_healths.count { |h| h[:status] == "healthy" }
+    unhealthy_count = endpoint_healths.count { |h| h[:status] == "unhealthy" }
+    warning_count = endpoint_healths.count { |h| h[:status] == "warning" }
 
     overall_status = determine_overall_status(healthy_count, unhealthy_count, warning_count, endpoints.count)
-    
+
     {
       status: overall_status,
       summary: {
@@ -37,14 +37,14 @@ class WebhookHealthService
 
   # Check health of a specific endpoint
   def check_endpoint_health(endpoint)
-    recent_deliveries = endpoint.webhook_deliveries.where('created_at >= ?', 24.hours.ago)
-    
+    recent_deliveries = endpoint.webhook_deliveries.where("created_at >= ?", 24.hours.ago)
+
     if recent_deliveries.empty?
       return {
         endpoint_id: endpoint.id,
         url: endpoint.url,
-        status: 'no_activity',
-        message: 'No webhook deliveries in the last 24 hours',
+        status: "no_activity",
+        message: "No webhook deliveries in the last 24 hours",
         success_rate: 0,
         total_deliveries: 0,
         successful_deliveries: 0,
@@ -52,14 +52,14 @@ class WebhookHealthService
       }
     end
 
-    successful = recent_deliveries.where(status: 'success').count
+    successful = recent_deliveries.where(status: "success").count
     total = recent_deliveries.count
     success_rate = (successful.to_f / total * 100).round(2)
 
     last_delivery = recent_deliveries.order(:created_at).last
 
     status = determine_endpoint_status(success_rate, total)
-    
+
     {
       endpoint_id: endpoint.id,
       url: endpoint.url,
@@ -77,20 +77,20 @@ class WebhookHealthService
   # Test a webhook endpoint connectivity
   def test_endpoint(endpoint, test_event = nil)
     test_event ||= generate_test_event(endpoint)
-    
+
     start_time = Time.current
-    
+
     begin
       response = make_test_request(endpoint, test_event)
       duration = ((Time.current - start_time) * 1000).round(2) # milliseconds
-      
+
       success = response_successful?(response)
-      
+
       # Record the test delivery
       delivery = endpoint.webhook_deliveries.create!(
-        event_type: 'test_event',
+        event_type: "test_event",
         payload: test_event.to_json,
-        status: success ? 'success' : 'failed',
+        status: success ? "success" : "failed",
         response_code: response&.code&.to_i,
         response_body: truncate_response_body(response&.body),
         delivery_attempts: 1,
@@ -101,20 +101,20 @@ class WebhookHealthService
         success: success,
         status_code: response&.code&.to_i,
         response_time: duration,
-        message: success ? 'Test webhook delivered successfully' : 'Test webhook delivery failed',
+        message: success ? "Test webhook delivered successfully" : "Test webhook delivery failed",
         delivery_id: delivery.id,
         response_body: response&.body&.truncate(500),
         tested_at: Time.current.iso8601
       }
-      
+
     rescue StandardError => e
       duration = ((Time.current - start_time) * 1000).round(2)
-      
+
       # Record the failed test delivery
       delivery = endpoint.webhook_deliveries.create!(
-        event_type: 'test_event',
+        event_type: "test_event",
         payload: test_event.to_json,
-        status: 'failed',
+        status: "failed",
         error_message: e.message,
         delivery_attempts: 1
       )
@@ -134,7 +134,7 @@ class WebhookHealthService
   # Get webhook event statistics
   def webhook_event_stats(days: 7)
     events = @account ? WebhookEvent.joins(:account).where(account: @account) : WebhookEvent.all
-    events = events.where('created_at >= ?', days.days.ago)
+    events = events.where("created_at >= ?", days.days.ago)
 
     total_events = events.count
     processed_events = events.processed.count
@@ -164,27 +164,27 @@ class WebhookHealthService
   private
 
   def determine_overall_status(healthy, warning, unhealthy, total)
-    return 'healthy' if unhealthy == 0 && warning <= (total * 0.1).ceil # Max 10% warnings
-    return 'warning' if unhealthy <= (total * 0.2).ceil # Max 20% unhealthy
-    'unhealthy'
+    return "healthy" if unhealthy == 0 && warning <= (total * 0.1).ceil # Max 10% warnings
+    return "warning" if unhealthy <= (total * 0.2).ceil # Max 20% unhealthy
+    "unhealthy"
   end
 
   def determine_endpoint_status(success_rate, total_deliveries)
-    return 'insufficient_data' if total_deliveries < MIN_EVENTS_FOR_HEALTH_CHECK
-    return 'healthy' if success_rate >= (HEALTHY_THRESHOLD * 100)
-    return 'warning' if success_rate >= 80
-    'unhealthy'
+    return "insufficient_data" if total_deliveries < MIN_EVENTS_FOR_HEALTH_CHECK
+    return "healthy" if success_rate >= (HEALTHY_THRESHOLD * 100)
+    return "warning" if success_rate >= 80
+    "unhealthy"
   end
 
   def generate_health_message(status, success_rate, total)
     case status
-    when 'healthy'
+    when "healthy"
       "Excellent webhook delivery rate: #{success_rate}% (#{total} deliveries)"
-    when 'warning' 
+    when "warning"
       "Webhook delivery issues detected: #{success_rate}% success rate (#{total} deliveries)"
-    when 'unhealthy'
+    when "unhealthy"
       "Critical webhook delivery problems: #{success_rate}% success rate (#{total} deliveries)"
-    when 'insufficient_data'
+    when "insufficient_data"
       "Not enough webhook deliveries to determine health (#{total} deliveries, need #{MIN_EVENTS_FOR_HEALTH_CHECK})"
     else
       "Unknown webhook status"
@@ -194,7 +194,7 @@ class WebhookHealthService
   def generate_test_event(endpoint)
     {
       id: "test_#{SecureRandom.hex(8)}",
-      type: 'test.webhook',
+      type: "test.webhook",
       created: Time.current.to_i,
       data: {
         object: {
@@ -212,18 +212,18 @@ class WebhookHealthService
   def make_test_request(endpoint, payload)
     uri = URI(endpoint.url)
     http = Net::HTTP.new(uri.host, uri.port)
-    http.use_ssl = uri.scheme == 'https'
+    http.use_ssl = uri.scheme == "https"
     http.read_timeout = HEALTH_CHECK_TIMEOUT
     http.open_timeout = HEALTH_CHECK_TIMEOUT
 
     request = Net::HTTP::Post.new(uri)
-    request['Content-Type'] = 'application/json'
-    request['User-Agent'] = 'Powernode-Webhook-Health-Check/1.0'
-    
+    request["Content-Type"] = "application/json"
+    request["User-Agent"] = "Powernode-Webhook-Health-Check/1.0"
+
     # Add any authentication headers if configured
     if endpoint.secret.present?
       signature = generate_signature(payload.to_json, endpoint.secret)
-      request['X-Powernode-Signature'] = signature
+      request["X-Powernode-Signature"] = signature
     end
 
     request.body = payload.to_json
@@ -233,13 +233,13 @@ class WebhookHealthService
 
   def response_successful?(response)
     return false unless response
-    
+
     code = response.code.to_i
     code >= 200 && code < 300
   end
 
   def generate_signature(payload, secret)
-    OpenSSL::HMAC.hexdigest('SHA256', secret, payload)
+    OpenSSL::HMAC.hexdigest("SHA256", secret, payload)
   end
 
   def truncate_response_body(body)

@@ -33,7 +33,7 @@ FactoryBot.define do
     metadata do
       {
         created_by: 'system',
-        tags: ['test', 'automated'],
+        tags: [ 'test', 'automated' ],
         complexity: 'medium'
       }
     end
@@ -72,13 +72,13 @@ FactoryBot.define do
                               configuration: { agent_id: agent.id })
         end_node = create(:ai_workflow_node, :end_node, ai_workflow: workflow)
 
-        create(:ai_workflow_edge, 
+        create(:ai_workflow_edge,
                ai_workflow: workflow,
                source_node_id: start_node.node_id,
                target_node_id: ai_agent_node.node_id)
-        
+
         create(:ai_workflow_edge,
-               ai_workflow: workflow, 
+               ai_workflow: workflow,
                source_node_id: ai_agent_node.node_id,
                target_node_id: end_node.node_id)
       end
@@ -96,7 +96,7 @@ FactoryBot.define do
         end_node = create(:ai_workflow_node, :end_node, ai_workflow: workflow)
 
         # Create edges
-        create(:ai_workflow_edge, 
+        create(:ai_workflow_edge,
                ai_workflow: workflow,
                source_node_id: start_node.node_id,
                target_node_id: condition_node.node_id)
@@ -297,7 +297,7 @@ FactoryBot.define do
         create_list(:ai_workflow_run, 5, ai_workflow: workflow)
       end
     end
-    
+
     trait :with_parallel_execution do
       configuration do
         {
@@ -315,7 +315,7 @@ FactoryBot.define do
           }
         }
       end
-      
+
       after(:create) do |workflow|
         # Create parallel execution structure
         start_node = create(:ai_workflow_node, :start_node, ai_workflow: workflow)
@@ -325,12 +325,12 @@ FactoryBot.define do
 
         # Connect start to all parallel nodes
         parallel_nodes.each do |node|
-          create(:ai_workflow_edge, 
+          create(:ai_workflow_edge,
                  ai_workflow: workflow,
                  source_node_id: start_node.node_id,
                  target_node_id: node.node_id)
         end
-        
+
         # Connect all parallel nodes to merge node
         parallel_nodes.each do |node|
           create(:ai_workflow_edge,
@@ -338,7 +338,7 @@ FactoryBot.define do
                  source_node_id: node.node_id,
                  target_node_id: merge_node.node_id)
         end
-        
+
         # Connect merge to end
         create(:ai_workflow_edge,
                ai_workflow: workflow,

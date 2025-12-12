@@ -20,7 +20,7 @@ class ResourceAuthorizationService
       if policy && query
         "not allowed to #{query} this #{policy.class.name.demodulize.underscore.sub(/_policy$/, '')}"
       else
-        'not authorized'
+        "not authorized"
       end
     end
   end
@@ -76,11 +76,11 @@ class ResourceAuthorizationService
     def policy_class(record)
       klass = if record.is_a?(Class)
                 record
-              elsif record.is_a?(Symbol) || record.is_a?(String)
+      elsif record.is_a?(Symbol) || record.is_a?(String)
                 record.to_s.classify.constantize
-              else
+      else
                 record.class
-              end
+      end
 
       "#{klass.name}Policy".constantize
     rescue NameError
@@ -133,11 +133,11 @@ class ApplicationPolicy
 
   # Helper methods for common checks
   def admin?
-    user&.has_permission?('system.admin')
+    user&.has_permission?("system.admin")
   end
 
   def account_admin?
-    user&.has_permission?('accounts.manage')
+    user&.has_permission?("accounts.manage")
   end
 
   def same_account?
@@ -160,13 +160,13 @@ class ApplicationPolicy
     end
 
     def resolve
-      raise NotImplementedError, 'You must define #resolve in your scope class'
+      raise NotImplementedError, "You must define #resolve in your scope class"
     end
 
     private
 
     def admin?
-      user&.has_permission?('system.admin')
+      user&.has_permission?("system.admin")
     end
   end
 
@@ -241,28 +241,28 @@ end
 # Example resource-specific policies
 class UserPolicy < ApplicationPolicy
   def index?
-    admin? || user&.has_permission?('users.read')
+    admin? || user&.has_permission?("users.read")
   end
 
   def show?
-    admin? || owner? || (same_account? && user&.has_permission?('users.read'))
+    admin? || owner? || (same_account? && user&.has_permission?("users.read"))
   end
 
   def create?
-    admin? || (same_account? && user&.has_permission?('users.create'))
+    admin? || (same_account? && user&.has_permission?("users.create"))
   end
 
   def update?
-    admin? || owner? || (same_account? && user&.has_permission?('users.update'))
+    admin? || owner? || (same_account? && user&.has_permission?("users.update"))
   end
 
   def destroy?
     return false if owner? # Cannot delete self
-    admin? || (same_account? && user&.has_permission?('users.delete'))
+    admin? || (same_account? && user&.has_permission?("users.delete"))
   end
 
   def manage_roles?
-    admin? || user&.has_permission?('users.manage')
+    admin? || user&.has_permission?("users.manage")
   end
 
   def impersonate?
@@ -302,11 +302,11 @@ class SubscriptionPolicy < ApplicationPolicy
   end
 
   def create?
-    admin? || (same_account? && user&.has_permission?('billing.manage'))
+    admin? || (same_account? && user&.has_permission?("billing.manage"))
   end
 
   def update?
-    admin? || (same_account? && user&.has_permission?('billing.manage'))
+    admin? || (same_account? && user&.has_permission?("billing.manage"))
   end
 
   def destroy?
@@ -314,15 +314,15 @@ class SubscriptionPolicy < ApplicationPolicy
   end
 
   def cancel?
-    admin? || (same_account? && user&.has_permission?('billing.manage'))
+    admin? || (same_account? && user&.has_permission?("billing.manage"))
   end
 
   def pause?
-    admin? || (same_account? && user&.has_permission?('billing.manage'))
+    admin? || (same_account? && user&.has_permission?("billing.manage"))
   end
 
   def resume?
-    admin? || (same_account? && user&.has_permission?('billing.manage'))
+    admin? || (same_account? && user&.has_permission?("billing.manage"))
   end
 
   class Scope < ApplicationPolicy::Scope
@@ -340,19 +340,19 @@ end
 
 class PaymentPolicy < ApplicationPolicy
   def index?
-    admin? || (same_account? && user&.has_permission?('billing.read'))
+    admin? || (same_account? && user&.has_permission?("billing.read"))
   end
 
   def show?
-    admin? || (same_account? && user&.has_permission?('billing.read'))
+    admin? || (same_account? && user&.has_permission?("billing.read"))
   end
 
   def create?
-    admin? || (same_account? && user&.has_permission?('billing.manage'))
+    admin? || (same_account? && user&.has_permission?("billing.manage"))
   end
 
   def refund?
-    admin? || (same_account? && user&.has_permission?('payments.refund'))
+    admin? || (same_account? && user&.has_permission?("payments.refund"))
   end
 
   class Scope < ApplicationPolicy::Scope
@@ -370,11 +370,11 @@ end
 
 class InvoicePolicy < ApplicationPolicy
   def index?
-    admin? || (same_account? && user&.has_permission?('billing.read'))
+    admin? || (same_account? && user&.has_permission?("billing.read"))
   end
 
   def show?
-    admin? || (same_account? && user&.has_permission?('billing.read'))
+    admin? || (same_account? && user&.has_permission?("billing.read"))
   end
 
   def download?
@@ -382,7 +382,7 @@ class InvoicePolicy < ApplicationPolicy
   end
 
   def send_reminder?
-    admin? || (same_account? && user&.has_permission?('billing.manage'))
+    admin? || (same_account? && user&.has_permission?("billing.manage"))
   end
 
   class Scope < ApplicationPolicy::Scope
@@ -400,15 +400,15 @@ end
 
 class AuditLogPolicy < ApplicationPolicy
   def index?
-    admin? || user&.has_permission?('audit_logs.read')
+    admin? || user&.has_permission?("audit_logs.read")
   end
 
   def show?
-    admin? || (same_account? && user&.has_permission?('audit_logs.read'))
+    admin? || (same_account? && user&.has_permission?("audit_logs.read"))
   end
 
   def export?
-    admin? || user&.has_permission?('audit_logs.export')
+    admin? || user&.has_permission?("audit_logs.export")
   end
 
   # Audit logs are immutable - no create, update, destroy
@@ -428,7 +428,7 @@ class AuditLogPolicy < ApplicationPolicy
     def resolve
       if admin?
         scope.all
-      elsif user&.has_permission?('audit_logs.read')
+      elsif user&.has_permission?("audit_logs.read")
         scope.where(account_id: user.account_id)
       else
         scope.none
@@ -439,11 +439,11 @@ end
 
 class FileObjectPolicy < ApplicationPolicy
   def index?
-    admin? || (same_account? && user&.has_permission?('files.read'))
+    admin? || (same_account? && user&.has_permission?("files.read"))
   end
 
   def show?
-    admin? || owner? || (same_account? && user&.has_permission?('files.read'))
+    admin? || owner? || (same_account? && user&.has_permission?("files.read"))
   end
 
   def download?
@@ -451,15 +451,15 @@ class FileObjectPolicy < ApplicationPolicy
   end
 
   def create?
-    admin? || (same_account? && user&.has_permission?('files.upload'))
+    admin? || (same_account? && user&.has_permission?("files.upload"))
   end
 
   def update?
-    admin? || owner? || (same_account? && user&.has_permission?('files.update'))
+    admin? || owner? || (same_account? && user&.has_permission?("files.update"))
   end
 
   def destroy?
-    admin? || owner? || (same_account? && user&.has_permission?('files.delete'))
+    admin? || owner? || (same_account? && user&.has_permission?("files.delete"))
   end
 
   class Scope < ApplicationPolicy::Scope

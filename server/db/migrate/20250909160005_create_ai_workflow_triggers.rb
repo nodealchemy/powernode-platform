@@ -19,9 +19,9 @@ class CreateAiWorkflowTriggers < ActiveRecord::Migration[7.1]
       t.boolean :is_active, null: false, default: true
       t.timestamps
 
-      t.index [:ai_workflow_id, :trigger_type]
-      t.index [:ai_workflow_id, :status]
-      t.index [:trigger_type, :is_active]
+      t.index [ :ai_workflow_id, :trigger_type ]
+      t.index [ :ai_workflow_id, :status ]
+      t.index [ :trigger_type, :is_active ]
       t.index :next_execution_at
       t.index :schedule_cron
       t.index :webhook_url

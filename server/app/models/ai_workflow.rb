@@ -6,7 +6,7 @@ class AiWorkflow < ApplicationRecord
 
   # Authentication & Authorization
   belongs_to :account
-  belongs_to :creator, class_name: 'User'
+  belongs_to :creator, class_name: "User"
 
   # Associations
   has_many :ai_workflow_nodes, dependent: :destroy
@@ -19,35 +19,35 @@ class AiWorkflow < ApplicationRecord
   has_many :workflow_validations, foreign_key: :workflow_id, dependent: :destroy
 
   # Versioning associations
-  belongs_to :parent_version, class_name: 'AiWorkflow', optional: true
-  has_many :child_versions, class_name: 'AiWorkflow', foreign_key: 'parent_version_id', dependent: :nullify
+  belongs_to :parent_version, class_name: "AiWorkflow", optional: true
+  has_many :child_versions, class_name: "AiWorkflow", foreign_key: "parent_version_id", dependent: :nullify
 
   # Association aliases for convenience and test compatibility
-  has_many :nodes, -> { }, class_name: 'AiWorkflowNode', foreign_key: 'ai_workflow_id', dependent: :destroy
-  has_many :edges, -> { }, class_name: 'AiWorkflowEdge', foreign_key: 'ai_workflow_id', dependent: :destroy
-  has_many :variables, -> { }, class_name: 'AiWorkflowVariable', foreign_key: 'ai_workflow_id', dependent: :destroy
-  has_many :triggers, -> { }, class_name: 'AiWorkflowTrigger', foreign_key: 'ai_workflow_id', dependent: :destroy
-  has_many :runs, -> { }, class_name: 'AiWorkflowRun', foreign_key: 'ai_workflow_id', dependent: :destroy
-  has_many :schedules, -> { }, class_name: 'AiWorkflowSchedule', foreign_key: 'ai_workflow_id', dependent: :destroy
-  has_many :template_installations, -> { }, class_name: 'AiWorkflowTemplateInstallation', foreign_key: 'ai_workflow_id', dependent: :destroy
+  has_many :nodes, -> { }, class_name: "AiWorkflowNode", foreign_key: "ai_workflow_id", dependent: :destroy
+  has_many :edges, -> { }, class_name: "AiWorkflowEdge", foreign_key: "ai_workflow_id", dependent: :destroy
+  has_many :variables, -> { }, class_name: "AiWorkflowVariable", foreign_key: "ai_workflow_id", dependent: :destroy
+  has_many :triggers, -> { }, class_name: "AiWorkflowTrigger", foreign_key: "ai_workflow_id", dependent: :destroy
+  has_many :runs, -> { }, class_name: "AiWorkflowRun", foreign_key: "ai_workflow_id", dependent: :destroy
+  has_many :schedules, -> { }, class_name: "AiWorkflowSchedule", foreign_key: "ai_workflow_id", dependent: :destroy
+  has_many :template_installations, -> { }, class_name: "AiWorkflowTemplateInstallation", foreign_key: "ai_workflow_id", dependent: :destroy
 
   # Validations
   validates :name, presence: true, length: { minimum: 1, maximum: 255 }
   validates :description, length: { maximum: 1000 }
-  validates :slug, presence: true, uniqueness: { scope: [:account_id, :version] },
+  validates :slug, presence: true, uniqueness: { scope: [ :account_id, :version ] },
                    length: { maximum: 150 },
-                   format: { with: /\A[a-z0-9\-_]+\z/, message: 'can only contain lowercase letters, numbers, hyphens, and underscores' }
+                   format: { with: /\A[a-z0-9\-_]+\z/, message: "can only contain lowercase letters, numbers, hyphens, and underscores" }
   validates :status, presence: true, inclusion: {
     in: %w[draft active paused inactive archived]
   }
   validates :visibility, presence: true, inclusion: {
     in: %w[private account public],
-    message: 'must be a valid visibility level'
+    message: "must be a valid visibility level"
   }
   validates :configuration, presence: true
-  validates :version, presence: true, format: { with: /\A\d+\.\d+\.\d+\z/, message: 'must be in semantic version format (x.y.z)' },
-                     uniqueness: { scope: [:account_id, :name] }
-  validates :is_active, inclusion: { in: [true, false] }
+  validates :version, presence: true, format: { with: /\A\d+\.\d+\.\d+\z/, message: "must be in semantic version format (x.y.z)" },
+                     uniqueness: { scope: [ :account_id, :name ] }
+  validates :is_active, inclusion: { in: [ true, false ] }
   validate :only_one_active_version_per_workflow
   validate :validate_workflow_structure
   validate :validate_template_requirements
@@ -58,36 +58,36 @@ class AiWorkflow < ApplicationRecord
   attribute :metadata, :json, default: -> { {} }
 
   # Scopes
-  scope :active, -> { where(status: 'active') }
-  scope :draft, -> { where(status: 'draft') }
-  scope :inactive, -> { where(status: 'inactive') }
-  scope :archived, -> { where(status: 'archived') }
-  scope :paused, -> { where(status: 'paused') }
+  scope :active, -> { where(status: "active") }
+  scope :draft, -> { where(status: "draft") }
+  scope :inactive, -> { where(status: "inactive") }
+  scope :archived, -> { where(status: "archived") }
+  scope :paused, -> { where(status: "paused") }
   scope :templates, -> { where(is_template: true) }
   scope :workflows, -> { where(is_template: false) }
-  scope :public_workflows, -> { where(visibility: 'public') }
-  scope :private_workflows, -> { where(visibility: 'private') }
+  scope :public_workflows, -> { where(visibility: "public") }
+  scope :private_workflows, -> { where(visibility: "private") }
   scope :by_category, ->(category) { where(template_category: category) }
-  scope :recently_executed, ->(days = 30) { where('last_executed_at >= ?', days.days.ago) }
+  scope :recently_executed, ->(days = 30) { where("last_executed_at >= ?", days.days.ago) }
   scope :search_by_text, ->(query) {
-    where('name ILIKE ? OR description ILIKE ?', "%#{query}%", "%#{query}%")
+    where("name ILIKE ? OR description ILIKE ?", "%#{query}%", "%#{query}%")
   }
-  
+
   # Additional scopes for test compatibility
   scope :executable, -> { where(status: %w[active paused]) }
   scope :by_status, ->(status_val) { where(status: status_val) }
   scope :search, ->(query) {
     return all if query.blank?
-    where('name ILIKE ? OR description ILIKE ?', "%#{query}%", "%#{query}%")
+    where("name ILIKE ? OR description ILIKE ?", "%#{query}%", "%#{query}%")
   }
-  scope :recent, ->(period = 1.month) { where('created_at >= ?', period.ago) }
+  scope :recent, ->(period = 1.month) { where("created_at >= ?", period.ago) }
 
   # Versioning scopes
   scope :active_versions, -> { where(is_active: true) }
   scope :inactive_versions, -> { where(is_active: false) }
   scope :version_family, ->(name, account_id) { where(name: name, account_id: account_id).order(:version) }
   scope :latest_version, ->(name, account_id) { version_family(name, account_id).active_versions.first }
-  scope :with_active_runs, -> { joins(:ai_workflow_runs).where(ai_workflow_runs: { status: ['running', 'paused'] }).distinct }
+  scope :with_active_runs, -> { joins(:ai_workflow_runs).where(ai_workflow_runs: { status: [ "running", "paused" ] }).distinct }
 
   # Callbacks
   before_validation :generate_slug, if: -> { name.present? && (slug.blank? || name_changed?) }
@@ -97,36 +97,36 @@ class AiWorkflow < ApplicationRecord
 
   # Status check methods
   def active?
-    status == 'active'
+    status == "active"
   end
 
   def draft?
-    status == 'draft'
+    status == "draft"
   end
 
   def inactive?
-    status == 'inactive'
+    status == "inactive"
   end
 
   def archived?
-    status == 'archived'
+    status == "archived"
   end
 
   def paused?
-    status == 'paused'
+    status == "paused"
   end
 
   # Timeout functionality for workflow execution
   def timeout_minutes
-    configuration.dig('max_execution_time').to_f / 60.0 if configuration.dig('max_execution_time')
+    configuration.dig("max_execution_time").to_f / 60.0 if configuration.dig("max_execution_time")
   end
 
   def timeout_minutes=(minutes)
-    self.configuration = (configuration || {}).merge('max_execution_time' => (minutes.to_f * 60).to_i)
+    self.configuration = (configuration || {}).merge("max_execution_time" => (minutes.to_f * 60).to_i)
   end
 
   def timeout_seconds
-    configuration.dig('max_execution_time') || 3600 # Default 1 hour
+    configuration.dig("max_execution_time") || 3600 # Default 1 hour
   end
 
   def can_execute?
@@ -142,7 +142,7 @@ class AiWorkflow < ApplicationRecord
     return false if ai_workflow_runs.where(status: %w[pending running initializing]).exists?
 
     # Don't allow deletion if there are recent executions (within last 5 minutes)
-    return false if ai_workflow_runs.where('created_at > ?', 5.minutes.ago).exists?
+    return false if ai_workflow_runs.where("created_at > ?", 5.minutes.ago).exists?
 
     true
   end
@@ -162,22 +162,22 @@ class AiWorkflow < ApplicationRecord
 
     # Check for at least one start node
     if start_nodes.empty?
-      validation_errors << 'Workflow must have at least one node marked as a start node'
+      validation_errors << "Workflow must have at least one node marked as a start node"
     end
 
     # Check for circular dependencies (excluding intentional loops)
     if has_circular_dependencies?
-      validation_errors << 'Workflow contains circular dependencies'
+      validation_errors << "Workflow contains circular dependencies"
     end
 
     # Check if workflow has any nodes
     if ai_workflow_nodes.empty?
-      validation_errors << 'Workflow must contain at least one node'
+      validation_errors << "Workflow must contain at least one node"
     end
 
     # Warnings for best practices
     if end_nodes.empty? && ai_workflow_nodes.any?
-      validation_warnings << 'Workflow has no end nodes - execution will terminate when no next nodes are available'
+      validation_warnings << "Workflow has no end nodes - execution will terminate when no next nodes are available"
     end
 
     # Check for orphaned nodes (nodes not connected to anything)
@@ -190,7 +190,7 @@ class AiWorkflow < ApplicationRecord
 
       orphaned_nodes = ai_workflow_nodes.reject { |node| connected_node_ids.include?(node.node_id) }
       if orphaned_nodes.any? && orphaned_nodes.size < ai_workflow_nodes.size
-        orphaned_names = orphaned_nodes.map(&:name).join(', ')
+        orphaned_names = orphaned_nodes.map(&:name).join(", ")
         validation_warnings << "Orphaned nodes detected (not connected to workflow): #{orphaned_names}"
       end
     end
@@ -201,7 +201,7 @@ class AiWorkflow < ApplicationRecord
       unreachable_nodes = ai_workflow_nodes.reject { |node| reachable_nodes.include?(node.node_id) }
 
       if unreachable_nodes.any?
-        unreachable_names = unreachable_nodes.map(&:name).join(', ')
+        unreachable_names = unreachable_nodes.map(&:name).join(", ")
         validation_warnings << "Unreachable nodes detected (cannot be reached from start nodes): #{unreachable_names}"
       end
     end
@@ -230,8 +230,8 @@ class AiWorkflow < ApplicationRecord
   end
 
   # Execution methods
-  def execute(input_variables: {}, user: nil, trigger: nil, trigger_type: 'manual', trigger_context: {})
-    raise ArgumentError, 'Workflow is not in a state that can be executed' unless can_execute?
+  def execute(input_variables: {}, user: nil, trigger: nil, trigger_type: "manual", trigger_context: {})
+    raise ArgumentError, "Workflow is not in a state that can be executed" unless can_execute?
 
     run_metadata = trigger_context.present? ? { trigger_context: trigger_context } : {}
 
@@ -242,9 +242,9 @@ class AiWorkflow < ApplicationRecord
 
       # Check for very recent pending/running executions (within last 3 seconds)
       recent_runs = ai_workflow_runs.where(
-        'created_at > ? AND status IN (?)',
+        "created_at > ? AND status IN (?)",
         3.seconds.ago,
-        ['pending', 'running', 'initializing']
+        [ "pending", "running", "initializing" ]
       ).order(:created_at)
 
       if recent_runs.exists?
@@ -269,8 +269,8 @@ class AiWorkflow < ApplicationRecord
         # Queue async execution via worker service API
         begin
           WorkerJobService.enqueue_ai_workflow_execution(run.run_id, {
-            'realtime' => true,
-            'channel_id' => "ai_workflow_execution_#{run.run_id}"
+            "realtime" => true,
+            "channel_id" => "ai_workflow_execution_#{run.run_id}"
           })
         rescue StandardError => e
           Rails.logger.error "Failed to enqueue workflow execution: #{e.message}"
@@ -288,7 +288,7 @@ class AiWorkflow < ApplicationRecord
 
   def execution_summary
     recent_runs = ai_workflow_runs.limit(100)
-    
+
     {
       total_executions: execution_count,
       recent_executions: recent_runs.count,
@@ -308,61 +308,61 @@ class AiWorkflow < ApplicationRecord
       workflow_data.merge!(customizations)
 
       new_workflow = account.ai_workflows.create!(
-        name: customizations['name'] || "#{template.name} (Copy)",
-        description: customizations['description'] || template.description,
+        name: customizations["name"] || "#{template.name} (Copy)",
+        description: customizations["description"] || template.description,
         creator: user,
-        configuration: workflow_data['configuration'] || {},
-        metadata: workflow_data['metadata']&.merge('template_id' => template.id) || { 'template_id' => template.id },
-        status: 'draft'
+        configuration: workflow_data["configuration"] || {},
+        metadata: workflow_data["metadata"]&.merge("template_id" => template.id) || { "template_id" => template.id },
+        status: "draft"
       )
 
       # Create nodes from template
-      if workflow_data['nodes'].present?
-        workflow_data['nodes'].each do |node_data|
+      if workflow_data["nodes"].present?
+        workflow_data["nodes"].each do |node_data|
           new_workflow.ai_workflow_nodes.create!(
-            node_id: node_data['node_id'],
-            node_type: node_data['node_type'],
-            name: node_data['name'],
-            description: node_data['description'],
-            position: node_data['position'] || {},
-            configuration: node_data['configuration'] || {},
-            validation_rules: node_data['validation_rules'] || {},
-            metadata: node_data['metadata'] || {},
-            is_start_node: node_data['is_start_node'] || false,
-            is_end_node: node_data['is_end_node'] || false
+            node_id: node_data["node_id"],
+            node_type: node_data["node_type"],
+            name: node_data["name"],
+            description: node_data["description"],
+            position: node_data["position"] || {},
+            configuration: node_data["configuration"] || {},
+            validation_rules: node_data["validation_rules"] || {},
+            metadata: node_data["metadata"] || {},
+            is_start_node: node_data["is_start_node"] || false,
+            is_end_node: node_data["is_end_node"] || false
           )
         end
       end
 
       # Create edges from template
-      if workflow_data['edges'].present?
-        workflow_data['edges'].each do |edge_data|
+      if workflow_data["edges"].present?
+        workflow_data["edges"].each do |edge_data|
           new_workflow.ai_workflow_edges.create!(
-            edge_id: edge_data['edge_id'],
-            source_node_id: edge_data['source_node_id'],
-            target_node_id: edge_data['target_node_id'],
-            source_handle: edge_data['source_handle'],
-            target_handle: edge_data['target_handle'],
-            edge_type: edge_data['edge_type'] || 'default',
-            condition: edge_data['condition'] || {},
-            configuration: edge_data['configuration'] || {},
-            is_conditional: edge_data['is_conditional'] || false
+            edge_id: edge_data["edge_id"],
+            source_node_id: edge_data["source_node_id"],
+            target_node_id: edge_data["target_node_id"],
+            source_handle: edge_data["source_handle"],
+            target_handle: edge_data["target_handle"],
+            edge_type: edge_data["edge_type"] || "default",
+            condition: edge_data["condition"] || {},
+            configuration: edge_data["configuration"] || {},
+            is_conditional: edge_data["is_conditional"] || false
           )
         end
       end
 
       # Create variables from template
-      if workflow_data['variables'].present?
-        workflow_data['variables'].each do |var_data|
+      if workflow_data["variables"].present?
+        workflow_data["variables"].each do |var_data|
           new_workflow.ai_workflow_variables.create!(
-            name: var_data['name'],
-            variable_type: var_data['variable_type'] || 'string',
-            description: var_data['description'],
-            default_value: var_data['default_value'],
-            validation_rules: var_data['validation_rules'] || {},
-            is_required: var_data['is_required'] || false,
-            is_input: var_data['is_input'] || false,
-            is_output: var_data['is_output'] || false
+            name: var_data["name"],
+            variable_type: var_data["variable_type"] || "string",
+            description: var_data["description"],
+            default_value: var_data["default_value"],
+            validation_rules: var_data["validation_rules"] || {},
+            is_required: var_data["is_required"] || false,
+            is_input: var_data["is_input"] || false,
+            is_output: var_data["is_output"] || false
           )
         end
       end
@@ -388,7 +388,7 @@ class AiWorkflow < ApplicationRecord
     return false unless can_edit? && has_valid_structure?
 
     update!(
-      status: 'active',
+      status: "active",
       published_at: Time.current,
       version: increment_version(version)
     )
@@ -396,15 +396,15 @@ class AiWorkflow < ApplicationRecord
 
   def archive!
     update!(
-      status: 'archived',
-      metadata: metadata.merge('archived_at' => Time.current.iso8601)
+      status: "archived",
+      metadata: metadata.merge("archived_at" => Time.current.iso8601)
     )
   end
 
   def pause!
     update!(
-      status: 'paused',
-      metadata: metadata.merge('paused_at' => Time.current.iso8601)
+      status: "paused",
+      metadata: metadata.merge("paused_at" => Time.current.iso8601)
     )
   end
 
@@ -423,11 +423,11 @@ class AiWorkflow < ApplicationRecord
         description: description,
         configuration: configuration.deep_dup,
         metadata: metadata.deep_dup.merge(
-          'duplicated_from' => id,
-          'duplicated_at' => Time.current.iso8601
+          "duplicated_from" => id,
+          "duplicated_at" => Time.current.iso8601
         ),
-        visibility: 'private',
-        status: 'draft'
+        visibility: "private",
+        status: "draft"
       )
 
       new_workflow.save!
@@ -437,7 +437,7 @@ class AiWorkflow < ApplicationRecord
       ai_workflow_nodes.each do |node|
         new_node_id = SecureRandom.uuid
         node_id_mapping[node.node_id] = new_node_id
-        
+
         new_workflow.ai_workflow_nodes.create!(
           node_id: new_node_id,
           node_type: node.node_type,
@@ -456,7 +456,7 @@ class AiWorkflow < ApplicationRecord
         )
       end
 
-      # Duplicate edges with mapped node IDs  
+      # Duplicate edges with mapped node IDs
       ai_workflow_edges.each do |edge|
         new_workflow.ai_workflow_edges.create!(
           edge_id: SecureRandom.uuid,
@@ -496,48 +496,48 @@ class AiWorkflow < ApplicationRecord
 
   def self.import_from_data(import_data, target_account, user, name_override: nil)
     transaction do
-      workflow_data = import_data[:workflow] || import_data['workflow']
-      nodes_data = import_data[:nodes] || import_data['nodes'] || []
-      edges_data = import_data[:edges] || import_data['edges'] || []
+      workflow_data = import_data[:workflow] || import_data["workflow"]
+      nodes_data = import_data[:nodes] || import_data["nodes"] || []
+      edges_data = import_data[:edges] || import_data["edges"] || []
 
       workflow = create!(
         account: target_account,
         creator: user,
-        name: name_override || workflow_data[:name] || workflow_data['name'],
-        description: workflow_data[:description] || workflow_data['description'],
-        status: workflow_data[:status] || workflow_data['status'] || 'draft',
-        visibility: workflow_data[:visibility] || workflow_data['visibility'] || 'private',
-        configuration: workflow_data[:configuration] || workflow_data['configuration'] || {}
+        name: name_override || workflow_data[:name] || workflow_data["name"],
+        description: workflow_data[:description] || workflow_data["description"],
+        status: workflow_data[:status] || workflow_data["status"] || "draft",
+        visibility: workflow_data[:visibility] || workflow_data["visibility"] || "private",
+        configuration: workflow_data[:configuration] || workflow_data["configuration"] || {}
       )
 
       # Import nodes
       node_id_mapping = {}
       nodes_data.each do |node_data|
-        old_node_id = node_data[:node_id] || node_data['node_id']
+        old_node_id = node_data[:node_id] || node_data["node_id"]
         new_node_id = SecureRandom.uuid
         new_node = workflow.ai_workflow_nodes.create!(
           node_id: new_node_id,
-          node_type: node_data[:node_type] || node_data['node_type'],
-          name: node_data[:name] || node_data['name'],
-          position: node_data[:position] || node_data['position'] || {},
-          configuration: node_data[:configuration] || node_data['configuration'] || {},
-          is_start_node: node_data[:is_start_node] || node_data['is_start_node'] || false,
-          is_end_node: node_data[:is_end_node] || node_data['is_end_node'] || false
+          node_type: node_data[:node_type] || node_data["node_type"],
+          name: node_data[:name] || node_data["name"],
+          position: node_data[:position] || node_data["position"] || {},
+          configuration: node_data[:configuration] || node_data["configuration"] || {},
+          is_start_node: node_data[:is_start_node] || node_data["is_start_node"] || false,
+          is_end_node: node_data[:is_end_node] || node_data["is_end_node"] || false
         )
         node_id_mapping[old_node_id] = new_node.node_id
       end
 
       # Import edges with updated node IDs
       edges_data.each do |edge_data|
-        old_source = edge_data[:source_node_id] || edge_data['source_node_id']
-        old_target = edge_data[:target_node_id] || edge_data['target_node_id']
+        old_source = edge_data[:source_node_id] || edge_data["source_node_id"]
+        old_target = edge_data[:target_node_id] || edge_data["target_node_id"]
 
         workflow.ai_workflow_edges.create!(
           edge_id: SecureRandom.uuid,
           source_node_id: node_id_mapping[old_source],
           target_node_id: node_id_mapping[old_target],
-          edge_type: edge_data[:edge_type] || edge_data['edge_type'] || 'default',
-          configuration: edge_data[:configuration] || edge_data['configuration'] || {}
+          edge_type: edge_data[:edge_type] || edge_data["edge_type"] || "default",
+          configuration: edge_data[:configuration] || edge_data["configuration"] || {}
         )
       end
 
@@ -556,10 +556,10 @@ class AiWorkflow < ApplicationRecord
   # Statistics and metrics methods
   def execution_stats
     all_runs = ai_workflow_runs.limit(100)
-    completed_runs = all_runs.where(status: 'completed')
-    
-    failed_runs = all_runs.where(status: 'failed')
-    
+    completed_runs = all_runs.where(status: "completed")
+
+    failed_runs = all_runs.where(status: "failed")
+
     {
       total_executions: all_runs.count,
       successful_executions: completed_runs.count,
@@ -574,15 +574,15 @@ class AiWorkflow < ApplicationRecord
   end
 
   def recent_runs(period = 24.hours)
-    ai_workflow_runs.where('created_at >= ?', period.ago)
+    ai_workflow_runs.where("created_at >= ?", period.ago)
   end
 
   def total_cost
-    ai_workflow_runs.where(status: 'completed').sum(:total_cost)
+    ai_workflow_runs.where(status: "completed").sum(:total_cost)
   end
 
   def average_execution_time
-    completed_runs = ai_workflow_runs.where(status: 'completed').where.not(duration_ms: nil)
+    completed_runs = ai_workflow_runs.where(status: "completed").where.not(duration_ms: nil)
     return 0.0 if completed_runs.empty?
 
     completed_runs.average(:duration_ms).to_f
@@ -606,7 +606,7 @@ class AiWorkflow < ApplicationRecord
   end
 
   def has_active_runs?
-    ai_workflow_runs.where(status: ['running', 'paused']).exists?
+    ai_workflow_runs.where(status: [ "running", "paused" ]).exists?
   end
 
   def all_versions
@@ -632,13 +632,13 @@ class AiWorkflow < ApplicationRecord
   private
 
   def generate_slug
-    base_slug = name.downcase.gsub(/[^a-z0-9\s]/, '').gsub(/\s+/, '-').strip
+    base_slug = name.downcase.gsub(/[^a-z0-9\s]/, "").gsub(/\s+/, "-").strip
     self.slug = ensure_unique_slug(base_slug)
   end
 
   def ensure_unique_slug(base_slug)
     return base_slug if account.nil?
-    
+
     slug_candidate = base_slug
     counter = 1
 
@@ -657,7 +657,7 @@ class AiWorkflow < ApplicationRecord
   end
 
   def increment_version(current_version)
-    major, minor, patch = current_version.split('.').map(&:to_i)
+    major, minor, patch = current_version.split(".").map(&:to_i)
     "#{major}.#{minor}.#{patch + 1}"
   end
 
@@ -665,14 +665,14 @@ class AiWorkflow < ApplicationRecord
     return if configuration.present?
 
     default_config = {
-      'execution_mode' => 'sequential',
-      'timeout_seconds' => 3600,
-      'max_parallel_nodes' => 5,
-      'auto_retry' => false,
-      'error_handling' => 'stop',
-      'notifications' => {
-        'on_completion' => false,
-        'on_error' => true
+      "execution_mode" => "sequential",
+      "timeout_seconds" => 3600,
+      "max_parallel_nodes" => 5,
+      "auto_retry" => false,
+      "error_handling" => "stop",
+      "notifications" => {
+        "on_completion" => false,
+        "on_error" => true
       }
     }
 
@@ -683,7 +683,7 @@ class AiWorkflow < ApplicationRecord
     if paused? || archived?
       ai_workflow_schedules.where(is_active: true).update_all(
         is_active: false,
-        status: 'disabled'
+        status: "disabled"
       )
     end
   end
@@ -711,44 +711,44 @@ class AiWorkflow < ApplicationRecord
 
     # Validate at least one start node
     if start_nodes.empty?
-      errors.add(:base, 'Workflow must have at least one node marked as a start node')
+      errors.add(:base, "Workflow must have at least one node marked as a start node")
     end
 
     # End nodes are optional - workflows can terminate naturally
     # Multiple end nodes are allowed for different termination paths
     # No validation needed for end nodes
 
-    errors.add(:base, 'Workflow contains circular dependencies') if has_circular_dependencies?
+    errors.add(:base, "Workflow contains circular dependencies") if has_circular_dependencies?
   end
 
   def validate_template_requirements
     return unless is_template?
 
-    errors.add(:template_category, 'must be present for templates') if template_category.blank?
-    errors.add(:description, 'must be present for templates') if description.blank?
+    errors.add(:template_category, "must be present for templates") if template_category.blank?
+    errors.add(:description, "must be present for templates") if description.blank?
   end
 
   def validate_configuration_format
     return if configuration.blank?
-    
+
     unless configuration.is_a?(Hash)
-      errors.add(:configuration, 'must be a hash')
+      errors.add(:configuration, "must be a hash")
       return
     end
 
     # Validate execution_mode if present
-    if configuration['execution_mode'].present?
+    if configuration["execution_mode"].present?
       valid_modes = %w[sequential parallel conditional batch]
-      unless valid_modes.include?(configuration['execution_mode'])
-        errors.add(:configuration, 'invalid execution_mode')
+      unless valid_modes.include?(configuration["execution_mode"])
+        errors.add(:configuration, "invalid execution_mode")
       end
     end
 
     # Validate max_execution_time if present
-    if configuration['max_execution_time'].present?
-      max_time = configuration['max_execution_time'].to_i
+    if configuration["max_execution_time"].present?
+      max_time = configuration["max_execution_time"].to_i
       if max_time <= 0
-        errors.add(:configuration, 'max_execution_time must be positive')
+        errors.add(:configuration, "max_execution_time must be positive")
       end
     end
   end
@@ -819,31 +819,31 @@ class AiWorkflow < ApplicationRecord
 
   def calculate_success_rate(runs)
     return 0.0 if runs.empty?
-    
-    successful = runs.where(status: 'completed').count
+
+    successful = runs.where(status: "completed").count
     (successful.to_f / runs.count * 100).round(2)
   end
 
   def calculate_average_duration(runs)
-    completed_runs = runs.where(status: 'completed').where.not(duration_ms: nil)
+    completed_runs = runs.where(status: "completed").where.not(duration_ms: nil)
     return 0 if completed_runs.empty?
-    
+
     completed_runs.average(:duration_ms).to_i
   end
 
   def calculate_success_rate_for_runs(runs)
     return 0.0 if runs.empty?
-    
-    successful = runs.where(status: 'completed').count
+
+    successful = runs.where(status: "completed").count
     (successful.to_f / runs.count * 100).round(2)
   end
 
   def calculate_average_duration_for_runs(runs)
     return 0.0 if runs.empty?
-    
+
     completed_with_duration = runs.where.not(duration_ms: nil)
     return 0.0 if completed_with_duration.empty?
-    
+
     completed_with_duration.average(:duration_ms).to_f
   end
 

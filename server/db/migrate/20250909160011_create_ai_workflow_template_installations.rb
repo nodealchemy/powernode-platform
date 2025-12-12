@@ -16,8 +16,8 @@ class CreateAiWorkflowTemplateInstallations < ActiveRecord::Migration[7.1]
       t.datetime :last_updated_at
       t.timestamps
 
-      t.index [:ai_workflow_template_id, :account_id]
-      t.index [:account_id, :installed_by_user_id]
+      t.index [ :ai_workflow_template_id, :account_id ]
+      t.index [ :account_id, :installed_by_user_id ]
       t.index :installation_id, unique: true
       t.index :template_version
       t.index :last_updated_at

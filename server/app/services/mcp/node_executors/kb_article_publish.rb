@@ -10,8 +10,8 @@ module Mcp
         log_info "Publishing knowledge base article"
 
         # Get article identifier
-        article_id = configuration['article_id'] || get_variable('article_id')
-        article_slug = configuration['article_slug'] || get_variable('article_slug')
+        article_id = configuration["article_id"] || get_variable("article_id")
+        article_slug = configuration["article_slug"] || get_variable("article_slug")
 
         unless article_id.present? || article_slug.present?
           raise Mcp::AiWorkflowOrchestrator::NodeExecutionError,
@@ -22,15 +22,15 @@ module Mcp
         article = find_article(article_id, article_slug)
 
         # Get publish options
-        make_public = configuration['make_public'] || get_variable('make_public') || false
-        make_featured = configuration['make_featured'] || get_variable('make_featured') || false
+        make_public = configuration["make_public"] || get_variable("make_public") || false
+        make_featured = configuration["make_featured"] || get_variable("make_featured") || false
 
         # Publish the article
         publish_article(article, make_public, make_featured)
 
         # Store published article data in variable if configured
-        if configuration['output_variable']
-          set_variable(configuration['output_variable'], serialize_article(article))
+        if configuration["output_variable"]
+          set_variable(configuration["output_variable"], serialize_article(article))
         end
 
         log_info "Published KB article: #{article.title} (#{article.id})"
@@ -52,10 +52,10 @@ module Mcp
           },
           metadata: {
             node_id: @node.node_id,
-            node_type: 'kb_article_publish',
+            node_type: "kb_article_publish",
             executed_at: Time.current.iso8601,
-            operation: 'publish',
-            record_type: 'KnowledgeBaseArticle'
+            operation: "publish",
+            record_type: "KnowledgeBaseArticle"
           }
         }
       end
@@ -65,9 +65,9 @@ module Mcp
       def find_article(article_id, article_slug)
         article = if article_id.present?
                    KnowledgeBaseArticle.find_by(id: article_id)
-                 else
+        else
                    KnowledgeBaseArticle.find_by(slug: article_slug)
-                 end
+        end
 
         unless article
           identifier = article_id || article_slug
@@ -84,7 +84,7 @@ module Mcp
 
         # Update article status and settings
         article.update!(
-          status: 'published',
+          status: "published",
           published_at: Time.current,
           is_public: make_public,
           is_featured: make_featured
@@ -104,7 +104,7 @@ module Mcp
         errors << "Article must have a category" if article.category_id.blank?
 
         # Check if already published
-        if article.status == 'published'
+        if article.status == "published"
           log_debug "Article is already published, updating publish settings"
         end
 

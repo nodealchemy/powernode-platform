@@ -5,43 +5,43 @@ class ConsentManagementService
   class ConsentError < StandardError; end
 
   CONSENT_TYPES = {
-    'marketing' => {
-      description: 'Receive marketing communications and promotional offers',
+    "marketing" => {
+      description: "Receive marketing communications and promotional offers",
       required: false,
       default: false
     },
-    'analytics' => {
-      description: 'Allow collection of usage analytics to improve our services',
+    "analytics" => {
+      description: "Allow collection of usage analytics to improve our services",
       required: false,
       default: false
     },
-    'cookies' => {
-      description: 'Allow use of cookies for functionality and analytics',
+    "cookies" => {
+      description: "Allow use of cookies for functionality and analytics",
       required: false,
       default: false
     },
-    'data_sharing' => {
-      description: 'Allow sharing of data with third-party service providers',
+    "data_sharing" => {
+      description: "Allow sharing of data with third-party service providers",
       required: false,
       default: false
     },
-    'third_party' => {
-      description: 'Allow third-party integrations to access your data',
+    "third_party" => {
+      description: "Allow third-party integrations to access your data",
       required: false,
       default: false
     },
-    'communications' => {
-      description: 'Receive service-related communications',
+    "communications" => {
+      description: "Receive service-related communications",
       required: true,
       default: true
     },
-    'newsletter' => {
-      description: 'Subscribe to our newsletter',
+    "newsletter" => {
+      description: "Subscribe to our newsletter",
       required: false,
       default: false
     },
-    'promotional' => {
-      description: 'Receive promotional content and special offers',
+    "promotional" => {
+      description: "Receive promotional content and special offers",
       required: false,
       default: false
     }
@@ -79,7 +79,7 @@ class ConsentManagementService
         consent_text: consent_text || consent_text_for(consent_type),
         ip_address: ip_address,
         user_agent: user_agent,
-        metadata: metadata.merge(source: 'consent_management_service')
+        metadata: metadata.merge(source: "consent_management_service")
       )
     end
 
@@ -202,7 +202,7 @@ class ConsentManagementService
 
     def current_version(consent_type)
       # In production, this should come from a versioned consent document store
-      '1.0'
+      "1.0"
     end
 
     def consent_text_for(consent_type)

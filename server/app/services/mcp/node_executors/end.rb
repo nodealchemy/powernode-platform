@@ -33,7 +33,7 @@ module Mcp
           {
             output: "Workflow completed successfully",
             result: {
-              status: 'completed',
+              status: "completed",
               final_output: final_output
             },
             data: {
@@ -50,13 +50,13 @@ module Mcp
             },
             metadata: {
               node_id: @node.node_id,
-              node_type: 'end',
+              node_type: "end",
               executed_at: Time.current.iso8601,
               completed_at: Time.current.iso8601,
               total_duration_ms: calculate_total_duration(all_results),
               total_cost: calculate_total_cost(all_results),
               nodes_executed: all_results.keys.size,
-              execution_mode: 'collector'
+              execution_mode: "collector"
             }
           }
         rescue StandardError => e
@@ -96,7 +96,7 @@ module Mcp
 
       # Apply output mapping configuration if specified
       def apply_output_mapping(all_results, primary_output)
-        output_mapping = configuration['output_mapping'] || {}
+        output_mapping = configuration["output_mapping"] || {}
 
         if output_mapping.empty?
           # No explicit mapping - return FULL primary output (complete last node structure)
@@ -139,7 +139,7 @@ module Mcp
           key = $2
 
           case source
-          when 'input'
+          when "input"
             # Get from initial variables with safety check
             execution_context = @orchestrator.respond_to?(:execution_context) ? @orchestrator.execution_context : {}
             execution_context[:variables]&.dig(key)
@@ -151,11 +151,11 @@ module Mcp
               # See: docs/platform/WORKFLOW_IO_STANDARD.md
               # NO BACKWARD COMPATIBILITY
 
-              if key == 'output' && node_result[:output].present?
+              if key == "output" && node_result[:output].present?
                 return node_result[:output]
-              elsif key == 'result' && node_result[:result].present?
+              elsif key == "result" && node_result[:result].present?
                 return node_result[:result]
-              elsif key == 'data' && node_result[:data].present?
+              elsif key == "data" && node_result[:data].present?
                 return node_result[:data]
               end
 

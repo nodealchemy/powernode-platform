@@ -125,8 +125,8 @@ RSpec.describe AiWorkflowCheckpointRecoveryService do
         sequence_number: 1,
         workflow_state: {
           'status' => 'running',
-          'completed_nodes' => ['node-1', 'node-2', 'node-3'],
-          'execution_path' => ['node-1', 'node-2', 'node-3']
+          'completed_nodes' => [ 'node-1', 'node-2', 'node-3' ],
+          'execution_path' => [ 'node-1', 'node-2', 'node-3' ]
         },
         execution_context: { 'session' => 'abc123' },
         variable_snapshot: { 'var1' => 'value1', 'var2' => 'value2' },
@@ -236,7 +236,7 @@ RSpec.describe AiWorkflowCheckpointRecoveryService do
         expect(result[:success]).to be true
         expect(result[:resumed_at]).to eq('node-5')
         expect(result[:resumed_position]).to eq(30.0)
-        expect(result[:restored_variables]).to eq(['var1', 'var2'])
+        expect(result[:restored_variables]).to eq([ 'var1', 'var2' ])
         expect(result[:checkpoint_age_seconds]).to be >= 0
       end
 
@@ -417,7 +417,7 @@ RSpec.describe AiWorkflowCheckpointRecoveryService do
         sequence_number: 3,
         workflow_state: {
           status: 'completed',
-          completed_nodes: ['node-1', 'node-2', 'node-3']  # 3 out of 10 = 30%
+          completed_nodes: [ 'node-1', 'node-2', 'node-3' ]  # 3 out of 10 = 30%
         },
         execution_context: { session: 'test' },
         metadata: { progress_percentage: 30.0 },
@@ -547,7 +547,7 @@ RSpec.describe AiWorkflowCheckpointRecoveryService do
         checkpoint = service.create_checkpoint(type: 'manual_checkpoint', node_id: 'test')
 
         path = checkpoint.workflow_state['execution_path']
-        expect(path).to eq(['node-1', 'node-2', 'node-3'])
+        expect(path).to eq([ 'node-1', 'node-2', 'node-3' ])
       end
     end
   end

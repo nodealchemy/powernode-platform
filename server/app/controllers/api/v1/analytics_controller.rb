@@ -13,8 +13,8 @@ class Api::V1::AnalyticsController < ApplicationController
     # Check cache first for performance
     cache_key = generate_live_cache_key(@account_scope&.id)
     cached_data = Rails.cache.read(cache_key)
-    
-    if cached_data && params[:force_refresh] != 'true'
+
+    if cached_data && params[:force_refresh] != "true"
       Rails.logger.debug "Returning cached live analytics for account: #{@account_scope&.id}"
       render_success(cached_data)
       return
@@ -60,7 +60,7 @@ class Api::V1::AnalyticsController < ApplicationController
     render_success(data)
 
     # Broadcast update to WebSocket channel if requested
-    if params[:broadcast] == 'true'
+    if params[:broadcast] == "true"
       broadcast_analytics_update(data)
     end
 
@@ -283,9 +283,9 @@ class Api::V1::AnalyticsController < ApplicationController
       # Get cohort date - handle both string and Date formats
       cohort_date_str = if cohort[:cohort_date].is_a?(String)
                           cohort[:cohort_date][0..6] # Already ISO format, take YYYY-MM
-                        else
+      else
                           cohort[:cohort_date].strftime("%Y-%m")
-                        end
+      end
 
       # Get cohort size - service uses :size, might also have :cohort_size
       cohort_size = cohort[:size] || cohort[:cohort_size] || 0
@@ -301,7 +301,7 @@ class Api::V1::AnalyticsController < ApplicationController
                               retained_customers: (cohort_size * rate / 100.0).round
                             }
                           end
-                        elsif retention_array.is_a?(Array) && retention_array.first.is_a?(Hash)
+      elsif retention_array.is_a?(Array) && retention_array.first.is_a?(Hash)
                           # Already in expected format
                           retention_array.map do |r|
                             {
@@ -310,9 +310,9 @@ class Api::V1::AnalyticsController < ApplicationController
                               retained_customers: r[:retained_customers] || 0
                             }
                           end
-                        else
+      else
                           []
-                        end
+      end
 
       {
         cohort_date: cohort_date_str,
@@ -623,7 +623,7 @@ class Api::V1::AnalyticsController < ApplicationController
     end
     successful_payments = base_query.where(status: :successful)
                                    .where(created_at: Date.current.beginning_of_day..Date.current.end_of_day)
-    
+
     total_cents = successful_payments.sum(:amount_cents)
     (total_cents / 100.0).round(2)
   end
@@ -631,14 +631,14 @@ class Api::V1::AnalyticsController < ApplicationController
   def calculate_weekly_trend
     # Get last 7 days of key metrics
     trend_data = []
-    
+
     (0..6).each do |days_ago|
       date = days_ago.days.ago.to_date
-      
+
       # Count subscriptions for this day
       base_subscriptions = @account_scope ? @account_scope.subscriptions : Subscription.all
       new_subs = base_subscriptions.where(created_at: date.beginning_of_day..date.end_of_day).count
-      
+
       # Count payments for this day
       base_payments = if @account_scope
                        Payment.joins(subscription: :account).where(subscriptions: { accounts: { id: @account_scope.id } })
@@ -647,9 +647,9 @@ class Api::V1::AnalyticsController < ApplicationController
       end
       payments = base_payments.where(status: :successful)
                              .where(created_at: date.beginning_of_day..date.end_of_day)
-      
+
       revenue = (payments.sum(:amount_cents) / 100.0).round(2)
-      
+
       trend_data.unshift({
         date: date.iso8601,
         new_subscriptions: new_subs,
@@ -657,7 +657,7 @@ class Api::V1::AnalyticsController < ApplicationController
         payments_count: payments.count
       })
     end
-    
+
     trend_data
   end
 
@@ -670,7 +670,7 @@ class Api::V1::AnalyticsController < ApplicationController
       }
     else
       ActionCable.server.broadcast "analytics_global", {
-        type: "analytics_update", 
+        type: "analytics_update",
         data: data
       }
     end
@@ -691,12 +691,12 @@ class Api::V1::AnalyticsController < ApplicationController
     # Schedule background job to check notifications
     # This uses the worker service pattern
     Rails.logger.debug "Scheduling analytics notification check for account: #{@account_scope&.id}"
-    
+
     # Queue the notification check job
     begin
       # This would be handled by the worker service
       WorkerJobService.enqueue_job(
-        'analytics_notification_check',
+        "analytics_notification_check",
         account_id: @account_scope&.id,
         metrics_data: data
       )

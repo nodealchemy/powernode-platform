@@ -55,7 +55,7 @@ RSpec.describe McpServer, type: :model do
       end
 
       it 'accepts valid args array' do
-        server = build(:mcp_server, args: ['--port', '3000'])
+        server = build(:mcp_server, args: [ '--port', '3000' ])
         expect(server).to be_valid
       end
     end

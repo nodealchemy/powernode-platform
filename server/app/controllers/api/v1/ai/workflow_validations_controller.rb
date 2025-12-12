@@ -8,9 +8,9 @@ module Api
 
         before_action :authenticate_request
         before_action :set_workflow
-        before_action :set_validation, only: [:show]
-        before_action :require_read_permission, only: [:index, :show, :latest]
-        before_action :require_write_permission, only: [:create, :auto_fix, :auto_fix_single, :preview_fixes]
+        before_action :set_validation, only: [ :show ]
+        before_action :require_read_permission, only: [ :index, :show, :latest ]
+        before_action :require_write_permission, only: [ :create, :auto_fix, :auto_fix_single, :preview_fixes ]
 
         # GET /api/v1/ai/workflows/:workflow_id/validations
         def index
@@ -21,9 +21,9 @@ module Api
 
           # Filter by health status
           case params[:health]
-          when 'healthy'
+          when "healthy"
             validations = validations.healthy
-          when 'unhealthy'
+          when "unhealthy"
             validations = validations.unhealthy
           end
 
@@ -36,7 +36,7 @@ module Api
           # Pagination
           page = params[:page]&.to_i || 1
           per_page = params[:per_page]&.to_i || 20
-          per_page = [per_page, 100].min # Cap at 100
+          per_page = [ per_page, 100 ].min # Cap at 100
 
           paginated_validations = validations.limit(per_page).offset((page - 1) * per_page)
 
@@ -59,10 +59,10 @@ module Api
             }
           })
 
-          log_audit_event('ai.workflow_validations.read', @workflow)
+          log_audit_event("ai.workflow_validations.read", @workflow)
         rescue => e
           Rails.logger.error "Failed to list workflow validations: #{e.message}"
-          render_error('Failed to list workflow validations', status: :internal_server_error)
+          render_error("Failed to list workflow validations", status: :internal_server_error)
         end
 
         # GET /api/v1/ai/workflows/:workflow_id/validations/:id
@@ -75,10 +75,10 @@ module Api
             }
           })
 
-          log_audit_event('ai.workflow_validations.read', @validation)
+          log_audit_event("ai.workflow_validations.read", @validation)
         rescue => e
           Rails.logger.error "Failed to get workflow validation: #{e.message}"
-          render_error('Failed to get workflow validation', status: :internal_server_error)
+          render_error("Failed to get workflow validation", status: :internal_server_error)
         end
 
         # POST /api/v1/ai/workflows/:workflow_id/validations
@@ -94,15 +94,15 @@ module Api
               id: @workflow.id,
               name: @workflow.name
             },
-            message: 'Workflow validation completed successfully'
+            message: "Workflow validation completed successfully"
           }, status: :created)
 
-          log_audit_event('ai.workflow_validations.create', validation)
+          log_audit_event("ai.workflow_validations.create", validation)
         rescue ActiveRecord::RecordInvalid => e
           render_validation_error(e.record.errors)
         rescue => e
           Rails.logger.error "Failed to create workflow validation: #{e.message}"
-          render_error('Failed to create workflow validation', status: :internal_server_error)
+          render_error("Failed to create workflow validation", status: :internal_server_error)
         end
 
         # GET /api/v1/ai/workflows/:workflow_id/validations/latest
@@ -124,14 +124,14 @@ module Api
                 id: @workflow.id,
                 name: @workflow.name
               },
-              message: 'No validations found for this workflow'
+              message: "No validations found for this workflow"
             })
           end
 
-          log_audit_event('ai.workflow_validations.read', @workflow)
+          log_audit_event("ai.workflow_validations.read", @workflow)
         rescue => e
           Rails.logger.error "Failed to get latest workflow validation: #{e.message}"
-          render_error('Failed to get latest workflow validation', status: :internal_server_error)
+          render_error("Failed to get latest workflow validation", status: :internal_server_error)
         end
 
         # POST /api/v1/ai/workflows/:workflow_id/validations/auto_fix
@@ -157,13 +157,13 @@ module Api
             message: "Applied #{result[:fixed_count]} automatic fixes"
           })
 
-          log_audit_event('ai.workflow_validations.auto_fix', @workflow, {
+          log_audit_event("ai.workflow_validations.auto_fix", @workflow, {
             fixed_count: result[:fixed_count],
             fixes: result[:fixes_applied].map { |f| f[:code] }
           })
         rescue => e
           Rails.logger.error "Failed to auto-fix workflow: #{e.message}"
-          render_error('Failed to apply automatic fixes', status: :internal_server_error)
+          render_error("Failed to apply automatic fixes", status: :internal_server_error)
         end
 
         # POST /api/v1/ai/workflows/:workflow_id/validations/auto_fix/:issue_code
@@ -190,7 +190,7 @@ module Api
               }
             })
 
-            log_audit_event('ai.workflow_validations.auto_fix_single', @workflow, {
+            log_audit_event("ai.workflow_validations.auto_fix_single", @workflow, {
               issue_code: issue_code,
               node_id: node_id
             })
@@ -217,10 +217,10 @@ module Api
             }
           })
 
-          log_audit_event('ai.workflow_validations.preview_fixes', @workflow)
+          log_audit_event("ai.workflow_validations.preview_fixes", @workflow)
         rescue => e
           Rails.logger.error "Failed to preview fixes: #{e.message}"
-          render_error('Failed to preview fixes', status: :internal_server_error)
+          render_error("Failed to preview fixes", status: :internal_server_error)
         end
 
         private
@@ -228,24 +228,24 @@ module Api
         def set_workflow
           @workflow = current_user.account.ai_workflows.find(params[:workflow_id])
         rescue ActiveRecord::RecordNotFound
-          render_error('Workflow not found', status: :not_found)
+          render_error("Workflow not found", status: :not_found)
         end
 
         def set_validation
           @validation = @workflow.workflow_validations.find(params[:id])
         rescue ActiveRecord::RecordNotFound
-          render_error('Validation not found', status: :not_found)
+          render_error("Validation not found", status: :not_found)
         end
 
         def require_read_permission
-          unless current_user.has_permission?('ai.workflows.read')
-            render_error('Insufficient permissions to view workflow validations', status: :forbidden)
+          unless current_user.has_permission?("ai.workflows.read")
+            render_error("Insufficient permissions to view workflow validations", status: :forbidden)
           end
         end
 
         def require_write_permission
-          unless current_user.has_permission?('ai.workflows.execute')
-            render_error('Insufficient permissions to create workflow validations', status: :forbidden)
+          unless current_user.has_permission?("ai.workflows.execute")
+            render_error("Insufficient permissions to create workflow validations", status: :forbidden)
           end
         end
 

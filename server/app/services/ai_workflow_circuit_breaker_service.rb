@@ -62,11 +62,11 @@ class AiWorkflowCircuitBreakerService
 
   # Class method to get all circuit breaker states
   def self.all_states
-    pattern = 'circuit_breaker:*'
+    pattern = "circuit_breaker:*"
     keys = Rails.cache.redis.keys(pattern)
 
     keys.map do |key|
-      service_name = key.sub('circuit_breaker:', '')
+      service_name = key.sub("circuit_breaker:", "")
       breaker = new(service_name: service_name)
       breaker.stats
     end
@@ -86,9 +86,9 @@ class AiWorkflowCircuitBreakerService
   # Broadcast state change via WebSocket
   def broadcast_state_change(old_state, new_state)
     ActionCable.server.broadcast(
-      'ai_monitoring_channel',
+      "ai_monitoring_channel",
       {
-        type: 'circuit_breaker_state_change',
+        type: "circuit_breaker_state_change",
         service: service_name,
         old_state: old_state,
         new_state: new_state,

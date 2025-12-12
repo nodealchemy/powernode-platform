@@ -19,8 +19,8 @@ module Mcp
         article = create_article(article_data)
 
         # Store article ID in variable if configured
-        if configuration['output_variable']
-          set_variable(configuration['output_variable'], article.id)
+        if configuration["output_variable"]
+          set_variable(configuration["output_variable"], article.id)
         end
 
         log_info "Created KB article: #{article.title} (#{article.id})"
@@ -53,10 +53,10 @@ module Mcp
           },
           metadata: {
             node_id: @node.node_id,
-            node_type: 'kb_article_create',
+            node_type: "kb_article_create",
             executed_at: Time.current.iso8601,
-            operation: 'create',
-            record_type: 'KnowledgeBaseArticle'
+            operation: "create",
+            record_type: "KnowledgeBaseArticle"
           }
         }
       end
@@ -67,25 +67,25 @@ module Mcp
         data = {}
 
         # Get data from configuration
-        data[:title] = configuration['title'] || get_variable('title')
-        data[:content] = configuration['content'] || get_variable('content')
-        data[:excerpt] = configuration['excerpt'] || get_variable('excerpt')
-        data[:status] = configuration['status'] || get_variable('status') || 'draft'
-        data[:category_id] = configuration['category_id'] || get_variable('category_id')
-        data[:is_public] = configuration['is_public'] || get_variable('is_public') || false
-        data[:is_featured] = configuration['is_featured'] || get_variable('is_featured') || false
+        data[:title] = configuration["title"] || get_variable("title")
+        data[:content] = configuration["content"] || get_variable("content")
+        data[:excerpt] = configuration["excerpt"] || get_variable("excerpt")
+        data[:status] = configuration["status"] || get_variable("status") || "draft"
+        data[:category_id] = configuration["category_id"] || get_variable("category_id")
+        data[:is_public] = configuration["is_public"] || get_variable("is_public") || false
+        data[:is_featured] = configuration["is_featured"] || get_variable("is_featured") || false
 
         # Handle tags (array or comma-separated string)
-        tags = configuration['tags'] || get_variable('tags')
+        tags = configuration["tags"] || get_variable("tags")
         data[:tag_names] = normalize_tags(tags) if tags.present?
 
         # Apply template rendering to content if needed
-        if data[:content].present? && data[:content].include?('{{')
+        if data[:content].present? && data[:content].include?("{{")
           data[:content] = render_template(data[:content])
         end
 
         # Apply template rendering to title if needed
-        if data[:title].present? && data[:title].include?('{{')
+        if data[:title].present? && data[:title].include?("{{")
           data[:title] = render_template(data[:title])
         end
 
@@ -119,7 +119,7 @@ module Mcp
 
       def create_article(data)
         # Get author from workflow context
-        author = @orchestrator.user || User.find_by(email: 'system@powernode.ai')
+        author = @orchestrator.user || User.find_by(email: "system@powernode.ai")
 
         # Create the article
         article = KnowledgeBaseArticle.create!(
@@ -151,7 +151,7 @@ module Mcp
         if tags.is_a?(Array)
           tags.map(&:to_s).map(&:strip).reject(&:blank?)
         elsif tags.is_a?(String)
-          tags.split(',').map(&:strip).reject(&:blank?)
+          tags.split(",").map(&:strip).reject(&:blank?)
         else
           []
         end

@@ -36,7 +36,7 @@ class PluginInstallationService
       account: target_account,
       plugin: plugin,
       installed_by: installing_user,
-      status: 'active',
+      status: "active",
       configuration: configuration,
       installed_at: Time.current
     )
@@ -59,7 +59,7 @@ class PluginInstallationService
     check_dependent_plugins!(installation)
 
     # Deactivate before destroying
-    installation.deactivate! if installation.status == 'active'
+    installation.deactivate! if installation.status == "active"
 
     # Destroy installation
     installation.destroy!
@@ -77,7 +77,7 @@ class PluginInstallationService
     installation.update_configuration(new_configuration)
 
     # Reload plugin resources if active
-    if installation.status == 'active'
+    if installation.status == "active"
       reload_plugin_resources(installation)
     end
 
@@ -118,13 +118,13 @@ class PluginInstallationService
     # Check if any installed plugins depend on this one
     dependent_installations = PluginInstallation
       .joins(:plugin)
-      .joins('INNER JOIN plugin_dependencies ON plugin_dependencies.plugin_id = plugins.id')
-      .where(account: installation.account, status: 'active')
-      .where('plugin_dependencies.dependency_plugin_id = ?', installation.plugin.plugin_id)
-      .where('plugin_dependencies.is_required = ?', true)
+      .joins("INNER JOIN plugin_dependencies ON plugin_dependencies.plugin_id = plugins.id")
+      .where(account: installation.account, status: "active")
+      .where("plugin_dependencies.dependency_plugin_id = ?", installation.plugin.plugin_id)
+      .where("plugin_dependencies.is_required = ?", true)
 
     if dependent_installations.exists?
-      dependent_names = dependent_installations.map { |i| i.plugin.name }.join(', ')
+      dependent_names = dependent_installations.map { |i| i.plugin.name }.join(", ")
       raise StandardError, "Cannot uninstall: Required by #{dependent_names}"
     end
   end

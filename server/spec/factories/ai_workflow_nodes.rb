@@ -61,7 +61,7 @@ FactoryBot.define do
       when 'human_approval'
         {
           timeout: 3600,
-          notification_channels: ['email', 'slack'],
+          notification_channels: [ 'email', 'slack' ],
           required_approvers: 1
         }
       when 'sub_workflow'
@@ -251,7 +251,7 @@ FactoryBot.define do
       configuration do
         {
           timeout: 7200,
-          notification_channels: ['email', 'webhook'],
+          notification_channels: [ 'email', 'webhook' ],
           required_approvers: 2,
           approval_message: 'Please review the workflow output',
           auto_approve_after: 24 * 3600
@@ -308,7 +308,7 @@ FactoryBot.define do
       name { 'Error Handler' }
       configuration do
         {
-          error_types: ['timeout', 'api_error', 'validation_error'],
+          error_types: [ 'timeout', 'api_error', 'validation_error' ],
           actions: {
             'timeout': 'retry',
             'api_error': 'fallback',
@@ -391,7 +391,7 @@ FactoryBot.define do
           content: 'This is the article content',
           category_id: SecureRandom.uuid,
           status: 'draft',
-          tags: ['documentation', 'help'],
+          tags: [ 'documentation', 'help' ],
           is_public: true,
           is_featured: false
         }
@@ -408,7 +408,7 @@ FactoryBot.define do
           content: 'Article content goes here',
           category_id: SecureRandom.uuid,
           status: 'draft',
-          tags: ['new', 'documentation'],
+          tags: [ 'new', 'documentation' ],
           is_public: false,
           is_featured: false
         }
@@ -450,7 +450,7 @@ FactoryBot.define do
           query: 'search term',
           category_id: SecureRandom.uuid,
           status: 'published',
-          tags: ['documentation'],
+          tags: [ 'documentation' ],
           limit: 10,
           sort_by: 'recent'
         }

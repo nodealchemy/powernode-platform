@@ -15,13 +15,13 @@ module Mcp
           output: [],
           result: {
             branches_created: 0,
-            split_status: 'not_implemented'
+            split_status: "not_implemented"
           },
           metadata: {
             node_id: @node.node_id,
-            node_type: 'split',
+            node_type: "split",
             executed_at: Time.current.iso8601,
-            implementation_status: 'stub'
+            implementation_status: "stub"
           }
         }
       end

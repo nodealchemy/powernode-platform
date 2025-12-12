@@ -3,9 +3,9 @@
 class Api::V1::DelegationsController < ApplicationController
   # Authentication is handled by ApplicationController's before_action :authenticate_request
   before_action :set_account
-  before_action :set_delegation, only: [:show, :update, :destroy, :activate, :deactivate, :revoke, :add_permission, :remove_permission]
-  before_action :authorize_delegation_management!, except: [:show]
-  before_action :authorize_delegation_view!, only: [:show]
+  before_action :set_delegation, only: [ :show, :update, :destroy, :activate, :deactivate, :revoke, :add_permission, :remove_permission ]
+  before_action :authorize_delegation_management!, except: [ :show ]
+  before_action :authorize_delegation_view!, only: [ :show ]
 
   # GET /api/v1/accounts/:account_id/delegations
   def index
@@ -41,7 +41,7 @@ class Api::V1::DelegationsController < ApplicationController
   # POST /api/v1/accounts/:account_id/delegations
   def create
     delegation_service = DelegationService.new(current_user, @account)
-    
+
     result = delegation_service.create_delegation(
       delegated_user_email: delegation_params[:delegated_user_email],
       role_id: delegation_params[:role_id],
@@ -49,7 +49,7 @@ class Api::V1::DelegationsController < ApplicationController
       expires_at: delegation_params[:expires_at],
       notes: delegation_params[:notes]
     )
-    
+
     if result[:success]
       render_success(
         { delegation: delegation_json(result[:delegation]), message: "Delegation created successfully" },
@@ -63,7 +63,7 @@ class Api::V1::DelegationsController < ApplicationController
   # PATCH/PUT /api/v1/accounts/:account_id/delegations/:id
   def update
     delegation_service = DelegationService.new(current_user, @account)
-    
+
     result = delegation_service.update_delegation(
       delegation: @delegation,
       role_id: delegation_params[:role_id],
@@ -71,7 +71,7 @@ class Api::V1::DelegationsController < ApplicationController
       expires_at: delegation_params[:expires_at],
       notes: delegation_params[:notes]
     )
-    
+
     if result[:success]
       render_success(
         { delegation: delegation_json(@delegation.reload), message: "Delegation updated successfully" }
@@ -84,9 +84,9 @@ class Api::V1::DelegationsController < ApplicationController
   # DELETE /api/v1/accounts/:account_id/delegations/:id
   def destroy
     delegation_service = DelegationService.new(current_user, @account)
-    
+
     result = delegation_service.revoke_delegation(@delegation)
-    
+
     if result[:success]
       render_success({ message: "Delegation revoked successfully" })
     else
@@ -97,9 +97,9 @@ class Api::V1::DelegationsController < ApplicationController
   # PATCH /api/v1/accounts/:account_id/delegations/:id/activate
   def activate
     delegation_service = DelegationService.new(current_user, @account)
-    
+
     result = delegation_service.activate_delegation(@delegation)
-    
+
     if result[:success]
       render_success(
         { delegation: delegation_json(@delegation.reload), message: "Delegation activated successfully" }
@@ -112,9 +112,9 @@ class Api::V1::DelegationsController < ApplicationController
   # PATCH /api/v1/accounts/:account_id/delegations/:id/deactivate
   def deactivate
     delegation_service = DelegationService.new(current_user, @account)
-    
+
     result = delegation_service.deactivate_delegation(@delegation)
-    
+
     if result[:success]
       render_success(
         { delegation: delegation_json(@delegation.reload), message: "Delegation deactivated successfully" }
@@ -127,9 +127,9 @@ class Api::V1::DelegationsController < ApplicationController
   # PATCH /api/v1/accounts/:account_id/delegations/:id/revoke
   def revoke
     delegation_service = DelegationService.new(current_user, @account)
-    
+
     result = delegation_service.revoke_delegation(@delegation)
-    
+
     if result[:success]
       render_success(
         { delegation: delegation_json(@delegation.reload), message: "Delegation revoked successfully" }
@@ -143,9 +143,9 @@ class Api::V1::DelegationsController < ApplicationController
   def available_permissions
     delegation_service = DelegationService.new(current_user, @account)
     role_id = params[:role_id]
-    
+
     permissions = delegation_service.list_available_permissions_for_delegation(role_id: role_id)
-    
+
     render_success(
       {
         permissions: permissions.map { |permission| permission_json(permission) },
@@ -157,12 +157,12 @@ class Api::V1::DelegationsController < ApplicationController
   # POST /api/v1/accounts/:account_id/delegations/:id/permissions
   def add_permission
     delegation_service = DelegationService.new(current_user, @account)
-    
+
     result = delegation_service.add_permission_to_delegation(
       delegation: @delegation,
       permission_id: params[:permission_id]
     )
-    
+
     if result[:success]
       render_success(
         { delegation: delegation_json(@delegation.reload), message: "Permission added successfully" }
@@ -175,12 +175,12 @@ class Api::V1::DelegationsController < ApplicationController
   # DELETE /api/v1/accounts/:account_id/delegations/:id/permissions/:permission_id
   def remove_permission
     delegation_service = DelegationService.new(current_user, @account)
-    
+
     result = delegation_service.remove_permission_from_delegation(
       delegation: @delegation,
       permission_id: params[:permission_id]
     )
-    
+
     if result[:success]
       render_success(
         { delegation: delegation_json(@delegation.reload), message: "Permission removed successfully" }
@@ -194,9 +194,9 @@ class Api::V1::DelegationsController < ApplicationController
 
   def set_account
     @account = current_user.account
-    
+
     # Allow admins to manage delegations for other accounts
-    if params[:account_id] && current_user.has_permission?('admin.access')
+    if params[:account_id] && current_user.has_permission?("admin.access")
       @account = Account.find(params[:account_id])
     end
   end
@@ -206,13 +206,13 @@ class Api::V1::DelegationsController < ApplicationController
   end
 
   def authorize_delegation_management!
-    unless current_user.has_permission?('account.manage') || current_user.has_permission?('admin.access')
+    unless current_user.has_permission?("account.manage") || current_user.has_permission?("admin.access")
       render_error("Insufficient permissions to manage delegations", status: :forbidden)
     end
   end
 
   def authorize_delegation_view!
-    unless current_user.has_permission?('account.manage') || current_user.has_permission?('admin.access') || @delegation.delegated_user == current_user
+    unless current_user.has_permission?("account.manage") || current_user.has_permission?("admin.access") || @delegation.delegated_user == current_user
       render_error("Insufficient permissions to view this delegation", status: :forbidden)
     end
   end

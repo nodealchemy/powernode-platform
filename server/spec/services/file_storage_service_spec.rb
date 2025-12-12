@@ -38,7 +38,7 @@ RSpec.describe FileStorageService, type: :service do
   describe '#upload_file' do
     let(:file_content) { 'Test file content' }
     let(:temp_file) do
-      file = Tempfile.new(['test', '.txt'])
+      file = Tempfile.new([ 'test', '.txt' ])
       file.write(file_content)
       file.rewind
       # Add content_type method so detect_content_type doesn't use MIME::Types
@@ -201,7 +201,7 @@ RSpec.describe FileStorageService, type: :service do
     let(:file_object) { create(:file_object, account: account, file_storage: storage) }
 
     it 'adds tags to file' do
-      tags = service.add_tags(file_object, ['important', 'project-alpha'])
+      tags = service.add_tags(file_object, [ 'important', 'project-alpha' ])
 
       expect(tags.map(&:name)).to contain_exactly('important', 'project-alpha')
       expect(file_object.file_tags.count).to eq(2)
@@ -209,7 +209,7 @@ RSpec.describe FileStorageService, type: :service do
 
     it 'creates new tags if they do not exist' do
       expect {
-        service.add_tags(file_object, ['new-tag'])
+        service.add_tags(file_object, [ 'new-tag' ])
       }.to change { account.file_tags.count }.by(1)
     end
 
@@ -217,7 +217,7 @@ RSpec.describe FileStorageService, type: :service do
       tag = create(:file_tag, account: account, name: 'existing')
 
       expect {
-        service.add_tags(file_object, ['existing'])
+        service.add_tags(file_object, [ 'existing' ])
       }.not_to change { account.file_tags.count }
 
       expect(file_object.file_tags).to include(tag)

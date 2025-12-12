@@ -163,8 +163,8 @@ describe('GatewayConfigModal', () => {
     });
 
     it('validates webhook tolerance range', async () => {
-      renderWithProviders(
-        <GatewayConfigModal 
+      const { container } = renderWithProviders(
+        <GatewayConfigModal
           isOpen={true}
           onClose={jest.fn()}
           gateway="stripe"
@@ -172,17 +172,21 @@ describe('GatewayConfigModal', () => {
           onConfigured={jest.fn()}
         />
       );
-      
-      // Tolerance might be a number input
-      const toleranceInput = screen.getByRole('spinbutton') || screen.getAllByRole('textbox')[3];
+
+      // Find the tolerance input by its type=number attribute (spinbutton role)
+      const toleranceInput = container.querySelector('input[type="number"]') as HTMLInputElement;
+      expect(toleranceInput).toBeTruthy();
+
       const saveButton = screen.getByRole('button', { name: /save configuration/i });
 
+      // Change value and trigger events for React to detect
       fireEvent.change(toleranceInput, { target: { value: '5000' } });
+      fireEvent.blur(toleranceInput);
       fireEvent.click(saveButton);
 
       await waitFor(() => {
         expect(screen.getByText(/tolerance must be between 1 and 3600 seconds/i)).toBeInTheDocument();
-      });
+      }, { timeout: 3000 });
     });
   });
 

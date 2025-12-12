@@ -32,7 +32,7 @@ module Mcp
       @logger.info "[MONITOR] Monitoring started for workflow run #{@workflow_run.run_id}"
 
       # Broadcast monitoring start event
-      broadcast_event('monitoring_started', {
+      broadcast_event("monitoring_started", {
         run_id: @workflow_run.run_id,
         started_at: @started_at.iso8601
       })
@@ -50,7 +50,7 @@ module Mcp
       # which updates completed_nodes/failed_nodes columns and triggers broadcasts
 
       # Broadcast node completion
-      broadcast_event('node_completed', {
+      broadcast_event("node_completed", {
         node_id: node.node_id,
         node_name: node.name,
         progress_percentage: calculate_progress_percentage
@@ -67,7 +67,7 @@ module Mcp
       # which updates completed_nodes/failed_nodes columns and triggers broadcasts
 
       # Broadcast node failure
-      broadcast_event('node_failed', {
+      broadcast_event("node_failed", {
         node_id: node.node_id,
         node_name: node.name,
         error_message: error.message,
@@ -83,7 +83,7 @@ module Mcp
       @logger.info "[MONITOR] Final metrics: #{@metrics.inspect}"
 
       # Broadcast monitoring completion
-      broadcast_event('monitoring_completed', {
+      broadcast_event("monitoring_completed", {
         run_id: @workflow_run.run_id,
         duration_ms: duration.round,
         metrics: @metrics

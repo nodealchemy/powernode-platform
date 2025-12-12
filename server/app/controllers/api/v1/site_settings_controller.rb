@@ -1,23 +1,23 @@
 # frozen_string_literal: true
 
 class Api::V1::SiteSettingsController < ApplicationController
-  before_action :authenticate_request, except: [:public_footer]
-  before_action :require_admin_access, except: [:public_footer]
-  before_action :set_site_setting, only: [:show, :update, :destroy]
+  before_action :authenticate_request, except: [ :public_footer ]
+  before_action :require_admin_access, except: [ :public_footer ]
+  before_action :set_site_setting, only: [ :show, :update, :destroy ]
 
   # GET /api/v1/public/footer (public endpoint)
   def public_footer
     begin
       footer_data = SiteSetting.public_footer_settings
-      
+
       # Add defaults for missing settings
       defaults = {
-        'site_name' => 'Powernode',
-        'copyright_text' => 'All rights reserved.',
-        'copyright_year' => Date.current.year.to_s,
-        'footer_description' => 'Powerful subscription management platform designed to help businesses grow.'
+        "site_name" => "Powernode",
+        "copyright_text" => "All rights reserved.",
+        "copyright_year" => Date.current.year.to_s,
+        "footer_description" => "Powerful subscription management platform designed to help businesses grow."
       }
-      
+
       footer_data = defaults.merge(footer_data)
 
       render_success({
@@ -66,10 +66,10 @@ class Api::V1::SiteSettingsController < ApplicationController
       AuditLog.create!(
         user: current_user,
         account: current_user.account,
-        action: 'create_site_setting',
-        resource_type: 'SiteSetting',
+        action: "create_site_setting",
+        resource_type: "SiteSetting",
         resource_id: @site_setting.id,
-        source: 'admin_panel',
+        source: "admin_panel",
         ip_address: request.remote_ip,
         user_agent: request.user_agent,
         metadata: {
@@ -90,16 +90,16 @@ class Api::V1::SiteSettingsController < ApplicationController
   # PUT /api/v1/site_settings/:id
   def update
     old_value = @site_setting.value
-    
+
     if @site_setting.update(site_setting_params)
       # Log setting update
       AuditLog.create!(
         user: current_user,
         account: current_user.account,
-        action: 'update_site_setting',
-        resource_type: 'SiteSetting',
+        action: "update_site_setting",
+        resource_type: "SiteSetting",
         resource_id: @site_setting.id,
-        source: 'admin_panel',
+        source: "admin_panel",
         ip_address: request.remote_ip,
         user_agent: request.user_agent,
         old_values: { value: old_value },
@@ -124,10 +124,10 @@ class Api::V1::SiteSettingsController < ApplicationController
     AuditLog.create!(
       user: current_user,
       account: current_user.account,
-      action: 'delete_site_setting',
-      resource_type: 'SiteSetting',
+      action: "delete_site_setting",
+      resource_type: "SiteSetting",
       resource_id: @site_setting.id,
-      source: 'admin_panel',
+      source: "admin_panel",
       ip_address: request.remote_ip,
       user_agent: request.user_agent,
       old_values: @site_setting.attributes,
@@ -147,7 +147,8 @@ class Api::V1::SiteSettingsController < ApplicationController
 
   # PUT /api/v1/site_settings/bulk_update
   def bulk_update
-    settings_params = params.require(:settings).permit!
+    # Site settings is a key-value store with dynamic keys
+    settings_params = params.require(:settings).to_unsafe_h
     updated_settings = {}
     errors = []
 
@@ -157,7 +158,7 @@ class Api::V1::SiteSettingsController < ApplicationController
           key,
           value[:value],
           description: value[:description],
-          setting_type: value[:setting_type] || 'string',
+          setting_type: value[:setting_type] || "string",
           is_public: value[:is_public] || false
         )
         updated_settings[key] = setting.parsed_value
@@ -171,9 +172,9 @@ class Api::V1::SiteSettingsController < ApplicationController
       AuditLog.create!(
         user: current_user,
         account: current_user.account,
-        action: 'bulk_update_site_settings',
-        resource_type: 'SiteSetting',
-        source: 'admin_panel',
+        action: "bulk_update_site_settings",
+        resource_type: "SiteSetting",
+        source: "admin_panel",
         ip_address: request.remote_ip,
         user_agent: request.user_agent,
         metadata: {
@@ -200,7 +201,7 @@ class Api::V1::SiteSettingsController < ApplicationController
   end
 
   def require_admin_access
-    unless current_user.has_permission?('admin.access') || current_user.has_permission?('settings.manage')
+    unless current_user.has_permission?("admin.access") || current_user.has_permission?("settings.manage")
       render_error("Permission denied: requires admin.access or settings.manage", status: :forbidden)
     end
   end

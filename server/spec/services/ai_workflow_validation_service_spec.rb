@@ -480,7 +480,7 @@ RSpec.describe AiWorkflowValidationService do
             :ai_workflow_node,
             node_type: 'human_approval',
             ai_workflow: workflow,
-            configuration: { approvers: ['user1@example.com'] }
+            configuration: { approvers: [ 'user1@example.com' ] }
           )
           create(:ai_workflow_edge, ai_workflow: workflow, source_node: trigger, target_node: approval_node)
 
@@ -500,7 +500,7 @@ RSpec.describe AiWorkflowValidationService do
           :ai_workflow_node,
           node_type: 'condition',
           ai_workflow: workflow,
-          configuration: { conditions: [{ field: 'status', operator: 'equals', value: 'active' }] }
+          configuration: { conditions: [ { field: 'status', operator: 'equals', value: 'active' } ] }
         )
         action1 = create(:ai_workflow_node, :action, ai_workflow: workflow)
         action2 = create(:ai_workflow_node, :action, ai_workflow: workflow)

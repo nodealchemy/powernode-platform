@@ -20,7 +20,7 @@ class McpBroadcastService
     @logger.info "[MCP_BROADCAST] Broadcasting tool event: #{event_type} for #{tool_id}"
 
     message = {
-      type: 'tool_event',
+      type: "tool_event",
       event_type: event_type,
       tool_id: tool_id,
       data: data,
@@ -46,7 +46,7 @@ class McpBroadcastService
     @logger.info "[MCP_BROADCAST] Broadcasting workflow event: #{event_type} for #{workflow_id}"
 
     message = {
-      type: 'workflow_event',
+      type: "workflow_event",
       event_type: event_type,
       workflow_id: workflow_id,
       data: data,
@@ -71,7 +71,7 @@ class McpBroadcastService
     @logger.info "[MCP_BROADCAST] Broadcasting agent event: #{event_type} for #{agent_id}"
 
     message = {
-      type: 'agent_event',
+      type: "agent_event",
       event_type: event_type,
       agent_id: agent_id,
       data: data,
@@ -96,7 +96,7 @@ class McpBroadcastService
     @logger.info "[MCP_BROADCAST] Broadcasting execution event: #{event_type}"
 
     message = {
-      type: 'execution_event',
+      type: "execution_event",
       event_type: event_type,
       execution_data: execution_data,
       account_id: account&.id,
@@ -119,7 +119,7 @@ class McpBroadcastService
     @logger.info "[MCP_BROADCAST] Broadcasting registry event: #{event_type}"
 
     message = {
-      type: 'registry_event',
+      type: "registry_event",
       event_type: event_type,
       registry_data: registry_data,
       account_id: account&.id,
@@ -143,7 +143,7 @@ class McpBroadcastService
     @logger.debug "[MCP_BROADCAST] Broadcasting connection event: #{event_type}"
 
     message = {
-      type: 'connection_event',
+      type: "connection_event",
       event_type: event_type,
       connection_data: connection_data,
       timestamp: Time.current.iso8601
@@ -165,7 +165,7 @@ class McpBroadcastService
     @logger.info "[MCP_BROADCAST] Broadcasting system event: #{event_type}"
 
     message = {
-      type: 'system_event',
+      type: "system_event",
       event_type: event_type,
       system_data: system_data,
       timestamp: Time.current.iso8601
@@ -265,7 +265,7 @@ class McpBroadcastService
     # DataDog integration
     return unless defined?(Datadog)
 
-    Datadog::Statsd.increment('mcp.event', tags: [
+    Datadog::Statsd.increment("mcp.event", tags: [
       "event_type:#{message[:event_type]}",
       "type:#{message[:type]}",
       "account_id:#{message[:account_id]}"
@@ -300,8 +300,8 @@ class McpBroadcastService
 
   def format_mcp_message(message)
     {
-      jsonrpc: '2.0',
-      method: 'notification',
+      jsonrpc: "2.0",
+      method: "notification",
       params: message
     }
   end

@@ -20,7 +20,7 @@ class CircuitBreaker < ApplicationRecord
   validates :service, presence: true
   validates :state, presence: true, inclusion: {
     in: %w[closed open half_open],
-    message: 'must be closed, open, or half_open'
+    message: "must be closed, open, or half_open"
   }
   validates :failure_threshold, numericality: { greater_than: 0 }
   validates :success_threshold, numericality: { greater_than: 0 }
@@ -35,13 +35,13 @@ class CircuitBreaker < ApplicationRecord
   # ==========================================
   # Scopes
   # ==========================================
-  scope :closed, -> { where(state: 'closed') }
-  scope :open, -> { where(state: 'open') }
-  scope :half_open, -> { where(state: 'half_open') }
+  scope :closed, -> { where(state: "closed") }
+  scope :open, -> { where(state: "open") }
+  scope :half_open, -> { where(state: "half_open") }
   scope :for_service, ->(service_name) { where(service: service_name) }
   scope :for_provider, ->(provider_name) { where(provider: provider_name) }
-  scope :recently_failed, -> { where('last_failure_at > ?', 1.hour.ago) }
-  scope :healthy, -> { where(state: 'closed') }
+  scope :recently_failed, -> { where("last_failure_at > ?", 1.hour.ago) }
+  scope :healthy, -> { where(state: "closed") }
   scope :unhealthy, -> { where(state: %w[open half_open]) }
 
   # ==========================================
@@ -57,25 +57,25 @@ class CircuitBreaker < ApplicationRecord
 
   # State check methods
   def closed?
-    state == 'closed'
+    state == "closed"
   end
 
   def open?
-    state == 'open'
+    state == "open"
   end
 
   def half_open?
-    state == 'half_open'
+    state == "half_open"
   end
 
   # Check if circuit breaker allows execution
   def allow_request?
     case state
-    when 'closed'
+    when "closed"
       true
-    when 'half_open'
+    when "half_open"
       true # Allow limited requests to test recovery
-    when 'open'
+    when "open"
       false
     else
       false
@@ -88,14 +88,14 @@ class CircuitBreaker < ApplicationRecord
       reload(lock: true)
 
       case state
-      when 'closed'
+      when "closed"
         # Reset failure count on success
         update!(
           failure_count: 0,
           success_count: success_count + 1,
           last_success_at: Time.current
         )
-      when 'half_open'
+      when "half_open"
         # Increment success count in half-open state
         new_success_count = success_count + 1
 
@@ -112,10 +112,10 @@ class CircuitBreaker < ApplicationRecord
       end
 
       # Record event
-      record_event('success', nil, duration_ms)
+      record_event("success", nil, duration_ms)
 
       # Update metrics
-      update_metrics('successes', duration_ms)
+      update_metrics("successes", duration_ms)
     end
   end
 
@@ -125,7 +125,7 @@ class CircuitBreaker < ApplicationRecord
       reload(lock: true)
 
       case state
-      when 'closed'
+      when "closed"
         # Increment failure count
         new_failure_count = failure_count + 1
 
@@ -139,22 +139,22 @@ class CircuitBreaker < ApplicationRecord
             last_failure_at: Time.current
           )
         end
-      when 'half_open'
+      when "half_open"
         # Failed during testing - reopen circuit
         transition_to_open!(error_message)
       end
 
       # Record event
-      record_event('failure', error_message, duration_ms)
+      record_event("failure", error_message, duration_ms)
 
       # Update metrics
-      update_metrics('failures', duration_ms)
+      update_metrics("failures", duration_ms)
     end
   end
 
   # Record timeout
   def record_timeout
-    record_failure(error_message: 'Request timeout exceeded', duration_ms: timeout_seconds * 1000)
+    record_failure(error_message: "Request timeout exceeded", duration_ms: timeout_seconds * 1000)
   end
 
   # Manual reset to closed state
@@ -169,7 +169,7 @@ class CircuitBreaker < ApplicationRecord
 
   # Calculate health metrics
   def health_metrics
-    recent_events = circuit_breaker_events.where('created_at > ?', 1.hour.ago)
+    recent_events = circuit_breaker_events.where("created_at > ?", 1.hour.ago)
     total_events = recent_events.count
 
     return default_health_metrics if total_events.zero?
@@ -194,7 +194,7 @@ class CircuitBreaker < ApplicationRecord
   private
 
   def set_default_values
-    self.state ||= 'closed'
+    self.state ||= "closed"
     self.failure_count ||= 0
     self.success_count ||= 0
     self.failure_threshold ||= 5
@@ -209,35 +209,35 @@ class CircuitBreaker < ApplicationRecord
     return if configuration.blank?
 
     unless configuration.is_a?(Hash)
-      errors.add(:configuration, 'must be a hash')
+      errors.add(:configuration, "must be a hash")
     end
   end
 
   def transition_to_open!(error_message = nil)
     update!(
-      state: 'open',
+      state: "open",
       opened_at: Time.current,
       failure_count: failure_count + 1,
       success_count: 0,
       last_failure_at: Time.current
     )
 
-    record_state_change('open', error_message)
+    record_state_change("open", error_message)
   end
 
   def transition_to_half_open!
     update!(
-      state: 'half_open',
+      state: "half_open",
       half_opened_at: Time.current,
       success_count: 0
     )
 
-    record_state_change('half_open')
+    record_state_change("half_open")
   end
 
   def transition_to_closed!
     update!(
-      state: 'closed',
+      state: "closed",
       failure_count: 0,
       success_count: 0,
       opened_at: nil,
@@ -245,7 +245,7 @@ class CircuitBreaker < ApplicationRecord
       last_success_at: Time.current
     )
 
-    record_state_change('closed')
+    record_state_change("closed")
   end
 
   def should_attempt_reset?
@@ -268,7 +268,7 @@ class CircuitBreaker < ApplicationRecord
 
   def record_state_change(new_state, error_message = nil)
     circuit_breaker_events.create!(
-      event_type: 'state_change',
+      event_type: "state_change",
       old_state: state_was,
       new_state: new_state,
       error_message: error_message,
@@ -284,19 +284,19 @@ class CircuitBreaker < ApplicationRecord
     self.metrics ||= {}
     self.metrics[metric_type] ||= 0
     self.metrics[metric_type] += 1
-    self.metrics['last_duration_ms'] = duration_ms if duration_ms
+    self.metrics["last_duration_ms"] = duration_ms if duration_ms
     save!
   end
 
   def calculate_success_rate(events)
-    successes = events.where(event_type: 'success').count
+    successes = events.where(event_type: "success").count
     total = events.count
     return 0.0 if total.zero?
     (successes.to_f / total * 100).round(2)
   end
 
   def calculate_failure_rate(events)
-    failures = events.where(event_type: 'failure').count
+    failures = events.where(event_type: "failure").count
     total = events.count
     return 0.0 if total.zero?
     (failures.to_f / total * 100).round(2)

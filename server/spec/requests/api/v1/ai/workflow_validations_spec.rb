@@ -172,7 +172,7 @@ RSpec.describe 'Api::V1::Ai::WorkflowValidations', type: :request do
 
           expect(response).to have_http_status(:created)
           data = json_response_data
-          expect(data['validation']['overall_status']).to be_in(['valid', 'warning'])
+          expect(data['validation']['overall_status']).to be_in([ 'valid', 'warning' ])
         end
       end
 

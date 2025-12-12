@@ -144,6 +144,5 @@ RSpec.describe PasswordHistory, type: :model do
       expect(history).not_to be_valid
       expect(history.errors[:password_digest]).to include("can't be blank")
     end
-
   end
 end

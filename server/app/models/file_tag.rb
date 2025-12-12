@@ -14,16 +14,16 @@ class FileTag < ApplicationRecord
   # Validations
   validates :name, presence: true, length: { maximum: 100 }
   validates :name, uniqueness: { scope: :account_id, case_sensitive: false }
-  validates :color, format: { with: /\A#[0-9A-Fa-f]{6}\z/, allow_blank: true, message: 'must be a valid hex color' }
+  validates :color, format: { with: /\A#[0-9A-Fa-f]{6}\z/, allow_blank: true, message: "must be a valid hex color" }
   validates :files_count, numericality: { greater_than_or_equal_to: 0 }
 
   # Scopes
   scope :by_name, -> { order(:name) }
-  scope :popular, -> { where('files_count > 0').order(files_count: :desc) }
+  scope :popular, -> { where("files_count > 0").order(files_count: :desc) }
   scope :unused, -> { where(files_count: 0) }
   scope :recent, -> { order(created_at: :desc) }
   scope :with_color, -> { where.not(color: nil) }
-  scope :search, ->(query) { where('name ILIKE ?', "%#{query}%") }
+  scope :search, ->(query) { where("name ILIKE ?", "%#{query}%") }
 
   # Callbacks
   before_validation :normalize_name
@@ -73,14 +73,14 @@ class FileTag < ApplicationRecord
     t = v * (1 - (1 - f) * s)
 
     r, g, b = case h_i
-              when 0 then [v, t, p]
-              when 1 then [q, v, p]
-              when 2 then [p, v, t]
-              when 3 then [p, q, v]
-              when 4 then [t, p, v]
-              else [v, p, q]
-              end
+    when 0 then [ v, t, p ]
+    when 1 then [ q, v, p ]
+    when 2 then [ p, v, t ]
+    when 3 then [ p, q, v ]
+    when 4 then [ t, p, v ]
+    else [ v, p, q ]
+    end
 
-    [(r * 255).to_i, (g * 255).to_i, (b * 255).to_i].map { |x| x.to_s(16).rjust(2, '0') }.join.to_i(16)
+    [ (r * 255).to_i, (g * 255).to_i, (b * 255).to_i ].map { |x| x.to_s(16).rjust(2, "0") }.join.to_i(16)
   end
 end

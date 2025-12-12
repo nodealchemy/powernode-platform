@@ -10,8 +10,8 @@ module Mcp
         log_info "Updating knowledge base article"
 
         # Get article identifier
-        article_id = configuration['article_id'] || get_variable('article_id')
-        article_slug = configuration['article_slug'] || get_variable('article_slug')
+        article_id = configuration["article_id"] || get_variable("article_id")
+        article_slug = configuration["article_slug"] || get_variable("article_slug")
 
         unless article_id.present? || article_slug.present?
           raise Mcp::AiWorkflowOrchestrator::NodeExecutionError,
@@ -28,8 +28,8 @@ module Mcp
         update_article(article, update_data)
 
         # Store updated article data in variable if configured
-        if configuration['output_variable']
-          set_variable(configuration['output_variable'], serialize_article(article))
+        if configuration["output_variable"]
+          set_variable(configuration["output_variable"], serialize_article(article))
         end
 
         log_info "Updated KB article: #{article.title} (#{article.id})"
@@ -49,10 +49,10 @@ module Mcp
           },
           metadata: {
             node_id: @node.node_id,
-            node_type: 'kb_article_update',
+            node_type: "kb_article_update",
             executed_at: Time.current.iso8601,
-            operation: 'update',
-            record_type: 'KnowledgeBaseArticle'
+            operation: "update",
+            record_type: "KnowledgeBaseArticle"
           }
         }
       end
@@ -62,9 +62,9 @@ module Mcp
       def find_article(article_id, article_slug)
         article = if article_id.present?
                    KnowledgeBaseArticle.find_by(id: article_id)
-                 else
+        else
                    KnowledgeBaseArticle.find_by(slug: article_slug)
-                 end
+        end
 
         unless article
           identifier = article_id || article_slug
@@ -79,24 +79,24 @@ module Mcp
         data = {}
 
         # Only include fields that are explicitly configured or provided
-        data[:title] = configuration['title'] || get_variable('title') if configuration['title'] || configuration['update_title']
-        data[:content] = configuration['content'] || get_variable('content') if configuration['content'] || configuration['update_content']
-        data[:excerpt] = configuration['excerpt'] || get_variable('excerpt') if configuration['excerpt'] || configuration['update_excerpt']
-        data[:status] = configuration['status'] || get_variable('status') if configuration['status'] || configuration['update_status']
-        data[:category_id] = configuration['category_id'] || get_variable('category_id') if configuration['category_id'] || configuration['update_category']
-        data[:is_public] = configuration['is_public'] if configuration.key?('is_public') || configuration['update_is_public']
-        data[:is_featured] = configuration['is_featured'] if configuration.key?('is_featured') || configuration['update_is_featured']
+        data[:title] = configuration["title"] || get_variable("title") if configuration["title"] || configuration["update_title"]
+        data[:content] = configuration["content"] || get_variable("content") if configuration["content"] || configuration["update_content"]
+        data[:excerpt] = configuration["excerpt"] || get_variable("excerpt") if configuration["excerpt"] || configuration["update_excerpt"]
+        data[:status] = configuration["status"] || get_variable("status") if configuration["status"] || configuration["update_status"]
+        data[:category_id] = configuration["category_id"] || get_variable("category_id") if configuration["category_id"] || configuration["update_category"]
+        data[:is_public] = configuration["is_public"] if configuration.key?("is_public") || configuration["update_is_public"]
+        data[:is_featured] = configuration["is_featured"] if configuration.key?("is_featured") || configuration["update_is_featured"]
 
         # Handle tags update
-        tags = configuration['tags'] || get_variable('tags')
-        data[:tag_names] = normalize_tags(tags) if tags.present? || configuration['update_tags']
+        tags = configuration["tags"] || get_variable("tags")
+        data[:tag_names] = normalize_tags(tags) if tags.present? || configuration["update_tags"]
 
         # Apply template rendering
-        if data[:content].present? && data[:content].include?('{{')
+        if data[:content].present? && data[:content].include?("{{")
           data[:content] = render_template(data[:content])
         end
 
-        if data[:title].present? && data[:title].include?('{{')
+        if data[:title].present? && data[:title].include?("{{")
           data[:title] = render_template(data[:title])
         end
 
@@ -166,7 +166,7 @@ module Mcp
         if tags.is_a?(Array)
           tags.map(&:to_s).map(&:strip).reject(&:blank?)
         elsif tags.is_a?(String)
-          tags.split(',').map(&:strip).reject(&:blank?)
+          tags.split(",").map(&:strip).reject(&:blank?)
         else
           []
         end

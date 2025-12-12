@@ -1,10 +1,10 @@
 # frozen_string_literal: true
 
 class Api::V1::AppReviewsController < ApplicationController
-  before_action :authenticate_user!, except: [:index, :show, :summary]
-  before_action :set_app, only: [:index, :show, :create, :summary]
-  before_action :set_app_review, only: [:show, :update, :destroy, :vote, :flag, :moderate]
-  before_action :check_permissions, only: [:update, :destroy, :flag, :moderate]
+  before_action :authenticate_user!, except: [ :index, :show, :summary ]
+  before_action :set_app, only: [ :index, :show, :create, :summary ]
+  before_action :set_app_review, only: [ :show, :update, :destroy, :vote, :flag, :moderate ]
+  before_action :check_permissions, only: [ :update, :destroy, :flag, :moderate ]
 
   # GET /api/v1/apps/:app_id/reviews
   def index
@@ -14,12 +14,12 @@ class Api::V1::AppReviewsController < ApplicationController
     # Apply filters
     @reviews = @reviews.by_rating(params[:rating]) if params[:rating].present?
     @reviews = @reviews.with_sentiment(params[:sentiment]) if params[:sentiment].present?
-    @reviews = @reviews.verified_purchases if params[:verified_only] == 'true'
-    @reviews = @reviews.with_content if params[:with_content] == 'true'
-    @reviews = @reviews.with_media if params[:with_media] == 'true'
-    @reviews = @reviews.with_responses if params[:with_responses] == 'true'
-    @reviews = @reviews.high_quality if params[:high_quality] == 'true'
-    @reviews = @reviews.helpful if params[:helpful] == 'true'
+    @reviews = @reviews.verified_purchases if params[:verified_only] == "true"
+    @reviews = @reviews.with_content if params[:with_content] == "true"
+    @reviews = @reviews.with_media if params[:with_media] == "true"
+    @reviews = @reviews.with_responses if params[:with_responses] == "true"
+    @reviews = @reviews.high_quality if params[:high_quality] == "true"
+    @reviews = @reviews.helpful if params[:helpful] == "true"
 
     # Apply search
     if params[:search].present?
@@ -36,21 +36,21 @@ class Api::V1::AppReviewsController < ApplicationController
 
     # Apply sorting
     case params[:sort_by]
-    when 'helpful'
+    when "helpful"
       @reviews = @reviews.order(helpful_count: :desc, created_at: :desc)
-    when 'rating_high'
+    when "rating_high"
       @reviews = @reviews.order(rating: :desc, created_at: :desc)
-    when 'rating_low'
+    when "rating_low"
       @reviews = @reviews.order(rating: :asc, created_at: :desc)
-    when 'quality'
-      @reviews = @reviews.order('quality_score DESC NULLS LAST', created_at: :desc)
+    when "quality"
+      @reviews = @reviews.order("quality_score DESC NULLS LAST", created_at: :desc)
     else # 'recent' or default
       @reviews = @reviews.recent
     end
 
     # Pagination
     page = params[:page]&.to_i || 1
-    per_page = [params[:per_page]&.to_i || 10, 50].min
+    per_page = [ params[:per_page]&.to_i || 10, 50 ].min
     offset = (page - 1) * per_page
 
     @total_count = @reviews.count
@@ -75,7 +75,7 @@ class Api::V1::AppReviewsController < ApplicationController
           high_quality: params[:high_quality],
           helpful: params[:helpful],
           search: params[:search],
-          sort_by: params[:sort_by] || 'recent'
+          sort_by: params[:sort_by] || "recent"
         }
       }
     )
@@ -121,7 +121,7 @@ class Api::V1::AppReviewsController < ApplicationController
     # Check if user already has a review for this app
     existing_review = @app.app_reviews.find_by(account: current_user.account)
     if existing_review
-      return render_error('You have already reviewed this app', status: :unprocessable_content)
+      return render_error("You have already reviewed this app", status: :unprocessable_content)
     end
 
     @app_review = @app.app_reviews.build(review_params)
@@ -135,7 +135,7 @@ class Api::V1::AppReviewsController < ApplicationController
 
       render_success(
         data: { review: serialize_review(@app_review, include_extended: true) },
-        message: 'Review created successfully'
+        message: "Review created successfully"
       )
     else
       render_validation_error(@app_review)
@@ -150,7 +150,7 @@ class Api::V1::AppReviewsController < ApplicationController
 
       render_success(
         data: { review: serialize_review(@app_review, include_extended: true) },
-        message: 'Review updated successfully'
+        message: "Review updated successfully"
       )
     else
       render_validation_error(@app_review)
@@ -160,13 +160,13 @@ class Api::V1::AppReviewsController < ApplicationController
   # DELETE /api/v1/reviews/:id
   def destroy
     @app_review.destroy
-    render_success(message: 'Review deleted successfully')
+    render_success(message: "Review deleted successfully")
   end
 
   # POST /api/v1/reviews/:id/vote
   def vote
     vote_type = params[:vote_type] # 'helpful' or 'unhelpful'
-    is_helpful = vote_type == 'helpful'
+    is_helpful = vote_type == "helpful"
 
     # Find or initialize vote
     vote = @app_review.review_helpfulness_votes.find_or_initialize_by(
@@ -176,7 +176,7 @@ class Api::V1::AppReviewsController < ApplicationController
     # If vote already exists with same value, remove it (toggle behavior)
     if vote.persisted? && vote.is_helpful == is_helpful
       vote.destroy
-      message = 'Vote removed'
+      message = "Vote removed"
     else
       # Update vote
       vote.is_helpful = is_helpful
@@ -200,50 +200,50 @@ class Api::V1::AppReviewsController < ApplicationController
   # POST /api/v1/reviews/:id/flag
   def flag
     reason = params[:reason]
-    
+
     if @app_review.flagged_for_review?
-      return render_error('Review is already flagged', status: :unprocessable_content)
+      return render_error("Review is already flagged", status: :unprocessable_content)
     end
 
     @app_review.flag_for_review!(reason, current_user.account)
 
     render_success(
       data: { review: serialize_review(@app_review) },
-      message: 'Review flagged for moderation'
+      message: "Review flagged for moderation"
     )
   end
 
   # POST /api/v1/reviews/:id/moderate
   def moderate
-    unless current_user.has_permission?('reviews.moderate')
-      return render_error('Insufficient permissions', status: :forbidden)
+    unless current_user.has_permission?("reviews.moderate")
+      return render_error("Insufficient permissions", status: :forbidden)
     end
 
     action = params[:action] # 'approve', 'reject', 'remove', 'restore'
     reason = params[:reason]
 
     case action
-    when 'approve'
+    when "approve"
       @app_review.approve_after_review!(current_user.account)
-      message = 'Review approved'
-    when 'reject'
-      @app_review.update!(moderation_status: 'rejected')
+      message = "Review approved"
+    when "reject"
+      @app_review.update!(moderation_status: "rejected")
       @app_review.review_moderation_actions.create!(
         moderator: current_user.account,
-        action_type: 'reject',
+        action_type: "reject",
         reason: reason,
-        previous_status: 'flagged',
-        new_status: 'rejected'
+        previous_status: "flagged",
+        new_status: "rejected"
       )
-      message = 'Review rejected'
-    when 'remove'
+      message = "Review rejected"
+    when "remove"
       @app_review.remove_after_review!(reason, current_user.account)
-      message = 'Review removed'
-    when 'restore'
+      message = "Review removed"
+    when "restore"
       @app_review.restore!(current_user.account, reason)
-      message = 'Review restored'
+      message = "Review restored"
     else
-      return render_error('Invalid moderation action', status: :unprocessable_content)
+      return render_error("Invalid moderation action", status: :unprocessable_content)
     end
 
     render_success(
@@ -265,9 +265,9 @@ class Api::V1::AppReviewsController < ApplicationController
 
   def check_permissions
     # Users can only modify their own reviews unless they're moderators
-    unless @app_review.account == current_user.account || 
-           current_user.has_permission?('reviews.moderate')
-      render_error('Insufficient permissions', status: :forbidden)
+    unless @app_review.account == current_user.account ||
+           current_user.has_permission?("reviews.moderate")
+      render_error("Insufficient permissions", status: :forbidden)
     end
   end
 
@@ -314,7 +314,7 @@ class Api::V1::AppReviewsController < ApplicationController
       weight += 0.25
     end
 
-    [weight, 5.0].min.round(2)
+    [ weight, 5.0 ].min.round(2)
   end
 
   def serialize_reviews(reviews)

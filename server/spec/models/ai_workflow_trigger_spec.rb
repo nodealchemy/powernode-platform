@@ -34,7 +34,7 @@ RSpec.describe AiWorkflowTrigger, type: :model do
           attrs[:schedule_cron] = '0 9 * * *'
           attrs[:configuration] = { 'timezone' => 'UTC' }
         when 'event'
-          attrs[:configuration] = { 'event_types' => ['user_created'] }
+          attrs[:configuration] = { 'event_types' => [ 'user_created' ] }
         when 'api_call'
           attrs[:configuration] = { 'require_authentication' => true }
         end
@@ -75,7 +75,7 @@ RSpec.describe AiWorkflowTrigger, type: :model do
       end
 
       it 'accepts valid cron expressions' do
-        valid_crons = ['0 9 * * *', '*/15 * * * *', '0 0 1 * *']
+        valid_crons = [ '0 9 * * *', '*/15 * * * *', '0 0 1 * *' ]
 
         valid_crons.each do |cron|
           trigger = build(:ai_workflow_trigger, trigger_type: 'schedule', schedule_cron: cron)
@@ -120,7 +120,7 @@ RSpec.describe AiWorkflowTrigger, type: :model do
 
       it 'validates event types are recognized' do
         trigger = build(:ai_workflow_trigger, trigger_type: 'event')
-        trigger.configuration = { 'event_types' => ['invalid_event_type'] }
+        trigger.configuration = { 'event_types' => [ 'invalid_event_type' ] }
         expect(trigger).not_to be_valid
         expect(trigger.errors[:configuration]).to include(match(/invalid event types/i))
       end
@@ -143,7 +143,7 @@ RSpec.describe AiWorkflowTrigger, type: :model do
              schedule_cron: '0 9 * * *',
              configuration: { 'timezone' => 'UTC' })
     end
-    let!(:event_trigger) { create(:ai_workflow_trigger, trigger_type: 'event', configuration: { 'event_types' => ['user_created'] }) }
+    let!(:event_trigger) { create(:ai_workflow_trigger, trigger_type: 'event', configuration: { 'event_types' => [ 'user_created' ] }) }
 
     describe '.active' do
       it 'returns only active triggers with active status' do
@@ -410,8 +410,8 @@ RSpec.describe AiWorkflowTrigger, type: :model do
 
       it 'returns configured event types for event triggers' do
         trigger = build(:ai_workflow_trigger, trigger_type: 'event')
-        trigger.configuration = { 'event_types' => ['user_created', 'payment_succeeded'] }
-        expect(trigger.event_types).to eq(['user_created', 'payment_succeeded'])
+        trigger.configuration = { 'event_types' => [ 'user_created', 'payment_succeeded' ] }
+        expect(trigger.event_types).to eq([ 'user_created', 'payment_succeeded' ])
       end
     end
 
@@ -421,7 +421,7 @@ RSpec.describe AiWorkflowTrigger, type: :model do
                trigger_type: 'event',
                status: 'active',
                is_active: true,
-               configuration: { 'event_types' => ['user_created', 'payment_succeeded'] })
+               configuration: { 'event_types' => [ 'user_created', 'payment_succeeded' ] })
       end
 
       it 'returns true for matching event type' do

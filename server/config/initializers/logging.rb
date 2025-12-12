@@ -26,8 +26,8 @@ module Powernode
     class StructuredLogger < ActiveSupport::Logger
       def initialize(*args)
         super
-        @application = 'powernode'
-        @service = ENV.fetch('SERVICE_NAME', 'backend')
+        @application = "powernode"
+        @service = ENV.fetch("SERVICE_NAME", "backend")
         @environment = Rails.env
       end
 
@@ -46,15 +46,15 @@ module Powernode
 
       def security_event(event_type, message, context = {})
         structured_log(:warn, message, context.merge(
-          log_type: 'security',
+          log_type: "security",
           security_event: event_type,
-          severity: context[:severity] || 'medium'
+          severity: context[:severity] || "medium"
         ))
       end
 
       def audit_event(action, resource, context = {})
         structured_log(:info, "Audit: #{action} on #{resource}", context.merge(
-          log_type: 'audit',
+          log_type: "audit",
           audit_action: action,
           audit_resource: resource
         ))
@@ -62,7 +62,7 @@ module Powernode
 
       def performance_metric(metric_name, value, context = {})
         structured_log(:info, "Performance: #{metric_name}", context.merge(
-          log_type: 'performance',
+          log_type: "performance",
           metric_name: metric_name,
           metric_value: value
         ))
@@ -73,7 +73,7 @@ module Powernode
       def build_log_entry(level, message, context)
         {
           '@timestamp': Time.current.iso8601(3),
-          '@version': '1',
+          '@version': "1",
           level: level.to_s.upcase,
           message: message,
           application: @application,
@@ -95,12 +95,12 @@ module Powernode
       def call(severity, time, progname, msg)
         entry = {
           '@timestamp': time.utc.iso8601(3),
-          '@version': '1',
+          '@version': "1",
           level: severity,
           logger: progname,
           message: msg.to_s.strip,
-          application: ENV.fetch('APPLICATION_NAME', 'powernode'),
-          service: ENV.fetch('SERVICE_NAME', 'backend'),
+          application: ENV.fetch("APPLICATION_NAME", "powernode"),
+          service: ENV.fetch("SERVICE_NAME", "backend"),
           environment: Rails.env,
           host: Socket.gethostname,
           pid: Process.pid
@@ -126,9 +126,9 @@ module Powernode
       # Log security-related events
       def security(event_type, message, context = {})
         log(:warn, message, context.merge(
-          log_type: 'security',
+          log_type: "security",
           security_event: event_type,
-          severity: context[:severity] || 'medium'
+          severity: context[:severity] || "medium"
         ))
 
         # Also write to dedicated security log in production
@@ -138,7 +138,7 @@ module Powernode
       # Log audit events
       def audit(action, resource_type, resource_id, context = {})
         log(:info, "Audit: #{action} on #{resource_type}##{resource_id}", context.merge(
-          log_type: 'audit',
+          log_type: "audit",
           audit_action: action,
           resource_type: resource_type,
           resource_id: resource_id
@@ -146,9 +146,9 @@ module Powernode
       end
 
       # Log performance metrics
-      def performance(metric_name, value, unit: 'ms', context: {})
+      def performance(metric_name, value, unit: "ms", context: {})
         log(:info, "Performance: #{metric_name} = #{value}#{unit}", context.merge(
-          log_type: 'performance',
+          log_type: "performance",
           metric_name: metric_name,
           metric_value: value,
           metric_unit: unit
@@ -158,7 +158,7 @@ module Powernode
       # Log external service interactions
       def external_service(service_name, operation, context = {})
         log(:info, "External: #{service_name}##{operation}", context.merge(
-          log_type: 'external_service',
+          log_type: "external_service",
           external_service: service_name,
           operation: operation
         ))
@@ -167,7 +167,7 @@ module Powernode
       # Log job execution
       def job(job_name, status, context = {})
         log(:info, "Job: #{job_name} - #{status}", context.merge(
-          log_type: 'job',
+          log_type: "job",
           job_name: job_name,
           job_status: status
         ))
@@ -176,7 +176,7 @@ module Powernode
       # Log API request (for manual logging where lograge doesn't cover)
       def api_request(method, path, context = {})
         log(:info, "API: #{method} #{path}", context.merge(
-          log_type: 'api_request',
+          log_type: "api_request",
           http_method: method,
           path: path
         ))
@@ -185,7 +185,7 @@ module Powernode
       private
 
       def format_entry(level, message, context)
-        if Rails.env.production? || ENV['LOGRAGE_JSON_ENABLED'] == 'true'
+        if Rails.env.production? || ENV["LOGRAGE_JSON_ENABLED"] == "true"
           {
             '@timestamp': Time.current.iso8601(3),
             level: level.to_s.upcase,
@@ -194,14 +194,14 @@ module Powernode
           }.to_json
         else
           # More readable format for development
-          parts = ["[#{level.to_s.upcase}] #{message}"]
+          parts = [ "[#{level.to_s.upcase}] #{message}" ]
           context.except(:tags).each { |k, v| parts << "#{k}=#{v.inspect}" }
-          parts.join(' ')
+          parts.join(" ")
         end
       end
 
       def write_to_security_log(event_type, message, context)
-        security_log_path = Rails.root.join('log', 'security.log')
+        security_log_path = Rails.root.join("log", "security.log")
         entry = {
           timestamp: Time.current.iso8601(3),
           event_type: event_type,
@@ -209,7 +209,7 @@ module Powernode
           **context
         }.to_json
 
-        File.open(security_log_path, 'a') { |f| f.puts(entry) }
+        File.open(security_log_path, "a") { |f| f.puts(entry) }
       rescue StandardError => e
         Rails.logger.error("Failed to write security log: #{e.message}")
       end
@@ -224,14 +224,14 @@ end
 Rails.application.config.after_initialize do
   # Log slow queries in production
   if Rails.env.production?
-    ActiveSupport::Notifications.subscribe('sql.active_record') do |_name, start, finish, _id, payload|
+    ActiveSupport::Notifications.subscribe("sql.active_record") do |_name, start, finish, _id, payload|
       duration_ms = ((finish - start) * 1000).round(2)
 
       # Log queries slower than threshold
-      slow_query_threshold_ms = ENV.fetch('SLOW_QUERY_THRESHOLD_MS', 100).to_i
+      slow_query_threshold_ms = ENV.fetch("SLOW_QUERY_THRESHOLD_MS", 100).to_i
       if duration_ms > slow_query_threshold_ms
         Powernode::Logging.performance(
-          'slow_query',
+          "slow_query",
           duration_ms,
           context: {
             sql: payload[:sql].truncate(500),

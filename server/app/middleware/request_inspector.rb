@@ -156,7 +156,7 @@ class RequestInspector
     SUSPICIOUS_PATTERNS.each do |threat_type, patterns|
       patterns.each do |pattern|
         if query.match?(pattern)
-          result[:threats] << { type: threat_type, location: 'query_string', pattern: pattern.to_s }
+          result[:threats] << { type: threat_type, location: "query_string", pattern: pattern.to_s }
           result[:score] += threat_score(threat_type)
         end
       end
@@ -174,7 +174,7 @@ class RequestInspector
     SUSPICIOUS_PATTERNS.each do |threat_type, patterns|
       patterns.each do |pattern|
         if body.match?(pattern)
-          result[:threats] << { type: threat_type, location: 'body', pattern: pattern.to_s }
+          result[:threats] << { type: threat_type, location: "body", pattern: pattern.to_s }
           result[:score] += threat_score(threat_type)
         end
       end
@@ -186,7 +186,7 @@ class RequestInspector
 
     SUSPICIOUS_USER_AGENTS.each do |pattern|
       if user_agent.match?(pattern)
-        result[:threats] << { type: :suspicious_user_agent, location: 'header', value: user_agent.truncate(100) }
+        result[:threats] << { type: :suspicious_user_agent, location: "header", value: user_agent.truncate(100) }
         result[:score] += 2
         break
       end
@@ -195,7 +195,7 @@ class RequestInspector
     # Check for scanner signatures
     SUSPICIOUS_PATTERNS[:scanner_signatures].each do |pattern|
       if user_agent.match?(pattern)
-        result[:threats] << { type: :scanner_detected, location: 'user_agent', pattern: pattern.to_s }
+        result[:threats] << { type: :scanner_detected, location: "user_agent", pattern: pattern.to_s }
         result[:score] += 10  # High score for known scanners
       end
     end
@@ -203,8 +203,8 @@ class RequestInspector
 
   def check_headers(request, result)
     # Check for missing required headers (potential automated attack)
-    if request.get_header('HTTP_ACCEPT').nil? && !api_request?(request)
-      result[:threats] << { type: :missing_accept_header, location: 'header' }
+    if request.get_header("HTTP_ACCEPT").nil? && !api_request?(request)
+      result[:threats] << { type: :missing_accept_header, location: "header" }
       result[:score] += 1
     end
 
@@ -212,8 +212,8 @@ class RequestInspector
     suspicious_headers = %w[HTTP_X_FORWARDED_FOR HTTP_X_REAL_IP HTTP_VIA HTTP_X_CLUSTER_CLIENT_IP]
     suspicious_headers.each do |header|
       value = request.get_header(header).to_s
-      if value.count(',') > 5  # Too many proxies
-        result[:threats] << { type: :excessive_proxy_chain, location: 'header', header: header }
+      if value.count(",") > 5  # Too many proxies
+        result[:threats] << { type: :excessive_proxy_chain, location: "header", header: header }
         result[:score] += 3
       end
     end
@@ -277,7 +277,7 @@ class RequestInspector
     multiplier = THRESHOLDS[:progressive_multiplier]**offense_count
     duration = base_duration * multiplier
 
-    [duration, THRESHOLDS[:max_block_duration]].min
+    [ duration, THRESHOLDS[:max_block_duration] ].min
   end
 
   def block_cache_key(ip)
@@ -344,7 +344,7 @@ class RequestInspector
   end
 
   def api_request?(request)
-    request.path.start_with?('/api/')
+    request.path.start_with?("/api/")
   end
 
   # =========================================================================
@@ -356,25 +356,25 @@ class RequestInspector
 
     body = {
       success: false,
-      error: 'Forbidden',
-      message: 'Your IP has been temporarily blocked due to suspicious activity.'
+      error: "Forbidden",
+      message: "Your IP has been temporarily blocked due to suspicious activity."
     }.to_json
 
     [
       403,
       {
-        'Content-Type' => 'application/json',
-        'X-Request-Blocked' => 'true',
-        'Retry-After' => remaining_block_time(request.ip).to_s
+        "Content-Type" => "application/json",
+        "X-Request-Blocked" => "true",
+        "Retry-After" => remaining_block_time(request.ip).to_s
       },
-      [body]
+      [ body ]
     ]
   end
 
   def remaining_block_time(ip)
     # Estimate remaining time (default to 1 hour if unknown)
     ttl = Rails.cache.redis&.ttl(block_cache_key(ip)) || 3600
-    [ttl, 0].max
+    [ ttl, 0 ].max
   end
 
   # =========================================================================

@@ -33,14 +33,14 @@ class PluginProviderRegistryService
     provider.assign_attributes(
       name: plugin.name,
       provider_type: provider_plugin.provider_type,
-      status: 'active',
+      status: "active",
       is_active: true,
       configuration: {
-        'plugin_id' => plugin.id,
-        'plugin_installation_id' => installation.id,
-        'is_plugin' => true,
-        'models' => provider_plugin.models,
-        'capabilities' => provider_plugin.supported_capabilities
+        "plugin_id" => plugin.id,
+        "plugin_installation_id" => installation.id,
+        "is_plugin" => true,
+        "models" => provider_plugin.models,
+        "capabilities" => provider_plugin.supported_capabilities
       }.merge(installation.merged_configuration)
     )
 
@@ -67,7 +67,7 @@ class PluginProviderRegistryService
     )
 
     if provider
-      provider.update!(status: 'inactive', is_active: false)
+      provider.update!(status: "inactive", is_active: false)
       @providers.delete(plugin.plugin_id)
     end
 
@@ -78,7 +78,7 @@ class PluginProviderRegistryService
   def list_provider_plugins
     installations = PluginInstallation
       .joins(:plugin)
-      .where(account: account, status: 'active')
+      .where(account: account, status: "active")
       .where("'ai_provider' = ANY(plugins.plugin_types)")
       .includes(:plugin)
 
@@ -104,8 +104,8 @@ class PluginProviderRegistryService
     # Sync authentication credentials from plugin installation to provider
     auth_schema = installation.plugin.ai_provider_plugin.authentication_schema
 
-    auth_schema['fields']&.each do |field|
-      field_name = field['name']
+    auth_schema["fields"]&.each do |field|
+      field_name = field["name"]
       credential_value = installation.get_credential(field_name)
 
       next if credential_value.blank?

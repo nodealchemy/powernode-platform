@@ -31,7 +31,7 @@ class AiWorkflowCheckpointRecoveryService
     # Create checkpoint record
     new_checkpoint = workflow_run.ai_workflow_checkpoints.create!(
       checkpoint_type: type,
-      node_id: node_id || 'unknown',
+      node_id: node_id || "unknown",
       sequence_number: next_sequence_number,
       workflow_state: checkpoint_data[:workflow_state],
       execution_context: checkpoint_data[:execution_context],
@@ -57,7 +57,7 @@ class AiWorkflowCheckpointRecoveryService
   # Restore workflow from checkpoint
   def restore_from_checkpoint
     unless checkpoint
-      raise ArgumentError, 'No checkpoint provided for restoration'
+      raise ArgumentError, "No checkpoint provided for restoration"
     end
 
     Rails.logger.info "[Recovery] Restoring workflow run #{workflow_run.run_id} from checkpoint #{checkpoint.id}"
@@ -100,11 +100,11 @@ class AiWorkflowCheckpointRecoveryService
   def self.find_recovery_checkpoint(workflow_run)
     # Get all checkpoints ordered by sequence number (most recent first)
     checkpoints = workflow_run.ai_workflow_checkpoints
-                              .where('created_at > ?', RETENTION_DAYS.days.ago)
+                              .where("created_at > ?", RETENTION_DAYS.days.ago)
                               .order(sequence_number: :desc)
 
     # Prefer node_completion checkpoints as they represent stable states
-    stable_checkpoint = checkpoints.find { |cp| cp.checkpoint_type == 'node_completion' }
+    stable_checkpoint = checkpoints.find { |cp| cp.checkpoint_type == "node_completion" }
 
     # Fall back to most recent checkpoint
     stable_checkpoint || checkpoints.first
@@ -161,7 +161,7 @@ class AiWorkflowCheckpointRecoveryService
 
   def capture_current_variables
     # Get variables from runtime context
-    runtime_vars = workflow_run.runtime_context.dig('variables') || {}
+    runtime_vars = workflow_run.runtime_context.dig("variables") || {}
 
     # Get input variables
     input_vars = workflow_run.input_variables || {}
@@ -175,7 +175,7 @@ class AiWorkflowCheckpointRecoveryService
 
   def capture_completed_nodes
     workflow_run.ai_workflow_node_executions
-                .where(status: 'completed')
+                .where(status: "completed")
                 .pluck(:node_id)
   end
 
@@ -195,9 +195,9 @@ class AiWorkflowCheckpointRecoveryService
 
     # Update runtime context with restored variables
     updated_context = workflow_run.runtime_context.merge(
-      'variables' => variables,
-      'restored_from_checkpoint' => checkpoint.id,
-      'restored_at' => Time.current.iso8601
+      "variables" => variables,
+      "restored_from_checkpoint" => checkpoint.id,
+      "restored_at" => Time.current.iso8601
     )
 
     workflow_run.update!(
@@ -212,16 +212,16 @@ class AiWorkflowCheckpointRecoveryService
     # Merge with current context (preserve variables from restore_variables)
     current_context = workflow_run.runtime_context || {}
     merged_context = current_context.merge(restored_context).merge(
-      'restored_from_checkpoint' => checkpoint.id,
-      'restored_at' => Time.current.iso8601,
-      'recovery_mode' => true
+      "restored_from_checkpoint" => checkpoint.id,
+      "restored_at" => Time.current.iso8601,
+      "recovery_mode" => true
     )
 
     workflow_run.update!(runtime_context: merged_context)
   end
 
   def restore_node_states
-    completed_nodes = checkpoint.workflow_state['completed_nodes'] || []
+    completed_nodes = checkpoint.workflow_state["completed_nodes"] || []
 
     # Mark nodes as completed that were completed at checkpoint
     completed_nodes.each do |node_id|
@@ -238,12 +238,12 @@ class AiWorkflowCheckpointRecoveryService
       node_execution.assign_attributes(
         ai_workflow_node: workflow_node,
         node_type: workflow_node.node_type,
-        status: 'completed',
+        status: "completed",
         started_at: checkpoint.created_at,
         completed_at: checkpoint.created_at,
         metadata: (node_execution.metadata || {}).merge(
-          'restored_from_checkpoint' => true,
-          'checkpoint_id' => checkpoint.id
+          "restored_from_checkpoint" => true,
+          "checkpoint_id" => checkpoint.id
         )
       )
 
@@ -254,18 +254,18 @@ class AiWorkflowCheckpointRecoveryService
   def update_workflow_status
     # Reset workflow to running state
     workflow_run.update!(
-      status: 'running',
+      status: "running",
       error_details: {},
       metadata: (workflow_run.metadata || {}).merge(
-        'recovered_from_checkpoint' => checkpoint.id,
-        'recovered_at' => Time.current.iso8601,
-        'recovery_sequence' => checkpoint.sequence_number
+        "recovered_from_checkpoint" => checkpoint.id,
+        "recovered_at" => Time.current.iso8601,
+        "recovery_sequence" => checkpoint.sequence_number
       )
     )
   end
 
   def calculate_resume_position
-    completed_nodes = checkpoint.workflow_state['completed_nodes'] || []
+    completed_nodes = checkpoint.workflow_state["completed_nodes"] || []
     total_nodes = workflow_run.total_nodes
 
     return 0 if total_nodes == 0
@@ -312,7 +312,7 @@ class AiWorkflowCheckpointRecoveryService
     ActionCable.server.broadcast(
       "ai_workflow_run_#{workflow_run.id}",
       {
-        type: 'checkpoint_created',
+        type: "checkpoint_created",
         checkpoint_id: checkpoint.id,
         checkpoint_type: checkpoint.checkpoint_type,
         node_id: checkpoint.node_id,

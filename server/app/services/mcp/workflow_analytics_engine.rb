@@ -18,9 +18,9 @@ module Mcp
       {
         overview: {
           total_executions: runs.count,
-          successful_executions: runs.where(status: 'completed').count,
-          failed_executions: runs.where(status: 'failed').count,
-          paused_executions: runs.where(status: 'paused').count,
+          successful_executions: runs.where(status: "completed").count,
+          failed_executions: runs.where(status: "failed").count,
+          paused_executions: runs.where(status: "paused").count,
           average_duration: calculate_average_duration(runs),
           total_cost: runs.sum(:total_cost),
           success_rate: calculate_success_rate(runs)
@@ -42,12 +42,12 @@ module Mcp
 
       {
         overall_metrics: {
-          average_execution_time: runs.where(status: 'completed').average(:duration_ms)&.to_i || 0,
+          average_execution_time: runs.where(status: "completed").average(:duration_ms)&.to_i || 0,
           p50_execution_time: calculate_percentile(runs, :duration_ms, 50),
           p95_execution_time: calculate_percentile(runs, :duration_ms, 95),
           p99_execution_time: calculate_percentile(runs, :duration_ms, 99),
           slowest_execution: runs.maximum(:duration_ms) || 0,
-          fastest_execution: runs.where(status: 'completed').minimum(:duration_ms) || 0
+          fastest_execution: runs.where(status: "completed").minimum(:duration_ms) || 0
         },
         bottlenecks: identify_bottlenecks(node_executions),
         node_performance: node_performance_breakdown(node_executions),
@@ -89,7 +89,7 @@ module Mcp
           node_type: node.node_type,
           executions: node_runs.count,
           success_rate: calculate_success_rate(node_runs),
-          average_duration: node_runs.where(status: 'completed').average(:duration_ms)&.to_i || 0,
+          average_duration: node_runs.where(status: "completed").average(:duration_ms)&.to_i || 0,
           failure_rate: calculate_failure_rate(node_runs),
           total_cost: node_runs.sum(:cost),
           retry_count: count_retries(node_runs),
@@ -154,10 +154,10 @@ module Mcp
     # Trend analysis
     def calculate_trends(runs, time_range)
       time_buckets = case time_range
-                     when ...7.days then :hourly
-                     when ...30.days then :daily
-                     else :weekly
-                     end
+      when ...7.days then :hourly
+      when ...30.days then :daily
+      else :weekly
+      end
 
       {
         execution_trend: calculate_execution_trend(runs, time_buckets),
@@ -171,16 +171,16 @@ module Mcp
 
     # Real-time metrics and monitoring
     def real_time_metrics
-      active_runs = workflow.ai_workflow_runs.where(status: 'running')
+      active_runs = workflow.ai_workflow_runs.where(status: "running")
 
       {
         currently_running: active_runs.count,
         queued_executions: count_queued_executions,
-        recent_completions: workflow.ai_workflow_runs.where(status: 'completed')
-                                   .where('completed_at >= ?', 1.hour.ago)
+        recent_completions: workflow.ai_workflow_runs.where(status: "completed")
+                                   .where("completed_at >= ?", 1.hour.ago)
                                    .count,
-        recent_failures: workflow.ai_workflow_runs.where(status: 'failed')
-                                .where('updated_at >= ?', 1.hour.ago)
+        recent_failures: workflow.ai_workflow_runs.where(status: "failed")
+                                .where("updated_at >= ?", 1.hour.ago)
                                 .count,
         average_queue_time: calculate_average_queue_time,
         system_health: calculate_system_health_score,
@@ -218,7 +218,7 @@ module Mcp
       {
         overview: {
           total_workflows: workflows.count,
-          active_workflows: workflows.where(status: 'published').count,
+          active_workflows: workflows.where(status: "published").count,
           total_executions: count_total_executions(workflows, time_range),
           total_cost: calculate_total_cost(workflows, time_range),
           average_success_rate: calculate_account_success_rate(workflows, time_range)
@@ -242,14 +242,14 @@ module Mcp
       insights = []
 
       # Performance insights
-      if avg_duration = runs.where(status: 'completed').average(:duration_ms)
+      if avg_duration = runs.where(status: "completed").average(:duration_ms)
         if avg_duration > 60000 # More than 1 minute
           insights << {
             type: :performance,
             severity: :medium,
-            insight: 'Workflow execution time is high',
-            recommendation: 'Consider parallelizing independent nodes or optimizing slow nodes',
-            impact: 'Could reduce execution time by 30-50%'
+            insight: "Workflow execution time is high",
+            recommendation: "Consider parallelizing independent nodes or optimizing slow nodes",
+            impact: "Could reduce execution time by 30-50%"
           }
         end
       end
@@ -261,7 +261,7 @@ module Mcp
             type: :cost,
             severity: :high,
             insight: "High operational cost detected: $#{total_cost.round(2)}",
-            recommendation: 'Review AI provider pricing, consider caching, or optimize prompts',
+            recommendation: "Review AI provider pricing, consider caching, or optimize prompts",
             impact: "Potential savings: $#{(total_cost * 0.3).round(2)}"
           }
         end
@@ -274,8 +274,8 @@ module Mcp
             type: :reliability,
             severity: :high,
             insight: "High failure rate detected: #{(failure_rate * 100).round(1)}%",
-            recommendation: 'Implement error recovery strategies and add retry logic',
-            impact: 'Could improve success rate to 95%+'
+            recommendation: "Implement error recovery strategies and add retry logic",
+            impact: "Could improve success rate to 95%+"
           }
         end
       end
@@ -286,9 +286,9 @@ module Mcp
         insights << {
           type: :pattern,
           severity: :low,
-          insight: 'Execution pattern shows peak usage during specific hours',
-          recommendation: 'Consider scheduling non-urgent workflows during off-peak hours',
-          impact: 'Better resource distribution and potential cost savings'
+          insight: "Execution pattern shows peak usage during specific hours",
+          recommendation: "Consider scheduling non-urgent workflows during off-peak hours",
+          impact: "Better resource distribution and potential cost savings"
         }
       end
 
@@ -323,25 +323,25 @@ module Mcp
     private
 
     def workflow_runs_in_range(time_range)
-      workflow.ai_workflow_runs.where('created_at >= ?', time_range.ago)
+      workflow.ai_workflow_runs.where("created_at >= ?", time_range.ago)
     end
 
     def calculate_average_duration(runs)
-      runs.where(status: 'completed').average(:duration_ms)&.to_i || 0
+      runs.where(status: "completed").average(:duration_ms)&.to_i || 0
     end
 
     def calculate_success_rate(runs)
       return 0.0 if runs.empty?
-      (runs.where(status: 'completed').count.to_f / runs.count * 100).round(2)
+      (runs.where(status: "completed").count.to_f / runs.count * 100).round(2)
     end
 
     def calculate_failure_rate(runs)
       return 0.0 if runs.empty?
-      runs.where(status: 'failed').count.to_f / runs.count
+      runs.where(status: "failed").count.to_f / runs.count
     end
 
     def calculate_percentile(runs, column, percentile)
-      values = runs.where(status: 'completed').pluck(column).compact.sort
+      values = runs.where(status: "completed").pluck(column).compact.sort
       return 0 if values.empty?
 
       index = (values.size * percentile / 100.0).ceil - 1
@@ -380,18 +380,18 @@ module Mcp
     def analyze_parallel_efficiency(runs)
       # Simplified parallel efficiency analysis
       {
-        parallel_nodes: workflow.ai_workflow_nodes.where(node_type: 'parallel').count,
+        parallel_nodes: workflow.ai_workflow_nodes.where(node_type: "parallel").count,
         efficiency_score: 75.0,
-        potential_improvement: '15% reduction in execution time possible'
+        potential_improvement: "15% reduction in execution time possible"
       }
     end
 
     def analyze_resource_utilization(runs)
       {
-        cpu_utilization: 'N/A',
-        memory_utilization: 'N/A',
-        network_utilization: 'N/A',
-        recommendation: 'Resource monitoring not yet implemented'
+        cpu_utilization: "N/A",
+        memory_utilization: "N/A",
+        network_utilization: "N/A",
+        recommendation: "Resource monitoring not yet implemented"
       }
     end
 
@@ -399,7 +399,7 @@ module Mcp
       node_executions = AiWorkflowNodeExecution.where(ai_workflow_run: runs)
 
       node_executions.joins(:ai_workflow_node)
-                    .group('ai_workflow_nodes.node_type')
+                    .group("ai_workflow_nodes.node_type")
                     .sum(:cost)
     end
 
@@ -425,7 +425,7 @@ module Mcp
       if redundant_calls > 0
         optimizations << {
           type: :caching,
-          description: 'Implement caching for redundant API calls',
+          description: "Implement caching for redundant API calls",
           potential_savings: calculate_caching_savings(runs)
         }
       end
@@ -435,7 +435,7 @@ module Mcp
       if expensive_nodes.any?
         optimizations << {
           type: :provider_optimization,
-          description: 'Consider alternative providers for expensive nodes',
+          description: "Consider alternative providers for expensive nodes",
           potential_savings: calculate_provider_savings(runs, expensive_nodes)
         }
       end
@@ -447,13 +447,13 @@ module Mcp
       inefficiencies = []
 
       # Failed runs that incurred costs
-      failed_runs_with_cost = runs.where(status: 'failed').where('total_cost > 0')
+      failed_runs_with_cost = runs.where(status: "failed").where("total_cost > 0")
       if failed_runs_with_cost.any?
         wasted_cost = failed_runs_with_cost.sum(:total_cost)
         inefficiencies << {
           type: :failed_execution_costs,
           wasted_amount: wasted_cost.round(2),
-          recommendation: 'Implement better error handling to reduce failed run costs'
+          recommendation: "Implement better error handling to reduce failed run costs"
         }
       end
 
@@ -461,7 +461,7 @@ module Mcp
     end
 
     def budget_tracking_analysis(runs)
-      monthly_cost = runs.where('created_at >= ?', 1.month.ago).sum(:total_cost)
+      monthly_cost = runs.where("created_at >= ?", 1.month.ago).sum(:total_cost)
 
       {
         monthly_cost: monthly_cost.round(2),
@@ -487,8 +487,8 @@ module Mcp
     end
 
     def analyze_node_errors(node_runs)
-      failed_runs = node_runs.where(status: 'failed')
-      error_types = failed_runs.pluck(:error_details).compact.map { |e| e['type'] }.compact
+      failed_runs = node_runs.where(status: "failed")
+      error_types = failed_runs.pluck(:error_details).compact.map { |e| e["type"] }.compact
 
       error_types.group_by(&:itself).transform_values(&:count)
     end
@@ -497,14 +497,14 @@ module Mcp
       return 0 if node_runs.empty?
 
       success_rate = calculate_success_rate(node_runs) / 100.0
-      avg_duration = node_runs.where(status: 'completed').average(:duration_ms)&.to_i || 0
-      duration_score = [1.0 - (avg_duration / 60000.0), 0].max # Penalty for > 1 minute
+      avg_duration = node_runs.where(status: "completed").average(:duration_ms)&.to_i || 0
+      duration_score = [ 1.0 - (avg_duration / 60000.0), 0 ].max # Penalty for > 1 minute
 
       ((success_rate * 0.7) + (duration_score * 0.3)) * 100
     end
 
     def count_retries(node_runs)
-      node_runs.where('retry_count > 0').sum(:retry_count)
+      node_runs.where("retry_count > 0").sum(:retry_count)
     end
 
     def analyze_temporal_patterns(runs)
@@ -519,7 +519,7 @@ module Mcp
     end
 
     def analyze_success_patterns(runs)
-      successful_runs = runs.where(status: 'completed')
+      successful_runs = runs.where(status: "completed")
       {
         count: successful_runs.count,
         time_distribution: successful_runs.group_by_hour(:created_at).count,
@@ -528,11 +528,11 @@ module Mcp
     end
 
     def analyze_failure_patterns(runs)
-      failed_runs = runs.where(status: 'failed')
+      failed_runs = runs.where(status: "failed")
       {
         count: failed_runs.count,
         time_distribution: failed_runs.group_by_hour(:created_at).count,
-        common_errors: failed_runs.pluck(:error_details).compact.map { |e| e['type'] }.compact
+        common_errors: failed_runs.pluck(:error_details).compact.map { |e| e["type"] }.compact
                                  .group_by(&:itself).transform_values(&:count)
       }
     end
@@ -592,17 +592,17 @@ module Mcp
 
     def calculate_success_rate_trend(runs, bucket_type)
       buckets = runs.send("group_by_#{bucket_type}", :created_at).count
-      success_buckets = runs.where(status: 'completed').send("group_by_#{bucket_type}", :created_at).count
+      success_buckets = runs.where(status: "completed").send("group_by_#{bucket_type}", :created_at).count
 
       buckets.keys.map do |key|
         total = buckets[key] || 0
         successful = success_buckets[key] || 0
-        [key, total.zero? ? 0 : (successful.to_f / total * 100).round(2)]
+        [ key, total.zero? ? 0 : (successful.to_f / total * 100).round(2) ]
       end.to_h
     end
 
     def calculate_performance_trend(runs, bucket_type)
-      runs.where(status: 'completed')
+      runs.where(status: "completed")
          .send("group_by_#{bucket_type}", :created_at)
          .average(:duration_ms)
          .transform_values { |v| v&.to_i || 0 }
@@ -613,12 +613,12 @@ module Mcp
     end
 
     def calculate_error_trend(runs, bucket_type)
-      runs.where(status: 'failed').send("group_by_#{bucket_type}", :created_at).count
+      runs.where(status: "failed").send("group_by_#{bucket_type}", :created_at).count
     end
 
     def predict_future_trends(runs, bucket_type)
       # Simplified prediction
-      { forecast: 'stable', confidence: 0.7 }
+      { forecast: "stable", confidence: 0.7 }
     end
 
     def count_queued_executions
@@ -653,13 +653,13 @@ module Mcp
     end
 
     def compare_performance(v1_runs, v2_runs)
-      v1_avg = v1_runs.where(status: 'completed').average(:duration_ms)&.to_i || 0
-      v2_avg = v2_runs.where(status: 'completed').average(:duration_ms)&.to_i || 0
+      v1_avg = v1_runs.where(status: "completed").average(:duration_ms)&.to_i || 0
+      v2_avg = v2_runs.where(status: "completed").average(:duration_ms)&.to_i || 0
 
       return 0 if v1_avg.zero?
 
       improvement = ((v1_avg - v2_avg).to_f / v1_avg * 100).round(2)
-      { improvement_percentage: improvement, faster_version: improvement > 0 ? 'version2' : 'version1' }
+      { improvement_percentage: improvement, faster_version: improvement > 0 ? "version2" : "version1" }
     end
 
     def compare_costs(v1_runs, v2_runs)
@@ -669,7 +669,7 @@ module Mcp
       return 0 if v1_cost.zero?
 
       savings = ((v1_cost - v2_cost) / v1_cost * 100).round(2)
-      { savings_percentage: savings, cheaper_version: savings > 0 ? 'version2' : 'version1' }
+      { savings_percentage: savings, cheaper_version: savings > 0 ? "version2" : "version1" }
     end
 
     def compare_reliability(v1_runs, v2_runs)
@@ -677,35 +677,35 @@ module Mcp
       v2_success = calculate_success_rate(v2_runs)
 
       improvement = (v2_success - v1_success).round(2)
-      { improvement_percentage: improvement, more_reliable: improvement > 0 ? 'version2' : 'version1' }
+      { improvement_percentage: improvement, more_reliable: improvement > 0 ? "version2" : "version1" }
     end
 
     def generate_version_recommendation(v1_runs, v2_runs)
       # Simple recommendation based on overall metrics
-      'version2' # Placeholder
+      "version2" # Placeholder
     end
 
     def count_total_executions(workflows, time_range)
       workflows.joins(:ai_workflow_runs)
-              .where('ai_workflow_runs.created_at >= ?', time_range.ago)
+              .where("ai_workflow_runs.created_at >= ?", time_range.ago)
               .count
     end
 
     def calculate_total_cost(workflows, time_range)
       workflows.joins(:ai_workflow_runs)
-              .where('ai_workflow_runs.created_at >= ?', time_range.ago)
-              .sum('ai_workflow_runs.total_cost')
+              .where("ai_workflow_runs.created_at >= ?", time_range.ago)
+              .sum("ai_workflow_runs.total_cost")
     end
 
     def calculate_account_success_rate(workflows, time_range)
       total_runs = workflows.joins(:ai_workflow_runs)
-                           .where('ai_workflow_runs.created_at >= ?', time_range.ago)
+                           .where("ai_workflow_runs.created_at >= ?", time_range.ago)
                            .count
 
       return 0.0 if total_runs.zero?
 
       successful_runs = workflows.joins(:ai_workflow_runs)
-                                .where('ai_workflow_runs.created_at >= ? AND ai_workflow_runs.status = ?', time_range.ago, 'completed')
+                                .where("ai_workflow_runs.created_at >= ? AND ai_workflow_runs.status = ?", time_range.ago, "completed")
                                 .count
 
       (successful_runs.to_f / total_runs * 100).round(2)
@@ -713,9 +713,9 @@ module Mcp
 
     def rank_workflows_by_executions(workflows, time_range)
       workflows.joins(:ai_workflow_runs)
-              .where('ai_workflow_runs.created_at >= ?', time_range.ago)
-              .group('ai_workflows.id')
-              .order('COUNT(ai_workflow_runs.id) DESC')
+              .where("ai_workflow_runs.created_at >= ?", time_range.ago)
+              .group("ai_workflows.id")
+              .order("COUNT(ai_workflow_runs.id) DESC")
               .limit(5)
     end
 
@@ -726,29 +726,29 @@ module Mcp
 
     def rank_workflows_by_cost(workflows, time_range)
       workflows.joins(:ai_workflow_runs)
-              .where('ai_workflow_runs.created_at >= ?', time_range.ago)
-              .group('ai_workflows.id')
-              .order('SUM(ai_workflow_runs.total_cost) DESC')
+              .where("ai_workflow_runs.created_at >= ?", time_range.ago)
+              .group("ai_workflows.id")
+              .order("SUM(ai_workflow_runs.total_cost) DESC")
               .limit(5)
     end
 
     def rank_workflows_by_speed(workflows, time_range)
       workflows.joins(:ai_workflow_runs)
-              .where('ai_workflow_runs.created_at >= ? AND ai_workflow_runs.status = ?', time_range.ago, 'completed')
-              .group('ai_workflows.id')
-              .order('AVG(ai_workflow_runs.duration_ms) ASC')
+              .where("ai_workflow_runs.created_at >= ? AND ai_workflow_runs.status = ?", time_range.ago, "completed")
+              .group("ai_workflows.id")
+              .order("AVG(ai_workflow_runs.duration_ms) ASC")
               .limit(5)
     end
 
     def analyze_account_resource_usage(workflows, time_range)
-      { analysis: 'Not yet implemented' }
+      { analysis: "Not yet implemented" }
     end
 
     def analyze_account_cost_distribution(workflows, time_range)
       workflows.joins(:ai_workflow_runs)
-              .where('ai_workflow_runs.created_at >= ?', time_range.ago)
-              .group('ai_workflows.name')
-              .sum('ai_workflow_runs.total_cost')
+              .where("ai_workflow_runs.created_at >= ?", time_range.ago)
+              .group("ai_workflows.name")
+              .sum("ai_workflow_runs.total_cost")
     end
 
     def generate_account_recommendations(workflows, time_range)

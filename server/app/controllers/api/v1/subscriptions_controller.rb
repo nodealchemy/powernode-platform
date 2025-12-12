@@ -8,7 +8,7 @@ class Api::V1::SubscriptionsController < ApplicationController
     subscription = current_account.subscription
 
     render_success(
-      subscription ? [subscription_data(subscription)] : []
+      subscription ? [ subscription_data(subscription) ] : []
     )
   end
 
@@ -49,27 +49,27 @@ class Api::V1::SubscriptionsController < ApplicationController
   # GET /api/v1/subscriptions/history
   def history
     subscription = current_account.subscription
-    
+
     # Get audit logs related to subscription changes for this account
     audit_logs = AuditLog.where(account: current_account)
-                        .where(action: ['create', 'subscription_change', 'update'])
-                        .where(resource_type: 'Subscription')
+                        .where(action: [ "create", "subscription_change", "update" ])
+                        .where(resource_type: "Subscription")
                         .recent
                         .limit(100)
-    
+
     # Also include relevant payment history
     payment_logs = AuditLog.where(account: current_account)
-                          .where(action: 'payment')
+                          .where(action: "payment")
                           .recent
                           .limit(50)
-    
+
     # Combine and sort by date
     all_logs = (audit_logs.to_a + payment_logs.to_a).sort_by(&:created_at).reverse
-    
+
     history_data = all_logs.map do |log|
       {
         id: log.id,
-        event_type: log.metadata.dig('event_type') || log.action,
+        event_type: log.metadata.dig("event_type") || log.action,
         action: log.action,
         summary: log.summary,
         changes: log.changes_summary,

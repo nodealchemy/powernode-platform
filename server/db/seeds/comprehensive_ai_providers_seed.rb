@@ -78,8 +78,8 @@ if admin_account && admin_user
           'input' => 0.0025,
           'output' => 0.01
         },
-        'capabilities' => ['text', 'vision', 'audio', 'function_calling', 'structured_output'],
-        'recommended_for' => ['multi_modal_tasks', 'vision_analysis', 'general_purpose']
+        'capabilities' => [ 'text', 'vision', 'audio', 'function_calling', 'structured_output' ],
+        'recommended_for' => [ 'multi_modal_tasks', 'vision_analysis', 'general_purpose' ]
       },
       {
         'name' => 'gpt-4o-mini',
@@ -91,8 +91,8 @@ if admin_account && admin_user
           'input' => 0.00015,
           'output' => 0.0006
         },
-        'capabilities' => ['text', 'vision', 'function_calling'],
-        'recommended_for' => ['cost_effective', 'high_volume', 'simple_tasks']
+        'capabilities' => [ 'text', 'vision', 'function_calling' ],
+        'recommended_for' => [ 'cost_effective', 'high_volume', 'simple_tasks' ]
       },
       {
         'name' => 'gpt-4-turbo',
@@ -104,8 +104,8 @@ if admin_account && admin_user
           'input' => 0.01,
           'output' => 0.03
         },
-        'capabilities' => ['text', 'vision', 'function_calling', 'json_mode'],
-        'recommended_for' => ['complex_reasoning', 'large_context', 'multi_step_tasks']
+        'capabilities' => [ 'text', 'vision', 'function_calling', 'json_mode' ],
+        'recommended_for' => [ 'complex_reasoning', 'large_context', 'multi_step_tasks' ]
       },
       {
         'name' => 'gpt-3.5-turbo',
@@ -117,8 +117,8 @@ if admin_account && admin_user
           'input' => 0.0005,
           'output' => 0.0015
         },
-        'capabilities' => ['text', 'function_calling'],
-        'recommended_for' => ['simple_chat', 'basic_automation', 'high_speed']
+        'capabilities' => [ 'text', 'function_calling' ],
+        'recommended_for' => [ 'simple_chat', 'basic_automation', 'high_speed' ]
       },
       {
         'name' => 'o1-preview',
@@ -130,8 +130,8 @@ if admin_account && admin_user
           'input' => 0.015,
           'output' => 0.06
         },
-        'capabilities' => ['advanced_reasoning', 'complex_problem_solving'],
-        'recommended_for' => ['math', 'coding', 'scientific_reasoning', 'complex_analysis']
+        'capabilities' => [ 'advanced_reasoning', 'complex_problem_solving' ],
+        'recommended_for' => [ 'math', 'coding', 'scientific_reasoning', 'complex_analysis' ]
       },
       {
         'name' => 'o1-mini',
@@ -143,8 +143,8 @@ if admin_account && admin_user
           'input' => 0.00110,
           'output' => 0.00440
         },
-        'capabilities' => ['reasoning', 'coding', 'stem'],
-        'recommended_for' => ['coding_tasks', 'stem_reasoning', 'faster_reasoning']
+        'capabilities' => [ 'reasoning', 'coding', 'stem' ],
+        'recommended_for' => [ 'coding_tasks', 'stem_reasoning', 'faster_reasoning' ]
       }
     ],
     configuration_schema: {
@@ -177,8 +177,8 @@ if admin_account && admin_user
     metadata: {
       'organization' => 'OpenAI',
       'api_key_env' => 'OPENAI_API_KEY',
-      'strengths' => ['function_calling', 'vision', 'multi_modal', 'broad_capabilities'],
-      'use_cases' => ['chatbots', 'content_generation', 'code_assistance', 'vision_analysis', 'text_embedding']
+      'strengths' => [ 'function_calling', 'vision', 'multi_modal', 'broad_capabilities' ],
+      'use_cases' => [ 'chatbots', 'content_generation', 'code_assistance', 'vision_analysis', 'text_embedding' ]
     }
   })
 
@@ -213,8 +213,8 @@ if admin_account && admin_user
           'input' => 0.005,
           'output' => 0.015
         },
-        'capabilities' => ['text', 'real_time_data', 'conversation', 'function_calling'],
-        'recommended_for' => ['real_time_information', 'conversational_ai', 'up_to_date_data']
+        'capabilities' => [ 'text', 'real_time_data', 'conversation', 'function_calling' ],
+        'recommended_for' => [ 'real_time_information', 'conversational_ai', 'up_to_date_data' ]
       },
       {
         'name' => 'grok-vision-beta',
@@ -226,8 +226,8 @@ if admin_account && admin_user
           'input' => 0.005,
           'output' => 0.015
         },
-        'capabilities' => ['text', 'vision', 'image_analysis'],
-        'recommended_for' => ['vision_tasks', 'image_understanding', 'multi_modal']
+        'capabilities' => [ 'text', 'vision', 'image_analysis' ],
+        'recommended_for' => [ 'vision_tasks', 'image_understanding', 'multi_modal' ]
       }
     ],
     configuration_schema: {
@@ -260,8 +260,8 @@ if admin_account && admin_user
     metadata: {
       'organization' => 'X.AI (xAI)',
       'api_key_env' => 'XAI_API_KEY',
-      'strengths' => ['real_time_data', 'conversational_ai', 'up_to_date_information'],
-      'use_cases' => ['real_time_queries', 'current_events', 'conversational_agents', 'vision_analysis'],
+      'strengths' => [ 'real_time_data', 'conversational_ai', 'up_to_date_information' ],
+      'use_cases' => [ 'real_time_queries', 'current_events', 'conversational_agents', 'vision_analysis' ],
       'notes' => 'Access to real-time data and X platform integration'
     }
   })
@@ -295,8 +295,8 @@ if admin_account && admin_user
           'input' => 0.0,
           'output' => 0.0
         },
-        'capabilities' => ['text', 'reasoning', 'multilingual'],
-        'recommended_for' => ['general_purpose', 'cost_free', 'privacy_sensitive']
+        'capabilities' => [ 'text', 'reasoning', 'multilingual' ],
+        'recommended_for' => [ 'general_purpose', 'cost_free', 'privacy_sensitive' ]
       },
       {
         'name' => 'llama3.2',
@@ -308,8 +308,8 @@ if admin_account && admin_user
           'input' => 0.0,
           'output' => 0.0
         },
-        'capabilities' => ['text', 'vision', 'lightweight'],
-        'recommended_for' => ['vision_tasks', 'edge_devices', 'local_deployment']
+        'capabilities' => [ 'text', 'vision', 'lightweight' ],
+        'recommended_for' => [ 'vision_tasks', 'edge_devices', 'local_deployment' ]
       },
       {
         'name' => 'mistral',
@@ -321,8 +321,8 @@ if admin_account && admin_user
           'input' => 0.0,
           'output' => 0.0
         },
-        'capabilities' => ['text', 'fast_inference', 'efficient'],
-        'recommended_for' => ['quick_responses', 'local_hosting', 'resource_efficient']
+        'capabilities' => [ 'text', 'fast_inference', 'efficient' ],
+        'recommended_for' => [ 'quick_responses', 'local_hosting', 'resource_efficient' ]
       },
       {
         'name' => 'codellama',
@@ -334,8 +334,8 @@ if admin_account && admin_user
           'input' => 0.0,
           'output' => 0.0
         },
-        'capabilities' => ['code', 'programming', 'debugging'],
-        'recommended_for' => ['code_generation', 'code_review', 'programming_assistance']
+        'capabilities' => [ 'code', 'programming', 'debugging' ],
+        'recommended_for' => [ 'code_generation', 'code_review', 'programming_assistance' ]
       },
       {
         'name' => 'qwen2.5-coder',
@@ -347,8 +347,8 @@ if admin_account && admin_user
           'input' => 0.0,
           'output' => 0.0
         },
-        'capabilities' => ['code', 'long_context', 'reasoning'],
-        'recommended_for' => ['code_generation', 'large_codebases', 'refactoring']
+        'capabilities' => [ 'code', 'long_context', 'reasoning' ],
+        'recommended_for' => [ 'code_generation', 'large_codebases', 'refactoring' ]
       },
       {
         'name' => 'deepseek-r1',
@@ -360,8 +360,8 @@ if admin_account && admin_user
           'input' => 0.0,
           'output' => 0.0
         },
-        'capabilities' => ['reasoning', 'problem_solving', 'math'],
-        'recommended_for' => ['complex_reasoning', 'math_problems', 'scientific_tasks']
+        'capabilities' => [ 'reasoning', 'problem_solving', 'math' ],
+        'recommended_for' => [ 'complex_reasoning', 'math_problems', 'scientific_tasks' ]
       }
     ],
     configuration_schema: {
@@ -397,8 +397,8 @@ if admin_account && admin_user
       'organization' => 'Ollama',
       'deployment_type' => 'local',
       'api_key_env' => 'OLLAMA_HOST',
-      'strengths' => ['privacy', 'no_cost', 'local_control', 'offline_capable'],
-      'use_cases' => ['privacy_sensitive_data', 'offline_usage', 'cost_optimization', 'local_development'],
+      'strengths' => [ 'privacy', 'no_cost', 'local_control', 'offline_capable' ],
+      'use_cases' => [ 'privacy_sensitive_data', 'offline_usage', 'cost_optimization', 'local_development' ],
       'notes' => 'Requires local Ollama installation. No API key needed. Free to use.',
       'installation' => 'https://ollama.ai/download'
     }
@@ -439,8 +439,8 @@ if admin_account && admin_user
           'input' => 0.015,
           'output' => 0.075
         },
-        'capabilities' => ['text', 'code', 'complex_reasoning', 'highest_intelligence', 'vision', 'long_context', 'advanced_analysis', 'extended_thinking', 'agentic_workflows'],
-        'recommended_for' => ['complex_workflows', 'strategic_analysis', 'advanced_reasoning', 'research', 'critical_decision_making', 'multi_hour_tasks']
+        'capabilities' => [ 'text', 'code', 'complex_reasoning', 'highest_intelligence', 'vision', 'long_context', 'advanced_analysis', 'extended_thinking', 'agentic_workflows' ],
+        'recommended_for' => [ 'complex_workflows', 'strategic_analysis', 'advanced_reasoning', 'research', 'critical_decision_making', 'multi_hour_tasks' ]
       },
       {
         'name' => 'claude-sonnet-4.5',
@@ -452,8 +452,8 @@ if admin_account && admin_user
           'input' => 0.003,
           'output' => 0.015
         },
-        'capabilities' => ['text', 'code', 'analysis', 'reasoning', 'vision', 'long_context', 'best_coding', 'complex_agents', 'computer_use'],
-        'recommended_for' => ['coding', 'complex_agents', 'workflow_orchestration', 'agentic_tasks', 'general_purpose']
+        'capabilities' => [ 'text', 'code', 'analysis', 'reasoning', 'vision', 'long_context', 'best_coding', 'complex_agents', 'computer_use' ],
+        'recommended_for' => [ 'coding', 'complex_agents', 'workflow_orchestration', 'agentic_tasks', 'general_purpose' ]
       },
       {
         'name' => 'claude-haiku-4.5',
@@ -465,8 +465,8 @@ if admin_account && admin_user
           'input' => 0.001,
           'output' => 0.005
         },
-        'capabilities' => ['text', 'code', 'fast_response', 'vision', 'cost_effective', 'high_performance'],
-        'recommended_for' => ['quick_tasks', 'parallel_execution', 'high_volume', 'cost_optimization', 'coding_tasks']
+        'capabilities' => [ 'text', 'code', 'fast_response', 'vision', 'cost_effective', 'high_performance' ],
+        'recommended_for' => [ 'quick_tasks', 'parallel_execution', 'high_volume', 'cost_optimization', 'coding_tasks' ]
       },
       {
         'name' => 'claude-3-5-sonnet',
@@ -478,8 +478,8 @@ if admin_account && admin_user
           'input' => 0.003,
           'output' => 0.015
         },
-        'capabilities' => ['text', 'code', 'analysis', 'reasoning', 'vision', 'long_context'],
-        'recommended_for' => ['legacy_workflows', 'backward_compatibility']
+        'capabilities' => [ 'text', 'code', 'analysis', 'reasoning', 'vision', 'long_context' ],
+        'recommended_for' => [ 'legacy_workflows', 'backward_compatibility' ]
       }
     ],
     configuration_schema: {
@@ -514,9 +514,9 @@ if admin_account && admin_user
     metadata: {
       'organization' => 'Anthropic',
       'api_key_env' => 'ANTHROPIC_API_KEY',
-      'strengths' => ['long_context', 'reasoning', 'safety', 'helpfulness', 'vision', 'document_analysis'],
-      'use_cases' => ['complex_reasoning', 'document_analysis', 'code_generation', 'creative_writing', 'research'],
-      'special_features' => ['prompt_caching', 'extended_thinking', 'computer_use']
+      'strengths' => [ 'long_context', 'reasoning', 'safety', 'helpfulness', 'vision', 'document_analysis' ],
+      'use_cases' => [ 'complex_reasoning', 'document_analysis', 'code_generation', 'creative_writing', 'research' ],
+      'special_features' => [ 'prompt_caching', 'extended_thinking', 'computer_use' ]
     }
   })
 

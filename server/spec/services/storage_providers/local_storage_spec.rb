@@ -42,7 +42,7 @@ RSpec.describe StorageProviders::LocalStorage, type: :service do
   describe '#upload_file' do
     let(:file_content) { 'Test file content for upload' }
     let(:temp_file) do
-      file = Tempfile.new(['test', '.txt'])
+      file = Tempfile.new([ 'test', '.txt' ])
       file.write(file_content)
       file.rewind
       file
@@ -277,7 +277,7 @@ RSpec.describe StorageProviders::LocalStorage, type: :service do
     it 'returns healthy status when accessible' do
       health = provider.health_check
 
-      expect(health[:status]).to be_in(['healthy', 'degraded'])
+      expect(health[:status]).to be_in([ 'healthy', 'degraded' ])
       expect(health[:details]).to include('root_path')
       expect(health[:details]['writable']).to be true
     end

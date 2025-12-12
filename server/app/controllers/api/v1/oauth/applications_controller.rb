@@ -4,8 +4,8 @@ module Api
   module V1
     module Oauth
       class ApplicationsController < ApplicationController
-        before_action -> { require_permission('oauth.applications.read') }, only: %i[index show]
-        before_action -> { require_permission('oauth.applications.manage') }, only: %i[create update destroy regenerate_secret suspend activate revoke]
+        before_action -> { require_permission("oauth.applications.read") }, only: %i[index show]
+        before_action -> { require_permission("oauth.applications.manage") }, only: %i[create update destroy regenerate_secret suspend activate revoke]
         before_action :set_application, only: %i[show update destroy regenerate_secret suspend activate revoke tokens revoke_tokens]
 
         # GET /api/v1/oauth/applications
@@ -41,17 +41,17 @@ module Api
             AuditLog.create!(
               user: current_user,
               account: current_account,
-              action: 'oauth_application_created',
-              resource_type: 'OauthApplication',
+              action: "oauth_application_created",
+              resource_type: "OauthApplication",
               resource_id: @application.id,
-              source: 'api',
+              source: "api",
               ip_address: request.remote_ip,
               metadata: { application_name: @application.name, scopes: @application.scopes }
             )
 
             render_success(
               application: serialize_application(@application, include_secret: true),
-              message: 'OAuth application created successfully. Please save the client secret - it will not be shown again.'
+              message: "OAuth application created successfully. Please save the client secret - it will not be shown again."
             )
           else
             render_validation_error(@application)
@@ -64,17 +64,17 @@ module Api
             AuditLog.create!(
               user: current_user,
               account: current_account,
-              action: 'oauth_application_updated',
-              resource_type: 'OauthApplication',
+              action: "oauth_application_updated",
+              resource_type: "OauthApplication",
               resource_id: @application.id,
-              source: 'api',
+              source: "api",
               ip_address: request.remote_ip,
               metadata: { updated_fields: application_params.keys }
             )
 
             render_success(
               application: serialize_application(@application),
-              message: 'OAuth application updated successfully'
+              message: "OAuth application updated successfully"
             )
           else
             render_validation_error(@application)
@@ -88,15 +88,15 @@ module Api
           AuditLog.create!(
             user: current_user,
             account: current_account,
-            action: 'oauth_application_deleted',
-            resource_type: 'OauthApplication',
+            action: "oauth_application_deleted",
+            resource_type: "OauthApplication",
             resource_id: @application.id,
-            source: 'api',
+            source: "api",
             ip_address: request.remote_ip,
             metadata: { application_name: @application.name }
           )
 
-          render_success(message: 'OAuth application deleted successfully')
+          render_success(message: "OAuth application deleted successfully")
         end
 
         # POST /api/v1/oauth/applications/:id/regenerate_secret
@@ -106,18 +106,18 @@ module Api
           AuditLog.create!(
             user: current_user,
             account: current_account,
-            action: 'oauth_application_secret_regenerated',
-            resource_type: 'OauthApplication',
+            action: "oauth_application_secret_regenerated",
+            resource_type: "OauthApplication",
             resource_id: @application.id,
-            source: 'api',
+            source: "api",
             ip_address: request.remote_ip,
-            severity: 'warning',
+            severity: "warning",
             metadata: { application_name: @application.name }
           )
 
           render_success(
             secret: new_secret,
-            message: 'Client secret regenerated. Please save it - it will not be shown again.'
+            message: "Client secret regenerated. Please save it - it will not be shown again."
           )
         end
 
@@ -128,18 +128,18 @@ module Api
           AuditLog.create!(
             user: current_user,
             account: current_account,
-            action: 'oauth_application_suspended',
-            resource_type: 'OauthApplication',
+            action: "oauth_application_suspended",
+            resource_type: "OauthApplication",
             resource_id: @application.id,
-            source: 'api',
+            source: "api",
             ip_address: request.remote_ip,
-            severity: 'warning',
+            severity: "warning",
             metadata: { application_name: @application.name, reason: params[:reason] }
           )
 
           render_success(
             application: serialize_application(@application),
-            message: 'OAuth application suspended and all tokens revoked'
+            message: "OAuth application suspended and all tokens revoked"
           )
         end
 
@@ -150,17 +150,17 @@ module Api
           AuditLog.create!(
             user: current_user,
             account: current_account,
-            action: 'oauth_application_activated',
-            resource_type: 'OauthApplication',
+            action: "oauth_application_activated",
+            resource_type: "OauthApplication",
             resource_id: @application.id,
-            source: 'api',
+            source: "api",
             ip_address: request.remote_ip,
             metadata: { application_name: @application.name }
           )
 
           render_success(
             application: serialize_application(@application),
-            message: 'OAuth application activated'
+            message: "OAuth application activated"
           )
         end
 
@@ -171,18 +171,18 @@ module Api
           AuditLog.create!(
             user: current_user,
             account: current_account,
-            action: 'oauth_application_revoked',
-            resource_type: 'OauthApplication',
+            action: "oauth_application_revoked",
+            resource_type: "OauthApplication",
             resource_id: @application.id,
-            source: 'api',
+            source: "api",
             ip_address: request.remote_ip,
-            severity: 'critical',
+            severity: "critical",
             metadata: { application_name: @application.name }
           )
 
           render_success(
             application: serialize_application(@application),
-            message: 'OAuth application permanently revoked'
+            message: "OAuth application permanently revoked"
           )
         end
 
@@ -211,10 +211,10 @@ module Api
           AuditLog.create!(
             user: current_user,
             account: current_account,
-            action: 'oauth_tokens_bulk_revoked',
-            resource_type: 'OauthApplication',
+            action: "oauth_tokens_bulk_revoked",
+            resource_type: "OauthApplication",
             resource_id: @application.id,
-            source: 'api',
+            source: "api",
             ip_address: request.remote_ip,
             metadata: { application_name: @application.name, tokens_revoked: count }
           )
@@ -228,7 +228,7 @@ module Api
         private
 
         def base_scope
-          if current_user.has_permission?('admin.oauth.manage')
+          if current_user.has_permission?("admin.oauth.manage")
             OauthApplication.all
           else
             OauthApplication.for_owner(current_account)
@@ -238,11 +238,11 @@ module Api
         def set_application
           @application = base_scope.find(params[:id])
         rescue ActiveRecord::RecordNotFound
-          render_error('OAuth application not found', :not_found)
+          render_error("OAuth application not found", :not_found)
         end
 
         def owner_from_params
-          if params[:owner_type] == 'user' && current_user.has_permission?('admin.oauth.manage')
+          if params[:owner_type] == "user" && current_user.has_permission?("admin.oauth.manage")
             User.find(params[:owner_id])
           else
             current_account
@@ -271,7 +271,7 @@ module Api
         def serialize_token(token)
           {
             id: token.id,
-            scopes: token.scopes.to_s.split(' '),
+            scopes: token.scopes.to_s.split(" "),
             created_at: token.created_at,
             expires_at: token.expires_in ? token.created_at + token.expires_in.seconds : nil,
             revoked_at: token.revoked_at,

@@ -8,7 +8,7 @@ class TieredRateLimitService
 
   TIERS = {
     free: {
-      name: 'Free',
+      name: "Free",
       api_requests_per_minute: 30,
       api_requests_per_hour: 500,
       authenticated_requests_per_minute: 60,
@@ -20,7 +20,7 @@ class TieredRateLimitService
       burst_allowance: 1.2  # 20% burst allowance
     },
     starter: {
-      name: 'Starter',
+      name: "Starter",
       api_requests_per_minute: 100,
       api_requests_per_hour: 2000,
       authenticated_requests_per_minute: 200,
@@ -32,7 +32,7 @@ class TieredRateLimitService
       burst_allowance: 1.3
     },
     professional: {
-      name: 'Professional',
+      name: "Professional",
       api_requests_per_minute: 300,
       api_requests_per_hour: 10_000,
       authenticated_requests_per_minute: 500,
@@ -44,7 +44,7 @@ class TieredRateLimitService
       burst_allowance: 1.5
     },
     enterprise: {
-      name: 'Enterprise',
+      name: "Enterprise",
       api_requests_per_minute: 1000,
       api_requests_per_hour: 50_000,
       authenticated_requests_per_minute: 2000,
@@ -56,7 +56,7 @@ class TieredRateLimitService
       burst_allowance: 2.0
     },
     unlimited: {
-      name: 'Unlimited',
+      name: "Unlimited",
       api_requests_per_minute: nil,  # nil = no limit
       api_requests_per_hour: nil,
       authenticated_requests_per_minute: nil,
@@ -90,13 +90,13 @@ class TieredRateLimitService
     # Read operations (cost: 1)
     read: {
       cost: 1,
-      methods: ['GET', 'HEAD', 'OPTIONS']
+      methods: [ "GET", "HEAD", "OPTIONS" ]
     },
 
     # Write operations (cost: 2)
     write: {
       cost: 2,
-      methods: ['POST', 'PUT', 'PATCH', 'DELETE']
+      methods: [ "POST", "PUT", "PATCH", "DELETE" ]
     },
 
     # Heavy operations (cost: 5)
@@ -158,7 +158,7 @@ class TieredRateLimitService
       return :free unless user
 
       # Check for system admin - unlimited access
-      return :unlimited if user.has_permission?('system.admin')
+      return :unlimited if user.has_permission?("system.admin")
 
       # Use account's tier
       tier_for_account(user.account)
@@ -218,7 +218,7 @@ class TieredRateLimitService
       cost = calculate_cost(request.path, request.request_method)
       effective_limit = apply_burst_allowance(limit, tier)
 
-      remaining = [(effective_limit - (current_count * cost)) / cost, 0].max.to_i
+      remaining = [ (effective_limit - (current_count * cost)) / cost, 0 ].max.to_i
 
       {
         remaining: remaining,
@@ -303,9 +303,9 @@ class TieredRateLimitService
       # Fall back to method-based cost
       method = method.to_s.upcase
       case method
-      when 'GET', 'HEAD', 'OPTIONS'
+      when "GET", "HEAD", "OPTIONS"
         ENDPOINT_COSTS[:read][:cost]
-      when 'POST', 'PUT', 'PATCH', 'DELETE'
+      when "POST", "PUT", "PATCH", "DELETE"
         ENDPOINT_COSTS[:write][:cost]
       else
         1
@@ -314,8 +314,8 @@ class TieredRateLimitService
 
     # Categorize an endpoint for rate limiting
     def categorize_endpoint(path, method)
-      return :admin if path.start_with?('/api/v1/admin')
-      return :webhook if path.start_with?('/webhooks/')
+      return :admin if path.start_with?("/api/v1/admin")
+      return :webhook if path.start_with?("/webhooks/")
       return :file if path.match?(%r{^/api/v1/files?})
 
       ENDPOINT_COSTS.each do |category, config|
@@ -326,7 +326,7 @@ class TieredRateLimitService
         end
       end
 
-      method.to_s.upcase == 'GET' ? :read : :write
+      method.to_s.upcase == "GET" ? :read : :write
     end
 
     # =========================================================================
@@ -340,11 +340,11 @@ class TieredRateLimitService
       return {} if info[:limit].nil?
 
       {
-        'X-RateLimit-Limit' => info[:limit].to_s,
-        'X-RateLimit-Remaining' => info[:remaining].to_s,
-        'X-RateLimit-Reset' => info[:reset_at].to_i.to_s,
-        'X-RateLimit-Tier' => info[:tier].to_s,
-        'X-RateLimit-Cost' => calculate_cost(request.path, request.request_method).to_s
+        "X-RateLimit-Limit" => info[:limit].to_s,
+        "X-RateLimit-Remaining" => info[:remaining].to_s,
+        "X-RateLimit-Reset" => info[:reset_at].to_i.to_s,
+        "X-RateLimit-Tier" => info[:tier].to_s,
+        "X-RateLimit-Cost" => calculate_cost(request.path, request.request_method).to_s
       }
     end
 
@@ -438,8 +438,8 @@ class TieredRateLimitService
       return :free unless limits.is_a?(Hash)
 
       # Use plan limits to infer tier
-      max_users = limits['max_users'].to_i
-      max_api_keys = limits['max_api_keys'].to_i
+      max_users = limits["max_users"].to_i
+      max_api_keys = limits["max_api_keys"].to_i
 
       if max_users >= 100 || max_api_keys >= 50
         :enterprise
@@ -454,7 +454,7 @@ class TieredRateLimitService
 
     def account_has_unlimited?(account)
       # Check for special flags
-      account.settings&.dig('rate_limit_tier') == 'unlimited'
+      account.settings&.dig("rate_limit_tier") == "unlimited"
     rescue StandardError
       false
     end
@@ -507,7 +507,7 @@ class TieredRateLimitService
     end
 
     def build_cache_key(identifier, category, period)
-      period_key = period >= 1.hour ? 'hourly' : 'minute'
+      period_key = period >= 1.hour ? "hourly" : "minute"
       "tiered_rate:#{identifier}:#{category}:#{period_key}"
     end
 

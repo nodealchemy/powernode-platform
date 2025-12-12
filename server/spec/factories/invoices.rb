@@ -3,9 +3,9 @@ FactoryBot.define do
     # Associations
     association :account
     association :subscription
-    
+
     # Account and subscription coordination handled by explicit associations
-    
+
     sequence(:invoice_number) { |n| "INV-#{Date.current.strftime('%Y%m')}-#{n.to_s.rjust(4, '0')}" }
     status { "draft" }
     subtotal_cents { 2999 }

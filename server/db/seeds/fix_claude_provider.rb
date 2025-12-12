@@ -52,7 +52,7 @@ puts "✅ Updated configuration schema with models"
 
 # Test model support again
 puts "\n🧪 Testing model support:"
-test_models = ['claude-3.5-sonnet', 'claude-3-5-sonnet-20241022', 'claude-3.5-haiku']
+test_models = [ 'claude-3.5-sonnet', 'claude-3-5-sonnet-20241022', 'claude-3.5-haiku' ]
 test_models.each do |model|
   if provider.supports_model?(model)
     puts "✅ Supports: #{model}"

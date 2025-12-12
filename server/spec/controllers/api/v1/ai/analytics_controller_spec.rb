@@ -8,8 +8,8 @@ RSpec.describe Api::V1::Ai::AnalyticsController, type: :controller do
   let(:worker) { create(:worker) }
 
   # Permission-based users
-  let(:analytics_read_user) { create(:user, account: account, permissions: ['ai.analytics.read']) }
-  let(:analytics_manage_user) { create(:user, account: account, permissions: ['ai.analytics.read', 'ai.analytics.create', 'ai.analytics.manage', 'ai.analytics.export']) }
+  let(:analytics_read_user) { create(:user, account: account, permissions: [ 'ai.analytics.read' ]) }
+  let(:analytics_manage_user) { create(:user, account: account, permissions: [ 'ai.analytics.read', 'ai.analytics.create', 'ai.analytics.manage', 'ai.analytics.export' ]) }
 
   # Test data
   let(:workflow) { create(:ai_workflow, account: account, name: 'Test Workflow') }
@@ -658,24 +658,27 @@ RSpec.describe Api::V1::Ai::AnalyticsController, type: :controller do
   end
 
   describe 'GET #report_download' do
+    let(:reports_dir) { Rails.root.join('tmp', 'reports') }
+    let(:test_report_path) { reports_dir.join('test_report.pdf').to_s }
+
     let(:completed_report) do
       create(:report_request,
         account: account,
         user: analytics_manage_user,
         status: 'completed',
-        file_path: '/tmp/test_report.pdf'
+        file_path: test_report_path
       )
     end
 
     let(:pending_report) { create(:report_request, account: account, user: analytics_manage_user, status: 'pending') }
 
     before do
-      FileUtils.mkdir_p('/tmp')
-      File.write('/tmp/test_report.pdf', 'test content')
+      FileUtils.mkdir_p(reports_dir)
+      File.write(test_report_path, 'test content')
     end
 
     after do
-      File.delete('/tmp/test_report.pdf') if File.exist?('/tmp/test_report.pdf')
+      File.delete(test_report_path) if File.exist?(test_report_path)
     end
 
     context 'with valid permissions' do
@@ -696,7 +699,8 @@ RSpec.describe Api::V1::Ai::AnalyticsController, type: :controller do
       end
 
       it 'returns not found when file missing' do
-        completed_report.update!(file_path: '/nonexistent/path.pdf')
+        # Use a path within the allowed directory but for a non-existent file
+        completed_report.update!(file_path: reports_dir.join('nonexistent_report.pdf').to_s)
 
         get :report_download, params: { id: completed_report.id }
 
@@ -834,5 +838,4 @@ RSpec.describe Api::V1::Ai::AnalyticsController, type: :controller do
       expect(response).to have_http_status(:success)
     end
   end
-
 end

@@ -103,7 +103,7 @@ RSpec.describe AiWorkflowTemplate, type: :model do
 
       it 'validates nodes structure in workflow_definition' do
         tmpl = build(:ai_workflow_template, workflow_definition: {
-          'nodes' => [{ 'invalid' => 'node' }],
+          'nodes' => [ { 'invalid' => 'node' } ],
           'edges' => []
         })
         expect(tmpl).not_to be_valid
@@ -207,9 +207,9 @@ RSpec.describe AiWorkflowTemplate, type: :model do
       end
 
       it 'normalizes tags' do
-        tmpl = build(:ai_workflow_template, tags: ['AI', 'AUTOMATION', 'ai'])
+        tmpl = build(:ai_workflow_template, tags: [ 'AI', 'AUTOMATION', 'ai' ])
         tmpl.valid?
-        expect(tmpl.tags).to eq(['ai', 'automation'])
+        expect(tmpl.tags).to eq([ 'ai', 'automation' ])
       end
 
       it 'ensures unique slug' do
@@ -293,7 +293,7 @@ RSpec.describe AiWorkflowTemplate, type: :model do
 
     describe '#workflow_nodes' do
       it 'returns nodes from workflow_definition' do
-        nodes = [{ 'node_id' => 'start', 'node_type' => 'start' }]
+        nodes = [ { 'node_id' => 'start', 'node_type' => 'start' } ]
         tmpl = build(:ai_workflow_template, workflow_definition: { 'nodes' => nodes, 'edges' => [] })
         expect(tmpl.workflow_nodes).to eq(nodes)
       end
@@ -306,7 +306,7 @@ RSpec.describe AiWorkflowTemplate, type: :model do
 
     describe '#workflow_edges' do
       it 'returns edges from workflow_definition' do
-        edges = [{ 'source_node_id' => 'a', 'target_node_id' => 'b' }]
+        edges = [ { 'source_node_id' => 'a', 'target_node_id' => 'b' } ]
         tmpl = build(:ai_workflow_template, workflow_definition: { 'nodes' => [], 'edges' => edges })
         expect(tmpl.workflow_edges).to eq(edges)
       end
@@ -465,7 +465,7 @@ RSpec.describe AiWorkflowTemplate, type: :model do
     end
 
     describe '#export_definition' do
-      let(:template) { create(:ai_workflow_template, tags: ['ai', 'automation']) }
+      let(:template) { create(:ai_workflow_template, tags: [ 'ai', 'automation' ]) }
 
       it 'returns exportable hash' do
         export = template.export_definition
@@ -507,9 +507,9 @@ RSpec.describe AiWorkflowTemplate, type: :model do
       end
 
       it 'deduplicates and downcases tags' do
-        tmpl = build(:ai_workflow_template, tags: ['AI', 'ai', 'Automation'])
+        tmpl = build(:ai_workflow_template, tags: [ 'AI', 'ai', 'Automation' ])
         tmpl.valid?
-        expect(tmpl.tags).to eq(['ai', 'automation'])
+        expect(tmpl.tags).to eq([ 'ai', 'automation' ])
       end
     end
   end

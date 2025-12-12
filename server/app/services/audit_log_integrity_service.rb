@@ -3,8 +3,8 @@
 # Service for managing audit log integrity using cryptographic hash chains
 # Ensures SOC 2 / PCI DSS compliance for immutable audit trails
 class AuditLogIntegrityService
-  HASH_ALGORITHM = 'SHA256'
-  GENESIS_HASH = 'GENESIS_BLOCK_0000000000000000000000000000000000000000000000000000000000000000'
+  HASH_ALGORITHM = "SHA256"
+  GENESIS_HASH = "GENESIS_BLOCK_0000000000000000000000000000000000000000000000000000000000000000"
 
   class IntegrityError < StandardError; end
   class ChainBrokenError < IntegrityError; end
@@ -92,7 +92,7 @@ class AuditLogIntegrityService
 
     # Verify the integrity of a single audit log entry
     def verify_entry(audit_log)
-      return { valid: true, reason: 'No integrity hash present' } if audit_log.integrity_hash.blank?
+      return { valid: true, reason: "No integrity hash present" } if audit_log.integrity_hash.blank?
 
       expected_hash = calculate_hash(audit_log, previous_hash: audit_log.previous_hash)
 
@@ -101,7 +101,7 @@ class AuditLogIntegrityService
       else
         {
           valid: false,
-          reason: 'Hash mismatch',
+          reason: "Hash mismatch",
           expected: expected_hash,
           actual: audit_log.integrity_hash
         }
@@ -120,8 +120,8 @@ class AuditLogIntegrityService
 
       # Build query
       query = AuditLog.where.not(sequence_number: nil).order(sequence_number: :asc)
-      query = query.where('sequence_number >= ?', from_sequence) if from_sequence
-      query = query.where('sequence_number <= ?', to_sequence) if to_sequence
+      query = query.where("sequence_number >= ?", from_sequence) if from_sequence
+      query = query.where("sequence_number <= ?", to_sequence) if to_sequence
 
       previous_entry = nil
       expected_previous_hash = GENESIS_HASH
@@ -137,7 +137,7 @@ class AuditLogIntegrityService
             results[:invalid_entries] << {
               id: entry.id,
               sequence_number: entry.sequence_number,
-              error: 'Sequence gap detected',
+              error: "Sequence gap detected",
               expected_sequence: previous_entry.sequence_number + 1
             }
           end
@@ -148,7 +148,7 @@ class AuditLogIntegrityService
             results[:invalid_entries] << {
               id: entry.id,
               sequence_number: entry.sequence_number,
-              error: 'Previous hash mismatch',
+              error: "Previous hash mismatch",
               expected: expected_previous_hash,
               actual: entry.previous_hash
             }
@@ -190,8 +190,8 @@ class AuditLogIntegrityService
       if results[:chain_intact]
         # Update chain_verified_at for all verified entries
         query = AuditLog.where.not(sequence_number: nil)
-        query = query.where('sequence_number >= ?', from_sequence) if from_sequence
-        query = query.where('sequence_number <= ?', to_sequence) if to_sequence
+        query = query.where("sequence_number >= ?", from_sequence) if from_sequence
+        query = query.where("sequence_number <= ?", to_sequence) if to_sequence
 
         # Note: This bypasses the immutability trigger because chain_verified_at is allowed
         query.update_all(chain_verified_at: Time.current)
@@ -252,8 +252,8 @@ class AuditLogIntegrityService
     # Export chain for external verification
     def export_chain(from_sequence: nil, to_sequence: nil, format: :json)
       query = AuditLog.where.not(sequence_number: nil).order(sequence_number: :asc)
-      query = query.where('sequence_number >= ?', from_sequence) if from_sequence
-      query = query.where('sequence_number <= ?', to_sequence) if to_sequence
+      query = query.where("sequence_number >= ?", from_sequence) if from_sequence
+      query = query.where("sequence_number <= ?", to_sequence) if to_sequence
 
       entries = query.map do |entry|
         {
@@ -272,7 +272,7 @@ class AuditLogIntegrityService
       when :json
         entries.to_json
       when :csv
-        require 'csv'
+        require "csv"
         CSV.generate do |csv|
           csv << entries.first.keys if entries.any?
           entries.each { |e| csv << e.values }
@@ -313,11 +313,11 @@ class AuditLogIntegrityService
         audit_log.created_at&.to_i,
         audit_log.sequence_number,
         previous_hash
-      ].map(&:to_s).join('|')
+      ].map(&:to_s).join("|")
     end
 
     def normalize_details(details)
-      return '' if details.blank?
+      return "" if details.blank?
 
       # Sort keys for deterministic JSON
       case details

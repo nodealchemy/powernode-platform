@@ -4,13 +4,13 @@ namespace :permissions do
   desc "Verify admin user has proper permissions setup"
   task verify_admin: :environment do
     # Load permissions configuration
-    require Rails.root.join('config', 'permissions')
+    require Rails.root.join("config", "permissions")
     puts "\n" + "=" * 80
     puts "🔍 PERMISSIONS STRUCTURE AUDIT"
     puts "=" * 80
 
     # Find admin user
-    admin_user = User.find_by(email: 'admin@powernode.org')
+    admin_user = User.find_by(email: "admin@powernode.org")
 
     if admin_user.nil?
       puts "❌ Admin user not found (admin@powernode.org)"
@@ -37,7 +37,7 @@ namespace :permissions do
     end
 
     # Check for super_admin role
-    super_admin_role = admin_user.roles.find_by(name: 'super_admin')
+    super_admin_role = admin_user.roles.find_by(name: "super_admin")
     if super_admin_role.nil?
       puts "\n⚠️  WARNING: Admin user does not have super_admin role!"
     else
@@ -49,7 +49,7 @@ namespace :permissions do
 
     # Verify system.admin permission
     has_system_admin = admin_user.roles.joins(:permissions)
-                                  .exists?(permissions: { name: 'system.admin' })
+                                  .exists?(permissions: { name: "system.admin" })
 
     if has_system_admin
       puts "\n✅ System Admin Permission: ACTIVE"
@@ -66,7 +66,7 @@ namespace :permissions do
     puts "   Total Permissions: #{total_permissions}"
 
     # Group by category
-    categories = Permission.pluck(:name).map { |name| name.split('.').first }.uniq
+    categories = Permission.pluck(:name).map { |name| name.split(".").first }.uniq
     puts "   Permission Categories: #{categories.count}"
     categories.sort.each do |category|
       count = Permission.where("name LIKE ?", "#{category}.%").count
@@ -76,12 +76,12 @@ namespace :permissions do
     # Test permission check
     puts "\n🧪 Testing Permission Access:"
     test_permissions = [
-      'users.manage',
-      'admin.access',
-      'billing.manage',
-      'system.admin',
-      'storage.manage',
-      'admin.storage.manage'
+      "users.manage",
+      "admin.access",
+      "billing.manage",
+      "system.admin",
+      "storage.manage",
+      "admin.storage.manage"
     ]
 
     test_permissions.each do |perm|
@@ -101,9 +101,9 @@ namespace :permissions do
       config_perms = config[:permissions] || []
       db_perms = db_role.permissions.pluck(:name)
 
-      if db_role.name == 'super_admin'
+      if db_role.name == "super_admin"
         # Super admin should only have system.admin permission
-        if db_perms == ['system.admin']
+        if db_perms == [ "system.admin" ]
           puts "   ✓ #{role_name}: Correctly configured with system.admin"
         else
           puts "   ⚠️  #{role_name}: Has #{db_perms.count} permissions (should have only system.admin)"
@@ -143,7 +143,7 @@ namespace :permissions do
     current_category = nil
 
     permissions.each do |perm|
-      category = perm.name.split('.').first
+      category = perm.name.split(".").first
 
       if category != current_category
         puts "\n#{category.upcase}:"
@@ -169,7 +169,7 @@ namespace :permissions do
     roles.group_by(&:role_type).each do |role_type, type_roles|
       puts "\n#{role_type.upcase} ROLES:"
       type_roles.each do |role|
-        has_system_admin = role.permissions.exists?(name: 'system.admin')
+        has_system_admin = role.permissions.exists?(name: "system.admin")
         perm_count = role.permissions.count
 
         puts "\n  #{role.display_name} (#{role.name})"

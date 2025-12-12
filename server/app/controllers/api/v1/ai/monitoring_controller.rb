@@ -25,8 +25,8 @@ module Api
 
         # Authentication and permission handling
         before_action :validate_permissions
-        before_action :set_time_range, only: [:dashboard, :metrics, :health]
-        before_action :set_components, only: [:dashboard, :metrics]
+        before_action :set_time_range, only: [ :dashboard, :metrics, :health ]
+        before_action :set_components, only: [ :dashboard, :metrics ]
 
         # =============================================================================
         # DASHBOARD & METRICS - PRIMARY RESOURCE
@@ -46,7 +46,7 @@ module Api
             generated_at: Time.current.iso8601
           })
 
-          log_audit_event('ai.monitoring.dashboard', account) if account
+          log_audit_event("ai.monitoring.dashboard", account) if account
         end
 
         # GET /api/v1/ai/monitoring/metrics
@@ -105,7 +105,7 @@ module Api
 
           render_success(health_data)
 
-          log_audit_event('ai.monitoring.health_check', current_user.account,
+          log_audit_event("ai.monitoring.health_check", current_user.account,
             health_score: health_score,
             status: health_data[:status]
           )
@@ -157,7 +157,7 @@ module Api
           filters = {
             severity: params[:severity],
             type: params[:alert_type],
-            status: params[:status] || 'active'
+            status: params[:status] || "active"
           }.compact
 
           alerts_data = service.get_alerts(filters)
@@ -167,7 +167,7 @@ module Api
             timestamp: Time.current.iso8601
           })
 
-          log_audit_event('ai.monitoring.alerts_view', current_user.account,
+          log_audit_event("ai.monitoring.alerts_view", current_user.account,
             filters: filters,
             alert_count: alerts_data[:total_alerts]
           )
@@ -185,7 +185,7 @@ module Api
             timestamp: Time.current.iso8601
           })
 
-          log_audit_event('ai.monitoring.alerts_check', current_user.account,
+          log_audit_event("ai.monitoring.alerts_check", current_user.account,
             triggered_count: triggered_alerts.count
           )
         end
@@ -218,7 +218,7 @@ module Api
               timestamp: Time.current.iso8601
             })
           else
-            render_error('Circuit breaker not found', status: :not_found)
+            render_error("Circuit breaker not found", status: :not_found)
           end
         end
 
@@ -234,7 +234,7 @@ module Api
             state: breaker.stats
           })
 
-          log_audit_event('ai.monitoring.circuit_breaker.reset', current_user.account,
+          log_audit_event("ai.monitoring.circuit_breaker.reset", current_user.account,
             service_name: service_name
           )
         end
@@ -251,7 +251,7 @@ module Api
             state: breaker.stats
           })
 
-          log_audit_event('ai.monitoring.circuit_breaker.open', current_user.account,
+          log_audit_event("ai.monitoring.circuit_breaker.open", current_user.account,
             service_name: service_name
           )
         end
@@ -268,7 +268,7 @@ module Api
             state: breaker.stats
           })
 
-          log_audit_event('ai.monitoring.circuit_breaker.close', current_user.account,
+          log_audit_event("ai.monitoring.circuit_breaker.close", current_user.account,
             service_name: service_name
           )
         end
@@ -279,12 +279,12 @@ module Api
           summary = AiWorkflowCircuitBreakerManager.health_summary
 
           render_success({
-            message: 'All circuit breakers reset',
+            message: "All circuit breakers reset",
             summary: summary,
             timestamp: Time.current.iso8601
           })
 
-          log_audit_event('ai.monitoring.circuit_breakers.reset_all', current_user.account)
+          log_audit_event("ai.monitoring.circuit_breakers.reset_all", current_user.account)
         end
 
         # GET /api/v1/ai/monitoring/circuit_breakers/category/:category
@@ -312,7 +312,7 @@ module Api
             circuit_breakers: states
           })
 
-          log_audit_event('ai.monitoring.circuit_breakers.category_reset', current_user.account,
+          log_audit_event("ai.monitoring.circuit_breakers.category_reset", current_user.account,
             category: category
           )
         end
@@ -337,7 +337,7 @@ module Api
           # This endpoint is called by worker jobs to trigger real-time broadcasting
           # Require explicit account_id parameter (no fallback to current_user)
           unless params[:account_id].present?
-            render_error('Missing account_id parameter', status: :bad_request)
+            render_error("Missing account_id parameter", status: :bad_request)
             return
           end
 
@@ -353,19 +353,19 @@ module Api
           ActionCable.server.broadcast(
             "ai_orchestration_#{account_id}",
             {
-              type: 'system_metrics_update',
+              type: "system_metrics_update",
               metrics: metrics,
               timestamp: Time.current.iso8601
             }
           )
 
           render_success({
-            message: 'Metrics broadcasted successfully',
+            message: "Metrics broadcasted successfully",
             account_id: account_id,
             timestamp: Time.current.iso8601
           })
         rescue ActiveRecord::RecordNotFound
-          render_error('Account not found', status: :not_found)
+          render_error("Account not found", status: :not_found)
         rescue StandardError => e
           Rails.logger.error "Failed to broadcast metrics: #{e.message}"
           render_error("Failed to broadcast metrics: #{e.message}", status: :internal_server_error)
@@ -380,12 +380,12 @@ module Api
             AiMonitoringHealthCheckJob.perform_async(account_id)
 
             render_success({
-              message: 'Real-time monitoring started',
+              message: "Real-time monitoring started",
               account_id: account_id,
               timestamp: Time.current.iso8601
             })
 
-            log_audit_event('ai.monitoring.start', current_user.account)
+            log_audit_event("ai.monitoring.start", current_user.account)
           rescue StandardError => e
             Rails.logger.error "Failed to start monitoring: #{e.message}"
             render_error("Failed to start monitoring: #{e.message}", status: :internal_server_error)
@@ -396,12 +396,12 @@ module Api
         def stop_monitoring
           # Note: In a real implementation, track and cancel specific monitoring jobs
           render_success({
-            message: 'Monitoring stop requested',
+            message: "Monitoring stop requested",
             account_id: current_user.account_id,
             timestamp: Time.current.iso8601
           })
 
-          log_audit_event('ai.monitoring.stop', current_user.account)
+          log_audit_event("ai.monitoring.stop", current_user.account)
         end
 
         private
@@ -415,18 +415,18 @@ module Api
           return if current_worker
 
           case action_name
-          when 'dashboard', 'metrics', 'overview', 'health', 'health_detailed', 'health_connectivity'
-            require_permission('ai.monitoring.read')
-          when 'alerts', 'alerts_check'
-            require_permission('ai.monitoring.read')
-          when 'circuit_breakers_index', 'circuit_breaker_show', 'circuit_breakers_category', 'circuit_breakers_monitor'
-            require_permission('ai.monitoring.read')
-          when 'circuit_breaker_reset', 'circuit_breaker_open', 'circuit_breaker_close'
-            require_permission('ai.monitoring.manage')
-          when 'circuit_breakers_reset_all', 'circuit_breakers_category_reset'
-            require_permission('ai.monitoring.manage')
-          when 'broadcast_metrics', 'start_monitoring', 'stop_monitoring'
-            require_permission('ai.monitoring.manage')
+          when "dashboard", "metrics", "overview", "health", "health_detailed", "health_connectivity"
+            require_permission("ai.monitoring.read")
+          when "alerts", "alerts_check"
+            require_permission("ai.monitoring.read")
+          when "circuit_breakers_index", "circuit_breaker_show", "circuit_breakers_category", "circuit_breakers_monitor"
+            require_permission("ai.monitoring.read")
+          when "circuit_breaker_reset", "circuit_breaker_open", "circuit_breaker_close"
+            require_permission("ai.monitoring.manage")
+          when "circuit_breakers_reset_all", "circuit_breakers_category_reset"
+            require_permission("ai.monitoring.manage")
+          when "broadcast_metrics", "start_monitoring", "stop_monitoring"
+            require_permission("ai.monitoring.manage")
           end
         end
 
@@ -443,20 +443,20 @@ module Api
           range_param = params[:time_range]&.to_i || 3600 # Default 1 hour
 
           @time_range = case range_param
-                       when 0..3600 then range_param.seconds
-                       when 3601..86400 then range_param.seconds
-                       when 86401..604800 then range_param.seconds
-                       else 1.hour
-                       end
+          when 0..3600 then range_param.seconds
+          when 3601..86400 then range_param.seconds
+          when 86401..604800 then range_param.seconds
+          else 1.hour
+          end
         end
 
         def set_components
           # Default to all components if not specified
           @components = if params[:components].present?
-                         params[:components].split(',').map(&:strip) & UnifiedMonitoringService::COMPONENTS
-                       else
+                         params[:components].split(",").map(&:strip) & UnifiedMonitoringService::COMPONENTS
+          else
                          UnifiedMonitoringService::COMPONENTS
-                       end
+          end
         end
 
         # =============================================================================
@@ -465,21 +465,21 @@ module Api
 
         def check_system_health
           {
-            status: 'healthy',
+            status: "healthy",
             uptime: estimate_system_uptime,
             active_workflows: AiWorkflow.where(is_active: true).count,
-            active_agents: AiAgent.where(status: 'active').count,
+            active_agents: AiAgent.where(status: "active").count,
             running_executions: AiWorkflowRun.where(status: %w[initializing running waiting_approval]).count
           }
         end
 
         def check_database_health
-          ActiveRecord::Base.connection.execute('SELECT 1')
+          ActiveRecord::Base.connection.execute("SELECT 1")
 
           pool_stat = ActiveRecord::Base.connection_pool.stat
           {
-            status: 'healthy',
-            connection: 'active',
+            status: "healthy",
+            connection: "active",
             connection_pool: {
               size: pool_stat[:size],
               connections: pool_stat[:connections],
@@ -490,7 +490,7 @@ module Api
           }
         rescue StandardError => e
           {
-            status: 'unhealthy',
+            status: "unhealthy",
             error: e.message
           }
         end
@@ -501,13 +501,13 @@ module Api
 
           info = redis.info
           {
-            status: 'healthy',
-            used_memory: info['used_memory_human'],
-            connected_clients: info['connected_clients']&.to_i || 0
+            status: "healthy",
+            used_memory: info["used_memory_human"],
+            connected_clients: info["connected_clients"]&.to_i || 0
           }
         rescue StandardError => e
           {
-            status: 'unhealthy',
+            status: "unhealthy",
             error: e.message
           }
         end
@@ -523,14 +523,14 @@ module Api
         end
 
         def check_worker_health
-          recent_completions = AiWorkflowRun.where('completed_at >= ?', 10.minutes.ago).count
-          recent_starts = AiWorkflowRun.where('created_at >= ?', 10.minutes.ago).count
+          recent_completions = AiWorkflowRun.where("completed_at >= ?", 10.minutes.ago).count
+          recent_starts = AiWorkflowRun.where("created_at >= ?", 10.minutes.ago).count
 
           {
-            status: recent_completions > 0 || recent_starts == 0 ? 'healthy' : 'degraded',
+            status: recent_completions > 0 || recent_starts == 0 ? "healthy" : "degraded",
             recent_completions: recent_completions,
             recent_starts: recent_starts,
-            estimated_backlog: [recent_starts - recent_completions, 0].max,
+            estimated_backlog: [ recent_starts - recent_completions, 0 ].max,
             last_activity: last_worker_activity_time
           }
         end
@@ -541,11 +541,11 @@ module Api
 
         def provider_is_healthy?(provider)
           recent_executions = AiAgentExecution.where(ai_agent: AiAgent.where(ai_provider: provider))
-                                             .where('created_at >= ?', 5.minutes.ago)
+                                             .where("created_at >= ?", 5.minutes.ago)
 
           return true if recent_executions.empty?
 
-          success_count = recent_executions.where(status: 'completed').count
+          success_count = recent_executions.where(status: "completed").count
           success_rate = (success_count.to_f / recent_executions.count * 100).round(2)
           success_rate >= 95.0
         end
@@ -555,7 +555,7 @@ module Api
             id: provider.id,
             name: provider.name,
             provider_type: provider.provider_type,
-            status: provider.is_active ? 'active' : 'inactive',
+            status: provider.is_active ? "active" : "inactive",
             has_credentials: provider.ai_provider_credentials.where(is_active: true).exists?,
             is_healthy: provider_is_healthy?(provider)
           }
@@ -568,7 +568,7 @@ module Api
         def detailed_database_health
           pool_stat = ActiveRecord::Base.connection_pool.stat
           {
-            status: 'healthy',
+            status: "healthy",
             connection_pool: {
               size: pool_stat[:size],
               connections: pool_stat[:connections],
@@ -580,13 +580,13 @@ module Api
               ai_providers: AiProvider.count,
               ai_workflows: AiWorkflow.count,
               ai_agents: AiAgent.count,
-              ai_workflow_runs_today: AiWorkflowRun.where('created_at >= ?', Date.current).count,
-              ai_conversations_today: AiConversation.where('created_at >= ?', Date.current).count
+              ai_workflow_runs_today: AiWorkflowRun.where("created_at >= ?", Date.current).count,
+              ai_conversations_today: AiConversation.where("created_at >= ?", Date.current).count
             }
           }
         rescue StandardError => e
           {
-            status: 'unhealthy',
+            status: "unhealthy",
             error: e.message
           }
         end
@@ -596,16 +596,16 @@ module Api
           info = redis.info
 
           {
-            status: 'healthy',
-            version: info['redis_version'],
-            used_memory: info['used_memory_human'],
-            used_memory_peak: info['used_memory_peak_human'],
-            connected_clients: info['connected_clients']&.to_i || 0,
-            uptime_days: info['uptime_in_days']&.to_i || 0
+            status: "healthy",
+            version: info["redis_version"],
+            used_memory: info["used_memory_human"],
+            used_memory_peak: info["used_memory_peak_human"],
+            connected_clients: info["connected_clients"]&.to_i || 0,
+            uptime_days: info["uptime_in_days"]&.to_i || 0
           }
         rescue StandardError => e
           {
-            status: 'unhealthy',
+            status: "unhealthy",
             error: e.message
           }
         end
@@ -616,10 +616,10 @@ module Api
               id: provider.id,
               name: provider.name,
               provider_type: provider.provider_type,
-              status: provider.is_active ? 'active' : 'inactive',
+              status: provider.is_active ? "active" : "inactive",
               credentials_count: provider.ai_provider_credentials.where(is_active: true).count,
               recent_executions: AiAgentExecution.where(ai_agent: AiAgent.where(ai_provider: provider))
-                                                .where('created_at >= ?', 24.hours.ago)
+                                                .where("created_at >= ?", 24.hours.ago)
                                                 .count
             }
           end
@@ -635,8 +635,8 @@ module Api
                                             .where(status: %w[initializing running waiting_approval])
                                             .count,
             recent_runs: {
-              last_hour: AiWorkflowRun.where(ai_workflow: workflows).where('created_at >= ?', 1.hour.ago).count,
-              last_24h: AiWorkflowRun.where(ai_workflow: workflows).where('created_at >= ?', 24.hours.ago).count
+              last_hour: AiWorkflowRun.where(ai_workflow: workflows).where("created_at >= ?", 1.hour.ago).count,
+              last_24h: AiWorkflowRun.where(ai_workflow: workflows).where("created_at >= ?", 24.hours.ago).count
             },
             success_rate: calculate_workflow_success_rate(workflows)
           }
@@ -647,10 +647,10 @@ module Api
 
           {
             total_agents: agents.count,
-            active_agents: agents.where(status: 'active').count,
+            active_agents: agents.where(status: "active").count,
             recent_executions: {
-              last_hour: AiAgentExecution.where(ai_agent: agents).where('created_at >= ?', 1.hour.ago).count,
-              last_24h: AiAgentExecution.where(ai_agent: agents).where('created_at >= ?', 24.hours.ago).count
+              last_hour: AiAgentExecution.where(ai_agent: agents).where("created_at >= ?", 1.hour.ago).count,
+              last_24h: AiAgentExecution.where(ai_agent: agents).where("created_at >= ?", 24.hours.ago).count
             }
           }
         end
@@ -658,13 +658,13 @@ module Api
         def detailed_worker_health
           {
             recent_activity: {
-              workflow_runs: AiWorkflowRun.where('created_at >= ?', 1.hour.ago).count,
-              completed_runs: AiWorkflowRun.where(status: 'completed').where('completed_at >= ?', 1.hour.ago).count,
-              failed_runs: AiWorkflowRun.where(status: 'failed').where('completed_at >= ?', 1.hour.ago).count
+              workflow_runs: AiWorkflowRun.where("created_at >= ?", 1.hour.ago).count,
+              completed_runs: AiWorkflowRun.where(status: "completed").where("completed_at >= ?", 1.hour.ago).count,
+              failed_runs: AiWorkflowRun.where(status: "failed").where("completed_at >= ?", 1.hour.ago).count
             },
             queue_health: {
-              processing_rate: AiWorkflowRun.where('completed_at >= ?', 10.minutes.ago).count,
-              creation_rate: AiWorkflowRun.where('created_at >= ?', 10.minutes.ago).count
+              processing_rate: AiWorkflowRun.where("completed_at >= ?", 10.minutes.ago).count,
+              creation_rate: AiWorkflowRun.where("created_at >= ?", 10.minutes.ago).count
             }
           }
         end
@@ -675,16 +675,16 @@ module Api
 
         def test_database_connection
           start_time = Time.current
-          ActiveRecord::Base.connection.execute('SELECT 1')
+          ActiveRecord::Base.connection.execute("SELECT 1")
           response_time = ((Time.current - start_time) * 1000).round(2)
 
           {
-            status: 'healthy',
+            status: "healthy",
             response_time_ms: response_time
           }
         rescue StandardError => e
           {
-            status: 'unhealthy',
+            status: "unhealthy",
             error: e.message
           }
         end
@@ -694,11 +694,11 @@ module Api
           redis.ping
 
           {
-            status: 'connected'
+            status: "connected"
           }
         rescue StandardError => e
           {
-            status: 'disconnected',
+            status: "disconnected",
             error: e.message
           }
         end
@@ -712,7 +712,7 @@ module Api
               name: provider.name,
               type: provider.provider_type,
               has_credentials: provider.ai_provider_credentials.where(is_active: true).exists?,
-              status: provider.is_active ? 'configured' : 'inactive'
+              status: provider.is_active ? "configured" : "inactive"
             }
           end
         end
@@ -720,7 +720,7 @@ module Api
         def test_worker_connectivity
           {
             last_activity: last_worker_activity_time,
-            recent_completions: AiWorkflowRun.where('completed_at >= ?', 5.minutes.ago).count,
+            recent_completions: AiWorkflowRun.where("completed_at >= ?", 5.minutes.ago).count,
             pending_jobs: AiWorkflowRun.where(status: %w[initializing running waiting_approval]).count
           }
         end
@@ -739,20 +739,20 @@ module Api
         def recent_activity_summary
           {
             last_hour: {
-              workflow_runs: AiWorkflowRun.where('created_at >= ?', 1.hour.ago).count,
-              completed_runs: AiWorkflowRun.where('created_at >= ? AND status = ?', 1.hour.ago, 'completed').count,
-              failed_runs: AiWorkflowRun.where('created_at >= ? AND status = ?', 1.hour.ago, 'failed').count
+              workflow_runs: AiWorkflowRun.where("created_at >= ?", 1.hour.ago).count,
+              completed_runs: AiWorkflowRun.where("created_at >= ? AND status = ?", 1.hour.ago, "completed").count,
+              failed_runs: AiWorkflowRun.where("created_at >= ? AND status = ?", 1.hour.ago, "failed").count
             },
             last_24h: {
-              workflow_runs: AiWorkflowRun.where('created_at >= ?', 24.hours.ago).count,
-              completed_runs: AiWorkflowRun.where('created_at >= ? AND status = ?', 24.hours.ago, 'completed').count,
-              failed_runs: AiWorkflowRun.where('created_at >= ? AND status = ?', 24.hours.ago, 'failed').count
+              workflow_runs: AiWorkflowRun.where("created_at >= ?", 24.hours.ago).count,
+              completed_runs: AiWorkflowRun.where("created_at >= ? AND status = ?", 24.hours.ago, "completed").count,
+              failed_runs: AiWorkflowRun.where("created_at >= ? AND status = ?", 24.hours.ago, "failed").count
             }
           }
         end
 
         def recent_error_analysis
-          failed_runs = AiWorkflowRun.where('created_at >= ? AND status = ?', 24.hours.ago, 'failed')
+          failed_runs = AiWorkflowRun.where("created_at >= ? AND status = ?", 24.hours.ago, "failed")
                                      .includes(:ai_workflow)
                                      .limit(10)
 
@@ -762,7 +762,7 @@ module Api
               {
                 workflow_name: run.ai_workflow.name,
                 failed_at: run.completed_at,
-                error_summary: run.error_details.is_a?(Hash) ? run.error_details['error_message'] : 'Unknown error'
+                error_summary: run.error_details.is_a?(Hash) ? run.error_details["error_message"] : "Unknown error"
               }
             end
           }
@@ -772,11 +772,11 @@ module Api
           {
             average_execution_time: calculate_average_execution_time,
             throughput: {
-              workflows_per_hour: AiWorkflowRun.where('created_at >= ?', 1.hour.ago).count,
-              conversations_per_hour: AiConversation.where('created_at >= ?', 1.hour.ago).count
+              workflows_per_hour: AiWorkflowRun.where("created_at >= ?", 1.hour.ago).count,
+              conversations_per_hour: AiConversation.where("created_at >= ?", 1.hour.ago).count
             },
             resource_usage: {
-              active_conversations: AiConversation.where('updated_at >= ?', 1.hour.ago).count,
+              active_conversations: AiConversation.where("updated_at >= ?", 1.hour.ago).count,
               running_workflows: AiWorkflowRun.where(status: %w[initializing running waiting_approval]).count,
               database_connections: ActiveRecord::Base.connection_pool.connections.size
             }
@@ -793,7 +793,7 @@ module Api
             redis: check_redis_health,
             active_records: {
               active_workflows: AiWorkflowRun.where(status: %w[initializing running waiting_approval]).count,
-              active_conversations: AiConversation.where('updated_at >= ?', 1.hour.ago).count
+              active_conversations: AiConversation.where("updated_at >= ?", 1.hour.ago).count
             }
           }
         end
@@ -806,21 +806,21 @@ module Api
           scores = []
 
           # Database health (25%)
-          scores << (health_data[:database][:status] == 'healthy' ? 100 : 0) * 0.25
+          scores << (health_data[:database][:status] == "healthy" ? 100 : 0) * 0.25
 
           # Redis health (25%)
-          scores << (health_data[:redis][:status] == 'healthy' ? 100 : 0) * 0.25
+          scores << (health_data[:redis][:status] == "healthy" ? 100 : 0) * 0.25
 
           # Provider health (25%)
           provider_score = if health_data[:providers][:total_providers] > 0
                             (health_data[:providers][:healthy_providers].to_f / health_data[:providers][:total_providers] * 100)
-                          else
+          else
                             100
-                          end
+          end
           scores << (provider_score * 0.25)
 
           # Worker health (25%)
-          worker_score = health_data[:workers][:status] == 'healthy' ? 100 : 50
+          worker_score = health_data[:workers][:status] == "healthy" ? 100 : 50
           scores << (worker_score * 0.25)
 
           scores.sum.round
@@ -828,24 +828,24 @@ module Api
 
         def determine_health_status(health_score)
           case health_score
-          when 80..100 then 'healthy'
-          when 50..79 then 'degraded'
-          when 20..49 then 'unhealthy'
-          else 'critical'
+          when 80..100 then "healthy"
+          when 50..79 then "degraded"
+          when 20..49 then "unhealthy"
+          else "critical"
           end
         end
 
         def calculate_workflow_success_rate(workflows)
-          runs = AiWorkflowRun.where(ai_workflow: workflows).where('created_at >= ?', 24.hours.ago)
+          runs = AiWorkflowRun.where(ai_workflow: workflows).where("created_at >= ?", 24.hours.ago)
           total = runs.count
-          successful = runs.where(status: 'completed').count
+          successful = runs.where(status: "completed").count
 
           total > 0 ? (successful.to_f / total * 100).round(2) : 0
         end
 
         def calculate_average_execution_time
-          completed_runs = AiWorkflowRun.where(status: 'completed')
-                                        .where('completed_at >= ?', 24.hours.ago)
+          completed_runs = AiWorkflowRun.where(status: "completed")
+                                        .where("completed_at >= ?", 24.hours.ago)
                                         .where.not(duration_ms: nil)
 
           return 0 if completed_runs.empty?
@@ -868,11 +868,11 @@ module Api
                                            .order(completed_at: :desc)
                                            .first&.completed_at
 
-          recent_message = AiMessage.where(role: 'assistant')
+          recent_message = AiMessage.where(role: "assistant")
                                    .order(created_at: :desc)
                                    .first&.created_at
 
-          [recent_completion, recent_message].compact.max
+          [ recent_completion, recent_message ].compact.max
         end
       end
     end

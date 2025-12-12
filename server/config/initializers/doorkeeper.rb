@@ -4,7 +4,7 @@ Doorkeeper.configure do
   # Reuse our existing JWT authentication for resource owner
   resource_owner_authenticator do
     # Check for current user from our JWT authentication
-    request.env['current_user'] || warden.authenticate!(scope: :user)
+    request.env["current_user"] || warden.authenticate!(scope: :user)
   rescue StandardError
     nil
   end
@@ -19,9 +19,9 @@ Doorkeeper.configure do
 
   # Admin authenticator for Doorkeeper admin panel
   admin_authenticator do
-    current_user = request.env['current_user']
-    unless current_user&.has_permission?('admin.oauth.manage')
-      redirect_to('/unauthorized', allow_other_host: true)
+    current_user = request.env["current_user"]
+    unless current_user&.has_permission?("admin.oauth.manage")
+      redirect_to("/unauthorized", allow_other_host: true)
     end
   end
 
@@ -69,13 +69,13 @@ Doorkeeper.configure do
   # ===================================================================
 
   # Use secure random tokens (not JWT by default)
-  access_token_generator '::Doorkeeper::JWT'
+  access_token_generator "::Doorkeeper::JWT"
 
   # Hash tokens before storing in database
   hash_token_secrets fallback: :plain
 
   # Hash application secrets
-  hash_application_secrets fallback: :plain, using: '::Doorkeeper::SecretStoring::BCrypt'
+  hash_application_secrets fallback: :plain, using: "::Doorkeeper::SecretStoring::BCrypt"
 
   # ===================================================================
   # Scopes Configuration
@@ -89,14 +89,14 @@ Doorkeeper.configure do
 
   # Scope descriptions for authorization page
   scope_descriptions = {
-    read: 'Read access to your data',
-    write: 'Write access to create and modify data',
-    admin: 'Administrative access',
-    billing: 'Access to billing and subscription data',
-    users: 'Access to user management',
-    webhooks: 'Access to webhook configuration',
-    workflows: 'Access to AI workflows and automation',
-    files: 'Access to file management'
+    read: "Read access to your data",
+    write: "Write access to create and modify data",
+    admin: "Administrative access",
+    billing: "Access to billing and subscription data",
+    users: "Access to user management",
+    webhooks: "Access to webhook configuration",
+    workflows: "Access to AI workflows and automation",
+    files: "Access to file management"
   }
 
   # Enforce configured scopes
@@ -122,7 +122,7 @@ Doorkeeper.configure do
   # ===================================================================
 
   # Use custom base controller for API consistency
-  base_controller 'Api::V1::BaseController' if defined?(Api::V1::BaseController)
+  base_controller "Api::V1::BaseController" if defined?(Api::V1::BaseController)
 
   # ===================================================================
   # OpenID Connect (optional, for future enhancement)
@@ -181,8 +181,8 @@ if defined?(Doorkeeper::JWT)
 
     # Use separate key pair for RS256
     if Rails.env.production?
-      secret_key_path Rails.root.join('config', 'keys', 'oauth_private.pem')
-      public_key_path Rails.root.join('config', 'keys', 'oauth_public.pem')
+      secret_key_path Rails.root.join("config", "keys", "oauth_private.pem")
+      public_key_path Rails.root.join("config", "keys", "oauth_public.pem")
     end
   end
 end

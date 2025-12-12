@@ -53,7 +53,7 @@ module Api
               provider: serialize_provider_detail(@provider)
             })
 
-            log_audit_event('ai.providers.read', @provider)
+            log_audit_event("ai.providers.read", @provider)
           end
         end
 
@@ -87,12 +87,12 @@ module Api
                 credential: serialize_credential_detail(@credential)
               }, status: :created)
 
-              log_audit_event('ai.providers.credential.create', @credential,
+              log_audit_event("ai.providers.credential.create", @credential,
                 provider_name: provider.name
               )
 
             rescue ActiveRecord::RecordNotFound
-              render_error('Provider not found', status: :not_found)
+              render_error("Provider not found", status: :not_found)
             rescue AiProviderManagementService::ValidationError => e
               render_error("Validation failed: #{e.message}", status: :unprocessable_content)
             rescue AiProviderManagementService::CredentialError => e
@@ -108,7 +108,7 @@ module Api
                 provider: serialize_provider_detail(@provider)
               }, status: :created)
 
-              log_audit_event('ai.providers.create', @provider,
+              log_audit_event("ai.providers.create", @provider,
                 provider_type: @provider.provider_type
               )
             else
@@ -144,10 +144,10 @@ module Api
             if @credential.update(update_params)
               render_success({
                 credential: serialize_credential_detail(@credential),
-                message: 'Credential updated successfully'
+                message: "Credential updated successfully"
               })
 
-              log_audit_event('ai.providers.credential.update', @credential,
+              log_audit_event("ai.providers.credential.update", @credential,
                 changes: @credential.previous_changes.keys
               )
             else
@@ -160,7 +160,7 @@ module Api
                 provider: serialize_provider_detail(@provider)
               })
 
-              log_audit_event('ai.providers.update', @provider,
+              log_audit_event("ai.providers.update", @provider,
                 changes: @provider.previous_changes.keys
               )
             else
@@ -178,9 +178,9 @@ module Api
             provider_name = @credential.ai_provider.name
 
             if @credential.destroy
-              render_success({ message: 'Credential deleted successfully' })
+              render_success({ message: "Credential deleted successfully" })
 
-              log_audit_event('ai.providers.credential.delete', current_user.account,
+              log_audit_event("ai.providers.credential.delete", current_user.account,
                 credential_name: credential_name,
                 provider_name: provider_name
               )
@@ -189,7 +189,7 @@ module Api
               if @credential.errors.any?
                 render_validation_error(@credential.errors)
               else
-                render_error('Failed to delete credential', status: :unprocessable_content)
+                render_error("Failed to delete credential", status: :unprocessable_content)
               end
             end
           else
@@ -197,13 +197,13 @@ module Api
             provider_name = @provider.name
 
             if @provider.destroy
-              render_success({ message: 'AI provider deleted successfully' })
+              render_success({ message: "AI provider deleted successfully" })
 
-              log_audit_event('ai.providers.delete', current_user.account,
+              log_audit_event("ai.providers.delete", current_user.account,
                 provider_name: provider_name
               )
             else
-              render_error('Failed to delete provider', status: :unprocessable_content)
+              render_error("Failed to delete provider", status: :unprocessable_content)
             end
           end
         end
@@ -218,9 +218,9 @@ module Api
 
           credential = if credential_id.present?
                         find_credential_for_test(credential_id)
-                      else
+          else
                         find_default_credential
-                      end
+          end
 
           return if credential.nil? # Error already rendered
 
@@ -236,7 +236,7 @@ module Api
 
           render_success(test_result)
 
-          log_audit_event('ai.providers.test_connection', @provider,
+          log_audit_event("ai.providers.test_connection", @provider,
             credential_id: credential.id,
             success: test_result[:success],
             response_time: test_result[:response_time_ms]
@@ -272,14 +272,14 @@ module Api
           if success
             render_success({
               provider: serialize_provider_detail(@provider.reload),
-              message: 'Provider models synced successfully'
+              message: "Provider models synced successfully"
             })
 
-            log_audit_event('ai.providers.sync_models', @provider,
+            log_audit_event("ai.providers.sync_models", @provider,
               models_count: @provider.supported_models&.length || 0
             )
           else
-            render_error('Failed to sync provider models', status: :unprocessable_content)
+            render_error("Failed to sync provider models", status: :unprocessable_content)
           end
         end
 
@@ -372,10 +372,10 @@ module Api
 
           render_success({
             created_providers: created_providers,
-            message: created_providers.any? ? "Created #{created_providers.length} default providers" : 'All default providers already exist'
+            message: created_providers.any? ? "Created #{created_providers.length} default providers" : "All default providers already exist"
           })
 
-          log_audit_event('ai.providers.setup_defaults', current_user.account,
+          log_audit_event("ai.providers.setup_defaults", current_user.account,
             created_count: created_providers.length
           )
         end
@@ -398,14 +398,14 @@ module Api
 
               # Update provider health status
               if test_result[:success]
-                provider.update(health_status: 'healthy', last_health_check_at: Time.current)
+                provider.update(health_status: "healthy", last_health_check_at: Time.current)
               else
-                provider.update(health_status: 'unhealthy', last_health_check_at: Time.current)
+                provider.update(health_status: "unhealthy", last_health_check_at: Time.current)
               end
             rescue StandardError => e
               result[:success] = false
               result[:message] = e.message
-              provider.update(health_status: 'unhealthy', last_health_check_at: Time.current)
+              provider.update(health_status: "unhealthy", last_health_check_at: Time.current)
             end
 
             results << result
@@ -423,7 +423,7 @@ module Api
             }
           })
 
-          log_audit_event('ai.providers.test_all', current_user.account,
+          log_audit_event("ai.providers.test_all", current_user.account,
             total: results.length,
             successful: successful,
             failed: failed
@@ -443,11 +443,11 @@ module Api
             credentials = if current_worker
                            # Worker can access any credentials for background processing
                            AiProviderCredential.includes(:ai_provider)
-                         else
+            else
                            # Nested under specific provider
                            provider = current_user.account.ai_providers.find(params[:provider_id])
                            provider.ai_provider_credentials
-                         end
+            end
 
             credentials = apply_credential_filters(credentials)
             credentials = apply_credential_sorting(credentials)
@@ -464,7 +464,7 @@ module Api
                                    .includes(:ai_provider_credentials)
 
             # Admin users can see inactive providers
-            providers = providers.active unless current_user.has_permission?('admin.ai.providers.read')
+            providers = providers.active unless current_user.has_permission?("admin.ai.providers.read")
 
             providers = apply_provider_filters(providers)
             providers = apply_sorting(providers)
@@ -475,7 +475,7 @@ module Api
               pagination: pagination_data(providers)
             })
 
-            log_audit_event('ai.providers.read', current_user.account)
+            log_audit_event("ai.providers.read", current_user.account)
           end
         end
 
@@ -494,7 +494,7 @@ module Api
 
           render_success(test_result)
 
-          log_audit_event('ai.providers.credential.test', @credential,
+          log_audit_event("ai.providers.credential.test", @credential,
             success: test_result[:success]
           )
         end
@@ -512,10 +512,10 @@ module Api
 
           render_success({
             credential: serialize_credential(@credential),
-            message: 'Credential set as default'
+            message: "Credential set as default"
           })
 
-          log_audit_event('ai.providers.credential.make_default', @credential)
+          log_audit_event("ai.providers.credential.make_default", @credential)
         end
 
         # POST /api/v1/ai/providers/:provider_id/credentials/:credential_id/rotate
@@ -528,10 +528,10 @@ module Api
 
           render_success({
             credential: serialize_credential(@credential),
-            message: 'Credential rotation initiated'
+            message: "Credential rotation initiated"
           })
 
-          log_audit_event('ai.providers.credential.rotate', @credential)
+          log_audit_event("ai.providers.credential.rotate", @credential)
         end
 
         private
@@ -543,7 +543,7 @@ module Api
         def set_provider
           @provider = current_user.account.ai_providers.find(params[:id] || params[:provider_id])
         rescue ActiveRecord::RecordNotFound
-          render_error('Provider not found', status: :not_found)
+          render_error("Provider not found", status: :not_found)
         end
 
         def set_credential
@@ -560,7 +560,7 @@ module Api
                                      .find_by!(id: credential_id)
           end
         rescue ActiveRecord::RecordNotFound
-          render_error('Credential not found', status: :not_found)
+          render_error("Credential not found", status: :not_found)
         end
 
         # =============================================================================
@@ -575,48 +575,48 @@ module Api
           is_credential_action = params[:provider_id].present?
 
           case action_name
-          when 'index'
+          when "index"
             if is_credential_action
-              require_permission('ai.providers.read')
+              require_permission("ai.providers.read")
             else
-              require_permission('ai.providers.read')
+              require_permission("ai.providers.read")
             end
-          when 'show'
+          when "show"
             if is_credential_action
-              require_permission('ai.providers.read')
+              require_permission("ai.providers.read")
             else
-              require_permission('ai.providers.read')
+              require_permission("ai.providers.read")
             end
-          when 'available', 'statistics', 'test_all'
-            require_permission('ai.providers.read')
-          when 'setup_defaults'
-            require_permission('ai.providers.create')
-          when 'create'
+          when "available", "statistics", "test_all"
+            require_permission("ai.providers.read")
+          when "setup_defaults"
+            require_permission("ai.providers.create")
+          when "create"
             if is_credential_action
-              require_permission('ai.credentials.create')
+              require_permission("ai.credentials.create")
             else
-              require_permission('ai.providers.create')
+              require_permission("ai.providers.create")
             end
-          when 'update'
+          when "update"
             if is_credential_action
-              require_permission('ai.credentials.update')
+              require_permission("ai.credentials.update")
             else
-              require_permission('ai.providers.update')
+              require_permission("ai.providers.update")
             end
-          when 'sync_models'
-            require_permission('ai.providers.update')
-          when 'credential_make_default', 'credential_rotate'
-            require_permission('ai.credentials.update')
-          when 'destroy'
+          when "sync_models"
+            require_permission("ai.providers.update")
+          when "credential_make_default", "credential_rotate"
+            require_permission("ai.credentials.update")
+          when "destroy"
             if is_credential_action
-              require_permission('ai.credentials.delete')
+              require_permission("ai.credentials.delete")
             else
-              require_permission('ai.providers.delete')
+              require_permission("ai.providers.delete")
             end
-          when 'test_connection', 'models', 'usage_summary', 'check_availability'
-            require_permission('ai.providers.read')
-          when 'credential_test'
-            require_permission('ai.credentials.read')
+          when "test_connection", "models", "usage_summary", "check_availability"
+            require_permission("ai.providers.read")
+          when "credential_test"
+            require_permission("ai.credentials.read")
           end
         end
 
@@ -631,9 +631,9 @@ module Api
             :status_url, :requires_auth, :supports_streaming, :supports_functions,
             :supports_vision, :supports_code_execution, :slug,
             capabilities: [],
-            supported_models: [:name, :id, :context_length, :max_output_tokens, :cost_per_token,
-                              { cost_per_1k_tokens: [:input, :output] }, :capabilities, :features,
-                              :default_parameters],
+            supported_models: [ :name, :id, :context_length, :max_output_tokens, :cost_per_token,
+                              { cost_per_1k_tokens: [ :input, :output ] }, :capabilities, :features,
+                              :default_parameters ],
             default_parameters: {},
             rate_limits: {},
             pricing_info: {},
@@ -656,27 +656,27 @@ module Api
         def apply_provider_filters(providers)
           providers = providers.where(provider_type: params[:provider_type]) if params[:provider_type].present?
           providers = providers.supporting_capability(params[:capability]) if params[:capability].present?
-          providers = providers.where('name ILIKE ?', "%#{params[:search]}%") if params[:search].present?
+          providers = providers.where("name ILIKE ?", "%#{params[:search]}%") if params[:search].present?
           providers
         end
 
         def apply_credential_filters(credentials)
           credentials = credentials.where(ai_provider_id: params[:provider_id]) if params[:provider_id].present?
           credentials = credentials.where(is_active: params[:active]) if params[:active].present?
-          credentials = credentials.where(is_default: true) if params[:default_only] == 'true'
-          credentials = credentials.where('name ILIKE ?', "%#{params[:search]}%") if params[:search].present?
+          credentials = credentials.where(is_default: true) if params[:default_only] == "true"
+          credentials = credentials.where("name ILIKE ?", "%#{params[:search]}%") if params[:search].present?
           credentials
         end
 
         def apply_sorting(collection)
-          sort = params[:sort] || 'priority'
+          sort = params[:sort] || "priority"
 
           case sort
-          when 'name'
+          when "name"
             collection.order(:name)
-          when 'priority'
+          when "priority"
             collection.order(:priority_order, :name)
-          when 'created_at'
+          when "created_at"
             collection.order(created_at: :desc)
           else
             collection.ordered_by_priority rescue collection.order(:name)
@@ -684,16 +684,16 @@ module Api
         end
 
         def apply_credential_sorting(credentials)
-          sort = params[:sort] || 'name'
+          sort = params[:sort] || "name"
 
           case sort
-          when 'name'
+          when "name"
             credentials.order(:name)
-          when 'provider'
-            credentials.joins(:ai_provider).order('ai_providers.name')
-          when 'last_used'
+          when "provider"
+            credentials.joins(:ai_provider).order("ai_providers.name")
+          when "last_used"
             credentials.order(last_used_at: :desc)
-          when 'created_at'
+          when "created_at"
             credentials.order(created_at: :desc)
           else
             credentials.order(:name)
@@ -702,7 +702,7 @@ module Api
 
         def apply_pagination(collection)
           page = params[:page]&.to_i || 1
-          per_page = [params[:per_page]&.to_i || 20, 100].min
+          per_page = [ params[:per_page]&.to_i || 20, 100 ].min
 
           collection.page(page).per(per_page)
         end
@@ -788,7 +788,7 @@ module Api
           )
 
           # Include decrypted credentials only for authorized users
-          if current_user&.has_permission?('ai.credentials.decrypt')
+          if current_user&.has_permission?("ai.credentials.decrypt")
             result[:credentials] = credential.credentials
           end
 
@@ -805,12 +805,12 @@ module Api
                                   .find_by(id: credential_id)
 
           unless credential
-            render_error('Credential not found', status: :not_found)
+            render_error("Credential not found", status: :not_found)
             return nil
           end
 
           unless credential.ai_provider == @provider
-            render_error('Credential does not belong to this provider', status: :bad_request)
+            render_error("Credential does not belong to this provider", status: :bad_request)
             return nil
           end
 
@@ -823,7 +823,7 @@ module Api
                                   .find_by(ai_provider: @provider, is_default: true, is_active: true)
 
           unless credential
-            render_error('No active credentials found for this provider', status: :not_found)
+            render_error("No active credentials found for this provider", status: :not_found)
             return nil
           end
 
@@ -845,7 +845,7 @@ module Api
 
           workflow_calls = AiWorkflowNodeExecution.joins(ai_workflow_run: { ai_workflow: :account })
                                                   .where(accounts: { id: current_user.account_id })
-                                                  .where(node_type: 'ai_agent')
+                                                  .where(node_type: "ai_agent")
                                                   .count
 
           agent_calls + workflow_calls
@@ -865,32 +865,32 @@ module Api
 
         def calculate_provider_health_status(provider)
           # If provider is inactive, it's degraded
-          return 'degraded' unless provider.is_active
+          return "degraded" unless provider.is_active
 
           # Check credentials health
           active_credentials = provider.ai_provider_credentials.where(is_active: true)
 
           # No credentials - degraded
-          return 'degraded' if active_credentials.empty?
+          return "degraded" if active_credentials.empty?
 
           # Check last test results
           tested_credentials = active_credentials.where.not(last_test_at: nil)
 
           # No test results yet - assume healthy if has active credentials
-          return 'healthy' if tested_credentials.empty?
+          return "healthy" if tested_credentials.empty?
 
           # Calculate success rate from tested credentials
-          successful = tested_credentials.where(last_test_status: 'success').count
+          successful = tested_credentials.where(last_test_status: "success").count
           total = tested_credentials.count
           success_rate = (successful.to_f / total * 100).round
 
           # Determine health based on success rate
           if success_rate >= 80
-            'healthy'
+            "healthy"
           elsif success_rate >= 50
-            'degraded'
+            "degraded"
           else
-            'critical'
+            "critical"
           end
         end
 
@@ -900,65 +900,65 @@ module Api
 
         def default_provider_config(provider_type)
           configs = {
-            'openai' => {
-              name: 'OpenAI',
+            "openai" => {
+              name: "OpenAI",
               configuration: {
-                api_base_url: 'https://api.openai.com/v1',
-                default_model: 'gpt-4o',
+                api_base_url: "https://api.openai.com/v1",
+                default_model: "gpt-4o",
                 supported_models: %w[gpt-4o gpt-4o-mini gpt-4-turbo gpt-3.5-turbo],
                 capabilities: %w[chat completions embeddings images]
               }
             },
-            'anthropic' => {
-              name: 'Anthropic',
+            "anthropic" => {
+              name: "Anthropic",
               configuration: {
-                api_base_url: 'https://api.anthropic.com/v1',
-                default_model: 'claude-sonnet-4-20250514',
+                api_base_url: "https://api.anthropic.com/v1",
+                default_model: "claude-sonnet-4-20250514",
                 supported_models: %w[claude-sonnet-4-20250514 claude-3-5-sonnet-20241022 claude-3-5-haiku-20241022],
                 capabilities: %w[chat completions]
               }
             },
-            'google' => {
-              name: 'Google AI (Gemini)',
+            "google" => {
+              name: "Google AI (Gemini)",
               configuration: {
-                api_base_url: 'https://generativelanguage.googleapis.com/v1beta',
-                default_model: 'gemini-2.0-flash',
+                api_base_url: "https://generativelanguage.googleapis.com/v1beta",
+                default_model: "gemini-2.0-flash",
                 supported_models: %w[gemini-2.0-flash gemini-1.5-pro gemini-1.5-flash],
                 capabilities: %w[chat completions embeddings]
               }
             },
-            'azure_openai' => {
-              name: 'Azure OpenAI',
+            "azure_openai" => {
+              name: "Azure OpenAI",
               configuration: {
                 api_base_url: nil, # User must configure their Azure endpoint
-                default_model: 'gpt-4o',
+                default_model: "gpt-4o",
                 supported_models: %w[gpt-4o gpt-4o-mini gpt-4-turbo],
                 capabilities: %w[chat completions embeddings]
               }
             },
-            'groq' => {
-              name: 'Groq',
+            "groq" => {
+              name: "Groq",
               configuration: {
-                api_base_url: 'https://api.groq.com/openai/v1',
-                default_model: 'llama-3.3-70b-versatile',
+                api_base_url: "https://api.groq.com/openai/v1",
+                default_model: "llama-3.3-70b-versatile",
                 supported_models: %w[llama-3.3-70b-versatile llama-3.1-8b-instant mixtral-8x7b-32768],
                 capabilities: %w[chat completions]
               }
             },
-            'mistral' => {
-              name: 'Mistral AI',
+            "mistral" => {
+              name: "Mistral AI",
               configuration: {
-                api_base_url: 'https://api.mistral.ai/v1',
-                default_model: 'mistral-large-latest',
+                api_base_url: "https://api.mistral.ai/v1",
+                default_model: "mistral-large-latest",
                 supported_models: %w[mistral-large-latest mistral-medium-latest mistral-small-latest],
                 capabilities: %w[chat completions embeddings]
               }
             },
-            'cohere' => {
-              name: 'Cohere',
+            "cohere" => {
+              name: "Cohere",
               configuration: {
-                api_base_url: 'https://api.cohere.ai/v1',
-                default_model: 'command-r-plus',
+                api_base_url: "https://api.cohere.ai/v1",
+                default_model: "command-r-plus",
                 supported_models: %w[command-r-plus command-r command-light],
                 capabilities: %w[chat completions embeddings]
               }

@@ -22,8 +22,8 @@ Account.find_each do |account|
     },
     capabilities: {
       'max_file_size' => 100.megabytes,
-      'supported_formats' => ['image/*', 'application/pdf', 'text/*', 'video/*', 'audio/*'],
-      'features' => ['versioning', 'sharing', 'tagging', 'processing']
+      'supported_formats' => [ 'image/*', 'application/pdf', 'text/*', 'video/*', 'audio/*' ],
+      'features' => [ 'versioning', 'sharing', 'tagging', 'processing' ]
     },
     quota_bytes: 10.gigabytes,
     is_default: true

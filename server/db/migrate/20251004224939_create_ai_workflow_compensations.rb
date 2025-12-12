@@ -24,7 +24,7 @@ class CreateAiWorkflowCompensations < ActiveRecord::Migration[8.0]
 
     # Composite and unique indexes only
     add_index :ai_workflow_compensations, :compensation_id, unique: true
-    add_index :ai_workflow_compensations, [:ai_workflow_run_id, :status], name: 'index_compensations_on_run_and_status'
+    add_index :ai_workflow_compensations, [ :ai_workflow_run_id, :status ], name: 'index_compensations_on_run_and_status'
 
     add_foreign_key :ai_workflow_compensations, :ai_workflow_runs, on_delete: :cascade
     add_foreign_key :ai_workflow_compensations, :ai_workflow_node_executions, on_delete: :cascade

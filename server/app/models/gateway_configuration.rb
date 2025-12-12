@@ -28,23 +28,23 @@ class GatewayConfiguration < ApplicationRecord
 
   def self.stripe_config
     {
-      publishable_key: get_config('stripe', 'publishable_key'),
-      secret_key: get_config('stripe', 'secret_key'),
-      endpoint_secret: get_config('stripe', 'endpoint_secret'),
-      webhook_tolerance: get_config('stripe', 'webhook_tolerance')&.to_i || 300,
-      enabled: get_config('stripe', 'enabled'),
-      test_mode: get_config('stripe', 'test_mode')
+      publishable_key: get_config("stripe", "publishable_key"),
+      secret_key: get_config("stripe", "secret_key"),
+      endpoint_secret: get_config("stripe", "endpoint_secret"),
+      webhook_tolerance: get_config("stripe", "webhook_tolerance")&.to_i || 300,
+      enabled: get_config("stripe", "enabled"),
+      test_mode: get_config("stripe", "test_mode")
     }
   end
 
   def self.paypal_config
     {
-      client_id: get_config('paypal', 'client_id'),
-      client_secret: get_config('paypal', 'client_secret'),
-      webhook_id: get_config('paypal', 'webhook_id'),
-      mode: get_config('paypal', 'mode') || 'sandbox',
-      enabled: get_config('paypal', 'enabled'),
-      test_mode: get_config('paypal', 'test_mode')
+      client_id: get_config("paypal", "client_id"),
+      client_secret: get_config("paypal", "client_secret"),
+      webhook_id: get_config("paypal", "webhook_id"),
+      mode: get_config("paypal", "mode") || "sandbox",
+      enabled: get_config("paypal", "enabled"),
+      test_mode: get_config("paypal", "test_mode")
     }
   end
 end

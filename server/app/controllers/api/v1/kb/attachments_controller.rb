@@ -1,18 +1,18 @@
 # frozen_string_literal: true
 
 class Api::V1::Kb::AttachmentsController < ApplicationController
-  skip_before_action :authenticate_request, only: [:show]
-  before_action :set_attachment, only: [:show, :destroy]
-  before_action :authorize_kb_edit, only: [:create, :destroy]
+  skip_before_action :authenticate_request, only: [ :show ]
+  before_action :set_attachment, only: [ :show, :destroy ]
+  before_action :authorize_kb_edit, only: [ :create, :destroy ]
 
   # GET /api/v1/kb/attachments/:id
   def show
-    return render_error('Attachment not found', status: :not_found) unless @attachment
+    return render_error("Attachment not found", status: :not_found) unless @attachment
 
     # For public access, ensure the attachment belongs to a published article
     unless can_edit_kb?
       article = @attachment.attachable
-      return render_error('Access denied', status: :forbidden) unless article&.viewable_by?(current_user)
+      return render_error("Access denied", status: :forbidden) unless article&.viewable_by?(current_user)
     end
 
     render_success({
@@ -22,7 +22,7 @@ class Api::V1::Kb::AttachmentsController < ApplicationController
 
   # POST /api/v1/kb/attachments
   def create
-    return render_error('No file provided', status: :bad_request) unless params[:file].present?
+    return render_error("No file provided", status: :bad_request) unless params[:file].present?
 
     attachment = KnowledgeBaseAttachment.new(attachment_params)
     attachment.uploader = current_user
@@ -31,7 +31,7 @@ class Api::V1::Kb::AttachmentsController < ApplicationController
       render_success({
         attachment: serialize_attachment(attachment),
         url: attachment.file_url
-      }, 'File uploaded successfully')
+      }, "File uploaded successfully")
     else
       render_validation_error(attachment)
     end
@@ -42,12 +42,12 @@ class Api::V1::Kb::AttachmentsController < ApplicationController
 
   # DELETE /api/v1/kb/attachments/:id
   def destroy
-    return render_error('Attachment not found', status: :not_found) unless @attachment
+    return render_error("Attachment not found", status: :not_found) unless @attachment
 
     if @attachment.destroy
-      render_success(message: 'Attachment deleted successfully')
+      render_success(message: "Attachment deleted successfully")
     else
-      render_error('Failed to delete attachment', status: :internal_server_error)
+      render_error("Failed to delete attachment", status: :internal_server_error)
     end
   end
 
@@ -58,12 +58,12 @@ class Api::V1::Kb::AttachmentsController < ApplicationController
   end
 
   def can_edit_kb?
-    current_user&.has_permission?('kb.edit') || 
-    current_user&.has_permission?('kb.manage')
+    current_user&.has_permission?("kb.edit") ||
+    current_user&.has_permission?("kb.manage")
   end
 
   def authorize_kb_edit
-    return render_error('Access denied', status: :forbidden) unless can_edit_kb?
+    render_error("Access denied", status: :forbidden) unless can_edit_kb?
   end
 
   def attachment_params

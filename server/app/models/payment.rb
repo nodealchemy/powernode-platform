@@ -7,7 +7,7 @@ class Payment < ApplicationRecord
   belongs_to :account
   belongs_to :invoice
   belongs_to :payment_method, optional: true
-  
+
   # Delegated associations for convenience
   has_one :subscription, through: :invoice
 
@@ -24,7 +24,7 @@ class Payment < ApplicationRecord
 
   # PayPal helper methods
   def paypal?
-    gateway == 'paypal'
+    gateway == "paypal"
   end
 
   def add_metadata(key, value)
@@ -142,7 +142,7 @@ class Payment < ApplicationRecord
 
   def account_matches_invoice_account
     return unless invoice && account
-    
+
     if invoice.account_id != account_id
       errors.add(:account, "must match the invoice's account")
     end

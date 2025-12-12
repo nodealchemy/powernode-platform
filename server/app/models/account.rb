@@ -2,7 +2,7 @@
 
 class Account < ApplicationRecord
   include Auditable
-  
+
   # Associations
   has_many :users, dependent: :destroy
   has_one :subscription, dependent: :destroy
@@ -17,7 +17,7 @@ class Account < ApplicationRecord
   has_many :app_subscriptions, dependent: :destroy
   has_many :api_keys, dependent: :destroy
   has_many :webhook_endpoints, dependent: :destroy
-  
+
   # AI-related associations
   has_many :ai_providers, dependent: :destroy
   has_many :ai_provider_credentials, dependent: :destroy
@@ -84,13 +84,13 @@ class Account < ApplicationRecord
   def owner
     # Find the first user with owner role in this account
     # Check for both possible role name formats
-    users.joins(:user_roles => :role)
-         .where(roles: { name: ['owner', 'account.owner'] })
+    users.joins(user_roles: :role)
+         .where(roles: { name: [ "owner", "account.owner" ] })
          .first
   end
 
   def managers
-    users.joins(:user_roles => :role).where(roles: { name: 'manager' })
+    users.joins(user_roles: :role).where(roles: { name: "manager" })
   end
 
   def current_subscription
@@ -128,31 +128,31 @@ class Account < ApplicationRecord
   end
 
   def broadcast_customer_created
-    broadcast_customer_change('created')
+    broadcast_customer_change("created")
   end
 
   def broadcast_customer_updated
-    broadcast_customer_change('updated')
+    broadcast_customer_change("updated")
   end
 
   def broadcast_customer_change(event_type)
     # Skip broadcasting in test environment to avoid database query issues
     return if Rails.env.test?
-    
+
     # Broadcast to all admin users
     data = {
-      type: 'customer_updated',
+      type: "customer_updated",
       event: event_type,
       customer_id: id,
       timestamp: Time.current.iso8601
     }
-    
+
     # Find all admin accounts that should receive this update
-    admin_account_ids = User.joins(:account, :user_roles => :role)
-                            .where(roles: { name: ['system.admin', 'account.manager'] })
+    admin_account_ids = User.joins(:account, user_roles: :role)
+                            .where(roles: { name: [ "system.admin", "account.manager" ] })
                             .distinct.pluck(:account_id)
     admin_accounts = Account.where(id: admin_account_ids)
-    
+
     admin_accounts.each do |admin_account|
       ActionCable.server.broadcast("customer_updates_#{admin_account.id}", data)
     end

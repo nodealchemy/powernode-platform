@@ -153,8 +153,8 @@ RSpec.describe AiAgentTeam, type: :model do
 
       # Verify they're ordered by priority
       ordered = team.ordered_members
-      expect(ordered.map(&:id)).to eq([member1.id, member2.id, member3.id])
-      expect(ordered.map(&:priority_order)).to eq([0, 1, 2])
+      expect(ordered.map(&:id)).to eq([ member1.id, member2.id, member3.id ])
+      expect(ordered.map(&:priority_order)).to eq([ 0, 1, 2 ])
     end
   end
 
@@ -201,12 +201,12 @@ RSpec.describe AiAgentTeam, type: :model do
       member = team.add_member(
         agent: agent,
         role: 'researcher',
-        capabilities: ['research', 'analysis']
+        capabilities: [ 'research', 'analysis' ]
       )
 
       expect(member).to be_persisted
       expect(member.role).to eq('researcher')
-      expect(member.capabilities).to eq(['research', 'analysis'])
+      expect(member.capabilities).to eq([ 'research', 'analysis' ])
     end
 
     it 'sets priority order automatically' do
@@ -257,7 +257,7 @@ RSpec.describe AiAgentTeam, type: :model do
       team = create(:ai_agent_team, :content_generation_crew)
       expect(team.ai_agent_team_members.count).to eq(3)
       expect(team.has_lead?).to be true
-      expect(team.ai_agent_team_members.pluck(:role)).to match_array(['researcher', 'writer', 'reviewer'])
+      expect(team.ai_agent_team_members.pluck(:role)).to match_array([ 'researcher', 'writer', 'reviewer' ])
     end
   end
 end

@@ -48,7 +48,7 @@ RSpec.describe AiAnalyticsInsightsService, type: :service do
       create(:ai_agent_execution, :completed, account: other_account, ai_agent: other_agent)
 
       result = service.send(:base_executions_query)
-      expect(result.pluck(:account_id).uniq).to eq([account.id])
+      expect(result.pluck(:account_id).uniq).to eq([ account.id ])
     end
   end
 

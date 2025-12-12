@@ -22,7 +22,7 @@ class CreateAiAgents < ActiveRecord::Migration[8.0]
       t.index :account_id
       t.index :creator_id
       t.index :slug, unique: true
-      t.index [:account_id, :name]
+      t.index [ :account_id, :name ]
       t.index :agent_type
       t.index :status
       t.index :is_public

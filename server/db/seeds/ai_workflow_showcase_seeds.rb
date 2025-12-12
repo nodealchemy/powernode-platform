@@ -39,15 +39,15 @@ unless provider
   ) do |p|
     p.is_active = true
     p.api_endpoint = 'https://api.anthropic.com/v1'
-    p.supported_models = [{ 'name' => 'claude-sonnet-4-5', 'id' => 'claude-sonnet-4-5-20250514' }]
+    p.supported_models = [ { 'name' => 'claude-sonnet-4-5', 'id' => 'claude-sonnet-4-5-20250514' } ]
   end
 end
 
 default_model = case provider.provider_type
-                when 'anthropic' then 'claude-sonnet-4-5-20250514'
-                when 'openai' then 'gpt-4o'
-                else provider.supported_models&.first&.dig('id') || 'default'
-                end
+when 'anthropic' then 'claude-sonnet-4-5-20250514'
+when 'openai' then 'gpt-4o'
+else provider.supported_models&.first&.dig('id') || 'default'
+end
 
 puts "✓ Using AI Provider: #{provider.name}"
 
@@ -176,7 +176,7 @@ nodes_data = [
   { id: 'seo', type: 'ai_agent', name: 'SEO Optimization', x: 400, y: 650,
     config: { 'agent_id' => seo_agent.id, 'prompt_template' => 'Optimize for SEO: {{editor_output}}' } },
   { id: 'quality_check', type: 'condition', name: 'Quality Check', x: 400, y: 800,
-    config: { 'conditions' => [{ 'field' => 'quality_score', 'operator' => '>=', 'value' => 80 }] } },
+    config: { 'conditions' => [ { 'field' => 'quality_score', 'operator' => '>=', 'value' => 80 } ] } },
   # True path offset right (x=550) to align with condition's True handle (bottom-right)
   { id: 'kb_create', type: 'kb_article', name: 'Create KB Article', x: 550, y: 950,
     config: { 'action' => 'create', 'title' => '{{seo_title}}', 'content' => '{{final_content}}', 'status' => 'published' } },
@@ -263,14 +263,14 @@ onboarding_nodes = [
   { id: 'trigger', type: 'trigger', name: 'New Customer Signup', x: 400, y: 50, is_start: true,
     config: { 'trigger_type' => 'webhook', 'webhook_path' => '/api/webhooks/new-customer' } },
   { id: 'validate', type: 'validator', name: 'Validate Customer Data', x: 400, y: 170,
-    config: { 'rules' => [{ 'field' => 'email', 'rule' => 'required|email' }, { 'field' => 'company', 'rule' => 'required' }] } },
+    config: { 'rules' => [ { 'field' => 'email', 'rule' => 'required|email' }, { 'field' => 'company', 'rule' => 'required' } ] } },
   { id: 'check_tier', type: 'condition', name: 'Check Account Tier', x: 400, y: 290,
-    config: { 'conditions' => [{ 'field' => 'plan', 'operator' => '==', 'value' => 'enterprise' }] } },
+    config: { 'conditions' => [ { 'field' => 'plan', 'operator' => '==', 'value' => 'enterprise' } ] } },
   # Condition branches: False=left, True=right
   { id: 'auto_approve', type: 'transform', name: 'Auto-Approve Standard', x: 200, y: 410,
     config: { 'operation' => 'set', 'fields' => { 'approval_status' => 'approved', 'approved_by' => 'system' } } },
   { id: 'approval', type: 'human_approval', name: 'Manager Approval', x: 600, y: 410,
-    config: { 'approval_type' => 'single', 'timeout_hours' => 48, 'approvers' => ['sales_manager'] } },
+    config: { 'approval_type' => 'single', 'timeout_hours' => 48, 'approvers' => [ 'sales_manager' ] } },
   # Continue main flow (merge point)
   { id: 'create_account', type: 'api_call', name: 'Create Account', x: 400, y: 530,
     config: { 'method' => 'POST', 'url' => '/api/v1/accounts', 'body' => { 'customer' => '{{customer_data}}' } } },
@@ -368,7 +368,7 @@ integration_nodes = [
   { id: 'fetch_api', type: 'api_call', name: 'Fetch External Data', x: 400, y: 170,
     config: { 'method' => 'GET', 'url' => '{{api_endpoint}}/data', 'headers' => { 'Authorization' => 'Bearer {{api_key}}' } } },
   { id: 'validate', type: 'validator', name: 'Validate Response', x: 400, y: 290,
-    config: { 'rules' => [{ 'field' => 'status', 'rule' => 'equals:success' }, { 'field' => 'data', 'rule' => 'required|array' }] } },
+    config: { 'rules' => [ { 'field' => 'status', 'rule' => 'equals:success' }, { 'field' => 'data', 'rule' => 'required|array' } ] } },
   { id: 'transform', type: 'data_processor', name: 'Transform Data', x: 400, y: 410,
     config: { 'operation' => 'map', 'mapping' => { 'id' => '{{item.external_id}}', 'name' => '{{item.title}}', 'updated_at' => '{{now}}' } } },
   { id: 'loop', type: 'loop', name: 'Process Each Record', x: 400, y: 530,
@@ -492,7 +492,7 @@ page_gen_nodes = [
     config: { 'action' => 'update', 'page_id' => '{{created_page.id}}', 'meta_description' => '{{seo_description}}', 'meta_keywords' => '{{keywords}}' } },
   # Condition: Check content quality
   { id: 'quality_gate', type: 'condition', name: 'Quality Gate', x: 400, y: 890,
-    config: { 'conditions' => [{ 'field' => 'content_score', 'operator' => '>=', 'value' => 75 }] } },
+    config: { 'conditions' => [ { 'field' => 'content_score', 'operator' => '>=', 'value' => 75 } ] } },
   # Condition branches: False=left, True=right
   { id: 'notify_review', type: 'notification', name: 'Request Review', x: 200, y: 1010,
     config: { 'channel' => 'email', 'message' => 'Page {{created_page.title}} needs review' } },

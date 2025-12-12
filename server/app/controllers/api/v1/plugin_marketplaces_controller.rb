@@ -3,7 +3,7 @@
 module Api
   module V1
     class PluginMarketplacesController < ApplicationController
-      before_action :set_marketplace, only: [:show, :update, :destroy, :sync]
+      before_action :set_marketplace, only: [ :show, :update, :destroy, :sync ]
 
       # GET /api/v1/plugin_marketplaces
       def index
@@ -13,8 +13,8 @@ module Api
 
         render_success(
           marketplaces: marketplaces.as_json(
-            include: { creator: { only: [:id, :email, :full_name] } },
-            methods: [:plugin_count]
+            include: { creator: { only: [ :id, :email, :full_name ] } },
+            methods: [ :plugin_count ]
           )
         )
       end
@@ -24,10 +24,10 @@ module Api
         render_success(
           marketplace: @marketplace.as_json(
             include: {
-              creator: { only: [:id, :email, :full_name] },
+              creator: { only: [ :id, :email, :full_name ] },
               plugins: {
-                only: [:id, :plugin_id, :name, :version, :description, :status],
-                methods: [:install_count]
+                only: [ :id, :plugin_id, :name, :version, :description, :status ],
+                methods: [ :install_count ]
               }
             }
           )
@@ -42,7 +42,7 @@ module Api
         if marketplace.save
           render_success(
             marketplace: marketplace.as_json,
-            message: 'Marketplace created successfully'
+            message: "Marketplace created successfully"
           )
         else
           render_validation_error(marketplace.errors)
@@ -54,7 +54,7 @@ module Api
         if @marketplace.update(marketplace_params)
           render_success(
             marketplace: @marketplace.as_json,
-            message: 'Marketplace updated successfully'
+            message: "Marketplace updated successfully"
           )
         else
           render_validation_error(@marketplace.errors)
@@ -64,7 +64,7 @@ module Api
       # DELETE /api/v1/plugin_marketplaces/:id
       def destroy
         @marketplace.destroy!
-        render_success(message: 'Marketplace deleted successfully')
+        render_success(message: "Marketplace deleted successfully")
       rescue StandardError => e
         render_error("Failed to delete marketplace: #{e.message}", status: :unprocessable_content)
       end
@@ -90,7 +90,7 @@ module Api
       def set_marketplace
         @marketplace = current_account.plugin_marketplaces.find(params[:id])
       rescue ActiveRecord::RecordNotFound
-        render_not_found('Marketplace not found')
+        render_not_found("Marketplace not found")
       end
 
       def marketplace_params

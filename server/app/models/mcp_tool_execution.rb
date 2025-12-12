@@ -18,7 +18,7 @@ class McpToolExecution < ApplicationRecord
   # ==========================================
   validates :status, inclusion: {
     in: %w[pending running completed failed cancelled],
-    message: 'must be a valid status'
+    message: "must be a valid status"
   }
 
   validate :validate_parameters_format
@@ -27,14 +27,14 @@ class McpToolExecution < ApplicationRecord
   # ==========================================
   # Scopes
   # ==========================================
-  scope :pending, -> { where(status: 'pending') }
-  scope :running, -> { where(status: 'running') }
-  scope :completed, -> { where(status: 'completed') }
-  scope :failed, -> { where(status: 'failed') }
+  scope :pending, -> { where(status: "pending") }
+  scope :running, -> { where(status: "running") }
+  scope :completed, -> { where(status: "completed") }
+  scope :failed, -> { where(status: "failed") }
   scope :for_tool, ->(tool_id) { where(mcp_tool_id: tool_id) }
   scope :for_user, ->(user_id) { where(user_id: user_id) }
-  scope :recent, ->(duration = 24.hours) { where('created_at > ?', duration.ago) }
-  scope :by_date, ->(date) { where('DATE(created_at) = ?', date) }
+  scope :recent, ->(duration = 24.hours) { where("created_at > ?", duration.ago) }
+  scope :by_date, ->(date) { where("DATE(created_at) = ?", date) }
 
   # ==========================================
   # Callbacks
@@ -49,36 +49,36 @@ class McpToolExecution < ApplicationRecord
 
   # Status check methods
   def pending?
-    status == 'pending'
+    status == "pending"
   end
 
   def running?
-    status == 'running'
+    status == "running"
   end
 
   def completed?
-    status == 'completed'
+    status == "completed"
   end
 
   def failed?
-    status == 'failed'
+    status == "failed"
   end
 
   def cancelled?
-    status == 'cancelled'
+    status == "cancelled"
   end
 
   # State transitions
   def start!
     update!(
-      status: 'running',
+      status: "running",
       started_at: Time.current
     )
   end
 
   def complete!(result_data)
     update!(
-      status: 'completed',
+      status: "completed",
       result: result_data,
       completed_at: Time.current
     )
@@ -86,7 +86,7 @@ class McpToolExecution < ApplicationRecord
 
   def fail!(error_msg)
     update!(
-      status: 'failed',
+      status: "failed",
       error_message: error_msg,
       completed_at: Time.current
     )
@@ -94,8 +94,8 @@ class McpToolExecution < ApplicationRecord
 
   def cancel!
     update!(
-      status: 'cancelled',
-      error_message: 'Execution cancelled by user',
+      status: "cancelled",
+      error_message: "Execution cancelled by user",
       completed_at: Time.current
     )
   end
@@ -123,7 +123,7 @@ class McpToolExecution < ApplicationRecord
   private
 
   def set_default_values
-    self.status ||= 'pending'
+    self.status ||= "pending"
     self.parameters ||= {}
     self.result ||= {}
   end
@@ -132,7 +132,7 @@ class McpToolExecution < ApplicationRecord
     return if parameters.blank?
 
     unless parameters.is_a?(Hash)
-      errors.add(:parameters, 'must be a hash')
+      errors.add(:parameters, "must be a hash")
     end
   end
 
@@ -140,7 +140,7 @@ class McpToolExecution < ApplicationRecord
     return if result.blank?
 
     unless result.is_a?(Hash)
-      errors.add(:result, 'must be a hash')
+      errors.add(:result, "must be a hash")
     end
   end
 
@@ -161,7 +161,7 @@ class McpToolExecution < ApplicationRecord
     ActionCable.server.broadcast(
       "mcp_tool_execution_#{id}",
       {
-        type: 'status_update',
+        type: "status_update",
         execution_id: id,
         status: status,
         timestamp: Time.current.iso8601

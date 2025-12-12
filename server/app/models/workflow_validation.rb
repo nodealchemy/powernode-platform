@@ -10,14 +10,14 @@ class WorkflowValidation < ApplicationRecord
   # ==========================================
   # Associations
   # ==========================================
-  belongs_to :workflow, class_name: 'AiWorkflow', foreign_key: :workflow_id, optional: true
+  belongs_to :workflow, class_name: "AiWorkflow", foreign_key: :workflow_id, optional: true
 
   # ==========================================
   # Validations
   # ==========================================
   validates :overall_status, presence: true, inclusion: {
     in: %w[valid invalid warning],
-    message: 'must be valid, invalid, or warning'
+    message: "must be valid, invalid, or warning"
   }
   validates :health_score, presence: true, numericality: {
     greater_than_or_equal_to: 0,
@@ -32,16 +32,16 @@ class WorkflowValidation < ApplicationRecord
   # ==========================================
   # Scopes
   # ==========================================
-  scope :valid, -> { where(overall_status: 'valid') }
-  scope :invalid, -> { where(overall_status: 'invalid') }
-  scope :warnings, -> { where(overall_status: 'warning') }
+  scope :valid, -> { where(overall_status: "valid") }
+  scope :invalid, -> { where(overall_status: "invalid") }
+  scope :warnings, -> { where(overall_status: "warning") }
   scope :for_workflow, ->(workflow_id) { where(workflow_id: workflow_id) }
-  scope :recent, ->(duration = 24.hours) { where('created_at > ?', duration.ago) }
-  scope :healthy, -> { where('health_score >= ?', 80) }
-  scope :unhealthy, -> { where('health_score < ?', 60) }
+  scope :recent, ->(duration = 24.hours) { where("created_at > ?", duration.ago) }
+  scope :healthy, -> { where("health_score >= ?", 80) }
+  scope :unhealthy, -> { where("health_score < ?", 60) }
   scope :latest_for_each_workflow, -> {
-    select('DISTINCT ON (workflow_id) *')
-      .order('workflow_id, created_at DESC')
+    select("DISTINCT ON (workflow_id) *")
+      .order("workflow_id, created_at DESC")
   }
 
   # ==========================================
@@ -57,28 +57,28 @@ class WorkflowValidation < ApplicationRecord
 
   # Status check methods
   def validation_valid?
-    overall_status == 'valid'
+    overall_status == "valid"
   end
 
   def validation_invalid?
-    overall_status == 'invalid'
+    overall_status == "invalid"
   end
 
   def has_warnings?
-    overall_status == 'warning'
+    overall_status == "warning"
   end
 
   # Issue queries
   def error_issues
-    issues.select { |issue| issue['severity'] == 'error' }
+    issues.select { |issue| issue["severity"] == "error" }
   end
 
   def warning_issues
-    issues.select { |issue| issue['severity'] == 'warning' }
+    issues.select { |issue| issue["severity"] == "warning" }
   end
 
   def info_issues
-    issues.select { |issue| issue['severity'] == 'info' }
+    issues.select { |issue| issue["severity"] == "info" }
   end
 
   # Count issues by severity
@@ -101,17 +101,17 @@ class WorkflowValidation < ApplicationRecord
 
   # Get issues by category
   def issues_by_category(category)
-    issues.select { |issue| issue['category'] == category }
+    issues.select { |issue| issue["category"] == category }
   end
 
   # Check if specific issue exists
   def has_issue?(issue_code)
-    issues.any? { |issue| issue['code'] == issue_code }
+    issues.any? { |issue| issue["code"] == issue_code }
   end
 
   # Get auto-fixable issues
   def auto_fixable_issues
-    issues.select { |issue| issue['auto_fixable'] == true }
+    issues.select { |issue| issue["auto_fixable"] == true }
   end
 
   # Generate summary
@@ -140,7 +140,7 @@ class WorkflowValidation < ApplicationRecord
 
   def set_default_values
     self.issues ||= []
-    self.overall_status ||= 'valid'
+    self.overall_status ||= "valid"
     self.health_score ||= 100
   end
 
@@ -156,7 +156,7 @@ class WorkflowValidation < ApplicationRecord
     return if issues.blank?
 
     unless issues.is_a?(Array)
-      errors.add(:issues, 'must be an array')
+      errors.add(:issues, "must be an array")
       return
     end
 
@@ -184,7 +184,7 @@ class WorkflowValidation < ApplicationRecord
     end
 
     # Ensure score stays within bounds
-    self.health_score = [[score, 0].max, 100].min.round
+    self.health_score = [ [ score, 0 ].max, 100 ].min.round
   end
 
   def broadcast_validation_result
@@ -193,7 +193,7 @@ class WorkflowValidation < ApplicationRecord
     ActionCable.server.broadcast(
       "workflow_#{workflow_id}",
       {
-        type: 'validation_result',
+        type: "validation_result",
         validation: summary
       }
     )

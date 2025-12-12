@@ -84,8 +84,8 @@ class WorkflowValidationHealthCheckJob < ApplicationJob
     if latest.created_at < STALE_VALIDATION_THRESHOLD.days.ago
       alerts << create_alert(
         workflow: workflow,
-        type: 'stale_validation',
-        severity: 'warning',
+        type: "stale_validation",
+        severity: "warning",
         message: "Workflow has not been validated in #{(Time.current - latest.created_at).to_i / 86400} days",
         metadata: {
           last_validated_at: latest.created_at,
@@ -98,8 +98,8 @@ class WorkflowValidationHealthCheckJob < ApplicationJob
     if previous && (previous.health_score - latest.health_score) >= HEALTH_DEGRADATION_THRESHOLD
       alerts << create_alert(
         workflow: workflow,
-        type: 'health_degradation',
-        severity: 'error',
+        type: "health_degradation",
+        severity: "error",
         message: "Health score dropped #{previous.health_score - latest.health_score} points",
         metadata: {
           previous_score: previous.health_score,
@@ -113,8 +113,8 @@ class WorkflowValidationHealthCheckJob < ApplicationJob
     if latest.validation_invalid? && latest.created_at < INVALID_STATUS_THRESHOLD.days.ago
       alerts << create_alert(
         workflow: workflow,
-        type: 'persistent_invalid_status',
-        severity: 'error',
+        type: "persistent_invalid_status",
+        severity: "error",
         message: "Workflow has been invalid for #{(Time.current - latest.created_at).to_i / 86400} days",
         metadata: {
           invalid_since: latest.created_at,
@@ -128,8 +128,8 @@ class WorkflowValidationHealthCheckJob < ApplicationJob
     if latest.error_count > 5
       alerts << create_alert(
         workflow: workflow,
-        type: 'high_error_count',
-        severity: 'warning',
+        type: "high_error_count",
+        severity: "warning",
         message: "Workflow has #{latest.error_count} validation errors",
         metadata: {
           error_count: latest.error_count,
@@ -182,7 +182,7 @@ class WorkflowValidationHealthCheckJob < ApplicationJob
     ActionCable.server.broadcast(
       "account_#{account_id}",
       {
-        type: 'validation_health_alerts',
+        type: "validation_health_alerts",
         alerts: alerts,
         count: alerts.count
       }

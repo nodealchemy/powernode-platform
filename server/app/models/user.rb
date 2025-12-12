@@ -27,14 +27,14 @@ class User < ApplicationRecord
   has_many :roles, through: :user_roles
   has_many :audit_logs, dependent: :nullify
   has_many :password_histories, dependent: :destroy
-  has_many :pages, foreign_key: 'author_id', dependent: :destroy
+  has_many :pages, foreign_key: "author_id", dependent: :destroy
   has_many :impersonation_sessions_as_impersonator,
-           class_name: 'ImpersonationSession',
-           foreign_key: 'impersonator_id',
+           class_name: "ImpersonationSession",
+           foreign_key: "impersonator_id",
            dependent: :destroy
   has_many :impersonation_sessions_as_target,
-           class_name: 'ImpersonationSession',
-           foreign_key: 'impersonated_user_id',
+           class_name: "ImpersonationSession",
+           foreign_key: "impersonated_user_id",
            dependent: :destroy
   has_many :notifications, dependent: :destroy
 
@@ -72,7 +72,7 @@ class User < ApplicationRecord
 
   # JSON serialization - exclude sensitive fields
   def as_json(options = {})
-    super(options.merge(except: [ 
+    super(options.merge(except: [
       :password_digest, :failed_login_attempts, :locked_until, :password_changed_at,
       :two_factor_secret, :backup_codes
     ]))
@@ -84,8 +84,8 @@ class User < ApplicationRecord
   end
 
   def initials
-    name_parts = name.to_s.split(' ')
-    return '' if name_parts.empty?
+    name_parts = name.to_s.split(" ")
+    return "" if name_parts.empty?
 
     if name_parts.length == 1
       name_parts[0][0].upcase
@@ -101,7 +101,7 @@ class User < ApplicationRecord
   # NEW: Permission-based access control methods
   def has_permission?(permission_name)
     # Check if user has system.admin permission (equivalent to super admin)
-    return true if roles.joins(:permissions).exists?(permissions: { name: 'system.admin' })
+    return true if roles.joins(:permissions).exists?(permissions: { name: "system.admin" })
 
     # Check if user has permission through any of their roles
     permissions.exists?(name: permission_name)
@@ -117,7 +117,7 @@ class User < ApplicationRecord
 
   def permissions
     # Users with system.admin permission have access to all permissions
-    if roles.joins(:permissions).exists?(permissions: { name: 'system.admin' })
+    if roles.joins(:permissions).exists?(permissions: { name: "system.admin" })
       Permission.all
     else
       # Get all permissions through roles
@@ -132,7 +132,7 @@ class User < ApplicationRecord
 
     Rails.cache.fetch(cache_key, expires_in: 5.minutes) do
       # Check if user has system.admin permission (cache this check too)
-      has_system_admin = roles.joins(:permissions).exists?(permissions: { name: 'system.admin' })
+      has_system_admin = roles.joins(:permissions).exists?(permissions: { name: "system.admin" })
 
       if has_system_admin
         # System admins get all permissions
@@ -182,7 +182,7 @@ class User < ApplicationRecord
 
   # Cache key for role associations (changes when roles are added/removed)
   def role_cache_key
-    @role_cache_key ||= role_ids.sort.join('-')
+    @role_cache_key ||= role_ids.sort.join("-")
   end
 
   # Role checking methods
@@ -201,11 +201,11 @@ class User < ApplicationRecord
   def add_role(role_name)
     role = Role.find_by(name: role_name)
     return false unless role
-    
+
     roles << role unless roles.include?(role)
     true
   end
-  
+
   # Alias for compatibility with tests
   def assign_role(role_or_name)
     if role_or_name.is_a?(Role)
@@ -218,34 +218,34 @@ class User < ApplicationRecord
   def remove_role(role_name)
     role = Role.find_by(name: role_name)
     return false unless role
-    
+
     roles.delete(role)
     true
   end
 
   # Convenience methods for common role checks
   def super_admin?
-    has_role?('super_admin')
+    has_role?("super_admin")
   end
 
   def admin?
-    has_role?('admin') || has_role?('super_admin')
+    has_role?("admin") || has_role?("super_admin")
   end
 
   def owner?
-    has_role?('owner')
+    has_role?("owner")
   end
 
   def manager?
-    has_role?('manager')
+    has_role?("manager")
   end
 
   def member?
-    has_role?('member')
+    has_role?("member")
   end
 
   def billing_admin?
-    has_role?('billing_admin')
+    has_role?("billing_admin")
   end
 
   # Check if user can perform action on resource
@@ -268,9 +268,9 @@ class User < ApplicationRecord
     if locked?
       return false
     end
-    
+
     result = super(unencrypted_password)
-    
+
     if result
       record_successful_login! if respond_to?(:record_successful_login!)
       result
@@ -279,12 +279,12 @@ class User < ApplicationRecord
       false
     end
   end
-  
+
   # Email verification
   def verified?
     email_verified_at.present?
   end
-  
+
   alias_method :email_verified?, :verified?
 
   def verify_email!
@@ -303,7 +303,7 @@ class User < ApplicationRecord
   end
 
   # Password reset
-  
+
   def create_reset_digest
     @reset_token = SecureRandom.urlsafe_base64
     update!(
@@ -317,36 +317,36 @@ class User < ApplicationRecord
     return false if digest.nil?
     BCrypt::Password.new(digest).is_password?(token)
   end
-  
+
   def reset_password!(new_password, token)
     # Verify the token matches what we stored
     return false unless reset_token_digest.present?
     return false unless BCrypt::Password.new(reset_token_digest).is_password?(token)
     return false if reset_token_expires_at && reset_token_expires_at < Time.current
-    
+
     # For password reset, we need to bypass certain validations that might not apply
     # in this specific context (like password confirmation for UI forms)
     transaction do
       # Update password using update_columns to bypass model validations
       password_digest = BCrypt::Password.create(new_password)
-      
+
       update_columns(
         password_digest: password_digest,
         reset_token_digest: nil,
         reset_token_expires_at: nil,
         password_changed_at: Time.current
       )
-      
+
       # Create password history entry manually
       password_histories.create!(
         password_digest: password_digest,
         created_at: Time.current
       )
-      
+
       # Keep only the last N passwords
       old_passwords = password_histories.order(created_at: :desc).offset(PASSWORD_HISTORY_COUNT)
       old_passwords.destroy_all if old_passwords.any?
-      
+
       true
     end
   rescue => e
@@ -382,7 +382,7 @@ class User < ApplicationRecord
   def increment_failed_attempts!
     self.failed_login_attempts ||= 0
     self.failed_login_attempts += 1
-    
+
     if failed_login_attempts >= MAX_FAILED_ATTEMPTS
       lock_account!
     else
@@ -422,15 +422,15 @@ class User < ApplicationRecord
 
   def verify_two_factor_token(token)
     return false unless two_factor_enabled?
-    
+
     totp = ROTP::TOTP.new(two_factor_secret)
     totp.verify(token, drift_behind: 30, drift_ahead: 30)
   end
 
   def verify_backup_code(code)
     return false unless backup_codes&.include?(code)
-    
-    remaining_codes = backup_codes - [code]
+
+    remaining_codes = backup_codes - [ code ]
     update!(backup_codes: remaining_codes)
     true
   end
@@ -448,11 +448,11 @@ class User < ApplicationRecord
 
     # First user in account gets owner role
     if account && account.users.count == 1  # This user is the only one (just created)
-      owner_role = Role.find_by(name: 'owner')
+      owner_role = Role.find_by(name: "owner")
       roles << owner_role if owner_role
     else
       # Assign member role by default
-      member_role = Role.find_by(name: 'member')
+      member_role = Role.find_by(name: "member")
       roles << member_role if member_role
     end
   end

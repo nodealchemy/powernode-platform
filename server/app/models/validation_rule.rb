@@ -13,11 +13,11 @@ class ValidationRule < ApplicationRecord
   validates :name, presence: true, uniqueness: true
   validates :category, presence: true, inclusion: {
     in: %w[structure connectivity data configuration performance security],
-    message: 'must be a valid category'
+    message: "must be a valid category"
   }
   validates :severity, presence: true, inclusion: {
     in: %w[error warning info],
-    message: 'must be error, warning, or info'
+    message: "must be error, warning, or info"
   }
 
   validate :validate_configuration_format
@@ -30,9 +30,9 @@ class ValidationRule < ApplicationRecord
   scope :auto_fixable, -> { where(auto_fixable: true) }
   scope :by_category, ->(category) { where(category: category) }
   scope :by_severity, ->(severity) { where(severity: severity) }
-  scope :errors, -> { where(severity: 'error') }
-  scope :warnings, -> { where(severity: 'warning') }
-  scope :info, -> { where(severity: 'info') }
+  scope :errors, -> { where(severity: "error") }
+  scope :warnings, -> { where(severity: "warning") }
+  scope :info, -> { where(severity: "info") }
 
   # ==========================================
   # Callbacks
@@ -45,15 +45,15 @@ class ValidationRule < ApplicationRecord
 
   # Severity check methods
   def error?
-    severity == 'error'
+    severity == "error"
   end
 
   def warning?
-    severity == 'warning'
+    severity == "warning"
   end
 
   def info?
-    severity == 'info'
+    severity == "info"
   end
 
   # Enable/disable methods
@@ -72,7 +72,7 @@ class ValidationRule < ApplicationRecord
 
   # Check if rule has specific capability
   def has_capability?(capability)
-    configuration.dig('capabilities', capability) == true
+    configuration.dig("capabilities", capability) == true
   end
 
   # ==========================================
@@ -83,7 +83,7 @@ class ValidationRule < ApplicationRecord
   def set_default_values
     self.enabled = true if enabled.nil?
     self.auto_fixable = false if auto_fixable.nil?
-    self.severity ||= 'warning'
+    self.severity ||= "warning"
     self.configuration ||= {}
   end
 
@@ -91,7 +91,7 @@ class ValidationRule < ApplicationRecord
     return if configuration.blank?
 
     unless configuration.is_a?(Hash)
-      errors.add(:configuration, 'must be a hash')
+      errors.add(:configuration, "must be a hash")
     end
   end
 end

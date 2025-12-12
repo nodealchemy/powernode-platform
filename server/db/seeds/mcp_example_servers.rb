@@ -38,7 +38,7 @@ module Seeds
         description: 'A simple calculator MCP server providing arithmetic operations (add, subtract, multiply, divide, power, sqrt)',
         connection_type: 'stdio',
         command: 'node',
-        args: ["#{EXAMPLES_PATH}/stdio-calculator/index.js"],
+        args: [ "#{EXAMPLES_PATH}/stdio-calculator/index.js" ],
         env: {},
         status: 'disconnected',
         capabilities: {
@@ -145,7 +145,7 @@ module Seeds
         description: 'A sandboxed filesystem MCP server for file operations (list, read, write, search). Based on the official @modelcontextprotocol/server-filesystem.',
         connection_type: 'stdio',
         command: 'npx',
-        args: ['-y', '@modelcontextprotocol/server-filesystem', '/tmp'],
+        args: [ '-y', '@modelcontextprotocol/server-filesystem', '/tmp' ],
         env: {},
         status: 'disconnected',
         capabilities: {
@@ -266,7 +266,7 @@ module Seeds
         description: 'Weather information using the free Open-Meteo API. Get current weather, forecasts, and historical data without API keys.',
         connection_type: 'stdio',
         command: 'npx',
-        args: ['-y', '@modelcontextprotocol/server-weather'],
+        args: [ '-y', '@modelcontextprotocol/server-weather' ],
         env: {},
         status: 'disconnected',
         capabilities: {
@@ -336,7 +336,7 @@ module Seeds
         description: 'Get current time in various timezones. Uses the official MCP time server from Anthropic.',
         connection_type: 'stdio',
         command: 'npx',
-        args: ['-y', '@modelcontextprotocol/server-time'],
+        args: [ '-y', '@modelcontextprotocol/server-time' ],
         env: {},
         status: 'disconnected',
         capabilities: {
@@ -394,7 +394,7 @@ module Seeds
         description: 'Fetch and extract content from any URL. Converts web pages to markdown, handles images, and can fetch raw content.',
         connection_type: 'stdio',
         command: 'npx',
-        args: ['-y', '@modelcontextprotocol/server-fetch'],
+        args: [ '-y', '@modelcontextprotocol/server-fetch' ],
         env: {},
         status: 'disconnected',
         capabilities: {

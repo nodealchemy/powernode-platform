@@ -1,13 +1,13 @@
 # frozen_string_literal: true
 
 class Api::V1::RolesController < ApplicationController
-  before_action -> { require_permission('admin.role.view') }, only: [:index, :show, :users]
-  before_action -> { require_permission('admin.role.create') }, only: [:create]
-  before_action -> { require_permission('admin.role.edit') }, only: [:update]
-  before_action -> { require_permission('admin.role.delete') }, only: [:destroy]
-  before_action -> { require_permission('admin.role.assign') }, only: [:assign_to_user, :remove_from_user]
-  before_action :find_role, only: [:show, :update, :destroy, :users]
-  before_action :find_user, only: [:assign_to_user, :remove_from_user]
+  before_action -> { require_permission("admin.role.view") }, only: [ :index, :show, :users ]
+  before_action -> { require_permission("admin.role.create") }, only: [ :create ]
+  before_action -> { require_permission("admin.role.edit") }, only: [ :update ]
+  before_action -> { require_permission("admin.role.delete") }, only: [ :destroy ]
+  before_action -> { require_permission("admin.role.assign") }, only: [ :assign_to_user, :remove_from_user ]
+  before_action :find_role, only: [ :show, :update, :destroy, :users ]
+  before_action :find_user, only: [ :assign_to_user, :remove_from_user ]
 
   # GET /api/v1/roles
   def index
@@ -32,16 +32,16 @@ class Api::V1::RolesController < ApplicationController
   def create
     # Only allow custom roles to be created (not system roles)
     @role = Role.new(role_params)
-    @role.role_type = 'user' # Set as user role (non-system role)
+    @role.role_type = "user" # Set as user role (non-system role)
     @role.is_system = false
-    
+
     if @role.save
       # Assign permissions to the role
       if params[:permission_ids].present?
         permissions = Permission.where(id: params[:permission_ids])
         @role.permissions = permissions
       end
-      
+
       render_success(role_data(@role), status: :created)
     else
       render_validation_error(@role)
@@ -55,14 +55,14 @@ class Api::V1::RolesController < ApplicationController
       render_error("System roles cannot be modified", status: :forbidden)
       return
     end
-    
+
     if @role.update(role_params)
       # Update permissions if provided
       if params[:permission_ids].present?
         permissions = Permission.where(id: params[:permission_ids])
         @role.permissions = permissions
       end
-      
+
       render_success(role_data(@role))
     else
       render_validation_error(@role)
@@ -94,28 +94,28 @@ class Api::V1::RolesController < ApplicationController
   # Returns only roles that the current user has permission to assign
   def assignable
     # Start with all non-system roles (role_type != 'system')
-    assignable_roles = Role.where.not(role_type: 'system').includes(:permissions)
-    
+    assignable_roles = Role.where.not(role_type: "system").includes(:permissions)
+
     # System admins and regular admins can assign all roles
-    unless current_user.has_permission?('system.admin') || current_user.has_permission?('admin.access')
+    unless current_user.has_permission?("system.admin") || current_user.has_permission?("admin.access")
       # For non-admin users, filter roles based on permissions
       # Users can only assign roles that have permissions they also have
       user_permissions = current_user.permission_names
-      
+
       assignable_roles = assignable_roles.select do |role|
         role_permissions = role.permissions.pluck(:name)
         # User can assign this role if they have all the permissions that the role grants
         role_permissions.all? { |perm| user_permissions.include?(perm) }
       end
     end
-    
+
     render_success(assignable_roles.map { |role| assignable_role_data(role) })
   end
 
   # POST /api/v1/roles/:role_id/assign_to_user/:user_id
   def assign_to_user
     role = Role.find(params[:role_id])
-    
+
     # Validate that current user can assign this role
     unless can_assign_role?(role)
       render_error("You do not have permission to assign this role", status: :forbidden)
@@ -134,7 +134,7 @@ class Api::V1::RolesController < ApplicationController
   # DELETE /api/v1/roles/:role_id/remove_from_user/:user_id
   def remove_from_user
     role = Role.find(params[:role_id])
-    
+
     begin
       @user.remove_role(role)
 
@@ -168,7 +168,7 @@ class Api::V1::RolesController < ApplicationController
       name: role.name,
       description: role.description,
       system_role: role.system_role?,
-      permissions: role.permissions.map { |p| 
+      permissions: role.permissions.map { |p|
         {
           id: p.id,
           name: "#{p.resource}.#{p.action}",
@@ -206,15 +206,15 @@ class Api::V1::RolesController < ApplicationController
   # Check if current user can assign a specific role
   def can_assign_role?(role)
     # System admins and regular admins can assign any role
-    return true if current_user.has_permission?('system.admin') || current_user.has_permission?('admin.access')
-    
+    return true if current_user.has_permission?("system.admin") || current_user.has_permission?("admin.access")
+
     # System roles cannot be assigned by non-admin users
     return false if role.system_role?
-    
+
     # Non-admin users can only assign roles that have permissions they also have
     user_permissions = current_user.permission_names
     role_permissions = role.permissions.pluck(:name)
-    
+
     role_permissions.all? { |perm| user_permissions.include?(perm) }
   end
 
@@ -224,7 +224,7 @@ class Api::V1::RolesController < ApplicationController
       id: role.id,
       name: role.name,
       value: role.name, # For compatibility with frontend
-      label: role.name.split('.').map(&:titleize).join(' '),
+      label: role.name.split(".").map(&:titleize).join(" "),
       description: role.description,
       system_role: role.system_role?,
       permission_count: role.permissions.count,

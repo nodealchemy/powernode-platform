@@ -14,7 +14,7 @@ module Api
         before_action :authenticate_request
         before_action :set_team, only: %i[show update destroy execute execute_complete execute_failed add_member remove_member]
         before_action :authorize_teams_access!, except: %i[execute_complete execute_failed]
-        before_action :authorize_team_execution!, only: [:execute]
+        before_action :authorize_team_execution!, only: [ :execute ]
 
         # GET /api/v1/ai/agent_teams
         def index
@@ -50,7 +50,7 @@ module Api
           @team = current_account.ai_agent_teams.build(team_params)
 
           if @team.save
-            log_audit_event('ai_agent_team.created', @team, metadata: { team_name: @team.name })
+            log_audit_event("ai_agent_team.created", @team, metadata: { team_name: @team.name })
 
             render_success(serialize_team_detail(@team), status: :created)
           else
@@ -62,7 +62,7 @@ module Api
         def update
           if @team.update(team_params)
             changes = @team.saved_changes.keys
-            log_audit_event('ai_agent_team.updated', @team, metadata: { changes: changes })
+            log_audit_event("ai_agent_team.updated", @team, metadata: { changes: changes })
 
             render_success(serialize_team_detail(@team))
           else
@@ -75,11 +75,11 @@ module Api
           team_name = @team.name
 
           if @team.destroy
-            log_audit_event('ai_agent_team.deleted', @team, metadata: { team_name: team_name })
+            log_audit_event("ai_agent_team.deleted", @team, metadata: { team_name: team_name })
 
-            render_success({ message: 'Team deleted successfully' })
+            render_success({ message: "Team deleted successfully" })
           else
-            render_error('Failed to delete team', status: :unprocessable_content)
+            render_error("Failed to delete team", status: :unprocessable_content)
           end
         end
 
@@ -94,13 +94,13 @@ module Api
             is_lead: params[:is_lead] || false
           )
 
-          log_audit_event('ai_agent_team.member_added', member, metadata: { agent_id: agent.id, role: params[:role] })
+          log_audit_event("ai_agent_team.member_added", member, metadata: { agent_id: agent.id, role: params[:role] })
 
           render_success(serialize_member(member))
         rescue ActiveRecord::RecordInvalid => e
           render_validation_error(e.record.errors)
         rescue ActiveRecord::RecordNotFound
-          render_not_found('Agent')
+          render_not_found("Agent")
         end
 
         # DELETE /api/v1/ai/agent_teams/:id/members/:member_id
@@ -109,14 +109,14 @@ module Api
           agent_name = member.ai_agent_name
 
           if member.destroy
-            log_audit_event('ai_agent_team.member_removed', member, metadata: { agent_name: agent_name })
+            log_audit_event("ai_agent_team.member_removed", member, metadata: { agent_name: agent_name })
 
-            render_success({ message: 'Member removed successfully' })
+            render_success({ message: "Member removed successfully" })
           else
-            render_error('Failed to remove member', status: :unprocessable_content)
+            render_error("Failed to remove member", status: :unprocessable_content)
           end
         rescue ActiveRecord::RecordNotFound
-          render_not_found('Member')
+          render_not_found("Member")
         end
 
         # POST /api/v1/ai/agent_teams/:id/execute
@@ -129,13 +129,13 @@ module Api
             context: params[:context] || {}
           )
 
-          log_audit_event('ai_agent_team.execution_started', @team,
+          log_audit_event("ai_agent_team.execution_started", @team,
             metadata: { job_id: job })
 
           render_success({
             team_id: @team.id,
             job_id: job,
-            status: 'queued'
+            status: "queued"
           })
         rescue StandardError => e
           render_error("Failed to execute team: #{e.message}", status: :unprocessable_content)
@@ -144,19 +144,19 @@ module Api
         # POST /api/v1/ai/agent_teams/:id/execution_complete (internal - called by worker)
         def execute_complete
           # Store execution results (would typically update a TeamExecution record)
-          log_audit_event('ai_agent_team.execution_completed', @team,
+          log_audit_event("ai_agent_team.execution_completed", @team,
             metadata: { job_id: params[:job_id], completed_at: params[:completed_at] })
 
-          render_success({ message: 'Execution completed recorded' })
+          render_success({ message: "Execution completed recorded" })
         end
 
         # POST /api/v1/ai/agent_teams/:id/execution_failed (internal - called by worker)
         def execute_failed
           # Store execution failure (would typically update a TeamExecution record)
-          log_audit_event('ai_agent_team.execution_failed', @team,
+          log_audit_event("ai_agent_team.execution_failed", @team,
             metadata: { job_id: params[:job_id], error: params[:error], failed_at: params[:failed_at] })
 
-          render_success({ message: 'Execution failure recorded' })
+          render_success({ message: "Execution failure recorded" })
         end
 
         private
@@ -164,17 +164,17 @@ module Api
         def set_team
           @team = current_account.ai_agent_teams.find(params[:id])
         rescue ActiveRecord::RecordNotFound
-          render_not_found('Team') and return false
+          render_not_found("Team") and return false
         end
 
         def authorize_teams_access!
-          return if current_user.has_permission?('ai.teams.manage')
+          return if current_user.has_permission?("ai.teams.manage")
 
           render_forbidden
         end
 
         def authorize_team_execution!
-          return if current_user.has_permission?('ai.teams.execute')
+          return if current_user.has_permission?("ai.teams.execute")
 
           render_forbidden
         end

@@ -8,8 +8,8 @@ class Plugin < ApplicationRecord
 
   # Associations
   belongs_to :account
-  belongs_to :creator, class_name: 'User'
-  belongs_to :source_marketplace, class_name: 'PluginMarketplace', optional: true
+  belongs_to :creator, class_name: "User"
+  belongs_to :source_marketplace, class_name: "PluginMarketplace", optional: true
 
   has_many :plugin_installations, dependent: :destroy
   has_one :ai_provider_plugin, dependent: :destroy
@@ -20,10 +20,10 @@ class Plugin < ApplicationRecord
 
   # Validations
   validates :plugin_id, presence: true, uniqueness: { scope: :account_id },
-            format: { with: /\A[a-z0-9\-_.]+\z/, message: 'must be lowercase with hyphens, dots, underscores only' }
+            format: { with: /\A[a-z0-9\-_.]+\z/, message: "must be lowercase with hyphens, dots, underscores only" }
   validates :name, presence: true, length: { maximum: 255 }
   validates :slug, presence: true, uniqueness: { scope: :account_id }
-  validates :version, presence: true, format: { with: /\A\d+\.\d+\.\d+\z/, message: 'must be semantic version (x.y.z)' }
+  validates :version, presence: true, format: { with: /\A\d+\.\d+\.\d+\z/, message: "must be semantic version (x.y.z)" }
   validates :plugin_types, presence: true
   validates :status, inclusion: { in: %w[available installed error deprecated] }
   validates :source_type, inclusion: { in: %w[git npm local url marketplace] }
@@ -38,18 +38,18 @@ class Plugin < ApplicationRecord
   attribute :metadata, :json, default: -> { {} }
 
   # Scopes
-  scope :active, -> { where(status: 'available') }
-  scope :installed, -> { where(status: 'installed') }
+  scope :active, -> { where(status: "available") }
+  scope :installed, -> { where(status: "installed") }
   scope :verified, -> { where(is_verified: true) }
   scope :official, -> { where(is_official: true) }
-  scope :by_type, ->(type) { where('? = ANY(plugin_types)', type) }
-  scope :ai_providers, -> { by_type('ai_provider') }
-  scope :workflow_nodes, -> { by_type('workflow_node') }
+  scope :by_type, ->(type) { where("? = ANY(plugin_types)", type) }
+  scope :ai_providers, -> { by_type("ai_provider") }
+  scope :workflow_nodes, -> { by_type("workflow_node") }
   scope :with_capability, ->(capability) {
-    where('capabilities @> ?', [capability].to_json)
+    where("capabilities @> ?", [ capability ].to_json)
   }
   scope :search_by_text, ->(query) {
-    where('name ILIKE ? OR description ILIKE ? OR plugin_id ILIKE ?',
+    where("name ILIKE ? OR description ILIKE ? OR plugin_id ILIKE ?",
           "%#{query}%", "%#{query}%", "%#{query}%")
   }
   scope :popular, -> { order(install_count: :desc, average_rating: :desc) }
@@ -62,36 +62,36 @@ class Plugin < ApplicationRecord
 
   # Plugin type checks
   def ai_provider?
-    plugin_types.include?('ai_provider')
+    plugin_types.include?("ai_provider")
   end
 
   def workflow_node?
-    plugin_types.include?('workflow_node')
+    plugin_types.include?("workflow_node")
   end
 
   def integration?
-    plugin_types.include?('integration')
+    plugin_types.include?("integration")
   end
 
   # Manifest accessors
   def manifest_version
-    manifest.dig('manifest_version')
+    manifest.dig("manifest_version")
   end
 
   def plugin_info
-    manifest.dig('plugin')
+    manifest.dig("plugin")
   end
 
   def compatibility_info
-    manifest.dig('compatibility')
+    manifest.dig("compatibility")
   end
 
   def permissions
-    manifest.dig('permissions') || []
+    manifest.dig("permissions") || []
   end
 
   def lifecycle_hooks
-    manifest.dig('lifecycle') || {}
+    manifest.dig("lifecycle") || {}
   end
 
   # Installation management
@@ -105,7 +105,7 @@ class Plugin < ApplicationRecord
   end
 
   def installed_for?(target_account)
-    plugin_installations.where(account: target_account, status: 'active').exists?
+    plugin_installations.where(account: target_account, status: "active").exists?
   end
 
   def installation_for(target_account)
@@ -120,7 +120,7 @@ class Plugin < ApplicationRecord
   def compatible_with?(powernode_version)
     return true if compatibility_info.blank?
 
-    constraint = compatibility_info['powernode_version']
+    constraint = compatibility_info["powernode_version"]
     return true if constraint.blank?
 
     Gem::Requirement.new(constraint).satisfied_by?(Gem::Version.new(powernode_version))
@@ -146,7 +146,7 @@ class Plugin < ApplicationRecord
   private
 
   def generate_slug
-    base_slug = name.downcase.gsub(/[^a-z0-9\s\-]/, '').gsub(/\s+/, '-').strip
+    base_slug = name.downcase.gsub(/[^a-z0-9\s\-]/, "").gsub(/\s+/, "-").strip
     self.slug = ensure_unique_slug(base_slug)
   end
 
@@ -175,9 +175,9 @@ class Plugin < ApplicationRecord
     end
 
     # Validate plugin section
-    if manifest['plugin'].present?
+    if manifest["plugin"].present?
       plugin_required = %w[id name version]
-      plugin_missing = plugin_required - manifest['plugin'].keys
+      plugin_missing = plugin_required - manifest["plugin"].keys
 
       if plugin_missing.any?
         errors.add(:manifest, "plugin section missing required fields: #{plugin_missing.join(', ')}")
@@ -198,31 +198,31 @@ class Plugin < ApplicationRecord
 
   def create_plugin_type_records
     # Create AI provider plugin record if applicable
-    if ai_provider? && manifest['ai_provider'].present?
+    if ai_provider? && manifest["ai_provider"].present?
       AiProviderPlugin.create!(
         plugin: self,
-        provider_type: manifest['ai_provider']['provider_type'],
-        supported_capabilities: manifest['ai_provider']['capabilities'] || [],
-        models: manifest['ai_provider']['models'] || [],
-        authentication_schema: manifest['ai_provider']['authentication'] || {},
-        default_configuration: manifest['ai_provider']['configuration'] || {}
+        provider_type: manifest["ai_provider"]["provider_type"],
+        supported_capabilities: manifest["ai_provider"]["capabilities"] || [],
+        models: manifest["ai_provider"]["models"] || [],
+        authentication_schema: manifest["ai_provider"]["authentication"] || {},
+        default_configuration: manifest["ai_provider"]["configuration"] || {}
       )
     end
 
     # Create workflow node plugin records if applicable
-    if workflow_node? && manifest['workflow_nodes'].present?
-      manifest['workflow_nodes'].each do |node_config|
+    if workflow_node? && manifest["workflow_nodes"].present?
+      manifest["workflow_nodes"].each do |node_config|
         WorkflowNodePlugin.create!(
           plugin: self,
-          node_type: node_config['node_type'],
-          node_category: node_config['category'] || 'custom',
-          input_schema: node_config['input_schema'] || {},
-          output_schema: node_config['output_schema'] || {},
-          configuration_schema: node_config['configuration_schema'] || {},
+          node_type: node_config["node_type"],
+          node_category: node_config["category"] || "custom",
+          input_schema: node_config["input_schema"] || {},
+          output_schema: node_config["output_schema"] || {},
+          configuration_schema: node_config["configuration_schema"] || {},
           ui_configuration: {
-            icon: node_config['icon'],
-            color: node_config['color'],
-            description: node_config['description']
+            icon: node_config["icon"],
+            color: node_config["color"],
+            description: node_config["description"]
           }
         )
       end

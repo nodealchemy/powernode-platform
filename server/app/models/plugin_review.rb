@@ -18,8 +18,8 @@ class PluginReview < ApplicationRecord
   # Scopes
   scope :verified, -> { where(is_verified_purchase: true) }
   scope :by_rating, ->(rating) { where(rating: rating) }
-  scope :positive, -> { where('rating >= ?', 4) }
-  scope :negative, -> { where('rating <= ?', 2) }
+  scope :positive, -> { where("rating >= ?", 4) }
+  scope :negative, -> { where("rating <= ?", 2) }
   scope :recent, -> { order(created_at: :desc) }
 
   # Callbacks

@@ -12,18 +12,18 @@ module Api
         private
 
         def authenticate_worker_service!
-          token = request.headers['Authorization']&.remove('Bearer ')
+          token = request.headers["Authorization"]&.remove("Bearer ")
 
           unless token.present? && valid_worker_token?(token)
-            render_error('Service authentication required', status: :unauthorized)
+            render_error("Service authentication required", status: :unauthorized)
           end
         end
 
         def valid_worker_token?(token)
           # Compare with configured worker token
-          expected_token = ENV['WORKER_SERVICE_TOKEN'] ||
+          expected_token = ENV["WORKER_SERVICE_TOKEN"] ||
                            Rails.application.credentials.dig(:worker, :service_token) ||
-                           'development_worker_service_token_that_persists_across_restarts'
+                           "development_worker_service_token_that_persists_across_restarts"
 
           return false unless expected_token.present?
 

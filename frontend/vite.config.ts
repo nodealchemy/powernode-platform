@@ -244,11 +244,30 @@ export default defineConfig(({ mode }: { mode: string }) => {
     build: {
       outDir: 'build',
       sourcemap: true,
+      chunkSizeWarningLimit: 600,
       rollupOptions: {
         output: {
           manualChunks: {
+            // Core React
             vendor: ['react', 'react-router-dom', 'react-dom'],
+            // State management
             redux: ['@reduxjs/toolkit', 'react-redux'],
+            // Data fetching
+            query: ['@tanstack/react-query', 'axios'],
+            // Workflow/diagram libraries (large)
+            workflow: ['@xyflow/react', 'dagre'],
+            // Markdown editor (large)
+            markdown: ['@uiw/react-md-editor', '@uiw/react-markdown-preview', 'react-markdown'],
+            // Charts
+            charts: ['recharts'],
+            // Drag and drop
+            dnd: ['@dnd-kit/core', '@dnd-kit/sortable', '@dnd-kit/utilities'],
+            // Utilities
+            utils: ['date-fns', 'clsx', 'dompurify', 'ajv', 'ajv-formats'],
+            // Icons
+            icons: ['lucide-react', '@heroicons/react'],
+            // Syntax highlighting
+            highlight: ['highlight.js'],
           },
         },
       },
@@ -257,8 +276,9 @@ export default defineConfig(({ mode }: { mode: string }) => {
     envPrefix: ['VITE_', 'REACT_APP_'],
     
     define: {
-      // Ensure process.env is available for libraries that expect it
-      'process.env': env,
+      // Only expose specific env vars for security (not the entire process.env)
+      'process.env.NODE_ENV': JSON.stringify(mode),
+      'process.env.REACT_APP_VERSION': JSON.stringify(env.REACT_APP_VERSION || env.npm_package_version || '0.0.1-dev'),
       // Force cache invalidation for proxy config changes
       __PROXY_CONFIG_VERSION__: JSON.stringify('v1.1.0-proxy-fix'),
     },

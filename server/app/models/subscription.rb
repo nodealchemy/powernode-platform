@@ -138,7 +138,7 @@ class Subscription < ApplicationRecord
 
   def in_grace_period?
     return false unless past_due?
-    grace_end = metadata['payment_method_grace_period_end']
+    grace_end = metadata["payment_method_grace_period_end"]
     grace_end.present? && Time.parse(grace_end) > Time.current
   end
 
@@ -182,12 +182,12 @@ class Subscription < ApplicationRecord
 
   def schedule_lifecycle_events
     return unless persisted?
-    
+
     # Schedule trial ending reminders if on trial
     if trialing? && trial_end.present?
       schedule_trial_reminders
     end
-    
+
     # Schedule renewal reminders if active
     if active? && current_period_end.present?
       schedule_renewal_reminders
@@ -196,13 +196,13 @@ class Subscription < ApplicationRecord
 
   def handle_status_changes
     case status
-    when 'active'
+    when "active"
       handle_activation
-    when 'past_due'
+    when "past_due"
       handle_past_due
-    when 'unpaid'
+    when "unpaid"
       handle_unpaid_status
-    when 'canceled'
+    when "canceled"
       handle_cancellation
     end
   end
@@ -211,13 +211,13 @@ class Subscription < ApplicationRecord
     return unless trial_end.present? && trial_end > Time.current
 
     # Schedule reminders for 7, 3, and 1 days before trial ends
-    [7, 3, 1].each do |days_before|
+    [ 7, 3, 1 ].each do |days_before|
       reminder_time = trial_end - days_before.days
       next if reminder_time <= Time.current
 
       begin
         WorkerJobService.enqueue_subscription_lifecycle(
-          'trial_ending_reminder',
+          "trial_ending_reminder",
           id,
           run_at: reminder_time,
           days_remaining: days_before
@@ -231,7 +231,7 @@ class Subscription < ApplicationRecord
     # Schedule trial conversion check
     begin
       WorkerJobService.enqueue_subscription_lifecycle(
-        'trial_ended',
+        "trial_ended",
         id,
         run_at: trial_end
       )
@@ -245,13 +245,13 @@ class Subscription < ApplicationRecord
     return unless current_period_end.present? && current_period_end > Time.current
 
     # Schedule reminders for 7, 3, and 1 days before renewal
-    [7, 3, 1].each do |days_before|
+    [ 7, 3, 1 ].each do |days_before|
       reminder_time = current_period_end - days_before.days
       next if reminder_time <= Time.current
 
       begin
         WorkerJobService.enqueue_subscription_lifecycle(
-          'renewal_reminder',
+          "renewal_reminder",
           id,
           run_at: reminder_time,
           days_remaining: days_before
@@ -273,45 +273,45 @@ class Subscription < ApplicationRecord
 
   def handle_activation
     Rails.logger.info "Subscription #{id} activated"
-    
+
     # Schedule renewal reminders
     schedule_renewal_reminders if current_period_end.present?
-    
+
     # Clear any dunning metadata
-    if metadata['dunning_level'].present?
+    if metadata["dunning_level"].present?
       self.update_columns(
-        metadata: metadata.except('dunning_level', 'last_dunning_attempt')
+        metadata: metadata.except("dunning_level", "last_dunning_attempt")
       )
     end
   end
 
   def handle_past_due
     Rails.logger.info "Subscription #{id} marked as past due"
-    
+
     # Update metadata with dunning information
     self.update_columns(
       metadata: metadata.merge(
-        'dunning_level' => 'soft_dunning',
-        'past_due_since' => Time.current.iso8601
+        "dunning_level" => "soft_dunning",
+        "past_due_since" => Time.current.iso8601
       )
     )
   end
 
   def handle_unpaid_status
     Rails.logger.info "Subscription #{id} marked as unpaid"
-    
+
     # Update metadata
     self.update_columns(
       metadata: metadata.merge(
-        'dunning_level' => 'final_dunning',
-        'unpaid_since' => Time.current.iso8601
+        "dunning_level" => "final_dunning",
+        "unpaid_since" => Time.current.iso8601
       )
     )
   end
 
   def handle_cancellation
     Rails.logger.info "Subscription #{id} canceled"
-    
+
     # Clear any scheduled jobs related to this subscription
     # Note: In a real implementation, you'd want to cancel specific scheduled jobs
     # This is a simplified approach
@@ -334,28 +334,28 @@ class Subscription < ApplicationRecord
 
   def log_subscription_changes
     return unless persisted? && saved_changes.present?
-    
+
     # Track significant changes
     significant_changes = saved_changes.slice(
-      'status', 'plan_id', 'quantity', 'current_period_start', 
-      'current_period_end', 'trial_end', 'canceled_at', 'ended_at'
+      "status", "plan_id", "quantity", "current_period_start",
+      "current_period_end", "trial_end", "canceled_at", "ended_at"
     )
-    
+
     return if significant_changes.empty?
-    
+
     old_values = {}
     new_values = {}
-    
+
     significant_changes.each do |field, (old_val, new_val)|
       case field
-      when 'plan_id'
+      when "plan_id"
         old_plan = old_val ? Plan.find_by(id: old_val) : nil
         new_plan = new_val ? Plan.find_by(id: new_val) : nil
-        old_values['plan'] = old_plan&.name
-        new_values['plan'] = new_plan&.name
-        old_values['plan_price'] = old_plan&.price_cents
-        new_values['plan_price'] = new_plan&.price_cents
-      when 'current_period_start', 'current_period_end', 'trial_end', 'canceled_at', 'ended_at'
+        old_values["plan"] = old_plan&.name
+        new_values["plan"] = new_plan&.name
+        old_values["plan_price"] = old_plan&.price_cents
+        new_values["plan_price"] = new_plan&.price_cents
+      when "current_period_start", "current_period_end", "trial_end", "canceled_at", "ended_at"
         old_values[field] = old_val&.iso8601
         new_values[field] = new_val&.iso8601
       else
@@ -363,18 +363,18 @@ class Subscription < ApplicationRecord
         new_values[field] = new_val
       end
     end
-    
+
     # Determine the primary action type
-    action_type = if saved_changes.key?('plan_id')
-                    'subscription_change'
-                  elsif saved_changes.key?('status')
-                    'subscription_change'
-                  elsif saved_changes.key?('quantity')
-                    'subscription_change'
-                  else
-                    'update'
-                  end
-    
+    action_type = if saved_changes.key?("plan_id")
+                    "subscription_change"
+    elsif saved_changes.key?("status")
+                    "subscription_change"
+    elsif saved_changes.key?("quantity")
+                    "subscription_change"
+    else
+                    "update"
+    end
+
     AuditLog.log_action(
       action: action_type,
       resource: self,
@@ -403,26 +403,26 @@ class Subscription < ApplicationRecord
   end
 
   def determine_event_type(changes)
-    if changes.key?('status')
-      old_status, new_status = changes['status']
+    if changes.key?("status")
+      old_status, new_status = changes["status"]
       case new_status
-      when 'active'
-        old_status == 'trialing' ? 'trial_converted' : 'subscription_activated'
-      when 'canceled'
-        'subscription_canceled'
-      when 'past_due'
-        'payment_failed'
-      when 'trialing'
-        'trial_started'
+      when "active"
+        old_status == "trialing" ? "trial_converted" : "subscription_activated"
+      when "canceled"
+        "subscription_canceled"
+      when "past_due"
+        "payment_failed"
+      when "trialing"
+        "trial_started"
       else
-        'status_changed'
+        "status_changed"
       end
-    elsif changes.key?('plan_id')
-      'plan_changed'
-    elsif changes.key?('quantity')
-      'quantity_changed'
+    elsif changes.key?("plan_id")
+      "plan_changed"
+    elsif changes.key?("quantity")
+      "quantity_changed"
     else
-      'subscription_updated'
+      "subscription_updated"
     end
   end
 end

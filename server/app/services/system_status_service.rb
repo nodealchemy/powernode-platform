@@ -25,12 +25,12 @@ class SystemStatusService
   def calculate_overall_status
     statuses = component_statuses.values.map { |c| c[:status] }
 
-    return 'operational' if statuses.all? { |s| s == 'operational' }
-    return 'major_outage' if statuses.any? { |s| s == 'major_outage' }
-    return 'partial_outage' if statuses.any? { |s| s == 'partial_outage' }
-    return 'degraded' if statuses.any? { |s| s == 'degraded' }
+    return "operational" if statuses.all? { |s| s == "operational" }
+    return "major_outage" if statuses.any? { |s| s == "major_outage" }
+    return "partial_outage" if statuses.any? { |s| s == "partial_outage" }
+    return "degraded" if statuses.any? { |s| s == "degraded" }
 
-    'operational'
+    "operational"
   end
 
   def component_statuses
@@ -47,30 +47,30 @@ class SystemStatusService
 
   def check_api_status
     {
-      name: 'API',
-      status: 'operational',
+      name: "API",
+      status: "operational",
       response_time: measure_api_response_time,
-      description: 'Core API services'
+      description: "Core API services"
     }
   rescue StandardError => e
     Rails.logger.error("API status check failed: #{e.message}")
-    { name: 'API', status: 'degraded', response_time: nil, description: 'Core API services' }
+    { name: "API", status: "degraded", response_time: nil, description: "Core API services" }
   end
 
   def check_database_status
     start_time = Time.current
-    ActiveRecord::Base.connection.execute('SELECT 1')
+    ActiveRecord::Base.connection.execute("SELECT 1")
     response_time = ((Time.current - start_time) * 1000).round(2)
 
     {
-      name: 'Database',
-      status: response_time < 100 ? 'operational' : 'degraded',
+      name: "Database",
+      status: response_time < 100 ? "operational" : "degraded",
       response_time: response_time,
-      description: 'PostgreSQL database'
+      description: "PostgreSQL database"
     }
   rescue StandardError => e
     Rails.logger.error("Database status check failed: #{e.message}")
-    { name: 'Database', status: 'major_outage', response_time: nil, description: 'PostgreSQL database' }
+    { name: "Database", status: "major_outage", response_time: nil, description: "PostgreSQL database" }
   end
 
   def check_worker_status
@@ -82,88 +82,88 @@ class SystemStatusService
 
         if process_set.size.positive?
           {
-            name: 'Background Jobs',
-            status: queue_sizes > 1000 ? 'degraded' : 'operational',
+            name: "Background Jobs",
+            status: queue_sizes > 1000 ? "degraded" : "operational",
             response_time: nil,
-            description: 'Sidekiq background job processing',
+            description: "Sidekiq background job processing",
             metadata: {
               workers: process_set.size,
               queued_jobs: queue_sizes
             }
           }
         else
-          { name: 'Background Jobs', status: 'partial_outage', response_time: nil, description: 'Sidekiq background job processing' }
+          { name: "Background Jobs", status: "partial_outage", response_time: nil, description: "Sidekiq background job processing" }
         end
       rescue StandardError => e
         Rails.logger.error("Worker status check failed: #{e.message}")
-        { name: 'Background Jobs', status: 'degraded', response_time: nil, description: 'Sidekiq background job processing' }
+        { name: "Background Jobs", status: "degraded", response_time: nil, description: "Sidekiq background job processing" }
       end
     else
-      { name: 'Background Jobs', status: 'operational', response_time: nil, description: 'Sidekiq background job processing' }
+      { name: "Background Jobs", status: "operational", response_time: nil, description: "Sidekiq background job processing" }
     end
   end
 
   def check_cache_status
     start_time = Time.current
-    Rails.cache.write('status_check', 'ok', expires_in: 1.minute)
-    result = Rails.cache.read('status_check')
+    Rails.cache.write("status_check", "ok", expires_in: 1.minute)
+    result = Rails.cache.read("status_check")
     response_time = ((Time.current - start_time) * 1000).round(2)
 
     {
-      name: 'Cache',
-      status: result == 'ok' ? 'operational' : 'degraded',
+      name: "Cache",
+      status: result == "ok" ? "operational" : "degraded",
       response_time: response_time,
-      description: 'Redis cache layer'
+      description: "Redis cache layer"
     }
   rescue StandardError => e
     Rails.logger.error("Cache status check failed: #{e.message}")
-    { name: 'Cache', status: 'degraded', response_time: nil, description: 'Redis cache layer' }
+    { name: "Cache", status: "degraded", response_time: nil, description: "Redis cache layer" }
   end
 
   def check_storage_status
     # Check if primary storage provider is available
     if defined?(StorageProvider)
-      default_provider = StorageProvider.find_by(is_default: true, status: 'active')
+      default_provider = StorageProvider.find_by(is_default: true, status: "active")
       if default_provider
         {
-          name: 'File Storage',
-          status: 'operational',
+          name: "File Storage",
+          status: "operational",
           response_time: nil,
           description: "#{default_provider.provider_type.capitalize} storage"
         }
       else
-        { name: 'File Storage', status: 'operational', response_time: nil, description: 'File storage service' }
+        { name: "File Storage", status: "operational", response_time: nil, description: "File storage service" }
       end
     else
-      { name: 'File Storage', status: 'operational', response_time: nil, description: 'File storage service' }
+      { name: "File Storage", status: "operational", response_time: nil, description: "File storage service" }
     end
   rescue StandardError => e
     Rails.logger.error("Storage status check failed: #{e.message}")
-    { name: 'File Storage', status: 'degraded', response_time: nil, description: 'File storage service' }
+    { name: "File Storage", status: "degraded", response_time: nil, description: "File storage service" }
   end
 
   def check_email_status
     # Check email configuration
     email_configured = Rails.application.credentials.dig(:smtp, :address).present? ||
-                       ENV['SMTP_ADDRESS'].present?
+                       ENV["SMTP_ADDRESS"].present?
 
     {
-      name: 'Email Delivery',
-      status: email_configured ? 'operational' : 'degraded',
+      name: "Email Delivery",
+      status: email_configured ? "operational" : "degraded",
       response_time: nil,
-      description: 'Transactional email service'
+      description: "Transactional email service"
     }
   rescue StandardError => e
     Rails.logger.error("Email status check failed: #{e.message}")
-    { name: 'Email Delivery', status: 'degraded', response_time: nil, description: 'Transactional email service' }
+    { name: "Email Delivery", status: "degraded", response_time: nil, description: "Transactional email service" }
   end
 
   def check_websocket_status
     {
-      name: 'Real-time Updates',
-      status: 'operational',
+      name: "Real-time Updates",
+      status: "operational",
       response_time: nil,
-      description: 'WebSocket connections (ActionCable)'
+      description: "WebSocket connections (ActionCable)"
     }
   end
 

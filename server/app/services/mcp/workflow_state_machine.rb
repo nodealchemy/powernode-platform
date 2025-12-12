@@ -280,7 +280,7 @@ module Mcp
     # @param to_state [Symbol] State to transition to
     # @param block [Proc] Callback to execute
     def on_transition(from_state: nil, to_state:, &block)
-      key = [from_state, to_state].compact.join('_to_')
+      key = [ from_state, to_state ].compact.join("_to_")
       @transition_callbacks[key] ||= []
       @transition_callbacks[key] << block
     end
@@ -325,7 +325,7 @@ module Mcp
 
       # Build new runtime_context by merging state snapshot
       # Exclude state_machine_snapshot from current context to avoid nesting
-      current_context = (@workflow_run.runtime_context || {}).except('state_machine_snapshot', :state_machine_snapshot)
+      current_context = (@workflow_run.runtime_context || {}).except("state_machine_snapshot", :state_machine_snapshot)
 
       @workflow_run.update_columns(
         status: @current_state.to_s,
@@ -508,7 +508,7 @@ module Mcp
       # - ai_orchestration:workflow:{workflow_id} (workflow-level for history updates)
       # - ai_orchestration:account:{account_id} (account-level)
       AiOrchestrationChannel.broadcast_workflow_run_event(
-        'workflow.run.status.changed',
+        "workflow.run.status.changed",
         @workflow_run,
         {
           workflow_run: workflow_run_data,

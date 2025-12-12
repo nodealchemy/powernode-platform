@@ -19,7 +19,7 @@ class AiWorkflowDryRunService
       estimated_cost: 0.0,
       estimated_duration_ms: 0,
       execution_path: [],
-      status: 'pending'
+      status: "pending"
     }
   end
 
@@ -28,7 +28,7 @@ class AiWorkflowDryRunService
 
     # Validate workflow structure
     unless validate_workflow_structure
-      @dry_run_result[:status] = 'failed'
+      @dry_run_result[:status] = "failed"
       @dry_run_result[:completed_at] = Time.current
       return @dry_run_result
     end
@@ -42,7 +42,7 @@ class AiWorkflowDryRunService
     # Calculate estimates
     calculate_estimates
 
-    @dry_run_result[:status] = 'completed'
+    @dry_run_result[:status] = "completed"
     @dry_run_result[:completed_at] = Time.current
     @dry_run_result[:duration_ms] = ((@dry_run_result[:completed_at] - @dry_run_result[:started_at]) * 1000).to_i
 
@@ -50,7 +50,7 @@ class AiWorkflowDryRunService
     @dry_run_result
   rescue StandardError => e
     Rails.logger.error "[DryRun] Error during dry-run: #{e.message}"
-    @dry_run_result[:status] = 'error'
+    @dry_run_result[:status] = "error"
     @dry_run_result[:error] = e.message
     @dry_run_result[:completed_at] = Time.current
     @dry_run_result
@@ -63,13 +63,13 @@ class AiWorkflowDryRunService
 
     # Check for start nodes
     if workflow.start_nodes.empty?
-      @dry_run_result[:validation_errors] << 'No start node found in workflow'
+      @dry_run_result[:validation_errors] << "No start node found in workflow"
       valid = false
     end
 
     # Check for circular dependencies
     if workflow.has_circular_dependencies?
-      @dry_run_result[:validation_errors] << 'Circular dependency detected in workflow'
+      @dry_run_result[:validation_errors] << "Circular dependency detected in workflow"
       valid = false
     end
 
@@ -95,16 +95,16 @@ class AiWorkflowDryRunService
 
     # Check for required configuration
     case node.node_type
-    when 'ai_agent'
-      if node.configuration['agent_id'].blank?
+    when "ai_agent"
+      if node.configuration["agent_id"].blank?
         errors << "Node '#{node.name}' (#{node.node_id}): Missing required agent_id"
       end
-    when 'api_call'
-      if node.configuration['url'].blank?
+    when "api_call"
+      if node.configuration["url"].blank?
         errors << "Node '#{node.name}' (#{node.node_id}): Missing required URL"
       end
-    when 'condition'
-      if node.configuration['condition_expression'].blank?
+    when "condition"
+      if node.configuration["condition_expression"].blank?
         errors << "Node '#{node.name}' (#{node.node_id}): Missing condition expression"
       end
     end
@@ -154,11 +154,11 @@ class AiWorkflowDryRunService
     end
 
     # Add system variables
-    @dry_run_result[:variables_snapshot]['_workflow_id'] = workflow.id
-    @dry_run_result[:variables_snapshot]['_workflow_version'] = workflow.version
-    @dry_run_result[:variables_snapshot]['_dry_run'] = true
-    @dry_run_result[:variables_snapshot]['_user_id'] = user.id
-    @dry_run_result[:variables_snapshot]['_started_at'] = @dry_run_result[:started_at].iso8601
+    @dry_run_result[:variables_snapshot]["_workflow_id"] = workflow.id
+    @dry_run_result[:variables_snapshot]["_workflow_version"] = workflow.version
+    @dry_run_result[:variables_snapshot]["_dry_run"] = true
+    @dry_run_result[:variables_snapshot]["_user_id"] = user.id
+    @dry_run_result[:variables_snapshot]["_started_at"] = @dry_run_result[:started_at].iso8601
   end
 
   def simulate_execution_path
@@ -200,7 +200,7 @@ class AiWorkflowDryRunService
       estimated_cost: estimate_node_cost(node),
       inputs: extract_node_inputs(node),
       outputs: generate_mock_outputs(node),
-      status: 'simulated'
+      status: "simulated"
     }
 
     # Update variables with mock outputs
@@ -214,15 +214,15 @@ class AiWorkflowDryRunService
   def estimate_node_duration(node)
     # Estimate based on node type
     case node.node_type
-    when 'ai_agent'
-      node.configuration['estimated_duration'] || 5000 # 5 seconds default
-    when 'api_call'
-      node.configuration['timeout'] || 3000 # 3 seconds default
-    when 'condition', 'transform'
+    when "ai_agent"
+      node.configuration["estimated_duration"] || 5000 # 5 seconds default
+    when "api_call"
+      node.configuration["timeout"] || 3000 # 3 seconds default
+    when "condition", "transform"
       100 # Very fast
-    when 'delay'
-      node.configuration['delay_ms'] || 1000
-    when 'database'
+    when "delay"
+      node.configuration["delay_ms"] || 1000
+    when "database"
       500 # Database query
     else
       1000 # Generic default
@@ -232,12 +232,12 @@ class AiWorkflowDryRunService
   def estimate_node_cost(node)
     # Estimate cost for AI nodes
     case node.node_type
-    when 'ai_agent'
+    when "ai_agent"
       # Rough estimate: $0.01 per agent execution
       0.01
-    when 'api_call'
+    when "api_call"
       # External API might have costs
-      node.configuration['estimated_cost']&.to_f || 0.0
+      node.configuration["estimated_cost"]&.to_f || 0.0
     else
       0.0
     end
@@ -247,7 +247,7 @@ class AiWorkflowDryRunService
     inputs = {}
 
     # Extract input mappings from configuration
-    input_mappings = node.configuration['inputs'] || node.configuration['input_mapping'] || {}
+    input_mappings = node.configuration["inputs"] || node.configuration["input_mapping"] || {}
 
     input_mappings.each do |key, variable_name|
       inputs[key] = @dry_run_result[:variables_snapshot][variable_name]
@@ -259,22 +259,22 @@ class AiWorkflowDryRunService
   def generate_mock_outputs(node)
     # Generate appropriate mock data based on node type
     case node.node_type
-    when 'ai_agent'
+    when "ai_agent"
       {
         "#{node.node_id}_output" => "[DRY RUN] Simulated AI agent response",
         "#{node.node_id}_tokens_used" => 150,
-        "#{node.node_id}_model" => node.configuration['model'] || 'unknown'
+        "#{node.node_id}_model" => node.configuration["model"] || "unknown"
       }
-    when 'api_call'
+    when "api_call"
       {
-        "#{node.node_id}_response" => { status: 'success', data: '[DRY RUN] Simulated API response' },
+        "#{node.node_id}_response" => { status: "success", data: "[DRY RUN] Simulated API response" },
         "#{node.node_id}_status_code" => 200
       }
-    when 'transform'
+    when "transform"
       {
         "#{node.node_id}_result" => "[DRY RUN] Transformed data"
       }
-    when 'condition'
+    when "condition"
       {
         "#{node.node_id}_condition_result" => true
       }
@@ -309,8 +309,8 @@ class AiWorkflowDryRunService
 
     @dry_run_result[:summary] = {
       total_nodes: @dry_run_result[:nodes_executed].count,
-      ai_agent_nodes: @dry_run_result[:nodes_executed].count { |n| n[:node_type] == 'ai_agent' },
-      api_call_nodes: @dry_run_result[:nodes_executed].count { |n| n[:node_type] == 'api_call' },
+      ai_agent_nodes: @dry_run_result[:nodes_executed].count { |n| n[:node_type] == "ai_agent" },
+      api_call_nodes: @dry_run_result[:nodes_executed].count { |n| n[:node_type] == "api_call" },
       estimated_duration_seconds: (@dry_run_result[:estimated_duration_ms] / 1000.0).round(2),
       estimated_cost_usd: @dry_run_result[:estimated_cost].round(4)
     }

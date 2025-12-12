@@ -22,15 +22,15 @@ class WorkflowNodePlugin < ApplicationRecord
 
   # UI helpers
   def icon
-    ui_configuration['icon'] || 'plugin'
+    ui_configuration["icon"] || "plugin"
   end
 
   def color
-    ui_configuration['color'] || '#6366f1'
+    ui_configuration["color"] || "#6366f1"
   end
 
   def display_description
-    ui_configuration['description'] || plugin.description
+    ui_configuration["description"] || plugin.description
   end
 
   # Schema validation

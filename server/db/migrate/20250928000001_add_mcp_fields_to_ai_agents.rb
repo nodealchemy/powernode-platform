@@ -15,7 +15,7 @@ class AddMcpFieldsToAiAgents < ActiveRecord::Migration[7.1]
 
     # Add indexes for MCP-specific queries
     add_index :ai_agents, :mcp_registered_at
-    add_index :ai_agents, [:account_id, :status], name: 'index_ai_agents_on_account_and_status'
+    add_index :ai_agents, [ :account_id, :status ], name: 'index_ai_agents_on_account_and_status'
 
     # GIN indexes for JSONB fields for better query performance
     add_index :ai_agents, :mcp_capabilities, using: :gin
@@ -45,7 +45,7 @@ class AddMcpFieldsToAiAgents < ActiveRecord::Migration[7.1]
     remove_column :ai_agents, :mcp_registered_at
 
     # Remove indexes
-    remove_index :ai_agents, name: 'index_ai_agents_on_account_and_status' if index_exists?(:ai_agents, [:account_id, :status], name: 'index_ai_agents_on_account_and_status')
+    remove_index :ai_agents, name: 'index_ai_agents_on_account_and_status' if index_exists?(:ai_agents, [ :account_id, :status ], name: 'index_ai_agents_on_account_and_status')
 
     # Revert version field default
     change_column_default :ai_agents, :version, nil

@@ -23,7 +23,7 @@ categories_data = [
   },
   {
     name: 'Billing & Subscriptions',
-    slug: 'billing-subscriptions', 
+    slug: 'billing-subscriptions',
     description: 'Everything about billing, plans, and subscription management',
     sort_order: 2,
     subcategories: [
@@ -62,7 +62,7 @@ categories_data.each do |cat_data|
   )
   categories[cat_data[:slug]] = category
   puts "  ✓ Created category: #{category.name}"
-  
+
   # Create subcategories if any
   if cat_data[:subcategories]
     cat_data[:subcategories].each_with_index do |sub_data, index|
@@ -142,7 +142,7 @@ articles_data = [
 
       Need help? Contact our support team at support@powernode.org
     CONTENT
-    tags: ['Beginner', 'Tutorial'],
+    tags: [ 'Beginner', 'Tutorial' ],
     is_featured: true,
     status: 'published'
   },
@@ -192,7 +192,7 @@ articles_data = [
       - [API Documentation](/kb/api-documentation)
       - [Best Practices Guide](#)
     CONTENT
-    tags: ['Beginner', 'Tutorial', 'Best Practices'],
+    tags: [ 'Beginner', 'Tutorial', 'Best Practices' ],
     is_featured: true,
     status: 'published'
   },
@@ -244,7 +244,7 @@ articles_data = [
 
       Need assistance? Our billing support team is available 24/7.
     CONTENT
-    tags: ['Billing', 'Security', 'Troubleshooting'],
+    tags: [ 'Billing', 'Security', 'Troubleshooting' ],
     status: 'published'
   },
   {
@@ -298,7 +298,7 @@ articles_data = [
 
       Questions about upgrading? Contact our sales team.
     CONTENT
-    tags: ['Billing', 'Advanced'],
+    tags: [ 'Billing', 'Advanced' ],
     status: 'published'
   },
   {
@@ -362,7 +362,7 @@ articles_data = [
 
       API requests are limited by plan:
       - Free: 100 requests/hour
-      - Pro: 1,000 requests/hour  
+      - Pro: 1,000 requests/hour#{'  '}
       - Enterprise: 10,000 requests/hour
 
       ## Error Handling
@@ -380,7 +380,7 @@ articles_data = [
       - `FORBIDDEN`: Insufficient permissions
       - `RATE_LIMITED`: Too many requests
     CONTENT
-    tags: ['API', 'Security', 'Advanced'],
+    tags: [ 'API', 'Security', 'Advanced' ],
     is_featured: true,
     status: 'published'
   },
@@ -486,7 +486,7 @@ articles_data = [
       - Email: api-support@powernode.org
       - Discord: [Join our community](https://discord.gg/powernode)
     CONTENT
-    tags: ['API', 'Integration', 'Advanced'],
+    tags: [ 'API', 'Integration', 'Advanced' ],
     is_featured: true,
     status: 'published'
   },
@@ -569,7 +569,7 @@ articles_data = [
           .createHmac('sha256', secret)
           .update(payload)
           .digest('hex');
-        
+      #{'  '}
         return signature === expectedSignature;
       }
       ```
@@ -618,7 +618,7 @@ articles_data = [
       - Phone: +1 (555) 123-POWER
       - Response time: < 15 minutes
     CONTENT
-    tags: ['Troubleshooting', 'API', 'Integration', 'Advanced'],
+    tags: [ 'Troubleshooting', 'API', 'Integration', 'Advanced' ],
     status: 'published'
   }
 ]

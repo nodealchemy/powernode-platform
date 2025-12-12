@@ -3,7 +3,7 @@
 class AiWorkflowSchedule < ApplicationRecord
   # Authentication & Authorization
   belongs_to :ai_workflow
-  belongs_to :created_by, class_name: 'User'
+  belongs_to :created_by, class_name: "User"
 
   # Associations
   delegate :account, to: :ai_workflow
@@ -12,9 +12,9 @@ class AiWorkflowSchedule < ApplicationRecord
   validates :name, presence: true, length: { maximum: 255 }
   validates :cron_expression, presence: true
   validates :timezone, presence: true
-  validates :status, presence: true, inclusion: { 
+  validates :status, presence: true, inclusion: {
     in: %w[active paused disabled expired],
-    message: 'must be a valid schedule status'
+    message: "must be a valid schedule status"
   }
   validates :execution_count, numericality: { greater_than_or_equal_to: 0 }
   validate :validate_cron_expression
@@ -27,16 +27,16 @@ class AiWorkflowSchedule < ApplicationRecord
   attribute :metadata, :json, default: -> { {} }
 
   # Scopes
-  scope :active, -> { where(status: 'active', is_active: true) }
-  scope :inactive, -> { where.not(status: 'active').or(where(is_active: false)) }
-  scope :due_for_execution, -> { 
-    active.where('next_execution_at <= ?', Time.current)
-          .where('starts_at IS NULL OR starts_at <= ?', Time.current)
-          .where('ends_at IS NULL OR ends_at >= ?', Time.current)
+  scope :active, -> { where(status: "active", is_active: true) }
+  scope :inactive, -> { where.not(status: "active").or(where(is_active: false)) }
+  scope :due_for_execution, -> {
+    active.where("next_execution_at <= ?", Time.current)
+          .where("starts_at IS NULL OR starts_at <= ?", Time.current)
+          .where("ends_at IS NULL OR ends_at >= ?", Time.current)
   }
   scope :by_timezone, ->(tz) { where(timezone: tz) }
-  scope :expiring_soon, ->(hours = 24) { 
-    where('ends_at IS NOT NULL AND ends_at <= ?', hours.hours.from_now)
+  scope :expiring_soon, ->(hours = 24) {
+    where("ends_at IS NOT NULL AND ends_at <= ?", hours.hours.from_now)
   }
 
   # Callbacks
@@ -47,19 +47,19 @@ class AiWorkflowSchedule < ApplicationRecord
 
   # Status check methods
   def active?
-    status == 'active' && is_active? && !expired?
+    status == "active" && is_active? && !expired?
   end
 
   def paused?
-    status == 'paused'
+    status == "paused"
   end
 
   def disabled?
-    status == 'disabled' || !is_active?
+    status == "disabled" || !is_active?
   end
 
   def expired?
-    status == 'expired' || 
+    status == "expired" ||
     (ends_at.present? && ends_at < Time.current) ||
     (max_executions.present? && execution_count >= max_executions)
   end
@@ -75,7 +75,7 @@ class AiWorkflowSchedule < ApplicationRecord
     return false if starts_at.present? && starts_at > Time.current
     return false if ends_at.present? && ends_at < Time.current
     return false if max_executions.present? && execution_count >= max_executions
-    
+
     true
   end
 
@@ -87,7 +87,7 @@ class AiWorkflowSchedule < ApplicationRecord
       workflow_run = ai_workflow.execute(
         input_variables,
         user: created_by,
-        trigger_type: 'schedule'
+        trigger_type: "schedule"
       )
 
       # Update schedule tracking
@@ -101,9 +101,9 @@ class AiWorkflowSchedule < ApplicationRecord
       check_and_expire_if_needed
 
       # Log successful execution
-      log_execution('scheduled_execution_triggered', "Workflow #{ai_workflow.name} executed on schedule", {
-        'run_id' => workflow_run.run_id,
-        'execution_count' => execution_count
+      log_execution("scheduled_execution_triggered", "Workflow #{ai_workflow.name} executed on schedule", {
+        "run_id" => workflow_run.run_id,
+        "execution_count" => execution_count
       })
 
       workflow_run
@@ -118,7 +118,7 @@ class AiWorkflowSchedule < ApplicationRecord
     return false unless %w[paused disabled].include?(status)
 
     update!(
-      status: 'active',
+      status: "active",
       is_active: true,
       next_execution_at: calculate_next_execution_time
     )
@@ -127,21 +127,21 @@ class AiWorkflowSchedule < ApplicationRecord
   def pause!
     return false unless active?
 
-    update!(status: 'paused')
+    update!(status: "paused")
   end
 
   def disable!
     update!(
-      status: 'disabled',
+      status: "disabled",
       is_active: false
     )
   end
 
   def expire!
     update!(
-      status: 'expired',
+      status: "expired",
       is_active: false,
-      metadata: metadata.merge('expired_at' => Time.current.iso8601)
+      metadata: metadata.merge("expired_at" => Time.current.iso8601)
     )
   end
 
@@ -154,7 +154,7 @@ class AiWorkflowSchedule < ApplicationRecord
       return nil unless cron
 
       # Convert from_time to the schedule's timezone for calculation
-      tz = timezone.present? ? TZInfo::Timezone.get(timezone) : TZInfo::Timezone.get('UTC')
+      tz = timezone.present? ? TZInfo::Timezone.get(timezone) : TZInfo::Timezone.get("UTC")
       from_time_in_tz = tz.to_local(from_time.utc)
 
       next_time = cron.next_time(from_time_in_tz)
@@ -198,22 +198,22 @@ class AiWorkflowSchedule < ApplicationRecord
 
     times = []
     current_time = start_time
-    
+
     while current_time < end_time
       next_time = next_execution_time(current_time)
       break unless next_time && next_time <= end_time
-      
+
       times << next_time
       current_time = next_time + 1.minute
     end
-    
+
     times
   end
 
   def time_until_next_execution
     return nil unless next_execution_at.present?
-    
-    [(next_execution_at - Time.current).to_i, 0].max
+
+    [ (next_execution_at - Time.current).to_i, 0 ].max
   end
 
   def human_readable_schedule
@@ -240,57 +240,57 @@ class AiWorkflowSchedule < ApplicationRecord
       status: status,
       active: active?,
       expired: expired?,
-      remaining_executions: max_executions ? [max_executions - execution_count, 0].max : nil
+      remaining_executions: max_executions ? [ max_executions - execution_count, 0 ].max : nil
     }
   end
 
   def recent_executions(limit = 10)
     ai_workflow.ai_workflow_runs
-              .where(trigger_type: 'schedule')
-              .where('created_at >= ?', 30.days.ago)
+              .where(trigger_type: "schedule")
+              .where("created_at >= ?", 30.days.ago)
               .order(created_at: :desc)
               .limit(limit)
   end
 
   def success_rate(days = 30)
-    runs = recent_executions(100).where('created_at >= ?', days.days.ago)
+    runs = recent_executions(100).where("created_at >= ?", days.days.ago)
     return 0.0 if runs.empty?
-    
-    successful = runs.where(status: 'completed').count
+
+    successful = runs.where(status: "completed").count
     (successful.to_f / runs.count * 100).round(2)
   end
 
   # Configuration helpers
   def skip_if_running?
-    configuration['skip_if_running'] != false
+    configuration["skip_if_running"] != false
   end
 
   def notification_settings
-    configuration['notifications'] || {}
+    configuration["notifications"] || {}
   end
 
   def should_notify_on_success?
-    notification_settings['on_success'] == true
+    notification_settings["on_success"] == true
   end
 
   def should_notify_on_failure?
-    notification_settings['on_failure'] != false
+    notification_settings["on_failure"] != false
   end
 
   private
 
   def set_defaults
-    self.timezone ||= 'UTC'
+    self.timezone ||= "UTC"
     self.is_active = true if is_active.nil?
     self.execution_count ||= 0
-    
+
     if configuration.blank?
       self.configuration = {
-        'skip_if_running' => true,
-        'max_runtime_hours' => 24,
-        'notifications' => {
-          'on_success' => false,
-          'on_failure' => true
+        "skip_if_running" => true,
+        "max_runtime_hours" => 24,
+        "notifications" => {
+          "on_success" => false,
+          "on_failure" => true
         }
       }
     end
@@ -298,7 +298,7 @@ class AiWorkflowSchedule < ApplicationRecord
 
   def calculate_next_execution
     return unless active? && cron_expression.present?
-    
+
     self.next_execution_at = calculate_next_execution_time
   end
 
@@ -320,7 +320,7 @@ class AiWorkflowSchedule < ApplicationRecord
     return unless starts_at.present? && ends_at.present?
 
     if starts_at >= ends_at
-      errors.add(:ends_at, 'must be after starts_at')
+      errors.add(:ends_at, "must be after starts_at")
     end
   end
 
@@ -328,82 +328,82 @@ class AiWorkflowSchedule < ApplicationRecord
     return unless max_executions.present?
 
     if max_executions <= 0
-      errors.add(:max_executions, 'must be greater than 0')
+      errors.add(:max_executions, "must be greater than 0")
     end
 
     if max_executions.present? && execution_count >= max_executions
-      errors.add(:max_executions, 'has already been reached')
+      errors.add(:max_executions, "has already been reached")
     end
   end
 
   def handle_status_changes
     case status
-    when 'active'
+    when "active"
       self.next_execution_at = calculate_next_execution_time
-    when 'paused', 'disabled', 'expired'
+    when "paused", "disabled", "expired"
       self.next_execution_at = nil
     end
   end
 
   def check_and_expire_if_needed
     should_expire = false
-    
+
     if ends_at.present? && Time.current >= ends_at
       should_expire = true
     end
-    
+
     if max_executions.present? && execution_count >= max_executions
       should_expire = true
     end
-    
+
     expire! if should_expire
   end
 
   def handle_execution_error(error)
     Rails.logger.error "Scheduled workflow execution failed for schedule #{id}: #{error.message}"
-    
+
     # Update metadata with error information
     update!(
       metadata: metadata.merge({
-        'last_error' => {
-          'message' => error.message,
-          'timestamp' => Time.current.iso8601,
-          'error_count' => (metadata.dig('error_count') || 0) + 1
+        "last_error" => {
+          "message" => error.message,
+          "timestamp" => Time.current.iso8601,
+          "error_count" => (metadata.dig("error_count") || 0) + 1
         }
       })
     )
 
     # Log the error
-    log_execution('scheduled_execution_failed', "Scheduled execution failed: #{error.message}", {
-      'error_class' => error.class.name,
-      'error_message' => error.message
+    log_execution("scheduled_execution_failed", "Scheduled execution failed: #{error.message}", {
+      "error_class" => error.class.name,
+      "error_message" => error.message
     })
   end
 
   def log_schedule_created
-    log_execution('schedule_created', "Workflow schedule created: #{name}", {
-      'cron_expression' => cron_expression,
-      'timezone' => timezone,
-      'workflow_name' => ai_workflow.name
+    log_execution("schedule_created", "Workflow schedule created: #{name}", {
+      "cron_expression" => cron_expression,
+      "timezone" => timezone,
+      "workflow_name" => ai_workflow.name
     })
   end
 
   def log_execution(event_type, message, context = {})
     # Create a log entry - this could be enhanced to use the workflow logging system
     Rails.logger.info "[Schedule #{id}] #{message}"
-    
+
     # Update metadata with log entry
-    log_entries = metadata['log_entries'] || []
+    log_entries = metadata["log_entries"] || []
     log_entries << {
-      'event_type' => event_type,
-      'message' => message,
-      'context' => context,
-      'timestamp' => Time.current.iso8601
+      "event_type" => event_type,
+      "message" => message,
+      "context" => context,
+      "timestamp" => Time.current.iso8601
     }
-    
+
     # Keep only last 100 log entries
     log_entries = log_entries.last(100)
-    
-    update_column(:metadata, metadata.merge('log_entries' => log_entries))
+
+    update_column(:metadata, metadata.merge("log_entries" => log_entries))
   end
 end

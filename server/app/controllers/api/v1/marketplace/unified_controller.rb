@@ -4,8 +4,8 @@ module Api
   module V1
     module Marketplace
       class UnifiedController < ApplicationController
-        skip_before_action :authenticate_request, only: [:index, :show]
-        before_action :authenticate_optional, only: [:index, :show]
+        skip_before_action :authenticate_request, only: [ :index, :show ]
+        before_action :authenticate_optional, only: [ :index, :show ]
 
         # GET /api/v1/marketplace/unified
         # Lists all marketplace items (apps, plugins, templates) with unified format
@@ -13,12 +13,12 @@ module Api
           items = []
 
           # Filter types (default to all three types)
-          requested_types = params[:types]&.split(',') || %w[app plugin template]
+          requested_types = params[:types]&.split(",") || %w[app plugin template]
 
           # Build items array from each type
-          items += normalize_apps(filtered_apps) if requested_types.include?('app')
-          items += normalize_plugins(filtered_plugins) if requested_types.include?('plugin')
-          items += normalize_templates(filtered_templates) if requested_types.include?('template')
+          items += normalize_apps(filtered_apps) if requested_types.include?("app")
+          items += normalize_plugins(filtered_plugins) if requested_types.include?("plugin")
+          items += normalize_templates(filtered_templates) if requested_types.include?("template")
 
           # Apply search filter if provided
           if params[:search].present?
@@ -63,15 +63,15 @@ module Api
           item_id = params[:id]
 
           item = case item_type
-                 when 'app'
+          when "app"
                    find_app(item_id)
-                 when 'plugin'
+          when "plugin"
                    find_plugin(item_id)
-                 when 'template'
+          when "template"
                    find_template(item_id)
-                 else
+          else
                    return render_error("Invalid item type: #{item_type}", :bad_request)
-                 end
+          end
 
           return render_error("#{item_type.capitalize} not found", :not_found) unless item
 
@@ -82,21 +82,21 @@ module Api
         # POST /api/v1/marketplace/unified/:type/:id/install
         # Installs a marketplace item
         def install
-          return render_error('Authentication required', :unauthorized) unless current_user
+          return render_error("Authentication required", :unauthorized) unless current_user
 
           item_type = params[:type]
           item_id = params[:id]
 
           installation = case item_type
-                         when 'app'
+          when "app"
                            install_app(item_id)
-                         when 'plugin'
+          when "plugin"
                            install_plugin(item_id)
-                         when 'template'
+          when "template"
                            install_template(item_id)
-                         else
+          else
                            return render_error("Invalid item type: #{item_type}", :bad_request)
-                         end
+          end
 
           if installation[:success]
             render_success(installation[:data], status: :created)
@@ -121,8 +121,8 @@ module Api
           plugins = Plugin.active.where(account: current_account)
 
           plugins = plugins.search_by_text(params[:search]) if params[:search].present?
-          plugins = plugins.verified if params[:verified] == 'true'
-          plugins = plugins.official if params[:official] == 'true'
+          plugins = plugins.verified if params[:verified] == "true"
+          plugins = plugins.official if params[:official] == "true"
 
           plugins
         end
@@ -132,7 +132,7 @@ module Api
 
           templates = templates.by_category(params[:category]) if params[:category].present?
           templates = templates.search_by_text(params[:search]) if params[:search].present?
-          templates = templates.featured if params[:verified] == 'true' # Map verified filter to featured
+          templates = templates.featured if params[:verified] == "true" # Map verified filter to featured
 
           templates
         end
@@ -142,18 +142,18 @@ module Api
           apps.map do |listing|
             {
               id: listing.app.id,
-              type: 'app',
+              type: "app",
               name: listing.title,
               slug: listing.app.slug,
               description: listing.short_description,
               category: listing.category,
               tags: listing.tags || [],
-              icon: listing.primary_screenshot&.dig('url'),
-              version: listing.app.version || '1.0.0',
+              icon: listing.primary_screenshot&.dig("url"),
+              version: listing.app.version || "1.0.0",
               rating: listing.average_rating || 0.0,
               install_count: listing.subscription_count || 0,
               is_verified: listing.app.verified,
-              status: listing.published? ? 'published' : 'draft',
+              status: listing.published? ? "published" : "draft",
               created_at: listing.created_at.iso8601
             }
           end
@@ -163,18 +163,18 @@ module Api
           plugins.map do |plugin|
             {
               id: plugin.id,
-              type: 'plugin',
+              type: "plugin",
               name: plugin.name,
               slug: plugin.slug,
               description: plugin.description,
-              category: plugin.metadata&.dig('category') || 'general',
+              category: plugin.metadata&.dig("category") || "general",
               tags: plugin.plugin_types || [],
-              icon: plugin.metadata&.dig('icon'),
+              icon: plugin.metadata&.dig("icon"),
               version: plugin.version,
               rating: plugin.average_rating || 0.0,
               install_count: plugin.install_count || 0,
               is_verified: plugin.is_verified || false,
-              status: plugin.status == 'available' ? 'published' : 'draft',
+              status: plugin.status == "available" ? "published" : "draft",
               created_at: plugin.created_at.iso8601
             }
           end
@@ -184,18 +184,18 @@ module Api
           templates.map do |template|
             {
               id: template.id,
-              type: 'template',
+              type: "template",
               name: template.name,
               slug: template.slug,
               description: template.description,
               category: template.category,
               tags: template.tags || [],
-              icon: template.metadata&.dig('icon'),
+              icon: template.metadata&.dig("icon"),
               version: template.version,
               rating: template.rating || 0.0,
               install_count: template.usage_count || 0,
               is_verified: template.is_featured || false,
-              status: template.published? ? 'published' : 'draft',
+              status: template.published? ? "published" : "draft",
               created_at: template.created_at.iso8601
             }
           end
@@ -216,28 +216,28 @@ module Api
 
         def normalize_item(item, type)
           case type
-          when 'app'
-            normalize_apps([item]).first
-          when 'plugin'
-            normalize_plugins([item]).first
-          when 'template'
-            normalize_templates([item]).first
+          when "app"
+            normalize_apps([ item ]).first
+          when "plugin"
+            normalize_plugins([ item ]).first
+          when "template"
+            normalize_templates([ item ]).first
           end
         end
 
         # Install handlers
         def install_app(app_id)
           app = App.find_by(id: app_id)
-          return { success: false, error: 'App not found' } unless app
+          return { success: false, error: "App not found" } unless app
 
           # Create subscription to app's primary plan
           primary_plan = app.app_plans.where(is_primary: true).first || app.app_plans.first
-          return { success: false, error: 'No plans available for this app' } unless primary_plan
+          return { success: false, error: "No plans available for this app" } unless primary_plan
 
           subscription = AppSubscription.create(
             account: current_account,
             app_plan: primary_plan,
-            status: 'trial' # Start with trial status
+            status: "trial" # Start with trial status
           )
 
           if subscription.persisted?
@@ -247,23 +247,23 @@ module Api
               data: {
                 id: subscription.id,
                 item_id: app.id,
-                item_type: 'app',
+                item_type: "app",
                 item_name: listing&.title || app.name,
-                status: subscription.active? ? 'active' : 'inactive',
+                status: subscription.active? ? "active" : "inactive",
                 installed_at: subscription.created_at.iso8601
               }
             }
           else
-            { success: false, error: subscription.errors.full_messages.join(', ') }
+            { success: false, error: subscription.errors.full_messages.join(", ") }
           end
         rescue StandardError => e
           Rails.logger.error "Failed to install app #{app_id}: #{e.message}"
-          { success: false, error: 'Installation failed' }
+          { success: false, error: "Installation failed" }
         end
 
         def install_plugin(plugin_id)
           plugin = Plugin.find_by(id: plugin_id, account: current_account)
-          return { success: false, error: 'Plugin not found' } unless plugin
+          return { success: false, error: "Plugin not found" } unless plugin
 
           installation = plugin.install_for_account(current_account, current_user, {})
 
@@ -273,23 +273,23 @@ module Api
               data: {
                 id: installation.id,
                 item_id: plugin.id,
-                item_type: 'plugin',
+                item_type: "plugin",
                 item_name: plugin.name,
                 status: installation.status,
                 installed_at: installation.installed_at.iso8601
               }
             }
           else
-            { success: false, error: 'Installation failed' }
+            { success: false, error: "Installation failed" }
           end
         rescue StandardError => e
           Rails.logger.error "Failed to install plugin #{plugin_id}: #{e.message}"
-          { success: false, error: 'Installation failed' }
+          { success: false, error: "Installation failed" }
         end
 
         def install_template(template_id)
           template = AiWorkflowTemplate.public_templates.find_by(id: template_id)
-          return { success: false, error: 'Template not found' } unless template
+          return { success: false, error: "Template not found" } unless template
 
           installation = template.install_to_account(
             account_id: current_account.id,
@@ -302,18 +302,18 @@ module Api
               data: {
                 id: installation.id,
                 item_id: template.id,
-                item_type: 'template',
+                item_type: "template",
                 item_name: template.name,
-                status: 'active',
+                status: "active",
                 installed_at: installation.created_at.iso8601
               }
             }
           else
-            { success: false, error: installation.errors.full_messages.join(', ') }
+            { success: false, error: installation.errors.full_messages.join(", ") }
           end
         rescue StandardError => e
           Rails.logger.error "Failed to install template #{template_id}: #{e.message}"
-          { success: false, error: 'Installation failed' }
+          { success: false, error: "Installation failed" }
         end
 
         def authenticate_optional
@@ -327,7 +327,7 @@ module Api
             payload = JwtService.decode(header)
 
             case payload[:type]
-            when 'access'
+            when "access"
               @current_user = User.find(payload[:sub])
               @current_account = @current_user.account
               @current_jwt_payload = payload

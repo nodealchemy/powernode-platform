@@ -47,7 +47,7 @@ class AccountTerminationService
           raise BillingExceptions::AccountBillingError.new(
             "Account termination processing failed: #{e.message}",
             account_id: termination.account_id,
-            action: 'terminate',
+            action: "terminate",
             details: { termination_id: termination.id, original_error: e.class.name }
           ) if e.is_a?(ActiveRecord::ActiveRecordError)
         end
@@ -78,11 +78,11 @@ class AccountTerminationService
 
         case days_remaining
         when 7
-          send_reminder_notification(termination, '7_days')
+          send_reminder_notification(termination, "7_days")
         when 3
-          send_reminder_notification(termination, '3_days')
+          send_reminder_notification(termination, "3_days")
         when 1
-          send_reminder_notification(termination, '1_day')
+          send_reminder_notification(termination, "1_day")
         end
       end
     end
@@ -92,17 +92,17 @@ class AccountTerminationService
     def validate_can_terminate!(account)
       # Check for existing active termination
       if AccountTermination.active.exists?(account: account)
-        raise TerminationError, 'Account already has an active termination request'
+        raise TerminationError, "Account already has an active termination request"
       end
 
       # Check for active subscriptions that need cancellation
       if account.subscription&.active?
-        raise TerminationError, 'Please cancel your subscription before requesting account termination'
+        raise TerminationError, "Please cancel your subscription before requesting account termination"
       end
 
       # Check for pending payments
       if account.subscription&.payments&.pending&.exists?
-        raise TerminationError, 'Account has pending payments'
+        raise TerminationError, "Account has pending payments"
       end
     end
 
@@ -119,7 +119,7 @@ class AccountTerminationService
 
       # Mark account as terminated (don't fully delete for audit trail)
       account.update!(
-        status: 'terminated',
+        status: "terminated",
         terminated_at: Time.current,
         name: "Terminated Account #{account.id[0..7]}"
       )
@@ -147,9 +147,9 @@ class AccountTerminationService
       # Anonymize user record
       user.update!(
         email: "terminated_#{SecureRandom.hex(8)}@terminated.powernode.local",
-        name: 'Terminated User',
+        name: "Terminated User",
         password_digest: nil,
-        status: 'terminated',
+        status: "terminated",
         two_factor_secret: nil,
         backup_codes: nil,
         last_login_ip: nil,
@@ -186,7 +186,7 @@ class AccountTerminationService
       # Anonymize subscription but keep for financial records
       if account.subscription
         account.subscription.update!(
-          status: 'terminated',
+          status: "terminated",
           metadata: {}
         )
       end
@@ -197,10 +197,10 @@ class AccountTerminationService
       Rails.logger.info "Sending #{reminder_type} reminder for termination #{termination.id}"
 
       termination.update!(
-        termination_log: termination.termination_log + [{
+        termination_log: termination.termination_log + [ {
           event: "reminder_#{reminder_type}_sent",
           at: Time.current.iso8601
-        }]
+        } ]
       )
     end
   end

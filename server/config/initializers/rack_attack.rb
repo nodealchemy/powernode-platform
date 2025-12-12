@@ -10,7 +10,7 @@ class Rack::Attack
     begin
       SystemSettingsService.rate_limiting_enabled?
     rescue StandardError
-      ENV['DISABLE_RATE_LIMITING'] != 'true' # Fallback to env var if service fails
+      ENV["DISABLE_RATE_LIMITING"] != "true" # Fallback to env var if service fails
     end
   )
 
@@ -29,7 +29,7 @@ class Rack::Attack
   def self.rate_limiting_enabled?
     SystemSettingsService.rate_limiting_enabled?
   rescue StandardError
-    ENV['DISABLE_RATE_LIMITING'] != 'true'
+    ENV["DISABLE_RATE_LIMITING"] != "true"
   end
 
   # Extract user from JWT token
@@ -38,7 +38,7 @@ class Rack::Attack
     return nil unless auth_header&.start_with?("Bearer ")
 
     token = auth_header.split(" ")[1]
-    decoded = JWT.decode(token, Rails.application.config.jwt_secret_key, true, algorithm: 'HS256')
+    decoded = JWT.decode(token, Rails.application.config.jwt_secret_key, true, algorithm: "HS256")
     user_id = decoded[0]["user_id"]
     User.find_by(id: user_id) if user_id
   rescue JWT::DecodeError, ActiveRecord::RecordNotFound
@@ -80,7 +80,7 @@ class Rack::Attack
     # -----------------------------------------------------------------------
 
     # Login attempts - IP-based
-    throttle("auth_login_by_ip", limit: proc { rate_limiting_enabled? ? get_rate_limit('login_attempts_per_hour', 10) : 999_999 }, period: 1.hour) do |request|
+    throttle("auth_login_by_ip", limit: proc { rate_limiting_enabled? ? get_rate_limit("login_attempts_per_hour", 10) : 999_999 }, period: 1.hour) do |request|
       if request.path == "/api/v1/auth/login" && request.post?
         request.ip
       end
@@ -100,21 +100,21 @@ class Rack::Attack
     end
 
     # Registration attempts - IP-based
-    throttle("auth_register_by_ip", limit: proc { rate_limiting_enabled? ? get_rate_limit('registration_attempts_per_hour', 5) : 999_999 }, period: 1.hour) do |request|
+    throttle("auth_register_by_ip", limit: proc { rate_limiting_enabled? ? get_rate_limit("registration_attempts_per_hour", 5) : 999_999 }, period: 1.hour) do |request|
       if request.path == "/api/v1/auth/register" && request.post?
         request.ip
       end
     end
 
     # Password reset requests - IP-based
-    throttle("auth_password_reset_by_ip", limit: proc { rate_limiting_enabled? ? get_rate_limit('password_reset_attempts_per_hour', 3) : 999_999 }, period: 1.hour) do |request|
+    throttle("auth_password_reset_by_ip", limit: proc { rate_limiting_enabled? ? get_rate_limit("password_reset_attempts_per_hour", 3) : 999_999 }, period: 1.hour) do |request|
       if (request.path == "/api/v1/auth/forgot-password" || request.path == "/api/v1/auth/reset-password") && request.post?
         request.ip
       end
     end
 
     # Email verification attempts - IP-based
-    throttle("auth_email_verification_by_ip", limit: proc { rate_limiting_enabled? ? get_rate_limit('email_verification_attempts_per_hour', 10) : 999_999 }, period: 1.hour) do |request|
+    throttle("auth_email_verification_by_ip", limit: proc { rate_limiting_enabled? ? get_rate_limit("email_verification_attempts_per_hour", 10) : 999_999 }, period: 1.hour) do |request|
       if request.path.include?("/verify-email") || request.path.include?("/resend-verification")
         request.ip
       end
@@ -202,7 +202,7 @@ class Rack::Attack
     end
 
     # Incoming webhook throttling by IP (external services calling us)
-    throttle("incoming_webhooks_by_ip", limit: proc { rate_limiting_enabled? ? get_rate_limit('webhook_requests_per_minute', 100) : 999_999 }, period: 1.minute) do |request|
+    throttle("incoming_webhooks_by_ip", limit: proc { rate_limiting_enabled? ? get_rate_limit("webhook_requests_per_minute", 100) : 999_999 }, period: 1.minute) do |request|
       if request.path.start_with?("/webhooks/")
         request.ip
       end
@@ -224,7 +224,7 @@ class Rack::Attack
     end
 
     # WebSocket by IP (fallback for unauthenticated)
-    throttle("websocket_connections_by_ip", limit: proc { rate_limiting_enabled? ? get_rate_limit('websocket_connections_per_minute', Rails.env.development? ? 30 : 10) : 999_999 }, period: 1.minute) do |request|
+    throttle("websocket_connections_by_ip", limit: proc { rate_limiting_enabled? ? get_rate_limit("websocket_connections_per_minute", Rails.env.development? ? 30 : 10) : 999_999 }, period: 1.minute) do |request|
       if request.path == "/cable" && request.get_header("HTTP_UPGRADE")&.downcase == "websocket"
         request.ip
       end
@@ -234,13 +234,13 @@ class Rack::Attack
     # ADMIN/IMPERSONATION ENDPOINTS
     # -----------------------------------------------------------------------
 
-    throttle("admin_impersonation_by_ip", limit: proc { rate_limiting_enabled? ? get_rate_limit('impersonation_attempts_per_hour', Rails.env.development? ? 50 : 5) : 999_999 }, period: 1.hour) do |request|
+    throttle("admin_impersonation_by_ip", limit: proc { rate_limiting_enabled? ? get_rate_limit("impersonation_attempts_per_hour", Rails.env.development? ? 50 : 5) : 999_999 }, period: 1.hour) do |request|
       if request.path.include?("/impersonation") || request.path.include?("/admin/users")
         request.ip
       end
     end
 
-    throttle("impersonation_by_user", limit: proc { rate_limiting_enabled? ? get_rate_limit('impersonation_attempts_per_hour', Rails.env.development? ? 50 : 5) : 999_999 }, period: 1.hour) do |request|
+    throttle("impersonation_by_user", limit: proc { rate_limiting_enabled? ? get_rate_limit("impersonation_attempts_per_hour", Rails.env.development? ? 50 : 5) : 999_999 }, period: 1.hour) do |request|
       if (request.path.include?("/impersonation") || request.path.include?("/admin/users")) && request.post?
         user = extract_user_from_request(request)
         "user:#{user.id}" if user
@@ -251,7 +251,7 @@ class Rack::Attack
     # IP-BASED FALLBACK (for unauthenticated requests)
     # -----------------------------------------------------------------------
 
-    throttle("api_requests_by_ip", limit: proc { rate_limiting_enabled? ? get_rate_limit('api_requests_per_minute', Rails.env.development? ? 1000 : 300) : 999_999 }, period: 15.minutes) do |request|
+    throttle("api_requests_by_ip", limit: proc { rate_limiting_enabled? ? get_rate_limit("api_requests_per_minute", Rails.env.development? ? 1000 : 300) : 999_999 }, period: 15.minutes) do |request|
       if request.path.start_with?("/api/") && !extract_account_from_request(request)
         request.ip
       end
@@ -303,7 +303,7 @@ class Rack::Attack
   # Safelist trusted internal services
   safelist("internal_services") do |request|
     # Allow requests from localhost in development
-    Rails.env.development? && ['127.0.0.1', '::1'].include?(request.ip)
+    Rails.env.development? && [ "127.0.0.1", "::1" ].include?(request.ip)
   end
 
   # Safelist specific API keys (e.g., system workers)
@@ -315,7 +315,7 @@ class Rack::Attack
     cache_key = "system_api_key:#{Digest::SHA256.hexdigest(api_key)}"
     Rails.cache.fetch(cache_key, expires_in: 5.minutes) do
       key = ApiKey.find_by(key_hash: Digest::SHA256.hexdigest(api_key))
-      key&.metadata&.dig('is_system_key') == true
+      key&.metadata&.dig("is_system_key") == true
     end
   rescue StandardError
     false
@@ -355,16 +355,16 @@ class Rack::Attack
       upgrade_available: tier != :enterprise && tier != :unlimited
     }.to_json
 
-    [429, headers, [body]]
+    [ 429, headers, [ body ] ]
   end
 
   # Custom response for blocked requests
   self.blocklisted_responder = lambda do |_request|
-    [403, { "Content-Type" => "application/json" }, [{
+    [ 403, { "Content-Type" => "application/json" }, [ {
       success: false,
       error: "Forbidden",
       message: "Your request has been blocked due to excessive abuse."
-    }.to_json]]
+    }.to_json ] ]
   end
 end
 

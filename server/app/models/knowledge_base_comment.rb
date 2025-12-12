@@ -7,10 +7,10 @@ class KnowledgeBaseComment < ApplicationRecord
   include Auditable
 
   # Associations
-  belongs_to :article, class_name: 'KnowledgeBaseArticle', foreign_key: 'article_id'
-  belongs_to :author, class_name: 'User', foreign_key: 'author_id'
-  belongs_to :parent, class_name: 'KnowledgeBaseComment', optional: true
-  has_many :replies, class_name: 'KnowledgeBaseComment', foreign_key: 'parent_id', dependent: :destroy
+  belongs_to :article, class_name: "KnowledgeBaseArticle", foreign_key: "article_id"
+  belongs_to :author, class_name: "User", foreign_key: "author_id"
+  belongs_to :parent, class_name: "KnowledgeBaseComment", optional: true
+  has_many :replies, class_name: "KnowledgeBaseComment", foreign_key: "parent_id", dependent: :destroy
 
   # Validations
   validates :content, presence: true, length: { maximum: 2000 }
@@ -18,8 +18,8 @@ class KnowledgeBaseComment < ApplicationRecord
   validates :likes_count, numericality: { greater_than_or_equal_to: 0 }
 
   # Scopes
-  scope :approved, -> { where(status: 'approved') }
-  scope :pending, -> { where(status: 'pending') }
+  scope :approved, -> { where(status: "approved") }
+  scope :pending, -> { where(status: "pending") }
   scope :top_level, -> { where(parent_id: nil) }
   scope :replies_to, ->(comment_id) { where(parent_id: comment_id) }
   scope :recent, -> { order(created_at: :desc) }
@@ -29,19 +29,19 @@ class KnowledgeBaseComment < ApplicationRecord
 
   # Methods
   def approved?
-    status == 'approved'
+    status == "approved"
   end
 
   def pending?
-    status == 'pending'
+    status == "pending"
   end
 
   def rejected?
-    status == 'rejected'
+    status == "rejected"
   end
 
   def spam?
-    status == 'spam'
+    status == "spam"
   end
 
   def reply?
@@ -53,20 +53,20 @@ class KnowledgeBaseComment < ApplicationRecord
   end
 
   def approve!
-    update!(status: 'approved')
+    update!(status: "approved")
   end
 
   def reject!
-    update!(status: 'rejected')
+    update!(status: "rejected")
   end
 
   def mark_as_spam!
-    update!(status: 'spam')
+    update!(status: "spam")
   end
 
   def can_be_moderated_by?(moderator)
     return false unless moderator
-    moderator.permissions.include?('kb.manage')
+    moderator.permissions.include?("kb.manage")
   end
 
   def replies_count
@@ -77,10 +77,10 @@ class KnowledgeBaseComment < ApplicationRecord
 
   def set_default_status
     # Auto-approve comments from users with kb.edit permission
-    if author.permissions.include?('kb.manage') || author.permissions.include?('kb.edit')
-      self.status = 'approved'
+    if author.permissions.include?("kb.manage") || author.permissions.include?("kb.edit")
+      self.status = "approved"
     else
-      self.status = 'pending'
+      self.status = "pending"
     end
   end
 end

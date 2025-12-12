@@ -35,7 +35,7 @@ module Api
         )
 
         render_success(
-          message: 'Consent preferences updated',
+          message: "Consent preferences updated",
           consents: ConsentManagementService.get_consents(current_user)
         )
       end
@@ -44,18 +44,18 @@ module Api
       def request_export
         # Rate limit: max 1 export per week
         recent_request = DataExportRequest.where(user: current_user)
-                                          .where('created_at > ?', 1.week.ago)
+                                          .where("created_at > ?", 1.week.ago)
                                           .exists?
 
         if recent_request
-          return render_error('You can only request one data export per week', status: :too_many_requests)
+          return render_error("You can only request one data export per week", status: :too_many_requests)
         end
 
         export_request = DataExportRequest.create!(
           user: current_user,
           account: current_user.account,
-          format: export_params[:format] || 'json',
-          export_type: export_params[:export_type] || 'full',
+          format: export_params[:format] || "json",
+          export_type: export_params[:export_type] || "full",
           include_data_types: export_params[:include_data_types]
         )
 
@@ -63,7 +63,7 @@ module Api
         # DataExportJob.perform_async(export_request.id)
 
         render_success(
-          message: 'Data export request submitted',
+          message: "Data export request submitted",
           request: serialize_export_request(export_request),
           status: :created
         )
@@ -88,10 +88,18 @@ module Api
         )
 
         unless export_request.downloadable?
-          return render_error('Export is not available for download', status: :gone)
+          return render_error("Export is not available for download", status: :gone)
         end
 
         export_request.record_download!
+
+        # Security: Validate file path is within allowed exports directory
+        exports_base = Rails.root.join("tmp", "data_exports").to_s
+        expanded_path = File.expand_path(export_request.file_path)
+        unless expanded_path.start_with?(exports_base)
+          Rails.logger.error "Attempted access to file outside exports directory: #{export_request.file_path}"
+          return render_error("Invalid export file path", status: :forbidden)
+        end
 
         send_file(
           export_request.file_path,
@@ -106,19 +114,19 @@ module Api
         existing = DataDeletionRequest.active.find_by(user: current_user)
 
         if existing
-          return render_error('You already have an active deletion request', status: :conflict)
+          return render_error("You already have an active deletion request", status: :conflict)
         end
 
         deletion_request = DataDeletionRequest.create!(
           user: current_user,
           account: current_user.account,
-          deletion_type: deletion_params[:deletion_type] || 'full',
+          deletion_type: deletion_params[:deletion_type] || "full",
           reason: deletion_params[:reason],
           data_types_to_delete: deletion_params[:data_types_to_delete]
         )
 
         render_success(
-          message: 'Data deletion request submitted',
+          message: "Data deletion request submitted",
           request: serialize_deletion_request(deletion_request),
           grace_period_days: DataDeletionRequest::GRACE_PERIOD_DAYS,
           status: :created
@@ -143,13 +151,13 @@ module Api
         request = DataDeletionRequest.find_by!(id: params[:id], user: current_user)
 
         unless request.can_be_cancelled?
-          return render_error('This deletion request cannot be cancelled', status: :unprocessable_entity)
+          return render_error("This deletion request cannot be cancelled", status: :unprocessable_entity)
         end
 
         request.cancel!(current_user, params[:reason])
 
         render_success(
-          message: 'Deletion request cancelled',
+          message: "Deletion request cancelled",
           request: serialize_deletion_request(request)
         )
       end
@@ -168,7 +176,7 @@ module Api
         document_type = params[:document_type]
 
         unless TermsAcceptance::CURRENT_VERSIONS.key?(document_type)
-          return render_error('Invalid document type', status: :bad_request)
+          return render_error("Invalid document type", status: :bad_request)
         end
 
         acceptance = TermsAcceptance.record_acceptance(
@@ -211,7 +219,7 @@ module Api
         consent.save!
 
         render_success(
-          message: 'Cookie preferences updated',
+          message: "Cookie preferences updated",
           preferences: serialize_cookie_consent(consent)
         )
       end
@@ -344,9 +352,9 @@ module Api
 
       def content_type_for(format)
         case format
-        when 'json' then 'application/json'
-        when 'csv', 'zip' then 'application/zip'
-        else 'application/octet-stream'
+        when "json" then "application/json"
+        when "csv", "zip" then "application/zip"
+        else "application/octet-stream"
         end
       end
     end

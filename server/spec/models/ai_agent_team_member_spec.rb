@@ -73,7 +73,6 @@ RSpec.describe AiAgentTeamMember, type: :model do
         expect(member).to be_valid
       end
     end
-
   end
 
   # ==========================================
@@ -86,7 +85,7 @@ RSpec.describe AiAgentTeamMember, type: :model do
     let!(:writer) { create(:ai_agent_team_member, :writer, ai_agent_team: team, priority_order: 2) }
 
     it 'orders by priority' do
-      expect(team.ai_agent_team_members.by_priority).to eq([lead_member, researcher, writer])
+      expect(team.ai_agent_team_members.by_priority).to eq([ lead_member, researcher, writer ])
     end
 
     it 'filters by role' do
@@ -141,7 +140,7 @@ RSpec.describe AiAgentTeamMember, type: :model do
   # Instance Methods
   # ==========================================
   describe '#can_perform?' do
-    let(:member) { create(:ai_agent_team_member, capabilities: ['research', 'analysis', 'writing']) }
+    let(:member) { create(:ai_agent_team_member, capabilities: [ 'research', 'analysis', 'writing' ]) }
 
     it 'returns true for included capabilities' do
       expect(member.can_perform?('research')).to be true

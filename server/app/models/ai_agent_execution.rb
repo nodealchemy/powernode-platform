@@ -12,8 +12,8 @@ class AiAgentExecution < ApplicationRecord
   belongs_to :account
   belongs_to :user
   belongs_to :ai_provider
-  belongs_to :parent_execution, class_name: 'AiAgentExecution', optional: true
-  has_many :child_executions, class_name: 'AiAgentExecution', foreign_key: 'parent_execution_id', dependent: :nullify
+  belongs_to :parent_execution, class_name: "AiAgentExecution", optional: true
+  has_many :child_executions, class_name: "AiAgentExecution", foreign_key: "parent_execution_id", dependent: :nullify
 
   # Validations
   validates :execution_id, presence: true, uniqueness: true
@@ -27,18 +27,18 @@ class AiAgentExecution < ApplicationRecord
   validate :failed_execution_has_error
 
   # Scopes
-  scope :pending, -> { where(status: 'pending') }
-  scope :running, -> { where(status: 'running') }
-  scope :completed, -> { where(status: 'completed') }
-  scope :failed, -> { where(status: 'failed') }
-  scope :cancelled, -> { where(status: 'cancelled') }
+  scope :pending, -> { where(status: "pending") }
+  scope :running, -> { where(status: "running") }
+  scope :completed, -> { where(status: "completed") }
+  scope :failed, -> { where(status: "failed") }
+  scope :cancelled, -> { where(status: "cancelled") }
   scope :finished, -> { where(status: %w[completed failed cancelled]) }
-  scope :successful, -> { where(status: 'completed') }
+  scope :successful, -> { where(status: "completed") }
   scope :recent, -> { order(created_at: :desc) }
   scope :for_agent, ->(agent) { where(ai_agent: agent) }
   scope :for_user, ->(user) { where(user: user) }
   scope :with_webhooks, -> { where.not(webhook_url: nil) }
-  scope :webhook_pending, -> { where(webhook_status: ['pending', 'failed']) }
+  scope :webhook_pending, -> { where(webhook_status: [ "pending", "failed" ]) }
   scope :today, -> { where(created_at: Date.current.beginning_of_day..Date.current.end_of_day) }
   scope :this_week, -> { where(created_at: 1.week.ago..Time.current) }
   scope :this_month, -> { where(created_at: 1.month.ago..Time.current) }
@@ -49,23 +49,23 @@ class AiAgentExecution < ApplicationRecord
 
   # Methods
   def pending?
-    status == 'pending'
+    status == "pending"
   end
 
   def running?
-    status == 'running'
+    status == "running"
   end
 
   def completed?
-    status == 'completed'
+    status == "completed"
   end
 
   def failed?
-    status == 'failed'
+    status == "failed"
   end
 
   def cancelled?
-    status == 'cancelled'
+    status == "cancelled"
   end
 
   def finished?
@@ -73,26 +73,26 @@ class AiAgentExecution < ApplicationRecord
   end
 
   def successful?
-    status == 'completed'
+    status == "completed"
   end
 
   def start_execution!
-    raise ArgumentError, 'Execution already started' unless pending?
-    
+    raise ArgumentError, "Execution already started" unless pending?
+
     update!(
-      status: 'running',
+      status: "running",
       started_at: Time.current
     )
   end
 
   def complete_execution!(output_data, metrics = {})
-    raise ArgumentError, 'Execution not running' unless running?
-    
+    raise ArgumentError, "Execution not running" unless running?
+
     now = Time.current
     duration = started_at ? ((now - started_at) * 1000).round : nil
-    
+
     update!(
-      status: 'completed',
+      status: "completed",
       output_data: output_data,
       completed_at: now,
       duration_ms: duration,
@@ -101,10 +101,10 @@ class AiAgentExecution < ApplicationRecord
   end
 
   def fail_execution!(error_message, error_details = {})
-    raise ArgumentError, 'Execution already finished' if finished?
-    
+    raise ArgumentError, "Execution already finished" if finished?
+
     update!(
-      status: 'failed',
+      status: "failed",
       error_message: error_message&.truncate(1000),
       error_details: error_details,
       completed_at: Time.current,
@@ -112,11 +112,11 @@ class AiAgentExecution < ApplicationRecord
     )
   end
 
-  def cancel_execution!(reason = 'Cancelled by user')
-    raise ArgumentError, 'Cannot cancel finished execution' if finished?
-    
+  def cancel_execution!(reason = "Cancelled by user")
+    raise ArgumentError, "Cannot cancel finished execution" if finished?
+
     update!(
-      status: 'cancelled',
+      status: "cancelled",
       error_message: reason,
       completed_at: Time.current,
       duration_ms: started_at ? ((Time.current - started_at) * 1000).round : nil
@@ -132,7 +132,7 @@ class AiAgentExecution < ApplicationRecord
 
   def execution_time
     return nil unless started_at
-    
+
     end_time = completed_at || Time.current
     ((end_time - started_at) * 1000).round
   end
@@ -166,18 +166,18 @@ class AiAgentExecution < ApplicationRecord
   end
 
   def webhook_delivery_status
-    return 'no_webhook' unless webhook_url.present?
-    return 'pending' if webhook_status.blank? || webhook_status == 'pending'
-    return 'delivered' if webhook_status == 'success'
-    return 'failed' if webhook_attempts >= 3
-    
-    'retrying'
+    return "no_webhook" unless webhook_url.present?
+    return "pending" if webhook_status.blank? || webhook_status == "pending"
+    return "delivered" if webhook_status == "success"
+    return "failed" if webhook_attempts >= 3
+
+    "retrying"
   end
 
   def retry_webhook!
     return false unless webhook_url.present?
     return false if webhook_attempts >= 3
-    
+
     AiWebhookDeliveryJob.perform_later(id)
     true
   end
@@ -194,35 +194,35 @@ class AiAgentExecution < ApplicationRecord
 
   def completed_execution_has_duration
     return unless completed? && started_at.present? && duration_ms.blank?
-    
-    errors.add(:duration_ms, 'must be present for completed executions')
+
+    errors.add(:duration_ms, "must be present for completed executions")
   end
 
   def failed_execution_has_error
     return unless failed? && error_message.blank?
-    
-    errors.add(:error_message, 'must be present for failed executions')
+
+    errors.add(:error_message, "must be present for failed executions")
   end
 
   def calculate_cost(tokens)
     # This would be enhanced with provider-specific pricing
     # For now, use a simple calculation
     provider_cost_per_1k_tokens = case ai_provider.slug
-                                  when 'openai'
+    when "openai"
                                     0.002  # GPT-3.5 pricing
-                                  when 'anthropic'
+    when "anthropic"
                                     0.008  # Claude pricing
-                                  else
+    else
                                     0.001  # Default
-                                  end
-    
+    end
+
     (tokens / 1000.0) * provider_cost_per_1k_tokens
   end
 
   def trigger_webhook
     return unless webhook_url.present?
     return unless finished?
-    
+
     AiWebhookDeliveryJob.perform_later(id)
   end
 end

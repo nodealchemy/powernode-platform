@@ -5,12 +5,12 @@ require 'rails_helper'
 RSpec.describe AiCostOptimizationService, type: :service do
   let(:account) { create(:account) }
   let(:user) { create(:user, account: account) }
-  
+
   # Providers with different cost structures
   let(:openai_provider) { create(:ai_provider, :openai, priority_order: 1) }
   let(:anthropic_provider) { create(:ai_provider, :anthropic, priority_order: 2) }
   let(:ollama_provider) { create(:ai_provider, :ollama, priority_order: 3) }
-  
+
   # Credentials for each provider
   let(:openai_credential) { create(:ai_provider_credential, account: account, ai_provider: openai_provider) }
   let(:anthropic_credential) { create(:ai_provider_credential, account: account, ai_provider: anthropic_provider) }
@@ -54,7 +54,7 @@ RSpec.describe AiCostOptimizationService, type: :service do
 
   describe '#recommend_provider' do
     let(:service) { described_class.new(account: account) }
-    
+
     before do
       # Set up credentials
       openai_credential
@@ -75,7 +75,7 @@ RSpec.describe AiCostOptimizationService, type: :service do
 
       it 'recommends most cost-effective provider' do
         recommendation = service.recommend_provider(task_requirements)
-        
+
         expect(recommendation).to include(
           :provider_id,
           :estimated_cost,
@@ -88,7 +88,7 @@ RSpec.describe AiCostOptimizationService, type: :service do
 
       it 'prefers local models for cost optimization' do
         recommendation = service.recommend_provider(task_requirements)
-        
+
         # Should prefer Ollama (local) for cost optimization
         expect(recommendation[:provider_id]).to eq(ollama_provider.id)
         expect(recommendation[:estimated_cost]).to be < BigDecimal('0.01')
@@ -96,7 +96,7 @@ RSpec.describe AiCostOptimizationService, type: :service do
 
       it 'provides detailed reasoning' do
         recommendation = service.recommend_provider(task_requirements)
-        
+
         expect(recommendation[:reasoning]).to include('cost')
         expect(recommendation[:reasoning]).to be_a(String)
         expect(recommendation[:reasoning].length).to be > 20
@@ -104,10 +104,10 @@ RSpec.describe AiCostOptimizationService, type: :service do
 
       it 'includes alternative options' do
         recommendation = service.recommend_provider(task_requirements)
-        
+
         expect(recommendation[:alternative_options]).to be_an(Array)
         expect(recommendation[:alternative_options].size).to be >= 1
-        
+
         alt_option = recommendation[:alternative_options].first
         expect(alt_option).to include(:provider_id, :estimated_cost, :trade_offs)
       end
@@ -126,14 +126,14 @@ RSpec.describe AiCostOptimizationService, type: :service do
 
       it 'recommends highest quality provider' do
         recommendation = service.recommend_provider(task_requirements)
-        
+
         # Should prefer premium providers for quality
-        expect([openai_provider.id, anthropic_provider.id]).to include(recommendation[:provider_id])
+        expect([ openai_provider.id, anthropic_provider.id ]).to include(recommendation[:provider_id])
       end
 
       it 'justifies quality over cost trade-off' do
         recommendation = service.recommend_provider(task_requirements)
-        
+
         expect(recommendation[:reasoning]).to include('quality')
         expect(recommendation[:estimated_cost]).to be > BigDecimal('0.01')
       end
@@ -161,7 +161,7 @@ RSpec.describe AiCostOptimizationService, type: :service do
       it 'considers response time requirements' do
         fast_requirements = task_requirements.merge(max_response_time_ms: 1000)
         recommendation = service.recommend_provider(fast_requirements)
-        
+
         expect(recommendation[:estimated_response_time_ms]).to be <= 1500
       end
     end
@@ -178,7 +178,7 @@ RSpec.describe AiCostOptimizationService, type: :service do
 
       it 'respects hard budget limits' do
         recommendation = service.recommend_provider(task_requirements)
-        
+
         expect(recommendation[:estimated_cost]).to be <= BigDecimal('0.005')
       end
 
@@ -188,9 +188,9 @@ RSpec.describe AiCostOptimizationService, type: :service do
           max_tokens: 5000,
           max_cost: BigDecimal('0.001')
         )
-        
+
         recommendation = service.recommend_provider(impossible_requirements)
-        
+
         expect(recommendation[:warnings]).to include(/budget.*insufficient/i)
       end
     end
@@ -206,7 +206,7 @@ RSpec.describe AiCostOptimizationService, type: :service do
                   tokens_used: 1500,
                   cost_usd: BigDecimal('0.03'),
                   created_at: 1.week.ago)
-      
+
       create_list(:ai_agent_execution, 5, :completed,
                   account: account,
                   tokens_used: 500,
@@ -216,7 +216,7 @@ RSpec.describe AiCostOptimizationService, type: :service do
 
     it 'analyzes spending patterns over time' do
       analysis = service.analyze_usage_patterns(30.days)
-      
+
       expect(analysis).to include(
         :total_cost,
         :total_tokens,
@@ -229,14 +229,14 @@ RSpec.describe AiCostOptimizationService, type: :service do
 
     it 'identifies cost trends' do
       analysis = service.analyze_usage_patterns(30.days)
-      
-      expect(analysis[:usage_trend]).to be_in(['increasing', 'decreasing', 'stable'])
+
+      expect(analysis[:usage_trend]).to be_in([ 'increasing', 'decreasing', 'stable' ])
       expect(analysis[:total_cost]).to be > BigDecimal('0')
     end
 
     it 'breaks down costs by provider' do
       analysis = service.analyze_usage_patterns(30.days)
-      
+
       expect(analysis[:cost_breakdown_by_provider]).to be_a(Hash)
       expect(analysis[:cost_breakdown_by_provider].keys).to all(be_a(String))
       expect(analysis[:cost_breakdown_by_provider].values).to all(be_a(BigDecimal))
@@ -244,9 +244,9 @@ RSpec.describe AiCostOptimizationService, type: :service do
 
     it 'suggests optimization opportunities' do
       analysis = service.analyze_usage_patterns(30.days)
-      
+
       expect(analysis[:optimization_opportunities]).to be_an(Array)
-      
+
       if analysis[:optimization_opportunities].any?
         opportunity = analysis[:optimization_opportunities].first
         expect(opportunity).to include(:type, :description, :potential_savings)
@@ -255,7 +255,7 @@ RSpec.describe AiCostOptimizationService, type: :service do
 
     it 'calculates efficiency metrics' do
       analysis = service.analyze_usage_patterns(30.days)
-      
+
       expect(analysis[:efficiency_metrics]).to include(
         :tokens_per_dollar,
         :average_response_time,
@@ -267,7 +267,7 @@ RSpec.describe AiCostOptimizationService, type: :service do
 
   describe '#optimize_provider_selection' do
     let(:service) { described_class.new(account: account) }
-    
+
     before do
       openai_credential
       anthropic_credential
@@ -283,7 +283,7 @@ RSpec.describe AiCostOptimizationService, type: :service do
       }
 
       optimization = service.optimize_provider_selection(workload_profile)
-      
+
       expect(optimization).to include(
         :recommended_mix,
         :projected_cost,
@@ -301,7 +301,7 @@ RSpec.describe AiCostOptimizationService, type: :service do
       }
 
       optimization = service.optimize_provider_selection(workload_profile)
-      
+
       mix = optimization[:recommended_mix]
       expect(mix).to be_a(Hash)
       expect(mix.values.sum).to be_within(0.01).of(1.0) # Should sum to 100%
@@ -316,7 +316,7 @@ RSpec.describe AiCostOptimizationService, type: :service do
       }
 
       optimization = service.optimize_provider_selection(workload_profile)
-      
+
       expect(optimization[:projected_savings]).to be >= BigDecimal('0')
       expect(optimization[:projected_cost]).to be <= workload_profile[:monthly_budget]
     end
@@ -330,7 +330,7 @@ RSpec.describe AiCostOptimizationService, type: :service do
       }
 
       optimization = service.optimize_provider_selection(workload_profile)
-      
+
       expect(optimization[:risk_assessment]).to include(
         :quality_risk,
         :availability_risk,
@@ -349,7 +349,7 @@ RSpec.describe AiCostOptimizationService, type: :service do
 
     it 'tracks current month spending' do
       status = service.budget_status(Date.current.beginning_of_month, Date.current.end_of_month)
-      
+
       expect(status).to include(
         :budget_limit,
         :current_spending,
@@ -361,14 +361,14 @@ RSpec.describe AiCostOptimizationService, type: :service do
 
     it 'calculates budget utilization percentage' do
       status = service.budget_status(Date.current.beginning_of_month, Date.current.end_of_month)
-      
+
       expect(status[:budget_utilization_percent]).to be >= 0
       expect(status[:budget_utilization_percent]).to be <= 100
     end
 
     it 'projects end-of-month spending' do
       status = service.budget_status(Date.current.beginning_of_month, Date.current.end_of_month)
-      
+
       expect(status[:projected_monthly_cost]).to be_a(BigDecimal)
       expect(status[:projected_monthly_cost]).to be >= status[:current_spending]
     end
@@ -381,7 +381,7 @@ RSpec.describe AiCostOptimizationService, type: :service do
                   created_at: 2.days.ago)
 
       status = service.budget_status(Date.current.beginning_of_month, Date.current.end_of_month)
-      
+
       if status[:budget_utilization_percent] > 80
         expect(status[:alerts]).to be_present
         expect(status[:alerts]).to include(/budget/i)
@@ -400,10 +400,10 @@ RSpec.describe AiCostOptimizationService, type: :service do
       }
 
       comparison = service.cost_comparison(requirements)
-      
+
       expect(comparison).to be_an(Array)
       expect(comparison.size).to be >= 2
-      
+
       provider_comparison = comparison.first
       expect(provider_comparison).to include(
         :provider_name,
@@ -423,7 +423,7 @@ RSpec.describe AiCostOptimizationService, type: :service do
 
       comparison = service.cost_comparison(requirements)
       costs = comparison.map { |p| p[:monthly_cost] }
-      
+
       # Should be sorted by cost (ascending)
       expect(costs).to eq(costs.sort)
     end
@@ -438,7 +438,7 @@ RSpec.describe AiCostOptimizationService, type: :service do
       }
 
       comparison = service.cost_comparison(requirements)
-      
+
       comparison.each do |provider|
         expect(provider[:value_score]).to be >= 0
         expect(provider[:value_score]).to be <= 1
@@ -458,7 +458,7 @@ RSpec.describe AiCostOptimizationService, type: :service do
 
     it 'generates comprehensive cost report' do
       report = service.generate_cost_report(30.days)
-      
+
       expect(report).to include(
         :executive_summary,
         :detailed_breakdown,
@@ -470,7 +470,7 @@ RSpec.describe AiCostOptimizationService, type: :service do
 
     it 'includes executive summary with key metrics' do
       report = service.generate_cost_report(30.days)
-      
+
       summary = report[:executive_summary]
       expect(summary).to include(
         :total_cost,
@@ -483,10 +483,10 @@ RSpec.describe AiCostOptimizationService, type: :service do
 
     it 'provides actionable optimization recommendations' do
       report = service.generate_cost_report(30.days)
-      
+
       recommendations = report[:optimization_recommendations]
       expect(recommendations).to be_an(Array)
-      
+
       if recommendations.any?
         rec = recommendations.first
         expect(rec).to include(:priority, :description, :estimated_savings, :implementation_effort)
@@ -495,7 +495,7 @@ RSpec.describe AiCostOptimizationService, type: :service do
 
     it 'forecasts future costs based on trends' do
       report = service.generate_cost_report(30.days)
-      
+
       forecast = report[:forecast]
       expect(forecast).to include(
         :next_month_projected_cost,
@@ -516,7 +516,7 @@ RSpec.describe AiCostOptimizationService, type: :service do
       }
 
       tracker = service.start_cost_tracking(execution_context)
-      
+
       expect(tracker).to include(
         :tracking_id,
         :estimated_cost,
@@ -527,7 +527,7 @@ RSpec.describe AiCostOptimizationService, type: :service do
 
     it 'updates costs as execution progresses' do
       tracker = service.start_cost_tracking(provider_id: openai_provider.id)
-      
+
       update_result = service.update_cost_tracking(tracker[:tracking_id], {
         actual_tokens: 1200,
         response_time_ms: 2500
@@ -539,7 +539,7 @@ RSpec.describe AiCostOptimizationService, type: :service do
     it 'provides budget alerts during expensive operations' do
       # Set low budget via settings
       account.update!(settings: (account.settings || {}).merge('monthly_ai_budget' => '1.00'))
-      
+
       expensive_context = {
         provider_id: openai_provider.id,
         estimated_tokens: 10000,
@@ -547,7 +547,7 @@ RSpec.describe AiCostOptimizationService, type: :service do
       }
 
       tracker = service.start_cost_tracking(expensive_context)
-      
+
       if tracker[:estimated_cost] > BigDecimal('0.50')
         expect(tracker[:budget_alerts]).to be_present
       end
@@ -567,9 +567,9 @@ RSpec.describe AiCostOptimizationService, type: :service do
         }
 
         weights = { cost: 0.4, quality: 0.3, speed: 0.2, reliability: 0.1 }
-        
+
         score = service.send(:calculate_provider_value_score, provider_metrics, weights)
-        
+
         expect(score).to be >= 0
         expect(score).to be <= 1
       end
@@ -584,7 +584,7 @@ RSpec.describe AiCostOptimizationService, type: :service do
         }
 
         monthly_estimate = service.send(:estimate_monthly_cost, daily_usage)
-        
+
         expect(monthly_estimate).to be_a(BigDecimal)
         expect(monthly_estimate).to be > BigDecimal('0')
       end

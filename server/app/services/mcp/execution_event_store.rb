@@ -191,9 +191,9 @@ module Mcp
 
       events_to_replay = if up_to_event_id
                           events_until(up_to_event_id)
-                        else
+      else
                           @events
-                        end
+      end
 
       events_to_replay.each do |event|
         apply_event_to_state(event, state)
@@ -246,7 +246,7 @@ module Mcp
     #
     # @return [String] Human-readable event log
     def generate_event_log
-      lines = ["Workflow Execution Event Log"]
+      lines = [ "Workflow Execution Event Log" ]
       lines << "=" * 80
       lines << "Workflow Run: #{@workflow_run.run_id}"
       lines << "Total Events: #{@events.count}"
@@ -276,12 +276,12 @@ module Mcp
       @workflow_run.reload
 
       # Store in workflow run metadata
-      current_events = @workflow_run.runtime_context&.dig('events') || []
+      current_events = @workflow_run.runtime_context&.dig("events") || []
       current_events << event
 
       @workflow_run.update_column(
         :runtime_context,
-        (@workflow_run.runtime_context || {}).merge('events' => current_events)
+        (@workflow_run.runtime_context || {}).merge("events" => current_events)
       )
     rescue StandardError => e
       @logger.error "[EVENT_STORE] Failed to persist event: #{e.message}"
@@ -291,7 +291,7 @@ module Mcp
     #
     # @return [Array<Hash>] Loaded events
     def load_events
-      stored_events = @workflow_run.runtime_context&.dig('events') || []
+      stored_events = @workflow_run.runtime_context&.dig("events") || []
       @events = stored_events.map { |e| symbolize_event(e) }
       @event_sequence = @events.count
 
@@ -337,23 +337,23 @@ module Mcp
 
     def summarize_event(event)
       case event[:event_type]
-      when 'workflow.execution.initialized'
+      when "workflow.execution.initialized"
         "Workflow execution initialized"
-      when 'workflow.execution.completed'
+      when "workflow.execution.completed"
         "Workflow execution completed (#{event[:event_data][:status]})"
-      when 'workflow.execution.failed'
+      when "workflow.execution.failed"
         "Workflow execution failed: #{event[:event_data][:error_message]}"
-      when 'node.execution.started'
+      when "node.execution.started"
         "Node #{event[:event_data][:node_name] || event[:event_data][:node_id]} started"
-      when 'node.execution.completed'
+      when "node.execution.completed"
         "Node #{event[:event_data][:node_id]} completed in #{event[:event_data][:duration_ms]}ms"
-      when 'node.execution.failed'
+      when "node.execution.failed"
         "Node #{event[:event_data][:node_id]} failed: #{event[:event_data][:error_message]}"
-      when 'workflow.state.transitioned'
+      when "workflow.state.transitioned"
         "State transition: #{event[:event_data][:from_state]} -> #{event[:event_data][:to_state]}"
-      when 'workflow.validation.completed'
+      when "workflow.validation.completed"
         "Workflow validation completed"
-      when 'workflow.compensation.started'
+      when "workflow.compensation.started"
         "Compensation started due to: #{event[:event_data][:original_error]}"
       else
         "#{event[:event_type]}: #{event[:event_data].keys.join(', ')}"
@@ -379,16 +379,16 @@ module Mcp
 
     def apply_event_to_state(event, state)
       case event[:event_type]
-      when 'workflow.execution.initialized'
+      when "workflow.execution.initialized"
         state[:variables] = event[:event_data][:input_variables] || {}
 
-      when 'workflow.state.transitioned'
+      when "workflow.state.transitioned"
         state[:current_state] = event[:event_data][:to_state].to_sym
 
-      when 'node.execution.started'
+      when "node.execution.started"
         state[:execution_path] << event[:event_data][:node_id]
 
-      when 'node.execution.completed'
+      when "node.execution.completed"
         node_id = event[:event_data][:node_id]
         state[:node_results][node_id] = {
           status: :completed,
@@ -396,7 +396,7 @@ module Mcp
           duration_ms: event[:event_data][:duration_ms]
         }
 
-      when 'node.execution.failed'
+      when "node.execution.failed"
         node_id = event[:event_data][:node_id]
         state[:node_results][node_id] = {
           status: :failed,
@@ -419,11 +419,11 @@ module Mcp
     end
 
     def count_node_executions
-      events_by_type('node.execution.started').count
+      events_by_type("node.execution.started").count
     end
 
     def count_errors
-      events_by_type(['node.execution.failed', 'workflow.execution.failed']).count
+      events_by_type([ "node.execution.failed", "workflow.execution.failed" ]).count
     end
   end
 end

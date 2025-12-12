@@ -3,20 +3,20 @@
 class HealthCheckJob < ApplicationJob
   queue_as :maintenance
 
-  def perform(check_type = 'comprehensive')
+  def perform(check_type = "comprehensive")
     start_time = Time.current
-    
+
     begin
       health_data = case check_type
-                    when 'basic'
+      when "basic"
                       SystemHealthService.check_basic_health
-                    when 'detailed'
+      when "detailed"
                       SystemHealthService.check_detailed_health
-                    when 'comprehensive'
+      when "comprehensive"
                       SystemHealthService.check_detailed_health
-                    else
+      else
                       SystemHealthService.check_basic_health
-                    end
+      end
 
       response_time = ((Time.current - start_time) * 1000).round
 
@@ -32,20 +32,20 @@ class HealthCheckJob < ApplicationJob
       Rails.logger.info "Health check (#{check_type}) completed in #{response_time}ms with status: #{health_data[:overall_status]}"
     rescue => e
       Rails.logger.error "Health check job failed: #{e.message}"
-      
+
       # Store failed health check
       SystemHealthCheck.create!(
         check_type: check_type,
-        overall_status: 'critical',
+        overall_status: "critical",
         health_data: {
           error: e.message,
           timestamp: Time.current.iso8601,
-          overall_status: 'critical'
+          overall_status: "critical"
         },
         response_time_ms: ((Time.current - start_time) * 1000).round,
         checked_at: Time.current
       )
-      
+
       raise e
     end
   end

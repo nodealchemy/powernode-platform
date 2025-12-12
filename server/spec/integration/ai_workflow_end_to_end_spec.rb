@@ -108,7 +108,7 @@ RSpec.describe 'AI Workflow End-to-End Integration', type: :request do
     it 'validates workflow connectivity' do
       get "/api/v1/ai/workflows/#{ai_workflow.id}/validate"
 
-      expect(response.status).to be_in([200, 404])
+      expect(response.status).to be_in([ 200, 404 ])
     end
   end
 
@@ -122,8 +122,8 @@ RSpec.describe 'AI Workflow End-to-End Integration', type: :request do
         }
       }
 
-      expect(response.status).to be_in([200, 201, 422])
-      if response.status.in?([200, 201])
+      expect(response.status).to be_in([ 200, 201, 422 ])
+      if response.status.in?([ 200, 201 ])
         json = JSON.parse(response.body)
         expect(json['success']).to be true
       end
@@ -137,7 +137,7 @@ RSpec.describe 'AI Workflow End-to-End Integration', type: :request do
         }
       }
 
-      expect(response.status).to be_in([200, 422])
+      expect(response.status).to be_in([ 200, 422 ])
     end
   end
 
@@ -150,7 +150,7 @@ RSpec.describe 'AI Workflow End-to-End Integration', type: :request do
       }
 
       # 412 = precondition failed (e.g., workflow validation)
-      expect(response.status).to be_in([200, 201, 202, 412, 422, 500])
+      expect(response.status).to be_in([ 200, 201, 202, 412, 422, 500 ])
     end
 
     it 'lists workflow runs' do
@@ -159,7 +159,7 @@ RSpec.describe 'AI Workflow End-to-End Integration', type: :request do
 
       get "/api/v1/ai/workflows/#{ai_workflow.id}/runs"
 
-      expect(response.status).to be_in([200, 404])
+      expect(response.status).to be_in([ 200, 404 ])
     end
   end
 
@@ -169,13 +169,13 @@ RSpec.describe 'AI Workflow End-to-End Integration', type: :request do
     it 'retrieves a specific workflow run' do
       get "/api/v1/ai/workflows/#{ai_workflow.id}/runs/#{workflow_run.id}"
 
-      expect(response.status).to be_in([200, 404])
+      expect(response.status).to be_in([ 200, 404 ])
     end
 
     it 'cancels a running workflow' do
       post "/api/v1/ai/workflows/#{ai_workflow.id}/runs/#{workflow_run.id}/cancel"
 
-      expect(response.status).to be_in([200, 202, 404, 422])
+      expect(response.status).to be_in([ 200, 202, 404, 422 ])
     end
 
     it 'retries a failed workflow' do
@@ -183,7 +183,7 @@ RSpec.describe 'AI Workflow End-to-End Integration', type: :request do
 
       post "/api/v1/ai/workflows/#{ai_workflow.id}/runs/#{workflow_run.id}/retry"
 
-      expect(response.status).to be_in([200, 202, 404, 422])
+      expect(response.status).to be_in([ 200, 202, 404, 422 ])
     end
   end
 
@@ -193,7 +193,7 @@ RSpec.describe 'AI Workflow End-to-End Integration', type: :request do
 
       get "/api/v1/ai/workflows/#{ai_workflow.id}/runs/#{workflow_run.id}/node_executions"
 
-      expect(response.status).to be_in([200, 404])
+      expect(response.status).to be_in([ 200, 404 ])
     end
 
     it 'retrieves run logs' do
@@ -201,7 +201,7 @@ RSpec.describe 'AI Workflow End-to-End Integration', type: :request do
 
       get "/api/v1/ai/workflows/#{ai_workflow.id}/runs/#{workflow_run.id}/logs"
 
-      expect(response.status).to be_in([200, 404])
+      expect(response.status).to be_in([ 200, 404 ])
     end
   end
 
@@ -219,7 +219,7 @@ RSpec.describe 'AI Workflow End-to-End Integration', type: :request do
     it 'supports workflow versioning' do
       get "/api/v1/ai/workflows/#{ai_workflow.id}/versions"
 
-      expect(response.status).to be_in([200, 404])
+      expect(response.status).to be_in([ 200, 404 ])
     end
   end
 
@@ -236,7 +236,7 @@ RSpec.describe 'AI Workflow End-to-End Integration', type: :request do
       }
 
       # 412 = precondition failed (e.g., workflow validation)
-      expect(response.status).to be_in([200, 201, 202, 412, 422, 500])
+      expect(response.status).to be_in([ 200, 201, 202, 412, 422, 500 ])
     end
   end
 
@@ -246,7 +246,7 @@ RSpec.describe 'AI Workflow End-to-End Integration', type: :request do
 
       get "/api/v1/ai/workflows/#{ai_workflow.id}/runs/#{workflow_run.id}/metrics"
 
-      expect(response.status).to be_in([200, 404])
+      expect(response.status).to be_in([ 200, 404 ])
     end
   end
 
@@ -254,7 +254,7 @@ RSpec.describe 'AI Workflow End-to-End Integration', type: :request do
     it 'lists available templates' do
       get '/api/v1/ai/workflows/templates'
 
-      expect(response.status).to be_in([200, 404])
+      expect(response.status).to be_in([ 200, 404 ])
     end
   end
 
@@ -262,7 +262,7 @@ RSpec.describe 'AI Workflow End-to-End Integration', type: :request do
     it 'lists workflow schedules' do
       get "/api/v1/ai/workflows/#{ai_workflow.id}/schedules"
 
-      expect(response.status).to be_in([200, 404])
+      expect(response.status).to be_in([ 200, 404 ])
     end
 
     it 'creates a workflow schedule' do
@@ -274,7 +274,7 @@ RSpec.describe 'AI Workflow End-to-End Integration', type: :request do
       }
 
       # 500 may occur if schedule service not fully implemented
-      expect(response.status).to be_in([200, 201, 404, 422, 500])
+      expect(response.status).to be_in([ 200, 201, 404, 422, 500 ])
     end
   end
 
@@ -282,7 +282,7 @@ RSpec.describe 'AI Workflow End-to-End Integration', type: :request do
     it 'lists workflow triggers' do
       get "/api/v1/ai/workflows/#{ai_workflow.id}/triggers"
 
-      expect(response.status).to be_in([200, 404])
+      expect(response.status).to be_in([ 200, 404 ])
     end
   end
 

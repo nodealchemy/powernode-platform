@@ -25,10 +25,10 @@ class Api::V1::Internal::TemplateInstallationsController < ApplicationController
       })
     else
       Rails.logger.error "Template installation update failed: #{installation.installation_id}"
-      render_error('Template update failed', status: :unprocessable_entity)
+      render_error("Template update failed", status: :unprocessable_entity)
     end
   rescue ActiveRecord::RecordNotFound => e
-    render_error('Installation not found', status: :not_found)
+    render_error("Installation not found", status: :not_found)
   rescue StandardError => e
     Rails.logger.error "Template installation update error: #{e.message}"
     render_error("Update failed: #{e.message}", status: :internal_server_error)
@@ -37,23 +37,23 @@ class Api::V1::Internal::TemplateInstallationsController < ApplicationController
   private
 
   def authenticate_service_token
-    token = request.headers['Authorization']&.split(' ')&.last
+    token = request.headers["Authorization"]&.split(" ")&.last
 
     unless token.present?
-      render_error('Service token required', status: :unauthorized)
+      render_error("Service token required", status: :unauthorized)
       return
     end
 
     begin
-      payload = JWT.decode(token, Rails.application.config.jwt_secret_key, true, algorithm: 'HS256').first
+      payload = JWT.decode(token, Rails.application.config.jwt_secret_key, true, algorithm: "HS256").first
 
-      unless payload['service'] == 'worker' && payload['type'] == 'service'
-        render_error('Invalid service token', status: :unauthorized)
-        return
+      unless payload["service"] == "worker" && payload["type"] == "service"
+        render_error("Invalid service token", status: :unauthorized)
+        nil
       end
 
     rescue JWT::DecodeError, JWT::ExpiredSignature
-      render_error('Invalid service token', status: :unauthorized)
+      render_error("Invalid service token", status: :unauthorized)
     end
   end
 end

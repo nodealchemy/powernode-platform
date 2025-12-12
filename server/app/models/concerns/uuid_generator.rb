@@ -5,8 +5,8 @@ module UuidGenerator
   extend ActiveSupport::Concern
 
   included do
-    self.primary_key = 'id'
-    
+    self.primary_key = "id"
+
     # Override the default UUID generation to use UUIDv7
     before_create :generate_uuid_v7, if: -> { id.blank? }
   end
@@ -15,7 +15,7 @@ module UuidGenerator
     def find_by_uuid(uuid_string)
       find_by(id: uuid_string)
     end
-    
+
     def generate_uuid_v7
       UUID7.generate
     end
@@ -25,8 +25,8 @@ module UuidGenerator
 
   def generate_uuid_v7
     return unless respond_to?(:id=)
-    return unless self.class.column_names.include?('id')
-    
+    return unless self.class.column_names.include?("id")
+
     if id.blank?
       self.id = UUID7.generate
     end

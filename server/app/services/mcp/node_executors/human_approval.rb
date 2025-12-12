@@ -15,13 +15,13 @@ module Mcp
           output: "Pending approval",
           result: {
             approved: false,
-            approval_status: 'pending'
+            approval_status: "pending"
           },
           metadata: {
             node_id: @node.node_id,
-            node_type: 'human_approval',
+            node_type: "human_approval",
             executed_at: Time.current.iso8601,
-            implementation_status: 'stub'
+            implementation_status: "stub"
           }
         }
       end

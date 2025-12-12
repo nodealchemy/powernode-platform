@@ -15,7 +15,7 @@ class CreateMcpSystem < ActiveRecord::Migration[7.1]
       t.datetime :last_health_check
       t.timestamps
 
-      t.index [:account_id, :status]
+      t.index [ :account_id, :status ]
       t.index :status
     end
 
@@ -26,7 +26,7 @@ class CreateMcpSystem < ActiveRecord::Migration[7.1]
       t.jsonb :input_schema, null: false, default: {}
       t.timestamps
 
-      t.index [:mcp_server_id, :name]
+      t.index [ :mcp_server_id, :name ]
     end
 
     create_table :mcp_tool_executions, id: :uuid do |t|
@@ -39,8 +39,8 @@ class CreateMcpSystem < ActiveRecord::Migration[7.1]
       t.integer :execution_time_ms
       t.timestamps
 
-      t.index [:mcp_tool_id, :created_at]
-      t.index [:user_id, :created_at]
+      t.index [ :mcp_tool_id, :created_at ]
+      t.index [ :user_id, :created_at ]
     end
   end
 end

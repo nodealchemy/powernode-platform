@@ -29,7 +29,7 @@ module Mcp
 
         unless validator.authorized?
           result = validator.authorization_result
-          error_messages = result[:errors]&.map { |e| e[:message] }&.join('; ') || 'Permission denied'
+          error_messages = result[:errors]&.map { |e| e[:message] }&.join("; ") || "Permission denied"
           raise Mcp::AiWorkflowOrchestrator::NodeExecutionError,
                 "MCP permission denied: #{error_messages}"
         end
@@ -38,24 +38,24 @@ module Mcp
       # Build MCP parameters from configuration and workflow variables
       def build_mcp_parameters
         # Start with static parameters
-        parameters = (configuration['parameters'] || {}).deep_dup
+        parameters = (configuration["parameters"] || {}).deep_dup
 
         # Apply parameter mappings from workflow variables
-        parameter_mappings = configuration['parameter_mappings'] || []
+        parameter_mappings = configuration["parameter_mappings"] || []
         parameter_mappings.each do |mapping|
-          param_name = mapping['parameter_name']
-          mapping_type = mapping['mapping_type']
+          param_name = mapping["parameter_name"]
+          mapping_type = mapping["mapping_type"]
 
           value = case mapping_type
-                  when 'static'
-                    mapping['static_value']
-                  when 'variable'
-                    get_variable(mapping['variable_path'])
-                  when 'expression'
-                    evaluate_expression(mapping['expression'])
-                  else
+          when "static"
+                    mapping["static_value"]
+          when "variable"
+                    get_variable(mapping["variable_path"])
+          when "expression"
+                    evaluate_expression(mapping["expression"])
+          else
                     nil
-                  end
+          end
 
           parameters[param_name] = value if value.present?
         end
@@ -91,7 +91,7 @@ module Mcp
 
       # Resolve a variable path like "node_output.result.data"
       def resolve_variable_path(path)
-        parts = path.split('.')
+        parts = path.split(".")
         value = get_variable(parts.first)
 
         parts[1..].each do |part|
@@ -142,14 +142,14 @@ module Mcp
         McpToolExecution.create!(
           mcp_tool: tool,
           user: @orchestrator.user,
-          status: 'pending',
+          status: "pending",
           parameters: parameters
         )
       end
 
       # Wait for async execution to complete
       def wait_for_execution(execution_id, timeout_seconds = nil)
-        timeout = timeout_seconds || configuration['timeout_seconds'] || 300
+        timeout = timeout_seconds || configuration["timeout_seconds"] || 300
         deadline = Time.current + timeout
         execution = McpToolExecution.find(execution_id)
 
@@ -157,21 +157,21 @@ module Mcp
           execution.reload
 
           case execution.status
-          when 'completed'
+          when "completed"
             return {
               success: true,
               output: execution.result,
               execution_time_ms: execution.execution_time_ms
             }
-          when 'failed'
+          when "failed"
             return {
               success: false,
               error: execution.error_message
             }
-          when 'cancelled'
+          when "cancelled"
             return {
               success: false,
-              error: 'Execution cancelled'
+              error: "Execution cancelled"
             }
           else
             sleep(0.5) # Poll interval
@@ -186,7 +186,7 @@ module Mcp
 
       # Check if execution should be async
       def should_execute_async?
-        configuration['execution_mode'] == 'async'
+        configuration["execution_mode"] == "async"
       end
 
       # Transform MCP result to standard node output format
@@ -211,15 +211,15 @@ module Mcp
 
       # Store output variable if configured
       def store_output_variable(output)
-        if configuration['output_variable'].present?
-          set_variable(configuration['output_variable'], output)
+        if configuration["output_variable"].present?
+          set_variable(configuration["output_variable"], output)
         end
       end
 
       private
 
       def find_mcp_server
-        server_id = configuration['mcp_server_id'] || configuration['server_id']
+        server_id = configuration["mcp_server_id"] || configuration["server_id"]
         raise Mcp::AiWorkflowOrchestrator::NodeExecutionError,
               "No mcp_server_id configured" unless server_id
 
@@ -236,8 +236,8 @@ module Mcp
       end
 
       def find_mcp_tool
-        tool_id = configuration['mcp_tool_id'] || configuration['tool_id']
-        tool_name = configuration['mcp_tool_name'] || configuration['tool_name']
+        tool_id = configuration["mcp_tool_id"] || configuration["tool_id"]
+        tool_name = configuration["mcp_tool_name"] || configuration["tool_name"]
 
         if tool_id.present?
           mcp_server.mcp_tools.find_by(id: tool_id)

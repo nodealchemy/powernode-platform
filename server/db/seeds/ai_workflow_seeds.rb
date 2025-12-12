@@ -56,7 +56,7 @@ def create_or_find_ai_agent(account, user, provider, agent_data)
     agent_type: agent_data[:agent_type],
     ai_provider: provider,
     creator: user,
-    capabilities: ['chat', 'text_generation'],
+    capabilities: [ 'chat', 'text_generation' ],
     configuration: agent_data[:configuration],
     metadata: agent_data[:metadata],
     status: 'active'
@@ -73,7 +73,7 @@ ollama_provider = create_or_find_ai_provider(admin_account, admin_user, {
   provider_type: 'custom',
   api_base_url: ollama_base_url,
   api_endpoint: "#{ollama_base_url}/api/generate",
-  capabilities: ['text_generation', 'chat'],
+  capabilities: [ 'text_generation', 'chat' ],
   supported_models: [
     { 'name' => 'llama2', 'id' => 'llama2' },
     { 'name' => 'llama2:13b', 'id' => 'llama2:13b' },
@@ -99,7 +99,7 @@ ollama_provider = create_or_find_ai_provider(admin_account, admin_user, {
   rate_limits: {},
   metadata: {
     'setup_instructions' => 'Configure your Ollama server URL via OLLAMA_BASE_URL environment variable (default: http://localhost:11434). Pull models with: ollama pull llama2',
-    'recommended_models' => ['llama2', 'codellama'],
+    'recommended_models' => [ 'llama2', 'codellama' ],
     'cost_per_token' => 0.0,
     'remote_deployment' => true,
     'configuration_notes' => 'Set OLLAMA_BASE_URL environment variable to point to your Ollama server instance'
@@ -112,7 +112,7 @@ openai_provider = create_or_find_ai_provider(admin_account, admin_user, {
   provider_type: 'openai',
   api_base_url: 'https://api.openai.com/v1',
   api_endpoint: 'https://api.openai.com/v1/chat/completions',
-  capabilities: ['text_generation', 'chat'],
+  capabilities: [ 'text_generation', 'chat' ],
   supported_models: [
     { 'name' => 'gpt-4o', 'id' => 'gpt-4o' },
     { 'name' => 'gpt-4o-mini', 'id' => 'gpt-4o-mini' },
@@ -163,7 +163,7 @@ blog_generator_agent = create_or_find_ai_agent(admin_account, admin_user, ollama
     'seo_optimization' => true
   },
   metadata: {
-    'specialties' => ['technology', 'business', 'lifestyle', 'education'],
+    'specialties' => [ 'technology', 'business', 'lifestyle', 'education' ],
     'output_format' => 'markdown',
     'average_words' => 1500,
     'typical_execution_time' => '60-120 seconds'
@@ -190,7 +190,7 @@ seo_optimizer_agent = create_or_find_ai_agent(admin_account, admin_user, ollama_
     ]
   },
   metadata: {
-    'focus_areas' => ['on-page SEO', 'content optimization', 'keyword analysis'],
+    'focus_areas' => [ 'on-page SEO', 'content optimization', 'keyword analysis' ],
     'output_type' => 'structured_analysis',
     'typical_execution_time' => '30-45 seconds'
   }
@@ -216,7 +216,7 @@ code_reviewer_agent = create_or_find_ai_agent(admin_account, admin_user, ollama_
     ]
   },
   metadata: {
-    'supported_languages' => ['javascript', 'python', 'ruby', 'java', 'go', 'rust'],
+    'supported_languages' => [ 'javascript', 'python', 'ruby', 'java', 'go', 'rust' ],
     'review_depth' => 'comprehensive',
     'typical_execution_time' => '45-90 seconds'
   }
@@ -241,7 +241,7 @@ data_analyzer_agent = create_or_find_ai_agent(admin_account, admin_user, ollama_
     ]
   },
   metadata: {
-    'data_formats' => ['csv', 'json', 'structured_text'],
+    'data_formats' => [ 'csv', 'json', 'structured_text' ],
     'output_format' => 'executive_summary',
     'typical_execution_time' => '60-90 seconds'
   }
@@ -255,14 +255,14 @@ blog_workflow_template = AiWorkflowTemplate.find_by(name: 'Complete Blog Generat
 
 unless blog_workflow_template
   puts "📝 Creating Blog Generation Workflow Template..."
-  
+
   blog_workflow_template = AiWorkflowTemplate.create!(
     name: 'Complete Blog Generation Pipeline',
     description: 'End-to-end blog post generation with topic research, content creation, SEO optimization, and publishing workflow',
     category: 'content_creation',
     is_public: true,
     version: '1.0.0',
-    tags: ['blog', 'content', 'seo', 'automation', 'publishing'],
+    tags: [ 'blog', 'content', 'seo', 'automation', 'publishing' ],
     is_featured: true,
     workflow_definition: {
       'workflow' => {
@@ -290,8 +290,8 @@ unless blog_workflow_template
           'configuration' => {
             'agent_id' => '{{blog_generator_agent_id}}',
             'prompt_template' => 'Research the topic "{{topic}}" and create an outline for a comprehensive blog post. Include: 1) Main points to cover, 2) Target audience, 3) Key takeaways, 4) Suggested keywords',
-            'input_variables' => ['topic'],
-            'output_variables' => ['research_results', 'outline', 'keywords']
+            'input_variables' => [ 'topic' ],
+            'output_variables' => [ 'research_results', 'outline', 'keywords' ]
           }
         },
         {
@@ -303,8 +303,8 @@ unless blog_workflow_template
           'configuration' => {
             'agent_id' => '{{blog_generator_agent_id}}',
             'prompt_template' => 'Based on this research and outline: {{outline}}\n\nWrite a comprehensive blog post about "{{topic}}". Include:\n- Engaging introduction\n- Well-structured main content with headers\n- Practical examples\n- Actionable conclusions\n- Target word count: {{word_count}} words',
-            'input_variables' => ['topic', 'outline', 'word_count'],
-            'output_variables' => ['blog_content', 'word_count_actual']
+            'input_variables' => [ 'topic', 'outline', 'word_count' ],
+            'output_variables' => [ 'blog_content', 'word_count_actual' ]
           }
         },
         {
@@ -316,8 +316,8 @@ unless blog_workflow_template
           'configuration' => {
             'agent_id' => '{{seo_optimizer_agent_id}}',
             'prompt_template' => 'Analyze and optimize this blog post for SEO:\n\nTitle: {{topic}}\nContent: {{blog_content}}\nTarget Keywords: {{keywords}}\n\nProvide:\n1) Optimized title and meta description\n2) Header structure improvements\n3) Keyword optimization suggestions\n4) Internal linking opportunities\n5) Readability improvements',
-            'input_variables' => ['topic', 'blog_content', 'keywords'],
-            'output_variables' => ['seo_title', 'meta_description', 'optimized_content', 'seo_recommendations']
+            'input_variables' => [ 'topic', 'blog_content', 'keywords' ],
+            'output_variables' => [ 'seo_title', 'meta_description', 'optimized_content', 'seo_recommendations' ]
           }
         },
         {
@@ -358,7 +358,7 @@ unless blog_workflow_template
               'title' => '{{seo_title}}',
               'content' => '{{optimized_content}}',
               'meta_description' => '{{meta_description}}',
-              'tags' => ['{{topic}}'],
+              'tags' => [ '{{topic}}' ],
               'status' => 'draft'
             }
           }
@@ -372,7 +372,7 @@ unless blog_workflow_template
           'configuration' => {
             'agent_id' => '{{blog_generator_agent_id}}',
             'prompt_template' => 'The blog post needs revision. Current content: {{blog_content}}\n\nProvide specific suggestions to improve:\n1) Content length (target: {{word_count}} words)\n2) Structure and flow\n3) SEO optimization\n4) Engagement factors',
-            'output_variables' => ['revision_suggestions']
+            'output_variables' => [ 'revision_suggestions' ]
           }
         }
       ],
@@ -464,14 +464,14 @@ code_review_template = AiWorkflowTemplate.find_by(name: 'Automated Code Review P
 
 unless code_review_template
   puts "🔍 Creating Code Review Workflow Template..."
-  
+
   code_review_template = AiWorkflowTemplate.create!(
     name: 'Automated Code Review Pipeline',
     description: 'Comprehensive code review workflow with security analysis, performance optimization, and documentation checks',
     category: 'development',
     is_public: true,
     version: '1.0.0',
-    tags: ['code_review', 'security', 'performance', 'quality_assurance'],
+    tags: [ 'code_review', 'security', 'performance', 'quality_assurance' ],
     is_featured: true,
     workflow_definition: {
       'workflow' => {
@@ -491,7 +491,7 @@ unless code_review_template
           'configuration' => {
             'agent_id' => '{{code_reviewer_agent_id}}',
             'prompt_template' => 'Review this {{language}} code for quality, maintainability, and best practices:\n\n```{{language}}\n{{code}}\n```\n\nFocus on:\n1) Code structure and organization\n2) Naming conventions\n3) Error handling\n4) Code reusability\n5) Documentation quality',
-            'output_variables' => ['quality_score', 'quality_issues', 'improvement_suggestions']
+            'output_variables' => [ 'quality_score', 'quality_issues', 'improvement_suggestions' ]
           }
         },
         {
@@ -503,7 +503,7 @@ unless code_review_template
           'configuration' => {
             'agent_id' => '{{code_reviewer_agent_id}}',
             'prompt_template' => 'Perform a security analysis of this {{language}} code:\n\n```{{language}}\n{{code}}\n```\n\nLook for:\n1) Input validation issues\n2) SQL injection vulnerabilities\n3) XSS vulnerabilities\n4) Authentication/authorization issues\n5) Data exposure risks\n6) Dependency vulnerabilities',
-            'output_variables' => ['security_score', 'vulnerabilities', 'security_recommendations']
+            'output_variables' => [ 'security_score', 'vulnerabilities', 'security_recommendations' ]
           }
         },
         {
@@ -515,7 +515,7 @@ unless code_review_template
           'configuration' => {
             'agent_id' => '{{code_reviewer_agent_id}}',
             'prompt_template' => 'Analyze this {{language}} code for performance optimization:\n\n```{{language}}\n{{code}}\n```\n\nEvaluate:\n1) Algorithm efficiency\n2) Memory usage\n3) Database query optimization\n4) Caching opportunities\n5) Scalability concerns',
-            'output_variables' => ['performance_score', 'bottlenecks', 'optimization_suggestions']
+            'output_variables' => [ 'performance_score', 'bottlenecks', 'optimization_suggestions' ]
           }
         },
         {
@@ -527,7 +527,7 @@ unless code_review_template
           'configuration' => {
             'agent_id' => '{{code_reviewer_agent_id}}',
             'prompt_template' => 'Create a comprehensive code review report based on these analyses:\n\nQuality Analysis: {{quality_issues}}\nSecurity Analysis: {{vulnerabilities}}\nPerformance Analysis: {{bottlenecks}}\n\nGenerate:\n1) Executive summary\n2) Priority issues (Critical/High/Medium/Low)\n3) Specific recommendations\n4) Overall code rating\n5) Next steps',
-            'output_variables' => ['review_report', 'overall_rating', 'critical_issues']
+            'output_variables' => [ 'review_report', 'overall_rating', 'critical_issues' ]
           }
         },
         {
@@ -651,7 +651,7 @@ blog_workflow = admin_account.ai_workflows.find_by(name: 'My Blog Generation Wor
 
 unless blog_workflow
   puts "📝 Creating Blog Generation Workflow instance..."
-  
+
   blog_workflow = admin_account.ai_workflows.create!(
     name: 'My Blog Generation Workflow',
     description: 'Automated blog post generation with Ollama integration',
@@ -700,8 +700,8 @@ unless blog_workflow
     configuration: {
       'agent_id' => blog_generator_agent.id,
       'prompt_template' => 'Research the topic "{{topic}}" for a {{target_audience}} audience. Create a comprehensive outline including:\n\n1. Hook/introduction angle\n2. 3-5 main sections with subpoints\n3. Key statistics or data to include\n4. Target keywords for SEO\n5. Call-to-action suggestions\n\nTarget word count: {{word_count}} words',
-      'input_variables' => ['topic', 'target_audience', 'word_count'],
-      'output_variables' => ['outline', 'keywords', 'research_notes'],
+      'input_variables' => [ 'topic', 'target_audience', 'word_count' ],
+      'output_variables' => [ 'outline', 'keywords', 'research_notes' ],
       'temperature' => 0.7,
       'max_tokens' => 1000
     },
@@ -717,8 +717,8 @@ unless blog_workflow
     configuration: {
       'agent_id' => blog_generator_agent.id,
       'prompt_template' => 'Write a comprehensive blog post based on this outline:\n\n{{outline}}\n\nRequirements:\n- Topic: {{topic}}\n- Target audience: {{target_audience}}\n- Word count: approximately {{word_count}} words\n- Include the keywords: {{keywords}}\n- Use markdown formatting\n- Write in an engaging, conversational tone\n- Include practical examples where relevant\n- End with a strong conclusion and call-to-action',
-      'input_variables' => ['topic', 'target_audience', 'word_count', 'outline', 'keywords'],
-      'output_variables' => ['blog_content', 'actual_word_count'],
+      'input_variables' => [ 'topic', 'target_audience', 'word_count', 'outline', 'keywords' ],
+      'output_variables' => [ 'blog_content', 'actual_word_count' ],
       'temperature' => 0.8,
       'max_tokens' => 2500
     },
@@ -734,8 +734,8 @@ unless blog_workflow
     configuration: {
       'agent_id' => seo_optimizer_agent.id,
       'prompt_template' => 'Optimize this blog post for SEO:\n\nTopic: {{topic}}\nContent: {{blog_content}}\nTarget Keywords: {{keywords}}\n\nProvide:\n1. SEO-optimized title (50-60 characters)\n2. Meta description (150-160 characters)\n3. Header structure analysis\n4. Keyword density recommendations\n5. Any content improvements for better SEO',
-      'input_variables' => ['topic', 'blog_content', 'keywords'],
-      'output_variables' => ['seo_title', 'meta_description', 'seo_analysis', 'optimized_content'],
+      'input_variables' => [ 'topic', 'blog_content', 'keywords' ],
+      'output_variables' => [ 'seo_title', 'meta_description', 'seo_analysis', 'optimized_content' ],
       'temperature' => 0.3,
       'max_tokens' => 800
     },
@@ -794,7 +794,7 @@ data_analysis_workflow = admin_account.ai_workflows.find_by(name: 'Business Data
 
 unless data_analysis_workflow
   puts "📊 Creating Data Analysis Workflow..."
-  
+
   data_analysis_workflow = admin_account.ai_workflows.create!(
     name: 'Business Data Analysis Pipeline',
     description: 'Automated analysis of business data with insights and recommendations',
@@ -819,7 +819,7 @@ unless data_analysis_workflow
     configuration: {
       'agent_id' => data_analyzer_agent.id,
       'prompt_template' => 'Analyze this {{analysis_type}} data for {{time_period}}:\n\n{{data_source}}\n\nValidate the data and provide:\n1. Data quality assessment\n2. Missing data identification\n3. Data structure summary\n4. Recommendations for data cleaning',
-      'output_variables' => ['data_quality', 'data_summary', 'validation_results']
+      'output_variables' => [ 'data_quality', 'data_summary', 'validation_results' ]
     }
   )
 
@@ -832,7 +832,7 @@ unless data_analysis_workflow
     configuration: {
       'agent_id' => data_analyzer_agent.id,
       'prompt_template' => 'Perform trend analysis on this {{analysis_type}} data:\n\n{{data_source}}\n\nIdentify:\n1. Key trends over {{time_period}}\n2. Growth patterns\n3. Seasonal variations\n4. Anomalies or outliers\n5. Performance indicators',
-      'output_variables' => ['trends', 'growth_patterns', 'anomalies']
+      'output_variables' => [ 'trends', 'growth_patterns', 'anomalies' ]
     }
   )
 
@@ -845,7 +845,7 @@ unless data_analysis_workflow
     configuration: {
       'agent_id' => data_analyzer_agent.id,
       'prompt_template' => 'Based on this {{analysis_type}} analysis:\n\nTrends: {{trends}}\nPatterns: {{growth_patterns}}\nAnomalies: {{anomalies}}\n\nGenerate:\n1. Key business insights\n2. Actionable recommendations\n3. Risk factors to monitor\n4. Opportunities for improvement\n5. Executive summary',
-      'output_variables' => ['insights', 'recommendations', 'executive_summary']
+      'output_variables' => [ 'insights', 'recommendations', 'executive_summary' ]
     }
   )
 
@@ -869,7 +869,7 @@ puts "\n⏰ Creating Workflow Schedules..."
 # Daily blog generation schedule
 unless blog_workflow.ai_workflow_schedules.exists?(name: 'Daily Tech Blog Generation')
   puts "📅 Creating daily blog schedule..."
-  
+
   blog_workflow.ai_workflow_schedules.create!(
     name: 'Daily Tech Blog Generation',
     description: 'Generate a daily tech blog post automatically',
@@ -901,7 +901,7 @@ end
 # Weekly data analysis schedule
 unless data_analysis_workflow.ai_workflow_schedules.exists?(name: 'Weekly Business Analysis')
   puts "📈 Creating weekly analysis schedule..."
-  
+
   data_analysis_workflow.ai_workflow_schedules.create!(
     name: 'Weekly Business Analysis',
     description: 'Analyze weekly business metrics and generate reports',
@@ -926,7 +926,7 @@ puts "\n🎯 Creating Workflow Triggers..."
 # Blog generation webhook trigger
 unless blog_workflow.ai_workflow_triggers.exists?(name: 'Blog Request Webhook')
   puts "🔗 Creating blog webhook trigger..."
-  
+
   blog_webhook_trigger = blog_workflow.ai_workflow_triggers.create!(
     trigger_type: 'webhook',
     name: 'Blog Request Webhook',
@@ -943,8 +943,8 @@ unless blog_workflow.ai_workflow_triggers.exists?(name: 'Blog Request Webhook')
         'word_count' => 'target_words',
         'target_audience' => 'audience'
       },
-      'required_headers' => ['X-Content-Type'],
-      'allowed_methods' => ['POST']
+      'required_headers' => [ 'X-Content-Type' ],
+      'allowed_methods' => [ 'POST' ]
     },
     metadata: {
       'integration_guide' => 'Send POST request with blog_topic, target_words, and audience parameters',
@@ -960,7 +960,7 @@ end
 # API-based data analysis trigger
 unless data_analysis_workflow.ai_workflow_triggers.exists?(name: 'Data Analysis API Trigger')
   puts "📡 Creating API trigger for data analysis..."
-  
+
   data_analysis_workflow.ai_workflow_triggers.create!(
     trigger_type: 'api_call',
     name: 'Data Analysis API Trigger',
@@ -983,7 +983,7 @@ puts "\n🔧 Creating Workflow Variables..."
 # Blog workflow variables
 unless blog_workflow.ai_workflow_variables.exists?(name: 'default_word_count')
   puts "📝 Creating blog workflow variables..."
-  
+
   blog_workflow.ai_workflow_variables.create!([
     {
       name: 'default_word_count',
@@ -1029,7 +1029,7 @@ unless blog_workflow.ai_workflow_variables.exists?(name: 'default_word_count')
       is_output: false,
       description: 'Output format for generated content',
       validation_rules: {
-        'allowed_values' => ['markdown', 'html', 'plain_text']
+        'allowed_values' => [ 'markdown', 'html', 'plain_text' ]
       }
     }
   ])
@@ -1038,7 +1038,7 @@ end
 # Data analysis workflow variables
 unless data_analysis_workflow.ai_workflow_variables.exists?(name: 'chart_type')
   puts "📊 Creating data analysis workflow variables..."
-  
+
   data_analysis_workflow.ai_workflow_variables.create!([
     {
       name: 'chart_type',
@@ -1050,7 +1050,7 @@ unless data_analysis_workflow.ai_workflow_variables.exists?(name: 'chart_type')
       is_output: false,
       description: 'Type of chart to generate for data visualization',
       validation_rules: {
-        'allowed_values' => ['bar_chart', 'line_chart', 'pie_chart', 'scatter_plot']
+        'allowed_values' => [ 'bar_chart', 'line_chart', 'pie_chart', 'scatter_plot' ]
       }
     },
     {
@@ -1087,7 +1087,7 @@ unless data_analysis_workflow.ai_workflow_variables.exists?(name: 'chart_type')
       is_output: false,
       description: 'Format for analysis results output',
       validation_rules: {
-        'allowed_values' => ['json', 'csv', 'xlsx', 'pdf']
+        'allowed_values' => [ 'json', 'csv', 'xlsx', 'pdf' ]
       }
     }
   ])
@@ -1098,7 +1098,7 @@ customer_support_workflow = admin_account.ai_workflows.find_by(name: 'Customer S
 
 unless customer_support_workflow
   puts "🎧 Creating Customer Support Automation Workflow..."
-  
+
   customer_support_workflow = admin_account.ai_workflows.create!(
     name: 'Customer Support Automation',
     description: 'Automated customer support workflow with sentiment analysis, intent classification, and response generation',
@@ -1140,8 +1140,8 @@ unless customer_support_workflow
     configuration: {
       'agent_id' => data_analyzer_agent.id,
       'prompt_template' => 'Analyze the sentiment and urgency of this customer message:\n\n"{{customer_message}}"\n\nProvide:\n1. Sentiment score (-1 to 1)\n2. Urgency level (low/medium/high/critical)\n3. Key emotions detected\n4. Escalation recommendation (yes/no)',
-      'input_variables' => ['customer_message', 'customer_email'],
-      'output_variables' => ['sentiment_score', 'urgency_level', 'emotions', 'escalation_needed'],
+      'input_variables' => [ 'customer_message', 'customer_email' ],
+      'output_variables' => [ 'sentiment_score', 'urgency_level', 'emotions', 'escalation_needed' ],
       'temperature' => 0.2,
       'max_tokens' => 300
     },
@@ -1158,8 +1158,8 @@ unless customer_support_workflow
     configuration: {
       'agent_id' => data_analyzer_agent.id,
       'prompt_template' => 'Classify this customer support request:\n\n"{{customer_message}}"\n\nCategories: billing, technical, product, account, refund, bug_report, feature_request\n\nProvide:\n1. Primary category\n2. Secondary category (if applicable)\n3. Intent confidence (0-1)\n4. Required information to resolve\n5. Suggested department (support/billing/technical/management)',
-      'input_variables' => ['customer_message'],
-      'output_variables' => ['primary_category', 'secondary_category', 'confidence', 'required_info', 'department'],
+      'input_variables' => [ 'customer_message' ],
+      'output_variables' => [ 'primary_category', 'secondary_category', 'confidence', 'required_info', 'department' ],
       'temperature' => 0.1,
       'max_tokens' => 200
     },
@@ -1187,7 +1187,7 @@ unless customer_support_workflow
           'name' => 'technical_issue',
           'logic' => 'AND',
           'rules' => [
-            { 'field' => 'primary_category', 'operator' => 'in', 'value' => ['technical', 'bug_report'] },
+            { 'field' => 'primary_category', 'operator' => 'in', 'value' => [ 'technical', 'bug_report' ] },
             { 'field' => 'urgency_level', 'operator' => 'not_equals', 'value' => 'critical' }
           ]
         },
@@ -1196,7 +1196,7 @@ unless customer_support_workflow
           'logic' => 'AND',
           'rules' => [
             { 'field' => 'confidence', 'operator' => 'greater_than', 'value' => 0.8 },
-            { 'field' => 'urgency_level', 'operator' => 'in', 'value' => ['low', 'medium'] }
+            { 'field' => 'urgency_level', 'operator' => 'in', 'value' => [ 'low', 'medium' ] }
           ]
         }
       ]
@@ -1212,13 +1212,13 @@ unless customer_support_workflow
     description: 'Escalate critical issues to human agent',
     position: { 'x' => 750, 'y' => 150 },
     configuration: {
-      'approvers' => ['support_manager', 'senior_support_agent'],
+      'approvers' => [ 'support_manager', 'senior_support_agent' ],
       'approval_type' => 'assignment',
       'assignee_role' => 'support_manager',
       'timeout_minutes' => 60,
-      'notification_channels' => ['email', 'slack'],
+      'notification_channels' => [ 'email', 'slack' ],
       'context_data' => [
-        'customer_message', 'sentiment_score', 'urgency_level', 
+        'customer_message', 'sentiment_score', 'urgency_level',
         'primary_category', 'customer_email'
       ],
       'approval_options' => [
@@ -1240,8 +1240,8 @@ unless customer_support_workflow
     configuration: {
       'agent_id' => blog_generator_agent.id,
       'prompt_template' => 'Generate a helpful customer support response for this {{primary_category}} request:\n\nCustomer message: "{{customer_message}}"\nSentiment: {{sentiment_score}}\nUrgency: {{urgency_level}}\n\nGuidelines:\n- Be empathetic and professional\n- Address their specific concern\n- Provide clear next steps\n- Include relevant links if needed\n- Match the tone to their sentiment',
-      'input_variables' => ['customer_message', 'primary_category', 'sentiment_score', 'urgency_level'],
-      'output_variables' => ['response_text', 'suggested_next_steps', 'escalation_flag'],
+      'input_variables' => [ 'customer_message', 'primary_category', 'sentiment_score', 'urgency_level' ],
+      'output_variables' => [ 'response_text', 'suggested_next_steps', 'escalation_flag' ],
       'temperature' => 0.6,
       'max_tokens' => 500
     },
@@ -1287,8 +1287,8 @@ unless customer_support_workflow
     configuration: {
       'agent_id' => data_analyzer_agent.id,
       'prompt_template' => 'Review this customer support response for quality:\n\nOriginal request: "{{customer_message}}"\nCategory: {{primary_category}}\nGenerated response: "{{response_text}}"\n\nEvaluate:\n1. Relevance to the customer issue (1-10)\n2. Tone appropriateness (1-10)\n3. Completeness of response (1-10)\n4. Professional language (1-10)\n5. Overall quality score (1-10)\n6. Approval recommendation (approve/revise/escalate)',
-      'input_variables' => ['customer_message', 'primary_category', 'response_text'],
-      'output_variables' => ['quality_scores', 'overall_quality', 'approval_recommendation', 'improvement_suggestions'],
+      'input_variables' => [ 'customer_message', 'primary_category', 'response_text' ],
+      'output_variables' => [ 'quality_scores', 'overall_quality', 'approval_recommendation', 'improvement_suggestions' ],
       'temperature' => 0.1,
       'max_tokens' => 300
     },
@@ -1431,7 +1431,7 @@ ecommerce_workflow = admin_account.ai_workflows.find_by(name: 'E-commerce Order 
 
 unless ecommerce_workflow
   puts "🛒 Creating E-commerce Order Processing Workflow..."
-  
+
   ecommerce_workflow = admin_account.ai_workflows.create!(
     name: 'E-commerce Order Processing',
     description: 'Complete order processing pipeline with inventory check, fraud detection, and fulfillment automation',
@@ -1504,10 +1504,10 @@ unless ecommerce_workflow
       'agent_id' => data_analyzer_agent.id,
       'prompt_template' => 'Analyze this order for fraud risk:\n\nOrder Details:\n- Amount: ${{order_amount}}\n- Customer: {{customer_email}}\n- Shipping: {{shipping_address}}\n- Billing: {{billing_address}}\n- Payment: {{payment_method}}\n- Previous orders: {{customer_order_count}}\n- Account age: {{customer_account_age}}\n\nEvaluate:\n1. Risk score (0-100, where 100 is highest risk)\n2. Risk factors identified\n3. Recommendation (approve/review/decline)\n4. Confidence level (0-1)',
       'input_variables' => [
-        'order_amount', 'customer_email', 'shipping_address', 
+        'order_amount', 'customer_email', 'shipping_address',
         'billing_address', 'payment_method', 'customer_order_count', 'customer_account_age'
       ],
-      'output_variables' => ['risk_score', 'risk_factors', 'recommendation', 'confidence_level'],
+      'output_variables' => [ 'risk_score', 'risk_factors', 'recommendation', 'confidence_level' ],
       'temperature' => 0.1,
       'max_tokens' => 400
     },
@@ -1583,13 +1583,13 @@ unless ecommerce_workflow
     description: 'Human review for medium-risk orders',
     position: { 'x' => 750, 'y' => 250 },
     configuration: {
-      'approvers' => ['fraud_analyst', 'risk_manager'],
+      'approvers' => [ 'fraud_analyst', 'risk_manager' ],
       'approval_type' => 'order_review',
       'assignee_role' => 'fraud_analyst',
       'timeout_minutes' => 240, # 4 hours
       'escalation_timeout' => 480, # 8 hours
       'context_data' => [
-        'order_id', 'customer_email', 'order_amount', 'risk_score', 
+        'order_id', 'customer_email', 'order_amount', 'risk_score',
         'risk_factors', 'availability_status'
       ],
       'approval_options' => [
@@ -1690,10 +1690,10 @@ unless ecommerce_workflow
       'agent_id' => blog_generator_agent.id,
       'prompt_template' => 'Generate a personalized order confirmation email for:\n\nCustomer: {{customer_email}}\nOrder ID: {{order_id}}\nItems: {{order_items}}\nTotal: ${{order_amount}}\nShipping: {{shipping_method}}\nEstimated delivery: {{estimated_delivery}}\n\nInclude:\n1. Warm, professional greeting\n2. Order summary with item details\n3. Payment confirmation\n4. Shipping information\n5. Tracking information (when available)\n6. Customer service contact info\n7. Thank you message',
       'input_variables' => [
-        'customer_email', 'order_id', 'order_items', 'order_amount', 
+        'customer_email', 'order_id', 'order_items', 'order_amount',
         'shipping_method', 'estimated_delivery'
       ],
-      'output_variables' => ['confirmation_email', 'email_subject', 'personalization_score'],
+      'output_variables' => [ 'confirmation_email', 'email_subject', 'personalization_score' ],
       'temperature' => 0.7,
       'max_tokens' => 600
     },
@@ -1775,7 +1775,7 @@ marketing_workflow = admin_account.ai_workflows.find_by(name: 'Marketing Campaig
 
 unless marketing_workflow
   puts "📈 Creating Marketing Campaign Optimizer Workflow..."
-  
+
   marketing_workflow = admin_account.ai_workflows.create!(
     name: 'Marketing Campaign Optimizer',
     description: 'Automated marketing campaign analysis and optimization with A/B testing and performance tracking',
@@ -1803,8 +1803,8 @@ unless marketing_workflow
       'request_body' => {
         'campaign_ids' => '{{campaign_ids}}',
         'date_range' => '{{analysis_period}}',
-        'metrics' => ['impressions', 'clicks', 'conversions', 'cost', 'revenue'],
-        'dimensions' => ['source', 'medium', 'audience', 'creative']
+        'metrics' => [ 'impressions', 'clicks', 'conversions', 'cost', 'revenue' ],
+        'dimensions' => [ 'source', 'medium', 'audience', 'creative' ]
       },
       'response_mapping' => {
         'campaign_data' => 'data.campaigns',
@@ -1824,7 +1824,7 @@ unless marketing_workflow
     configuration: {
       'agent_id' => data_analyzer_agent.id,
       'prompt_template' => 'Analyze this marketing campaign performance data:\n\n{{campaign_data}}\n\nBenchmarks: {{benchmark_data}}\nHistorical trends: {{historical_trends}}\n\nProvide analysis for:\n1. Top performing campaigns (CTR, conversion rate, ROAS)\n2. Underperforming campaigns\n3. Key performance trends\n4. Seasonal patterns\n5. Audience segment performance\n6. Creative performance comparison',
-      'output_variables' => ['top_performers', 'underperformers', 'key_trends', 'performance_summary']
+      'output_variables' => [ 'top_performers', 'underperformers', 'key_trends', 'performance_summary' ]
     }
   )
 
@@ -1838,7 +1838,7 @@ unless marketing_workflow
     configuration: {
       'agent_id' => data_analyzer_agent.id,
       'prompt_template' => 'Analyze these A/B test results:\n\n{{campaign_data}}\n\nFor each test:\n1. Statistical significance (confidence level)\n2. Winning variant identification\n3. Performance lift calculation\n4. Sample size adequacy\n5. Recommendation (continue/stop/expand winner)',
-      'output_variables' => ['test_results', 'winning_variants', 'statistical_confidence', 'test_recommendations']
+      'output_variables' => [ 'test_results', 'winning_variants', 'statistical_confidence', 'test_recommendations' ]
     }
   )
 
@@ -1852,7 +1852,7 @@ unless marketing_workflow
     configuration: {
       'agent_id' => data_analyzer_agent.id,
       'prompt_template' => 'Based on this analysis:\n\nPerformance: {{performance_summary}}\nA/B Tests: {{test_results}}\nTrends: {{key_trends}}\n\nGenerate optimization recommendations:\n1. Budget reallocation suggestions\n2. Audience targeting adjustments\n3. Creative optimization ideas\n4. Bidding strategy changes\n5. New test proposals\n6. Campaign scaling opportunities\n7. Priority ranking (High/Medium/Low)',
-      'output_variables' => ['budget_recommendations', 'targeting_adjustments', 'creative_suggestions', 'scaling_opportunities', 'priority_actions']
+      'output_variables' => [ 'budget_recommendations', 'targeting_adjustments', 'creative_suggestions', 'scaling_opportunities', 'priority_actions' ]
     }
   )
 
@@ -1911,11 +1911,11 @@ unless marketing_workflow
     description: 'Get approval for high-impact changes',
     position: { 'x' => 900, 'y' => 400 },
     configuration: {
-      'approvers' => ['marketing_manager', 'marketing_director'],
+      'approvers' => [ 'marketing_manager', 'marketing_director' ],
       'assignee_role' => 'marketing_manager',
       'timeout_minutes' => 120,
       'context_data' => [
-        'budget_recommendations', 'targeting_adjustments', 
+        'budget_recommendations', 'targeting_adjustments',
         'performance_summary', 'priority_actions'
       ]
     }
@@ -1931,11 +1931,11 @@ unless marketing_workflow
     configuration: {
       'agent_id' => blog_generator_agent.id,
       'prompt_template' => 'Create a marketing performance report:\n\nAnalysis Period: {{analysis_period}}\nCampaigns: {{campaign_ids}}\nKey Results: {{performance_summary}}\nOptimizations: {{priority_actions}}\nA/B Tests: {{test_results}}\n\nGenerate executive summary with:\n1. Key performance highlights\n2. Top insights and findings\n3. Optimization recommendations implemented\n4. Expected impact projections\n5. Next steps and future tests',
-      'output_variables' => ['executive_report', 'key_metrics_summary', 'action_items']
+      'output_variables' => [ 'executive_report', 'key_metrics_summary', 'action_items' ]
     }
   )
 
-  # Create edges for marketing workflow  
+  # Create edges for marketing workflow
   marketing_workflow.edges.create!([
     {
       edge_id: 'ingestion_to_performance',
@@ -1944,7 +1944,7 @@ unless marketing_workflow
     },
     {
       edge_id: 'ingestion_to_ab',
-      source_node_id: 'data_ingestion', 
+      source_node_id: 'data_ingestion',
       target_node_id: 'ab_test_analysis'
     },
     {
@@ -1997,7 +1997,7 @@ puts "\n🚀 Creating Sample Workflow Runs..."
 # Create a completed blog generation run
 unless blog_workflow.ai_workflow_runs.exists?(status: 'completed')
   puts "📝 Creating sample blog generation run..."
-  
+
   blog_run = blog_workflow.ai_workflow_runs.create!(
     account: admin_account,
     run_id: "run_#{SecureRandom.hex(8)}",
@@ -2012,7 +2012,7 @@ unless blog_workflow.ai_workflow_runs.exists?(status: 'completed')
     output_variables: {
       'generated_content' => '# Introduction to AI Workflows\n\nAI workflows are revolutionizing how we approach automation...',
       'word_count' => 1187,
-      'seo_keywords' => ['AI workflows', 'automation', 'artificial intelligence'],
+      'seo_keywords' => [ 'AI workflows', 'automation', 'artificial intelligence' ],
       'reading_time' => '5 minutes'
     },
     duration_ms: 45000,
@@ -2029,7 +2029,7 @@ unless blog_workflow.ai_workflow_runs.exists?(status: 'completed')
       'generation_quality' => 'high'
     }
   )
-  
+
   # Create node executions for the blog run
   blog_workflow.ai_workflow_nodes.each_with_index do |node, index|
     blog_run.ai_workflow_node_executions.create!(
@@ -2056,7 +2056,7 @@ end
 # Create a running data analysis run
 unless data_analysis_workflow.ai_workflow_runs.exists?(status: 'running')
   puts "📊 Creating sample data analysis run..."
-  
+
   analysis_run = data_analysis_workflow.ai_workflow_runs.create!(
     account: admin_account,
     run_id: "run_#{SecureRandom.hex(8)}",
@@ -2079,11 +2079,11 @@ unless data_analysis_workflow.ai_workflow_runs.exists?(status: 'running')
       'estimated_completion' => 15.minutes.from_now
     }
   )
-  
+
   # Create some completed and running node executions
   data_analysis_workflow.ai_workflow_nodes.limit(2).each_with_index do |node, index|
     status = index == 0 ? 'completed' : 'running'
-    
+
     analysis_run.ai_workflow_node_executions.create!(
       ai_workflow_node: node,
       execution_id: "exec_#{SecureRandom.hex(6)}",
@@ -2093,7 +2093,7 @@ unless data_analysis_workflow.ai_workflow_runs.exists?(status: 'running')
       input_data: index == 0 ? analysis_run.input_variables : {},
       output_data: status == 'completed' ? {
         'data_processed' => 15000,
-        'preliminary_insights' => ['User engagement increased 23%', 'Peak activity at 2-4 PM']
+        'preliminary_insights' => [ 'User engagement increased 23%', 'Peak activity at 2-4 PM' ]
       } : {},
       configuration_snapshot: node.configuration,
       duration_ms: status == 'completed' ? 25000 : nil,
@@ -2110,7 +2110,7 @@ puts "\n📦 Creating Template Installations..."
 # Install blog template for admin account
 unless admin_account.ai_workflow_template_installations.exists?(ai_workflow_template: blog_workflow_template)
   puts "💾 Installing blog template..."
-  
+
   admin_account.ai_workflow_template_installations.create!(
     ai_workflow_template: blog_workflow_template,
     ai_workflow: blog_workflow,

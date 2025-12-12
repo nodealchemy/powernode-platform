@@ -5,17 +5,17 @@ class Api::V1::McpToolsController < ApplicationController
 
   before_action :authenticate_request
   before_action :set_mcp_server
-  before_action :require_read_permission, only: [:index, :show, :stats]
-  before_action :require_execute_permission, only: [:execute]
-  before_action :set_mcp_tool, only: [:show, :execute, :stats]
+  before_action :require_read_permission, only: [ :index, :show, :stats ]
+  before_action :require_execute_permission, only: [ :execute ]
+  before_action :set_mcp_tool, only: [ :show, :execute, :stats ]
 
   # GET /api/v1/mcp_servers/:mcp_server_id/mcp_tools
   def index
     tools = @mcp_server.mcp_tools.order(name: :asc)
 
     # Filter by enabled status
-    tools = tools.where(enabled: true) if params[:enabled] == 'true'
-    tools = tools.where(enabled: false) if params[:enabled] == 'false'
+    tools = tools.where(enabled: true) if params[:enabled] == "true"
+    tools = tools.where(enabled: false) if params[:enabled] == "false"
 
     render_success({
       mcp_tools: tools.map { |tool| serialize_mcp_tool(tool) },
@@ -31,10 +31,10 @@ class Api::V1::McpToolsController < ApplicationController
       }
     })
 
-    log_audit_event('mcp.tools.read', @mcp_server)
+    log_audit_event("mcp.tools.read", @mcp_server)
   rescue => e
     Rails.logger.error "Failed to list MCP tools: #{e.message}"
-    render_error('Failed to list MCP tools', status: :internal_server_error)
+    render_error("Failed to list MCP tools", status: :internal_server_error)
   end
 
   # GET /api/v1/mcp_servers/:mcp_server_id/mcp_tools/:id
@@ -48,20 +48,20 @@ class Api::V1::McpToolsController < ApplicationController
       }
     })
 
-    log_audit_event('mcp.tools.read', @mcp_tool)
+    log_audit_event("mcp.tools.read", @mcp_tool)
   rescue => e
     Rails.logger.error "Failed to get MCP tool: #{e.message}"
-    render_error('Failed to get MCP tool', status: :internal_server_error)
+    render_error("Failed to get MCP tool", status: :internal_server_error)
   end
 
   # POST /api/v1/mcp_servers/:mcp_server_id/mcp_tools/:id/execute
   def execute
     unless @mcp_tool.enabled
-      return render_error('Tool is disabled', status: :unprocessable_content)
+      return render_error("Tool is disabled", status: :unprocessable_content)
     end
 
-    unless @mcp_server.status == 'connected'
-      return render_error('MCP server is not connected', status: :unprocessable_content)
+    unless @mcp_server.status == "connected"
+      return render_error("MCP server is not connected", status: :unprocessable_content)
     end
 
     parameters = params[:parameters] || {}
@@ -89,10 +89,10 @@ class Api::V1::McpToolsController < ApplicationController
           id: @mcp_server.id,
           name: @mcp_server.name
         },
-        message: 'Tool execution started'
+        message: "Tool execution started"
       }, status: :accepted)
 
-      log_audit_event('mcp.tools.execute', @mcp_tool, execution_id: execution.id)
+      log_audit_event("mcp.tools.execute", @mcp_tool, execution_id: execution.id)
     rescue StandardError => e
       Rails.logger.error "Failed to execute MCP tool: #{e.message}"
       render_error("Failed to execute tool: #{e.message}", status: :internal_server_error)
@@ -103,15 +103,15 @@ class Api::V1::McpToolsController < ApplicationController
   def stats
     # Calculate statistics for this tool
     executions = @mcp_tool.mcp_tool_executions
-    recent_executions = executions.where('created_at >= ?', 30.days.ago)
+    recent_executions = executions.where("created_at >= ?", 30.days.ago)
 
-    success_count = executions.where(status: 'completed').count
-    failure_count = executions.where(status: 'failed').count
-    pending_count = executions.where(status: 'pending').count
-    running_count = executions.where(status: 'running').count
+    success_count = executions.where(status: "completed").count
+    failure_count = executions.where(status: "failed").count
+    pending_count = executions.where(status: "pending").count
+    running_count = executions.where(status: "running").count
 
     # Calculate average duration for completed executions
-    completed = executions.where(status: ['completed', 'failed']).where.not(duration_ms: nil)
+    completed = executions.where(status: [ "completed", "failed" ]).where.not(duration_ms: nil)
     avg_duration = completed.any? ? completed.average(:duration_ms)&.round(2) : 0
 
     render_success({
@@ -134,10 +134,10 @@ class Api::V1::McpToolsController < ApplicationController
       }
     })
 
-    log_audit_event('mcp.tools.read', @mcp_tool)
+    log_audit_event("mcp.tools.read", @mcp_tool)
   rescue => e
     Rails.logger.error "Failed to get MCP tool stats: #{e.message}"
-    render_error('Failed to get tool stats', status: :internal_server_error)
+    render_error("Failed to get tool stats", status: :internal_server_error)
   end
 
   private
@@ -145,24 +145,24 @@ class Api::V1::McpToolsController < ApplicationController
   def set_mcp_server
     @mcp_server = current_user.account.mcp_servers.find(params[:mcp_server_id])
   rescue ActiveRecord::RecordNotFound
-    render_error('MCP server not found', status: :not_found)
+    render_error("MCP server not found", status: :not_found)
   end
 
   def set_mcp_tool
     @mcp_tool = @mcp_server.mcp_tools.find(params[:id])
   rescue ActiveRecord::RecordNotFound
-    render_error('MCP tool not found', status: :not_found)
+    render_error("MCP tool not found", status: :not_found)
   end
 
   def require_read_permission
-    unless current_user.has_permission?('mcp.tools.read')
-      render_error('Insufficient permissions to view MCP tools', status: :forbidden)
+    unless current_user.has_permission?("mcp.tools.read")
+      render_error("Insufficient permissions to view MCP tools", status: :forbidden)
     end
   end
 
   def require_execute_permission
-    unless current_user.has_permission?('mcp.tools.execute')
-      render_error('Insufficient permissions to execute MCP tools', status: :forbidden)
+    unless current_user.has_permission?("mcp.tools.execute")
+      render_error("Insufficient permissions to execute MCP tools", status: :forbidden)
     end
   end
 

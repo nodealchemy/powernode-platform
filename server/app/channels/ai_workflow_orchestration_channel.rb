@@ -13,8 +13,8 @@ class AiWorkflowOrchestrationChannel < ApplicationCable::Channel
     stream_from "ai_orchestration:account:#{current_user.account_id}"
 
     transmit({
-      type: 'subscription.confirmed',
-      channel: 'workflow_orchestration',
+      type: "subscription.confirmed",
+      channel: "workflow_orchestration",
       timestamp: Time.current.iso8601
     })
 
@@ -27,42 +27,42 @@ class AiWorkflowOrchestrationChannel < ApplicationCable::Channel
 
   # Create workflow
   def create_workflow(data)
-    return transmit_error('Missing workflow data') unless data['workflow']
+    return transmit_error("Missing workflow data") unless data["workflow"]
 
-    workflow_params = data['workflow']
-    nodes = data['nodes'] || []
-    edges = data['edges'] || []
+    workflow_params = data["workflow"]
+    nodes = data["nodes"] || []
+    edges = data["edges"] || []
 
     workflow = AiWorkflow.create!(
       account: current_user.account,
       created_by_user: current_user,
-      name: workflow_params['name'],
-      description: workflow_params['description']
+      name: workflow_params["name"],
+      description: workflow_params["description"]
     )
 
     # Create nodes
     nodes.each do |node_data|
       workflow.ai_workflow_nodes.create!(
-        node_id: node_data['node_id'],
-        node_type: node_data['node_type'],
-        name: node_data['name'],
-        position_x: node_data['position_x'],
-        position_y: node_data['position_y'],
-        configuration: node_data['configuration'] || {}
+        node_id: node_data["node_id"],
+        node_type: node_data["node_type"],
+        name: node_data["name"],
+        position_x: node_data["position_x"],
+        position_y: node_data["position_y"],
+        configuration: node_data["configuration"] || {}
       )
     end
 
     # Create edges
     edges.each do |edge_data|
       workflow.ai_workflow_edges.create!(
-        edge_id: edge_data['edge_id'],
-        source_node_id: edge_data['source_node_id'],
-        target_node_id: edge_data['target_node_id']
+        edge_id: edge_data["edge_id"],
+        source_node_id: edge_data["source_node_id"],
+        target_node_id: edge_data["target_node_id"]
       )
     end
 
     transmit({
-      type: 'workflow_created',
+      type: "workflow_created",
       workflow: serialize_workflow(workflow)
     })
 
@@ -72,16 +72,16 @@ class AiWorkflowOrchestrationChannel < ApplicationCable::Channel
 
   # Update workflow
   def update_workflow(data)
-    return transmit_error('Missing workflow_id') unless data['workflow_id']
+    return transmit_error("Missing workflow_id") unless data["workflow_id"]
 
-    workflow = AiWorkflow.find(data['workflow_id'])
-    return transmit_error('Workflow not found') unless workflow
-    return transmit_error('Unauthorized') unless workflow.account_id == current_user.account_id
+    workflow = AiWorkflow.find(data["workflow_id"])
+    return transmit_error("Workflow not found") unless workflow
+    return transmit_error("Unauthorized") unless workflow.account_id == current_user.account_id
 
-    workflow.update!(data['updates'])
+    workflow.update!(data["updates"])
 
     transmit({
-      type: 'workflow_updated',
+      type: "workflow_updated",
       workflow: serialize_workflow(workflow)
     })
 
@@ -90,7 +90,7 @@ class AiWorkflowOrchestrationChannel < ApplicationCable::Channel
       current_user.account_id,
       workflow.id,
       current_user,
-      'updated'
+      "updated"
     )
 
   rescue StandardError => e
@@ -99,19 +99,19 @@ class AiWorkflowOrchestrationChannel < ApplicationCable::Channel
 
   # Execute workflow
   def execute_workflow(data)
-    return transmit_error('Missing workflow_id') unless data['workflow_id']
+    return transmit_error("Missing workflow_id") unless data["workflow_id"]
 
-    workflow = AiWorkflow.find(data['workflow_id'])
-    return transmit_error('Workflow not found') unless workflow
-    return transmit_error('Unauthorized') unless workflow.account_id == current_user.account_id
+    workflow = AiWorkflow.find(data["workflow_id"])
+    return transmit_error("Workflow not found") unless workflow
+    return transmit_error("Unauthorized") unless workflow.account_id == current_user.account_id
 
     workflow_run = workflow.execute(
-      input_variables: data['input_variables'] || {},
+      input_variables: data["input_variables"] || {},
       user: current_user
     )
 
     transmit({
-      type: 'workflow_execution_started',
+      type: "workflow_execution_started",
       workflow_run: serialize_workflow_run(workflow_run)
     })
 
@@ -125,7 +125,7 @@ class AiWorkflowOrchestrationChannel < ApplicationCable::Channel
       ActionCable.server.broadcast(
         "ai_orchestration:account:#{account_id}",
         {
-          type: 'workflow_locked',
+          type: "workflow_locked",
           workflow_id: workflow_id,
           locked_by: {
             id: user.id,
@@ -141,7 +141,7 @@ class AiWorkflowOrchestrationChannel < ApplicationCable::Channel
       ActionCable.server.broadcast(
         "ai_orchestration:account:#{account_id}",
         {
-          type: 'workflow_unlocked',
+          type: "workflow_unlocked",
           workflow_id: workflow_id,
           unlocked_by: {
             id: user.id,
@@ -157,7 +157,7 @@ class AiWorkflowOrchestrationChannel < ApplicationCable::Channel
       ActionCable.server.broadcast(
         "ai_orchestration:account:#{account_id}",
         {
-          type: 'workflow_collaborative_update',
+          type: "workflow_collaborative_update",
           workflow_id: workflow_id,
           updated_by: {
             id: user.id,
@@ -196,7 +196,7 @@ class AiWorkflowOrchestrationChannel < ApplicationCable::Channel
 
   def transmit_error(message)
     transmit({
-      type: 'error',
+      type: "error",
       error: message,
       timestamp: Time.current.iso8601
     })

@@ -27,7 +27,7 @@ class AlignWorkflowNodeMappings < ActiveRecord::Migration[8.0]
           'data' => 'response'
         }.merge(updated_config['output_mapping'])
 
-        updated_config['context_variables'] ||= ['input', 'context', 'data']
+        updated_config['context_variables'] ||= [ 'input', 'context', 'data' ]
 
       when 'api_call'
         # Ensure proper body and response mapping

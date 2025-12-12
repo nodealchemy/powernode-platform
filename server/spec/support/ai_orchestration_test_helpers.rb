@@ -114,11 +114,11 @@ module AiOrchestrationTestHelpers
   # @return [AiWorkflowRun] The created workflow run
   def create_workflow_run_with_status(workflow, status: 'initializing', input: {})
     trait = case status
-            when 'running' then :running
-            when 'completed' then :completed
-            when 'failed' then :failed
-            else nil
-            end
+    when 'running' then :running
+    when 'completed' then :completed
+    when 'failed' then :failed
+    else nil
+    end
 
     if trait
       create(:ai_workflow_run, trait, ai_workflow: workflow, account: workflow.account)
@@ -267,11 +267,11 @@ module AiOrchestrationTestHelpers
   # @return [AiWorkflowNodeExecution] The created node execution
   def create_node_execution(workflow_run, node, status: 'pending')
     trait = case status
-            when 'running' then :running
-            when 'completed' then :completed
-            when 'failed' then :failed
-            else nil
-            end
+    when 'running' then :running
+    when 'completed' then :completed
+    when 'failed' then :failed
+    else nil
+    end
 
     if trait
       create(:ai_workflow_node_execution, trait,

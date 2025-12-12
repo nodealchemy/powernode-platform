@@ -27,11 +27,11 @@ RSpec.describe 'File Permission-Based Access Integration', type: :integration do
   end
 
   let(:uploader_user) do
-    create(:user, account: account, permissions: ['files.upload', 'files.read'])
+    create(:user, account: account, permissions: [ 'files.upload', 'files.read' ])
   end
 
   let(:read_only_user) do
-    create(:user, account: account, permissions: ['files.read'])
+    create(:user, account: account, permissions: [ 'files.read' ])
   end
 
   let(:no_access_user) do
@@ -135,7 +135,7 @@ RSpec.describe 'File Permission-Based Access Integration', type: :integration do
         category: 'user_upload',
         visibility: 'private',
         access_permissions: {
-          'allowed_user_ids' => [admin_user.id]
+          'allowed_user_ids' => [ admin_user.id ]
         }
       )
 
@@ -189,7 +189,7 @@ RSpec.describe 'File Permission-Based Access Integration', type: :integration do
       expect(uploader_user.permission_names).not_to include('files.delete')
 
       # Create uploader with delete permission
-      owner_with_delete = create(:user, account: account, permissions: ['files.upload', 'files.read', 'files.delete'])
+      owner_with_delete = create(:user, account: account, permissions: [ 'files.upload', 'files.read', 'files.delete' ])
 
       owner_file = FileObject.create!(
         account: account,
@@ -336,7 +336,7 @@ RSpec.describe 'File Permission-Based Access Integration', type: :integration do
 
   describe 'Cross-Account Isolation' do
     let(:other_account) { create(:account) }
-    let(:other_user) { create(:user, account: other_account, permissions: ['files.read', 'files.upload', 'files.manage']) }
+    let(:other_user) { create(:user, account: other_account, permissions: [ 'files.read', 'files.upload', 'files.manage' ]) }
     let(:other_storage) do
       FileStorage.create!(
         account: other_account,
@@ -400,7 +400,7 @@ RSpec.describe 'File Permission-Based Access Integration', type: :integration do
         category: 'user_upload',
         visibility: 'private',
         access_permissions: {
-          'allowed_user_ids' => [uploader_user.id]
+          'allowed_user_ids' => [ uploader_user.id ]
         }
       )
 

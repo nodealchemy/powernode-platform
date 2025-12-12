@@ -33,7 +33,7 @@ RSpec.describe PaypalWebhookVerifier do
         event_body: webhook_payload,
         headers: webhook_headers
       )
-      
+
       expect(verifier.webhook_id).to eq(webhook_id)
       expect(verifier.headers).to eq(webhook_headers)
       expect(verifier.event_body).to eq(webhook_payload)
@@ -60,7 +60,7 @@ RSpec.describe PaypalWebhookVerifier do
 
     context 'with missing webhook_id' do
       let(:webhook_id) { nil }
-      
+
       it 'returns false for missing webhook_id' do
         result = verifier.verify_signature
         expect(result).to be_falsy
@@ -69,7 +69,7 @@ RSpec.describe PaypalWebhookVerifier do
 
     context 'with missing event_body' do
       let(:webhook_payload) { nil }
-      
+
       it 'returns false for missing event_body' do
         result = verifier.verify_signature
         expect(result).to be_falsy
@@ -133,7 +133,7 @@ RSpec.describe PaypalWebhookVerifier do
           event_body: webhook_payload,
           headers: incomplete_headers
         )
-        
+
         expect {
           incomplete_verifier.verify_signature
         }.not_to raise_error
@@ -149,7 +149,7 @@ RSpec.describe PaypalWebhookVerifier do
           event_body: invalid_payload,
           headers: webhook_headers
         )
-        
+
         expect {
           invalid_verifier.verify_signature
         }.not_to raise_error
@@ -163,7 +163,7 @@ RSpec.describe PaypalWebhookVerifier do
           event_body: webhook_payload,
           headers: webhook_headers
         )
-        
+
         expect {
           nil_verifier.verify_signature
         }.not_to raise_error

@@ -27,8 +27,8 @@ class CreateAiAgentMessages < ActiveRecord::Migration[8.0]
     add_index :ai_agent_messages, :message_type
     add_index :ai_agent_messages, :status
     add_index :ai_agent_messages, :in_reply_to_message_id
-    add_index :ai_agent_messages, [:ai_workflow_run_id, :sequence_number], name: 'index_agent_messages_on_run_and_sequence'
-    add_index :ai_agent_messages, [:from_agent_id, :to_agent_id], name: 'index_agent_messages_on_sender_receiver'
+    add_index :ai_agent_messages, [ :ai_workflow_run_id, :sequence_number ], name: 'index_agent_messages_on_run_and_sequence'
+    add_index :ai_agent_messages, [ :from_agent_id, :to_agent_id ], name: 'index_agent_messages_on_sender_receiver'
 
     add_foreign_key :ai_agent_messages, :ai_workflow_runs, on_delete: :cascade
   end

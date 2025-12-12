@@ -68,7 +68,7 @@ test_input = {
   'target_audience' => 'software developers and tech professionals',
   'tone' => 'professional and informative',
   'word_count' => 1500,
-  'keywords' => ['artificial intelligence', 'software development', 'automation', 'machine learning']
+  'keywords' => [ 'artificial intelligence', 'software development', 'automation', 'machine learning' ]
 }
 
 puts '📝 TEST INPUT'
@@ -164,11 +164,11 @@ begin
     workflow_run.ai_workflow_node_executions.order(:created_at).each do |node_exec|
       node = workflow.ai_workflow_nodes.find_by(id: node_exec.ai_workflow_node_id)
       status_icon = case node_exec.status
-                    when 'completed' then '✅'
-                    when 'failed' then '❌'
-                    when 'running' then '▶️'
-                    else '⏸️'
-                    end
+      when 'completed' then '✅'
+      when 'failed' then '❌'
+      when 'running' then '▶️'
+      else '⏸️'
+      end
 
       puts "  #{status_icon} #{node.name} (#{node_exec.status})"
 

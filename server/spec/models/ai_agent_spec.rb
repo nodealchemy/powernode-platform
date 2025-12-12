@@ -52,7 +52,7 @@ RSpec.describe AiAgent, type: :model do
       end
 
       it 'validates mcp_capabilities as array' do
-        agent = build(:ai_agent, mcp_capabilities: ['text_generation'])
+        agent = build(:ai_agent, mcp_capabilities: [ 'text_generation' ])
         expect(agent).to be_valid
       end
 
@@ -302,7 +302,7 @@ RSpec.describe AiAgent, type: :model do
           name: 'Code Assistant',
           agent_type: 'code_assistant',
           description: 'Helps with coding tasks',
-          mcp_capabilities: ['code_generation', 'code_review'],
+          mcp_capabilities: [ 'code_generation', 'code_review' ],
           mcp_tool_manifest: {
             'name' => 'code_assistant_tool',
             'description' => 'Code assistance tool',

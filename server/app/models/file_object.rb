@@ -9,24 +9,24 @@ class FileObject < ApplicationRecord
   # Associations
   belongs_to :account
   belongs_to :file_storage
-  belongs_to :uploaded_by, class_name: 'User', foreign_key: 'uploaded_by_id'
-  belongs_to :deleted_by, class_name: 'User', foreign_key: 'deleted_by_id', optional: true
-  belongs_to :parent_file, class_name: 'FileObject', foreign_key: 'parent_file_id', optional: true
+  belongs_to :uploaded_by, class_name: "User", foreign_key: "uploaded_by_id"
+  belongs_to :deleted_by, class_name: "User", foreign_key: "deleted_by_id", optional: true
+  belongs_to :parent_file, class_name: "FileObject", foreign_key: "parent_file_id", optional: true
 
   # Polymorphic attachment
   belongs_to :attachable, polymorphic: true, optional: true
 
   # Version tracking
   has_many :file_versions, dependent: :destroy
-  has_many :child_versions, class_name: 'FileObject', foreign_key: 'parent_file_id', dependent: :nullify
+  has_many :child_versions, class_name: "FileObject", foreign_key: "parent_file_id", dependent: :nullify
 
   # Sharing
   has_many :file_shares, dependent: :destroy
-  has_many :active_shares, -> { where(status: 'active').where('expires_at IS NULL OR expires_at > ?', Time.current) }, class_name: 'FileShare'
+  has_many :active_shares, -> { where(status: "active").where("expires_at IS NULL OR expires_at > ?", Time.current) }, class_name: "FileShare"
 
   # Processing
   has_many :file_processing_jobs, dependent: :destroy
-  has_many :pending_jobs, -> { where(status: 'pending') }, class_name: 'FileProcessingJob'
+  has_many :pending_jobs, -> { where(status: "pending") }, class_name: "FileProcessingJob"
 
   # Tags
   has_many :file_object_tags, dependent: :destroy
@@ -70,21 +70,21 @@ class FileObject < ApplicationRecord
   scope :by_type, ->(type) { where(file_type: type) }
   scope :by_category, ->(category) { where(category: category) }
   scope :by_visibility, ->(visibility) { where(visibility: visibility) }
-  scope :public_files, -> { where(visibility: 'public') }
-  scope :private_files, -> { where(visibility: 'private') }
-  scope :shared_files, -> { where(visibility: 'shared') }
-  scope :images, -> { where(file_type: 'image') }
-  scope :documents, -> { where(file_type: 'document') }
-  scope :videos, -> { where(file_type: 'video') }
-  scope :audio_files, -> { where(file_type: 'audio') }
-  scope :archives, -> { where(file_type: 'archive') }
+  scope :public_files, -> { where(visibility: "public") }
+  scope :private_files, -> { where(visibility: "private") }
+  scope :shared_files, -> { where(visibility: "shared") }
+  scope :images, -> { where(file_type: "image") }
+  scope :documents, -> { where(file_type: "document") }
+  scope :videos, -> { where(file_type: "video") }
+  scope :audio_files, -> { where(file_type: "audio") }
+  scope :archives, -> { where(file_type: "archive") }
   scope :uploaded_by_user, ->(user_id) { where(uploaded_by_id: user_id) }
   scope :attached_to, ->(attachable_type, attachable_id) { where(attachable_type: attachable_type, attachable_id: attachable_id) }
-  scope :processing_completed, -> { where(processing_status: 'completed') }
-  scope :processing_failed, -> { where(processing_status: 'failed') }
-  scope :pending_processing, -> { where(processing_status: 'pending') }
-  scope :not_expired, -> { where('expires_at IS NULL OR expires_at > ?', Time.current) }
-  scope :expired, -> { where.not(expires_at: nil).where('expires_at <= ?', Time.current) }
+  scope :processing_completed, -> { where(processing_status: "completed") }
+  scope :processing_failed, -> { where(processing_status: "failed") }
+  scope :pending_processing, -> { where(processing_status: "pending") }
+  scope :not_expired, -> { where("expires_at IS NULL OR expires_at > ?", Time.current) }
+  scope :expired, -> { where.not(expires_at: nil).where("expires_at <= ?", Time.current) }
   scope :recent, -> { order(created_at: :desc) }
   scope :oldest, -> { order(created_at: :asc) }
   scope :largest_first, -> { order(file_size: :desc) }
@@ -108,7 +108,7 @@ class FileObject < ApplicationRecord
     update!(
       deleted_at: Time.current,
       deleted_by: deleted_by_user,
-      metadata: metadata.merge('deleted_reason' => 'user_action')
+      metadata: metadata.merge("deleted_reason" => "user_action")
     )
   end
 
@@ -122,106 +122,106 @@ class FileObject < ApplicationRecord
 
   # File type detection
   def image?
-    file_type == 'image' || content_type.start_with?('image/')
+    file_type == "image" || content_type.start_with?("image/")
   end
 
   def document?
-    file_type == 'document'
+    file_type == "document"
   end
 
   def video?
-    file_type == 'video' || content_type.start_with?('video/')
+    file_type == "video" || content_type.start_with?("video/")
   end
 
   def audio?
-    file_type == 'audio' || content_type.start_with?('audio/')
+    file_type == "audio" || content_type.start_with?("audio/")
   end
 
   def archive?
-    file_type == 'archive'
+    file_type == "archive"
   end
 
   # Visibility methods
   def public?
-    visibility == 'public'
+    visibility == "public"
   end
 
   def private?
-    visibility == 'private'
+    visibility == "private"
   end
 
   def shared?
-    visibility == 'shared'
+    visibility == "shared"
   end
 
   def internal?
-    visibility == 'internal'
+    visibility == "internal"
   end
 
   # Processing status
   def processing_pending?
-    processing_status == 'pending'
+    processing_status == "pending"
   end
 
   def processing?
-    processing_status == 'processing'
+    processing_status == "processing"
   end
 
   def processing_completed?
-    processing_status == 'completed'
+    processing_status == "completed"
   end
 
   def processing_failed?
-    processing_status == 'failed'
+    processing_status == "failed"
   end
 
   # Category methods
   def user_upload?
-    category == 'user_upload'
+    category == "user_upload"
   end
 
   def workflow_output?
-    category == 'workflow_output'
+    category == "workflow_output"
   end
 
   def ai_generated?
-    category == 'ai_generated'
+    category == "ai_generated"
   end
 
   def temp_file?
-    category == 'temp'
+    category == "temp"
   end
 
   # Access control
   def viewable_by?(user)
     return true if public?
     return true if uploaded_by_id == user.id
-    return true if user.has_permission?('files.view_all')
+    return true if user.has_permission?("files.view_all")
 
     # Check permissions in access_permissions
-    access_permissions.dig('viewers', user.id.to_s) == true
+    access_permissions.dig("viewers", user.id.to_s) == true
   end
 
   def downloadable_by?(user)
     return true if public?
     return true if uploaded_by_id == user.id
-    return true if user.has_permission?('files.download_all')
+    return true if user.has_permission?("files.download_all")
 
-    access_permissions.dig('downloaders', user.id.to_s) == true
+    access_permissions.dig("downloaders", user.id.to_s) == true
   end
 
   def editable_by?(user)
     return true if uploaded_by_id == user.id
-    return true if user.has_permission?('files.edit_all')
+    return true if user.has_permission?("files.edit_all")
 
-    access_permissions.dig('editors', user.id.to_s) == true
+    access_permissions.dig("editors", user.id.to_s) == true
   end
 
   def deletable_by?(user)
     return true if uploaded_by_id == user.id
-    return true if user.has_permission?('files.delete_all')
+    return true if user.has_permission?("files.delete_all")
 
-    access_permissions.dig('deleters', user.id.to_s) == true
+    access_permissions.dig("deleters", user.id.to_s) == true
   end
 
   # Grant access
@@ -253,7 +253,7 @@ class FileObject < ApplicationRecord
     file_storage.storage_provider.download_url(self, expires_in: expires_in)
   end
 
-  def signed_url(expires_in: 1.hour, disposition: 'inline')
+  def signed_url(expires_in: 1.hour, disposition: "inline")
     file_storage.storage_provider.signed_url(self, expires_in: expires_in, disposition: disposition)
   end
 
@@ -283,7 +283,7 @@ class FileObject < ApplicationRecord
       version: version + 1,
       parent_file: self,
       is_latest_version: true,
-      metadata: metadata.merge('change_description' => change_description)
+      metadata: metadata.merge("change_description" => change_description)
     )
 
     # Mark this version as not latest
@@ -320,21 +320,21 @@ class FileObject < ApplicationRecord
       file_size: target_version.file_size,
       checksum_sha256: target_version.checksum_sha256,
       version: version + 1,
-      metadata: metadata.merge('reverted_from_version' => version_number)
+      metadata: metadata.merge("reverted_from_version" => version_number)
     )
   end
 
   # Metadata and dimensions
   def width
-    dimensions['width']
+    dimensions["width"]
   end
 
   def height
-    dimensions['height']
+    dimensions["height"]
   end
 
   def duration
-    dimensions['duration']  # For video/audio
+    dimensions["duration"]  # For video/audio
   end
 
   def aspect_ratio
@@ -345,18 +345,18 @@ class FileObject < ApplicationRecord
 
   # File size formatting
   def human_file_size
-    return '0 B' if file_size.zero?
+    return "0 B" if file_size.zero?
 
     units = %w[B KB MB GB TB]
     exp = (Math.log(file_size) / Math.log(1024)).to_i
-    exp = [exp, units.size - 1].min
+    exp = [ exp, units.size - 1 ].min
 
-    format('%.2f %s', file_size.to_f / (1024**exp), units[exp])
+    format("%.2f %s", file_size.to_f / (1024**exp), units[exp])
   end
 
   # File extension
   def extension
-    File.extname(filename).downcase.delete('.')
+    File.extname(filename).downcase.delete(".")
   end
 
   def mime_type
@@ -384,7 +384,7 @@ class FileObject < ApplicationRecord
   end
 
   def tag_list=(names)
-    tag_names = names.is_a?(String) ? names.split(',').map(&:strip) : names
+    tag_names = names.is_a?(String) ? names.split(",").map(&:strip) : names
 
     new_tags = tag_names.map do |name|
       account.file_tags.find_or_create_by!(name: name.strip.downcase)
@@ -399,7 +399,7 @@ class FileObject < ApplicationRecord
       account: account,
       job_type: job_type,
       job_parameters: parameters,
-      status: 'pending'
+      status: "pending"
     )
 
     # Queue job via worker API
@@ -410,29 +410,29 @@ class FileObject < ApplicationRecord
     rescue WorkerApiClient::ApiError => e
       Rails.logger.error "[FileObject] Failed to queue job: #{e.message}"
       # Mark job as failed
-      job.update(status: 'failed', error_details: { error: e.message })
+      job.update(status: "failed", error_details: { error: e.message })
     end
 
     job
   end
 
   def mark_processing!
-    update!(processing_status: 'processing')
+    update!(processing_status: "processing")
   end
 
   def mark_processing_completed!(result_data = {})
     update!(
-      processing_status: 'completed',
+      processing_status: "completed",
       processing_metadata: processing_metadata.merge(result_data)
     )
   end
 
   def mark_processing_failed!(error_message)
     update!(
-      processing_status: 'failed',
+      processing_status: "failed",
       processing_metadata: processing_metadata.merge(
-        'error' => error_message,
-        'failed_at' => Time.current.iso8601
+        "error" => error_message,
+        "failed_at" => Time.current.iso8601
       )
     )
   end
@@ -452,7 +452,7 @@ class FileObject < ApplicationRecord
     return nil unless shared? || public?
 
     # Generate public share URL based on active share
-    active_share = active_shares.where(share_type: 'public_link').first
+    active_share = active_shares.where(share_type: "public_link").first
     return nil unless active_share
 
     "#{Rails.application.config.base_url}/shared/#{active_share.share_token}"
@@ -495,11 +495,11 @@ class FileObject < ApplicationRecord
   private
 
   def set_defaults
-    self.visibility ||= 'private'
-    self.category ||= 'user_upload'
+    self.visibility ||= "private"
+    self.category ||= "user_upload"
     self.version ||= 1
     self.is_latest_version = true if is_latest_version.nil?
-    self.processing_status ||= 'pending'
+    self.processing_status ||= "pending"
     self.download_count ||= 0
     self.access_permissions ||= {}
     self.processing_metadata ||= {}
@@ -512,31 +512,31 @@ class FileObject < ApplicationRecord
     return if file_type.present?
 
     self.file_type = case content_type
-                     when /^image\//
-                       'image'
-                     when /^video\//
-                       'video'
-                     when /^audio\//
-                       'audio'
-                     when 'application/pdf', /word/, /excel/, /powerpoint/, /text\//
-                       'document'
-                     when /zip|tar|gz|rar|7z/
-                       'archive'
-                     when /json|xml|javascript|x-ruby|x-python/
-                       'code'
-                     when /csv|sql/
-                       'data'
-                     else
-                       'other'
-                     end
+    when /^image\//
+                       "image"
+    when /^video\//
+                       "video"
+    when /^audio\//
+                       "audio"
+    when "application/pdf", /word/, /excel/, /powerpoint/, /text\//
+                       "document"
+    when /zip|tar|gz|rar|7z/
+                       "archive"
+    when /json|xml|javascript|x-ruby|x-python/
+                       "code"
+    when /csv|sql/
+                       "data"
+    else
+                       "other"
+    end
   end
 
   def generate_storage_key
     return if storage_key.present?
 
-    timestamp = Time.current.strftime('%Y%m%d_%H%M%S')
+    timestamp = Time.current.strftime("%Y%m%d_%H%M%S")
     random = SecureRandom.hex(8)
-    safe_filename = filename.gsub(/[^0-9A-Za-z.\-]/, '_')
+    safe_filename = filename.gsub(/[^0-9A-Za-z.\-]/, "_")
 
     self.storage_key = "#{category}/#{timestamp}_#{random}_#{safe_filename}"
   end
@@ -552,7 +552,7 @@ class FileObject < ApplicationRecord
     return unless file_storage && file_size
 
     unless file_storage.has_space_for?(file_size)
-      errors.add(:base, 'Storage quota exceeded')
+      errors.add(:base, "Storage quota exceeded")
     end
   end
 
@@ -577,17 +577,17 @@ class FileObject < ApplicationRecord
 
     # Queue automatic processing based on file type
     if image?
-      queue_processing_job('thumbnail', { sizes: ['small', 'medium', 'large'] })
-      queue_processing_job('metadata_extract')
+      queue_processing_job("thumbnail", { sizes: [ "small", "medium", "large" ] })
+      queue_processing_job("metadata_extract")
     elsif document?
-      queue_processing_job('metadata_extract')
+      queue_processing_job("metadata_extract")
     elsif video?
-      queue_processing_job('video_processing')
+      queue_processing_job("video_processing")
     elsif audio?
-      queue_processing_job('audio_processing')
+      queue_processing_job("audio_processing")
     else
       # Files that don't require processing (code, archives, etc.) are immediately completed
-      update_column(:processing_status, 'completed')
+      update_column(:processing_status, "completed")
     end
   end
 
@@ -600,7 +600,7 @@ class FileObject < ApplicationRecord
   def check_if_deletable
     # Prevent deletion if file has active shares
     if active_shares.exists?
-      errors.add(:base, 'Cannot delete file with active shares')
+      errors.add(:base, "Cannot delete file with active shares")
       throw :abort
     end
   end

@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 module AiOrchestrationHelpers
-
   # Mock AI provider responses with customizable parameters
   def mock_ai_provider_response(
     content: 'AI generated response',
@@ -17,10 +16,10 @@ module AiOrchestrationHelpers
       {
         success: true,
         data: {
-          choices: [{
+          choices: [ {
             message: { content: content },
             finish_reason: 'stop'
-          }],
+          } ],
           usage: {
             prompt_tokens: prompt_tokens,
             completion_tokens: completion_tokens,
@@ -361,7 +360,7 @@ module AiOrchestrationHelpers
       date = day_offset.days.ago
 
       # Create varying load throughout the day
-      [9, 10, 11, 14, 15, 16].each do |hour| # Peak hours
+      [ 9, 10, 11, 14, 15, 16 ].each do |hour| # Peak hours
         create_list(:ai_agent_execution, rand(15..25), :completed,
           account: account,
           created_at: date.change(hour: hour),
@@ -371,7 +370,7 @@ module AiOrchestrationHelpers
       end
 
       # Off-peak hours
-      [8, 12, 13, 17, 18].each do |hour|
+      [ 8, 12, 13, 17, 18 ].each do |hour|
         create_list(:ai_agent_execution, rand(5..12), :completed,
           account: account,
           created_at: date.change(hour: hour),

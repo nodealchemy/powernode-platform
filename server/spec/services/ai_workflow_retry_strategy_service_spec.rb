@@ -163,7 +163,7 @@ RSpec.describe AiWorkflowRetryStrategyService do
           'retry' => {
             'enabled' => true,
             'strategy' => 'custom',
-            'custom_delays_ms' => [1000, 2000, 5000, 10_000],
+            'custom_delays_ms' => [ 1000, 2000, 5000, 10_000 ],
             'jitter' => false
           }
         })

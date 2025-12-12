@@ -4,7 +4,7 @@ class AiProviderManagementService
   # Custom exception classes
   class ValidationError < StandardError; end
   class CredentialError < StandardError; end
-  
+
   class << self
     # Get providers available for a specific account
     def get_available_providers_for_account(account)
@@ -17,11 +17,11 @@ class AiProviderManagementService
 
       begin
         case provider.slug
-        when 'ollama', 'remote-ollama-server'
+        when "ollama", "remote-ollama-server"
           sync_ollama_models(provider)
-        when 'openai'
+        when "openai"
           sync_openai_models(provider)
-        when 'anthropic'
+        when "anthropic"
           sync_anthropic_models(provider)
         else
           sync_generic_models(provider)
@@ -63,22 +63,22 @@ class AiProviderManagementService
       # If no account provided, create providers for system use
       # In a real implementation, you might want to create for all accounts
       # or have a system account. For tests, we'll create a system account.
-      account ||= Account.find_or_create_by(name: 'System Account') do |acc|
-        acc.subdomain = 'system'
-        acc.status = 'active'
+      account ||= Account.find_or_create_by(name: "System Account") do |acc|
+        acc.subdomain = "system"
+        acc.status = "active"
       end
-      
+
       created_count = 0
 
       default_providers = [
         {
-          name: 'Ollama',
-          slug: 'ollama',
-          provider_type: 'custom',
-          description: 'Local AI models with privacy-first approach',
-          api_base_url: 'http://localhost:11434',
-          api_endpoint: 'http://localhost:11434',
-          capabilities: ['text_generation', 'chat', 'code_execution'],
+          name: "Ollama",
+          slug: "ollama",
+          provider_type: "custom",
+          description: "Local AI models with privacy-first approach",
+          api_base_url: "http://localhost:11434",
+          api_endpoint: "http://localhost:11434",
+          capabilities: [ "text_generation", "chat", "code_execution" ],
           requires_auth: false,
           supports_streaming: true,
           priority_order: 1,
@@ -91,30 +91,30 @@ class AiProviderManagementService
             }
           ],
           configuration_schema: {
-            type: 'object',
+            type: "object",
             properties: {
               base_url: {
-                type: 'string',
-                description: 'Ollama server base URL',
-                default: 'http://localhost:11434'
+                type: "string",
+                description: "Ollama server base URL",
+                default: "http://localhost:11434"
               }
             }
           }
         },
         {
-          name: 'OpenAI',
-          slug: 'openai',
-          provider_type: 'openai',
-          description: 'GPT models for text generation and chat',
-          api_base_url: 'https://api.openai.com/v1',
-          api_endpoint: 'https://api.openai.com/v1',
-          capabilities: ['text_generation', 'chat', 'vision', 'function_calling'],
+          name: "OpenAI",
+          slug: "openai",
+          provider_type: "openai",
+          description: "GPT models for text generation and chat",
+          api_base_url: "https://api.openai.com/v1",
+          api_endpoint: "https://api.openai.com/v1",
+          capabilities: [ "text_generation", "chat", "vision", "function_calling" ],
           requires_auth: true,
           supports_streaming: true,
           supports_functions: true,
           supports_vision: true,
           priority_order: 2,
-          documentation_url: 'https://platform.openai.com/docs',
+          documentation_url: "https://platform.openai.com/docs",
           supported_models: [
             {
               "name" => "GPT-4",
@@ -124,34 +124,34 @@ class AiProviderManagementService
             }
           ],
           configuration_schema: {
-            type: 'object',
+            type: "object",
             properties: {
               api_key: {
-                type: 'string',
-                description: 'OpenAI API key',
+                type: "string",
+                description: "OpenAI API key",
                 required: true
               },
               organization: {
-                type: 'string',
-                description: 'OpenAI Organization ID (optional)'
+                type: "string",
+                description: "OpenAI Organization ID (optional)"
               }
             },
-            required: ['api_key']
+            required: [ "api_key" ]
           }
         },
         {
-          name: 'Anthropic',
-          slug: 'anthropic',
-          provider_type: 'anthropic',
-          description: 'Claude models for advanced reasoning',
-          api_base_url: 'https://api.anthropic.com',
-          api_endpoint: 'https://api.anthropic.com',
-          capabilities: ['text_generation', 'chat', 'vision'],
+          name: "Anthropic",
+          slug: "anthropic",
+          provider_type: "anthropic",
+          description: "Claude models for advanced reasoning",
+          api_base_url: "https://api.anthropic.com",
+          api_endpoint: "https://api.anthropic.com",
+          capabilities: [ "text_generation", "chat", "vision" ],
           requires_auth: true,
           supports_streaming: true,
           supports_vision: true,
           priority_order: 3,
-          documentation_url: 'https://docs.anthropic.com/claude/reference',
+          documentation_url: "https://docs.anthropic.com/claude/reference",
           supported_models: [
             {
               "name" => "Claude 3 Opus",
@@ -161,28 +161,28 @@ class AiProviderManagementService
             }
           ],
           configuration_schema: {
-            type: 'object',
+            type: "object",
             properties: {
               api_key: {
-                type: 'string',
-                description: 'Anthropic API key',
+                type: "string",
+                description: "Anthropic API key",
                 required: true
               }
             },
-            required: ['api_key']
+            required: [ "api_key" ]
           }
         },
         {
-          name: 'Hugging Face',
-          slug: 'huggingface',
-          provider_type: 'huggingface',
-          description: 'Open-source model marketplace',
-          api_base_url: 'https://api-inference.huggingface.co',
-          api_endpoint: 'https://api-inference.huggingface.co',
-          capabilities: ['text_generation', 'embeddings'],
+          name: "Hugging Face",
+          slug: "huggingface",
+          provider_type: "huggingface",
+          description: "Open-source model marketplace",
+          api_base_url: "https://api-inference.huggingface.co",
+          api_endpoint: "https://api-inference.huggingface.co",
+          capabilities: [ "text_generation", "embeddings" ],
           requires_auth: true,
           priority_order: 4,
-          documentation_url: 'https://huggingface.co/docs',
+          documentation_url: "https://huggingface.co/docs",
           supported_models: [
             {
               "name" => "Default Model",
@@ -192,29 +192,29 @@ class AiProviderManagementService
             }
           ],
           configuration_schema: {
-            type: 'object',
+            type: "object",
             properties: {
               api_key: {
-                type: 'string',
-                description: 'Hugging Face API token',
+                type: "string",
+                description: "Hugging Face API token",
                 required: true
               }
             },
-            required: ['api_key']
+            required: [ "api_key" ]
           }
         },
         {
-          name: 'Cohere',
-          slug: 'cohere',
-          provider_type: 'custom',
-          description: 'Enterprise-grade language models',
-          api_base_url: 'https://api.cohere.ai/v1',
-          api_endpoint: 'https://api.cohere.ai/v1',
-          capabilities: ['text_generation', 'chat', 'embeddings'],
+          name: "Cohere",
+          slug: "cohere",
+          provider_type: "custom",
+          description: "Enterprise-grade language models",
+          api_base_url: "https://api.cohere.ai/v1",
+          api_endpoint: "https://api.cohere.ai/v1",
+          capabilities: [ "text_generation", "chat", "embeddings" ],
           requires_auth: true,
           supports_streaming: true,
           priority_order: 5,
-          documentation_url: 'https://docs.cohere.com',
+          documentation_url: "https://docs.cohere.com",
           supported_models: [
             {
               "name" => "Command",
@@ -224,15 +224,15 @@ class AiProviderManagementService
             }
           ],
           configuration_schema: {
-            type: 'object',
+            type: "object",
             properties: {
               api_key: {
-                type: 'string',
-                description: 'Cohere API key',
+                type: "string",
+                description: "Cohere API key",
                 required: true
               }
             },
-            required: ['api_key']
+            required: [ "api_key" ]
           }
         }
       ]
@@ -240,7 +240,7 @@ class AiProviderManagementService
       default_providers.each do |provider_data|
         # Check if provider already exists globally (since slug is globally unique)
         existing_provider = AiProvider.find_by(slug: provider_data[:slug])
-        
+
         if existing_provider
           Rails.logger.info "Provider #{provider_data[:slug]} already exists, skipping creation"
         else
@@ -251,9 +251,9 @@ class AiProviderManagementService
               is_active: true,
               api_endpoint: provider_data[:api_base_url] # Fix missing api_endpoint
             )
-            
+
             provider = AiProvider.create!(complete_provider_data)
-            
+
             # Add some default models for each provider
             sync_provider_models(provider)
             created_count += 1
@@ -324,7 +324,7 @@ class AiProviderManagementService
         raise CredentialError, "Failed to create credential: #{credential.errors.full_messages.join(', ')}"
       end
     end
-    
+
     # Validate provider credentials against the provider's schema
     def validate_provider_credentials(provider, credentials_data)
       raise ValidationError, "Provider is required" unless provider
@@ -333,8 +333,8 @@ class AiProviderManagementService
       schema = provider.configuration_schema
 
       # Check schema-defined required fields if present
-      if schema.present? && schema['required'].present?
-        required_fields = schema['required'] || []
+      if schema.present? && schema["required"].present?
+        required_fields = schema["required"] || []
         missing_fields = required_fields - credentials_data.keys.map(&:to_s)
 
         if missing_fields.any?
@@ -344,34 +344,34 @@ class AiProviderManagementService
 
       # Basic validation for known provider types (always runs regardless of schema)
       case provider.provider_type&.downcase
-      when 'openai'
+      when "openai"
         validate_openai_credentials(credentials_data)
-      when 'anthropic'
+      when "anthropic"
         validate_anthropic_credentials(credentials_data)
-      when 'huggingface'
+      when "huggingface"
         validate_huggingface_credentials(credentials_data)
       end
 
       true
     end
-    
+
     # Test all credentials for an account
     def test_all_credentials(account)
       credentials = account.ai_provider_credentials.active.includes(:ai_provider)
       results = []
-      
+
       credentials.find_each do |credential|
         begin
           test_service = AiProviderTestService.new(credential)
           test_result = test_service.test_with_details
-          
+
           # Update credential status based on test result
           if test_result[:success]
             credential.record_success!
           else
             credential.record_failure!(test_result[:error])
           end
-          
+
           results << {
             credential_id: credential.id,
             credential_name: credential.name,
@@ -392,7 +392,7 @@ class AiProviderManagementService
           }
         end
       end
-      
+
       results
     end
 
@@ -415,23 +415,23 @@ class AiProviderManagementService
 
       breakdown
     end
-    
+
     # Provider-specific credential validation methods
     def validate_openai_credentials(credentials_data)
-      api_key = credentials_data['api_key'] || credentials_data[:api_key]
+      api_key = credentials_data["api_key"] || credentials_data[:api_key]
       raise ValidationError, "OpenAI API key is required" unless api_key.present?
-      raise ValidationError, "OpenAI API key must start with 'sk-'" unless api_key.start_with?('sk-')
+      raise ValidationError, "OpenAI API key must start with 'sk-'" unless api_key.start_with?("sk-")
       raise ValidationError, "OpenAI API key appears to be invalid format" unless api_key.length > 20
     end
-    
+
     def validate_anthropic_credentials(credentials_data)
-      api_key = credentials_data['api_key'] || credentials_data[:api_key]
+      api_key = credentials_data["api_key"] || credentials_data[:api_key]
       raise ValidationError, "Anthropic API key is required" unless api_key.present?
-      raise ValidationError, "Anthropic API key must start with 'sk-ant-'" unless api_key.start_with?('sk-ant-')
+      raise ValidationError, "Anthropic API key must start with 'sk-ant-'" unless api_key.start_with?("sk-ant-")
     end
-    
+
     def validate_huggingface_credentials(credentials_data)
-      api_key = credentials_data['api_key'] || credentials_data[:api_key]
+      api_key = credentials_data["api_key"] || credentials_data[:api_key]
       raise ValidationError, "Hugging Face API token is required" unless api_key.present?
       raise ValidationError, "Hugging Face API token appears to be too short" unless api_key.length > 10
     end
@@ -444,19 +444,19 @@ class AiProviderManagementService
 
         if response.status.success?
           api_data = JSON.parse(response.body.to_s)
-          models = api_data['models'] || []
+          models = api_data["models"] || []
 
           # Transform Ollama API response to our model format
           supported_models = models.map do |model|
             {
-              "name" => model['name']&.split(':')&.first&.capitalize || model['name'],
-              "id" => model['name'],
-              "context_length" => model['details']&.dig('parameter_size') || 4096,
+              "name" => model["name"]&.split(":")&.first&.capitalize || model["name"],
+              "id" => model["name"],
+              "context_length" => model["details"]&.dig("parameter_size") || 4096,
               "description" => "#{model['name']} - Size: #{format_model_size(model['size'])}",
-              "size_bytes" => model['size'],
-              "family" => model['details']&.dig('family'),
-              "parameter_size" => model['details']&.dig('parameter_size'),
-              "quantization_level" => model['details']&.dig('quantization_level')
+              "size_bytes" => model["size"],
+              "family" => model["details"]&.dig("family"),
+              "parameter_size" => model["details"]&.dig("parameter_size"),
+              "quantization_level" => model["details"]&.dig("quantization_level")
             }
           end
 
@@ -482,7 +482,7 @@ class AiProviderManagementService
           "context_length" => 128000,
           "max_output_tokens" => 16384,
           "description" => "Most advanced multimodal model",
-          "capabilities" => ["text_generation", "chat", "vision", "function_calling"],
+          "capabilities" => [ "text_generation", "chat", "vision", "function_calling" ],
           "pricing" => {
             "input_per_mtok" => 2.50,
             "output_per_mtok" => 10.00
@@ -494,7 +494,7 @@ class AiProviderManagementService
           "context_length" => 128000,
           "max_output_tokens" => 16384,
           "description" => "Affordable and intelligent small model",
-          "capabilities" => ["text_generation", "chat", "vision", "function_calling"],
+          "capabilities" => [ "text_generation", "chat", "vision", "function_calling" ],
           "pricing" => {
             "input_per_mtok" => 0.15,
             "output_per_mtok" => 0.60
@@ -506,7 +506,7 @@ class AiProviderManagementService
           "context_length" => 128000,
           "max_output_tokens" => 4096,
           "description" => "Latest GPT-4 Turbo with vision",
-          "capabilities" => ["text_generation", "chat", "vision", "function_calling"],
+          "capabilities" => [ "text_generation", "chat", "vision", "function_calling" ],
           "pricing" => {
             "input_per_mtok" => 10.00,
             "output_per_mtok" => 30.00
@@ -518,7 +518,7 @@ class AiProviderManagementService
           "context_length" => 8192,
           "max_output_tokens" => 8192,
           "description" => "Classic GPT-4 model",
-          "capabilities" => ["text_generation", "chat", "function_calling"],
+          "capabilities" => [ "text_generation", "chat", "function_calling" ],
           "pricing" => {
             "input_per_mtok" => 30.00,
             "output_per_mtok" => 60.00
@@ -530,7 +530,7 @@ class AiProviderManagementService
           "context_length" => 16385,
           "max_output_tokens" => 4096,
           "description" => "Fast and efficient model for most tasks",
-          "capabilities" => ["text_generation", "chat", "function_calling"],
+          "capabilities" => [ "text_generation", "chat", "function_calling" ],
           "pricing" => {
             "input_per_mtok" => 0.50,
             "output_per_mtok" => 1.50
@@ -554,7 +554,7 @@ class AiProviderManagementService
           "context_length" => 200000,
           "max_output_tokens" => 8192,
           "description" => "Best model for agents, coding, and computer use",
-          "capabilities" => ["text_generation", "chat", "vision", "code_generation", "computer_use"],
+          "capabilities" => [ "text_generation", "chat", "vision", "code_generation", "computer_use" ],
           "pricing" => {
             "input_per_mtok" => 3.00,
             "output_per_mtok" => 15.00
@@ -567,7 +567,7 @@ class AiProviderManagementService
           "context_length" => 200000,
           "max_output_tokens" => 8192,
           "description" => "Balanced performance and speed",
-          "capabilities" => ["text_generation", "chat", "vision", "code_generation"],
+          "capabilities" => [ "text_generation", "chat", "vision", "code_generation" ],
           "pricing" => {
             "input_per_mtok" => 3.00,
             "output_per_mtok" => 15.00
@@ -580,7 +580,7 @@ class AiProviderManagementService
           "context_length" => 200000,
           "max_output_tokens" => 8192,
           "description" => "Enhanced Sonnet with improved capabilities",
-          "capabilities" => ["text_generation", "chat", "vision", "code_generation"],
+          "capabilities" => [ "text_generation", "chat", "vision", "code_generation" ],
           "pricing" => {
             "input_per_mtok" => 3.00,
             "output_per_mtok" => 15.00
@@ -593,7 +593,7 @@ class AiProviderManagementService
           "context_length" => 200000,
           "max_output_tokens" => 4096,
           "description" => "Exceptional model for specialized complex tasks",
-          "capabilities" => ["text_generation", "chat", "vision", "code_generation", "extended_thinking"],
+          "capabilities" => [ "text_generation", "chat", "vision", "code_generation", "extended_thinking" ],
           "pricing" => {
             "input_per_mtok" => 15.00,
             "output_per_mtok" => 75.00
@@ -606,7 +606,7 @@ class AiProviderManagementService
           "context_length" => 200000,
           "max_output_tokens" => 4096,
           "description" => "Most powerful Claude model for advanced reasoning",
-          "capabilities" => ["text_generation", "chat", "vision", "code_generation"],
+          "capabilities" => [ "text_generation", "chat", "vision", "code_generation" ],
           "pricing" => {
             "input_per_mtok" => 15.00,
             "output_per_mtok" => 75.00
@@ -619,7 +619,7 @@ class AiProviderManagementService
           "context_length" => 200000,
           "max_output_tokens" => 8192,
           "description" => "Fastest Claude model - optimized for speed",
-          "capabilities" => ["text_generation", "chat", "vision"],
+          "capabilities" => [ "text_generation", "chat", "vision" ],
           "pricing" => {
             "input_per_mtok" => 0.80,
             "output_per_mtok" => 4.00
@@ -631,7 +631,7 @@ class AiProviderManagementService
           "context_length" => 200000,
           "max_output_tokens" => 4096,
           "description" => "Fast and compact model",
-          "capabilities" => ["text_generation", "chat", "vision"],
+          "capabilities" => [ "text_generation", "chat", "vision" ],
           "pricing" => {
             "input_per_mtok" => 0.25,
             "output_per_mtok" => 1.25
@@ -678,7 +678,7 @@ class AiProviderManagementService
       return "Unknown" unless size_bytes
 
       # Convert bytes to human-readable format
-      units = ['B', 'KB', 'MB', 'GB', 'TB']
+      units = [ "B", "KB", "MB", "GB", "TB" ]
       size = size_bytes.to_f
       unit_index = 0
 

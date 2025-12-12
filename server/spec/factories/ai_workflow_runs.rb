@@ -212,11 +212,11 @@ FactoryBot.define do
         workflow_nodes = run.ai_workflow.nodes.limit(3)
         workflow_nodes.each_with_index do |node, index|
           status = case index
-                   when 0 then 'completed'
-                   when 1 then 'running'
-                   else 'pending'
-                   end
-          
+          when 0 then 'completed'
+          when 1 then 'running'
+          else 'pending'
+          end
+
           create(:ai_workflow_node_execution,
                  ai_workflow_run: run,
                  ai_workflow_node: node,
@@ -260,7 +260,7 @@ FactoryBot.define do
           performance_metrics: {
             nodes_per_second: 0.1,
             average_node_time: 360_000,
-            bottleneck_nodes: ['ai_agent_node_1', 'api_call_node_3']
+            bottleneck_nodes: [ 'ai_agent_node_1', 'api_call_node_3' ]
           }
         }
       end
@@ -282,7 +282,7 @@ FactoryBot.define do
           word_count: 1567,
           readability_score: 85.2,
           seo_score: 92.1,
-          topics_covered: ['machine learning', 'automation', 'developer tools']
+          topics_covered: [ 'machine learning', 'automation', 'developer tools' ]
         }
       end
       metadata do
@@ -301,7 +301,7 @@ FactoryBot.define do
           processing_rules: {
             filter_date_range: '2024-01-01 to 2024-12-31',
             group_by: 'customer_id',
-            calculate: ['total_amount', 'order_count']
+            calculate: [ 'total_amount', 'order_count' ]
           }
         }
       end

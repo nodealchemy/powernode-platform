@@ -8,7 +8,7 @@ class PluginMarketplace < ApplicationRecord
 
   # Associations
   belongs_to :account
-  belongs_to :creator, class_name: 'User'
+  belongs_to :creator, class_name: "User"
   has_many :plugins, foreign_key: :source_marketplace_id, dependent: :nullify
 
   # Validations
@@ -24,12 +24,12 @@ class PluginMarketplace < ApplicationRecord
   attribute :metadata, :json, default: -> { {} }
 
   # Scopes
-  scope :public_marketplaces, -> { where(visibility: 'public') }
-  scope :private_marketplaces, -> { where(visibility: 'private') }
-  scope :team_marketplaces, -> { where(visibility: 'team') }
+  scope :public_marketplaces, -> { where(visibility: "public") }
+  scope :private_marketplaces, -> { where(visibility: "private") }
+  scope :team_marketplaces, -> { where(visibility: "team") }
   scope :by_type, ->(type) { where(marketplace_type: type) }
   scope :search_by_text, ->(query) {
-    where('name ILIKE ? OR description ILIKE ? OR owner ILIKE ?',
+    where("name ILIKE ? OR description ILIKE ? OR owner ILIKE ?",
           "%#{query}%", "%#{query}%", "%#{query}%")
   }
 
@@ -57,7 +57,7 @@ class PluginMarketplace < ApplicationRecord
   private
 
   def generate_slug
-    base_slug = name.downcase.gsub(/[^a-z0-9\s\-]/, '').gsub(/\s+/, '-').strip
+    base_slug = name.downcase.gsub(/[^a-z0-9\s\-]/, "").gsub(/\s+/, "-").strip
     self.slug = ensure_unique_slug(base_slug)
   end
 

@@ -22,7 +22,7 @@ RSpec.describe 'Api::V1::Ai::AgentTeams', type: :request do
     )
 
     # Create and assign permissions
-    ['ai.teams.manage', 'ai.teams.execute'].each do |perm_name|
+    [ 'ai.teams.manage', 'ai.teams.execute' ].each do |perm_name|
       permission = Permission.find_or_create_from_name!(perm_name, {
         resource: 'ai.teams',
         action: perm_name.split('.').last,
@@ -62,7 +62,7 @@ RSpec.describe 'Api::V1::Ai::AgentTeams', type: :request do
         expect_success_response
         full_response = json_response_full
         expect(full_response['data'].size).to eq(3)
-        expect(full_response['data'].map { |t| t['name'] }).to match_array(['Team 1', 'Team 2', 'Team 3'])
+        expect(full_response['data'].map { |t| t['name'] }).to match_array([ 'Team 1', 'Team 2', 'Team 3' ])
       end
 
       it 'filters by status' do
@@ -150,7 +150,7 @@ RSpec.describe 'Api::V1::Ai::AgentTeams', type: :request do
 
         # Verify members are ordered by priority
         priorities = full_response['data']['members'].map { |m| m['priority_order'] }
-        expect(priorities).to eq([0, 1, 2])
+        expect(priorities).to eq([ 0, 1, 2 ])
       end
 
       it 'includes team config' do
@@ -348,7 +348,7 @@ RSpec.describe 'Api::V1::Ai::AgentTeams', type: :request do
         {
           agent_id: agent.id,
           role: 'researcher',
-          capabilities: ['data_analysis', 'research'],
+          capabilities: [ 'data_analysis', 'research' ],
           priority_order: 0,
           is_lead: true
         }
@@ -362,7 +362,7 @@ RSpec.describe 'Api::V1::Ai::AgentTeams', type: :request do
         expect_success_response
         full_response = json_response_full
         expect(full_response['data']['role']).to eq('researcher')
-        expect(full_response['data']['capabilities']).to match_array(['data_analysis', 'research'])
+        expect(full_response['data']['capabilities']).to match_array([ 'data_analysis', 'research' ])
         expect(full_response['data']['is_lead']).to be true
       end
 

@@ -95,7 +95,7 @@ Creating your first subscription plan is easy:
 
 1. **Navigate to Plans**: Go to Business > Subscription Plans
 2. **Create New Plan**: Click "Create Plan"
-3. **Configure Details**: 
+3. **Configure Details**:#{' '}
    - Plan name and description
    - Pricing and billing cycle
    - Trial period settings
@@ -107,7 +107,7 @@ Creating your first subscription plan is easy:
 Powernode uses a granular permission system:
 
 - **Account Managers**: Full account access
-- **Billing Managers**: Payment and subscription management  
+- **Billing Managers**: Payment and subscription management#{'  '}
 - **Team Members**: Limited access based on assigned permissions
 - **API Users**: Programmatic access with specific scopes
 
@@ -170,7 +170,7 @@ Master subscription lifecycle management with Powernode's comprehensive tools an
 ### The Complete Customer Journey
 
 1. **🎯 Acquisition**: Customer discovers and signs up
-2. **📝 Onboarding**: Initial setup and configuration  
+2. **📝 Onboarding**: Initial setup and configuration#{'  '}
 3. **💳 Active Billing**: Recurring payment cycles
 4. **📈 Growth**: Upgrades, add-ons, and expansion
 5. **🔄 Retention**: Renewal management and engagement
@@ -216,14 +216,14 @@ Basic Plan → Professional → Enterprise
 - Cons: Higher churn, more payment processing
 - Best for: New products, lower price points
 
-**Annual Billing**  
+**Annual Billing**#{'  '}
 - Pros: Better cash flow, lower churn
 - Cons: Higher initial commitment barrier
 - Best for: Established products, higher value
 
 **Custom Billing Periods**
 - Quarterly (3 months)
-- Semi-annual (6 months)  
+- Semi-annual (6 months)#{'  '}
 - Bi-annual (2 years)
 - Custom periods for enterprise
 
@@ -267,7 +267,7 @@ Customer downgrades from $25 to $10 plan:
 ```
 Day 0: Payment fails → Immediate retry
 Day 1: Email notification + Retry attempt
-Day 3: Second email + Retry attempt  
+Day 3: Second email + Retry attempt#{'  '}
 Day 7: Final notice + Retry attempt
 Day 10: Service suspension
 Day 30: Subscription cancellation
@@ -375,7 +375,7 @@ Bundle: "Complete Suite"
 
 **Increase Expansion**
 - Usage-based upgrade prompts
-- Feature discovery campaigns  
+- Feature discovery campaigns#{'  '}
 - Success-driven account management
 - Regular plan optimization reviews
 
@@ -561,7 +561,7 @@ curl -X GET https://api.powernode.org/api/v1/subscriptions \
 {
   "scopes": [
     "subscriptions:read",
-    "subscriptions:write", 
+    "subscriptions:write",#{' '}
     "customers:read",
     "invoices:read",
     "analytics:read"
@@ -579,7 +579,7 @@ GET /v1/subscriptions
 Query Parameters:
   - status: active|cancelled|trial|past_due
   - plan_id: filter by specific plan
-  - customer_id: filter by customer  
+  - customer_id: filter by customer#{'  '}
   - page: pagination page number
   - per_page: items per page (max 100)
 ```
@@ -591,7 +591,7 @@ GET /v1/subscriptions/{subscription_id}
 Response:
 {
   "id": "sub_1234567890",
-  "customer_id": "cust_9876543210", 
+  "customer_id": "cust_9876543210",#{' '}
   "plan_id": "plan_basic",
   "status": "active",
   "current_period_start": "2024-01-01T00:00:00Z",
@@ -638,7 +638,7 @@ Request Body:
 # List customers
 GET /v1/customers?page=1&per_page=50
 
-# Create customer  
+# Create customer#{'  '}
 POST /v1/customers
 {
   "email": "customer@example.com",
@@ -646,7 +646,7 @@ POST /v1/customers
   "phone": "+1-555-0123",
   "address": {
     "line1": "123 Main St",
-    "city": "Anytown", 
+    "city": "Anytown",#{' '}
     "state": "CA",
     "postal_code": "12345",
     "country": "US"
@@ -701,7 +701,7 @@ Webhooks allow your application to receive real-time notifications when events o
 {
   "events": [
     "subscription.created",
-    "subscription.updated", 
+    "subscription.updated",#{' '}
     "subscription.cancelled",
     "invoice.created",
     "invoice.paid",
@@ -736,9 +736,9 @@ def verify_webhook_signature(payload, signature, secret):
         payload.encode('utf-8'),
         hashlib.sha256
     ).hexdigest()
-    
+#{'    '}
     return hmac.compare_digest(
-        f"sha256={expected_signature}", 
+        f"sha256={expected_signature}",#{' '}
         signature
     )
 
@@ -747,10 +747,10 @@ def verify_webhook_signature(payload, signature, secret):
 def handle_webhook():
     payload = request.get_data(as_text=True)
     signature = request.headers.get('X-Powernode-Signature')
-    
+#{'    '}
     if not verify_webhook_signature(payload, signature, WEBHOOK_SECRET):
         return 'Invalid signature', 401
-        
+#{'        '}
     event = json.loads(payload)
     handle_event(event)
     return 'OK', 200
@@ -781,19 +781,19 @@ def handle_webhook():
 ```python
 def handle_event(event):
     event_type = event['type']
-    
+#{'    '}
     if event_type == 'subscription.created':
         # Provision access for new subscription
         provision_user_access(event['data']['object'])
-        
+#{'        '}
     elif event_type == 'subscription.cancelled':
         # Revoke access for cancelled subscription
         revoke_user_access(event['data']['object'])
-        
+#{'        '}
     elif event_type == 'invoice.payment_failed':
         # Handle failed payment
         notify_payment_failure(event['data']['object'])
-        
+#{'        '}
     # Always return 200 OK for successful processing
     return True
 ```
@@ -805,7 +805,7 @@ def handle_event(event):
 **📊 HTTP Status Codes**
 ```bash
 200 OK              # Successful GET, PUT requests
-201 Created         # Successful POST requests  
+201 Created         # Successful POST requests#{'  '}
 204 No Content      # Successful DELETE requests
 400 Bad Request     # Invalid request format
 401 Unauthorized    # Missing/invalid authentication
@@ -846,18 +846,18 @@ import requests
 
 def api_request_with_retry(url, headers, data=None):
     max_retries = 3
-    
+#{'    '}
     for attempt in range(max_retries):
         response = requests.post(url, headers=headers, json=data)
-        
+#{'        '}
         if response.status_code == 429:
             # Rate limited, wait and retry
             retry_after = int(response.headers.get('Retry-After', 60))
             time.sleep(retry_after)
             continue
-            
+#{'            '}
         return response
-    
+#{'    '}
     raise Exception("Max retries exceeded")
 ```
 
@@ -886,7 +886,7 @@ Response:
   "data": [...],
   "pagination": {
     "current_page": 2,
-    "per_page": 50, 
+    "per_page": 50,#{' '}
     "total_pages": 10,
     "total_count": 487
   }
@@ -959,7 +959,7 @@ import requests
 
 def notify_slack_new_subscription(event_data):
     subscription = event_data['object']
-    
+#{'    '}
     message = {
         "text": f"🎉 New subscription created!",
         "attachments": [{
@@ -970,7 +970,7 @@ def notify_slack_new_subscription(event_data):
             ]
         }]
     }
-    
+#{'    '}
     requests.post(SLACK_WEBHOOK_URL, json=message)
 ```
 
@@ -978,7 +978,7 @@ def notify_slack_new_subscription(event_data):
 ```python
 def sync_subscription_to_analytics(subscription):
     """Sync subscription data to your analytics platform"""
-    
+#{'    '}
     analytics_data = {
         'user_id': subscription['customer_id'],
         'plan': subscription['plan_id'],
@@ -987,7 +987,7 @@ def sync_subscription_to_analytics(subscription):
         'trial_end': subscription.get('trial_end'),
         'created_at': subscription['created_at']
     }
-    
+#{'    '}
     # Send to your analytics platform
     analytics_client.track('subscription_created', analytics_data)
 ```
@@ -1074,7 +1074,7 @@ Powernode uses a **permission-based system** (not roles) for granular access con
 
 **👤 User Management**
 - `users.create` - Create new team members
-- `users.read` - View team member information  
+- `users.read` - View team member information#{'  '}
 - `users.update` - Edit team member details
 - `users.delete` - Remove team members
 - `users.manage` - Full user management access
@@ -1128,7 +1128,7 @@ Support Manager:
   - analytics.read
   - content.read
 
-Billing Administrator:  
+Billing Administrator:#{'  '}
   - billing.manage
   - invoices.create
   - payments.process
@@ -1150,7 +1150,7 @@ Content Editor:
 
 **Temporary Access Changes**
 - **Suspend Access**: Temporarily disable without removing
-- **Restore Access**: Re-enable suspended accounts  
+- **Restore Access**: Re-enable suspended accounts#{'  '}
 - **Emergency Revocation**: Immediately revoke all access
 
 **Account Deactivation**
@@ -1170,7 +1170,7 @@ Permissions:
   - billing.read        # Check subscription status
   - analytics.read      # Access usage metrics
   - content.update      # Update help documentation
-  
+#{'  '}
 Responsibilities:
   - Customer onboarding and support
   - Usage monitoring and optimization
@@ -1376,7 +1376,7 @@ Track all team member actions:
 Ready to set up your team? Follow this checklist:
 
 - [ ] Define team roles and required permissions
-- [ ] Create permission groups for common access patterns  
+- [ ] Create permission groups for common access patterns#{'  '}
 - [ ] Send invitations to team members
 - [ ] Configure notification preferences
 - [ ] Set up MFA requirements
@@ -1473,7 +1473,7 @@ Master payment processing with Powernode's comprehensive payment infrastructure 
    ```bash
    # Webhook URL configuration
    https://your-domain.com/webhooks/stripe
-   
+#{'   '}
    # Required events
    - payment_intent.succeeded
    - payment_intent.payment_failed
@@ -1487,8 +1487,8 @@ Master payment processing with Powernode's comprehensive payment infrastructure 
    # Test Environment
    Publishable Key: pk_test_...
    Secret Key: sk_test_...
-   
-   # Live Environment  
+#{'   '}
+   # Live Environment#{'  '}
    Publishable Key: pk_live_...
    Secret Key: sk_live_...
    ```
@@ -1594,7 +1594,7 @@ const paymentElement = elements.create('payment', {
 ```yaml
 Required Monitoring:
   - Failed payment attempts
-  - Unusual transaction patterns  
+  - Unusual transaction patterns#{'  '}
   - System access logs
   - Network traffic analysis
   - File integrity monitoring
@@ -1663,15 +1663,15 @@ Optimization Techniques:
 const optimizePaymentFlow = {
   // Pre-populate customer data
   prefillCustomerInfo: true,
-  
+#{'  '}
   // Multiple payment options
   showSavedCards: true,
   enableWallets: ['apple_pay', 'google_pay'],
-  
+#{'  '}
   // Smooth error handling
   showInlineErrors: true,
   enableRealTimeValidation: true,
-  
+#{'  '}
   // Mobile optimization
   responsive: true,
   touchOptimized: true
@@ -1700,7 +1700,7 @@ Medium Risk Indicators:
 
 **Automated Response Actions**
 - Require additional verification for high-risk
-- Implement velocity limits and cooling-off periods  
+- Implement velocity limits and cooling-off periods#{'  '}
 - Use machine learning for pattern recognition
 - Manual review workflows for edge cases
 
@@ -1714,7 +1714,7 @@ Medium Risk Indicators:
       "action": "require_verification"
     },
     {
-      "name": "geo_mismatch", 
+      "name": "geo_mismatch",#{' '}
       "condition": "billing_country != ip_country",
       "action": "manual_review"
     }
@@ -1740,7 +1740,7 @@ Day 1: First Follow-up
   - SMS notification (if enabled)
   - Account access warning
 
-Day 3: Second Attempt  
+Day 3: Second Attempt#{'  '}
   - Retry payment processing
   - Call-to-action email with discount
   - Customer service outreach
@@ -1776,18 +1776,18 @@ Day 30: Account Cancellation
   <subject>Action Required: Update Your Payment Method</subject>
   <body>
     <h1>Hi [Customer Name],</h1>
-    
-    <p>We couldn't process your payment for [Service Name]. 
+#{'    '}
+    <p>We couldn't process your payment for [Service Name].#{' '}
     This happens sometimes due to:</p>
-    
+#{'    '}
     <ul>
       <li>Expired card</li>
       <li>Changed billing address</li>
       <li>Bank security measures</li>
     </ul>
-    
+#{'    '}
     <cta>Update Payment Method</cta>
-    
+#{'    '}
     <p>Questions? Reply to this email or call [Support Phone]</p>
   </body>
 </email>
@@ -1827,7 +1827,7 @@ Key Recovery Metrics:
 
 **Success Metrics**
 ```yaml
-Authorization Rate: 
+Authorization Rate:#{' '}
   - Target: > 95%
   - Benchmark by card type and geography
   - Track decline reason codes
@@ -1870,13 +1870,13 @@ def predict_payment_failure(customer_data):
         'transaction_amount': customer_data['amount'],
         'customer_tenure': customer_data['months_active']
     }
-    
+#{'    '}
     risk_score = ml_model.predict(risk_factors)
     return risk_score
 ```
 
 **Real-time Monitoring**
-- Live payment success rate dashboard  
+- Live payment success rate dashboard#{'  '}
 - Instant fraud detection alerts
 - Payment processor health monitoring
 - Customer payment journey tracking
@@ -1898,7 +1898,7 @@ Recommended Actions:
 ```
 
 **Card Security Issues**
-```yaml  
+```yaml#{'  '}
 Error Code: security_violation
 Customer Message: "Transaction blocked for security reasons"
 Recommended Actions:
@@ -1949,7 +1949,7 @@ try {
     case 'card_declined':
       handleCardDecline(error);
       break;
-    case 'insufficient_funds':  
+    case 'insufficient_funds':#{'  '}
       handleInsufficientFunds(error);
       break;
     default:
@@ -1964,7 +1964,7 @@ try {
 
 ### Essential Setup Checklist
 - [ ] Configure primary payment processor
-- [ ] Set up webhook endpoints  
+- [ ] Set up webhook endpoints#{'  '}
 - [ ] Enable 3D Secure authentication
 - [ ] Configure dunning management
 - [ ] Set up fraud monitoring rules
@@ -2198,7 +2198,7 @@ HTTP 429 Too Many Requests:
   - Implement exponential backoff
   - Reduce request frequency
   - Consider API key upgrade
-  
+#{'  '}
 Headers:
   X-RateLimit-Limit: 1000
   X-RateLimit-Remaining: 0
@@ -2228,18 +2228,18 @@ def handle_webhook():
     try:
         payload = request.get_data(as_text=True)
         signature = request.headers.get('X-Powernode-Signature')
-        
+#{'        '}
         # Verify signature
         if not verify_signature(payload, signature):
             logger.error('Invalid webhook signature')
             return 'Invalid signature', 401
-        
+#{'        '}
         # Process event
         event = json.loads(payload)
         process_event(event)
-        
+#{'        '}
         return 'OK', 200
-        
+#{'        '}
     except Exception as e:
         logger.error(f'Webhook processing error: {e}')
         return 'Error processing webhook', 500
@@ -2323,7 +2323,7 @@ Solutions:
 ```json
 {
   "error": {
-    "type": "validation_error", 
+    "type": "validation_error",#{' '}
     "message": "Customer email already exists",
     "details": {
       "field": "email",
@@ -2402,10 +2402,10 @@ Support Ticket Information:
     - Steps to reproduce issue
     - Browser/device information
     - Timestamps of problems
-    
+#{'    '}
   Response Times:
     - Critical: 1 hour
-    - High: 4 hours  
+    - High: 4 hours#{'  '}
     - Normal: 24 hours
     - Low: 48 hours
 ```
@@ -2450,7 +2450,7 @@ API Integration Details:
 - **Data Breaches**: Immediate escalation protocol
 
 **📧 Standard Support**
-- **General Support**: support@powernode.org  
+- **General Support**: support@powernode.org#{'  '}
 - **Technical Issues**: tech@powernode.org
 - **Billing Questions**: billing@powernode.org
 - **API Integration**: developers@powernode.org

@@ -8,7 +8,7 @@ FactoryBot.define do
     sequence(:name) { |n| "#{Faker::App.name} #{n}" }
     description { Faker::Lorem.paragraph }
     agent_type { 'assistant' }
-    mcp_capabilities { ['text_generation', 'conversation'] }
+    mcp_capabilities { [ 'text_generation', 'conversation' ] }
     mcp_tool_manifest do
       {
         'name' => 'assistant_tool',
@@ -36,20 +36,20 @@ FactoryBot.define do
       {
         created_by: 'system',
         version: '1.0',
-        capabilities: ['text_generation', 'conversation']
+        capabilities: [ 'text_generation', 'conversation' ]
       }
     end
-    
+
     trait :inactive do
       status { 'inactive' }
     end
-    
+
     trait :with_executions do
       after(:create) do |agent|
         create_list(:ai_agent_execution, 3, ai_agent: agent, account: agent.account)
       end
     end
-    
+
     trait :code_assistant do
       agent_type { 'code_assistant' }
       transient do

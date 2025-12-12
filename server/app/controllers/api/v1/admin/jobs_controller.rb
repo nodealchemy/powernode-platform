@@ -7,7 +7,7 @@ class Api::V1::Admin::JobsController < ApplicationController
   # GET /api/v1/admin/jobs/:id
   def show
     job = BackgroundJob.find_by!(job_id: params[:id])
-    
+
     render_success({
       job_id: job.job_id,
       job_type: job.job_type,
@@ -23,19 +23,19 @@ class Api::V1::Admin::JobsController < ApplicationController
       completed_at: job.completed_at
     })
   rescue ActiveRecord::RecordNotFound
-    render_error('Job not found', status: :not_found)
+    render_error("Job not found", status: :not_found)
   rescue => e
     Rails.logger.error "Failed to get job status: #{e.message}"
-    render_error('Failed to get job status', status: :internal_server_error)
+    render_error("Failed to get job status", status: :internal_server_error)
   end
 
   # GET /api/v1/admin/jobs
   def index
     jobs = BackgroundJob.recent.limit(50)
-    
+
     job_filter = params[:status]
     jobs = jobs.where(status: job_filter) if job_filter.present?
-    
+
     job_type_filter = params[:job_type]
     jobs = jobs.where(job_type: job_type_filter) if job_type_filter.present?
 
@@ -60,14 +60,14 @@ class Api::V1::Admin::JobsController < ApplicationController
     })
   rescue => e
     Rails.logger.error "Failed to list jobs: #{e.message}"
-    render_error('Failed to list jobs', status: :internal_server_error)
+    render_error("Failed to list jobs", status: :internal_server_error)
   end
 
   private
 
   def require_system_admin_permission
-    unless current_user.has_permission?('admin.settings.edit')
-      render_error('Insufficient permissions to view jobs', status: :forbidden)
+    unless current_user.has_permission?("admin.settings.edit")
+      render_error("Insufficient permissions to view jobs", status: :forbidden)
     end
   end
 end

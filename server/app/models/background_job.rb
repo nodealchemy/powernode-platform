@@ -1,15 +1,15 @@
 # frozen_string_literal: true
 
 class BackgroundJob < ApplicationRecord
-  self.table_name = 'background_jobs'
+  self.table_name = "background_jobs"
 
   # Job statuses
   enum :status, {
-    pending: 'pending',
-    in_progress: 'in_progress', 
-    completed: 'completed',
-    failed: 'failed',
-    cancelled: 'cancelled'
+    pending: "pending",
+    in_progress: "in_progress",
+    completed: "completed",
+    failed: "failed",
+    cancelled: "cancelled"
   }
 
   # Validations
@@ -19,8 +19,8 @@ class BackgroundJob < ApplicationRecord
 
   # Scopes
   scope :recent, -> { order(created_at: :desc) }
-  scope :active, -> { where(status: ['pending', 'in_progress']) }
-  scope :finished, -> { where(status: ['completed', 'failed', 'cancelled']) }
+  scope :active, -> { where(status: [ "pending", "in_progress" ]) }
+  scope :finished, -> { where(status: [ "completed", "failed", "cancelled" ]) }
 
   # Callbacks
   before_create :set_default_status
@@ -67,10 +67,10 @@ class BackgroundJob < ApplicationRecord
 
   def progress_percentage
     case status
-    when 'pending' then 0
-    when 'in_progress' then (result&.dig('progress') || 50).to_i
-    when 'completed' then 100
-    when 'failed', 'cancelled' then 100
+    when "pending" then 0
+    when "in_progress" then (result&.dig("progress") || 50).to_i
+    when "completed" then 100
+    when "failed", "cancelled" then 100
     else 0
     end
   end
@@ -84,9 +84,9 @@ class BackgroundJob < ApplicationRecord
   def update_timestamps
     if status_changed?
       case status
-      when 'in_progress'
+      when "in_progress"
         self.started_at ||= Time.current
-      when 'completed', 'failed', 'cancelled'
+      when "completed", "failed", "cancelled"
         self.completed_at ||= Time.current
       end
     end

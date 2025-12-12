@@ -66,9 +66,9 @@ module CircuitBreakerCore
     check_circuit_state_transition
 
     case @state
-    when 'open'
+    when "open"
       handle_open_circuit
-    when 'half_open'
+    when "half_open"
       execute_half_open(&block)
     else # closed
       execute_closed(&block)
@@ -82,9 +82,9 @@ module CircuitBreakerCore
     check_circuit_state_transition
 
     case @state
-    when 'open'
+    when "open"
       false
-    when 'half_open', 'closed'
+    when "half_open", "closed"
       true
     else
       false
@@ -123,7 +123,7 @@ module CircuitBreakerCore
   #
   # @return [void]
   def reset_circuit!
-    @state = 'closed'
+    @state = "closed"
     @failure_count = 0
     @success_count = 0
     @consecutive_failures = 0
@@ -140,7 +140,7 @@ module CircuitBreakerCore
   #
   # @return [void]
   def force_open!
-    transition_state('open')
+    transition_state("open")
     log_warn "Circuit breaker manually opened"
   end
 
@@ -148,7 +148,7 @@ module CircuitBreakerCore
   #
   # @return [void]
   def force_close!
-    transition_state('closed')
+    transition_state("closed")
     @failure_count = 0
     @consecutive_failures = 0
     save_circuit_state
@@ -174,7 +174,7 @@ module CircuitBreakerCore
     cached = Rails.cache.read(@state_key)
 
     if cached
-      @state = cached[:state] || 'closed'
+      @state = cached[:state] || "closed"
       @failure_count = cached[:failure_count] || 0
       @success_count = cached[:success_count] || 0
       @consecutive_failures = cached[:consecutive_failures] || 0
@@ -208,11 +208,11 @@ module CircuitBreakerCore
   #
   # @return [void]
   def check_circuit_state_transition
-    return unless @state == 'open'
+    return unless @state == "open"
 
     # Check if timeout has elapsed for half-open transition
     if timeout_elapsed?
-      transition_state('half_open')
+      transition_state("half_open")
       log_info "Circuit transitioned to half-open state"
     end
   end
@@ -240,14 +240,14 @@ module CircuitBreakerCore
 
     # If we've had enough successes, close the circuit
     if @consecutive_successes >= @config[:success_threshold]
-      transition_state('closed')
+      transition_state("closed")
       log_info "Circuit closed after successful recovery"
     end
 
     result
   rescue StandardError => e
     record_failure(e)
-    transition_state('open')
+    transition_state("open")
     log_warn "Circuit reopened after failure in half-open state"
     raise
   end
@@ -292,7 +292,7 @@ module CircuitBreakerCore
 
     # Check if we should open the circuit
     if @consecutive_failures >= @config[:failure_threshold]
-      transition_state('open')
+      transition_state("open")
       log_error "Circuit opened after #{@consecutive_failures} consecutive failures"
     end
   end
@@ -306,11 +306,11 @@ module CircuitBreakerCore
     @state = new_state
     @state_changed_at = Time.current
 
-    if new_state == 'closed'
+    if new_state == "closed"
       @failure_count = 0
       @consecutive_failures = 0
       @consecutive_successes = 0
-    elsif new_state == 'half_open'
+    elsif new_state == "half_open"
       @consecutive_successes = 0
     end
 
@@ -334,7 +334,7 @@ module CircuitBreakerCore
   #
   # @return [Time, nil] Time when circuit can be retried, or nil if not open
   def calculate_next_retry_time
-    return nil unless @state == 'open' && @last_failure_time
+    return nil unless @state == "open" && @last_failure_time
 
     @last_failure_time + (@config[:timeout_duration] / 1000.0).seconds
   end

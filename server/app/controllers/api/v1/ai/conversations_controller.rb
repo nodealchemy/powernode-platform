@@ -8,8 +8,8 @@ module Api
       class ConversationsController < ApplicationController
         include AuditLogging
 
-        before_action :set_conversation, only: [:show, :update, :destroy, :archive, :unarchive, :duplicate, :stats]
-        before_action :validate_permissions, except: [:create]
+        before_action :set_conversation, only: [ :show, :update, :destroy, :archive, :unarchive, :duplicate, :stats ]
+        before_action :validate_permissions, except: [ :create ]
 
         # =============================================================================
         # GLOBAL CONVERSATION ACTIONS
@@ -43,7 +43,7 @@ module Api
               user_id: current_user.id,
               account_id: current_user.account_id,
               ai_provider_id: agent.ai_provider_id,
-              status: 'active',
+              status: "active",
               last_activity_at: Time.current
             )
           )
@@ -53,12 +53,12 @@ module Api
               conversation: serialize_conversation_detail(conversation)
             }, status: :created)
 
-            log_audit_event('ai.conversations.create', conversation)
+            log_audit_event("ai.conversations.create", conversation)
           else
             render_validation_error(conversation.errors)
           end
         rescue ActiveRecord::RecordNotFound
-          render_error('Agent not found', status: :not_found)
+          render_error("Agent not found", status: :not_found)
         rescue ProviderAvailabilityService::ProviderUnavailableError => e
           render_error(e.message, status: :precondition_failed)
         end
@@ -77,7 +77,7 @@ module Api
               conversation: serialize_conversation_detail(@conversation)
             })
 
-            log_audit_event('ai.conversations.update', @conversation)
+            log_audit_event("ai.conversations.update", @conversation)
           else
             render_validation_error(@conversation.errors)
           end
@@ -88,10 +88,10 @@ module Api
           @conversation.destroy!
 
           render_success({
-            message: 'Conversation deleted successfully'
+            message: "Conversation deleted successfully"
           })
 
-          log_audit_event('ai.conversations.delete', @conversation)
+          log_audit_event("ai.conversations.delete", @conversation)
         rescue ActiveRecord::RecordNotDestroyed => e
           render_error("Failed to delete conversation: #{e.message}", status: :unprocessable_content)
         end
@@ -102,24 +102,24 @@ module Api
 
           render_success({
             conversation: serialize_conversation(@conversation),
-            message: 'Conversation archived successfully'
+            message: "Conversation archived successfully"
           })
 
-          log_audit_event('ai.conversations.archive', @conversation)
+          log_audit_event("ai.conversations.archive", @conversation)
         rescue ActiveRecord::RecordInvalid => e
           render_error("Failed to archive conversation: #{e.message}", status: :unprocessable_content)
         end
 
         # POST /api/v1/ai/conversations/:id/unarchive
         def unarchive
-          @conversation.update!(status: 'completed')
+          @conversation.update!(status: "completed")
 
           render_success({
             conversation: serialize_conversation(@conversation),
-            message: 'Conversation restored successfully'
+            message: "Conversation restored successfully"
           })
 
-          log_audit_event('ai.conversations.unarchive', @conversation)
+          log_audit_event("ai.conversations.unarchive", @conversation)
         rescue ActiveRecord::RecordInvalid => e
           render_error("Failed to restore conversation: #{e.message}", status: :unprocessable_content)
         end
@@ -127,7 +127,7 @@ module Api
         # POST /api/v1/ai/conversations/:id/duplicate
         def duplicate
           new_title = params[:title] || "Copy of #{@conversation.title}"
-          include_messages = params[:include_messages] == 'true' || params[:include_messages] == true
+          include_messages = params[:include_messages] == "true" || params[:include_messages] == true
 
           # Create new conversation with same settings
           new_conversation = current_user.account.ai_conversations.build(
@@ -135,7 +135,7 @@ module Api
             ai_agent: @conversation.ai_agent,
             ai_provider: @conversation.ai_provider,
             title: new_title,
-            status: 'active',
+            status: "active",
             is_collaborative: @conversation.is_collaborative?,
             participants: @conversation.participants
           )
@@ -157,10 +157,10 @@ module Api
 
             render_success({
               conversation: serialize_conversation_detail(new_conversation),
-              message: 'Conversation duplicated successfully'
+              message: "Conversation duplicated successfully"
             }, status: :created)
 
-            log_audit_event('ai.conversations.duplicate', new_conversation, {
+            log_audit_event("ai.conversations.duplicate", new_conversation, {
               original_conversation_id: @conversation.conversation_id,
               included_messages: include_messages
             })
@@ -179,7 +179,7 @@ module Api
           # Calculate average response time (time between user message and next assistant message)
           response_times = []
           messages.ordered.each_cons(2) do |msg1, msg2|
-            if msg1.role == 'user' && msg2.role == 'assistant'
+            if msg1.role == "user" && msg2.role == "assistant"
               response_times << (msg2.created_at - msg1.created_at)
             end
           end
@@ -191,9 +191,9 @@ module Api
           last_message = messages.ordered.last
           duration = if first_message && last_message && first_message != last_message
                       (last_message.created_at - first_message.created_at)
-                    else
+          else
                       0
-                    end
+          end
 
           stats = {
             message_count: @conversation.message_count,
@@ -225,7 +225,7 @@ module Api
         def set_conversation
           @conversation = current_user.account.ai_conversations.find(params[:id])
         rescue ActiveRecord::RecordNotFound
-          render_error('Conversation not found', status: :not_found)
+          render_error("Conversation not found", status: :not_found)
         end
 
         # =============================================================================
@@ -234,14 +234,14 @@ module Api
 
         def validate_permissions
           case action_name
-          when 'index', 'show', 'stats'
-            require_permission('ai.conversations.read')
-          when 'update', 'archive', 'unarchive'
-            require_permission('ai.conversations.update')
-          when 'destroy'
-            require_permission('ai.conversations.delete')
-          when 'duplicate'
-            require_permission('ai.conversations.create')
+          when "index", "show", "stats"
+            require_permission("ai.conversations.read")
+          when "update", "archive", "unarchive"
+            require_permission("ai.conversations.update")
+          when "destroy"
+            require_permission("ai.conversations.delete")
+          when "duplicate"
+            require_permission("ai.conversations.create")
           end
         end
 
@@ -274,7 +274,7 @@ module Api
           # Search by title
           if params[:search].present?
             search_term = "%#{params[:search]}%"
-            conversations = conversations.where('title ILIKE ?', search_term)
+            conversations = conversations.where("title ILIKE ?", search_term)
           end
 
           conversations
@@ -282,7 +282,7 @@ module Api
 
         def apply_pagination(collection)
           page = params[:page]&.to_i || 1
-          per_page = [params[:per_page]&.to_i || 25, 100].min
+          per_page = [ params[:per_page]&.to_i || 25, 100 ].min
 
           collection.page(page).per(per_page)
         end

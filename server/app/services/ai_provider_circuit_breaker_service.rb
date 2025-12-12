@@ -24,7 +24,7 @@ class AiProviderCircuitBreakerService
 
   def initialize(provider)
     @provider = provider
-    @redis = Redis.new(url: Rails.application.credentials.redis_url || 'redis://localhost:6379')
+    @redis = Redis.new(url: Rails.application.credentials.redis_url || "redis://localhost:6379")
 
     # Setup circuit breaker with provider-specific configuration
     setup_circuit_breaker(
@@ -100,9 +100,9 @@ class AiProviderCircuitBreakerService
   # Calculate time until retry is allowed
   def time_until_retry
     next_retry = circuit_stats[:next_retry_at]
-    return 0 unless next_retry && super == 'open'
+    return 0 unless next_retry && super == "open"
 
-    [(next_retry - Time.current).to_i, 0].max
+    [ (next_retry - Time.current).to_i, 0 ].max
   end
 
   private
@@ -119,7 +119,7 @@ class AiProviderCircuitBreakerService
 
     if state_data
       cached = JSON.parse(state_data, symbolize_names: true)
-      @state = cached[:state] || 'closed'
+      @state = cached[:state] || "closed"
       @failure_count = cached[:failure_count] || 0
       @success_count = cached[:success_count] || 0
       @consecutive_failures = cached[:consecutive_failures] || 0

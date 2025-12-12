@@ -67,7 +67,7 @@ Rails.application.configure do
   config.action_cable.allowed_request_origins = [
     # Local development (http and ws/wss) - Frontend on 3000, Backend on 3001
     "http://localhost:3000",
-    "http://127.0.0.1:3000", 
+    "http://127.0.0.1:3000",
     "http://powernode.dev:3000",
     "http://localhost:3001",
     "http://127.0.0.1:3001",
@@ -100,21 +100,21 @@ Rails.application.configure do
 
   # Allow external access to development server
   # Additional hosts can be added through the admin interface
-  config.hosts << 'localhost'
-  config.hosts << '127.0.0.1'
+  config.hosts << "localhost"
+  config.hosts << "127.0.0.1"
 
   # Dynamic host authorization using proc - checks trusted hosts from AdminSetting
   # This allows requests from hosts configured via the admin interface
   config.hosts << ->(host) {
     # Strip port from host for matching
-    host_without_port = host.to_s.split(':').first
+    host_without_port = host.to_s.split(":").first
 
     # Always allow localhost variants
-    return true if host_without_port == 'localhost' || host_without_port == '127.0.0.1'
+    return true if host_without_port == "localhost" || host_without_port == "127.0.0.1"
 
     begin
       # Check against trusted hosts from admin settings
-      return false unless defined?(AdminSetting) && ActiveRecord::Base.connection.table_exists?('admin_settings')
+      return false unless defined?(AdminSetting) && ActiveRecord::Base.connection.table_exists?("admin_settings")
 
       proxy_config = AdminSetting.reverse_proxy_url_config
       return false unless proxy_config.is_a?(Hash) && proxy_config[:trusted_hosts].is_a?(Array)
@@ -122,9 +122,9 @@ Rails.application.configure do
       proxy_config[:trusted_hosts].any? do |pattern|
         next false if pattern.blank?
 
-        pattern_host = pattern.split(':').first
+        pattern_host = pattern.split(":").first
 
-        if pattern_host.start_with?('*.')
+        if pattern_host.start_with?("*.")
           # Wildcard match: *.example.com matches sub.example.com
           domain = pattern_host[2..] # Remove "*."
           host_without_port.end_with?(".#{domain}") || host_without_port == domain

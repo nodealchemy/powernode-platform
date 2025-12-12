@@ -33,8 +33,8 @@ class CreateAiKnowledgeDocuments < ActiveRecord::Migration[8.0]
       t.index :status
       t.index :processed_at
       t.index :indexed_at
-      t.index [:account_id, :document_type]
-      t.index [:account_id, :status]
+      t.index [ :account_id, :document_type ]
+      t.index [ :account_id, :status ]
 
       t.foreign_key :accounts, on_delete: :cascade
       t.foreign_key :users, on_delete: :restrict

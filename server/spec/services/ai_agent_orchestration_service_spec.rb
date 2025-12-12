@@ -67,7 +67,7 @@ RSpec.describe AiAgentOrchestrationService, type: :service do
 
       run = workflow.ai_workflow_runs.last
       expect(run.input_variables).to eq(input_variables.stringify_keys)
-      expect(run.status).to be_in(['initializing', 'running', 'completed'])
+      expect(run.status).to be_in([ 'initializing', 'running', 'completed' ])
     end
 
     it 'handles workflow failures gracefully' do

@@ -20,7 +20,7 @@ class AiStreamingService
     Rails.logger.info "[STREAMING] Starting stream #{@stream_id} for agent #{agent.id}"
 
     # Broadcast stream start
-    broadcast_stream_event('stream_started', {
+    broadcast_stream_event("stream_started", {
       stream_id: @stream_id,
       agent_id: agent.id,
       agent_name: agent.name,
@@ -52,7 +52,7 @@ class AiStreamingService
     @buffer << chunk
 
     # Broadcast chunk to connected clients
-    broadcast_stream_event('stream_chunk', {
+    broadcast_stream_event("stream_chunk", {
       stream_id: @stream_id,
       chunk_index: index,
       content: chunk,
@@ -79,7 +79,7 @@ class AiStreamingService
     }
 
     # Broadcast completion
-    broadcast_stream_event('stream_completed', final_data)
+    broadcast_stream_event("stream_completed", final_data)
 
     # Update execution with final results
     @execution.update!(
@@ -87,7 +87,7 @@ class AiStreamingService
         response: full_response,
         stream_metadata: final_data
       },
-      status: 'completed',
+      status: "completed",
       completed_at: Time.current
     )
 
@@ -107,11 +107,11 @@ class AiStreamingService
     }
 
     # Broadcast error
-    broadcast_stream_event('stream_error', error_data)
+    broadcast_stream_event("stream_error", error_data)
 
     # Update execution with error
     @execution.update!(
-      status: 'failed',
+      status: "failed",
       error_details: error_data,
       completed_at: Time.current
     )

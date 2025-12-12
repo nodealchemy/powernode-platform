@@ -72,9 +72,9 @@ module Mcp
       AiWorkflowCompensation.create!(
         ai_workflow_run: workflow_run,
         ai_workflow_node_execution_id: result[:node_execution_id],
-        compensation_type: step[:compensation_type] || 'rollback',
-        trigger_reason: 'step_execution',
-        status: 'pending',
+        compensation_type: step[:compensation_type] || "rollback",
+        trigger_reason: "step_execution",
+        status: "pending",
         original_action: {
           step_name: step[:name],
           step_type: step[:type],
@@ -153,7 +153,7 @@ module Mcp
 
         {
           success: commit_results[:all_committed],
-          phase: 'commit',
+          phase: "commit",
           results: commit_results
         }
       else
@@ -162,7 +162,7 @@ module Mcp
 
         {
           success: false,
-          phase: 'prepare_failed',
+          phase: "prepare_failed",
           results: {
             prepare: prepare_results,
             abort: abort_results
@@ -210,9 +210,9 @@ module Mcp
       AiWorkflowCompensation.create!(
         ai_workflow_run: workflow_run,
         ai_workflow_node_execution: node_execution,
-        compensation_type: 'compensate',
+        compensation_type: "compensate",
         trigger_reason: "manual: #{reason}",
-        status: 'pending',
+        status: "pending",
         original_action: {
           node_id: node_execution.node_id,
           output: node_execution.output_data
@@ -229,7 +229,7 @@ module Mcp
     def coordinate_distributed_saga(saga_id:, participants:)
       saga_state = {
         saga_id: saga_id,
-        participants: participants.map { |p| { id: p[:id], status: 'pending' } },
+        participants: participants.map { |p| { id: p[:id], status: "pending" } },
         started_at: Time.current.iso8601
       }
 
@@ -237,7 +237,7 @@ module Mcp
       participants.each do |participant|
         result = execute_participant_step(participant)
 
-        update_participant_status(saga_state, participant[:id], result[:success] ? 'completed' : 'failed')
+        update_participant_status(saga_state, participant[:id], result[:success] ? "completed" : "failed")
 
         unless result[:success]
           # Trigger distributed rollback
@@ -267,7 +267,7 @@ module Mcp
         node_id: step[:node_id],
         node_type: step[:type],
         input_data: step[:input_data],
-        status: 'running',
+        status: "running",
         metadata: { saga_step: true, step_index: index }
       )
 
@@ -279,24 +279,24 @@ module Mcp
       }
 
       node_execution.update!(
-        status: 'completed',
+        status: "completed",
         output_data: result[:output]
       )
 
       result
     rescue StandardError => e
-      node_execution&.update!(status: 'failed', error_details: { error: e.message })
+      node_execution&.update!(status: "failed", error_details: { error: e.message })
       { success: false, error: e.message, node_execution_id: node_execution&.id }
     end
 
     # Build compensation action based on step type
     def build_compensation_action(step, result)
       case step[:type]
-      when 'ai_agent'
+      when "ai_agent"
         build_agent_compensation(step, result)
-      when 'api_call'
+      when "api_call"
         build_api_compensation(step, result)
-      when 'webhook'
+      when "webhook"
         build_webhook_compensation(step, result)
       else
         build_generic_compensation(step, result)
@@ -306,12 +306,12 @@ module Mcp
     # Build agent compensation
     def build_agent_compensation(step, result)
       {
-        type: 'agent',
+        type: "agent",
         rollback_action: {
-          type: 'message',
-          recipient: step[:config]['agent_id'],
+          type: "message",
+          recipient: step[:config]["agent_id"],
           message: {
-            action: 'rollback',
+            action: "rollback",
             original_result: result[:output]
           }
         }
@@ -321,11 +321,11 @@ module Mcp
     # Build API compensation
     def build_api_compensation(step, result)
       {
-        type: 'api',
+        type: "api",
         rollback_action: {
-          type: 'api_call',
-          url: step[:config]['rollback_url'] || step[:config]['url'],
-          method: 'DELETE',
+          type: "api_call",
+          url: step[:config]["rollback_url"] || step[:config]["url"],
+          method: "DELETE",
           payload: { rollback: true, original_result: result[:output] }
         }
       }
@@ -334,12 +334,12 @@ module Mcp
     # Build webhook compensation
     def build_webhook_compensation(step, result)
       {
-        type: 'webhook',
+        type: "webhook",
         rollback_action: {
-          type: 'api_call',
-          url: step[:config]['url'],
-          method: 'POST',
-          payload: { action: 'rollback', data: result[:output] }
+          type: "api_call",
+          url: step[:config]["url"],
+          method: "POST",
+          payload: { action: "rollback", data: result[:output] }
         }
       }
     end
@@ -347,9 +347,9 @@ module Mcp
     # Build generic compensation
     def build_generic_compensation(step, result)
       {
-        type: 'generic',
+        type: "generic",
         rollback_action: {
-          type: 'revert',
+          type: "revert",
           previous_state: step[:input_data]
         }
       }
@@ -363,14 +363,14 @@ module Mcp
     # Determine compensation type for node
     def determine_compensation_type(node)
       case node.node_type
-      when 'api_call', 'webhook'
-        'rollback'
-      when 'ai_agent'
-        'compensate'
-      when 'transform'
-        'revert'
+      when "api_call", "webhook"
+        "rollback"
+      when "ai_agent"
+        "compensate"
+      when "transform"
+        "revert"
       else
-        'undo'
+        "undo"
       end
     end
 
@@ -432,11 +432,11 @@ module Mcp
 
     # Rollback distributed saga
     def rollback_distributed_saga(saga_state)
-      completed_participants = saga_state[:participants].select { |p| p[:status] == 'completed' }
+      completed_participants = saga_state[:participants].select { |p| p[:status] == "completed" }
 
       completed_participants.reverse.each do |participant|
         # Trigger rollback for participant
-        update_participant_status(saga_state, participant[:id], 'rolled_back')
+        update_participant_status(saga_state, participant[:id], "rolled_back")
       end
     end
   end

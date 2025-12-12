@@ -17,12 +17,12 @@ RSpec.describe AiProvider, type: :model do
     it { is_expected.to validate_presence_of(:api_endpoint) }
 
     it { is_expected.to validate_inclusion_of(:provider_type).in_array(%w[openai anthropic google azure huggingface custom ollama local api_gateway]) }
-    
+
     context 'name validation' do
       it 'validates name uniqueness within account' do
         account = create(:account)
         create(:ai_provider, account: account, name: 'OpenAI GPT-4')
-        
+
         duplicate = build(:ai_provider, account: account, name: 'OpenAI GPT-4')
         expect(duplicate).not_to be_valid
         expect(duplicate.errors[:name]).to include('has already been taken')
@@ -31,10 +31,10 @@ RSpec.describe AiProvider, type: :model do
       it 'allows same name in different accounts' do
         account1 = create(:account)
         account2 = create(:account)
-        
+
         create(:ai_provider, account: account1, name: 'OpenAI GPT-4')
         duplicate = build(:ai_provider, account: account2, name: 'OpenAI GPT-4')
-        
+
         expect(duplicate).to be_valid
       end
 
@@ -47,8 +47,8 @@ RSpec.describe AiProvider, type: :model do
 
     context 'api_endpoint validation' do
       it 'validates URL format' do
-        invalid_urls = ['not-a-url', 'ftp://invalid.com', 'http://', '']
-        
+        invalid_urls = [ 'not-a-url', 'ftp://invalid.com', 'http://', '' ]
+
         invalid_urls.each do |url|
           provider = build(:ai_provider, api_endpoint: url)
           expect(provider).not_to be_valid, "Expected '#{url}' to be invalid"
@@ -63,7 +63,7 @@ RSpec.describe AiProvider, type: :model do
           'https://api.google.com/ai/v1',
           'https://custom-api.example.com/v2'
         ]
-        
+
         valid_urls.each do |url|
           provider = build(:ai_provider, api_endpoint: url)
           expect(provider).to be_valid, "Expected '#{url}' to be valid"
@@ -90,12 +90,12 @@ RSpec.describe AiProvider, type: :model do
 
       it 'validates provider-specific configuration' do
         openai_config = {
-          models: ['gpt-3.5-turbo', 'gpt-4'],
+          models: [ 'gpt-3.5-turbo', 'gpt-4' ],
           default_model: 'gpt-3.5-turbo',
           max_tokens: 4000,
           temperature_range: { min: 0, max: 2 }
         }
-        
+
         provider = build(:ai_provider, provider_type: 'openai', configuration: openai_config)
         expect(provider).to be_valid
       end
@@ -105,7 +105,7 @@ RSpec.describe AiProvider, type: :model do
           models: 'not_an_array',
           max_tokens: 'not_a_number'
         }
-        
+
         provider = build(:ai_provider, provider_type: 'openai', configuration: invalid_config)
         expect(provider).not_to be_valid
         expect(provider.errors[:configuration]).to be_present
@@ -118,7 +118,7 @@ RSpec.describe AiProvider, type: :model do
           requests_per_minute: 'not_a_number',
           requests_per_day: -1
         }
-        
+
         provider = build(:ai_provider, rate_limit: invalid_rate_limit)
         expect(provider).not_to be_valid
         expect(provider.errors[:rate_limit]).to include('requests_per_minute must be a positive integer')
@@ -131,7 +131,7 @@ RSpec.describe AiProvider, type: :model do
           requests_per_day: 50000,
           tokens_per_minute: 150000
         }
-        
+
         provider = build(:ai_provider, rate_limit: valid_rate_limit)
         expect(provider).to be_valid
       end
@@ -206,7 +206,7 @@ RSpec.describe AiProvider, type: :model do
       it 'sets default configuration based on provider type' do
         provider = build(:ai_provider, provider_type: 'openai', configuration: nil)
         provider.valid?
-        
+
         expect(provider.configuration['models']).to include('gpt-3.5-turbo')
         expect(provider.configuration['default_model']).to be_present
       end
@@ -227,14 +227,14 @@ RSpec.describe AiProvider, type: :model do
     describe 'after_update' do
       it 'invalidates cache when configuration changes' do
         provider = create(:ai_provider)
-        
+
         expect(provider).to receive(:invalidate_provider_cache)
         provider.update!(configuration: { updated: true })
       end
 
       it 'triggers health check when endpoint changes' do
         provider = create(:ai_provider)
-        
+
         expect(provider).to receive(:perform_health_check)
         provider.update!(api_endpoint: 'https://new-endpoint.com/api')
       end
@@ -244,7 +244,7 @@ RSpec.describe AiProvider, type: :model do
   describe 'instance methods' do
     describe '#healthy?' do
       it 'returns true for providers with recent healthy status' do
-        provider = create(:ai_provider, 
+        provider = create(:ai_provider,
                          health_status: 'healthy',
                          last_health_check: 30.minutes.ago)
         expect(provider.healthy?).to be true
@@ -275,23 +275,23 @@ RSpec.describe AiProvider, type: :model do
 
       it 'returns configured models' do
         provider.configuration = {
-          models: ['gpt-3.5-turbo', 'gpt-4', 'gpt-4-turbo'],
+          models: [ 'gpt-3.5-turbo', 'gpt-4', 'gpt-4-turbo' ],
           model_capabilities: {
             'gpt-4' => { max_tokens: 8000, supports_functions: true }
           }
         }
-        
+
         models = provider.available_models
         expect(models).to include('gpt-3.5-turbo', 'gpt-4', 'gpt-4-turbo')
       end
 
       it 'fetches models from API when not configured' do
         provider.configuration = {}
-        
+
         # Mock API response
         allow(provider).to receive(:fetch_models_from_api)
-          .and_return(['gpt-3.5-turbo', 'gpt-4'])
-        
+          .and_return([ 'gpt-3.5-turbo', 'gpt-4' ])
+
         models = provider.available_models
         expect(models).to include('gpt-3.5-turbo', 'gpt-4')
       end
@@ -299,21 +299,21 @@ RSpec.describe AiProvider, type: :model do
 
     describe '#default_model' do
       it 'returns configured default model' do
-        provider = create(:ai_provider, 
+        provider = create(:ai_provider,
                          configuration: { default_model: 'gpt-4' })
         expect(provider.default_model).to eq('gpt-4')
       end
 
       it 'returns first available model when no default configured' do
         provider = create(:ai_provider,
-                         configuration: { models: ['gpt-3.5-turbo', 'gpt-4'] })
+                         configuration: { models: [ 'gpt-3.5-turbo', 'gpt-4' ] })
         expect(provider.default_model).to eq('gpt-3.5-turbo')
       end
     end
 
     describe '#supports_model?' do
       let(:provider) { create(:ai_provider,
-                             configuration: { models: ['gpt-3.5-turbo', 'gpt-4'] }) }
+                             configuration: { models: [ 'gpt-3.5-turbo', 'gpt-4' ] }) }
 
       it 'returns true for supported models' do
         expect(provider.supports_model?('gpt-4')).to be true
@@ -352,7 +352,7 @@ RSpec.describe AiProvider, type: :model do
 
       it 'returns capabilities for specific model' do
         capabilities = provider.model_capabilities('gpt-4')
-        
+
         expect(capabilities[:max_tokens]).to eq(8000)
         expect(capabilities[:supports_vision]).to be true
         expect(capabilities[:cost_per_1k_tokens][:input]).to eq(0.03)
@@ -428,9 +428,9 @@ RSpec.describe AiProvider, type: :model do
       it 'updates health status on successful check' do
         # Mock successful API response
         allow(provider).to receive(:test_api_connection).and_return(true)
-        
+
         provider.perform_health_check
-        
+
         expect(provider.health_status).to eq('healthy')
         expect(provider.last_health_check).to be_within(1.second).of(Time.current)
       end
@@ -438,18 +438,18 @@ RSpec.describe AiProvider, type: :model do
       it 'updates health status on failed check' do
         # Mock failed API response
         allow(provider).to receive(:test_api_connection).and_raise(StandardError, 'Connection failed')
-        
+
         provider.perform_health_check
-        
+
         expect(provider.health_status).to eq('unhealthy')
         expect(provider.health_error).to include('Connection failed')
       end
 
       it 'records detailed health metrics' do
         allow(provider).to receive(:test_api_connection).and_return(true)
-        
+
         provider.perform_health_check
-        
+
         expect(provider.health_metrics).to include('response_time_ms')
         expect(provider.health_metrics).to include('last_check_timestamp')
       end
@@ -467,7 +467,7 @@ RSpec.describe AiProvider, type: :model do
 
       it 'updates rate limit counters' do
         provider.increment_usage(requests: 1)
-        
+
         expect(provider.request_count_last_minute).to eq(1)
         expect(provider.request_count_last_hour).to eq(1)
       end
@@ -481,7 +481,7 @@ RSpec.describe AiProvider, type: :model do
 
       it 'returns comprehensive usage statistics' do
         stats = provider.usage_statistics
-        
+
         expect(stats[:total_requests]).to eq(1000)
         expect(stats[:total_tokens]).to eq(50000)
         expect(stats[:total_cost]).to eq(25.50)
@@ -491,7 +491,7 @@ RSpec.describe AiProvider, type: :model do
 
       it 'includes time-based statistics' do
         stats = provider.usage_statistics(include_trends: true)
-        
+
         expect(stats[:requests_today]).to be_present
         expect(stats[:requests_this_week]).to be_present
         expect(stats[:cost_trend]).to be_present
@@ -503,7 +503,7 @@ RSpec.describe AiProvider, type: :model do
 
       it 'returns comprehensive provider information' do
         summary = provider.provider_summary
-        
+
         expect(summary).to include(
           :id,
           :name,
@@ -514,7 +514,7 @@ RSpec.describe AiProvider, type: :model do
           :available_models,
           :usage_statistics
         )
-        
+
         expect(summary[:provider_type]).to eq('openai')
         expect(summary[:available_models]).to be_an(Array)
       end
@@ -528,7 +528,7 @@ RSpec.describe AiProvider, type: :model do
       it 'returns default provider for account' do
         default = create(:ai_provider, account: account, is_default: true)
         create(:ai_provider, account: account, is_default: false)
-        
+
         expect(described_class.default_for_account(account)).to eq(default)
       end
 
@@ -547,7 +547,7 @@ RSpec.describe AiProvider, type: :model do
       it 'includes type metadata' do
         types = described_class.available_provider_types(include_metadata: true)
         openai_meta = types.find { |t| t[:type] == 'openai' }
-        
+
         expect(openai_meta[:name]).to eq('OpenAI')
         expect(openai_meta[:description]).to be_present
         expect(openai_meta[:website]).to be_present
@@ -564,7 +564,7 @@ RSpec.describe AiProvider, type: :model do
           call_count += 1
           true
         end
-        
+
         result = described_class.health_check_all
         expect(result[:total_checked]).to eq(3)
         expect(call_count).to eq(3)
@@ -572,7 +572,7 @@ RSpec.describe AiProvider, type: :model do
 
       it 'returns health check summary' do
         allow_any_instance_of(described_class).to receive(:perform_health_check)
-        
+
         summary = described_class.health_check_all
         expect(summary[:total_checked]).to eq(3)
         expect(summary[:healthy_count]).to be >= 0
@@ -588,7 +588,7 @@ RSpec.describe AiProvider, type: :model do
 
       it 'aggregates usage across all providers' do
         analytics = described_class.usage_analytics
-        
+
         expect(analytics[:total_requests]).to eq(1500)
         expect(analytics[:total_tokens]).to eq(75000)
         expect(analytics[:average_requests_per_provider]).to eq(750.0)
@@ -596,7 +596,7 @@ RSpec.describe AiProvider, type: :model do
 
       it 'includes provider distribution analysis' do
         analytics = described_class.usage_analytics(include_distribution: true)
-        
+
         expect(analytics[:provider_distribution]).to be_present
         expect(analytics[:top_providers]).to be_present
       end
@@ -609,13 +609,13 @@ RSpec.describe AiProvider, type: :model do
         expect {
           described_class.setup_default_providers(account)
         }.to change { account.ai_providers.count }.by_at_least(1)
-        
+
         expect(account.ai_providers.default.count).to eq(1)
       end
 
       it 'configures providers with appropriate defaults' do
         described_class.setup_default_providers(account)
-        
+
         openai_provider = account.ai_providers.find_by(provider_type: 'openai')
         expect(openai_provider.configuration['models']).to be_present
         expect(openai_provider.rate_limit).to be_present
@@ -632,14 +632,14 @@ RSpec.describe AiProvider, type: :model do
         expect {
           described_class.cleanup_inactive_providers(30.days)
         }.to change { described_class.count }.by(-3)
-        
+
         # Should preserve active providers
         expect(described_class.active.count).to eq(2)
       end
 
       it 'preserves providers with recent activity' do
         recent_inactive = create(:ai_provider, is_active: false, updated_at: 1.day.ago)
-        
+
         described_class.cleanup_inactive_providers(30.days)
         expect(described_class.exists?(recent_inactive.id)).to be true
       end
@@ -666,14 +666,14 @@ RSpec.describe AiProvider, type: :model do
         large_config = {
           models: Array.new(100) { |i| "model-#{i}" },
           model_capabilities: Hash[50.times.map { |i|
-            ["model-#{i}", {
+            [ "model-#{i}", {
               max_tokens: 4000 + i * 100,
               cost_per_1k_tokens: { input: 0.001 + i * 0.0001, output: 0.002 + i * 0.0002 }
-            }]
+            } ]
           }],
-          custom_endpoints: Hash[20.times.map { |i| ["endpoint_#{i}", "https://api-#{i}.example.com"] }]
+          custom_endpoints: Hash[20.times.map { |i| [ "endpoint_#{i}", "https://api-#{i}.example.com" ] }]
         }
-        
+
         provider = build(:ai_provider, configuration: large_config)
         expect(provider).to be_valid
         expect(provider.save!).to be true
@@ -687,13 +687,13 @@ RSpec.describe AiProvider, type: :model do
                                  name: 'AI Provider 智能提供商 🤖',
                                  description: 'Provider with émojis and 中文字符',
                                  configuration: {
-                                   models: ['gpt-4-中文', 'claude-français'],
+                                   models: [ 'gpt-4-中文', 'claude-français' ],
                                    display_names: {
                                      'gpt-4-中文' => 'GPT-4 中文版本',
                                      'claude-français' => 'Claude en Français 🇫🇷'
                                    }
                                  })
-        
+
         expect(unicode_provider).to be_valid
         expect(unicode_provider.name).to include('🤖')
         expect(unicode_provider.reload.configuration[:display_names]['claude-français']).to include('🇫🇷')

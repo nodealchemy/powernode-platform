@@ -8,10 +8,10 @@ admin_user = User.joins(:user_roles, :roles).where(roles: { name: 'system.admin'
 
 if admin_user.nil?
   puts "⚠️  No system admin found. Using existing admin or creating one..."
-  
+
   # Try to find any existing admin user
-  admin_user = User.where(email: ['admin@powernode.org', 'kb-admin@powernode.org']).first
-  
+  admin_user = User.where(email: [ 'admin@powernode.org', 'kb-admin@powernode.org' ]).first
+
   if admin_user.nil?
     # Create a default account first
     puts "Creating default account for KB admin..."
@@ -20,7 +20,7 @@ if admin_user.nil?
       account.status = 'active'
       account.settings = {}
     end
-    
+
     # Create admin user with proper password and account
     puts "Creating KB admin user..."
     admin_user = User.create!(
@@ -33,7 +33,7 @@ if admin_user.nil?
       email_verified_at: Time.current,
       account: default_account
     )
-    
+
     # Assign system admin role
     admin_role = Role.find_by(name: 'system.admin')
     if admin_role
@@ -178,7 +178,7 @@ Use the search bar at the top of any Knowledge Base page:
 
 #### By Topic
 - **Getting Started**: Basic setup and orientation
-- **Feature Guides**: Detailed functionality explanations  
+- **Feature Guides**: Detailed functionality explanations
 - **Troubleshooting**: Problem-solving and error resolution
 - **API Documentation**: Technical integration guides
 
@@ -362,7 +362,7 @@ Find articles containing all terms:
 subscription AND cancellation AND refund
 ```
 
-#### OR Operator  
+#### OR Operator
 Find articles containing any term:
 ```
 webhook OR API OR integration
@@ -394,7 +394,7 @@ Find recently updated content:
 
 ### Start Broad, Then Narrow
 1. **First Search**: `billing`
-2. **Refine**: `billing subscription`  
+2. **Refine**: `billing subscription`
 3. **Specific**: `billing subscription cancellation`
 
 ### Use Synonyms
@@ -547,7 +547,7 @@ The Knowledge Base uses a role-based content management system:
 To work with Knowledge Base content, you need these permissions:
 
 - `kb.view` - View published articles
-- `kb.edit` - Create and edit articles  
+- `kb.edit` - Create and edit articles
 - `kb.manage` - Full content management access
 - `kb.admin` - System administration features
 
@@ -838,7 +838,7 @@ const response = await fetch('/api/v1/subscriptions', {
 # Create the Knowledge Base Usage articles
 articles_data.each do |article_data|
   category = category_records[article_data[:category]]
-  
+
   article = KnowledgeBaseArticle.find_or_create_by(slug: article_data[:slug]) do |article|
     article.title = article_data[:title]
     article.content = article_data[:content].strip

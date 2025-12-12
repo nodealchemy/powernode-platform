@@ -20,14 +20,14 @@ class CreateAiWorkflows < ActiveRecord::Migration[7.1]
       t.integer :execution_count, null: false, default: 0
       t.timestamps
 
-      t.index [:account_id, :slug], unique: true, name: 'index_ai_workflows_on_account_slug'
-      t.index [:account_id, :status]
-      t.index [:is_template, :template_category]
+      t.index [ :account_id, :slug ], unique: true, name: 'index_ai_workflows_on_account_slug'
+      t.index [ :account_id, :status ]
+      t.index [ :is_template, :template_category ]
       t.index :last_executed_at
       t.index :published_at
     end
 
-    add_check_constraint :ai_workflows, 
+    add_check_constraint :ai_workflows,
       "status IN ('draft', 'published', 'archived', 'paused')",
       name: 'ai_workflows_status_check'
 

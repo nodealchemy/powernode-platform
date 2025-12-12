@@ -175,7 +175,7 @@ RSpec.describe 'AI Orchestration End-to-End Integration', type: :request do
       }
 
       # 412 = precondition failed (workflow validation), 422 = validation error
-      expect(response.status).to be_in([200, 201, 202, 412, 422, 500])
+      expect(response.status).to be_in([ 200, 201, 202, 412, 422, 500 ])
     end
 
     it 'creates and lists workflow runs' do
@@ -183,7 +183,7 @@ RSpec.describe 'AI Orchestration End-to-End Integration', type: :request do
 
       get "/api/v1/ai/workflows/#{ai_workflow.id}/runs"
 
-      expect(response.status).to be_in([200, 404])
+      expect(response.status).to be_in([ 200, 404 ])
     end
 
     it 'retrieves specific workflow run' do
@@ -191,7 +191,7 @@ RSpec.describe 'AI Orchestration End-to-End Integration', type: :request do
 
       get "/api/v1/ai/workflows/#{ai_workflow.id}/runs/#{run.id}"
 
-      expect(response.status).to be_in([200, 404])
+      expect(response.status).to be_in([ 200, 404 ])
     end
   end
 
@@ -205,7 +205,7 @@ RSpec.describe 'AI Orchestration End-to-End Integration', type: :request do
         input_parameters: { prompt: 'E2E test prompt' }
       }
 
-      expect(response.status).to be_in([200, 201, 202, 422, 500])
+      expect(response.status).to be_in([ 200, 201, 202, 422, 500 ])
     end
 
     it 'creates conversation with agent' do
@@ -213,7 +213,7 @@ RSpec.describe 'AI Orchestration End-to-End Integration', type: :request do
         conversation: { title: 'E2E Test Conversation' }
       }
 
-      expect(response.status).to be_in([200, 201, 412, 422])
+      expect(response.status).to be_in([ 200, 201, 412, 422 ])
     end
   end
 
@@ -224,7 +224,7 @@ RSpec.describe 'AI Orchestration End-to-End Integration', type: :request do
 
       post "/api/v1/ai/providers/#{openai_provider.id}/credentials/#{openai_credential.id}/test"
 
-      expect(response.status).to be_in([200, 404])
+      expect(response.status).to be_in([ 200, 404 ])
     end
 
     it 'handles disabled provider gracefully' do

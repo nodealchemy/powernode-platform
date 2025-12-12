@@ -3,9 +3,9 @@
 # Middleware for API key authentication
 # Supports multiple authentication strategies: API key, Bearer token
 class ApiKeyAuthentication
-  API_KEY_HEADER = 'X-API-Key'
-  AUTHORIZATION_HEADER = 'Authorization'
-  API_KEY_PARAM = 'api_key'
+  API_KEY_HEADER = "X-API-Key"
+  AUTHORIZATION_HEADER = "Authorization"
+  API_KEY_PARAM = "api_key"
 
   def initialize(app)
     @app = app
@@ -33,7 +33,7 @@ class ApiKeyAuthentication
   private
 
   def api_route?(path)
-    path.start_with?('/api/')
+    path.start_with?("/api/")
   end
 
   def extract_api_key(request)
@@ -61,20 +61,20 @@ class ApiKeyAuthentication
     api_key = ApiKey.find_by_token(token)
 
     unless api_key
-      return unauthorized_response('Invalid API key')
+      return unauthorized_response("Invalid API key")
     end
 
     # Check if API key is active
     unless api_key.active?
-      return unauthorized_response('API key is inactive or expired')
+      return unauthorized_response("API key is inactive or expired")
     end
 
     # Check IP restrictions
     if api_key.ip_restrictions.present?
       client_ip = request.ip
       unless ip_allowed?(api_key.ip_restrictions, client_ip)
-        log_security_event(api_key, 'api_key_ip_blocked', request)
-        return forbidden_response('IP address not allowed for this API key')
+        log_security_event(api_key, "api_key_ip_blocked", request)
+        return forbidden_response("IP address not allowed for this API key")
       end
     end
 
@@ -84,10 +84,10 @@ class ApiKeyAuthentication
     end
 
     # Check scope permissions
-    env['api_key'] = api_key
-    env['api_key_scopes'] = api_key.scopes || []
-    env['current_user'] = api_key.user
-    env['current_account'] = api_key.account || api_key.user&.account
+    env["api_key"] = api_key
+    env["api_key_scopes"] = api_key.scopes || []
+    env["current_user"] = api_key.user
+    env["current_account"] = api_key.account || api_key.user&.account
 
     # Track API key usage
     track_usage(api_key, request)
@@ -98,13 +98,13 @@ class ApiKeyAuthentication
   def ip_allowed?(restrictions, client_ip)
     return true if restrictions.blank?
 
-    allowed_ips = restrictions.is_a?(String) ? restrictions.split(',').map(&:strip) : restrictions
+    allowed_ips = restrictions.is_a?(String) ? restrictions.split(",").map(&:strip) : restrictions
 
     allowed_ips.any? do |pattern|
-      if pattern.include?('/')
+      if pattern.include?("/")
         # CIDR notation
         IPAddr.new(pattern).include?(client_ip)
-      elsif pattern.include?('*')
+      elsif pattern.include?("*")
         # Wildcard pattern
         regex = Regexp.new("\\A#{pattern.gsub('*', '\\d+')}\\z")
         client_ip.match?(regex)
@@ -159,16 +159,16 @@ class ApiKeyAuthentication
 
     # Create audit log if possible
     AuditLog.create(
-      action: 'api_access_denied',
-      resource_type: 'ApiKey',
+      action: "api_access_denied",
+      resource_type: "ApiKey",
       resource_id: api_key.id,
       account: api_key.account || api_key.user&.account,
       user: api_key.user,
       ip_address: request.ip,
       user_agent: request.user_agent,
-      source: 'api',
-      severity: 'high',
-      risk_level: 'medium',
+      source: "api",
+      severity: "high",
+      risk_level: "medium",
       details: {
         event_type: event_type,
         endpoint: request.path,
@@ -183,18 +183,18 @@ class ApiKeyAuthentication
     [
       401,
       {
-        'Content-Type' => 'application/json',
-        'WWW-Authenticate' => 'ApiKey realm="API"'
+        "Content-Type" => "application/json",
+        "WWW-Authenticate" => 'ApiKey realm="API"'
       },
-      [{ success: false, error: message }.to_json]
+      [ { success: false, error: message }.to_json ]
     ]
   end
 
   def forbidden_response(message)
     [
       403,
-      { 'Content-Type' => 'application/json' },
-      [{ success: false, error: message }.to_json]
+      { "Content-Type" => "application/json" },
+      [ { success: false, error: message }.to_json ]
     ]
   end
 
@@ -204,13 +204,13 @@ class ApiKeyAuthentication
     [
       429,
       {
-        'Content-Type' => 'application/json',
-        'Retry-After' => retry_after.to_s,
-        'X-RateLimit-Limit' => api_key.rate_limit.to_s,
-        'X-RateLimit-Remaining' => '0',
-        'X-RateLimit-Reset' => (Time.current.beginning_of_minute + 1.minute).to_i.to_s
+        "Content-Type" => "application/json",
+        "Retry-After" => retry_after.to_s,
+        "X-RateLimit-Limit" => api_key.rate_limit.to_s,
+        "X-RateLimit-Remaining" => "0",
+        "X-RateLimit-Reset" => (Time.current.beginning_of_minute + 1.minute).to_i.to_s
       },
-      [{ success: false, error: 'Rate limit exceeded' }.to_json]
+      [ { success: false, error: "Rate limit exceeded" }.to_json ]
     ]
   end
 end
@@ -226,15 +226,15 @@ module ApiKeyAuthorization
   private
 
   def api_key_request?
-    request.env['api_key'].present?
+    request.env["api_key"].present?
   end
 
   def current_api_key
-    request.env['api_key']
+    request.env["api_key"]
   end
 
   def api_key_scopes
-    request.env['api_key_scopes'] || []
+    request.env["api_key_scopes"] || []
   end
 
   def check_api_key_scope
@@ -250,11 +250,11 @@ module ApiKeyAuthorization
   end
 
   def scope_allowed?(scope)
-    return true if api_key_scopes.include?('*') # Wildcard scope
+    return true if api_key_scopes.include?("*") # Wildcard scope
 
     api_key_scopes.any? do |allowed|
       scope == allowed ||
-        (allowed.end_with?(':*') && scope.start_with?(allowed.chomp(':*')))
+        (allowed.end_with?(":*") && scope.start_with?(allowed.chomp(":*")))
     end
   end
 

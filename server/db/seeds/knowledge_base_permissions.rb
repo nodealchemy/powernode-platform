@@ -17,7 +17,7 @@ else
 end
 
 # Admin should have admin KB permissions
-admin_role = Role.find_by(name: 'admin') 
+admin_role = Role.find_by(name: 'admin')
 if admin_role
   kb_admin_permissions = %w[admin.kb.read admin.kb.manage admin.kb.moderate admin.kb.analytics admin.kb.settings]
   kb_admin_permissions.each do |perm_name|

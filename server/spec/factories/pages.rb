@@ -23,27 +23,27 @@ FactoryBot.define do
       content do
         <<~MARKDOWN
           # Main Heading
-          
+
           This is a paragraph with **bold text** and *italic text*.
-          
+
           ## Subheading
-          
+
           Here's a list:
-          
+
           - Item 1
           - Item 2
           - Item 3
-          
+
           Here's some `inline code` and a [link](https://example.com).
-          
+
           ```ruby
           def hello_world
             puts "Hello, World!"
           end
           ```
-          
+
           > This is a blockquote with some important information.
-          
+
           | Column 1 | Column 2 |
           |----------|----------|
           | Data 1   | Data 2   |

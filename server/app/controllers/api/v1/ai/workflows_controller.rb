@@ -65,7 +65,7 @@ module Api
             pagination: pagination_data(workflows)
           })
 
-          log_audit_event('ai.workflows.read', current_user.account)
+          log_audit_event("ai.workflows.read", current_user.account)
         end
 
         # GET /api/v1/ai/workflows/:id
@@ -74,7 +74,7 @@ module Api
             workflow: serialize_workflow_detail(@workflow)
           })
 
-          log_audit_event('ai.workflows.read', @workflow)
+          log_audit_event("ai.workflows.read", @workflow)
         end
 
         # POST /api/v1/ai/workflows
@@ -95,7 +95,7 @@ module Api
                 workflow: serialize_workflow_detail(@workflow)
               }, status: :created)
 
-              log_audit_event('ai.workflows.create', @workflow)
+              log_audit_event("ai.workflows.create", @workflow)
             else
               render_validation_error(@workflow.errors)
             end
@@ -133,7 +133,7 @@ module Api
                 workflow: serialize_workflow_detail(@workflow)
               })
 
-              log_audit_event('ai.workflows.update', @workflow)
+              log_audit_event("ai.workflows.update", @workflow)
             else
               render_validation_error(@workflow.errors)
             end
@@ -146,10 +146,10 @@ module Api
         def destroy
           if @workflow.can_delete?
             @workflow.destroy
-            render_success({ message: 'Workflow deleted successfully' })
-            log_audit_event('ai.workflows.delete', @workflow)
+            render_success({ message: "Workflow deleted successfully" })
+            log_audit_event("ai.workflows.delete", @workflow)
           else
-            render_error('Cannot delete workflow with active runs', status: :unprocessable_content)
+            render_error("Cannot delete workflow with active runs", status: :unprocessable_content)
           end
         end
 
@@ -164,9 +164,9 @@ module Api
 
           # Create workflow run
           run = @workflow.ai_workflow_runs.create!(
-            status: 'initializing',
+            status: "initializing",
             input_variables: params[:input_variables] || {},
-            trigger_type: params[:trigger_type] || 'manual',
+            trigger_type: params[:trigger_type] || "manual",
             trigger_context: params[:trigger_context] || {},
             triggered_by_user: current_user,
             account: current_user.account
@@ -175,7 +175,7 @@ module Api
           # Queue execution via worker service
           WorkerJobService.enqueue_ai_workflow_execution(
             run.run_id,
-            { 'realtime' => true, 'channel_id' => "ai_workflow_execution_#{run.run_id}" }
+            { "realtime" => true, "channel_id" => "ai_workflow_execution_#{run.run_id}" }
           )
 
           render_success({
@@ -183,7 +183,7 @@ module Api
             execution_url: api_v1_ai_workflow_workflow_run_url(@workflow.id, run.run_id)
           }, status: :created)
 
-          log_audit_event('ai.workflows.execute', run)
+          log_audit_event("ai.workflows.execute", run)
 
         rescue ProviderAvailabilityService::ProviderUnavailableError => e
           render_error(e.message, status: :precondition_failed)
@@ -206,7 +206,7 @@ module Api
               workflow: serialize_workflow_detail(duplicated_workflow)
             }, status: :created)
 
-            log_audit_event('ai.workflows.duplicate', duplicated_workflow,
+            log_audit_event("ai.workflows.duplicate", duplicated_workflow,
               original_workflow_id: @workflow.id
             )
           else
@@ -221,7 +221,7 @@ module Api
           if validation_result[:valid]
             render_success({
               valid: true,
-              message: 'Workflow structure is valid'
+              message: "Workflow structure is valid"
             })
           else
             render_success({
@@ -241,7 +241,7 @@ module Api
             metadata: {
               exported_at: Time.current.iso8601,
               exported_by: current_user.email,
-              platform_version: '1.0.0'
+              platform_version: "1.0.0"
             }
           }
 
@@ -250,7 +250,7 @@ module Api
             filename: "#{@workflow.name.parameterize}-#{Date.current}.json"
           })
 
-          log_audit_event('ai.workflows.export', @workflow)
+          log_audit_event("ai.workflows.export", @workflow)
         end
 
         # POST /api/v1/ai/workflows/import
@@ -258,7 +258,7 @@ module Api
           import_data = params[:import_data]
 
           if import_data.blank?
-            return render_error('Import data is required', status: :bad_request)
+            return render_error("Import data is required", status: :bad_request)
           end
 
           begin
@@ -273,7 +273,7 @@ module Api
               workflow: serialize_workflow_detail(imported_workflow)
             }, status: :created)
 
-            log_audit_event('ai.workflows.import', imported_workflow)
+            log_audit_event("ai.workflows.import", imported_workflow)
 
           rescue StandardError => e
             render_error("Import failed: #{e.message}", status: :unprocessable_content)
@@ -293,15 +293,15 @@ module Api
                                      .count,
             successful_runs: AiWorkflowRun.joins(:ai_workflow)
                                           .where(ai_workflows: { account_id: current_user.account.id })
-                                          .where(status: 'completed')
+                                          .where(status: "completed")
                                           .count,
             average_execution_time: AiWorkflowRun.joins(:ai_workflow)
                                                  .where(ai_workflows: { account_id: current_user.account.id })
                                                  .where.not(completed_at: nil)
-                                                 .average('EXTRACT(epoch FROM (completed_at - started_at))'),
+                                                 .average("EXTRACT(epoch FROM (completed_at - started_at))"),
             recent_activity: workflows.joins(:ai_workflow_runs)
                                      .where(ai_workflow_runs: { created_at: 7.days.ago.. })
-                                     .group('ai_workflows.id')
+                                     .group("ai_workflows.id")
                                      .count
           }
 
@@ -327,11 +327,11 @@ module Api
                   # Nested under specific workflow
                   workflow = current_user.account.ai_workflows.find(params[:workflow_id])
                   workflow.ai_workflow_runs
-                else
+          else
                   # All runs across all workflows
                   AiWorkflowRun.joins(:ai_workflow)
                               .where(ai_workflows: { account_id: current_user.account_id })
-                end
+          end
 
           runs = runs.includes(:ai_workflow, :triggered_by_user, :ai_workflow_node_executions)
           runs = apply_run_filters(runs)
@@ -365,7 +365,7 @@ module Api
           if @workflow_run.update(update_params)
             render_success({
               workflow_run: serialize_run_detail(@workflow_run),
-              message: 'Workflow run updated successfully'
+              message: "Workflow run updated successfully"
             })
           else
             render_validation_error(@workflow_run.errors)
@@ -379,8 +379,8 @@ module Api
 
         # DELETE /api/v1/ai/workflows/:workflow_id/runs/:run_id
         def run_destroy
-          if @workflow_run.status.in?(['running', 'initializing'])
-            return render_error('Cannot delete workflow run while it is running', status: :unprocessable_content)
+          if @workflow_run.status.in?([ "running", "initializing" ])
+            return render_error("Cannot delete workflow run while it is running", status: :unprocessable_content)
           end
 
           workflow_name = @workflow_run.ai_workflow.name
@@ -396,9 +396,9 @@ module Api
               deleted_run_id: run_id
             })
 
-            log_audit_event('ai.workflows.run.delete', @workflow_run)
+            log_audit_event("ai.workflows.run.delete", @workflow_run)
           else
-            render_error('Failed to delete workflow run', status: :unprocessable_content)
+            render_error("Failed to delete workflow run", status: :unprocessable_content)
           end
         end
 
@@ -410,7 +410,7 @@ module Api
           runs = apply_run_filters(runs)
 
           # Check for running runs
-          running_runs = runs.where(status: ['running', 'initializing'])
+          running_runs = runs.where(status: [ "running", "initializing" ])
           if running_runs.exists?
             running_count = running_runs.count
             return render_error(
@@ -420,7 +420,7 @@ module Api
           end
 
           delete_count = runs.count
-          return render_success({ message: 'No workflow runs found to delete', deleted_count: 0 }) if delete_count.zero?
+          return render_success({ message: "No workflow runs found to delete", deleted_count: 0 }) if delete_count.zero?
 
           begin
             deleted_count = 0
@@ -444,11 +444,11 @@ module Api
               deleted_run_ids: deleted_run_ids
             })
 
-            log_audit_event('ai.workflows.runs.bulk_delete', current_user.account, { deleted_count: deleted_count })
+            log_audit_event("ai.workflows.runs.bulk_delete", current_user.account, { deleted_count: deleted_count })
 
           rescue StandardError => e
             Rails.logger.error "Bulk delete workflow runs failed: #{e.message}"
-            render_error('Failed to delete workflow runs', status: :internal_server_error)
+            render_error("Failed to delete workflow runs", status: :internal_server_error)
           end
         end
 
@@ -456,22 +456,22 @@ module Api
         def run_cancel
           if @workflow_run.can_cancel?
             result = @workflow_run.cancel!(
-              reason: params[:reason] || 'Cancelled by user',
+              reason: params[:reason] || "Cancelled by user",
               cancelled_by: current_user
             )
 
             if result
               render_success({
                 workflow_run: serialize_run_detail(@workflow_run),
-                message: 'Workflow run cancelled successfully'
+                message: "Workflow run cancelled successfully"
               })
 
-              log_audit_event('ai.workflows.run.cancel', @workflow_run)
+              log_audit_event("ai.workflows.run.cancel", @workflow_run)
             else
-              render_error('Failed to cancel workflow run', status: :unprocessable_content)
+              render_error("Failed to cancel workflow run", status: :unprocessable_content)
             end
           else
-            render_error('Cannot cancel workflow run in current state', status: :unprocessable_content)
+            render_error("Cannot cancel workflow run in current state", status: :unprocessable_content)
           end
         end
 
@@ -489,14 +489,14 @@ module Api
                 new_run: serialize_run_detail(new_run)
               }, status: :created)
 
-              log_audit_event('ai.workflows.run.retry', new_run,
+              log_audit_event("ai.workflows.run.retry", new_run,
                 metadata: { original_run_id: @workflow_run.run_id }
               )
             else
               render_validation_error(new_run.errors)
             end
           else
-            render_error('Cannot retry workflow run in current state', status: :unprocessable_content)
+            render_error("Cannot retry workflow run in current state", status: :unprocessable_content)
           end
         end
 
@@ -504,22 +504,22 @@ module Api
         def run_pause
           if @workflow_run.can_pause?
             result = @workflow_run.pause!(
-              reason: params[:reason] || 'Paused by user',
+              reason: params[:reason] || "Paused by user",
               paused_by: current_user
             )
 
             if result
               render_success({
                 workflow_run: serialize_run_detail(@workflow_run),
-                message: 'Workflow run paused successfully'
+                message: "Workflow run paused successfully"
               })
 
-              log_audit_event('ai.workflows.run.pause', @workflow_run)
+              log_audit_event("ai.workflows.run.pause", @workflow_run)
             else
-              render_error('Failed to pause workflow run', status: :unprocessable_content)
+              render_error("Failed to pause workflow run", status: :unprocessable_content)
             end
           else
-            render_error('Cannot pause workflow run in current state', status: :unprocessable_content)
+            render_error("Cannot pause workflow run in current state", status: :unprocessable_content)
           end
         end
 
@@ -531,15 +531,15 @@ module Api
             if result
               render_success({
                 workflow_run: serialize_run_detail(@workflow_run),
-                message: 'Workflow run resumed successfully'
+                message: "Workflow run resumed successfully"
               })
 
-              log_audit_event('ai.workflows.run.resume', @workflow_run)
+              log_audit_event("ai.workflows.run.resume", @workflow_run)
             else
-              render_error('Failed to resume workflow run', status: :unprocessable_content)
+              render_error("Failed to resume workflow run", status: :unprocessable_content)
             end
           else
-            render_error('Cannot resume workflow run in current state', status: :unprocessable_content)
+            render_error("Cannot resume workflow run in current state", status: :unprocessable_content)
           end
         end
 
@@ -586,34 +586,34 @@ module Api
         def run_download
           download_data = prepare_download_data(@workflow_run)
           filename = "#{@workflow_run.ai_workflow.name.parameterize}-#{@workflow_run.run_id}-#{Date.current}"
-          format = params[:format] || 'json'
+          format = params[:format] || "json"
 
           case format.downcase
-          when 'json'
+          when "json"
             # Return as JSON response for API clients
             render_success({
               export_data: download_data,
               filename: "#{filename}.json"
             })
-          when 'txt', 'text'
+          when "txt", "text"
             # Return as file download
             text_content = extract_text_content(download_data)
             send_data text_content,
                       filename: "#{filename}.txt",
-                      type: 'text/plain',
-                      disposition: 'attachment'
-          when 'markdown', 'md'
+                      type: "text/plain",
+                      disposition: "attachment"
+          when "markdown", "md"
             # Return as file download
             markdown_content = format_as_markdown(download_data)
             send_data markdown_content,
                       filename: "#{filename}.md",
-                      type: 'text/markdown',
-                      disposition: 'attachment'
+                      type: "text/markdown",
+                      disposition: "attachment"
           else
-            render_error('Unsupported download format. Use json, txt, or markdown', :bad_request)
+            render_error("Unsupported download format. Use json, txt, or markdown", :bad_request)
           end
 
-          log_audit_event('ai.workflows.run.download', @workflow_run, metadata: { format: format }) unless format == 'json'
+          log_audit_event("ai.workflows.run.download", @workflow_run, metadata: { format: format }) unless format == "json"
         end
 
         # POST /api/v1/ai/workflows/:workflow_id/runs/:run_id/process
@@ -629,7 +629,7 @@ module Api
             # Execute returns the updated workflow_run, not a result hash
             workflow_run = orchestrator.execute
 
-            if workflow_run.status == 'completed'
+            if workflow_run.status == "completed"
               render_success({
                 success: true,
                 output_variables: workflow_run.output_variables || {},
@@ -638,7 +638,7 @@ module Api
               })
             else
               render_error(
-                workflow_run.error_details&.dig('error_message') || 'Workflow processing failed',
+                workflow_run.error_details&.dig("error_message") || "Workflow processing failed",
                 status: :unprocessable_content,
                 details: workflow_run.error_details
               )
@@ -658,9 +658,9 @@ module Api
 
           if channel_id.present?
             ActionCable.server.broadcast(channel_id, broadcast_data)
-            render_success({ message: 'Broadcast sent successfully' })
+            render_success({ message: "Broadcast sent successfully" })
           else
-            render_error('channel_id is required', status: :bad_request)
+            render_error("channel_id is required", status: :bad_request)
           end
         end
 
@@ -688,7 +688,7 @@ module Api
           })
 
         rescue ActiveRecord::RecordNotFound
-          render_error('Workflow run not found', status: :not_found)
+          render_error("Workflow run not found", status: :not_found)
         end
 
         # POST /api/v1/ai/workflows/:workflow_id/runs/:run_id/check_timeout
@@ -698,18 +698,18 @@ module Api
           timeout_reason = nil
 
           # Check workflow-level timeout
-          if @workflow_run.status.in?(['running', 'initializing'])
+          if @workflow_run.status.in?([ "running", "initializing" ])
             workflow = @workflow_run.ai_workflow
-            max_execution_time = workflow.configuration&.dig('max_execution_time') || 3600
+            max_execution_time = workflow.configuration&.dig("max_execution_time") || 3600
 
             if @workflow_run.started_at && (Time.current - @workflow_run.started_at) > max_execution_time
               # Use fail_execution! method to trigger proper broadcasts
               @workflow_run.fail_execution!(
                 "Workflow exceeded maximum execution time of #{max_execution_time} seconds",
                 {
-                  'error_type' => 'workflow_timeout',
-                  'max_execution_time' => max_execution_time,
-                  'execution_duration' => (Time.current - @workflow_run.started_at).to_i
+                  "error_type" => "workflow_timeout",
+                  "max_execution_time" => max_execution_time,
+                  "execution_duration" => (Time.current - @workflow_run.started_at).to_i
                 }
               )
               timed_out = true
@@ -719,7 +719,7 @@ module Api
 
           # Check node-level timeouts
           unless timed_out
-            @workflow_run.ai_workflow_node_executions.where(status: 'running').each do |node_exec|
+            @workflow_run.ai_workflow_node_executions.where(status: "running").each do |node_exec|
               node = node_exec.ai_workflow_node
               timeout_seconds = node.timeout_seconds || 300
 
@@ -728,9 +728,9 @@ module Api
                 node_exec.fail_execution!(
                   "Node execution exceeded timeout of #{timeout_seconds} seconds",
                   {
-                    'error_type' => 'node_timeout',
-                    'timeout_seconds' => timeout_seconds,
-                    'execution_duration' => (Time.current - node_exec.started_at).to_i
+                    "error_type" => "node_timeout",
+                    "timeout_seconds" => timeout_seconds,
+                    "execution_duration" => (Time.current - node_exec.started_at).to_i
                   }
                 )
 
@@ -743,10 +743,10 @@ module Api
                 @workflow_run.fail_execution!(
                   "Workflow failed due to node timeout: #{node.name}",
                   {
-                    'error_type' => 'node_timeout',
-                    'failed_node_id' => node.node_id,
-                    'failed_node_name' => node.name,
-                    'timeout_seconds' => timeout_seconds
+                    "error_type" => "node_timeout",
+                    "failed_node_id" => node.node_id,
+                    "failed_node_name" => node.name,
+                    "timeout_seconds" => timeout_seconds
                   }
                 )
 
@@ -778,7 +778,7 @@ module Api
                                   .includes(:creator, :ai_workflow_nodes, :ai_workflow_edges, :ai_workflow_triggers, :ai_workflow_variables)
                                   .find(params[:id] || params[:workflow_id])
         rescue ActiveRecord::RecordNotFound
-          render_error('Workflow not found', status: :not_found)
+          render_error("Workflow not found", status: :not_found)
         end
 
         def set_workflow_run
@@ -794,10 +794,10 @@ module Api
             # Worker/service context - trusted access across all accounts
             @workflow_run = AiWorkflowRun.find_by!(run_id: run_id_param)
           else
-            return render_unauthorized('Authentication required')
+            render_unauthorized("Authentication required")
           end
         rescue ActiveRecord::RecordNotFound
-          render_error('Workflow run not found', status: :not_found)
+          render_error("Workflow run not found", status: :not_found)
         end
 
         # =============================================================================
@@ -809,22 +809,22 @@ module Api
           return if current_worker || current_service
 
           case action_name
-          when 'index', 'show', 'statistics', 'templates'
-            require_permission('ai.workflows.read')
-          when 'runs_index', 'run_show', 'run_logs', 'run_node_executions', 'run_metrics', 'run_download'
-            require_permission('ai.workflows.read')
-          when 'create', 'import', 'duplicate'
-            require_permission('ai.workflows.create')
-          when 'update', 'validate'
-            require_permission('ai.workflows.update')
-          when 'run_update', 'run_check_timeout'
-            require_permission('ai.workflows.update')
-          when 'destroy', 'run_destroy', 'runs_destroy_all'
-            require_permission('ai.workflows.delete')
-          when 'execute', 'run_cancel', 'run_retry', 'run_pause', 'run_resume'
-            require_permission('ai.workflows.execute')
-          when 'export'
-            require_permission('ai.workflows.export')
+          when "index", "show", "statistics", "templates"
+            require_permission("ai.workflows.read")
+          when "runs_index", "run_show", "run_logs", "run_node_executions", "run_metrics", "run_download"
+            require_permission("ai.workflows.read")
+          when "create", "import", "duplicate"
+            require_permission("ai.workflows.create")
+          when "update", "validate"
+            require_permission("ai.workflows.update")
+          when "run_update", "run_check_timeout"
+            require_permission("ai.workflows.update")
+          when "destroy", "run_destroy", "runs_destroy_all"
+            require_permission("ai.workflows.delete")
+          when "execute", "run_cancel", "run_retry", "run_pause", "run_resume"
+            require_permission("ai.workflows.execute")
+          when "export"
+            require_permission("ai.workflows.export")
           end
         end
 
@@ -875,33 +875,33 @@ module Api
           runs = runs.where(triggered_by_user_id: params[:user_id]) if params[:user_id].present?
 
           if params[:start_date].present?
-            runs = runs.where('created_at >= ?', Date.parse(params[:start_date]))
+            runs = runs.where("created_at >= ?", Date.parse(params[:start_date]))
           end
 
           if params[:end_date].present?
-            runs = runs.where('created_at <= ?', Date.parse(params[:end_date]))
+            runs = runs.where("created_at <= ?", Date.parse(params[:end_date]))
           end
 
           runs
         end
 
         def apply_sorting(collection)
-          sort_by = params[:sort_by] || 'created_at'
-          sort_order = params[:sort_order] || 'desc'
+          sort_by = params[:sort_by] || "created_at"
+          sort_order = params[:sort_order] || "desc"
 
           valid_sort_fields = {
-            'name' => 'name',
-            'created_at' => 'created_at',
-            'updated_at' => 'updated_at',
-            'status' => 'status',
-            'version' => 'version',
-            'creator' => 'users.name'
+            "name" => "name",
+            "created_at" => "created_at",
+            "updated_at" => "updated_at",
+            "status" => "status",
+            "version" => "version",
+            "creator" => "users.name"
           }
 
-          sort_field = valid_sort_fields[sort_by] || 'created_at'
-          sort_direction = %w[asc desc].include?(sort_order) ? sort_order : 'desc'
+          sort_field = valid_sort_fields[sort_by] || "created_at"
+          sort_direction = %w[asc desc].include?(sort_order) ? sort_order : "desc"
 
-          if sort_by == 'creator'
+          if sort_by == "creator"
             collection = collection.joins(:creator)
             collection.order(Arel.sql("#{sort_field} #{sort_direction}"))
           else
@@ -976,9 +976,9 @@ module Api
               edge_id: edge_data[:edge_id],
               source_node_id: edge_data[:source_node_id],
               target_node_id: edge_data[:target_node_id],
-              source_handle: edge_data[:source_handle] || 'output',
-              target_handle: edge_data[:target_handle] || 'input',
-              edge_type: edge_data[:edge_type] || 'default',
+              source_handle: edge_data[:source_handle] || "output",
+              target_handle: edge_data[:target_handle] || "input",
+              edge_type: edge_data[:edge_type] || "default",
               is_conditional: edge_data[:is_conditional] || false,
               condition: edge_data[:condition] || {},
               metadata: edge_data[:metadata] || {}
@@ -1001,9 +1001,9 @@ module Api
             edge.assign_attributes(
               source_node_id: edge_data[:source_node_id],
               target_node_id: edge_data[:target_node_id],
-              source_handle: edge_data[:source_handle] || 'output',
-              target_handle: edge_data[:target_handle] || 'input',
-              edge_type: edge_data[:edge_type] || 'default',
+              source_handle: edge_data[:source_handle] || "output",
+              target_handle: edge_data[:target_handle] || "input",
+              edge_type: edge_data[:edge_type] || "default",
               is_conditional: edge_data[:is_conditional] || false,
               condition: edge_data[:condition] || {},
               metadata: edge_data[:metadata] || {}
@@ -1024,7 +1024,7 @@ module Api
             status: workflow.status,
             visibility: workflow.visibility,
             version: workflow.version,
-            tags: workflow.metadata['tags'] || [],
+            tags: workflow.metadata["tags"] || [],
             created_at: workflow.created_at.iso8601,
             updated_at: workflow.updated_at.iso8601,
             created_by: {
@@ -1043,21 +1043,21 @@ module Api
 
         def serialize_workflow_detail(workflow)
           workflow_runs = workflow.ai_workflow_runs
-          completed_runs = workflow_runs.where(status: 'completed')
+          completed_runs = workflow_runs.where(status: "completed")
 
           success_rate = if workflow_runs.count > 0
                           (completed_runs.count.to_f / workflow_runs.count)
-                        else
+          else
                           nil
-                        end
+          end
 
           avg_runtime = if completed_runs.exists?
                          completed_runs.where.not(duration_ms: nil).exists? ?
                            completed_runs.where.not(duration_ms: nil).average(:duration_ms).to_f / 1000.0 :
                            nil
-                       else
+          else
                          nil
-                       end
+          end
 
           {
             id: workflow.id,
@@ -1066,15 +1066,15 @@ module Api
             status: workflow.status,
             visibility: workflow.visibility,
             version: workflow.version,
-            tags: workflow.metadata['tags'] || [],
-            trigger_types: workflow.metadata['trigger_types'] || [],
-            execution_mode: workflow.configuration['execution_mode'] || 'sequential',
-            retry_policy: workflow.configuration['retry_policy'] || {},
-            timeout_seconds: workflow.configuration['timeout_seconds'] || 300,
+            tags: workflow.metadata["tags"] || [],
+            trigger_types: workflow.metadata["trigger_types"] || [],
+            execution_mode: workflow.configuration["execution_mode"] || "sequential",
+            retry_policy: workflow.configuration["retry_policy"] || {},
+            timeout_seconds: workflow.configuration["timeout_seconds"] || 300,
             configuration: workflow.configuration,
             metadata: workflow.metadata,
-            input_schema: workflow.configuration['input_schema'] || {},
-            output_schema: workflow.configuration['output_schema'] || {},
+            input_schema: workflow.configuration["input_schema"] || {},
+            output_schema: workflow.configuration["output_schema"] || {},
             created_at: workflow.created_at.iso8601,
             updated_at: workflow.updated_at.iso8601,
             created_by: {
@@ -1174,8 +1174,8 @@ module Api
             node_type: node.node_type,
             name: node.name,
             description: node.description,
-            position_x: node.position&.dig('x') || 0,
-            position_y: node.position&.dig('y') || 0,
+            position_x: node.position&.dig("x") || 0,
+            position_y: node.position&.dig("y") || 0,
             configuration: node.configuration,
             metadata: node.metadata,
             created_at: node.created_at.iso8601,
@@ -1345,28 +1345,28 @@ module Api
 
           # Try to extract markdown content from output variables
           # PRIORITY 1: Check for new structured format with dedicated markdown field
-          markdown_content = output_vars['markdown']
+          markdown_content = output_vars["markdown"]
 
           # PRIORITY 2: Check nested End node output structure
           # End node stores: result.final_output.result (where the markdown formatter output lives)
-          if markdown_content.blank? && output_vars['result'].is_a?(Hash) && output_vars['result']['final_output'].is_a?(Hash)
+          if markdown_content.blank? && output_vars["result"].is_a?(Hash) && output_vars["result"]["final_output"].is_a?(Hash)
             # Extract from End node's final_output
-            final_output = output_vars['result']['final_output']
-            markdown_content = final_output['markdown'] || final_output['result'] || final_output['output']
+            final_output = output_vars["result"]["final_output"]
+            markdown_content = final_output["markdown"] || final_output["result"] || final_output["output"]
           end
 
           # PRIORITY 3: Check other common field names (legacy formats)
           if markdown_content.blank?
-            markdown_content = output_vars['final_markdown'] ||
-                              output_vars['markdown_formatter_output']
+            markdown_content = output_vars["final_markdown"] ||
+                              output_vars["markdown_formatter_output"]
           end
 
           # PRIORITY 3: Try to find in node executions (fallback)
           if markdown_content.blank?
             # Look for markdown formatter node or last AI agent node
             node_executions = download_data[:node_executions] || []
-            markdown_node = node_executions.find { |n| n[:node_name]&.include?('Markdown') || n[:node_name]&.include?('Format') } ||
-                           node_executions.reverse.find { |n| n[:node_type] == 'ai_agent' }
+            markdown_node = node_executions.find { |n| n[:node_name]&.include?("Markdown") || n[:node_name]&.include?("Format") } ||
+                           node_executions.reverse.find { |n| n[:node_type] == "ai_agent" }
 
             if markdown_node
               output_data = markdown_node[:output_data] || {}
@@ -1408,18 +1408,18 @@ module Api
           # Handle hash output - check common field names
           if output_data.is_a?(Hash)
             # PRIORITY 1: Check for markdown field
-            return output_data['markdown'] if output_data['markdown'].is_a?(String)
+            return output_data["markdown"] if output_data["markdown"].is_a?(String)
 
             # PRIORITY 2: Recurse into nested structures
-            return extract_content_from_output(output_data['final_markdown'], depth + 1) if output_data['final_markdown'].present?
-            return extract_content_from_output(output_data['markdown_formatter_output'], depth + 1) if output_data['markdown_formatter_output'].present?
-            return extract_content_from_output(output_data['output'], depth + 1) if output_data['output'].present?
-            return extract_content_from_output(output_data['result'], depth + 1) if output_data['result'].present?
-            return extract_content_from_output(output_data['content'], depth + 1) if output_data['content'].present?
-            return extract_content_from_output(output_data['text'], depth + 1) if output_data['text'].present?
+            return extract_content_from_output(output_data["final_markdown"], depth + 1) if output_data["final_markdown"].present?
+            return extract_content_from_output(output_data["markdown_formatter_output"], depth + 1) if output_data["markdown_formatter_output"].present?
+            return extract_content_from_output(output_data["output"], depth + 1) if output_data["output"].present?
+            return extract_content_from_output(output_data["result"], depth + 1) if output_data["result"].present?
+            return extract_content_from_output(output_data["content"], depth + 1) if output_data["content"].present?
+            return extract_content_from_output(output_data["text"], depth + 1) if output_data["text"].present?
             # CRITICAL: Recurse into data field (matches frontend fix)
-            return extract_content_from_output(output_data['data'], depth + 1) if output_data['data'].present?
-            return extract_content_from_output(output_data['response'], depth + 1) if output_data['response'].present?
+            return extract_content_from_output(output_data["data"], depth + 1) if output_data["data"].present?
+            return extract_content_from_output(output_data["response"], depth + 1) if output_data["response"].present?
           end
 
           # If no content found, return nil
@@ -1429,34 +1429,34 @@ module Api
         def build_workflow_templates
           [
             {
-              id: 'content-generation',
-              name: 'Content Generation Pipeline',
-              description: 'Sequential workflow for research, writing, and review',
-              category: 'content',
-              execution_mode: 'sequential',
-              difficulty: 'beginner',
-              estimated_duration: '5-10 minutes',
-              tags: ['content', 'research', 'writing']
+              id: "content-generation",
+              name: "Content Generation Pipeline",
+              description: "Sequential workflow for research, writing, and review",
+              category: "content",
+              execution_mode: "sequential",
+              difficulty: "beginner",
+              estimated_duration: "5-10 minutes",
+              tags: [ "content", "research", "writing" ]
             },
             {
-              id: 'data-analysis',
-              name: 'Parallel Data Analysis',
-              description: 'Analyze data from multiple perspectives simultaneously',
-              category: 'analytics',
-              execution_mode: 'parallel',
-              difficulty: 'intermediate',
-              estimated_duration: '10-15 minutes',
-              tags: ['analytics', 'data', 'statistics']
+              id: "data-analysis",
+              name: "Parallel Data Analysis",
+              description: "Analyze data from multiple perspectives simultaneously",
+              category: "analytics",
+              execution_mode: "parallel",
+              difficulty: "intermediate",
+              estimated_duration: "10-15 minutes",
+              tags: [ "analytics", "data", "statistics" ]
             },
             {
-              id: 'conditional-processing',
-              name: 'Smart Conditional Workflow',
-              description: 'Adaptive workflow with conditional execution',
-              category: 'automation',
-              execution_mode: 'conditional',
-              difficulty: 'advanced',
-              estimated_duration: '15-20 minutes',
-              tags: ['automation', 'conditional', 'smart-routing']
+              id: "conditional-processing",
+              name: "Smart Conditional Workflow",
+              description: "Adaptive workflow with conditional execution",
+              category: "automation",
+              execution_mode: "conditional",
+              difficulty: "advanced",
+              estimated_duration: "15-20 minutes",
+              tags: [ "automation", "conditional", "smart-routing" ]
             }
           ]
         end

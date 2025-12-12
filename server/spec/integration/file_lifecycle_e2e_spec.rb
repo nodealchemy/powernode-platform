@@ -4,7 +4,7 @@ require 'rails_helper'
 
 RSpec.describe 'File Management End-to-End Workflow', type: :integration do
   let(:account) { create(:account) }
-  let(:user) { create(:user, account: account, permissions: ['files.upload', 'files.read', 'files.delete', 'files.manage', 'files.share']) }
+  let(:user) { create(:user, account: account, permissions: [ 'files.upload', 'files.read', 'files.delete', 'files.manage', 'files.share' ]) }
   let(:storage) do
     FileStorage.create!(
       account: account,
@@ -192,7 +192,7 @@ RSpec.describe 'File Management End-to-End Workflow', type: :integration do
         completed_at: Time.current,
         duration_ms: 250,
         result_data: {
-          'keywords' => ['test', 'end-to-end', 'workflow'],
+          'keywords' => [ 'test', 'end-to-end', 'workflow' ],
           'word_count' => test_file_content.split.length
         }
       )
@@ -239,11 +239,11 @@ RSpec.describe 'File Management End-to-End Workflow', type: :integration do
       file_share.update!(
         download_count: file_share.download_count + 1,
         last_accessed_at: Time.current,
-        access_log: file_share.access_log + [{
+        access_log: file_share.access_log + [ {
           accessed_at: Time.current.iso8601,
           ip_address: '192.168.1.100',
           user_agent: 'Mozilla/5.0'
-        }]
+        } ]
       )
 
       expect(file_share.download_count).to eq(1)

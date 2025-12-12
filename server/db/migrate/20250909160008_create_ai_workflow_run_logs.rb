@@ -15,10 +15,10 @@ class CreateAiWorkflowRunLogs < ActiveRecord::Migration[7.1]
       t.datetime :logged_at, null: false
       t.timestamps
 
-      t.index [:ai_workflow_run_id, :logged_at]
-      t.index [:ai_workflow_run_id, :log_level]
-      t.index [:ai_workflow_run_id, :event_type]
-      t.index [:node_id, :logged_at]
+      t.index [ :ai_workflow_run_id, :logged_at ]
+      t.index [ :ai_workflow_run_id, :log_level ]
+      t.index [ :ai_workflow_run_id, :event_type ]
+      t.index [ :node_id, :logged_at ]
       t.index :logged_at
       t.index :event_type
     end

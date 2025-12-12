@@ -2,21 +2,21 @@
 
 class Api::V1::AppWebhooksController < ApplicationController
   include AuditLogging
-  
+
   before_action :set_app
-  before_action :set_app_webhook, only: [:show, :update, :destroy, :activate, :deactivate, :test, :regenerate_secret]
-  
+  before_action :set_app_webhook, only: [ :show, :update, :destroy, :activate, :deactivate, :test, :regenerate_secret ]
+
   # GET /api/v1/apps/:app_id/webhooks
   def index
-    authorize_permission!('apps.read')
-    
+    authorize_permission!("apps.read")
+
     webhooks = @app.app_webhooks.includes(:app_webhook_deliveries)
-    webhooks = webhooks.where('name ILIKE ?', "%#{params[:search]}%") if params[:search].present?
+    webhooks = webhooks.where("name ILIKE ?", "%#{params[:search]}%") if params[:search].present?
     webhooks = webhooks.where(event_type: params[:event_type]) if params[:event_type].present?
     webhooks = webhooks.where(is_active: params[:active]) if params[:active].present?
 
     page = (params[:page] || 1).to_i
-    per_page = [(params[:per_page] || 20).to_i, 100].min
+    per_page = [ (params[:per_page] || 20).to_i, 100 ].min
     offset = (page - 1) * per_page
 
     total_count = webhooks.count
@@ -35,7 +35,7 @@ class Api::V1::AppWebhooksController < ApplicationController
 
   # GET /api/v1/apps/:app_id/webhooks/:id
   def show
-    authorize_permission!('apps.read')
+    authorize_permission!("apps.read")
 
     render_success(
       data: webhook_data(@app_webhook, include_analytics: true)
@@ -44,13 +44,13 @@ class Api::V1::AppWebhooksController < ApplicationController
 
   # POST /api/v1/apps/:app_id/webhooks
   def create
-    authorize_permission!('apps.update')
-    
+    authorize_permission!("apps.update")
+
     @app_webhook = @app.app_webhooks.build(webhook_params)
 
     if @app_webhook.save
       render_success(
-        message: 'Webhook created successfully',
+        message: "Webhook created successfully",
         data: webhook_data(@app_webhook),
         status: :created
       )
@@ -61,11 +61,11 @@ class Api::V1::AppWebhooksController < ApplicationController
 
   # PUT /api/v1/apps/:app_id/webhooks/:id
   def update
-    authorize_permission!('apps.update')
+    authorize_permission!("apps.update")
 
     if @app_webhook.update(webhook_params)
       render_success(
-        message: 'Webhook updated successfully',
+        message: "Webhook updated successfully",
         data: webhook_data(@app_webhook)
       )
     else
@@ -75,51 +75,51 @@ class Api::V1::AppWebhooksController < ApplicationController
 
   # DELETE /api/v1/apps/:app_id/webhooks/:id
   def destroy
-    authorize_permission!('apps.delete')
+    authorize_permission!("apps.delete")
 
     @app_webhook.destroy!
 
     render_success(
-      message: 'Webhook deleted successfully'
+      message: "Webhook deleted successfully"
     )
   end
 
   # POST /api/v1/apps/:app_id/webhooks/:id/activate
   def activate
-    authorize_permission!('apps.update')
+    authorize_permission!("apps.update")
 
     @app_webhook.update!(is_active: true)
 
     render_success(
-      message: 'Webhook activated successfully',
+      message: "Webhook activated successfully",
       data: webhook_data(@app_webhook)
     )
   end
 
   # POST /api/v1/apps/:app_id/webhooks/:id/deactivate
   def deactivate
-    authorize_permission!('apps.update')
+    authorize_permission!("apps.update")
 
     @app_webhook.update!(is_active: false)
 
     render_success(
-      message: 'Webhook deactivated successfully',
+      message: "Webhook deactivated successfully",
       data: webhook_data(@app_webhook)
     )
   end
 
   # POST /api/v1/apps/:app_id/webhooks/:id/test
   def test
-    authorize_permission!('apps.update')
-    
+    authorize_permission!("apps.update")
+
     test_event_data = params[:test_data] || { test: true, timestamp: Time.current.iso8601 }
     event_id = SecureRandom.uuid
-    
+
     begin
       delivery = @app_webhook.deliver(test_event_data, event_id)
 
       render_success(
-        message: 'Test webhook delivery initiated',
+        message: "Test webhook delivery initiated",
         data: {
           delivery_id: delivery.delivery_id,
           event_id: delivery.event_id,
@@ -129,23 +129,23 @@ class Api::V1::AppWebhooksController < ApplicationController
       )
     rescue => e
       render_error(
-        'Failed to test webhook',
+        "Failed to test webhook",
         :unprocessable_content,
-        details: [e.message]
+        details: [ e.message ]
       )
     end
   end
 
   # POST /api/v1/apps/:app_id/webhooks/:id/regenerate_secret
   def regenerate_secret
-    authorize_permission!('apps.update')
-    
-    old_secret = @app_webhook.secret_token[0..10] + '...'
+    authorize_permission!("apps.update")
+
+    old_secret = @app_webhook.secret_token[0..10] + "..."
     @app_webhook.update!(secret_token: SecureRandom.hex(32))
-    new_secret = @app_webhook.secret_token[0..10] + '...'
+    new_secret = @app_webhook.secret_token[0..10] + "..."
 
     render_success(
-      message: 'Webhook secret token regenerated successfully',
+      message: "Webhook secret token regenerated successfully",
       data: {
         secret_token: @app_webhook.secret_token,
         old_secret_preview: old_secret,
@@ -156,18 +156,18 @@ class Api::V1::AppWebhooksController < ApplicationController
 
   # GET /api/v1/apps/:app_id/webhooks/:id/deliveries
   def deliveries
-    authorize_permission!('apps.read')
-    
-    days = [(params[:days] || 7).to_i, 30].min
+    authorize_permission!("apps.read")
+
+    days = [ (params[:days] || 7).to_i, 30 ].min
     deliveries = @app_webhook.app_webhook_deliveries
-                            .where('created_at > ?', days.days.ago)
+                            .where("created_at > ?", days.days.ago)
                             .order(created_at: :desc)
 
     deliveries = deliveries.where(status: params[:status]) if params[:status].present?
     deliveries = deliveries.where(event_id: params[:event_id]) if params[:event_id].present?
 
     page = (params[:page] || 1).to_i
-    per_page = [(params[:per_page] || 50).to_i, 100].min
+    per_page = [ (params[:per_page] || 50).to_i, 100 ].min
     offset = (page - 1) * per_page
 
     total_count = deliveries.count
@@ -186,11 +186,11 @@ class Api::V1::AppWebhooksController < ApplicationController
 
   # GET /api/v1/apps/:app_id/webhooks/:id/analytics
   def analytics
-    authorize_permission!('apps.read')
-    
-    days = [(params[:days] || 30).to_i, 90].min
-    deliveries = @app_webhook.app_webhook_deliveries.where('created_at > ?', days.days.ago)
-    
+    authorize_permission!("apps.read")
+
+    days = [ (params[:days] || 30).to_i, 90 ].min
+    deliveries = @app_webhook.app_webhook_deliveries.where("created_at > ?", days.days.ago)
+
     analytics_data = {
       total_deliveries: deliveries.count,
       deliveries_by_day: deliveries.group_by_day(:created_at, last: days).count,
@@ -213,13 +213,13 @@ class Api::V1::AppWebhooksController < ApplicationController
   def set_app
     @app = current_account.apps.find(params[:app_id])
   rescue ActiveRecord::RecordNotFound
-    render_error('App not found', status: :not_found)
+    render_error("App not found", status: :not_found)
   end
 
   def set_app_webhook
     @app_webhook = @app.app_webhooks.find(params[:id])
   rescue ActiveRecord::RecordNotFound
-    render_error('Webhook not found', status: :not_found)
+    render_error("Webhook not found", status: :not_found)
   end
 
   def webhook_params

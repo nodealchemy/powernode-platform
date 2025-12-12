@@ -20,7 +20,7 @@ RSpec.describe AccountDelegation, type: :model do
       p.description = 'Manage account'
       p.category = 'admin'
     end
-    role.permissions << [permission1, permission2, permission3] unless role.permissions.include?(permission1)
+    role.permissions << [ permission1, permission2, permission3 ] unless role.permissions.include?(permission1)
     role
   end
 
@@ -282,7 +282,7 @@ RSpec.describe AccountDelegation, type: :model do
     describe '#effective_permissions' do
       it 'returns custom permissions when assigned' do
         delegation.delegation_permissions.create!(permission: admin_role.permissions.first)
-        expect(delegation.effective_permissions).to eq([admin_role.permissions.first])
+        expect(delegation.effective_permissions).to eq([ admin_role.permissions.first ])
       end
 
       it 'returns role permissions when no custom permissions' do

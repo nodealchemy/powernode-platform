@@ -19,13 +19,13 @@ class Webhooks::StripeController < ApplicationController
 
     # Process webhook asynchronously via worker service
     webhook_data = {
-      provider: 'stripe',
+      provider: "stripe",
       event_type: @event.type,
       payload: @event.data.to_hash,
       webhook_event_id: webhook_event.id,
       account_id: webhook_event.account_id
     }
-    
+
     begin
       WorkerJobService.enqueue_webhook_processing(webhook_data)
     rescue WorkerJobService::WorkerServiceError => e

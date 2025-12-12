@@ -108,7 +108,7 @@ RSpec.describe Mcp::WorkflowCheckpointManager, type: :service do
 
     it 'includes runtime variables in checkpoint' do
       checkpoint_id = manager.create_checkpoint(node_id, checkpoint_data)
-      
+
       stored = manager.load_checkpoint(checkpoint_id)
       expect(stored['variables']).to eq({ 'key' => 'value' })
     end
@@ -137,10 +137,10 @@ RSpec.describe Mcp::WorkflowCheckpointManager, type: :service do
         # Create checkpoint with specific variables
         workflow_run.update!(runtime_context: { 'variables' => { 'original' => 'data' } })
         checkpoint_id = manager.create_checkpoint('node-3', {})
-        
+
         # Change variables
         workflow_run.update!(runtime_context: { 'variables' => { 'changed' => 'value' } })
-        
+
         # Restore
         manager.restore_from_checkpoint(checkpoint_id)
 
@@ -174,7 +174,7 @@ RSpec.describe Mcp::WorkflowCheckpointManager, type: :service do
     context 'when no checkpoint ID provided' do
       it 'restores from latest checkpoint' do
         checkpoint_id = manager.create_checkpoint('node-4', {})
-        
+
         result = manager.restore_from_checkpoint(nil)
 
         expect(result).to be true
@@ -188,7 +188,7 @@ RSpec.describe Mcp::WorkflowCheckpointManager, type: :service do
         allow(manager).to receive(:restore_workflow_state).and_raise(StandardError, 'Test error')
 
         expect(Rails.logger).to receive(:error).with(/Failed to restore from checkpoint/)
-        
+
         result = manager.restore_from_checkpoint(checkpoint_id)
         expect(result).to be false
       end
@@ -231,7 +231,7 @@ RSpec.describe Mcp::WorkflowCheckpointManager, type: :service do
       it 'returns nil' do
         # Clear any existing checkpoints
         workflow_run.update!(metadata: {})
-        
+
         latest = manager.find_latest_checkpoint
 
         expect(latest).to be_nil
@@ -257,7 +257,7 @@ RSpec.describe Mcp::WorkflowCheckpointManager, type: :service do
 
       it 'creates execution records for completed nodes' do
         expect {
-          manager.send(:mark_nodes_as_completed, [node.node_id])
+          manager.send(:mark_nodes_as_completed, [ node.node_id ])
         }.to change { workflow_run.ai_workflow_node_executions.count }.by(1)
       end
 
@@ -266,12 +266,12 @@ RSpec.describe Mcp::WorkflowCheckpointManager, type: :service do
         existing_node = workflow.ai_workflow_nodes.first
 
         expect {
-          manager.send(:mark_nodes_as_completed, [existing_node.node_id])
+          manager.send(:mark_nodes_as_completed, [ existing_node.node_id ])
         }.not_to change { workflow_run.ai_workflow_node_executions.count }
       end
 
       it 'marks restored executions with skip flag' do
-        manager.send(:mark_nodes_as_completed, [node.node_id])
+        manager.send(:mark_nodes_as_completed, [ node.node_id ])
 
         execution = workflow_run.ai_workflow_node_executions.find_by(node_id: node.node_id)
         expect(execution.output_data['skipped']).to be true

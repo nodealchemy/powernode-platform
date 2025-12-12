@@ -16,7 +16,7 @@ class BatchWorkflowRun < ApplicationRecord
            foreign_key: :batch_id,
            primary_key: :batch_id,
            dependent: :nullify,
-           class_name: 'AiWorkflowRun'
+           class_name: "AiWorkflowRun"
 
   # ==========================================
   # Validations
@@ -24,7 +24,7 @@ class BatchWorkflowRun < ApplicationRecord
   validates :batch_id, presence: true, uniqueness: true
   validates :status, inclusion: {
     in: %w[pending processing completed failed cancelled],
-    message: 'must be a valid batch status'
+    message: "must be a valid batch status"
   }
   validates :total_workflows, numericality: { greater_than: 0 }
   validates :completed_workflows, numericality: { greater_than_or_equal_to: 0 }
@@ -37,14 +37,14 @@ class BatchWorkflowRun < ApplicationRecord
   # ==========================================
   # Scopes
   # ==========================================
-  scope :processing, -> { where(status: 'processing') }
-  scope :completed, -> { where(status: 'completed') }
-  scope :failed, -> { where(status: 'failed') }
+  scope :processing, -> { where(status: "processing") }
+  scope :completed, -> { where(status: "completed") }
+  scope :failed, -> { where(status: "failed") }
   scope :recent, -> { order(created_at: :desc) }
   scope :for_account, ->(account_id) { where(account_id: account_id) }
   scope :for_user, ->(user_id) { where(user_id: user_id) }
-  scope :with_failures, -> { where('failed_workflows > 0') }
-  scope :successful, -> { where(status: 'completed', failed_workflows: 0) }
+  scope :with_failures, -> { where("failed_workflows > 0") }
+  scope :successful, -> { where(status: "completed", failed_workflows: 0) }
 
   # ==========================================
   # Callbacks
@@ -61,23 +61,23 @@ class BatchWorkflowRun < ApplicationRecord
 
   # Status check methods
   def pending?
-    status == 'pending'
+    status == "pending"
   end
 
   def processing?
-    status == 'processing'
+    status == "processing"
   end
 
   def completed?
-    status == 'completed'
+    status == "completed"
   end
 
   def failed?
-    status == 'failed'
+    status == "failed"
   end
 
   def cancelled?
-    status == 'cancelled'
+    status == "cancelled"
   end
 
   # Progress calculation
@@ -99,14 +99,14 @@ class BatchWorkflowRun < ApplicationRecord
   # Batch operations
   def start_processing!
     update!(
-      status: 'processing',
+      status: "processing",
       started_at: Time.current
     )
   end
 
   def mark_completed!
     update!(
-      status: completed_workflows == successful_workflows ? 'completed' : 'failed',
+      status: completed_workflows == successful_workflows ? "completed" : "failed",
       completed_at: Time.current,
       duration_ms: calculate_duration
     )
@@ -114,9 +114,9 @@ class BatchWorkflowRun < ApplicationRecord
 
   def cancel!
     update!(
-      status: 'cancelled',
+      status: "cancelled",
       completed_at: Time.current,
-      error_details: error_details.merge('reason' => 'User cancelled')
+      error_details: error_details.merge("reason" => "User cancelled")
     )
   end
 
@@ -137,8 +137,8 @@ class BatchWorkflowRun < ApplicationRecord
 
   def add_result(workflow_id, result_data)
     results << result_data.merge(
-      'workflow_id' => workflow_id,
-      'completed_at' => Time.current.iso8601
+      "workflow_id" => workflow_id,
+      "completed_at" => Time.current.iso8601
     )
     save!
   end
@@ -186,13 +186,13 @@ class BatchWorkflowRun < ApplicationRecord
 
   def calculate_statistics
     self.statistics = {
-      'total_workflows' => total_workflows,
-      'successful' => successful_workflows,
-      'failed' => failed_workflows,
-      'success_rate' => success_rate,
-      'failure_rate' => failure_rate,
-      'average_duration' => calculate_average_duration,
-      'updated_at' => Time.current.iso8601
+      "total_workflows" => total_workflows,
+      "successful" => successful_workflows,
+      "failed" => failed_workflows,
+      "success_rate" => success_rate,
+      "failure_rate" => failure_rate,
+      "average_duration" => calculate_average_duration,
+      "updated_at" => Time.current.iso8601
     }
   end
 
@@ -200,7 +200,7 @@ class BatchWorkflowRun < ApplicationRecord
     return 0 if results.empty?
 
     durations = results.filter_map do |r|
-      r['duration_ms']
+      r["duration_ms"]
     end
 
     return 0 if durations.empty?
@@ -217,7 +217,7 @@ class BatchWorkflowRun < ApplicationRecord
     ActionCable.server.broadcast(
       "batch_processing_#{batch_id}",
       {
-        type: 'batch_progress',
+        type: "batch_progress",
         batch_id: batch_id,
         progress: {
           total: total_workflows,

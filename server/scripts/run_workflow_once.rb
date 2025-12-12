@@ -21,7 +21,7 @@ test_input = {
   'target_audience' => 'senior software engineers and technical leads',
   'tone' => 'technical and analytical',
   'word_count' => 2000,
-  'keywords' => ['AI', 'software engineering', 'development tools', 'productivity']
+  'keywords' => [ 'AI', 'software engineering', 'development tools', 'productivity' ]
 }
 
 puts '📝 TEST INPUT:'
@@ -113,11 +113,11 @@ node_executions.each_with_index do |node_exec, index|
   node = workflow.ai_workflow_nodes.find_by(id: node_exec.ai_workflow_node_id)
 
   status_icon = case node_exec.status
-                when 'completed' then '✅'
-                when 'failed' then '❌'
-                when 'running' then '▶️'
-                else '⏸️'
-                end
+  when 'completed' then '✅'
+  when 'failed' then '❌'
+  when 'running' then '▶️'
+  else '⏸️'
+  end
 
   duration = node_exec.duration_ms ? "#{node_exec.duration_ms}ms" : 'N/A'
   cost = node_exec.cost ? "$#{node_exec.cost}" : '$0.00'

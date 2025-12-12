@@ -46,7 +46,7 @@ RSpec.describe WorkflowValidation, type: :model do
       end
 
       it 'validates each issue is a hash' do
-        validation = build(:workflow_validation, issues: ['invalid', 'items'])
+        validation = build(:workflow_validation, issues: [ 'invalid', 'items' ])
         expect(validation).not_to be_valid
         expect(validation.errors[:issues]).to include('item at index 0 must be a hash')
       end

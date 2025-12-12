@@ -74,7 +74,7 @@ module Mcp
       input.merge!(predecessor_outputs) if predecessor_outputs.present?
 
       # Apply explicit input mapping if configured (overrides auto-wired data)
-      if @node_config['input_mapping'].present?
+      if @node_config["input_mapping"].present?
         mapped_inputs = map_inputs_from_previous_nodes
         input.merge!(mapped_inputs)
 
@@ -82,8 +82,8 @@ module Mcp
       end
 
       # Add node-specific static inputs (highest priority - overrides everything)
-      if @node_config['static_inputs'].present?
-        input.merge!(@node_config['static_inputs'])
+      if @node_config["static_inputs"].present?
+        input.merge!(@node_config["static_inputs"])
       end
 
       # Process template expressions in input data
@@ -95,7 +95,7 @@ module Mcp
     end
 
     def map_inputs_from_previous_nodes
-      input_mapping = @node_config['input_mapping']
+      input_mapping = @node_config["input_mapping"]
       mapped = {}
 
       input_mapping.each do |target_key, source_expression|
@@ -130,7 +130,7 @@ module Mcp
           if result_data[:output].present?
             auto_wired["#{predecessor_id}_output"] = result_data[:output]
             # Also add as generic 'output' (will be overwritten by later nodes)
-            auto_wired['output'] = result_data[:output]
+            auto_wired["output"] = result_data[:output]
           end
 
           # Merge data section (supporting information)
@@ -146,7 +146,7 @@ module Mcp
           # Merge result section (computed values)
           if result_data[:result].present?
             auto_wired["#{predecessor_id}_result"] = result_data[:result]
-            auto_wired['result'] = result_data[:result]
+            auto_wired["result"] = result_data[:result]
           end
         end
       end
@@ -165,8 +165,8 @@ module Mcp
       variables.merge!(@execution_context[:variables] || {})
 
       # Node-scoped variables
-      if @node_config['local_variables'].present?
-        variables.merge!(@node_config['local_variables'])
+      if @node_config["local_variables"].present?
+        variables.merge!(@node_config["local_variables"])
       end
 
       # CRITICAL FIX: Include input_data in scoped variables
@@ -181,11 +181,11 @@ module Mcp
       end
 
       # Special context variables
-      variables['_workflow_id'] = @workflow_run.ai_workflow_id
-      variables['_run_id'] = @workflow_run.run_id
-      variables['_node_id'] = @node.node_id
-      variables['_node_name'] = @node.name
-      variables['_execution_time'] = Time.current.iso8601
+      variables["_workflow_id"] = @workflow_run.ai_workflow_id
+      variables["_run_id"] = @workflow_run.run_id
+      variables["_node_id"] = @node.node_id
+      variables["_node_name"] = @node.name
+      variables["_execution_time"] = Time.current.iso8601
 
       variables
     end
@@ -244,14 +244,14 @@ module Mcp
       if expression.match?(/\A@([a-zA-Z0-9_-]+)(\..+)?\z/)
         matches = expression.match(/\A@([a-zA-Z0-9_-]+)(\..+)?\z/)
         node_id = matches[1]
-        path = matches[2]&.delete_prefix('.')
+        path = matches[2]&.delete_prefix(".")
 
         return resolve_node_result(node_id, path)
       end
 
       # Check for workflow variable reference: workflow.variable_name
-      if expression.start_with?('workflow.')
-        variable_name = expression.delete_prefix('workflow.')
+      if expression.start_with?("workflow.")
+        variable_name = expression.delete_prefix("workflow.")
         return @execution_context[:variables][variable_name]
       end
 
@@ -261,18 +261,18 @@ module Mcp
 
     def resolve_variable_path(path)
       # Handle special paths
-      if path.start_with?('node.')
+      if path.start_with?("node.")
         # ${node.node_id.field.subfield}
-        parts = path.split('.')
+        parts = path.split(".")
         node_id = parts[1]
-        field_path = parts[2..].join('.')
+        field_path = parts[2..].join(".")
 
         return resolve_node_result(node_id, field_path)
       end
 
-      if path.start_with?('workflow.')
+      if path.start_with?("workflow.")
         # ${workflow.variable_name}
-        variable_name = path.delete_prefix('workflow.')
+        variable_name = path.delete_prefix("workflow.")
         return @execution_context[:variables][variable_name]
       end
 
@@ -294,7 +294,7 @@ module Mcp
     def extract_value_from_path(data, path)
       return data if path.blank?
 
-      path.to_s.split('.').reduce(data) do |current, key|
+      path.to_s.split(".").reduce(data) do |current, key|
         break nil unless current.respond_to?(:[])
 
         # Handle array index access
@@ -380,20 +380,20 @@ module Mcp
         formatted = raw_output.dup
 
         # Ensure standard fields
-        formatted['node_id'] ||= @node.node_id
-        formatted['node_type'] ||= @node.node_type
-        formatted['executed_at'] ||= Time.current.iso8601
+        formatted["node_id"] ||= @node.node_id
+        formatted["node_type"] ||= @node.node_type
+        formatted["executed_at"] ||= Time.current.iso8601
 
         # Add output metadata
-        formatted['_metadata'] ||= build_output_metadata
+        formatted["_metadata"] ||= build_output_metadata
       else
         # Wrap non-hash output
         formatted = {
-          'content' => raw_output,
-          'node_id' => @node.node_id,
-          'node_type' => @node.node_type,
-          'executed_at' => Time.current.iso8601,
-          '_metadata' => build_output_metadata
+          "content" => raw_output,
+          "node_id" => @node.node_id,
+          "node_type" => @node.node_type,
+          "executed_at" => Time.current.iso8601,
+          "_metadata" => build_output_metadata
         }
       end
 
@@ -402,14 +402,14 @@ module Mcp
 
     def build_output_metadata
       {
-        'node_execution_context' => {
-          'node_id' => @node.node_id,
-          'node_name' => @node.name,
-          'node_type' => @node.node_type,
-          'workflow_id' => @workflow_run.ai_workflow_id,
-          'run_id' => @workflow_run.run_id
+        "node_execution_context" => {
+          "node_id" => @node.node_id,
+          "node_name" => @node.name,
+          "node_type" => @node.node_type,
+          "workflow_id" => @workflow_run.ai_workflow_id,
+          "run_id" => @workflow_run.run_id
         },
-        'execution_timestamp' => Time.current.iso8601
+        "execution_timestamp" => Time.current.iso8601
       }
     end
 
@@ -431,9 +431,9 @@ module Mcp
     # @return [Hash] MCP tool configuration
     def mcp_tool_config
       {
-        'tool_id' => @node.mcp_tool_id,
-        'tool_version' => @node.mcp_tool_version,
-        'tool_config' => @node_config['mcp_tool_config'] || {}
+        "tool_id" => @node.mcp_tool_id,
+        "tool_version" => @node.mcp_tool_version,
+        "tool_config" => @node_config["mcp_tool_config"] || {}
       }
     end
 
@@ -518,7 +518,7 @@ module Mcp
     #
     # @return [Boolean]
     def retry_on_failure?
-      retry_count = config('retry_count', 0)
+      retry_count = config("retry_count", 0)
       retry_count.to_i > 0
     end
 
@@ -527,10 +527,10 @@ module Mcp
     # @return [Hash] Retry settings
     def retry_config
       {
-        max_retries: config('retry_count', 0).to_i,
-        retry_delay: config('retry_delay', 1).to_f,
-        backoff_multiplier: config('backoff_multiplier', 2).to_f,
-        max_retry_delay: config('max_retry_delay', 60).to_f
+        max_retries: config("retry_count", 0).to_i,
+        retry_delay: config("retry_delay", 1).to_f,
+        backoff_multiplier: config("backoff_multiplier", 2).to_f,
+        max_retry_delay: config("max_retry_delay", 60).to_f
       }
     end
 
@@ -538,7 +538,7 @@ module Mcp
     #
     # @return [Integer] Timeout in seconds
     def timeout_seconds
-      @node.timeout_seconds || config('timeout_seconds', 300).to_i
+      @node.timeout_seconds || config("timeout_seconds", 300).to_i
     end
   end
 end

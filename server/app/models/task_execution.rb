@@ -10,12 +10,12 @@ class TaskExecution < ApplicationRecord
   validates :triggered_by, presence: true, inclusion: { in: %w[scheduled manual] }
 
   # Scopes
-  scope :completed, -> { where(status: 'completed') }
-  scope :failed, -> { where(status: 'failed') }
-  scope :running, -> { where(status: 'running') }
-  scope :pending, -> { where(status: 'pending') }
-  scope :manual, -> { where(triggered_by: 'manual') }
-  scope :scheduled, -> { where(triggered_by: 'scheduled') }
+  scope :completed, -> { where(status: "completed") }
+  scope :failed, -> { where(status: "failed") }
+  scope :running, -> { where(status: "running") }
+  scope :pending, -> { where(status: "pending") }
+  scope :manual, -> { where(triggered_by: "manual") }
+  scope :scheduled, -> { where(triggered_by: "scheduled") }
   scope :recent, -> { order(created_at: :desc) }
 
   # Callbacks
@@ -23,27 +23,27 @@ class TaskExecution < ApplicationRecord
   after_update :log_execution_status_change, if: :saved_change_to_status?
 
   def completed?
-    status == 'completed'
+    status == "completed"
   end
 
   def failed?
-    status == 'failed'
+    status == "failed"
   end
 
   def running?
-    status == 'running'
+    status == "running"
   end
 
   def pending?
-    status == 'pending'
+    status == "pending"
   end
 
   def manual?
-    triggered_by == 'manual'
+    triggered_by == "manual"
   end
 
   def scheduled?
-    triggered_by == 'scheduled'
+    triggered_by == "scheduled"
   end
 
   def duration
@@ -52,8 +52,8 @@ class TaskExecution < ApplicationRecord
   end
 
   def duration_human
-    return 'N/A' unless duration
-    
+    return "N/A" unless duration
+
     if duration < 60
       "#{duration.to_i}s"
     elsif duration < 3600
@@ -73,12 +73,12 @@ class TaskExecution < ApplicationRecord
 
   def log_execution_creation
     audit_user = user || scheduled_task.user
-    
+
     AuditLog.create!(
       user: audit_user,
       account: audit_user.account,
-      action: 'task_execution_created',
-      resource_type: 'TaskExecution',
+      action: "task_execution_created",
+      resource_type: "TaskExecution",
       resource_id: id,
       details: {
         task_name: scheduled_task.name,
@@ -93,12 +93,12 @@ class TaskExecution < ApplicationRecord
 
   def log_execution_status_change
     audit_user = user || scheduled_task.user
-    
+
     AuditLog.create!(
       user: audit_user,
       account: audit_user.account,
-      action: 'task_execution_status_changed',
-      resource_type: 'TaskExecution',
+      action: "task_execution_status_changed",
+      resource_type: "TaskExecution",
       resource_id: id,
       details: {
         task_name: scheduled_task.name,

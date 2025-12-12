@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
 class Api::V1::GatewayConnectionJobsController < ApplicationController
-  skip_before_action :authenticate_request, only: [:update]
-  before_action -> { require_permission('admin.settings.payment') }, only: [:show]
-  before_action :authenticate_service_or_user, only: [:update]
+  skip_before_action :authenticate_request, only: [ :update ]
+  before_action -> { require_permission("admin.settings.payment") }, only: [ :show ]
+  before_action :authenticate_service_or_user, only: [ :update ]
 
   def show
     job = GatewayConnectionJob.find(params[:id])
@@ -22,14 +22,14 @@ class Api::V1::GatewayConnectionJobsController < ApplicationController
 
   def update
     job = GatewayConnectionJob.find(params[:id])
-    
+
     update_params = gateway_connection_job_params
-    
+
     # Set completed_at when status changes to completed or failed
     if update_params[:status].in?(%w[completed failed]) && job.status != update_params[:status]
       update_params[:completed_at] = Time.current
     end
-    
+
     if job.update(update_params)
       render_success({
         id: job.id,
@@ -50,20 +50,20 @@ class Api::V1::GatewayConnectionJobsController < ApplicationController
   def authenticate_service_or_user
     # Allow service token authentication for worker updates
     return if authenticate_service_token
-    
+
     # Fallback to user authentication with required permission
-    require_permission('admin.settings.payment')
+    require_permission("admin.settings.payment")
   end
 
   def authenticate_service_token
-    auth_header = request.headers['Authorization']
-    return false unless auth_header&.start_with?('Bearer ')
+    auth_header = request.headers["Authorization"]
+    return false unless auth_header&.start_with?("Bearer ")
 
-    token = auth_header.split(' ').last
-    expected_token = Rails.application.credentials.worker_token || ENV['WORKER_TOKEN']
-    
+    token = auth_header.split(" ").last
+    expected_token = Rails.application.credentials.worker_token || ENV["WORKER_TOKEN"]
+
     return false unless expected_token.present?
-    
+
     # Secure token comparison
     ActiveSupport::SecurityUtils.secure_compare(token, expected_token)
   end

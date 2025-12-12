@@ -10,8 +10,8 @@ module Mcp
         log_info "Reading knowledge base article"
 
         # Get article identifier (ID or slug)
-        article_id = configuration['article_id'] || get_variable('article_id')
-        article_slug = configuration['article_slug'] || get_variable('article_slug')
+        article_id = configuration["article_id"] || get_variable("article_id")
+        article_slug = configuration["article_slug"] || get_variable("article_slug")
 
         unless article_id.present? || article_slug.present?
           raise Mcp::AiWorkflowOrchestrator::NodeExecutionError,
@@ -22,8 +22,8 @@ module Mcp
         article = find_article(article_id, article_slug)
 
         # Store article data in variables if configured
-        if configuration['output_variable']
-          set_variable(configuration['output_variable'], serialize_article(article))
+        if configuration["output_variable"]
+          set_variable(configuration["output_variable"], serialize_article(article))
         end
 
         log_info "Read KB article: #{article.title} (#{article.id})"
@@ -46,10 +46,10 @@ module Mcp
           },
           metadata: {
             node_id: @node.node_id,
-            node_type: 'kb_article_read',
+            node_type: "kb_article_read",
             executed_at: Time.current.iso8601,
-            operation: 'read',
-            record_type: 'KnowledgeBaseArticle'
+            operation: "read",
+            record_type: "KnowledgeBaseArticle"
           }
         }
       end
@@ -59,9 +59,9 @@ module Mcp
       def find_article(article_id, article_slug)
         article = if article_id.present?
                    KnowledgeBaseArticle.find_by(id: article_id)
-                 else
+        else
                    KnowledgeBaseArticle.find_by(slug: article_slug)
-                 end
+        end
 
         unless article
           identifier = article_id || article_slug

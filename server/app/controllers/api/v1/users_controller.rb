@@ -2,11 +2,11 @@
 
 class Api::V1::UsersController < ApplicationController
   include UserSerialization
-  
+
   before_action :set_user, only: [ :show, :update, :destroy ]
-  before_action -> { require_permission('admin.user.view') }, only: [:index, :stats]
-  before_action -> { require_permission('admin.user.create') }, only: [:create]
-  before_action -> { require_permission('admin.user.delete') }, only: [:destroy]
+  before_action -> { require_permission("admin.user.view") }, only: [ :index, :stats ]
+  before_action -> { require_permission("admin.user.create") }, only: [ :create ]
+  before_action -> { require_permission("admin.user.delete") }, only: [ :destroy ]
 
   # GET /api/v1/users
   def index
@@ -14,7 +14,7 @@ class Api::V1::UsersController < ApplicationController
 
     # Pagination using Kaminari
     page = params[:page] || 1
-    per_page = [params[:per_page]&.to_i || 25, 100].min # Default 25, max 100
+    per_page = [ params[:per_page]&.to_i || 25, 100 ].min # Default 25, max 100
 
     paginated_users = users.page(page).per(per_page)
 
@@ -40,7 +40,7 @@ class Api::V1::UsersController < ApplicationController
   def create
     # Check usage limit before creating user
     unless UsageLimitService.can_add_user?(current_account)
-      render_error('User limit reached for your current plan', status: :forbidden)
+      render_error("User limit reached for your current plan", status: :forbidden)
       return
     end
 
@@ -84,13 +84,13 @@ class Api::V1::UsersController < ApplicationController
   # GET /api/v1/users/stats
   def stats
     users = current_account.users
-    
+
     stats_data = {
       total_users: users.count,
-      active_users: users.where(status: 'active').count,
-      suspended_users: users.where(status: 'suspended').count,
+      active_users: users.where(status: "active").count,
+      suspended_users: users.where(status: "suspended").count,
       unverified_users: users.where(email_verified_at: nil).count,
-      recent_logins: users.where('last_login_at >= ?', 7.days.ago).count
+      recent_logins: users.where("last_login_at >= ?", 7.days.ago).count
     }
 
     render_success(stats_data)

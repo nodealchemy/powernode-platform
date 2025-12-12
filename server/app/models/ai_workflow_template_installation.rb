@@ -5,14 +5,14 @@ class AiWorkflowTemplateInstallation < ApplicationRecord
   belongs_to :ai_workflow_template
   belongs_to :ai_workflow
   belongs_to :account
-  belongs_to :installed_by_user, class_name: 'User'
+  belongs_to :installed_by_user, class_name: "User"
 
   # Validations
   validates :installation_id, presence: true, uniqueness: true
   validates :template_version, presence: true
-  validates :ai_workflow_template_id, uniqueness: { 
-    scope: :account_id, 
-    message: 'has already been installed for this account' 
+  validates :ai_workflow_template_id, uniqueness: {
+    scope: :account_id,
+    message: "has already been installed for this account"
   }
 
   # JSON columns
@@ -29,7 +29,7 @@ class AiWorkflowTemplateInstallation < ApplicationRecord
   scope :by_version, ->(version) { where(template_version: version) }
   scope :outdated, -> {
     joins(:ai_workflow_template)
-      .where('ai_workflow_template_installations.template_version != ai_workflow_templates.version')
+      .where("ai_workflow_template_installations.template_version != ai_workflow_templates.version")
   }
 
   # Callbacks
@@ -77,15 +77,15 @@ class AiWorkflowTemplateInstallation < ApplicationRecord
 
     installed_version = Gem::Version.new(template_version)
     current_version = Gem::Version.new(current_template_version)
-    
+
     current_version <=> installed_version
   end
 
   def version_behind_by
     return 0 if up_to_date?
 
-    installed = template_version.split('.').map(&:to_i)
-    current = current_template_version.split('.').map(&:to_i)
+    installed = template_version.split(".").map(&:to_i)
+    current = current_template_version.split(".").map(&:to_i)
 
     # Simple calculation - in a real system you might want more sophisticated version comparison
     major_diff = current[0] - installed[0]
@@ -109,30 +109,30 @@ class AiWorkflowTemplateInstallation < ApplicationRecord
 
     updater = user || installed_by_user
     latest_version = current_template_version
-    
+
     transaction do
       # Backup current configuration
       backup_data = {
-        'previous_version' => template_version,
-        'backup_timestamp' => Time.current.iso8601,
-        'workflow_configuration' => ai_workflow.configuration.dup,
-        'customizations_backup' => customizations.dup
+        "previous_version" => template_version,
+        "backup_timestamp" => Time.current.iso8601,
+        "workflow_configuration" => ai_workflow.configuration.dup,
+        "customizations_backup" => customizations.dup
       }
 
       # Update the workflow with new template definition
       new_definition = ai_workflow_template.workflow_definition
-      
+
       if preserve_customizations && customizations.present?
         new_definition = apply_customizations_to_definition(new_definition)
       end
 
       # Update workflow
       ai_workflow.update!(
-        configuration: new_definition['configuration'] || {},
+        configuration: new_definition["configuration"] || {},
         metadata: ai_workflow.metadata.merge({
-          'template_updated_at' => Time.current.iso8601,
-          'template_updated_by' => updater.id,
-          'update_backup' => backup_data
+          "template_updated_at" => Time.current.iso8601,
+          "template_updated_by" => updater.id,
+          "update_backup" => backup_data
         })
       )
 
@@ -141,16 +141,16 @@ class AiWorkflowTemplateInstallation < ApplicationRecord
         template_version: latest_version,
         last_updated_at: Time.current,
         metadata: metadata.merge({
-          'updated_to_version' => latest_version,
-          'updated_at' => Time.current.iso8601,
-          'updated_by' => updater.id,
-          'update_history' => (metadata['update_history'] || []).push(backup_data).last(10)
+          "updated_to_version" => latest_version,
+          "updated_at" => Time.current.iso8601,
+          "updated_by" => updater.id,
+          "update_history" => (metadata["update_history"] || []).push(backup_data).last(10)
         })
       )
 
       # Log the update
       log_update(latest_version, updater)
-      
+
       true
     end
   rescue StandardError => e
@@ -159,36 +159,36 @@ class AiWorkflowTemplateInstallation < ApplicationRecord
   end
 
   def rollback_to_previous_version!
-    return false unless metadata['update_history'].present?
+    return false unless metadata["update_history"].present?
 
-    latest_backup = metadata['update_history'].last
+    latest_backup = metadata["update_history"].last
     return false unless latest_backup
 
     transaction do
       # Restore workflow configuration
       ai_workflow.update!(
-        configuration: latest_backup['workflow_configuration'],
+        configuration: latest_backup["workflow_configuration"],
         metadata: ai_workflow.metadata.merge({
-          'template_rolled_back_at' => Time.current.iso8601,
-          'rolled_back_from_version' => template_version,
-          'rolled_back_to_version' => latest_backup['previous_version']
+          "template_rolled_back_at" => Time.current.iso8601,
+          "rolled_back_from_version" => template_version,
+          "rolled_back_to_version" => latest_backup["previous_version"]
         })
       )
 
       # Update installation record
       update!(
-        template_version: latest_backup['previous_version'],
-        customizations: latest_backup['customizations_backup'] || {},
+        template_version: latest_backup["previous_version"],
+        customizations: latest_backup["customizations_backup"] || {},
         metadata: metadata.merge({
-          'rolled_back_at' => Time.current.iso8601,
-          'rolled_back_from' => template_version
+          "rolled_back_at" => Time.current.iso8601,
+          "rolled_back_from" => template_version
         })
       )
 
       # Remove the backup we just used
-      updated_history = metadata['update_history'].dup
+      updated_history = metadata["update_history"].dup
       updated_history.pop
-      update_column(:metadata, metadata.merge('update_history' => updated_history))
+      update_column(:metadata, metadata.merge("update_history" => updated_history))
 
       true
     end
@@ -201,12 +201,12 @@ class AiWorkflowTemplateInstallation < ApplicationRecord
   def add_customization(key, value)
     current_customizations = customizations.dup
     current_customizations[key.to_s] = value
-    
+
     update!(
       customizations: current_customizations,
       metadata: metadata.merge({
-        'last_customized_at' => Time.current.iso8601,
-        'customization_count' => current_customizations.keys.size
+        "last_customized_at" => Time.current.iso8601,
+        "customization_count" => current_customizations.keys.size
       })
     )
   end
@@ -214,12 +214,12 @@ class AiWorkflowTemplateInstallation < ApplicationRecord
   def remove_customization(key)
     current_customizations = customizations.dup
     current_customizations.delete(key.to_s)
-    
+
     update!(
       customizations: current_customizations,
       metadata: metadata.merge({
-        'last_customized_at' => Time.current.iso8601,
-        'customization_count' => current_customizations.keys.size
+        "last_customized_at" => Time.current.iso8601,
+        "customization_count" => current_customizations.keys.size
       })
     )
   end
@@ -230,7 +230,7 @@ class AiWorkflowTemplateInstallation < ApplicationRecord
     {
       total_customizations: customizations.keys.size,
       customized_fields: customizations.keys,
-      last_customized: metadata['last_customized_at'],
+      last_customized: metadata["last_customized_at"],
       customization_types: categorize_customizations
     }
   end
@@ -239,14 +239,14 @@ class AiWorkflowTemplateInstallation < ApplicationRecord
   def map_variable(template_var, workflow_var)
     current_mappings = variable_mappings.dup
     current_mappings[template_var.to_s] = workflow_var.to_s
-    
+
     update!(variable_mappings: current_mappings)
   end
 
   def unmap_variable(template_var)
     current_mappings = variable_mappings.dup
     current_mappings.delete(template_var.to_s)
-    
+
     update!(variable_mappings: current_mappings)
   end
 
@@ -257,13 +257,13 @@ class AiWorkflowTemplateInstallation < ApplicationRecord
   # Installation statistics and analytics
   def usage_statistics
     workflow_runs = ai_workflow.ai_workflow_runs
-    
+
     {
       total_executions: workflow_runs.count,
-      successful_executions: workflow_runs.where(status: 'completed').count,
-      failed_executions: workflow_runs.where(status: 'failed').count,
+      successful_executions: workflow_runs.where(status: "completed").count,
+      failed_executions: workflow_runs.where(status: "failed").count,
       total_cost: workflow_runs.sum(:total_cost),
-      average_execution_time: workflow_runs.where(status: 'completed').average(:duration_ms)&.to_i || 0,
+      average_execution_time: workflow_runs.where(status: "completed").average(:duration_ms)&.to_i || 0,
       last_execution: workflow_runs.order(created_at: :desc).first&.created_at,
       success_rate: calculate_success_rate(workflow_runs)
     }
@@ -272,25 +272,25 @@ class AiWorkflowTemplateInstallation < ApplicationRecord
   def installation_health_score
     stats = usage_statistics
     score = 100
-    
+
     # Deduct points for failures
     if stats[:total_executions] > 0
       failure_rate = stats[:failed_executions].to_f / stats[:total_executions]
       score -= (failure_rate * 50).to_i
     end
-    
+
     # Deduct points for being outdated
     if outdated?
       version_gap = version_behind_by
       score -= version_gap[:major] * 20 + version_gap[:minor] * 10 + version_gap[:patch] * 5
     end
-    
+
     # Deduct points for inactivity
     if stats[:last_execution].nil? || stats[:last_execution] < 30.days.ago
       score -= 20
     end
-    
-    [score, 0].max
+
+    [ score, 0 ].max
   end
 
   # Comparison and compatibility
@@ -299,30 +299,30 @@ class AiWorkflowTemplateInstallation < ApplicationRecord
 
     issues = []
     warnings = []
-    
-    current_nodes = ai_workflow_template.workflow_definition['nodes'] || []
-    current_variables = ai_workflow_template.workflow_definition['variables'] || []
-    
+
+    current_nodes = ai_workflow_template.workflow_definition["nodes"] || []
+    current_variables = ai_workflow_template.workflow_definition["variables"] || []
+
     # Check for breaking changes (simplified analysis)
     workflow_nodes = ai_workflow.ai_workflow_nodes.pluck(:node_id, :node_type)
-    
+
     current_nodes.each do |template_node|
-      matching_node = workflow_nodes.find { |wn| wn[0] == template_node['node_id'] }
-      
+      matching_node = workflow_nodes.find { |wn| wn[0] == template_node["node_id"] }
+
       if matching_node.nil?
         issues << "Node '#{template_node['node_id']}' is missing from current workflow"
-      elsif matching_node[1] != template_node['node_type']
+      elsif matching_node[1] != template_node["node_type"]
         issues << "Node '#{template_node['node_id']}' type changed from #{matching_node[1]} to #{template_node['node_type']}"
       end
     end
-    
+
     # Check variable compatibility
     workflow_variables = ai_workflow.ai_workflow_variables.pluck(:name, :variable_type)
-    
+
     current_variables.each do |template_var|
-      matching_var = workflow_variables.find { |wv| wv[0] == template_var['name'] }
-      
-      if matching_var && matching_var[1] != template_var['variable_type']
+      matching_var = workflow_variables.find { |wv| wv[0] == template_var["name"] }
+
+      if matching_var && matching_var[1] != template_var["variable_type"]
         warnings << "Variable '#{template_var['name']}' type changed from #{matching_var[1]} to #{template_var['variable_type']}"
       end
     end
@@ -332,7 +332,7 @@ class AiWorkflowTemplateInstallation < ApplicationRecord
       issues: issues,
       warnings: warnings,
       breaking_changes: issues.size,
-      compatibility_score: issues.empty? ? 100 : [100 - (issues.size * 20), 0].max
+      compatibility_score: issues.empty? ? 100 : [ 100 - (issues.size * 20), 0 ].max
     }
   end
 
@@ -367,57 +367,57 @@ class AiWorkflowTemplateInstallation < ApplicationRecord
     return definition unless customizations.present?
 
     customized_definition = definition.deep_dup
-    
+
     customizations.each do |path, value|
       apply_customization_to_path(customized_definition, path, value)
     end
-    
+
     customized_definition
   end
 
   def apply_customization_to_path(hash, path, value)
-    keys = path.split('.')
+    keys = path.split(".")
     current = hash
-    
+
     keys[0..-2].each do |key|
       current[key] ||= {}
       current = current[key]
     end
-    
+
     current[keys.last] = value
   end
 
   def categorize_customizations
     categories = {
-      'configuration' => 0,
-      'variables' => 0,
-      'nodes' => 0,
-      'triggers' => 0,
-      'other' => 0
+      "configuration" => 0,
+      "variables" => 0,
+      "nodes" => 0,
+      "triggers" => 0,
+      "other" => 0
     }
-    
+
     customizations.keys.each do |key|
       case key
       when /^configuration\./
-        categories['configuration'] += 1
+        categories["configuration"] += 1
       when /^variables\./
-        categories['variables'] += 1
+        categories["variables"] += 1
       when /^nodes\./
-        categories['nodes'] += 1
+        categories["nodes"] += 1
       when /^triggers\./
-        categories['triggers'] += 1
+        categories["triggers"] += 1
       else
-        categories['other'] += 1
+        categories["other"] += 1
       end
     end
-    
+
     categories
   end
 
   def calculate_success_rate(workflow_runs)
     return 0.0 if workflow_runs.empty?
-    
-    successful = workflow_runs.where(status: 'completed').count
+
+    successful = workflow_runs.where(status: "completed").count
     (successful.to_f / workflow_runs.count * 100).round(2)
   end
 
@@ -430,18 +430,18 @@ class AiWorkflowTemplateInstallation < ApplicationRecord
 
   def log_installation
     Rails.logger.info "Template installation created: #{ai_workflow_template.name} -> #{ai_workflow.name} (Account: #{account_id})"
-    
+
     # Update metadata with installation info
     update_column(:metadata, metadata.merge({
-      'installed_at' => created_at.iso8601,
-      'installer_id' => installed_by_user_id,
-      'original_template_version' => template_version
+      "installed_at" => created_at.iso8601,
+      "installer_id" => installed_by_user_id,
+      "original_template_version" => template_version
     }))
   end
 
   def log_update(new_version, updater)
     Rails.logger.info "Template installation updated: #{installation_id} from #{template_version} to #{new_version}"
-    
+
     # Could also broadcast this update for real-time notifications
     # ActionCable.server.broadcast("account_#{account_id}", {
     #   type: 'template_updated',

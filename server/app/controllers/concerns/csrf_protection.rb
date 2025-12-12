@@ -13,13 +13,13 @@ module CsrfProtection
   def csrf_protection_enabled?
     # Check if CSRF protection is enabled in settings
     # For write operations (POST, PUT, PATCH, DELETE)
-    request.method_symbol.in?([:post, :put, :patch, :delete]) &&
+    request.method_symbol.in?([ :post, :put, :patch, :delete ]) &&
       Rails.configuration.x.csrf_protection_enabled == true
   end
 
   def verify_csrf_token
     token = extract_csrf_token
-    
+
     unless token && valid_csrf_token?(token)
       render_csrf_error
       return false
@@ -30,8 +30,8 @@ module CsrfProtection
 
   def extract_csrf_token
     # Check for CSRF token in header (preferred method for APIs)
-    token = request.headers['X-CSRF-Token']
-    
+    token = request.headers["X-CSRF-Token"]
+
     # Fall back to parameter if header is not present
     token ||= params[:_csrf_token] if Rails.configuration.x.csrf_allow_parameter
 
@@ -40,13 +40,13 @@ module CsrfProtection
 
   def valid_csrf_token?(token)
     return false unless token.present?
-    
+
     # For API-only applications, we use a simple secure random token approach
     # This token should be obtained via a GET request to /api/v1/csrf_token
     stored_token = Rails.cache.read("csrf_token_#{current_user&.id}")
-    
+
     return false unless stored_token.present?
-    
+
     # Use secure comparison to prevent timing attacks
     ActiveSupport::SecurityUtils.secure_compare(token, stored_token)
   end
@@ -54,22 +54,22 @@ module CsrfProtection
   def render_csrf_error
     render json: {
       success: false,
-      error: 'CSRF token verification failed',
-      code: 'CSRF_INVALID'
+      error: "CSRF token verification failed",
+      code: "CSRF_INVALID"
     }, status: :forbidden
   end
 
   def generate_csrf_token
     # Generate a new CSRF token for the current user
     return nil unless current_user
-    
+
     token = SecureRandom.base64(32)
     Rails.cache.write(
-      "csrf_token_#{current_user.id}", 
-      token, 
+      "csrf_token_#{current_user.id}",
+      token,
       expires_in: Rails.configuration.x.csrf_token_expiry || 2.hours
     )
-    
+
     token
   end
 end

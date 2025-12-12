@@ -35,7 +35,7 @@ FactoryBot.define do
             category: 'structure',
             message: 'Workflow contains circular dependencies',
             auto_fixable: false,
-            affected_nodes: ['node_1', 'node_2', 'node_3']
+            affected_nodes: [ 'node_1', 'node_2', 'node_3' ]
           }
         ]
       end
@@ -52,7 +52,7 @@ FactoryBot.define do
             category: 'connectivity',
             message: 'Node is not connected to workflow',
             auto_fixable: true,
-            affected_nodes: ['node_4']
+            affected_nodes: [ 'node_4' ]
           },
           {
             code: 'missing_description',
@@ -60,7 +60,7 @@ FactoryBot.define do
             category: 'configuration',
             message: 'Node is missing description',
             auto_fixable: false,
-            affected_nodes: ['node_2']
+            affected_nodes: [ 'node_2' ]
           },
           {
             code: 'performance_concern',
@@ -68,7 +68,7 @@ FactoryBot.define do
             category: 'performance',
             message: 'Node timeout may be too high',
             auto_fixable: false,
-            affected_nodes: ['node_3']
+            affected_nodes: [ 'node_3' ]
           }
         ]
       end
@@ -104,7 +104,7 @@ FactoryBot.define do
             message: 'Some edges are missing labels',
             auto_fixable: true,
             fix_action: 'auto_generate_labels',
-            affected_nodes: ['node_1', 'node_2']
+            affected_nodes: [ 'node_1', 'node_2' ]
           },
           {
             code: 'default_timeout',
@@ -113,7 +113,7 @@ FactoryBot.define do
             message: 'Nodes using default timeout values',
             auto_fixable: true,
             fix_action: 'set_recommended_timeouts',
-            affected_nodes: ['node_3', 'node_4']
+            affected_nodes: [ 'node_3', 'node_4' ]
           }
         ]
       end
@@ -130,7 +130,7 @@ FactoryBot.define do
             category: 'security',
             message: 'API keys found in node configuration',
             auto_fixable: false,
-            affected_nodes: ['node_2'],
+            affected_nodes: [ 'node_2' ],
             recommendation: 'Move credentials to secure storage'
           },
           {
@@ -139,7 +139,7 @@ FactoryBot.define do
             category: 'security',
             message: 'Node accepts unvalidated user input',
             auto_fixable: false,
-            affected_nodes: ['node_1'],
+            affected_nodes: [ 'node_1' ],
             recommendation: 'Add input validation rules'
           }
         ]
@@ -157,7 +157,7 @@ FactoryBot.define do
             category: 'performance',
             message: 'Node timeout exceeds recommended value',
             auto_fixable: true,
-            affected_nodes: ['node_3'],
+            affected_nodes: [ 'node_3' ],
             current_value: 600,
             recommended_value: 300
           },
@@ -167,7 +167,7 @@ FactoryBot.define do
             category: 'performance',
             message: 'Nodes could be parallelized for better performance',
             auto_fixable: false,
-            affected_nodes: ['node_4', 'node_5']
+            affected_nodes: [ 'node_4', 'node_5' ]
           }
         ]
       end
@@ -203,7 +203,7 @@ FactoryBot.define do
             category: 'performance',
             message: 'Consider adding caching for improved performance',
             auto_fixable: false,
-            affected_nodes: ['node_2']
+            affected_nodes: [ 'node_2' ]
           }
         ]
       end
@@ -228,7 +228,7 @@ FactoryBot.define do
             category: 'connectivity',
             message: 'Some nodes cannot be reached from start',
             auto_fixable: false,
-            affected_nodes: ['node_4', 'node_5']
+            affected_nodes: [ 'node_4', 'node_5' ]
           },
           {
             code: 'invalid_configuration',
@@ -236,7 +236,7 @@ FactoryBot.define do
             category: 'configuration',
             message: 'Node configuration is invalid',
             auto_fixable: false,
-            affected_nodes: ['node_3']
+            affected_nodes: [ 'node_3' ]
           }
         ]
       end

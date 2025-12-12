@@ -39,23 +39,23 @@ module Api
           # Handle status updates
           if params[:status]
             case params[:status]
-            when 'processing'
+            when "processing"
               unless @job.start_processing!
-                return render_error('Cannot start processing: invalid status', status: :unprocessable_content)
+                return render_error("Cannot start processing: invalid status", status: :unprocessable_content)
               end
-            when 'completed'
+            when "completed"
               result_data = params[:result_data] || {}
               unless @job.mark_completed!(result_data)
-                return render_error('Cannot mark as completed: invalid status', status: :unprocessable_content)
+                return render_error("Cannot mark as completed: invalid status", status: :unprocessable_content)
               end
-            when 'failed'
-              error_message = params.dig(:error_details, :error_message) || 'Processing failed'
+            when "failed"
+              error_message = params.dig(:error_details, :error_message) || "Processing failed"
               error_data = params[:error_details] || {}
               unless @job.mark_failed!(error_message, error_data)
-                return render_error('Cannot mark as failed: invalid status', status: :unprocessable_content)
+                return render_error("Cannot mark as failed: invalid status", status: :unprocessable_content)
               end
             else
-              return render_validation_error('Invalid status', field: 'status')
+              return render_validation_error("Invalid status", field: "status")
             end
           end
 
@@ -67,7 +67,7 @@ module Api
 
         rescue StandardError => e
           Rails.logger.error "[ProcessingJobsController] Update failed: #{e.message}"
-          render_error('Job update failed', status: :internal_server_error)
+          render_error("Job update failed", status: :internal_server_error)
         end
 
         private
@@ -76,7 +76,7 @@ module Api
           @job = FileProcessingJob.find_by(id: params[:id])
 
           unless @job
-            render_error('Processing job not found', status: :not_found)
+            render_error("Processing job not found", status: :not_found)
           end
         end
       end

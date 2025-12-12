@@ -256,12 +256,12 @@ FactoryBot.define do
             slack: {
               webhook_url: 'https://hooks.slack.com/services/TEST/WEBHOOK',
               channel: '#ai-workflows',
-              notification_types: ['completion', 'failure']
+              notification_types: [ 'completion', 'failure' ]
             },
             email: {
               smtp_server: 'smtp.example.com',
               from_address: 'workflows@example.com',
-              recipients: ['admin@example.com']
+              recipients: [ 'admin@example.com' ]
             },
             database: {
               connection_string: 'postgresql://user:pass@localhost/db',

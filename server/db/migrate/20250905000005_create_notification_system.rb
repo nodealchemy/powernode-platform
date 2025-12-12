@@ -24,12 +24,12 @@ class CreateNotificationSystem < ActiveRecord::Migration[8.0]
       t.integer :retry_count, default: 0
       t.jsonb :metadata, default: {}
       t.timestamps null: false
-      
-      t.index [:recipient_email], name: 'idx_email_deliveries_on_recipient_email'
-      t.index [:email_type], name: 'idx_email_deliveries_on_email_type'
-      t.index [:status], name: 'idx_email_deliveries_on_status'
-      t.index [:sent_at], name: 'idx_email_deliveries_on_sent_at'
-      t.index [:external_id], unique: true, where: "external_id IS NOT NULL", name: 'idx_email_deliveries_on_external_id_unique'
+
+      t.index [ :recipient_email ], name: 'idx_email_deliveries_on_recipient_email'
+      t.index [ :email_type ], name: 'idx_email_deliveries_on_email_type'
+      t.index [ :status ], name: 'idx_email_deliveries_on_status'
+      t.index [ :sent_at ], name: 'idx_email_deliveries_on_sent_at'
+      t.index [ :external_id ], unique: true, where: "external_id IS NOT NULL", name: 'idx_email_deliveries_on_external_id_unique'
     end
 
     # Create webhook_endpoints table - Webhook management
@@ -54,15 +54,15 @@ class CreateNotificationSystem < ActiveRecord::Migration[8.0]
       t.timestamp :last_delivery_at
       t.jsonb :metadata, default: {}
       t.timestamps null: false
-      
-      t.index [:account_id], name: 'idx_webhook_endpoints_on_account_id'
-      t.index [:created_by_id], name: 'idx_webhook_endpoints_on_created_by'
-      t.index [:is_active], name: 'idx_webhook_endpoints_on_is_active'
-      t.index [:content_type], name: 'idx_webhook_endpoints_on_content_type'
-      t.index [:success_count], name: 'idx_webhook_endpoints_on_success_count'
-      t.index [:failure_count], name: 'idx_webhook_endpoints_on_failure_count'
-      t.index [:last_delivery_at], name: 'idx_webhook_endpoints_on_last_delivery_at'
-      t.index [:status, :is_active], name: 'idx_webhook_endpoints_on_status_active'
+
+      t.index [ :account_id ], name: 'idx_webhook_endpoints_on_account_id'
+      t.index [ :created_by_id ], name: 'idx_webhook_endpoints_on_created_by'
+      t.index [ :is_active ], name: 'idx_webhook_endpoints_on_is_active'
+      t.index [ :content_type ], name: 'idx_webhook_endpoints_on_content_type'
+      t.index [ :success_count ], name: 'idx_webhook_endpoints_on_success_count'
+      t.index [ :failure_count ], name: 'idx_webhook_endpoints_on_failure_count'
+      t.index [ :last_delivery_at ], name: 'idx_webhook_endpoints_on_last_delivery_at'
+      t.index [ :status, :is_active ], name: 'idx_webhook_endpoints_on_status_active'
     end
 
     # Create webhook_events table - Event tracking
@@ -82,14 +82,14 @@ class CreateNotificationSystem < ActiveRecord::Migration[8.0]
       t.text :metadata
       t.datetime :processed_at
       t.timestamps null: false
-      
-      t.index [:account_id, :event_type], name: 'idx_webhook_events_on_account_event_type'
-      t.index [:event_id], unique: true, name: 'idx_webhook_events_on_event_id_unique'
-      t.index [:external_id], unique: true, name: 'idx_webhook_events_on_external_id_unique'
-      t.index [:provider], name: 'idx_webhook_events_on_provider'
-      t.index [:retry_count], name: 'idx_webhook_events_on_retry_count'
-      t.index [:occurred_at], name: 'idx_webhook_events_on_occurred_at'
-      t.index [:status], name: 'idx_webhook_events_on_status'
+
+      t.index [ :account_id, :event_type ], name: 'idx_webhook_events_on_account_event_type'
+      t.index [ :event_id ], unique: true, name: 'idx_webhook_events_on_event_id_unique'
+      t.index [ :external_id ], unique: true, name: 'idx_webhook_events_on_external_id_unique'
+      t.index [ :provider ], name: 'idx_webhook_events_on_provider'
+      t.index [ :retry_count ], name: 'idx_webhook_events_on_retry_count'
+      t.index [ :occurred_at ], name: 'idx_webhook_events_on_occurred_at'
+      t.index [ :status ], name: 'idx_webhook_events_on_status'
     end
 
     # Create webhook_deliveries table - Delivery tracking
@@ -107,12 +107,12 @@ class CreateNotificationSystem < ActiveRecord::Migration[8.0]
       t.jsonb :request_headers, default: {}
       t.jsonb :response_headers, default: {}
       t.timestamps null: false
-      
-      t.index [:webhook_endpoint_id], name: 'idx_webhook_deliveries_on_webhook_endpoint_id'
-      t.index [:webhook_event_id], name: 'idx_webhook_deliveries_on_webhook_event_id'
-      t.index [:status], name: 'idx_webhook_deliveries_on_status'
-      t.index [:attempted_at], name: 'idx_webhook_deliveries_on_attempted_at'
-      t.index [:next_retry_at], name: 'idx_webhook_deliveries_on_next_retry_at'
+
+      t.index [ :webhook_endpoint_id ], name: 'idx_webhook_deliveries_on_webhook_endpoint_id'
+      t.index [ :webhook_event_id ], name: 'idx_webhook_deliveries_on_webhook_event_id'
+      t.index [ :status ], name: 'idx_webhook_deliveries_on_status'
+      t.index [ :attempted_at ], name: 'idx_webhook_deliveries_on_attempted_at'
+      t.index [ :next_retry_at ], name: 'idx_webhook_deliveries_on_next_retry_at'
     end
 
     # Create background_jobs table - Job queue management
@@ -132,13 +132,13 @@ class CreateNotificationSystem < ActiveRecord::Migration[8.0]
       t.datetime :finished_at
       t.datetime :failed_at
       t.timestamps null: false
-      
-      t.index [:job_id], unique: true, name: 'idx_background_jobs_on_job_id_unique'
-      t.index [:job_type], name: 'idx_background_jobs_on_job_type'
-      t.index [:status], name: 'idx_background_jobs_on_status'
-      t.index [:job_type, :status], name: 'idx_background_jobs_on_job_type_status'
-      t.index [:scheduled_at], name: 'idx_background_jobs_on_scheduled_at'
-      t.index [:created_at], name: 'idx_background_jobs_on_created_at'
+
+      t.index [ :job_id ], unique: true, name: 'idx_background_jobs_on_job_id_unique'
+      t.index [ :job_type ], name: 'idx_background_jobs_on_job_type'
+      t.index [ :status ], name: 'idx_background_jobs_on_status'
+      t.index [ :job_type, :status ], name: 'idx_background_jobs_on_job_type_status'
+      t.index [ :scheduled_at ], name: 'idx_background_jobs_on_scheduled_at'
+      t.index [ :created_at ], name: 'idx_background_jobs_on_created_at'
     end
 
     # Create reconciliation_reports table - Payment reconciliation
@@ -163,10 +163,10 @@ class CreateNotificationSystem < ActiveRecord::Migration[8.0]
       t.text :summary
       t.jsonb :metadata, default: {}
       t.timestamps null: false
-      
-      t.index [:gateway, :report_date, :report_type], unique: true, name: 'idx_reconciliation_reports_on_gateway_date_type_unique'
-      t.index [:status], name: 'idx_reconciliation_reports_on_status'
-      t.index [:report_date], name: 'idx_reconciliation_reports_on_report_date'
+
+      t.index [ :gateway, :report_date, :report_type ], unique: true, name: 'idx_reconciliation_reports_on_gateway_date_type_unique'
+      t.index [ :status ], name: 'idx_reconciliation_reports_on_status'
+      t.index [ :report_date ], name: 'idx_reconciliation_reports_on_report_date'
     end
 
     # Create reconciliation_flags table - Issue flagging
@@ -184,12 +184,12 @@ class CreateNotificationSystem < ActiveRecord::Migration[8.0]
       t.text :resolution_notes
       t.jsonb :metadata, default: {}
       t.timestamps null: false
-      
-      t.index [:reconciliation_report_id], name: 'idx_reconciliation_flags_on_reconciliation_report_id'
-      t.index [:flag_type], name: 'idx_reconciliation_flags_on_flag_type'
-      t.index [:severity], name: 'idx_reconciliation_flags_on_severity'
-      t.index [:status], name: 'idx_reconciliation_flags_on_status'
-      t.index [:resolved_at], name: 'idx_reconciliation_flags_on_resolved_at'
+
+      t.index [ :reconciliation_report_id ], name: 'idx_reconciliation_flags_on_reconciliation_report_id'
+      t.index [ :flag_type ], name: 'idx_reconciliation_flags_on_flag_type'
+      t.index [ :severity ], name: 'idx_reconciliation_flags_on_severity'
+      t.index [ :status ], name: 'idx_reconciliation_flags_on_status'
+      t.index [ :resolved_at ], name: 'idx_reconciliation_flags_on_resolved_at'
     end
 
     # Create reconciliation_investigations table - Investigation tracking
@@ -203,18 +203,18 @@ class CreateNotificationSystem < ActiveRecord::Migration[8.0]
       t.datetime :completed_at
       t.jsonb :findings, default: {}
       t.timestamps null: false
-      
-      t.index [:reconciliation_flag_id], name: 'idx_reconciliation_investigations_on_reconciliation_flag_id'
-      t.index [:investigator_id], name: 'idx_reconciliation_investigations_on_investigator_id'
-      t.index [:status], name: 'idx_reconciliation_investigations_on_status'
-      t.index [:started_at], name: 'idx_reconciliation_investigations_on_started_at'
+
+      t.index [ :reconciliation_flag_id ], name: 'idx_reconciliation_investigations_on_reconciliation_flag_id'
+      t.index [ :investigator_id ], name: 'idx_reconciliation_investigations_on_investigator_id'
+      t.index [ :status ], name: 'idx_reconciliation_investigations_on_status'
+      t.index [ :started_at ], name: 'idx_reconciliation_investigations_on_started_at'
     end
 
     # Add check constraints for notification system
     add_check_constraint :email_deliveries, "status IN ('pending', 'sent', 'delivered', 'bounced', 'failed', 'opened', 'clicked')", name: 'valid_email_status'
     add_check_constraint :email_deliveries, "email_type IN ('welcome', 'verification', 'password_reset', 'invitation', 'notification', 'marketing', 'transactional')", name: 'valid_email_type'
     add_check_constraint :email_deliveries, 'retry_count >= 0', name: 'valid_email_retry_count'
-    
+
     add_check_constraint :webhook_endpoints, 'timeout_seconds > 0 AND timeout_seconds <= 300', name: 'valid_webhook_timeout'
     add_check_constraint :webhook_endpoints, 'retry_limit >= 0 AND retry_limit <= 10', name: 'valid_webhook_retry_limit'
     add_check_constraint :webhook_endpoints, "status IN ('active', 'inactive', 'suspended')", name: 'valid_webhook_status'
@@ -222,27 +222,27 @@ class CreateNotificationSystem < ActiveRecord::Migration[8.0]
     add_check_constraint :webhook_endpoints, "retry_backoff IN ('linear', 'exponential')", name: 'valid_webhook_retry_backoff'
     add_check_constraint :webhook_endpoints, 'success_count >= 0', name: 'valid_webhook_success_count'
     add_check_constraint :webhook_endpoints, 'failure_count >= 0', name: 'valid_webhook_failure_count'
-    
+
     add_check_constraint :webhook_events, "status IN ('pending', 'processing', 'processed', 'failed', 'skipped')", name: 'valid_webhook_event_status'
     add_check_constraint :webhook_events, "provider IN ('stripe', 'paypal')", name: 'valid_webhook_provider'
     add_check_constraint :webhook_events, 'retry_count >= 0 AND retry_count <= 10', name: 'valid_webhook_retry_count'
-    
+
     add_check_constraint :webhook_deliveries, "status IN ('pending', 'success', 'failed', 'timeout')", name: 'valid_webhook_delivery_status'
     add_check_constraint :webhook_deliveries, 'attempt_number > 0', name: 'valid_webhook_attempt_number'
-    
+
     add_check_constraint :background_jobs, "status IN ('pending', 'processing', 'completed', 'failed', 'cancelled', 'retrying')", name: 'valid_job_status'
     add_check_constraint :background_jobs, 'attempts >= 0 AND max_attempts > 0', name: 'valid_job_attempts'
     add_check_constraint :background_jobs, 'priority >= 0', name: 'valid_job_priority'
-    
+
     add_check_constraint :reconciliation_reports, "report_type IN ('daily', 'weekly', 'monthly', 'manual')", name: 'valid_report_type'
     add_check_constraint :reconciliation_reports, "gateway IN ('stripe', 'paypal')", name: 'valid_reconciliation_gateway'
     add_check_constraint :reconciliation_reports, "status IN ('pending', 'processing', 'completed', 'failed')", name: 'valid_reconciliation_status'
     add_check_constraint :reconciliation_reports, 'total_transactions >= 0 AND matched_transactions >= 0 AND unmatched_transactions >= 0', name: 'valid_transaction_counts'
-    
+
     add_check_constraint :reconciliation_flags, "flag_type IN ('missing_payment', 'duplicate_payment', 'amount_mismatch', 'status_mismatch', 'unknown_transaction')", name: 'valid_flag_type'
     add_check_constraint :reconciliation_flags, "severity IN ('low', 'medium', 'high', 'critical')", name: 'valid_flag_severity'
     add_check_constraint :reconciliation_flags, "status IN ('open', 'investigating', 'resolved', 'dismissed')", name: 'valid_flag_status'
-    
+
     add_check_constraint :reconciliation_investigations, "status IN ('open', 'in_progress', 'completed', 'escalated')", name: 'valid_investigation_status'
   end
 end

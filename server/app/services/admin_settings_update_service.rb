@@ -13,7 +13,7 @@ class AdminSettingsUpdateService
     # Verify admin permissions
     unless @user.owner? || @user.admin?
       result[:success] = false
-      result[:errors] = ['Access denied: Admin privileges required']
+      result[:errors] = [ "Access denied: Admin privileges required" ]
       return result
     end
 
@@ -42,7 +42,7 @@ class AdminSettingsUpdateService
   private
 
   def system_settings_changed?
-    %w[maintenance_mode registration_enabled email_verification_required 
+    %w[maintenance_mode registration_enabled email_verification_required
        password_complexity_level session_timeout_minutes max_failed_login_attempts
        account_lockout_duration].any? { |key| @params.key?(key) }
   end
@@ -58,19 +58,19 @@ class AdminSettingsUpdateService
   def update_system_settings
     # In a real implementation, these would be stored in a system settings table or Redis
     # For now, we'll log the changes and simulate the update
-    
+
     if @params[:maintenance_mode].present?
       # Would toggle maintenance mode
-      log_setting_change('maintenance_mode', @params[:maintenance_mode])
+      log_setting_change("maintenance_mode", @params[:maintenance_mode])
     end
 
     if @params[:registration_enabled].present?
       # Would enable/disable registration
-      log_setting_change('registration_enabled', @params[:registration_enabled])
+      log_setting_change("registration_enabled", @params[:registration_enabled])
     end
 
     if @params[:email_verification_required].present?
-      log_setting_change('email_verification_required', @params[:email_verification_required])
+      log_setting_change("email_verification_required", @params[:email_verification_required])
     end
 
     if @params[:password_complexity_level].present?
@@ -78,7 +78,7 @@ class AdminSettingsUpdateService
         @errors << "Invalid password complexity level"
         return
       end
-      log_setting_change('password_complexity_level', @params[:password_complexity_level])
+      log_setting_change("password_complexity_level", @params[:password_complexity_level])
     end
 
     if @params[:session_timeout_minutes].present?
@@ -87,7 +87,7 @@ class AdminSettingsUpdateService
         @errors << "Session timeout must be between 5 and 480 minutes"
         return
       end
-      log_setting_change('session_timeout_minutes', timeout)
+      log_setting_change("session_timeout_minutes", timeout)
     end
   end
 
@@ -98,9 +98,9 @@ class AdminSettingsUpdateService
         @errors << "Max failed login attempts must be between 3 and 10"
         return
       end
-      
+
       # Update the User model constant - in reality this would be in a settings table
-      log_setting_change('max_failed_login_attempts', attempts)
+      log_setting_change("max_failed_login_attempts", attempts)
     end
 
     if @params[:account_lockout_duration].present?
@@ -109,8 +109,8 @@ class AdminSettingsUpdateService
         @errors << "Account lockout duration must be between 5 and 1440 minutes"
         return
       end
-      
-      log_setting_change('account_lockout_duration', duration)
+
+      log_setting_change("account_lockout_duration", duration)
     end
   end
 
@@ -119,14 +119,14 @@ class AdminSettingsUpdateService
 
     # Validate feature flags
     valid_flags = %w[new_dashboard beta_features advanced_analytics maintenance_mode]
-    
+
     @params[:feature_flags].each do |flag, enabled|
       unless valid_flags.include?(flag)
         @errors << "Invalid feature flag: #{flag}"
         next
       end
 
-      unless [true, false, 'true', 'false'].include?(enabled)
+      unless [ true, false, "true", "false" ].include?(enabled)
         @errors << "Feature flag #{flag} must be true or false"
         next
       end
@@ -141,10 +141,10 @@ class AdminSettingsUpdateService
     AuditLog.create!(
       user: @user,
       account: @user.account,
-      action: 'admin_settings_update',
-      resource_type: 'SystemSettings',
+      action: "admin_settings_update",
+      resource_type: "SystemSettings",
       resource_id: nil,
-      source: 'admin_panel',
+      source: "admin_panel",
       metadata: {
         changes: @params.to_h,
         admin_user: @user.email,
@@ -155,7 +155,7 @@ class AdminSettingsUpdateService
 
   def log_setting_change(setting_name, new_value)
     Rails.logger.info "[ADMIN] #{@user.email} changed #{setting_name} to #{new_value}"
-    
+
     # In a real implementation, you'd update the actual setting here
     # For example: SystemSetting.find_or_create_by(name: setting_name).update(value: new_value)
   end
@@ -165,7 +165,7 @@ class AdminSettingsUpdateService
       maintenance_mode: @params[:maintenance_mode] || false,
       registration_enabled: @params[:registration_enabled] || true,
       email_verification_required: @params[:email_verification_required] || true,
-      password_complexity_level: @params[:password_complexity_level] || 'high',
+      password_complexity_level: @params[:password_complexity_level] || "high",
       session_timeout_minutes: @params[:session_timeout_minutes] || 60,
       max_failed_login_attempts: @params[:max_failed_login_attempts] || 5,
       account_lockout_duration: @params[:account_lockout_duration] || 30,

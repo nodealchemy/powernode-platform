@@ -15,13 +15,13 @@ module Mcp
           output: [],
           result: {
             iterations_completed: 0,
-            loop_status: 'not_implemented'
+            loop_status: "not_implemented"
           },
           metadata: {
             node_id: @node.node_id,
-            node_type: 'loop',
+            node_type: "loop",
             executed_at: Time.current.iso8601,
-            implementation_status: 'stub'
+            implementation_status: "stub"
           }
         }
       end

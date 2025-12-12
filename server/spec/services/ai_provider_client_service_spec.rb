@@ -36,7 +36,7 @@ RSpec.describe AiProviderClientService, type: :service do
 
   describe '#send_message' do
     let(:service) { described_class.new(openai_credential) }
-    let(:messages) { [{ role: 'user', content: 'Hello, AI!' }] }
+    let(:messages) { [ { role: 'user', content: 'Hello, AI!' } ] }
     let(:options) { { model: 'gpt-3.5-turbo', temperature: 0.7, max_tokens: 150 } }
 
     context 'successful requests' do
@@ -46,7 +46,7 @@ RSpec.describe AiProviderClientService, type: :service do
 
       it 'sends message and returns response' do
         result = service.send_message(messages, options)
-        
+
         expect(result).to be_a(Hash)
         expect(result[:success]).to be true
         expect(result[:response]).to include(:choices)
@@ -56,28 +56,28 @@ RSpec.describe AiProviderClientService, type: :service do
 
       it 'tracks token usage' do
         result = service.send_message(messages, options)
-        
+
         expect(result[:metadata][:tokens_used]).to be > 0
         expect(result[:metadata][:tokens_used]).to be_a(Integer)
       end
 
       it 'records response time' do
         result = service.send_message(messages, options)
-        
+
         expect(result[:metadata][:response_time_ms]).to be > 0
         expect(result[:metadata][:response_time_ms]).to be_a(Numeric)
       end
 
       it 'includes model information' do
         result = service.send_message(messages, options)
-        
+
         expect(result[:metadata][:model_used]).to eq('gpt-3.5-turbo')
       end
 
       it 'handles custom parameters correctly' do
         custom_options = options.merge(temperature: 0.9, presence_penalty: 0.6)
         result = service.send_message(messages, custom_options)
-        
+
         expect(result[:success]).to be true
         expect(result[:metadata][:parameters_used]).to include(
           temperature: 0.9,
@@ -203,7 +203,7 @@ RSpec.describe AiProviderClientService, type: :service do
           .to_return(status: 429, body: '{"error": {"code": "rate_limit_exceeded"}}')
 
         result = service.send_message(messages, options)
-        
+
         expect(result[:success]).to be false
         expect(result[:error]).to include('rate_limit_exceeded')
         expect(result[:retry_after]).to be_present
@@ -214,7 +214,7 @@ RSpec.describe AiProviderClientService, type: :service do
           .to_return(status: 401, body: '{"error": {"code": "invalid_api_key"}}')
 
         result = service.send_message(messages, options)
-        
+
         expect(result[:success]).to be false
         expect(result[:error]).to include('invalid_api_key')
         expect(result[:error_type]).to eq('authentication_error')
@@ -225,7 +225,7 @@ RSpec.describe AiProviderClientService, type: :service do
           .to_return(status: 429, body: '{"error": {"code": "quota_exceeded"}}')
 
         result = service.send_message(messages, options)
-        
+
         expect(result[:success]).to be false
         expect(result[:error_type]).to eq('quota_exceeded')
       end
@@ -235,7 +235,7 @@ RSpec.describe AiProviderClientService, type: :service do
           .to_timeout
 
         result = service.send_message(messages, options)
-        
+
         expect(result[:success]).to be false
         expect(result[:error_type]).to eq('network_error')
         expect(result[:error]).to include('timeout')
@@ -249,7 +249,7 @@ RSpec.describe AiProviderClientService, type: :service do
 
         expect(result[:success]).to be false
         # HTTParty may not parse as JSON, so the error type could vary
-        expect(result[:error_type]).to be_in(['parse_error', 'api_error', 'unknown_error'])
+        expect(result[:error_type]).to be_in([ 'parse_error', 'api_error', 'unknown_error' ])
       end
 
       it 'handles server errors' do
@@ -257,7 +257,7 @@ RSpec.describe AiProviderClientService, type: :service do
           .to_return(status: 500, body: '{"error": "Internal server error"}')
 
         result = service.send_message(messages, options)
-        
+
         expect(result[:success]).to be false
         expect(result[:error_type]).to eq('server_error')
         expect(result[:retry_recommended]).to be true
@@ -279,32 +279,32 @@ RSpec.describe AiProviderClientService, type: :service do
     end
 
     it 'rejects messages without role' do
-      invalid_messages = [{ content: 'Hello!' }]
+      invalid_messages = [ { content: 'Hello!' } ]
 
-      expect { 
-        service.send(:validate_message_format, invalid_messages) 
+      expect {
+        service.send(:validate_message_format, invalid_messages)
       }.to raise_error(AiProviderClientService::ValidationError, /role is required/)
     end
 
     it 'rejects messages without content' do
-      invalid_messages = [{ role: 'user' }]
+      invalid_messages = [ { role: 'user' } ]
 
-      expect { 
-        service.send(:validate_message_format, invalid_messages) 
+      expect {
+        service.send(:validate_message_format, invalid_messages)
       }.to raise_error(AiProviderClientService::ValidationError, /content is required/)
     end
 
     it 'rejects invalid roles' do
-      invalid_messages = [{ role: 'invalid', content: 'Hello!' }]
+      invalid_messages = [ { role: 'invalid', content: 'Hello!' } ]
 
-      expect { 
-        service.send(:validate_message_format, invalid_messages) 
+      expect {
+        service.send(:validate_message_format, invalid_messages)
       }.to raise_error(AiProviderClientService::ValidationError, /Invalid role/)
     end
 
     it 'rejects empty message arrays' do
-      expect { 
-        service.send(:validate_message_format, []) 
+      expect {
+        service.send(:validate_message_format, [])
       }.to raise_error(AiProviderClientService::ValidationError, /at least one message/)
     end
   end
@@ -320,8 +320,8 @@ RSpec.describe AiProviderClientService, type: :service do
 
       expect {
         service.send(:track_usage, response_data, 1500, true)
-      }.to change { 
-        service.instance_variable_get(:@usage_metrics)[:total_requests] 
+      }.to change {
+        service.instance_variable_get(:@usage_metrics)[:total_requests]
       }.by(1)
     end
 
@@ -364,7 +364,7 @@ RSpec.describe AiProviderClientService, type: :service do
 
       # Simulate multiple failures to trigger circuit breaker
       5.times do
-        service.send_message([{ role: 'user', content: 'test' }], { model: 'gpt-3.5-turbo' })
+        service.send_message([ { role: 'user', content: 'test' } ], { model: 'gpt-3.5-turbo' })
       end
     end
 
@@ -374,16 +374,16 @@ RSpec.describe AiProviderClientService, type: :service do
     end
 
     it 'blocks requests when circuit is open' do
-      result = service.send_message([{ role: 'user', content: 'test' }], { model: 'gpt-3.5-turbo' })
-      
+      result = service.send_message([ { role: 'user', content: 'test' } ], { model: 'gpt-3.5-turbo' })
+
       expect(result[:success]).to be false
       expect(result[:error]).to include('Circuit breaker is open')
       expect(result[:error_type]).to eq('circuit_breaker_open')
     end
 
     it 'includes retry information when circuit is open' do
-      result = service.send_message([{ role: 'user', content: 'test' }], { model: 'gpt-3.5-turbo' })
-      
+      result = service.send_message([ { role: 'user', content: 'test' } ], { model: 'gpt-3.5-turbo' })
+
       expect(result[:retry_after]).to be > 0
       expect(result[:circuit_breaker_state]).to eq('open')
     end
@@ -396,20 +396,20 @@ RSpec.describe AiProviderClientService, type: :service do
       # Simulate rate limit response
       stub_request(:post, 'https://api.openai.com/v1/chat/completions')
         .to_return(
-          status: 429, 
+          status: 429,
           headers: { 'Retry-After' => '60' },
           body: '{"error": {"code": "rate_limit_exceeded"}}'
         )
 
-      result = service.send_message([{ role: 'user', content: 'test' }], { model: 'gpt-3.5-turbo' })
-      
+      result = service.send_message([ { role: 'user', content: 'test' } ], { model: 'gpt-3.5-turbo' })
+
       expect(result[:success]).to be false
       expect(result[:retry_after]).to eq(60)
     end
 
     it 'implements exponential backoff for retries' do
       service.instance_variable_set(:@consecutive_failures, 3)
-      
+
       backoff_time = service.send(:calculate_backoff_time)
       expect(backoff_time).to be >= 8 # 2^3 seconds
     end
@@ -423,7 +423,7 @@ RSpec.describe AiProviderClientService, type: :service do
       model = 'gpt-3.5-turbo'
 
       cost = service.send(:estimate_cost, tokens_used, model)
-      
+
       expect(cost).to be > 0
       expect(cost).to be_a(BigDecimal)
     end

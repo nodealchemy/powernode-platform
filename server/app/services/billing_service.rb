@@ -15,7 +15,7 @@ class BillingService
   # Create subscription with payment method (delegated to worker service)
   def create_subscription_with_payment(plan:, payment_method:, trial_end: nil, quantity: 1, **options)
     Rails.logger.info "Delegating subscription creation to worker service"
-    
+
     job_data = {
       plan_id: plan.id,
       payment_method_id: payment_method.id,
@@ -27,8 +27,8 @@ class BillingService
 
     begin
       # Enqueue job in worker service for complex billing logic
-      WorkerJobService.enqueue_billing_job('create_subscription_with_payment', job_data)
-      
+      WorkerJobService.enqueue_billing_job("create_subscription_with_payment", job_data)
+
       # Return immediate response - actual processing happens asynchronously
       {
         success: true,
@@ -44,13 +44,13 @@ class BillingService
   # Process subscription renewal (delegated to worker service)
   def process_renewal(subscription_id: nil, payment_retry_attempt: 0)
     subscription_id ||= subscription&.id
-    
+
     unless subscription_id
       return { success: false, error: "No subscription specified" }
     end
 
     Rails.logger.info "Delegating renewal processing to worker service"
-    
+
     job_data = {
       subscription_id: subscription_id,
       payment_retry_attempt: payment_retry_attempt
@@ -58,8 +58,8 @@ class BillingService
 
     begin
       # Enqueue renewal job in worker service
-      WorkerJobService.enqueue_billing_job('process_renewal', job_data)
-      
+      WorkerJobService.enqueue_billing_job("process_renewal", job_data)
+
       {
         success: true,
         message: "Renewal processing queued",
@@ -78,7 +78,7 @@ class BillingService
     end
 
     Rails.logger.info "Delegating subscription cancellation to worker service"
-    
+
     job_data = {
       subscription_id: subscription.id,
       cancellation_reason: cancellation_reason,
@@ -87,8 +87,8 @@ class BillingService
 
     begin
       # Enqueue cancellation job in worker service
-      WorkerJobService.enqueue_billing_job('cancel_subscription', job_data)
-      
+      WorkerJobService.enqueue_billing_job("cancel_subscription", job_data)
+
       {
         success: true,
         message: "Cancellation queued for processing",
@@ -107,7 +107,7 @@ class BillingService
     end
 
     Rails.logger.info "Delegating subscription suspension to worker service"
-    
+
     job_data = {
       subscription_id: subscription.id,
       suspension_reason: suspension_reason
@@ -115,8 +115,8 @@ class BillingService
 
     begin
       # Enqueue suspension job in worker service
-      WorkerJobService.enqueue_billing_job('suspend_subscription', job_data)
-      
+      WorkerJobService.enqueue_billing_job("suspend_subscription", job_data)
+
       {
         success: true,
         message: "Suspension queued for processing",
@@ -133,11 +133,11 @@ class BillingService
     # Simple calculation that can remain synchronous
     days_remaining = (billing_cycle_anchor.to_date - Date.current).to_i
     days_in_period = case new_plan.billing_cycle
-    when 'monthly'
+    when "monthly"
       30
-    when 'yearly'
+    when "yearly"
       365
-    when 'quarterly'
+    when "quarterly"
       90
     else
       30
@@ -164,9 +164,9 @@ class BillingService
   class << self
     def process_all_renewals(force: false)
       Rails.logger.info "Delegating bulk renewal processing to worker service"
-      
+
       begin
-        WorkerJobService.enqueue_billing_job('process_all_renewals', { force: force })
+        WorkerJobService.enqueue_billing_job("process_all_renewals", { force: force })
         { success: true, message: "Bulk renewal processing queued" }
       rescue WorkerJobService::WorkerServiceError => e
         Rails.logger.error "Failed to delegate bulk renewals: #{e.message}"
@@ -176,9 +176,9 @@ class BillingService
 
     def cleanup_expired_subscriptions
       Rails.logger.info "Delegating subscription cleanup to worker service"
-      
+
       begin
-        WorkerJobService.enqueue_billing_job('cleanup_expired_subscriptions', {})
+        WorkerJobService.enqueue_billing_job("cleanup_expired_subscriptions", {})
         { success: true, message: "Cleanup processing queued" }
       rescue WorkerJobService::WorkerServiceError => e
         Rails.logger.error "Failed to delegate cleanup: #{e.message}"
@@ -188,16 +188,16 @@ class BillingService
 
     def generate_billing_report(account_id: nil, start_date: nil, end_date: nil)
       Rails.logger.info "Delegating billing report generation to worker service"
-      
+
       job_data = {
         account_id: account_id,
         start_date: start_date,
         end_date: end_date,
-        report_type: 'billing_summary'
+        report_type: "billing_summary"
       }
 
       begin
-        WorkerJobService.enqueue_report_job('generate_report', job_data)
+        WorkerJobService.enqueue_report_job("generate_report", job_data)
         { success: true, message: "Report generation queued", job_data: job_data }
       rescue WorkerJobService::WorkerServiceError => e
         Rails.logger.error "Failed to delegate report generation: #{e.message}"

@@ -132,15 +132,15 @@ class AlertingService
 
   def load_config
     {
-      enabled: ENV['ALERTING_ENABLED'] != 'false',
-      slack_webhook_url: ENV['SLACK_WEBHOOK_URL'],
-      slack_channel: ENV['SLACK_ALERT_CHANNEL'] || '#alerts',
-      alert_email: ENV['ALERT_EMAIL'],
-      webhook_url: ENV['ALERT_WEBHOOK_URL'],
-      webhook_auth_token: ENV['ALERT_WEBHOOK_TOKEN'],
-      min_severity_slack: (ENV['MIN_SEVERITY_SLACK'] || 'warning').to_sym,
-      min_severity_email: (ENV['MIN_SEVERITY_EMAIL'] || 'error').to_sym,
-      min_severity_webhook: (ENV['MIN_SEVERITY_WEBHOOK'] || 'critical').to_sym
+      enabled: ENV["ALERTING_ENABLED"] != "false",
+      slack_webhook_url: ENV["SLACK_WEBHOOK_URL"],
+      slack_channel: ENV["SLACK_ALERT_CHANNEL"] || "#alerts",
+      alert_email: ENV["ALERT_EMAIL"],
+      webhook_url: ENV["ALERT_WEBHOOK_URL"],
+      webhook_auth_token: ENV["ALERT_WEBHOOK_TOKEN"],
+      min_severity_slack: (ENV["MIN_SEVERITY_SLACK"] || "warning").to_sym,
+      min_severity_email: (ENV["MIN_SEVERITY_EMAIL"] || "error").to_sym,
+      min_severity_webhook: (ENV["MIN_SEVERITY_WEBHOOK"] || "critical").to_sym
     }
   end
 
@@ -149,15 +149,15 @@ class AlertingService
     severity_level = SEVERITY_LEVELS[severity] || 0
 
     if @config[:slack_webhook_url] && severity_level >= SEVERITY_LEVELS[@config[:min_severity_slack]]
-      channels << 'slack'
+      channels << "slack"
     end
 
     if @config[:alert_email] && severity_level >= SEVERITY_LEVELS[@config[:min_severity_email]]
-      channels << 'email'
+      channels << "email"
     end
 
     if @config[:webhook_url] && severity_level >= SEVERITY_LEVELS[@config[:min_severity_webhook]]
-      channels << 'webhook'
+      channels << "webhook"
     end
 
     channels
@@ -165,11 +165,11 @@ class AlertingService
 
   def send_to_channel(channel, title, message, severity, context)
     case channel
-    when 'slack'
+    when "slack"
       send_slack_alert(title, message, severity, context)
-    when 'email'
+    when "email"
       send_email_alert(title, message, severity, context)
-    when 'webhook'
+    when "webhook"
       send_webhook_alert(title, message, severity, context)
     else
       { success: false, error: "Unknown channel: #{channel}" }
@@ -181,25 +181,25 @@ class AlertingService
   # =============================================================================
 
   def send_slack_alert(title, message, severity, context)
-    return { success: false, error: 'Slack webhook not configured' } unless @config[:slack_webhook_url]
+    return { success: false, error: "Slack webhook not configured" } unless @config[:slack_webhook_url]
 
     payload = {
       channel: @config[:slack_channel],
-      username: 'Powernode Alerts',
+      username: "Powernode Alerts",
       icon_emoji: severity_emoji(severity),
-      attachments: [{
+      attachments: [ {
         fallback: "#{title}: #{message}",
         color: severity_color(severity),
         title: title,
         text: message,
         fields: context_fields(context),
-        footer: 'Powernode AlertingService',
+        footer: "Powernode AlertingService",
         ts: Time.current.to_i
-      }]
+      } ]
     }
 
     response = Faraday.post(@config[:slack_webhook_url]) do |req|
-      req.headers['Content-Type'] = 'application/json'
+      req.headers["Content-Type"] = "application/json"
       req.body = payload.to_json
       req.options.timeout = 10
       req.options.open_timeout = 5
@@ -216,19 +216,19 @@ class AlertingService
 
   def severity_emoji(severity)
     case severity
-    when :critical then ':rotating_light:'
-    when :error then ':x:'
-    when :warning then ':warning:'
-    else ':information_source:'
+    when :critical then ":rotating_light:"
+    when :error then ":x:"
+    when :warning then ":warning:"
+    else ":information_source:"
     end
   end
 
   def severity_color(severity)
     case severity
-    when :critical then '#FF0000'
-    when :error then '#E01E5A'
-    when :warning then '#ECB22E'
-    else '#36C5F0'
+    when :critical then "#FF0000"
+    when :error then "#E01E5A"
+    when :warning then "#ECB22E"
+    else "#36C5F0"
     end
   end
 
@@ -247,17 +247,17 @@ class AlertingService
   # =============================================================================
 
   def send_email_alert(title, message, severity, context)
-    return { success: false, error: 'Alert email not configured' } unless @config[:alert_email]
+    return { success: false, error: "Alert email not configured" } unless @config[:alert_email]
 
     begin
       # Enqueue email job via worker service
       WorkerJobService.enqueue_job(
-        'SendNotificationEmailJob',
-        args: [{
+        "SendNotificationEmailJob",
+        args: [ {
           to: @config[:alert_email],
           subject: "[#{severity.to_s.upcase}] #{title}",
           body: format_email_body(title, message, severity, context)
-        }]
+        } ]
       )
       { success: true }
     rescue StandardError => e
@@ -286,21 +286,21 @@ class AlertingService
   # =============================================================================
 
   def send_webhook_alert(title, message, severity, context)
-    return { success: false, error: 'Webhook URL not configured' } unless @config[:webhook_url]
+    return { success: false, error: "Webhook URL not configured" } unless @config[:webhook_url]
 
     payload = {
-      event_type: 'alert',
+      event_type: "alert",
       title: title,
       message: message,
       severity: severity.to_s,
       timestamp: Time.current.iso8601,
-      source: 'powernode',
+      source: "powernode",
       context: context
     }
 
     response = Faraday.post(@config[:webhook_url]) do |req|
-      req.headers['Content-Type'] = 'application/json'
-      req.headers['Authorization'] = "Bearer #{@config[:webhook_auth_token]}" if @config[:webhook_auth_token]
+      req.headers["Content-Type"] = "application/json"
+      req.headers["Authorization"] = "Bearer #{@config[:webhook_auth_token]}" if @config[:webhook_auth_token]
       req.body = payload.to_json
       req.options.timeout = 10
       req.options.open_timeout = 5

@@ -93,11 +93,11 @@ agents_used.each do |info|
   # Determine appropriate model based on task
   new_model = if task_name.include?('research') || task_name.include?('fact')
                 'claude-sonnet-4-5-20250929'  # Sonnet 4.5 for research/analysis
-              elsif task_name.include?('quality') || task_name.include?('check')
+  elsif task_name.include?('quality') || task_name.include?('check')
                 'claude-3-5-haiku-20241022'   # Haiku for quick checks
-              else
+  else
                 'claude-sonnet-4-20250514'    # Sonnet 4 for content creation
-              end
+  end
 
   current_model = agent.configuration['model']
 

@@ -18,7 +18,7 @@ FactoryBot.define do
             'description' => 'Second parameter'
           }
         },
-        'required' => ['param1']
+        'required' => [ 'param1' ]
       }
     end
 
@@ -48,7 +48,7 @@ FactoryBot.define do
               'default' => 'utf-8'
             }
           },
-          'required' => ['path']
+          'required' => [ 'path' ]
         }
       end
     end
@@ -71,11 +71,11 @@ FactoryBot.define do
             'mode' => {
               'type' => 'string',
               'description' => 'Write mode (overwrite or append)',
-              'enum' => ['overwrite', 'append'],
+              'enum' => [ 'overwrite', 'append' ],
               'default' => 'overwrite'
             }
           },
-          'required' => ['path', 'content']
+          'required' => [ 'path', 'content' ]
         }
       end
     end
@@ -101,7 +101,7 @@ FactoryBot.define do
               'description' => 'File pattern to match'
             }
           },
-          'required' => ['path']
+          'required' => [ 'path' ]
         }
       end
     end
@@ -127,7 +127,7 @@ FactoryBot.define do
               'default' => true
             }
           },
-          'required' => ['query', 'database']
+          'required' => [ 'query', 'database' ]
         }
       end
     end
@@ -154,7 +154,7 @@ FactoryBot.define do
               'default' => true
             }
           },
-          'required' => ['query']
+          'required' => [ 'query' ]
         }
       end
     end
@@ -184,7 +184,7 @@ FactoryBot.define do
               'default' => false
             }
           },
-          'required' => ['to', 'subject', 'body']
+          'required' => [ 'to', 'subject', 'body' ]
         }
       end
     end

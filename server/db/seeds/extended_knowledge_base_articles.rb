@@ -9,7 +9,7 @@ admin_user = User.joins(:user_roles, :roles).where(roles: { name: 'system.admin'
 if admin_user.nil?
   # Try to find KB admin user created by main script
   admin_user = User.find_by(email: 'kb-admin@powernode.org')
-  
+
   if admin_user.nil?
     puts "⚠️  No admin user found. Please run sample_knowledge_base_articles.rb first..."
     return
@@ -39,7 +39,7 @@ Welcome to Powernode, the comprehensive subscription lifecycle management platfo
 Powernode is an all-in-one subscription management platform that provides:
 
 - **Subscription Lifecycle Management**: Complete customer journey from trial to renewal
-- **Flexible Billing Engine**: Support for multiple payment models and pricing strategies  
+- **Flexible Billing Engine**: Support for multiple payment models and pricing strategies
 - **Payment Processing**: Integrated Stripe and PayPal with PCI compliance
 - **Customer Management**: Comprehensive user and account administration
 - **Analytics & Reporting**: Real-time insights into your subscription business
@@ -309,7 +309,7 @@ Multiple plans with different feature sets and pricing levels.
 
 **Common Tier Structure:**
 - **Starter**: Basic features for individuals/small teams
-- **Professional**: Enhanced features for growing businesses  
+- **Professional**: Enhanced features for growing businesses
 - **Enterprise**: Advanced features for large organizations
 
 **Example Configuration:**
@@ -321,7 +321,7 @@ Starter Plan:
 - Support: Email only
 
 Professional Plan:
-- Price: $99/month  
+- Price: $99/month
 - Users: Up to 25
 - Storage: 100GB
 - Support: Email + Chat
@@ -361,7 +361,7 @@ Billing: Monthly base + usage charges
 #### Usage Tiers
 ```
 Tier 1 (0-1,000 calls): $49/month
-Tier 2 (1,001-5,000 calls): $99/month  
+Tier 2 (1,001-5,000 calls): $99/month
 Tier 3 (5,001-15,000 calls): $199/month
 Tier 4 (15,001+ calls): $299/month + $0.05 per additional call
 ```
@@ -464,7 +464,7 @@ Before going live:
 
 ### Plan Architecture
 1. **Clear Differentiation**: Each tier should have obvious value differences
-2. **Logical Progression**: Natural upgrade path between tiers  
+2. **Logical Progression**: Natural upgrade path between tiers
 3. **Feature Gating**: Reserve compelling features for higher tiers
 4. **Avoid Feature Cramming**: Don't overwhelm lower tiers
 5. **Upgrade Incentives**: Make upgrading appealing and beneficial
@@ -505,7 +505,7 @@ Create time-limited offerings:
 ### Add-Ons and Extensions
 Expand plan value with optional extras:
 - **User Seats**: Additional team members
-- **Storage Expansion**: Extra data allowances  
+- **Storage Expansion**: Extra data allowances
 - **Feature Unlocks**: Premium functionality access
 - **Support Upgrades**: Enhanced support levels
 - **Integration Packs**: Third-party service access
@@ -554,7 +554,7 @@ For large customers:
 - Provide proactive support
 - Reassess plan-market fit
 
-### Upgrade Resistance  
+### Upgrade Resistance
 **Symptoms**: Customers stay on lowest tier indefinitely
 **Solutions**:
 - Add compelling higher-tier features
@@ -646,7 +646,7 @@ Before setting up payment gateways:
 4. **Enable features**: Subscriptions, webhooks, etc.
 5. **Get API keys**: Publishable and secret keys
 
-#### PayPal Business Account  
+#### PayPal Business Account
 1. **Sign up at**: [paypal.com/business](https://paypal.com/business)
 2. **Verify business**: Link bank account and verify identity
 3. **Enable subscriptions**: Activate recurring payments
@@ -672,7 +672,7 @@ Webhook Secret: whsec_[your_webhook_secret]
 
 #### Live Mode Setup (Production)
 ```
-Publishable Key: pk_live_[your_live_key]  
+Publishable Key: pk_live_[your_live_key]
 Secret Key: sk_live_[your_live_secret]
 Webhook Endpoint: https://yourapp.com/webhooks/stripe
 Webhook Secret: whsec_[your_live_webhook_secret]
@@ -720,18 +720,18 @@ Configure these events in your Stripe dashboard:
 ```yaml
 Accepted Cards:
   - Visa
-  - Mastercard  
+  - Mastercard
   - American Express
   - Discover
-  
+
 Digital Wallets:
   - Apple Pay: Enabled
   - Google Pay: Enabled
-  
+
 Bank Payments:
   - ACH Direct Debit: Enabled
   - SEPA Direct Debit: Enabled (EU)
-  
+
 Local Payment Methods:
   - iDEAL: Enabled (Netherlands)
   - SOFORT: Enabled (Europe)
@@ -745,7 +745,7 @@ Billing Configuration:
   - Invoice Generation: Automatic
   - Payment Retry: Smart retries enabled
   - Late Fees: Configurable
-  
+
 Dunning Management:
   - Failed Payment Retries: 3 attempts
   - Retry Schedule: Day 3, 5, 7
@@ -765,7 +765,7 @@ Dunning Management:
 ```
 Environment: Sandbox
 Client ID: [sandbox_client_id]
-Client Secret: [sandbox_client_secret]  
+Client Secret: [sandbox_client_secret]
 Webhook ID: [sandbox_webhook_id]
 ```
 
@@ -810,7 +810,7 @@ Products represent your service offerings:
 ```yaml
 Product Configuration:
   - Name: "Professional Plan"
-  - Type: "SERVICE"  
+  - Type: "SERVICE"
   - Category: "SOFTWARE"
   - Description: "Monthly professional subscription"
   - Home URL: "https://yourdomain.com"
@@ -825,7 +825,7 @@ Plan Configuration:
   - Status: "ACTIVE"
   - Billing Cycles:
     - Frequency: MONTH
-    - Tenure Type: REGULAR  
+    - Tenure Type: REGULAR
     - Sequence: 1
     - Total Cycles: 0 (infinite)
     - Pricing: $99.00 USD
@@ -859,7 +859,7 @@ Create sandbox accounts for testing:
 - Balance: $5,000 (for testing)
 
 **Test Seller Account:**
-- Email: seller@example.com  
+- Email: seller@example.com
 - Password: [test_password]
 - Verified: Yes
 
@@ -880,7 +880,7 @@ Execute these test cases:
 
 3. **Subscription Changes**
    - Test plan upgrades
-   - Test plan downgrades  
+   - Test plan downgrades
    - Verify proration calculations
    - Check billing adjustments
 
@@ -913,7 +913,7 @@ Execute these test cases:
 
 #### "Authentication Required" Errors
 **Cause**: 3D Secure authentication needed
-**Solution**: 
+**Solution**:
 - Enable SCA handling in Stripe configuration
 - Update payment flow to handle authentication
 - Test with 3D Secure test cards
@@ -944,7 +944,7 @@ Execute these test cases:
 - Ensure proper API credentials
 - Validate webhook event processing
 
-#### Payment Authorization Failures  
+#### Payment Authorization Failures
 **Cause**: Buyer account issues or insufficient funds
 **Solution**:
 - Check buyer account status
@@ -963,7 +963,7 @@ Execute these test cases:
 - Provide clear payment update instructions
 
 #### Currency Conversion Problems
-**Symptoms**: Incorrect amounts or currency errors  
+**Symptoms**: Incorrect amounts or currency errors
 **Solutions**:
 - Verify currency settings in gateway configuration
 - Check exchange rate handling
@@ -1032,7 +1032,7 @@ Individual capabilities that grant access to specific features:
 - `subscriptions.create` - Create new subscriptions
 - `admin.access` - Access administrative features
 
-#### Roles  
+#### Roles
 Pre-configured permission bundles for common job functions:
 - **System Admin**: All permissions across the platform
 - **Account Manager**: Account-scoped permissions
@@ -1100,13 +1100,13 @@ Data access and reporting capabilities:
 ### System Administrator (`system.admin`)
 **Purpose**: Complete platform control
 **Permissions**: All available permissions
-**Use Cases**: 
+**Use Cases**:
 - Platform setup and configuration
 - System maintenance and troubleshooting
 - Security management and compliance
 - Advanced feature configuration
 
-**Typical Users**: 
+**Typical Users**:
 - IT administrators
 - Platform owners
 - Senior technical staff
@@ -1194,7 +1194,7 @@ Basic Information:
 **Option A: Role-Based Assignment** (Recommended for standard cases)
 ```yaml
 Primary Role: account.manager
-Additional Permissions: 
+Additional Permissions:
   - analytics.export (if needed for reporting)
   - kb.edit (if contributing to documentation)
 ```
@@ -1203,7 +1203,7 @@ Additional Permissions:
 ```yaml
 Selected Permissions:
   - users.read
-  - users.update  
+  - users.update
   - billing.read
   - subscriptions.manage
   - analytics.read
@@ -1275,15 +1275,15 @@ Mike,Johnson,mike@company.com,account.member,kb.edit
 Sales Team:
   Base Role: account.member
   Additional: subscriptions.read, analytics.read
-  
+
 Finance Team:
   Base Role: billing.manager
   Additional: analytics.export, reports.generate
-  
+
 Customer Success:
   Base Role: account.manager
   Additional: kb.edit, team.manage
-  
+
 IT/Admin:
   Base Role: system.admin
   Additional: All permissions available
@@ -1295,7 +1295,7 @@ Implementation Project:
   Team Lead: account.manager + system.admin
   Developers: admin.access + settings.update
   QA Team: users.read + subscriptions.read
-  
+
 Customer Onboarding:
   Success Manager: account.manager
   Billing Specialist: billing.manager
@@ -1367,7 +1367,7 @@ Customer Onboarding:
 
 #### Overlapping Roles
 **Problem**: User has multiple roles with conflicting permissions
-**Solution**: 
+**Solution**:
 - Consolidate to single primary role
 - Use custom permission assignment
 - Document special access requirements
@@ -1463,7 +1463,7 @@ The Powernode API is a RESTful web service that provides programmatic access to 
    ```yaml
    Name: "Customer Integration"
    Description: "CRM integration for customer sync"
-   Permissions: 
+   Permissions:
      - users.read
      - users.update
      - subscriptions.read
@@ -1522,7 +1522,7 @@ All API requests follow consistent patterns:
 #### HTTP Methods
 - **GET**: Retrieve data (list or individual records)
 - **POST**: Create new resources
-- **PUT**: Update entire resources  
+- **PUT**: Update entire resources
 - **PATCH**: Update partial resources
 - **DELETE**: Remove resources
 
@@ -1532,7 +1532,7 @@ https://api.powernode.org/api/v1/{resource}/{id}/{sub-resource}
 
 Examples:
 GET    /customers                    # List customers
-GET    /customers/cust_123          # Get specific customer  
+GET    /customers/cust_123          # Get specific customer
 POST   /customers                   # Create customer
 PUT    /customers/cust_123          # Update customer
 DELETE /customers/cust_123          # Delete customer
@@ -1627,7 +1627,7 @@ const createCustomer = async (customerData) => {
       campaign: 'spring_2024'
     }
   });
-  
+
   return response.data.data;
 };
 
@@ -1654,12 +1654,12 @@ const getCustomer = async (customerId) => {
 // List customers with filtering
 const listCustomers = async (filters = {}) => {
   const params = new URLSearchParams();
-  
+
   if (filters.email) params.append('email', filters.email);
   if (filters.created_after) params.append('created_after', filters.created_after);
   if (filters.page) params.append('page', filters.page);
   if (filters.limit) params.append('limit', filters.limit);
-  
+
   const response = await apiClient.get(`/customers?${params}`);
   return response.data;
 };
@@ -1713,7 +1713,7 @@ const createSubscription = async (subscriptionData) => {
       campaign: subscriptionData.campaign
     }
   });
-  
+
   return response.data.data;
 };
 
@@ -1738,7 +1738,7 @@ const changeSubscriptionPlan = async (subscriptionId, newPlanId, options = {}) =
     prorate: options.prorate !== false,
     effective_date: options.effectiveDate || 'immediate'
   });
-  
+
   return response.data.data;
 };
 
@@ -1748,7 +1748,7 @@ const pauseSubscription = async (subscriptionId, pauseOptions = {}) => {
     resume_date: pauseOptions.resumeDate,
     reason: pauseOptions.reason
   });
-  
+
   return response.data.data;
 };
 
@@ -1759,7 +1759,7 @@ const cancelSubscription = async (subscriptionId, cancelOptions = {}) => {
     reason: cancelOptions.reason,
     provide_feedback: cancelOptions.provideFeedback
   });
-  
+
   return response.data.data;
 };
 ```
@@ -1776,7 +1776,7 @@ const getCustomerInvoices = async (customerId, options = {}) => {
   if (options.status) params.append('status', options.status);
   if (options.date_from) params.append('date_from', options.date_from);
   if (options.date_to) params.append('date_to', options.date_to);
-  
+
   const response = await apiClient.get(`/customers/${customerId}/invoices?${params}`);
   return response.data;
 };
@@ -1790,7 +1790,7 @@ const createInvoice = async (invoiceData) => {
     notes: invoiceData.notes,
     metadata: invoiceData.metadata
   });
-  
+
   return response.data.data;
 };
 
@@ -1815,7 +1815,7 @@ const processPayment = async (paymentData) => {
     description: paymentData.description,
     metadata: paymentData.metadata
   });
-  
+
   return response.data.data;
 };
 
@@ -1826,7 +1826,7 @@ const refundPayment = async (paymentId, refundData) => {
     reason: refundData.reason,
     metadata: refundData.metadata
   });
-  
+
   return response.data.data;
 };
 ```
@@ -1845,7 +1845,7 @@ const createWebhook = async (webhookData) => {
     description: webhookData.description,
     secret: webhookData.secret // Optional: for signature verification
   });
-  
+
   return response.data.data;
 };
 
@@ -1878,7 +1878,7 @@ const verifyWebhookSignature = (payload, signature, secret) => {
     .createHmac('sha256', secret)
     .update(payload, 'utf8')
     .digest('hex');
-    
+
   return crypto.timingSafeEqual(
     Buffer.from(signature, 'hex'),
     Buffer.from(computedSignature, 'hex')
@@ -1890,32 +1890,32 @@ app.post('/webhooks/powernode', express.raw({type: 'application/json'}), (req, r
   const payload = req.body;
   const signature = req.headers['x-powernode-signature'];
   const webhookSecret = process.env.POWERNODE_WEBHOOK_SECRET;
-  
+
   // Verify webhook signature
   if (!verifyWebhookSignature(payload, signature, webhookSecret)) {
     return res.status(401).send('Invalid signature');
   }
-  
+
   const event = JSON.parse(payload.toString());
-  
+
   // Handle different event types
   switch (event.type) {
     case 'customer.created':
       handleCustomerCreated(event.data);
       break;
-      
+
     case 'subscription.created':
       handleSubscriptionCreated(event.data);
       break;
-      
+
     case 'payment.failed':
       handlePaymentFailed(event.data);
       break;
-      
+
     default:
       console.log(`Unhandled event type: ${event.type}`);
   }
-  
+
   res.status(200).send('OK');
 });
 
@@ -1950,7 +1950,7 @@ const apiCall = async (operation) => {
     if (error.response) {
       // API returned error response
       const { status, data } = error.response;
-      
+
       switch (status) {
         case 400:
           throw new Error(`Bad Request: ${data.error.message}`);
@@ -2012,7 +2012,7 @@ const createCustomerSafely = async (customerData, idempotencyKey) => {
       'Idempotency-Key': idempotencyKey
     }
   });
-  
+
   return response.data.data;
 };
 
@@ -2037,9 +2037,9 @@ const customer = await createCustomerSafely(customerData, idempotencyKey);
 # Create the extended articles
 extended_articles.each do |article_data|
   next unless category_records[article_data[:category]] # Skip if category doesn't exist
-  
+
   category = category_records[article_data[:category]]
-  
+
   article = KnowledgeBaseArticle.find_or_create_by(slug: article_data[:slug]) do |article|
     article.title = article_data[:title]
     article.content = article_data[:content].strip

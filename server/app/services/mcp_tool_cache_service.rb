@@ -118,7 +118,7 @@ class McpToolCacheService
     Rails.logger.info "[MCP_CACHE] Preloading tools for account: #{account_id}"
 
     # Fetch all active agents for the account
-    agents = AiAgent.where(account_id: account_id, status: 'active')
+    agents = AiAgent.where(account_id: account_id, status: "active")
       .includes(:ai_provider)
       .limit(100)
 
@@ -184,9 +184,9 @@ class McpToolCacheService
       agent_id = $1
       agent = if account_id
                 AiAgent.where(id: agent_id, account_id: account_id).first
-              else
+      else
                 AiAgent.find_by(id: agent_id)
-              end
+      end
 
       return nil unless agent
 
@@ -215,7 +215,7 @@ class McpToolCacheService
         tools << {
           id: "agent_#{agent.id}_v#{agent.version.gsub('.', '_')}",
           manifest: manifest,
-          type: 'ai_agent',
+          type: "ai_agent",
           source: agent
         }
       end

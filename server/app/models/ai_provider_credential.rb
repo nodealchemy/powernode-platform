@@ -15,9 +15,9 @@ class AiProviderCredential < ApplicationRecord
   validates :name, presence: true, length: { maximum: 255 }
   validates :encrypted_credentials, presence: true
   validates :encryption_key_id, presence: true
-  validates :account_id, uniqueness: { scope: [:ai_provider_id, :is_default], 
+  validates :account_id, uniqueness: { scope: [ :ai_provider_id, :is_default ],
                                        conditions: -> { where(is_default: true) },
-                                       message: 'can only have one default credential per provider' }
+                                       message: "can only have one default credential per provider" }
   validate :credentials_format
   validate :expiration_date_future
 
@@ -27,11 +27,11 @@ class AiProviderCredential < ApplicationRecord
   scope :default, -> { where(is_default: true) }
   scope :non_default, -> { where(is_default: false) }
   scope :for_provider, ->(provider) { where(ai_provider: provider) }
-  scope :expires_soon, ->(days = 30) { where('expires_at IS NOT NULL AND expires_at <= ?', days.days.from_now) }
-  scope :expired, -> { where('expires_at IS NOT NULL AND expires_at <= ?', Time.current) }
+  scope :expires_soon, ->(days = 30) { where("expires_at IS NOT NULL AND expires_at <= ?", days.days.from_now) }
+  scope :expired, -> { where("expires_at IS NOT NULL AND expires_at <= ?", Time.current) }
   scope :healthy, -> { where(consecutive_failures: 0..2) }
-  scope :unhealthy, -> { where('consecutive_failures > 2') }
-  scope :recently_used, ->(days = 7) { where('last_used_at >= ?', days.days.ago) }
+  scope :unhealthy, -> { where("consecutive_failures > 2") }
+  scope :recently_used, ->(days = 7) { where("last_used_at >= ?", days.days.ago) }
 
   # Callbacks
   before_save :ensure_single_default
@@ -70,7 +70,7 @@ class AiProviderCredential < ApplicationRecord
     update!(
       last_used_at: Time.current,
       last_test_at: Time.current,
-      last_test_status: 'success',
+      last_test_status: "success",
       consecutive_failures: 0,
       last_error: nil,
       is_active: true
@@ -82,7 +82,7 @@ class AiProviderCredential < ApplicationRecord
     increment!(:failure_count)
     update_columns(
       last_test_at: Time.current,
-      last_test_status: 'failed',
+      last_test_status: "failed",
       last_error: error_message&.truncate(1000),
       is_active: consecutive_failures <= 5  # Auto-disable after 5 failures
     )
@@ -122,7 +122,7 @@ class AiProviderCredential < ApplicationRecord
              .where(ai_provider: ai_provider, is_default: true)
              .where.not(id: id)
              .update_all(is_default: false)
-      
+
       update!(is_default: true, is_active: true)
     end
   end
@@ -137,7 +137,7 @@ class AiProviderCredential < ApplicationRecord
       JSON.parse(Base64.strict_decode64(encrypted_credentials))
     else
       AiCredentialEncryptionService.decrypt(
-        encrypted_credentials, 
+        encrypted_credentials,
         encryption_key_id
       )
     end
@@ -148,7 +148,7 @@ class AiProviderCredential < ApplicationRecord
 
   def encrypt_credentials(credentials_hash)
     return nil unless credentials_hash.present?
-    
+
     # In test environment, use simple base64 encoding
     if Rails.env.test?
       Base64.strict_encode64(credentials_hash.to_json)
@@ -158,24 +158,24 @@ class AiProviderCredential < ApplicationRecord
   end
 
   def current_encryption_key_id
-    Rails.env.test? ? 'test_key' : AiCredentialEncryptionService.current_key_id
+    Rails.env.test? ? "test_key" : AiCredentialEncryptionService.current_key_id
   end
 
   def credentials_format
     return unless @credentials.present?
 
     unless @credentials.is_a?(Hash)
-      errors.add(:credentials, 'must be a hash')
+      errors.add(:credentials, "must be a hash")
       return
     end
 
     # Validate required fields based on provider type
     case ai_provider&.provider_type
-    when 'openai'
+    when "openai"
       validate_openai_configuration
-    when 'anthropic'
+    when "anthropic"
       validate_anthropic_configuration
-    when 'custom'
+    when "custom"
       validate_custom_configuration
     else
       validate_generic_configuration
@@ -185,7 +185,7 @@ class AiProviderCredential < ApplicationRecord
   def validate_openai_configuration
     required_fields = %w[api_key]
     optional_fields = %w[organization model]
-    
+
     validate_required_fields(required_fields)
     validate_field_formats(optional_fields)
   end
@@ -193,7 +193,7 @@ class AiProviderCredential < ApplicationRecord
   def validate_anthropic_configuration
     required_fields = %w[api_key]
     optional_fields = %w[model]
-    
+
     validate_required_fields(required_fields)
     validate_field_formats(optional_fields)
   end
@@ -201,25 +201,25 @@ class AiProviderCredential < ApplicationRecord
   def validate_custom_configuration
     # Custom providers vary by slug
     case ai_provider&.slug
-    when 'ollama'
+    when "ollama"
       required_fields = %w[base_url]
       optional_fields = %w[model]
-    when 'huggingface'
+    when "huggingface"
       required_fields = %w[api_key]
       optional_fields = %w[model]
     else
       required_fields = %w[api_key]
       optional_fields = %w[model base_url]
     end
-    
+
     validate_required_fields(required_fields)
     validate_field_formats(optional_fields)
   end
 
   def validate_generic_configuration
     # At minimum, require either api_key or base_url
-    unless @credentials.key?('api_key') || @credentials.key?('base_url')
-      errors.add(:credentials, 'must include either api_key or base_url')
+    unless @credentials.key?("api_key") || @credentials.key?("base_url")
+      errors.add(:credentials, "must include either api_key or base_url")
     end
   end
 
@@ -233,20 +233,20 @@ class AiProviderCredential < ApplicationRecord
 
   def validate_field_formats(optional_fields)
     # Additional format validation can be added here
-    if @credentials['api_key'].present? && @credentials['api_key'].length < 10
-      errors.add(:credentials, 'api_key appears to be too short')
+    if @credentials["api_key"].present? && @credentials["api_key"].length < 10
+      errors.add(:credentials, "api_key appears to be too short")
     end
-    
-    if @credentials['base_url'].present? && !@credentials['base_url'].match(/\Ahttps?:\/\//)
-      errors.add(:credentials, 'base_url must be a valid HTTP/HTTPS URL')
+
+    if @credentials["base_url"].present? && !@credentials["base_url"].match(/\Ahttps?:\/\//)
+      errors.add(:credentials, "base_url must be a valid HTTP/HTTPS URL")
     end
   end
 
   def expiration_date_future
     return unless expires_at.present?
-    
+
     if expires_at <= Time.current
-      errors.add(:expires_at, 'must be in the future')
+      errors.add(:expires_at, "must be in the future")
     end
   end
 
@@ -263,14 +263,14 @@ class AiProviderCredential < ApplicationRecord
 
   def prevent_destroy_if_default_and_only
     if is_default? && account.ai_provider_credentials.for_provider(ai_provider).count == 1
-      errors.add(:base, 'Cannot delete the only credential for this provider')
+      errors.add(:base, "Cannot delete the only credential for this provider")
       throw :abort
     end
   end
 
   def set_as_default_if_first
     return if account.ai_provider_credentials.for_provider(ai_provider).count > 1
-    
+
     update_column(:is_default, true)
   end
 
@@ -278,7 +278,7 @@ class AiProviderCredential < ApplicationRecord
     ai_provider.ai_agent_executions
                .joins(:ai_provider_credential)
                .where(ai_provider_credentials: { id: id })
-               .where('created_at >= ?', period.ago)
+               .where("created_at >= ?", period.ago)
                .count
   end
 
@@ -286,11 +286,11 @@ class AiProviderCredential < ApplicationRecord
     executions = ai_provider.ai_agent_executions
                             .joins(:ai_provider_credential)
                             .where(ai_provider_credentials: { id: id })
-                            .where('created_at >= ?', period.ago)
-    
+                            .where("created_at >= ?", period.ago)
+
     return 0 if executions.count.zero?
-    
-    successful = executions.where(status: 'completed').count
+
+    successful = executions.where(status: "completed").count
     (successful.to_f / executions.count * 100).round(2)
   end
 
@@ -298,7 +298,7 @@ class AiProviderCredential < ApplicationRecord
     ai_provider.ai_agent_executions
                .joins(:ai_provider_credential)
                .where(ai_provider_credentials: { id: id })
-               .where('created_at >= ?', period.ago)
+               .where("created_at >= ?", period.ago)
                .average(:cost_usd) || 0.0
   end
 
@@ -306,7 +306,7 @@ class AiProviderCredential < ApplicationRecord
     ai_provider.ai_agent_executions
                .joins(:ai_provider_credential)
                .where(ai_provider_credentials: { id: id })
-               .where('created_at >= ?', period.ago)
+               .where("created_at >= ?", period.ago)
                .sum(:tokens_used) || 0
   end
 end

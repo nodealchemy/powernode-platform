@@ -9,15 +9,15 @@ class AiWorkflowTemplate < ApplicationRecord
   # Validations
   validates :name, presence: true, length: { maximum: 255 }
   validates :slug, presence: true, uniqueness: true, length: { maximum: 150 },
-                   format: { with: /\A[a-z0-9\-_]+\z/, message: 'can only contain lowercase letters, numbers, hyphens, and underscores' }
+                   format: { with: /\A[a-z0-9\-_]+\z/, message: "can only contain lowercase letters, numbers, hyphens, and underscores" }
   validates :description, presence: true
   validates :category, presence: true, length: { maximum: 100 }
-  validates :difficulty_level, presence: true, inclusion: { 
+  validates :difficulty_level, presence: true, inclusion: {
     in: %w[beginner intermediate advanced expert],
-    message: 'must be a valid difficulty level'
+    message: "must be a valid difficulty level"
   }
   validates :workflow_definition, presence: true
-  validates :version, presence: true, format: { with: /\A\d+\.\d+\.\d+\z/, message: 'must be in semantic version format (e.g., 1.0.0)' }
+  validates :version, presence: true, format: { with: /\A\d+\.\d+\.\d+\z/, message: "must be in semantic version format (e.g., 1.0.0)" }
   validates :usage_count, numericality: { greater_than_or_equal_to: 0 }
   validates :rating, numericality: { in: 0.0..5.0 }
   validates :rating_count, numericality: { greater_than_or_equal_to: 0 }
@@ -36,19 +36,19 @@ class AiWorkflowTemplate < ApplicationRecord
   scope :by_category, ->(category) { where(category: category) }
   scope :by_difficulty, ->(level) { where(difficulty_level: level) }
   scope :popular, -> { order(usage_count: :desc) }
-  scope :highly_rated, -> { where('rating >= ? AND rating_count >= ?', 4.0, 5) }
+  scope :highly_rated, -> { where("rating >= ? AND rating_count >= ?", 4.0, 5) }
   scope :recently_published, -> { order(published_at: :desc) }
   scope :search_by_text, ->(query) {
-    where('name ILIKE ? OR description ILIKE ? OR long_description ILIKE ?', 
+    where("name ILIKE ? OR description ILIKE ? OR long_description ILIKE ?",
           "%#{query}%", "%#{query}%", "%#{query}%")
   }
   scope :with_tags, ->(tag_list) {
     Array(tag_list).reduce(self) do |scope, tag|
-      scope.where('tags @> ?', [tag].to_json)
+      scope.where("tags @> ?", [ tag ].to_json)
     end
   }
   scope :accessible_to_account, ->(account_id) {
-    if account_id == 'public' || account_id.nil?
+    if account_id == "public" || account_id.nil?
       public_templates
     else
       where(is_public: true).or(where(account_id: account_id))
@@ -57,11 +57,11 @@ class AiWorkflowTemplate < ApplicationRecord
 
   # Optional associations (if columns exist in schema)
   belongs_to :account, optional: true
-  belongs_to :created_by_user, class_name: 'User', foreign_key: :created_by_user_id, optional: true
-  belongs_to :source_workflow, class_name: 'AiWorkflow', foreign_key: :source_workflow_id, optional: true
+  belongs_to :created_by_user, class_name: "User", foreign_key: :created_by_user_id, optional: true
+  belongs_to :source_workflow, class_name: "AiWorkflow", foreign_key: :source_workflow_id, optional: true
 
   # Alias for controller compatibility
-  has_many :installations, class_name: 'AiWorkflowTemplateInstallation', foreign_key: :ai_workflow_template_id
+  has_many :installations, class_name: "AiWorkflowTemplateInstallation", foreign_key: :ai_workflow_template_id
 
   # Attribute aliases for controller compatibility
   alias_attribute :template_data, :workflow_definition
@@ -69,18 +69,18 @@ class AiWorkflowTemplate < ApplicationRecord
 
   # Virtual attribute for visibility (maps is_public boolean to visibility string)
   def visibility
-    is_public? ? 'public' : 'private'
+    is_public? ? "public" : "private"
   end
 
   def visibility=(value)
-    self.is_public = (value.to_s == 'public')
+    self.is_public = (value.to_s == "public")
   end
 
   # Permission and access control methods
   def can_edit?(user, account)
     return false unless user && account
     return true if account_id == account.id && created_by_user_id == user.id
-    user.has_permission?('ai.workflows.manage') && account_id == account.id
+    user.has_permission?("ai.workflows.manage") && account_id == account.id
   end
 
   def can_install?(account)
@@ -129,19 +129,19 @@ class AiWorkflowTemplate < ApplicationRecord
 
   # Template content methods
   def workflow_nodes
-    workflow_definition['nodes'] || []
+    workflow_definition["nodes"] || []
   end
 
   def workflow_edges
-    workflow_definition['edges'] || []
+    workflow_definition["edges"] || []
   end
 
   def workflow_variables
-    workflow_definition['variables'] || []
+    workflow_definition["variables"] || []
   end
 
   def workflow_triggers
-    workflow_definition['triggers'] || []
+    workflow_definition["triggers"] || []
   end
 
   def node_count
@@ -157,43 +157,43 @@ class AiWorkflowTemplate < ApplicationRecord
   end
 
   def has_ai_agents?
-    workflow_nodes.any? { |node| node['node_type'] == 'ai_agent' }
+    workflow_nodes.any? { |node| node["node_type"] == "ai_agent" }
   end
 
   def has_webhooks?
-    workflow_nodes.any? { |node| node['node_type'] == 'webhook' } ||
-    workflow_definition['triggers']&.any? { |trigger| trigger['trigger_type'] == 'webhook' }
+    workflow_nodes.any? { |node| node["node_type"] == "webhook" } ||
+    workflow_definition["triggers"]&.any? { |trigger| trigger["trigger_type"] == "webhook" }
   end
 
   def has_schedules?
-    workflow_definition['triggers']&.any? { |trigger| trigger['trigger_type'] == 'schedule' }
+    workflow_definition["triggers"]&.any? { |trigger| trigger["trigger_type"] == "schedule" }
   end
 
   def complexity_score
     score = 0
-    
+
     # Base score from node count
     score += workflow_nodes.size * 2
-    
+
     # Additional score for complex node types
     workflow_nodes.each do |node|
-      case node['node_type']
-      when 'ai_agent'
+      case node["node_type"]
+      when "ai_agent"
         score += 5
-      when 'condition', 'loop', 'sub_workflow'
+      when "condition", "loop", "sub_workflow"
         score += 3
-      when 'api_call', 'webhook'
+      when "api_call", "webhook"
         score += 2
       else
         score += 1
       end
     end
-    
+
     # Score for edges (conditional logic adds complexity)
     workflow_edges.each do |edge|
-      score += edge['is_conditional'] ? 3 : 1
+      score += edge["is_conditional"] ? 3 : 1
     end
-    
+
     score
   end
 
@@ -202,11 +202,11 @@ class AiWorkflowTemplate < ApplicationRecord
     return nil if ai_workflow_template_installations.exists?(account: account)
 
     installation = nil
-    
+
     transaction do
       # Create workflow from template
       workflow = AiWorkflow.new.create_from_template(self, account, user, customizations)
-      
+
       # Create installation record
       installation = ai_workflow_template_installations.create!(
         ai_workflow: workflow,
@@ -259,8 +259,8 @@ class AiWorkflowTemplate < ApplicationRecord
       rating: new_average,
       rating_count: new_count,
       metadata: metadata.merge({
-        'last_rated_at' => Time.current.iso8601,
-        'ratings_updated' => new_count
+        "last_rated_at" => Time.current.iso8601,
+        "ratings_updated" => new_count
       })
     )
 
@@ -285,7 +285,7 @@ class AiWorkflowTemplate < ApplicationRecord
 
     update!(
       published_at: Time.current,
-      metadata: metadata.merge('published_at' => Time.current.iso8601)
+      metadata: metadata.merge("published_at" => Time.current.iso8601)
     )
   end
 
@@ -296,7 +296,7 @@ class AiWorkflowTemplate < ApplicationRecord
       published_at: nil,
       is_public: false,
       is_featured: false,
-      metadata: metadata.merge('unpublished_at' => Time.current.iso8601)
+      metadata: metadata.merge("unpublished_at" => Time.current.iso8601)
     )
   end
 
@@ -320,22 +320,22 @@ class AiWorkflowTemplate < ApplicationRecord
   end
 
   # Version management
-  def next_version(version_type = 'patch')
-    major, minor, patch = version.split('.').map(&:to_i)
-    
+  def next_version(version_type = "patch")
+    major, minor, patch = version.split(".").map(&:to_i)
+
     case version_type.to_s
-    when 'major'
+    when "major"
       "#{major + 1}.0.0"
-    when 'minor'
+    when "minor"
       "#{major}.#{minor + 1}.0"
-    when 'patch'
+    when "patch"
       "#{major}.#{minor}.#{patch + 1}"
     else
       "#{major}.#{minor}.#{patch + 1}"
     end
   end
 
-  def create_new_version(new_workflow_definition, version_type = 'patch')
+  def create_new_version(new_workflow_definition, version_type = "patch")
     new_template = self.class.new(
       name: name,
       description: description,
@@ -344,7 +344,7 @@ class AiWorkflowTemplate < ApplicationRecord
       difficulty_level: difficulty_level,
       workflow_definition: new_workflow_definition,
       default_variables: default_variables.deep_dup,
-      metadata: metadata.deep_dup.merge('previous_version' => version),
+      metadata: metadata.deep_dup.merge("previous_version" => version),
       tags: tags.dup,
       author_name: author_name,
       author_email: author_email,
@@ -362,11 +362,11 @@ class AiWorkflowTemplate < ApplicationRecord
   # Template analytics and statistics
   def usage_statistics
     installations = ai_workflow_template_installations.includes(:ai_workflow)
-    
+
     {
       total_installations: usage_count,
-      active_installations: installations.joins(:ai_workflow).where(ai_workflows: { status: 'published' }).count,
-      recent_installations: installations.where('created_at >= ?', 30.days.ago).count,
+      active_installations: installations.joins(:ai_workflow).where(ai_workflows: { status: "published" }).count,
+      recent_installations: installations.where("created_at >= ?", 30.days.ago).count,
       installation_trend: calculate_installation_trend,
       top_installing_accounts: installations.group(:account_id).count.sort_by(&:last).reverse.first(5),
       average_customization_level: calculate_customization_level
@@ -376,15 +376,15 @@ class AiWorkflowTemplate < ApplicationRecord
   def performance_metrics
     workflows = installed_workflows.includes(:ai_workflow_runs)
     runs = workflows.flat_map(&:ai_workflow_runs)
-    
+
     return {} if runs.empty?
 
     {
       total_executions: runs.size,
-      success_rate: (runs.count { |r| r.status == 'completed' }.to_f / runs.size * 100).round(2),
+      success_rate: (runs.count { |r| r.status == "completed" }.to_f / runs.size * 100).round(2),
       average_execution_time: runs.select { |r| r.duration_ms.present? }.sum(&:duration_ms) / runs.size,
       total_cost: runs.sum(&:total_cost),
-      error_rate: (runs.count { |r| r.status == 'failed' }.to_f / runs.size * 100).round(2)
+      error_rate: (runs.count { |r| r.status == "failed" }.to_f / runs.size * 100).round(2)
     }
   end
 
@@ -403,7 +403,7 @@ class AiWorkflowTemplate < ApplicationRecord
     installed_categories = account.ai_workflows
                                  .joins(:ai_workflow_template_installations)
                                  .joins(:ai_workflow_template)
-                                 .pluck('ai_workflow_templates.category')
+                                 .pluck("ai_workflow_templates.category")
                                  .uniq
 
     self.class.public_templates
@@ -432,27 +432,27 @@ class AiWorkflowTemplate < ApplicationRecord
       },
       workflow: workflow_definition,
       variables: default_variables,
-      metadata: metadata.except('internal_stats', 'private_notes')
+      metadata: metadata.except("internal_stats", "private_notes")
     }
   end
 
   def import_definition(definition_hash)
-    template_data = definition_hash['template'] || {}
-    workflow_data = definition_hash['workflow'] || {}
-    variable_data = definition_hash['variables'] || {}
-    
+    template_data = definition_hash["template"] || {}
+    workflow_data = definition_hash["workflow"] || {}
+    variable_data = definition_hash["variables"] || {}
+
     assign_attributes(
-      name: template_data['name'],
-      description: template_data['description'],
-      category: template_data['category'],
+      name: template_data["name"],
+      description: template_data["description"],
+      category: template_data["category"],
       workflow_definition: workflow_data,
       default_variables: variable_data,
-      tags: template_data['tags'] || [],
-      difficulty_level: template_data['difficulty_level'] || 'beginner',
-      author_name: template_data.dig('author', 'name'),
-      author_email: template_data.dig('author', 'email'),
-      author_url: template_data.dig('author', 'url'),
-      license: template_data['license'] || 'MIT'
+      tags: template_data["tags"] || [],
+      difficulty_level: template_data["difficulty_level"] || "beginner",
+      author_name: template_data.dig("author", "name"),
+      author_email: template_data.dig("author", "email"),
+      author_url: template_data.dig("author", "url"),
+      license: template_data["license"] || "MIT"
     )
   end
 
@@ -463,7 +463,7 @@ class AiWorkflowTemplate < ApplicationRecord
   private
 
   def generate_slug
-    base_slug = name.downcase.gsub(/[^a-z0-9\s]/, '').gsub(/\s+/, '-').strip
+    base_slug = name.downcase.gsub(/[^a-z0-9\s]/, "").gsub(/\s+/, "-").strip
     self.slug = ensure_unique_slug(base_slug)
   end
 
@@ -488,9 +488,9 @@ class AiWorkflowTemplate < ApplicationRecord
   def update_search_metadata
     # Update search-related metadata
     self.metadata = metadata.merge({
-      'search_keywords' => generate_search_keywords,
-      'complexity_score' => complexity_score,
-      'updated_at' => Time.current.iso8601
+      "search_keywords" => generate_search_keywords,
+      "complexity_score" => complexity_score,
+      "updated_at" => Time.current.iso8601
     })
   end
 
@@ -499,7 +499,7 @@ class AiWorkflowTemplate < ApplicationRecord
     keywords.concat(name.downcase.split)
     keywords.concat(description.downcase.split)
     keywords.concat(tags)
-    keywords.concat(workflow_nodes.map { |n| n['node_type'] }.uniq)
+    keywords.concat(workflow_nodes.map { |n| n["node_type"] }.uniq)
     keywords << category.downcase
     keywords << difficulty_level
     keywords.uniq.compact
@@ -508,8 +508,8 @@ class AiWorkflowTemplate < ApplicationRecord
   def validate_workflow_definition_structure
     return unless workflow_definition.present?
 
-    errors.add(:workflow_definition, 'must be a hash') unless workflow_definition.is_a?(Hash)
-    
+    errors.add(:workflow_definition, "must be a hash") unless workflow_definition.is_a?(Hash)
+
     return unless workflow_definition.is_a?(Hash)
 
     # Validate required top-level keys
@@ -520,25 +520,25 @@ class AiWorkflowTemplate < ApplicationRecord
     end
 
     # Validate nodes structure
-    nodes = workflow_definition['nodes']
+    nodes = workflow_definition["nodes"]
     if nodes.present?
       unless nodes.is_a?(Array)
-        errors.add(:workflow_definition, 'nodes must be an array')
+        errors.add(:workflow_definition, "nodes must be an array")
         return
       end
 
       nodes.each_with_index do |node, index|
-        unless node.is_a?(Hash) && node['node_id'].present? && node['node_type'].present?
+        unless node.is_a?(Hash) && node["node_id"].present? && node["node_type"].present?
           errors.add(:workflow_definition, "node #{index + 1} must have node_id and node_type")
         end
       end
     end
 
     # Validate edges structure
-    edges = workflow_definition['edges']
+    edges = workflow_definition["edges"]
     if edges.present?
       unless edges.is_a?(Array)
-        errors.add(:workflow_definition, 'edges must be an array')
+        errors.add(:workflow_definition, "edges must be an array")
         return
       end
 
@@ -553,25 +553,25 @@ class AiWorkflowTemplate < ApplicationRecord
 
   def calculate_installation_trend
     installations_by_month = ai_workflow_template_installations
-                              .where('created_at >= ?', 12.months.ago)
+                              .where("created_at >= ?", 12.months.ago)
                               .group_by_month(:created_at)
                               .count
 
-    return 'stable' if installations_by_month.size < 2
+    return "stable" if installations_by_month.size < 2
 
     recent_months = installations_by_month.values.last(3).sum
     previous_months = installations_by_month.values[-6..-4].sum
 
-    return 'stable' if previous_months == 0
+    return "stable" if previous_months == 0
 
     change_rate = (recent_months - previous_months).to_f / previous_months
-    
+
     if change_rate > 0.2
-      'growing'
+      "growing"
     elsif change_rate < -0.2
-      'declining'
+      "declining"
     else
-      'stable'
+      "stable"
     end
   end
 
@@ -592,18 +592,18 @@ class AiWorkflowTemplate < ApplicationRecord
 
   def log_installation(account, user)
     Rails.logger.info "Template #{name} installed by account #{account.id} (user #{user.id})"
-    
+
     # Update metadata with installation info
-    installations_log = metadata['installations_log'] || []
+    installations_log = metadata["installations_log"] || []
     installations_log << {
-      'account_id' => account.id,
-      'user_id' => user.id,
-      'installed_at' => Time.current.iso8601
+      "account_id" => account.id,
+      "user_id" => user.id,
+      "installed_at" => Time.current.iso8601
     }
 
     # Keep only last 100 installations in log
     installations_log = installations_log.last(100)
-    
-    update_column(:metadata, metadata.merge('installations_log' => installations_log))
+
+    update_column(:metadata, metadata.merge("installations_log" => installations_log))
   end
 end

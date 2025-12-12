@@ -7,7 +7,7 @@ namespace :hosts do
     puts "Used by: CorsConfigurationService -> rack-cors"
     puts "Setting: cors_allowed_origins\n\n"
 
-    cors_origins = AdminSetting.get('cors_allowed_origins', [])
+    cors_origins = AdminSetting.get("cors_allowed_origins", [])
     if cors_origins.is_a?(Array) && cors_origins.any?
       cors_origins.sort.each { |origin| puts "  - #{origin}" }
     else
@@ -18,7 +18,7 @@ namespace :hosts do
     puts "Used by: /api/v1/config/allowed_hosts -> Vite dev server"
     puts "Setting: allowed_hosts\n\n"
 
-    allowed_hosts = AdminSetting.get('allowed_hosts', [])
+    allowed_hosts = AdminSetting.get("allowed_hosts", [])
     if allowed_hosts.is_a?(Array) && allowed_hosts.any?
       allowed_hosts.sort.each { |host| puts "  - #{host}" }
     else
@@ -28,7 +28,7 @@ namespace :hosts do
     puts "\n=== Trusted Hosts (also used by Vite) ==="
     puts "Setting: trusted_hosts\n\n"
 
-    trusted_hosts = AdminSetting.get('trusted_hosts', [])
+    trusted_hosts = AdminSetting.get("trusted_hosts", [])
     if trusted_hosts.is_a?(Array) && trusted_hosts.any?
       trusted_hosts.sort.each { |host| puts "  - #{host}" }
     else
@@ -38,7 +38,7 @@ namespace :hosts do
     puts "\n=== Proxy Domains (also used by Vite) ==="
     puts "Setting: proxy_domains\n\n"
 
-    proxy_domains = AdminSetting.get('proxy_domains', [])
+    proxy_domains = AdminSetting.get("proxy_domains", [])
     if proxy_domains.is_a?(Array) && proxy_domains.any?
       proxy_domains.sort.each { |domain| puts "  - #{domain}" }
     else
@@ -49,7 +49,7 @@ namespace :hosts do
   end
 
   desc "Add host(s) to both CORS and Vite allowed lists. Usage: rails hosts:add[host1,host2]"
-  task :add, [:hosts] => :environment do |_t, args|
+  task :add, [ :hosts ] => :environment do |_t, args|
     hosts_arg = args[:hosts]
     if hosts_arg.blank?
       puts "Error: No hosts specified"
@@ -58,7 +58,7 @@ namespace :hosts do
       exit 1
     end
 
-    hosts = hosts_arg.split(',').map(&:strip).reject(&:blank?)
+    hosts = hosts_arg.split(",").map(&:strip).reject(&:blank?)
     if hosts.empty?
       puts "Error: No valid hosts provided"
       exit 1
@@ -67,7 +67,7 @@ namespace :hosts do
     puts "Adding hosts: #{hosts.join(', ')}\n\n"
 
     # Add to CORS allowed origins (need full URLs with protocol)
-    cors_origins = AdminSetting.get('cors_allowed_origins', [])
+    cors_origins = AdminSetting.get("cors_allowed_origins", [])
     cors_origins = [] unless cors_origins.is_a?(Array)
 
     added_cors = []
@@ -86,11 +86,11 @@ namespace :hosts do
       end
     end
 
-    AdminSetting.set('cors_allowed_origins', cors_origins)
+    AdminSetting.set("cors_allowed_origins", cors_origins)
     puts "CORS origins added: #{added_cors.any? ? added_cors.join(', ') : '(already present)'}"
 
     # Add to allowed hosts (just hostnames)
-    allowed_hosts = AdminSetting.get('allowed_hosts', [])
+    allowed_hosts = AdminSetting.get("allowed_hosts", [])
     allowed_hosts = [] unless allowed_hosts.is_a?(Array)
 
     added_hosts = []
@@ -101,7 +101,7 @@ namespace :hosts do
       end
     end
 
-    AdminSetting.set('allowed_hosts', allowed_hosts)
+    AdminSetting.set("allowed_hosts", allowed_hosts)
     puts "Vite allowed hosts added: #{added_hosts.any? ? added_hosts.join(', ') : '(already present)'}"
 
     puts "\nDone! Remember to:"
@@ -110,7 +110,7 @@ namespace :hosts do
   end
 
   desc "Remove host from both CORS and Vite allowed lists. Usage: rails hosts:remove[host]"
-  task :remove, [:host] => :environment do |_t, args|
+  task :remove, [ :host ] => :environment do |_t, args|
     host = args[:host]&.strip
     if host.blank?
       puts "Error: No host specified"
@@ -122,7 +122,7 @@ namespace :hosts do
     puts "Removing host: #{host}\n\n"
 
     # Remove from CORS allowed origins
-    cors_origins = AdminSetting.get('cors_allowed_origins', [])
+    cors_origins = AdminSetting.get("cors_allowed_origins", [])
     cors_origins = [] unless cors_origins.is_a?(Array)
 
     https_origin = "https://#{host}"
@@ -138,11 +138,11 @@ namespace :hosts do
       removed_cors << http_origin
     end
 
-    AdminSetting.set('cors_allowed_origins', cors_origins)
+    AdminSetting.set("cors_allowed_origins", cors_origins)
     puts "CORS origins removed: #{removed_cors.any? ? removed_cors.join(', ') : '(not found)'}"
 
     # Remove from allowed hosts
-    allowed_hosts = AdminSetting.get('allowed_hosts', [])
+    allowed_hosts = AdminSetting.get("allowed_hosts", [])
     allowed_hosts = [] unless allowed_hosts.is_a?(Array)
 
     if allowed_hosts.include?(host)
@@ -152,7 +152,7 @@ namespace :hosts do
       puts "Vite allowed hosts removed: (not found)"
     end
 
-    AdminSetting.set('allowed_hosts', allowed_hosts)
+    AdminSetting.set("allowed_hosts", allowed_hosts)
 
     puts "\nDone! Remember to:"
     puts "  1. Restart the Rails server for CORS changes to take effect"
@@ -160,7 +160,7 @@ namespace :hosts do
   end
 
   desc "Test CORS configuration for a specific origin. Usage: rails hosts:test_cors[origin]"
-  task :test_cors, [:origin] => :environment do |_t, args|
+  task :test_cors, [ :origin ] => :environment do |_t, args|
     origin = args[:origin]&.strip
     if origin.blank?
       puts "Error: No origin specified"

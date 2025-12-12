@@ -16,8 +16,8 @@ module Mcp
         results = perform_search(search_params)
 
         # Store results in variable if configured
-        if configuration['output_variable']
-          set_variable(configuration['output_variable'], serialize_results(results))
+        if configuration["output_variable"]
+          set_variable(configuration["output_variable"], serialize_results(results))
         end
 
         log_info "Found #{results.count} KB articles matching search criteria"
@@ -37,10 +37,10 @@ module Mcp
           },
           metadata: {
             node_id: @node.node_id,
-            node_type: 'kb_article_search',
+            node_type: "kb_article_search",
             executed_at: Time.current.iso8601,
-            operation: 'search',
-            record_type: 'KnowledgeBaseArticle'
+            operation: "search",
+            record_type: "KnowledgeBaseArticle"
           }
         }
       end
@@ -51,22 +51,22 @@ module Mcp
         params = {}
 
         # Text search query
-        params[:query] = configuration['query'] || get_variable('query')
+        params[:query] = configuration["query"] || get_variable("query")
 
         # Filters
-        params[:category_id] = configuration['category_id'] || get_variable('category_id')
-        params[:status] = configuration['status'] || get_variable('status')
-        params[:author_id] = configuration['author_id'] || get_variable('author_id')
-        params[:is_public] = configuration['is_public'] if configuration.key?('is_public')
-        params[:is_featured] = configuration['is_featured'] if configuration.key?('is_featured')
-        params[:tags] = normalize_tags(configuration['tags'] || get_variable('tags'))
+        params[:category_id] = configuration["category_id"] || get_variable("category_id")
+        params[:status] = configuration["status"] || get_variable("status")
+        params[:author_id] = configuration["author_id"] || get_variable("author_id")
+        params[:is_public] = configuration["is_public"] if configuration.key?("is_public")
+        params[:is_featured] = configuration["is_featured"] if configuration.key?("is_featured")
+        params[:tags] = normalize_tags(configuration["tags"] || get_variable("tags"))
 
         # Pagination
-        params[:limit] = (configuration['limit'] || get_variable('limit') || 10).to_i
-        params[:offset] = (configuration['offset'] || get_variable('offset') || 0).to_i
+        params[:limit] = (configuration["limit"] || get_variable("limit") || 10).to_i
+        params[:offset] = (configuration["offset"] || get_variable("offset") || 0).to_i
 
         # Sorting
-        params[:sort_by] = configuration['sort_by'] || get_variable('sort_by') || 'recent'
+        params[:sort_by] = configuration["sort_by"] || get_variable("sort_by") || "recent"
 
         params
       end
@@ -95,15 +95,15 @@ module Mcp
 
         # Apply sorting
         query = case params[:sort_by]
-                when 'recent'
+        when "recent"
                   query.recent
-                when 'popular'
+        when "popular"
                   query.popular
-                when 'title'
+        when "title"
                   query.order(:title)
-                else
+        else
                   query.ordered
-                end
+        end
 
         # Apply pagination
         query = query.limit(params[:limit]).offset(params[:offset])
@@ -141,7 +141,7 @@ module Mcp
         if tags.is_a?(Array)
           tags.map(&:to_s).map(&:strip).reject(&:blank?)
         elsif tags.is_a?(String)
-          tags.split(',').map(&:strip).reject(&:blank?)
+          tags.split(",").map(&:strip).reject(&:blank?)
         else
           []
         end

@@ -15,11 +15,11 @@ class UserConsent < ApplicationRecord
   }
 
   # Scopes
-  scope :active, -> { where(granted: true).where('expires_at IS NULL OR expires_at > ?', Time.current) }
+  scope :active, -> { where(granted: true).where("expires_at IS NULL OR expires_at > ?", Time.current) }
   scope :withdrawn, -> { where(granted: false).or(where.not(withdrawn_at: nil)) }
   scope :by_type, ->(type) { where(consent_type: type) }
   scope :granted, -> { where(granted: true) }
-  scope :expired, -> { where('expires_at < ?', Time.current) }
+  scope :expired, -> { where("expires_at < ?", Time.current) }
 
   # Callbacks
   before_create :set_granted_at
@@ -49,7 +49,7 @@ class UserConsent < ApplicationRecord
       granted: true,
       version: version || "1.0",
       consent_text: consent_text,
-      collection_method: 'explicit',
+      collection_method: "explicit",
       ip_address: ip_address,
       user_agent: user_agent,
       metadata: metadata
@@ -93,12 +93,12 @@ class UserConsent < ApplicationRecord
     return unless granted?
 
     AuditLog.log_compliance_event(
-      action: 'gdpr_request',
+      action: "gdpr_request",
       resource: self,
       user: user,
       account: account,
       metadata: {
-        event_type: 'consent_granted',
+        event_type: "consent_granted",
         consent_type: consent_type,
         version: version
       }
@@ -108,10 +108,10 @@ class UserConsent < ApplicationRecord
   def log_consent_change
     return unless saved_change_to_granted?
 
-    event_type = granted? ? 'consent_granted' : 'consent_withdrawn'
+    event_type = granted? ? "consent_granted" : "consent_withdrawn"
 
     AuditLog.log_compliance_event(
-      action: 'gdpr_request',
+      action: "gdpr_request",
       resource: self,
       user: user,
       account: account,

@@ -13,7 +13,7 @@ module Mcp
         # See: docs/platform/WORKFLOW_IO_STANDARD.md
         {
           output: {
-            status: 'pending',
+            status: "pending",
             webhook_id: nil
           },
           result: {
@@ -22,9 +22,9 @@ module Mcp
           },
           metadata: {
             node_id: @node.node_id,
-            node_type: 'webhook',
+            node_type: "webhook",
             executed_at: Time.current.iso8601,
-            implementation_status: 'stub'
+            implementation_status: "stub"
           }
         }
       end

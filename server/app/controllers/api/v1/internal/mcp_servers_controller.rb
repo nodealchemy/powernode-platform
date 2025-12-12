@@ -19,7 +19,7 @@ class Api::V1::Internal::McpServersController < ApplicationController
     })
   rescue StandardError => e
     Rails.logger.error "Failed to list MCP servers: #{e.message}"
-    render_error('Failed to list MCP servers', status: :internal_server_error)
+    render_error("Failed to list MCP servers", status: :internal_server_error)
   end
 
   # GET /api/v1/internal/mcp_servers/:id
@@ -30,10 +30,10 @@ class Api::V1::Internal::McpServersController < ApplicationController
       mcp_server: serialize_server(server, include_config: true)
     })
   rescue ActiveRecord::RecordNotFound
-    render_error('MCP server not found', status: :not_found)
+    render_error("MCP server not found", status: :not_found)
   rescue StandardError => e
     Rails.logger.error "Failed to get MCP server: #{e.message}"
-    render_error('Failed to get MCP server', status: :internal_server_error)
+    render_error("Failed to get MCP server", status: :internal_server_error)
   end
 
   # PATCH /api/v1/internal/mcp_servers/:id
@@ -48,13 +48,13 @@ class Api::V1::Internal::McpServersController < ApplicationController
 
     render_success({
       mcp_server: serialize_server(server),
-      message: 'MCP server updated successfully'
+      message: "MCP server updated successfully"
     })
   rescue ActiveRecord::RecordNotFound
-    render_error('MCP server not found', status: :not_found)
+    render_error("MCP server not found", status: :not_found)
   rescue StandardError => e
     Rails.logger.error "Failed to update MCP server: #{e.message}"
-    render_error('Failed to update MCP server', status: :internal_server_error)
+    render_error("Failed to update MCP server", status: :internal_server_error)
   end
 
   # POST /api/v1/internal/mcp_servers/:id/health_result
@@ -63,10 +63,10 @@ class Api::V1::Internal::McpServersController < ApplicationController
 
     server.update!(
       last_health_check: Time.current,
-      status: params[:healthy] ? server.status : 'error',
+      status: params[:healthy] ? server.status : "error",
       capabilities: server.capabilities.merge(
-        'last_latency_ms' => params[:latency_ms],
-        'last_health_check_at' => Time.current.iso8601
+        "last_latency_ms" => params[:latency_ms],
+        "last_health_check_at" => Time.current.iso8601
       )
     )
 
@@ -78,10 +78,10 @@ class Api::V1::Internal::McpServersController < ApplicationController
       status: server.status
     })
   rescue ActiveRecord::RecordNotFound
-    render_error('MCP server not found', status: :not_found)
+    render_error("MCP server not found", status: :not_found)
   rescue StandardError => e
     Rails.logger.error "Failed to update health result: #{e.message}"
-    render_error('Failed to update health result', status: :internal_server_error)
+    render_error("Failed to update health result", status: :internal_server_error)
   end
 
   # POST /api/v1/internal/mcp_servers/:id/register_tools
@@ -94,7 +94,7 @@ class Api::V1::Internal::McpServersController < ApplicationController
       tool.description = tool_data[:description]
       tool.input_schema = tool_data[:input_schema] || {}
       tool.enabled = tool_data[:enabled].nil? ? true : tool_data[:enabled]
-      tool.permission_level = tool_data[:permission_level] || 'account'
+      tool.permission_level = tool_data[:permission_level] || "account"
 
       if tool.save
         tools_registered += 1
@@ -107,7 +107,7 @@ class Api::V1::Internal::McpServersController < ApplicationController
     ActionCable.server.broadcast(
       "mcp_server_#{server.id}",
       {
-        type: 'tools_updated',
+        type: "tools_updated",
         server_id: server.id,
         tools_count: server.mcp_tools.count,
         timestamp: Time.current.iso8601
@@ -119,10 +119,10 @@ class Api::V1::Internal::McpServersController < ApplicationController
       total_tools: server.mcp_tools.count
     })
   rescue ActiveRecord::RecordNotFound
-    render_error('MCP server not found', status: :not_found)
+    render_error("MCP server not found", status: :not_found)
   rescue StandardError => e
     Rails.logger.error "Failed to register tools: #{e.message}"
-    render_error('Failed to register tools', status: :internal_server_error)
+    render_error("Failed to register tools", status: :internal_server_error)
   end
 
   private
@@ -165,7 +165,7 @@ class Api::V1::Internal::McpServersController < ApplicationController
     ActionCable.server.broadcast(
       "mcp_server_#{server.id}",
       {
-        type: 'status_change',
+        type: "status_change",
         server_id: server.id,
         status: server.status,
         timestamp: Time.current.iso8601
@@ -176,7 +176,7 @@ class Api::V1::Internal::McpServersController < ApplicationController
     ActionCable.server.broadcast(
       "account_#{server.account_id}_mcp",
       {
-        type: 'server_status_change',
+        type: "server_status_change",
         server_id: server.id,
         server_name: server.name,
         status: server.status,
@@ -189,7 +189,7 @@ class Api::V1::Internal::McpServersController < ApplicationController
     ActionCable.server.broadcast(
       "mcp_server_#{server.id}",
       {
-        type: 'health_check',
+        type: "health_check",
         server_id: server.id,
         healthy: healthy,
         latency_ms: latency_ms,
@@ -199,23 +199,23 @@ class Api::V1::Internal::McpServersController < ApplicationController
   end
 
   def authenticate_service_token
-    token = request.headers['Authorization']&.split(' ')&.last
+    token = request.headers["Authorization"]&.split(" ")&.last
 
     unless token.present?
-      render_error('Service token required', status: :unauthorized)
+      render_error("Service token required", status: :unauthorized)
       return
     end
 
     begin
-      payload = JWT.decode(token, Rails.application.config.jwt_secret_key, true, algorithm: 'HS256').first
+      payload = JWT.decode(token, Rails.application.config.jwt_secret_key, true, algorithm: "HS256").first
 
-      unless payload['service'] == 'worker' && payload['type'] == 'service'
-        render_error('Invalid service token', status: :unauthorized)
-        return
+      unless payload["service"] == "worker" && payload["type"] == "service"
+        render_error("Invalid service token", status: :unauthorized)
+        nil
       end
 
     rescue JWT::DecodeError, JWT::ExpiredSignature
-      render_error('Invalid service token', status: :unauthorized)
+      render_error("Invalid service token", status: :unauthorized)
     end
   end
 end

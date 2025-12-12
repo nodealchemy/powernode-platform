@@ -4,16 +4,16 @@ module Api
   module V1
     class MetricsController < ApplicationController
       # Prometheus endpoint disabled - no authentication skipping needed
-      
+
       # Prometheus metrics endpoint - DISABLED
       def prometheus
-        render_error('Prometheus metrics disabled in development', status: :service_unavailable)
+        render_error("Prometheus metrics disabled in development", status: :service_unavailable)
       end
 
       # Health check with basic metrics
       def health
         health_data = {
-          status: 'healthy',
+          status: "healthy",
           timestamp: Time.current.iso8601,
           version: Rails.application.class.module_parent_name,
           uptime: uptime_seconds,
@@ -26,12 +26,12 @@ module Api
         render_success(health_data)
       rescue => e
         Rails.logger.error "Health check error: #{e.message}"
-        render_error('Health check failed', status: :service_unavailable)
+        render_error("Health check failed", status: :service_unavailable)
       end
 
       # Detailed application metrics (authenticated)
       def application
-        require_permission!('analytics.read')
+        require_permission!("analytics.read")
 
         metrics = {
           users: user_metrics,
@@ -45,7 +45,7 @@ module Api
         render_success(metrics)
       rescue => e
         Rails.logger.error "Application metrics error: #{e.message}"
-        render_error('Failed to retrieve metrics')
+        render_error("Failed to retrieve metrics")
       end
 
       private
@@ -58,30 +58,30 @@ module Api
 
       def database_health
         start_time = Time.current
-        ActiveRecord::Base.connection.execute('SELECT 1')
+        ActiveRecord::Base.connection.execute("SELECT 1")
         {
-          status: 'healthy',
+          status: "healthy",
           response_time_ms: ((Time.current - start_time) * 1000).round(2)
         }
       rescue => e
         {
-          status: 'unhealthy',
+          status: "unhealthy",
           error: e.message
         }
       end
 
       def redis_health
         start_time = Time.current
-        Rails.cache.write('health_check', Time.current.to_i, expires_in: 10.seconds)
-        Rails.cache.read('health_check')
-        
+        Rails.cache.write("health_check", Time.current.to_i, expires_in: 10.seconds)
+        Rails.cache.read("health_check")
+
         {
-          status: 'healthy',
+          status: "healthy",
           response_time_ms: ((Time.current - start_time) * 1000).round(2)
         }
       rescue => e
         {
-          status: 'unhealthy',
+          status: "unhealthy",
           error: e.message
         }
       end
@@ -105,23 +105,23 @@ module Api
         {
           total_users: User.count,
           active_subscriptions: Subscription.active.count,
-          total_revenue_cents: Subscription.active.joins(:plan).sum('plans.price'),
-          successful_payments_today: Payment.successful.where('created_at >= ?', 1.day.ago).count
+          total_revenue_cents: Subscription.active.joins(:plan).sum("plans.price"),
+          successful_payments_today: Payment.successful.where("created_at >= ?", 1.day.ago).count
         }
       rescue => e
         Rails.logger.error "Business metrics error: #{e.message}"
-        { error: 'Unable to retrieve business metrics' }
+        { error: "Unable to retrieve business metrics" }
       end
 
       def user_metrics
         {
           total: User.count,
-          active: User.where(status: 'active').count,
-          inactive: User.where(status: 'inactive').count,
-          created_today: User.where('created_at >= ?', 1.day.ago).count,
-          created_this_week: User.where('created_at >= ?', 1.week.ago).count,
-          created_this_month: User.where('created_at >= ?', 1.month.ago).count,
-          by_role: User.joins(:roles).group('roles.name').count
+          active: User.where(status: "active").count,
+          inactive: User.where(status: "inactive").count,
+          created_today: User.where("created_at >= ?", 1.day.ago).count,
+          created_this_week: User.where("created_at >= ?", 1.week.ago).count,
+          created_this_month: User.where("created_at >= ?", 1.month.ago).count,
+          by_role: User.joins(:roles).group("roles.name").count
         }
       end
 
@@ -132,10 +132,10 @@ module Api
           cancelled: Subscription.cancelled.count,
           expired: Subscription.expired.count,
           trial: Subscription.trial.count,
-          by_plan: Subscription.joins(:plan).group('plans.name').count,
-          monthly_revenue_cents: Subscription.active.joins(:plan).sum('plans.price'),
+          by_plan: Subscription.joins(:plan).group("plans.name").count,
+          monthly_revenue_cents: Subscription.active.joins(:plan).sum("plans.price"),
           churn_rate_percent: calculate_churn_rate,
-          new_this_month: Subscription.where('created_at >= ?', 1.month.ago).count
+          new_this_month: Subscription.where("created_at >= ?", 1.month.ago).count
         }
       end
 
@@ -146,9 +146,9 @@ module Api
           failed: Payment.failed.count,
           pending: Payment.pending.count,
           total_amount_cents: Payment.successful.sum(:amount_cents),
-          today: Payment.where('created_at >= ?', 1.day.ago).count,
-          this_week: Payment.where('created_at >= ?', 1.week.ago).count,
-          this_month: Payment.where('created_at >= ?', 1.month.ago).count,
+          today: Payment.where("created_at >= ?", 1.day.ago).count,
+          this_week: Payment.where("created_at >= ?", 1.week.ago).count,
+          this_month: Payment.where("created_at >= ?", 1.month.ago).count,
           by_provider: Payment.group(:provider).count,
           average_amount_cents: Payment.successful.average(:amount_cents)&.round
         }
@@ -158,20 +158,20 @@ module Api
         # This would need to be stored in Redis or database for persistence
         # For now, return placeholder data
         {
-          total_requests: 'tracked_in_prometheus',
-          average_response_time: 'tracked_in_prometheus',
-          error_rate: 'tracked_in_prometheus',
-          endpoints: 'tracked_in_prometheus'
+          total_requests: "tracked_in_prometheus",
+          average_response_time: "tracked_in_prometheus",
+          error_rate: "tracked_in_prometheus",
+          endpoints: "tracked_in_prometheus"
         }
       end
 
       def job_metrics
         # This would integrate with Sidekiq stats if available
         {
-          processed: 'tracked_via_sidekiq_web',
-          failed: 'tracked_via_sidekiq_web',
-          scheduled: 'tracked_via_sidekiq_web',
-          retries: 'tracked_via_sidekiq_web'
+          processed: "tracked_via_sidekiq_web",
+          failed: "tracked_via_sidekiq_web",
+          scheduled: "tracked_via_sidekiq_web",
+          retries: "tracked_via_sidekiq_web"
         }
       end
 
@@ -181,7 +181,7 @@ module Api
           ruby_version: RUBY_VERSION,
           environment: Rails.env,
           database_size: calculate_database_size,
-          cache_stats: Rails.cache.respond_to?(:stats) ? Rails.cache.stats : 'not_available'
+          cache_stats: Rails.cache.respond_to?(:stats) ? Rails.cache.stats : "not_available"
         }
       end
 
@@ -191,7 +191,7 @@ module Api
         last_month_end = 1.month.ago.end_of_month
 
         active_last_month = Subscription.where(
-          'created_at <= ? AND (cancelled_at IS NULL OR cancelled_at > ?)',
+          "created_at <= ? AND (cancelled_at IS NULL OR cancelled_at > ?)",
           last_month_end, last_month_end
         ).count
 
@@ -207,24 +207,27 @@ module Api
       end
 
       def calculate_database_size
-        case ActiveRecord::Base.connection.adapter_name.downcase
-        when 'postgresql'
-          result = ActiveRecord::Base.connection.execute(
-            "SELECT pg_size_pretty(pg_database_size('#{ActiveRecord::Base.connection.current_database}'))"
+        conn = ActiveRecord::Base.connection
+        db_name = conn.quote(conn.current_database)
+
+        case conn.adapter_name.downcase
+        when "postgresql"
+          result = conn.execute(
+            "SELECT pg_size_pretty(pg_database_size(#{db_name}))"
           )
-          result.first['pg_size_pretty']
-        when 'mysql2'
-          result = ActiveRecord::Base.connection.execute(
-            "SELECT ROUND(SUM(data_length + index_length) / 1024 / 1024, 1) AS 'DB Size in MB' 
-             FROM information_schema.tables 
-             WHERE table_schema='#{ActiveRecord::Base.connection.current_database}'"
+          result.first["pg_size_pretty"]
+        when "mysql2"
+          result = conn.execute(
+            "SELECT ROUND(SUM(data_length + index_length) / 1024 / 1024, 1) AS 'DB Size in MB'
+             FROM information_schema.tables
+             WHERE table_schema=#{db_name}"
           )
           "#{result.first['DB Size in MB']} MB"
         else
-          'not_available'
+          "not_available"
         end
-      rescue
-        'calculation_failed'
+      rescue StandardError
+        "calculation_failed"
       end
     end
   end

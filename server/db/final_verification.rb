@@ -46,16 +46,16 @@ recent_activities = worker.worker_activities.where('performed_at > ?', 24.hours.
 
 def get_top_endpoints(activities, limit = 10)
   endpoint_counts = {}
-  
+
   activities.each do |activity|
     details = activity.details || {}
     endpoint = details['endpoint'] || details['request_path']
     next unless endpoint
-    
+
     clean_endpoint = endpoint.split('?').first
     endpoint_counts[clean_endpoint] = (endpoint_counts[clean_endpoint] || 0) + 1
   end
-  
+
   endpoint_counts
     .sort_by { |endpoint, count| -count }
     .first(limit)
@@ -96,11 +96,11 @@ request['Accept'] = 'application/json'
 
 begin
   response = http.request(request)
-  
+
   if response.code == '200'
     data = JSON.parse(response.body)
     api_endpoints = data.dig('data', 'summary', 'top_endpoints')
-    
+
     if api_endpoints && api_endpoints.any?
       puts "   Top Endpoints (API Response):"
       api_endpoints.first(5).each_with_index do |endpoint_data, index|
@@ -143,7 +143,7 @@ puts
 if top_endpoints.any? && response&.code == '200'
   puts "✅ SUCCESS: Top API Endpoints are working end-to-end!"
   puts "   - Backend aggregation: WORKING"
-  puts "   - API endpoint: WORKING" 
+  puts "   - API endpoint: WORKING"
   puts "   - Real data: AVAILABLE"
   puts "   - Frontend ready: YES (imports fixed)"
 else

@@ -32,8 +32,8 @@ class CreateAiConversations < ActiveRecord::Migration[8.0]
       t.index :last_activity_at
       t.index :websocket_session_id
       t.index :websocket_channel
-      t.index [:account_id, :status]
-      t.index [:user_id, :status]
+      t.index [ :account_id, :status ]
+      t.index [ :user_id, :status ]
 
       t.foreign_key :accounts, on_delete: :cascade
       t.foreign_key :users, on_delete: :restrict

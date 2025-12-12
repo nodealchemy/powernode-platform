@@ -171,7 +171,7 @@ RSpec.describe Page, type: :model do
         first_page = create(:page)
         sleep(0.01)  # Ensure different timestamps
         second_page = create(:page)
-        
+
         recent_pages = Page.recent.limit(2)
         expect(recent_pages.first.id).to eq(second_page.id)
         expect(recent_pages.second.id).to eq(first_page.id)
@@ -212,7 +212,7 @@ RSpec.describe Page, type: :model do
       it 'sets published_at when status changes to published' do
         page = create(:page, :draft)
         expect(page.published_at).to be_nil
-        
+
         page.update!(status: 'published')
         expect(page.published_at).not_to be_nil
       end
@@ -220,7 +220,7 @@ RSpec.describe Page, type: :model do
       it 'clears published_at when status changes to draft' do
         page = create(:page, :published)
         expect(page.published_at).not_to be_nil
-        
+
         page.update!(status: 'draft')
         expect(page.published_at).to be_nil
       end
@@ -339,7 +339,7 @@ RSpec.describe Page, type: :model do
     describe '#seo_keywords_array' do
       it 'splits meta_keywords by comma' do
         page = create(:page, meta_keywords: 'keyword1, keyword2, keyword3')
-        expect(page.seo_keywords_array).to eq(['keyword1', 'keyword2', 'keyword3'])
+        expect(page.seo_keywords_array).to eq([ 'keyword1', 'keyword2', 'keyword3' ])
       end
 
       it 'returns empty array if no meta_keywords' do
@@ -349,7 +349,7 @@ RSpec.describe Page, type: :model do
 
       it 'filters out blank keywords' do
         page = create(:page, meta_keywords: 'keyword1, , keyword3')
-        expect(page.seo_keywords_array).to eq(['keyword1', 'keyword3'])
+        expect(page.seo_keywords_array).to eq([ 'keyword1', 'keyword3' ])
       end
     end
   end

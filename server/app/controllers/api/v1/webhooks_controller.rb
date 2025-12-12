@@ -1,17 +1,17 @@
 # frozen_string_literal: true
 
 class Api::V1::WebhooksController < ApplicationController
-  before_action -> { require_permission('webhook.view') }, only: [:index, :show]
-  before_action -> { require_permission('webhook.create') }, only: [:create]
-  before_action -> { require_permission('webhook.edit') }, only: [:update, :toggle_status]
-  before_action -> { require_permission('webhook.delete') }, only: [:destroy]
-  before_action -> { require_permission('webhook.view') }, only: [:test, :health_test]
-  before_action :find_webhook, only: [:show, :update, :destroy, :test, :toggle_status, :health_test]
+  before_action -> { require_permission("webhook.view") }, only: [ :index, :show ]
+  before_action -> { require_permission("webhook.create") }, only: [ :create ]
+  before_action -> { require_permission("webhook.edit") }, only: [ :update, :toggle_status ]
+  before_action -> { require_permission("webhook.delete") }, only: [ :destroy ]
+  before_action -> { require_permission("webhook.view") }, only: [ :test, :health_test ]
+  before_action :find_webhook, only: [ :show, :update, :destroy, :test, :toggle_status, :health_test ]
 
   # GET /api/v1/webhooks
   def index
-    page = [params[:page].to_i, 1].max
-    per_page = [(params[:per_page] || 20).to_i, 100].min
+    page = [ params[:page].to_i, 1 ].max
+    per_page = [ (params[:per_page] || 20).to_i, 100 ].min
     offset = (page - 1) * per_page
 
     total_count = WebhookEndpoint.count
@@ -46,7 +46,7 @@ class Api::V1::WebhooksController < ApplicationController
   def create
     # Check usage limit before creating webhook endpoint
     unless UsageLimitService.can_create_webhook?(current_account)
-      render_error('Webhook endpoint limit reached for your current plan')
+      render_error("Webhook endpoint limit reached for your current plan")
       return
     end
 
@@ -55,10 +55,10 @@ class Api::V1::WebhooksController < ApplicationController
 
     if webhook.save
       # Log webhook creation
-      log_webhook_action('webhook_created', webhook)
+      log_webhook_action("webhook_created", webhook)
 
       render_success(
-        message: 'Webhook endpoint created successfully',
+        message: "Webhook endpoint created successfully",
         data: detailed_webhook_data(webhook),
         status: :created
       )
@@ -70,10 +70,10 @@ class Api::V1::WebhooksController < ApplicationController
   # PUT /api/v1/webhooks/:id
   def update
     if @webhook.update(webhook_params)
-      log_webhook_action('webhook_updated', @webhook)
+      log_webhook_action("webhook_updated", @webhook)
 
       render_success(
-        message: 'Webhook endpoint updated successfully',
+        message: "Webhook endpoint updated successfully",
         data: detailed_webhook_data(@webhook)
       )
     else
@@ -86,10 +86,10 @@ class Api::V1::WebhooksController < ApplicationController
     webhook_data = webhook_summary(@webhook)
 
     if @webhook.destroy
-      log_webhook_action('webhook_deleted', @webhook, webhook_data)
+      log_webhook_action("webhook_deleted", @webhook, webhook_data)
 
       render_success(
-        message: 'Webhook endpoint deleted successfully'
+        message: "Webhook endpoint deleted successfully"
       )
     else
       render_validation_error(@webhook)
@@ -98,21 +98,21 @@ class Api::V1::WebhooksController < ApplicationController
 
   # POST /api/v1/webhooks/:id/test
   def test
-    test_payload = generate_test_payload(params[:event_type] || 'test.webhook')
+    test_payload = generate_test_payload(params[:event_type] || "test.webhook")
 
     begin
-      response = WebhookService.deliver_webhook(@webhook, test_payload, 'test.webhook')
+      response = WebhookService.deliver_webhook(@webhook, test_payload, "test.webhook")
 
       # Log test attempt
-      log_webhook_action('webhook_test', @webhook, {
-        event_type: 'test.webhook',
+      log_webhook_action("webhook_test", @webhook, {
+        event_type: "test.webhook",
         response_status: response[:status],
         response_time: response[:response_time],
         success: response[:success]
       })
 
       render_success(
-        message: 'Webhook test completed',
+        message: "Webhook test completed",
         data: {
           webhook_id: @webhook.id,
           test_payload: test_payload,
@@ -120,13 +120,13 @@ class Api::V1::WebhooksController < ApplicationController
         }
       )
     rescue => e
-      log_webhook_action('webhook_test_failed', @webhook, {
-        event_type: 'test.webhook',
+      log_webhook_action("webhook_test_failed", @webhook, {
+        event_type: "test.webhook",
         error: e.message
       })
 
       render_error(
-        'Webhook test failed',
+        "Webhook test failed",
         :unprocessable_content,
         details: e.message
       )
@@ -135,10 +135,10 @@ class Api::V1::WebhooksController < ApplicationController
 
   # POST /api/v1/webhooks/:id/toggle_status
   def toggle_status
-    new_status = @webhook.active? ? 'inactive' : 'active'
+    new_status = @webhook.active? ? "inactive" : "active"
 
     if @webhook.update(status: new_status)
-      log_webhook_action('webhook_status_changed', @webhook, {
+      log_webhook_action("webhook_status_changed", @webhook, {
         old_status: @webhook.status_was,
         new_status: new_status
       })
@@ -165,8 +165,8 @@ class Api::V1::WebhooksController < ApplicationController
   # GET /api/v1/webhooks/deliveries
   def delivery_history
     webhook_id = params[:webhook_id]
-    page = [params[:page].to_i, 1].max
-    per_page = [(params[:per_page] || 50).to_i, 200].min
+    page = [ params[:page].to_i, 1 ].max
+    per_page = [ (params[:per_page] || 50).to_i, 200 ].min
     offset = (page - 1) * per_page
 
     deliveries_query = WebhookDelivery.includes(:webhook_endpoint)
@@ -226,13 +226,13 @@ class Api::V1::WebhooksController < ApplicationController
   # GET /api/v1/webhooks/failed_deliveries
   # Returns failed deliveries for the retry dashboard
   def failed_deliveries
-    page = [params[:page].to_i, 1].max
-    per_page = [(params[:per_page] || 25).to_i, 100].min
+    page = [ params[:page].to_i, 1 ].max
+    per_page = [ (params[:per_page] || 25).to_i, 100 ].min
     offset = (page - 1) * per_page
 
     # Base query for failed deliveries
     failed_query = WebhookDelivery.includes(:webhook_endpoint)
-                                  .where(status: ['failed', 'max_retries_reached'])
+                                  .where(status: [ "failed", "max_retries_reached" ])
                                   .order(created_at: :desc)
 
     # Apply filters
@@ -246,10 +246,10 @@ class Api::V1::WebhooksController < ApplicationController
 
     if params[:since].present?
       since_date = Time.parse(params[:since]) rescue 7.days.ago
-      failed_query = failed_query.where('created_at >= ?', since_date)
+      failed_query = failed_query.where("created_at >= ?", since_date)
     else
       # Default to last 7 days
-      failed_query = failed_query.where('created_at >= ?', 7.days.ago)
+      failed_query = failed_query.where("created_at >= ?", 7.days.ago)
     end
 
     total_count = failed_query.count
@@ -267,8 +267,8 @@ class Api::V1::WebhooksController < ApplicationController
           total_count: total_count
         },
         summary: {
-          failed_count: WebhookDelivery.failed.where('created_at >= ?', 7.days.ago).count,
-          max_retries_count: WebhookDelivery.max_retries_reached.where('created_at >= ?', 7.days.ago).count,
+          failed_count: WebhookDelivery.failed.where("created_at >= ?", 7.days.ago).count,
+          max_retries_count: WebhookDelivery.max_retries_reached.where("created_at >= ?", 7.days.ago).count,
           pending_retry_count: WebhookDelivery.pending_retry.count,
           can_retry_count: deliveries.count(&:can_retry?)
         }
@@ -287,7 +287,7 @@ class Api::V1::WebhooksController < ApplicationController
 
     # Reset the delivery for retry
     delivery.update!(
-      status: 'pending',
+      status: "pending",
       attempt_count: 0,
       next_retry_at: nil,
       completed_at: nil,
@@ -297,7 +297,7 @@ class Api::V1::WebhooksController < ApplicationController
     # Queue for immediate retry
     WebhookRetryJob.perform_later(delivery.id) if defined?(WebhookRetryJob)
 
-    log_webhook_action('webhook_delivery_retry', delivery.webhook_endpoint, {
+    log_webhook_action("webhook_delivery_retry", delivery.webhook_endpoint, {
       delivery_id: delivery.id,
       original_status: delivery.status_was,
       event_type: delivery.event_type
@@ -337,14 +337,14 @@ class Api::V1::WebhooksController < ApplicationController
     health_service = WebhookHealthService.new(current_user.account)
     test_result = health_service.test_endpoint(@webhook)
 
-    log_webhook_action('webhook_health_test', @webhook, {
+    log_webhook_action("webhook_health_test", @webhook, {
       test_result: test_result[:success],
       response_time: test_result[:response_time],
       status_code: test_result[:status_code]
     })
 
     render_success(
-      message: 'Webhook health test completed',
+      message: "Webhook health test completed",
       data: test_result
     )
   end
@@ -352,7 +352,7 @@ class Api::V1::WebhooksController < ApplicationController
   private
 
   def require_admin_access
-    unless current_user.has_permission?('account.manage') || current_user.has_permission?('admin.access')
+    unless current_user.has_permission?("account.manage") || current_user.has_permission?("admin.access")
       render_error("Access denied: Admin privileges required", status: :forbidden)
     end
   end
@@ -360,7 +360,7 @@ class Api::V1::WebhooksController < ApplicationController
   def find_webhook
     @webhook = WebhookEndpoint.find(params[:id])
   rescue ActiveRecord::RecordNotFound
-    render_error('Webhook endpoint not found', status: :not_found)
+    render_error("Webhook endpoint not found", status: :not_found)
   end
 
   def webhook_params
@@ -445,8 +445,8 @@ class Api::V1::WebhooksController < ApplicationController
   def detailed_webhook_stats
     webhook_stats.merge({
       most_active_endpoints: WebhookEndpoint.joins(:webhook_deliveries)
-                                           .group('webhook_endpoints.url')
-                                           .order('count_id DESC')
+                                           .group("webhook_endpoints.url")
+                                           .order("count_id DESC")
                                            .limit(5)
                                            .count(:id),
       event_type_distribution: WebhookDelivery.where(created_at: 7.days.ago..Time.current)
@@ -457,7 +457,7 @@ class Api::V1::WebhooksController < ApplicationController
                                            .where(created_at: 24.hours.ago..Time.current)
                                            .average(:response_time_ms),
       retry_statistics: {
-        total_retries: WebhookDelivery.where('attempt_count > 1').count,
+        total_retries: WebhookDelivery.where("attempt_count > 1").count,
         pending_retries: WebhookDelivery.pending_retry.count,
         max_retries_reached: WebhookDelivery.max_retries_reached.count
       }
@@ -488,15 +488,15 @@ class Api::V1::WebhooksController < ApplicationController
     deliveries = WebhookDelivery.where(created_at: 7.days.ago..Time.current)
                                 .group("DATE(created_at)")
                                 .count
-    
+
     # Convert to expected format (date string => count)
     trend = {}
     7.times do |i|
       date = i.days.ago.to_date
-      date_key = date.strftime('%Y-%m-%d')
+      date_key = date.strftime("%Y-%m-%d")
       trend[date_key] = deliveries[date.to_s] || 0
     end
-    
+
     trend
   end
 
@@ -505,9 +505,9 @@ class Api::V1::WebhooksController < ApplicationController
       user: current_user,
       account: current_user.account,
       action: action,
-      resource_type: 'WebhookEndpoint',
+      resource_type: "WebhookEndpoint",
       resource_id: webhook.id,
-      source: 'admin_panel',
+      source: "admin_panel",
       ip_address: request.remote_ip,
       user_agent: request.user_agent,
       metadata: metadata.merge({

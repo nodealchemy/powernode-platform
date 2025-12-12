@@ -19,13 +19,13 @@ Rails.application.config.middleware.insert_before 0, Rack::Cors do
       rescue StandardError => e
         Rails.logger.error "CORS origin check failed: #{e.message}"
         # Fallback: allow localhost in development
-        Rails.env.development? && (source.start_with?('http://localhost') || source.start_with?('http://127.0.0.1'))
+        Rails.env.development? && (source.start_with?("http://localhost") || source.start_with?("http://127.0.0.1"))
       end
     end
-    
-    resource '*',
+
+    resource "*",
       headers: :any,
-      methods: [:get, :post, :put, :patch, :delete, :options, :head],
+      methods: [ :get, :post, :put, :patch, :delete, :options, :head ],
       credentials: true,
       max_age: 600
   end

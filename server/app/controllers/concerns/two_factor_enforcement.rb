@@ -43,7 +43,7 @@ module TwoFactorEnforcement
     return if two_factor_verified?
     return unless requires_admin_two_factor?
 
-    render_two_factor_required('Admin users must enable two-factor authentication')
+    render_two_factor_required("Admin users must enable two-factor authentication")
   end
 
   def enforce_two_factor_for_sensitive_actions
@@ -51,7 +51,7 @@ module TwoFactorEnforcement
     return if two_factor_verified?
     return unless sensitive_action?
 
-    render_two_factor_required('This action requires two-factor authentication')
+    render_two_factor_required("This action requires two-factor authentication")
   end
 
   def requires_admin_two_factor?
@@ -70,7 +70,7 @@ module TwoFactorEnforcement
 
     # Check if 2FA was verified in current session
     # This is stored in the JWT or session
-    two_factor_verified_at = decoded_token&.dig('two_factor_verified_at')
+    two_factor_verified_at = decoded_token&.dig("two_factor_verified_at")
     return false if two_factor_verified_at.blank?
 
     # 2FA verification is valid for 24 hours
@@ -84,25 +84,25 @@ module TwoFactorEnforcement
       # User has 2FA enabled but hasn't verified this session
       render json: {
         success: false,
-        error: message || 'Two-factor authentication required',
-        code: 'TWO_FACTOR_REQUIRED',
+        error: message || "Two-factor authentication required",
+        code: "TWO_FACTOR_REQUIRED",
         requires_verification: true
       }, status: :forbidden
     else
       # User doesn't have 2FA enabled - must set it up first
       render json: {
         success: false,
-        error: message || 'You must enable two-factor authentication to access this resource',
-        code: 'TWO_FACTOR_SETUP_REQUIRED',
+        error: message || "You must enable two-factor authentication to access this resource",
+        code: "TWO_FACTOR_SETUP_REQUIRED",
         requires_setup: true,
-        setup_url: '/api/v1/auth/two_factor/setup'
+        setup_url: "/api/v1/auth/two_factor/setup"
       }, status: :forbidden
     end
   end
 
   def decoded_token
     @decoded_token ||= begin
-      token = request.headers['Authorization']&.split(' ')&.last
+      token = request.headers["Authorization"]&.split(" ")&.last
       return nil unless token
 
       JsonWebToken.decode(token)
@@ -159,7 +159,7 @@ module RequiresTwoFactor
     return 7 unless admin_since
 
     days_left = 7 - ((Time.current - admin_since) / 1.day).to_i
-    [days_left, 0].max
+    [ days_left, 0 ].max
   end
 
   private
@@ -170,7 +170,7 @@ module RequiresTwoFactor
 
     # Check if grace period has expired
     if days_until_two_factor_required&.zero?
-      errors.add(:base, 'Two-factor authentication is required for admin users')
+      errors.add(:base, "Two-factor authentication is required for admin users")
     end
   end
 

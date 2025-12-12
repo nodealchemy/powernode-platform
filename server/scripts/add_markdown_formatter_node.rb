@@ -73,7 +73,7 @@ markdown_node = workflow.ai_workflow_nodes.create!(
   metadata: {
     created_by: 'system',
     purpose: 'markdown_formatting',
-    dependencies: ['editor', 'seo', 'image']
+    dependencies: [ 'editor', 'seo', 'image' ]
   }
 )
 
@@ -82,7 +82,7 @@ puts ''
 
 # Remove old edges from seo/image to end
 old_edges = workflow.ai_workflow_edges.where(
-  source_node_id: [seo_node.node_id, image_node.node_id],
+  source_node_id: [ seo_node.node_id, image_node.node_id ],
   target_node_id: end_node.node_id
 )
 

@@ -4,7 +4,7 @@ class KnowledgeBaseArticleView < ApplicationRecord
   # Authentication
 
   # Associations
-  belongs_to :article, class_name: 'KnowledgeBaseArticle', foreign_key: 'article_id'
+  belongs_to :article, class_name: "KnowledgeBaseArticle", foreign_key: "article_id"
   belongs_to :user, optional: true
 
   # Validations
@@ -30,7 +30,7 @@ class KnowledgeBaseArticleView < ApplicationRecord
 
   def self.analytics_for_article(article_id, period: 30.days)
     views = for_period(period.ago, Time.current).where(article_id: article_id)
-    
+
     {
       total_views: views.count,
       unique_users: views.unique_users.count,
@@ -44,8 +44,8 @@ class KnowledgeBaseArticleView < ApplicationRecord
   def self.top_articles(limit: 10, period: 30.days)
     for_period(period.ago, Time.current)
       .joins(:article)
-      .group('knowledge_base_articles.id, knowledge_base_articles.title')
-      .order('COUNT(*) DESC')
+      .group("knowledge_base_articles.id, knowledge_base_articles.title")
+      .order("COUNT(*) DESC")
       .limit(limit)
       .count
   end
@@ -56,6 +56,6 @@ class KnowledgeBaseArticleView < ApplicationRecord
     views
       .group_by_day(:created_at)
       .count
-      .transform_keys { |date| date.strftime('%Y-%m-%d') }
+      .transform_keys { |date| date.strftime("%Y-%m-%d") }
   end
 end

@@ -9,7 +9,7 @@ FactoryBot.define do
     description { "A test AI provider for #{name}" }
     api_base_url { "https://api.example.com/v1" }
     api_endpoint { "https://api.example.com/v1" }
-    capabilities { ["text_generation", "chat"] }
+    capabilities { [ "text_generation", "chat" ] }
     supported_models do
       [
         {
@@ -19,7 +19,7 @@ FactoryBot.define do
           "cost_per_token" => 0.001
         },
         {
-          "name" => "test-model-2", 
+          "name" => "test-model-2",
           "id" => "test-model-2",
           "context_length" => 8192,
           "cost_per_token" => 0.002
@@ -39,7 +39,7 @@ FactoryBot.define do
             "description" => "Model to use"
           }
         },
-        "required" => ["api_key", "model"]
+        "required" => [ "api_key", "model" ]
       }
     end
     default_parameters { {} }
@@ -55,7 +55,7 @@ FactoryBot.define do
     status_url { nil }
     sequence(:priority_order) { |n| n }
     metadata { {} }
-    
+
     # Handle virtual attributes for tests
     transient do
       health_status { nil }
@@ -63,37 +63,37 @@ FactoryBot.define do
       is_default { nil }
       configuration { nil }
     end
-    
+
     after(:build) do |provider, evaluator|
       # Handle configuration attribute for both build and create
       if !evaluator.configuration.nil?
         provider.configuration = evaluator.configuration
       end
     end
-    
+
     after(:create) do |provider, evaluator|
       # Set virtual attributes for test compatibility
       if evaluator.health_status
         provider.instance_variable_set(:@health_status_override, evaluator.health_status)
       end
-      
+
       if evaluator.last_health_check
         provider.instance_variable_set(:@last_health_check, evaluator.last_health_check)
       end
-      
+
       # Handle is_default attribute
       if !evaluator.is_default.nil?
         provider.is_default = evaluator.is_default
         provider.save! # Save to persist metadata changes
       end
-      
+
       # Handle configuration attribute
       if !evaluator.configuration.nil?
         provider.configuration = evaluator.configuration
         # Only save if the provider is still valid after setting configuration
         provider.save! if provider.valid?
       end
-      
+
       # Handle explicit nil last_health_check (never checked)
       if evaluator.last_health_check.nil? && !evaluator.health_status
         # Set the instance variable to nil to indicate never checked
@@ -104,7 +104,7 @@ FactoryBot.define do
       elsif evaluator.health_status || evaluator.last_health_check
         success = evaluator.health_status == 'healthy'
         timestamp = evaluator.last_health_check || Time.current
-        
+
         # Manually set the health metrics with custom timestamp
         provider.metadata = (provider.metadata || {}).merge(
           'health_metrics' => {
@@ -121,7 +121,7 @@ FactoryBot.define do
     trait :active do
       is_active { true }
     end
-    
+
     trait :inactive do
       is_active { false }
     end
@@ -132,17 +132,17 @@ FactoryBot.define do
 
     trait :with_functions do
       supports_functions { true }
-      capabilities { ["text_generation", "chat", "function_calling"] }
+      capabilities { [ "text_generation", "chat", "function_calling" ] }
     end
 
     trait :with_vision do
       supports_vision { true }
-      capabilities { ["text_generation", "chat", "vision"] }
+      capabilities { [ "text_generation", "chat", "vision" ] }
     end
 
     trait :with_code_execution do
       supports_code_execution { true }
-      capabilities { ["text_generation", "chat", "code_execution"] }
+      capabilities { [ "text_generation", "chat", "code_execution" ] }
     end
 
     trait :openai do
@@ -150,7 +150,7 @@ FactoryBot.define do
       slug { "openai" }
       provider_type { "openai" }
       api_base_url { "https://api.openai.com/v1" }
-      capabilities { ["text_generation", "chat", "text_embedding"] }
+      capabilities { [ "text_generation", "chat", "text_embedding" ] }
       supports_streaming { true }
       supports_functions { true }
       supports_vision { true }
@@ -166,7 +166,7 @@ FactoryBot.define do
           },
           {
             "name" => "gpt-4",
-            "id" => "gpt-4", 
+            "id" => "gpt-4",
             "context_length" => 8192,
             "cost_per_token" => 0.03
           },
@@ -188,11 +188,11 @@ FactoryBot.define do
             },
             "model" => {
               "type" => "string",
-              "enum" => ["gpt-3.5-turbo", "gpt-4", "gpt-4-vision-preview"],
+              "enum" => [ "gpt-3.5-turbo", "gpt-4", "gpt-4-vision-preview" ],
               "description" => "Model to use"
             }
           },
-          "required" => ["api_key", "model"]
+          "required" => [ "api_key", "model" ]
         }
       end
       default_parameters do
@@ -215,7 +215,7 @@ FactoryBot.define do
       slug { "ollama" }
       provider_type { "ollama" }
       api_base_url { "http://localhost:11434/api" }
-      capabilities { ["text_generation", "chat"] }
+      capabilities { [ "text_generation", "chat" ] }
       requires_auth { false }
       supports_streaming { true }
       documentation_url { "https://ollama.ai/docs" }
@@ -255,7 +255,7 @@ FactoryBot.define do
               "description" => "Model to use"
             }
           },
-          "required" => ["model"]
+          "required" => [ "model" ]
         }
       end
       default_parameters do
@@ -273,7 +273,7 @@ FactoryBot.define do
       slug { "anthropic" }
       provider_type { "anthropic" }
       api_base_url { "https://api.anthropic.com/v1" }
-      capabilities { ["text_generation", "chat"] }
+      capabilities { [ "text_generation", "chat" ] }
       supports_streaming { true }
       supports_vision { true }
       documentation_url { "https://docs.anthropic.com/" }
@@ -310,11 +310,11 @@ FactoryBot.define do
             },
             "model" => {
               "type" => "string",
-              "enum" => ["claude-3-sonnet-20240229", "claude-3-opus-20240229", "claude-3-haiku-20240307"],
+              "enum" => [ "claude-3-sonnet-20240229", "claude-3-opus-20240229", "claude-3-haiku-20240307" ],
               "description" => "Model to use"
             }
           },
-          "required" => ["api_key", "model"]
+          "required" => [ "api_key", "model" ]
         }
       end
       default_parameters do
@@ -334,7 +334,7 @@ FactoryBot.define do
     # Additional provider traits for expanded functionality
     trait :image_generation do
       provider_type { "custom" }
-      capabilities { ["image_generation"] }
+      capabilities { [ "image_generation" ] }
       supported_models do
         [
           {
@@ -349,7 +349,7 @@ FactoryBot.define do
 
     trait :embedding do
       provider_type { "custom" }
-      capabilities { ["text_embedding", "code_embedding"] }
+      capabilities { [ "text_embedding", "code_embedding" ] }
       supported_models do
         [
           {

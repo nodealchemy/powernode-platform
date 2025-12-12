@@ -30,7 +30,7 @@ module Timestampable
     if has_created_at? && created_at.blank?
       self.created_at = Time.current
     end
-    
+
     if has_updated_at? && updated_at.blank?
       self.updated_at = Time.current
     end

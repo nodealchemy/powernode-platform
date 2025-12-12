@@ -34,9 +34,9 @@ class EmailDelivery < ApplicationRecord
   serialize :template_data, coder: JSON
 
   # Scopes
-  scope :sent, -> { where(status: 'sent') }
-  scope :failed, -> { where(status: 'failed') }
-  scope :pending, -> { where(status: 'pending') }
+  scope :sent, -> { where(status: "sent") }
+  scope :failed, -> { where(status: "failed") }
+  scope :pending, -> { where(status: "pending") }
   scope :by_email_type, ->(type) { where(email_type: type) }
   scope :by_recipient, ->(email) { where(recipient_email: email) }
   scope :recent, -> { order(created_at: :desc) }
@@ -52,11 +52,11 @@ class EmailDelivery < ApplicationRecord
     state :retry
 
     event :mark_sent do
-      transitions from: [:pending, :retry], to: :sent
+      transitions from: [ :pending, :retry ], to: :sent
     end
 
     event :mark_failed do
-      transitions from: [:pending, :retry, :sent], to: :failed
+      transitions from: [ :pending, :retry, :sent ], to: :failed
     end
 
     event :mark_retry do
@@ -79,7 +79,7 @@ class EmailDelivery < ApplicationRecord
 
   def record_sent!(message_id = nil)
     update!(
-      status: 'sent',
+      status: "sent",
       message_id: message_id,
       sent_at: Time.current,
       error_message: nil
@@ -88,7 +88,7 @@ class EmailDelivery < ApplicationRecord
 
   def record_failure!(error_message)
     update!(
-      status: 'failed',
+      status: "failed",
       failed_at: Time.current,
       error_message: error_message
     )
@@ -96,7 +96,7 @@ class EmailDelivery < ApplicationRecord
 
   def delivery_time
     return nil unless sent_at && created_at
-    
+
     (sent_at - created_at).round(2)
   end
 
@@ -104,7 +104,7 @@ class EmailDelivery < ApplicationRecord
   class << self
     def delivery_stats(account: nil, days: 7)
       scope = account ? account.email_deliveries : all
-      scope = scope.where('created_at >= ?', days.days.ago)
+      scope = scope.where("created_at >= ?", days.days.ago)
 
       {
         total: scope.count,
@@ -118,11 +118,11 @@ class EmailDelivery < ApplicationRecord
     end
 
     def cleanup_old_deliveries(days_old = 90)
-      where('created_at < ?', days_old.days_ago).delete_all
+      where("created_at < ?", days_old.days_ago).delete_all
     end
 
     def retry_failed_deliveries(max_retries = 3)
-      failed.where('retry_count < ?', max_retries).find_each(&:mark_retry!)
+      failed.where("retry_count < ?", max_retries).find_each(&:mark_retry!)
     end
   end
 

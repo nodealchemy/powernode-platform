@@ -7,7 +7,7 @@ require_relative '../config/environment'
 puts "🧹 Cleaning up complex AI providers..."
 
 # Remove complex providers
-complex_slugs = ['multimodal-ai', 'local-code-assistant', 'ai-api-gateway']
+complex_slugs = [ 'multimodal-ai', 'local-code-assistant', 'ai-api-gateway' ]
 
 complex_providers = AiProvider.where(slug: complex_slugs)
 

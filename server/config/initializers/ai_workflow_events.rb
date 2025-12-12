@@ -59,7 +59,7 @@ if Rails.env.development? || Rails.env.test?
           AiWorkflowEventDispatcherService.instance.dispatch_event(
             event_type,
             data.merge({ test: true, generated_at: Time.current.iso8601 }),
-            { source: 'development_console' }
+            { source: "development_console" }
           )
         end
 
@@ -95,27 +95,27 @@ if Rails.env.production?
     namespace :api do
       namespace :v1 do
         namespace :admin do
-          get 'ai_workflow_events/health', to: proc {
+          get "ai_workflow_events/health", to: proc {
             begin
               status = AiWorkflowEventDispatcherService.instance.health_status
               trigger_status = AiWorkflowTriggerService.instance.status
 
               health_data = {
-                status: 'healthy',
+                status: "healthy",
                 event_dispatcher: status,
                 trigger_service: trigger_status,
                 checked_at: Time.current.iso8601
               }
 
-              [200, { 'Content-Type' => 'application/json' }, [health_data.to_json]]
+              [ 200, { "Content-Type" => "application/json" }, [ health_data.to_json ] ]
             rescue => e
               error_data = {
-                status: 'unhealthy',
+                status: "unhealthy",
                 error: e.message,
                 checked_at: Time.current.iso8601
               }
 
-              [500, { 'Content-Type' => 'application/json' }, [error_data.to_json]]
+              [ 500, { "Content-Type" => "application/json" }, [ error_data.to_json ] ]
             end
           }
         end

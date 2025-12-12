@@ -16,7 +16,7 @@ RSpec.describe AiErrorRecoveryService, type: :service do
   before do
     credential # Ensure credential is created
   end
-  
+
   describe '#initialize' do
     it 'initializes with account and execution context' do
       expect(service.instance_variable_get(:@account)).to eq(account)
@@ -24,21 +24,21 @@ RSpec.describe AiErrorRecoveryService, type: :service do
       expect(service.instance_variable_get(:@max_recovery_attempts)).to eq(10)
     end
   end
-  
+
   describe '#execute_with_recovery' do
     let(:request_type) { 'text_generation' }
     let(:options) { { model: 'gpt-3.5-turbo', max_tokens: 100 } }
-    
+
     context 'when execution succeeds on first attempt' do
       it 'executes successfully without recovery' do
         allow(service).to receive(:execute_request).and_return({ success: true, result: 'Success' })
-        
+
         result = service.execute_with_recovery(provider, request_type, **options) { |p, opts| 'success' }
-        
+
         expect(result).to eq({ success: true, result: 'Success' })
       end
     end
-    
+
     context 'when execution fails with recoverable error' do
       before do
         # First call fails, second call succeeds
@@ -51,47 +51,47 @@ RSpec.describe AiErrorRecoveryService, type: :service do
             { success: true, result: 'Success after retry' }
           end
         end
-        
+
         allow(service).to receive(:classify_error).and_return(:rate_limit)
         allow(service).to receive(:should_retry?).and_return(true, false)
         allow(service).to receive(:calculate_backoff).and_return(0.1)
         allow(service).to receive(:record_successful_recovery)
       end
-      
+
       it 'retries and eventually succeeds' do
         result = service.execute_with_recovery(provider, request_type, **options) { |p, opts| 'success' }
-        
+
         expect(result).to eq({ success: true, result: 'Success after retry' })
         expect(service).to have_received(:record_successful_recovery).once
       end
     end
-    
+
     context 'when execution fails with fallback strategy' do
       let(:alternative_provider) { create(:ai_provider, account: account) }
-      
+
       before do
         create(:ai_provider_credential, ai_provider: alternative_provider, is_active: true)
-        
+
         allow(service).to receive(:execute_request).with(provider, anything, anything)
           .and_raise(StandardError.new('Authentication failed'))
         allow(service).to receive(:execute_request).with(alternative_provider, anything, anything)
           .and_return({ success: true, result: 'Success with fallback' })
-        
+
         allow(service).to receive(:classify_error).and_return(:authentication)
         allow(service).to receive(:should_retry?).and_return(false)
         allow(service).to receive(:should_fallback?).and_return(true)
         allow(service).to receive(:apply_fallback_strategy).and_return(alternative_provider)
         allow(service).to receive(:record_successful_recovery)
       end
-      
+
       it 'switches to alternative provider' do
         result = service.execute_with_recovery(provider, request_type, **options) { |p, opts| 'success' }
-        
+
         expect(result).to eq({ success: true, result: 'Success with fallback' })
         expect(service).to have_received(:apply_fallback_strategy)
       end
     end
-    
+
     context 'when all recovery attempts fail' do
       before do
         allow(service).to receive(:execute_request)
@@ -101,77 +101,77 @@ RSpec.describe AiErrorRecoveryService, type: :service do
         allow(service).to receive(:should_fallback?).and_return(false)
         allow(service).to receive(:record_recovery_failure)
       end
-      
+
       it 'raises RecoveryFailedError' do
         expect {
           service.execute_with_recovery(provider, request_type, **options) { |p, opts| 'fail' }
         }.to raise_error(AiErrorRecoveryService::RecoveryFailedError)
-        
+
         expect(service).to have_received(:record_recovery_failure)
       end
     end
   end
-  
+
   describe '#classify_error' do
     it 'correctly classifies rate limit errors' do
       error = StandardError.new('Rate limit exceeded')
       expect(service.send(:classify_error, error)).to eq(:rate_limit)
     end
-    
+
     it 'correctly classifies timeout errors' do
       error = StandardError.new('Request timed out')
       expect(service.send(:classify_error, error)).to eq(:timeout)
     end
-    
+
     it 'correctly classifies authentication errors' do
       error = StandardError.new('Unauthorized access')
       expect(service.send(:classify_error, error)).to eq(:authentication)
     end
-    
+
     it 'defaults to server_error for unknown errors' do
       error = StandardError.new('Some unknown error')
       expect(service.send(:classify_error, error)).to eq(:server_error)
     end
   end
-  
+
   describe '#should_retry?' do
     it 'returns true for retryable errors within limit' do
       expect(service.send(:should_retry?, :rate_limit, 3)).to be true
     end
-    
+
     it 'returns false for retryable errors exceeding limit' do
       expect(service.send(:should_retry?, :rate_limit, 6)).to be false
     end
-    
+
     it 'returns false for non-retryable errors' do
       expect(service.send(:should_retry?, :authentication, 1)).to be false
     end
   end
-  
+
   describe '#calculate_backoff' do
     it 'calculates exponential backoff' do
       expect(service.send(:calculate_backoff, :exponential, 1)).to eq(2)
       expect(service.send(:calculate_backoff, :exponential, 2)).to eq(4)
       expect(service.send(:calculate_backoff, :exponential, 10)).to eq(60) # max
     end
-    
+
     it 'calculates linear backoff' do
       expect(service.send(:calculate_backoff, :linear, 3)).to eq(6)
       expect(service.send(:calculate_backoff, :linear, 20)).to eq(30) # max
     end
-    
+
     it 'returns fixed backoff' do
       expect(service.send(:calculate_backoff, :fixed, 5)).to eq(5)
     end
   end
-  
+
   describe '#switch_to_alternative_provider' do
     let(:alternative_provider) { create_ai_provider_with_credentials(account, slug: 'alternative') }
 
     context 'when alternatives are available' do
       before do
         alternative_provider # Ensure it's created
-        stub_load_balancer(account, providers: [provider, alternative_provider])
+        stub_load_balancer(account, providers: [ provider, alternative_provider ])
         stub_circuit_breaker(alternative_provider, available: true)
       end
 
@@ -185,7 +185,7 @@ RSpec.describe AiErrorRecoveryService, type: :service do
 
     context 'when no alternatives available' do
       before do
-        stub_load_balancer(account, providers: [provider])
+        stub_load_balancer(account, providers: [ provider ])
       end
 
       it 'returns nil when no alternatives found' do
@@ -196,7 +196,7 @@ RSpec.describe AiErrorRecoveryService, type: :service do
       end
     end
   end
-  
+
   describe '#get_recovery_stats' do
     before do
       allow(redis_mock).to receive(:hgetall)
@@ -207,20 +207,20 @@ RSpec.describe AiErrorRecoveryService, type: :service do
           'recovered_executions' => '8',
           'avg_recovery_time' => '2.5'
         })
-      
+
       allow(service).to receive(:get_common_error_types).and_return([
         { type: 'rate_limit', count: 5 },
         { type: 'timeout', count: 3 }
       ])
-      
+
       allow(service).to receive(:get_provider_reliability_stats).and_return([
         { id: provider.id, name: provider.name, success_rate: 95.0 }
       ])
     end
-    
+
     it 'returns comprehensive recovery statistics' do
       stats = service.get_recovery_stats
-      
+
       expect(stats[:total_executions]).to eq(100)
       expect(stats[:failed_executions]).to eq(10)
       expect(stats[:recovered_executions]).to eq(8)
@@ -230,7 +230,7 @@ RSpec.describe AiErrorRecoveryService, type: :service do
       expect(stats[:provider_reliability]).to be_an(Array)
     end
   end
-  
+
   describe '#reset_recovery_stats' do
     it 'clears recovery statistics from Redis' do
       expect(redis_mock).to receive(:del).with(
@@ -249,7 +249,7 @@ RSpec.describe AiErrorRecoveryService, type: :service do
 
   describe 'comprehensive error classification' do
     it 'classifies rate limit errors' do
-      ['Rate limit exceeded', 'Too many requests', '429 error'].each do |message|
+      [ 'Rate limit exceeded', 'Too many requests', '429 error' ].each do |message|
         error = StandardError.new(message)
         expect(service.send(:classify_error, error)).to eq(:rate_limit),
           "Expected '#{message}' to classify as :rate_limit"
@@ -257,7 +257,7 @@ RSpec.describe AiErrorRecoveryService, type: :service do
     end
 
     it 'classifies timeout errors' do
-      ['Request timed out', 'Connection timeout'].each do |message|
+      [ 'Request timed out', 'Connection timeout' ].each do |message|
         error = StandardError.new(message)
         expect(service.send(:classify_error, error)).to eq(:timeout),
           "Expected '#{message}' to classify as :timeout"
@@ -265,7 +265,7 @@ RSpec.describe AiErrorRecoveryService, type: :service do
     end
 
     it 'classifies authentication errors' do
-      ['Unauthorized', 'Authentication failed', '401 error'].each do |message|
+      [ 'Unauthorized', 'Authentication failed', '401 error' ].each do |message|
         error = StandardError.new(message)
         expect(service.send(:classify_error, error)).to eq(:authentication),
           "Expected '#{message}' to classify as :authentication"
@@ -273,7 +273,7 @@ RSpec.describe AiErrorRecoveryService, type: :service do
     end
 
     it 'classifies quota exceeded errors' do
-      ['Quota exceeded', 'Billing issue', 'Payment required'].each do |message|
+      [ 'Quota exceeded', 'Billing issue', 'Payment required' ].each do |message|
         error = StandardError.new(message)
         expect(service.send(:classify_error, error)).to eq(:quota_exceeded),
           "Expected '#{message}' to classify as :quota_exceeded"
@@ -281,7 +281,7 @@ RSpec.describe AiErrorRecoveryService, type: :service do
     end
 
     it 'classifies model unavailable errors' do
-      ['Model not available', 'Model is unavailable'].each do |message|
+      [ 'Model not available', 'Model is unavailable' ].each do |message|
         error = StandardError.new(message)
         expect(service.send(:classify_error, error)).to eq(:model_unavailable),
           "Expected '#{message}' to classify as :model_unavailable"
@@ -289,7 +289,7 @@ RSpec.describe AiErrorRecoveryService, type: :service do
     end
 
     it 'classifies network errors' do
-      ['Network error', 'Connection refused', 'DNS resolution failed'].each do |message|
+      [ 'Network error', 'Connection refused', 'DNS resolution failed' ].each do |message|
         error = StandardError.new(message)
         expect(service.send(:classify_error, error)).to eq(:network_error),
           "Expected '#{message}' to classify as :network_error"
@@ -297,8 +297,8 @@ RSpec.describe AiErrorRecoveryService, type: :service do
     end
 
     it 'classifies server errors' do
-      ['Server error', '500 Internal Server Error', '502 Bad Gateway',
-       '503 Service Unavailable'].each do |message|
+      [ 'Server error', '500 Internal Server Error', '502 Bad Gateway',
+       '503 Service Unavailable' ].each do |message|
         error = StandardError.new(message)
         expect(service.send(:classify_error, error)).to eq(:server_error),
           "Expected '#{message}' to classify as :server_error"
@@ -311,7 +311,7 @@ RSpec.describe AiErrorRecoveryService, type: :service do
     end
 
     it 'classifies validation errors' do
-      ['Validation failed', 'Invalid request', 'Bad request', '400 error'].each do |message|
+      [ 'Validation failed', 'Invalid request', 'Bad request', '400 error' ].each do |message|
         error = StandardError.new(message)
         expect(service.send(:classify_error, error)).to eq(:validation_error),
           "Expected '#{message}' to classify as :validation_error"
@@ -544,7 +544,7 @@ RSpec.describe AiErrorRecoveryService, type: :service do
       openai_provider = create(:ai_provider, slug: 'openai')
       alternatives = service.send(:get_alternative_models, openai_provider, 'gpt-4')
 
-      expect(alternatives).to eq(['gpt-3.5-turbo'])
+      expect(alternatives).to eq([ 'gpt-3.5-turbo' ])
       expect(alternatives).not_to include('gpt-4')
     end
 
@@ -552,7 +552,7 @@ RSpec.describe AiErrorRecoveryService, type: :service do
       anthropic_provider = create(:ai_provider, slug: 'anthropic')
       alternatives = service.send(:get_alternative_models, anthropic_provider, 'claude-3-sonnet-20240229')
 
-      expect(alternatives).to eq(['claude-3-haiku-20240307'])
+      expect(alternatives).to eq([ 'claude-3-haiku-20240307' ])
       expect(alternatives).not_to include('claude-3-sonnet-20240229')
     end
 
@@ -751,7 +751,7 @@ RSpec.describe AiErrorRecoveryService, type: :service do
     before do
       alternative_provider # Ensure it's created
 
-      allow(account.ai_providers).to receive(:active).and_return([provider, alternative_provider])
+      allow(account.ai_providers).to receive(:active).and_return([ provider, alternative_provider ])
 
       # Stub circuit breakers with different states
       cb1 = stub_circuit_breaker(provider, available: true)
@@ -761,7 +761,7 @@ RSpec.describe AiErrorRecoveryService, type: :service do
       allow(cb2).to receive(:circuit_state).and_return(:half_open)
 
       # Stub load balancer with different stats for each provider
-      load_balancer = stub_load_balancer(account, providers: [provider, alternative_provider])
+      load_balancer = stub_load_balancer(account, providers: [ provider, alternative_provider ])
       allow(load_balancer).to receive(:send).with(:get_provider_success_rate, provider).and_return(98.5)
       allow(load_balancer).to receive(:send).with(:get_provider_success_rate, alternative_provider).and_return(85.0)
       allow(load_balancer).to receive(:send).with(:get_provider_avg_response_time, provider).and_return(250.0)

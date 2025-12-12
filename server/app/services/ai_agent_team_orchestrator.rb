@@ -36,30 +36,30 @@ class AiAgentTeamOrchestrator
     begin
       # Route to appropriate execution strategy based on team type
       result = case team.team_type
-               when 'sequential'
+      when "sequential"
                  execute_sequential
-               when 'parallel'
+      when "parallel"
                  execute_parallel
-               when 'hierarchical'
+      when "hierarchical"
                  execute_hierarchical
-               when 'mesh'
+      when "mesh"
                  execute_mesh
-               else
+      else
                  raise ExecutionError, "Unknown team type: #{team.team_type}"
-               end
+      end
 
-      finalize_execution(result, 'completed')
+      finalize_execution(result, "completed")
       result
     rescue StandardError => e
       @logger.error "[TeamOrchestrator] Team execution failed: #{e.message}"
-      finalize_execution({ error: e.message }, 'failed')
+      finalize_execution({ error: e.message }, "failed")
       raise
     end
   end
 
   # Get execution status
   def execution_status
-    return { status: 'not_started' } unless @workflow_run
+    return { status: "not_started" } unless @workflow_run
 
     {
       status: @workflow_run.status,
@@ -90,10 +90,10 @@ class AiAgentTeamOrchestrator
 
       # Prepare input (first member gets original input, others get previous output)
       member_input = if member.priority_order.zero?
-                       read_team_context('original_input')
-                     else
+                       read_team_context("original_input")
+      else
                        accumulated_output
-                     end
+      end
 
       # Execute member
       result = execute_member(member, member_input)
@@ -108,7 +108,7 @@ class AiAgentTeamOrchestrator
     {
       success: true,
       output: accumulated_output,
-      execution_type: 'sequential',
+      execution_type: "sequential",
       members_executed: members.count
     }
   end
@@ -118,7 +118,7 @@ class AiAgentTeamOrchestrator
     @logger.info "[TeamOrchestrator] Parallel execution started"
 
     members = team.ai_agent_team_members.includes(:ai_agent) # Preload for thread safety
-    original_input = read_team_context('original_input')
+    original_input = read_team_context("original_input")
 
     # Execute all members in parallel (simulated with threads)
     results = members.map do |member|
@@ -134,7 +134,7 @@ class AiAgentTeamOrchestrator
     {
       success: true,
       output: aggregated_output,
-      execution_type: 'parallel',
+      execution_type: "parallel",
       members_executed: members.count,
       individual_results: results
     }
@@ -150,7 +150,7 @@ class AiAgentTeamOrchestrator
     workers = team.ai_agent_team_members.non_leads.by_priority
 
     # Lead analyzes input and creates work plan
-    original_input = read_team_context('original_input')
+    original_input = read_team_context("original_input")
     work_plan = create_work_plan(lead, original_input, workers)
 
     # Lead delegates tasks to workers
@@ -187,7 +187,7 @@ class AiAgentTeamOrchestrator
     {
       success: true,
       output: final_result,
-      execution_type: 'hierarchical',
+      execution_type: "hierarchical",
       lead: lead.ai_agent_name,
       workers_executed: worker_results.count
     }
@@ -198,14 +198,14 @@ class AiAgentTeamOrchestrator
     @logger.info "[TeamOrchestrator] Mesh execution started"
 
     members = team.ai_agent_team_members.includes(:ai_agent) # Preload for thread safety
-    original_input = read_team_context('original_input')
+    original_input = read_team_context("original_input")
 
     # Create blackboard for collaboration
     blackboard = @communication_hub.create_context_pool(
       owner_agent_id: members.first.ai_agent_id,
-      pool_type: 'blackboard',
-      scope: 'agent_group', # Team is conceptually an agent_group
-      initial_data: { 'contributions' => [], 'problem' => original_input }
+      pool_type: "blackboard",
+      scope: "agent_group", # Team is conceptually an agent_group
+      initial_data: { "contributions" => [], "problem" => original_input }
     )
 
     # Grant access to all team members (required for blackboard collaboration)
@@ -249,7 +249,7 @@ class AiAgentTeamOrchestrator
     {
       success: true,
       output: aggregate_mesh_contributions(final_blackboard[:contributions]),
-      execution_type: 'mesh',
+      execution_type: "mesh",
       members_executed: members.count,
       contributions: final_blackboard[:contributions]
     }
@@ -273,33 +273,33 @@ class AiAgentTeamOrchestrator
       creator_id: user.id
     ) do |w|
       w.description = "Auto-generated workflow for team #{team.name}"
-      w.status = 'active'
-      w.configuration = { 'team_execution' => true }
+      w.status = "active"
+      w.configuration = { "team_execution" => true }
       w.metadata = {
-        'team_id' => team.id,
-        'team_type' => team.team_type,
-        'auto_generated' => true
+        "team_id" => team.id,
+        "team_type" => team.team_type,
+        "auto_generated" => true
       }
     end
 
     workflow.ai_workflow_runs.create!(
       account_id: team.account_id,
       run_id: "team_#{team.id}_#{SecureRandom.hex(8)}",
-      status: 'running',
-      trigger_type: 'manual',
+      status: "running",
+      trigger_type: "manual",
       triggered_by_user_id: user.id,
       started_at: Time.current,
       input_variables: {
-        'team_id' => team.id,
-        'team_name' => team.name,
-        'input' => input,
-        'context' => context
+        "team_id" => team.id,
+        "team_name" => team.name,
+        "input" => input,
+        "context" => context
       },
       metadata: {
-        'team_type' => team.team_type,
-        'coordination_strategy' => team.coordination_strategy,
-        'member_count' => team.ai_agent_team_members.count,
-        'orchestrator' => 'team_orchestrator'
+        "team_type" => team.team_type,
+        "coordination_strategy" => team.coordination_strategy,
+        "member_count" => team.ai_agent_team_members.count,
+        "orchestrator" => "team_orchestrator"
       }
     )
   end
@@ -307,13 +307,13 @@ class AiAgentTeamOrchestrator
   def setup_team_context(input, context)
     @communication_hub.create_context_pool(
       owner_agent_id: team.ai_agent_team_members.first&.ai_agent_id,
-      pool_type: 'shared_memory',
-      scope: 'agent_group',  # Team is an agent_group
+      pool_type: "shared_memory",
+      scope: "agent_group",  # Team is an agent_group
       initial_data: {
-        'team_id' => team.id,
-        'original_input' => input,
-        'context' => context,
-        'started_at' => Time.current.iso8601
+        "team_id" => team.id,
+        "original_input" => input,
+        "context" => context,
+        "started_at" => Time.current.iso8601
       }
     )
   end
@@ -382,7 +382,7 @@ class AiAgentTeamOrchestrator
   def aggregate_mesh_contributions(contributions)
     {
       collaborative_result: true,
-      contributions: contributions.map { |c| c['contribution'] },
+      contributions: contributions.map { |c| c["contribution"] },
       contributor_count: contributions.count
     }
   end
@@ -418,13 +418,13 @@ class AiAgentTeamOrchestrator
     }
 
     # Add error_details for failed runs (required by validation)
-    if status == 'failed'
-      update_params[:error_details] = result[:error] || 'Unknown error occurred during team execution'
+    if status == "failed"
+      update_params[:error_details] = result[:error] || "Unknown error occurred during team execution"
     end
 
     @workflow_run.update!(update_params)
 
-    write_team_context('final_result', result)
-    write_team_context('completed_at', Time.current.iso8601)
+    write_team_context("final_result", result)
+    write_team_context("completed_at", Time.current.iso8601)
   end
 end

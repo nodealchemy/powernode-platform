@@ -3,7 +3,7 @@
 module Api
   module V1
     class PluginInstallationsController < ApplicationController
-      before_action :set_installation, only: [:show, :update, :activate, :deactivate, :configure]
+      before_action :set_installation, only: [ :show, :update, :activate, :deactivate, :configure ]
 
       # GET /api/v1/plugin_installations
       def index
@@ -17,10 +17,10 @@ module Api
         render_success(
           installations: installations.as_json(
             include: {
-              plugin: { only: [:id, :plugin_id, :name, :version, :plugin_types] },
-              installed_by: { only: [:id, :email, :full_name] }
+              plugin: { only: [ :id, :plugin_id, :name, :version, :plugin_types ] },
+              installed_by: { only: [ :id, :email, :full_name ] }
             },
-            methods: [:execution_count, :total_cost]
+            methods: [ :execution_count, :total_cost ]
           )
         )
       end
@@ -36,9 +36,9 @@ module Api
                   workflow_node_plugins: {}
                 }
               },
-              installed_by: { only: [:id, :email, :full_name] }
+              installed_by: { only: [ :id, :email, :full_name ] }
             },
-            methods: [:execution_count, :total_cost]
+            methods: [ :execution_count, :total_cost ]
           )
         )
       end
@@ -48,7 +48,7 @@ module Api
         if @installation.update(installation_params)
           render_success(
             installation: @installation.as_json,
-            message: 'Installation updated successfully'
+            message: "Installation updated successfully"
           )
         else
           render_validation_error(@installation.errors)
@@ -60,7 +60,7 @@ module Api
         @installation.activate!
         render_success(
           installation: @installation.as_json,
-          message: 'Plugin activated successfully'
+          message: "Plugin activated successfully"
         )
       rescue StandardError => e
         render_error("Activation failed: #{e.message}", status: :unprocessable_content)
@@ -71,7 +71,7 @@ module Api
         @installation.deactivate!
         render_success(
           installation: @installation.as_json,
-          message: 'Plugin deactivated successfully'
+          message: "Plugin deactivated successfully"
         )
       rescue StandardError => e
         render_error("Deactivation failed: #{e.message}", status: :unprocessable_content)
@@ -84,7 +84,7 @@ module Api
 
         render_success(
           installation: @installation.reload.as_json,
-          message: 'Plugin configuration updated successfully'
+          message: "Plugin configuration updated successfully"
         )
       rescue StandardError => e
         render_error("Configuration update failed: #{e.message}", status: :unprocessable_content)
@@ -96,12 +96,12 @@ module Api
         credential_value = params[:credential_value]
 
         if credential_key.blank? || credential_value.blank?
-          return render_error('Credential key and value are required', status: :unprocessable_content)
+          return render_error("Credential key and value are required", status: :unprocessable_content)
         end
 
         @installation.set_credential(credential_key, credential_value)
 
-        render_success(message: 'Credential set successfully')
+        render_success(message: "Credential set successfully")
       rescue StandardError => e
         render_error("Failed to set credential: #{e.message}", status: :unprocessable_content)
       end
@@ -111,7 +111,7 @@ module Api
       def set_installation
         @installation = current_account.plugin_installations.find(params[:id])
       rescue ActiveRecord::RecordNotFound
-        render_not_found('Installation not found')
+        render_not_found("Installation not found")
       end
 
       def installation_params
@@ -122,7 +122,8 @@ module Api
       end
 
       def configuration_params
-        params.require(:configuration).permit!.to_h
+        # Plugin configurations have dynamic schemas defined by each plugin
+        params.require(:configuration).to_unsafe_h
       end
     end
   end

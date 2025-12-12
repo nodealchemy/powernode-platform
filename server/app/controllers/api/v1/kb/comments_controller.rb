@@ -1,15 +1,15 @@
 # frozen_string_literal: true
 
 class Api::V1::Kb::CommentsController < ApplicationController
-  skip_before_action :authenticate_request, only: [:index, :show]
-  before_action :authenticate_user!, only: [:create]
-  before_action :set_article, only: [:index, :create]
-  before_action :set_comment, only: [:show, :approve, :reject, :spam, :destroy, :moderate]
-  before_action :authorize_kb_moderate, only: [:approve, :reject, :spam, :destroy, :moderate]
+  skip_before_action :authenticate_request, only: [ :index, :show ]
+  before_action :authenticate_user!, only: [ :create ]
+  before_action :set_article, only: [ :index, :create ]
+  before_action :set_comment, only: [ :show, :approve, :reject, :spam, :destroy, :moderate ]
+  before_action :authorize_kb_moderate, only: [ :approve, :reject, :spam, :destroy, :moderate ]
 
   # GET /api/v1/kb/articles/:article_id/comments
   def index
-    return render_error('Article not found', status: :not_found) unless @article
+    return render_error("Article not found", status: :not_found) unless @article
 
     comments = @article.comments.approved.top_level
       .includes(:author, :replies)
@@ -27,8 +27,8 @@ class Api::V1::Kb::CommentsController < ApplicationController
 
   # POST /api/v1/kb/articles/:article_id/comments
   def create
-    return render_error('Article not found', status: :not_found) unless @article
-    return render_error('Access denied', status: :forbidden) unless @article.viewable_by?(current_user)
+    return render_error("Article not found", status: :not_found) unless @article
+    return render_error("Access denied", status: :forbidden) unless @article.viewable_by?(current_user)
 
     comment = @article.comments.build(comment_params)
     comment.author = current_user
@@ -42,7 +42,7 @@ class Api::V1::Kb::CommentsController < ApplicationController
 
   # GET /api/v1/kb/comments/:id
   def show
-    return render_error('Comment not found', status: :not_found) unless @comment&.approved?
+    return render_error("Comment not found", status: :not_found) unless @comment&.approved?
 
     render_success(serialize_comment_with_replies(@comment))
   end
@@ -58,45 +58,45 @@ class Api::V1::Kb::CommentsController < ApplicationController
       comments: comments.map { |comment| serialize_comment_admin(comment) },
       pagination: pagination_meta(comments),
       stats: calculate_comment_stats
-    }, 'Comments retrieved for moderation')
+    }, "Comments retrieved for moderation")
   end
 
   # POST /api/v1/kb/comments/:id/approve
   def approve
-    return render_error('Comment not found', status: :not_found) unless @comment
+    return render_error("Comment not found", status: :not_found) unless @comment
 
     @comment.approve!
     render_success({
       comment: serialize_comment_admin(@comment)
-    }, 'Comment approved successfully')
+    }, "Comment approved successfully")
   end
 
   # POST /api/v1/kb/comments/:id/reject
   def reject
-    return render_error('Comment not found', status: :not_found) unless @comment
+    return render_error("Comment not found", status: :not_found) unless @comment
 
     @comment.reject!
     render_success({
       comment: serialize_comment_admin(@comment)
-    }, 'Comment rejected successfully')
+    }, "Comment rejected successfully")
   end
 
   # POST /api/v1/kb/comments/:id/spam
   def spam
-    return render_error('Comment not found', status: :not_found) unless @comment
+    return render_error("Comment not found", status: :not_found) unless @comment
 
     @comment.mark_as_spam!
     render_success({
       comment: serialize_comment_admin(@comment)
-    }, 'Comment marked as spam successfully')
+    }, "Comment marked as spam successfully")
   end
 
   # DELETE /api/v1/kb/comments/:id
   def destroy
-    return render_error('Comment not found', status: :not_found) unless @comment
+    return render_error("Comment not found", status: :not_found) unless @comment
 
     @comment.destroy
-    render_success(message: 'Comment deleted successfully')
+    render_success(message: "Comment deleted successfully")
   end
 
   private
@@ -110,24 +110,24 @@ class Api::V1::Kb::CommentsController < ApplicationController
   end
 
   def can_moderate_kb?
-    current_user&.has_permission?('kb.moderate') || 
-    current_user&.has_permission?('kb.manage')
+    current_user&.has_permission?("kb.moderate") ||
+    current_user&.has_permission?("kb.manage")
   end
 
   def authorize_kb_moderate
-    return render_error('Access denied', status: :forbidden) unless can_moderate_kb?
+    render_error("Access denied", status: :forbidden) unless can_moderate_kb?
   end
 
   def apply_admin_filters(comments)
     comments = comments.where(status: params[:status]) if params[:status].present?
     comments = comments.where(article_id: params[:article_id]) if params[:article_id].present?
     comments = comments.where(user_id: params[:user_id]) if params[:user_id].present?
-    comments = comments.where('content ILIKE ?', "%#{params[:search]}%") if params[:search].present?
+    comments = comments.where("content ILIKE ?", "%#{params[:search]}%") if params[:search].present?
 
     case params[:sort]
-    when 'oldest'
+    when "oldest"
       comments.order(:created_at)
-    when 'likes'
+    when "likes"
       comments.order(likes_count: :desc)
     else
       comments.recent
@@ -159,7 +159,7 @@ class Api::V1::Kb::CommentsController < ApplicationController
   def serialize_comment_admin(comment)
     {
       id: comment.id,
-      content: comment.content[0..200] + (comment.content.length > 200 ? '...' : ''),
+      content: comment.content[0..200] + (comment.content.length > 200 ? "..." : ""),
       status: comment.status,
       user_name: comment.author.full_name,
       user_email: comment.author.email,
@@ -179,8 +179,8 @@ class Api::V1::Kb::CommentsController < ApplicationController
       total: KnowledgeBaseComment.count,
       pending: KnowledgeBaseComment.pending.count,
       approved: KnowledgeBaseComment.approved.count,
-      rejected: KnowledgeBaseComment.where(status: 'rejected').count,
-      spam: KnowledgeBaseComment.where(status: 'spam').count
+      rejected: KnowledgeBaseComment.where(status: "rejected").count,
+      spam: KnowledgeBaseComment.where(status: "spam").count
     }
   end
 

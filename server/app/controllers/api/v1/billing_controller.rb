@@ -45,7 +45,7 @@ class Api::V1::BillingController < ApplicationController
 
     result = processor.attach_payment_method(
       payment_method_id: params[:payment_method_id],
-      provider: params[:provider] || 'stripe'
+      provider: params[:provider] || "stripe"
     )
 
     if result[:success]
@@ -73,7 +73,7 @@ class Api::V1::BillingController < ApplicationController
 
     result = processor.create_payment_intent(
       amount_cents: params[:amount_cents].to_i,
-      currency: params[:currency] || 'USD',
+      currency: params[:currency] || "USD",
       description: params[:description]
     )
 
@@ -91,11 +91,11 @@ class Api::V1::BillingController < ApplicationController
 
   def invoices
     page = params[:page]&.to_i || 1
-    per_page = [params[:per_page]&.to_i || 20, 100].min
-    
+    per_page = [ params[:per_page]&.to_i || 20, 100 ].min
+
     invoices_query = current_account.invoices.includes(:invoice_line_items)
                                              .order(created_at: :desc)
-    
+
     total_count = invoices_query.count
     invoices = invoices_query.limit(per_page).offset((page - 1) * per_page)
 
@@ -127,8 +127,8 @@ class Api::V1::BillingController < ApplicationController
 
   def create_invoice
     invoice = current_account.invoices.build(invoice_params)
-    invoice.status = 'draft'
-    
+    invoice.status = "draft"
+
     if invoice.save
       # Add line items if provided
       if params[:line_items].present?
@@ -139,7 +139,7 @@ class Api::V1::BillingController < ApplicationController
             unit_amount_cents: (line_item_params[:unit_price].to_f * 100).to_i
           )
         end
-        
+
         invoice.calculate_totals
       end
 
@@ -160,9 +160,9 @@ class Api::V1::BillingController < ApplicationController
 
   def subscription_billing
     subscription = current_account.subscription
-    
+
     if subscription.blank?
-      render_error('No active subscription', status: :not_found)
+      render_error("No active subscription", status: :not_found)
       return
     end
 
@@ -191,7 +191,7 @@ class Api::V1::BillingController < ApplicationController
   private
 
   def outstanding_amount
-    current_account.invoices.where(status: ['sent', 'overdue']).sum(:total_cents)
+    current_account.invoices.where(status: [ "sent", "overdue" ]).sum(:total_cents)
   end
 
   def this_month_amount
@@ -201,14 +201,14 @@ class Api::V1::BillingController < ApplicationController
   end
 
   def all_time_collected
-    current_account.payments.where(status: 'succeeded').sum(:amount_cents)
+    current_account.payments.where(status: "succeeded").sum(:amount_cents)
   end
 
   def payment_success_rate
     total_payments = current_account.payments.count
     return 0 if total_payments.zero?
-    
-    successful_payments = current_account.payments.where(status: 'succeeded').count
+
+    successful_payments = current_account.payments.where(status: "succeeded").count
     (successful_payments.to_f / total_payments * 100).round(1)
   end
 

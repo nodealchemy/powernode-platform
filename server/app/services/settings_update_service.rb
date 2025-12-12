@@ -40,7 +40,7 @@ class SettingsUpdateService
   def update_user_preferences
     preferences = @user.preferences || {}
     new_preferences = preferences.merge(@params[:user_preferences].to_h)
-    
+
     unless @user.update(preferences: new_preferences)
       @errors.concat(@user.errors.full_messages)
     end
@@ -74,7 +74,7 @@ class SettingsUpdateService
   def update_notification_preferences
     current_notifications = @user.notification_preferences || {}
     new_notifications = current_notifications.merge(@params[:notification_preferences].to_h)
-    
+
     unless @user.update(notification_preferences: new_notifications)
       @errors.concat(@user.errors.full_messages)
     end
@@ -82,7 +82,7 @@ class SettingsUpdateService
 
   def update_security_settings
     security_params = @params[:security_settings].to_h
-    
+
     # Handle password change
     if security_params[:password].present? && security_params[:current_password].present?
       if @user.authenticate(security_params[:current_password])
@@ -101,7 +101,7 @@ class SettingsUpdateService
     if security_params[:email].present? && security_params[:email] != @user.email
       @user.email = security_params[:email]
       @user.email_verified_at = nil # Reset email verification
-      
+
       unless @user.save
         @errors.concat(@user.errors.full_messages)
       end
@@ -110,7 +110,7 @@ class SettingsUpdateService
 
   def current_user_preferences
     preferences = @user.preferences || {}
-    
+
     {
       theme: preferences["theme"] || "light",
       language: preferences["language"] || "en",
@@ -127,7 +127,7 @@ class SettingsUpdateService
 
   def current_account_settings
     settings = @account.settings || {}
-    
+
     {
       name: @account.name,
       subdomain: @account.subdomain,
@@ -144,7 +144,7 @@ class SettingsUpdateService
 
   def current_notification_preferences
     notifications = @user.notification_preferences || {}
-    
+
     {
       email_notifications: notifications["email_notifications"] != false,
       invoice_notifications: notifications["invoice_notifications"] != false,

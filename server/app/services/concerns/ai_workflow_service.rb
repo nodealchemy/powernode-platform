@@ -84,7 +84,7 @@ module AiWorkflowService
 
   # Validate MCP tool requirements
   def validate_mcp_requirements!
-    tool_requirements = @workflow.mcp_orchestration_config&.dig('tool_requirements') || []
+    tool_requirements = @workflow.mcp_orchestration_config&.dig("tool_requirements") || []
 
     tool_requirements.each do |requirement|
       validate_mcp_tool_available!(requirement)
@@ -92,8 +92,8 @@ module AiWorkflowService
   end
 
   def validate_mcp_tool_available!(requirement)
-    tool_id = requirement['tool_id']
-    min_version = requirement['min_version']
+    tool_id = requirement["tool_id"]
+    min_version = requirement["min_version"]
 
     # Check tool availability
     unless mcp_registry.tool_available?(tool_id)
@@ -183,13 +183,13 @@ module AiWorkflowService
     return false if node_result.nil?
 
     case edge.edge_type
-    when 'default'
+    when "default"
       true
-    when 'success'
+    when "success"
       node_result[:success] == true
-    when 'error'
+    when "error"
       node_result[:success] == false
-    when 'conditional'
+    when "conditional"
       evaluate_conditional_expression(edge.condition, node_result)
     else
       true
@@ -206,22 +206,22 @@ module AiWorkflowService
 
     # Use simple expression evaluator for now
     # TODO: Implement more robust expression evaluation
-    operator = condition['operator']
-    field = condition['field']
-    value = condition['value']
+    operator = condition["operator"]
+    field = condition["field"]
+    value = condition["value"]
 
-    actual_value = node_result.dig(*field.to_s.split('.'))
+    actual_value = node_result.dig(*field.to_s.split("."))
 
     case operator
-    when 'equals'
+    when "equals"
       actual_value == value
-    when 'not_equals'
+    when "not_equals"
       actual_value != value
-    when 'greater_than'
+    when "greater_than"
       actual_value.to_f > value.to_f
-    when 'less_than'
+    when "less_than"
       actual_value.to_f < value.to_f
-    when 'contains'
+    when "contains"
       actual_value.to_s.include?(value.to_s)
     else
       true
@@ -280,7 +280,7 @@ module AiWorkflowService
     AiOrchestrationChannel.broadcast_to(
       @workflow,
       {
-        type: 'workflow.status.changed',
+        type: "workflow.status.changed",
         workflow_id: @workflow.id,
         run_id: @workflow_run.run_id,
         status: status,
@@ -305,7 +305,7 @@ module AiWorkflowService
       # and broadcasts to all appropriate streams (run, workflow, account)
       AiOrchestrationChannel.broadcast_node_execution(
         node_execution,
-        'workflow.node.execution.updated'
+        "workflow.node.execution.updated"
       )
     else
       Rails.logger.warn "[BASE_WORKFLOW_SERVICE] Node execution not found for node #{node.node_id}"
@@ -326,7 +326,7 @@ module AiWorkflowService
       error: error.message
     }
 
-    update_workflow_status('failed', {
+    update_workflow_status("failed", {
       error_details: {
         error_message: error.message,
         error_class: error.class.name,
@@ -374,7 +374,7 @@ module AiWorkflowService
   # =============================================================================
 
   def extract_variables(node, output_data)
-    variable_mapping = node.configuration&.dig('output_variables') || {}
+    variable_mapping = node.configuration&.dig("output_variables") || {}
 
     variable_mapping.each do |var_name, output_path|
       value = extract_value_from_path(output_data, output_path)
@@ -382,15 +382,15 @@ module AiWorkflowService
     end
 
     # Also extract direct variable assignments
-    if output_data['variables'].is_a?(Hash)
-      @execution_context[:variables].merge!(output_data['variables'])
+    if output_data["variables"].is_a?(Hash)
+      @execution_context[:variables].merge!(output_data["variables"])
     end
   end
 
   def extract_value_from_path(data, path)
     return data if path.blank?
 
-    path.to_s.split('.').reduce(data) do |current, key|
+    path.to_s.split(".").reduce(data) do |current, key|
       break nil unless current.is_a?(Hash) || current.is_a?(Array)
 
       if current.is_a?(Array) && key =~ /\A\d+\z/

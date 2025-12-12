@@ -12,8 +12,8 @@ module Authentication
 
   def authenticate_request
     # Check for worker authentication via X-Worker-Token header first
-    worker_token = request.headers['X-Worker-Token']
-    if worker_token.present? && ENV['WORKER_TOKEN'].present?
+    worker_token = request.headers["X-Worker-Token"]
+    if worker_token.present? && ENV["WORKER_TOKEN"].present?
       # When WORKER_TOKEN environment variable is set, authenticate using the provided token
       @current_worker = Worker.authenticate(worker_token)
       if @current_worker
@@ -30,7 +30,7 @@ module Authentication
 
     begin
       # Try worker authentication first if token looks like a worker token (legacy or development)
-      if header.start_with?('swt_') || header == 'development_worker_token'
+      if header.start_with?("swt_") || header == "development_worker_token"
         @current_worker = Worker.authenticate(header)
         if @current_worker
           return # Worker authentication successful
@@ -41,15 +41,15 @@ module Authentication
 
       # JWT token authentication
       payload = JwtService.decode(header)
-      
+
       case payload[:type]
-      when 'access'
+      when "access"
         handle_user_token(payload)
-      when 'worker'  
+      when "worker"
         handle_worker_token(payload)
-      when 'impersonation'
+      when "impersonation"
         handle_impersonation_jwt_token(payload)
-      when 'service'
+      when "service"
         handle_service_token(payload)
       else
         return render_unauthorized("Invalid token type")
@@ -61,7 +61,7 @@ module Authentication
         return render_unauthorized("Account suspended") unless @current_account.active?
         @current_user.record_login! if should_record_login?
       end
-      
+
     rescue StandardError => e
       Rails.logger.error "Authentication error: #{e.message}"
       render_unauthorized("Invalid access token")
@@ -77,19 +77,19 @@ module Authentication
     begin
       # Try JWT authentication
       payload = JwtService.decode(header)
-      
+
       case payload[:type]
-      when 'access'
+      when "access"
         user = User.find(payload[:sub])
         if user&.active? && user.account&.active?
           @current_user = user
           @current_account = user.account
           @current_user.record_login! if should_record_login?
         end
-      when 'worker'
+      when "worker"
         worker = Worker.find(payload[:sub])
         @current_worker = worker if worker&.active?
-      when 'impersonation'
+      when "impersonation"
         # Handle impersonation session loading
         handle_impersonation_jwt_token(payload)
       end
@@ -104,7 +104,7 @@ module Authentication
     # Only record login once per hour to avoid excessive database writes
     # Don't record login for impersonation sessions
     return false if impersonating?
-    
+
     current_user.last_login_at.nil? || current_user.last_login_at < 1.hour.ago
   end
 
@@ -120,7 +120,7 @@ module Authentication
     @current_worker = Worker.find(payload[:sub])
     @current_jwt_payload = payload
   end
-  
+
   def handle_service_token(payload)
     @current_service = payload[:service]
     @current_jwt_payload = payload
@@ -130,7 +130,7 @@ module Authentication
     # Get impersonation session ID from JWT metadata
     session_id = payload[:session_id]
     @impersonation_session = ImpersonationSession.find_by(id: session_id)
-    
+
     unless @impersonation_session&.active?
       raise StandardError, "Invalid impersonation session"
     end
@@ -147,9 +147,9 @@ module Authentication
     @current_jwt_payload = payload
 
     # Add impersonation header for client identification
-    response.set_header('X-Impersonation-Active', 'true')
-    response.set_header('X-Impersonator-Email', @impersonator.email)
-    response.set_header('X-Impersonation-Session', @impersonation_session.id)
+    response.set_header("X-Impersonation-Active", "true")
+    response.set_header("X-Impersonator-Email", @impersonator.email)
+    response.set_header("X-Impersonation-Session", @impersonation_session.id)
   end
 
   def impersonating?
@@ -182,11 +182,11 @@ module Authentication
       render_forbidden("Permission denied: requires all of #{permission_names.join(', ')}")
     end
   end
-  
+
   # Deprecated: Use permission checks instead
   def require_admin!
     # Legacy method - redirects to permission check
-    require_any_permission('admin.access', 'system.admin')
+    require_any_permission("admin.access", "system.admin")
   end
 
   # Check if current entity (user or worker) has permission without rendering error
@@ -195,7 +195,7 @@ module Authentication
     if @current_jwt_payload&.dig(:permissions)&.include?(permission_name)
       return true
     end
-    
+
     # Fallback to database checks
     return current_user.has_permission?(permission_name) if current_user
     return current_worker.has_permission?(permission_name) if current_worker
@@ -239,12 +239,12 @@ module Authentication
   end
 
   def extract_worker_token
-    auth_header = request.headers['Authorization']
-    return nil unless auth_header&.start_with?('Bearer ')
-    
-    token = auth_header.split(' ', 2).last
+    auth_header = request.headers["Authorization"]
+    return nil unless auth_header&.start_with?("Bearer ")
+
+    token = auth_header.split(" ", 2).last
     # Worker tokens start with 'swt_'
-    token if token&.start_with?('swt_')
+    token if token&.start_with?("swt_")
   end
 
   # Check if current request is from a worker

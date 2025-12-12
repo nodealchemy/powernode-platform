@@ -37,8 +37,8 @@ class CreateAiAgentExecutions < ActiveRecord::Migration[8.0]
       t.index :parent_execution_id
       t.index :started_at
       t.index :completed_at
-      t.index [:account_id, :status]
-      t.index [:ai_agent_id, :status]
+      t.index [ :account_id, :status ]
+      t.index [ :ai_agent_id, :status ]
       t.index :webhook_status
 
       t.foreign_key :ai_agents, on_delete: :cascade

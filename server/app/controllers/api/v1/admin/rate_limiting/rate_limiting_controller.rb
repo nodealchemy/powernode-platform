@@ -2,14 +2,14 @@
 
 class Api::V1::Admin::RateLimiting::RateLimitingController < ApplicationController
   before_action :authenticate_request
-  before_action -> { require_permission('admin.settings.security') }
+  before_action -> { require_permission("admin.settings.security") }
   before_action :set_account, only: %i[account_statistics override_tier clear_tier_override]
 
   # GET /api/v1/admin/rate_limiting/statistics
   def statistics
     begin
       stats = RateLimitService.get_statistics
-      
+
       render_success(stats)
     rescue => e
       Rails.logger.error "Failed to get rate limiting statistics: #{e.message}"
@@ -21,7 +21,7 @@ class Api::V1::Admin::RateLimiting::RateLimitingController < ApplicationControll
   def violations
     begin
       violations = get_recent_violations
-      
+
       render_success({
         violations: violations,
         total_count: violations.count
@@ -35,14 +35,14 @@ class Api::V1::Admin::RateLimiting::RateLimitingController < ApplicationControll
   # GET /api/v1/admin/rate_limiting/limits/:identifier
   def user_limits
     identifier = params[:identifier]
-    
+
     if identifier.blank?
       return render_error("Identifier is required", status: :bad_request)
     end
 
     begin
       limits = RateLimitService.get_limit_info(identifier)
-      
+
       render_success({
         identifier: identifier,
         limits: limits
@@ -56,17 +56,17 @@ class Api::V1::Admin::RateLimiting::RateLimitingController < ApplicationControll
   # DELETE /api/v1/admin/rate_limiting/limits/:identifier
   def clear_user_limits
     identifier = params[:identifier]
-    
+
     if identifier.blank?
       return render_error("Identifier is required", status: :bad_request)
     end
 
     begin
       keys_cleared = RateLimitService.clear_limits_for(identifier)
-      
+
       # Log the administrative action
       Rails.logger.info "Admin #{current_user.email} cleared rate limits for #{identifier} (#{keys_cleared} keys cleared)"
-      
+
       render_success({
         message: "Rate limits cleared for #{identifier}",
         keys_cleared: keys_cleared,
@@ -83,17 +83,17 @@ class Api::V1::Admin::RateLimiting::RateLimitingController < ApplicationControll
   # POST /api/v1/admin/rate_limiting/disable
   def disable_temporarily
     duration_minutes = params[:duration_minutes]&.to_i || 60
-    
+
     if duration_minutes < 1 || duration_minutes > 480
       return render_error("Duration must be between 1 and 480 minutes", status: :bad_request)
     end
 
     begin
       RateLimitService.disable_temporarily(duration_minutes)
-      
+
       # Log the administrative action
       Rails.logger.warn "Admin #{current_user.email} temporarily disabled rate limiting for #{duration_minutes} minutes"
-      
+
       render_success({
         message: "Rate limiting disabled for #{duration_minutes} minutes",
         disabled_until: (Time.current + duration_minutes.minutes).iso8601,
@@ -109,10 +109,10 @@ class Api::V1::Admin::RateLimiting::RateLimitingController < ApplicationControll
   def enable
     begin
       RateLimitService.re_enable
-      
+
       # Log the administrative action
       Rails.logger.info "Admin #{current_user.email} re-enabled rate limiting"
-      
+
       render_success({
         message: "Rate limiting has been re-enabled",
         enabled_at: Time.current.iso8601
@@ -128,23 +128,23 @@ class Api::V1::Admin::RateLimiting::RateLimitingController < ApplicationControll
     begin
       temporarily_disabled = RateLimitService.temporarily_disabled?
       system_enabled = SystemSettingsService.rate_limiting_enabled?
-      
+
       status_info = {
         system_enabled: system_enabled,
         temporarily_disabled: temporarily_disabled,
-        effective_status: system_enabled && !temporarily_disabled ? 'enabled' : 'disabled',
+        effective_status: system_enabled && !temporarily_disabled ? "enabled" : "disabled",
         last_updated: Time.current.iso8601
       }
-      
+
       if temporarily_disabled
         # Try to get the remaining time
-        ttl = Rails.cache.redis.ttl('rate_limiting_temporarily_disabled')
+        ttl = Rails.cache.redis.ttl("rate_limiting_temporarily_disabled")
         if ttl > 0
           status_info[:disabled_until] = (Time.current + ttl.seconds).iso8601
           status_info[:remaining_seconds] = ttl
         end
       end
-      
+
       render_success(status_info)
     rescue => e
       Rails.logger.error "Failed to get rate limiting status: #{e.message}"
@@ -192,10 +192,10 @@ class Api::V1::Admin::RateLimiting::RateLimitingController < ApplicationControll
       AuditLog.create!(
         user: current_user,
         account: current_account,
-        action: 'rate_limit_tier_override',
-        resource_type: 'Account',
+        action: "rate_limit_tier_override",
+        resource_type: "Account",
         resource_id: @account.id,
-        source: 'api',
+        source: "api",
         ip_address: request.remote_ip,
         metadata: {
           account_name: @account.name,
@@ -209,7 +209,7 @@ class Api::V1::Admin::RateLimiting::RateLimitingController < ApplicationControll
         account_id: @account.id,
         account_name: @account.name,
         tier: tier.to_s,
-        duration_hours: duration_hours.positive? ? duration_hours : 'permanent',
+        duration_hours: duration_hours.positive? ? duration_hours : "permanent",
         expires_at: duration ? (Time.current + duration).iso8601 : nil
       })
     else
@@ -227,10 +227,10 @@ class Api::V1::Admin::RateLimiting::RateLimitingController < ApplicationControll
       AuditLog.create!(
         user: current_user,
         account: current_account,
-        action: 'rate_limit_tier_override_cleared',
-        resource_type: 'Account',
+        action: "rate_limit_tier_override_cleared",
+        resource_type: "Account",
         resource_id: @account.id,
-        source: 'api',
+        source: "api",
         ip_address: request.remote_ip,
         metadata: { account_name: @account.name }
       )
@@ -251,7 +251,7 @@ class Api::V1::Admin::RateLimiting::RateLimitingController < ApplicationControll
   # GET /api/v1/admin/rate_limiting/accounts
   def accounts_usage
     page = params[:page]&.to_i || 1
-    per_page = [params[:per_page]&.to_i || 20, 100].min
+    per_page = [ params[:per_page]&.to_i || 20, 100 ].min
 
     accounts = Account.active.order(created_at: :desc).page(page).per(per_page)
 
@@ -289,21 +289,21 @@ class Api::V1::Admin::RateLimiting::RateLimitingController < ApplicationControll
 
   def get_recent_violations
     violations = []
-    
+
     # Get all rate limit keys and check for violations
     begin
-      Rails.cache.redis.keys('rate_limit:*').each do |key|
+      Rails.cache.redis.keys("rate_limit:*").each do |key|
         current_count = Rails.cache.read(key) || 0
         limit = extract_limit_from_key(key)
-        
+
         if limit && current_count >= limit
-          parts = key.split(':')
+          parts = key.split(":")
           next if parts.length < 4
-          
+
           controller = parts[1]
           action = parts[2]
           identifier = parts[3]
-          
+
           violations << {
             endpoint: "#{controller}/#{action}",
             identifier: identifier,
@@ -316,13 +316,13 @@ class Api::V1::Admin::RateLimiting::RateLimitingController < ApplicationControll
     rescue => e
       Rails.logger.error "Error getting violations: #{e.message}"
     end
-    
+
     # Sort by count descending (worst violations first)
     violations.sort_by { |v| -v[:count] }
   end
 
   def extract_limit_from_key(key)
-    parts = key.split(':')
+    parts = key.split(":")
     return nil if parts.length < 4
 
     controller_name = parts[1]
@@ -332,20 +332,20 @@ class Api::V1::Admin::RateLimiting::RateLimitingController < ApplicationControll
 
   def determine_limit_type_for_controller(controller_name)
     case controller_name
-    when 'sessions'
-      'login_attempts_per_hour'
-    when 'registrations'
-      'registration_attempts_per_hour'
-    when 'passwords'
-      'password_reset_attempts_per_hour'
-    when 'email_verifications'
-      'email_verification_attempts_per_hour'
-    when 'webhooks'
-      'webhook_requests_per_minute'
-    when 'impersonation_sessions'
-      'impersonation_attempts_per_hour'
+    when "sessions"
+      "login_attempts_per_hour"
+    when "registrations"
+      "registration_attempts_per_hour"
+    when "passwords"
+      "password_reset_attempts_per_hour"
+    when "email_verifications"
+      "email_verification_attempts_per_hour"
+    when "webhooks"
+      "webhook_requests_per_minute"
+    when "impersonation_sessions"
+      "impersonation_attempts_per_hour"
     else
-      'api_requests_per_minute'
+      "api_requests_per_minute"
     end
   end
 end

@@ -15,9 +15,9 @@ class AiWorkflowNodeExecution < ApplicationRecord
   validates :execution_id, presence: true, uniqueness: true
   validates :node_id, presence: true
   validates :node_type, presence: true
-  validates :status, presence: true, inclusion: { 
+  validates :status, presence: true, inclusion: {
     in: %w[pending running completed failed cancelled skipped waiting_approval],
-    message: 'must be a valid execution status'
+    message: "must be a valid execution status"
   }
   validates :retry_count, numericality: { greater_than_or_equal_to: 0 }
   validates :max_retries, numericality: { greater_than_or_equal_to: 0 }
@@ -32,18 +32,18 @@ class AiWorkflowNodeExecution < ApplicationRecord
   attribute :metadata, :json, default: -> { {} }
 
   # Scopes
-  scope :pending, -> { where(status: 'pending') }
-  scope :running, -> { where(status: 'running') }
-  scope :completed, -> { where(status: 'completed') }
-  scope :failed, -> { where(status: 'failed') }
-  scope :cancelled, -> { where(status: 'cancelled') }
-  scope :skipped, -> { where(status: 'skipped') }
-  scope :waiting_approval, -> { where(status: 'waiting_approval') }
+  scope :pending, -> { where(status: "pending") }
+  scope :running, -> { where(status: "running") }
+  scope :completed, -> { where(status: "completed") }
+  scope :failed, -> { where(status: "failed") }
+  scope :cancelled, -> { where(status: "cancelled") }
+  scope :skipped, -> { where(status: "skipped") }
+  scope :waiting_approval, -> { where(status: "waiting_approval") }
   scope :active, -> { where(status: %w[pending running waiting_approval]) }
   scope :finished, -> { where(status: %w[completed failed cancelled skipped]) }
   scope :successful, -> { where(status: %w[completed skipped]) }
   scope :by_node_type, ->(type) { where(node_type: type) }
-  scope :with_cost, -> { where('cost > 0') }
+  scope :with_cost, -> { where("cost > 0") }
   scope :recent, -> { order(created_at: :desc) }
 
   # Callbacks
@@ -59,37 +59,37 @@ class AiWorkflowNodeExecution < ApplicationRecord
 
   # CRITICAL FIX: Use after_commit with instance variable tracking
   # ActiveRecord clears saved_changes after update, so we track status changes manually
-  after_commit :broadcast_node_status_change_if_needed, on: [:update]
-  after_commit :log_status_broadcast_check, on: [:update]
-  after_commit :check_workflow_failure_on_node_failure, on: [:update]
+  after_commit :broadcast_node_status_change_if_needed, on: [ :update ]
+  after_commit :log_status_broadcast_check, on: [ :update ]
+  after_commit :check_workflow_failure_on_node_failure, on: [ :update ]
 
   # Status check methods
   def pending?
-    status == 'pending'
+    status == "pending"
   end
 
   def running?
-    status == 'running'
+    status == "running"
   end
 
   def completed?
-    status == 'completed'
+    status == "completed"
   end
 
   def failed?
-    status == 'failed'
+    status == "failed"
   end
 
   def cancelled?
-    status == 'cancelled'
+    status == "cancelled"
   end
 
   def skipped?
-    status == 'skipped'
+    status == "skipped"
   end
 
   def waiting_for_approval?
-    status == 'waiting_approval'
+    status == "waiting_approval"
   end
 
   def active?
@@ -110,12 +110,12 @@ class AiWorkflowNodeExecution < ApplicationRecord
 
     # CRITICAL FIX: Capture status change manually for callback (same as complete_execution!)
     old_status = status
-    @pending_status_change = [old_status, 'running']
+    @pending_status_change = [ old_status, "running" ]
 
     update!(
-      status: 'running',
+      status: "running",
       started_at: Time.current,
-      metadata: metadata.merge('execution_started_at' => Time.current.iso8601)
+      metadata: metadata.merge("execution_started_at" => Time.current.iso8601)
     )
 
     # Frontend calculates elapsed time locally using started_at timestamp
@@ -124,7 +124,7 @@ class AiWorkflowNodeExecution < ApplicationRecord
 
   def complete_execution!(output_data_hash = {}, execution_cost = 0)
     # Check if already completed
-    if status == 'completed'
+    if status == "completed"
       Rails.logger.warn "Node #{execution_id} (#{ai_workflow_node.name}) already completed, skipping"
       return false
     end
@@ -145,14 +145,14 @@ class AiWorkflowNodeExecution < ApplicationRecord
     begin
       # CRITICAL FIX: Capture status change manually for callback
       old_status = status
-      @pending_status_change = [old_status, 'completed']
+      @pending_status_change = [ old_status, "completed" ]
 
       result = update!(
-        status: 'completed',
+        status: "completed",
         completed_at: Time.current,
         output_data: output_data.merge(output_data_hash),
         cost: cost + execution_cost.to_f,
-        metadata: metadata.merge('execution_completed_at' => Time.current.iso8601)
+        metadata: metadata.merge("execution_completed_at" => Time.current.iso8601)
       )
 
       result
@@ -176,50 +176,50 @@ class AiWorkflowNodeExecution < ApplicationRecord
     begin
       # CRITICAL FIX: Capture status change manually for callback
       old_status = status
-      @pending_status_change = [old_status, 'failed']
+      @pending_status_change = [ old_status, "failed" ]
 
       update!(
-        status: 'failed',
+        status: "failed",
         completed_at: Time.current,
         error_details: error_details.merge({
-          'error_message' => error_message,
-          'failed_at' => Time.current.iso8601
+          "error_message" => error_message,
+          "failed_at" => Time.current.iso8601
         }.merge(error_details_hash)),
-        metadata: metadata.merge('execution_failed_at' => Time.current.iso8601)
+        metadata: metadata.merge("execution_failed_at" => Time.current.iso8601)
       )
     ensure
       Thread.current[failing_key] = nil
     end
   end
 
-  def cancel_execution!(reason = 'Workflow cancelled')
+  def cancel_execution!(reason = "Workflow cancelled")
     return false if finished?
 
     # CRITICAL FIX: Capture status change manually for callback
     old_status = status
-    @pending_status_change = [old_status, 'cancelled']
+    @pending_status_change = [ old_status, "cancelled" ]
 
     update!(
-      status: 'cancelled',
+      status: "cancelled",
       cancelled_at: Time.current,
       completed_at: Time.current,
       error_details: error_details.merge({
-        'cancellation_reason' => reason,
-        'cancelled_at' => Time.current.iso8601
+        "cancellation_reason" => reason,
+        "cancelled_at" => Time.current.iso8601
       }),
-      metadata: metadata.merge('execution_cancelled_at' => Time.current.iso8601)
+      metadata: metadata.merge("execution_cancelled_at" => Time.current.iso8601)
     )
   end
 
-  def skip_execution!(reason = 'Condition not met')
+  def skip_execution!(reason = "Condition not met")
     return false unless pending?
 
     update!(
-      status: 'skipped',
+      status: "skipped",
       completed_at: Time.current,
       metadata: metadata.merge({
-        'skip_reason' => reason,
-        'skipped_at' => Time.current.iso8601
+        "skip_reason" => reason,
+        "skipped_at" => Time.current.iso8601
       })
     )
   end
@@ -234,11 +234,11 @@ class AiWorkflowNodeExecution < ApplicationRecord
     return false unless running?
 
     update!(
-      status: 'waiting_approval',
+      status: "waiting_approval",
       metadata: metadata.merge({
-        'approval_message' => approval_message,
-        'approvers' => approvers,
-        'approval_requested_at' => Time.current.iso8601
+        "approval_message" => approval_message,
+        "approvers" => approvers,
+        "approval_requested_at" => Time.current.iso8601
       })
     )
   end
@@ -246,21 +246,21 @@ class AiWorkflowNodeExecution < ApplicationRecord
   def approve_execution!(approved_by_user_id, decision_data = {})
     return false unless waiting_for_approval?
 
-    if decision_data['approved'] == true
+    if decision_data["approved"] == true
       update!(
-        status: 'running',
+        status: "running",
         metadata: metadata.merge({
-          'approval_decision' => 'approved',
-          'approved_by' => approved_by_user_id,
-          'approval_completed_at' => Time.current.iso8601,
-          'approval_data' => decision_data
+          "approval_decision" => "approved",
+          "approved_by" => approved_by_user_id,
+          "approval_completed_at" => Time.current.iso8601,
+          "approval_data" => decision_data
         })
       )
     else
-      fail_execution!('Approval denied', {
-        'approval_decision' => 'denied',
-        'denied_by' => approved_by_user_id,
-        'denial_reason' => decision_data['reason']
+      fail_execution!("Approval denied", {
+        "approval_decision" => "denied",
+        "denied_by" => approved_by_user_id,
+        "denial_reason" => decision_data["reason"]
       })
     end
   end
@@ -277,18 +277,18 @@ class AiWorkflowNodeExecution < ApplicationRecord
       increment!(:retry_count)
 
       update!(
-        status: 'pending',
+        status: "pending",
         started_at: nil,
         completed_at: nil,
         cancelled_at: nil,
         error_details: {},
         metadata: metadata.merge({
-          'retry_attempt' => retry_count + 1,
-          'retried_at' => Time.current.iso8601
+          "retry_attempt" => retry_count + 1,
+          "retried_at" => Time.current.iso8601
         })
       )
 
-      log_info('node_retry_scheduled', "Node execution retry scheduled (attempt #{retry_count}/#{max_retries})")
+      log_info("node_retry_scheduled", "Node execution retry scheduled (attempt #{retry_count}/#{max_retries})")
     end
 
     true
@@ -297,7 +297,7 @@ class AiWorkflowNodeExecution < ApplicationRecord
   def exhaust_retries!
     update!(
       retry_count: max_retries,
-      metadata: metadata.merge('retries_exhausted_at' => Time.current.iso8601)
+      metadata: metadata.merge("retries_exhausted_at" => Time.current.iso8601)
     )
   end
 
@@ -334,7 +334,7 @@ class AiWorkflowNodeExecution < ApplicationRecord
   # Duration and timing methods
   def execution_duration
     return nil unless started_at
-    
+
     end_time = completed_at || cancelled_at || Time.current
     end_time - started_at
   end
@@ -359,15 +359,15 @@ class AiWorkflowNodeExecution < ApplicationRecord
 
   def timed_out?
     return false unless running? && started_at
-    
+
     Time.current - started_at > timeout_duration
   end
 
   def time_remaining
     return nil unless running? && started_at
-    
+
     elapsed = Time.current - started_at
-    [timeout_duration - elapsed.to_i, 0].max
+    [ timeout_duration - elapsed.to_i, 0 ].max
   end
 
   # Node-specific execution methods
@@ -376,37 +376,37 @@ class AiWorkflowNodeExecution < ApplicationRecord
 
     begin
       start_execution!
-      
+
       case node_type
-      when 'ai_agent'
+      when "ai_agent"
         execute_ai_agent_node
-      when 'api_call'
+      when "api_call"
         execute_api_call_node
-      when 'webhook'
+      when "webhook"
         execute_webhook_node
-      when 'condition'
+      when "condition"
         execute_condition_node
-      when 'loop'
+      when "loop"
         execute_loop_node
-      when 'transform'
+      when "transform"
         execute_transform_node
-      when 'delay'
+      when "delay"
         execute_delay_node
-      when 'human_approval'
+      when "human_approval"
         execute_human_approval_node
-      when 'sub_workflow'
+      when "sub_workflow"
         execute_sub_workflow_node
-      when 'merge'
+      when "merge"
         execute_merge_node
-      when 'split'
+      when "split"
         execute_split_node
       else
         fail_execution!("Unknown node type: #{node_type}")
       end
     rescue StandardError => e
       fail_execution!("Node execution failed: #{e.message}", {
-        'exception_class' => e.class.name,
-        'exception_backtrace' => e.backtrace&.first(10)
+        "exception_class" => e.class.name,
+        "exception_backtrace" => e.backtrace&.first(10)
       })
     end
   end
@@ -423,14 +423,14 @@ class AiWorkflowNodeExecution < ApplicationRecord
 
   def merge_output(new_data)
     return if new_data.blank?
-    
+
     self.output_data = output_data.merge(new_data.stringify_keys)
     save!
   end
 
   def get_variable(name)
     # Check node-specific variables first, then workflow run variables
-    input_data[name.to_s] || 
+    input_data[name.to_s] ||
     input_data[name.to_sym] ||
     ai_workflow_run.get_variable(name)
   end
@@ -458,7 +458,7 @@ class AiWorkflowNodeExecution < ApplicationRecord
         cancelled: cancelled_at
       },
       has_error: error_details.present?,
-      error_message: error_details['error_message'],
+      error_message: error_details["error_message"],
       input_keys: input_data.keys,
       output_keys: output_data.keys
     }
@@ -478,30 +478,30 @@ class AiWorkflowNodeExecution < ApplicationRecord
   # Logging methods that delegate to workflow run but include node context
   def log_info(event_type, message, context = {})
     ai_workflow_run.log(
-      'info',
+      "info",
       event_type,
       message,
-      context.merge('node_id' => node_id, 'execution_id' => execution_id),
+      context.merge("node_id" => node_id, "execution_id" => execution_id),
       self
     )
   end
 
   def log_error(event_type, message, context = {})
     ai_workflow_run.log(
-      'error',
+      "error",
       event_type,
       message,
-      context.merge('node_id' => node_id, 'execution_id' => execution_id),
+      context.merge("node_id" => node_id, "execution_id" => execution_id),
       self
     )
   end
 
   def log_warning(event_type, message, context = {})
     ai_workflow_run.log(
-      'warn',
+      "warn",
       event_type,
       message,
-      context.merge('node_id' => node_id, 'execution_id' => execution_id),
+      context.merge("node_id" => node_id, "execution_id" => execution_id),
       self
     )
   end
@@ -556,14 +556,14 @@ class AiWorkflowNodeExecution < ApplicationRecord
 
     # Only broadcast on meaningful status transitions
     broadcast_transitions = [
-      ['running', 'completed'],
-      ['running', 'failed'],
-      ['running', 'cancelled'],
-      ['pending', 'running'],
-      ['waiting_approval', 'running']
+      [ "running", "completed" ],
+      [ "running", "failed" ],
+      [ "running", "cancelled" ],
+      [ "pending", "running" ],
+      [ "waiting_approval", "running" ]
     ]
 
-    broadcast_transitions.include?([old_status, new_status])
+    broadcast_transitions.include?([ old_status, new_status ])
   end
 
   def log_status_broadcast_check
@@ -598,14 +598,14 @@ class AiWorkflowNodeExecution < ApplicationRecord
       old_status, new_status = @pending_status_change
 
       broadcast_transitions = [
-        ['running', 'completed'],
-        ['running', 'failed'],
-        ['running', 'cancelled'],
-        ['pending', 'running'],
-        ['waiting_approval', 'running']
+        [ "running", "completed" ],
+        [ "running", "failed" ],
+        [ "running", "cancelled" ],
+        [ "pending", "running" ],
+        [ "waiting_approval", "running" ]
       ]
 
-      should_broadcast = broadcast_transitions.include?([old_status, new_status])
+      should_broadcast = broadcast_transitions.include?([ old_status, new_status ])
 
       if should_broadcast
         broadcast_node_status_change
@@ -622,19 +622,19 @@ class AiWorkflowNodeExecution < ApplicationRecord
       old_status, new_status = @pending_status_change
 
       # Only trigger on transition to failed status
-      if new_status == 'failed' && old_status != 'failed'
+      if new_status == "failed" && old_status != "failed"
         # Node failures are handled by the MCP orchestrator's error recovery system
         # The orchestrator monitors node executions and handles failures automatically
         begin
           # Log the failure for monitoring
           ai_workflow_run.log(
-            'error',
-            'node_execution_failed',
+            "error",
+            "node_execution_failed",
             "Node #{ai_workflow_node.name} failed",
             {
-              'node_id' => node_id,
-              'execution_id' => execution_id,
-              'error_details' => error_details
+              "node_id" => node_id,
+              "execution_id" => execution_id,
+              "error_details" => error_details
             },
             self
           )
@@ -653,42 +653,42 @@ class AiWorkflowNodeExecution < ApplicationRecord
     return unless retry_count.present? && max_retries.present?
 
     if retry_count > max_retries
-      errors.add(:retry_count, 'cannot exceed max_retries')
+      errors.add(:retry_count, "cannot exceed max_retries")
     end
   end
 
   def log_node_execution_started
-    log_info('node_started', "Node execution started: #{ai_workflow_node.name}", {
-      'node_type' => node_type,
-      'input_keys' => input_data.keys,
-      'max_retries' => max_retries
+    log_info("node_started", "Node execution started: #{ai_workflow_node.name}", {
+      "node_type" => node_type,
+      "input_keys" => input_data.keys,
+      "max_retries" => max_retries
     })
   end
 
   def log_status_changes
     old_status = saved_change_to_status[0]
     new_status = saved_change_to_status[1]
-    
+
     # Map status changes to valid event types
     event_type = case new_status
-    when 'running'
-      'node_started'
-    when 'completed'
-      'node_completed'
-    when 'failed'
-      'node_failed'
-    when 'cancelled'
-      'node_cancelled'
-    when 'skipped'
-      'node_skipped'
+    when "running"
+      "node_started"
+    when "completed"
+      "node_completed"
+    when "failed"
+      "node_failed"
+    when "cancelled"
+      "node_cancelled"
+    when "skipped"
+      "node_skipped"
     else
-      'node_started' # fallback
+      "node_started" # fallback
     end
-    
+
     log_info(event_type, "Node status changed from #{old_status} to #{new_status}", {
-      'old_status' => old_status,
-      'new_status' => new_status,
-      'duration_ms' => execution_time_ms
+      "old_status" => old_status,
+      "new_status" => new_status,
+      "duration_ms" => execution_time_ms
     })
   end
 
@@ -697,7 +697,7 @@ class AiWorkflowNodeExecution < ApplicationRecord
 
     # Ensure positive duration - handle edge cases where completed_at < started_at
     duration_seconds = completed_at - started_at
-    calculated_duration_ms = [duration_seconds * 1000, 0].max.to_i
+    calculated_duration_ms = [ duration_seconds * 1000, 0 ].max.to_i
 
     # Use update_column to avoid triggering callbacks (prevents stack overflow)
     if duration_ms != calculated_duration_ms
@@ -717,10 +717,10 @@ class AiWorkflowNodeExecution < ApplicationRecord
 
   # Node-specific execution methods (simplified versions - will be expanded by services)
   def execute_ai_agent_node
-    agent_id = node_configuration('agent_id')
-    
+    agent_id = node_configuration("agent_id")
+
     if agent_id.blank?
-      fail_execution!('No agent specified for AI agent node')
+      fail_execution!("No agent specified for AI agent node")
       return
     end
 
@@ -731,9 +731,9 @@ class AiWorkflowNodeExecution < ApplicationRecord
     end
 
     # This will be delegated to a specialized service
-    log_info('ai_agent_execution_queued', 'AI agent execution queued', {
-      'agent_id' => agent_id,
-      'agent_name' => agent.name
+    log_info("ai_agent_execution_queued", "AI agent execution queued", {
+      "agent_id" => agent_id,
+      "agent_name" => agent.name
     })
 
     # For now, mark as running - actual execution will be handled by worker jobs
@@ -741,99 +741,99 @@ class AiWorkflowNodeExecution < ApplicationRecord
   end
 
   def execute_api_call_node
-    url = node_configuration('url')
-    method = node_configuration('method') || 'GET'
-    
+    url = node_configuration("url")
+    method = node_configuration("method") || "GET"
+
     if url.blank?
-      fail_execution!('No URL specified for API call node')
+      fail_execution!("No URL specified for API call node")
       return
     end
 
-    log_info('api_call_queued', "API call queued: #{method} #{url}")
+    log_info("api_call_queued", "API call queued: #{method} #{url}")
     # Actual execution will be handled by worker jobs
   end
 
   def execute_webhook_node
-    url = node_configuration('url')
-    
+    url = node_configuration("url")
+
     if url.blank?
-      fail_execution!('No URL specified for webhook node')
+      fail_execution!("No URL specified for webhook node")
       return
     end
 
-    log_info('webhook_queued', "Webhook queued: #{url}")
+    log_info("webhook_queued", "Webhook queued: #{url}")
     # Actual execution will be handled by worker jobs
   end
 
   def execute_condition_node
-    conditions = node_configuration('conditions')
-    
+    conditions = node_configuration("conditions")
+
     if conditions.blank?
-      fail_execution!('No conditions specified for condition node')
+      fail_execution!("No conditions specified for condition node")
       return
     end
 
-    log_info('condition_evaluation_queued', 'Condition evaluation queued')
+    log_info("condition_evaluation_queued", "Condition evaluation queued")
     # Actual execution will be handled by worker jobs
   end
 
   def execute_loop_node
-    iteration_source = node_configuration('iteration_source')
-    
+    iteration_source = node_configuration("iteration_source")
+
     if iteration_source.blank?
-      fail_execution!('No iteration source specified for loop node')
+      fail_execution!("No iteration source specified for loop node")
       return
     end
 
-    log_info('loop_execution_queued', 'Loop execution queued')
+    log_info("loop_execution_queued", "Loop execution queued")
     # Actual execution will be handled by worker jobs
   end
 
   def execute_transform_node
-    transformations = node_configuration('transformations')
-    
+    transformations = node_configuration("transformations")
+
     if transformations.blank?
-      fail_execution!('No transformations specified for transform node')
+      fail_execution!("No transformations specified for transform node")
       return
     end
 
-    log_info('transform_execution_queued', 'Transform execution queued')
+    log_info("transform_execution_queued", "Transform execution queued")
     # Actual execution will be handled by worker jobs
   end
 
   def execute_delay_node
-    delay_seconds = node_configuration('delay_seconds')
-    
+    delay_seconds = node_configuration("delay_seconds")
+
     if delay_seconds.blank? || delay_seconds.to_i <= 0
-      fail_execution!('Invalid delay specified for delay node')
+      fail_execution!("Invalid delay specified for delay node")
       return
     end
 
-    log_info('delay_scheduled', "Delay scheduled for #{delay_seconds} seconds")
+    log_info("delay_scheduled", "Delay scheduled for #{delay_seconds} seconds")
     # Actual execution will be handled by worker jobs
   end
 
   def execute_human_approval_node
-    approval_message = node_configuration('approval_message')
-    approvers = node_configuration('approvers') || []
-    
+    approval_message = node_configuration("approval_message")
+    approvers = node_configuration("approvers") || []
+
     if approvers.empty?
-      fail_execution!('No approvers specified for human approval node')
+      fail_execution!("No approvers specified for human approval node")
       return
     end
 
     request_approval!(approval_message, approvers)
-    log_info('approval_requested', 'Human approval requested', {
-      'approvers' => approvers,
-      'message' => approval_message
+    log_info("approval_requested", "Human approval requested", {
+      "approvers" => approvers,
+      "message" => approval_message
     })
   end
 
   def execute_sub_workflow_node
-    workflow_id = node_configuration('workflow_id')
-    
+    workflow_id = node_configuration("workflow_id")
+
     if workflow_id.blank?
-      fail_execution!('No sub-workflow specified')
+      fail_execution!("No sub-workflow specified")
       return
     end
 
@@ -843,22 +843,22 @@ class AiWorkflowNodeExecution < ApplicationRecord
       return
     end
 
-    log_info('sub_workflow_queued', "Sub-workflow execution queued: #{sub_workflow.name}")
+    log_info("sub_workflow_queued", "Sub-workflow execution queued: #{sub_workflow.name}")
     # Actual execution will be handled by worker jobs
   end
 
   def execute_merge_node
-    merge_strategy = node_configuration('merge_strategy') || 'wait_all'
-    
-    log_info('merge_execution_queued', "Merge execution queued with strategy: #{merge_strategy}")
+    merge_strategy = node_configuration("merge_strategy") || "wait_all"
+
+    log_info("merge_execution_queued", "Merge execution queued with strategy: #{merge_strategy}")
     # Actual execution will be handled by worker jobs
   end
 
   def execute_split_node
-    split_strategy = node_configuration('split_strategy') || 'parallel'
-    branches = node_configuration('branches') || []
-    
-    log_info('split_execution_queued', "Split execution queued with strategy: #{split_strategy}")
+    split_strategy = node_configuration("split_strategy") || "parallel"
+    branches = node_configuration("branches") || []
+
+    log_info("split_execution_queued", "Split execution queued with strategy: #{split_strategy}")
     # Actual execution will be handled by worker jobs
   end
 end

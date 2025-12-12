@@ -13,7 +13,7 @@ FactoryBot.define do
     after(:build) do |session|
       # Create a shared account for both users if not set
       shared_account = nil
-      
+
       if session.impersonator.nil? && session.impersonated_user.nil?
         shared_account = create(:account)
         session.impersonator = create(:user, account: shared_account)

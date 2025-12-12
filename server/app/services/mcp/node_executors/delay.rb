@@ -14,13 +14,13 @@ module Mcp
         {
           output: "Delay completed",
           result: {
-            delayed_seconds: configuration['delay_seconds'] || 0
+            delayed_seconds: configuration["delay_seconds"] || 0
           },
           metadata: {
             node_id: @node.node_id,
-            node_type: 'delay',
+            node_type: "delay",
             executed_at: Time.current.iso8601,
-            implementation_status: 'stub'
+            implementation_status: "stub"
           }
         }
       end

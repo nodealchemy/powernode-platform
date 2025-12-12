@@ -134,7 +134,7 @@ RSpec.describe Api::V1::Admin::DatabaseController, type: :controller do
         expect(response).to have_http_status(:ok)
         body = JSON.parse(response.body)
         expect(body['success']).to be true
-        expect(body['data']['status']).to be_in(['healthy', 'warning', 'critical'])
+        expect(body['data']['status']).to be_in([ 'healthy', 'warning', 'critical' ])
         expect(body['data']['checks']).to include('connection', 'pool_utilization', 'response_time')
       end
 

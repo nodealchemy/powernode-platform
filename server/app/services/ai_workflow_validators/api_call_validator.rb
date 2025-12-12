@@ -19,16 +19,16 @@ module WorkflowValidators
     def validate_url_format
       return unless node.configuration.present?
 
-      url = node.configuration['url'] || node.configuration[:url]
+      url = node.configuration["url"] || node.configuration[:url]
       return if url.blank?
 
       unless url =~ URI::DEFAULT_PARSER.make_regexp
         add_issue(
-          code: 'invalid_url',
-          severity: 'error',
-          category: 'configuration',
+          code: "invalid_url",
+          severity: "error",
+          category: "configuration",
           message: "URL '#{url}' is not valid",
-          suggestion: 'Provide a valid HTTP/HTTPS URL'
+          suggestion: "Provide a valid HTTP/HTTPS URL"
         )
       end
     end
@@ -41,16 +41,16 @@ module WorkflowValidators
     def validate_auth_configuration
       return unless node.configuration.present?
 
-      auth_type = node.configuration['auth_type'] || node.configuration[:auth_type]
+      auth_type = node.configuration["auth_type"] || node.configuration[:auth_type]
       return if auth_type.blank?
 
       case auth_type
-      when 'bearer'
+      when "bearer"
         validate_field_not_blank(:auth_token)
-      when 'basic'
+      when "basic"
         validate_field_not_blank(:username)
         validate_field_not_blank(:password)
-      when 'api_key'
+      when "api_key"
         validate_field_not_blank(:api_key)
         validate_field_not_blank(:api_key_header)
       end

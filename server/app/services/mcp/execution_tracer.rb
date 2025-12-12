@@ -20,7 +20,7 @@ module Mcp
       @logger.info "[TRACER] Workflow execution started: #{workflow_info[:name]} (#{workflow_info[:run_id]})"
 
       add_trace(
-        event: 'workflow_started',
+        event: "workflow_started",
         workflow_info: workflow_info,
         timestamp: Time.current.iso8601
       )
@@ -31,7 +31,7 @@ module Mcp
       @logger.debug "[TRACER] Node completed: #{node.node_id} (#{node.name})"
 
       add_trace(
-        event: 'node_completed',
+        event: "node_completed",
         node_id: node.node_id,
         node_name: node.name,
         node_type: node.node_type,
@@ -45,7 +45,7 @@ module Mcp
       @logger.error "[TRACER] Node failed: #{node.node_id} (#{node.name}) - #{error.message}"
 
       add_trace(
-        event: 'node_failed',
+        event: "node_failed",
         node_id: node.node_id,
         node_name: node.name,
         node_type: node.node_type,
@@ -60,7 +60,7 @@ module Mcp
       @logger.info "[TRACER] Workflow completed: #{status}"
 
       add_trace(
-        event: 'workflow_completed',
+        event: "workflow_completed",
         status: status,
         output_summary: output&.dig(:execution_summary),
         timestamp: Time.current.iso8601
@@ -72,7 +72,7 @@ module Mcp
       @logger.error "[TRACER] Workflow failed: #{error.message}"
 
       add_trace(
-        event: 'workflow_failed',
+        event: "workflow_failed",
         error_message: error.message,
         error_class: error.class.name,
         timestamp: Time.current.iso8601
@@ -95,17 +95,17 @@ module Mcp
 
     def should_persist?
       # Only persist in development/staging for debugging
-      !Rails.env.production? || @workflow_run.runtime_context&.dig('debug_mode')
+      !Rails.env.production? || @workflow_run.runtime_context&.dig("debug_mode")
     end
 
     def persist_trace(trace_data)
       # Append trace to workflow run metadata
-      current_traces = @workflow_run.runtime_context&.dig('execution_traces') || []
+      current_traces = @workflow_run.runtime_context&.dig("execution_traces") || []
       current_traces << trace_data
 
       @workflow_run.update_column(
         :runtime_context,
-        @workflow_run.runtime_context.merge('execution_traces' => current_traces)
+        @workflow_run.runtime_context.merge("execution_traces" => current_traces)
       )
     rescue StandardError => e
       @logger.warn "[TRACER] Failed to persist trace: #{e.message}"

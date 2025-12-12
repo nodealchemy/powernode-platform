@@ -48,15 +48,15 @@ module Mcp
       checkpoint_id = SecureRandom.uuid
 
       checkpoint = {
-        'id' => checkpoint_id,
-        'workflow_run_id' => @workflow_run.id,
-        'node_id' => node_id,
-        'created_at' => Time.current.iso8601,
-        'state' => capture_workflow_state,
-        'data' => checkpoint_data,
-        'completed_nodes' => @workflow_run.ai_workflow_node_executions.where(status: 'completed').pluck(:node_id),
-        'variables' => @workflow_run.runtime_context['variables'] || {},
-        'output_data' => @workflow_run.output_variables || {}
+        "id" => checkpoint_id,
+        "workflow_run_id" => @workflow_run.id,
+        "node_id" => node_id,
+        "created_at" => Time.current.iso8601,
+        "state" => capture_workflow_state,
+        "data" => checkpoint_data,
+        "completed_nodes" => @workflow_run.ai_workflow_node_executions.where(status: "completed").pluck(:node_id),
+        "variables" => @workflow_run.runtime_context["variables"] || {},
+        "output_data" => @workflow_run.output_variables || {}
       }
 
       # Store checkpoint in cache with TTL
@@ -76,9 +76,9 @@ module Mcp
     def restore_from_checkpoint(checkpoint_id = nil)
       checkpoint = if checkpoint_id
                      load_checkpoint(checkpoint_id)
-                   else
+      else
                      find_latest_checkpoint
-                   end
+      end
 
       unless checkpoint
         @logger.warn "[MCP_CHECKPOINT_MANAGER] No checkpoint found for restoration"
@@ -94,12 +94,12 @@ module Mcp
         # Update workflow run with restored state
         @workflow_run.update!(
           runtime_context: @workflow_run.runtime_context.merge(
-            'variables' => checkpoint['variables'],
-            'restored_from_checkpoint' => checkpoint['id'],
-            'restored_at' => Time.current.iso8601
+            "variables" => checkpoint["variables"],
+            "restored_from_checkpoint" => checkpoint["id"],
+            "restored_at" => Time.current.iso8601
           ),
           metadata: @workflow_run.metadata.merge(
-            'restored_from_checkpoint' => checkpoint['id']
+            "restored_from_checkpoint" => checkpoint["id"]
           )
         )
 
@@ -132,7 +132,7 @@ module Mcp
       # or use a more efficient key structure
 
       # For now, we'll just try to load from workflow run metadata
-      last_checkpoint_id = @workflow_run.metadata&.dig('last_checkpoint_id')
+      last_checkpoint_id = @workflow_run.metadata&.dig("last_checkpoint_id")
       return nil unless last_checkpoint_id
 
       load_checkpoint(last_checkpoint_id)
@@ -145,7 +145,7 @@ module Mcp
     # @param checkpoint [Hash] The checkpoint data
     # @return [Boolean] true if stored successfully
     def store_checkpoint(checkpoint)
-      cache_key = checkpoint_cache_key(checkpoint['id'])
+      cache_key = checkpoint_cache_key(checkpoint["id"])
 
       # Store with 24-hour TTL (configurable based on requirements)
       Rails.cache.write(cache_key, checkpoint, expires_in: 24.hours)
@@ -153,8 +153,8 @@ module Mcp
       # Also update workflow run metadata with last checkpoint ID
       @workflow_run.update!(
         metadata: @workflow_run.metadata.merge(
-          'last_checkpoint_id' => checkpoint['id'],
-          'last_checkpoint_at' => checkpoint['created_at']
+          "last_checkpoint_id" => checkpoint["id"],
+          "last_checkpoint_at" => checkpoint["created_at"]
         )
       )
 
@@ -174,12 +174,12 @@ module Mcp
     # @return [Hash] The captured state
     def capture_workflow_state
       {
-        'run_status' => @workflow_run.status,
-        'current_node_id' => @workflow_run.current_node_id,
-        'execution_mode' => @workflow_run.ai_workflow.configuration&.dig('execution_mode') || 'sequential',
-        'started_at' => @workflow_run.started_at&.iso8601,
-        'runtime_context' => @workflow_run.runtime_context,
-        'metadata' => @workflow_run.metadata
+        "run_status" => @workflow_run.status,
+        "current_node_id" => @workflow_run.current_node_id,
+        "execution_mode" => @workflow_run.ai_workflow.configuration&.dig("execution_mode") || "sequential",
+        "started_at" => @workflow_run.started_at&.iso8601,
+        "runtime_context" => @workflow_run.runtime_context,
+        "metadata" => @workflow_run.metadata
       }
     end
 
@@ -188,15 +188,15 @@ module Mcp
     # @param checkpoint [Hash] The checkpoint data
     # @return [Boolean] true if restoration successful
     def restore_workflow_state(checkpoint)
-      state = checkpoint['state'] || {}
+      state = checkpoint["state"] || {}
 
       # Mark completed nodes as already executed
-      completed_node_ids = checkpoint['completed_nodes'] || []
+      completed_node_ids = checkpoint["completed_nodes"] || []
       mark_nodes_as_completed(completed_node_ids)
 
       # Restore current node position
-      if checkpoint['node_id']
-        @workflow_run.update!(current_node_id: checkpoint['node_id'])
+      if checkpoint["node_id"]
+        @workflow_run.update!(current_node_id: checkpoint["node_id"])
       end
 
       @logger.info "[MCP_CHECKPOINT_MANAGER] Restored state with #{completed_node_ids.length} completed nodes"
@@ -223,10 +223,10 @@ module Mcp
           ai_workflow_node: node,
           node_id: node_id,
           node_type: node.node_type,
-          status: 'completed',
+          status: "completed",
           started_at: Time.current,
           completed_at: Time.current,
-          output_data: { 'skipped' => true, 'reason' => 'restored_from_checkpoint' }
+          output_data: { "skipped" => true, "reason" => "restored_from_checkpoint" }
         )
       end
     end

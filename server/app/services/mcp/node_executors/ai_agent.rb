@@ -7,7 +7,7 @@ module Mcp
       protected
 
       def perform_execution
-        agent_id = configuration['agent_id'] || configuration['ai_agent_id']
+        agent_id = configuration["agent_id"] || configuration["ai_agent_id"]
 
         unless agent_id
           raise Mcp::AiWorkflowOrchestrator::NodeExecutionError, "No agent_id configured for AI Agent node"
@@ -31,13 +31,13 @@ module Mcp
 
         # Extract output from MCP execution result
         # MCP returns: { 'result' => { 'output' => ..., 'metadata' => ... }, 'telemetry' => ... }
-        result_data = execution_result['result'] || execution_result[:result] || {}
-        output_data = result_data['output'] || result_data[:output]
-        result_metadata = result_data['metadata'] || result_data[:metadata] || {}
+        result_data = execution_result["result"] || execution_result[:result] || {}
+        output_data = result_data["output"] || result_data[:output]
+        result_metadata = result_data["metadata"] || result_data[:metadata] || {}
 
         # Store output in variables if configured
-        if configuration['output_variable']
-          set_variable(configuration['output_variable'], output_data)
+        if configuration["output_variable"]
+          set_variable(configuration["output_variable"], output_data)
         end
 
         # Industry-standard output format (v1.0)
@@ -48,16 +48,16 @@ module Mcp
             agent_id: agent.id,
             agent_name: agent.name,
             agent_type: agent.agent_type,
-            model: result_metadata['model_used'] || result_metadata[:model_used] || agent.mcp_metadata&.dig('model_config', 'model')
+            model: result_metadata["model_used"] || result_metadata[:model_used] || agent.mcp_metadata&.dig("model_config", "model")
           },
           metadata: {                            # Execution metadata (standardized)
             node_id: @node.node_id,
-            node_type: 'ai_agent',
+            node_type: "ai_agent",
             executed_at: Time.current.iso8601,
-            cost: execution_result.dig('telemetry', 'cost') || 0.0,
-            tokens_used: result_metadata['tokens_used'] || result_metadata[:tokens_used],
-            duration_ms: result_metadata['processing_time_ms'] || result_metadata[:processing_time_ms],
-            model: result_metadata['model_used'] || result_metadata[:model_used],
+            cost: execution_result.dig("telemetry", "cost") || 0.0,
+            tokens_used: result_metadata["tokens_used"] || result_metadata[:tokens_used],
+            duration_ms: result_metadata["processing_time_ms"] || result_metadata[:processing_time_ms],
+            model: result_metadata["model_used"] || result_metadata[:model_used],
             # Agent-specific metadata
             agent_execution_id: @node_execution.ai_agent_execution&.id
           }
@@ -68,31 +68,31 @@ module Mcp
 
       def prepare_agent_input
         # Check if there's a prompt template or prompt field
-        prompt_template = configuration['prompt_template'] || configuration['prompt']
+        prompt_template = configuration["prompt_template"] || configuration["prompt"]
 
         if prompt_template.present?
           # Render template with variables from execution context
           rendered_prompt = render_template(prompt_template)
 
           {
-            'input' => rendered_prompt,
-            'context' => configuration['context'] || {}
+            "input" => rendered_prompt,
+            "context" => configuration["context"] || {}
           }
         else
           # Get input from node configuration
           input = {}
 
           # Map variables from execution context
-          if configuration['input_mapping'].present?
-            configuration['input_mapping'].each do |agent_param, variable_name|
+          if configuration["input_mapping"].present?
+            configuration["input_mapping"].each do |agent_param, variable_name|
               value = get_variable(variable_name)
               input[agent_param] = value if value.present?
             end
           end
 
           # Include direct input from configuration
-          if configuration['input'].present?
-            input.merge!(configuration['input'])
+          if configuration["input"].present?
+            input.merge!(configuration["input"])
           end
 
           # Include node input data
@@ -102,10 +102,10 @@ module Mcp
 
           # If the agent expects an 'input' property but we've collected raw variables,
           # wrap them in the 'input' property for MCP schema compliance
-          if input.present? && !input.key?('input')
+          if input.present? && !input.key?("input")
             {
-              'input' => input.map { |k, v| "#{k}: #{v}" }.join("\n"),
-              'context' => configuration['context'] || {}
+              "input" => input.map { |k, v| "#{k}: #{v}" }.join("\n"),
+              "context" => configuration["context"] || {}
             }
           else
             input
@@ -132,7 +132,7 @@ module Mcp
           user: @orchestrator.user,
           ai_provider: agent.ai_provider,
           execution_id: SecureRandom.uuid,
-          status: 'pending',
+          status: "pending",
           input_parameters: input,
           tokens_used: 0,
           cost_usd: 0.0,
@@ -167,39 +167,39 @@ module Mcp
 
         # Update agent execution with completion status
         # Check if execution returned an error response
-        if execution_result['error'] || execution_result[:error]
-          error_info = execution_result['error'] || execution_result[:error]
-          error_message = error_info['message'] || error_info[:message] || 'Unknown MCP error'
+        if execution_result["error"] || execution_result[:error]
+          error_info = execution_result["error"] || execution_result[:error]
+          error_message = error_info["message"] || error_info[:message] || "Unknown MCP error"
 
           # Mark agent execution as failed
-          agent_execution.fail_execution!(error_message, { 'mcp_error' => error_info })
+          agent_execution.fail_execution!(error_message, { "mcp_error" => error_info })
           log_error "Agent execution failed: #{error_message}"
 
           @logger.error "[AI_AGENT_EXECUTOR] MCP error response: #{error_message}"
-        elsif execution_result['result']
+        elsif execution_result["result"]
           # Execution succeeded
-          result_data = execution_result['result']
+          result_data = execution_result["result"]
           agent_execution.complete_execution!(
-            { 'output' => result_data['output'] || result_data[:output] },
+            { "output" => result_data["output"] || result_data[:output] },
             {
-              'tokens_used' => result_data.dig('metadata', 'tokens_used'),
-              'processing_time_ms' => result_data.dig('metadata', 'processing_time_ms'),
-              'model_used' => result_data.dig('metadata', 'model_used'),
-              'provider' => result_data.dig('metadata', 'provider')
+              "tokens_used" => result_data.dig("metadata", "tokens_used"),
+              "processing_time_ms" => result_data.dig("metadata", "processing_time_ms"),
+              "model_used" => result_data.dig("metadata", "model_used"),
+              "provider" => result_data.dig("metadata", "provider")
             }
           )
 
           # Record token usage and cost
-          tokens = result_data.dig('metadata', 'tokens_used') || 0
-          cost = execution_result.dig('telemetry', 'cost') || 0
+          tokens = result_data.dig("metadata", "tokens_used") || 0
+          cost = execution_result.dig("telemetry", "cost") || 0
           agent_execution.record_token_usage!(tokens, cost) if tokens > 0
 
           log_info "Agent execution completed successfully (tokens: #{tokens}, cost: $#{cost})"
         else
           # Unexpected response format
           agent_execution.fail_execution!(
-            'Unexpected MCP response format',
-            { 'response_keys' => execution_result.keys }
+            "Unexpected MCP response format",
+            { "response_keys" => execution_result.keys }
           )
           log_error "Unexpected MCP response format: #{execution_result.keys.inspect}"
           @logger.error "[AI_AGENT_EXECUTOR] Unexpected response format: #{execution_result.keys.inspect}"
@@ -208,7 +208,7 @@ module Mcp
         execution_result
       rescue StandardError => e
         # Mark agent execution as failed if an error occurs
-        agent_execution&.fail_execution!(e.message, { 'exception_class' => e.class.name })
+        agent_execution&.fail_execution!(e.message, { "exception_class" => e.class.name })
 
         @logger.error "[AI_AGENT_EXECUTOR] Agent execution failed: #{e.message}"
         raise Mcp::AiWorkflowOrchestrator::NodeExecutionError,

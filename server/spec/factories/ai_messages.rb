@@ -19,7 +19,7 @@ FactoryBot.define do
         processing_time_ms: 0
       }
     end
-    
+
     trait :user_message do
       role { 'user' }
       content { Faker::Lorem.question }
@@ -32,7 +32,7 @@ FactoryBot.define do
         }
       end
     end
-    
+
     trait :ai_response do
       role { 'assistant' }
       content { Faker::Lorem.paragraph }
@@ -50,7 +50,7 @@ FactoryBot.define do
         }
       end
     end
-    
+
     trait :system_message do
       sender_type { 'system' }
       sender_id { nil }
@@ -63,7 +63,7 @@ FactoryBot.define do
         }
       end
     end
-    
+
     trait :processing do
       sender_type { 'ai' }
       content { '' }
@@ -76,7 +76,7 @@ FactoryBot.define do
         }
       end
     end
-    
+
     trait :error_message do
       sender_type { 'ai' }
       content { 'I apologize, but I encountered an error processing your request.' }
@@ -91,7 +91,7 @@ FactoryBot.define do
         }
       end
     end
-    
+
     trait :with_attachments do
       content { 'Please see the attached files for the analysis results.' }
       metadata do
@@ -115,7 +115,7 @@ FactoryBot.define do
         }
       end
     end
-    
+
     trait :code_response do
       sender_type { 'ai' }
       content do
@@ -135,7 +135,7 @@ FactoryBot.define do
         }
       end
     end
-    
+
     trait :long_response do
       sender_type { 'ai' }
       content { Faker::Lorem.paragraphs(10).join("\n\n") }

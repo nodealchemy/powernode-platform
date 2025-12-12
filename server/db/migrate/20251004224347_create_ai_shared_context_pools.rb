@@ -24,8 +24,8 @@ class CreateAiSharedContextPools < ActiveRecord::Migration[8.0]
     add_index :ai_shared_context_pools, :pool_type
     add_index :ai_shared_context_pools, :scope
     add_index :ai_shared_context_pools, :owner_agent_id
-    add_index :ai_shared_context_pools, [:ai_workflow_run_id, :pool_type], name: 'index_context_pools_on_run_and_type'
-    add_index :ai_shared_context_pools, [:ai_workflow_run_id, :scope], name: 'index_context_pools_on_run_and_scope'
+    add_index :ai_shared_context_pools, [ :ai_workflow_run_id, :pool_type ], name: 'index_context_pools_on_run_and_type'
+    add_index :ai_shared_context_pools, [ :ai_workflow_run_id, :scope ], name: 'index_context_pools_on_run_and_scope'
 
     add_foreign_key :ai_shared_context_pools, :ai_workflow_runs, on_delete: :cascade
   end

@@ -121,7 +121,7 @@ RSpec.describe 'Authentication Security', type: :request do
       result = UserToken.create_token_for_user(user, type: 'access')
       user_token = result[:user_token]
       expired_token = result[:token]
-      
+
       # Use time travel to make token appear expired (respects database constraints)
       travel_to (user_token.expires_at + 1.hour) do
         get '/api/v1/auth/me', headers: {
@@ -256,7 +256,7 @@ RSpec.describe 'Authentication Security', type: :request do
 
       # JWT tokens are stateless, so the refresh endpoint might return 400 if the
       # token is blacklisted or 401 if it's invalid/expired
-      expect(response.status).to be_in([400, 401])
+      expect(response.status).to be_in([ 400, 401 ])
     end
   end
 

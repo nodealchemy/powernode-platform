@@ -6,7 +6,7 @@ RSpec.describe 'AI Analytics Integration', type: :request do
   let(:account) { create(:account) }
   let(:user) { create(:user, account: account) }
   let(:admin_user) { create(:user, :system_admin, account: account) }
-  
+
   # Core AI components
   let!(:provider1) { create(:ai_provider, slug: 'openai', name: 'OpenAI') }
   let!(:provider2) { create(:ai_provider, slug: 'anthropic', name: 'Anthropic') }
@@ -298,7 +298,7 @@ RSpec.describe 'AI Analytics Integration', type: :request do
              created_at: i.days.ago,
              cost_usd: 0.08 + (i * 0.03))
     end
-    
+
     # Add some failures
     create(:ai_agent_execution, :failed,
            ai_agent: agent1,
@@ -331,7 +331,7 @@ RSpec.describe 'AI Analytics Integration', type: :request do
     # Create cost tracking records
     5.times do |i|
       date = i.days.ago.to_date
-      
+
       # OpenAI costs
       AuditLog.create!(
         account: account,
@@ -346,7 +346,7 @@ RSpec.describe 'AI Analytics Integration', type: :request do
           tokens: 1000 + (i * 100)
         }
       )
-      
+
       # Anthropic costs
       AuditLog.create!(
         account: account,
@@ -369,7 +369,7 @@ RSpec.describe 'AI Analytics Integration', type: :request do
     %w[openai anthropic].each do |provider_slug|
       provider = AiProvider.find_by(slug: provider_slug)
       agent = provider_slug == 'openai' ? agent1 : agent2
-      
+
       # Successful executions
       10.times do |i|
         create(:ai_agent_execution, :completed,
@@ -379,7 +379,7 @@ RSpec.describe 'AI Analytics Integration', type: :request do
                duration_ms: 1000 + rand(500),
                cost_usd: 0.05 + rand(0.03))
       end
-      
+
       # Some failures
       2.times do |i|
         create(:ai_agent_execution, :failed,
@@ -394,11 +394,11 @@ RSpec.describe 'AI Analytics Integration', type: :request do
     # Create 30 days of cost history
     30.times do |i|
       date = i.days.ago.to_date
-      
+
       %w[openai anthropic].each do |provider|
         daily_executions = rand(5..15)
         daily_cost = daily_executions * (0.03 + rand(0.07))
-        
+
         AuditLog.create!(
           account: account,
           user: user,
@@ -427,10 +427,10 @@ RSpec.describe 'AI Analytics Integration', type: :request do
         else
           rand(0..2)
         end
-        
+
         execution_count.times do
           create(:ai_agent_execution, :completed,
-                 ai_agent: [agent1, agent2].sample,
+                 ai_agent: [ agent1, agent2 ].sample,
                  account: account,
                  created_at: day.days.ago + hour.hours)
         end

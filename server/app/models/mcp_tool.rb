@@ -23,7 +23,7 @@ class McpTool < ApplicationRecord
   # Scopes
   # ==========================================
   scope :for_server, ->(server_id) { where(mcp_server_id: server_id) }
-  scope :recently_used, -> { joins(:mcp_tool_executions).where('mcp_tool_executions.created_at > ?', 24.hours.ago).distinct }
+  scope :recently_used, -> { joins(:mcp_tool_executions).where("mcp_tool_executions.created_at > ?", 24.hours.ago).distinct }
   scope :by_name, ->(name) { where(name: name) }
 
   # ==========================================
@@ -47,7 +47,7 @@ class McpTool < ApplicationRecord
     # Create execution record
     execution = mcp_tool_executions.create!(
       user: user,
-      status: 'pending',
+      status: "pending",
       parameters: parameters
     )
 
@@ -78,7 +78,7 @@ class McpTool < ApplicationRecord
     return { valid: true, errors: [] } if input_schema.blank?
 
     # Basic parameter validation against schema
-    required_params = input_schema.dig('required') || []
+    required_params = input_schema.dig("required") || []
     required_params.each do |param|
       unless parameters.key?(param) || parameters.key?(param.to_sym)
         errors << "Missing required parameter: #{param}"
@@ -126,8 +126,8 @@ class McpTool < ApplicationRecord
   # Get execution statistics
   def execution_stats
     total = mcp_tool_executions.count
-    successful = mcp_tool_executions.where(status: 'completed').count
-    failed = mcp_tool_executions.where(status: 'failed').count
+    successful = mcp_tool_executions.where(status: "completed").count
+    failed = mcp_tool_executions.where(status: "failed").count
 
     {
       total_executions: total,
@@ -151,20 +151,20 @@ class McpTool < ApplicationRecord
     return if input_schema.blank?
 
     unless input_schema.is_a?(Hash)
-      errors.add(:input_schema, 'must be a hash')
+      errors.add(:input_schema, "must be a hash")
     end
   end
 
   def validate_permission_fields
     # Validate required_permissions is an array
     if required_permissions.present? && !required_permissions.is_a?(Array)
-      errors.add(:required_permissions, 'must be an array')
+      errors.add(:required_permissions, "must be an array")
     end
 
     # Validate allowed_scopes structure
     if allowed_scopes.present?
       unless allowed_scopes.is_a?(Hash)
-        errors.add(:allowed_scopes, 'must be a hash')
+        errors.add(:allowed_scopes, "must be a hash")
         return
       end
 
@@ -194,7 +194,7 @@ class McpTool < ApplicationRecord
   end
 
   def calculate_avg_execution_time
-    completed = mcp_tool_executions.where(status: 'completed').where.not(execution_time_ms: nil)
+    completed = mcp_tool_executions.where(status: "completed").where.not(execution_time_ms: nil)
     return 0 if completed.empty?
 
     completed.average(:execution_time_ms).to_i

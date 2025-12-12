@@ -7,11 +7,11 @@ class ScheduledTask < ApplicationRecord
 
   # Validations
   validates :name, presence: true, uniqueness: true, length: { maximum: 255 }
-  validates :task_type, presence: true, inclusion: { 
-    in: %w[database_backup data_cleanup system_health_check report_generation custom_command] 
+  validates :task_type, presence: true, inclusion: {
+    in: %w[database_backup data_cleanup system_health_check report_generation custom_command]
   }
   validates :cron_schedule, presence: true
-  validates :enabled, inclusion: { in: [true, false] }
+  validates :enabled, inclusion: { in: [ true, false ] }
 
   # Scopes
   scope :enabled, -> { where(enabled: true) }
@@ -37,15 +37,15 @@ class ScheduledTask < ApplicationRecord
   end
 
   def last_successful_execution
-    task_executions.where(status: 'completed').order(:created_at).last
+    task_executions.where(status: "completed").order(:created_at).last
   end
 
   def success_rate
     return 0 if task_executions.empty?
-    
-    successful = task_executions.where(status: 'completed').count
+
+    successful = task_executions.where(status: "completed").count
     total = task_executions.count
-    
+
     (successful.to_f / total * 100).round(2)
   end
 
@@ -60,7 +60,7 @@ class ScheduledTask < ApplicationRecord
   end
 
   def currently_running?
-    task_executions.where(status: ['pending', 'running']).exists?
+    task_executions.where(status: [ "pending", "running" ]).exists?
   end
 
   private
@@ -69,8 +69,8 @@ class ScheduledTask < ApplicationRecord
     AuditLog.create!(
       user: user,
       account: user.account,
-      action: 'scheduled_task_created',
-      resource_type: 'ScheduledTask',
+      action: "scheduled_task_created",
+      resource_type: "ScheduledTask",
       resource_id: id,
       details: {
         name: name,
@@ -88,12 +88,12 @@ class ScheduledTask < ApplicationRecord
     AuditLog.create!(
       user: user,
       account: user.account,
-      action: 'scheduled_task_updated',
-      resource_type: 'ScheduledTask',
+      action: "scheduled_task_updated",
+      resource_type: "ScheduledTask",
       resource_id: id,
       details: {
         name: name,
-        changes: saved_changes.except('updated_at')
+        changes: saved_changes.except("updated_at")
       }
     )
   rescue => e
@@ -104,8 +104,8 @@ class ScheduledTask < ApplicationRecord
     AuditLog.create!(
       user: user,
       account: user.account,
-      action: 'scheduled_task_deleted',
-      resource_type: 'ScheduledTask',
+      action: "scheduled_task_deleted",
+      resource_type: "ScheduledTask",
       resource_id: id,
       details: {
         name: name,

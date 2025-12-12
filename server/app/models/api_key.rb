@@ -2,23 +2,23 @@
 
 class ApiKey < ApplicationRecord
   # Associations
-  belongs_to :created_by, class_name: 'User', optional: true
+  belongs_to :created_by, class_name: "User", optional: true
   belongs_to :account, optional: true
   has_many :api_key_usages, dependent: :destroy
 
   # Validations
   validates :name, presence: true, length: { maximum: 100 }
   validates :key_digest, presence: true, uniqueness: true
-  validates :is_active, inclusion: { in: [true, false] }
+  validates :is_active, inclusion: { in: [ true, false ] }
   validates :expires_at, comparison: { greater_than: :created_at }, allow_nil: true
 
   # Note: scopes, allowed_ips, and metadata are JSON columns
   # and don't need explicit serialization in Rails 8
 
   # Scopes
-  scope :active, -> { where(is_active: true).where('expires_at IS NULL OR expires_at > ?', Time.current) }
+  scope :active, -> { where(is_active: true).where("expires_at IS NULL OR expires_at > ?", Time.current) }
   scope :inactive, -> { where(is_active: false) }
-  scope :expired, -> { where('expires_at <= ?', Time.current) }
+  scope :expired, -> { where("expires_at <= ?", Time.current) }
   scope :revoked, -> { where(is_active: false) }
 
   # Callbacks
@@ -32,45 +32,45 @@ class ApiKey < ApplicationRecord
   # Class methods
   def self.available_scopes
     [
-      'read:users',
-      'write:users', 
-      'read:accounts',
-      'write:accounts',
-      'read:subscriptions',
-      'write:subscriptions',
-      'read:payments',
-      'write:payments',
-      'read:invoices',
-      'write:invoices',
-      'read:analytics',
-      'admin:settings',
-      'admin:impersonation',
-      'webhooks:manage'
+      "read:users",
+      "write:users",
+      "read:accounts",
+      "write:accounts",
+      "read:subscriptions",
+      "write:subscriptions",
+      "read:payments",
+      "write:payments",
+      "read:invoices",
+      "write:invoices",
+      "read:analytics",
+      "admin:settings",
+      "admin:impersonation",
+      "webhooks:manage"
     ]
   end
 
   def self.scope_descriptions
     {
-      'read:users' => 'Read user information and profiles',
-      'write:users' => 'Create, update, and delete users',
-      'read:accounts' => 'Read account information and settings',
-      'write:accounts' => 'Update account settings and configuration',
-      'read:subscriptions' => 'Read subscription details and history',
-      'write:subscriptions' => 'Manage subscriptions and billing',
-      'read:payments' => 'Read payment history and methods',
-      'write:payments' => 'Process payments and manage payment methods',
-      'read:invoices' => 'Read invoice details and history',
-      'write:invoices' => 'Generate and manage invoices',
-      'read:analytics' => 'Access analytics and reporting data',
-      'admin:settings' => 'Manage system settings and configuration',
-      'admin:impersonation' => 'Impersonate users for support purposes',
-      'webhooks:manage' => 'Configure and manage webhook endpoints'
+      "read:users" => "Read user information and profiles",
+      "write:users" => "Create, update, and delete users",
+      "read:accounts" => "Read account information and settings",
+      "write:accounts" => "Update account settings and configuration",
+      "read:subscriptions" => "Read subscription details and history",
+      "write:subscriptions" => "Manage subscriptions and billing",
+      "read:payments" => "Read payment history and methods",
+      "write:payments" => "Process payments and manage payment methods",
+      "read:invoices" => "Read invoice details and history",
+      "write:invoices" => "Generate and manage invoices",
+      "read:analytics" => "Access analytics and reporting data",
+      "admin:settings" => "Manage system settings and configuration",
+      "admin:impersonation" => "Impersonate users for support purposes",
+      "webhooks:manage" => "Configure and manage webhook endpoints"
     }
   end
 
   def self.find_by_key(key_value)
     return nil unless key_value.present?
-    
+
     key_digest = hash_key(key_value)
     find_by(key_digest: key_digest)
   end
@@ -97,10 +97,10 @@ class ApiKey < ApplicationRecord
   end
 
   def invalid_reason
-    return 'API key is inactive' if revoked?
-    return 'API key has expired' if expired?
-    return 'Rate limit exceeded' if rate_limited?
-    return 'API key is inactive' unless active?
+    return "API key is inactive" if revoked?
+    return "API key has expired" if expired?
+    return "Rate limit exceeded" if rate_limited?
+    return "API key is inactive" unless active?
     nil
   end
 
@@ -109,7 +109,7 @@ class ApiKey < ApplicationRecord
       old_key_digest = key_digest
       generate_key
       save!
-      
+
       # Log the regeneration
       Rails.logger.info "API key #{id} regenerated (old digest: #{old_key_digest[0..7]}...)"
     end
@@ -122,15 +122,15 @@ class ApiKey < ApplicationRecord
 
   def has_scope?(required_scope)
     return true if permissions.blank? # No scope restrictions
-    return true if permissions.include?('*') # Wildcard access
-    
-    permissions.include?(required_scope) || 
+    return true if permissions.include?("*") # Wildcard access
+
+    permissions.include?(required_scope) ||
     permissions.any? { |scope| scope_matches?(scope, required_scope) }
   end
 
   def record_usage!(request_data = {})
     update!(last_used_at: Time.current)
-    
+
     # Create detailed usage record
     api_key_usages.create!(
       endpoint: request_data[:endpoint],
@@ -158,8 +158,8 @@ class ApiKey < ApplicationRecord
   def rate_limited?
     return false if rate_limits.blank?
 
-    hourly_limit = rate_limits['hourly']
-    daily_limit = rate_limits['daily']
+    hourly_limit = rate_limits["hourly"]
+    daily_limit = rate_limits["daily"]
 
     if hourly_limit && requests_in_last_hour >= hourly_limit
       return true
@@ -194,7 +194,7 @@ class ApiKey < ApplicationRecord
 
   def scope_matches?(scope_pattern, required_scope)
     # Handle wildcard patterns like "read:*" matching "read:users"
-    if scope_pattern.end_with?('*')
+    if scope_pattern.end_with?("*")
       prefix = scope_pattern[0..-2]
       required_scope.start_with?(prefix)
     else

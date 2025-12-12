@@ -66,7 +66,7 @@ RSpec.describe 'StorageProviders::LocalStorage Integration', type: :integration 
     it 'performs health check' do
       health = provider.health_check
 
-      expect(health[:status]).to be_in(['healthy', 'degraded'])
+      expect(health[:status]).to be_in([ 'healthy', 'degraded' ])
       expect(health[:details]).to be_present
       expect(health[:details]['writable']).to be true
       expect(health[:details]['root_path']).to be_present
@@ -430,7 +430,7 @@ RSpec.describe 'StorageProviders::LocalStorage Integration', type: :integration 
   describe 'File Listing Operations' do
     before do
       # Create test files in different directories
-      ['docs/file1.txt', 'docs/file2.txt', 'images/photo.jpg', 'data/export.csv'].each do |key|
+      [ 'docs/file1.txt', 'docs/file2.txt', 'images/photo.jpg', 'data/export.csv' ].each do |key|
         obj = FileObject.create!(
           account: account,
           file_storage: storage,

@@ -112,7 +112,7 @@ module Mcp
         initialize_execution
 
         # Merge resume context into execution context
-        @execution_context[:variables].merge!(resume_context['variables'] || {}) if resume_context['variables']
+        @execution_context[:variables].merge!(resume_context["variables"] || {}) if resume_context["variables"]
         @execution_context[:resume_point] = node_id
 
         # Transition to running state if not already
@@ -149,7 +149,7 @@ module Mcp
 
       # Record initialization event
       @event_store.record_event(
-        event_type: 'workflow.execution.initialized',
+        event_type: "workflow.execution.initialized",
         event_data: {
           workflow_id: @workflow.id,
           workflow_name: @workflow.name,
@@ -183,7 +183,7 @@ module Mcp
       # Exclude node_results to avoid circular references during JSON serialization
       serializable_context = @execution_context.except(:node_results).deep_dup
       @workflow_run.update!(
-        status: 'initializing',
+        status: "initializing",
         started_at: Time.current,
         runtime_context: serializable_context
       )
@@ -213,7 +213,7 @@ module Mcp
       end
 
       @event_store.record_event(
-        event_type: 'workflow.validation.completed',
+        event_type: "workflow.validation.completed",
         event_data: {
           start_nodes_count: start_nodes.count,
           total_nodes: @workflow.node_count,
@@ -226,11 +226,11 @@ module Mcp
       @logger.info "[MCP_ORCHESTRATOR] Validating MCP tool requirements"
 
       mcp_config = @workflow.mcp_orchestration_config || {}
-      tool_requirements = mcp_config['tool_requirements'] || []
+      tool_requirements = mcp_config["tool_requirements"] || []
 
       tool_requirements.each do |requirement|
-        tool_id = requirement['tool_id']
-        min_version = requirement['min_version']
+        tool_id = requirement["tool_id"]
+        min_version = requirement["min_version"]
 
         # Check tool availability in registry
         tool_manifest = @mcp_registry.get_tool(tool_id)
@@ -240,7 +240,7 @@ module Mcp
 
         # Check version compatibility if specified
         if min_version.present?
-          tool_version = Gem::Version.new(tool_manifest['version'])
+          tool_version = Gem::Version.new(tool_manifest["version"])
           required_version = Gem::Version.new(min_version)
 
           unless tool_version >= required_version
@@ -251,7 +251,7 @@ module Mcp
       end
 
       @event_store.record_event(
-        event_type: 'workflow.mcp_validation.completed',
+        event_type: "workflow.mcp_validation.completed",
         event_data: {
           tools_validated: tool_requirements.count
         }
@@ -263,18 +263,18 @@ module Mcp
     # =============================================================================
 
     def execute_workflow_by_mode
-      execution_mode = @workflow.mcp_orchestration_config&.dig('execution_mode') || 'sequential'
+      execution_mode = @workflow.mcp_orchestration_config&.dig("execution_mode") || "sequential"
 
       @logger.info "[MCP_ORCHESTRATOR] Executing in #{execution_mode} mode"
 
       case execution_mode
-      when 'sequential'
+      when "sequential"
         execute_sequential_mode
-      when 'parallel'
+      when "parallel"
         execute_parallel_mode
-      when 'conditional'
+      when "conditional"
         execute_conditional_mode
-      when 'dag' # Directed Acyclic Graph - optimal execution order
+      when "dag" # Directed Acyclic Graph - optimal execution order
         execute_dag_mode
       else
         execute_sequential_mode # Safe default
@@ -285,7 +285,7 @@ module Mcp
       @logger.info "[MCP_ORCHESTRATOR] Executing from resume point: #{resume_node.node_id}"
 
       # Start execution queue with the resume node
-      execution_queue = [resume_node]
+      execution_queue = [ resume_node ]
 
       while execution_queue.any?
         current_node = execution_queue.shift
@@ -428,7 +428,7 @@ module Mcp
 
         # Record execution start event
         @event_store.record_event(
-          event_type: 'node.execution.started',
+          event_type: "node.execution.started",
           event_data: {
             node_id: node.node_id,
             node_type: node.node_type,
@@ -456,62 +456,62 @@ module Mcp
 
     def get_mcp_node_executor(node, node_execution, node_context)
       executor_class = case node.node_type
-                      when 'ai_agent'
+      when "ai_agent"
                         Mcp::NodeExecutors::AiAgent
-                      when 'api_call'
+      when "api_call"
                         Mcp::NodeExecutors::ApiCall
-                      when 'transform'
+      when "transform"
                         Mcp::NodeExecutors::Transform
-                      when 'condition'
+      when "condition"
                         Mcp::NodeExecutors::Condition
-                      when 'webhook'
+      when "webhook"
                         Mcp::NodeExecutors::Webhook
-                      when 'delay'
+      when "delay"
                         Mcp::NodeExecutors::Delay
-                      when 'loop'
+      when "loop"
                         Mcp::NodeExecutors::Loop
-                      when 'merge'
+      when "merge"
                         Mcp::NodeExecutors::Merge
-                      when 'split'
+      when "split"
                         Mcp::NodeExecutors::Split
-                      when 'sub_workflow'
+      when "sub_workflow"
                         Mcp::NodeExecutors::SubWorkflow
-                      when 'human_approval'
+      when "human_approval"
                         Mcp::NodeExecutors::HumanApproval
-                      when 'trigger', 'start'
+      when "trigger", "start"
                         Mcp::NodeExecutors::Start
-                      when 'end'
+      when "end"
                         Mcp::NodeExecutors::End
-                      # Knowledge Base Article Management
-                      when 'kb_article_create'
+      # Knowledge Base Article Management
+      when "kb_article_create"
                         Mcp::NodeExecutors::KbArticleCreate
-                      when 'kb_article_read'
+      when "kb_article_read"
                         Mcp::NodeExecutors::KbArticleRead
-                      when 'kb_article_update'
+      when "kb_article_update"
                         Mcp::NodeExecutors::KbArticleUpdate
-                      when 'kb_article_search'
+      when "kb_article_search"
                         Mcp::NodeExecutors::KbArticleSearch
-                      when 'kb_article_publish'
+      when "kb_article_publish"
                         Mcp::NodeExecutors::KbArticlePublish
-                      # Page Content Management
-                      when 'page_create'
+      # Page Content Management
+      when "page_create"
                         Mcp::NodeExecutors::PageCreate
-                      when 'page_read'
+      when "page_read"
                         Mcp::NodeExecutors::PageRead
-                      when 'page_update'
+      when "page_update"
                         Mcp::NodeExecutors::PageUpdate
-                      when 'page_publish'
+      when "page_publish"
                         Mcp::NodeExecutors::PagePublish
-                      # MCP Server Integration
-                      when 'mcp_tool'
+      # MCP Server Integration
+      when "mcp_tool"
                         Mcp::NodeExecutors::McpTool
-                      when 'mcp_resource'
+      when "mcp_resource"
                         Mcp::NodeExecutors::McpResource
-                      when 'mcp_prompt'
+      when "mcp_prompt"
                         Mcp::NodeExecutors::McpPrompt
-                      else
+      else
                         raise NodeExecutionError, "Unknown node type: #{node.node_type}"
-                      end
+      end
 
       executor_class.new(
         node: node,
@@ -572,7 +572,7 @@ module Mcp
 
       # Record completion event
       @event_store.record_event(
-        event_type: 'node.execution.completed',
+        event_type: "node.execution.completed",
         event_data: {
           node_id: node.node_id,
           node_type: node.node_type,
@@ -595,14 +595,14 @@ module Mcp
       node_execution.fail_execution!(
         error.message,
         {
-          'exception_class' => error.class.name,
-          'backtrace' => error.backtrace&.first(10)
+          "exception_class" => error.class.name,
+          "backtrace" => error.backtrace&.first(10)
         }
       )
 
       # Record failure event
       @event_store.record_event(
-        event_type: 'node.execution.failed',
+        event_type: "node.execution.failed",
         event_data: {
           node_id: node.node_id,
           node_type: node.node_type,
@@ -662,15 +662,15 @@ module Mcp
       return false if node_result.nil?
 
       # Default edges always pass
-      return true if edge.edge_type == 'default'
+      return true if edge.edge_type == "default"
 
       # Success edges only pass if node succeeded
-      if edge.edge_type == 'success'
+      if edge.edge_type == "success"
         return node_result[:success] == true
       end
 
       # Error edges only pass if node failed
-      if edge.edge_type == 'error'
+      if edge.edge_type == "error"
         return node_result[:success] == false
       end
 
@@ -761,7 +761,7 @@ module Mcp
       # Extract and store variables if present
       if output_data.is_a?(Hash)
         # Auto-extract variables based on node configuration
-        variable_mapping = node.configuration&.dig('output_variables') || {}
+        variable_mapping = node.configuration&.dig("output_variables") || {}
 
         variable_mapping.each do |var_name, output_path|
           value = extract_value_from_path(output_data, output_path)
@@ -769,8 +769,8 @@ module Mcp
         end
 
         # Also store direct variable assignments if present
-        if output_data['variables'].is_a?(Hash)
-          @execution_context[:variables].merge!(output_data['variables'])
+        if output_data["variables"].is_a?(Hash)
+          @execution_context[:variables].merge!(output_data["variables"])
         end
       end
 
@@ -782,7 +782,7 @@ module Mcp
     def extract_value_from_path(data, path)
       return data if path.blank?
 
-      path.to_s.split('.').reduce(data) do |current, key|
+      path.to_s.split(".").reduce(data) do |current, key|
         break nil unless current.is_a?(Hash) || current.is_a?(Array)
 
         if current.is_a?(Array) && key =~ /\A\d+\z/
@@ -798,15 +798,15 @@ module Mcp
     # =============================================================================
 
     def should_compensate_on_failure?
-      compensation_strategy = @workflow.mcp_orchestration_config&.dig('compensation_strategy')
-      compensation_strategy == 'automatic' || @compensation_stack.any?
+      compensation_strategy = @workflow.mcp_orchestration_config&.dig("compensation_strategy")
+      compensation_strategy == "automatic" || @compensation_stack.any?
     end
 
     def trigger_compensation(original_error)
       @logger.warn "[MCP_ORCHESTRATOR] Triggering compensation due to failure"
 
       @event_store.record_event(
-        event_type: 'workflow.compensation.started',
+        event_type: "workflow.compensation.started",
         event_data: {
           original_error: original_error.message,
           compensation_handlers: @compensation_stack.count
@@ -830,12 +830,12 @@ module Mcp
 
       if compensation_errors.any?
         @event_store.record_event(
-          event_type: 'workflow.compensation.partial_failure',
+          event_type: "workflow.compensation.partial_failure",
           event_data: { errors: compensation_errors }
         )
       else
         @event_store.record_event(
-          event_type: 'workflow.compensation.completed',
+          event_type: "workflow.compensation.completed",
           event_data: { handlers_executed: @compensation_stack.count }
         )
       end
@@ -856,8 +856,8 @@ module Mcp
       @logger.info "[MCP_ORCHESTRATOR] Finalizing workflow execution"
 
       # Determine final status
-      failed_nodes = @workflow_run.ai_workflow_node_executions.where(status: 'failed')
-      final_status = failed_nodes.any? ? 'failed' : 'completed'
+      failed_nodes = @workflow_run.ai_workflow_node_executions.where(status: "failed")
+      final_status = failed_nodes.any? ? "failed" : "completed"
 
       # Transition to final state
       transition_state!(:running, final_status.to_sym)
@@ -880,7 +880,7 @@ module Mcp
       # Broadcast completion to frontend via AiOrchestrationChannel
       # CRITICAL: Frontend needs this for live preview updates
       AiOrchestrationChannel.broadcast_workflow_run_event(
-        'workflow.execution.completed',
+        "workflow.execution.completed",
         @workflow_run,
         {
           workflow_run: {
@@ -903,7 +903,7 @@ module Mcp
 
       # Record completion event
       @event_store.record_event(
-        event_type: 'workflow.execution.completed',
+        event_type: "workflow.execution.completed",
         event_data: {
           status: final_status,
           duration_ms: calculate_total_duration,
@@ -922,7 +922,7 @@ module Mcp
     def generate_final_output
       # CRITICAL: Use End node output as primary final output
       # Find the End node result
-      end_node = @workflow.ai_workflow_nodes.find_by(node_type: 'end')
+      end_node = @workflow.ai_workflow_nodes.find_by(node_type: "end")
       end_node_result = end_node ? @node_results[end_node.node_id] : nil
 
       if end_node_result.present?
@@ -951,8 +951,8 @@ module Mcp
           node_results: @node_results,
           mcp_metadata: {
             protocol_version: McpProtocolService::MCP_VERSION,
-            orchestrator_version: '2.0.0',
-            execution_mode: @workflow.mcp_orchestration_config&.dig('execution_mode') || 'sequential'
+            orchestrator_version: "2.0.0",
+            execution_mode: @workflow.mcp_orchestration_config&.dig("execution_mode") || "sequential"
           }
         }
       end
@@ -975,7 +975,7 @@ module Mcp
 
       # Update workflow run
       @workflow_run.update!(
-        status: 'failed',
+        status: "failed",
         error_details: {
           error_message: error.message,
           exception_class: error.class.name,
@@ -986,7 +986,7 @@ module Mcp
 
       # Record failure event
       @event_store.record_event(
-        event_type: 'workflow.execution.failed',
+        event_type: "workflow.execution.failed",
         event_data: {
           error_message: error.message,
           error_class: error.class.name
@@ -1008,7 +1008,7 @@ module Mcp
       @state_machine.transition!(from_state, to_state)
 
       @event_store.record_event(
-        event_type: 'workflow.state.transitioned',
+        event_type: "workflow.state.transitioned",
         event_data: {
           from_state: from_state,
           to_state: to_state
@@ -1043,10 +1043,10 @@ module Mcp
         end
 
         @event_store.record_event(
-          event_type: 'workflow.nodes.cleanup',
+          event_type: "workflow.nodes.cleanup",
           event_data: {
             nodes_cancelled: active_nodes.count,
-            reason: 'workflow_failure'
+            reason: "workflow_failure"
           }
         )
       end
@@ -1061,7 +1061,7 @@ module Mcp
         ai_workflow_node_id: node.id,
         node_id: node.node_id,
         node_type: node.node_type,
-        status: 'pending',
+        status: "pending",
         started_at: Time.current,
         input_data: node_context.input_data,
         metadata: {
@@ -1087,7 +1087,7 @@ module Mcp
 
     def broadcast_completion(status, output)
       McpBroadcastService.broadcast_workflow_event(
-        'workflow_execution_completed',
+        "workflow_execution_completed",
         @workflow.id,
         {
           workflow_run_id: @workflow_run.id,
@@ -1102,7 +1102,7 @@ module Mcp
 
     def broadcast_failure(error)
       McpBroadcastService.broadcast_workflow_event(
-        'workflow_execution_failed',
+        "workflow_execution_failed",
         @workflow.id,
         {
           workflow_run_id: @workflow_run.id,
@@ -1147,7 +1147,7 @@ module Mcp
 
       # Include primary output
       if result[:output].present?
-        output_data['output'] = result[:output]
+        output_data["output"] = result[:output]
       end
 
       # Merge data section keys at top level
@@ -1157,7 +1157,7 @@ module Mcp
 
       # Include result if present
       if result[:result].present?
-        output_data['result'] = result[:result]
+        output_data["result"] = result[:result]
       end
 
       output_data
@@ -1197,7 +1197,7 @@ module Mcp
         next unless target_node && !visited.include?(target_node.node_id)
 
         # Recursively execute the branch
-        if target_node.node_type == 'condition'
+        if target_node.node_type == "condition"
           execute_conditional_branch(target_node, visited)
         else
           execute_node(target_node)
@@ -1217,7 +1217,7 @@ module Mcp
 
       visited.add(node.node_id)
 
-      if node.node_type == 'condition'
+      if node.node_type == "condition"
         execute_conditional_branch(node, visited)
       else
         node_result = execute_node(node)
@@ -1320,7 +1320,7 @@ module Mcp
       deadline = Time.current + timeout_seconds
 
       threads.each do |thread|
-        remaining = [deadline - Time.current, 0].max
+        remaining = [ deadline - Time.current, 0 ].max
         thread.join(remaining)
 
         if thread.alive?
@@ -1354,7 +1354,7 @@ module Mcp
 
         # Check for workflow cancellation
         @workflow_run.reload
-        if @workflow_run.status == 'cancelled'
+        if @workflow_run.status == "cancelled"
           @logger.info "[MCP_ORCHESTRATOR] Workflow cancelled during parallel execution"
           break
         end

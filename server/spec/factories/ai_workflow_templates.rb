@@ -48,8 +48,8 @@ FactoryBot.define do
       {
         complexity: 'simple',
         estimated_execution_time: 300,
-        use_cases: ['general_automation'],
-        tags: ['ai', 'automation']
+        use_cases: [ 'general_automation' ],
+        tags: [ 'ai', 'automation' ]
       }
     end
 
@@ -171,8 +171,8 @@ FactoryBot.define do
         {
           complexity: 'medium',
           estimated_execution_time: 900,
-          use_cases: ['blog_writing', 'content_marketing'],
-          tags: ['content', 'ai', 'blog', 'writing']
+          use_cases: [ 'blog_writing', 'content_marketing' ],
+          tags: [ 'content', 'ai', 'blog', 'writing' ]
         }
       end
     end
@@ -443,8 +443,8 @@ FactoryBot.define do
           complexity: 'high',
           estimated_execution_time: 3600,
           node_count: 15,
-          use_cases: ['enterprise_automation', 'complex_workflows'],
-          tags: ['advanced', 'enterprise', 'complex']
+          use_cases: [ 'enterprise_automation', 'complex_workflows' ],
+          tags: [ 'advanced', 'enterprise', 'complex' ]
         }
       end
     end
@@ -454,7 +454,7 @@ FactoryBot.define do
         base_data = attributes_for(:ai_workflow_template)[:template_data]
         base_data.merge(
           dependencies: {
-            required_integrations: ['openai', 'slack', 'webhook'],
+            required_integrations: [ 'openai', 'slack', 'webhook' ],
             minimum_permissions: [
               'ai_workflows.create',
               'ai_workflows.execute',

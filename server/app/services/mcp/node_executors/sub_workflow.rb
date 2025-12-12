@@ -19,9 +19,9 @@ module Mcp
           },
           metadata: {
             node_id: @node.node_id,
-            node_type: 'sub_workflow',
+            node_type: "sub_workflow",
             executed_at: Time.current.iso8601,
-            implementation_status: 'stub'
+            implementation_status: "stub"
           }
         }
       end

@@ -4,7 +4,7 @@ class AiWorkflowRun < ApplicationRecord
   # Authentication & Authorization
   belongs_to :ai_workflow
   belongs_to :account
-  belongs_to :triggered_by_user, class_name: 'User', optional: true
+  belongs_to :triggered_by_user, class_name: "User", optional: true
   belongs_to :ai_workflow_trigger, optional: true
 
   # Associations
@@ -18,22 +18,22 @@ class AiWorkflowRun < ApplicationRecord
 
   # Accessor methods for data stored in metadata
   def trigger_context
-    metadata['trigger_context'] || {}
+    metadata["trigger_context"] || {}
   end
 
   def trigger_context=(context)
-    self.metadata = (metadata || {}).merge('trigger_context' => context)
+    self.metadata = (metadata || {}).merge("trigger_context" => context)
   end
 
   # Validations
   validates :run_id, presence: true, uniqueness: true
-  validates :status, presence: true, inclusion: { 
+  validates :status, presence: true, inclusion: {
     in: %w[initializing running completed failed cancelled waiting_approval],
-    message: 'must be a valid run status'
+    message: "must be a valid run status"
   }
-  validates :trigger_type, presence: true, inclusion: { 
+  validates :trigger_type, presence: true, inclusion: {
     in: %w[manual webhook schedule event api_call],
-    message: 'must be a valid trigger type'
+    message: "must be a valid trigger type"
   }
   validates :total_nodes, numericality: { greater_than_or_equal_to: 0 }
   validates :completed_nodes, numericality: { greater_than_or_equal_to: 0 }
@@ -51,10 +51,10 @@ class AiWorkflowRun < ApplicationRecord
 
   # Scopes
   scope :active, -> { where(status: %w[initializing running waiting_approval]) }
-  scope :running, -> { where(status: 'running') }
-  scope :completed, -> { where(status: 'completed') }
-  scope :failed, -> { where(status: 'failed') }
-  scope :stale, -> { where(status: %w[initializing running]).where('created_at < ?', 30.minutes.ago) }
+  scope :running, -> { where(status: "running") }
+  scope :completed, -> { where(status: "completed") }
+  scope :failed, -> { where(status: "failed") }
+  scope :stale, -> { where(status: %w[initializing running]).where("created_at < ?", 30.minutes.ago) }
   scope :find_by_partial_id, ->(partial_id) { where("id::text LIKE ?", "%#{sanitize_sql_like(partial_id)}%") }
 
   # Callbacks for real-time broadcasting
@@ -62,17 +62,17 @@ class AiWorkflowRun < ApplicationRecord
   after_update :broadcast_progress_change, if: -> { saved_change_to_completed_nodes? || saved_change_to_failed_nodes? }
   after_update :broadcast_duration_update, if: -> { running? && !saved_change_to_status? && !saved_change_to_completed_nodes? && !saved_change_to_failed_nodes? }
   after_create :broadcast_execution_started
-  after_update :broadcast_execution_completed, if: -> { saved_change_to_status? && status == 'completed' }
-  after_update :copy_variables_to_output, if: -> { saved_change_to_status? && status == 'completed' }
-  after_update :broadcast_execution_failed, if: -> { saved_change_to_status? && status == 'failed' }
-  scope :cancelled, -> { where(status: 'cancelled') }
+  after_update :broadcast_execution_completed, if: -> { saved_change_to_status? && status == "completed" }
+  after_update :copy_variables_to_output, if: -> { saved_change_to_status? && status == "completed" }
+  after_update :broadcast_execution_failed, if: -> { saved_change_to_status? && status == "failed" }
+  scope :cancelled, -> { where(status: "cancelled") }
   scope :finished, -> { where(status: %w[completed failed cancelled]) }
   scope :recent, -> { order(created_at: :desc) }
   scope :by_trigger_type, ->(type) { where(trigger_type: type) }
   scope :by_status, ->(status) { where(status: status) }
   scope :for_workflow, ->(workflow_id) { where(ai_workflow_id: workflow_id) }
   scope :for_user, ->(user_id) { where(triggered_by_user_id: user_id) }
-  scope :with_cost, -> { where('total_cost > 0') }
+  scope :with_cost, -> { where("total_cost > 0") }
 
   # Callbacks
   before_validation :generate_run_id, on: :create
@@ -84,27 +84,27 @@ class AiWorkflowRun < ApplicationRecord
 
   # Status check methods
   def initializing?
-    status == 'initializing'
+    status == "initializing"
   end
 
   def running?
-    status == 'running'
+    status == "running"
   end
 
   def completed?
-    status == 'completed'
+    status == "completed"
   end
 
   def failed?
-    status == 'failed'
+    status == "failed"
   end
 
   def cancelled?
-    status == 'cancelled'
+    status == "cancelled"
   end
 
   def waiting_for_approval?
-    status == 'waiting_approval'
+    status == "waiting_approval"
   end
 
   def active?
@@ -124,9 +124,9 @@ class AiWorkflowRun < ApplicationRecord
     return false unless initializing?
 
     update!(
-      status: 'running',
+      status: "running",
       started_at: Time.current,
-      metadata: metadata.merge('execution_started_at' => Time.current.iso8601)
+      metadata: metadata.merge("execution_started_at" => Time.current.iso8601)
     )
   end
 
@@ -134,14 +134,14 @@ class AiWorkflowRun < ApplicationRecord
     return false unless running?
 
     # Merge runtime_context variables into output_variables for workflow output display
-    runtime_variables = runtime_context['variables'] || {}
+    runtime_variables = runtime_context["variables"] || {}
     final_output_vars = output_variables.merge(runtime_variables).merge(output_vars)
 
     update!(
-      status: 'completed',
+      status: "completed",
       completed_at: Time.current,
       output_variables: final_output_vars,
-      metadata: metadata.merge('execution_completed_at' => Time.current.iso8601)
+      metadata: metadata.merge("execution_completed_at" => Time.current.iso8601)
     )
   end
 
@@ -150,13 +150,13 @@ class AiWorkflowRun < ApplicationRecord
 
     # Prepare update attributes
     update_attrs = {
-      status: 'failed',
+      status: "failed",
       completed_at: current_time,
       error_details: error_details.merge({
-        'error_message' => error_message,
-        'failed_at' => current_time.iso8601
+        "error_message" => error_message,
+        "failed_at" => current_time.iso8601
       }.merge(error_details_hash)),
-      metadata: metadata.merge('execution_failed_at' => current_time.iso8601)
+      metadata: metadata.merge("execution_failed_at" => current_time.iso8601)
     }
 
     # Ensure started_at is set to satisfy validation (completed_at must be after started_at)
@@ -169,7 +169,7 @@ class AiWorkflowRun < ApplicationRecord
     update!(update_attrs)
   end
 
-  def cancel_execution!(reason = 'User cancelled')
+  def cancel_execution!(reason = "User cancelled")
     return false if finished?
 
     transaction do
@@ -177,20 +177,20 @@ class AiWorkflowRun < ApplicationRecord
       ai_workflow_node_executions
         .where(status: %w[pending running waiting_approval])
         .update_all(
-          status: 'cancelled',
+          status: "cancelled",
           cancelled_at: Time.current,
-          error_details: { 'cancellation_reason' => reason }.to_json
+          error_details: { "cancellation_reason" => reason }.to_json
         )
 
       update!(
-        status: 'cancelled',
+        status: "cancelled",
         cancelled_at: Time.current,
         completed_at: Time.current,
         error_details: error_details.merge({
-          'cancellation_reason' => reason,
-          'cancelled_at' => Time.current.iso8601
+          "cancellation_reason" => reason,
+          "cancelled_at" => Time.current.iso8601
         }),
-        metadata: metadata.merge('execution_cancelled_at' => Time.current.iso8601)
+        metadata: metadata.merge("execution_cancelled_at" => Time.current.iso8601)
       )
     end
 
@@ -198,7 +198,7 @@ class AiWorkflowRun < ApplicationRecord
   end
 
   # Alias for controller compatibility
-  def cancel!(reason: 'User cancelled', cancelled_by: nil)
+  def cancel!(reason: "User cancelled", cancelled_by: nil)
     cancel_execution!(reason)
   end
 
@@ -206,11 +206,11 @@ class AiWorkflowRun < ApplicationRecord
     return false unless running?
 
     update!(
-      status: 'waiting_approval',
+      status: "waiting_approval",
       metadata: metadata.merge({
-        'approval_node_id' => approval_node_id,
-        'approval_message' => approval_message,
-        'approval_requested_at' => Time.current.iso8601
+        "approval_node_id" => approval_node_id,
+        "approval_message" => approval_message,
+        "approval_requested_at" => Time.current.iso8601
       })
     )
   end
@@ -219,11 +219,11 @@ class AiWorkflowRun < ApplicationRecord
     return false unless waiting_for_approval?
 
     update!(
-      status: 'running',
+      status: "running",
       metadata: metadata.merge({
-        'approval_decision' => approval_decision,
-        'approved_by' => approved_by_user_id,
-        'approval_completed_at' => Time.current.iso8601
+        "approval_decision" => approval_decision,
+        "approved_by" => approved_by_user_id,
+        "approval_completed_at" => Time.current.iso8601
       })
     )
   end
@@ -232,7 +232,7 @@ class AiWorkflowRun < ApplicationRecord
   def progress_percentage
     return 0 if total_nodes == 0
     return 100 if completed?
-    
+
     (completed_nodes.to_f / total_nodes * 100).round(2)
   end
 
@@ -260,7 +260,7 @@ class AiWorkflowRun < ApplicationRecord
 
       # Calculate new progress values
       new_completed = node_executions.where(status: %w[completed skipped]).count
-      new_failed = node_executions.where(status: 'failed').count
+      new_failed = node_executions.where(status: "failed").count
 
       # Only update if values have changed
       if completed_nodes != new_completed || failed_nodes != new_failed
@@ -277,7 +277,7 @@ class AiWorkflowRun < ApplicationRecord
   # Duration and timing methods
   def execution_duration
     return nil unless started_at
-    
+
     end_time = completed_at || cancelled_at || Time.current
     end_time - started_at
   end
@@ -298,43 +298,43 @@ class AiWorkflowRun < ApplicationRecord
 
   def time_since_start
     return nil unless started_at
-    
+
     Time.current - started_at
   end
 
   def estimated_completion_time
     return nil unless running? && started_at && total_nodes > 0 && completed_nodes > 0
-    
+
     avg_time_per_node = time_since_start / completed_nodes
     remaining_nodes = total_nodes - completed_nodes
-    
+
     Time.current + (avg_time_per_node * remaining_nodes)
   end
 
   # Variable management
   def get_variable(name)
-    runtime_context.dig('variables', name.to_s) || 
-    input_variables[name.to_s] || 
+    runtime_context.dig("variables", name.to_s) ||
+    input_variables[name.to_s] ||
     input_variables[name.to_sym]
   end
 
   def set_variable(name, value)
-    variables = runtime_context['variables'] || {}
+    variables = runtime_context["variables"] || {}
     variables[name.to_s] = value
-    
+
     update!(
-      runtime_context: runtime_context.merge('variables' => variables)
+      runtime_context: runtime_context.merge("variables" => variables)
     )
   end
 
   def merge_variables(new_variables)
     return if new_variables.blank?
-    
-    current_variables = runtime_context['variables'] || {}
+
+    current_variables = runtime_context["variables"] || {}
     merged_variables = current_variables.merge(new_variables.stringify_keys)
-    
+
     update!(
-      runtime_context: runtime_context.merge('variables' => merged_variables)
+      runtime_context: runtime_context.merge("variables" => merged_variables)
     )
   end
 
@@ -357,8 +357,8 @@ class AiWorkflowRun < ApplicationRecord
       execution_id: SecureRandom.uuid,
       max_retries: workflow_node.retry_count || 0,
       metadata: {
-        'created_for_run' => run_id,
-        'workflow_version' => ai_workflow.version
+        "created_for_run" => run_id,
+        "workflow_version" => ai_workflow.version
       }
     )
   end
@@ -369,11 +369,11 @@ class AiWorkflowRun < ApplicationRecord
 
   def node_execution_status(node_id)
     execution = get_node_execution(node_id)
-    execution&.status || 'not_started'
+    execution&.status || "not_started"
   end
 
   # Cost tracking
-  def add_cost(amount, source = 'node_execution')
+  def add_cost(amount, source = "node_execution")
     return unless amount.present? && amount > 0
 
     # CRITICAL FIX: Use thread-local storage for re-entry protection
@@ -388,13 +388,13 @@ class AiWorkflowRun < ApplicationRecord
 
       # Log cost addition
       ai_workflow_run_logs.create!(
-        log_level: 'info',
-        event_type: 'cost_added',
+        log_level: "info",
+        event_type: "cost_added",
         message: "Added cost: $#{amount} from #{source}",
         context_data: {
-          'amount' => amount,
-          'source' => source,
-          'total_cost' => total_cost + amount
+          "amount" => amount,
+          "source" => source,
+          "total_cost" => total_cost + amount
         }
       )
     ensure
@@ -403,8 +403,8 @@ class AiWorkflowRun < ApplicationRecord
   end
 
   def cost_breakdown
-    node_costs = ai_workflow_node_executions.where('cost > 0').pluck(:node_id, :cost)
-    
+    node_costs = ai_workflow_node_executions.where("cost > 0").pluck(:node_id, :cost)
+
     {
       total_cost: total_cost,
       node_costs: node_costs.to_h,
@@ -421,21 +421,21 @@ class AiWorkflowRun < ApplicationRecord
       message: message,
       context_data: context,
       node_id: node_execution&.node_id,
-      source: 'workflow_run',
+      source: "workflow_run",
       logged_at: Time.current
     )
   end
 
   def log_info(event_type, message, context = {})
-    log('info', event_type, message, context)
+    log("info", event_type, message, context)
   end
 
   def log_error(event_type, message, context = {})
-    log('error', event_type, message, context)
+    log("error", event_type, message, context)
   end
 
   def log_warning(event_type, message, context = {})
-    log('warn', event_type, message, context)
+    log("warn", event_type, message, context)
   end
 
   # Run summary and analysis
@@ -464,12 +464,12 @@ class AiWorkflowRun < ApplicationRecord
 
   def node_execution_summary
     executions = ai_workflow_node_executions.includes(:ai_workflow_node)
-    
+
     {
       total: executions.count,
       by_status: executions.group(:status).count,
-      by_type: executions.joins(:ai_workflow_node).group('ai_workflow_nodes.node_type').count,
-      average_duration: executions.where(status: 'completed').average(:duration_ms)&.to_i || 0,
+      by_type: executions.joins(:ai_workflow_node).group("ai_workflow_nodes.node_type").count,
+      average_duration: executions.where(status: "completed").average(:duration_ms)&.to_i || 0,
       total_cost: executions.sum(:cost)
     }
   end
@@ -488,7 +488,7 @@ class AiWorkflowRun < ApplicationRecord
   end
 
   def can_resume?
-    status == 'paused'
+    status == "paused"
   end
 
   def retry_execution!(user = nil)
@@ -498,15 +498,15 @@ class AiWorkflowRun < ApplicationRecord
       input_variables,
       user: user || triggered_by_user,
       trigger: ai_workflow_trigger,
-      trigger_type: 'manual'
+      trigger_type: "manual"
     )
 
     # Link to original run
     new_run.update!(
       metadata: new_run.metadata.merge({
-        'retried_from' => run_id,
-        'original_run_id' => run_id,
-        'retry_attempt' => (metadata['retry_attempt'] || 0) + 1
+        "retried_from" => run_id,
+        "original_run_id" => run_id,
+        "retry_attempt" => (metadata["retry_attempt"] || 0) + 1
       })
     )
 
@@ -524,9 +524,9 @@ class AiWorkflowRun < ApplicationRecord
 
     {
       total_nodes: ai_workflow.ai_workflow_nodes.count,
-      completed_nodes: node_executions.where(status: 'completed').count,
-      failed_nodes: node_executions.where(status: 'failed').count,
-      running_nodes: node_executions.where(status: 'running').count,
+      completed_nodes: node_executions.where(status: "completed").count,
+      failed_nodes: node_executions.where(status: "failed").count,
+      running_nodes: node_executions.where(status: "running").count,
       duration_ms: duration_ms || 0,
       total_cost: total_cost || 0,
       status: status
@@ -537,8 +537,8 @@ class AiWorkflowRun < ApplicationRecord
 
   def copy_variables_to_output
     # Copy runtime_context variables to output_variables for display
-    if runtime_context['variables'].present? && output_variables.empty?
-      update_column(:output_variables, runtime_context['variables'])
+    if runtime_context["variables"].present? && output_variables.empty?
+      update_column(:output_variables, runtime_context["variables"])
     end
   end
 
@@ -565,7 +565,7 @@ class AiWorkflowRun < ApplicationRecord
 
     # Broadcast to run-specific channel (for workflow execution modal)
     AiOrchestrationChannel.broadcast_workflow_run_event(
-      'workflow.run.status.changed',
+      "workflow.run.status.changed",
       self,
       {
         workflow_run: workflow_run_data,
@@ -577,7 +577,7 @@ class AiWorkflowRun < ApplicationRecord
     ActionCable.server.broadcast(
       "workflow_#{ai_workflow_id}",
       {
-        type: 'workflow_run_status_changed',
+        type: "workflow_run_status_changed",
         workflow_run: workflow_run_data,
         workflow_stats: ai_workflow.respond_to?(:stats) ? ai_workflow.stats : {},
         timestamp: Time.current.iso8601
@@ -608,11 +608,11 @@ class AiWorkflowRun < ApplicationRecord
 
     # Broadcast to run-specific channel (for workflow execution modal)
     AiOrchestrationChannel.broadcast_workflow_run_event(
-      'workflow.run.progress.changed',
+      "workflow.run.progress.changed",
       self,
       {
         workflow_run: workflow_run_data,
-        event_type: 'progress_changed'
+        event_type: "progress_changed"
       }
     )
 
@@ -620,7 +620,7 @@ class AiWorkflowRun < ApplicationRecord
     ActionCable.server.broadcast(
       "workflow_#{ai_workflow_id}",
       {
-        type: 'workflow_progress_changed',
+        type: "workflow_progress_changed",
         workflow_run: workflow_run_data,
         workflow_stats: ai_workflow.respond_to?(:stats) ? ai_workflow.stats : {},
         timestamp: Time.current.iso8601
@@ -653,11 +653,11 @@ class AiWorkflowRun < ApplicationRecord
 
     # Broadcast to run-specific channel (for workflow execution modal)
     AiOrchestrationChannel.broadcast_workflow_run_event(
-      'workflow.run.duration.updated',
+      "workflow.run.duration.updated",
       self,
       {
         workflow_run: workflow_run_data,
-        event_type: 'duration_update'
+        event_type: "duration_update"
       }
     )
 
@@ -665,7 +665,7 @@ class AiWorkflowRun < ApplicationRecord
     ActionCable.server.broadcast(
       "workflow_#{ai_workflow_id}",
       {
-        type: 'workflow_duration_update',
+        type: "workflow_duration_update",
         workflow_run: workflow_run_data,
         workflow_stats: ai_workflow.respond_to?(:stats) ? ai_workflow.stats : {},
         timestamp: Time.current.iso8601
@@ -693,11 +693,11 @@ class AiWorkflowRun < ApplicationRecord
 
     # Broadcast to run-specific channel
     AiOrchestrationChannel.broadcast_workflow_run_event(
-      'workflow.execution.started',
+      "workflow.execution.started",
       self,
       {
         workflow_run: workflow_run_data,
-        event_type: 'execution_started'
+        event_type: "execution_started"
       }
     )
 
@@ -705,7 +705,7 @@ class AiWorkflowRun < ApplicationRecord
     ActionCable.server.broadcast(
       "workflow_#{ai_workflow_id}",
       {
-        type: 'workflow_execution_started',
+        type: "workflow_execution_started",
         workflow_run: workflow_run_data,
         timestamp: Time.current.iso8601
       }
@@ -730,12 +730,12 @@ class AiWorkflowRun < ApplicationRecord
 
     # Broadcast to run-specific channel
     AiOrchestrationChannel.broadcast_workflow_run_event(
-      'workflow.execution.completed',
+      "workflow.execution.completed",
       self,
       {
         workflow_run: workflow_run_data,
         workflow_stats: ai_workflow.respond_to?(:stats) ? ai_workflow.stats : {},
-        event_type: 'execution_completed'
+        event_type: "execution_completed"
       }
     )
 
@@ -743,7 +743,7 @@ class AiWorkflowRun < ApplicationRecord
     ActionCable.server.broadcast(
       "workflow_#{ai_workflow_id}",
       {
-        type: 'workflow_execution_completed',
+        type: "workflow_execution_completed",
         workflow_run: workflow_run_data,
         workflow_stats: ai_workflow.respond_to?(:stats) ? ai_workflow.stats : {},
         timestamp: Time.current.iso8601
@@ -767,11 +767,11 @@ class AiWorkflowRun < ApplicationRecord
 
     # Broadcast to run-specific channel
     AiOrchestrationChannel.broadcast_workflow_run_event(
-      'workflow.execution.failed',
+      "workflow.execution.failed",
       self,
       {
         workflow_run: workflow_run_data,
-        event_type: 'execution_failed'
+        event_type: "execution_failed"
       }
     )
 
@@ -779,7 +779,7 @@ class AiWorkflowRun < ApplicationRecord
     ActionCable.server.broadcast(
       "workflow_#{ai_workflow_id}",
       {
-        type: 'workflow_execution_failed',
+        type: "workflow_execution_failed",
         workflow_run: workflow_run_data,
         timestamp: Time.current.iso8601
       }
@@ -793,18 +793,18 @@ class AiWorkflowRun < ApplicationRecord
   def set_initial_values
     return unless new_record?
     return unless ai_workflow.present?
-    
+
     self.total_nodes = ai_workflow.ai_workflow_nodes.count
     self.completed_nodes = 0
     self.failed_nodes = 0
     self.total_cost = 0.0
-    
+
     if runtime_context.blank?
       self.runtime_context = {
-        'variables' => {},
-        'execution_context' => {
-          'workflow_version' => ai_workflow.version,
-          'created_at' => Time.current.iso8601
+        "variables" => {},
+        "execution_context" => {
+          "workflow_version" => ai_workflow.version,
+          "created_at" => Time.current.iso8601
         }
       }
     end
@@ -814,71 +814,71 @@ class AiWorkflowRun < ApplicationRecord
     return unless total_nodes.present? && completed_nodes.present? && failed_nodes.present?
 
     if completed_nodes + failed_nodes > total_nodes
-      errors.add(:base, 'Sum of completed and failed nodes cannot exceed total nodes')
+      errors.add(:base, "Sum of completed and failed nodes cannot exceed total nodes")
     end
 
     if completed_nodes < 0 || failed_nodes < 0
-      errors.add(:base, 'Node counts cannot be negative')
+      errors.add(:base, "Node counts cannot be negative")
     end
   end
 
   def validate_execution_times
     # Validate time ordering when both are present
     if started_at.present? && completed_at.present? && completed_at < started_at
-      errors.add(:completed_at, 'must be after started_at')
+      errors.add(:completed_at, "must be after started_at")
     end
 
     # Validate required timestamps for completed status
-    if status == 'completed' && completed_at.blank?
+    if status == "completed" && completed_at.blank?
       errors.add(:completed_at, "can't be blank for completed runs")
     end
 
     # Validate required timestamps for failed status
-    if status == 'failed' && completed_at.blank?
+    if status == "failed" && completed_at.blank?
       errors.add(:completed_at, "can't be blank for failed runs")
     end
 
     # Validate required error_details for failed status
-    if status == 'failed' && (error_details.blank? || error_details.empty?)
+    if status == "failed" && (error_details.blank? || error_details.empty?)
       errors.add(:error_details, "can't be blank for failed runs")
     end
 
     # Validate required timestamps for cancelled status
-    if status == 'cancelled' && cancelled_at.blank?
+    if status == "cancelled" && cancelled_at.blank?
       errors.add(:cancelled_at, "can't be blank for cancelled runs")
     end
   end
 
   def log_workflow_started
-    log_info('workflow_started', "Workflow run started: #{ai_workflow.name}", {
-      'workflow_id' => ai_workflow_id,
-      'trigger_type' => trigger_type,
-      'input_variables' => input_variables.keys
+    log_info("workflow_started", "Workflow run started: #{ai_workflow.name}", {
+      "workflow_id" => ai_workflow_id,
+      "trigger_type" => trigger_type,
+      "input_variables" => input_variables.keys
     })
   end
 
   def log_status_changes
     old_status = saved_change_to_status[0]
     new_status = saved_change_to_status[1]
-    
+
     # Map status changes to valid workflow event types
     event_type = case new_status
-    when 'completed'
-      'workflow_completed'
-    when 'failed'
-      'workflow_failed'
-    when 'cancelled'
-      'workflow_cancelled'
-    when 'running'
-      'workflow_started'
+    when "completed"
+      "workflow_completed"
+    when "failed"
+      "workflow_failed"
+    when "cancelled"
+      "workflow_cancelled"
+    when "running"
+      "workflow_started"
     else
-      'workflow_started' # fallback
+      "workflow_started" # fallback
     end
-    
+
     log_info(event_type, "Workflow status changed from #{old_status} to #{new_status}", {
-      'old_status' => old_status,
-      'new_status' => new_status,
-      'progress_percentage' => progress_percentage
+      "old_status" => old_status,
+      "new_status" => new_status,
+      "progress_percentage" => progress_percentage
     })
   end
 
@@ -887,7 +887,7 @@ class AiWorkflowRun < ApplicationRecord
 
     # Ensure positive duration - handle edge cases where completed_at < started_at
     duration_seconds = completed_at - started_at
-    calculated_duration_ms = [duration_seconds * 1000, 0].max.to_i
+    calculated_duration_ms = [ duration_seconds * 1000, 0 ].max.to_i
 
     # Use update_column to avoid triggering callbacks (prevents stack overflow)
     if duration_ms != calculated_duration_ms
@@ -902,11 +902,11 @@ class AiWorkflowRun < ApplicationRecord
 
     begin
       # Use WorkerJobService to queue the timeout job in the worker service
-      WorkerJobService.new.make_worker_request('POST', '/api/v1/jobs', {
-        'job_class' => 'WorkflowTimeoutJob',
-        'args' => [run_id],
-        'queue' => 'maintenance',
-        'at' => 30.minutes.from_now.to_i
+      WorkerJobService.new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "WorkflowTimeoutJob",
+        "args" => [ run_id ],
+        "queue" => "maintenance",
+        "at" => 30.minutes.from_now.to_i
       })
     rescue => e
       Rails.logger.warn "Failed to schedule timeout job for workflow run #{run_id}: #{e.message}"
@@ -939,7 +939,7 @@ class AiWorkflowRun < ApplicationRecord
 
     begin
       scheduled_jobs = Sidekiq::ScheduledSet.new
-      scheduled_jobs.any? { |job| job.klass == 'WorkflowTimeoutJob' && job.args.include?(id) }
+      scheduled_jobs.any? { |job| job.klass == "WorkflowTimeoutJob" && job.args.include?(id) }
     rescue
       false
     end

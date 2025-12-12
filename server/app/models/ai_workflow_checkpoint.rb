@@ -9,7 +9,7 @@ class AiWorkflowCheckpoint < ApplicationRecord
   validates :node_id, presence: true
   validates :checkpoint_type, presence: true, inclusion: {
     in: %w[node_completion node_start workflow_pause manual_checkpoint error_checkpoint],
-    message: '%{value} is not a valid checkpoint type'
+    message: "%{value} is not a valid checkpoint type"
   }
   validates :sequence_number, presence: true, numericality: { only_integer: true, greater_than_or_equal_to: 0 }
   validates :workflow_state, presence: true
@@ -20,8 +20,8 @@ class AiWorkflowCheckpoint < ApplicationRecord
   scope :chronological, -> { order(sequence_number: :asc) }
   scope :for_run, ->(run_id) { where(ai_workflow_run_id: run_id) }
   scope :by_type, ->(type) { where(checkpoint_type: type) }
-  scope :manual, -> { where(checkpoint_type: 'manual_checkpoint') }
-  scope :error_checkpoints, -> { where(checkpoint_type: 'error_checkpoint') }
+  scope :manual, -> { where(checkpoint_type: "manual_checkpoint") }
+  scope :error_checkpoints, -> { where(checkpoint_type: "error_checkpoint") }
 
   # ==================== Callbacks ====================
   before_validation :generate_checkpoint_id, on: :create
@@ -62,18 +62,18 @@ class AiWorkflowCheckpoint < ApplicationRecord
 
   # Check if this is an error checkpoint
   def error_checkpoint?
-    checkpoint_type == 'error_checkpoint'
+    checkpoint_type == "error_checkpoint"
   end
 
   # Check if this is a manual checkpoint
   def manual_checkpoint?
-    checkpoint_type == 'manual_checkpoint'
+    checkpoint_type == "manual_checkpoint"
   end
 
   # Get next checkpoint in sequence
   def next_checkpoint
     self.class.where(ai_workflow_run_id: ai_workflow_run_id)
-             .where('sequence_number > ?', sequence_number)
+             .where("sequence_number > ?", sequence_number)
              .chronological
              .first
   end
@@ -81,7 +81,7 @@ class AiWorkflowCheckpoint < ApplicationRecord
   # Get previous checkpoint in sequence
   def previous_checkpoint
     self.class.where(ai_workflow_run_id: ai_workflow_run_id)
-             .where('sequence_number < ?', sequence_number)
+             .where("sequence_number < ?", sequence_number)
              .recent
              .first
   end

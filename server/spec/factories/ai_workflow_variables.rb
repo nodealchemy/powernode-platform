@@ -82,7 +82,7 @@ FactoryBot.define do
 
     trait :array_type do
       variable_type { 'array' }
-      default_value { ['item1', 'item2', 'item3'] }
+      default_value { [ 'item1', 'item2', 'item3' ] }
       validation_rules do
         {
           min_items: 1,
@@ -104,7 +104,7 @@ FactoryBot.define do
       end
       validation_rules do
         {
-          required_properties: ['name'],
+          required_properties: [ 'name' ],
           properties: {
             name: { type: 'string', min_length: 1 },
             value: { type: 'number', min: 0 },
@@ -121,7 +121,7 @@ FactoryBot.define do
           config: {
             timeout: 30,
             retries: 3,
-            endpoints: ['https://api1.example.com', 'https://api2.example.com']
+            endpoints: [ 'https://api1.example.com', 'https://api2.example.com' ]
           },
           metadata: {
             version: '1.0',
@@ -136,7 +136,7 @@ FactoryBot.define do
             properties: {
               config: {
                 type: 'object',
-                required: ['timeout']
+                required: [ 'timeout' ]
               }
             }
           }
@@ -221,9 +221,9 @@ FactoryBot.define do
       default_value { nil }
       validation_rules do
         {
-          allowed_extensions: ['.txt', '.csv', '.json', '.xml'],
+          allowed_extensions: [ '.txt', '.csv', '.json', '.xml' ],
           max_size_mb: 10,
-          required_mime_types: ['text/plain', 'text/csv', 'application/json']
+          required_mime_types: [ 'text/plain', 'text/csv', 'application/json' ]
         }
       end
     end
@@ -234,7 +234,7 @@ FactoryBot.define do
       default_value { 'option1' }
       validation_rules do
         {
-          allowed_values: ['option1', 'option2', 'option3']
+          allowed_values: [ 'option1', 'option2', 'option3' ]
         }
       end
     end
@@ -268,12 +268,12 @@ FactoryBot.define do
           properties: {
             model: {
               type: 'string',
-              enum: ['gpt-3.5-turbo', 'gpt-4', 'claude-3-sonnet', 'claude-3-haiku']
+              enum: [ 'gpt-3.5-turbo', 'gpt-4', 'claude-3-sonnet', 'claude-3-haiku' ]
             },
             temperature: { type: 'number', min: 0, max: 2 },
             max_tokens: { type: 'integer', min: 1, max: 4000 }
           },
-          required_properties: ['model']
+          required_properties: [ 'model' ]
         }
       end
     end
@@ -296,10 +296,10 @@ FactoryBot.define do
         {
           properties: {
             url: { type: 'string', format: 'url' },
-            method: { type: 'string', enum: ['GET', 'POST', 'PUT', 'PATCH'] },
+            method: { type: 'string', enum: [ 'GET', 'POST', 'PUT', 'PATCH' ] },
             timeout: { type: 'integer', min: 1, max: 300 }
           },
-          required_properties: ['url', 'method']
+          required_properties: [ 'url', 'method' ]
         }
       end
     end
@@ -316,8 +316,8 @@ FactoryBot.define do
             api_secret: { type: 'string', min_length: 40 },
             base_url: { type: 'string', format: 'url' }
           },
-          required_properties: ['api_key'],
-          sensitive_fields: ['api_key', 'api_secret']
+          required_properties: [ 'api_key' ],
+          sensitive_fields: [ 'api_key', 'api_secret' ]
         }
       end
     end
@@ -336,7 +336,7 @@ FactoryBot.define do
       validation_rules do
         {
           properties: {
-            type: { type: 'string', enum: ['database', 'api', 'file', 'stream'] },
+            type: { type: 'string', enum: [ 'database', 'api', 'file', 'stream' ] },
             connection_string: { type: 'string', min_length: 10 },
             batch_size: { type: 'integer', min: 1, max: 10000 }
           }
@@ -349,11 +349,11 @@ FactoryBot.define do
       variable_type { 'object' }
       default_value do
         {
-          channels: ['email'],
+          channels: [ 'email' ],
           on_success: false,
           on_failure: true,
           on_timeout: true,
-          recipients: ['admin@example.com']
+          recipients: [ 'admin@example.com' ]
         }
       end
       validation_rules do
@@ -361,7 +361,7 @@ FactoryBot.define do
           properties: {
             channels: {
               type: 'array',
-              items: { enum: ['email', 'slack', 'webhook', 'sms'] }
+              items: { enum: [ 'email', 'slack', 'webhook', 'sms' ] }
             },
             recipients: {
               type: 'array',
@@ -392,7 +392,7 @@ FactoryBot.define do
       default_value { 'json' }
       validation_rules do
         {
-          allowed_values: ['json', 'xml', 'csv', 'yaml', 'plain_text'],
+          allowed_values: [ 'json', 'xml', 'csv', 'yaml', 'plain_text' ],
           case_sensitive: false
         }
       end
@@ -511,7 +511,7 @@ FactoryBot.define do
           conditional_validation: {
             if: { field: 'type', equals: 'premium' },
             then: {
-              required: ['api_key', 'secret'],
+              required: [ 'api_key', 'secret' ],
               properties: {
                 api_key: { min_length: 32 }
               }
@@ -519,7 +519,7 @@ FactoryBot.define do
           },
           cross_field_validation: {
             start_date_before_end_date: {
-              fields: ['start_date', 'end_date'],
+              fields: [ 'start_date', 'end_date' ],
               rule: 'start_date < end_date'
             }
           },

@@ -9,15 +9,15 @@ class AiAgentMessage < ApplicationRecord
   validates :from_agent_id, presence: true
   validates :message_type, presence: true, inclusion: {
     in: %w[direct broadcast request response notification],
-    message: '%{value} is not a valid message type'
+    message: "%{value} is not a valid message type"
   }
   validates :communication_pattern, presence: true, inclusion: {
     in: %w[request_response fire_and_forget publish_subscribe command_query],
-    message: '%{value} is not a valid communication pattern'
+    message: "%{value} is not a valid communication pattern"
   }
   validates :status, presence: true, inclusion: {
     in: %w[sent delivered acknowledged processed failed],
-    message: '%{value} is not a valid status'
+    message: "%{value} is not a valid status"
   }
   validates :message_content, presence: true
   validates :sequence_number, presence: true, numericality: { only_integer: true, greater_than_or_equal_to: 0 }
@@ -32,11 +32,11 @@ class AiAgentMessage < ApplicationRecord
   scope :from_agent, ->(agent_id) { where(from_agent_id: agent_id) }
   scope :to_agent, ->(agent_id) { where(to_agent_id: agent_id) }
   scope :between_agents, ->(from_id, to_id) { where(from_agent_id: from_id, to_agent_id: to_id) }
-  scope :broadcasts, -> { where(message_type: 'broadcast') }
-  scope :direct_messages, -> { where(message_type: 'direct') }
-  scope :pending, -> { where(status: 'sent') }
+  scope :broadcasts, -> { where(message_type: "broadcast") }
+  scope :direct_messages, -> { where(message_type: "direct") }
+  scope :pending, -> { where(status: "sent") }
   scope :delivered, -> { where(status: %w[delivered acknowledged processed]) }
-  scope :failed, -> { where(status: 'failed') }
+  scope :failed, -> { where(status: "failed") }
 
   # ==================== Callbacks ====================
   before_validation :generate_message_id, on: :create
@@ -73,22 +73,22 @@ class AiAgentMessage < ApplicationRecord
 
   # Check if message is a broadcast
   def broadcast?
-    message_type == 'broadcast'
+    message_type == "broadcast"
   end
 
   # Check if message is direct
   def direct?
-    message_type == 'direct'
+    message_type == "direct"
   end
 
   # Check if message is a request
   def request?
-    message_type == 'request'
+    message_type == "request"
   end
 
   # Check if message is a response
   def response?
-    message_type == 'response'
+    message_type == "response"
   end
 
   # Check if message has been delivered
@@ -104,7 +104,7 @@ class AiAgentMessage < ApplicationRecord
   # Mark message as delivered
   def mark_delivered!
     update!(
-      status: 'delivered',
+      status: "delivered",
       delivered_at: Time.current
     )
   end
@@ -112,23 +112,23 @@ class AiAgentMessage < ApplicationRecord
   # Mark message as acknowledged
   def mark_acknowledged!
     update!(
-      status: 'acknowledged',
+      status: "acknowledged",
       acknowledged_at: Time.current
     )
   end
 
   # Mark message as processed
   def mark_processed!
-    update!(status: 'processed')
+    update!(status: "processed")
   end
 
   # Mark message as failed
   def mark_failed!(reason:)
     update!(
-      status: 'failed',
+      status: "failed",
       metadata: metadata.merge(
-        'failure_reason' => reason,
-        'failed_at' => Time.current.iso8601
+        "failure_reason" => reason,
+        "failed_at" => Time.current.iso8601
       )
     )
   end
@@ -152,7 +152,7 @@ class AiAgentMessage < ApplicationRecord
   end
 
   # Create a reply to this message
-  def create_reply(from_agent_id:, content:, type: 'response')
+  def create_reply(from_agent_id:, content:, type: "response")
     self.class.create!(
       ai_workflow_run: ai_workflow_run,
       from_agent_id: from_agent_id,
@@ -162,8 +162,8 @@ class AiAgentMessage < ApplicationRecord
       message_content: content,
       in_reply_to_message_id: message_id,
       metadata: {
-        'reply_to' => message_id,
-        'original_sender' => from_agent_id
+        "reply_to" => message_id,
+        "original_sender" => from_agent_id
       }
     )
   end
@@ -172,7 +172,7 @@ class AiAgentMessage < ApplicationRecord
   def self.conversation_between(agent_a_id, agent_b_id, workflow_run_id)
     where(ai_workflow_run_id: workflow_run_id)
       .where(
-        '(from_agent_id = ? AND to_agent_id = ?) OR (from_agent_id = ? AND to_agent_id = ?)',
+        "(from_agent_id = ? AND to_agent_id = ?) OR (from_agent_id = ? AND to_agent_id = ?)",
         agent_a_id, agent_b_id, agent_b_id, agent_a_id
       )
       .chronological
@@ -208,7 +208,7 @@ class AiAgentMessage < ApplicationRecord
     McpChannel.broadcast_to(
       "account_#{ai_workflow_run.account_id}",
       {
-        type: 'agent_message',
+        type: "agent_message",
         workflow_run_id: ai_workflow_run.run_id,
         message: message_summary
       }

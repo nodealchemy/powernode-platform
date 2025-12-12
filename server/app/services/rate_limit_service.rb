@@ -41,13 +41,13 @@ class RateLimitService
     # Clear rate limits for a specific IP or user
     def clear_limits_for(identifier)
       pattern = case identifier
-               when /\A\d+\z/ # User ID
+      when /\A\d+\z/ # User ID
                  "rate_limit:*:*:user_#{identifier}"
-               when /\A\d+\.\d+\.\d+\.\d+\z/ # IP address
+      when /\A\d+\.\d+\.\d+\.\d+\z/ # IP address
                  "rate_limit:*:*:ip_#{identifier}"
-               else
+      else
                  raise ArgumentError, "Invalid identifier: #{identifier}"
-               end
+      end
 
       keys_cleared = 0
       Rails.cache.redis.keys(pattern).each do |key|
@@ -61,13 +61,13 @@ class RateLimitService
     # Check if an identifier is currently rate limited
     def rate_limited?(identifier)
       pattern = case identifier
-               when /\A\d+\z/ # User ID
+      when /\A\d+\z/ # User ID
                  "rate_limit:*:*:user_#{identifier}"
-               when /\A\d+\.\d+\.\d+\.\d+\z/ # IP address
+      when /\A\d+\.\d+\.\d+\.\d+\z/ # IP address
                  "rate_limit:*:*:ip_#{identifier}"
-               else
+      else
                  return false
-               end
+      end
 
       Rails.cache.redis.keys(pattern).any? do |key|
         current_count = Rails.cache.read(key) || 0
@@ -79,17 +79,17 @@ class RateLimitService
     # Get detailed rate limit info for an identifier
     def get_limit_info(identifier)
       pattern = case identifier
-               when /\A\d+\z/ # User ID
+      when /\A\d+\z/ # User ID
                  "rate_limit:*:*:user_#{identifier}"
-               when /\A\d+\.\d+\.\d+\.\d+\z/ # IP address
+      when /\A\d+\.\d+\.\d+\.\d+\z/ # IP address
                  "rate_limit:*:*:ip_#{identifier}"
-               else
+      else
                  return {}
-               end
+      end
 
       limits = {}
       Rails.cache.redis.keys(pattern).each do |key|
-        parts = key.split(':')
+        parts = key.split(":")
         next if parts.length < 4
 
         controller = parts[1]
@@ -101,7 +101,7 @@ class RateLimitService
         limits["#{controller}##{action}"] = {
           current: current_count,
           limit: limit,
-          remaining: [limit - current_count, 0].max,
+          remaining: [ limit - current_count, 0 ].max,
           reset_in: ttl > 0 ? ttl : 0
         } if limit
       end
@@ -112,7 +112,7 @@ class RateLimitService
     # Temporarily disable rate limiting (for maintenance, etc.)
     def disable_temporarily(duration_minutes = 60)
       Rails.cache.write(
-        'rate_limiting_temporarily_disabled',
+        "rate_limiting_temporarily_disabled",
         true,
         expires_in: duration_minutes.minutes
       )
@@ -120,19 +120,19 @@ class RateLimitService
 
     # Check if rate limiting is temporarily disabled
     def temporarily_disabled?
-      Rails.cache.read('rate_limiting_temporarily_disabled') || false
+      Rails.cache.read("rate_limiting_temporarily_disabled") || false
     end
 
     # Re-enable rate limiting
     def re_enable
-      Rails.cache.delete('rate_limiting_temporarily_disabled')
+      Rails.cache.delete("rate_limiting_temporarily_disabled")
     end
 
     private
 
     def count_current_violations
       violations = 0
-      Rails.cache.redis.keys('rate_limit:*').each do |key|
+      Rails.cache.redis.keys("rate_limit:*").each do |key|
         current_count = Rails.cache.read(key) || 0
         limit = extract_limit_from_key(key)
         violations += 1 if limit && current_count >= limit
@@ -144,7 +144,7 @@ class RateLimitService
     end
 
     def count_active_limits
-      Rails.cache.redis.keys('rate_limit:*').count
+      Rails.cache.redis.keys("rate_limit:*").count
     rescue => e
       Rails.logger.error "Error counting active limits: #{e.message}"
       0
@@ -153,7 +153,7 @@ class RateLimitService
     def get_current_configuration
       settings = SystemSettingsService.load_settings
       rate_limiting_config = settings.dig(:rate_limiting) || {}
-      
+
       {
         enabled: rate_limiting_config[:enabled],
         limits: {
@@ -171,7 +171,7 @@ class RateLimitService
     end
 
     def extract_limit_from_key(key)
-      parts = key.split(':')
+      parts = key.split(":")
       return nil if parts.length < 4
 
       controller_name = parts[1]
@@ -181,20 +181,20 @@ class RateLimitService
 
     def determine_limit_type_for_controller(controller_name)
       case controller_name
-      when 'sessions'
-        'login_attempts_per_hour'
-      when 'registrations'
-        'registration_attempts_per_hour'
-      when 'passwords'
-        'password_reset_attempts_per_hour'
-      when 'email_verifications'
-        'email_verification_attempts_per_hour'
-      when 'webhooks'
-        'webhook_requests_per_minute'
-      when 'impersonation_sessions'
-        'impersonation_attempts_per_hour'
+      when "sessions"
+        "login_attempts_per_hour"
+      when "registrations"
+        "registration_attempts_per_hour"
+      when "passwords"
+        "password_reset_attempts_per_hour"
+      when "email_verifications"
+        "email_verification_attempts_per_hour"
+      when "webhooks"
+        "webhook_requests_per_minute"
+      when "impersonation_sessions"
+        "impersonation_attempts_per_hour"
       else
-        'api_requests_per_minute'
+        "api_requests_per_minute"
       end
     end
   end

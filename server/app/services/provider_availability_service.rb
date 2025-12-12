@@ -16,31 +16,31 @@ class ProviderAvailabilityService
   # @param provider [AiProvider] The provider to check
   # @return [Hash] { available: Boolean, reason: String }
   def self.check_provider(provider)
-    return { available: false, reason: 'Provider not found' } if provider.nil?
+    return { available: false, reason: "Provider not found" } if provider.nil?
 
     # Check if provider is active
     unless provider.is_active?
-      return { available: false, reason: 'Provider is inactive' }
+      return { available: false, reason: "Provider is inactive" }
     end
 
     # Check if provider has actual credentials configured (not just schema)
     # Must check ai_provider_credentials, not the credentials method which returns schema as fallback
     unless provider.ai_provider_credentials.where(is_active: true).exists?
-      return { available: false, reason: 'Provider credentials not configured' }
+      return { available: false, reason: "Provider credentials not configured" }
     end
 
     # Check if provider is healthy (passed recent health check)
     unless provider.healthy?
-      health_error = provider.health_error || 'Unknown health issue'
+      health_error = provider.health_error || "Unknown health issue"
       return { available: false, reason: "Provider is unhealthy: #{health_error}" }
     end
 
     # Check if provider has available models
     unless provider.available_models.any?
-      return { available: false, reason: 'No models configured for provider' }
+      return { available: false, reason: "No models configured for provider" }
     end
 
-    { available: true, reason: 'Provider is available' }
+    { available: true, reason: "Provider is available" }
   end
 
   # Check if a provider is available and raise an error if not
@@ -58,12 +58,12 @@ class ProviderAvailabilityService
   # @return [Hash] { available: Boolean, unavailable_providers: Array, reasons: Hash }
   def self.check_workflow_providers(workflow)
     # Get all ai_agent nodes from the workflow
-    agent_nodes = workflow.ai_workflow_nodes.where(node_type: 'ai_agent')
+    agent_nodes = workflow.ai_workflow_nodes.where(node_type: "ai_agent")
 
     return { available: true, unavailable_providers: [], reasons: {} } if agent_nodes.empty?
 
     # Collect all unique provider IDs from agents
-    agent_ids = agent_nodes.map { |node| node.configuration['agent_id'] }.compact.uniq
+    agent_ids = agent_nodes.map { |node| node.configuration["agent_id"] }.compact.uniq
     agents = AiAgent.where(id: agent_ids).includes(:ai_provider)
 
     unavailable_providers = []
@@ -76,7 +76,7 @@ class ProviderAvailabilityService
       unless result[:available]
         unavailable_providers << {
           provider_id: provider&.id,
-          provider_name: provider&.name || 'Unknown',
+          provider_name: provider&.name || "Unknown",
           agent_id: agent.id,
           agent_name: agent.name
         }
@@ -111,8 +111,8 @@ class ProviderAvailabilityService
   # @param agent [AiAgent] The agent to check
   # @return [Hash] { available: Boolean, reason: String }
   def self.check_agent_provider(agent)
-    return { available: false, reason: 'Agent not found' } if agent.nil?
-    return { available: false, reason: 'Agent has no provider configured' } if agent.ai_provider.nil?
+    return { available: false, reason: "Agent not found" } if agent.nil?
+    return { available: false, reason: "Agent has no provider configured" } if agent.ai_provider.nil?
 
     check_provider(agent.ai_provider)
   end

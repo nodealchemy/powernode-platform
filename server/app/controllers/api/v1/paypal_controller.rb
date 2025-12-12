@@ -80,7 +80,7 @@ class Api::V1::PaypalController < ApplicationController
   # POST /api/v1/paypal/subscriptions/plans
   def create_subscription_plan
     plan = current_account.plans.find(params[:plan_id]) if params[:plan_id]
-    
+
     unless plan
       return render_error("Plan not found", status: :not_found)
     end
@@ -110,7 +110,7 @@ class Api::V1::PaypalController < ApplicationController
   # POST /api/v1/paypal/subscriptions
   def create_subscription
     plan = current_account.plans.find(params[:plan_id]) if params[:plan_id]
-    
+
     unless plan&.paypal_plan_id
       return render_error("PayPal plan not found", status: :not_found)
     end
@@ -157,7 +157,7 @@ class Api::V1::PaypalController < ApplicationController
   # POST /api/v1/paypal/subscriptions/:id/execute
   def execute_subscription
     subscription = current_account.subscription
-    
+
     unless subscription&.paypal_agreement_id
       return render_error("PayPal subscription not found", status: :not_found)
     end
@@ -189,7 +189,7 @@ class Api::V1::PaypalController < ApplicationController
   # DELETE /api/v1/paypal/subscriptions/:id
   def cancel_subscription
     subscription = current_account.subscription
-    
+
     unless subscription&.paypal_agreement_id
       return render_error("PayPal subscription not found", status: :not_found)
     end
@@ -223,7 +223,7 @@ class Api::V1::PaypalController < ApplicationController
   # POST /api/v1/paypal/payments/:id/refund
   def create_refund
     payment = current_account.payments.find(params[:id])
-    
+
     unless payment.paypal_transaction_id
       return render_error("PayPal transaction ID not found", status: :not_found)
     end

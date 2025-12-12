@@ -10,7 +10,7 @@ class AiProvider < ApplicationRecord
   # Associations
   belongs_to :account
   has_many :ai_provider_credentials, dependent: :destroy
-  has_many :credentials, -> { where(is_active: true) }, class_name: 'AiProviderCredential', dependent: :destroy
+  has_many :credentials, -> { where(is_active: true) }, class_name: "AiProviderCredential", dependent: :destroy
   has_many :ai_agents, dependent: :nullify
   has_many :ai_agent_executions, dependent: :restrict_with_error
   has_many :ai_conversations, dependent: :restrict_with_error
@@ -18,10 +18,10 @@ class AiProvider < ApplicationRecord
   # Validations
   validates :name, presence: true, length: { maximum: 255 }, uniqueness: { scope: :account_id }
   validates :slug, presence: true, uniqueness: true, length: { maximum: 50 },
-                   format: { with: /\A[a-z0-9\-_]+\z/, message: 'can only contain lowercase letters, numbers, hyphens, and underscores' }
+                   format: { with: /\A[a-z0-9\-_]+\z/, message: "can only contain lowercase letters, numbers, hyphens, and underscores" }
   validates :provider_type, presence: true, inclusion: {
     in: %w[openai anthropic google azure huggingface custom ollama local api_gateway],
-    message: 'is not included in the list'
+    message: "is not included in the list"
   }
   validates :api_base_url, format: { with: URI::DEFAULT_PARSER.make_regexp(%w[http https]), allow_blank: true }
   validates :api_endpoint, presence: true
@@ -34,54 +34,54 @@ class AiProvider < ApplicationRecord
   validate :configuration_must_be_hash
   validate :configuration_structure_must_be_valid
   validate :rate_limit_must_be_valid
-  
+
   # Virtual attribute for tests to set configuration
   attr_accessor :configuration
-  
+
   # Virtual attribute for testing request count
   def request_count_last_minute=(value)
-    self.metadata = (metadata || {}).merge('request_count_last_minute' => value.to_i)
+    self.metadata = (metadata || {}).merge("request_count_last_minute" => value.to_i)
   end
-  
+
   def request_count_last_minute
-    metadata&.dig('request_count_last_minute') || 0
+    metadata&.dig("request_count_last_minute") || 0
   end
-  
+
   # Virtual attributes for testing usage statistics
   def total_requests=(value)
-    self.metadata = (metadata || {}).merge('total_requests' => value.to_i)
+    self.metadata = (metadata || {}).merge("total_requests" => value.to_i)
   end
-  
+
   def total_requests
-    metadata&.dig('total_requests') || 0
+    metadata&.dig("total_requests") || 0
   end
-  
+
   def total_tokens=(value)
-    self.metadata = (metadata || {}).merge('total_tokens' => value.to_i)
+    self.metadata = (metadata || {}).merge("total_tokens" => value.to_i)
   end
-  
+
   def total_tokens
-    metadata&.dig('total_tokens') || 0
+    metadata&.dig("total_tokens") || 0
   end
-  
+
   def total_cost=(value)
-    self.metadata = (metadata || {}).merge('total_cost' => value.to_f)
+    self.metadata = (metadata || {}).merge("total_cost" => value.to_f)
   end
-  
+
   def total_cost
-    metadata&.dig('total_cost') || 0.0
+    metadata&.dig("total_cost") || 0.0
   end
-  
+
   # Virtual attribute for tests to set default status
   attr_accessor :is_default
-  
+
   # Virtual attributes for tests to set health status
   attr_accessor :health_status_override, :last_health_check, :last_request_time
-  
+
   def health_error
-    metadata&.dig('health_metrics', 'last_error')
+    metadata&.dig("health_metrics", "last_error")
   end
-  
+
   # Virtual attribute for tests to set rate_limit (maps to rate_limits column)
   attr_accessor :rate_limit_override
 
@@ -89,15 +89,15 @@ class AiProvider < ApplicationRecord
   scope :active, -> { where(is_active: true) }
   scope :inactive, -> { where(is_active: false) }
   scope :by_type, ->(type) { where(provider_type: type) }
-  scope :supporting_capability, ->(capability) { where('capabilities @> ?', [capability].to_json) }
+  scope :supporting_capability, ->(capability) { where("capabilities @> ?", [ capability ].to_json) }
   scope :ordered_by_priority, -> { order(:priority_order, :name) }
   scope :with_streaming, -> { where(supports_streaming: true) }
   scope :with_functions, -> { where(supports_functions: true) }
   scope :with_vision, -> { where(supports_vision: true) }
   scope :with_code_execution, -> { where(supports_code_execution: true) }
   scope :for_account, ->(account) { where(account: account) }
-  scope :by_healthy_status, -> { joins(:ai_agent_executions).where(ai_agent_executions: { status: 'completed' }).where('ai_agent_executions.created_at > ?', 1.hour.ago).distinct }
-  scope :with_healthy_status, -> { 
+  scope :by_healthy_status, -> { joins(:ai_agent_executions).where(ai_agent_executions: { status: "completed" }).where("ai_agent_executions.created_at > ?", 1.hour.ago).distinct }
+  scope :with_healthy_status, -> {
     where(
       "(metadata -> 'health_metrics' ->> 'last_check_success' = 'true' OR metadata -> 'health_metrics' -> 'last_check_success' = ?) AND " +
       "(metadata -> 'health_metrics' ->> 'last_check_timestamp')::timestamp > ?",
@@ -138,13 +138,13 @@ class AiProvider < ApplicationRecord
 
   def supports_model?(model_name)
     return false if model_name.blank?
-    
+
     # Use available_models (which considers configuration) and handle case insensitive matching
     available_models.any? { |model| model.to_s.downcase == model_name.to_s.downcase }
   end
 
   def get_model_info(model_name)
-    supported_models.find { |model| model['name'] == model_name || model['id'] == model_name }
+    supported_models.find { |model| model["name"] == model_name || model["id"] == model_name }
   end
 
   def available_models_for_account(account)
@@ -156,64 +156,64 @@ class AiProvider < ApplicationRecord
   def health_status
     # Return override if set (for tests)
     return @health_status_override if @health_status_override
-    
+
     # Check metadata for health status (set by health checks)
-    health_metrics = metadata&.dig('health_metrics') || {}
-    if health_metrics['last_check_success'] == true
-      return 'healthy'
+    health_metrics = metadata&.dig("health_metrics") || {}
+    if health_metrics["last_check_success"] == true
+      return "healthy"
     end
-    
-    return 'inactive' unless is_active?
+
+    return "inactive" unless is_active?
 
     # Check if provider has recent successful executions
-    recent_executions = ai_agent_executions.where('created_at > ?', 1.hour.ago)
-    return 'healthy' if recent_executions.where(status: 'completed').exists?
-    return 'unhealthy' if recent_executions.where(status: 'failed').count > 5
+    recent_executions = ai_agent_executions.where("created_at > ?", 1.hour.ago)
+    return "healthy" if recent_executions.where(status: "completed").exists?
+    return "unhealthy" if recent_executions.where(status: "failed").count > 5
 
-    'unknown'
+    "unknown"
   end
-  
+
   def health_status=(value)
     @health_status_override = value
   end
-  
+
   def healthy?
     # Check if explicitly marked as never checked (for tests)
     return false if @never_checked
-    
+
     # Check if virtual last_health_check is set (for tests)
     if @last_health_check
       # Stale if older than 1 hour
       return false if @last_health_check < 1.hour.ago
       # Use virtual health status if available
-      return @health_status_override == 'healthy' if @health_status_override
+      return @health_status_override == "healthy" if @health_status_override
       return true # Default to healthy if recent check without explicit unhealthy status
     end
-    
+
     # Check if test override is set (without last_health_check)
-    return @health_status_override == 'healthy' if @health_status_override
-    
+    return @health_status_override == "healthy" if @health_status_override
+
     # Check metadata for health status
-    health_metrics = metadata&.dig('health_metrics') || {}
-    
+    health_metrics = metadata&.dig("health_metrics") || {}
+
     # If never checked, not healthy
-    return false unless health_metrics['last_check_timestamp']
-    
+    return false unless health_metrics["last_check_timestamp"]
+
     # Check if health check is stale (older than 1 hour)
-    last_check = Time.parse(health_metrics['last_check_timestamp']) rescue nil
+    last_check = Time.parse(health_metrics["last_check_timestamp"]) rescue nil
     return false if last_check && last_check < 1.hour.ago
-    
+
     # Check if last health check was successful
-    health_metrics['last_check_success'] == true
+    health_metrics["last_check_success"] == true
   end
 
   def available_models
     # First check if models are configured in the configuration field (handle both symbol and string keys)
-    if @configuration.is_a?(Hash) 
-      models = @configuration[:models] || @configuration['models']
+    if @configuration.is_a?(Hash)
+      models = @configuration[:models] || @configuration["models"]
       return models if models&.any?
     end
-    
+
     # Then try to fetch from API
     begin
       api_models = fetch_models_from_api
@@ -221,12 +221,12 @@ class AiProvider < ApplicationRecord
     rescue NoMethodError
       # Method might not be implemented in all providers
     end
-    
+
     # Finally, extract model names from supported_models
     if supported_models&.any?
-      return supported_models.map { |model| model['name'] || model['id'] }.compact
+      return supported_models.map { |model| model["name"] || model["id"] }.compact
     end
-    
+
     []
   end
 
@@ -234,7 +234,7 @@ class AiProvider < ApplicationRecord
     model_info = get_model_info(model_name)
     return default_parameters unless model_info
 
-    default_parameters.merge(model_info['default_parameters'] || {})
+    default_parameters.merge(model_info["default_parameters"] || {})
   end
 
   def rate_limit_for_account(account)
@@ -253,61 +253,61 @@ class AiProvider < ApplicationRecord
   def increment_usage(requests: 0, tokens: 0, cost: 0.0)
     # For tests, use simple increment without reload to avoid thread issues
     current_metadata = metadata || {}
-    
+
     # Increment counters
-    current_metadata['total_requests'] = (current_metadata['total_requests'] || 0) + requests if requests > 0
-    current_metadata['total_tokens'] = (current_metadata['total_tokens'] || 0) + tokens if tokens > 0  
-    current_metadata['total_cost'] = (current_metadata['total_cost'] || 0.0) + cost if cost > 0.0
-    
-    # Track rate limiting metrics  
+    current_metadata["total_requests"] = (current_metadata["total_requests"] || 0) + requests if requests > 0
+    current_metadata["total_tokens"] = (current_metadata["total_tokens"] || 0) + tokens if tokens > 0
+    current_metadata["total_cost"] = (current_metadata["total_cost"] || 0.0) + cost if cost > 0.0
+
+    # Track rate limiting metrics
     if requests > 0
       now = Time.current
       update_rate_limit_counters_in_metadata(current_metadata, requests, now)
     end
-    
+
     self.metadata = current_metadata
     save!
   end
 
   def estimate_cost(model_name, input_tokens: 0, output_tokens: 0)
     return 0.0 if model_name.blank?
-    
+
     # Get model capabilities which includes cost information
     capabilities = model_capabilities(model_name)
     return 0.0 unless capabilities
-    
+
     # Look for detailed cost structure (cost_per_1k_tokens)
     if capabilities[:cost_per_1k_tokens].is_a?(Hash)
       input_cost_per_1k = capabilities[:cost_per_1k_tokens][:input].to_f
       output_cost_per_1k = capabilities[:cost_per_1k_tokens][:output].to_f
-      
+
       input_cost = (input_tokens * input_cost_per_1k) / 1000.0
       output_cost = (output_tokens * output_cost_per_1k) / 1000.0
-      
+
       return (input_cost + output_cost).round(6)
     end
-    
+
     # Fall back to simple cost_per_token from supported_models
     model_info = get_model_info(model_name)
-    return 0.0 unless model_info&.dig('cost_per_token')
+    return 0.0 unless model_info&.dig("cost_per_token")
 
-    cost_per_token = model_info['cost_per_token'].to_f
+    cost_per_token = model_info["cost_per_token"].to_f
     total_tokens = input_tokens + output_tokens
     (total_tokens * cost_per_token).round(6)
   end
 
   def model_capabilities(model_name)
     return nil if model_name.blank?
-    
+
     # Check virtual @configuration first (for tests)
     if @configuration.is_a?(Hash) && @configuration[:model_capabilities].is_a?(Hash)
       capabilities = @configuration[:model_capabilities][model_name.to_s] || @configuration[:model_capabilities][model_name.to_sym]
       return capabilities.with_indifferent_access if capabilities
     end
-    
+
     # Fall back to supported_models info
     model_info = get_model_info(model_name)
-    model_info&.dig('capabilities') || model_info&.dig('features')
+    model_info&.dig("capabilities") || model_info&.dig("features")
   end
 
   def rate_limit_remaining(limit_type = :requests_per_minute)
@@ -319,35 +319,35 @@ class AiProvider < ApplicationRecord
 
     # Map limit type to usage metadata key
     usage_key = case limit_type.to_sym
-                when :requests_per_minute
-                  'request_count_last_minute'
-                when :tokens_per_minute
-                  'token_count_last_minute'
-                else
+    when :requests_per_minute
+                  "request_count_last_minute"
+    when :tokens_per_minute
+                  "token_count_last_minute"
+    else
                   "#{limit_key}_usage"
-                end
+    end
 
     current_usage = metadata&.dig(usage_key) || 0
-    [rate_limit_value - current_usage, 0].max
+    [ rate_limit_value - current_usage, 0 ].max
   end
 
   def can_make_request?
     return true unless rate_limits.any?
-    
-    requests_per_minute = rate_limits['requests_per_minute']
+
+    requests_per_minute = rate_limits["requests_per_minute"]
     return true unless requests_per_minute
 
-    (metadata&.dig('request_count_last_minute') || 0) < requests_per_minute
+    (metadata&.dig("request_count_last_minute") || 0) < requests_per_minute
   end
 
   def perform_health_check
     start_time = Time.current
-    
+
     begin
       # Simulate API health check - in production this would call the actual API
       success = test_api_connection
       response_time = ((Time.current - start_time) * 1000).round(2)
-      
+
       update_health_metrics(success, response_time)
       success
     rescue StandardError => e
@@ -396,7 +396,7 @@ class AiProvider < ApplicationRecord
   end
 
   def available_models_list
-    supported_models.map { |model| model.is_a?(Hash) ? model['name'] || model['id'] : model }
+    supported_models.map { |model| model.is_a?(Hash) ? model["name"] || model["id"] : model }
   end
 
   def is_default?
@@ -405,17 +405,17 @@ class AiProvider < ApplicationRecord
     # This could be enhanced to check per-account defaults
     priority_order == 1
   end
-  
+
   def is_default=(value)
     @is_default = value
-    
+
     # Persist the default status in metadata for class method queries
     current_metadata = metadata || {}
-    current_metadata['is_default'] = (value == true || value == 'true' || value == 1)
+    current_metadata["is_default"] = (value == true || value == "true" || value == 1)
     self.metadata = current_metadata
-    
+
     # Update priority_order based on is_default value
-    if value == true || value == 'true' || value == 1
+    if value == true || value == "true" || value == 1
       self.priority_order = 1
     end
   end
@@ -423,32 +423,32 @@ class AiProvider < ApplicationRecord
   def configuration
     # Return the instance variable if set (for tests), otherwise compute from schema
     return @configuration if @configuration
-    
+
     # Return configuration_schema if it exists and has models
     if configuration_schema.present? && configuration_schema.is_a?(Hash)
       return configuration_schema
     end
-    
+
     # Fallback: Return configuration based on provider type
     case provider_type
-    when 'openai'
+    when "openai"
       {
-        'api_key' => '***masked***',
-        'models' => available_models_list,
-        'default_model' => available_models_list.first,
-        'rate_limits' => rate_limits
+        "api_key" => "***masked***",
+        "models" => available_models_list,
+        "default_model" => available_models_list.first,
+        "rate_limits" => rate_limits
       }
-    when 'anthropic'
+    when "anthropic"
       {
-        'api_key' => '***masked***',
-        'models' => available_models_list,
-        'default_model' => available_models_list.first
+        "api_key" => "***masked***",
+        "models" => available_models_list,
+        "default_model" => available_models_list.first
       }
     else
       configuration_schema.presence || {}
     end
   end
-  
+
   def configuration=(value)
     @configuration = value
     # Also update configuration_schema column if it's a hash
@@ -465,20 +465,20 @@ class AiProvider < ApplicationRecord
   def default_model
     # Check virtual @configuration first (for tests), then configuration_schema
     if @configuration.is_a?(Hash)
-      default = @configuration[:default_model] || @configuration['default_model']
+      default = @configuration[:default_model] || @configuration["default_model"]
       return default if default.present?
     end
-    
+
     # Fall back to configuration_schema or available models
-    config_default = configuration_schema&.dig('default_model') if configuration_schema.is_a?(Hash)
+    config_default = configuration_schema&.dig("default_model") if configuration_schema.is_a?(Hash)
     config_default || available_models.first
   end
 
 
   def rate_limit
-    @rate_limit_override || rate_limits.presence || { 'requests_per_minute' => 60, 'tokens_per_minute' => 10000 }
+    @rate_limit_override || rate_limits.presence || { "requests_per_minute" => 60, "tokens_per_minute" => 10000 }
   end
-  
+
   def rate_limit=(value)
     @rate_limit_override = value
     # Also update the rate_limits column if it's a hash
@@ -488,52 +488,52 @@ class AiProvider < ApplicationRecord
   end
 
   def request_count_last_minute
-    metadata&.dig('request_count_last_minute') || 0
+    metadata&.dig("request_count_last_minute") || 0
   end
 
   def request_count_last_hour
-    metadata&.dig('request_count_last_hour') || 0
+    metadata&.dig("request_count_last_hour") || 0
   end
 
   def total_requests
-    metadata&.dig('total_requests') || 0
+    metadata&.dig("total_requests") || 0
   end
 
   def total_tokens
-    metadata&.dig('total_tokens') || 0
+    metadata&.dig("total_tokens") || 0
   end
 
   def total_cost
-    metadata&.dig('total_cost') || 0.0
+    metadata&.dig("total_cost") || 0.0
   end
 
   def health_metrics
-    metadata&.dig('health_metrics') || {}
+    metadata&.dig("health_metrics") || {}
   end
 
   # Class methods
   def self.default_for_account(account = nil)
     return nil unless account
-    
+
     # For class method, we need to look for providers that have been explicitly marked as default
     # Since virtual attributes won't persist across database queries, we rely on metadata or a specific field
     # For now, only return providers that have been explicitly marked with some persistent indicator
     # In the absence of a database field, return nil unless we find a specific marker
-    
+
     providers = where(account: account).active
     default_provider = providers.find do |provider|
       # Check if metadata contains explicit default marker
-      provider.metadata&.dig('is_default') == true
+      provider.metadata&.dig("is_default") == true
     end
-    
+
     default_provider
   end
-  
+
   def self.with_healthy_status
     all.select do |provider|
       # Check virtual attribute first (for fresh instances)
       if provider.instance_variable_get(:@health_status_override)
-        provider.instance_variable_get(:@health_status_override) == 'healthy'
+        provider.instance_variable_get(:@health_status_override) == "healthy"
       else
         provider.healthy?
       end
@@ -558,15 +558,15 @@ class AiProvider < ApplicationRecord
     return types unless include_metadata
 
     type_metadata = {
-      'openai' => { name: 'OpenAI', description: 'OpenAI API integration', website: 'https://openai.com' },
-      'anthropic' => { name: 'Anthropic', description: 'Claude AI integration', website: 'https://anthropic.com' },
-      'google' => { name: 'Google', description: 'Google AI integration', website: 'https://ai.google' },
-      'azure' => { name: 'Azure OpenAI', description: 'Microsoft Azure OpenAI Service', website: 'https://azure.microsoft.com/en-us/products/ai-services/openai-service/' },
-      'huggingface' => { name: 'Hugging Face', description: 'Hugging Face Hub models', website: 'https://huggingface.co' },
-      'custom' => { name: 'Custom Provider', description: 'Custom AI provider integration', website: nil },
-      'ollama' => { name: 'Ollama', description: 'Local LLM hosting with Ollama', website: 'https://ollama.ai' },
-      'local' => { name: 'Local Provider', description: 'Local or self-hosted AI services', website: nil },
-      'api_gateway' => { name: 'API Gateway', description: 'Multi-provider API gateway service', website: nil }
+      "openai" => { name: "OpenAI", description: "OpenAI API integration", website: "https://openai.com" },
+      "anthropic" => { name: "Anthropic", description: "Claude AI integration", website: "https://anthropic.com" },
+      "google" => { name: "Google", description: "Google AI integration", website: "https://ai.google" },
+      "azure" => { name: "Azure OpenAI", description: "Microsoft Azure OpenAI Service", website: "https://azure.microsoft.com/en-us/products/ai-services/openai-service/" },
+      "huggingface" => { name: "Hugging Face", description: "Hugging Face Hub models", website: "https://huggingface.co" },
+      "custom" => { name: "Custom Provider", description: "Custom AI provider integration", website: nil },
+      "ollama" => { name: "Ollama", description: "Local LLM hosting with Ollama", website: "https://ollama.ai" },
+      "local" => { name: "Local Provider", description: "Local or self-hosted AI services", website: nil },
+      "api_gateway" => { name: "API Gateway", description: "Multi-provider API gateway service", website: nil }
     }
 
     types.map do |type|
@@ -585,7 +585,7 @@ class AiProvider < ApplicationRecord
     active.each do |provider|
       results[provider.slug] = provider.perform_health_check
     end
-    
+
     {
       results: results,
       total_checked: results.size,
@@ -598,7 +598,7 @@ class AiProvider < ApplicationRecord
     providers = active.includes(:ai_agent_executions)
     total_requests = providers.sum { |p| p.total_requests }
     provider_count = providers.count
-    
+
     analytics = {
       total_providers: provider_count,
       total_requests: total_requests,
@@ -606,7 +606,7 @@ class AiProvider < ApplicationRecord
       total_cost: providers.sum { |p| p.total_cost },
       average_requests_per_provider: provider_count > 0 ? total_requests.to_f / provider_count : 0.0
     }
-    
+
     if include_distribution
       distributions = providers.map do |p|
         {
@@ -616,52 +616,52 @@ class AiProvider < ApplicationRecord
           cost: p.total_cost
         }
       end
-      
+
       analytics.merge!(
         provider_distribution: distributions,
         top_providers: distributions.sort_by { |p| -p[:requests] }.first(5)
       )
     end
-    
+
     analytics
   end
 
   def self.setup_default_providers(account)
     return [] unless account
-    
+
     default_providers = [
       {
-        name: 'OpenAI',
-        slug: 'openai',
-        provider_type: 'openai',
-        api_base_url: 'https://api.openai.com/v1',
-        api_endpoint: 'https://api.openai.com/v1',
-        capabilities: ['text_generation', 'chat'],
+        name: "OpenAI",
+        slug: "openai",
+        provider_type: "openai",
+        api_base_url: "https://api.openai.com/v1",
+        api_endpoint: "https://api.openai.com/v1",
+        capabilities: [ "text_generation", "chat" ],
         supported_models: [
           {
-            name: 'gpt-4o',
-            id: 'gpt-4o',
+            name: "gpt-4o",
+            id: "gpt-4o",
             context_length: 128000,
             cost_per_1k_tokens: { input: 0.0025, output: 0.01 }
           },
           {
-            name: 'gpt-3.5-turbo',
-            id: 'gpt-3.5-turbo',
+            name: "gpt-3.5-turbo",
+            id: "gpt-3.5-turbo",
             context_length: 16385,
             cost_per_1k_tokens: { input: 0.0005, output: 0.0015 }
           }
         ],
         configuration_schema: {
-          type: 'object',
+          type: "object",
           properties: {
-            api_key: { type: 'string', description: 'OpenAI API key' },
-            model: { type: 'string', description: 'Model to use' }
+            api_key: { type: "string", description: "OpenAI API key" },
+            model: { type: "string", description: "Model to use" }
           },
-          required: ['api_key', 'model']
+          required: [ "api_key", "model" ]
         },
         configuration: {
-          models: ['gpt-3.5-turbo', 'gpt-4'],
-          default_model: 'gpt-3.5-turbo'
+          models: [ "gpt-3.5-turbo", "gpt-4" ],
+          default_model: "gpt-3.5-turbo"
         },
         rate_limits: {
           requests_per_minute: 3500,
@@ -670,46 +670,46 @@ class AiProvider < ApplicationRecord
         priority_order: 1
       },
       {
-        name: 'Anthropic',
-        slug: 'anthropic',
-        provider_type: 'anthropic',
-        api_base_url: 'https://api.anthropic.com/v1',
-        api_endpoint: 'https://api.anthropic.com/v1',
-        capabilities: ['text_generation', 'chat'],
+        name: "Anthropic",
+        slug: "anthropic",
+        provider_type: "anthropic",
+        api_base_url: "https://api.anthropic.com/v1",
+        api_endpoint: "https://api.anthropic.com/v1",
+        capabilities: [ "text_generation", "chat" ],
         supported_models: [
           {
-            name: 'claude-sonnet-4.5',
-            id: 'claude-sonnet-4-5-20250929',
+            name: "claude-sonnet-4.5",
+            id: "claude-sonnet-4-5-20250929",
             context_length: 200000,
             max_output_tokens: 64000,
             cost_per_1k_tokens: { input: 0.003, output: 0.015 }
           },
           {
-            name: 'claude-opus-4.1',
-            id: 'claude-opus-4-1-20250805',
+            name: "claude-opus-4.1",
+            id: "claude-opus-4-1-20250805",
             context_length: 200000,
             max_output_tokens: 32000,
             cost_per_1k_tokens: { input: 0.015, output: 0.075 }
           },
           {
-            name: 'claude-haiku-4.5',
-            id: 'claude-haiku-4-5-20251001',
+            name: "claude-haiku-4.5",
+            id: "claude-haiku-4-5-20251001",
             context_length: 200000,
             max_output_tokens: 64000,
             cost_per_1k_tokens: { input: 0.001, output: 0.005 }
           }
         ],
         configuration_schema: {
-          type: 'object',
+          type: "object",
           properties: {
-            api_key: { type: 'string', description: 'Anthropic API key' },
-            model: { type: 'string', description: 'Model to use' }
+            api_key: { type: "string", description: "Anthropic API key" },
+            model: { type: "string", description: "Model to use" }
           },
-          required: ['api_key', 'model']
+          required: [ "api_key", "model" ]
         },
         configuration: {
-          models: ['claude-sonnet-4.5', 'claude-opus-4.1', 'claude-haiku-4.5'],
-          default_model: 'claude-sonnet-4.5'
+          models: [ "claude-sonnet-4.5", "claude-opus-4.1", "claude-haiku-4.5" ],
+          default_model: "claude-sonnet-4.5"
         },
         rate_limits: {
           requests_per_minute: 1000,
@@ -737,15 +737,15 @@ class AiProvider < ApplicationRecord
 
   def self.cleanup_inactive_providers(older_than = 90.days)
     # Find providers that are inactive and old, but don't have recent usage
-    inactive_provider_ids = inactive.where('updated_at < ?', older_than.ago).pluck(:id)
+    inactive_provider_ids = inactive.where("updated_at < ?", older_than.ago).pluck(:id)
     used_provider_ids = []
-    
+
     # Check if any agents use these providers
     used_provider_ids += AiAgent.where(ai_provider_id: inactive_provider_ids).pluck(:ai_provider_id)
-    
+
     # Check if any executions use these providers
     used_provider_ids += AiAgentExecution.where(ai_provider_id: inactive_provider_ids).pluck(:ai_provider_id)
-    
+
     # Only destroy providers that aren't referenced
     safe_to_delete_ids = inactive_provider_ids - used_provider_ids.uniq
     where(id: safe_to_delete_ids).destroy_all
@@ -753,22 +753,22 @@ class AiProvider < ApplicationRecord
 
   def update_health_metrics(success, response_time, error_message = nil)
     current_time = Time.current
-    current_metrics = metadata&.dig('health_metrics') || {}
-    
+    current_metrics = metadata&.dig("health_metrics") || {}
+
     new_metrics = current_metrics.merge(
       last_check_timestamp: current_time.iso8601,
       last_check_success: success,
-      consecutive_failures: success ? 0 : (current_metrics['consecutive_failures'] || 0) + 1
+      consecutive_failures: success ? 0 : (current_metrics["consecutive_failures"] || 0) + 1
     )
-    
-    new_metrics['response_time_ms'] = response_time if response_time
-    new_metrics['last_error'] = error_message if error_message
-    
-    update_metadata('health_metrics', new_metrics)
-    
+
+    new_metrics["response_time_ms"] = response_time if response_time
+    new_metrics["last_error"] = error_message if error_message
+
+    update_metadata("health_metrics", new_metrics)
+
     # Update virtual attributes for tests
     @last_health_check = current_time
-    @health_status_override = success ? 'healthy' : 'unhealthy'
+    @health_status_override = success ? "healthy" : "unhealthy"
   end
 
   private
@@ -777,14 +777,14 @@ class AiProvider < ApplicationRecord
     # Simulate API connection test
     # In production, this would make an actual API call
     return true if Rails.env.test?
-    
+
     # Mock different responses based on provider type
     case slug
-    when 'openai'
+    when "openai"
       true
-    when 'anthropic'  
+    when "anthropic"
       true
-    when 'ollama'
+    when "ollama"
       true
     else
       false
@@ -807,24 +807,24 @@ class AiProvider < ApplicationRecord
     update_rate_limit_counters_in_metadata(current_metadata, requests, timestamp)
     self.metadata = current_metadata
   end
-  
+
   def update_rate_limit_counters_in_metadata(metadata_hash, requests, timestamp)
     # Update per-minute counter
-    minute_key = timestamp.strftime('%Y-%m-%d-%H-%M')
-    if metadata_hash.dig('rate_limit_window') != minute_key
-      metadata_hash['rate_limit_window'] = minute_key
-      metadata_hash['request_count_last_minute'] = requests
+    minute_key = timestamp.strftime("%Y-%m-%d-%H-%M")
+    if metadata_hash.dig("rate_limit_window") != minute_key
+      metadata_hash["rate_limit_window"] = minute_key
+      metadata_hash["request_count_last_minute"] = requests
     else
-      metadata_hash['request_count_last_minute'] = (metadata_hash['request_count_last_minute'] || 0) + requests
+      metadata_hash["request_count_last_minute"] = (metadata_hash["request_count_last_minute"] || 0) + requests
     end
-    
+
     # Update per-hour counter
-    hour_key = timestamp.strftime('%Y-%m-%d-%H')
-    if metadata_hash.dig('rate_limit_hour_window') != hour_key
-      metadata_hash['rate_limit_hour_window'] = hour_key
-      metadata_hash['request_count_last_hour'] = requests
+    hour_key = timestamp.strftime("%Y-%m-%d-%H")
+    if metadata_hash.dig("rate_limit_hour_window") != hour_key
+      metadata_hash["rate_limit_hour_window"] = hour_key
+      metadata_hash["request_count_last_hour"] = requests
     else
-      metadata_hash['request_count_last_hour'] = (metadata_hash['request_count_last_hour'] || 0) + requests
+      metadata_hash["request_count_last_hour"] = (metadata_hash["request_count_last_hour"] || 0) + requests
     end
   end
 
@@ -836,19 +836,19 @@ class AiProvider < ApplicationRecord
 
   def calculate_cost_trend
     # Mock trend calculation
-    ['increasing', 'decreasing', 'stable'].sample
+    [ "increasing", "decreasing", "stable" ].sample
   end
 
   def self.provider_type_description(type)
     descriptions = {
-      'text_generation' => 'Generate text content, chat, and language tasks',
-      'image_generation' => 'Generate images from text descriptions',
-      'video_generation' => 'Generate video content',
-      'audio_generation' => 'Generate audio and speech',
-      'code_execution' => 'Execute code and programming tasks',
-      'embedding' => 'Generate text embeddings for similarity and search'
+      "text_generation" => "Generate text content, chat, and language tasks",
+      "image_generation" => "Generate images from text descriptions",
+      "video_generation" => "Generate video content",
+      "audio_generation" => "Generate audio and speech",
+      "code_execution" => "Execute code and programming tasks",
+      "embedding" => "Generate text embeddings for similarity and search"
     }
-    descriptions[type] || 'AI provider capabilities'
+    descriptions[type] || "AI provider capabilities"
   end
 
   def fetch_models_from_api
@@ -910,62 +910,62 @@ class AiProvider < ApplicationRecord
     # Check both configuration (virtual attr) and configuration_schema
     config_to_check = @configuration || configuration_schema
     return if config_to_check.nil? || config_to_check.is_a?(Hash)
-    
-    errors.add(:configuration, 'must be a hash')
+
+    errors.add(:configuration, "must be a hash")
   end
-  
+
   def configuration_structure_must_be_valid
     # Check both configuration (virtual attr) and configuration_schema
     config_to_check = @configuration || configuration_schema
     return if config_to_check.nil? || !config_to_check.is_a?(Hash)
-    
+
     # Validate provider-specific structure
     case provider_type
-    when 'openai'
+    when "openai"
       validate_openai_configuration(config_to_check)
-    when 'anthropic'
+    when "anthropic"
       validate_anthropic_configuration(config_to_check)
-    when 'custom'
+    when "custom"
       validate_custom_configuration(config_to_check)
     end
   end
-  
+
   def api_endpoint_must_be_valid_url
     return if api_endpoint.blank?
-    
+
     begin
       uri = URI.parse(api_endpoint)
       # Must be http or https
       unless %w[http https].include?(uri.scheme)
-        errors.add(:api_endpoint, 'is invalid')
+        errors.add(:api_endpoint, "is invalid")
         return
       end
-      
+
       # Must have a host
       if uri.host.blank?
-        errors.add(:api_endpoint, 'is invalid')
+        errors.add(:api_endpoint, "is invalid")
         return
       end
-      
+
       # Additional checks for invalid URLs
-      if api_endpoint == 'http://' || api_endpoint == 'https://' || api_endpoint.end_with?('://')
-        errors.add(:api_endpoint, 'is invalid')
-        return
+      if api_endpoint == "http://" || api_endpoint == "https://" || api_endpoint.end_with?("://")
+        errors.add(:api_endpoint, "is invalid")
+        nil
       end
-      
+
     rescue URI::InvalidURIError
-      errors.add(:api_endpoint, 'is invalid')
+      errors.add(:api_endpoint, "is invalid")
     end
   end
-  
+
   def rate_limit_must_be_valid
     # Check the virtual attribute or the rate_limits column
     limit_config = @rate_limit_override || rate_limits
     return if limit_config.blank? || !limit_config.is_a?(Hash)
-    
+
     limit_config.each do |key, value|
       case key.to_s
-      when 'requests_per_minute', 'requests_per_hour', 'requests_per_day', 'tokens_per_minute', 'tokens_per_hour', 'tokens_per_day'
+      when "requests_per_minute", "requests_per_hour", "requests_per_day", "tokens_per_minute", "tokens_per_hour", "tokens_per_day"
         unless value.is_a?(Integer) && value > 0
           errors.add(:rate_limit, "#{key} must be a positive integer")
         end
@@ -974,7 +974,7 @@ class AiProvider < ApplicationRecord
   end
 
   def generate_slug
-    base_slug = name.downcase.gsub(/[^a-z0-9\s]/, '').gsub(/\s+/, '-').strip
+    base_slug = name.downcase.gsub(/[^a-z0-9\s]/, "").gsub(/\s+/, "-").strip
     self.slug = ensure_unique_slug(base_slug)
   end
 
@@ -1001,25 +1001,25 @@ class AiProvider < ApplicationRecord
 
     self.supported_models = supported_models.map do |model|
       if model.is_a?(String)
-        { 'name' => model, 'id' => model }
+        { "name" => model, "id" => model }
       else
         model
       end
     end
   end
-  
+
   def normalize_provider_type
     return unless provider_type.present?
-    
+
     self.provider_type = provider_type.to_s.strip.downcase
   end
-  
+
   def normalize_api_endpoint
     return unless api_endpoint.present?
-    
+
     self.api_endpoint = api_endpoint.to_s.strip
   end
-  
+
   def set_default_configuration_from_type
     # Skip if configuration is already set
     return if (@configuration && !@configuration.nil?) || (configuration_schema.present? && configuration_schema != {})
@@ -1029,114 +1029,114 @@ class AiProvider < ApplicationRecord
     # This allows for more flexible provider definitions
 
     default_config = {
-      'api_key' => '',
-      'models' => [],
-      'default_model' => nil,
-      'temperature' => 0.7,
-      'max_tokens' => 2000
+      "api_key" => "",
+      "models" => [],
+      "default_model" => nil,
+      "temperature" => 0.7,
+      "max_tokens" => 2000
     }
 
     # Add capability-specific defaults
-    if supports_capability?('function_calling')
-      default_config['supports_functions'] = true
+    if supports_capability?("function_calling")
+      default_config["supports_functions"] = true
     end
 
-    if supports_capability?('vision')
-      default_config['supports_vision'] = true
+    if supports_capability?("vision")
+      default_config["supports_vision"] = true
     end
 
-    if supports_capability?('code_generation')
-      default_config['code_focused'] = true
+    if supports_capability?("code_generation")
+      default_config["code_focused"] = true
     end
 
     self.configuration_schema = default_config
   end
-  
+
   def perform_initial_health_check
     perform_health_check
   end
-  
+
   def setup_default_credentials
     # Setup default credentials for known providers
     return unless %w[openai anthropic google azure].include?(provider_type)
-    
+
     # This would be implemented based on business logic
     Rails.logger.info "Setting up default credentials for #{provider_type} provider"
   end
-  
+
   def invalidate_cache_on_config_change
     # Invalidate any cached configuration if configuration_schema changed
     if saved_change_to_configuration_schema?
       invalidate_provider_cache
     end
   end
-  
+
   def invalidate_provider_cache
     Rails.logger.info "Configuration changed for provider #{name}, invalidating cache"
     # Here you would invalidate Redis cache, clear memoized methods, etc.
     # For now, just log the action
   end
-  
+
   def trigger_health_check_on_endpoint_change
     # Perform health check if api_endpoint changed
     if saved_change_to_api_endpoint?
       perform_health_check
     end
   end
-  
+
   def validate_openai_configuration(config)
-    if config.key?('models') && config['models'].is_a?(String)
-      errors.add(:configuration, 'models must be an array')
+    if config.key?("models") && config["models"].is_a?(String)
+      errors.add(:configuration, "models must be an array")
     end
-    
-    if config.key?('max_tokens') && !config['max_tokens'].is_a?(Integer)
-      errors.add(:configuration, 'max_tokens must be a number')
+
+    if config.key?("max_tokens") && !config["max_tokens"].is_a?(Integer)
+      errors.add(:configuration, "max_tokens must be a number")
     end
-    
+
     # Also check with symbol keys (in case test uses symbols)
     if config.key?(:models) && config[:models].is_a?(String)
-      errors.add(:configuration, 'models must be an array')
+      errors.add(:configuration, "models must be an array")
     end
-    
+
     if config.key?(:max_tokens) && !config[:max_tokens].is_a?(Integer)
-      errors.add(:configuration, 'max_tokens must be a number')
+      errors.add(:configuration, "max_tokens must be a number")
     end
   end
-  
+
   def validate_anthropic_configuration(config)
-    if config.key?('models') && config['models'].is_a?(String)
-      errors.add(:configuration, 'models must be an array')
+    if config.key?("models") && config["models"].is_a?(String)
+      errors.add(:configuration, "models must be an array")
     end
-    
-    if config.key?('max_tokens') && !config['max_tokens'].is_a?(Integer)
-      errors.add(:configuration, 'max_tokens must be a number')
+
+    if config.key?("max_tokens") && !config["max_tokens"].is_a?(Integer)
+      errors.add(:configuration, "max_tokens must be a number")
     end
   end
-  
+
   def validate_custom_configuration(config)
     # Basic validation for custom providers
-    if config.key?('models') && config['models'].is_a?(String)
-      errors.add(:configuration, 'models must be an array')
+    if config.key?("models") && config["models"].is_a?(String)
+      errors.add(:configuration, "models must be an array")
     end
   end
 
   # Callback methods
   def set_default_configuration_from_type
     return if configuration_schema.present? && @configuration.present?
-    
+
     case provider_type.to_s.downcase
-    when 'openai'
+    when "openai"
       self.configuration_schema = {
-        'models' => ['gpt-3.5-turbo', 'gpt-4'],
-        'default_model' => 'gpt-3.5-turbo',
-        'api_key' => nil
+        "models" => [ "gpt-3.5-turbo", "gpt-4" ],
+        "default_model" => "gpt-3.5-turbo",
+        "api_key" => nil
       }
       @configuration = configuration_schema
-    when 'anthropic'
+    when "anthropic"
       self.configuration_schema = {
-        'models' => ['claude-instant-1', 'claude-2'],
-        'default_model' => 'claude-instant-1',
-        'api_key' => nil
+        "models" => [ "claude-instant-1", "claude-2" ],
+        "default_model" => "claude-instant-1",
+        "api_key" => nil
       }
       @configuration = configuration_schema
     end
@@ -1151,7 +1151,7 @@ class AiProvider < ApplicationRecord
   def setup_default_credentials
     # Create default credentials for known providers
     case provider_type.to_s.downcase
-    when 'openai', 'anthropic', 'google'
+    when "openai", "anthropic", "google"
       # In a real implementation, you'd create AiProviderCredential records
       Rails.logger.info "Setting up default credentials for #{provider_type} provider: #{name}"
     end

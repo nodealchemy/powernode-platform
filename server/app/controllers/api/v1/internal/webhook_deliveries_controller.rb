@@ -18,10 +18,10 @@ class Api::V1::Internal::WebhookDeliveriesController < ApplicationController
       status: delivery.status
     })
   rescue ActiveRecord::RecordNotFound
-    render_error('Webhook delivery not found', status: :not_found)
+    render_error("Webhook delivery not found", status: :not_found)
   rescue StandardError => e
     Rails.logger.error "Failed to fetch webhook delivery: #{e.message}"
-    render_error('Failed to fetch delivery', status: :internal_server_error)
+    render_error("Failed to fetch delivery", status: :internal_server_error)
   end
 
   # PATCH /api/v1/internal/webhook_deliveries/:id
@@ -40,11 +40,11 @@ class Api::V1::Internal::WebhookDeliveriesController < ApplicationController
     end
 
     case params[:status]
-    when 'in_progress'
+    when "in_progress"
       update_params[:started_at] = Time.current
-    when 'delivered'
+    when "delivered"
       update_params[:delivered_at] = Time.current
-    when 'failed'
+    when "failed"
       update_params[:failed_at] = Time.current
     end
 
@@ -55,13 +55,13 @@ class Api::V1::Internal::WebhookDeliveriesController < ApplicationController
     render_success({
       id: delivery.id,
       status: delivery.status,
-      message: 'Delivery status updated'
+      message: "Delivery status updated"
     })
   rescue ActiveRecord::RecordNotFound
-    render_error('Webhook delivery not found', status: :not_found)
+    render_error("Webhook delivery not found", status: :not_found)
   rescue StandardError => e
     Rails.logger.error "Failed to update webhook delivery: #{e.message}"
-    render_error('Failed to update delivery', status: :internal_server_error)
+    render_error("Failed to update delivery", status: :internal_server_error)
   end
 
   # PATCH /api/v1/internal/webhook_deliveries/:id/increment_attempt
@@ -75,35 +75,35 @@ class Api::V1::Internal::WebhookDeliveriesController < ApplicationController
     render_success({
       id: delivery.id,
       attempts: delivery.attempts,
-      message: 'Attempt incremented'
+      message: "Attempt incremented"
     })
   rescue ActiveRecord::RecordNotFound
-    render_error('Webhook delivery not found', status: :not_found)
+    render_error("Webhook delivery not found", status: :not_found)
   rescue StandardError => e
     Rails.logger.error "Failed to increment attempt: #{e.message}"
-    render_error('Failed to increment attempt', status: :internal_server_error)
+    render_error("Failed to increment attempt", status: :internal_server_error)
   end
 
   private
 
   def authenticate_service_token
-    token = request.headers['Authorization']&.split(' ')&.last
+    token = request.headers["Authorization"]&.split(" ")&.last
 
     unless token.present?
-      render_error('Service token required', status: :unauthorized)
+      render_error("Service token required", status: :unauthorized)
       return
     end
 
     begin
-      payload = JWT.decode(token, Rails.application.config.jwt_secret_key, true, algorithm: 'HS256').first
+      payload = JWT.decode(token, Rails.application.config.jwt_secret_key, true, algorithm: "HS256").first
 
-      unless payload['service'] == 'worker' && payload['type'] == 'service'
-        render_error('Invalid service token', status: :unauthorized)
-        return
+      unless payload["service"] == "worker" && payload["type"] == "service"
+        render_error("Invalid service token", status: :unauthorized)
+        nil
       end
 
     rescue JWT::DecodeError, JWT::ExpiredSignature
-      render_error('Invalid service token', status: :unauthorized)
+      render_error("Invalid service token", status: :unauthorized)
     end
   end
 end

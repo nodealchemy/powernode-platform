@@ -20,10 +20,10 @@ class CreateAiWorkflowNodes < ActiveRecord::Migration[7.1]
       t.integer :retry_count, default: 0
       t.timestamps
 
-      t.index [:ai_workflow_id, :node_id], unique: true, name: 'index_workflow_nodes_on_workflow_node_id'
-      t.index [:ai_workflow_id, :node_type]
-      t.index [:ai_workflow_id, :is_start_node]
-      t.index [:ai_workflow_id, :is_end_node]
+      t.index [ :ai_workflow_id, :node_id ], unique: true, name: 'index_workflow_nodes_on_workflow_node_id'
+      t.index [ :ai_workflow_id, :node_type ]
+      t.index [ :ai_workflow_id, :is_start_node ]
+      t.index [ :ai_workflow_id, :is_end_node ]
       t.index :node_id
     end
 

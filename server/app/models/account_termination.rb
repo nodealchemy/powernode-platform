@@ -7,9 +7,9 @@ class AccountTermination < ApplicationRecord
 
   # Associations
   belongs_to :account
-  belongs_to :requested_by, class_name: 'User', optional: true
-  belongs_to :cancelled_by, class_name: 'User', optional: true
-  belongs_to :processed_by, class_name: 'User', optional: true
+  belongs_to :requested_by, class_name: "User", optional: true
+  belongs_to :cancelled_by, class_name: "User", optional: true
+  belongs_to :processed_by, class_name: "User", optional: true
   belongs_to :data_export_request, optional: true
 
   # Validations
@@ -20,13 +20,13 @@ class AccountTermination < ApplicationRecord
   validates :grace_period_ends_at, presence: true
 
   # Scopes
-  scope :pending, -> { where(status: 'pending') }
-  scope :in_grace_period, -> { where(status: 'grace_period') }
-  scope :processing, -> { where(status: 'processing') }
-  scope :completed, -> { where(status: 'completed') }
-  scope :cancelled, -> { where(status: 'cancelled') }
+  scope :pending, -> { where(status: "pending") }
+  scope :in_grace_period, -> { where(status: "grace_period") }
+  scope :processing, -> { where(status: "processing") }
+  scope :completed, -> { where(status: "completed") }
+  scope :cancelled, -> { where(status: "cancelled") }
   scope :active, -> { where(status: %w[pending grace_period processing]) }
-  scope :grace_period_expired, -> { where('grace_period_ends_at < ?', Time.current) }
+  scope :grace_period_expired, -> { where("grace_period_ends_at < ?", Time.current) }
   scope :ready_for_processing, -> { in_grace_period.grace_period_expired }
   scope :recent, -> { order(created_at: :desc) }
 
@@ -55,7 +55,7 @@ class AccountTermination < ApplicationRecord
         user: account.owner,
         account: account,
         requested_by: requested_by,
-        export_type: 'full'
+        export_type: "full"
       )
       termination.update!(data_export_request: export_request)
     end
@@ -65,14 +65,14 @@ class AccountTermination < ApplicationRecord
 
   # Instance methods
   def confirm!
-    return false unless status == 'pending'
+    return false unless status == "pending"
 
     update!(
-      status: 'grace_period',
-      termination_log: termination_log + [{ event: 'confirmed', at: Time.current.iso8601 }]
+      status: "grace_period",
+      termination_log: termination_log + [ { event: "confirmed", at: Time.current.iso8601 } ]
     )
 
-    log_status_change('confirmed')
+    log_status_change("confirmed")
     schedule_reminders
     true
   end
@@ -81,17 +81,17 @@ class AccountTermination < ApplicationRecord
     return false unless can_be_cancelled?
 
     update!(
-      status: 'cancelled',
+      status: "cancelled",
       cancelled_by: user,
       cancelled_at: Time.current,
       cancellation_reason: reason,
-      termination_log: termination_log + [{ event: 'cancelled', by: user.id, reason: reason, at: Time.current.iso8601 }]
+      termination_log: termination_log + [ { event: "cancelled", by: user.id, reason: reason, at: Time.current.iso8601 } ]
     )
 
     # Reactivate account
-    account.update!(status: 'active') if account.status == 'terminating'
+    account.update!(status: "active") if account.status == "terminating"
 
-    log_status_change('cancelled')
+    log_status_change("cancelled")
     notify_cancellation
     true
   end
@@ -100,27 +100,27 @@ class AccountTermination < ApplicationRecord
     return false unless can_start_processing?
 
     update!(
-      status: 'processing',
+      status: "processing",
       processing_started_at: Time.current,
-      termination_log: termination_log + [{ event: 'processing_started', at: Time.current.iso8601 }]
+      termination_log: termination_log + [ { event: "processing_started", at: Time.current.iso8601 } ]
     )
 
-    log_status_change('processing')
+    log_status_change("processing")
     true
   end
 
   def complete!(processor = nil)
     update!(
-      status: 'completed',
+      status: "completed",
       processed_by: processor,
       completed_at: Time.current,
-      termination_log: termination_log + [{ event: 'completed', by: processor&.id, at: Time.current.iso8601 }]
+      termination_log: termination_log + [ { event: "completed", by: processor&.id, at: Time.current.iso8601 } ]
     )
 
     # Mark account as terminated
-    account.update!(status: 'terminated', terminated_at: Time.current)
+    account.update!(status: "terminated", terminated_at: Time.current)
 
-    log_status_change('completed')
+    log_status_change("completed")
     notify_completion
     true
   end
@@ -129,7 +129,7 @@ class AccountTermination < ApplicationRecord
     update!(
       feedback_submitted: true,
       feedback: feedback_text,
-      termination_log: termination_log + [{ event: 'feedback_submitted', at: Time.current.iso8601 }]
+      termination_log: termination_log + [ { event: "feedback_submitted", at: Time.current.iso8601 } ]
     )
   end
 
@@ -138,11 +138,11 @@ class AccountTermination < ApplicationRecord
   end
 
   def can_start_processing?
-    status == 'grace_period' && grace_period_ends_at <= Time.current
+    status == "grace_period" && grace_period_ends_at <= Time.current
   end
 
   def in_grace_period?
-    status == 'grace_period' && grace_period_ends_at > Time.current
+    status == "grace_period" && grace_period_ends_at > Time.current
   end
 
   def days_remaining
@@ -162,21 +162,21 @@ class AccountTermination < ApplicationRecord
   private
 
   def set_defaults
-    self.status ||= 'pending'
+    self.status ||= "pending"
     self.requested_at ||= Time.current
     self.grace_period_ends_at ||= DEFAULT_GRACE_PERIOD_DAYS.days.from_now
-    self.termination_log ||= [{ event: 'requested', at: Time.current.iso8601 }]
+    self.termination_log ||= [ { event: "requested", at: Time.current.iso8601 } ]
   end
 
   def log_termination_requested
     AuditLog.log_compliance_event(
-      action: 'gdpr_request',
+      action: "gdpr_request",
       resource: self,
       user: requested_by,
       account: account,
-      severity: 'high',
+      severity: "high",
       metadata: {
-        event_type: 'account_termination_requested',
+        event_type: "account_termination_requested",
         reason: reason,
         grace_period_ends_at: grace_period_ends_at
       }
@@ -185,7 +185,7 @@ class AccountTermination < ApplicationRecord
 
   def log_status_change(event)
     AuditLog.log_compliance_event(
-      action: 'gdpr_request',
+      action: "gdpr_request",
       resource: self,
       user: processed_by || cancelled_by || requested_by,
       account: account,
@@ -200,10 +200,10 @@ class AccountTermination < ApplicationRecord
     return unless saved_change_to_status?
 
     case status
-    when 'grace_period'
-      account.update!(status: 'terminating')
-    when 'cancelled'
-      account.update!(status: 'active')
+    when "grace_period"
+      account.update!(status: "terminating")
+    when "cancelled"
+      account.update!(status: "active")
     end
   end
 

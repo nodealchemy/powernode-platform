@@ -1,10 +1,10 @@
 # frozen_string_literal: true
 
 class AiCredentialEncryptionService
-  ENCRYPTION_VERSION = 'v1'
+  ENCRYPTION_VERSION = "v1"
   KEY_ROTATION_INTERVAL = 90.days
   MIN_KEY_LENGTH = 16  # Minimum 128-bit key
-  DEFAULT_ALGORITHM = 'aes-256-gcm'
+  DEFAULT_ALGORITHM = "aes-256-gcm"
 
   class EncryptionError < StandardError; end
   class DecryptionError < StandardError; end
@@ -33,8 +33,8 @@ class AiCredentialEncryptionService
 
   # Instance method for encrypting credentials
   def encrypt_credentials(credentials_hash)
-    raise ArgumentError, 'Credentials must be a Hash' unless credentials_hash.is_a?(Hash)
-    raise ArgumentError, 'Credentials cannot be empty' if credentials_hash.empty?
+    raise ArgumentError, "Credentials must be a Hash" unless credentials_hash.is_a?(Hash)
+    raise ArgumentError, "Credentials cannot be empty" if credentials_hash.empty?
 
     # Sanitize credentials
     sanitized = self.class.send(:sanitize_credentials, credentials_hash)
@@ -51,11 +51,11 @@ class AiCredentialEncryptionService
 
     # Return base64 encoded result with metadata
     Base64.strict_encode64({
-      'encrypted_data' => Base64.strict_encode64(encrypted_data),
-      'iv' => Base64.strict_encode64(iv),
-      'auth_tag' => Base64.strict_encode64(auth_tag),
-      'algorithm' => @cipher_algorithm,
-      'timestamp' => Time.current.to_i
+      "encrypted_data" => Base64.strict_encode64(encrypted_data),
+      "iv" => Base64.strict_encode64(iv),
+      "auth_tag" => Base64.strict_encode64(auth_tag),
+      "algorithm" => @cipher_algorithm,
+      "timestamp" => Time.current.to_i
     }.to_json)
   rescue OpenSSL::Cipher::CipherError => e
     raise EncryptionError, "Encryption failed: #{e.message}"
@@ -65,16 +65,16 @@ class AiCredentialEncryptionService
 
   # Instance method for decrypting credentials
   def decrypt_credentials(encrypted_string)
-    raise ArgumentError, 'Encrypted credentials cannot be blank' if encrypted_string.blank?
+    raise ArgumentError, "Encrypted credentials cannot be blank" if encrypted_string.blank?
 
     # Decode base64 wrapper
     wrapper = JSON.parse(Base64.strict_decode64(encrypted_string))
 
     # Extract components
-    encrypted_data = Base64.strict_decode64(wrapper['encrypted_data'])
-    iv = Base64.strict_decode64(wrapper['iv'])
-    auth_tag = Base64.strict_decode64(wrapper['auth_tag'])
-    algorithm = wrapper['algorithm'] || DEFAULT_ALGORITHM
+    encrypted_data = Base64.strict_decode64(wrapper["encrypted_data"])
+    iv = Base64.strict_decode64(wrapper["iv"])
+    auth_tag = Base64.strict_decode64(wrapper["auth_tag"])
+    algorithm = wrapper["algorithm"] || DEFAULT_ALGORITHM
 
     # Decrypt
     cipher = OpenSSL::Cipher.new(algorithm)
@@ -112,10 +112,10 @@ class AiCredentialEncryptionService
 
     # Return base64 encoded result with key_id for proper decryption
     Base64.strict_encode64({
-      'data' => Base64.strict_encode64(encrypted_data),
-      'iv' => Base64.strict_encode64(iv),
-      'tag' => Base64.strict_encode64(auth_tag),
-      'key_id' => @key_id || self.class.current_key_id
+      "data" => Base64.strict_encode64(encrypted_data),
+      "iv" => Base64.strict_encode64(iv),
+      "tag" => Base64.strict_encode64(auth_tag),
+      "key_id" => @key_id || self.class.current_key_id
     }.to_json)
   rescue StandardError => e
     raise EncryptionError, "Failed to encrypt value: #{e.message}"
@@ -127,18 +127,18 @@ class AiCredentialEncryptionService
 
     wrapper = JSON.parse(Base64.strict_decode64(encrypted_value))
 
-    encrypted_data = Base64.strict_decode64(wrapper['data'])
-    iv = Base64.strict_decode64(wrapper['iv'])
-    auth_tag = Base64.strict_decode64(wrapper['tag'])
-    stored_key_id = wrapper['key_id']
+    encrypted_data = Base64.strict_decode64(wrapper["data"])
+    iv = Base64.strict_decode64(wrapper["iv"])
+    auth_tag = Base64.strict_decode64(wrapper["tag"])
+    stored_key_id = wrapper["key_id"]
 
     # Use stored key_id to get the correct decryption key
     decryption_key = if stored_key_id
                        key_b64 = self.class.get_encryption_key(stored_key_id)
                        Base64.decode64(key_b64)
-                     else
+    else
                        @encryption_key
-                     end
+    end
 
     cipher = OpenSSL::Cipher.new(@cipher_algorithm)
     cipher.decrypt
@@ -163,7 +163,7 @@ class AiCredentialEncryptionService
       salt: salt,
       iterations: 100_000,
       length: 32,
-      hash: 'SHA256'
+      hash: "SHA256"
     )
   end
 
@@ -177,8 +177,8 @@ class AiCredentialEncryptionService
   class << self
     # Encrypt credentials hash and return encrypted string
     def encrypt(credentials_hash)
-      raise ArgumentError, 'Credentials must be a Hash' unless credentials_hash.is_a?(Hash)
-      raise ArgumentError, 'Credentials cannot be empty' if credentials_hash.empty?
+      raise ArgumentError, "Credentials must be a Hash" unless credentials_hash.is_a?(Hash)
+      raise ArgumentError, "Credentials cannot be empty" if credentials_hash.empty?
 
       # Sanitize and validate credentials
       sanitized_credentials = sanitize_credentials(credentials_hash)
@@ -203,16 +203,16 @@ class AiCredentialEncryptionService
 
     # Decrypt credentials and return hash
     def decrypt(encrypted_credentials, key_id = nil)
-      raise ArgumentError, 'Encrypted credentials cannot be blank' if encrypted_credentials.blank?
+      raise ArgumentError, "Encrypted credentials cannot be blank" if encrypted_credentials.blank?
 
       begin
         # Decode base64 wrapper
         wrapper_data = JSON.parse(Base64.strict_decode64(encrypted_credentials))
 
         # Extract components
-        version = wrapper_data['version']
-        stored_key_id = wrapper_data['key_id']
-        encrypted_data = wrapper_data['encrypted_data']
+        version = wrapper_data["version"]
+        stored_key_id = wrapper_data["key_id"]
+        encrypted_data = wrapper_data["encrypted_data"]
 
         # Use provided key_id or fallback to stored key_id
         effective_key_id = key_id || stored_key_id
@@ -243,7 +243,7 @@ class AiCredentialEncryptionService
 
     # Get current encryption key ID
     def current_key_id
-      Rails.application.credentials.dig(:ai_encryption, :current_key_id) || 'default'
+      Rails.application.credentials.dig(:ai_encryption, :current_key_id) || "default"
     end
 
     # Get encryption key for given ID
@@ -308,7 +308,7 @@ class AiCredentialEncryptionService
 
     # Get list of available encryption keys
     def available_keys
-      Rails.application.credentials.dig(:ai_encryption, :keys)&.keys&.map(&:to_s) || ['default']
+      Rails.application.credentials.dig(:ai_encryption, :keys)&.keys&.map(&:to_s) || [ "default" ]
     end
 
     # Check if key rotation is needed
@@ -332,11 +332,11 @@ class AiCredentialEncryptionService
     # Validate credential format before encryption
     def validate_credentials_format(credentials_hash, provider_type)
       case provider_type
-      when 'text_generation'
+      when "text_generation"
         validate_text_generation_format(credentials_hash)
-      when 'image_generation'
+      when "image_generation"
         validate_image_generation_format(credentials_hash)
-      when 'code_execution'
+      when "code_execution"
         validate_code_execution_format(credentials_hash)
       else
         validate_generic_format(credentials_hash)
@@ -370,7 +370,7 @@ class AiCredentialEncryptionService
       when /url|endpoint/
         # URLs - ensure proper format
         url = value.to_s.strip
-        url = "https://#{url}" if url.present? && !url.start_with?('http')
+        url = "https://#{url}" if url.present? && !url.start_with?("http")
         url
       when /organization|org[_\-]?id/
         # Organization IDs - remove whitespace
@@ -383,7 +383,7 @@ class AiCredentialEncryptionService
 
     def encrypt_data(data)
       key = get_encryption_key(current_key_id)
-      cipher = OpenSSL::Cipher.new('AES-256-GCM')
+      cipher = OpenSSL::Cipher.new("AES-256-GCM")
       cipher.encrypt
       cipher.key = Base64.decode64(key)
 
@@ -397,7 +397,7 @@ class AiCredentialEncryptionService
 
     def decrypt_data(encrypted_data_b64, key_id)
       key = get_encryption_key(key_id)
-      cipher = OpenSSL::Cipher.new('AES-256-GCM')
+      cipher = OpenSSL::Cipher.new("AES-256-GCM")
       cipher.decrypt
       cipher.key = Base64.decode64(key)
 
@@ -477,7 +477,7 @@ class AiCredentialEncryptionService
       return env_key if env_key.present?
 
       # Generate deterministic key based on Rails secret and key_id for development
-      base_secret = Rails.application.secret_key_base || 'default_secret_for_development'
+      base_secret = Rails.application.secret_key_base || "default_secret_for_development"
       key_material = "#{base_secret}_ai_encryption_#{key_id}"
 
       # Generate 32-byte key and base64 encode it

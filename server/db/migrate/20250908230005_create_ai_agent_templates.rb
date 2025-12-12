@@ -31,8 +31,8 @@ class CreateAiAgentTemplates < ActiveRecord::Migration[8.0]
       t.index :is_featured
       t.index :usage_count
       t.index :average_rating
-      t.index [:is_public, :category]
-      t.index [:is_public, :is_featured]
+      t.index [ :is_public, :category ]
+      t.index [ :is_public, :is_featured ]
 
       t.foreign_key :users, column: :creator_id, on_delete: :restrict
     end

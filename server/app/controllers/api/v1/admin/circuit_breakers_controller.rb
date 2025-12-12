@@ -2,9 +2,9 @@
 
 class Api::V1::Admin::CircuitBreakersController < ApplicationController
   before_action :authenticate_request
-  before_action :require_read_permission, only: [:index, :show, :health, :events]
-  before_action :require_write_permission, only: [:create, :update, :destroy, :reset]
-  before_action :set_circuit_breaker, only: [:show, :update, :destroy, :reset, :health, :events]
+  before_action :require_read_permission, only: [ :index, :show, :health, :events ]
+  before_action :require_write_permission, only: [ :create, :update, :destroy, :reset ]
+  before_action :set_circuit_breaker, only: [ :show, :update, :destroy, :reset, :health, :events ]
 
   # GET /api/v1/admin/circuit_breakers
   def index
@@ -18,9 +18,9 @@ class Api::V1::Admin::CircuitBreakersController < ApplicationController
 
     # Filter by health status
     case params[:health_status]
-    when 'healthy'
+    when "healthy"
       breakers = breakers.healthy
-    when 'unhealthy'
+    when "unhealthy"
       breakers = breakers.unhealthy
     end
 
@@ -34,7 +34,7 @@ class Api::V1::Admin::CircuitBreakersController < ApplicationController
     })
   rescue => e
     Rails.logger.error "Failed to list circuit breakers: #{e.message}"
-    render_error('Failed to list circuit breakers', status: :internal_server_error)
+    render_error("Failed to list circuit breakers", status: :internal_server_error)
   end
 
   # GET /api/v1/admin/circuit_breakers/:id
@@ -44,7 +44,7 @@ class Api::V1::Admin::CircuitBreakersController < ApplicationController
     })
   rescue => e
     Rails.logger.error "Failed to get circuit breaker: #{e.message}"
-    render_error('Failed to get circuit breaker', status: :internal_server_error)
+    render_error("Failed to get circuit breaker", status: :internal_server_error)
   end
 
   # POST /api/v1/admin/circuit_breakers
@@ -54,14 +54,14 @@ class Api::V1::Admin::CircuitBreakersController < ApplicationController
     if breaker.save
       render_success({
         circuit_breaker: serialize_circuit_breaker(breaker),
-        message: 'Circuit breaker created successfully'
+        message: "Circuit breaker created successfully"
       }, status: :created)
     else
       render_validation_error(breaker.errors)
     end
   rescue => e
     Rails.logger.error "Failed to create circuit breaker: #{e.message}"
-    render_error('Failed to create circuit breaker', status: :internal_server_error)
+    render_error("Failed to create circuit breaker", status: :internal_server_error)
   end
 
   # PATCH/PUT /api/v1/admin/circuit_breakers/:id
@@ -69,14 +69,14 @@ class Api::V1::Admin::CircuitBreakersController < ApplicationController
     if @circuit_breaker.update(circuit_breaker_params)
       render_success({
         circuit_breaker: serialize_circuit_breaker(@circuit_breaker),
-        message: 'Circuit breaker updated successfully'
+        message: "Circuit breaker updated successfully"
       })
     else
       render_validation_error(@circuit_breaker.errors)
     end
   rescue => e
     Rails.logger.error "Failed to update circuit breaker: #{e.message}"
-    render_error('Failed to update circuit breaker', status: :internal_server_error)
+    render_error("Failed to update circuit breaker", status: :internal_server_error)
   end
 
   # DELETE /api/v1/admin/circuit_breakers/:id
@@ -84,11 +84,11 @@ class Api::V1::Admin::CircuitBreakersController < ApplicationController
     @circuit_breaker.destroy!
 
     render_success({
-      message: 'Circuit breaker deleted successfully'
+      message: "Circuit breaker deleted successfully"
     })
   rescue => e
     Rails.logger.error "Failed to delete circuit breaker: #{e.message}"
-    render_error('Failed to delete circuit breaker', status: :internal_server_error)
+    render_error("Failed to delete circuit breaker", status: :internal_server_error)
   end
 
   # POST /api/v1/admin/circuit_breakers/:id/reset
@@ -97,11 +97,11 @@ class Api::V1::Admin::CircuitBreakersController < ApplicationController
 
     render_success({
       circuit_breaker: serialize_circuit_breaker(@circuit_breaker),
-      message: 'Circuit breaker reset successfully'
+      message: "Circuit breaker reset successfully"
     })
   rescue => e
     Rails.logger.error "Failed to reset circuit breaker: #{e.message}"
-    render_error('Failed to reset circuit breaker', status: :internal_server_error)
+    render_error("Failed to reset circuit breaker", status: :internal_server_error)
   end
 
   # GET /api/v1/admin/circuit_breakers/:id/health
@@ -114,7 +114,7 @@ class Api::V1::Admin::CircuitBreakersController < ApplicationController
     })
   rescue => e
     Rails.logger.error "Failed to get health metrics: #{e.message}"
-    render_error('Failed to get health metrics', status: :internal_server_error)
+    render_error("Failed to get health metrics", status: :internal_server_error)
   end
 
   # GET /api/v1/admin/circuit_breakers/:id/events
@@ -132,7 +132,7 @@ class Api::V1::Admin::CircuitBreakersController < ApplicationController
     })
   rescue => e
     Rails.logger.error "Failed to get circuit breaker events: #{e.message}"
-    render_error('Failed to get circuit breaker events', status: :internal_server_error)
+    render_error("Failed to get circuit breaker events", status: :internal_server_error)
   end
 
   private
@@ -140,18 +140,18 @@ class Api::V1::Admin::CircuitBreakersController < ApplicationController
   def set_circuit_breaker
     @circuit_breaker = CircuitBreaker.find(params[:id])
   rescue ActiveRecord::RecordNotFound
-    render_error('Circuit breaker not found', status: :not_found)
+    render_error("Circuit breaker not found", status: :not_found)
   end
 
   def require_read_permission
-    unless current_user.has_permission?('admin.circuit_breakers.read')
-      render_error('Insufficient permissions to view circuit breakers', status: :forbidden)
+    unless current_user.has_permission?("admin.circuit_breakers.read")
+      render_error("Insufficient permissions to view circuit breakers", status: :forbidden)
     end
   end
 
   def require_write_permission
-    unless current_user.has_permission?('admin.circuit_breakers.write')
-      render_error('Insufficient permissions to manage circuit breakers', status: :forbidden)
+    unless current_user.has_permission?("admin.circuit_breakers.write")
+      render_error("Insufficient permissions to manage circuit breakers", status: :forbidden)
     end
   end
 

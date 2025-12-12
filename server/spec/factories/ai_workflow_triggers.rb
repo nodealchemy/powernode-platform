@@ -13,7 +13,7 @@ FactoryBot.define do
       case trigger_type
       when 'event'
         {
-          event_types: ['workflow_completed', 'user_created'],
+          event_types: [ 'workflow_completed', 'user_created' ],
           filter_conditions: {
             'workflow.status': 'success',
             'user.role': 'admin'
@@ -23,7 +23,7 @@ FactoryBot.define do
       when 'webhook'
         {
           webhook_path: '/webhooks/trigger',
-          http_methods: ['POST'],
+          http_methods: [ 'POST' ],
           signature_verification: true,
           signature_header: 'X-Signature',
           secret_key: 'webhook_secret_key'
@@ -36,7 +36,7 @@ FactoryBot.define do
         }
       when 'api'
         {
-          api_endpoints: ['/api/v1/workflows/execute'],
+          api_endpoints: [ '/api/v1/workflows/execute' ],
           authentication_required: true,
           rate_limit: {
             requests_per_minute: 60,
@@ -66,7 +66,7 @@ FactoryBot.define do
       configuration do
         {
           webhook_path: "/webhooks/#{SecureRandom.hex(8)}",
-          http_methods: ['POST', 'PUT'],
+          http_methods: [ 'POST', 'PUT' ],
           content_type: 'application/json',
           signature_verification: true,
           signature_header: 'X-Hub-Signature-256',
@@ -80,7 +80,7 @@ FactoryBot.define do
             'X-Source': 'github|slack|zapier'
           },
           payload_validation: {
-            required_fields: ['event_type', 'data'],
+            required_fields: [ 'event_type', 'data' ],
             max_payload_size: 1048576 # 1MB
           }
         }
@@ -94,14 +94,14 @@ FactoryBot.define do
       configuration do
         {
           webhook_path: '/webhooks/github',
-          http_methods: ['POST'],
+          http_methods: [ 'POST' ],
           signature_verification: true,
           signature_header: 'X-Hub-Signature-256',
           signature_algorithm: 'sha256',
           secret_key: 'github_webhook_secret',
           event_filters: {
-            'X-GitHub-Event': ['push', 'pull_request', 'issues'],
-            'action': ['opened', 'closed', 'synchronize']
+            'X-GitHub-Event': [ 'push', 'pull_request', 'issues' ],
+            'action': [ 'opened', 'closed', 'synchronize' ]
           },
           payload_mapping: {
             'repository.full_name': 'repo_name',
@@ -123,15 +123,15 @@ FactoryBot.define do
       configuration do
         {
           webhook_path: '/webhooks/slack',
-          http_methods: ['POST'],
+          http_methods: [ 'POST' ],
           content_type: 'application/x-www-form-urlencoded',
           signature_verification: true,
           signature_header: 'X-Slack-Signature',
           timestamp_header: 'X-Slack-Request-Timestamp',
           secret_key: 'slack_signing_secret',
           event_filters: {
-            'event.type': ['message', 'app_mention'],
-            'event.subtype': [nil, 'bot_message']
+            'event.type': [ 'message', 'app_mention' ],
+            'event.subtype': [ nil, 'bot_message' ]
           },
           slack_specific: {
             verify_timestamp: true,
@@ -153,10 +153,10 @@ FactoryBot.define do
             'user.created',
             'payment.processed'
           ],
-          event_sources: ['internal', 'api', 'webhook'],
+          event_sources: [ 'internal', 'api', 'webhook' ],
           filter_conditions: {
             'workflow.account_id': '{{account.id}}',
-            'event.severity': ['info', 'warning', 'error']
+            'event.severity': [ 'info', 'warning', 'error' ]
           },
           conditional_logic: {
             operator: 'AND',
@@ -212,9 +212,9 @@ FactoryBot.define do
             '/api/v1/workflows/execute',
             '/api/v1/triggers/fire'
           ],
-          http_methods: ['POST', 'PUT'],
+          http_methods: [ 'POST', 'PUT' ],
           authentication_required: true,
-          authentication_types: ['api_key', 'bearer_token'],
+          authentication_types: [ 'api_key', 'bearer_token' ],
           rate_limiting: {
             requests_per_minute: 120,
             requests_per_hour: 5000,
@@ -222,7 +222,7 @@ FactoryBot.define do
             rate_limit_key: 'client_id'
           },
           request_validation: {
-            required_headers: ['Content-Type', 'Authorization'],
+            required_headers: [ 'Content-Type', 'Authorization' ],
             max_payload_size: 2097152, # 2MB
             allowed_content_types: [
               'application/json',
@@ -250,8 +250,8 @@ FactoryBot.define do
             {
               type: 'database',
               connection: 'primary',
-              tables: ['users', 'orders', 'products'],
-              operations: ['INSERT', 'UPDATE', 'DELETE']
+              tables: [ 'users', 'orders', 'products' ],
+              operations: [ 'INSERT', 'UPDATE', 'DELETE' ]
             },
             {
               type: 'api',
@@ -261,9 +261,9 @@ FactoryBot.define do
             }
           ],
           change_filters: {
-            'table_name': ['users', 'orders'],
-            'operation': ['INSERT', 'UPDATE'],
-            'changed_fields': ['status', 'email', 'amount']
+            'table_name': [ 'users', 'orders' ],
+            'operation': [ 'INSERT', 'UPDATE' ],
+            'changed_fields': [ 'status', 'email', 'amount' ]
           },
           batch_processing: {
             enabled: true,
@@ -272,7 +272,7 @@ FactoryBot.define do
           },
           deduplication: {
             enabled: true,
-            key_fields: ['id', 'updated_at'],
+            key_fields: [ 'id', 'updated_at' ],
             window_seconds: 60
           }
         }
@@ -321,12 +321,12 @@ FactoryBot.define do
           trigger_times: [
             {
               time: '09:00',
-              days_of_week: ['monday', 'wednesday', 'friday'],
+              days_of_week: [ 'monday', 'wednesday', 'friday' ],
               timezone: 'UTC'
             },
             {
               time: '14:30',
-              days_of_week: ['tuesday', 'thursday'],
+              days_of_week: [ 'tuesday', 'thursday' ],
               timezone: 'America/New_York'
             }
           ],
@@ -435,8 +435,8 @@ FactoryBot.define do
           },
           aggregations: {
             count_events: true,
-            sum_values: ['cart.value', 'product.price'],
-            calculate_metrics: ['conversion_rate', 'session_duration']
+            sum_values: [ 'cart.value', 'product.price' ],
+            calculate_metrics: [ 'conversion_rate', 'session_duration' ]
           }
         }
       end
@@ -485,7 +485,7 @@ FactoryBot.define do
             },
             transformation_script: "function transform(input) { return { user_id: input.user_id, event_type: input.event_type.toLowerCase(), source: input.source || 'unknown', timestamp: new Date().toISOString(), processed: true }; }",
             output_validation: {
-              required_fields: ['user_id', 'event_type'],
+              required_fields: [ 'user_id', 'event_type' ],
               field_types: {
                 'user_id': 'string',
                 'timestamp': 'iso8601'

@@ -21,20 +21,20 @@ FactoryBot.define do
         last_activity: Time.current.iso8601
       }
     end
-    
+
     trait :with_messages do
       after(:create) do |conversation|
         # Create initial user message
-        create(:ai_message, :user_message, 
-               ai_conversation: conversation, 
+        create(:ai_message, :user_message,
+               ai_conversation: conversation,
                account: conversation.account)
-        
+
         # Create AI response
-        create(:ai_message, :ai_response, 
-               ai_conversation: conversation, 
+        create(:ai_message, :ai_response,
+               ai_conversation: conversation,
                account: conversation.account,
                ai_agent: conversation.ai_agent)
-        
+
         # Update conversation metadata
         conversation.update!(
           metadata: conversation.metadata.merge(
@@ -45,25 +45,25 @@ FactoryBot.define do
         )
       end
     end
-    
+
     trait :long_conversation do
       after(:create) do |conversation|
         # Create alternating user and AI messages
         10.times do |i|
           if i.even?
-            create(:ai_message, :user_message, 
-                   ai_conversation: conversation, 
+            create(:ai_message, :user_message,
+                   ai_conversation: conversation,
                    account: conversation.account,
                    content: "User message #{i + 1}")
           else
-            create(:ai_message, :ai_response, 
-                   ai_conversation: conversation, 
+            create(:ai_message, :ai_response,
+                   ai_conversation: conversation,
                    account: conversation.account,
                    ai_agent: conversation.ai_agent,
                    content: "AI response to message #{i}")
           end
         end
-        
+
         conversation.update!(
           metadata: conversation.metadata.merge(
             total_messages: 10,
@@ -73,7 +73,7 @@ FactoryBot.define do
         )
       end
     end
-    
+
     trait :completed do
       status { 'completed' }
       metadata do
@@ -87,7 +87,7 @@ FactoryBot.define do
         }
       end
     end
-    
+
     trait :archived do
       status { 'archived' }
       metadata do
@@ -101,7 +101,7 @@ FactoryBot.define do
         }
       end
     end
-    
+
     trait :error_state do
       status { 'error' }
       metadata do

@@ -42,13 +42,13 @@ class McpOauthService
     )
 
     params = {
-      response_type: 'code',
+      response_type: "code",
       client_id: @server.oauth_client_id,
       redirect_uri: redirect_uri,
       scope: @server.oauth_scopes,
       state: state,
       code_challenge: pkce[:code_challenge],
-      code_challenge_method: 'S256'
+      code_challenge_method: "S256"
     }.compact
 
     uri = URI.parse(@server.oauth_authorization_url)
@@ -60,11 +60,11 @@ class McpOauthService
   def exchange_code_for_tokens(code:, redirect_uri:, state:)
     # Validate state parameter (CSRF protection)
     unless ActiveSupport::SecurityUtils.secure_compare(state.to_s, @server.oauth_state.to_s)
-      raise AuthorizationError, 'Invalid state parameter - possible CSRF attack'
+      raise AuthorizationError, "Invalid state parameter - possible CSRF attack"
     end
 
     params = {
-      grant_type: 'authorization_code',
+      grant_type: "authorization_code",
       code: code,
       redirect_uri: redirect_uri,
       client_id: @server.oauth_client_id,
@@ -88,10 +88,10 @@ class McpOauthService
   # Refresh access token using refresh token
   def refresh_token!
     refresh_token = @server.oauth_refresh_token
-    raise TokenRefreshError, 'No refresh token available' if refresh_token.blank?
+    raise TokenRefreshError, "No refresh token available" if refresh_token.blank?
 
     params = {
-      grant_type: 'refresh_token',
+      grant_type: "refresh_token",
       refresh_token: refresh_token,
       client_id: @server.oauth_client_id
     }
@@ -117,7 +117,7 @@ class McpOauthService
       refresh_token!
       @server.reload.oauth_access_token
     else
-      raise TokenRefreshError, 'Token expired and no refresh token available'
+      raise TokenRefreshError, "Token expired and no refresh token available"
     end
   end
 
@@ -135,28 +135,28 @@ class McpOauthService
   private
 
   def validate_oauth_configuration!
-    raise ConfigurationError, 'OAuth client ID is required' if @server.oauth_client_id.blank?
-    raise ConfigurationError, 'OAuth authorization URL is required' if @server.oauth_authorization_url.blank?
-    raise ConfigurationError, 'OAuth token URL is required' if @server.oauth_token_url.blank?
+    raise ConfigurationError, "OAuth client ID is required" if @server.oauth_client_id.blank?
+    raise ConfigurationError, "OAuth authorization URL is required" if @server.oauth_authorization_url.blank?
+    raise ConfigurationError, "OAuth token URL is required" if @server.oauth_token_url.blank?
   end
 
   def make_token_request(params)
     uri = URI.parse(@server.oauth_token_url)
     http = Net::HTTP.new(uri.host, uri.port)
-    http.use_ssl = uri.scheme == 'https'
+    http.use_ssl = uri.scheme == "https"
     http.read_timeout = DEFAULT_TIMEOUT
     http.open_timeout = 10
 
-    request = Net::HTTP::Post.new(uri.path.presence || '/')
-    request['Content-Type'] = 'application/x-www-form-urlencoded'
-    request['Accept'] = 'application/json'
+    request = Net::HTTP::Post.new(uri.path.presence || "/")
+    request["Content-Type"] = "application/x-www-form-urlencoded"
+    request["Accept"] = "application/json"
     request.body = URI.encode_www_form(params)
 
     response = http.request(request)
 
     unless response.is_a?(Net::HTTPSuccess)
       error_body = JSON.parse(response.body) rescue {}
-      error_message = error_body['error_description'] || error_body['error'] || response.body.truncate(500)
+      error_message = error_body["error_description"] || error_body["error"] || response.body.truncate(500)
       raise OAuthError, "OAuth request failed (#{response.code}): #{error_message}"
     end
 
@@ -170,15 +170,15 @@ class McpOauthService
   end
 
   def store_tokens(token_response)
-    expires_at = if token_response['expires_in']
-                   Time.current + token_response['expires_in'].to_i.seconds
-                 end
+    expires_at = if token_response["expires_in"]
+                   Time.current + token_response["expires_in"].to_i.seconds
+    end
 
     @server.update!(
-      oauth_access_token: token_response['access_token'],
-      oauth_refresh_token: token_response['refresh_token'] || @server.oauth_refresh_token,
+      oauth_access_token: token_response["access_token"],
+      oauth_refresh_token: token_response["refresh_token"] || @server.oauth_refresh_token,
       oauth_token_expires_at: expires_at,
-      oauth_token_type: token_response['token_type'] || 'Bearer',
+      oauth_token_type: token_response["token_type"] || "Bearer",
       oauth_last_refreshed_at: Time.current,
       oauth_state: nil,
       oauth_pkce_code_verifier: nil,

@@ -248,7 +248,7 @@ FactoryBot.define do
       ai_workflow_node { create(:ai_workflow_node, :loop, ai_workflow: ai_workflow_run.ai_workflow) }
       input_data do
         {
-          array_data: [1, 2, 3, 4, 5],
+          array_data: [ 1, 2, 3, 4, 5 ],
           current_iteration: 3,
           max_iterations: 10,
           item_variable: 'current_item'
@@ -256,9 +256,9 @@ FactoryBot.define do
       end
       output_data do
         {
-          processed_items: [1, 2, 3],
+          processed_items: [ 1, 2, 3 ],
           current_item: 3,
-          remaining_items: [4, 5],
+          remaining_items: [ 4, 5 ],
           loop_status: 'continuing',
           iteration_results: [
             { item: 1, processed: true, result: 'success' },
@@ -369,7 +369,7 @@ FactoryBot.define do
       input_data do
         {
           content_to_review: 'Blog post content to be reviewed...',
-          quality_criteria: ['grammar', 'coherence', 'technical_accuracy'],
+          quality_criteria: [ 'grammar', 'coherence', 'technical_accuracy' ],
           target_score: 85
         }
       end

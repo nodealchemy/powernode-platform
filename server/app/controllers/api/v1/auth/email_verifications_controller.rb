@@ -2,14 +2,14 @@
 
 class Api::V1::Auth::EmailVerificationsController < ApplicationController
   # Rate limiting is now included in ApplicationController
-  
-  skip_before_action :authenticate_request, only: [:verify]
-  before_action :authenticate_request, only: [:resend]
+
+  skip_before_action :authenticate_request, only: [ :verify ]
+  before_action :authenticate_request, only: [ :resend ]
 
   # POST /api/v1/auth/verify-email
   def verify
     token = params[:token]
-    
+
     if token.blank?
       render_error("Verification token is required", status: :bad_request)
       return
@@ -51,7 +51,7 @@ class Api::V1::Auth::EmailVerificationsController < ApplicationController
         source: "api",
         ip_address: request.remote_ip,
         user_agent: request.user_agent,
-        metadata: { 
+        metadata: {
           verification_method: "email_token",
           email: user.email
         }
@@ -101,13 +101,13 @@ class Api::V1::Auth::EmailVerificationsController < ApplicationController
     # Send verification email via worker service using system settings
     begin
       WorkerJobService.enqueue_notification_email(
-        'email_verification',
+        "email_verification",
         {
           user_id: current_user.id,
           email: current_user.email,
           verification_token: current_user.email_verification_token,
           user_name: current_user.full_name,
-          smtp_settings: SystemSettingsService.get_setting('smtp_settings')
+          smtp_settings: SystemSettingsService.get_setting("smtp_settings")
         }
       )
 
@@ -121,7 +121,6 @@ class Api::V1::Auth::EmailVerificationsController < ApplicationController
   private
 
   def should_rate_limit?
-    action_name == 'resend'
+    action_name == "resend"
   end
-
 end

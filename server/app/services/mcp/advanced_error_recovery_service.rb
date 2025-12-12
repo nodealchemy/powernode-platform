@@ -142,7 +142,7 @@ module Mcp
             success: false,
             strategy: :circuit_breaker,
             state: :open,
-            message: 'Circuit breaker open - node temporarily disabled'
+            message: "Circuit breaker open - node temporarily disabled"
           }
         end
       end
@@ -153,19 +153,19 @@ module Mcp
 
         if result[:success]
           reset_circuit_breaker(node_id)
-          return {
+          {
             success: true,
             strategy: :circuit_breaker,
             state: :closed,
-            message: 'Execution successful - circuit breaker reset'
+            message: "Execution successful - circuit breaker reset"
           }
         else
           increment_circuit_breaker_failures(node_id)
-          return {
+          {
             success: false,
             strategy: :circuit_breaker,
             state: circuit_breaker[:state],
-            message: 'Execution failed - circuit breaker updated'
+            message: "Execution failed - circuit breaker updated"
           }
         end
       rescue StandardError => e
@@ -178,7 +178,7 @@ module Mcp
     def execute_fallback(plan, context)
       fallback_option = plan[:fallback_options].first
 
-      return { success: false, message: 'No fallback available' } unless fallback_option
+      return { success: false, message: "No fallback available" } unless fallback_option
 
       Rails.logger.info "Executing fallback: #{fallback_option[:type]}"
 
@@ -198,7 +198,7 @@ module Mcp
 
     # Checkpoint-based rollback
     def execute_checkpoint_rollback(plan, context)
-      return { success: false, message: 'No checkpoint available' } unless plan[:checkpoint_available]
+      return { success: false, message: "No checkpoint available" } unless plan[:checkpoint_available]
 
       # Find the last stable checkpoint before the error
       checkpoint = find_recovery_checkpoint(context)
@@ -218,7 +218,7 @@ module Mcp
           {
             success: false,
             strategy: :checkpoint_rollback,
-            message: 'Checkpoint rollback failed',
+            message: "Checkpoint rollback failed",
             errors: result[:errors]
           }
         end
@@ -226,14 +226,14 @@ module Mcp
         {
           success: false,
           strategy: :checkpoint_rollback,
-          message: 'No suitable recovery checkpoint found'
+          message: "No suitable recovery checkpoint found"
         }
       end
     end
 
     # Saga compensation
     def execute_saga_compensation(plan, context)
-      return { success: false, message: 'Compensation not required' } unless plan[:compensation_required]
+      return { success: false, message: "Compensation not required" } unless plan[:compensation_required]
 
       # Trigger saga compensation through coordinator
       result = @saga_coordinator.rollback_saga(
@@ -277,8 +277,8 @@ module Mcp
     # Error pattern analysis for self-healing
     def analyze_error_pattern(context)
       recent_errors = workflow_run.ai_workflow_node_executions
-                                 .where(status: 'failed')
-                                 .where('created_at >= ?', 1.hour.ago)
+                                 .where(status: "failed")
+                                 .where("created_at >= ?", 1.hour.ago)
                                  .order(created_at: :desc)
                                  .limit(10)
 
@@ -286,7 +286,7 @@ module Mcp
         frequency: recent_errors.count,
         node_pattern: analyze_node_failure_pattern(recent_errors),
         time_pattern: analyze_temporal_pattern(recent_errors),
-        error_types: recent_errors.pluck(:error_details).map { |e| e['type'] }.compact.uniq,
+        error_types: recent_errors.pluck(:error_details).map { |e| e["type"] }.compact.uniq,
         common_causes: identify_common_causes(recent_errors)
       }
     end
@@ -303,7 +303,7 @@ module Mcp
       end
 
       # Resource-related errors -> resource reallocation
-      if pattern[:error_types].any? { |t| t.include?('resource') || t.include?('timeout') }
+      if pattern[:error_types].any? { |t| t.include?("resource") || t.include?("timeout") }
         return {
           action: :resource_reallocation,
           resource_type: identify_resource_bottleneck(pattern),
@@ -312,7 +312,7 @@ module Mcp
       end
 
       # Dependency errors -> substitution
-      if pattern[:error_types].any? { |t| t.include?('dependency') || t.include?('external') }
+      if pattern[:error_types].any? { |t| t.include?("dependency") || t.include?("external") }
         return {
           action: :dependency_substitution,
           failed_dependency: identify_failed_dependency(context),
@@ -393,15 +393,15 @@ module Mcp
 
     # Recovery statistics and insights
     def recovery_statistics
-      all_recoveries = workflow_run.metadata['recovery_attempts'] || []
+      all_recoveries = workflow_run.metadata["recovery_attempts"] || []
 
       {
         total_recovery_attempts: all_recoveries.size,
-        successful_recoveries: all_recoveries.count { |r| r['success'] },
-        by_strategy: all_recoveries.group_by { |r| r['strategy'] }.transform_values(&:count),
+        successful_recoveries: all_recoveries.count { |r| r["success"] },
+        by_strategy: all_recoveries.group_by { |r| r["strategy"] }.transform_values(&:count),
         average_recovery_time: calculate_average_recovery_time(all_recoveries),
         most_effective_strategy: identify_most_effective_strategy(all_recoveries),
-        error_categories: all_recoveries.group_by { |r| r['error_category'] }.transform_values(&:count)
+        error_categories: all_recoveries.group_by { |r| r["error_category"] }.transform_values(&:count)
       }
     end
 
@@ -412,23 +412,23 @@ module Mcp
 
       case error_message
       when /timeout|timed out/i
-        'network_timeout'
+        "network_timeout"
       when /rate limit|too many requests/i
-        'api_rate_limit'
+        "api_rate_limit"
       when /not found|404/i
-        'missing_resource'
+        "missing_resource"
       when /permission|unauthorized|403/i
-        'permission_denied'
+        "permission_denied"
       when /validation|invalid/i
-        'validation_error'
+        "validation_error"
       when /configuration|config/i
-        'configuration_error'
+        "configuration_error"
       when /network|connection/i
-        'network_error'
+        "network_error"
       when /external|third.party/i
-        'external_service_error'
+        "external_service_error"
       else
-        'unknown_error'
+        "unknown_error"
       end
     end
 
@@ -460,7 +460,7 @@ module Mcp
       {
         immediate_cause: error.is_a?(Hash) ? error[:type] : error.class.name,
         contributing_factors: [],
-        recommendation: 'Review error details and retry'
+        recommendation: "Review error details and retry"
       }
     end
 
@@ -508,7 +508,7 @@ module Mcp
 
     def checkpoint_available?(context)
       workflow_run.ai_workflow_checkpoints
-                 .where('created_at < ?', context[:error_time] || Time.current)
+                 .where("created_at < ?", context[:error_time] || Time.current)
                  .exists?
     end
 
@@ -521,7 +521,7 @@ module Mcp
       node_execution = workflow_run.ai_workflow_node_executions.find(node_execution_id)
 
       # In real implementation, would call orchestrator to retry
-      { success: false, error: 'Retry not yet implemented' }
+      { success: false, error: "Retry not yet implemented" }
     end
 
     def calculate_initial_backoff(strategy)
@@ -565,7 +565,7 @@ module Mcp
 
     def find_recovery_checkpoint(context)
       workflow_run.ai_workflow_checkpoints
-                 .where('created_at < ?', context[:error_time] || Time.current)
+                 .where("created_at < ?", context[:error_time] || Time.current)
                  .where(checkpoint_type: %w[node_completion workflow_pause])
                  .order(created_at: :desc)
                  .first
@@ -587,31 +587,31 @@ module Mcp
     end
 
     def execute_emergency_stop(option, context)
-      workflow_run.update!(status: 'paused', metadata: workflow_run.metadata.merge(
-        'emergency_stop' => true,
-        'stopped_at' => Time.current.iso8601
+      workflow_run.update!(status: "paused", metadata: workflow_run.metadata.merge(
+        "emergency_stop" => true,
+        "stopped_at" => Time.current.iso8601
       ))
 
       { success: true, strategy: :fallback, fallback_type: :emergency_stop }
     end
 
     def execute_default_recovery(plan, context)
-      { success: false, message: 'No recovery strategy available' }
+      { success: false, message: "No recovery strategy available" }
     end
 
     def log_recovery_attempt(error_context, recovery_plan, result)
-      recovery_attempts = workflow_run.metadata['recovery_attempts'] || []
+      recovery_attempts = workflow_run.metadata["recovery_attempts"] || []
       recovery_attempts << {
-        'error' => error_context[:error].to_s,
-        'error_category' => error_context[:error_category],
-        'strategy' => recovery_plan[:strategy].to_s,
-        'success' => result[:success],
-        'timestamp' => Time.current.iso8601,
-        'attempts' => result[:attempts]
+        "error" => error_context[:error].to_s,
+        "error_category" => error_context[:error_category],
+        "strategy" => recovery_plan[:strategy].to_s,
+        "success" => result[:success],
+        "timestamp" => Time.current.iso8601,
+        "attempts" => result[:attempts]
       }
 
       workflow_run.update!(
-        metadata: workflow_run.metadata.merge('recovery_attempts' => recovery_attempts.last(50))
+        metadata: workflow_run.metadata.merge("recovery_attempts" => recovery_attempts.last(50))
       )
     end
 
@@ -619,7 +619,7 @@ module Mcp
       ActionCable.server.broadcast(
         "workflow_run_#{workflow_run.run_id}",
         {
-          type: 'error_recovery',
+          type: "error_recovery",
           success: result[:success],
           strategy: result[:strategy],
           message: result[:message],
@@ -652,28 +652,28 @@ module Mcp
 
     def identify_common_causes(errors)
       error_details = errors.pluck(:error_details).compact
-      error_types = error_details.map { |e| e['type'] }.compact
+      error_types = error_details.map { |e| e["type"] }.compact
       error_types.group_by(&:itself).transform_values(&:count).sort_by { |_, v| -v }.first(3).to_h
     end
 
     def suggest_config_adjustments(context)
       # Simplified config suggestions
-      { timeout: 'increase', retries: 'add', fallback: 'enable' }
+      { timeout: "increase", retries: "add", fallback: "enable" }
     end
 
     def identify_resource_bottleneck(pattern)
       # Simplified resource identification
-      'execution_time'
+      "execution_time"
     end
 
     def calculate_resource_increase(pattern)
       # Simplified calculation
-      { timeout: '+50%', memory: '+25%' }
+      { timeout: "+50%", memory: "+25%" }
     end
 
     def identify_failed_dependency(context)
       # Extract dependency from error context
-      context[:dependency] || 'unknown'
+      context[:dependency] || "unknown"
     end
 
     def find_substitute_dependencies(context)
@@ -744,10 +744,10 @@ module Mcp
     end
 
     def identify_most_effective_strategy(recoveries)
-      successful_recoveries = recoveries.select { |r| r['success'] }
+      successful_recoveries = recoveries.select { |r| r["success"] }
       return nil if successful_recoveries.empty?
 
-      successful_recoveries.group_by { |r| r['strategy'] }
+      successful_recoveries.group_by { |r| r["strategy"] }
                           .transform_values(&:count)
                           .max_by { |_, count| count }
                           &.first

@@ -15,7 +15,7 @@ class Notification < ApplicationRecord
   scope :unread, -> { where(read_at: nil) }
   scope :read, -> { where.not(read_at: nil) }
   scope :not_dismissed, -> { where(dismissed_at: nil) }
-  scope :not_expired, -> { where('expires_at IS NULL OR expires_at > ?', Time.current) }
+  scope :not_expired, -> { where("expires_at IS NULL OR expires_at > ?", Time.current) }
   scope :active, -> { not_dismissed.not_expired }
   scope :recent, -> { order(created_at: :desc) }
   scope :by_category, ->(category) { where(category: category) }
@@ -103,7 +103,7 @@ class Notification < ApplicationRecord
 
     def create_system_notification(title:, message:, **options)
       Account.active.find_each do |account|
-        create_for_account(account, type: 'system_alert', title: title, message: message, **options)
+        create_for_account(account, type: "system_alert", title: title, message: message, **options)
       end
     end
   end
@@ -112,10 +112,10 @@ class Notification < ApplicationRecord
 
   def broadcast_notification
     NotificationChannel.broadcast_to_account(account, {
-      type: 'new_notification',
+      type: "new_notification",
       notification: as_json(
-        only: [:id, :notification_type, :title, :message, :severity, :action_url, :action_label, :icon, :category, :created_at],
-        methods: [:read?]
+        only: [ :id, :notification_type, :title, :message, :severity, :action_url, :action_label, :icon, :category, :created_at ],
+        methods: [ :read? ]
       )
     })
   rescue => e

@@ -4,7 +4,7 @@ require 'rails_helper'
 
 RSpec.describe 'File Management Flow Integration', type: :integration do
   let(:account) { create(:account) }
-  let(:user) { create(:user, account: account, permissions: ['files.upload', 'files.read', 'files.delete']) }
+  let(:user) { create(:user, account: account, permissions: [ 'files.upload', 'files.read', 'files.delete' ]) }
   let(:storage) do
     FileStorage.create!(
       account: account,
@@ -207,10 +207,10 @@ RSpec.describe 'File Management Flow Integration', type: :integration do
       share.update!(
         download_count: share.download_count + 1,
         last_accessed_at: Time.current,
-        access_log: share.access_log + [{
+        access_log: share.access_log + [ {
           accessed_at: Time.current.iso8601,
           ip_address: '127.0.0.1'
-        }]
+        } ]
       )
 
       expect(share.download_count).to eq(1)
@@ -259,8 +259,8 @@ RSpec.describe 'File Management Flow Integration', type: :integration do
   end
 
   describe 'Multi-User File Access' do
-    let(:admin_user) { create(:user, account: account, permissions: ['files.upload', 'files.read', 'files.delete', 'files.manage']) }
-    let(:read_only_user) { create(:user, account: account, permissions: ['files.read']) }
+    let(:admin_user) { create(:user, account: account, permissions: [ 'files.upload', 'files.read', 'files.delete', 'files.manage' ]) }
+    let(:read_only_user) { create(:user, account: account, permissions: [ 'files.read' ]) }
     let(:no_access_user) { create(:user, account: account, permissions: []) }
 
     it 'enforces permission-based access control' do
@@ -279,7 +279,7 @@ RSpec.describe 'File Management Flow Integration', type: :integration do
         category: 'user_upload',
         visibility: 'private',
         access_permissions: {
-          'allowed_user_ids' => [admin_user.id, read_only_user.id]
+          'allowed_user_ids' => [ admin_user.id, read_only_user.id ]
         }
       )
 

@@ -30,8 +30,8 @@ class CreateBatchWorkflowRuns < ActiveRecord::Migration[8.0]
 
     add_index :batch_workflow_runs, :status
     add_index :batch_workflow_runs, :created_at
-    add_index :batch_workflow_runs, [:account_id, :status]
-    add_index :batch_workflow_runs, [:account_id, :created_at]
+    add_index :batch_workflow_runs, [ :account_id, :status ]
+    add_index :batch_workflow_runs, [ :account_id, :created_at ]
 
     # Add check constraint for status
     add_check_constraint :batch_workflow_runs,

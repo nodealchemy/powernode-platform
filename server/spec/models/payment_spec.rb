@@ -135,14 +135,14 @@ RSpec.describe Payment, type: :model do
 
       it "marks invoice as paid when succeeding" do
         subscription = create(:subscription)
-        invoice = create(:invoice, 
-          account: subscription.account, 
-          subscription: subscription, 
+        invoice = create(:invoice,
+          account: subscription.account,
+          subscription: subscription,
           status: "open"
         )
-        payment = create(:payment, 
-          account: subscription.account, 
-          invoice: invoice, 
+        payment = create(:payment,
+          account: subscription.account,
+          invoice: invoice,
           status: "pending"
         )
 
@@ -362,7 +362,7 @@ RSpec.describe Payment, type: :model do
       it "processes stripe payments correctly" do
         payment = create(:payment,
           gateway: "stripe",
-          metadata: { 
+          metadata: {
             "stripe_payment_intent_id" => "pi_123456",
             "stripe_charge_id" => "ch_123456"
           }

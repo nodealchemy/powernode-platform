@@ -11,7 +11,7 @@ class CreateReviewSystem < ActiveRecord::Migration[8.0]
       t.string :title, limit: 255
       t.text :content
       t.integer :helpful_count, default: 0
-      
+
       # Enhanced review features
       t.string :version_reviewed, limit: 50
       t.string :platform, limit: 50
@@ -21,29 +21,29 @@ class CreateReviewSystem < ActiveRecord::Migration[8.0]
       t.text :moderation_notes
       t.datetime :reviewed_at
       t.datetime :published_at
-      
+
       # Multi-dimensional ratings
       t.integer :usability_rating
       t.integer :features_rating
       t.integer :support_rating
       t.integer :value_rating
-      
+
       # Review quality scoring
       t.decimal :quality_score, precision: 5, scale: 2
       t.text :sentiment_analysis
       t.jsonb :tags, default: []
       t.jsonb :metadata, default: {}
-      
+
       t.timestamps null: false
 
-      t.index [:app_id, :account_id], unique: true, name: 'idx_app_reviews_on_app_account_unique'
-      t.index [:rating], name: 'idx_app_reviews_on_rating'
-      t.index [:status], name: 'idx_app_reviews_on_status'
-      t.index [:published_at], name: 'idx_app_reviews_on_published_at'
-      t.index [:helpful_count], name: 'idx_app_reviews_on_helpful_count'
-      t.index [:quality_score], name: 'idx_app_reviews_on_quality_score'
-      t.index [:is_verified], name: 'idx_app_reviews_on_is_verified'
-      t.index [:created_at], name: 'idx_app_reviews_on_created_at'
+      t.index [ :app_id, :account_id ], unique: true, name: 'idx_app_reviews_on_app_account_unique'
+      t.index [ :rating ], name: 'idx_app_reviews_on_rating'
+      t.index [ :status ], name: 'idx_app_reviews_on_status'
+      t.index [ :published_at ], name: 'idx_app_reviews_on_published_at'
+      t.index [ :helpful_count ], name: 'idx_app_reviews_on_helpful_count'
+      t.index [ :quality_score ], name: 'idx_app_reviews_on_quality_score'
+      t.index [ :is_verified ], name: 'idx_app_reviews_on_is_verified'
+      t.index [ :created_at ], name: 'idx_app_reviews_on_created_at'
     end
 
     # Create review_helpfulness_votes table - User feedback on reviews
@@ -55,8 +55,8 @@ class CreateReviewSystem < ActiveRecord::Migration[8.0]
       t.integer :weight, default: 1
       t.timestamps null: false
 
-      t.index [:app_review_id, :account_id], unique: true, name: 'idx_review_helpfulness_votes_on_review_account_unique'
-      t.index [:is_helpful], name: 'idx_review_helpfulness_votes_on_is_helpful'
+      t.index [ :app_review_id, :account_id ], unique: true, name: 'idx_review_helpfulness_votes_on_review_account_unique'
+      t.index [ :is_helpful ], name: 'idx_review_helpfulness_votes_on_is_helpful'
     end
 
     # Create review_responses table - Developer responses to reviews
@@ -69,10 +69,10 @@ class CreateReviewSystem < ActiveRecord::Migration[8.0]
       t.datetime :published_at
       t.timestamps null: false
 
-      t.index [:app_review_id], name: 'idx_review_responses_on_app_review_id'
-      t.index [:responder_id], name: 'idx_review_responses_on_responder_id'
-      t.index [:status], name: 'idx_review_responses_on_status'
-      t.index [:published_at], name: 'idx_review_responses_on_published_at'
+      t.index [ :app_review_id ], name: 'idx_review_responses_on_app_review_id'
+      t.index [ :responder_id ], name: 'idx_review_responses_on_responder_id'
+      t.index [ :status ], name: 'idx_review_responses_on_status'
+      t.index [ :published_at ], name: 'idx_review_responses_on_published_at'
     end
 
     # Create review_media_attachments table - Images, videos for reviews
@@ -87,8 +87,8 @@ class CreateReviewSystem < ActiveRecord::Migration[8.0]
       t.integer :display_order, default: 0
       t.timestamps null: false
 
-      t.index [:app_review_id, :display_order], name: 'idx_review_media_attachments_on_review_display_order'
-      t.index [:file_type], name: 'idx_review_media_attachments_on_file_type'
+      t.index [ :app_review_id, :display_order ], name: 'idx_review_media_attachments_on_review_display_order'
+      t.index [ :file_type ], name: 'idx_review_media_attachments_on_file_type'
     end
 
     # Create review_aggregation_cache table - Performance optimization
@@ -102,27 +102,27 @@ class CreateReviewSystem < ActiveRecord::Migration[8.0]
       t.integer :three_star_count, default: 0
       t.integer :two_star_count, default: 0
       t.integer :one_star_count, default: 0
-      
+
       # Multi-dimensional averages
       t.decimal :average_usability_rating, precision: 3, scale: 2
       t.decimal :average_features_rating, precision: 3, scale: 2
       t.decimal :average_support_rating, precision: 3, scale: 2
       t.decimal :average_value_rating, precision: 3, scale: 2
-      
+
       # Additional metrics
       t.integer :verified_reviews_count, default: 0
       t.decimal :average_quality_score, precision: 5, scale: 2
       t.integer :total_helpful_votes, default: 0
       t.integer :response_count, default: 0
       t.decimal :response_rate, precision: 5, scale: 2, default: 0.0
-      
+
       t.datetime :last_calculated_at, null: false
       t.timestamps null: false
 
-      t.index [:app_id], unique: true, name: 'idx_review_aggregation_cache_on_app_id_unique'
-      t.index [:average_rating], name: 'idx_review_aggregation_cache_on_average_rating'
-      t.index [:total_reviews], name: 'idx_review_aggregation_cache_on_total_reviews'
-      t.index [:last_calculated_at], name: 'idx_review_aggregation_cache_on_last_calculated_at'
+      t.index [ :app_id ], unique: true, name: 'idx_review_aggregation_cache_on_app_id_unique'
+      t.index [ :average_rating ], name: 'idx_review_aggregation_cache_on_average_rating'
+      t.index [ :total_reviews ], name: 'idx_review_aggregation_cache_on_total_reviews'
+      t.index [ :last_calculated_at ], name: 'idx_review_aggregation_cache_on_last_calculated_at'
     end
 
     # Create review_moderation_actions table - Moderation audit trail
@@ -137,10 +137,10 @@ class CreateReviewSystem < ActiveRecord::Migration[8.0]
       t.jsonb :metadata, default: {}
       t.timestamps null: false
 
-      t.index [:app_review_id], name: 'idx_review_moderation_actions_on_app_review_id'
-      t.index [:moderator_id], name: 'idx_review_moderation_actions_on_moderator_id'
-      t.index [:action_type], name: 'idx_review_moderation_actions_on_action_type'
-      t.index [:created_at], name: 'idx_review_moderation_actions_on_created_at'
+      t.index [ :app_review_id ], name: 'idx_review_moderation_actions_on_app_review_id'
+      t.index [ :moderator_id ], name: 'idx_review_moderation_actions_on_moderator_id'
+      t.index [ :action_type ], name: 'idx_review_moderation_actions_on_action_type'
+      t.index [ :created_at ], name: 'idx_review_moderation_actions_on_created_at'
     end
 
     # Add check constraints
@@ -151,20 +151,20 @@ class CreateReviewSystem < ActiveRecord::Migration[8.0]
     add_check_constraint :app_reviews, 'value_rating IS NULL OR (value_rating >= 1 AND value_rating <= 5)', name: 'valid_value_rating'
     add_check_constraint :app_reviews, "status IN ('draft', 'published', 'hidden', 'flagged', 'removed')", name: 'valid_review_status'
     add_check_constraint :app_reviews, 'quality_score IS NULL OR (quality_score >= 0 AND quality_score <= 100)', name: 'valid_quality_score'
-    
+
     add_check_constraint :review_helpfulness_votes, 'weight > 0', name: 'valid_vote_weight'
-    
+
     add_check_constraint :review_responses, "status IN ('draft', 'published', 'hidden', 'removed')", name: 'valid_response_status'
-    
+
     add_check_constraint :review_media_attachments, "file_type IN ('image', 'video', 'document')", name: 'valid_media_type'
     add_check_constraint :review_media_attachments, 'file_size IS NULL OR file_size > 0', name: 'valid_file_size'
     add_check_constraint :review_media_attachments, 'display_order >= 0', name: 'valid_display_order'
-    
+
     add_check_constraint :review_aggregation_cache, 'average_rating >= 0 AND average_rating <= 5', name: 'valid_cached_average_rating'
     add_check_constraint :review_aggregation_cache, 'total_reviews >= 0', name: 'valid_total_reviews'
     add_check_constraint :review_aggregation_cache, 'five_star_count >= 0 AND four_star_count >= 0 AND three_star_count >= 0 AND two_star_count >= 0 AND one_star_count >= 0', name: 'valid_rating_counts'
     add_check_constraint :review_aggregation_cache, 'response_rate >= 0 AND response_rate <= 100', name: 'valid_response_rate'
-    
+
     add_check_constraint :review_moderation_actions, "action_type IN ('publish', 'hide', 'flag', 'remove', 'approve', 'reject', 'edit')", name: 'valid_moderation_action'
 
     # Create review_notifications table
@@ -186,15 +186,15 @@ class CreateReviewSystem < ActiveRecord::Migration[8.0]
       t.jsonb :metadata, default: {}
       t.timestamps null: false
 
-      t.index [:app_review_id], name: 'idx_review_notifications_on_app_review_id'
-      t.index [:recipient_id], name: 'idx_review_notifications_on_recipient_id'
-      t.index [:triggered_by_id], name: 'idx_review_notifications_on_triggered_by_id'
-      t.index [:notification_type], name: 'idx_review_notifications_on_notification_type'
-      t.index [:status], name: 'idx_review_notifications_on_status'
-      t.index [:priority], name: 'idx_review_notifications_on_priority'
-      t.index [:scheduled_at], name: 'idx_review_notifications_on_scheduled_at'
-      t.index [:created_at], name: 'idx_review_notifications_on_created_at'
-      t.index [:delivery_channels], using: :gin, name: 'idx_review_notifications_on_delivery_channels'
+      t.index [ :app_review_id ], name: 'idx_review_notifications_on_app_review_id'
+      t.index [ :recipient_id ], name: 'idx_review_notifications_on_recipient_id'
+      t.index [ :triggered_by_id ], name: 'idx_review_notifications_on_triggered_by_id'
+      t.index [ :notification_type ], name: 'idx_review_notifications_on_notification_type'
+      t.index [ :status ], name: 'idx_review_notifications_on_status'
+      t.index [ :priority ], name: 'idx_review_notifications_on_priority'
+      t.index [ :scheduled_at ], name: 'idx_review_notifications_on_scheduled_at'
+      t.index [ :created_at ], name: 'idx_review_notifications_on_created_at'
+      t.index [ :delivery_channels ], using: :gin, name: 'idx_review_notifications_on_delivery_channels'
     end
 
     # Create review_notification_deliveries table
@@ -211,11 +211,11 @@ class CreateReviewSystem < ActiveRecord::Migration[8.0]
       t.jsonb :metadata, default: {}
       t.timestamps null: false
 
-      t.index [:review_notification_id], name: 'idx_review_notification_deliveries_on_review_notification_id'
-      t.index [:delivery_channel], name: 'idx_review_notification_deliveries_on_delivery_channel'
-      t.index [:status], name: 'idx_review_notification_deliveries_on_status'
-      t.index [:attempted_at], name: 'idx_review_notification_deliveries_on_attempted_at'
-      t.index [:delivered_at], name: 'idx_review_notification_deliveries_on_delivered_at'
+      t.index [ :review_notification_id ], name: 'idx_review_notification_deliveries_on_review_notification_id'
+      t.index [ :delivery_channel ], name: 'idx_review_notification_deliveries_on_delivery_channel'
+      t.index [ :status ], name: 'idx_review_notification_deliveries_on_status'
+      t.index [ :attempted_at ], name: 'idx_review_notification_deliveries_on_attempted_at'
+      t.index [ :delivered_at ], name: 'idx_review_notification_deliveries_on_delivered_at'
     end
 
     # Add check constraints for review notifications

@@ -25,7 +25,7 @@ class CreateUniversalPluginSystem < ActiveRecord::Migration[7.1]
 
       t.timestamps
 
-      t.index [:account_id, :slug], unique: true
+      t.index [ :account_id, :slug ], unique: true
       t.index :marketplace_type
       t.index :visibility
     end
@@ -73,8 +73,8 @@ class CreateUniversalPluginSystem < ActiveRecord::Migration[7.1]
 
       t.timestamps
 
-      t.index [:account_id, :plugin_id], unique: true
-      t.index [:account_id, :slug], unique: true
+      t.index [ :account_id, :plugin_id ], unique: true
+      t.index [ :account_id, :slug ], unique: true
       t.index :plugin_types, using: :gin
       t.index :status
       t.index :source_type
@@ -105,7 +105,7 @@ class CreateUniversalPluginSystem < ActiveRecord::Migration[7.1]
 
       t.timestamps
 
-      t.index [:account_id, :plugin_id], unique: true
+      t.index [ :account_id, :plugin_id ], unique: true
       t.index :status
       t.index :installed_at
     end
@@ -156,7 +156,7 @@ class CreateUniversalPluginSystem < ActiveRecord::Migration[7.1]
 
       t.timestamps
 
-      t.index [:plugin_id, :account_id], unique: true
+      t.index [ :plugin_id, :account_id ], unique: true
       t.index :rating
     end
 
@@ -169,7 +169,7 @@ class CreateUniversalPluginSystem < ActiveRecord::Migration[7.1]
 
       t.timestamps
 
-      t.index [:plugin_id, :dependency_plugin_id], unique: true
+      t.index [ :plugin_id, :dependency_plugin_id ], unique: true
     end
 
     # Add plugin support to workflow nodes
@@ -179,6 +179,6 @@ class CreateUniversalPluginSystem < ActiveRecord::Migration[7.1]
 
     # Add provider_identifier to ai_providers for plugin integration
     add_column :ai_providers, :provider_identifier, :string, limit: 255
-    add_index :ai_providers, [:account_id, :provider_identifier], unique: true
+    add_index :ai_providers, [ :account_id, :provider_identifier ], unique: true
   end
 end

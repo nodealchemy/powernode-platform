@@ -9,7 +9,7 @@ class AiAgent < ApplicationRecord
 
   # Associations
   belongs_to :account
-  belongs_to :creator, class_name: 'User'
+  belongs_to :creator, class_name: "User"
   belongs_to :ai_provider
   has_many :ai_agent_executions, dependent: :destroy
   has_many :ai_conversations, dependent: :destroy
@@ -19,14 +19,14 @@ class AiAgent < ApplicationRecord
   validates :name, presence: true, length: { maximum: 255 }, uniqueness: { scope: :account_id }
   validates :description, length: { maximum: 1000 }
   validates :slug, presence: true, uniqueness: { scope: :account_id }, length: { maximum: 150 },
-                   format: { with: /\A[a-z0-9\-_]+\z/, message: 'can only contain lowercase letters, numbers, hyphens, and underscores' }
+                   format: { with: /\A[a-z0-9\-_]+\z/, message: "can only contain lowercase letters, numbers, hyphens, and underscores" }
   validates :agent_type, presence: true, inclusion: {
     in: %w[assistant code_assistant data_analyst content_generator image_generator workflow_optimizer workflow_operations monitor],
-    message: 'is not included in the list'
+    message: "is not included in the list"
   }
   validates :status, inclusion: { in: %w[active inactive paused error archived] }
   validates :mcp_capabilities, presence: true
-  validates :version, format: { with: /\A\d+\.\d+\.\d+\z/, message: 'must be in semantic version format (x.y.z)' }
+  validates :version, format: { with: /\A\d+\.\d+\.\d+\z/, message: "must be in semantic version format (x.y.z)" }
   validate :mcp_tool_manifest_valid
   validate :mcp_input_schema_valid
   validate :mcp_output_schema_valid
@@ -39,18 +39,18 @@ class AiAgent < ApplicationRecord
   attribute :mcp_metadata, :json, default: -> { {} }
 
   # Scopes
-  scope :active, -> { where(status: 'active') }
-  scope :inactive, -> { where(status: 'inactive') }
-  scope :paused, -> { where(status: 'paused') }
-  scope :archived, -> { where(status: 'archived') }
+  scope :active, -> { where(status: "active") }
+  scope :inactive, -> { where(status: "inactive") }
+  scope :paused, -> { where(status: "paused") }
+  scope :archived, -> { where(status: "archived") }
   scope :by_type, ->(type) { where(agent_type: type) }
   scope :by_creator, ->(user) { where(creator: user) }
   scope :mcp_enabled, -> { where.not(mcp_tool_manifest: {}) }
-  scope :with_capability, ->(capability) { where('mcp_capabilities @> ?', [capability].to_json) }
-  scope :recently_executed, ->(days = 30) { where('last_executed_at >= ?', days.days.ago) }
-  scope :healthy, -> { where(status: 'active') }
+  scope :with_capability, ->(capability) { where("mcp_capabilities @> ?", [ capability ].to_json) }
+  scope :recently_executed, ->(days = 30) { where("last_executed_at >= ?", days.days.ago) }
+  scope :healthy, -> { where(status: "active") }
   scope :search_by_text, ->(query) {
-    where('name ILIKE ? OR description ILIKE ?', "%#{query}%", "%#{query}%")
+    where("name ILIKE ? OR description ILIKE ?", "%#{query}%", "%#{query}%")
   }
 
   # Callbacks
@@ -82,7 +82,7 @@ class AiAgent < ApplicationRecord
   def create_mcp_execution(input_parameters, execution_options = {})
     execution_data = {
       execution_id: SecureRandom.uuid,
-      status: 'running',
+      status: "running",
       input_parameters: input_parameters,
       started_at: Time.current
     }
@@ -95,27 +95,27 @@ class AiAgent < ApplicationRecord
   # Generate complete MCP tool manifest
   def generate_mcp_tool_manifest
     {
-      'name' => mcp_tool_name,
-      'description' => description || "AI Agent: #{name}",
-      'type' => 'ai_agent',
-      'version' => version,
-      'capabilities' => mcp_capabilities,
-      'inputSchema' => mcp_input_schema,
-      'outputSchema' => mcp_output_schema,
-      'metadata' => generate_mcp_metadata,
-      'agent_id' => id,
-      'provider_id' => ai_provider_id,
-      'account_id' => account_id,
-      'creator_id' => creator_id,
-      'agent_type' => agent_type,
-      'created_at' => created_at&.iso8601,
-      'updated_at' => updated_at&.iso8601
+      "name" => mcp_tool_name,
+      "description" => description || "AI Agent: #{name}",
+      "type" => "ai_agent",
+      "version" => version,
+      "capabilities" => mcp_capabilities,
+      "inputSchema" => mcp_input_schema,
+      "outputSchema" => mcp_output_schema,
+      "metadata" => generate_mcp_metadata,
+      "agent_id" => id,
+      "provider_id" => ai_provider_id,
+      "account_id" => account_id,
+      "creator_id" => creator_id,
+      "agent_type" => agent_type,
+      "created_at" => created_at&.iso8601,
+      "updated_at" => updated_at&.iso8601
     }
   end
 
   # Get MCP tool name (used for tool registration)
   def mcp_tool_name
-    "#{account.subdomain}_#{slug}".downcase.gsub(/[^a-z0-9_]/, '_')
+    "#{account.subdomain}_#{slug}".downcase.gsub(/[^a-z0-9_]/, "_")
   end
 
   # Execute agent via MCP protocol
@@ -139,7 +139,7 @@ class AiAgent < ApplicationRecord
 
     # Update execution record
     execution.update!(
-      status: 'completed',
+      status: "completed",
       output_data: result,
       completed_at: Time.current,
       duration_ms: (Time.current - execution.started_at) * 1000
@@ -151,7 +151,7 @@ class AiAgent < ApplicationRecord
 
     # Update execution record with error
     execution&.update!(
-      status: 'failed',
+      status: "failed",
       error_message: e.message,
       completed_at: Time.current
     )
@@ -204,23 +204,23 @@ class AiAgent < ApplicationRecord
   # =============================================================================
 
   def active?
-    status == 'active'
+    status == "active"
   end
 
   def inactive?
-    status == 'inactive'
+    status == "inactive"
   end
 
   def archived?
-    status == 'archived'
+    status == "archived"
   end
 
   def error?
-    status == 'error'
+    status == "error"
   end
 
   def paused?
-    status == 'paused'
+    status == "paused"
   end
 
   # Update last execution timestamp
@@ -238,18 +238,18 @@ class AiAgent < ApplicationRecord
     total = ai_agent_executions.count
     return 0 if total.zero?
 
-    successful = ai_agent_executions.where(status: 'completed').count
+    successful = ai_agent_executions.where(status: "completed").count
     (successful.to_f / total * 100).round(2)
   end
 
   # Get execution statistics
   def execution_stats(period = 30.days)
-    scope = ai_agent_executions.where('created_at >= ?', period.ago)
+    scope = ai_agent_executions.where("created_at >= ?", period.ago)
 
     {
       total_executions: scope.count,
-      successful_executions: scope.where(status: 'completed').count,
-      failed_executions: scope.where(status: 'failed').count,
+      successful_executions: scope.where(status: "completed").count,
+      failed_executions: scope.where(status: "failed").count,
       average_duration: scope.where.not(duration_ms: nil).average(:duration_ms) || 0,
       success_rate: calculate_success_rate(scope)
     }
@@ -262,18 +262,18 @@ class AiAgent < ApplicationRecord
   # Generate MCP tool manifest for agent registration
   def generate_mcp_tool_manifest
     {
-      'name' => name.downcase.gsub(/[^a-z0-9]/, '_'),
-      'description' => description || "AI Agent: #{name}",
-      'type' => 'ai_agent',
-      'version' => version,
-      'capabilities' => mcp_capabilities,
-      'inputSchema' => mcp_input_schema.presence || default_input_schema,
-      'outputSchema' => mcp_output_schema.presence || default_output_schema,
-      'metadata' => {
-        'agent_id' => id,
-        'agent_type' => agent_type,
-        'created_at' => created_at&.iso8601,
-        'updated_at' => updated_at&.iso8601
+      "name" => name.downcase.gsub(/[^a-z0-9]/, "_"),
+      "description" => description || "AI Agent: #{name}",
+      "type" => "ai_agent",
+      "version" => version,
+      "capabilities" => mcp_capabilities,
+      "inputSchema" => mcp_input_schema.presence || default_input_schema,
+      "outputSchema" => mcp_output_schema.presence || default_output_schema,
+      "metadata" => {
+        "agent_id" => id,
+        "agent_type" => agent_type,
+        "created_at" => created_at&.iso8601,
+        "updated_at" => updated_at&.iso8601
       }
     }
   end
@@ -289,11 +289,11 @@ class AiAgent < ApplicationRecord
       execution_id: SecureRandom.uuid,
       user: user,
       ai_provider_id: provider&.id,
-      status: 'running',
+      status: "running",
       input_parameters: input_parameters,
       started_at: Time.current,
       execution_context: {
-        context_type: 'workflow',
+        context_type: "workflow",
         triggered_at: Time.current.iso8601
       }
     )
@@ -308,14 +308,14 @@ class AiAgent < ApplicationRecord
 
       # Generate a simple output
       output = {
-        'response' => "Processed input with #{name}",
-        'processed_at' => Time.current.iso8601,
-        'input_summary' => input_parameters.to_s[0..100]
+        "response" => "Processed input with #{name}",
+        "processed_at" => Time.current.iso8601,
+        "input_summary" => input_parameters.to_s[0..100]
       }
 
       # Update execution as successful
       execution.update!(
-        status: 'completed',
+        status: "completed",
         output_data: output,
         completed_at: Time.current,
         duration_ms: (Time.current - execution.started_at) * 1000
@@ -325,7 +325,7 @@ class AiAgent < ApplicationRecord
     rescue StandardError => e
       Rails.logger.error "[AI_AGENT] Execution failed: #{e.message}"
       execution.update!(
-        status: 'failed',
+        status: "failed",
         error_details: {
           error: e.message,
           error_class: e.class.name
@@ -392,7 +392,7 @@ class AiAgent < ApplicationRecord
     cloned_agent.creator = cloner_user
     cloned_agent.name = "#{name} (Copy)"
     cloned_agent.slug = nil # Will be regenerated
-    cloned_agent.status = 'inactive'
+    cloned_agent.status = "inactive"
     cloned_agent.last_executed_at = nil
     cloned_agent.mcp_registered_at = nil
     cloned_agent.save!
@@ -415,14 +415,14 @@ class AiAgent < ApplicationRecord
     warnings_list = []
 
     # Check if agent has required fields
-    errors_list << 'Agent name is missing' if name.blank?
-    errors_list << 'Agent type is invalid' unless %w[assistant code_assistant data_analyst content_generator image_generator workflow_optimizer workflow_operations monitor].include?(agent_type)
-    errors_list << 'AI provider is missing or inactive' unless ai_provider&.is_active?
-    errors_list << 'MCP capabilities are missing' if mcp_capabilities.blank?
+    errors_list << "Agent name is missing" if name.blank?
+    errors_list << "Agent type is invalid" unless %w[assistant code_assistant data_analyst content_generator image_generator workflow_optimizer workflow_operations monitor].include?(agent_type)
+    errors_list << "AI provider is missing or inactive" unless ai_provider&.is_active?
+    errors_list << "MCP capabilities are missing" if mcp_capabilities.blank?
 
     # Check for warnings
-    warnings_list << 'Agent has never been executed' if last_executed_at.nil?
-    warnings_list << 'Agent description is missing' if description.blank?
+    warnings_list << "Agent has never been executed" if last_executed_at.nil?
+    warnings_list << "Agent description is missing" if description.blank?
 
     {
       valid: errors_list.empty?,
@@ -452,12 +452,12 @@ class AiAgent < ApplicationRecord
       user: execution_options[:user],
       ai_provider: ai_provider,
       execution_id: SecureRandom.uuid,
-      status: 'pending',
+      status: "pending",
       input_parameters: input_parameters,
       execution_context: {
-        'mcp_execution' => true,
-        'connection_id' => execution_options[:connection_id],
-        'protocol_version' => '2025-06-18'
+        "mcp_execution" => true,
+        "connection_id" => execution_options[:connection_id],
+        "protocol_version" => "2025-06-18"
       }.merge(execution_options.except(:user, :connection_id))
     )
   end
@@ -465,35 +465,35 @@ class AiAgent < ApplicationRecord
   # Default schemas for MCP protocol
   def default_input_schema
     {
-      'type' => 'object',
-      'properties' => {
-        'input' => {
-          'type' => 'string',
-          'description' => 'Input text for the AI agent'
+      "type" => "object",
+      "properties" => {
+        "input" => {
+          "type" => "string",
+          "description" => "Input text for the AI agent"
         },
-        'context' => {
-          'type' => 'object',
-          'description' => 'Additional context for execution'
+        "context" => {
+          "type" => "object",
+          "description" => "Additional context for execution"
         }
       },
-      'required' => ['input']
+      "required" => [ "input" ]
     }
   end
 
   def default_output_schema
     {
-      'type' => 'object',
-      'properties' => {
-        'result' => {
-          'type' => 'string',
-          'description' => 'Generated result from the AI agent'
+      "type" => "object",
+      "properties" => {
+        "result" => {
+          "type" => "string",
+          "description" => "Generated result from the AI agent"
         },
-        'metadata' => {
-          'type' => 'object',
-          'description' => 'Execution metadata'
+        "metadata" => {
+          "type" => "object",
+          "description" => "Execution metadata"
         }
       },
-      'required' => ['result']
+      "required" => [ "result" ]
     }
   end
 
@@ -506,7 +506,7 @@ class AiAgent < ApplicationRecord
   def generate_slug
     return if name.blank?
 
-    base_slug = name.downcase.gsub(/[^a-z0-9\s\-_]/, '').squeeze(' ').strip.gsub(/\s+/, '-')
+    base_slug = name.downcase.gsub(/[^a-z0-9\s\-_]/, "").squeeze(" ").strip.gsub(/\s+/, "-")
     self.slug = base_slug
 
     # Ensure uniqueness within account
@@ -540,25 +540,25 @@ class AiAgent < ApplicationRecord
 
   def increment_version
     if version.present?
-      version_parts = version.split('.').map(&:to_i)
+      version_parts = version.split(".").map(&:to_i)
       version_parts[2] += 1  # Increment patch version
-      self.version = version_parts.join('.')
+      self.version = version_parts.join(".")
     else
-      self.version = '1.0.0'
+      self.version = "1.0.0"
     end
   end
 
   def generate_mcp_metadata
     {
-      'powernode_agent_id' => id,
-      'powernode_account_id' => account_id,
-      'powernode_creator_id' => creator_id,
-      'agent_type' => agent_type,
-      'provider_type' => ai_provider&.provider_type,
-      'tags' => [],
-      'documentation_url' => nil,
-      'support_url' => nil,
-      'license' => 'proprietary'
+      "powernode_agent_id" => id,
+      "powernode_account_id" => account_id,
+      "powernode_creator_id" => creator_id,
+      "agent_type" => agent_type,
+      "provider_type" => ai_provider&.provider_type,
+      "tags" => [],
+      "documentation_url" => nil,
+      "support_url" => nil,
+      "license" => "proprietary"
     }
   end
 
@@ -568,13 +568,13 @@ class AiAgent < ApplicationRecord
       user: execution_options[:user] || creator,
       ai_provider: ai_provider,
       input_parameters: input_parameters,
-      status: 'running',
+      status: "running",
       execution_id: SecureRandom.uuid,
       started_at: Time.current,
       execution_context: {
-        'mcp_execution' => true,
-        'tool_id' => mcp_tool_id,
-        'execution_options' => execution_options
+        "mcp_execution" => true,
+        "tool_id" => mcp_tool_id,
+        "execution_options" => execution_options
       }
     )
   end
@@ -583,7 +583,7 @@ class AiAgent < ApplicationRecord
     total = scope.count
     return 0 if total.zero?
 
-    successful = scope.where(status: 'completed').count
+    successful = scope.where(status: "completed").count
     (successful.to_f / total * 100).round(2)
   end
 
@@ -595,7 +595,7 @@ class AiAgent < ApplicationRecord
     return if mcp_tool_manifest.blank?
 
     unless mcp_tool_manifest.is_a?(Hash)
-      errors.add(:mcp_tool_manifest, 'must be a valid JSON object')
+      errors.add(:mcp_tool_manifest, "must be a valid JSON object")
       return
     end
 
@@ -620,13 +620,13 @@ class AiAgent < ApplicationRecord
     return if schema.blank?
 
     unless schema.is_a?(Hash)
-      errors.add(field_name, 'must be a valid JSON schema object')
+      errors.add(field_name, "must be a valid JSON schema object")
       return
     end
 
     # Basic JSON Schema validation
-    unless schema['type'].present?
-      errors.add(field_name, 'must include a type field')
+    unless schema["type"].present?
+      errors.add(field_name, "must include a type field")
     end
   end
 
@@ -702,36 +702,36 @@ class AiAgent < ApplicationRecord
 
   def self.default_input_schema
     {
-      'type' => 'object',
-      'properties' => {
-        'input' => {
-          'type' => 'string',
-          'description' => 'Primary input text for the AI agent',
-          'minLength' => 1,
-          'maxLength' => 100000
+      "type" => "object",
+      "properties" => {
+        "input" => {
+          "type" => "string",
+          "description" => "Primary input text for the AI agent",
+          "minLength" => 1,
+          "maxLength" => 100000
         },
-        'context' => {
-          'type' => 'object',
-          'description' => 'Additional context for the agent execution',
-          'properties' => {
-            'temperature' => {
-              'type' => 'number',
-              'minimum' => 0,
-              'maximum' => 2,
-              'description' => 'Sampling temperature for response generation'
+        "context" => {
+          "type" => "object",
+          "description" => "Additional context for the agent execution",
+          "properties" => {
+            "temperature" => {
+              "type" => "number",
+              "minimum" => 0,
+              "maximum" => 2,
+              "description" => "Sampling temperature for response generation"
             },
-            'max_tokens' => {
-              'type' => 'integer',
-              'minimum' => 1,
-              'maximum' => 32000,
-              'description' => 'Maximum number of tokens to generate'
+            "max_tokens" => {
+              "type" => "integer",
+              "minimum" => 1,
+              "maximum" => 32000,
+              "description" => "Maximum number of tokens to generate"
             }
           },
-          'additionalProperties' => true
+          "additionalProperties" => true
         }
       },
-      'required' => ['input'],
-      'additionalProperties' => false
+      "required" => [ "input" ],
+      "additionalProperties" => false
     }
   end
 
@@ -741,38 +741,38 @@ class AiAgent < ApplicationRecord
 
   def self.default_output_schema
     {
-      'type' => 'object',
-      'properties' => {
-        'output' => {
-          'type' => 'string',
-          'description' => 'Generated response from the AI agent'
+      "type" => "object",
+      "properties" => {
+        "output" => {
+          "type" => "string",
+          "description" => "Generated response from the AI agent"
         },
-        'metadata' => {
-          'type' => 'object',
-          'description' => 'Additional metadata about the response',
-          'properties' => {
-            'tokens_used' => {
-              'type' => 'integer',
-              'description' => 'Number of tokens consumed'
+        "metadata" => {
+          "type" => "object",
+          "description" => "Additional metadata about the response",
+          "properties" => {
+            "tokens_used" => {
+              "type" => "integer",
+              "description" => "Number of tokens consumed"
             },
-            'processing_time_ms' => {
-              'type' => 'number',
-              'description' => 'Processing time in milliseconds'
+            "processing_time_ms" => {
+              "type" => "number",
+              "description" => "Processing time in milliseconds"
             },
-            'model_used' => {
-              'type' => 'string',
-              'description' => 'AI model used for generation'
+            "model_used" => {
+              "type" => "string",
+              "description" => "AI model used for generation"
             }
           },
-          'additionalProperties' => true
+          "additionalProperties" => true
         },
-        'error' => {
-          'type' => 'string',
-          'description' => 'Error message if execution failed'
+        "error" => {
+          "type" => "string",
+          "description" => "Error message if execution failed"
         }
       },
-      'required' => ['output'],
-      'additionalProperties' => false
+      "required" => [ "output" ],
+      "additionalProperties" => false
     }
   end
 
@@ -796,8 +796,8 @@ class AiAgent < ApplicationRecord
         agent_type: template_data[:agent_type],
         mcp_capabilities: template_data[:mcp_capabilities] || [],
         mcp_tool_manifest: template_data[:mcp_tool_manifest] || {},
-        version: template_data[:version] || '1.0.0',
-        status: 'active'
+        version: template_data[:version] || "1.0.0",
+        status: "active"
       )
       agent.save
       agent
@@ -806,14 +806,14 @@ class AiAgent < ApplicationRecord
     # Search agents by name or description
     def search(query)
       return all if query.blank?
-      where('name ILIKE :q OR description ILIKE :q', q: "%#{query}%")
+      where("name ILIKE :q OR description ILIKE :q", q: "%#{query}%")
     end
 
     # Get popular agents ordered by execution count
     def popular(limit: 10)
       left_joins(:ai_agent_executions)
         .group(:id)
-        .order('COUNT(ai_agent_executions.id) DESC')
+        .order("COUNT(ai_agent_executions.id) DESC")
         .limit(limit)
     end
   end
@@ -826,52 +826,52 @@ class AiAgent < ApplicationRecord
 
   # Get recent executions within a time period
   def recent_executions(period = 24.hours)
-    ai_agent_executions.where('created_at >= ?', period.ago)
+    ai_agent_executions.where("created_at >= ?", period.ago)
   end
 
   # Get average response time from completed executions
   def average_response_time
-    completed = ai_agent_executions.where(status: 'completed')
+    completed = ai_agent_executions.where(status: "completed")
     return 0 if completed.empty?
     completed.average(:duration_ms)&.to_f || 0
   end
 
   # Get total tokens used across all executions
   def total_tokens_used
-    ai_agent_executions.where(status: 'completed').sum do |exec|
-      exec.output_data&.dig('metrics', 'tokens_used') || 0
+    ai_agent_executions.where(status: "completed").sum do |exec|
+      exec.output_data&.dig("metrics", "tokens_used") || 0
     end
   end
 
   # Get estimated total cost across all executions
   def estimated_total_cost
-    ai_agent_executions.where(status: 'completed').sum do |exec|
-      exec.output_data&.dig('metrics', 'cost_estimate') || 0.0
+    ai_agent_executions.where(status: "completed").sum do |exec|
+      exec.output_data&.dig("metrics", "cost_estimate") || 0.0
     end
   end
 
   # Deactivate agent with reason
   def deactivate!(reason = nil)
     agent_metadata = self.mcp_metadata || {}
-    agent_metadata['deactivated_reason'] = reason if reason.present?
-    update!(status: 'inactive', mcp_metadata: agent_metadata)
+    agent_metadata["deactivated_reason"] = reason if reason.present?
+    update!(status: "inactive", mcp_metadata: agent_metadata)
 
     # Create audit log entry
     AuditLog.create!(
       account: account,
       user: creator,
-      resource_type: 'AiAgent',
+      resource_type: "AiAgent",
       resource_id: id.to_s,
-      action: 'updated',
-      source: 'system',
-      severity: 'medium',
-      risk_level: 'low',
-      metadata: { 'deactivation_reason' => reason }
+      action: "updated",
+      source: "system",
+      severity: "medium",
+      risk_level: "low",
+      metadata: { "deactivation_reason" => reason }
     )
   end
 
   # Activate agent
   def activate!
-    update!(status: 'active')
+    update!(status: "active")
   end
 end

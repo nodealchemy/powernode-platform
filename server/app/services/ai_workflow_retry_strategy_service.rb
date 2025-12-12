@@ -5,10 +5,10 @@ class AiWorkflowRetryStrategyService
 
   # Retry strategies
   STRATEGIES = {
-    exponential: 'ExponentialBackoff',
-    linear: 'LinearBackoff',
-    fixed: 'FixedBackoff',
-    custom: 'CustomBackoff'
+    exponential: "ExponentialBackoff",
+    linear: "LinearBackoff",
+    fixed: "FixedBackoff",
+    custom: "CustomBackoff"
   }.freeze
 
   # Default configuration
@@ -53,7 +53,7 @@ class AiWorkflowRetryStrategyService
     end
 
     # Ensure within bounds
-    [delay_ms, retry_config[:max_delay_ms]].min
+    [ delay_ms, retry_config[:max_delay_ms] ].min
   end
 
   # Execute retry with appropriate delay
@@ -90,7 +90,7 @@ class AiWorkflowRetryStrategyService
     ActionCable.server.broadcast(
       "ai_workflow_run_#{workflow_run.id}",
       {
-        type: 'node_retry_scheduled',
+        type: "node_retry_scheduled",
         node_execution_id: node_execution.id,
         node_id: node_execution.node_id,
         attempt: current_retry_attempt + 1,
@@ -136,26 +136,26 @@ class AiWorkflowRetryStrategyService
   end
 
   def current_retry_attempt
-    node_execution.metadata.dig('retry', 'attempt_count').to_i
+    node_execution.metadata.dig("retry", "attempt_count").to_i
   end
 
   def total_retry_time
-    node_execution.metadata.dig('retry', 'total_delay_ms').to_i
+    node_execution.metadata.dig("retry", "total_delay_ms").to_i
   end
 
   def last_retry_timestamp
-    node_execution.metadata.dig('retry', 'last_retry_at')
+    node_execution.metadata.dig("retry", "last_retry_at")
   end
 
   def build_retry_config
     # Get node-level configuration
     node_config = node_execution.ai_workflow_node&.configuration || {}
-    node_retry_config = node_config['retry'] || {}
+    node_retry_config = node_config["retry"] || {}
 
     # Get workflow-level configuration
     workflow = node_execution.ai_workflow_run&.ai_workflow
     workflow_config = workflow&.configuration || {}
-    workflow_retry_config = workflow_config['retry'] || {}
+    workflow_retry_config = workflow_config["retry"] || {}
 
     # Merge configurations (node overrides workflow overrides default)
     DEFAULT_CONFIG
@@ -172,19 +172,19 @@ class AiWorkflowRetryStrategyService
 
   def update_retry_metadata(delay_ms)
     current_metadata = node_execution.metadata || {}
-    retry_metadata = current_metadata['retry'] || {}
+    retry_metadata = current_metadata["retry"] || {}
 
     updated_retry_metadata = retry_metadata.merge(
-      'attempt_count' => current_retry_attempt + 1,
-      'last_retry_at' => Time.current.iso8601,
-      'last_delay_ms' => delay_ms,
-      'total_delay_ms' => total_retry_time + delay_ms,
-      'error_type' => error_type,
-      'retry_scheduled_at' => Time.current.iso8601
+      "attempt_count" => current_retry_attempt + 1,
+      "last_retry_at" => Time.current.iso8601,
+      "last_delay_ms" => delay_ms,
+      "total_delay_ms" => total_retry_time + delay_ms,
+      "error_type" => error_type,
+      "retry_scheduled_at" => Time.current.iso8601
     )
 
     node_execution.update(
-      metadata: current_metadata.merge('retry' => updated_retry_metadata)
+      metadata: current_metadata.merge("retry" => updated_retry_metadata)
     )
   end
 
@@ -202,7 +202,7 @@ class AiWorkflowRetryStrategyService
     end
 
     def calculate_delay
-      raise NotImplementedError, 'Subclass must implement calculate_delay'
+      raise NotImplementedError, "Subclass must implement calculate_delay"
     end
   end
 
@@ -213,7 +213,7 @@ class AiWorkflowRetryStrategyService
       multiplier = config[:backoff_multiplier] || 2
 
       delay = initial_delay * (multiplier ** attempt)
-      [delay, config[:max_delay_ms] || 60_000].min
+      [ delay, config[:max_delay_ms] || 60_000 ].min
     end
   end
 
@@ -224,7 +224,7 @@ class AiWorkflowRetryStrategyService
       increment = config[:linear_increment_ms] || 1000
 
       delay = initial_delay + (increment * attempt)
-      [delay, config[:max_delay_ms] || 60_000].min
+      [ delay, config[:max_delay_ms] || 60_000 ].min
     end
   end
 
@@ -238,7 +238,7 @@ class AiWorkflowRetryStrategyService
   # Custom backoff: use custom delay array
   class CustomBackoff < BaseStrategy
     def calculate_delay
-      delay_schedule = config[:custom_delays_ms] || [1000, 2000, 5000]
+      delay_schedule = config[:custom_delays_ms] || [ 1000, 2000, 5000 ]
       delay_schedule[attempt] || delay_schedule.last || 5000
     end
   end

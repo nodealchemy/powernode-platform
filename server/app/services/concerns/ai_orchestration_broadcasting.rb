@@ -56,7 +56,7 @@ module AiOrchestrationBroadcasting
       return unless @account&.id
 
       broadcast_data = {
-        type: 'agent_status_update',
+        type: "agent_status_update",
         agent_id: agent.id,
         status: status_data,
         timestamp: Time.current.iso8601
@@ -80,7 +80,7 @@ module AiOrchestrationBroadcasting
         metrics = AiAnalyticsInsightsService.new.real_time_metrics(@account.id)
 
         broadcast_data = {
-          type: 'system_metrics_update',
+          type: "system_metrics_update",
           metrics: metrics,
           timestamp: Time.current.iso8601
         }
@@ -116,7 +116,7 @@ module AiOrchestrationBroadcasting
         recent_success_rate: calculate_recent_success_rate(recent_executions),
         avg_response_time: recent_executions.average(:duration_ms) || 0,
         last_execution: recent_executions.order(created_at: :desc).first&.created_at,
-        status: current_executions.any? ? 'active' : 'idle'
+        status: current_executions.any? ? "active" : "idle"
       }
     end
 end

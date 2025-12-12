@@ -99,7 +99,7 @@ module StorageProviders
     # @param expires_in [ActiveSupport::Duration] expiration time
     # @param disposition [String] content disposition (inline, attachment)
     # @return [String] signed URL
-    def signed_url(file_object, expires_in: 1.hour, disposition: 'inline')
+    def signed_url(file_object, expires_in: 1.hour, disposition: "inline")
       raise NotImplementedError, "#{self.class} must implement signed_url"
     end
 
@@ -115,16 +115,16 @@ module StorageProviders
     # @param algorithm [Symbol] hash algorithm (:md5, :sha256)
     # @return [String] checksum
     def calculate_checksum(file_data, algorithm: :sha256)
-      require 'digest'
+      require "digest"
 
       digest_class = case algorithm
-                     when :md5
+      when :md5
                        Digest::MD5
-                     when :sha256
+      when :sha256
                        Digest::SHA256
-                     else
+      else
                        raise ArgumentError, "Unsupported algorithm: #{algorithm}"
-                     end
+      end
 
       if file_data.respond_to?(:read)
         file_data.rewind if file_data.respond_to?(:rewind)
@@ -188,9 +188,9 @@ module StorageProviders
       value = config(key)
       return nil unless value
 
-      if value.to_s.start_with?('encrypted:')
+      if value.to_s.start_with?("encrypted:")
         encryptor = AiCredentialEncryptionService.new
-        encrypted_value = value.to_s.sub('encrypted:', '')
+        encrypted_value = value.to_s.sub("encrypted:", "")
         encryptor.decrypt(encrypted_value)
       else
         value
@@ -216,11 +216,11 @@ module StorageProviders
     def validate_file_size!(file_data, max_size = 5.gigabytes)
       file_size = if file_data.respond_to?(:size)
                     file_data.size
-                  elsif file_data.respond_to?(:length)
+      elsif file_data.respond_to?(:length)
                     file_data.length
-                  else
+      else
                     0
-                  end
+      end
 
       if file_size > max_size
         raise ArgumentError, "File size #{file_size} bytes exceeds maximum #{max_size} bytes"
@@ -232,7 +232,7 @@ module StorageProviders
     # Sanitize storage key
     def sanitize_key(key)
       # Remove leading/trailing slashes, ensure valid path
-      key.to_s.gsub(%r{^/+|/+$}, '').gsub(/[^0-9A-Za-z.\-_\/]/, '_')
+      key.to_s.gsub(%r{^/+|/+$}, "").gsub(/[^0-9A-Za-z.\-_\/]/, "_")
     end
   end
 end

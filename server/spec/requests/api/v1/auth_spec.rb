@@ -40,7 +40,7 @@ RSpec.describe 'Api::V1::Auth', type: :request do
         expect(response_data['data']['user']).to include(
           'email' => 'newuser@example.com',
           'name' => 'John Doe',
-          'roles' => ['owner']
+          'roles' => [ 'owner' ]
         )
         expect(response_data['data']).to have_key('access_token')
         expect(response_data['data']).to have_key('refresh_token')
@@ -347,7 +347,7 @@ RSpec.describe 'Api::V1::Auth', type: :request do
 
     it 'successfully resets password with valid token' do
       old_password_digest = user.password_digest
-      
+
       post '/api/v1/auth/reset-password', params: valid_params, as: :json
 
       expect_success_response
@@ -370,10 +370,10 @@ RSpec.describe 'Api::V1::Auth', type: :request do
     it 'returns error for expired token' do
       # Create an expired reset token
       expired_token = user.generate_reset_token!
-      
+
       # Force the token to be expired
       user.update!(reset_token_expires_at: 1.hour.ago)
-      
+
       expired_params = valid_params.merge(token: expired_token)
 
       post '/api/v1/auth/reset-password', params: expired_params, as: :json

@@ -9,7 +9,7 @@ class Api::V1::InvoicesController < ApplicationController
 
     # Pagination using Kaminari
     page = params[:page] || 1
-    per_page = [params[:per_page]&.to_i || 25, 100].min # Default 25, max 100
+    per_page = [ params[:per_page]&.to_i || 25, 100 ].min # Default 25, max 100
 
     paginated_invoices = invoices.page(page).per(per_page)
 

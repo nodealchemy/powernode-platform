@@ -35,7 +35,7 @@ class McpTransportService
       last_ping: Time.current,
       capabilities: {},
       message_queue: [],
-      status: 'connected'
+      status: "connected"
     }
 
     # Initialize message queue for this connection
@@ -59,7 +59,7 @@ class McpTransportService
     raise ConnectionNotFoundError, "Connection not found: #{connection_id}" unless connection
 
     # Add to message queue if connection is not ready
-    if connection[:status] != 'connected'
+    if connection[:status] != "connected"
       queue_message(connection_id, message)
       return false
     end
@@ -100,14 +100,14 @@ class McpTransportService
     return unless connection
 
     # Mark as disconnected
-    connection[:status] = 'disconnected'
+    connection[:status] = "disconnected"
     connection[:disconnected_at] = Time.current
 
     # Store messages for potential reconnection
     preserve_connection_state(connection_id)
 
     # If this is the last connection, stop background threads
-    if @connections.values.count { |c| c[:status] == 'connected' } == 0
+    if @connections.values.count { |c| c[:status] == "connected" } == 0
       stop_background_threads
     end
 
@@ -133,7 +133,7 @@ class McpTransportService
 
     if existing_connection
       # Update existing connection
-      existing_connection[:status] = 'connected'
+      existing_connection[:status] = "connected"
       existing_connection[:reconnected_at] = Time.current
       existing_connection[:client_info].merge!(client_info)
 
@@ -193,8 +193,8 @@ class McpTransportService
 
     # Send pong response
     send_message(connection_id, {
-      jsonrpc: '2.0',
-      method: 'pong',
+      jsonrpc: "2.0",
+      method: "pong",
       params: { timestamp: Time.current.iso8601 }
     })
   end
@@ -206,7 +206,7 @@ class McpTransportService
     dead_count = 0
 
     @connections.each do |connection_id, connection|
-      next unless connection[:status] == 'connected'
+      next unless connection[:status] == "connected"
 
       # Check if connection is stale (no ping in last 60 seconds)
       if connection[:last_ping] < 60.seconds.ago
@@ -233,8 +233,8 @@ class McpTransportService
 
   # Get transport statistics
   def transport_stats
-    connected_count = @connections.count { |_, conn| conn[:status] == 'connected' }
-    disconnected_count = @connections.count { |_, conn| conn[:status] == 'disconnected' }
+    connected_count = @connections.count { |_, conn| conn[:status] == "connected" }
+    disconnected_count = @connections.count { |_, conn| conn[:status] == "disconnected" }
     total_queued_messages = @message_queue.values.sum(&:size)
 
     {
@@ -343,8 +343,8 @@ class McpTransportService
 
   def send_ping(connection_id)
     ping_message = {
-      jsonrpc: '2.0',
-      method: 'ping',
+      jsonrpc: "2.0",
+      method: "ping",
       params: { timestamp: Time.current.iso8601 }
     }
 
@@ -401,7 +401,7 @@ class McpTransportService
     @shutdown = true
 
     # Wait for threads to finish (with timeout)
-    [@health_monitor_thread, @cleanup_thread].compact.each do |thread|
+    [ @health_monitor_thread, @cleanup_thread ].compact.each do |thread|
       thread.join(10) # Wait max 10 seconds
       thread.kill if thread.alive? # Force kill if still running
     end
@@ -413,7 +413,7 @@ class McpTransportService
 
   def cleanup_expired_connections
     expired_connections = @connections.select do |_, connection|
-      connection[:status] == 'disconnected' &&
+      connection[:status] == "disconnected" &&
       connection[:preserved_until] &&
       connection[:preserved_until] < Time.current
     end

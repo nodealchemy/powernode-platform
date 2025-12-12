@@ -21,9 +21,9 @@ class CreateCircuitBreakers < ActiveRecord::Migration[7.1]
       t.datetime :half_opened_at
       t.timestamps
 
-      t.index [:service, :state]
+      t.index [ :service, :state ]
       t.index :state
-      t.index [:name, :service], unique: true
+      t.index [ :name, :service ], unique: true
     end
 
     create_table :circuit_breaker_events, id: :uuid do |t|
@@ -36,7 +36,7 @@ class CreateCircuitBreakers < ActiveRecord::Migration[7.1]
       t.integer :duration_ms
       t.timestamps
 
-      t.index [:circuit_breaker_id, :created_at]
+      t.index [ :circuit_breaker_id, :created_at ]
       t.index :event_type
     end
   end

@@ -68,7 +68,7 @@ class PluginNodeRegistryService
   def load_installed_node_plugins
     installations = PluginInstallation
       .joins(:plugin)
-      .where(account: account, status: 'active')
+      .where(account: account, status: "active")
       .where("'workflow_node' = ANY(plugins.plugin_types)")
       .includes(plugin: :workflow_node_plugins)
 

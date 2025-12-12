@@ -38,7 +38,7 @@ RSpec.describe SensitiveDataSanitizer do
         'normal_field' => 'safe data'
       }
       result = described_class.sanitize_hash(hash)
-      
+
       expect(result['card_number']).to eq('4242********4242')
       expect(result['cvv']).to eq('***')
       expect(result['normal_field']).to eq('safe data')
@@ -54,21 +54,21 @@ RSpec.describe SensitiveDataSanitizer do
         }
       }
       result = described_class.sanitize_hash(hash)
-      
+
       expect(result['payment']['card_number']).to eq('4242********4242')
       expect(result['payment']['metadata']['customer_id']).to eq('safe_id')
     end
 
     it 'sanitizes arrays containing sensitive data' do
       hash = {
-        'cards' => ['4242424242424242', '5555555555554444'],
-        'safe_array' => ['item1', 'item2']
+        'cards' => [ '4242424242424242', '5555555555554444' ],
+        'safe_array' => [ 'item1', 'item2' ]
       }
       result = described_class.sanitize_hash(hash)
-      
+
       expect(result['cards'][0]).to eq('4242********4242')
       expect(result['cards'][1]).to eq('5555********4444')
-      expect(result['safe_array']).to eq(['item1', 'item2'])
+      expect(result['safe_array']).to eq([ 'item1', 'item2' ])
     end
   end
 

@@ -36,7 +36,7 @@ end
 
 # Check permission categories
 permission_categories = Permission.pluck(:name).map { |name| name.split('.').first }.uniq
-expected_categories = ['users', 'admin', 'billing', 'system', 'analytics', 'pages', 'storage']
+expected_categories = [ 'users', 'admin', 'billing', 'system', 'analytics', 'pages', 'storage' ]
 missing_categories = expected_categories - permission_categories
 
 if missing_categories.any?
@@ -96,7 +96,7 @@ administrator_plan = Plan.find_or_create_by!(name: 'Administrator') do |plan|
   plan.limits = {
     'max_users' => 9999,
     'max_api_keys' => 100,
-    'max_webhooks' => 100,  
+    'max_webhooks' => 100,
     'max_workers' => 100
   }
   plan.is_public = false # Hidden from public view
@@ -307,7 +307,7 @@ begin
   end
 
   system_worker = Worker.find_by(name: 'System Worker')
-  
+
   if system_worker
     puts "✅ System worker already exists"
   else
@@ -315,7 +315,7 @@ begin
       name: 'System Worker',
       description: 'System worker for background processing and API communication',
       account: nil,
-      roles: ['system_worker'],
+      roles: [ 'system_worker' ],
       token: worker_token
     )
   end
@@ -332,7 +332,7 @@ end
 # Only create admin account in development/test environments
 if Rails.env.development? || Rails.env.test?
   puts "\n🏢 Creating development/test accounts..."
-  
+
   # Create admin account and user
   admin_account = Account.find_or_create_by!(
     name: 'Powernode Admin',
@@ -365,7 +365,7 @@ if Rails.env.development? || Rails.env.test?
     user.email_verified = true
     user.email_verified_at = Time.current
   end
-  
+
   # Ensure admin user has super_admin role with ALL permissions
   super_admin_role = Role.find_by(name: 'super_admin')
   if super_admin_role && !admin_user.roles.include?(super_admin_role)
@@ -419,7 +419,7 @@ if Rails.env.development? || Rails.env.test?
     user.email_verified = true
     user.email_verified_at = Time.current
   end
-  
+
   # Assign manager role
   if demo_manager.roles.empty?
     manager_role = Role.find_by(name: 'manager')
@@ -437,7 +437,7 @@ if Rails.env.development? || Rails.env.test?
     user.email_verified = true
     user.email_verified_at = Time.current
   end
-  
+
   # Assign member role
   if demo_member.roles.empty?
     member_role = Role.find_by(name: 'member')
@@ -771,7 +771,7 @@ Page.find_or_create_by!(slug: 'about') do |page|
 
     ## Our Story
 
-    Powernode was born from the frustration of managing subscriptions across multiple platforms, dealing with complex billing scenarios, and lacking actionable insights into customer behavior. 
+    Powernode was born from the frustration of managing subscriptions across multiple platforms, dealing with complex billing scenarios, and lacking actionable insights into customer behavior.#{' '}
 
     We set out to build a platform that would:
     - Simplify subscription billing and management
@@ -871,7 +871,7 @@ puts "\n🔧 Creating default site settings..."
 SiteSetting.set('site_name', 'Powernode', description: 'Name of the site', setting_type: 'string', is_public: true)
 SiteSetting.set('footer_description', 'Powerful subscription management platform designed to help businesses grow. Trusted by thousands of companies worldwide.', description: 'Footer description text', setting_type: 'text', is_public: true)
 
-# Copyright information  
+# Copyright information
 SiteSetting.set('copyright_text', 'All rights reserved.', description: 'Copyright text displayed in footer', setting_type: 'string', is_public: true)
 SiteSetting.set('copyright_year', Date.current.year.to_s, description: 'Copyright year', setting_type: 'string', is_public: true)
 

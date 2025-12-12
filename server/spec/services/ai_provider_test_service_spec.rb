@@ -7,7 +7,7 @@ RSpec.describe AiProviderTestService, type: :service do
   let(:openai_provider) { create(:ai_provider, :openai) }
   let(:anthropic_provider) { create(:ai_provider, :anthropic) }
   let(:ollama_provider) { create(:ai_provider, :ollama) }
-  
+
   let(:openai_credential) do
     create(:ai_provider_credential,
            account: account,
@@ -66,7 +66,7 @@ RSpec.describe AiProviderTestService, type: :service do
 
       it 'successfully tests OpenAI connection' do
         result = service.test_connection
-        
+
         expect(result[:success]).to be true
         expect(result[:response_time_ms]).to be > 0
         expect(result[:provider_type]).to eq('openai')
@@ -75,7 +75,7 @@ RSpec.describe AiProviderTestService, type: :service do
 
       it 'returns detailed connection metrics' do
         result = service.test_connection
-        
+
         expect(result).to include(
           :success,
           :response_time_ms,
@@ -91,16 +91,16 @@ RSpec.describe AiProviderTestService, type: :service do
       it 'measures response time accurately' do
         # Simulate delayed response
         stub_delayed_openai_response(delay: 1.5)
-        
+
         result = service.test_connection
-        
+
         expect(result[:response_time_ms]).to be > 1400
         expect(result[:response_time_ms]).to be < 2000
       end
 
       it 'tests with minimal test message' do
         result = service.test_connection
-        
+
         expect(result[:test_message_sent]).to include('Hello')
         expect(result[:test_message_received]).to be_present
         expect(result[:test_message_received].length).to be > 5
@@ -116,7 +116,7 @@ RSpec.describe AiProviderTestService, type: :service do
 
       it 'successfully tests Anthropic connection' do
         result = service.test_connection
-        
+
         expect(result[:success]).to be true
         expect(result[:provider_type]).to eq('anthropic')
         expect(result[:response_time_ms]).to be > 0
@@ -124,7 +124,7 @@ RSpec.describe AiProviderTestService, type: :service do
 
       it 'handles Anthropic-specific response format' do
         result = service.test_connection
-        
+
         expect(result[:provider_response]).to include('content')
         expect(result[:test_message_received]).to include('Hello')
       end
@@ -139,7 +139,7 @@ RSpec.describe AiProviderTestService, type: :service do
 
       it 'successfully tests Ollama connection' do
         result = service.test_connection
-        
+
         expect(result[:success]).to be true
         expect(result[:provider_type]).to eq('ollama')
         expect(result[:connection_type]).to eq('local')
@@ -153,15 +153,15 @@ RSpec.describe AiProviderTestService, type: :service do
                                    'base_url' => 'http://custom-host:11434',
                                    'model' => 'llama2'
                                  })
-        
+
         service = described_class.new(custom_credential)
-        
+
         stub_request(:post, 'http://custom-host:11434/api/chat')
           .to_return(
             status: 200,
             body: { message: { role: 'assistant', content: 'Hello!' } }.to_json
           )
-        
+
         result = service.test_connection
         expect(result[:success]).to be true
       end
@@ -175,7 +175,7 @@ RSpec.describe AiProviderTestService, type: :service do
           .to_return(status: 401, body: '{"error": {"code": "invalid_api_key"}}')
 
         result = service.test_connection
-        
+
         expect(result[:success]).to be false
         expect(result[:error_type]).to eq('authentication_error')
         expect(result[:error_details]).to include('invalid_api_key')
@@ -186,7 +186,7 @@ RSpec.describe AiProviderTestService, type: :service do
           .to_timeout
 
         result = service.test_connection
-        
+
         expect(result[:success]).to be false
         expect(result[:error_type]).to eq('network_timeout')
         expect(result[:response_time_ms]).to be_nil
@@ -201,7 +201,7 @@ RSpec.describe AiProviderTestService, type: :service do
           )
 
         result = service.test_connection
-        
+
         expect(result[:success]).to be false
         expect(result[:error_type]).to eq('rate_limit_exceeded')
         expect(result[:retry_after_seconds]).to eq(60)
@@ -212,7 +212,7 @@ RSpec.describe AiProviderTestService, type: :service do
           .to_return(status: 500, body: 'Internal Server Error')
 
         result = service.test_connection
-        
+
         expect(result[:success]).to be false
         expect(result[:error_type]).to eq('server_error')
         expect(result[:status_code]).to eq(500)
@@ -223,7 +223,7 @@ RSpec.describe AiProviderTestService, type: :service do
           .to_return(status: 200, body: 'invalid json response')
 
         result = service.test_connection
-        
+
         expect(result[:success]).to be false
         expect(result[:error_type]).to eq('invalid_response')
       end
@@ -239,7 +239,7 @@ RSpec.describe AiProviderTestService, type: :service do
 
     it 'performs comprehensive testing with detailed metrics' do
       result = service.test_with_details
-      
+
       expect(result).to include(
         :connection_test,
         :performance_metrics,
@@ -252,7 +252,7 @@ RSpec.describe AiProviderTestService, type: :service do
 
     it 'includes performance benchmarks' do
       result = service.test_with_details
-      
+
       performance = result[:performance_metrics]
       expect(performance).to include(
         :average_response_time,
@@ -264,7 +264,7 @@ RSpec.describe AiProviderTestService, type: :service do
 
     it 'tests various capabilities' do
       result = service.test_with_details
-      
+
       capabilities = result[:capability_tests]
       expect(capabilities).to include(
         :text_generation,
@@ -276,7 +276,7 @@ RSpec.describe AiProviderTestService, type: :service do
 
     it 'tests error handling scenarios' do
       result = service.test_with_details
-      
+
       error_tests = result[:error_handling_tests]
       expect(error_tests).to include(
         :invalid_request_handling,
@@ -287,7 +287,7 @@ RSpec.describe AiProviderTestService, type: :service do
 
     it 'calculates overall health score' do
       result = service.test_with_details
-      
+
       health_score = result[:overall_health_score]
       expect(health_score).to be >= 0
       expect(health_score).to be <= 1
@@ -295,10 +295,10 @@ RSpec.describe AiProviderTestService, type: :service do
 
     it 'provides actionable recommendations' do
       result = service.test_with_details
-      
+
       recommendations = result[:recommendations]
       expect(recommendations).to be_an(Array)
-      
+
       if recommendations.any?
         rec = recommendations.first
         expect(rec).to include(:type, :description, :priority)
@@ -316,17 +316,17 @@ RSpec.describe AiProviderTestService, type: :service do
     it 'performs continuous monitoring' do
       expect {
         service.start_continuous_health_check(interval: 0.1, duration: 0.5)
-      }.to change { 
-        service.instance_variable_get(:@health_check_results)&.size || 0 
+      }.to change {
+        service.instance_variable_get(:@health_check_results)&.size || 0
       }.by_at_least(3)
     end
 
     it 'tracks health metrics over time' do
       service.start_continuous_health_check(interval: 0.1, duration: 0.3)
-      
+
       results = service.get_health_check_history
       expect(results.size).to be >= 2
-      
+
       first_result = results.first
       expect(first_result).to include(
         :timestamp,
@@ -340,18 +340,18 @@ RSpec.describe AiProviderTestService, type: :service do
       # First, establish baseline with good performance
       stub_successful_openai_connection
       service.start_continuous_health_check(interval: 0.1, duration: 0.2)
-      
+
       # Then simulate degraded performance
       stub_delayed_openai_response(delay: 3.0)
       service.start_continuous_health_check(interval: 0.1, duration: 0.2)
-      
+
       degradation = service.detect_performance_degradation
       expect(degradation[:degradation_detected]).to be true
     end
 
     it 'provides health trend analysis' do
       service.start_continuous_health_check(interval: 0.1, duration: 0.5)
-      
+
       trends = service.analyze_health_trends
       expect(trends).to include(
         :trend_direction,
@@ -375,7 +375,7 @@ RSpec.describe AiProviderTestService, type: :service do
         duration_seconds: 2,
         ramp_up_time: 0.5
       )
-      
+
       expect(load_test_result).to include(
         :total_requests,
         :successful_requests,
@@ -389,7 +389,7 @@ RSpec.describe AiProviderTestService, type: :service do
 
     it 'measures throughput under load' do
       result = service.load_test(concurrent_requests: 3, duration_seconds: 1)
-      
+
       expect(result[:total_requests]).to be >= 3
       expect(result[:requests_per_second]).to be > 0
       expect(result[:throughput_score]).to be >= 0
@@ -404,10 +404,10 @@ RSpec.describe AiProviderTestService, type: :service do
           if request_count > 3
             { status: 429, body: '{"error": {"code": "rate_limit_exceeded"}}' }
           else
-            { 
-              status: 200, 
+            {
+              status: 200,
               body: {
-                choices: [{ message: { role: 'assistant', content: 'Hello!' } }],
+                choices: [ { message: { role: 'assistant', content: 'Hello!' } } ],
                 usage: { total_tokens: 10 }
               }.to_json
             }
@@ -415,7 +415,7 @@ RSpec.describe AiProviderTestService, type: :service do
         end
 
       result = service.load_test(concurrent_requests: 5, duration_seconds: 1)
-      
+
       expect(result[:rate_limit_encountered]).to be true
       expect(result[:rate_limit_threshold]).to be_present
     end
@@ -425,15 +425,15 @@ RSpec.describe AiProviderTestService, type: :service do
     let(:service) { described_class.new(openai_credential) }
 
     it 'tests availability of specified models' do
-      models_to_test = ['gpt-3.5-turbo', 'gpt-4', 'gpt-4-turbo']
-      
+      models_to_test = [ 'gpt-3.5-turbo', 'gpt-4', 'gpt-4-turbo' ]
+
       models_to_test.each do |model|
         stub_request(:post, 'https://api.openai.com/v1/chat/completions')
           .with(body: hash_including(model: model))
           .to_return(
             status: 200,
             body: {
-              choices: [{ message: { role: 'assistant', content: 'Test response' } }],
+              choices: [ { message: { role: 'assistant', content: 'Test response' } } ],
               model: model,
               usage: { total_tokens: 15 }
             }.to_json
@@ -441,7 +441,7 @@ RSpec.describe AiProviderTestService, type: :service do
       end
 
       availability_results = service.test_model_availability(models_to_test)
-      
+
       expect(availability_results).to be_a(Hash)
       models_to_test.each do |model|
         expect(availability_results[model]).to include(
@@ -454,7 +454,7 @@ RSpec.describe AiProviderTestService, type: :service do
 
     it 'handles model unavailability' do
       unavailable_model = 'gpt-5-nonexistent'
-      
+
       stub_request(:post, 'https://api.openai.com/v1/chat/completions')
         .with(body: hash_including(model: unavailable_model))
         .to_return(
@@ -462,8 +462,8 @@ RSpec.describe AiProviderTestService, type: :service do
           body: '{"error": {"code": "model_not_found", "message": "Model not found"}}'
         )
 
-      result = service.test_model_availability([unavailable_model])
-      
+      result = service.test_model_availability([ unavailable_model ])
+
       expect(result[unavailable_model][:available]).to be false
       expect(result[unavailable_model][:error]).to include('model_not_found')
     end
@@ -478,7 +478,7 @@ RSpec.describe AiProviderTestService, type: :service do
 
     it 'benchmarks various performance aspects' do
       benchmark_result = service.benchmark_performance
-      
+
       expect(benchmark_result).to include(
         :latency_benchmark,
         :throughput_benchmark,
@@ -490,7 +490,7 @@ RSpec.describe AiProviderTestService, type: :service do
 
     it 'measures latency across different request sizes' do
       benchmark = service.benchmark_performance
-      
+
       latency = benchmark[:latency_benchmark]
       expect(latency).to include(
         :small_request_latency,
@@ -502,7 +502,7 @@ RSpec.describe AiProviderTestService, type: :service do
 
     it 'evaluates response quality metrics' do
       benchmark = service.benchmark_performance
-      
+
       quality = benchmark[:quality_benchmark]
       expect(quality).to include(
         :response_relevance,
@@ -513,7 +513,7 @@ RSpec.describe AiProviderTestService, type: :service do
 
     it 'calculates cost efficiency scores' do
       benchmark = service.benchmark_performance
-      
+
       cost = benchmark[:cost_benchmark]
       expect(cost).to include(
         :cost_per_token,
@@ -535,7 +535,7 @@ RSpec.describe AiProviderTestService, type: :service do
 
     it 'generates comprehensive test report' do
       report = service.generate_test_report
-      
+
       expect(report).to include(
         :summary,
         :test_results,
@@ -548,7 +548,7 @@ RSpec.describe AiProviderTestService, type: :service do
 
     it 'includes executive summary' do
       report = service.generate_test_report
-      
+
       summary = report[:summary]
       expect(summary).to include(
         :overall_status,
@@ -560,7 +560,7 @@ RSpec.describe AiProviderTestService, type: :service do
 
     it 'provides detailed performance analysis' do
       report = service.generate_test_report
-      
+
       analysis = report[:performance_analysis]
       expect(analysis).to include(
         :response_time_analysis,
@@ -572,10 +572,10 @@ RSpec.describe AiProviderTestService, type: :service do
 
     it 'includes actionable recommendations' do
       report = service.generate_test_report
-      
+
       recommendations = report[:recommendations]
       expect(recommendations).to be_an(Array)
-      
+
       if recommendations.any?
         rec = recommendations.first
         expect(rec).to include(
@@ -594,7 +594,7 @@ RSpec.describe AiProviderTestService, type: :service do
         openai_credential
         anthropic_credential
         ollama_credential
-        
+
         stub_successful_openai_connection
         stub_successful_anthropic_connection
         stub_successful_ollama_connection
@@ -602,10 +602,10 @@ RSpec.describe AiProviderTestService, type: :service do
 
       it 'tests all credentials for an account' do
         results = described_class.test_all_credentials(account)
-        
+
         expect(results).to be_an(Array)
         expect(results.size).to eq(3)
-        
+
         results.each do |result|
           expect(result).to include(
             :credential_id,
@@ -619,7 +619,7 @@ RSpec.describe AiProviderTestService, type: :service do
       it 'provides summary statistics' do
         results = described_class.test_all_credentials(account)
         summary = described_class.summarize_test_results(results)
-        
+
         expect(summary).to include(
           :total_credentials,
           :successful_tests,
@@ -634,9 +634,9 @@ RSpec.describe AiProviderTestService, type: :service do
     describe '.health_check_all_providers' do
       it 'performs health checks across all active providers' do
         create_list(:ai_provider, 3, :active)
-        
+
         health_results = described_class.health_check_all_providers
-        
+
         expect(health_results).to be_an(Array)
         expect(health_results.size).to eq(3)
       end
@@ -707,7 +707,7 @@ RSpec.describe AiProviderTestService, type: :service do
         {
           status: 200,
           body: {
-            choices: [{ message: { role: 'assistant', content: 'Delayed response' } }],
+            choices: [ { message: { role: 'assistant', content: 'Delayed response' } } ],
             usage: { total_tokens: 15 }
           }.to_json
         }

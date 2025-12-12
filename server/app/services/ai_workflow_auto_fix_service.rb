@@ -81,9 +81,9 @@ class AiWorkflowAutoFixService
 
     issue = if node_id
               validation_result[:issues].find { |i| i[:code] == issue_code && i[:node_id] == node_id }
-            else
+    else
               validation_result[:issues].find { |i| i[:code] == issue_code }
-            end
+    end
 
     unless issue
       return {
@@ -145,15 +145,15 @@ class AiWorkflowAutoFixService
 
   def fix_issue_code(code, issue)
     case code
-    when 'missing_start_node'
+    when "missing_start_node"
       fix_missing_start_node
-    when 'missing_timeout', 'missing_approval_timeout'
+    when "missing_timeout", "missing_approval_timeout"
       fix_missing_timeout(issue)
-    when 'missing_max_iterations'
+    when "missing_max_iterations"
       fix_missing_max_iterations(issue)
-    when 'orphaned_node'
+    when "orphaned_node"
       fix_orphaned_node(issue)
-    when 'missing_configuration'
+    when "missing_configuration"
       fix_missing_configuration(issue)
     else
       log_error("No auto-fix implementation for issue code: #{code}")
@@ -167,13 +167,13 @@ class AiWorkflowAutoFixService
     # Find nodes with no incoming edges (potential start nodes)
     candidate_nodes = nodes.select { |n| n.target_edges.empty? && !n.is_start_node }
 
-    return log_error('No candidate nodes found for start node') if candidate_nodes.empty?
+    return log_error("No candidate nodes found for start node") if candidate_nodes.empty?
 
     # Mark the first candidate as start node
     start_node = candidate_nodes.first
     start_node.update!(is_start_node: true)
 
-    log_fix('missing_start_node', "Marked '#{start_node.name}' as start node")
+    log_fix("missing_start_node", "Marked '#{start_node.name}' as start node")
     true
   rescue => e
     log_error("Failed to fix missing_start_node: #{e.message}")
@@ -188,22 +188,22 @@ class AiWorkflowAutoFixService
 
     # Determine appropriate timeout based on node type
     default_timeout = case node.node_type
-                      when 'ai_agent'
+    when "ai_agent"
                         120 # 2 minutes for AI agents
-                      when 'api_call', 'http_request', 'webhook'
+    when "api_call", "http_request", "webhook"
                         30 # 30 seconds for API calls
-                      when 'human_approval'
+    when "human_approval"
                         86400 # 1 day for human approval
-                      else
+    else
                         60 # 1 minute default
-                      end
+    end
 
     # Get recommended timeout from issue metadata if available
     recommended_timeout = issue.dig(:metadata, :recommended_timeout) || default_timeout
 
     # Update configuration
     config = node.configuration || {}
-    timeout_key = node.node_type == 'human_approval' ? 'approval_timeout_seconds' : 'timeout_seconds'
+    timeout_key = node.node_type == "human_approval" ? "approval_timeout_seconds" : "timeout_seconds"
     config[timeout_key] = recommended_timeout
     node.update!(configuration: config)
 
@@ -223,10 +223,10 @@ class AiWorkflowAutoFixService
     recommended_max = issue.dig(:metadata, :recommended_max_iterations) || 1000
 
     config = node.configuration || {}
-    config['max_iterations'] = recommended_max
+    config["max_iterations"] = recommended_max
     node.update!(configuration: config)
 
-    log_fix('missing_max_iterations', "Set max_iterations to #{recommended_max} for '#{node.name}'")
+    log_fix("missing_max_iterations", "Set max_iterations to #{recommended_max} for '#{node.name}'")
     true
   rescue => e
     log_error("Failed to fix missing_max_iterations: #{e.message}")
@@ -241,21 +241,21 @@ class AiWorkflowAutoFixService
 
     # Find start node or first node
     start_node = workflow.ai_workflow_nodes.find_by(is_start_node: true) ||
-                 workflow.ai_workflow_nodes.where(node_type: 'trigger').first ||
+                 workflow.ai_workflow_nodes.where(node_type: "trigger").first ||
                  workflow.ai_workflow_nodes.order(:created_at).first
 
-    return log_error('No start node found to connect to') if start_node.nil? || start_node.id == orphaned_node.id
+    return log_error("No start node found to connect to") if start_node.nil? || start_node.id == orphaned_node.id
 
     # Create edge from start node to orphaned node
     edge = workflow.ai_workflow_edges.create!(
       edge_id: SecureRandom.uuid,
       source_node_id: start_node.id,
       target_node_id: orphaned_node.id,
-      edge_type: 'default',
-      metadata: { auto_created: true, created_by: 'auto_fix' }
+      edge_type: "default",
+      metadata: { auto_created: true, created_by: "auto_fix" }
     )
 
-    log_fix('orphaned_node', "Connected '#{orphaned_node.name}' to '#{start_node.name}'")
+    log_fix("orphaned_node", "Connected '#{orphaned_node.name}' to '#{start_node.name}'")
     true
   rescue => e
     log_error("Failed to fix orphaned_node: #{e.message}")
@@ -272,7 +272,7 @@ class AiWorkflowAutoFixService
     default_config = get_default_configuration(node.node_type)
     node.update!(configuration: default_config)
 
-    log_fix('missing_configuration', "Applied default configuration for '#{node.name}'")
+    log_fix("missing_configuration", "Applied default configuration for '#{node.name}'")
     true
   rescue => e
     log_error("Failed to fix missing_configuration: #{e.message}")
@@ -285,35 +285,35 @@ class AiWorkflowAutoFixService
 
   def get_default_configuration(node_type)
     case node_type
-    when 'ai_agent'
+    when "ai_agent"
       {
-        'prompt' => 'Enter your prompt here',
-        'temperature' => 0.7,
-        'max_tokens' => 1000
+        "prompt" => "Enter your prompt here",
+        "temperature" => 0.7,
+        "max_tokens" => 1000
       }
-    when 'api_call', 'http_request'
+    when "api_call", "http_request"
       {
-        'url' => 'https://api.example.com/endpoint',
-        'method' => 'GET',
-        'headers' => {}
+        "url" => "https://api.example.com/endpoint",
+        "method" => "GET",
+        "headers" => {}
       }
-    when 'condition'
+    when "condition"
       {
-        'conditions' => [],
-        'has_default_branch' => true
+        "conditions" => [],
+        "has_default_branch" => true
       }
-    when 'loop'
+    when "loop"
       {
-        'iteration_source' => 'array',
-        'max_iterations' => 1000
+        "iteration_source" => "array",
+        "max_iterations" => 1000
       }
-    when 'delay'
+    when "delay"
       {
-        'delay_seconds' => 60
+        "delay_seconds" => 60
       }
-    when 'transform'
+    when "transform"
       {
-        'transformations' => []
+        "transformations" => []
       }
     else
       {}
@@ -322,22 +322,22 @@ class AiWorkflowAutoFixService
 
   def get_fix_description(issue_code)
     descriptions = {
-      'missing_start_node' => 'Mark the first unconnected node as the workflow start',
-      'missing_timeout' => 'Set a reasonable timeout value based on node type',
-      'missing_max_iterations' => 'Set a safe maximum iteration limit to prevent infinite loops',
-      'missing_approval_timeout' => 'Set a default approval timeout to prevent indefinite waits',
-      'orphaned_node' => 'Connect the orphaned node to the workflow start',
-      'missing_configuration' => 'Apply default configuration for the node type'
+      "missing_start_node" => "Mark the first unconnected node as the workflow start",
+      "missing_timeout" => "Set a reasonable timeout value based on node type",
+      "missing_max_iterations" => "Set a safe maximum iteration limit to prevent infinite loops",
+      "missing_approval_timeout" => "Set a default approval timeout to prevent indefinite waits",
+      "orphaned_node" => "Connect the orphaned node to the workflow start",
+      "missing_configuration" => "Apply default configuration for the node type"
     }
 
-    descriptions[issue_code] || 'Apply automatic fix'
+    descriptions[issue_code] || "Apply automatic fix"
   end
 
   def get_estimated_improvement(issue)
     improvements = {
-      'error' => 15,
-      'warning' => 5,
-      'info' => 2
+      "error" => 15,
+      "warning" => 5,
+      "info" => 2
     }
 
     improvements[issue[:severity]] || 0

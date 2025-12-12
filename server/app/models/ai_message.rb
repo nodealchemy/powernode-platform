@@ -11,8 +11,8 @@ class AiMessage < ApplicationRecord
   belongs_to :ai_conversation
   belongs_to :ai_agent
   belongs_to :user, optional: true
-  belongs_to :parent_message, class_name: 'AiMessage', optional: true
-  has_many :child_messages, class_name: 'AiMessage', foreign_key: 'parent_message_id', dependent: :nullify
+  belongs_to :parent_message, class_name: "AiMessage", optional: true
+  has_many :child_messages, class_name: "AiMessage", foreign_key: "parent_message_id", dependent: :nullify
 
   # Delegations
   delegate :account, to: :ai_conversation
@@ -30,11 +30,11 @@ class AiMessage < ApplicationRecord
 
   # Scopes
   scope :by_role, ->(role) { where(role: role) }
-  scope :user_messages, -> { where(role: 'user') }
-  scope :assistant_messages, -> { where(role: 'assistant') }
-  scope :system_messages, -> { where(role: 'system') }
+  scope :user_messages, -> { where(role: "user") }
+  scope :assistant_messages, -> { where(role: "assistant") }
+  scope :system_messages, -> { where(role: "system") }
   scope :by_type, ->(type) { where(message_type: type) }
-  scope :text_messages, -> { where(message_type: 'text') }
+  scope :text_messages, -> { where(message_type: "text") }
   scope :with_attachments, -> { where.not(attachments: []) }
   scope :ordered, -> { order(:sequence_number) }
   scope :recent, -> { order(created_at: :desc) }
@@ -49,15 +49,15 @@ class AiMessage < ApplicationRecord
 
   # Methods
   def user_message?
-    role == 'user'
+    role == "user"
   end
 
   def assistant_message?
-    role == 'assistant'
+    role == "assistant"
   end
 
   def system_message?
-    role == 'system'
+    role == "system"
   end
 
   def has_attachments?
@@ -65,28 +65,28 @@ class AiMessage < ApplicationRecord
   end
 
   def text_content?
-    message_type == 'text'
+    message_type == "text"
   end
 
   def processing?
-    status == 'processing'
+    status == "processing"
   end
 
   def completed?
-    status == 'completed'
+    status == "completed"
   end
 
   def failed?
-    status == 'failed'
+    status == "failed"
   end
 
   def mark_processing!
-    update!(status: 'processing', processed_at: Time.current)
+    update!(status: "processing", processed_at: Time.current)
   end
 
   def mark_completed!(token_count: nil, cost: nil, metadata: {})
     update!(
-      status: 'completed',
+      status: "completed",
       processed_at: Time.current,
       token_count: token_count || self.token_count,
       cost_usd: cost || self.cost_usd,
@@ -96,7 +96,7 @@ class AiMessage < ApplicationRecord
 
   def mark_failed!(error_message, metadata: {})
     update!(
-      status: 'failed',
+      status: "failed",
       error_message: error_message&.truncate(1000),
       processing_metadata: processing_metadata.merge(metadata),
       processed_at: Time.current
@@ -104,35 +104,35 @@ class AiMessage < ApplicationRecord
   end
 
   def edit_content!(new_content, user: nil)
-    raise ArgumentError, 'Cannot edit system messages' if system_message?
-    
+    raise ArgumentError, "Cannot edit system messages" if system_message?
+
     old_content = content
-    
+
     update!(
       content: new_content,
       is_edited: true,
       edited_at: Time.current
     )
-    
+
     add_to_edit_history(old_content, user)
   end
 
   def attachment_summary
     return [] unless has_attachments?
-    
+
     attachments.map do |attachment|
       {
-        type: attachment['type'],
-        name: attachment['name'],
-        size: attachment['size'],
-        url: attachment['url']
+        type: attachment["type"],
+        name: attachment["name"],
+        size: attachment["size"],
+        url: attachment["url"]
       }
     end
   end
 
   def content_preview(limit: 100)
     return content if content.length <= limit
-    
+
     "#{content[0..limit-3]}..."
   end
 
@@ -160,7 +160,7 @@ class AiMessage < ApplicationRecord
 
   def thread_messages
     # Get all messages in this thread (parent + children)
-    messages = [self]
+    messages = [ self ]
     messages += child_messages.ordered
     messages += parent_message.child_messages.ordered if parent_message
     messages.uniq.sort_by(&:sequence_number)
@@ -169,16 +169,16 @@ class AiMessage < ApplicationRecord
   def can_edit?(user)
     return false if system_message?
     return true if self.user == user
-    return true if user.permissions.include?('ai.messages.manage')
-    
+    return true if user.permissions.include?("ai.messages.manage")
+
     false
   end
 
   def can_delete?(user)
     return false if system_message?
     return true if self.user == user
-    return true if user.permissions.include?('ai.messages.manage')
-    
+    return true if user.permissions.include?("ai.messages.manage")
+
     false
   end
 
@@ -188,12 +188,12 @@ class AiMessage < ApplicationRecord
 
   def display_role
     case role
-    when 'user'
-      user&.full_name || 'User'
-    when 'assistant'
+    when "user"
+      user&.full_name || "User"
+    when "assistant"
       ai_conversation.ai_agent&.name || ai_conversation.ai_provider.name
-    when 'system'
-      'System'
+    when "system"
+      "System"
     else
       role.humanize
     end
@@ -207,14 +207,14 @@ class AiMessage < ApplicationRecord
 
   def update_conversation_tokens_and_cost
     return unless token_count > 0 || cost_usd > 0
-    
+
     ai_conversation.increment!(:total_tokens, token_count)
     ai_conversation.increment!(:total_cost, cost_usd) if cost_usd > 0
   end
 
   def track_edit_history
     return unless is_edited?
-    
+
     previous_content = content_before_last_save
     add_to_edit_history(previous_content)
   end
@@ -225,8 +225,8 @@ class AiMessage < ApplicationRecord
       edited_at: Time.current.iso8601,
       edited_by: edited_by&.full_name || user&.full_name
     }
-    
-    new_history = (edit_history || []) + [edit_entry]
+
+    new_history = (edit_history || []) + [ edit_entry ]
     update_column(:edit_history, new_history)
   end
 end

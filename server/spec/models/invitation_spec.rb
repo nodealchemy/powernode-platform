@@ -156,7 +156,7 @@ RSpec.describe Invitation, type: :model do
         )
         invitation.save
 
-        expect(invitation.role_names).to eq(['member'])
+        expect(invitation.role_names).to eq([ 'member' ])
       end
     end
   end
@@ -304,13 +304,13 @@ RSpec.describe Invitation, type: :model do
       end
 
       it 'validates all role names exist' do
-        invitation.role_names = ['member', 'invalid-role']
+        invitation.role_names = [ 'member', 'invalid-role' ]
         expect(invitation).not_to be_valid
         expect(invitation.errors[:role_names]).to include(/contains invalid roles/)
       end
 
       it 'allows valid role names' do
-        invitation.role_names = ['member']
+        invitation.role_names = [ 'member' ]
         expect(invitation).to be_valid
       end
 

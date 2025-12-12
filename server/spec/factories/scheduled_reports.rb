@@ -3,7 +3,7 @@ FactoryBot.define do
     name { "Monthly Revenue Report" }
     report_type { "revenue_report" }
     frequency { "monthly" }
-    recipients { ["admin@example.com", "billing@example.com"] }
+    recipients { [ "admin@example.com", "billing@example.com" ] }
     format { "pdf" }
     association :account
     association :user

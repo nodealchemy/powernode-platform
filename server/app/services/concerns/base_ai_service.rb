@@ -192,7 +192,7 @@ module BaseAiService
     duration_ms = ((Time.current - start_time) * 1000).round
 
     @telemetry.record_metric(
-      metric_type: 'operation.success',
+      metric_type: "operation.success",
       metric_name: operation,
       value: duration_ms,
       metadata: {
@@ -208,7 +208,7 @@ module BaseAiService
     duration_ms = ((Time.current - start_time) * 1000).round
 
     @telemetry.record_metric(
-      metric_type: 'operation.error',
+      metric_type: "operation.error",
       metric_name: operation,
       value: 1,
       metadata: {
@@ -224,7 +224,7 @@ module BaseAiService
 
   def record_cost_metric(cost_data)
     @telemetry.record_metric(
-      metric_type: 'cost.incurred',
+      metric_type: "cost.incurred",
       metric_name: cost_data[:operation],
       value: cost_data[:cost_usd],
       metadata: cost_data
@@ -233,7 +233,7 @@ module BaseAiService
 
   def record_error_event(error_details)
     @telemetry.record_event(
-      event_type: 'service.error',
+      event_type: "service.error",
       event_data: error_details
     )
   end
@@ -248,7 +248,7 @@ module BaseAiService
 
   def log_operation_complete(operation, start_time, error, metadata)
     duration_ms = ((Time.current - start_time) * 1000).round
-    status = error ? 'failed' : 'completed'
+    status = error ? "failed" : "completed"
 
     log_info "#{operation.capitalize} #{status}", {
       duration_ms: duration_ms,
@@ -257,7 +257,7 @@ module BaseAiService
   end
 
   def format_log_data(data)
-    return '' if data.empty?
+    return "" if data.empty?
 
     "| #{data.map { |k, v| "#{k}=#{v}" }.join(' ')}"
   end

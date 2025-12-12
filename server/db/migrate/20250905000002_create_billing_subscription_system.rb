@@ -32,11 +32,11 @@ class CreateBillingSubscriptionSystem < ActiveRecord::Migration[8.0]
       t.string :paypal_plan_id
       t.string :currency, limit: 3, default: 'USD'
       t.timestamps null: false
-      
-      t.index [:slug], unique: true, name: 'idx_plans_on_slug_unique'
-      t.index [:is_active], name: 'idx_plans_on_is_active'
-      t.index [:is_public], name: 'idx_plans_on_is_public'
-      t.index [:billing_interval], name: 'idx_plans_on_billing_interval'
+
+      t.index [ :slug ], unique: true, name: 'idx_plans_on_slug_unique'
+      t.index [ :is_active ], name: 'idx_plans_on_is_active'
+      t.index [ :is_public ], name: 'idx_plans_on_is_public'
+      t.index [ :billing_interval ], name: 'idx_plans_on_billing_interval'
     end
 
     # Create subscriptions table
@@ -58,12 +58,12 @@ class CreateBillingSubscriptionSystem < ActiveRecord::Migration[8.0]
       t.string :paypal_plan_id
       t.jsonb :metadata, default: {}
       t.timestamps null: false
-      
-      t.index [:status], name: 'idx_subscriptions_on_status'
-      t.index [:current_period_end], name: 'idx_subscriptions_on_current_period_end'
-      t.index [:trial_end], name: 'idx_subscriptions_on_trial_end'
-      t.index [:stripe_subscription_id], unique: true, where: "stripe_subscription_id IS NOT NULL", name: 'idx_subscriptions_on_stripe_id_unique'
-      t.index [:paypal_subscription_id], unique: true, where: "paypal_subscription_id IS NOT NULL", name: 'idx_subscriptions_on_paypal_id_unique'
+
+      t.index [ :status ], name: 'idx_subscriptions_on_status'
+      t.index [ :current_period_end ], name: 'idx_subscriptions_on_current_period_end'
+      t.index [ :trial_end ], name: 'idx_subscriptions_on_trial_end'
+      t.index [ :stripe_subscription_id ], unique: true, where: "stripe_subscription_id IS NOT NULL", name: 'idx_subscriptions_on_stripe_id_unique'
+      t.index [ :paypal_subscription_id ], unique: true, where: "paypal_subscription_id IS NOT NULL", name: 'idx_subscriptions_on_paypal_id_unique'
     end
 
     # Create payment_methods table
@@ -82,10 +82,10 @@ class CreateBillingSubscriptionSystem < ActiveRecord::Migration[8.0]
       t.boolean :is_active, default: true
       t.jsonb :metadata, default: {}
       t.timestamps null: false
-      
-      t.index [:account_id, :is_default], unique: true, where: "is_default = true", name: 'idx_payment_methods_on_account_default_unique'
-      t.index [:gateway, :external_id], unique: true, name: 'idx_payment_methods_on_gateway_external_id_unique'
-      t.index [:is_active], name: 'idx_payment_methods_on_is_active'
+
+      t.index [ :account_id, :is_default ], unique: true, where: "is_default = true", name: 'idx_payment_methods_on_account_default_unique'
+      t.index [ :gateway, :external_id ], unique: true, name: 'idx_payment_methods_on_gateway_external_id_unique'
+      t.index [ :is_active ], name: 'idx_payment_methods_on_is_active'
     end
 
     # Create payments table
@@ -106,11 +106,11 @@ class CreateBillingSubscriptionSystem < ActiveRecord::Migration[8.0]
       t.jsonb :gateway_response, default: {}
       t.jsonb :metadata, default: {}
       t.timestamps null: false
-      
-      t.index [:status], name: 'idx_payments_on_status'
-      t.index [:gateway, :external_id], unique: true, where: "external_id IS NOT NULL", name: 'idx_payments_on_gateway_external_id_unique'
-      t.index [:processed_at], name: 'idx_payments_on_processed_at'
-      t.index [:transaction_type], name: 'idx_payments_on_transaction_type'
+
+      t.index [ :status ], name: 'idx_payments_on_status'
+      t.index [ :gateway, :external_id ], unique: true, where: "external_id IS NOT NULL", name: 'idx_payments_on_gateway_external_id_unique'
+      t.index [ :processed_at ], name: 'idx_payments_on_processed_at'
+      t.index [ :transaction_type ], name: 'idx_payments_on_transaction_type'
     end
 
     # Create invoices table
@@ -132,14 +132,14 @@ class CreateBillingSubscriptionSystem < ActiveRecord::Migration[8.0]
       t.string :paypal_invoice_id, limit: 100
       t.jsonb :metadata, default: {}
       t.timestamps null: false
-      
-      t.index [:invoice_number], unique: true, name: 'idx_invoices_on_invoice_number_unique'
-      t.index [:status], name: 'idx_invoices_on_status'
-      t.index [:issued_at], name: 'idx_invoices_on_issued_at'
-      t.index [:due_at], name: 'idx_invoices_on_due_at'
-      t.index [:paid_at], name: 'idx_invoices_on_paid_at'
-      t.index [:stripe_invoice_id], unique: true, where: "stripe_invoice_id IS NOT NULL", name: 'idx_invoices_on_stripe_id_unique'
-      t.index [:paypal_invoice_id], unique: true, where: "paypal_invoice_id IS NOT NULL", name: 'idx_invoices_on_paypal_id_unique'
+
+      t.index [ :invoice_number ], unique: true, name: 'idx_invoices_on_invoice_number_unique'
+      t.index [ :status ], name: 'idx_invoices_on_status'
+      t.index [ :issued_at ], name: 'idx_invoices_on_issued_at'
+      t.index [ :due_at ], name: 'idx_invoices_on_due_at'
+      t.index [ :paid_at ], name: 'idx_invoices_on_paid_at'
+      t.index [ :stripe_invoice_id ], unique: true, where: "stripe_invoice_id IS NOT NULL", name: 'idx_invoices_on_stripe_id_unique'
+      t.index [ :paypal_invoice_id ], unique: true, where: "paypal_invoice_id IS NOT NULL", name: 'idx_invoices_on_paypal_id_unique'
     end
 
     # Create invoice_line_items table
@@ -156,9 +156,9 @@ class CreateBillingSubscriptionSystem < ActiveRecord::Migration[8.0]
       t.datetime :period_end
       t.jsonb :metadata, default: {}
       t.timestamps null: false
-      
-      t.index [:invoice_id], name: 'idx_invoice_line_items_on_invoice_id'
-      t.index [:plan_id], name: 'idx_invoice_line_items_on_plan_id'
+
+      t.index [ :invoice_id ], name: 'idx_invoice_line_items_on_invoice_id'
+      t.index [ :plan_id ], name: 'idx_invoice_line_items_on_plan_id'
     end
 
     # Add invoice reference to payments table after invoices table exists
@@ -188,10 +188,10 @@ class CreateBillingSubscriptionSystem < ActiveRecord::Migration[8.0]
       t.decimal :revenue_churn_rate_percentage, precision: 5, scale: 2, default: 0
       t.jsonb :metadata, default: {}
       t.timestamps null: false
-      
-      t.index [:account_id, :snapshot_date, :period_type], unique: true, name: 'index_revenue_snapshots_unique'
-      t.index [:snapshot_date], name: 'idx_revenue_snapshots_on_snapshot_date'
-      t.index [:period_type], name: 'idx_revenue_snapshots_on_period_type'
+
+      t.index [ :account_id, :snapshot_date, :period_type ], unique: true, name: 'index_revenue_snapshots_unique'
+      t.index [ :snapshot_date ], name: 'idx_revenue_snapshots_on_snapshot_date'
+      t.index [ :period_type ], name: 'idx_revenue_snapshots_on_period_type'
     end
 
     # Create gateway_configurations table
@@ -201,9 +201,9 @@ class CreateBillingSubscriptionSystem < ActiveRecord::Migration[8.0]
       t.string :key_name, null: false, limit: 100
       t.text :encrypted_value, null: false
       t.timestamps null: false
-      
-      t.index [:provider, :key_name], unique: true, name: 'idx_gateway_configurations_on_provider_key_unique'
-      t.index [:provider], name: 'idx_gateway_configurations_on_provider'
+
+      t.index [ :provider, :key_name ], unique: true, name: 'idx_gateway_configurations_on_provider_key_unique'
+      t.index [ :provider ], name: 'idx_gateway_configurations_on_provider'
     end
 
     # Create missing_payment_logs table - For reconciliation
@@ -219,10 +219,10 @@ class CreateBillingSubscriptionSystem < ActiveRecord::Migration[8.0]
       t.string :status, default: 'pending'
       t.jsonb :gateway_data, default: {}
       t.timestamps null: false
-      
-      t.index [:gateway, :external_payment_id], unique: true, name: 'idx_missing_payment_logs_on_gateway_external_id_unique'
-      t.index [:status], name: 'idx_missing_payment_logs_on_status'
-      t.index [:detected_at], name: 'idx_missing_payment_logs_on_detected_at'
+
+      t.index [ :gateway, :external_payment_id ], unique: true, name: 'idx_missing_payment_logs_on_gateway_external_id_unique'
+      t.index [ :status ], name: 'idx_missing_payment_logs_on_status'
+      t.index [ :detected_at ], name: 'idx_missing_payment_logs_on_detected_at'
     end
 
     # Add check constraints

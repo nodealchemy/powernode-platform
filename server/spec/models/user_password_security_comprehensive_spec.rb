@@ -9,22 +9,22 @@ RSpec.describe User, 'Comprehensive Password Security', type: :model do
     it 'enforces all password requirements through PasswordStrengthService' do
       # Test minimum length
       expect(build(:user, account: account, password: 'Short1!', password_confirmation: 'Short1!')).not_to be_valid
-      
+
       # Test uppercase requirement
       expect(build(:user, account: account, password: 'nouppercase123!', password_confirmation: 'nouppercase123!')).not_to be_valid
-      
+
       # Test lowercase requirement
       expect(build(:user, account: account, password: 'NOLOWERCASE123!', password_confirmation: 'NOLOWERCASE123!')).not_to be_valid
-      
+
       # Test number requirement
       expect(build(:user, account: account, password: 'NoNumbers!@#$', password_confirmation: 'NoNumbers!@#$')).not_to be_valid
-      
+
       # Test special character requirement
       expect(build(:user, account: account, password: 'NoSpecialChars123', password_confirmation: 'NoSpecialChars123')).not_to be_valid
-      
+
       # Test common password rejection
       expect(build(:user, account: account, password: 'password123', password_confirmation: 'password123')).not_to be_valid
-      
+
       # Test strong password acceptance
       strong_password = 'MyCustomPhrase2024!@#$'
       expect(build(:user, account: account, password: strong_password, password_confirmation: strong_password)).to be_valid
@@ -39,7 +39,7 @@ RSpec.describe User, 'Comprehensive Password Security', type: :model do
     it 'integrates with PasswordStrengthService validation' do
       weak_password = 'weak'
       user = build(:user, account: account, password: weak_password, password_confirmation: weak_password)
-      
+
       expect(PasswordStrengthService).to receive(:validate_password).with(weak_password).and_call_original
       user.valid?
     end
@@ -51,12 +51,12 @@ RSpec.describe User, 'Comprehensive Password Security', type: :model do
     it 'prevents password reuse within history limit' do
       original_password = 'OriginalPhrase2025!@#'
       user.update!(password: original_password, password_confirmation: original_password)
-      
+
       # Change password a few times
       3.times do |i|
         user.update!(password: "TempPhrase#{i}789!@#", password_confirmation: "TempPhrase#{i}789!@#")
       end
-      
+
       # Try to reuse original password - should fail
       user.password = original_password
       user.password_confirmation = original_password
@@ -75,7 +75,7 @@ RSpec.describe User, 'Comprehensive Password Security', type: :model do
       15.times do |i|
         user.update!(password: "CustomPhrase#{i}789!@#", password_confirmation: "CustomPhrase#{i}789!@#")
       end
-      
+
       # Should only keep the last 12
       expect(user.password_histories.count).to eq(12)
     end
@@ -86,10 +86,10 @@ RSpec.describe User, 'Comprehensive Password Security', type: :model do
 
     it 'implements progressive lockout after failed attempts' do
       expect(user).not_to be_locked
-      
+
       # Record failed attempts
       5.times { user.record_failed_login! }
-      
+
       expect(user).to be_locked
       expect(user.failed_login_attempts).to eq(5)
     end
@@ -97,17 +97,17 @@ RSpec.describe User, 'Comprehensive Password Security', type: :model do
     it 'implements exponential backoff for lockout duration' do
       5.times { user.record_failed_login! }
       first_lockout = user.locked_until
-      
+
       user.record_failed_login!
       second_lockout = user.locked_until
-      
+
       expect(second_lockout).to be > first_lockout
     end
 
     it 'clears lockout on successful authentication' do
       3.times { user.record_failed_login! }
       user.record_successful_login!
-      
+
       expect(user.failed_login_attempts).to eq(0)
       expect(user.locked_until).to be_nil
       expect(user.last_login_at).to be_within(1.second).of(Time.current)
@@ -119,7 +119,7 @@ RSpec.describe User, 'Comprehensive Password Security', type: :model do
 
     it 'generates secure time-limited reset tokens' do
       token = user.generate_reset_token!
-      
+
       expect(token).to be_present
       expect(user.reset_token_digest).to be_present
       # Check that expiration is set to sometime in the future
@@ -130,10 +130,10 @@ RSpec.describe User, 'Comprehensive Password Security', type: :model do
     it 'validates reset tokens correctly' do
       token = user.generate_reset_token!
       expect(user.reset_token_valid?(token)).to be true
-      
+
       # Invalid token
       expect(user.reset_token_valid?('invalid')).to be false
-      
+
       # Expired token
       user.update!(reset_token_expires_at: 1.hour.ago)
       expect(user.reset_token_valid?(token)).to be false
@@ -142,9 +142,9 @@ RSpec.describe User, 'Comprehensive Password Security', type: :model do
     it 'successfully resets password with valid token' do
       token = user.generate_reset_token!
       new_password = 'NewCustomPhrase2026!@#'
-      
+
       result = user.reset_password!(new_password, token)
-      
+
       expect(result).to be true
       expect(user.reset_token_digest).to be_nil
       expect(user.reset_token_expires_at).to be_nil
@@ -153,9 +153,9 @@ RSpec.describe User, 'Comprehensive Password Security', type: :model do
     it 'clears reset tokens when password changes' do
       user.generate_reset_token!
       expect(user.reset_token_digest).to be_present
-      
+
       user.update!(password: 'AnotherCustom789!@#', password_confirmation: 'AnotherCustom789!@#')
-      
+
       expect(user.reset_token_digest).to be_nil
       expect(user.reset_token_expires_at).to be_nil
     end
@@ -167,7 +167,7 @@ RSpec.describe User, 'Comprehensive Password Security', type: :model do
     it 'tracks password age correctly' do
       user.update!(password_changed_at: 30.days.ago)
       expect(user.password_age_days).to eq(30)
-      
+
       user.update!(password_changed_at: nil)
       expect(user.password_age_days).to be_nil
     end

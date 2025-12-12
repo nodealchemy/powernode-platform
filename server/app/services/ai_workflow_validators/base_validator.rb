@@ -38,10 +38,10 @@ module WorkflowValidators
     def validate_required_configuration
       if node.configuration.blank?
         add_issue(
-          code: 'missing_configuration',
-          severity: 'warning',
-          category: 'configuration',
-          message: 'Node has no configuration'
+          code: "missing_configuration",
+          severity: "warning",
+          category: "configuration",
+          message: "Node has no configuration"
         )
       end
     end
@@ -54,8 +54,8 @@ module WorkflowValidators
         unless node.configuration.key?(field.to_s) || node.configuration.key?(field.to_sym)
           add_issue(
             code: "missing_#{field}",
-            severity: 'error',
-            category: 'configuration',
+            severity: "error",
+            category: "configuration",
             message: "Required field '#{field}' is missing from configuration",
             suggestion: "Add '#{field}' to the node configuration"
           )
@@ -76,8 +76,8 @@ module WorkflowValidators
       unless value.is_a?(expected_type)
         add_issue(
           code: "invalid_#{field}_type",
-          severity: 'error',
-          category: 'configuration',
+          severity: "error",
+          category: "configuration",
           message: "Field '#{field}' must be #{expected_type_name}, got #{actual_type}",
           suggestion: "Change '#{field}' to #{expected_type_name} type"
         )
@@ -93,8 +93,8 @@ module WorkflowValidators
       if value.blank?
         add_issue(
           code: "blank_#{field}",
-          severity: 'warning',
-          category: 'configuration',
+          severity: "warning",
+          category: "configuration",
           message: "Field '#{field}' should not be blank",
           suggestion: "Provide a value for '#{field}'"
         )
@@ -111,8 +111,8 @@ module WorkflowValidators
       unless valid_options.include?(value)
         add_issue(
           code: "invalid_#{field}_value",
-          severity: 'error',
-          category: 'configuration',
+          severity: "error",
+          category: "configuration",
           message: "Field '#{field}' has invalid value '#{value}'",
           suggestion: "Use one of: #{valid_options.join(', ')}"
         )
@@ -123,33 +123,33 @@ module WorkflowValidators
     def validate_timeout
       return unless node.configuration.present?
 
-      timeout = node.configuration['timeout_seconds'] || node.configuration[:timeout_seconds] || node.timeout_seconds
+      timeout = node.configuration["timeout_seconds"] || node.configuration[:timeout_seconds] || node.timeout_seconds
 
       if timeout.nil?
         add_issue(
-          code: 'missing_timeout',
-          severity: 'info',
-          category: 'performance',
-          message: 'No timeout configured for this node',
-          suggestion: 'Set a reasonable timeout (e.g., 30-300 seconds)',
+          code: "missing_timeout",
+          severity: "info",
+          category: "performance",
+          message: "No timeout configured for this node",
+          suggestion: "Set a reasonable timeout (e.g., 30-300 seconds)",
           auto_fixable: true,
           metadata: { recommended_timeout: 30 }
         )
       elsif timeout.to_i > 600
         add_issue(
-          code: 'timeout_too_long',
-          severity: 'warning',
-          category: 'performance',
+          code: "timeout_too_long",
+          severity: "warning",
+          category: "performance",
           message: "Timeout of #{timeout}s is very long",
-          suggestion: 'Consider reducing timeout to prevent workflow hangs'
+          suggestion: "Consider reducing timeout to prevent workflow hangs"
         )
       elsif timeout.to_i < 5
         add_issue(
-          code: 'timeout_too_short',
-          severity: 'warning',
-          category: 'performance',
+          code: "timeout_too_short",
+          severity: "warning",
+          category: "performance",
           message: "Timeout of #{timeout}s may be too short",
-          suggestion: 'Increase timeout to allow operation to complete'
+          suggestion: "Increase timeout to allow operation to complete"
         )
       end
     end
@@ -158,15 +158,15 @@ module WorkflowValidators
     def validate_retry_config
       return unless node.configuration.present?
 
-      retry_count = node.configuration['retry_count'] || node.configuration[:retry_count] || node.retry_count
+      retry_count = node.configuration["retry_count"] || node.configuration[:retry_count] || node.retry_count
 
       if retry_count.present? && retry_count.to_i > 10
         add_issue(
-          code: 'excessive_retries',
-          severity: 'warning',
-          category: 'performance',
+          code: "excessive_retries",
+          severity: "warning",
+          category: "performance",
           message: "Retry count of #{retry_count} is excessive",
-          suggestion: 'Reduce retry count to avoid long execution times'
+          suggestion: "Reduce retry count to avoid long execution times"
         )
       end
     end
@@ -177,8 +177,8 @@ module WorkflowValidators
 
     def add_issue(issue)
       # Set defaults
-      issue[:severity] ||= 'warning'
-      issue[:category] ||= 'configuration'
+      issue[:severity] ||= "warning"
+      issue[:category] ||= "configuration"
       issue[:auto_fixable] ||= false
       issue[:rule_id] ||= issue[:code]
       issue[:rule_name] ||= issue[:code].to_s.titleize

@@ -59,7 +59,7 @@ class AiWorkflowBatchProcessor
       {
         workflow_id: workflow_template.id,
         input_variables: params,
-        trigger_type: 'batch'
+        trigger_type: "batch"
       }
     end
 
@@ -95,7 +95,7 @@ class AiWorkflowBatchProcessor
       account: @account,
       user: @user,
       total_workflows: workflow_configs.count,
-      status: 'processing',
+      status: "processing",
       started_at: Time.current,
       configuration: {
         max_concurrent: @max_concurrent,
@@ -142,8 +142,8 @@ class AiWorkflowBatchProcessor
       workflow_run = workflow.runs.create!(
         account: @account,
         triggered_by_user: @user,
-        status: 'initializing',
-        trigger_type: config[:trigger_type] || 'batch',
+        status: "initializing",
+        trigger_type: config[:trigger_type] || "batch",
         input_variables: config[:input_variables] || {},
         metadata: {
           batch_id: @batch_id,
@@ -162,11 +162,11 @@ class AiWorkflowBatchProcessor
       workflow_run.reload
 
       # Record result
-      record_workflow_result(batch_run, workflow_run, 'success')
+      record_workflow_result(batch_run, workflow_run, "success")
 
     rescue StandardError => e
       @logger.error "[BATCH] Workflow execution failed: #{e.message}"
-      record_workflow_result(batch_run, workflow_run, 'failed', e.message)
+      record_workflow_result(batch_run, workflow_run, "failed", e.message)
     end
   end
 
@@ -184,7 +184,7 @@ class AiWorkflowBatchProcessor
     # Update batch run progress
     batch_run.increment!(:completed_workflows)
 
-    if status == 'failed'
+    if status == "failed"
       batch_run.increment!(:failed_workflows)
     else
       batch_run.increment!(:successful_workflows)
@@ -207,7 +207,7 @@ class AiWorkflowBatchProcessor
     @logger.info "[BATCH] Finalizing batch #{@batch_id}"
 
     batch_run.update!(
-      status: 'completed',
+      status: "completed",
       completed_at: Time.current,
       results: @batch_results,
       duration_ms: ((Time.current - batch_run.started_at) * 1000).to_i
@@ -224,7 +224,7 @@ class AiWorkflowBatchProcessor
     @logger.error "[BATCH] Batch processing failed: #{error.message}"
 
     batch_run.update!(
-      status: 'failed',
+      status: "failed",
       completed_at: Time.current,
       error_details: {
         error: error.message,
@@ -254,7 +254,7 @@ class AiWorkflowBatchProcessor
     ActionCable.server.broadcast(
       "batch_processing_#{@batch_id}",
       {
-        type: 'batch_progress',
+        type: "batch_progress",
         batch_id: @batch_id,
         progress: {
           total: batch_run.total_workflows,
@@ -271,7 +271,7 @@ class AiWorkflowBatchProcessor
     ActionCable.server.broadcast(
       "batch_processing_#{@batch_id}",
       {
-        type: 'batch_completed',
+        type: "batch_completed",
         batch_id: @batch_id,
         statistics: batch_run.statistics,
         completed_at: batch_run.completed_at
@@ -290,9 +290,9 @@ class AiWorkflowBatchProcessor
 
   def calculate_delay(index, schedule_config)
     case schedule_config[:type]
-    when 'staggered'
+    when "staggered"
       index * (schedule_config[:interval] || 10).seconds
-    when 'fixed_rate'
+    when "fixed_rate"
       (index / schedule_config[:batch_size].to_f).floor * schedule_config[:interval].seconds
     else
       0

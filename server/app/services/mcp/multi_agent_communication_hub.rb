@@ -11,33 +11,33 @@ module Mcp
     end
 
     # Send direct message from one agent to another
-    def send_direct_message(from_agent_id:, to_agent_id:, content:, pattern: 'request_response')
+    def send_direct_message(from_agent_id:, to_agent_id:, content:, pattern: "request_response")
       AiAgentMessage.create!(
         ai_workflow_run: workflow_run,
         from_agent_id: from_agent_id,
         to_agent_id: to_agent_id,
-        message_type: 'direct',
+        message_type: "direct",
         communication_pattern: pattern,
         message_content: content,
         metadata: {
-          'sent_at' => Time.current.iso8601,
-          'pattern' => pattern
+          "sent_at" => Time.current.iso8601,
+          "pattern" => pattern
         }
       )
     end
 
     # Broadcast message to all agents
-    def broadcast_message(from_agent_id:, content:, pattern: 'publish_subscribe')
+    def broadcast_message(from_agent_id:, content:, pattern: "publish_subscribe")
       AiAgentMessage.create!(
         ai_workflow_run: workflow_run,
         from_agent_id: from_agent_id,
         to_agent_id: nil, # Broadcast has no specific recipient
-        message_type: 'broadcast',
+        message_type: "broadcast",
         communication_pattern: pattern,
         message_content: content,
         metadata: {
-          'broadcast' => true,
-          'sent_at' => Time.current.iso8601
+          "broadcast" => true,
+          "sent_at" => Time.current.iso8601
         }
       )
     end
@@ -48,7 +48,7 @@ module Mcp
         from_agent_id: from_agent_id,
         to_agent_id: to_agent_id,
         content: request_content,
-        pattern: 'request_response'
+        pattern: "request_response"
       )
 
       # Wait for response with timeout
@@ -59,7 +59,7 @@ module Mcp
         response = AiAgentMessage.find_by(
           ai_workflow_run_id: workflow_run.id,
           in_reply_to_message_id: request_msg.message_id,
-          message_type: 'response'
+          message_type: "response"
         )
 
         break if response
@@ -70,7 +70,7 @@ module Mcp
         response.mark_delivered!
         { success: true, response: response.message_content, message: response }
       else
-        { success: false, error: 'Response timeout', timeout: timeout }
+        { success: false, error: "Response timeout", timeout: timeout }
       end
     end
 
@@ -80,7 +80,7 @@ module Mcp
         from_agent_id: from_agent_id,
         to_agent_id: to_agent_id,
         content: content,
-        pattern: 'fire_and_forget'
+        pattern: "fire_and_forget"
       ).tap do |msg|
         msg.mark_delivered!
       end
@@ -107,7 +107,7 @@ module Mcp
     end
 
     # Create or get shared context pool
-    def create_context_pool(owner_agent_id:, pool_type: 'shared_memory', scope: 'workflow', initial_data: {})
+    def create_context_pool(owner_agent_id:, pool_type: "shared_memory", scope: "workflow", initial_data: {})
       AiSharedContextPool.create!(
         ai_workflow_run: workflow_run,
         pool_type: pool_type,
@@ -115,13 +115,13 @@ module Mcp
         owner_agent_id: owner_agent_id,
         context_data: initial_data,
         access_control: {
-          'owner' => owner_agent_id,
-          'public' => false,
-          'agents' => []
+          "owner" => owner_agent_id,
+          "public" => false,
+          "agents" => []
         },
         metadata: {
-          'created_at' => Time.current.iso8601,
-          'access_count' => 0
+          "created_at" => Time.current.iso8601,
+          "access_count" => 0
         }
       )
     end
@@ -150,7 +150,7 @@ module Mcp
       pool.write_data(key, value, agent_id: agent_id)
 
       # Increment access count
-      pool.metadata['access_count'] = (pool.metadata['access_count'] || 0) + 1
+      pool.metadata["access_count"] = (pool.metadata["access_count"] || 0) + 1
       pool.save!
 
       { success: true, version: pool.version }
@@ -164,7 +164,7 @@ module Mcp
       value = pool.read_data(key, agent_id: agent_id)
 
       # Increment access count
-      pool.metadata['access_count'] = (pool.metadata['access_count'] || 0) + 1
+      pool.metadata["access_count"] = (pool.metadata["access_count"] || 0) + 1
       pool.save!
 
       { success: true, value: value, version: pool.version }
@@ -174,27 +174,27 @@ module Mcp
     def post_to_blackboard(blackboard_id:, agent_id:, contribution:)
       pool = get_context_pool(blackboard_id)
       raise ArgumentError, "Blackboard not found" unless pool
-      raise ArgumentError, "Not a blackboard pool" unless pool.pool_type == 'blackboard'
+      raise ArgumentError, "Not a blackboard pool" unless pool.pool_type == "blackboard"
 
       # Append contribution to blackboard
-      contributions = pool.context_data['contributions'] || []
+      contributions = pool.context_data["contributions"] || []
       contributions << {
-        'agent_id' => agent_id,
-        'contribution' => contribution,
-        'timestamp' => Time.current.iso8601,
-        'sequence' => contributions.length
+        "agent_id" => agent_id,
+        "contribution" => contribution,
+        "timestamp" => Time.current.iso8601,
+        "sequence" => contributions.length
       }
 
-      pool.write_data('contributions', contributions, agent_id: pool.owner_agent_id)
+      pool.write_data("contributions", contributions, agent_id: pool.owner_agent_id)
 
       broadcast_message(
         from_agent_id: agent_id,
         content: {
-          'type' => 'blackboard_update',
-          'blackboard_id' => blackboard_id,
-          'contribution' => contribution
+          "type" => "blackboard_update",
+          "blackboard_id" => blackboard_id,
+          "contribution" => contribution
         },
-        pattern: 'publish_subscribe'
+        pattern: "publish_subscribe"
       )
 
       { success: true, contribution_index: contributions.length - 1 }
@@ -204,9 +204,9 @@ module Mcp
     def read_blackboard(blackboard_id:, agent_id:)
       pool = get_context_pool(blackboard_id)
       raise ArgumentError, "Blackboard not found" unless pool
-      raise ArgumentError, "Not a blackboard pool" unless pool.pool_type == 'blackboard'
+      raise ArgumentError, "Not a blackboard pool" unless pool.pool_type == "blackboard"
 
-      contributions = pool.read_data('contributions', agent_id: agent_id) || []
+      contributions = pool.read_data("contributions", agent_id: agent_id) || []
 
       { success: true, contributions: contributions, total: contributions.length }
     end
@@ -217,24 +217,24 @@ module Mcp
 
       # Find or create tool cache pool
       cache_pool = AiSharedContextPool.for_run(workflow_run.id)
-                                     .by_type('tool_cache')
-                                     .by_scope('workflow')
+                                     .by_type("tool_cache")
+                                     .by_scope("workflow")
                                      .first
 
       cache_pool ||= create_context_pool(
         owner_agent_id: agent_id,
-        pool_type: 'tool_cache',
-        scope: 'workflow'
+        pool_type: "tool_cache",
+        scope: "workflow"
       )
 
       write_to_pool(
         pool_id: cache_pool.pool_id,
         key: cache_key,
         value: {
-          'result' => result,
-          'cached_at' => Time.current.iso8601,
-          'tool_name' => tool_name,
-          'input_hash' => input_hash
+          "result" => result,
+          "cached_at" => Time.current.iso8601,
+          "tool_name" => tool_name,
+          "input_hash" => input_hash
         },
         agent_id: agent_id
       )
@@ -245,8 +245,8 @@ module Mcp
       cache_key = "#{tool_name}_#{Digest::SHA256.hexdigest(input_hash.to_json)}"
 
       cache_pool = AiSharedContextPool.for_run(workflow_run.id)
-                                     .by_type('tool_cache')
-                                     .by_scope('workflow')
+                                     .by_type("tool_cache")
+                                     .by_scope("workflow")
                                      .first
 
       return { success: false, cached: false } unless cache_pool
@@ -255,7 +255,7 @@ module Mcp
         cached_data = cache_pool.read_data(cache_key, agent_id: cache_pool.owner_agent_id)
         return { success: false, cached: false } unless cached_data
 
-        { success: true, cached: true, result: cached_data['result'], cached_at: cached_data['cached_at'] }
+        { success: true, cached: true, result: cached_data["result"], cached_at: cached_data["cached_at"] }
       rescue ArgumentError
         { success: false, cached: false }
       end
@@ -267,13 +267,13 @@ module Mcp
         from_agent_id: coordinator_agent_id,
         to_agent_id: worker_agent_id,
         content: {
-          'type' => 'command',
-          'command' => command,
-          'timestamp' => Time.current.iso8601
+          "type" => "command",
+          "command" => command,
+          "timestamp" => Time.current.iso8601
         },
-        pattern: 'command_query'
+        pattern: "command_query"
       ).tap do |msg|
-        msg.update(metadata: msg.metadata.merge('command' => true))
+        msg.update(metadata: msg.metadata.merge("command" => true))
       end
     end
 
@@ -284,11 +284,11 @@ module Mcp
       command_msg.create_reply(
         from_agent_id: worker_agent_id,
         content: {
-          'type' => 'result',
-          'result' => result,
-          'timestamp' => Time.current.iso8601
+          "type" => "result",
+          "result" => result,
+          "timestamp" => Time.current.iso8601
         },
-        type: 'response'
+        type: "response"
       )
     end
 

@@ -17,8 +17,8 @@ FactoryBot.define do
     capabilities do
       {
         'max_file_size' => 100.megabytes,
-        'supported_formats' => ['image/*', 'application/pdf', 'text/*'],
-        'features' => ['versioning', 'sharing', 'tagging']
+        'supported_formats' => [ 'image/*', 'application/pdf', 'text/*' ],
+        'features' => [ 'versioning', 'sharing', 'tagging' ]
       }
     end
 

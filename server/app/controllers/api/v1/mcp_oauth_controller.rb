@@ -5,13 +5,13 @@ class Api::V1::McpOauthController < ApplicationController
 
   before_action :authenticate_request
   before_action :require_write_permission
-  before_action :set_mcp_server, only: [:authorize, :status, :disconnect, :refresh]
+  before_action :set_mcp_server, only: [ :authorize, :status, :disconnect, :refresh ]
 
   # POST /api/v1/mcp_servers/:id/oauth/authorize
   # Initiates the OAuth 2.1 authorization flow
   def authorize
-    unless @mcp_server.auth_type == 'oauth2'
-      return render_error('Server is not configured for OAuth authentication', status: :unprocessable_content)
+    unless @mcp_server.auth_type == "oauth2"
+      return render_error("Server is not configured for OAuth authentication", status: :unprocessable_content)
     end
 
     redirect_uri = params[:redirect_uri] || default_redirect_uri
@@ -23,10 +23,10 @@ class Api::V1::McpOauthController < ApplicationController
       render_success({
         authorization_url: authorization_url,
         state: @mcp_server.oauth_state,
-        message: 'OAuth authorization URL generated'
+        message: "OAuth authorization URL generated"
       })
 
-      log_audit_event('mcp.oauth.authorize_initiated', @mcp_server)
+      log_audit_event("mcp.oauth.authorize_initiated", @mcp_server)
     rescue McpOauthService::ConfigurationError => e
       Rails.logger.error "OAuth configuration error for MCP server #{@mcp_server.id}: #{e.message}"
       render_error("OAuth configuration error: #{e.message}", status: :unprocessable_content)
@@ -51,14 +51,14 @@ class Api::V1::McpOauthController < ApplicationController
     end
 
     unless code.present? && state.present?
-      return render_error('Missing required OAuth parameters (code and state)', status: :bad_request)
+      return render_error("Missing required OAuth parameters (code and state)", status: :bad_request)
     end
 
     # Find the MCP server by state (CSRF protection)
     mcp_server = find_server_by_state(state)
     unless mcp_server
       Rails.logger.warn "OAuth callback with invalid state: #{state}"
-      return render_error('Invalid or expired OAuth state', status: :bad_request)
+      return render_error("Invalid or expired OAuth state", status: :bad_request)
     end
 
     oauth_service = McpOauthService.new(mcp_server)
@@ -76,10 +76,10 @@ class Api::V1::McpOauthController < ApplicationController
         mcp_server_name: mcp_server.name,
         oauth_connected: mcp_server.reload.oauth_connected?,
         token_expires_at: mcp_server.oauth_token_expires_at,
-        message: 'OAuth authentication successful'
+        message: "OAuth authentication successful"
       })
 
-      log_audit_event('mcp.oauth.callback_success', mcp_server)
+      log_audit_event("mcp.oauth.callback_success", mcp_server)
     rescue McpOauthService::AuthorizationError => e
       Rails.logger.error "OAuth authorization error for MCP server #{mcp_server.id}: #{e.message}"
       render_error("OAuth authorization failed: #{e.message}", status: :unprocessable_content)
@@ -101,7 +101,7 @@ class Api::V1::McpOauthController < ApplicationController
       oauth_status: @mcp_server.oauth_status
     })
 
-    log_audit_event('mcp.oauth.status_read', @mcp_server)
+    log_audit_event("mcp.oauth.status_read", @mcp_server)
   rescue StandardError => e
     Rails.logger.error "Failed to get OAuth status: #{e.message}"
     render_error("Failed to get OAuth status: #{e.message}", status: :internal_server_error)
@@ -111,7 +111,7 @@ class Api::V1::McpOauthController < ApplicationController
   # Revokes OAuth tokens and disconnects
   def disconnect
     unless @mcp_server.oauth_configured?
-      return render_error('Server does not have OAuth configured', status: :unprocessable_content)
+      return render_error("Server does not have OAuth configured", status: :unprocessable_content)
     end
 
     oauth_service = McpOauthService.new(@mcp_server)
@@ -122,10 +122,10 @@ class Api::V1::McpOauthController < ApplicationController
       render_success({
         mcp_server_id: @mcp_server.id,
         oauth_connected: false,
-        message: 'OAuth disconnected successfully'
+        message: "OAuth disconnected successfully"
       })
 
-      log_audit_event('mcp.oauth.disconnect', @mcp_server)
+      log_audit_event("mcp.oauth.disconnect", @mcp_server)
     rescue StandardError => e
       Rails.logger.error "Failed to disconnect OAuth: #{e.message}"
       render_error("Failed to disconnect OAuth: #{e.message}", status: :internal_server_error)
@@ -136,11 +136,11 @@ class Api::V1::McpOauthController < ApplicationController
   # Manually refreshes the OAuth access token
   def refresh
     unless @mcp_server.oauth_configured?
-      return render_error('Server does not have OAuth configured', status: :unprocessable_content)
+      return render_error("Server does not have OAuth configured", status: :unprocessable_content)
     end
 
     unless @mcp_server.oauth_refresh_token.present?
-      return render_error('No refresh token available', status: :unprocessable_content)
+      return render_error("No refresh token available", status: :unprocessable_content)
     end
 
     oauth_service = McpOauthService.new(@mcp_server)
@@ -152,10 +152,10 @@ class Api::V1::McpOauthController < ApplicationController
         mcp_server_id: @mcp_server.id,
         oauth_connected: @mcp_server.reload.oauth_connected?,
         token_expires_at: @mcp_server.oauth_token_expires_at,
-        message: 'OAuth token refreshed successfully'
+        message: "OAuth token refreshed successfully"
       })
 
-      log_audit_event('mcp.oauth.token_refreshed', @mcp_server)
+      log_audit_event("mcp.oauth.token_refreshed", @mcp_server)
     rescue McpOauthService::TokenRefreshError => e
       Rails.logger.error "OAuth token refresh failed for MCP server #{@mcp_server.id}: #{e.message}"
       render_error("Token refresh failed: #{e.message}", status: :unprocessable_content)
@@ -170,12 +170,12 @@ class Api::V1::McpOauthController < ApplicationController
   def set_mcp_server
     @mcp_server = current_user.account.mcp_servers.find(params[:id] || params[:mcp_server_id])
   rescue ActiveRecord::RecordNotFound
-    render_error('MCP server not found', status: :not_found)
+    render_error("MCP server not found", status: :not_found)
   end
 
   def require_write_permission
-    unless current_user.has_permission?('mcp.servers.write')
-      render_error('Insufficient permissions to manage MCP server OAuth', status: :forbidden)
+    unless current_user.has_permission?("mcp.servers.write")
+      render_error("Insufficient permissions to manage MCP server OAuth", status: :forbidden)
     end
   end
 

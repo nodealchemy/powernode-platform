@@ -22,17 +22,17 @@ module Api
             inviter_last_name: invitation.inviter.last_name
           })
         rescue ActiveRecord::RecordNotFound
-          render_not_found('Invitation')
+          render_not_found("Invitation")
         end
 
         private
 
         def authenticate_worker
-          token = request.headers['Authorization']&.sub(/^Bearer /, '')
+          token = request.headers["Authorization"]&.sub(/^Bearer /, "")
           worker_token = Rails.application.config.worker_token
 
           unless token.present? && worker_token.present? && token == worker_token
-            render_unauthorized('Invalid worker authentication')
+            render_unauthorized("Invalid worker authentication")
           end
         end
       end

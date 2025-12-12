@@ -52,7 +52,7 @@ RSpec.describe AiWorkflowVariable, type: :model do
     context 'name validation' do
       it 'validates name format' do
         valid_names = %w[user_id apiKey maxRetries endpoint_url]
-        invalid_names = ['123invalid', 'user-name', 'user name', 'user@email']
+        invalid_names = [ '123invalid', 'user-name', 'user name', 'user@email' ]
 
         valid_names.each do |name|
           var = build(:ai_workflow_variable, name: name)
@@ -343,7 +343,7 @@ RSpec.describe AiWorkflowVariable, type: :model do
         let(:var) { create(:ai_workflow_variable, variable_type: 'array', default_value: %w[item1 item2], validation_rules: { 'min_items' => 2, 'max_items' => 5 }) }
 
         it 'validates array size constraints' do
-          expect(var.validate_value(['single'])).not_to be_empty # too few
+          expect(var.validate_value([ 'single' ])).not_to be_empty # too few
           expect(var.validate_value(%w[two items])).to be_empty # valid
           expect(var.validate_value(%w[too many items here now six])).not_to be_empty # too many
         end
@@ -512,7 +512,7 @@ RSpec.describe AiWorkflowVariable, type: :model do
 
       it 'generates example for boolean type' do
         var = build(:ai_workflow_variable, variable_type: 'boolean', default_value: nil)
-        expect([true, false]).to include(var.example_value)
+        expect([ true, false ]).to include(var.example_value)
       end
 
       it 'generates example for date type' do

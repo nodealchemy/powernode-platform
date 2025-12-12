@@ -90,7 +90,7 @@ class InvoiceLineItem < ApplicationRecord
     # Discounts and adjustments can have negative amounts
     if %w[discount adjustment].include?(line_type)
       # Allow negative amounts for discounts and adjustments
-      return true
+      true
     else
       # Other line types must have non-negative amounts
       errors.add(:unit_amount_cents, "must be greater than or equal to 0") if unit_amount_cents && unit_amount_cents < 0

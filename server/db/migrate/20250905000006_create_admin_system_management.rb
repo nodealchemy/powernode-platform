@@ -14,12 +14,12 @@ class CreateAdminSystemManagement < ActiveRecord::Migration[8.0]
       t.string :category, limit: 100
       t.integer :sort_order, default: 0
       t.timestamps null: false
-      
-      t.index [:key], unique: true, name: 'idx_admin_settings_on_key_unique'
-      t.index [:category], name: 'idx_admin_settings_on_category'
-      t.index [:setting_type], name: 'idx_admin_settings_on_setting_type'
-      t.index [:is_public], name: 'idx_admin_settings_on_is_public'
-      t.index [:sort_order], name: 'idx_admin_settings_on_sort_order'
+
+      t.index [ :key ], unique: true, name: 'idx_admin_settings_on_key_unique'
+      t.index [ :category ], name: 'idx_admin_settings_on_category'
+      t.index [ :setting_type ], name: 'idx_admin_settings_on_setting_type'
+      t.index [ :is_public ], name: 'idx_admin_settings_on_is_public'
+      t.index [ :sort_order ], name: 'idx_admin_settings_on_sort_order'
     end
 
     # Create site_settings table - Public site configuration
@@ -32,11 +32,11 @@ class CreateAdminSystemManagement < ActiveRecord::Migration[8.0]
       t.boolean :is_public, default: true
       t.string :category, limit: 100
       t.timestamps null: false
-      
-      t.index [:key], unique: true, name: 'idx_site_settings_on_key_unique'
-      t.index [:setting_type], name: 'idx_site_settings_on_setting_type'
-      t.index [:is_public], name: 'idx_site_settings_on_is_public'
-      t.index [:category], name: 'idx_site_settings_on_category'
+
+      t.index [ :key ], unique: true, name: 'idx_site_settings_on_key_unique'
+      t.index [ :setting_type ], name: 'idx_site_settings_on_setting_type'
+      t.index [ :is_public ], name: 'idx_site_settings_on_is_public'
+      t.index [ :category ], name: 'idx_site_settings_on_category'
     end
 
     # Create pages table - Static content pages
@@ -60,11 +60,11 @@ class CreateAdminSystemManagement < ActiveRecord::Migration[8.0]
       t.jsonb :metadata, default: {}
       t.datetime :published_at
       t.timestamps null: false
-      
-      t.index [:slug], unique: true, name: 'idx_pages_on_slug_unique'
-      t.index [:status], name: 'idx_pages_on_status'
-      t.index [:is_public], name: 'idx_pages_on_is_public'
-      t.index [:published_at], name: 'idx_pages_on_published_at'
+
+      t.index [ :slug ], unique: true, name: 'idx_pages_on_slug_unique'
+      t.index [ :status ], name: 'idx_pages_on_status'
+      t.index [ :is_public ], name: 'idx_pages_on_is_public'
+      t.index [ :published_at ], name: 'idx_pages_on_published_at'
     end
 
     # Create api_keys table - API access management
@@ -90,18 +90,18 @@ class CreateAdminSystemManagement < ActiveRecord::Migration[8.0]
       t.datetime :last_used_at
       t.string :last_used_ip, limit: 45
       t.timestamps null: false
-      
-      t.index [:key_digest], unique: true, name: 'idx_api_keys_on_key_digest_unique'
-      t.index [:prefix], unique: true, name: 'idx_api_keys_on_prefix_unique'
-      t.index [:key_prefix], name: 'idx_api_keys_on_key_prefix'
-      t.index [:key_suffix], name: 'idx_api_keys_on_key_suffix'
-      t.index [:account_id], name: 'idx_api_keys_on_account_id'
-      t.index [:is_active], name: 'idx_api_keys_on_is_active'
-      t.index [:expires_at], name: 'idx_api_keys_on_expires_at'
-      t.index [:usage_count], name: 'idx_api_keys_on_usage_count'
-      t.index [:permissions], using: :gin, name: 'idx_api_keys_on_permissions'
-      t.index [:scopes], using: :gin, name: 'idx_api_keys_on_scopes'
-      t.index [:allowed_ips], using: :gin, name: 'idx_api_keys_on_allowed_ips'
+
+      t.index [ :key_digest ], unique: true, name: 'idx_api_keys_on_key_digest_unique'
+      t.index [ :prefix ], unique: true, name: 'idx_api_keys_on_prefix_unique'
+      t.index [ :key_prefix ], name: 'idx_api_keys_on_key_prefix'
+      t.index [ :key_suffix ], name: 'idx_api_keys_on_key_suffix'
+      t.index [ :account_id ], name: 'idx_api_keys_on_account_id'
+      t.index [ :is_active ], name: 'idx_api_keys_on_is_active'
+      t.index [ :expires_at ], name: 'idx_api_keys_on_expires_at'
+      t.index [ :usage_count ], name: 'idx_api_keys_on_usage_count'
+      t.index [ :permissions ], using: :gin, name: 'idx_api_keys_on_permissions'
+      t.index [ :scopes ], using: :gin, name: 'idx_api_keys_on_scopes'
+      t.index [ :allowed_ips ], using: :gin, name: 'idx_api_keys_on_allowed_ips'
     end
 
     # Create api_key_usages table - API usage tracking
@@ -118,11 +118,11 @@ class CreateAdminSystemManagement < ActiveRecord::Migration[8.0]
       t.integer :request_count, null: false, default: 1
       t.datetime :used_at, null: false
       t.timestamps null: false
-      
-      t.index [:api_key_id, :used_at], name: 'idx_api_key_usages_on_api_key_used_at'
-      t.index [:endpoint], name: 'idx_api_key_usages_on_endpoint'
-      t.index [:response_status], name: 'idx_api_key_usages_on_response_status'
-      t.index [:used_at], name: 'idx_api_key_usages_on_used_at'
+
+      t.index [ :api_key_id, :used_at ], name: 'idx_api_key_usages_on_api_key_used_at'
+      t.index [ :endpoint ], name: 'idx_api_key_usages_on_endpoint'
+      t.index [ :response_status ], name: 'idx_api_key_usages_on_response_status'
+      t.index [ :used_at ], name: 'idx_api_key_usages_on_used_at'
     end
 
     # Create audit_logs table - System audit trail
@@ -140,12 +140,12 @@ class CreateAdminSystemManagement < ActiveRecord::Migration[8.0]
       t.string :ip_address, limit: 45
       t.string :user_agent, limit: 1000
       t.timestamps null: false
-      
-      t.index [:account_id, :created_at], name: 'idx_audit_logs_on_account_created_at'
-      t.index [:user_id], name: 'idx_audit_logs_on_user_id'
-      t.index [:resource_type, :resource_id], name: 'idx_audit_logs_on_resource_type_id'
-      t.index [:action], name: 'idx_audit_logs_on_action'
-      t.index [:created_at], name: 'idx_audit_logs_on_created_at'
+
+      t.index [ :account_id, :created_at ], name: 'idx_audit_logs_on_account_created_at'
+      t.index [ :user_id ], name: 'idx_audit_logs_on_user_id'
+      t.index [ :resource_type, :resource_id ], name: 'idx_audit_logs_on_resource_type_id'
+      t.index [ :action ], name: 'idx_audit_logs_on_action'
+      t.index [ :created_at ], name: 'idx_audit_logs_on_created_at'
     end
 
     # Create system_health_checks table - System monitoring
@@ -158,10 +158,10 @@ class CreateAdminSystemManagement < ActiveRecord::Migration[8.0]
       t.jsonb :details, default: {}
       t.datetime :checked_at, null: false
       t.timestamps null: false
-      
-      t.index [:check_name, :checked_at], name: 'idx_system_health_checks_on_name_checked_at'
-      t.index [:status], name: 'idx_system_health_checks_on_status'
-      t.index [:checked_at], name: 'idx_system_health_checks_on_checked_at'
+
+      t.index [ :check_name, :checked_at ], name: 'idx_system_health_checks_on_name_checked_at'
+      t.index [ :status ], name: 'idx_system_health_checks_on_status'
+      t.index [ :checked_at ], name: 'idx_system_health_checks_on_checked_at'
     end
 
     # Create system_operations table - System operations tracking
@@ -178,12 +178,12 @@ class CreateAdminSystemManagement < ActiveRecord::Migration[8.0]
       t.datetime :completed_at
       t.integer :duration_ms
       t.timestamps null: false
-      
-      t.index [:operation_type], name: 'idx_system_operations_on_operation_type'
-      t.index [:status], name: 'idx_system_operations_on_status'
-      t.index [:initiated_by_id], name: 'idx_system_operations_on_initiated_by_id'
-      t.index [:started_at], name: 'idx_system_operations_on_started_at'
-      t.index [:completed_at], name: 'idx_system_operations_on_completed_at'
+
+      t.index [ :operation_type ], name: 'idx_system_operations_on_operation_type'
+      t.index [ :status ], name: 'idx_system_operations_on_status'
+      t.index [ :initiated_by_id ], name: 'idx_system_operations_on_initiated_by_id'
+      t.index [ :started_at ], name: 'idx_system_operations_on_started_at'
+      t.index [ :completed_at ], name: 'idx_system_operations_on_completed_at'
     end
 
     # Create database_backups table - Backup management
@@ -201,11 +201,11 @@ class CreateAdminSystemManagement < ActiveRecord::Migration[8.0]
       t.text :error_message
       t.jsonb :metadata, default: {}
       t.timestamps null: false
-      
-      t.index [:backup_type], name: 'idx_database_backups_on_backup_type'
-      t.index [:status], name: 'idx_database_backups_on_status'
-      t.index [:created_by_id], name: 'idx_database_backups_on_created_by_id'
-      t.index [:started_at], name: 'idx_database_backups_on_started_at'
+
+      t.index [ :backup_type ], name: 'idx_database_backups_on_backup_type'
+      t.index [ :status ], name: 'idx_database_backups_on_status'
+      t.index [ :created_by_id ], name: 'idx_database_backups_on_created_by_id'
+      t.index [ :started_at ], name: 'idx_database_backups_on_started_at'
     end
 
     # Create database_restores table - Restore operations
@@ -221,11 +221,11 @@ class CreateAdminSystemManagement < ActiveRecord::Migration[8.0]
       t.text :error_message
       t.jsonb :metadata, default: {}
       t.timestamps null: false
-      
-      t.index [:database_backup_id], name: 'idx_database_restores_on_database_backup_id'
-      t.index [:initiated_by_id], name: 'idx_database_restores_on_initiated_by_id'
-      t.index [:status], name: 'idx_database_restores_on_status'
-      t.index [:started_at], name: 'idx_database_restores_on_started_at'
+
+      t.index [ :database_backup_id ], name: 'idx_database_restores_on_database_backup_id'
+      t.index [ :initiated_by_id ], name: 'idx_database_restores_on_initiated_by_id'
+      t.index [ :status ], name: 'idx_database_restores_on_status'
+      t.index [ :started_at ], name: 'idx_database_restores_on_started_at'
     end
 
     # Create scheduled_tasks table - Task scheduling
@@ -244,12 +244,12 @@ class CreateAdminSystemManagement < ActiveRecord::Migration[8.0]
       t.integer :success_count, default: 0
       t.integer :failure_count, default: 0
       t.timestamps null: false
-      
-      t.index [:name], unique: true, name: 'idx_scheduled_tasks_on_name_unique'
-      t.index [:task_type], name: 'idx_scheduled_tasks_on_task_type'
-      t.index [:is_active], name: 'idx_scheduled_tasks_on_is_active'
-      t.index [:next_run_at], name: 'idx_scheduled_tasks_on_next_run_at'
-      t.index [:last_run_at], name: 'idx_scheduled_tasks_on_last_run_at'
+
+      t.index [ :name ], unique: true, name: 'idx_scheduled_tasks_on_name_unique'
+      t.index [ :task_type ], name: 'idx_scheduled_tasks_on_task_type'
+      t.index [ :is_active ], name: 'idx_scheduled_tasks_on_is_active'
+      t.index [ :next_run_at ], name: 'idx_scheduled_tasks_on_next_run_at'
+      t.index [ :last_run_at ], name: 'idx_scheduled_tasks_on_last_run_at'
     end
 
     # Create task_executions table - Task execution history
@@ -264,10 +264,10 @@ class CreateAdminSystemManagement < ActiveRecord::Migration[8.0]
       t.text :error_message
       t.text :log_output
       t.timestamps null: false
-      
-      t.index [:scheduled_task_id, :started_at], name: 'idx_task_executions_on_scheduled_task_started_at'
-      t.index [:status], name: 'idx_task_executions_on_status'
-      t.index [:started_at], name: 'idx_task_executions_on_started_at'
+
+      t.index [ :scheduled_task_id, :started_at ], name: 'idx_task_executions_on_scheduled_task_started_at'
+      t.index [ :status ], name: 'idx_task_executions_on_status'
+      t.index [ :started_at ], name: 'idx_task_executions_on_started_at'
     end
 
     # Create scheduled_reports table - Report scheduling
@@ -286,11 +286,11 @@ class CreateAdminSystemManagement < ActiveRecord::Migration[8.0]
       t.datetime :last_run_at
       t.string :last_status, limit: 50
       t.timestamps null: false
-      
-      t.index [:account_id, :report_type], name: 'idx_scheduled_reports_on_account_report_type'
-      t.index [:frequency], name: 'idx_scheduled_reports_on_frequency'
-      t.index [:is_active], name: 'idx_scheduled_reports_on_is_active'
-      t.index [:next_run_at], name: 'idx_scheduled_reports_on_next_run_at'
+
+      t.index [ :account_id, :report_type ], name: 'idx_scheduled_reports_on_account_report_type'
+      t.index [ :frequency ], name: 'idx_scheduled_reports_on_frequency'
+      t.index [ :is_active ], name: 'idx_scheduled_reports_on_is_active'
+      t.index [ :next_run_at ], name: 'idx_scheduled_reports_on_next_run_at'
     end
 
     # Create report_requests table - On-demand report generation
@@ -308,12 +308,12 @@ class CreateAdminSystemManagement < ActiveRecord::Migration[8.0]
       t.datetime :expires_at
       t.text :error_message
       t.timestamps null: false
-      
-      t.index [:account_id, :report_type], name: 'idx_report_requests_on_account_report_type'
-      t.index [:requested_by_id], name: 'idx_report_requests_on_requested_by_id'
-      t.index [:status], name: 'idx_report_requests_on_status'
-      t.index [:requested_at], name: 'idx_report_requests_on_requested_at'
-      t.index [:expires_at], name: 'idx_report_requests_on_expires_at'
+
+      t.index [ :account_id, :report_type ], name: 'idx_report_requests_on_account_report_type'
+      t.index [ :requested_by_id ], name: 'idx_report_requests_on_requested_by_id'
+      t.index [ :status ], name: 'idx_report_requests_on_status'
+      t.index [ :requested_at ], name: 'idx_report_requests_on_requested_at'
+      t.index [ :expires_at ], name: 'idx_report_requests_on_expires_at'
     end
 
     # Create worker_activities table - Worker monitoring
@@ -325,10 +325,10 @@ class CreateAdminSystemManagement < ActiveRecord::Migration[8.0]
       t.jsonb :details, default: {}
       t.datetime :occurred_at, null: false
       t.timestamps null: false
-      
-      t.index [:worker_id, :occurred_at], name: 'idx_worker_activities_on_worker_occurred_at'
-      t.index [:activity_type], name: 'idx_worker_activities_on_activity_type'
-      t.index [:occurred_at], name: 'idx_worker_activities_on_occurred_at'
+
+      t.index [ :worker_id, :occurred_at ], name: 'idx_worker_activities_on_worker_occurred_at'
+      t.index [ :activity_type ], name: 'idx_worker_activities_on_activity_type'
+      t.index [ :occurred_at ], name: 'idx_worker_activities_on_occurred_at'
     end
 
     # Create gateway_connection_jobs table - Gateway connection management
@@ -344,10 +344,10 @@ class CreateAdminSystemManagement < ActiveRecord::Migration[8.0]
       t.datetime :scheduled_at
       t.datetime :completed_at
       t.timestamps null: false
-      
-      t.index [:gateway, :operation], name: 'idx_gateway_connection_jobs_on_gateway_operation'
-      t.index [:status], name: 'idx_gateway_connection_jobs_on_status'
-      t.index [:scheduled_at], name: 'idx_gateway_connection_jobs_on_scheduled_at'
+
+      t.index [ :gateway, :operation ], name: 'idx_gateway_connection_jobs_on_gateway_operation'
+      t.index [ :status ], name: 'idx_gateway_connection_jobs_on_status'
+      t.index [ :scheduled_at ], name: 'idx_gateway_connection_jobs_on_scheduled_at'
     end
 
     # Add check constraints for admin and system management

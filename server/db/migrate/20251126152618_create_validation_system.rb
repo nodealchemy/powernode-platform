@@ -12,7 +12,7 @@ class CreateValidationSystem < ActiveRecord::Migration[7.1]
       t.jsonb :configuration, default: {}
       t.timestamps
 
-      t.index [:category, :enabled]
+      t.index [ :category, :enabled ]
       t.index :severity
     end
 
@@ -26,7 +26,7 @@ class CreateValidationSystem < ActiveRecord::Migration[7.1]
       t.integer :validation_duration_ms
       t.timestamps
 
-      t.index [:workflow_id, :created_at]
+      t.index [ :workflow_id, :created_at ]
     end
   end
 end

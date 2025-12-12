@@ -15,26 +15,26 @@ class McpResourceService
 
     begin
       mcp_request = {
-        jsonrpc: '2.0',
+        jsonrpc: "2.0",
         id: SecureRandom.uuid,
-        method: 'resources/read',
+        method: "resources/read",
         params: { uri: uri }
       }
 
       response = send_mcp_request(mcp_request)
 
       if response[:error]
-        error_message = response[:error][:message] || response[:error]['message'] || 'Unknown error'
+        error_message = response[:error][:message] || response[:error]["message"] || "Unknown error"
         { success: false, error: error_message }
       else
-        contents = response[:result]&.dig('contents') || response[:result]&.dig(:contents) || []
+        contents = response[:result]&.dig("contents") || response[:result]&.dig(:contents) || []
         first_content = contents.first || {}
 
         {
           success: true,
-          content: first_content['text'] || first_content[:text] || first_content['blob'] || first_content[:blob],
-          mime_type: first_content['mimeType'] || first_content[:mimeType],
-          uri: first_content['uri'] || first_content[:uri] || uri
+          content: first_content["text"] || first_content[:text] || first_content["blob"] || first_content[:blob],
+          mime_type: first_content["mimeType"] || first_content[:mimeType],
+          uri: first_content["uri"] || first_content[:uri] || uri
         }
       end
     rescue StandardError => e
@@ -49,18 +49,18 @@ class McpResourceService
 
     begin
       mcp_request = {
-        jsonrpc: '2.0',
+        jsonrpc: "2.0",
         id: SecureRandom.uuid,
-        method: 'resources/list',
+        method: "resources/list",
         params: {}
       }
 
       response = send_mcp_request(mcp_request)
 
       if response[:error]
-        { success: false, error: response[:error][:message] || 'Unknown error' }
+        { success: false, error: response[:error][:message] || "Unknown error" }
       else
-        resources = response[:result]&.dig('resources') || response[:result]&.dig(:resources) || []
+        resources = response[:result]&.dig("resources") || response[:result]&.dig(:resources) || []
         { success: true, resources: resources }
       end
     rescue StandardError => e
@@ -73,11 +73,11 @@ class McpResourceService
 
   def send_mcp_request(request)
     case @server.connection_type
-    when 'http'
+    when "http"
       send_http_request(request)
-    when 'stdio'
+    when "stdio"
       send_stdio_request(request)
-    when 'websocket'
+    when "websocket"
       send_websocket_request(request)
     else
       { error: { message: "Unsupported connection type: #{@server.connection_type}" } }
@@ -85,29 +85,29 @@ class McpResourceService
   end
 
   def send_http_request(request)
-    require 'net/http'
+    require "net/http"
 
-    url = @server.capabilities&.dig('url') || @server.env&.dig('url')
+    url = @server.capabilities&.dig("url") || @server.env&.dig("url")
     raise "No URL configured for HTTP MCP server" unless url
 
     # Use the appropriate endpoint based on method
     endpoint = case request[:method]
-               when 'resources/read' then '/resources/read'
-               when 'resources/list' then '/resources/list'
-               else '/mcp'
-               end
+    when "resources/read" then "/resources/read"
+    when "resources/list" then "/resources/list"
+    else "/mcp"
+    end
 
     uri = URI("#{url}#{endpoint}")
     http = Net::HTTP.new(uri.host, uri.port)
-    http.use_ssl = uri.scheme == 'https'
+    http.use_ssl = uri.scheme == "https"
     http.read_timeout = 30
 
     http_request = Net::HTTP::Post.new(uri)
-    http_request['Content-Type'] = 'application/json'
-    http_request['Accept'] = 'application/json'
+    http_request["Content-Type"] = "application/json"
+    http_request["Accept"] = "application/json"
 
-    if @server.env&.dig('authorization')
-      http_request['Authorization'] = @server.env['authorization']
+    if @server.env&.dig("authorization")
+      http_request["Authorization"] = @server.env["authorization"]
     end
 
     http_request.body = request.to_json
@@ -119,7 +119,7 @@ class McpResourceService
   end
 
   def send_stdio_request(request)
-    require 'open3'
+    require "open3"
 
     env = (@server.env || {}).transform_keys(&:to_s)
 
@@ -140,22 +140,22 @@ class McpResourceService
 
       begin
         parsed = JSON.parse(line)
-        return parsed.deep_symbolize_keys if parsed.key?('result') || parsed.key?('error')
+        return parsed.deep_symbolize_keys if parsed.key?("result") || parsed.key?("error")
       rescue JSON::ParserError
         next
       end
     end
 
-    { error: { message: 'No valid response from MCP server' } }
+    { error: { message: "No valid response from MCP server" } }
   end
 
   def send_websocket_request(request)
     # WebSocket requires persistent connection - fall back to HTTP if available
-    if @server.capabilities&.dig('http_fallback_url')
-      original_url = @server.capabilities['url']
-      @server.capabilities['url'] = @server.capabilities['http_fallback_url']
+    if @server.capabilities&.dig("http_fallback_url")
+      original_url = @server.capabilities["url"]
+      @server.capabilities["url"] = @server.capabilities["http_fallback_url"]
       result = send_http_request(request)
-      @server.capabilities['url'] = original_url
+      @server.capabilities["url"] = original_url
       result
     else
       { error: { message: "WebSocket connection not available for resource read" } }

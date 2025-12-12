@@ -14,21 +14,21 @@ class DataRetentionPolicy < ApplicationRecord
   # Scopes
   scope :active, -> { where(active: true) }
   scope :system_defaults, -> { where(account_id: nil) }
-  scope :for_account, ->(account) { where(account_id: [nil, account.id]).order(account_id: :desc) }
+  scope :for_account, ->(account) { where(account_id: [ nil, account.id ]).order(account_id: :desc) }
   scope :by_data_type, ->(type) { where(data_type: type) }
-  scope :due_for_enforcement, -> { active.where('last_enforced_at IS NULL OR last_enforced_at < ?', 1.day.ago) }
+  scope :due_for_enforcement, -> { active.where("last_enforced_at IS NULL OR last_enforced_at < ?", 1.day.ago) }
 
   # Default retention policies (system-wide)
   DEFAULT_POLICIES = {
-    'audit_logs' => { retention_days: 365 * 7, action: 'archive', legal_basis: 'SOC 2, GDPR Art. 17(3)' },
-    'user_activity' => { retention_days: 365, action: 'anonymize', legal_basis: 'GDPR Art. 5(1)(e)' },
-    'payment_records' => { retention_days: 365 * 7, action: 'archive', legal_basis: 'Tax regulations' },
-    'session_logs' => { retention_days: 90, action: 'delete', legal_basis: 'GDPR Art. 5(1)(e)' },
-    'email_logs' => { retention_days: 365, action: 'delete', legal_basis: 'GDPR Art. 5(1)(e)' },
-    'file_uploads' => { retention_days: 365 * 2, action: 'delete', legal_basis: 'Storage optimization' },
-    'analytics_data' => { retention_days: 365 * 2, action: 'anonymize', legal_basis: 'GDPR Art. 5(1)(e)' },
-    'webhook_logs' => { retention_days: 90, action: 'delete', legal_basis: 'GDPR Art. 5(1)(e)' },
-    'api_request_logs' => { retention_days: 30, action: 'delete', legal_basis: 'GDPR Art. 5(1)(e)' }
+    "audit_logs" => { retention_days: 365 * 7, action: "archive", legal_basis: "SOC 2, GDPR Art. 17(3)" },
+    "user_activity" => { retention_days: 365, action: "anonymize", legal_basis: "GDPR Art. 5(1)(e)" },
+    "payment_records" => { retention_days: 365 * 7, action: "archive", legal_basis: "Tax regulations" },
+    "session_logs" => { retention_days: 90, action: "delete", legal_basis: "GDPR Art. 5(1)(e)" },
+    "email_logs" => { retention_days: 365, action: "delete", legal_basis: "GDPR Art. 5(1)(e)" },
+    "file_uploads" => { retention_days: 365 * 2, action: "delete", legal_basis: "Storage optimization" },
+    "analytics_data" => { retention_days: 365 * 2, action: "anonymize", legal_basis: "GDPR Art. 5(1)(e)" },
+    "webhook_logs" => { retention_days: 90, action: "delete", legal_basis: "GDPR Art. 5(1)(e)" },
+    "api_request_logs" => { retention_days: 30, action: "delete", legal_basis: "GDPR Art. 5(1)(e)" }
   }.freeze
 
   # Class methods

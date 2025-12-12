@@ -6,7 +6,7 @@ class DelegationPermission < ApplicationRecord
   belongs_to :permission
 
   # Validations
-  validates :account_delegation_id, uniqueness: { scope: :permission_id, 
+  validates :account_delegation_id, uniqueness: { scope: :permission_id,
                                                 message: "already has this permission assigned" }
 
   # Callbacks
@@ -22,10 +22,10 @@ class DelegationPermission < ApplicationRecord
     permissions = joins(:permission)
                    .where(account_delegation: delegation)
                    .includes(:permission)
-                   .order('permissions.resource, permissions.action')
-    
+                   .order("permissions.resource, permissions.action")
+
     grouped = permissions.group_by { |dp| dp.permission.resource }
-    
+
     grouped.transform_values do |perms|
       perms.map { |dp| dp.permission.action }
     end
@@ -45,7 +45,7 @@ class DelegationPermission < ApplicationRecord
   def validate_permission_scope
     # Ensure the permission being assigned doesn't exceed the role's permissions
     delegation_role = account_delegation.role
-    
+
     if delegation_role.present?
       unless delegation_role.permissions.include?(permission)
         errors.add(:permission, "cannot be granted as it's not available in the delegation's role")

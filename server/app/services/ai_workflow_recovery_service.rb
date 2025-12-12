@@ -81,7 +81,7 @@ class AiWorkflowRecoveryService
         # Retry execution
         result = execute_node_retry(node_execution)
 
-        if result.status == 'completed'
+        if result.status == "completed"
           @logger.info "[RECOVERY] Retry successful for node #{node_execution.node_id}"
           return result
         end
@@ -92,13 +92,13 @@ class AiWorkflowRecoveryService
         if attempt < max_attempts
           # Calculate backoff delay
           sleep_time = case backoff_strategy
-                       when :linear
+          when :linear
                          delay * attempt
-                       when :exponential
+          when :exponential
                          delay * (2 ** (attempt - 1))
-                       else
+          else
                          delay
-                       end
+          end
 
           @logger.info "[RECOVERY] Waiting #{sleep_time}s before next retry"
           sleep(sleep_time)
@@ -109,7 +109,7 @@ class AiWorkflowRecoveryService
     # All retries exhausted
     @logger.error "[RECOVERY] All retry attempts exhausted for node #{node_execution.node_id}"
     node_execution.tap do |ne|
-      ne.update!(status: 'failed') unless ne.status == 'failed'
+      ne.update!(status: "failed") unless ne.status == "failed"
     end
   end
 
@@ -117,9 +117,9 @@ class AiWorkflowRecoveryService
   def execute_node_retry(node_execution)
     # Reset node execution status
     node_execution.update!(
-      status: 'running',
+      status: "running",
       retry_count: node_execution.retry_count + 1,
-      metadata: node_execution.metadata.merge('retry_attempt' => node_execution.retry_count + 1)
+      metadata: node_execution.metadata.merge("retry_attempt" => node_execution.retry_count + 1)
     )
 
     # Execute the node
@@ -134,12 +134,12 @@ class AiWorkflowRecoveryService
     circuit_state = get_circuit_state(node_id)
 
     case circuit_state[:status]
-    when 'open'
+    when "open"
       # Circuit is open, don't attempt execution
       @logger.warn "[RECOVERY] Circuit breaker OPEN for node #{node_id}"
-      return { success: false, error: 'Circuit breaker is open' }
+      { success: false, error: "Circuit breaker is open" }
 
-    when 'half_open'
+    when "half_open"
       # Try execution with caution
       @logger.info "[RECOVERY] Circuit breaker HALF-OPEN for node #{node_id}, attempting execution"
 
@@ -199,10 +199,10 @@ class AiWorkflowRecoveryService
     stuck_nodes = find_stuck_nodes
     if stuck_nodes.any?
       health_status[:health_checks] << {
-        type: 'stuck_nodes',
+        type: "stuck_nodes",
         count: stuck_nodes.count,
         nodes: stuck_nodes.map(&:node_id),
-        action: 'auto_recovery_initiated'
+        action: "auto_recovery_initiated"
       }
 
       # Auto-recover stuck nodes
@@ -213,9 +213,9 @@ class AiWorkflowRecoveryService
     orphaned = find_orphaned_executions
     if orphaned.any?
       health_status[:health_checks] << {
-        type: 'orphaned_executions',
+        type: "orphaned_executions",
         count: orphaned.count,
-        action: 'cleanup_initiated'
+        action: "cleanup_initiated"
       }
 
       cleanup_orphaned_executions(orphaned)
@@ -230,12 +230,12 @@ class AiWorkflowRecoveryService
     @logger.info "[RECOVERY] Applying checkpoint-based recovery strategy"
 
     # Create checkpoint at current position
-    create_checkpoint(@workflow_run.current_node_id, { strategy: 'checkpoint_based' })
+    create_checkpoint(@workflow_run.current_node_id, { strategy: "checkpoint_based" })
 
     # If workflow failed, restore from last checkpoint
-    if @workflow_run.status == 'failed'
+    if @workflow_run.status == "failed"
       latest_checkpoint = find_latest_checkpoint
-      restore_from_checkpoint(latest_checkpoint['id']) if latest_checkpoint
+      restore_from_checkpoint(latest_checkpoint["id"]) if latest_checkpoint
     end
   end
 
@@ -250,13 +250,13 @@ class AiWorkflowRecoveryService
     @logger.info "[RECOVERY] Applying graceful degradation for node #{node.node_id}"
 
     # Check if node is critical
-    is_critical = node.configuration['critical'] == true
+    is_critical = node.configuration["critical"] == true
 
     if is_critical
-      { action: 'fail_fast', reason: 'Critical node cannot be skipped' }
+      { action: "fail_fast", reason: "Critical node cannot be skipped" }
     else
       # Skip non-critical node
-      { action: 'skip', reason: 'Non-critical node skipped to allow workflow continuation' }
+      { action: "skip", reason: "Non-critical node skipped to allow workflow continuation" }
     end
   end
 
@@ -278,13 +278,13 @@ class AiWorkflowRecoveryService
           node_id: node_id,
           node_type: workflow_node.node_type,
           execution_id: SecureRandom.uuid,
-          status: 'skipped',
-          metadata: { 'restored_from_checkpoint' => true }
+          status: "skipped",
+          metadata: { "restored_from_checkpoint" => true }
         )
       else
         node_execution.update!(
-          status: 'skipped',
-          metadata: node_execution.metadata.merge('restored_from_checkpoint' => true)
+          status: "skipped",
+          metadata: node_execution.metadata.merge("restored_from_checkpoint" => true)
         )
       end
     end
@@ -292,8 +292,8 @@ class AiWorkflowRecoveryService
 
   # Find next node to execute after checkpoint
   def find_next_node_after_checkpoint(checkpoint)
-    completed_node_ids = checkpoint[:completed_nodes] || checkpoint['completed_nodes']
-    current_node_id = checkpoint[:node_id] || checkpoint['node_id']
+    completed_node_ids = checkpoint[:completed_nodes] || checkpoint["completed_nodes"]
+    current_node_id = checkpoint[:node_id] || checkpoint["node_id"]
 
     # Find the node that follows the checkpoint node
     workflow = @workflow_run.ai_workflow
@@ -314,8 +314,8 @@ class AiWorkflowRecoveryService
 
     # Update runtime context with variables
     @workflow_run.update!(
-      runtime_context: @workflow_run.runtime_context.merge('variables' => variables),
-      status: 'running'
+      runtime_context: @workflow_run.runtime_context.merge("variables" => variables),
+      status: "running"
     )
 
     # Create orchestrator and continue execution
@@ -346,12 +346,12 @@ class AiWorkflowRecoveryService
     if @workflow_run.started_at && (Time.current - @workflow_run.started_at) > 1.hour
       # Long-running workflows should use checkpoints
       :checkpoint_based
-    elsif @workflow_run.status == 'failed' &&
-          (@workflow_run.error_details['type'] == 'critical_error' ||
-           @workflow_run.error_details['message']&.include?('Critical'))
+    elsif @workflow_run.status == "failed" &&
+          (@workflow_run.error_details["type"] == "critical_error" ||
+           @workflow_run.error_details["message"]&.include?("Critical"))
       # Critical errors need graceful degradation
       :graceful_degradation
-    elsif @workflow_run.status == 'failed'
+    elsif @workflow_run.status == "failed"
       # Regular failures can use node retry
       :node_retry
     else
@@ -368,7 +368,7 @@ class AiWorkflowRecoveryService
 
     {
       run_status: @workflow_run.status,
-      progress: @workflow_run.metadata['progress_percentage'] || 0,
+      progress: @workflow_run.metadata["progress_percentage"] || 0,
       node_statuses: node_statuses,
       completed_nodes: @workflow_run.completed_nodes,
       failed_nodes: @workflow_run.failed_nodes,
@@ -401,15 +401,15 @@ class AiWorkflowRecoveryService
   end
 
   def restore_workflow_state(checkpoint)
-    state = checkpoint[:state] || checkpoint['state']
-    variables = checkpoint[:variables] || checkpoint['variables'] || {}
-    output_data = checkpoint[:output_data] || checkpoint['output_data'] || {}
-    completed_nodes = checkpoint[:completed_nodes] || checkpoint['completed_nodes'] || []
+    state = checkpoint[:state] || checkpoint["state"]
+    variables = checkpoint[:variables] || checkpoint["variables"] || {}
+    output_data = checkpoint[:output_data] || checkpoint["output_data"] || {}
+    completed_nodes = checkpoint[:completed_nodes] || checkpoint["completed_nodes"] || []
 
     # Restore workflow run state
     @workflow_run.update!(
-      status: 'running', # Resume as running
-      runtime_context: @workflow_run.runtime_context.merge('variables' => variables),
+      status: "running", # Resume as running
+      runtime_context: @workflow_run.runtime_context.merge("variables" => variables),
       output_variables: @workflow_run.output_variables.merge(output_data)
     )
 
@@ -417,15 +417,15 @@ class AiWorkflowRecoveryService
     mark_nodes_as_completed(completed_nodes) if completed_nodes.any?
 
     # Restore node execution states if present
-    if state && state['node_executions']
-      state['node_executions'].each do |ne_state|
+    if state && state["node_executions"]
+      state["node_executions"].each do |ne_state|
         node_execution = @workflow_run.ai_workflow_node_executions
-          .find_or_create_by(node_id: ne_state['node_id'])
+          .find_or_create_by(node_id: ne_state["node_id"])
 
         node_execution.update!(
-          status: ne_state['status'],
-          output_data: ne_state['output_data'],
-          retry_count: ne_state['retry_count']
+          status: ne_state["status"],
+          output_data: ne_state["output_data"],
+          retry_count: ne_state["retry_count"]
         )
       end
     end
@@ -433,8 +433,8 @@ class AiWorkflowRecoveryService
 
   def resume_from_checkpoint(checkpoint)
     # Extract checkpoint data (handle both string and symbol keys)
-    node_id = checkpoint[:node_id] || checkpoint['node_id']
-    variables = checkpoint[:variables] || checkpoint['variables'] || {}
+    node_id = checkpoint[:node_id] || checkpoint["node_id"]
+    variables = checkpoint[:variables] || checkpoint["variables"] || {}
 
     unless node_id
       @logger.error "[RECOVERY] Cannot resume from checkpoint: missing node_id"
@@ -460,13 +460,13 @@ class AiWorkflowRecoveryService
 
   def get_circuit_state(node_id)
     redis_key = "circuit_breaker:#{node_id}"
-    state = Rails.cache.read(redis_key) || { status: 'closed', failure_count: 0 }
+    state = Rails.cache.read(redis_key) || { status: "closed", failure_count: 0 }
 
     # Check if circuit should transition states
-    if state[:status] == 'open' && state[:opened_at]
+    if state[:status] == "open" && state[:opened_at]
       # Check if enough time has passed to try half-open
       if Time.current - Time.parse(state[:opened_at]) > 30.seconds
-        state[:status] = 'half_open'
+        state[:status] = "half_open"
         Rails.cache.write(redis_key, state, expires_in: 5.minutes)
       end
     end
@@ -478,7 +478,7 @@ class AiWorkflowRecoveryService
     @logger.warn "[RECOVERY] Tripping circuit breaker for node #{node_id}"
 
     state = {
-      status: 'open',
+      status: "open",
       opened_at: Time.current.iso8601,
       failure_count: 0
     }
@@ -505,20 +505,20 @@ class AiWorkflowRecoveryService
 
   def record_circuit_success(node_id)
     state = get_circuit_state(node_id)
-    state[:failure_count] = [0, (state[:failure_count] || 0) - 1].max
+    state[:failure_count] = [ 0, (state[:failure_count] || 0) - 1 ].max
     Rails.cache.write("circuit_breaker:#{node_id}", state, expires_in: 5.minutes)
   end
 
   def determine_compensation_strategy(node_execution)
     config = node_execution.configuration_snapshot
 
-    return config['compensation_strategy'].to_sym if config['compensation_strategy'].present?
+    return config["compensation_strategy"].to_sym if config["compensation_strategy"].present?
 
     # Default strategies based on node type
     case node_execution.node_type
-    when 'transaction'
+    when "transaction"
       :rollback
-    when 'external_api'
+    when "external_api"
       :compensate
     else
       :skip
@@ -531,7 +531,7 @@ class AiWorkflowRecoveryService
     # Implementation would depend on specific node type
     # For now, mark as rolled back
     node_execution.update!(
-      metadata: node_execution.metadata.merge('rolled_back' => true)
+      metadata: node_execution.metadata.merge("rolled_back" => true)
     )
   end
 
@@ -541,7 +541,7 @@ class AiWorkflowRecoveryService
     # Execute defined compensation logic
     # This would call specific compensation handlers
     node_execution.update!(
-      metadata: node_execution.metadata.merge('compensated' => true)
+      metadata: node_execution.metadata.merge("compensated" => true)
     )
   end
 
@@ -549,16 +549,16 @@ class AiWorkflowRecoveryService
     @logger.info "[RECOVERY] Skipping failed node #{node_execution.node_id} and continuing"
 
     node_execution.update!(
-      status: 'skipped',
-      metadata: node_execution.metadata.merge('skipped_due_to_failure' => true)
+      status: "skipped",
+      metadata: node_execution.metadata.merge("skipped_due_to_failure" => true)
     )
   end
 
   def find_stuck_nodes
     # Find nodes that have been running for too long
     @workflow_run.ai_workflow_node_executions
-      .where(status: 'running')
-      .where('started_at < ?', 10.minutes.ago)
+      .where(status: "running")
+      .where("started_at < ?", 10.minutes.ago)
   end
 
   def auto_recover_stuck_node(node_execution)
@@ -575,15 +575,15 @@ class AiWorkflowRecoveryService
     # Find executions without proper workflow run association
     @workflow_run.ai_workflow_node_executions
       .where(status: %w[pending initializing])
-      .where('created_at < ?', 30.minutes.ago)
+      .where("created_at < ?", 30.minutes.ago)
   end
 
   def cleanup_orphaned_executions(executions)
     executions.each do |execution|
       @logger.info "[RECOVERY] Cleaning up orphaned execution #{execution.id}"
       execution.update!(
-        status: 'cancelled',
-        metadata: execution.metadata.merge('cancelled_reason' => 'orphaned_execution')
+        status: "cancelled",
+        metadata: execution.metadata.merge("cancelled_reason" => "orphaned_execution")
       )
     end
   end

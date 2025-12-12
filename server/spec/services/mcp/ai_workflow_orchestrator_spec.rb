@@ -584,7 +584,7 @@ RSpec.describe Mcp::AiWorkflowOrchestrator, type: :service do
           node2.node_id => { success: true, output: 'result2' },
           node3.node_id => { success: true, output: 'result3' }
         }
-        execution_path = [node1.node_id, node2.node_id, node3.node_id]
+        execution_path = [ node1.node_id, node2.node_id, node3.node_id ]
 
         allow(parallel_coordinator_class).to receive(:new).and_return(parallel_coordinator)
         allow(parallel_coordinator).to receive(:execute_parallel)
@@ -601,7 +601,7 @@ RSpec.describe Mcp::AiWorkflowOrchestrator, type: :service do
       end
 
       it 'records execution path from parallel coordinator' do
-        execution_path = [node1.node_id, node2.node_id, node3.node_id]
+        execution_path = [ node1.node_id, node2.node_id, node3.node_id ]
 
         allow(parallel_coordinator_class).to receive(:new).and_return(parallel_coordinator)
         allow(parallel_coordinator).to receive(:execute_parallel)
@@ -667,14 +667,14 @@ RSpec.describe Mcp::AiWorkflowOrchestrator, type: :service do
         node_results = execution_orchestrator.instance_variable_get(:@node_results)
 
         allow(execution_orchestrator).to receive(:execute_node) do |node|
-          execution_batches << [:single, node.node_id]
+          execution_batches << [ :single, node.node_id ]
           result = { success: true, output: {}, status: 'completed' }
           node_results[node.node_id] = result
           result
         end
 
         allow(execution_orchestrator).to receive(:execute_node_batch_parallel) do |batch|
-          execution_batches << [:batch, batch.map(&:node_id)]
+          execution_batches << [ :batch, batch.map(&:node_id) ]
           batch.each do |node|
             result = { success: true, output: {}, status: 'completed' }
             node_results[node.node_id] = result

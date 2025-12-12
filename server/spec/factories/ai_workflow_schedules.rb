@@ -28,7 +28,7 @@ FactoryBot.define do
         notification_settings: {
           on_success: false,
           on_failure: true,
-          channels: ['email']
+          channels: [ 'email' ]
         }
       }
     end
@@ -66,7 +66,7 @@ FactoryBot.define do
           notification_settings: {
             on_success: true,
             on_failure: true,
-            channels: ['email', 'slack']
+            channels: [ 'email', 'slack' ]
           }
         }
       end
@@ -154,7 +154,7 @@ FactoryBot.define do
           report_type: 'daily_summary',
           date_range: 'yesterday',
           output_format: 'pdf',
-          recipients: ['reports@example.com']
+          recipients: [ 'reports@example.com' ]
         }
       end
       configuration do
@@ -177,7 +177,7 @@ FactoryBot.define do
       input_variables do
         {
           sync_type: 'incremental',
-          data_sources: ['database_a', 'api_endpoint_b'],
+          data_sources: [ 'database_a', 'api_endpoint_b' ],
           conflict_resolution: 'timestamp_wins'
         }
       end
@@ -200,7 +200,7 @@ FactoryBot.define do
       input_variables do
         {
           maintenance_type: 'cleanup',
-          target_resources: ['temp_files', 'old_logs', 'expired_cache'],
+          target_resources: [ 'temp_files', 'old_logs', 'expired_cache' ],
           dry_run: false
         }
       end
@@ -211,7 +211,7 @@ FactoryBot.define do
           notification_settings: {
             on_success: true,
             on_failure: true,
-            channels: ['email', 'slack'],
+            channels: [ 'email', 'slack' ],
             include_summary: true
           }
         }
@@ -282,7 +282,7 @@ FactoryBot.define do
             on_success: false,
             on_failure: true,
             on_missed_run: true,
-            channels: ['email', 'webhook'],
+            channels: [ 'email', 'webhook' ],
             webhook_url: 'https://alerts.example.com/webhook',
             email_template: 'schedule_failure',
             include_logs: true,
@@ -304,7 +304,7 @@ FactoryBot.define do
     # Factory for testing timezone handling
     trait :multiple_timezones do
       after(:build) do |schedule|
-        schedule.timezone = ['UTC', 'America/New_York', 'Europe/London', 'Asia/Tokyo'].sample
+        schedule.timezone = [ 'UTC', 'America/New_York', 'Europe/London', 'Asia/Tokyo' ].sample
       end
     end
 

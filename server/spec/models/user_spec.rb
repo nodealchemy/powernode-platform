@@ -96,7 +96,7 @@ RSpec.describe User, type: :model do
       it 'assigns member role to subsequent users' do
         # Create first user (will be owner)
         first_user = create(:user, account: account)
-        
+
         # Create second user (should be member)
         second_user = build(:user, account: account)
         second_user.save
@@ -164,7 +164,7 @@ RSpec.describe User, type: :model do
       end
 
       it '#member? returns true for member role' do
-        # Create account with owner first, then create member user  
+        # Create account with owner first, then create member user
         account = create(:account)
         create(:user, :owner, account: account) # This will be the owner
         user_with_member_role = create(:user, :member, account: account)

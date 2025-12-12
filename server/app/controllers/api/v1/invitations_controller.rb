@@ -3,10 +3,10 @@
 module Api
   module V1
     class InvitationsController < ApplicationController
-      before_action :authenticate_request, except: [:accept]
-      before_action :set_invitation, only: [:show, :update, :destroy, :resend, :cancel]
-      before_action :authorize_invitations_access!, only: [:index, :create, :resend]
-      before_action :authorize_invitation_management!, only: [:update, :destroy, :cancel]
+      before_action :authenticate_request, except: [ :accept ]
+      before_action :set_invitation, only: [ :show, :update, :destroy, :resend, :cancel ]
+      before_action :authorize_invitations_access!, only: [ :index, :create, :resend ]
+      before_action :authorize_invitation_management!, only: [ :update, :destroy, :cancel ]
 
       # GET /api/v1/invitations
       def index
@@ -14,7 +14,7 @@ module Api
 
         # Apply filters
         invitations = invitations.where(status: params[:status]) if params[:status].present?
-        invitations = invitations.where('expires_at >= ?', Time.current) if params[:include_expired] == false || params[:include_expired] == 'false'
+        invitations = invitations.where("expires_at >= ?", Time.current) if params[:include_expired] == false || params[:include_expired] == "false"
 
         # Order by creation date (newest first)
         invitations = invitations.order(created_at: :desc)
@@ -37,7 +37,7 @@ module Api
 
         if invitation.save
           # Send invitation email via worker
-          WorkerJobService.enqueue_notification_email('invitation', {
+          WorkerJobService.enqueue_notification_email("invitation", {
             invitation_id: invitation.id,
             invitation_token: invitation.token
           })
@@ -71,14 +71,14 @@ module Api
       # POST /api/v1/invitations/:id/resend
       def resend
         unless @invitation.pending? && !@invitation.expired?
-          return render_error('Can only resend pending, non-expired invitations', status: :unprocessable_content)
+          return render_error("Can only resend pending, non-expired invitations", status: :unprocessable_content)
         end
 
         # Reset expiration to 7 days from now
         @invitation.update(expires_at: 7.days.from_now)
 
         # Resend invitation email via worker
-        WorkerJobService.enqueue_notification_email('invitation', {
+        WorkerJobService.enqueue_notification_email("invitation", {
           invitation_id: @invitation.id,
           invitation_token: @invitation.token
         })
@@ -95,7 +95,7 @@ module Api
             invitation_json(@invitation)
           )
         else
-          render_error('Failed to cancel invitation. It may be expired or already accepted.', status: :unprocessable_content)
+          render_error("Failed to cancel invitation. It may be expired or already accepted.", status: :unprocessable_content)
         end
       end
 
@@ -103,15 +103,15 @@ module Api
       # Public endpoint - accepts invitation token
       def accept
         token = params[:token]
-        return render_error('Token is required', status: :bad_request) if token.blank?
+        return render_error("Token is required", status: :bad_request) if token.blank?
 
         invitation = Invitation.find_by_token(token)
-        return render_not_found('Invitation') unless invitation
+        return render_not_found("Invitation") unless invitation
 
         # Validate invitation status
-        return render_error('Invitation has expired', status: :unprocessable_content) if invitation.expired?
-        return render_error('Invitation has already been accepted', status: :unprocessable_content) if invitation.accepted?
-        return render_error('Invitation has been cancelled', status: :unprocessable_content) if invitation.cancelled?
+        return render_error("Invitation has expired", status: :unprocessable_content) if invitation.expired?
+        return render_error("Invitation has already been accepted", status: :unprocessable_content) if invitation.accepted?
+        return render_error("Invitation has been cancelled", status: :unprocessable_content) if invitation.cancelled?
 
         # Create user account (in transaction)
         user = nil
@@ -122,7 +122,7 @@ module Api
             name: "#{invitation.first_name} #{invitation.last_name}",
             password: params[:password],
             password_confirmation: params[:password_confirmation],
-            status: 'active',
+            status: "active",
             email_verified_at: Time.current # Auto-verify since they accepted invitation
           )
 
@@ -139,7 +139,7 @@ module Api
         render_success(
           {
             user: user_json(user),
-            message: 'Invitation accepted successfully'
+            message: "Invitation accepted successfully"
           },
           status: :created
         )
@@ -151,11 +151,11 @@ module Api
 
       def set_invitation
         @invitation = current_user.account.invitations.find_by(id: params[:id])
-        render_not_found('Invitation') unless @invitation
+        render_not_found("Invitation") unless @invitation
       end
 
       def authorize_invitations_access!
-        unless current_user.has_permission?('team.invite') || current_user.has_permission?('users.create')
+        unless current_user.has_permission?("team.invite") || current_user.has_permission?("users.create")
           render_forbidden
         end
       end
@@ -163,8 +163,8 @@ module Api
       def authorize_invitation_management!
         # Only the inviter or admins can manage invitations
         unless @invitation.inviter_id == current_user.id ||
-               current_user.has_permission?('users.manage') ||
-               current_user.has_permission?('team.manage')
+               current_user.has_permission?("users.manage") ||
+               current_user.has_permission?("team.manage")
           render_forbidden
         end
       end

@@ -57,12 +57,12 @@ class McpChannel < ApplicationCable::Channel
       response = @mcp_protocol.handle_initialize_request(client_info)
 
       transmit_mcp_message({
-        id: data['id'],
+        id: data["id"],
         result: response
       })
 
     rescue StandardError => e
-      transmit_mcp_error(data['id'], e)
+      transmit_mcp_error(data["id"], e)
     end
   end
 
@@ -71,16 +71,16 @@ class McpChannel < ApplicationCable::Channel
     @logger.debug "[MCP_CHANNEL] Handling tools list request"
 
     begin
-      filters = data['params'] || {}
+      filters = data["params"] || {}
       result = @mcp_protocol.list_tools(filters)
 
       transmit_mcp_message({
-        id: data['id'],
+        id: data["id"],
         result: result
       })
 
     rescue StandardError => e
-      transmit_mcp_error(data['id'], e)
+      transmit_mcp_error(data["id"], e)
     end
   end
 
@@ -89,18 +89,18 @@ class McpChannel < ApplicationCable::Channel
     @logger.debug "[MCP_CHANNEL] Handling tool description request"
 
     begin
-      tool_id = data.dig('params', 'name')
+      tool_id = data.dig("params", "name")
       raise ProtocolError, "Missing tool name" unless tool_id
 
       result = @mcp_protocol.describe_tool(tool_id)
 
       transmit_mcp_message({
-        id: data['id'],
+        id: data["id"],
         result: result
       })
 
     rescue StandardError => e
-      transmit_mcp_error(data['id'], e)
+      transmit_mcp_error(data["id"], e)
     end
   end
 
@@ -109,8 +109,8 @@ class McpChannel < ApplicationCable::Channel
     @logger.info "[MCP_CHANNEL] Handling tool call request"
 
     begin
-      tool_name = data.dig('params', 'name')
-      arguments = data.dig('params', 'arguments') || {}
+      tool_name = data.dig("params", "name")
+      arguments = data.dig("params", "arguments") || {}
 
       raise ProtocolError, "Missing tool name" unless tool_name
 
@@ -118,18 +118,18 @@ class McpChannel < ApplicationCable::Channel
       execution_options = {
         user_id: current_user.id,
         connection_id: @connection_id,
-        channel: 'mcp_channel'
+        channel: "mcp_channel"
       }
 
       result = @mcp_protocol.invoke_tool(tool_name, arguments, execution_options)
 
       transmit_mcp_message({
-        id: data['id'],
+        id: data["id"],
         result: result
       })
 
     rescue StandardError => e
-      transmit_mcp_error(data['id'], e)
+      transmit_mcp_error(data["id"], e)
     end
   end
 
@@ -138,9 +138,9 @@ class McpChannel < ApplicationCable::Channel
     @logger.info "[MCP_CHANNEL] Handling workflow execution request"
 
     begin
-      workflow_id = data.dig('params', 'workflow_id')
-      input_variables = data.dig('params', 'input_variables') || {}
-      execution_options = data.dig('params', 'execution_options') || {}
+      workflow_id = data.dig("params", "workflow_id")
+      input_variables = data.dig("params", "input_variables") || {}
+      execution_options = data.dig("params", "execution_options") || {}
 
       raise ProtocolError, "Missing workflow_id" unless workflow_id
 
@@ -151,10 +151,10 @@ class McpChannel < ApplicationCable::Channel
       workflow_run = workflow.create_run(
         input_variables: input_variables,
         triggered_by_user: current_user,
-        trigger_type: 'mcp_channel',
+        trigger_type: "mcp_channel",
         trigger_context: {
-          'connection_id' => @connection_id,
-          'channel' => 'mcp_channel'
+          "connection_id" => @connection_id,
+          "channel" => "mcp_channel"
         }
       )
 
@@ -166,7 +166,7 @@ class McpChannel < ApplicationCable::Channel
       ).execute_workflow
 
       transmit_mcp_message({
-        id: data['id'],
+        id: data["id"],
         result: {
           workflow_run_id: workflow_run.id,
           status: workflow_run.status,
@@ -175,9 +175,9 @@ class McpChannel < ApplicationCable::Channel
       })
 
     rescue ActiveRecord::RecordNotFound
-      transmit_mcp_error(data['id'], ProtocolError.new("Workflow not found"))
+      transmit_mcp_error(data["id"], ProtocolError.new("Workflow not found"))
     rescue StandardError => e
-      transmit_mcp_error(data['id'], e)
+      transmit_mcp_error(data["id"], e)
     end
   end
 
@@ -186,9 +186,9 @@ class McpChannel < ApplicationCable::Channel
     @logger.info "[MCP_CHANNEL] Handling agent execution request"
 
     begin
-      agent_id = data.dig('params', 'agent_id')
-      input_parameters = data.dig('params', 'input_parameters') || {}
-      execution_options = data.dig('params', 'execution_options') || {}
+      agent_id = data.dig("params", "agent_id")
+      input_parameters = data.dig("params", "input_parameters") || {}
+      execution_options = data.dig("params", "execution_options") || {}
 
       raise ProtocolError, "Missing agent_id" unless agent_id
 
@@ -202,14 +202,14 @@ class McpChannel < ApplicationCable::Channel
       }))
 
       transmit_mcp_message({
-        id: data['id'],
+        id: data["id"],
         result: result
       })
 
     rescue ActiveRecord::RecordNotFound
-      transmit_mcp_error(data['id'], ProtocolError.new("Agent not found"))
+      transmit_mcp_error(data["id"], ProtocolError.new("Agent not found"))
     rescue StandardError => e
-      transmit_mcp_error(data['id'], e)
+      transmit_mcp_error(data["id"], e)
     end
   end
 
@@ -220,13 +220,13 @@ class McpChannel < ApplicationCable::Channel
     @mcp_transport.handle_ping(@connection_id)
 
     transmit_mcp_message({
-      id: data['id'],
+      id: data["id"],
       result: {
         pong: true,
         timestamp: Time.current.iso8601,
         server_info: {
-          name: 'Powernode MCP Server',
-          version: Rails.application.config.version || '1.0.0'
+          name: "Powernode MCP Server",
+          version: Rails.application.config.version || "1.0.0"
         }
       }
     })
@@ -237,23 +237,23 @@ class McpChannel < ApplicationCable::Channel
     @logger.info "[MCP_CHANNEL] Handling resource subscription"
 
     begin
-      resource_type = data.dig('params', 'resource_type')
-      resource_id = data.dig('params', 'resource_id')
-      filters = data.dig('params', 'filters') || {}
+      resource_type = data.dig("params", "resource_type")
+      resource_id = data.dig("params", "resource_id")
+      filters = data.dig("params", "filters") || {}
 
       case resource_type
-      when 'tool_events'
+      when "tool_events"
         subscribe_to_tool_events(resource_id, filters)
-      when 'workflow_events'
+      when "workflow_events"
         subscribe_to_workflow_events(resource_id, filters)
-      when 'agent_events'
+      when "agent_events"
         subscribe_to_agent_events(resource_id, filters)
       else
         raise ProtocolError, "Unknown resource type: #{resource_type}"
       end
 
       transmit_mcp_message({
-        id: data['id'],
+        id: data["id"],
         result: {
           subscribed: true,
           resource_type: resource_type,
@@ -262,7 +262,7 @@ class McpChannel < ApplicationCable::Channel
       })
 
     rescue StandardError => e
-      transmit_mcp_error(data['id'], e)
+      transmit_mcp_error(data["id"], e)
     end
   end
 
@@ -289,8 +289,8 @@ class McpChannel < ApplicationCable::Channel
       user_id: current_user.id,
       account_id: current_user.account_id,
       connected_at: Time.current,
-      user_agent: connection.try(:request)&.headers&.[]('User-Agent') || 'Test Client',
-      ip_address: connection.try(:request)&.remote_ip || '127.0.0.1'
+      user_agent: connection.try(:request)&.headers&.[]("User-Agent") || "Test Client",
+      ip_address: connection.try(:request)&.remote_ip || "127.0.0.1"
     })
 
     @logger.debug "[MCP_CHANNEL] MCP connection initialized: #{@connection_id}"
@@ -323,22 +323,22 @@ class McpChannel < ApplicationCable::Channel
   def has_mcp_permissions?
     # Check if user has any MCP-related permissions
     mcp_permissions = [
-      'ai.agents.read',
-      'ai.workflows.read',
-      'ai.providers.read',
-      'admin.access'
+      "ai.agents.read",
+      "ai.workflows.read",
+      "ai.providers.read",
+      "admin.access"
     ]
 
     mcp_permissions.any? { |permission| current_user.has_permission?(permission) }
   end
 
   def extract_client_info(data)
-    params = data['params'] || {}
+    params = data["params"] || {}
 
     {
-      'protocolVersion' => params['protocolVersion'],
-      'capabilities' => params['capabilities'] || {},
-      'clientInfo' => params['clientInfo'] || {}
+      "protocolVersion" => params["protocolVersion"],
+      "capabilities" => params["capabilities"] || {},
+      "clientInfo" => params["clientInfo"] || {}
     }
   end
 
@@ -349,7 +349,7 @@ class McpChannel < ApplicationCable::Channel
   def transmit_mcp_message(message)
     # Ensure message follows MCP JSON-RPC format
     mcp_message = {
-      jsonrpc: '2.0'
+      jsonrpc: "2.0"
     }.merge(message)
 
     # Add timestamp
@@ -380,7 +380,7 @@ class McpChannel < ApplicationCable::Channel
 
   def send_mcp_initialization_response
     transmit_mcp_message({
-      method: 'initialized',
+      method: "initialized",
       params: {
         connection_id: @connection_id,
         server_capabilities: @mcp_protocol.build_server_capabilities,
@@ -396,7 +396,7 @@ class McpChannel < ApplicationCable::Channel
   # =============================================================================
 
   def subscribe_to_tool_events(tool_id, filters)
-    if tool_id == 'all'
+    if tool_id == "all"
       stream_from "mcp_tool_events_#{current_user.account_id}"
     else
       stream_from "mcp_tool_#{tool_id}_events"
@@ -404,7 +404,7 @@ class McpChannel < ApplicationCable::Channel
   end
 
   def subscribe_to_workflow_events(workflow_id, filters)
-    if workflow_id == 'all'
+    if workflow_id == "all"
       stream_from "mcp_workflow_events_#{current_user.account_id}"
     else
       stream_from "mcp_workflow_#{workflow_id}_events"
@@ -412,7 +412,7 @@ class McpChannel < ApplicationCable::Channel
   end
 
   def subscribe_to_agent_events(agent_id, filters)
-    if agent_id == 'all'
+    if agent_id == "all"
       stream_from "mcp_agent_events_#{current_user.account_id}"
     else
       stream_from "mcp_agent_#{agent_id}_events"
@@ -425,23 +425,23 @@ class McpChannel < ApplicationCable::Channel
 
   def self.broadcast_to_account(account_id, message)
     broadcast_to("mcp_account_#{account_id}", {
-      jsonrpc: '2.0',
-      method: 'notification',
+      jsonrpc: "2.0",
+      method: "notification",
       params: message.merge(timestamp: Time.current.iso8601)
     })
   end
 
   def self.broadcast_to_user(user_id, message)
     broadcast_to("mcp_user_#{user_id}", {
-      jsonrpc: '2.0',
-      method: 'notification',
+      jsonrpc: "2.0",
+      method: "notification",
       params: message.merge(timestamp: Time.current.iso8601)
     })
   end
 
   def self.broadcast_tool_event(event_type, tool_id, data, account)
     message = {
-      type: 'tool_event',
+      type: "tool_event",
       event_type: event_type,
       tool_id: tool_id,
       data: data
@@ -452,15 +452,15 @@ class McpChannel < ApplicationCable::Channel
 
     # Broadcast to specific tool stream
     broadcast_to("mcp_tool_#{tool_id}_events", {
-      jsonrpc: '2.0',
-      method: 'notification',
+      jsonrpc: "2.0",
+      method: "notification",
       params: message.merge(timestamp: Time.current.iso8601)
     })
   end
 
   def self.broadcast_workflow_event(event_type, workflow_id, data, account)
     message = {
-      type: 'workflow_event',
+      type: "workflow_event",
       event_type: event_type,
       workflow_id: workflow_id,
       data: data
@@ -495,10 +495,10 @@ class McpChannel < ApplicationCable::Channel
 
   def mcp_related_permissions
     [
-      'ai.agents.read', 'ai.agents.create', 'ai.agents.update', 'ai.agents.delete',
-      'ai.workflows.read', 'ai.workflows.create', 'ai.workflows.update', 'ai.workflows.delete',
-      'ai.providers.read', 'ai.providers.update',
-      'admin.access'
+      "ai.agents.read", "ai.agents.create", "ai.agents.update", "ai.agents.delete",
+      "ai.workflows.read", "ai.workflows.create", "ai.workflows.update", "ai.workflows.delete",
+      "ai.providers.read", "ai.providers.update",
+      "admin.access"
     ]
   end
 

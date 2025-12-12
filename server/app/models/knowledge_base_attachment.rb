@@ -7,8 +7,8 @@ class KnowledgeBaseAttachment < ApplicationRecord
   include Auditable
 
   # Associations
-  belongs_to :article, class_name: 'KnowledgeBaseArticle', foreign_key: 'article_id'
-  belongs_to :uploaded_by, class_name: 'User', foreign_key: 'uploaded_by_id'
+  belongs_to :article, class_name: "KnowledgeBaseArticle", foreign_key: "article_id"
+  belongs_to :uploaded_by, class_name: "User", foreign_key: "uploaded_by_id"
 
   # Validations
   validates :filename, presence: true, length: { maximum: 255 }
@@ -30,7 +30,7 @@ class KnowledgeBaseAttachment < ApplicationRecord
 
   # Methods
   def image?
-    content_type.start_with?('image/')
+    content_type.start_with?("image/")
   end
 
   def document?
@@ -55,7 +55,7 @@ class KnowledgeBaseAttachment < ApplicationRecord
 
   def file_url
     return nil unless file_path.present?
-    
+
     # For local development, return a full URL
     if Rails.env.development?
       Rails.application.routes.url_helpers.rails_blob_path(file_path, only_path: false)
@@ -71,16 +71,16 @@ class KnowledgeBaseAttachment < ApplicationRecord
     return unless file.present?
 
     # Create upload directory if it doesn't exist
-    upload_dir = Rails.root.join('public', 'uploads', 'kb')
+    upload_dir = Rails.root.join("public", "uploads", "kb")
     FileUtils.mkdir_p(upload_dir) unless Dir.exist?(upload_dir)
 
     # Generate unique filename
-    timestamp = Time.current.strftime('%Y%m%d_%H%M%S')
+    timestamp = Time.current.strftime("%Y%m%d_%H%M%S")
     unique_filename = "#{timestamp}_#{SecureRandom.hex(8)}_#{filename}"
 
     # Save file to disk
     file_full_path = upload_dir.join(unique_filename)
-    File.open(file_full_path, 'wb') do |f|
+    File.open(file_full_path, "wb") do |f|
       f.write(file.read)
     end
 

@@ -10,24 +10,24 @@ module Mcp
         log_info "Evaluating condition"
 
         # Get condition configuration
-        condition_type = configuration['condition_type'] || 'expression'
-        condition_expression = configuration['condition'] || configuration['expression']
+        condition_type = configuration["condition_type"] || "expression"
+        condition_expression = configuration["condition"] || configuration["expression"]
 
         # Evaluate the condition
         condition_result = case condition_type
-                          when 'expression'
+        when "expression"
                             evaluate_expression(condition_expression)
-                          when 'comparison'
+        when "comparison"
                             evaluate_comparison
-                          when 'exists'
+        when "exists"
                             evaluate_exists
-                          else
+        else
                             false
-                          end
+        end
 
         # Store condition result
-        if configuration['output_variable']
-          set_variable(configuration['output_variable'], condition_result)
+        if configuration["output_variable"]
+          set_variable(configuration["output_variable"], condition_result)
         end
 
         log_debug "Condition result: #{condition_result}"
@@ -38,14 +38,14 @@ module Mcp
           output: condition_result,              # Primary result (boolean)
           result: {                              # Computed evaluation details
             condition_met: condition_result,
-            evaluated_branch: condition_result ? 'then' : 'else'
+            evaluated_branch: condition_result ? "then" : "else"
           },
           data: {
             condition_type: condition_type
           },
           metadata: {
             node_id: @node.node_id,
-            node_type: 'condition',
+            node_type: "condition",
             executed_at: Time.current.iso8601,
             condition_type: condition_type
           }
@@ -70,7 +70,7 @@ module Mcp
         when /(\w+)\s*(==|!=|>|<|>=|<=)\s*(.+)/
           left = $1.strip
           operator = $2
-          right = $3.strip.gsub(/['"]/, '')
+          right = $3.strip.gsub(/['"]/, "")
 
           evaluate_comparison_operator(left, operator, right)
         else
@@ -82,32 +82,32 @@ module Mcp
       end
 
       def evaluate_comparison
-        left_value = get_variable(configuration['left_variable']) || configuration['left_value']
-        right_value = get_variable(configuration['right_variable']) || configuration['right_value']
-        operator = configuration['operator'] || '=='
+        left_value = get_variable(configuration["left_variable"]) || configuration["left_value"]
+        right_value = get_variable(configuration["right_variable"]) || configuration["right_value"]
+        operator = configuration["operator"] || "=="
 
         evaluate_comparison_operator(left_value, operator, right_value)
       end
 
       def evaluate_exists
-        variable_name = configuration['variable_name']
+        variable_name = configuration["variable_name"]
         value = get_variable(variable_name)
         value.present?
       end
 
       def evaluate_comparison_operator(left, operator, right)
         case operator
-        when '=='
+        when "=="
           left.to_s == right.to_s
-        when '!='
+        when "!="
           left.to_s != right.to_s
-        when '>'
+        when ">"
           left.to_f > right.to_f
-        when '<'
+        when "<"
           left.to_f < right.to_f
-        when '>='
+        when ">="
           left.to_f >= right.to_f
-        when '<='
+        when "<="
           left.to_f <= right.to_f
         else
           false

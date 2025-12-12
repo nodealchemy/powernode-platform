@@ -11,7 +11,7 @@ FactoryBot.define do
     configuration do
       {
         check_interval: 300,
-        enabled_for: ['workflows', 'nodes'],
+        enabled_for: [ 'workflows', 'nodes' ],
         remediation_steps: [],
         fix_description: "Fix description for this validation rule",
         validation_logic: { check_type: 'generic' },
@@ -68,7 +68,7 @@ FactoryBot.define do
       configuration do
         {
           check_interval: 300,
-          enabled_for: ['workflows'],
+          enabled_for: [ 'workflows' ],
           fix_description: 'Fix workflow structure to resolve this error',
           validation_logic: { check_type: 'structure', min_nodes: 1 },
           metadata: { priority: 'high', category: 'structure' }
@@ -94,7 +94,7 @@ FactoryBot.define do
       configuration do
         {
           check_interval: 300,
-          enabled_for: ['workflows', 'nodes'],
+          enabled_for: [ 'workflows', 'nodes' ],
           fix_description: 'Fix connectivity issues',
           validation_logic: { check_type: 'connectivity' },
           metadata: { priority: 'medium', category: 'connectivity' }

@@ -67,7 +67,7 @@ begin
         )
 
         puts "     Input keys: #{node_context.input_data.keys.join(', ')}"
-        puts "     Variables: #{node_context.scoped_variables.select { |k,v| !k.start_with?('_') && !k.start_with?('node_') }.keys.join(', ')}"
+        puts "     Variables: #{node_context.scoped_variables.select { |k, v| !k.start_with?('_') && !k.start_with?('node_') }.keys.join(', ')}"
         puts "     Previous results: #{@node_results.keys.join(', ')}" if @node_results.any?
 
         # Execute the node
@@ -150,7 +150,7 @@ begin
 
       # Check standard format compliance
       has_output = output_keys.include?('output')
-      has_data = output_keys.any? { |k| !['output', 'metadata', 'result'].include?(k) }
+      has_data = output_keys.any? { |k| ![ 'output', 'metadata', 'result' ].include?(k) }
 
       puts "     ✓ Standard format: output=#{has_output}, data=#{has_data}"
     else

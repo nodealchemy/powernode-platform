@@ -79,21 +79,21 @@ FactoryBot.define do
                ai_agent: researcher,
                role: 'researcher',
                priority_order: 0,
-               capabilities: ['research', 'fact_checking', 'source_verification'])
+               capabilities: [ 'research', 'fact_checking', 'source_verification' ])
 
         create(:ai_agent_team_member,
                ai_agent_team: team,
                ai_agent: writer,
                role: 'writer',
                priority_order: 1,
-               capabilities: ['content_writing', 'seo_optimization', 'tone_adaptation'])
+               capabilities: [ 'content_writing', 'seo_optimization', 'tone_adaptation' ])
 
         create(:ai_agent_team_member,
                ai_agent_team: team,
                ai_agent: reviewer,
                role: 'reviewer',
                priority_order: 2,
-               capabilities: ['proofreading', 'quality_assurance', 'brand_alignment'])
+               capabilities: [ 'proofreading', 'quality_assurance', 'brand_alignment' ])
       end
     end
   end

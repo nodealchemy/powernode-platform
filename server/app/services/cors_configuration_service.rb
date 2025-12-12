@@ -32,7 +32,7 @@ class CorsConfigurationService
       return false if origin.blank?
 
       allowed_origins.any? do |allowed|
-        if allowed.start_with?('/')
+        if allowed.start_with?("/")
           # Regex pattern
           regex = Regexp.new(allowed[1..-2]) # Remove leading and trailing slashes
           regex.match?(origin)
@@ -106,7 +106,7 @@ class CorsConfigurationService
 
     # Add custom CORS origins from admin settings
     def add_custom_cors_origins(origins)
-      setting = AdminSetting.find_by(key: 'cors_allowed_origins')
+      setting = AdminSetting.find_by(key: "cors_allowed_origins")
       return unless setting&.value.present?
 
       cors_origins = parse_cors_origins(setting.value)
@@ -137,13 +137,13 @@ class CorsConfigurationService
       return if host.blank?
 
       # Skip if it's already a full URL
-      if host.start_with?('http://', 'https://')
+      if host.start_with?("http://", "https://")
         origins.add(host)
         return
       end
 
       # Handle wildcard patterns
-      if host.start_with?('*.')
+      if host.start_with?("*.")
         domain = host[2..]  # Remove the "*." prefix
         origins.add("https://#{domain}")
         origins.add("http://#{domain}") if Rails.env.development?
@@ -161,27 +161,27 @@ class CorsConfigurationService
     # Add development origins from environment variables
     def add_env_development_origins(dev_origins)
       # Check for CORS_DEV_ORIGINS environment variable
-      env_origins = ENV['CORS_DEV_ORIGINS']&.split(',')&.map(&:strip)&.reject(&:blank?)
+      env_origins = ENV["CORS_DEV_ORIGINS"]&.split(",")&.map(&:strip)&.reject(&:blank?)
       dev_origins.concat(env_origins) if env_origins&.any?
-      
+
       # Check for FRONTEND_URL environment variable (common in deployment)
-      frontend_url = ENV['FRONTEND_URL']
+      frontend_url = ENV["FRONTEND_URL"]
       dev_origins << frontend_url if frontend_url.present?
-      
+
       # Check for VITE_PUBLIC_URL (Vite standard)
-      vite_url = ENV['VITE_PUBLIC_URL'] 
+      vite_url = ENV["VITE_PUBLIC_URL"]
       dev_origins << vite_url if vite_url.present?
     end
 
     # Add development-specific origins
     def add_development_origins(origins)
       dev_origins = [
-        'http://localhost:3000',
-        'http://localhost:3001',
-        'https://localhost:3000',
-        'https://localhost:3001',
-        'http://127.0.0.1:3000',
-        'http://127.0.0.1:3001'
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "https://localhost:3000",
+        "https://localhost:3001",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:3001"
       ]
 
       # Add development origins from environment variables
@@ -203,12 +203,12 @@ class CorsConfigurationService
     def fallback_origins
       if Rails.env.development?
         [
-          'http://localhost:3000',
-          'http://localhost:3001',
-          'https://localhost:3000',
-          'https://localhost:3001',
-          'http://127.0.0.1:3000',
-          'http://127.0.0.1:3001'
+          "http://localhost:3000",
+          "http://localhost:3001",
+          "https://localhost:3000",
+          "https://localhost:3001",
+          "http://127.0.0.1:3000",
+          "http://127.0.0.1:3001"
         ]
       else
         # Production origins should be configured via AdminSettings

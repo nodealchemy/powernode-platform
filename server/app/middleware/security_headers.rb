@@ -13,33 +13,33 @@ class SecurityHeaders
     # Add security headers
     add_security_headers(headers)
 
-    [status, headers, body]
+    [ status, headers, body ]
   end
 
   private
 
   def add_security_headers(headers)
     # Prevent clickjacking
-    headers['X-Frame-Options'] ||= 'DENY'
+    headers["X-Frame-Options"] ||= "DENY"
 
     # Prevent MIME type sniffing
-    headers['X-Content-Type-Options'] ||= 'nosniff'
+    headers["X-Content-Type-Options"] ||= "nosniff"
 
     # Enable XSS filter in browsers
-    headers['X-XSS-Protection'] ||= '1; mode=block'
+    headers["X-XSS-Protection"] ||= "1; mode=block"
 
     # Control referrer information
-    headers['Referrer-Policy'] ||= 'strict-origin-when-cross-origin'
+    headers["Referrer-Policy"] ||= "strict-origin-when-cross-origin"
 
     # Restrict browser features/APIs
-    headers['Permissions-Policy'] ||= 'microphone=(), camera=(), geolocation=()'
+    headers["Permissions-Policy"] ||= "microphone=(), camera=(), geolocation=()"
 
     # Prevent cross-domain policy file loading
-    headers['X-Permitted-Cross-Domain-Policies'] ||= 'none'
+    headers["X-Permitted-Cross-Domain-Policies"] ||= "none"
 
     # Content Security Policy (API mode - relaxed for JSON responses)
     # More restrictive CSP should be set for HTML pages
-    headers['Content-Security-Policy'] ||= build_csp unless api_request?(headers)
+    headers["Content-Security-Policy"] ||= build_csp unless api_request?(headers)
   end
 
   def build_csp
@@ -53,11 +53,11 @@ class SecurityHeaders
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'"
-    ].join('; ')
+    ].join("; ")
   end
 
   def api_request?(headers)
-    content_type = headers['Content-Type'] || ''
-    content_type.include?('application/json')
+    content_type = headers["Content-Type"] || ""
+    content_type.include?("application/json")
   end
 end

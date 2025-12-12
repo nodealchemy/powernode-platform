@@ -23,7 +23,7 @@ RSpec.describe McpChannel, type: :channel do
     user.user_roles.create!(role: role)
     user
   end
-  let!(:ai_agent) { create(:ai_agent, account: account, mcp_capabilities: ['text_generation']) }
+  let!(:ai_agent) { create(:ai_agent, account: account, mcp_capabilities: [ 'text_generation' ]) }
 
   before do
     stub_connection current_user: user

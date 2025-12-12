@@ -17,10 +17,10 @@ class CreateAiWorkflowVariables < ActiveRecord::Migration[7.1]
       t.string :scope, null: false, default: 'workflow'
       t.timestamps
 
-      t.index [:ai_workflow_id, :name], unique: true, name: 'index_workflow_variables_on_workflow_name'
-      t.index [:ai_workflow_id, :is_input]
-      t.index [:ai_workflow_id, :is_output]
-      t.index [:ai_workflow_id, :is_required]
+      t.index [ :ai_workflow_id, :name ], unique: true, name: 'index_workflow_variables_on_workflow_name'
+      t.index [ :ai_workflow_id, :is_input ]
+      t.index [ :ai_workflow_id, :is_output ]
+      t.index [ :ai_workflow_id, :is_required ]
       t.index :scope
     end
 

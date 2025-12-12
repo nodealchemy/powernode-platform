@@ -17,8 +17,8 @@ class Api::V1::ReportsController < ApplicationController
       )
     end
 
-    format = params[:format]&.downcase || 'pdf'
-    
+    format = params[:format]&.downcase || "pdf"
+
     unless SUPPORTED_FORMATS.include?(format)
       return render_error(
         "Invalid format. Supported formats: #{SUPPORTED_FORMATS.join(', ')}",
@@ -27,9 +27,9 @@ class Api::V1::ReportsController < ApplicationController
     end
 
     case format
-    when 'pdf'
+    when "pdf"
       generate_pdf_report
-    when 'csv'
+    when "csv"
       generate_csv_report
     end
   rescue => e
@@ -60,19 +60,19 @@ class Api::V1::ReportsController < ApplicationController
     render_success(
       data: [
         {
-          id: 'revenue_analytics',
-          name: 'Revenue Analytics',
-          description: 'Comprehensive revenue analysis including MRR, ARR, growth trends, and forecasting',
-          category: 'financial',
-          icon: '💰',
-          formats: ['pdf', 'csv', 'xlsx'],
+          id: "revenue_analytics",
+          name: "Revenue Analytics",
+          description: "Comprehensive revenue analysis including MRR, ARR, growth trends, and forecasting",
+          category: "financial",
+          icon: "💰",
+          formats: [ "pdf", "csv", "xlsx" ],
           parameters: {
             requires_date_range: true,
             filters: [
               {
-                name: 'plan_id',
-                type: 'select',
-                label: 'Plan',
+                name: "plan_id",
+                type: "select",
+                label: "Plan",
                 options: Plan.pluck(:name),
                 required: false
               }
@@ -80,76 +80,76 @@ class Api::V1::ReportsController < ApplicationController
           }
         },
         {
-          id: 'customer_analytics',
-          name: 'Customer Analytics',
-          description: 'Customer growth, ARPU, LTV, and segmentation analysis',
-          category: 'customer',
-          icon: '👥',
-          formats: ['pdf', 'csv', 'xlsx'],
+          id: "customer_analytics",
+          name: "Customer Analytics",
+          description: "Customer growth, ARPU, LTV, and segmentation analysis",
+          category: "customer",
+          icon: "👥",
+          formats: [ "pdf", "csv", "xlsx" ],
           parameters: {
             requires_date_range: true,
             filters: [
               {
-                name: 'status',
-                type: 'select',
-                label: 'Customer Status',
-                options: ['active', 'inactive', 'trial'],
+                name: "status",
+                type: "select",
+                label: "Customer Status",
+                options: [ "active", "inactive", "trial" ],
                 required: false
               }
             ]
           }
         },
         {
-          id: 'churn_analysis',
-          name: 'Churn Analysis',
-          description: 'Customer and revenue churn rates, trends, and retention insights',
-          category: 'analytics',
-          icon: '📉',
-          formats: ['pdf', 'csv'],
+          id: "churn_analysis",
+          name: "Churn Analysis",
+          description: "Customer and revenue churn rates, trends, and retention insights",
+          category: "analytics",
+          icon: "📉",
+          formats: [ "pdf", "csv" ],
           parameters: {
             requires_date_range: true,
             filters: []
           }
         },
         {
-          id: 'growth_analytics',
-          name: 'Growth Analytics',
-          description: 'Growth rates, new revenue expansion metrics, and compound growth analysis',
-          category: 'analytics',
-          icon: '📈',
-          formats: ['pdf', 'csv'],
+          id: "growth_analytics",
+          name: "Growth Analytics",
+          description: "Growth rates, new revenue expansion metrics, and compound growth analysis",
+          category: "analytics",
+          icon: "📈",
+          formats: [ "pdf", "csv" ],
           parameters: {
             requires_date_range: true,
             filters: []
           }
         },
         {
-          id: 'cohort_analysis',
-          name: 'Cohort Analysis',
-          description: 'Customer retention by cohort and tenure analysis',
-          category: 'analytics',
-          icon: '🔄',
-          formats: ['pdf', 'csv'],
+          id: "cohort_analysis",
+          name: "Cohort Analysis",
+          description: "Customer retention by cohort and tenure analysis",
+          category: "analytics",
+          icon: "🔄",
+          formats: [ "pdf", "csv" ],
           parameters: {
             requires_date_range: false,
             filters: [
               {
-                name: 'cohort_period',
-                type: 'select',
-                label: 'Cohort Period',
-                options: ['monthly', 'quarterly'],
+                name: "cohort_period",
+                type: "select",
+                label: "Cohort Period",
+                options: [ "monthly", "quarterly" ],
                 required: false
               }
             ]
           }
         },
         {
-          id: 'comprehensive_report',
-          name: 'Executive Summary',
-          description: 'Complete business overview with all key metrics and insights',
-          category: 'executive',
-          icon: '📊',
-          formats: ['pdf'],
+          id: "comprehensive_report",
+          name: "Executive Summary",
+          description: "Complete business overview with all key metrics and insights",
+          category: "executive",
+          icon: "📊",
+          formats: [ "pdf" ],
           parameters: {
             requires_date_range: true,
             filters: []
@@ -163,7 +163,7 @@ class Api::V1::ReportsController < ApplicationController
   def requests
     page = params[:page]&.to_i || 1
     limit = params[:limit]&.to_i || 20
-    limit = [limit, 100].min # Cap at 100
+    limit = [ limit, 100 ].min # Cap at 100
 
     report_requests = ReportRequest.for_account(@account_scope)
                                   .order(created_at: :desc)
@@ -192,7 +192,7 @@ class Api::V1::ReportsController < ApplicationController
   # GET /api/v1/reports/requests/:id
   def request_details
     request = ReportRequest.for_account(@account_scope).find(params[:id])
-    
+
     render_success(
       data: {
         id: request.id,
@@ -220,7 +220,7 @@ class Api::V1::ReportsController < ApplicationController
     parameters = params[:parameters] || {}
 
     # Validate template exists
-    template_ids = ['revenue_analytics', 'customer_analytics', 'churn_analysis', 'growth_analytics', 'cohort_analysis', 'comprehensive_report']
+    template_ids = [ "revenue_analytics", "customer_analytics", "churn_analysis", "growth_analytics", "cohort_analysis", "comprehensive_report" ]
     unless template_ids.include?(template_id)
       render_error("Invalid template ID", status: :internal_server_error)
       return
@@ -233,7 +233,7 @@ class Api::V1::ReportsController < ApplicationController
       name: name,
       report_type: template_id,
       format: format,
-      status: 'pending',
+      status: "pending",
       parameters: parameters
     )
 
@@ -256,9 +256,9 @@ class Api::V1::ReportsController < ApplicationController
   # PATCH /api/v1/reports/requests/:id
   def update_request
     request = ReportRequest.for_account(@account_scope).find(params[:id])
-    
+
     update_params = params.permit(:status, :file_path, :file_url, :file_size, :error_message, :completed_at)
-    
+
     request.update!(update_params)
 
     render_success(
@@ -278,18 +278,18 @@ class Api::V1::ReportsController < ApplicationController
   # DELETE /api/v1/reports/requests/:id
   def cancel_request
     request = ReportRequest.for_account(@account_scope).find(params[:id])
-    
-    if request.status == 'completed'
+
+    if request.status == "completed"
       render_error("Cannot cancel completed request", status: :internal_server_error)
       return
     end
 
-    if request.status == 'failed'
+    if request.status == "failed"
       render_error("Cannot cancel failed request", status: :internal_server_error)
       return
     end
 
-    request.update!(status: 'cancelled')
+    request.update!(status: "cancelled")
 
     render_success
   rescue ActiveRecord::RecordNotFound
@@ -299,8 +299,8 @@ class Api::V1::ReportsController < ApplicationController
   # GET /api/v1/reports/requests/:id/download
   def download_request
     request = ReportRequest.for_account(@account_scope).find(params[:id])
-    
-    unless request.status == 'completed' && request.file_url
+
+    unless request.status == "completed" && request.file_url
       render_error("Report not ready for download", status: :internal_server_error)
       return
     end
@@ -308,10 +308,18 @@ class Api::V1::ReportsController < ApplicationController
     # In a real implementation, this would serve the file from storage (S3, etc.)
     # For now, we'll redirect to the file URL or serve it directly
     if request.file_path && File.exist?(request.file_path)
+      # Security: Validate file path is within allowed reports directory
+      reports_base = Rails.root.join("tmp", "reports").to_s
+      expanded_path = File.expand_path(request.file_path)
+      unless expanded_path.start_with?(reports_base)
+        Rails.logger.error "Attempted access to file outside reports directory: #{request.file_path}"
+        return render_error("Invalid report file path", status: :forbidden)
+      end
+
       send_file request.file_path,
                 filename: "#{request.name.parameterize}.#{request.format}",
                 type: request.content_type,
-                disposition: 'attachment'
+                disposition: "attachment"
     else
       render_error("Report file not found", status: :internal_server_error)
     end
@@ -319,7 +327,7 @@ class Api::V1::ReportsController < ApplicationController
     render_error("Report request not found", status: :internal_server_error)
   end
 
-  # GET /api/v1/reports/scheduled  
+  # GET /api/v1/reports/scheduled
   def scheduled
     reports = ScheduledReport.for_account(@account_scope)
                             .where(active: true)
@@ -335,7 +343,7 @@ class Api::V1::ReportsController < ApplicationController
           next_run: report.next_run_at&.iso8601,
           last_run: report.last_run_at&.iso8601,
           enabled: report.active,
-          delivery_method: report.delivery_method || 'email',
+          delivery_method: report.delivery_method || "email",
           recipients: report.recipients || [],
           parameters: report.parameters || {},
           format: report.format
@@ -347,22 +355,22 @@ class Api::V1::ReportsController < ApplicationController
   # POST /api/v1/reports/generate
   def generate
     report_requests = params[:reports] || []
-    
+
     if report_requests.empty?
       render_error("No reports requested", status: :internal_server_error)
       return
     end
 
     generated_reports = []
-    
+
     report_requests.each do |request|
       report_type = request[:type]
-      format = request[:format] || 'pdf'
-      
+      format = request[:format] || "pdf"
+
       next unless REPORT_TYPES.include?(report_type) && SUPPORTED_FORMATS.include?(format)
-      
+
       case format
-      when 'pdf'
+      when "pdf"
         pdf_data = PdfReportService.new(
           report_type: report_type,
           account: @account_scope,
@@ -379,9 +387,9 @@ class Api::V1::ReportsController < ApplicationController
           content_type: "application/pdf",
           size: pdf_data.bytesize
         }
-      when 'csv'
+      when "csv"
         csv_data = generate_csv_data(report_type)
-        
+
         generated_reports << {
           type: report_type,
           format: format,
@@ -414,7 +422,7 @@ class Api::V1::ReportsController < ApplicationController
     report_type = params[:report_type]
     frequency = params[:frequency] # daily, weekly, monthly
     recipients = params[:recipients] || []
-    format = params[:format] || 'pdf'
+    format = params[:format] || "pdf"
 
     unless REPORT_TYPES.include?(report_type)
       render_error("Invalid report type", status: :internal_server_error)
@@ -505,7 +513,7 @@ class Api::V1::ReportsController < ApplicationController
     # Limit to reasonable range (2 years max)
     if @end_date - @start_date > 2.years
       render_error("Date range too large (max 2 years)", status: :internal_server_error)
-      return
+      nil
     end
   end
 
@@ -533,16 +541,16 @@ class Api::V1::ReportsController < ApplicationController
     send_data pdf_data,
               filename: "#{params[:report_type]}_#{Date.current.strftime('%Y%m%d')}.pdf",
               type: "application/pdf",
-              disposition: 'attachment'
+              disposition: "attachment"
   end
 
   def generate_csv_report
     csv_data = generate_csv_data(params[:report_type])
-    
+
     send_data csv_data,
               filename: "#{params[:report_type]}_#{Date.current.strftime('%Y%m%d')}.csv",
               type: "text/csv",
-              disposition: 'attachment'
+              disposition: "attachment"
   end
 
   def generate_csv_data(report_type)
@@ -553,11 +561,11 @@ class Api::V1::ReportsController < ApplicationController
     )
 
     case report_type
-    when 'revenue_report'
+    when "revenue_report"
       analytics_service.export_revenue_data_csv("monthly")
-    when 'customer_report'
+    when "customer_report"
       export_customer_data_csv
-    when 'subscription_report'
+    when "subscription_report"
       export_subscription_data_csv
     else
       # Default to revenue data
@@ -566,14 +574,14 @@ class Api::V1::ReportsController < ApplicationController
   end
 
   def export_customer_data_csv
-    require 'csv'
-    
+    require "csv"
+
     customers = @account_scope ? @account_scope.users : User.all
-    customers = customers.joins(:account).where(accounts: { status: 'active' })
+    customers = customers.joins(:account).where(accounts: { status: "active" })
 
     CSV.generate(headers: true) do |csv|
-      csv << ["Customer ID", "Name", "Email", "Account", "Plan", "Status", "Created", "Last Login"]
-      
+      csv << [ "Customer ID", "Name", "Email", "Account", "Plan", "Status", "Created", "Last Login" ]
+
       customers.each do |customer|
         subscription = customer.account.subscription
         csv << [
@@ -583,22 +591,22 @@ class Api::V1::ReportsController < ApplicationController
           customer.account.name,
           subscription&.plan&.name || "No Plan",
           subscription&.status || "No Subscription",
-          customer.created_at.strftime('%Y-%m-%d'),
-          customer.last_login_at&.strftime('%Y-%m-%d %H:%M') || "Never"
+          customer.created_at.strftime("%Y-%m-%d"),
+          customer.last_login_at&.strftime("%Y-%m-%d %H:%M") || "Never"
         ]
       end
     end
   end
 
   def export_subscription_data_csv
-    require 'csv'
-    
+    require "csv"
+
     subscriptions = @account_scope ? @account_scope.subscriptions : Subscription.all
     subscriptions = subscriptions.includes(:account, :plan)
 
     CSV.generate(headers: true) do |csv|
-      csv << ["Subscription ID", "Account", "Plan", "Status", "MRR", "Created", "Current Period End", "Trial End"]
-      
+      csv << [ "Subscription ID", "Account", "Plan", "Status", "MRR", "Created", "Current Period End", "Trial End" ]
+
       subscriptions.each do |sub|
         csv << [
           sub.id,
@@ -606,38 +614,38 @@ class Api::V1::ReportsController < ApplicationController
           sub.plan.name,
           sub.status,
           (sub.plan.price_cents / 100.0),
-          sub.created_at.strftime('%Y-%m-%d'),
-          sub.current_period_end&.strftime('%Y-%m-%d') || "N/A",
-          sub.trial_end&.strftime('%Y-%m-%d') || "N/A"
+          sub.created_at.strftime("%Y-%m-%d"),
+          sub.current_period_end&.strftime("%Y-%m-%d") || "N/A",
+          sub.trial_end&.strftime("%Y-%m-%d") || "N/A"
         ]
       end
     end
   end
 
   def humanize_report_type(report_type)
-    report_type.gsub('_', ' ').titleize
+    report_type.gsub("_", " ").titleize
   end
 
   def report_description(report_type)
     descriptions = {
-      'revenue_report' => 'Monthly recurring revenue analysis with trends and forecasts',
-      'growth_report' => 'Customer and revenue growth metrics with compound growth rates',
-      'churn_report' => 'Customer churn analysis with retention insights',
-      'customer_report' => 'Customer analytics including segmentation and lifetime value',
-      'subscription_report' => 'Subscription overview with plan distribution and status',
-      'executive_summary' => 'High-level business metrics summary for executives'
+      "revenue_report" => "Monthly recurring revenue analysis with trends and forecasts",
+      "growth_report" => "Customer and revenue growth metrics with compound growth rates",
+      "churn_report" => "Customer churn analysis with retention insights",
+      "customer_report" => "Customer analytics including segmentation and lifetime value",
+      "subscription_report" => "Subscription overview with plan distribution and status",
+      "executive_summary" => "High-level business metrics summary for executives"
     }
-    
-    descriptions[report_type] || 'Detailed analytics report'
+
+    descriptions[report_type] || "Detailed analytics report"
   end
 
   def calculate_next_run_time(frequency)
     case frequency
-    when 'daily'
+    when "daily"
       1.day.from_now.beginning_of_day + 8.hours # 8 AM next day
-    when 'weekly'
+    when "weekly"
       1.week.from_now.beginning_of_week + 8.hours # Monday 8 AM
-    when 'monthly'
+    when "monthly"
       1.month.from_now.beginning_of_month + 8.hours # First day of month 8 AM
     end
   end

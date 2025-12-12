@@ -8,7 +8,7 @@ require "rails"
 
 # Core components needed for API functionality
 require "active_record/railtie"
-require "action_controller/railtie" 
+require "action_controller/railtie"
 require "action_mailer/railtie"
 require "active_job/railtie"
 require "rails/test_unit/railtie"
@@ -33,7 +33,7 @@ rescue LoadError
   end
 end
 
-# Skip ActionText, ActionMailbox, ActionView, and ActiveStorage  
+# Skip ActionText, ActionMailbox, ActionView, and ActiveStorage
 # These are not needed for API-only applications
 
 # Require the gems listed in Gemfile, including any gems
@@ -71,8 +71,8 @@ module Server
     config.version = Powernode::Version.current
 
     # Configure Redis for caching and session store
-    if Rails.env.production? || ENV['REDIS_URL']
-      config.cache_store = :redis_cache_store, { url: ENV.fetch('REDIS_URL', 'redis://localhost:6379/0') }
+    if Rails.env.production? || ENV["REDIS_URL"]
+      config.cache_store = :redis_cache_store, { url: ENV.fetch("REDIS_URL", "redis://localhost:6379/0") }
     else
       config.cache_store = :memory_store
     end
@@ -80,26 +80,26 @@ module Server
     # CSRF Protection Configuration for API
     config.x.csrf_protection_enabled = false # Disabled by default, can be enabled via admin settings
     config.x.csrf_token_expiry = 2.hours
-    config.x.csrf_token_header_name = 'X-CSRF-Token'
+    config.x.csrf_token_header_name = "X-CSRF-Token"
     config.x.csrf_allow_parameter = false # API should use headers only
     config.x.csrf_require_ssl = Rails.env.production? # Require HTTPS in production
-    
+
     # Add worker activity tracking middleware
-    require Rails.root.join('app/middleware/worker_activity_tracker')
+    require Rails.root.join("app/middleware/worker_activity_tracker")
     config.middleware.use WorkerActivityTracker
-    
+
     # Add proxy security validator middleware
-    require Rails.root.join('app/middleware/proxy_security_validator')
+    require Rails.root.join("app/middleware/proxy_security_validator")
     config.middleware.use ProxySecurityValidator
 
     # Add request inspector for DDoS protection (only in production/staging)
-    if Rails.env.production? || Rails.env.staging? || ENV['ENABLE_DDOS_PROTECTION'] == 'true'
-      require Rails.root.join('app/middleware/request_inspector')
+    if Rails.env.production? || Rails.env.staging? || ENV["ENABLE_DDOS_PROTECTION"] == "true"
+      require Rails.root.join("app/middleware/request_inspector")
       config.middleware.use RequestInspector
     end
 
     # Add security headers middleware for all responses
-    require Rails.root.join('app/middleware/security_headers')
+    require Rails.root.join("app/middleware/security_headers")
     config.middleware.use SecurityHeaders
   end
 end

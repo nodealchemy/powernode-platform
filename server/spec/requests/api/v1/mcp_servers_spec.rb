@@ -121,7 +121,7 @@ RSpec.describe 'Api::V1::McpServers', type: :request do
           description: 'A test server',
           connection_type: 'stdio',
           command: 'npx',
-          args: ['-y', '@modelcontextprotocol/server-test'],
+          args: [ '-y', '@modelcontextprotocol/server-test' ],
           config: { timeout: 30 }
         }
       }

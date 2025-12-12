@@ -67,7 +67,7 @@ RSpec.describe CredentialEncryptionService do
       end
 
       it 'raises EncryptionError for array input' do
-        expect { described_class.encrypt([1, 2, 3]) }
+        expect { described_class.encrypt([ 1, 2, 3 ]) }
           .to raise_error(CredentialEncryptionService::EncryptionError, /Credentials must be a Hash/)
       end
     end
@@ -232,11 +232,11 @@ RSpec.describe CredentialEncryptionService do
 
   describe '.available_keys' do
     it 'returns array with default when no keys configured' do
-      expect(described_class.available_keys).to eq(['default'])
+      expect(described_class.available_keys).to eq([ 'default' ])
     end
 
     it 'accepts namespace parameter' do
-      expect(described_class.available_keys('mcp')).to eq(['default'])
+      expect(described_class.available_keys('mcp')).to eq([ 'default' ])
     end
   end
 

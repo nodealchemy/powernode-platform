@@ -10,8 +10,8 @@ module Mcp
         log_info "Publishing content page"
 
         # Get page identifier
-        page_id = configuration['page_id'] || get_variable('page_id')
-        page_slug = configuration['page_slug'] || get_variable('page_slug')
+        page_id = configuration["page_id"] || get_variable("page_id")
+        page_slug = configuration["page_slug"] || get_variable("page_slug")
 
         unless page_id.present? || page_slug.present?
           raise Mcp::AiWorkflowOrchestrator::NodeExecutionError,
@@ -25,8 +25,8 @@ module Mcp
         publish_page(page)
 
         # Store published page data in variable if configured
-        if configuration['output_variable']
-          set_variable(configuration['output_variable'], serialize_page(page))
+        if configuration["output_variable"]
+          set_variable(configuration["output_variable"], serialize_page(page))
         end
 
         log_info "Published page: #{page.title} (#{page.id})"
@@ -46,10 +46,10 @@ module Mcp
           },
           metadata: {
             node_id: @node.node_id,
-            node_type: 'page_publish',
+            node_type: "page_publish",
             executed_at: Time.current.iso8601,
-            operation: 'publish',
-            record_type: 'Page'
+            operation: "publish",
+            record_type: "Page"
           }
         }
       end
@@ -59,9 +59,9 @@ module Mcp
       def find_page(page_id, page_slug)
         page = if page_id.present?
                 Page.find_by(id: page_id)
-              else
+        else
                 Page.find_by(slug: page_slug)
-              end
+        end
 
         unless page
           identifier = page_id || page_slug
@@ -92,7 +92,7 @@ module Mcp
         errors << "Page must have content" if page.content.blank?
 
         # Check if already published
-        if page.status == 'published'
+        if page.status == "published"
           log_debug "Page is already published, updating publish timestamp"
         end
 

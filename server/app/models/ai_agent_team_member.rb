@@ -23,7 +23,7 @@ class AiAgentTeamMember < ApplicationRecord
   # ==========================================
   validates :role, presence: true
   validates :ai_agent_id, uniqueness: { scope: :ai_agent_team_id,
-                                       message: 'already belongs to this team' }
+                                       message: "already belongs to this team" }
   validates :priority_order, numericality: { greater_than_or_equal_to: 0 }
 
   validate :validate_capabilities_structure
@@ -37,10 +37,10 @@ class AiAgentTeamMember < ApplicationRecord
   scope :by_role, ->(role) { where(role: role) }
   scope :leads, -> { where(is_lead: true) }
   scope :non_leads, -> { where(is_lead: false) }
-  scope :managers, -> { where(role: 'manager') }
-  scope :researchers, -> { where(role: 'researcher') }
-  scope :writers, -> { where(role: 'writer') }
-  scope :reviewers, -> { where(role: 'reviewer') }
+  scope :managers, -> { where(role: "manager") }
+  scope :researchers, -> { where(role: "researcher") }
+  scope :writers, -> { where(role: "writer") }
+  scope :reviewers, -> { where(role: "reviewer") }
 
   # ==========================================
   # Callbacks
@@ -128,12 +128,12 @@ class AiAgentTeamMember < ApplicationRecord
     return if capabilities.blank?
 
     unless capabilities.is_a?(Array)
-      errors.add(:capabilities, 'must be an array')
+      errors.add(:capabilities, "must be an array")
       return
     end
 
     unless capabilities.all? { |cap| cap.is_a?(String) }
-      errors.add(:capabilities, 'must contain only strings')
+      errors.add(:capabilities, "must contain only strings")
     end
   end
 
@@ -141,7 +141,7 @@ class AiAgentTeamMember < ApplicationRecord
     return if member_config.blank?
 
     unless member_config.is_a?(Hash)
-      errors.add(:member_config, 'must be a hash')
+      errors.add(:member_config, "must be a hash")
     end
   end
 
@@ -151,7 +151,7 @@ class AiAgentTeamMember < ApplicationRecord
     # Allow one lead per team (excluding self for updates)
     existing_leads = ai_agent_team.ai_agent_team_members.leads.where.not(id: id)
     if existing_leads.exists?
-      errors.add(:is_lead, 'team can only have one lead')
+      errors.add(:is_lead, "team can only have one lead")
     end
   end
 

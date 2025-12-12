@@ -45,17 +45,17 @@ request['Content-Type'] = 'application/json'
 
 begin
   response = http.request(request)
-  
+
   puts "📡 API Response:"
   puts "   Status: #{response.code}"
   puts "   Success: #{response.code == '200'}"
-  
+
   if response.code == '200'
     data = JSON.parse(response.body)
-    
+
     if data['success'] && data['data'] && data['data']['summary']
       summary = data['data']['summary']
-      
+
       puts
       puts "📊 Summary Statistics:"
       puts "   Total Recent: #{summary['total_recent']}"
@@ -63,7 +63,7 @@ begin
       puts "   Failed: #{summary['failed_recent']}"
       puts "   Success Rate: #{summary['success_rate']}%"
       puts "   Avg Response Time: #{summary['avg_response_time']}ms"
-      
+
       puts
       puts "🔗 Top Endpoints from API:"
       if summary['top_endpoints'] && summary['top_endpoints'].any?
@@ -73,20 +73,20 @@ begin
       else
         puts "   No endpoints found in API response"
       end
-      
+
       puts
       puts "✅ SUCCESS: API is returning real endpoint data!"
-      
+
     else
       puts "❌ API response structure is invalid"
       puts "   Response: #{data.inspect}"
     end
-    
+
   else
     puts "❌ API request failed"
     puts "   Error: #{response.body}"
   end
-  
+
 rescue => e
   puts "❌ API request error: #{e.message}"
 end

@@ -8,9 +8,9 @@ class KnowledgeBaseCategory < ApplicationRecord
   include Searchable
 
   # Associations
-  belongs_to :parent, class_name: 'KnowledgeBaseCategory', optional: true
-  has_many :children, class_name: 'KnowledgeBaseCategory', foreign_key: 'parent_id', dependent: :destroy
-  has_many :articles, class_name: 'KnowledgeBaseArticle', foreign_key: 'category_id', dependent: :destroy
+  belongs_to :parent, class_name: "KnowledgeBaseCategory", optional: true
+  has_many :children, class_name: "KnowledgeBaseCategory", foreign_key: "parent_id", dependent: :destroy
+  has_many :articles, class_name: "KnowledgeBaseArticle", foreign_key: "category_id", dependent: :destroy
 
   # Validations
   validates :name, presence: true, length: { maximum: 255 }
@@ -37,21 +37,21 @@ class KnowledgeBaseCategory < ApplicationRecord
   end
 
   def path_names
-    return [name] if root?
-    parent.path_names + [name]
+    return [ name ] if root?
+    parent.path_names + [ name ]
   end
 
   def full_path
-    path_names.join(' > ')
+    path_names.join(" > ")
   end
 
   def descendants
-    children.includes(:children).flat_map { |child| [child] + child.descendants }
+    children.includes(:children).flat_map { |child| [ child ] + child.descendants }
   end
 
   def article_count(include_descendants: false)
     if include_descendants
-      all_category_ids = [id] + descendants.pluck(:id)
+      all_category_ids = [ id ] + descendants.pluck(:id)
       KnowledgeBaseArticle.where(category_id: all_category_ids).count
     else
       articles.count
@@ -69,12 +69,12 @@ class KnowledgeBaseCategory < ApplicationRecord
   private
 
   def generate_slug
-    self.slug = name.downcase.gsub(/[^a-z0-9\s]/, '').gsub(/\s+/, '-').strip
+    self.slug = name.downcase.gsub(/[^a-z0-9\s]/, "").gsub(/\s+/, "-").strip
   end
 
   def ensure_no_circular_reference
     return unless parent_id.present?
-    
+
     current_parent = parent
     while current_parent
       raise StandardError, "Circular reference detected" if current_parent.id == id

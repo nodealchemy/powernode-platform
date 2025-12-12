@@ -127,7 +127,7 @@ class AiOrchestrationChannel < ApplicationCable::Channel
     def broadcast_workflow_event(event_type, workflow_id, payload, account)
       broadcast_event(
         event_type: event_type,
-        resource_type: 'workflow',
+        resource_type: "workflow",
         resource_id: workflow_id,
         payload: payload,
         account: account
@@ -140,12 +140,12 @@ class AiOrchestrationChannel < ApplicationCable::Channel
     # @param workflow_run [AiWorkflowRun] Workflow run
     # @param payload [Hash] Event payload
     def broadcast_workflow_run_event(event_type, workflow_run, payload = {})
-      message = build_message(event_type, 'workflow_run', workflow_run.run_id, payload)
+      message = build_message(event_type, "workflow_run", workflow_run.run_id, payload)
 
       # Generate stream keys
-      run_stream = stream_key('workflow_run', workflow_run.run_id)
-      workflow_stream = stream_key('workflow', workflow_run.ai_workflow_id)
-      account_stream = stream_key('account', workflow_run.account_id)
+      run_stream = stream_key("workflow_run", workflow_run.run_id)
+      workflow_stream = stream_key("workflow", workflow_run.ai_workflow_id)
+      account_stream = stream_key("account", workflow_run.account_id)
 
       Rails.logger.debug "[AiOrchestrationChannel] Broadcasting #{event_type} to streams:"
       Rails.logger.debug "  - Run stream: #{run_stream}"
@@ -169,7 +169,7 @@ class AiOrchestrationChannel < ApplicationCable::Channel
     #
     # @param node_execution [AiWorkflowNodeExecution] Node execution
     # @param event_type [String] Event type
-    def broadcast_node_execution(node_execution, event_type = 'node.execution.updated')
+    def broadcast_node_execution(node_execution, event_type = "node.execution.updated")
       workflow_run = node_execution.ai_workflow_run
 
       payload = {
@@ -200,7 +200,7 @@ class AiOrchestrationChannel < ApplicationCable::Channel
         }
       }
 
-      broadcast_workflow_run_event('node.duration.updated', workflow_run, payload)
+      broadcast_workflow_run_event("node.duration.updated", workflow_run, payload)
     end
 
     # Broadcast agent execution event
@@ -211,7 +211,7 @@ class AiOrchestrationChannel < ApplicationCable::Channel
     def broadcast_agent_event(event_type, agent_execution, payload = {})
       broadcast_event(
         event_type: event_type,
-        resource_type: 'agent_execution',
+        resource_type: "agent_execution",
         resource_id: agent_execution.id,
         payload: {
           agent_id: agent_execution.ai_agent_id,
@@ -230,10 +230,10 @@ class AiOrchestrationChannel < ApplicationCable::Channel
 
       # CRITICAL FIX: Use ActionCable.server.broadcast for named streams
       ActionCable.server.broadcast(
-        stream_key('monitoring', account_id),
+        stream_key("monitoring", account_id),
         build_message(
-          'monitoring.alert.triggered',
-          'alert',
+          "monitoring.alert.triggered",
+          "alert",
           alert[:alert_type],
           alert
         )
@@ -241,10 +241,10 @@ class AiOrchestrationChannel < ApplicationCable::Channel
 
       # Also broadcast to account stream
       ActionCable.server.broadcast(
-        stream_key('account', account_id),
+        stream_key("account", account_id),
         build_message(
-          'monitoring.alert.triggered',
-          'alert',
+          "monitoring.alert.triggered",
+          "alert",
           alert[:alert_type],
           alert
         )
@@ -257,9 +257,9 @@ class AiOrchestrationChannel < ApplicationCable::Channel
     # @param account [Account] Account context
     def broadcast_health_change(health_data, account)
       broadcast_event(
-        event_type: 'system.health.changed',
-        resource_type: 'system',
-        resource_id: 'health',
+        event_type: "system.health.changed",
+        resource_type: "system",
+        resource_id: "health",
         payload: health_data,
         account: account
       )
@@ -277,7 +277,7 @@ class AiOrchestrationChannel < ApplicationCable::Channel
       payload = serialize_batch_execution(batch_execution)
 
       broadcast_batch_event(
-        'batch.execution.started',
+        "batch.execution.started",
         batch_execution.batch_id,
         payload,
         account
@@ -292,7 +292,7 @@ class AiOrchestrationChannel < ApplicationCable::Channel
       payload = serialize_batch_execution(batch_execution)
 
       broadcast_batch_event(
-        'batch.execution.progress',
+        "batch.execution.progress",
         batch_execution.batch_id,
         payload,
         account
@@ -312,7 +312,7 @@ class AiOrchestrationChannel < ApplicationCable::Channel
       }
 
       broadcast_batch_event(
-        'batch.workflow.completed',
+        "batch.workflow.completed",
         batch_execution.batch_id,
         payload,
         account
@@ -327,7 +327,7 @@ class AiOrchestrationChannel < ApplicationCable::Channel
       payload = serialize_batch_execution(batch_execution)
 
       broadcast_batch_event(
-        'batch.execution.completed',
+        "batch.execution.completed",
         batch_execution.batch_id,
         payload,
         account
@@ -346,7 +346,7 @@ class AiOrchestrationChannel < ApplicationCable::Channel
       )
 
       broadcast_batch_event(
-        'batch.execution.failed',
+        "batch.execution.failed",
         batch_execution.batch_id,
         payload,
         account
@@ -361,7 +361,7 @@ class AiOrchestrationChannel < ApplicationCable::Channel
       payload = serialize_batch_execution(batch_execution)
 
       broadcast_batch_event(
-        'batch.execution.paused',
+        "batch.execution.paused",
         batch_execution.batch_id,
         payload,
         account
@@ -376,7 +376,7 @@ class AiOrchestrationChannel < ApplicationCable::Channel
       payload = serialize_batch_execution(batch_execution)
 
       broadcast_batch_event(
-        'batch.execution.resumed',
+        "batch.execution.resumed",
         batch_execution.batch_id,
         payload,
         account
@@ -391,7 +391,7 @@ class AiOrchestrationChannel < ApplicationCable::Channel
       payload = serialize_batch_execution(batch_execution)
 
       broadcast_batch_event(
-        'batch.execution.cancelled',
+        "batch.execution.cancelled",
         batch_execution.batch_id,
         payload,
         account
@@ -433,12 +433,12 @@ class AiOrchestrationChannel < ApplicationCable::Channel
 
       # Broadcast to account-level stream
       if account
-        ActionCable.server.broadcast(stream_key('account', account.id), message)
+        ActionCable.server.broadcast(stream_key("account", account.id), message)
       end
 
       # Broadcast to monitoring stream if it's an error or alert
-      if event_type.include?('failed') || event_type.include?('alert')
-        ActionCable.server.broadcast(stream_key('monitoring', account&.id), message)
+      if event_type.include?("failed") || event_type.include?("alert")
+        ActionCable.server.broadcast(stream_key("monitoring", account&.id), message)
       end
     end
 
@@ -499,14 +499,14 @@ class AiOrchestrationChannel < ApplicationCable::Channel
     # @param payload [Hash] Event payload
     # @param account [Account] Account context
     def broadcast_batch_event(event_type, batch_id, payload, account)
-      message = build_message(event_type, 'batch_execution', batch_id, payload)
+      message = build_message(event_type, "batch_execution", batch_id, payload)
 
       # Broadcast to batch-specific stream
-      ActionCable.server.broadcast(stream_key('batch_execution', batch_id), message)
+      ActionCable.server.broadcast(stream_key("batch_execution", batch_id), message)
 
       # Also broadcast to account-level stream
       if account
-        ActionCable.server.broadcast(stream_key('account', account.id), message)
+        ActionCable.server.broadcast(stream_key("account", account.id), message)
       end
 
       Rails.logger.debug "[AiOrchestrationChannel] Batch event #{event_type} broadcast for batch #{batch_id}"
@@ -546,10 +546,10 @@ class AiOrchestrationChannel < ApplicationCable::Channel
       payload = {
         run_id: workflow_run.run_id,
         workflow_id: workflow_run.ai_workflow_id,
-        workflow_name: workflow_run.ai_workflow&.name || 'Unknown Workflow'
+        workflow_name: workflow_run.ai_workflow&.name || "Unknown Workflow"
       }
 
-      broadcast_workflow_run_event('streaming.execution.started', workflow_run, payload)
+      broadcast_workflow_run_event("streaming.execution.started", workflow_run, payload)
     end
 
     # Broadcast streaming message received
@@ -562,7 +562,7 @@ class AiOrchestrationChannel < ApplicationCable::Channel
         message: message
       }
 
-      broadcast_workflow_run_event('streaming.message.received', workflow_run, payload)
+      broadcast_workflow_run_event("streaming.message.received", workflow_run, payload)
     end
 
     # Broadcast streaming node changed
@@ -579,7 +579,7 @@ class AiOrchestrationChannel < ApplicationCable::Channel
         }
       }
 
-      broadcast_workflow_run_event('streaming.node.changed', workflow_run, payload)
+      broadcast_workflow_run_event("streaming.node.changed", workflow_run, payload)
     end
 
     # Broadcast streaming execution paused
@@ -590,7 +590,7 @@ class AiOrchestrationChannel < ApplicationCable::Channel
         run_id: workflow_run.run_id
       }
 
-      broadcast_workflow_run_event('streaming.execution.paused', workflow_run, payload)
+      broadcast_workflow_run_event("streaming.execution.paused", workflow_run, payload)
     end
 
     # Broadcast streaming execution resumed
@@ -601,7 +601,7 @@ class AiOrchestrationChannel < ApplicationCable::Channel
         run_id: workflow_run.run_id
       }
 
-      broadcast_workflow_run_event('streaming.execution.resumed', workflow_run, payload)
+      broadcast_workflow_run_event("streaming.execution.resumed", workflow_run, payload)
     end
 
     # Broadcast streaming execution completed
@@ -612,7 +612,7 @@ class AiOrchestrationChannel < ApplicationCable::Channel
         run_id: workflow_run.run_id
       }
 
-      broadcast_workflow_run_event('streaming.execution.completed', workflow_run, payload)
+      broadcast_workflow_run_event("streaming.execution.completed", workflow_run, payload)
     end
 
     # Broadcast streaming execution failed
@@ -625,7 +625,7 @@ class AiOrchestrationChannel < ApplicationCable::Channel
         error: error
       }
 
-      broadcast_workflow_run_event('streaming.execution.failed', workflow_run, payload)
+      broadcast_workflow_run_event("streaming.execution.failed", workflow_run, payload)
     end
 
     # Broadcast streaming execution cancelled
@@ -636,7 +636,7 @@ class AiOrchestrationChannel < ApplicationCable::Channel
         run_id: workflow_run.run_id
       }
 
-      broadcast_workflow_run_event('streaming.execution.cancelled', workflow_run, payload)
+      broadcast_workflow_run_event("streaming.execution.cancelled", workflow_run, payload)
     end
 
     # =============================================================================
@@ -648,7 +648,7 @@ class AiOrchestrationChannel < ApplicationCable::Channel
     # @param breaker [Hash] Circuit breaker state
     # @param account [Account] Account context
     def broadcast_circuit_breaker_state_changed(breaker, account)
-      broadcast_circuit_breaker_event('circuit_breaker.state_changed', breaker, account)
+      broadcast_circuit_breaker_event("circuit_breaker.state_changed", breaker, account)
     end
 
     # Broadcast circuit breaker opened
@@ -656,7 +656,7 @@ class AiOrchestrationChannel < ApplicationCable::Channel
     # @param breaker [Hash] Circuit breaker state
     # @param account [Account] Account context
     def broadcast_circuit_breaker_opened(breaker, account)
-      broadcast_circuit_breaker_event('circuit_breaker.opened', breaker, account)
+      broadcast_circuit_breaker_event("circuit_breaker.opened", breaker, account)
     end
 
     # Broadcast circuit breaker closed
@@ -664,7 +664,7 @@ class AiOrchestrationChannel < ApplicationCable::Channel
     # @param breaker [Hash] Circuit breaker state
     # @param account [Account] Account context
     def broadcast_circuit_breaker_closed(breaker, account)
-      broadcast_circuit_breaker_event('circuit_breaker.closed', breaker, account)
+      broadcast_circuit_breaker_event("circuit_breaker.closed", breaker, account)
     end
 
     # Broadcast circuit breaker half-opened
@@ -672,7 +672,7 @@ class AiOrchestrationChannel < ApplicationCable::Channel
     # @param breaker [Hash] Circuit breaker state
     # @param account [Account] Account context
     def broadcast_circuit_breaker_half_opened(breaker, account)
-      broadcast_circuit_breaker_event('circuit_breaker.half_opened', breaker, account)
+      broadcast_circuit_breaker_event("circuit_breaker.half_opened", breaker, account)
     end
 
     # Broadcast circuit breaker failure
@@ -686,10 +686,10 @@ class AiOrchestrationChannel < ApplicationCable::Channel
         metadata: metadata
       }
 
-      message = build_message('circuit_breaker.failure', 'circuit_breaker', breaker_id, payload)
+      message = build_message("circuit_breaker.failure", "circuit_breaker", breaker_id, payload)
 
-      ActionCable.server.broadcast(stream_key('circuit_breaker', breaker_id), message)
-      ActionCable.server.broadcast(stream_key('account', account.id), message) if account
+      ActionCable.server.broadcast(stream_key("circuit_breaker", breaker_id), message)
+      ActionCable.server.broadcast(stream_key("account", account.id), message) if account
     end
 
     # Broadcast circuit breaker success
@@ -703,10 +703,10 @@ class AiOrchestrationChannel < ApplicationCable::Channel
         metadata: metadata
       }
 
-      message = build_message('circuit_breaker.success', 'circuit_breaker', breaker_id, payload)
+      message = build_message("circuit_breaker.success", "circuit_breaker", breaker_id, payload)
 
-      ActionCable.server.broadcast(stream_key('circuit_breaker', breaker_id), message)
-      ActionCable.server.broadcast(stream_key('account', account.id), message) if account
+      ActionCable.server.broadcast(stream_key("circuit_breaker", breaker_id), message)
+      ActionCable.server.broadcast(stream_key("account", account.id), message) if account
     end
 
     # Broadcast circuit breaker reset
@@ -714,7 +714,7 @@ class AiOrchestrationChannel < ApplicationCable::Channel
     # @param breaker [Hash] Circuit breaker state
     # @param account [Account] Account context
     def broadcast_circuit_breaker_reset(breaker, account)
-      broadcast_circuit_breaker_event('circuit_breaker.reset', breaker, account)
+      broadcast_circuit_breaker_event("circuit_breaker.reset", breaker, account)
     end
 
     private
@@ -729,13 +729,13 @@ class AiOrchestrationChannel < ApplicationCable::Channel
         breaker: breaker
       }
 
-      message = build_message(event_type, 'circuit_breaker', breaker[:id], payload)
+      message = build_message(event_type, "circuit_breaker", breaker[:id], payload)
 
       # Broadcast to breaker-specific stream
-      ActionCable.server.broadcast(stream_key('circuit_breaker', breaker[:id]), message)
+      ActionCable.server.broadcast(stream_key("circuit_breaker", breaker[:id]), message)
 
       # Broadcast to account-level stream
-      ActionCable.server.broadcast(stream_key('account', account.id), message) if account
+      ActionCable.server.broadcast(stream_key("account", account.id), message) if account
 
       Rails.logger.debug "[AiOrchestrationChannel] Circuit breaker event #{event_type} broadcast for breaker #{breaker[:id]}"
     end
@@ -756,7 +756,7 @@ class AiOrchestrationChannel < ApplicationCable::Channel
 
     # Send initial connection confirmation
     transmit({
-      type: 'subscription.confirmed',
+      type: "subscription.confirmed",
       subscription_type: subscription_type,
       resource_id: resource_id,
       stream_key: stream_key,
@@ -774,46 +774,46 @@ class AiOrchestrationChannel < ApplicationCable::Channel
     return false unless current_user
 
     case subscription_type
-    when 'account'
+    when "account"
       # User can subscribe to their own account
       current_user.account_id.to_s == resource_id.to_s
-    when 'workflow'
+    when "workflow"
       # User can subscribe to workflows in their account
       workflow = AiWorkflow.find_by(id: resource_id)
       workflow && workflow.account_id == current_user.account_id
-    when 'workflow_run'
+    when "workflow_run"
       # User can subscribe to workflow runs in their account
       workflow_run = AiWorkflowRun.find_by(run_id: resource_id)
       workflow_run && workflow_run.account_id == current_user.account_id
-    when 'agent'
+    when "agent"
       # User can subscribe to agents in their account
       agent = AiAgent.find_by(id: resource_id)
       agent && agent.account_id == current_user.account_id
-    when 'monitoring'
+    when "monitoring"
       # User can subscribe to monitoring for their account
       current_user.account_id.to_s == resource_id.to_s
-    when 'system'
+    when "system"
       # System-level monitoring requires special permission
-      current_user.has_permission?('system.admin')
-    when 'batch_execution'
+      current_user.has_permission?("system.admin")
+    when "batch_execution"
       # User can subscribe to batch executions in their account
       batch_execution = BatchWorkflowRun.find_by(batch_id: resource_id)
       batch_execution && batch_execution.account_id == current_user.account_id
-    when 'circuit_breaker'
+    when "circuit_breaker"
       # User can subscribe to circuit breakers in their account
       # If resource_id is 'all', allow subscription for monitoring all breakers
-      if resource_id == 'all'
-        current_user.has_permission?('ai_orchestration.read') ||
-          current_user.has_permission?('system.admin')
+      if resource_id == "all"
+        current_user.has_permission?("ai_orchestration.read") ||
+          current_user.has_permission?("system.admin")
       else
         # Specific breaker subscription - would need to check breaker ownership
         # For now, allow if user has monitoring permissions
-        current_user.has_permission?('ai_orchestration.read')
+        current_user.has_permission?("ai_orchestration.read")
       end
-    when 'circuit_breaker_service'
+    when "circuit_breaker_service"
       # User can subscribe to all breakers for a specific service
-      current_user.has_permission?('ai_orchestration.read') ||
-        current_user.has_permission?('system.admin')
+      current_user.has_permission?("ai_orchestration.read") ||
+        current_user.has_permission?("system.admin")
     else
       false
     end

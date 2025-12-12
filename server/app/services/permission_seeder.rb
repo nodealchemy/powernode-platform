@@ -16,15 +16,15 @@ class PermissionSeeder
     def seed_permissions
       Permissions::ALL_PERMISSIONS.each do |name, description|
         # Extract resource and action from permission name
-        parts = name.split('.')
-        
-        if parts[0] == 'admin' || parts[0] == 'system'
+        parts = name.split(".")
+
+        if parts[0] == "admin" || parts[0] == "system"
           category = parts[0]
           # For admin/system permissions, handle nested resources properly
           if parts.length >= 3
             # admin.ai.agents.delete -> resource: agents, action: delete
             # admin.ai.providers.create -> resource: providers, action: create
-            resource = parts[1..-2].join('.')  # Everything except first and last part
+            resource = parts[1..-2].join(".")  # Everything except first and last part
             action = parts[-1]  # Last part
           else
             # admin.access -> resource: admin, action: access
@@ -32,9 +32,9 @@ class PermissionSeeder
             action = parts[1]
           end
         else
-          category = 'resource'
+          category = "resource"
           # Handle AI permissions specially
-          if parts.length >= 3 && parts[0] == 'ai'
+          if parts.length >= 3 && parts[0] == "ai"
             # ai.agents.create -> resource: agents, action: create
             resource = parts[1]
             action = parts[2]
@@ -42,13 +42,13 @@ class PermissionSeeder
             # user.read -> resource: user, action: read
             # api.manage_keys -> resource: api, action: manage_keys
             resource = parts[0]
-            action = parts[1..].join('_')
+            action = parts[1..].join("_")
           end
         end
-        
+
         # Find by resource and action combination, or create new
         permission = Permission.find_or_initialize_by(resource: resource, action: action)
-        
+
         if permission.new_record?
           permission.name = name
           permission.description = description
@@ -61,7 +61,7 @@ class PermissionSeeder
     def seed_roles
       Permissions::ROLES.each do |name, config|
         role = Role.find_or_initialize_by(name: name)
-        
+
         if role.new_record?
           role.display_name = config[:display_name]
           role.description = config[:description]
@@ -75,7 +75,7 @@ class PermissionSeeder
       Permissions::ROLES.each do |role_name, config|
         role = Role.find_by!(name: role_name)
         permission_names = config[:permissions]
-        
+
         permissions = Permission.where(name: permission_names)
         role.permissions = permissions
       end

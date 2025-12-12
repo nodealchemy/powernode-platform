@@ -18,16 +18,16 @@ module WorkflowValidators
     def validate_agent_exists
       return unless node.configuration.present?
 
-      agent_id = node.configuration['agent_id'] || node.configuration[:agent_id]
+      agent_id = node.configuration["agent_id"] || node.configuration[:agent_id]
       return if agent_id.blank?
 
       unless AiAgent.exists?(agent_id)
         add_issue(
-          code: 'agent_not_found',
-          severity: 'error',
-          category: 'configuration',
+          code: "agent_not_found",
+          severity: "error",
+          category: "configuration",
           message: "AI Agent with ID '#{agent_id}' does not exist",
-          suggestion: 'Select a valid AI agent or create a new one'
+          suggestion: "Select a valid AI agent or create a new one"
         )
       end
     end
@@ -35,16 +35,16 @@ module WorkflowValidators
     def validate_prompt_configuration
       return unless node.configuration.present?
 
-      prompt = node.configuration['prompt'] || node.configuration[:prompt]
-      system_prompt = node.configuration['system_prompt'] || node.configuration[:system_prompt]
+      prompt = node.configuration["prompt"] || node.configuration[:prompt]
+      system_prompt = node.configuration["system_prompt"] || node.configuration[:system_prompt]
 
       if prompt.blank? && system_prompt.blank?
         add_issue(
-          code: 'missing_prompt',
-          severity: 'warning',
-          category: 'configuration',
-          message: 'No prompt or system prompt configured',
-          suggestion: 'Provide at least a prompt or system prompt for the AI agent'
+          code: "missing_prompt",
+          severity: "warning",
+          category: "configuration",
+          message: "No prompt or system prompt configured",
+          suggestion: "Provide at least a prompt or system prompt for the AI agent"
         )
       end
     end

@@ -61,10 +61,10 @@ module ApiResponse
       error_details = errors
       message = errors.first || "Validation failed"
     when String
-      error_details = [errors]
+      error_details = [ errors ]
       message = errors
     else
-      error_details = ["Invalid data provided"]
+      error_details = [ "Invalid data provided" ]
       message = "Validation failed"
     end
 
@@ -86,7 +86,7 @@ module ApiResponse
     )
   end
 
-  # Unauthorized response (401 status)  
+  # Unauthorized response (401 status)
   # @param message [String] Custom unauthorized message
   def render_unauthorized(message = "Authentication required")
     render_error(
@@ -113,8 +113,9 @@ module ApiResponse
   def sanitize_for_json(data)
     case data
     when ActionController::Parameters
-      # Convert unpermitted parameters to hash
-      data.permit!.to_h
+      # Convert parameters to hash for JSON serialization
+      # Using to_unsafe_h as this is for output serialization, not mass assignment
+      data.to_unsafe_h
     when Hash
       # Recursively sanitize hash values
       data.transform_values { |v| sanitize_for_json(v) }
@@ -143,7 +144,7 @@ module ApiResponse
 
     # Return generic error message in production for security
     error_message = Rails.env.production? ? "Internal server error" : message
-    
+
     render_error(
       error_message,
       status: :internal_server_error,
@@ -155,7 +156,7 @@ module ApiResponse
   # @param data [Object] The created resource data
   # @param location [String] Optional location header for new resource
   def render_created(data = nil, location: nil)
-    response.headers['Location'] = location if location.present?
+    response.headers["Location"] = location if location.present?
     render_success(data, status: :created)
   end
 
@@ -170,9 +171,9 @@ module ApiResponse
   def render_paginated(collection, serializer: nil)
     data = if serializer
              collection.map { |item| serializer.new(item).as_json }
-           else
+    else
              collection
-           end
+    end
 
     meta = {
       pagination: {

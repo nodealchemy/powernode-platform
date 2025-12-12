@@ -23,9 +23,9 @@ module Mcp
           },
           metadata: {
             node_id: @node.node_id,
-            node_type: 'api_call',
+            node_type: "api_call",
             executed_at: Time.current.iso8601,
-            implementation_status: 'stub'
+            implementation_status: "stub"
           }
         }
       end

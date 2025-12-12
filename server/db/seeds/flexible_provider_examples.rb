@@ -38,7 +38,7 @@ if admin_account && admin_user
         'name' => 'multimodal-large',
         'id' => 'mm-large-v2',
         'display_name' => 'MultiModal Large',
-        'capabilities' => ['text', 'vision', 'audio'],
+        'capabilities' => [ 'text', 'vision', 'audio' ],
         'context_length' => 128000,
         'cost_per_1k_tokens' => { 'input' => 0.01, 'output' => 0.03 }
       },
@@ -46,7 +46,7 @@ if admin_account && admin_user
         'name' => 'vision-specialist',
         'id' => 'vision-v1',
         'display_name' => 'Vision Specialist',
-        'capabilities' => ['vision', 'image_analysis'],
+        'capabilities' => [ 'vision', 'image_analysis' ],
         'context_length' => 50000,
         'cost_per_1k_tokens' => { 'input' => 0.005, 'output' => 0.015 }
       }
@@ -62,7 +62,7 @@ if admin_account && admin_user
       'model' => {
         'type' => 'string',
         'default' => 'multimodal-large',
-        'enum' => ['multimodal-large', 'vision-specialist']
+        'enum' => [ 'multimodal-large', 'vision-specialist' ]
       },
       'max_tokens' => {
         'type' => 'integer',
@@ -77,7 +77,7 @@ if admin_account && admin_user
       'image_quality' => {
         'type' => 'string',
         'default' => 'high',
-        'enum' => ['low', 'medium', 'high']
+        'enum' => [ 'low', 'medium', 'high' ]
       }
     }
 
@@ -95,7 +95,7 @@ if admin_account && admin_user
 
     provider.metadata = {
       'provider_category' => 'multimodal',
-      'specialties' => ['vision', 'audio', 'multimodal'],
+      'specialties' => [ 'vision', 'audio', 'multimodal' ],
       'flexible_configuration' => true,
       'capability_driven' => true
     }
@@ -124,14 +124,14 @@ if admin_account && admin_user
         'name' => 'codellama-7b',
         'id' => 'codellama-7b-instruct',
         'display_name' => 'Code Llama 7B',
-        'capabilities' => ['code', 'instruction_following'],
+        'capabilities' => [ 'code', 'instruction_following' ],
         'context_length' => 16384
       },
       {
         'name' => 'starcoder-3b',
         'id' => 'starcoder-3b',
         'display_name' => 'StarCoder 3B',
-        'capabilities' => ['code', 'fast_inference'],
+        'capabilities' => [ 'code', 'fast_inference' ],
         'context_length' => 8192
       }
     ]
@@ -154,7 +154,7 @@ if admin_account && admin_user
       },
       'stop_sequences' => {
         'type' => 'array',
-        'default' => ['```', '\n\n'],
+        'default' => [ '```', '\n\n' ],
         'description' => 'Stop sequences for code generation'
       }
     }
@@ -169,7 +169,7 @@ if admin_account && admin_user
     provider.metadata = {
       'provider_category' => 'local',
       'deployment_type' => 'self_hosted',
-      'specialties' => ['code_generation', 'fast_inference'],
+      'specialties' => [ 'code_generation', 'fast_inference' ],
       'cost_model' => 'free'
     }
   end
@@ -200,21 +200,21 @@ if admin_account && admin_user
         'name' => 'auto-route',
         'id' => 'auto-route-v1',
         'display_name' => 'Auto-Route (Best Available)',
-        'capabilities' => ['all'],
+        'capabilities' => [ 'all' ],
         'description' => 'Automatically routes to best available model'
       },
       {
         'name' => 'cost-optimized',
         'id' => 'cost-optimized-v1',
         'display_name' => 'Cost Optimized Routing',
-        'capabilities' => ['text', 'cost_efficient'],
+        'capabilities' => [ 'text', 'cost_efficient' ],
         'description' => 'Routes to most cost-effective model'
       },
       {
         'name' => 'performance-optimized',
         'id' => 'performance-optimized-v1',
         'display_name' => 'Performance Optimized',
-        'capabilities' => ['text', 'fast_response'],
+        'capabilities' => [ 'text', 'fast_response' ],
         'description' => 'Routes to fastest available model'
       }
     ]
@@ -228,7 +228,7 @@ if admin_account && admin_user
       'routing_strategy' => {
         'type' => 'string',
         'default' => 'auto',
-        'enum' => ['auto', 'cost', 'performance', 'capability'],
+        'enum' => [ 'auto', 'cost', 'performance', 'capability' ],
         'description' => 'How to route requests'
       },
       'fallback_enabled' => {

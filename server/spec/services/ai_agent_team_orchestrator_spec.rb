@@ -11,17 +11,17 @@ RSpec.describe AiAgentTeamOrchestrator, type: :service do
   def create_team_with_members(team_type:, member_count: 3, with_lead: false)
     # Set appropriate coordination strategy based on team type
     coordination_strategy = case team_type
-                           when 'hierarchical'
+    when 'hierarchical'
                              'manager_worker'
-                           when 'sequential'
+    when 'sequential'
                              'manager_worker'
-                           when 'mesh'
+    when 'mesh'
                              'peer_to_peer'
-                           when 'parallel'
+    when 'parallel'
                              'hybrid'
-                           else
+    else
                              'manager_worker'
-                           end
+    end
 
     team = create(:ai_agent_team,
                   team_type: team_type,
@@ -43,7 +43,7 @@ RSpec.describe AiAgentTeamOrchestrator, type: :service do
              ai_agent: agent,
              role: role,
              is_lead: is_lead,
-             capabilities: ['processing', 'analysis'])
+             capabilities: [ 'processing', 'analysis' ])
     end
 
     team.reload
@@ -107,7 +107,7 @@ RSpec.describe AiAgentTeamOrchestrator, type: :service do
 
         result = orchestrator.execute(input: { task: 'test' })
 
-        expect(execution_order).to eq([0, 1, 2])
+        expect(execution_order).to eq([ 0, 1, 2 ])
         expect(result[:output]).to eq('output_2') # Last member's output
       end
     end

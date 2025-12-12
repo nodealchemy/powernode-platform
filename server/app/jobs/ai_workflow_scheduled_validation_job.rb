@@ -72,10 +72,10 @@ class AiWorkflowScheduledValidationJob < ApplicationJob
     # 2. Haven't been validated recently
     scope
       .left_joins(:workflow_validations)
-      .select('ai_workflows.*')
-      .select('MAX(workflow_validations.created_at) as last_validated_at')
-      .group('ai_workflows.id')
-      .having('MAX(workflow_validations.created_at) IS NULL OR MAX(workflow_validations.created_at) < ?',
+      .select("ai_workflows.*")
+      .select("MAX(workflow_validations.created_at) as last_validated_at")
+      .group("ai_workflows.id")
+      .having("MAX(workflow_validations.created_at) IS NULL OR MAX(workflow_validations.created_at) < ?",
               VALIDATION_FRESHNESS_THRESHOLD.hours.ago)
       .limit(batch_size)
   end

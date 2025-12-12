@@ -19,7 +19,7 @@ class AddMcpFieldsToAiWorkflows < ActiveRecord::Migration[7.1]
     # Add indexes for MCP queries
     add_index :ai_workflows, :mcp_tool_requirements, using: :gin
     add_index :ai_workflow_nodes, :mcp_tool_id
-    add_index :ai_workflow_nodes, [:mcp_tool_id, :mcp_tool_version], name: 'index_workflow_nodes_on_mcp_tool_and_version'
+    add_index :ai_workflow_nodes, [ :mcp_tool_id, :mcp_tool_version ], name: 'index_workflow_nodes_on_mcp_tool_and_version'
 
     # Add comments to document MCP fields
     execute <<-SQL
@@ -45,6 +45,6 @@ class AddMcpFieldsToAiWorkflows < ActiveRecord::Migration[7.1]
     remove_column :ai_workflow_runs, :mcp_execution_context
 
     # Remove indexes
-    remove_index :ai_workflow_nodes, name: 'index_workflow_nodes_on_mcp_tool_and_version' if index_exists?(:ai_workflow_nodes, [:mcp_tool_id, :mcp_tool_version], name: 'index_workflow_nodes_on_mcp_tool_and_version')
+    remove_index :ai_workflow_nodes, name: 'index_workflow_nodes_on_mcp_tool_and_version' if index_exists?(:ai_workflow_nodes, [ :mcp_tool_id, :mcp_tool_version ], name: 'index_workflow_nodes_on_mcp_tool_and_version')
   end
 end

@@ -69,10 +69,10 @@ class McpTelemetryService
     }
 
     # Update global metrics
-    increment_metric('connections.total')
-    increment_metric('connections.active')
+    increment_metric("connections.total")
+    increment_metric("connections.active")
 
-    persist_metric('connection_init', {
+    persist_metric("connection_init", {
       connection_id: connection_id,
       account_id: @account&.id,
       timestamp: Time.current
@@ -94,10 +94,10 @@ class McpTelemetryService
     connection_data[:session_duration] = session_duration
 
     # Update global metrics
-    decrement_metric('connections.active')
-    record_histogram('connection.session_duration', session_duration)
+    decrement_metric("connections.active")
+    record_histogram("connection.session_duration", session_duration)
 
-    persist_metric('connection_end', {
+    persist_metric("connection_end", {
       connection_id: connection_id,
       session_duration: session_duration,
       total_messages: connection_data[:total_messages],
@@ -116,9 +116,9 @@ class McpTelemetryService
 
     @tool_metrics[tool_id] = {
       tool_id: tool_id,
-      name: tool_manifest['name'],
-      type: tool_manifest['type'],
-      version: tool_manifest['version'],
+      name: tool_manifest["name"],
+      type: tool_manifest["type"],
+      version: tool_manifest["version"],
       account_id: @account&.id,
       registered_at: Time.current,
       total_invocations: 0,
@@ -130,13 +130,13 @@ class McpTelemetryService
     }
 
     # Update global metrics
-    increment_metric('tools.total')
+    increment_metric("tools.total")
     increment_metric("tools.by_type.#{tool_manifest['type']}")
 
-    persist_metric('tool_registration', {
+    persist_metric("tool_registration", {
       tool_id: tool_id,
-      tool_name: tool_manifest['name'],
-      tool_type: tool_manifest['type'],
+      tool_name: tool_manifest["name"],
+      tool_type: tool_manifest["type"],
       account_id: @account&.id,
       timestamp: Time.current
     })
@@ -152,7 +152,7 @@ class McpTelemetryService
       account_id: @account&.id,
       started_at: Time.current,
       input_size: calculate_data_size(params),
-      status: 'running'
+      status: "running"
     }
 
     # Update tool metrics
@@ -163,10 +163,10 @@ class McpTelemetryService
     end
 
     # Update global metrics
-    increment_metric('tool_invocations.total')
-    increment_metric('tool_invocations.active')
+    increment_metric("tool_invocations.total")
+    increment_metric("tool_invocations.active")
 
-    persist_metric('tool_invocation_start', {
+    persist_metric("tool_invocation_start", {
       execution_id: execution_id,
       tool_id: tool_id,
       input_size: @performance_data[execution_id][:input_size],
@@ -190,7 +190,7 @@ class McpTelemetryService
       completed_at: Time.current,
       execution_time: execution_time,
       output_size: output_size,
-      status: 'completed'
+      status: "completed"
     )
 
     # Update tool metrics
@@ -203,12 +203,12 @@ class McpTelemetryService
     end
 
     # Update global metrics
-    decrement_metric('tool_invocations.active')
-    increment_metric('tool_invocations.successful')
-    record_histogram('tool_execution.duration', execution_time)
-    record_histogram('tool_execution.output_size', output_size)
+    decrement_metric("tool_invocations.active")
+    increment_metric("tool_invocations.successful")
+    record_histogram("tool_execution.duration", execution_time)
+    record_histogram("tool_execution.output_size", output_size)
 
-    persist_metric('tool_invocation_complete', {
+    persist_metric("tool_invocation_complete", {
       execution_id: execution_id,
       tool_id: performance_data[:tool_id],
       execution_time: execution_time,
@@ -237,7 +237,7 @@ class McpTelemetryService
       execution_time: execution_time,
       error_message: error.message,
       error_type: error.class.name,
-      status: 'failed'
+      status: "failed"
     )
 
     # Update tool metrics
@@ -247,11 +247,11 @@ class McpTelemetryService
     end
 
     # Update global metrics
-    decrement_metric('tool_invocations.active')
-    increment_metric('tool_invocations.failed')
+    decrement_metric("tool_invocations.active")
+    increment_metric("tool_invocations.failed")
     increment_metric("errors.by_type.#{error.class.name}")
 
-    persist_metric('tool_invocation_error', {
+    persist_metric("tool_invocation_error", {
       execution_id: execution_id,
       tool_id: performance_data[:tool_id],
       execution_time: execution_time,
@@ -280,14 +280,14 @@ class McpTelemetryService
     end
 
     # Update global metrics
-    increment_metric('messages.total')
+    increment_metric("messages.total")
     increment_metric("messages.by_type.#{message_type}")
 
     if processing_time
-      record_histogram('message.processing_time', processing_time)
+      record_histogram("message.processing_time", processing_time)
     end
 
-    persist_metric('message_processed', {
+    persist_metric("message_processed", {
       connection_id: connection_id,
       message_type: message_type,
       processing_time: processing_time,
@@ -306,10 +306,10 @@ class McpTelemetryService
     end
 
     # Update global metrics
-    increment_metric('messages.errors')
+    increment_metric("messages.errors")
     increment_metric("errors.by_message_type.#{message_type}")
 
-    persist_metric('message_error', {
+    persist_metric("message_error", {
       connection_id: connection_id,
       message_type: message_type,
       error_type: error.class.name,
@@ -342,11 +342,11 @@ class McpTelemetryService
   def get_real_time_metrics
     {
       timestamp: Time.current.iso8601,
-      active_connections: @metrics['connections.active'] || 0,
-      active_tool_invocations: @metrics['tool_invocations.active'] || 0,
-      total_tools: @metrics['tools.total'] || 0,
-      total_messages: @metrics['messages.total'] || 0,
-      total_errors: @metrics['messages.errors'] || 0
+      active_connections: @metrics["connections.active"] || 0,
+      active_tool_invocations: @metrics["tool_invocations.active"] || 0,
+      total_tools: @metrics["tools.total"] || 0,
+      total_messages: @metrics["messages.total"] || 0,
+      total_errors: @metrics["messages.errors"] || 0
     }
   end
 
@@ -385,22 +385,22 @@ class McpTelemetryService
 
   def initialize_metrics_storage
     @metrics = {
-      'connections.total' => 0,
-      'connections.active' => 0,
-      'tools.total' => 0,
-      'tool_invocations.total' => 0,
-      'tool_invocations.active' => 0,
-      'tool_invocations.successful' => 0,
-      'tool_invocations.failed' => 0,
-      'messages.total' => 0,
-      'messages.errors' => 0
+      "connections.total" => 0,
+      "connections.active" => 0,
+      "tools.total" => 0,
+      "tool_invocations.total" => 0,
+      "tool_invocations.active" => 0,
+      "tool_invocations.successful" => 0,
+      "tool_invocations.failed" => 0,
+      "messages.total" => 0,
+      "messages.errors" => 0
     }
 
     @histograms = {
-      'connection.session_duration' => [],
-      'tool_execution.duration' => [],
-      'tool_execution.output_size' => [],
-      'message.processing_time' => []
+      "connection.session_duration" => [],
+      "tool_execution.duration" => [],
+      "tool_execution.output_size" => [],
+      "message.processing_time" => []
     }
   end
 
@@ -409,7 +409,7 @@ class McpTelemetryService
   end
 
   def decrement_metric(metric_name)
-    @metrics[metric_name] = [(@metrics[metric_name] || 0) - 1, 0].max
+    @metrics[metric_name] = [ (@metrics[metric_name] || 0) - 1, 0 ].max
   end
 
   def record_histogram(histogram_name, value)
@@ -448,22 +448,22 @@ class McpTelemetryService
 
   def generate_summary_metrics
     {
-      total_connections: @metrics['connections.total'],
-      active_connections: @metrics['connections.active'],
-      total_tools: @metrics['tools.total'],
-      total_tool_invocations: @metrics['tool_invocations.total'],
-      successful_invocations: @metrics['tool_invocations.successful'],
-      failed_invocations: @metrics['tool_invocations.failed'],
+      total_connections: @metrics["connections.total"],
+      active_connections: @metrics["connections.active"],
+      total_tools: @metrics["tools.total"],
+      total_tool_invocations: @metrics["tool_invocations.total"],
+      successful_invocations: @metrics["tool_invocations.successful"],
+      failed_invocations: @metrics["tool_invocations.failed"],
       overall_success_rate: calculate_overall_success_rate,
-      total_messages: @metrics['messages.total'],
-      total_errors: @metrics['messages.errors']
+      total_messages: @metrics["messages.total"],
+      total_errors: @metrics["messages.errors"]
     }
   end
 
   def generate_connection_metrics
     {
       total_connections: @connection_metrics.size,
-      average_session_duration: calculate_average_histogram('connection.session_duration'),
+      average_session_duration: calculate_average_histogram("connection.session_duration"),
       connection_breakdown: @connection_metrics.values.map do |conn|
         {
           connection_id: conn[:connection_id],
@@ -480,7 +480,7 @@ class McpTelemetryService
   def generate_tool_metrics
     {
       total_tools: @tool_metrics.size,
-      average_execution_time: calculate_average_histogram('tool_execution.duration'),
+      average_execution_time: calculate_average_histogram("tool_execution.duration"),
       tools_breakdown: @tool_metrics.values.map do |tool|
         {
           tool_id: tool[:tool_id],
@@ -496,10 +496,10 @@ class McpTelemetryService
 
   def generate_performance_metrics
     {
-      average_tool_execution_time: calculate_average_histogram('tool_execution.duration'),
-      average_message_processing_time: calculate_average_histogram('message.processing_time'),
-      average_output_size: calculate_average_histogram('tool_execution.output_size'),
-      performance_percentiles: calculate_percentiles('tool_execution.duration')
+      average_tool_execution_time: calculate_average_histogram("tool_execution.duration"),
+      average_message_processing_time: calculate_average_histogram("message.processing_time"),
+      average_output_size: calculate_average_histogram("tool_execution.output_size"),
+      performance_percentiles: calculate_percentiles("tool_execution.duration")
     }
   end
 
@@ -507,7 +507,7 @@ class McpTelemetryService
     error_metrics = {}
 
     @metrics.each do |metric_name, value|
-      if metric_name.start_with?('errors.')
+      if metric_name.start_with?("errors.")
         error_metrics[metric_name] = value
       end
     end
@@ -516,10 +516,10 @@ class McpTelemetryService
   end
 
   def calculate_overall_success_rate
-    total = @metrics['tool_invocations.total'] || 0
+    total = @metrics["tool_invocations.total"] || 0
     return 0 if total.zero?
 
-    successful = @metrics['tool_invocations.successful'] || 0
+    successful = @metrics["tool_invocations.successful"] || 0
     (successful.to_f / total * 100).round(2)
   end
 

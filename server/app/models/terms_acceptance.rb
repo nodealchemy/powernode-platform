@@ -12,7 +12,7 @@ class TermsAcceptance < ApplicationRecord
   }
   validates :document_version, presence: true
   validates :accepted_at, presence: true
-  validates :document_type, uniqueness: { scope: [:user_id, :document_version] }
+  validates :document_type, uniqueness: { scope: [ :user_id, :document_version ] }
 
   # Scopes
   scope :current, -> { where(superseded_at: nil) }
@@ -26,11 +26,11 @@ class TermsAcceptance < ApplicationRecord
 
   # Current document versions (should be managed externally in production)
   CURRENT_VERSIONS = {
-    'terms_of_service' => '2.0',
-    'privacy_policy' => '2.0',
-    'dpa' => '1.0',
-    'cookie_policy' => '1.0',
-    'acceptable_use' => '1.0'
+    "terms_of_service" => "2.0",
+    "privacy_policy" => "2.0",
+    "dpa" => "1.0",
+    "cookie_policy" => "1.0",
+    "acceptable_use" => "1.0"
   }.freeze
 
   # Class methods
@@ -99,13 +99,13 @@ class TermsAcceptance < ApplicationRecord
 
   def log_acceptance
     AuditLog.log_compliance_event(
-      action: 'gdpr_request',
+      action: "gdpr_request",
       resource: self,
       user: user,
       account: account,
       ip_address: ip_address,
       metadata: {
-        event_type: 'terms_accepted',
+        event_type: "terms_accepted",
         document_type: document_type,
         document_version: document_version
       }

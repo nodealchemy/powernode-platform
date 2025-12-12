@@ -20,9 +20,9 @@ class PdfReportService
   end
 
   # Generate PDF report (delegated to worker service)
-  def generate_pdf(format: 'pdf')
+  def generate_pdf(format: "pdf")
     Rails.logger.info "Delegating PDF report generation to worker service"
-    
+
     unless REPORT_TYPES.include?(@report_type)
       return { success: false, error: "Unsupported report type: #{@report_type}" }
     end
@@ -38,8 +38,8 @@ class PdfReportService
 
     begin
       # Enqueue report generation in worker service
-      WorkerJobService.enqueue_report_job('generate_report', job_data)
-      
+      WorkerJobService.enqueue_report_job("generate_report", job_data)
+
       {
         success: true,
         message: "Report generation queued for processing",
@@ -56,11 +56,11 @@ class PdfReportService
   # Synchronous method for simple report data (no PDF generation)
   def get_report_data
     case @report_type
-    when 'revenue_report'
+    when "revenue_report"
       get_revenue_data
-    when 'growth_report' 
+    when "growth_report"
       get_growth_data
-    when 'customer_report'
+    when "customer_report"
       get_customer_data
     else
       { success: false, error: "Report data not available for type: #{@report_type}" }
@@ -121,9 +121,9 @@ class PdfReportService
   class << self
     def generate_scheduled_reports
       Rails.logger.info "Delegating scheduled report generation to worker service"
-      
+
       begin
-        WorkerJobService.enqueue_report_job('generate_scheduled_reports', {})
+        WorkerJobService.enqueue_report_job("generate_scheduled_reports", {})
         { success: true, message: "Scheduled report generation queued" }
       rescue WorkerJobService::WorkerServiceError => e
         Rails.logger.error "Failed to delegate scheduled reports: #{e.message}"
@@ -133,9 +133,9 @@ class PdfReportService
 
     def cleanup_old_reports(days_old: 30)
       Rails.logger.info "Delegating report cleanup to worker service"
-      
+
       begin
-        WorkerJobService.enqueue_report_job('cleanup_old_reports', { days_old: days_old })
+        WorkerJobService.enqueue_report_job("cleanup_old_reports", { days_old: days_old })
         { success: true, message: "Report cleanup queued" }
       rescue WorkerJobService::WorkerServiceError => e
         Rails.logger.error "Failed to delegate report cleanup: #{e.message}"

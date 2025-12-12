@@ -10,8 +10,8 @@ module Mcp
         log_info "Updating content page"
 
         # Get page identifier
-        page_id = configuration['page_id'] || get_variable('page_id')
-        page_slug = configuration['page_slug'] || get_variable('page_slug')
+        page_id = configuration["page_id"] || get_variable("page_id")
+        page_slug = configuration["page_slug"] || get_variable("page_slug")
 
         unless page_id.present? || page_slug.present?
           raise Mcp::AiWorkflowOrchestrator::NodeExecutionError,
@@ -28,8 +28,8 @@ module Mcp
         update_page(page, update_data)
 
         # Store updated page data in variable if configured
-        if configuration['output_variable']
-          set_variable(configuration['output_variable'], serialize_page(page))
+        if configuration["output_variable"]
+          set_variable(configuration["output_variable"], serialize_page(page))
         end
 
         log_info "Updated page: #{page.title} (#{page.id})"
@@ -49,10 +49,10 @@ module Mcp
           },
           metadata: {
             node_id: @node.node_id,
-            node_type: 'page_update',
+            node_type: "page_update",
             executed_at: Time.current.iso8601,
-            operation: 'update',
-            record_type: 'Page'
+            operation: "update",
+            record_type: "Page"
           }
         }
       end
@@ -62,9 +62,9 @@ module Mcp
       def find_page(page_id, page_slug)
         page = if page_id.present?
                 Page.find_by(id: page_id)
-              else
+        else
                 Page.find_by(slug: page_slug)
-              end
+        end
 
         unless page
           identifier = page_id || page_slug
@@ -79,19 +79,19 @@ module Mcp
         data = {}
 
         # Only include fields that are explicitly configured or provided
-        data[:title] = configuration['title'] || get_variable('title') if configuration['title'] || configuration['update_title']
-        data[:content] = configuration['content'] || get_variable('content') if configuration['content'] || configuration['update_content']
-        data[:slug] = configuration['slug'] || get_variable('slug') if configuration['slug'] || configuration['update_slug']
-        data[:status] = configuration['status'] || get_variable('status') if configuration['status'] || configuration['update_status']
-        data[:meta_description] = configuration['meta_description'] || get_variable('meta_description') if configuration['meta_description'] || configuration['update_meta_description']
-        data[:meta_keywords] = configuration['meta_keywords'] || get_variable('meta_keywords') if configuration['meta_keywords'] || configuration['update_meta_keywords']
+        data[:title] = configuration["title"] || get_variable("title") if configuration["title"] || configuration["update_title"]
+        data[:content] = configuration["content"] || get_variable("content") if configuration["content"] || configuration["update_content"]
+        data[:slug] = configuration["slug"] || get_variable("slug") if configuration["slug"] || configuration["update_slug"]
+        data[:status] = configuration["status"] || get_variable("status") if configuration["status"] || configuration["update_status"]
+        data[:meta_description] = configuration["meta_description"] || get_variable("meta_description") if configuration["meta_description"] || configuration["update_meta_description"]
+        data[:meta_keywords] = configuration["meta_keywords"] || get_variable("meta_keywords") if configuration["meta_keywords"] || configuration["update_meta_keywords"]
 
         # Apply template rendering
-        if data[:content].present? && data[:content].include?('{{')
+        if data[:content].present? && data[:content].include?("{{")
           data[:content] = render_template(data[:content])
         end
 
-        if data[:title].present? && data[:title].include?('{{')
+        if data[:title].present? && data[:title].include?("{{")
           data[:title] = render_template(data[:title])
         end
 

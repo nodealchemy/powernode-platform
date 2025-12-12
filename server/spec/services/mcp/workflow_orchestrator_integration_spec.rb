@@ -41,7 +41,7 @@ RSpec.describe Mcp::AiWorkflowOrchestrator, type: :service do
         expect(workflow_run.ai_workflow_node_executions.count).to eq(3)
 
         # All executions should be completed
-        expect(workflow_run.ai_workflow_node_executions.pluck(:status).uniq).to eq(['completed'])
+        expect(workflow_run.ai_workflow_node_executions.pluck(:status).uniq).to eq([ 'completed' ])
       end
 
       it 'executes nodes in correct order' do

@@ -54,7 +54,7 @@ orchestrator = AiAgent.create!(
       },
       'operation' => {
         'type' => 'string',
-        'enum' => ['execute', 'monitor', 'recover', 'checkpoint'],
+        'enum' => [ 'execute', 'monitor', 'recover', 'checkpoint' ],
         'description' => 'Operation to perform'
       },
       'parameters' => {
@@ -62,7 +62,7 @@ orchestrator = AiAgent.create!(
         'description' => 'Additional parameters for the operation'
       }
     },
-    'required' => ['workflow_id', 'operation']
+    'required' => [ 'workflow_id', 'operation' ]
   },
   mcp_output_schema: {
     'type' => 'object',
@@ -84,7 +84,7 @@ orchestrator = AiAgent.create!(
         'description' => 'Additional metadata'
       }
     },
-    'required' => ['success', 'state']
+    'required' => [ 'success', 'state' ]
   },
   configuration: {
     model: 'claude-3-5-sonnet-20241022',
@@ -109,7 +109,7 @@ orchestrator = AiAgent.create!(
       'Monitor workflow progress',
       'Create and manage checkpoints'
     ],
-    supported_workflows: ['blog_generation', 'multi_agent', 'sequential', 'parallel']
+    supported_workflows: [ 'blog_generation', 'multi_agent', 'sequential', 'parallel' ]
   }
 )
 

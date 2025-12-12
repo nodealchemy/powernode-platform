@@ -49,7 +49,7 @@ class CreateAiAgentTeams < ActiveRecord::Migration[8.0]
                         name: 'ai_agent_teams_status_check'
 
     # Add indexes for common queries
-    add_index :ai_agent_teams, [:account_id, :status]
+    add_index :ai_agent_teams, [ :account_id, :status ]
     add_index :ai_agent_teams, :team_type
 
     # ==========================================
@@ -81,16 +81,16 @@ class CreateAiAgentTeams < ActiveRecord::Migration[8.0]
     end
 
     # Ensure each agent can only have one role per team
-    add_index :ai_agent_team_members, [:ai_agent_team_id, :ai_agent_id],
+    add_index :ai_agent_team_members, [ :ai_agent_team_id, :ai_agent_id ],
               unique: true,
               name: 'index_team_members_on_team_and_agent'
 
     # Index for priority-based queries (sequential execution)
-    add_index :ai_agent_team_members, [:ai_agent_team_id, :priority_order],
+    add_index :ai_agent_team_members, [ :ai_agent_team_id, :priority_order ],
               name: 'index_team_members_on_team_and_priority'
 
     # Index for finding team leads
-    add_index :ai_agent_team_members, [:ai_agent_team_id, :is_lead],
+    add_index :ai_agent_team_members, [ :ai_agent_team_id, :is_lead ],
               name: 'index_team_members_on_team_and_lead'
   end
 end

@@ -43,7 +43,7 @@ RSpec.shared_examples 'an AI model with audit logging' do
 
   it 'creates audit log on update' do
     record = create(described_class.name.underscore, account: account)
-    
+
     expect {
       record.update!(name: 'Updated Name') if record.respond_to?(:name)
     }.to change { AuditLog.count }.by(1)
@@ -54,7 +54,7 @@ RSpec.shared_examples 'an AI model with audit logging' do
 
   it 'creates audit log on deletion' do
     record = create(described_class.name.underscore, account: account)
-    
+
     expect {
       record.destroy!
     }.to change { AuditLog.count }.by(1)
@@ -75,7 +75,7 @@ RSpec.shared_examples 'an AI model with UUID primary key' do
     record1 = create(described_class.name.underscore)
     sleep(0.001) # Ensure different timestamp
     record2 = create(described_class.name.underscore)
-    
+
     # UUIDv7 should be chronologically sortable
     expect(record1.id).to be < record2.id
   end
@@ -105,7 +105,7 @@ RSpec.shared_examples 'an AI model with status transitions' do
 
   it 'tracks status changes in audit log' do
     record = create(described_class.name.underscore, account: account)
-    
+
     expect {
       record.update!(status: valid_statuses.last)
     }.to change { AuditLog.count }.by(1)
@@ -145,7 +145,7 @@ end
 
 RSpec.shared_examples 'an AI controller with permission checks' do |required_permission|
   let(:user_without_permission) { create(:user, account: account, permissions: []) }
-  let(:user_with_permission) { create(:user, account: account, permissions: [required_permission]) }
+  let(:user_with_permission) { create(:user, account: account, permissions: [ required_permission ]) }
 
   context 'without required permission' do
     before do
@@ -195,7 +195,7 @@ end
 RSpec.shared_examples 'an AI controller with structured responses' do
   it 'returns success response structure' do
     get action_path
-    
+
     if response.successful?
       expect(json_response).to include('success' => true)
       expect(json_response).to have_key('data')
@@ -206,9 +206,9 @@ RSpec.shared_examples 'an AI controller with structured responses' do
     # Force an error by mocking
     allow_any_instance_of(described_class).to receive(action_method)
       .and_raise(StandardError.new('Test error'))
-    
+
     get action_path
-    
+
     expect(json_response).to include('success' => false)
     expect(json_response).to have_key('error')
   end
@@ -219,7 +219,7 @@ RSpec.shared_examples 'an AI service with error handling' do
 
   it 'handles connection errors gracefully' do
     allow(Net::HTTP).to receive(:post_form).and_raise(Net::ConnectTimeout)
-    
+
     result = service.send(service_method, *service_args)
     expect(result).to include(success: false)
     expect(result[:error]).to include('connection')
@@ -227,7 +227,7 @@ RSpec.shared_examples 'an AI service with error handling' do
 
   it 'handles timeout errors' do
     allow(Net::HTTP).to receive(:post_form).and_raise(Net::ReadTimeout)
-    
+
     result = service.send(service_method, *service_args)
     expect(result).to include(success: false)
     expect(result[:error]).to include('timeout')
@@ -236,7 +236,7 @@ RSpec.shared_examples 'an AI service with error handling' do
   it 'handles rate limiting' do
     response = double('response', code: '429', body: 'Rate limit exceeded')
     allow(Net::HTTP).to receive(:post_form).and_return(response)
-    
+
     result = service.send(service_method, *service_args)
     expect(result).to include(success: false)
     expect(result[:error]).to include('rate limit')
@@ -244,7 +244,7 @@ RSpec.shared_examples 'an AI service with error handling' do
 
   it 'logs errors appropriately' do
     allow(Net::HTTP).to receive(:post_form).and_raise(StandardError.new('Test error'))
-    
+
     expect(Rails.logger).to receive(:error).with(/Test error/)
     service.send(service_method, *service_args)
   end
@@ -263,7 +263,7 @@ RSpec.shared_examples 'an AI service with retry logic' do
         double('response', code: '200', body: '{"success": true}')
       end
     end
-    
+
     result = service.send(service_method, *service_args)
     expect(result[:success]).to be true
     expect(call_count).to eq(3)
@@ -271,7 +271,7 @@ RSpec.shared_examples 'an AI service with retry logic' do
 
   it 'gives up after max retries' do
     allow(Net::HTTP).to receive(:post_form).and_raise(Net::ConnectTimeout)
-    
+
     result = service.send(service_method, *service_args)
     expect(result[:success]).to be false
     expect(result[:error]).to include('max retries exceeded')
@@ -281,9 +281,9 @@ RSpec.shared_examples 'an AI service with retry logic' do
     retry_delays = []
     allow(service).to receive(:sleep) { |delay| retry_delays << delay }
     allow(Net::HTTP).to receive(:post_form).and_raise(Net::ConnectTimeout)
-    
+
     service.send(service_method, *service_args)
-    
+
     expect(retry_delays).to satisfy { |delays| delays[1] > delays[0] } if retry_delays.size > 1
   end
 end
@@ -293,14 +293,14 @@ RSpec.shared_examples 'an AI job with proper error handling' do
 
   it 'handles and logs errors appropriately' do
     allow(job).to receive(:execute).and_raise(StandardError.new('Job error'))
-    
+
     expect(Rails.logger).to receive(:error).with(/Job error/)
     expect { job.perform(*job_args) }.not_to raise_error
   end
 
   it 'creates audit log entry for failures' do
     allow(job).to receive(:execute).and_raise(StandardError.new('Job error'))
-    
+
     expect {
       job.perform(*job_args)
     }.to change { AuditLog.count }.by(1)
@@ -315,11 +315,11 @@ RSpec.shared_examples 'an AI job with proper error handling' do
       allow(job).to receive(:execute).and_raise(StandardError.new('Service error'))
       job.perform(*job_args)
     end
-    
+
     # Circuit should be open now
     expect(job).to receive(:circuit_open?).and_return(true)
     result = job.perform(*job_args)
-    
+
     expect(result).to be_falsy # Job should fail fast
   end
 end
@@ -334,14 +334,14 @@ RSpec.shared_examples 'an AI channel with proper subscription handling' do
 
   it 'successfully subscribes with valid parameters' do
     subscribe(subscription_params)
-    
+
     expect(subscription).to be_confirmed
     expect(streams).not_to be_empty
   end
 
   it 'rejects subscription with invalid parameters' do
     subscribe(invalid_params)
-    
+
     expect(subscription).to be_rejected
   end
 
@@ -356,7 +356,7 @@ RSpec.shared_examples 'an AI channel with proper subscription handling' do
 
   it 'handles unsubscription properly' do
     subscribe(subscription_params)
-    
+
     expect {
       unsubscribe
     }.to change { AuditLog.count }.by(1)
@@ -369,9 +369,9 @@ end
 RSpec.shared_examples 'a secure AI endpoint' do
   it 'sanitizes input parameters' do
     malicious_input = "<script>alert('xss')</script>"
-    
+
     post action_path, params: request_params.merge(malicious_field => malicious_input)
-    
+
     if response.successful?
       # Check that malicious input was sanitized
       created_record = described_class.name.constantize.last
@@ -383,9 +383,9 @@ RSpec.shared_examples 'a secure AI endpoint' do
 
   it 'validates input size limits' do
     oversized_input = 'A' * 50_001 # Assuming 50k limit
-    
+
     post action_path, params: request_params.merge(size_limited_field => oversized_input)
-    
+
     expect(response).to have_http_status(:unprocessable_content)
     expect(json_response['error']).to include('exceeds maximum length')
   end
@@ -394,7 +394,7 @@ RSpec.shared_examples 'a secure AI endpoint' do
     # This would need to be implemented based on actual rate limiting
     # For now, just verify the rate limiter is called
     expect_any_instance_of(ApplicationController).to receive(:check_rate_limit)
-    
+
     post action_path, params: request_params
   end
 end
@@ -410,7 +410,7 @@ RSpec.shared_examples 'an AI analytics endpoint' do
 
   it 'returns analytics data structure' do
     get action_path
-    
+
     expect(response).to have_http_status(:ok)
     expect(json_response['success']).to be true
     expect(json_response['data']).to be_a(Hash)
@@ -418,10 +418,10 @@ RSpec.shared_examples 'an AI analytics endpoint' do
 
   it 'supports time period filtering' do
     get action_path, params: { period: 7 }
-    
+
     expect(response).to have_http_status(:ok)
     data = json_response['data']
-    
+
     # Verify data is filtered to 7 days
     if data['timeline']
       expect(data['timeline'].size).to be <= 7
@@ -430,7 +430,7 @@ RSpec.shared_examples 'an AI analytics endpoint' do
 
   it 'includes metadata in response' do
     get action_path
-    
+
     data = json_response['data']
     expect(data).to have_key('metadata') if response.successful?
   end
@@ -439,12 +439,12 @@ RSpec.shared_examples 'an AI analytics endpoint' do
     # Test with new account that has no data
     new_account = create(:account)
     new_user = create(:user, account: new_account)
-    
+
     allow_any_instance_of(ApplicationController).to receive(:current_account).and_return(new_account)
     allow_any_instance_of(ApplicationController).to receive(:current_user).and_return(new_user)
-    
+
     get action_path
-    
+
     expect(response).to have_http_status(:ok)
     expect(json_response['success']).to be true
   end
@@ -454,12 +454,12 @@ end
 RSpec.shared_examples 'a performant AI endpoint' do
   it 'responds within acceptable time limits' do
     start_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-    
+
     get action_path
-    
+
     end_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
     response_time = end_time - start_time
-    
+
     expect(response_time).to be < 5.0 # 5 second limit
   end
 
@@ -470,8 +470,8 @@ RSpec.shared_examples 'a performant AI endpoint' do
         response.status
       end
     end
-    
+
     results = threads.map(&:value)
-    expect(results.all? { |status| [200, 404].include?(status) }).to be true
+    expect(results.all? { |status| [ 200, 404 ].include?(status) }).to be true
   end
 end

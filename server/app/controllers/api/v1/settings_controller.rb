@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 class Api::V1::SettingsController < ApplicationController
-  skip_before_action :authenticate_request, only: [:public]
+  skip_before_action :authenticate_request, only: [ :public ]
   # GET /api/v1/settings/public
   def public
     render_success({
@@ -13,7 +13,7 @@ class Api::V1::SettingsController < ApplicationController
   def show
     # Check if user is authenticated
     unless current_user
-      return render_error('Authentication required', status: :unauthorized)
+      return render_error("Authentication required", status: :unauthorized)
     end
 
     render_success({
@@ -50,8 +50,8 @@ class Api::V1::SettingsController < ApplicationController
   def update_notifications
     if update_user_preferences("notifications", notification_params)
       # Broadcast the notification preferences update to all user's sessions
-      broadcast_settings_update('notifications_updated', current_notification_preferences)
-      
+      broadcast_settings_update("notifications_updated", current_notification_preferences)
+
       render_success(current_notification_preferences.merge({
         message: "Notification preferences updated"
       }))
@@ -69,8 +69,8 @@ class Api::V1::SettingsController < ApplicationController
   def update_preferences
     if update_user_preferences("preferences", preference_params)
       # Broadcast the preferences update to all user's sessions
-      broadcast_settings_update('preferences_updated', current_user_preferences)
-      
+      broadcast_settings_update("preferences_updated", current_user_preferences)
+
       render_success(current_user_preferences.merge({
         message: "User preferences updated"
       }))
@@ -121,7 +121,7 @@ class Api::V1::SettingsController < ApplicationController
 
   def current_user_preferences
     preferences = current_user.preferences || {}
-    
+
     # Merge with defaults
     {
       theme: preferences["theme"] || "light",
@@ -139,7 +139,7 @@ class Api::V1::SettingsController < ApplicationController
 
   def current_account_settings
     settings = current_account.settings || {}
-    
+
     {
       name: current_account.name,
       subdomain: current_account.subdomain,
@@ -156,7 +156,7 @@ class Api::V1::SettingsController < ApplicationController
 
   def current_notification_preferences
     notifications = current_user.notification_preferences || {}
-    
+
     # Merge with defaults
     {
       email_notifications: notifications["email_notifications"] != false,
@@ -203,7 +203,7 @@ class Api::V1::SettingsController < ApplicationController
   def update_user_preferences(key, new_preferences)
     current_preferences = current_user.send(key) || {}
     updated_preferences = current_preferences.merge(new_preferences.to_h)
-    
+
     current_user.update(key.to_sym => updated_preferences)
   end
 
@@ -223,7 +223,7 @@ class Api::V1::SettingsController < ApplicationController
   end
 
   def formatted_copyright_text
-    copyright_template = SystemSettingsService.get_setting(:copyright_text) || '© {year} Powernode Platform. All rights reserved.'
-    copyright_template.gsub('{year}', Date.current.year.to_s)
+    copyright_template = SystemSettingsService.get_setting(:copyright_text) || "© {year} Powernode Platform. All rights reserved."
+    copyright_template.gsub("{year}", Date.current.year.to_s)
   end
 end

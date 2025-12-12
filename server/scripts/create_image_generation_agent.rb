@@ -35,17 +35,17 @@ puts "✓ Using AI Provider: #{provider.name} (#{provider.provider_type})"
 
 # Determine model based on provider
 default_model = case provider.provider_type
-                when 'anthropic'
+when 'anthropic'
                   'claude-sonnet-4-5-20250514'
-                when 'openai'
+when 'openai'
                   'gpt-4o'
-                when 'grok', 'custom'
+when 'grok', 'custom'
                   'grok-beta'
-                when 'ollama'
+when 'ollama'
                   'llama3.3:latest'
-                else
+else
                   provider.supported_models.first['id']
-                end
+end
 
 puts "✓ Using model: #{default_model}"
 puts ""
@@ -61,7 +61,7 @@ image_gen_agent.assign_attributes(
   description: 'Generates actual images using AI based on suggestions from the Image Suggestion Agent',
   creator: user,
   ai_provider: provider,
-  mcp_capabilities: ['image_generation', 'dall-e', 'ai_art', 'prompt_engineering'],
+  mcp_capabilities: [ 'image_generation', 'dall-e', 'ai_art', 'prompt_engineering' ],
   version: '1.0.0',
   mcp_tool_manifest: {
     'name' => 'blog_image_generation_agent',

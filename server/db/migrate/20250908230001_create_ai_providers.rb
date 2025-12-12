@@ -30,7 +30,7 @@ class CreateAiProviders < ActiveRecord::Migration[8.0]
       t.index :slug, unique: true
       t.index :provider_type
       t.index :is_active
-      t.index [:provider_type, :is_active]
+      t.index [ :provider_type, :is_active ]
       t.index :priority_order
     end
 

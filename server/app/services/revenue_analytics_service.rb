@@ -24,8 +24,8 @@ class RevenueAnalyticsService
 
     begin
       # Enqueue analytics job in worker service
-      WorkerJobService.enqueue_analytics_job('calculate_revenue_snapshot', job_data)
-      
+      WorkerJobService.enqueue_analytics_job("calculate_revenue_snapshot", job_data)
+
       {
         success: true,
         message: "Revenue snapshot calculation queued",
@@ -51,8 +51,8 @@ class RevenueAnalyticsService
 
     begin
       # Enqueue analytics job in worker service
-      WorkerJobService.enqueue_analytics_job('calculate_growth_metrics', job_data)
-      
+      WorkerJobService.enqueue_analytics_job("calculate_growth_metrics", job_data)
+
       {
         success: true,
         message: "Growth metrics calculation queued",
@@ -68,16 +68,16 @@ class RevenueAnalyticsService
   # Simple synchronous methods for immediate data needs
   def current_mrr
     subscriptions = @account ? @account.subscriptions.active : Subscription.active
-    
+
     mrr_cents = subscriptions.sum do |subscription|
       plan_price = subscription.plan.price_cents
       quantity = subscription.quantity || 1
-      
+
       # Normalize to monthly
       case subscription.plan.billing_cycle
-      when 'yearly'
+      when "yearly"
         plan_price * quantity / 12
-      when 'weekly'
+      when "weekly"
         plan_price * quantity * 4.33 # Average weeks per month
       else
         plan_price * quantity
@@ -99,14 +99,14 @@ class RevenueAnalyticsService
   def churn_rate(period_days = 30)
     end_date = Date.current
     start_date = end_date - period_days.days
-    
+
     subscriptions = @account ? @account.subscriptions : Subscription.all
-    
-    active_start = subscriptions.where('created_at <= ?', start_date).active.count
+
+    active_start = subscriptions.where("created_at <= ?", start_date).active.count
     cancelled_period = subscriptions.where(canceled_at: start_date..end_date).count
-    
+
     return 0.0 if active_start == 0
-    
+
     (cancelled_period.to_f / active_start).round(4) # Return as decimal for controller
   end
 
@@ -131,7 +131,7 @@ class RevenueAnalyticsService
   def calculate_arpu
     active_customers = count_active_customers
     return 0.0 if active_customers == 0
-    
+
     (current_mrr / active_customers).round(2)
   end
 
@@ -139,9 +139,9 @@ class RevenueAnalyticsService
   def calculate_ltv
     arpu = calculate_arpu
     monthly_churn = calculate_churn_rate
-    
+
     return 0.0 if monthly_churn <= 0
-    
+
     # Simple LTV calculation: ARPU / Monthly Churn Rate
     (arpu / monthly_churn).round(2)
   end
@@ -149,7 +149,7 @@ class RevenueAnalyticsService
   # Calculate growth rate between two values
   def calculate_growth_rate(current_value, previous_value)
     return 0.0 if previous_value <= 0 || current_value <= 0
-    
+
     ((current_value.to_f - previous_value.to_f) / previous_value.to_f).round(4)
   end
 
@@ -161,9 +161,9 @@ class RevenueAnalyticsService
     # First try to get from snapshots
     snapshots = if @account
                   RevenueSnapshot.for_account(@account).in_date_range(start_date, end_date).order(:snapshot_date)
-                else
+    else
                   RevenueSnapshot.global.in_date_range(start_date, end_date).order(:snapshot_date)
-                end
+    end
 
     if snapshots.any?
       snapshots.map do |snapshot|
@@ -173,8 +173,8 @@ class RevenueAnalyticsService
           arr: snapshot.arr_cents / 100.0,
           subscriber_count: snapshot.active_subscriptions || 0,
           growth_rate: snapshot.growth_rate_percentage || 0.0,
-          new_mrr: (snapshot.get_metadata('new_mrr_cents') || 0) / 100.0,
-          churned_mrr: (snapshot.get_metadata('churned_mrr_cents') || 0) / 100.0
+          new_mrr: (snapshot.get_metadata("new_mrr_cents") || 0) / 100.0,
+          churned_mrr: (snapshot.get_metadata("churned_mrr_cents") || 0) / 100.0
         }
       end
     else
@@ -192,13 +192,13 @@ class RevenueAnalyticsService
 
     # Group subscriptions by signup month
     cohorts = subscriptions
-              .where('created_at >= ?', start_date)
+              .where("created_at >= ?", start_date)
               .group_by { |s| s.created_at.beginning_of_month }
 
     cohort_data = []
 
     cohorts.each do |cohort_start, cohort_subscriptions|
-      cohort_name = cohort_start.strftime('%b %Y')
+      cohort_name = cohort_start.strftime("%b %Y")
       cohort_size = cohort_subscriptions.count
 
       # Calculate retention for each month after signup
@@ -230,7 +230,7 @@ class RevenueAnalyticsService
         size: cohort_size,
         retention: retention_data,
         current_mrr: cohort_mrr.round(2),
-        churned: cohort_subscriptions.count { |s| s.status == 'canceled' },
+        churned: cohort_subscriptions.count { |s| s.status == "canceled" },
         active: cohort_subscriptions.count(&:active?)
       }
     end
@@ -241,47 +241,47 @@ class RevenueAnalyticsService
 
   # Export revenue data as CSV with proper formatting
   def export_revenue_data_csv(period = "monthly")
-    require 'csv'
+    require "csv"
 
     end_date = Date.current
     start_date = case period
-                 when "daily" then end_date - 30.days
-                 when "weekly" then end_date - 12.weeks
-                 when "yearly" then end_date - 5.years
-                 else end_date - 12.months
-                 end
+    when "daily" then end_date - 30.days
+    when "weekly" then end_date - 12.weeks
+    when "yearly" then end_date - 5.years
+    else end_date - 12.months
+    end
 
     # Get snapshot data or generate from subscriptions
     trend_data = mrr_trend(months: ((end_date - start_date) / 30).to_i.clamp(1, 60))
 
     CSV.generate do |csv|
       # Headers
-      csv << ['Date', 'MRR ($)', 'ARR ($)', 'Active Subscriptions', 'Growth Rate (%)', 'New MRR ($)', 'Churned MRR ($)', 'Net New MRR ($)']
+      csv << [ "Date", "MRR ($)", "ARR ($)", "Active Subscriptions", "Growth Rate (%)", "New MRR ($)", "Churned MRR ($)", "Net New MRR ($)" ]
 
       # Data rows
       trend_data.each do |row|
         net_new = (row[:new_mrr] || 0) - (row[:churned_mrr] || 0)
         csv << [
           row[:date],
-          format('%.2f', row[:mrr] || 0),
-          format('%.2f', row[:arr] || 0),
+          format("%.2f", row[:mrr] || 0),
+          format("%.2f", row[:arr] || 0),
           row[:subscriber_count] || 0,
-          format('%.2f', row[:growth_rate] || 0),
-          format('%.2f', row[:new_mrr] || 0),
-          format('%.2f', row[:churned_mrr] || 0),
-          format('%.2f', net_new)
+          format("%.2f", row[:growth_rate] || 0),
+          format("%.2f", row[:new_mrr] || 0),
+          format("%.2f", row[:churned_mrr] || 0),
+          format("%.2f", net_new)
         ]
       end
 
       # Summary row
       if trend_data.any?
         csv << []
-        csv << ['Summary']
-        csv << ['Current MRR', format('%.2f', current_mrr)]
-        csv << ['Current ARR', format('%.2f', current_arr)]
-        csv << ['Active Subscriptions', active_subscriptions_count]
-        csv << ['Churn Rate', format('%.4f', churn_rate)]
-        csv << ['ARPU', format('%.2f', calculate_arpu)]
+        csv << [ "Summary" ]
+        csv << [ "Current MRR", format("%.2f", current_mrr) ]
+        csv << [ "Current ARR", format("%.2f", current_arr) ]
+        csv << [ "Active Subscriptions", active_subscriptions_count ]
+        csv << [ "Churn Rate", format("%.4f", churn_rate) ]
+        csv << [ "ARPU", format("%.2f", calculate_arpu) ]
       end
     end
   end
@@ -290,7 +290,7 @@ class RevenueAnalyticsService
 
   def generate_mrr_trend_from_subscriptions(start_date, end_date)
     subscriptions = @account ? @account.subscriptions : Subscription.all
-    all_subscriptions = subscriptions.where('created_at <= ?', end_date).to_a
+    all_subscriptions = subscriptions.where("created_at <= ?", end_date).to_a
 
     trend_data = []
     current_date = start_date
@@ -307,8 +307,8 @@ class RevenueAnalyticsService
       mrr_cents = active_subs.sum do |sub|
         price = sub.plan.price_cents * (sub.quantity || 1)
         case sub.plan.billing_cycle
-        when 'yearly' then price / 12
-        when 'weekly' then price * 4.33
+        when "yearly" then price / 12
+        when "weekly" then price * 4.33
         else price
         end
       end
@@ -349,11 +349,11 @@ class RevenueAnalyticsService
   class << self
     def update_all_metrics(force_recalculation: false)
       Rails.logger.info "Delegating bulk metrics update to worker service"
-      
+
       job_data = { force_recalculation: force_recalculation }
 
       begin
-        WorkerJobService.enqueue_analytics_job('update_all_metrics', job_data)
+        WorkerJobService.enqueue_analytics_job("update_all_metrics", job_data)
         { success: true, message: "Bulk metrics update queued" }
       rescue WorkerJobService::WorkerServiceError => e
         Rails.logger.error "Failed to delegate bulk metrics update: #{e.message}"
@@ -363,11 +363,11 @@ class RevenueAnalyticsService
 
     def cleanup_old_snapshots(days_old: 90)
       Rails.logger.info "Delegating analytics cleanup to worker service"
-      
+
       job_data = { days_old: days_old }
 
       begin
-        WorkerJobService.enqueue_analytics_job('cleanup_old_snapshots', job_data)
+        WorkerJobService.enqueue_analytics_job("cleanup_old_snapshots", job_data)
         { success: true, message: "Analytics cleanup queued" }
       rescue WorkerJobService::WorkerServiceError => e
         Rails.logger.error "Failed to delegate analytics cleanup: #{e.message}"
@@ -377,14 +377,14 @@ class RevenueAnalyticsService
 
     def recalculate_historical_data(start_date:, end_date: Date.current)
       Rails.logger.info "Delegating historical data recalculation to worker service"
-      
+
       job_data = {
         start_date: start_date.iso8601,
         end_date: end_date.iso8601
       }
 
       begin
-        WorkerJobService.enqueue_analytics_job('recalculate_historical_data', job_data)
+        WorkerJobService.enqueue_analytics_job("recalculate_historical_data", job_data)
         { success: true, message: "Historical data recalculation queued" }
       rescue WorkerJobService::WorkerServiceError => e
         Rails.logger.error "Failed to delegate historical recalculation: #{e.message}"

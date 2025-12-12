@@ -1,20 +1,20 @@
 # frozen_string_literal: true
 
 class Api::V1::NotificationsController < ApplicationController
-  before_action :set_notification, only: [:show, :mark_as_read, :mark_as_unread, :dismiss]
+  before_action :set_notification, only: [ :show, :mark_as_read, :mark_as_unread, :dismiss ]
 
   # GET /api/v1/notifications
   def index
     notifications = current_user.notifications.active.recent
 
     # Apply filters
-    notifications = notifications.unread if params[:unread] == 'true'
+    notifications = notifications.unread if params[:unread] == "true"
     notifications = notifications.by_category(params[:category]) if params[:category].present?
     notifications = notifications.by_type(params[:type]) if params[:type].present?
 
     # Pagination
     page = (params[:page] || 1).to_i
-    per_page = [(params[:per_page] || 20).to_i, 100].min
+    per_page = [ (params[:per_page] || 20).to_i, 100 ].min
 
     total_count = notifications.count
     notifications = notifications.limit(per_page).offset((page - 1) * per_page)

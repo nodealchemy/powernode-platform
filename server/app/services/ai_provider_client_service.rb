@@ -8,15 +8,15 @@ class AiProviderClientService
 
   # Model pricing per 1K tokens (in USD)
   MODEL_PRICING = {
-    'gpt-3.5-turbo' => { prompt: 0.0015, completion: 0.002 },
-    'gpt-3.5-turbo-16k' => { prompt: 0.003, completion: 0.004 },
-    'gpt-4' => { prompt: 0.03, completion: 0.06 },
-    'gpt-4-32k' => { prompt: 0.06, completion: 0.12 },
-    'gpt-4-turbo' => { prompt: 0.01, completion: 0.03 },
-    'gpt-4o' => { prompt: 0.005, completion: 0.015 },
-    'claude-3-sonnet-20240229' => { prompt: 0.003, completion: 0.015 },
-    'claude-3-opus-20240229' => { prompt: 0.015, completion: 0.075 },
-    'claude-3-haiku-20240307' => { prompt: 0.00025, completion: 0.00125 }
+    "gpt-3.5-turbo" => { prompt: 0.0015, completion: 0.002 },
+    "gpt-3.5-turbo-16k" => { prompt: 0.003, completion: 0.004 },
+    "gpt-4" => { prompt: 0.03, completion: 0.06 },
+    "gpt-4-32k" => { prompt: 0.06, completion: 0.12 },
+    "gpt-4-turbo" => { prompt: 0.01, completion: 0.03 },
+    "gpt-4o" => { prompt: 0.005, completion: 0.015 },
+    "claude-3-sonnet-20240229" => { prompt: 0.003, completion: 0.015 },
+    "claude-3-opus-20240229" => { prompt: 0.015, completion: 0.075 },
+    "claude-3-haiku-20240307" => { prompt: 0.00025, completion: 0.00125 }
   }.freeze
 
   VALID_ROLES = %w[system user assistant function tool].freeze
@@ -46,16 +46,16 @@ class AiProviderClientService
   end
 
   def generate_text(prompt, model: nil, **options)
-    model_name = model || default_model_for_capability('text_generation')
-    raise ArgumentError, 'No compatible model found' unless model_name
+    model_name = model || default_model_for_capability("text_generation")
+    raise ArgumentError, "No compatible model found" unless model_name
 
     @circuit_breaker.call do
       case provider.slug
-      when 'openai'
+      when "openai"
         openai_generate_text(prompt, model_name, **options)
-      when 'anthropic', 'claude-ai-anthropic'
+      when "anthropic", "claude-ai-anthropic"
         anthropic_generate_text(prompt, model_name, **options)
-      when 'ollama', 'remote-ollama-server'
+      when "ollama", "remote-ollama-server"
         ollama_generate_text(prompt, model_name, **options)
       else
         raise NotImplementedError, "Text generation not implemented for #{provider.name}"
@@ -72,14 +72,14 @@ class AiProviderClientService
   end
 
   def generate_image(prompt, model: nil, **options)
-    model_name = model || default_model_for_capability('image_generation')
-    raise ArgumentError, 'No compatible model found' unless model_name
+    model_name = model || default_model_for_capability("image_generation")
+    raise ArgumentError, "No compatible model found" unless model_name
 
     @circuit_breaker.call do
       case provider.slug
-      when 'stability-ai'
+      when "stability-ai"
         stability_generate_image(prompt, model_name, **options)
-      when 'openai'
+      when "openai"
         openai_generate_image(prompt, model_name, **options)
       else
         raise NotImplementedError, "Image generation not implemented for #{provider.name}"
@@ -95,12 +95,12 @@ class AiProviderClientService
     }
   end
 
-  def execute_code(code, language: 'python', **options)
-    model_name = default_model_for_capability('code_execution')
-    raise ArgumentError, 'No compatible model found' unless model_name
+  def execute_code(code, language: "python", **options)
+    model_name = default_model_for_capability("code_execution")
+    raise ArgumentError, "No compatible model found" unless model_name
 
     case provider.slug
-    when 'replit'
+    when "replit"
       replit_execute_code(code, language, **options)
     else
       raise NotImplementedError, "Code execution not implemented for #{provider.name}"
@@ -108,16 +108,16 @@ class AiProviderClientService
   end
 
   def stream_text(prompt, model: nil, **options, &block)
-    model_name = model || default_model_for_capability('text_generation')
-    raise ArgumentError, 'No compatible model found' unless model_name
-    raise ArgumentError, 'Provider does not support streaming' unless provider.supports_streaming?
+    model_name = model || default_model_for_capability("text_generation")
+    raise ArgumentError, "No compatible model found" unless model_name
+    raise ArgumentError, "Provider does not support streaming" unless provider.supports_streaming?
 
     case provider.slug
-    when 'openai'
+    when "openai"
       openai_stream_text(prompt, model_name, **options, &block)
-    when 'anthropic', 'claude-ai-anthropic'
+    when "anthropic", "claude-ai-anthropic"
       anthropic_stream_text(prompt, model_name, **options, &block)
-    when 'ollama', 'remote-ollama-server'
+    when "ollama", "remote-ollama-server"
       ollama_stream_text(prompt, model_name, **options, &block)
     else
       raise NotImplementedError, "Streaming not implemented for #{provider.name}"
@@ -135,27 +135,27 @@ class AiProviderClientService
     if circuit_breaker_open?
       return {
         success: false,
-        error: 'Circuit breaker is open - provider temporarily unavailable',
-        error_type: 'circuit_breaker_open',
+        error: "Circuit breaker is open - provider temporarily unavailable",
+        error_type: "circuit_breaker_open",
         retry_after: calculate_circuit_breaker_timeout,
-        circuit_breaker_state: 'open'
+        circuit_breaker_state: "open"
       }
     end
 
-    model_name = options[:model] || default_model_for_capability('text_generation')
+    model_name = options[:model] || default_model_for_capability("text_generation")
     start_time = Time.current
 
     begin
       result = case provider.slug
-               when 'openai'
+      when "openai"
                  openai_send_message(messages, model_name, **options)
-               when 'anthropic', 'claude-ai-anthropic'
+      when "anthropic", "claude-ai-anthropic"
                  anthropic_send_message(messages, model_name, **options)
-               when 'ollama', 'remote-ollama-server'
+      when "ollama", "remote-ollama-server"
                  ollama_send_message(messages, model_name, **options)
-               else
+      else
                  raise NotImplementedError, "send_message not implemented for #{provider.name}"
-               end
+      end
 
       response_time_ms = ((Time.current - start_time) * 1000).round
       track_usage(result[:response] || {}, response_time_ms, result[:success])
@@ -176,7 +176,7 @@ class AiProviderClientService
         check_circuit_breaker_threshold
         result.merge(
           retry_after: extract_retry_after(result),
-          retry_recommended: result[:error_type] == 'server_error'
+          retry_recommended: result[:error_type] == "server_error"
         )
       end
     rescue Net::OpenTimeout, Net::ReadTimeout, Timeout::Error => e
@@ -188,7 +188,7 @@ class AiProviderClientService
       {
         success: false,
         error: "Request timeout: #{e.message}",
-        error_type: 'network_error',
+        error_type: "network_error",
         retry_after: calculate_backoff_time,
         retry_recommended: true
       }
@@ -199,7 +199,7 @@ class AiProviderClientService
       {
         success: false,
         error: "Failed to parse response: #{e.message}",
-        error_type: 'parse_error',
+        error_type: "parse_error",
         retry_recommended: false
       }
     rescue StandardError => e
@@ -209,7 +209,7 @@ class AiProviderClientService
       {
         success: false,
         error: "Request failed: #{e.message}",
-        error_type: 'unknown_error',
+        error_type: "unknown_error",
         retry_recommended: true
       }
     end
@@ -219,10 +219,10 @@ class AiProviderClientService
   # @return [Hash] Health status with metrics
   def health_check
     start_time = Time.current
-    test_messages = [{ role: 'user', content: 'Hello' }]
+    test_messages = [ { role: "user", content: "Hello" } ]
 
     begin
-      result = send_message(test_messages, { model: default_model_for_capability('text_generation'), max_tokens: 5 })
+      result = send_message(test_messages, { model: default_model_for_capability("text_generation"), max_tokens: 5 })
       response_time = ((Time.current - start_time) * 1000).round
 
       {
@@ -251,13 +251,13 @@ class AiProviderClientService
   # @param messages [Array<Hash>] Messages to validate
   # @raise [ValidationError] if validation fails
   def validate_message_format(messages)
-    raise ValidationError, 'Messages must contain at least one message' if messages.nil? || messages.empty?
+    raise ValidationError, "Messages must contain at least one message" if messages.nil? || messages.empty?
 
     messages.each_with_index do |msg, index|
-      raise ValidationError, "Message at index #{index}: role is required" unless msg[:role] || msg['role']
-      raise ValidationError, "Message at index #{index}: content is required" unless msg[:content] || msg['content']
+      raise ValidationError, "Message at index #{index}: role is required" unless msg[:role] || msg["role"]
+      raise ValidationError, "Message at index #{index}: content is required" unless msg[:content] || msg["content"]
 
-      role = msg[:role] || msg['role']
+      role = msg[:role] || msg["role"]
       unless VALID_ROLES.include?(role.to_s)
         raise ValidationError, "Message at index #{index}: Invalid role '#{role}'. Must be one of: #{VALID_ROLES.join(', ')}"
       end
@@ -276,9 +276,9 @@ class AiProviderClientService
 
     if success && response_data[:usage]
       usage = response_data[:usage]
-      @usage_metrics[:total_tokens] += usage[:total_tokens] || usage['total_tokens'] || 0
-      @usage_metrics[:prompt_tokens] += usage[:prompt_tokens] || usage['prompt_tokens'] || 0
-      @usage_metrics[:completion_tokens] += usage[:completion_tokens] || usage['completion_tokens'] || 0
+      @usage_metrics[:total_tokens] += usage[:total_tokens] || usage["total_tokens"] || 0
+      @usage_metrics[:prompt_tokens] += usage[:prompt_tokens] || usage["prompt_tokens"] || 0
+      @usage_metrics[:completion_tokens] += usage[:completion_tokens] || usage["completion_tokens"] || 0
     end
 
     total = @usage_metrics[:total_requests]
@@ -292,8 +292,8 @@ class AiProviderClientService
   # @return [BigDecimal] Estimated cost in USD
   def estimate_cost(tokens_used, model)
     pricing = MODEL_PRICING[model] || { prompt: 0.001, completion: 0.002 }
-    prompt_tokens = tokens_used[:prompt_tokens] || tokens_used['prompt_tokens'] || 0
-    completion_tokens = tokens_used[:completion_tokens] || tokens_used['completion_tokens'] || 0
+    prompt_tokens = tokens_used[:prompt_tokens] || tokens_used["prompt_tokens"] || 0
+    completion_tokens = tokens_used[:completion_tokens] || tokens_used["completion_tokens"] || 0
 
     prompt_cost = BigDecimal(prompt_tokens.to_s) / 1000 * BigDecimal(pricing[:prompt].to_s)
     completion_cost = BigDecimal(completion_tokens.to_s) / 1000 * BigDecimal(pricing[:completion].to_s)
@@ -308,7 +308,7 @@ class AiProviderClientService
     max_delay = 120
     jitter = rand(0.5..1.5)
 
-    delay = [base_delay * (2 ** @consecutive_failures) * jitter, max_delay].min
+    delay = [ base_delay * (2 ** @consecutive_failures) * jitter, max_delay ].min
     delay.ceil
   end
 
@@ -337,7 +337,7 @@ class AiProviderClientService
   # Get circuit breaker state
   # @return [String]
   def circuit_breaker_state
-    circuit_breaker_open? ? 'open' : 'closed'
+    circuit_breaker_open? ? "open" : "closed"
   end
 
   # Calculate remaining timeout for circuit breaker
@@ -346,7 +346,7 @@ class AiProviderClientService
     return 0 unless @circuit_breaker_opened_at
 
     remaining = CIRCUIT_BREAKER_TIMEOUT - (Time.current - @circuit_breaker_opened_at)
-    [remaining.ceil, 0].max
+    [ remaining.ceil, 0 ].max
   end
 
   # Calculate error rate
@@ -363,10 +363,10 @@ class AiProviderClientService
   def extract_token_count(response)
     return 0 unless response.is_a?(Hash)
 
-    usage = response[:usage] || response['usage']
+    usage = response[:usage] || response["usage"]
     return 0 unless usage
 
-    usage[:total_tokens] || usage['total_tokens'] || 0
+    usage[:total_tokens] || usage["total_tokens"] || 0
   end
 
   # Extract retry-after from response or calculate default
@@ -378,11 +378,11 @@ class AiProviderClientService
 
   # OpenAI chat message implementation
   def openai_send_message(messages, model, **options)
-    url = '/chat/completions'
+    url = "/chat/completions"
 
     body = {
       model: model,
-      messages: messages.map { |m| { role: m[:role] || m['role'], content: m[:content] || m['content'] } },
+      messages: messages.map { |m| { role: m[:role] || m["role"], content: m[:content] || m["content"] } },
       max_tokens: options[:max_tokens] || 2000,
       temperature: options[:temperature] || 0.7
     }
@@ -400,18 +400,18 @@ class AiProviderClientService
 
   # Anthropic chat message implementation
   def anthropic_send_message(messages, model, **options)
-    url = '/messages'
+    url = "/messages"
 
     # Separate system messages from other messages for Anthropic
-    system_content = messages.select { |m| (m[:role] || m['role']) == 'system' }
-                            .map { |m| m[:content] || m['content'] }
+    system_content = messages.select { |m| (m[:role] || m["role"]) == "system" }
+                            .map { |m| m[:content] || m["content"] }
                             .join("\n")
 
-    user_messages = messages.reject { |m| (m[:role] || m['role']) == 'system' }
+    user_messages = messages.reject { |m| (m[:role] || m["role"]) == "system" }
 
     body = {
       model: model,
-      messages: user_messages.map { |m| { role: m[:role] || m['role'], content: m[:content] || m['content'] } },
+      messages: user_messages.map { |m| { role: m[:role] || m["role"], content: m[:content] || m["content"] } },
       max_tokens: options[:max_tokens] || 2000
     }
 
@@ -424,16 +424,16 @@ class AiProviderClientService
 
   # Ollama chat message implementation
   def ollama_send_message(messages, model, **options)
-    url = '/api/chat'
+    url = "/api/chat"
 
     body = {
       model: model,
-      messages: messages.map { |m| { role: m[:role] || m['role'], content: m[:content] || m['content'] } },
+      messages: messages.map { |m| { role: m[:role] || m["role"], content: m[:content] || m["content"] } },
       stream: options[:stream] || false
     }
 
     # Ollama uses different base URI
-    base_url = credentials_data['base_url'] || 'http://localhost:11434'
+    base_url = credentials_data["base_url"] || "http://localhost:11434"
     full_url = "#{base_url}#{url}"
 
     response = HTTParty.post(full_url, headers: @headers, body: body.to_json)
@@ -454,15 +454,15 @@ class AiProviderClientService
     when 401
       {
         success: false,
-        error: 'invalid_api_key',
-        error_type: 'authentication_error',
+        error: "invalid_api_key",
+        error_type: "authentication_error",
         status_code: response.code,
         provider: provider.name
       }
     when 429
       error_body = JSON.parse(response.body) rescue {}
-      error_code = error_body.dig('error', 'code') || 'rate_limit_exceeded'
-      error_type = error_code.include?('quota') ? 'quota_exceeded' : 'rate_limit'
+      error_code = error_body.dig("error", "code") || "rate_limit_exceeded"
+      error_type = error_code.include?("quota") ? "quota_exceeded" : "rate_limit"
 
       {
         success: false,
@@ -470,22 +470,22 @@ class AiProviderClientService
         error_type: error_type,
         status_code: response.code,
         provider: provider.name,
-        retry_after: response.headers['Retry-After']&.to_i || 60
+        retry_after: response.headers["Retry-After"]&.to_i || 60
       }
     when 500..599
       {
         success: false,
-        error: 'Server error',
-        error_type: 'server_error',
+        error: "Server error",
+        error_type: "server_error",
         status_code: response.code,
         provider: provider.name
       }
     else
-      error_msg = response.parsed_response&.dig('error') || 'Unknown error'
+      error_msg = response.parsed_response&.dig("error") || "Unknown error"
       {
         success: false,
         error: error_msg.is_a?(Hash) ? error_msg.to_json : error_msg.to_s,
-        error_type: 'api_error',
+        error_type: "api_error",
         status_code: response.code,
         provider: provider.name
       }
@@ -493,8 +493,8 @@ class AiProviderClientService
   rescue JSON::ParserError
     {
       success: false,
-      error: 'Failed to parse response',
-      error_type: 'parse_error',
+      error: "Failed to parse response",
+      error_type: "parse_error",
       status_code: response.code,
       provider: provider.name
     }
@@ -510,7 +510,7 @@ class AiProviderClientService
           choices: [
             {
               message: data[:message],
-              finish_reason: 'stop'
+              finish_reason: "stop"
             }
           ],
           model: data[:model]
@@ -524,8 +524,8 @@ class AiProviderClientService
   rescue JSON::ParserError
     {
       success: false,
-      error: 'Failed to parse Ollama response',
-      error_type: 'parse_error',
+      error: "Failed to parse Ollama response",
+      error_type: "parse_error",
       status_code: response.code,
       provider: provider.name
     }
@@ -536,25 +536,25 @@ class AiProviderClientService
     # Increased timeout for content generation tasks (blog writing, editing, etc.)
     # 120 seconds should be sufficient for generating 1000-1500 word articles
     self.class.default_timeout(120)
-    
+
     # Set up common headers
     @headers = {
-      'User-Agent' => 'Powernode-AI/1.0',
-      'Content-Type' => 'application/json'
+      "User-Agent" => "Powernode-AI/1.0",
+      "Content-Type" => "application/json"
     }
-    
+
     # Provider-specific authentication
     case provider.slug
-    when 'openai'
-      @headers['Authorization'] = "Bearer #{credentials_data['api_key']}"
-      @headers['OpenAI-Organization'] = credentials_data['organization'] if credentials_data['organization']
-    when 'anthropic', 'claude-ai-anthropic'
-      @headers['x-api-key'] = credentials_data['api_key']
-      @headers['anthropic-version'] = '2023-06-01'
-    when 'stability-ai'
-      @headers['Authorization'] = "Bearer #{credentials_data['api_key']}"
-    when 'replit'
-      @headers['Authorization'] = "Bearer #{credentials_data['api_key']}"
+    when "openai"
+      @headers["Authorization"] = "Bearer #{credentials_data['api_key']}"
+      @headers["OpenAI-Organization"] = credentials_data["organization"] if credentials_data["organization"]
+    when "anthropic", "claude-ai-anthropic"
+      @headers["x-api-key"] = credentials_data["api_key"]
+      @headers["anthropic-version"] = "2023-06-01"
+    when "stability-ai"
+      @headers["Authorization"] = "Bearer #{credentials_data['api_key']}"
+    when "replit"
+      @headers["Authorization"] = "Bearer #{credentials_data['api_key']}"
     end
   end
 
@@ -562,35 +562,35 @@ class AiProviderClientService
     compatible_models = provider.supported_models.select do |model|
       provider.capabilities.include?(capability)
     end
-    compatible_models.first&.dig('id')
+    compatible_models.first&.dig("id")
   end
 
   # OpenAI implementations
   def openai_generate_text(prompt, model, **options)
-    url = '/chat/completions'
-    
+    url = "/chat/completions"
+
     body = {
       model: model,
-      messages: [{ role: 'user', content: prompt }],
+      messages: [ { role: "user", content: prompt } ],
       max_tokens: options[:max_tokens] || 2000,
       temperature: options[:temperature] || 0.7
     }
-    
+
     response = self.class.post(url, headers: @headers, body: body.to_json)
     handle_response(response)
   end
 
   def openai_stream_text(prompt, model, **options, &block)
-    url = '/chat/completions'
-    
+    url = "/chat/completions"
+
     body = {
       model: model,
-      messages: [{ role: 'user', content: prompt }],
+      messages: [ { role: "user", content: prompt } ],
       max_tokens: options[:max_tokens] || 2000,
       temperature: options[:temperature] || 0.7,
       stream: true
     }
-    
+
     # Streaming implementation would require special handling
     # This is a simplified version
     response = self.class.post(url, headers: @headers, body: body.to_json)
@@ -600,26 +600,26 @@ class AiProviderClientService
   end
 
   def openai_generate_image(prompt, model, **options)
-    url = '/images/generations'
-    
+    url = "/images/generations"
+
     body = {
       model: model,
       prompt: prompt,
       n: options[:n] || 1,
-      size: options[:size] || '1024x1024'
+      size: options[:size] || "1024x1024"
     }
-    
+
     response = self.class.post(url, headers: @headers, body: body.to_json)
     handle_response(response)
   end
 
   # Anthropic implementations
   def anthropic_generate_text(prompt, model, **options)
-    url = '/messages'
+    url = "/messages"
 
     body = {
       model: model,
-      messages: [{ role: 'user', content: prompt }],
+      messages: [ { role: "user", content: prompt } ],
       max_tokens: options[:max_tokens] || 2000
     }
 
@@ -640,7 +640,7 @@ class AiProviderClientService
 
   # Ollama implementations
   def ollama_generate_text(prompt, model, **options)
-    url = '/api/generate'
+    url = "/api/generate"
 
     body = {
       model: model,
@@ -649,7 +649,7 @@ class AiProviderClientService
     }
 
     # Ollama uses different base URI
-    base_url = credentials_data['base_url'] || 'http://localhost:11434'
+    base_url = credentials_data["base_url"] || "http://localhost:11434"
     full_url = "#{base_url}#{url}"
 
     response = HTTParty.post(full_url, headers: @headers, body: body.to_json)
@@ -657,7 +657,7 @@ class AiProviderClientService
     # Handle Ollama-specific response format
     if response.code == 200
       data = JSON.parse(response.body)
-      content = data['response'] || 'No response generated'
+      content = data["response"] || "No response generated"
 
       {
         success: true,
@@ -669,11 +669,11 @@ class AiProviderClientService
         cost: 0, # Ollama is typically free/local
         metadata: {
           model: model,
-          done: data['done'],
-          total_duration: data['total_duration'],
-          load_duration: data['load_duration'],
-          prompt_eval_count: data['prompt_eval_count'],
-          eval_count: data['eval_count']
+          done: data["done"],
+          total_duration: data["total_duration"],
+          load_duration: data["load_duration"],
+          prompt_eval_count: data["prompt_eval_count"],
+          eval_count: data["eval_count"]
         }
       }
     else
@@ -696,33 +696,33 @@ class AiProviderClientService
   # Stability AI implementations
   def stability_generate_image(prompt, model, **options)
     url = "/generation/#{model}/text-to-image"
-    
+
     body = {
-      text_prompts: [{ text: prompt }],
+      text_prompts: [ { text: prompt } ],
       cfg_scale: options[:cfg_scale] || 7,
       height: options[:height] || 1024,
       width: options[:width] || 1024,
       samples: options[:samples] || 1,
       steps: options[:steps] || 30
     }
-    
+
     response = self.class.post(url, headers: @headers, body: body.to_json)
     handle_response(response)
   end
 
   # Replit implementations
   def replit_execute_code(code, language, **options)
-    url = '/repls'
-    
+    url = "/repls"
+
     body = {
       title: "Code Execution - #{Time.current.to_i}",
       language: language,
       files: {
-        'main.py' => code  # Simplified - would need language-specific files
+        "main.py" => code  # Simplified - would need language-specific files
       },
       is_private: true
     }
-    
+
     response = self.class.post(url, headers: @headers, body: body.to_json)
     handle_response(response)
   end
@@ -739,28 +739,28 @@ class AiProviderClientService
     when 401
       {
         success: false,
-        error: 'Authentication failed - check API credentials',
+        error: "Authentication failed - check API credentials",
         status_code: response.code,
         provider: provider.name
       }
     when 429
       {
         success: false,
-        error: 'Rate limit exceeded - please try again later',
+        error: "Rate limit exceeded - please try again later",
         status_code: response.code,
         provider: provider.name
       }
     when 500..599
       {
         success: false,
-        error: 'Provider service error - please try again',
+        error: "Provider service error - please try again",
         status_code: response.code,
         provider: provider.name
       }
     else
       {
         success: false,
-        error: response.parsed_response&.dig('error') || 'Unknown error occurred',
+        error: response.parsed_response&.dig("error") || "Unknown error occurred",
         status_code: response.code,
         provider: provider.name
       }
@@ -776,14 +776,14 @@ class AiProviderClientService
 
   # Batch completion for multiple prompts - optimizes API calls
   def batch_completion(prompts, model: nil, **options)
-    model_name = model || default_model_for_capability('text_generation')
-    raise ArgumentError, 'No compatible model found' unless model_name
-    raise ArgumentError, 'Prompts must be an array' unless prompts.is_a?(Array)
+    model_name = model || default_model_for_capability("text_generation")
+    raise ArgumentError, "No compatible model found" unless model_name
+    raise ArgumentError, "Prompts must be an array" unless prompts.is_a?(Array)
     return { success: true, results: [] } if prompts.empty?
 
     batch_size = options[:batch_size] || 5
     results = []
-    
+
     # Process in batches to avoid overwhelming the provider
     prompts.each_slice(batch_size) do |batch_prompts|
       batch_results = process_batch_prompts(batch_prompts, model_name, **options)
@@ -810,9 +810,9 @@ class AiProviderClientService
 
   def process_batch_prompts(prompts, model_name, **options)
     case provider.slug
-    when 'openai'
+    when "openai"
       process_openai_batch(prompts, model_name, **options)
-    when 'anthropic', 'claude-ai-anthropic'
+    when "anthropic", "claude-ai-anthropic"
       process_anthropic_batch(prompts, model_name, **options)
     else
       # Fallback: process each prompt individually
@@ -835,7 +835,7 @@ class AiProviderClientService
     prompts.map.with_index do |prompt, index|
       # Add small delay between requests to avoid rate limits
       sleep(0.1) if index > 0
-      
+
       result = openai_generate_text(prompt, model_name, **options)
       {
         prompt: prompt,
@@ -851,7 +851,7 @@ class AiProviderClientService
     # Anthropic also processes individually for now
     prompts.map.with_index do |prompt, index|
       sleep(0.1) if index > 0
-      
+
       result = anthropic_generate_text(prompt, model_name, **options)
       {
         prompt: prompt,

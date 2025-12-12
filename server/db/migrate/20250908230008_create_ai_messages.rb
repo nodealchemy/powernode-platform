@@ -32,8 +32,8 @@ class CreateAiMessages < ActiveRecord::Migration[8.0]
       t.index :status
       t.index :sequence_number
       t.index :parent_message_id
-      t.index [:ai_conversation_id, :sequence_number]
-      t.index [:ai_conversation_id, :role]
+      t.index [ :ai_conversation_id, :sequence_number ]
+      t.index [ :ai_conversation_id, :role ]
       t.index :processed_at
 
       t.foreign_key :ai_conversations, on_delete: :cascade

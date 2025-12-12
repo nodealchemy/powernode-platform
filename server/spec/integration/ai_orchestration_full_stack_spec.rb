@@ -113,7 +113,7 @@ RSpec.describe 'AI Orchestration Full Stack Integration', type: :request do
 
       post "/api/v1/ai/providers/#{openai_provider.id}/credentials/#{openai_credential.id}/test"
 
-      expect(response.status).to be_in([200, 404])
+      expect(response.status).to be_in([ 200, 404 ])
     end
 
     it 'handles provider failover scenario' do
@@ -137,7 +137,7 @@ RSpec.describe 'AI Orchestration Full Stack Integration', type: :request do
         input_parameters: { prompt: 'Test orchestration' }
       }
 
-      expect(response.status).to be_in([200, 201, 202, 422, 500])
+      expect(response.status).to be_in([ 200, 201, 202, 422, 500 ])
     end
 
     it 'creates conversation with agent' do
@@ -147,7 +147,7 @@ RSpec.describe 'AI Orchestration Full Stack Integration', type: :request do
         }
       }
 
-      expect(response.status).to be_in([200, 201, 412, 422])
+      expect(response.status).to be_in([ 200, 201, 412, 422 ])
     end
   end
 
@@ -157,13 +157,13 @@ RSpec.describe 'AI Orchestration Full Stack Integration', type: :request do
         input_data: { test: 'data' }
       }
 
-      expect(response.status).to be_in([200, 201, 202, 412, 422, 500])
+      expect(response.status).to be_in([ 200, 201, 202, 412, 422, 500 ])
     end
 
     it 'validates workflow before execution' do
       get "/api/v1/ai/workflows/#{ai_workflow.id}/validate"
 
-      expect(response.status).to be_in([200, 404])
+      expect(response.status).to be_in([ 200, 404 ])
     end
   end
 

@@ -17,10 +17,10 @@ class CreateAiWorkflowEdges < ActiveRecord::Migration[7.1]
       t.integer :priority, null: false, default: 0
       t.timestamps
 
-      t.index [:ai_workflow_id, :edge_id], unique: true, name: 'index_workflow_edges_on_workflow_edge_id'
-      t.index [:ai_workflow_id, :source_node_id]
-      t.index [:ai_workflow_id, :target_node_id]
-      t.index [:ai_workflow_id, :is_conditional]
+      t.index [ :ai_workflow_id, :edge_id ], unique: true, name: 'index_workflow_edges_on_workflow_edge_id'
+      t.index [ :ai_workflow_id, :source_node_id ]
+      t.index [ :ai_workflow_id, :target_node_id ]
+      t.index [ :ai_workflow_id, :is_conditional ]
       t.index :priority
     end
 

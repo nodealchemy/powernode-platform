@@ -27,8 +27,8 @@ class AiWorkflowMonitoringChannel < ApplicationCable::Channel
     end
 
     transmit({
-      type: 'subscription.confirmed',
-      channel: 'workflow_monitoring',
+      type: "subscription.confirmed",
+      channel: "workflow_monitoring",
       workflow_id: workflow_id,
       timestamp: Time.current.iso8601
     })
@@ -48,18 +48,18 @@ class AiWorkflowMonitoringChannel < ApplicationCable::Channel
       ).count,
       completed_today: AiWorkflowRun.where(
         account_id: current_user.account_id,
-        status: 'completed',
+        status: "completed",
         completed_at: Time.current.beginning_of_day..Time.current.end_of_day
       ).count,
       failed_today: AiWorkflowRun.where(
         account_id: current_user.account_id,
-        status: 'failed',
+        status: "failed",
         completed_at: Time.current.beginning_of_day..Time.current.end_of_day
       ).count
     }
 
     transmit({
-      type: 'dashboard_stats',
+      type: "dashboard_stats",
       stats: stats,
       timestamp: Time.current.iso8601
     })
@@ -75,7 +75,7 @@ class AiWorkflowMonitoringChannel < ApplicationCable::Channel
     ).order(started_at: :desc).limit(50)
 
     transmit({
-      type: 'active_executions',
+      type: "active_executions",
       executions: executions.map { |run| serialize_workflow_run(run) },
       timestamp: Time.current.iso8601
     })
@@ -88,7 +88,7 @@ class AiWorkflowMonitoringChannel < ApplicationCable::Channel
     # Enable real-time updates (actual implementation would involve
     # more sophisticated streaming or polling mechanisms)
     transmit({
-      type: 'real_time_mode_enabled',
+      type: "real_time_mode_enabled",
       refresh_interval: 1000, # milliseconds
       timestamp: Time.current.iso8601
     })
@@ -97,7 +97,7 @@ class AiWorkflowMonitoringChannel < ApplicationCable::Channel
   # Stop real-time monitoring
   def stop_real_time_monitoring(_data = {})
     transmit({
-      type: 'real_time_mode_disabled',
+      type: "real_time_mode_disabled",
       timestamp: Time.current.iso8601
     })
   end
@@ -108,7 +108,7 @@ class AiWorkflowMonitoringChannel < ApplicationCable::Channel
       ActionCable.server.broadcast(
         "ai_orchestration:monitoring:#{account_id}",
         {
-          type: 'system_alert',
+          type: "system_alert",
           alert: alert_data.merge(
             timestamp: Time.current.iso8601
           )
@@ -120,7 +120,7 @@ class AiWorkflowMonitoringChannel < ApplicationCable::Channel
       ActionCable.server.broadcast(
         "ai_orchestration:monitoring:#{account_id}",
         {
-          type: 'cost_alert',
+          type: "cost_alert",
           cost_data: cost_data.merge(
             timestamp: Time.current.iso8601
           )
@@ -132,9 +132,9 @@ class AiWorkflowMonitoringChannel < ApplicationCable::Channel
   private
 
   def authorized_for_monitoring?
-    current_user.has_permission?('ai.monitor') ||
-      current_user.has_permission?('ai.workflows.read') ||
-      current_user.has_permission?('system.admin')
+    current_user.has_permission?("ai.monitor") ||
+      current_user.has_permission?("ai.workflows.read") ||
+      current_user.has_permission?("system.admin")
   end
 
   def serialize_workflow_run(workflow_run)
@@ -153,7 +153,7 @@ class AiWorkflowMonitoringChannel < ApplicationCable::Channel
 
   def transmit_error(message)
     transmit({
-      type: 'error',
+      type: "error",
       error: message,
       timestamp: Time.current.iso8601
     })

@@ -12,7 +12,7 @@ class Api::V1::TwoFactorsController < ApplicationController
 
     begin
       secret = current_user.enable_two_factor!
-      
+
       render_success(
         message: "Two-factor authentication has been enabled",
         data: {
@@ -33,7 +33,7 @@ class Api::V1::TwoFactorsController < ApplicationController
   # POST /api/v1/two_factor/verify_setup
   def verify_setup
     token = params[:token]
-    
+
     unless token.present?
       return render_error(
         "Verification token is required",

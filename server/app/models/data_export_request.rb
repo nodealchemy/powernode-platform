@@ -5,7 +5,7 @@ class DataExportRequest < ApplicationRecord
   # Associations
   belongs_to :user
   belongs_to :account
-  belongs_to :requested_by, class_name: 'User', optional: true
+  belongs_to :requested_by, class_name: "User", optional: true
 
   # Validations
   validates :status, presence: true, inclusion: {
@@ -17,12 +17,12 @@ class DataExportRequest < ApplicationRecord
   validates :export_type, inclusion: { in: %w[full partial] }
 
   # Scopes
-  scope :pending, -> { where(status: 'pending') }
-  scope :processing, -> { where(status: 'processing') }
-  scope :completed, -> { where(status: 'completed') }
-  scope :failed, -> { where(status: 'failed') }
-  scope :expired, -> { where(status: 'expired').or(where('expires_at < ?', Time.current)) }
-  scope :downloadable, -> { completed.where('download_token_expires_at > ?', Time.current) }
+  scope :pending, -> { where(status: "pending") }
+  scope :processing, -> { where(status: "processing") }
+  scope :completed, -> { where(status: "completed") }
+  scope :failed, -> { where(status: "failed") }
+  scope :expired, -> { where(status: "expired").or(where("expires_at < ?", Time.current)) }
+  scope :downloadable, -> { completed.where("download_token_expires_at > ?", Time.current) }
   scope :recent, -> { order(created_at: :desc) }
 
   # Callbacks
@@ -46,14 +46,14 @@ class DataExportRequest < ApplicationRecord
   # Instance methods
   def start_processing!
     update!(
-      status: 'processing',
+      status: "processing",
       processing_started_at: Time.current
     )
   end
 
   def complete!(file_path:, file_size_bytes:)
     update!(
-      status: 'completed',
+      status: "completed",
       file_path: file_path,
       file_size_bytes: file_size_bytes,
       completed_at: Time.current,
@@ -67,7 +67,7 @@ class DataExportRequest < ApplicationRecord
 
   def fail!(error_message)
     update!(
-      status: 'failed',
+      status: "failed",
       error_message: error_message,
       completed_at: Time.current
     )
@@ -76,12 +76,12 @@ class DataExportRequest < ApplicationRecord
   end
 
   def expire!
-    update!(status: 'expired')
+    update!(status: "expired")
     cleanup_file!
   end
 
   def downloadable?
-    status == 'completed' &&
+    status == "completed" &&
       download_token.present? &&
       download_token_expires_at > Time.current &&
       file_exists?
@@ -91,11 +91,11 @@ class DataExportRequest < ApplicationRecord
     update!(downloaded_at: Time.current)
 
     AuditLog.log_compliance_event(
-      action: 'data_export',
+      action: "data_export",
       resource: self,
       user: user,
       account: account,
-      metadata: { event_type: 'export_downloaded' }
+      metadata: { event_type: "export_downloaded" }
     )
   end
 
@@ -118,21 +118,21 @@ class DataExportRequest < ApplicationRecord
   end
 
   def time_remaining
-    return nil unless status == 'pending' || status == 'processing'
+    return nil unless status == "pending" || status == "processing"
     return nil unless created_at
 
     # Estimate based on typical processing time
     estimated_completion = created_at + 1.hour
-    [estimated_completion - Time.current, 0].max
+    [ estimated_completion - Time.current, 0 ].max
   end
 
   private
 
   def set_defaults
-    self.status ||= 'pending'
-    self.format ||= 'json'
-    self.export_type ||= 'full'
-    self.include_data_types = EXPORTABLE_DATA_TYPES if include_data_types.blank? && export_type == 'full'
+    self.status ||= "pending"
+    self.format ||= "json"
+    self.export_type ||= "full"
+    self.include_data_types = EXPORTABLE_DATA_TYPES if include_data_types.blank? && export_type == "full"
     self.requested_by ||= user
   end
 
@@ -142,12 +142,12 @@ class DataExportRequest < ApplicationRecord
 
   def log_export_requested
     AuditLog.log_compliance_event(
-      action: 'data_export',
+      action: "data_export",
       resource: self,
       user: requested_by || user,
       account: account,
       metadata: {
-        event_type: 'export_requested',
+        event_type: "export_requested",
         format: format,
         export_type: export_type
       }
@@ -156,12 +156,12 @@ class DataExportRequest < ApplicationRecord
 
   def log_export_completed
     AuditLog.log_compliance_event(
-      action: 'data_export',
+      action: "data_export",
       resource: self,
       user: user,
       account: account,
       metadata: {
-        event_type: 'export_completed',
+        event_type: "export_completed",
         file_size_bytes: file_size_bytes
       }
     )
@@ -169,12 +169,12 @@ class DataExportRequest < ApplicationRecord
 
   def log_export_failed
     AuditLog.log_compliance_event(
-      action: 'data_export',
+      action: "data_export",
       resource: self,
       user: user,
       account: account,
       metadata: {
-        event_type: 'export_failed',
+        event_type: "export_failed",
         error: error_message
       }
     )

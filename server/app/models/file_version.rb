@@ -9,7 +9,7 @@ class FileVersion < ApplicationRecord
   # Associations
   belongs_to :file_object
   belongs_to :account
-  belongs_to :created_by, class_name: 'User', foreign_key: 'created_by_id'
+  belongs_to :created_by, class_name: "User", foreign_key: "created_by_id"
 
   # Validations
   validates :version_number, presence: true, numericality: { only_integer: true, greater_than: 0 }
@@ -42,13 +42,13 @@ class FileVersion < ApplicationRecord
   end
 
   def human_file_size
-    return '0 B' if file_size.zero?
+    return "0 B" if file_size.zero?
 
     units = %w[B KB MB GB TB]
     exp = (Math.log(file_size) / Math.log(1024)).to_i
-    exp = [exp, units.size - 1].min
+    exp = [ exp, units.size - 1 ].min
 
-    format('%.2f %s', file_size.to_f / (1024**exp), units[exp])
+    format("%.2f %s", file_size.to_f / (1024**exp), units[exp])
   end
 
   def version_summary

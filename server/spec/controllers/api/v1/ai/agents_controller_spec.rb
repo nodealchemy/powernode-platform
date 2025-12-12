@@ -4,9 +4,9 @@ require 'rails_helper'
 
 RSpec.describe Api::V1::Ai::AgentsController, type: :controller do
   let(:account) { create(:account) }
-  let(:user) { create(:user, account: account, permissions: ['ai.agents.read', 'ai.agents.create', 'ai.agents.update', 'ai.agents.delete', 'ai.agents.execute']) }
+  let(:user) { create(:user, account: account, permissions: [ 'ai.agents.read', 'ai.agents.create', 'ai.agents.update', 'ai.agents.delete', 'ai.agents.execute' ]) }
   let(:admin_user) { create(:user, :system_admin, account: account) }
-  let(:read_only_user) { create(:user, account: account, permissions: ['ai.agents.read']) }
+  let(:read_only_user) { create(:user, account: account, permissions: [ 'ai.agents.read' ]) }
   let(:other_account_user) { create(:user) }
 
   let(:ai_provider) { create(:ai_provider, :openai, account: account, is_active: true) }
@@ -143,7 +143,7 @@ RSpec.describe Api::V1::Ai::AgentsController, type: :controller do
       end
 
       it 'includes MCP capabilities' do
-        agent.update!(mcp_capabilities: ['tool_use', 'function_calling'])
+        agent.update!(mcp_capabilities: [ 'tool_use', 'function_calling' ])
 
         get :show, params: { id: agent.id }
 
@@ -177,7 +177,7 @@ RSpec.describe Api::V1::Ai::AgentsController, type: :controller do
           description: 'An agent for testing',
           agent_type: 'assistant',
           ai_provider_id: ai_provider.id,
-          mcp_capabilities: ['tool_use'],
+          mcp_capabilities: [ 'tool_use' ],
           is_public: false
         }
       }
@@ -432,8 +432,8 @@ RSpec.describe Api::V1::Ai::AgentsController, type: :controller do
       allow_any_instance_of(AiAgent).to receive(:validate_configuration)
         .and_return({
           valid: false,
-          errors: ['Missing system prompt'],
-          warnings: ['High temperature setting']
+          errors: [ 'Missing system prompt' ],
+          warnings: [ 'High temperature setting' ]
         })
 
       get :validate, params: { id: agent.id }

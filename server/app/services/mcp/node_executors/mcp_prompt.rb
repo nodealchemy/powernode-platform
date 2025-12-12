@@ -7,7 +7,7 @@ module Mcp
       protected
 
       def perform_execution
-        prompt_name = configuration['prompt_name']
+        prompt_name = configuration["prompt_name"]
         log_info "Executing MCP Prompt: #{prompt_name}"
 
         # Validate configuration
@@ -47,7 +47,7 @@ module Mcp
             result: result[:messages],
             metadata: {
               node_id: @node.node_id,
-              node_type: 'mcp_prompt',
+              node_type: "mcp_prompt",
               executed_at: Time.current.iso8601,
               prompt_name: prompt_name
             }
@@ -63,24 +63,24 @@ module Mcp
       # Build prompt arguments from configuration and workflow variables
       def build_prompt_arguments
         # Start with static arguments
-        arguments = (configuration['arguments'] || {}).deep_dup
+        arguments = (configuration["arguments"] || {}).deep_dup
 
         # Apply argument mappings from workflow variables
-        argument_mappings = configuration['argument_mappings'] || []
+        argument_mappings = configuration["argument_mappings"] || []
         argument_mappings.each do |mapping|
-          arg_name = mapping['argument_name'] || mapping['parameter_name']
-          mapping_type = mapping['mapping_type']
+          arg_name = mapping["argument_name"] || mapping["parameter_name"]
+          mapping_type = mapping["mapping_type"]
 
           value = case mapping_type
-                  when 'static'
-                    mapping['static_value']
-                  when 'variable'
-                    get_variable(mapping['variable_path'])
-                  when 'expression'
-                    evaluate_expression(mapping['expression'])
-                  else
+          when "static"
+                    mapping["static_value"]
+          when "variable"
+                    get_variable(mapping["variable_path"])
+          when "expression"
+                    evaluate_expression(mapping["expression"])
+          else
                     nil
-                  end
+          end
 
           arguments[arg_name] = value if value.present?
         end

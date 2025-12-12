@@ -6,9 +6,9 @@ class AiWorkflowRunLog < ApplicationRecord
   belongs_to :ai_workflow_node_execution, optional: true
 
   # Validations
-  validates :log_level, presence: true, inclusion: { 
+  validates :log_level, presence: true, inclusion: {
     in: %w[debug info warn error fatal],
-    message: 'must be a valid log level'
+    message: "must be a valid log level"
   }
   validates :event_type, presence: true, inclusion: {
     in: %w[
@@ -31,7 +31,7 @@ class AiWorkflowRunLog < ApplicationRecord
       human_approval_started human_approval_initiated approval_request_created
       approval_email_sent approval_in_app_sent
     ],
-    message: 'must be a valid event type'
+    message: "must be a valid event type"
   }
   validates :message, presence: true
   validates :logged_at, presence: true
@@ -42,11 +42,11 @@ class AiWorkflowRunLog < ApplicationRecord
 
   # Scopes
   scope :by_level, ->(level) { where(log_level: level) }
-  scope :debug, -> { where(log_level: 'debug') }
-  scope :info, -> { where(log_level: 'info') }
-  scope :warnings, -> { where(log_level: 'warn') }
-  scope :errors, -> { where(log_level: 'error') }
-  scope :fatal, -> { where(log_level: 'fatal') }
+  scope :debug, -> { where(log_level: "debug") }
+  scope :info, -> { where(log_level: "info") }
+  scope :warnings, -> { where(log_level: "warn") }
+  scope :errors, -> { where(log_level: "error") }
+  scope :fatal, -> { where(log_level: "fatal") }
   scope :by_event_type, ->(type) { where(event_type: type) }
   scope :for_node, ->(node_id) { where(node_id: node_id) }
   scope :recent, -> { order(logged_at: :desc) }
@@ -58,23 +58,23 @@ class AiWorkflowRunLog < ApplicationRecord
 
   # Level check methods
   def debug?
-    log_level == 'debug'
+    log_level == "debug"
   end
 
   def info?
-    log_level == 'info'
+    log_level == "info"
   end
 
   def warning?
-    log_level == 'warn'
+    log_level == "warn"
   end
 
   def error?
-    log_level == 'error'
+    log_level == "error"
   end
 
   def fatal?
-    log_level == 'fatal'
+    log_level == "fatal"
   end
 
   def has_error?
@@ -83,11 +83,11 @@ class AiWorkflowRunLog < ApplicationRecord
 
   # Event type categorization
   def workflow_event?
-    event_type.start_with?('workflow_')
+    event_type.start_with?("workflow_")
   end
 
   def node_event?
-    event_type.start_with?('node_')
+    event_type.start_with?("node_")
   end
 
   def system_event?
@@ -109,10 +109,10 @@ class AiWorkflowRunLog < ApplicationRecord
 
   # Formatting helpers
   def formatted_message
-    timestamp = logged_at.strftime('%Y-%m-%d %H:%M:%S')
+    timestamp = logged_at.strftime("%Y-%m-%d %H:%M:%S")
     level_badge = log_level.upcase.ljust(5)
     node_info = node_id ? "[#{node_id}] " : ""
-    
+
     "[#{timestamp}] #{level_badge} #{node_info}#{message}"
   end
 
@@ -132,7 +132,7 @@ class AiWorkflowRunLog < ApplicationRecord
 
   # Search and filtering
   def self.search_by_message(query)
-    where('message ILIKE ?', "%#{query}%")
+    where("message ILIKE ?", "%#{query}%")
   end
 
   def self.search_by_context(key, value = nil)
@@ -145,16 +145,16 @@ class AiWorkflowRunLog < ApplicationRecord
 
   def self.for_time_period(period)
     case period.to_s
-    when 'hour'
-      where('logged_at >= ?', 1.hour.ago)
-    when 'day'
-      where('logged_at >= ?', 1.day.ago)
-    when 'week'
-      where('logged_at >= ?', 1.week.ago)
-    when 'month'
-      where('logged_at >= ?', 1.month.ago)
+    when "hour"
+      where("logged_at >= ?", 1.hour.ago)
+    when "day"
+      where("logged_at >= ?", 1.day.ago)
+    when "week"
+      where("logged_at >= ?", 1.week.ago)
+    when "month"
+      where("logged_at >= ?", 1.month.ago)
     else
-      where('logged_at >= ?', 1.day.ago)
+      where("logged_at >= ?", 1.day.ago)
     end
   end
 

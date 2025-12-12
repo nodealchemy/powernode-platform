@@ -2,17 +2,17 @@
 
 class UserRole < ApplicationRecord
   # Table configuration
-  self.table_name = 'user_roles'
-  self.primary_key = [:user_id, :role_id]
-  
+  self.table_name = "user_roles"
+  self.primary_key = [ :user_id, :role_id ]
+
   # Associations
   belongs_to :user
   belongs_to :role
-  belongs_to :granted_by_user, class_name: 'User', foreign_key: :granted_by_id, optional: true
-  
+  belongs_to :granted_by_user, class_name: "User", foreign_key: :granted_by_id, optional: true
+
   # Validations
-  validates :user_id, uniqueness: { scope: :role_id, message: 'already has this role' }
-  
+  validates :user_id, uniqueness: { scope: :role_id, message: "already has this role" }
+
   # Callbacks
   after_create :log_role_grant
   after_create :clear_user_permission_cache

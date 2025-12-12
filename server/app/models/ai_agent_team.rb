@@ -32,14 +32,14 @@ class AiAgentTeam < ApplicationRecord
   # ==========================================
   # Scopes
   # ==========================================
-  scope :active, -> { where(status: 'active') }
-  scope :inactive, -> { where(status: 'inactive') }
-  scope :archived, -> { where(status: 'archived') }
+  scope :active, -> { where(status: "active") }
+  scope :inactive, -> { where(status: "inactive") }
+  scope :archived, -> { where(status: "archived") }
   scope :by_type, ->(type) { where(team_type: type) }
-  scope :hierarchical, -> { where(team_type: 'hierarchical') }
-  scope :mesh, -> { where(team_type: 'mesh') }
-  scope :sequential, -> { where(team_type: 'sequential') }
-  scope :parallel, -> { where(team_type: 'parallel') }
+  scope :hierarchical, -> { where(team_type: "hierarchical") }
+  scope :mesh, -> { where(team_type: "mesh") }
+  scope :sequential, -> { where(team_type: "sequential") }
+  scope :parallel, -> { where(team_type: "parallel") }
 
   # ==========================================
   # Callbacks
@@ -53,8 +53,8 @@ class AiAgentTeam < ApplicationRecord
 
   # Execute team with given input
   def execute(input:, user:)
-    raise ArgumentError, 'Team must be active' unless active?
-    raise ArgumentError, 'Team must have at least one member' if ai_agent_team_members.empty?
+    raise ArgumentError, "Team must be active" unless active?
+    raise ArgumentError, "Team must have at least one member" if ai_agent_team_members.empty?
 
     orchestrator = AiAgentTeamOrchestrator.new(team: self, user: user)
     orchestrator.execute(input: input)
@@ -89,22 +89,22 @@ class AiAgentTeam < ApplicationRecord
 
   # Check if team is active
   def active?
-    status == 'active'
+    status == "active"
   end
 
   # Archive the team
   def archive!
-    update!(status: 'archived')
+    update!(status: "archived")
   end
 
   # Activate the team
   def activate!
-    update!(status: 'active')
+    update!(status: "active")
   end
 
   # Deactivate the team
   def deactivate!
-    update!(status: 'inactive')
+    update!(status: "inactive")
   end
 
   # Add a member to the team
@@ -112,9 +112,9 @@ class AiAgentTeam < ApplicationRecord
     priority = if priority_order.nil?
                  max_priority = ai_agent_team_members.maximum(:priority_order) || -1
                  max_priority + 1
-               else
+    else
                  priority_order
-               end
+    end
 
     ai_agent_team_members.create!(
       ai_agent: agent,
@@ -137,33 +137,33 @@ class AiAgentTeam < ApplicationRecord
 
   def set_default_values
     self.team_config ||= {}
-    self.status ||= 'active'
-    self.team_type ||= 'hierarchical'
-    self.coordination_strategy ||= 'manager_worker'
+    self.status ||= "active"
+    self.team_type ||= "hierarchical"
+    self.coordination_strategy ||= "manager_worker"
   end
 
   def validate_team_config_structure
     return if team_config.blank?
 
     unless team_config.is_a?(Hash)
-      errors.add(:team_config, 'must be a hash')
+      errors.add(:team_config, "must be a hash")
     end
   end
 
   def validate_coordination_compatibility
     # Hierarchical teams should use manager_worker coordination
-    if team_type == 'hierarchical' && coordination_strategy == 'peer_to_peer'
-      errors.add(:coordination_strategy, 'hierarchical teams should use manager_worker or hybrid coordination')
+    if team_type == "hierarchical" && coordination_strategy == "peer_to_peer"
+      errors.add(:coordination_strategy, "hierarchical teams should use manager_worker or hybrid coordination")
     end
 
     # Sequential teams work best with manager_worker
-    if team_type == 'sequential' && coordination_strategy == 'peer_to_peer'
-      errors.add(:coordination_strategy, 'sequential teams work best with manager_worker coordination')
+    if team_type == "sequential" && coordination_strategy == "peer_to_peer"
+      errors.add(:coordination_strategy, "sequential teams work best with manager_worker coordination")
     end
 
     # Mesh teams should use peer_to_peer or hybrid
-    if team_type == 'mesh' && coordination_strategy == 'manager_worker'
-      errors.add(:coordination_strategy, 'mesh teams should use peer_to_peer or hybrid coordination')
+    if team_type == "mesh" && coordination_strategy == "manager_worker"
+      errors.add(:coordination_strategy, "mesh teams should use peer_to_peer or hybrid coordination")
     end
   end
 

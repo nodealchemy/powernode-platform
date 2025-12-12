@@ -10,26 +10,26 @@ module Mcp
         log_info "Transforming data"
 
         # Get transform configuration
-        transform_type = configuration['transform_type'] || 'map'
-        input_variable = configuration['input_variable']
-        output_variable = configuration['output_variable']
+        transform_type = configuration["transform_type"] || "map"
+        input_variable = configuration["input_variable"]
+        output_variable = configuration["output_variable"]
 
         # Get input data
         input = input_variable ? get_variable(input_variable) : input_data
 
         # Apply transformation
         transformed = case transform_type
-                      when 'map'
+        when "map"
                         apply_mapping(input)
-                      when 'filter'
+        when "filter"
                         apply_filter(input)
-                      when 'reduce'
+        when "reduce"
                         apply_reduce(input)
-                      when 'template'
+        when "template"
                         apply_template(input)
-                      else
+        else
                         input
-                      end
+        end
 
         # Store transformed output
         if output_variable
@@ -48,7 +48,7 @@ module Mcp
           },
           metadata: {
             node_id: @node.node_id,
-            node_type: 'transform',
+            node_type: "transform",
             executed_at: Time.current.iso8601,
             transform_type: transform_type
           }
@@ -58,7 +58,7 @@ module Mcp
       private
 
       def apply_mapping(input)
-        mapping = configuration['mapping'] || {}
+        mapping = configuration["mapping"] || {}
 
         if input.is_a?(Hash)
           result = {}
@@ -73,7 +73,7 @@ module Mcp
       end
 
       def apply_filter(input)
-        filter_conditions = configuration['filter_conditions'] || {}
+        filter_conditions = configuration["filter_conditions"] || {}
 
         if input.is_a?(Array)
           input.select do |item|
@@ -85,17 +85,17 @@ module Mcp
       end
 
       def apply_reduce(input)
-        reducer_function = configuration['reducer_function'] || 'sum'
+        reducer_function = configuration["reducer_function"] || "sum"
 
         if input.is_a?(Array)
           case reducer_function
-          when 'sum'
+          when "sum"
             input.sum
-          when 'count'
+          when "count"
             input.count
-          when 'first'
+          when "first"
             input.first
-          when 'last'
+          when "last"
             input.last
           else
             input
@@ -106,7 +106,7 @@ module Mcp
       end
 
       def apply_template(input)
-        template = configuration['template'] || ''
+        template = configuration["template"] || ""
 
         # Simple variable substitution
         result = template.dup
@@ -121,7 +121,7 @@ module Mcp
       def extract_value(data, path)
         return data if path.blank?
 
-        path.to_s.split('.').reduce(data) do |current, key|
+        path.to_s.split(".").reduce(data) do |current, key|
           break nil unless current.is_a?(Hash) || current.is_a?(Array)
 
           if current.is_a?(Array) && key =~ /\A\d+\z/

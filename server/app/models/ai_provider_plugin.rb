@@ -19,16 +19,16 @@ class AiProviderPlugin < ApplicationRecord
   # Scopes
   scope :by_provider_type, ->(type) { where(provider_type: type) }
   scope :with_capability, ->(capability) {
-    where('supported_capabilities @> ?', [capability].to_json)
+    where("supported_capabilities @> ?", [ capability ].to_json)
   }
 
   # Model accessors
   def model_ids
-    models.map { |m| m['id'] }
+    models.map { |m| m["id"] }
   end
 
   def model_by_id(model_id)
-    models.find { |m| m['id'] == model_id }
+    models.find { |m| m["id"] == model_id }
   end
 
   def supports_capability?(capability)
@@ -37,10 +37,10 @@ class AiProviderPlugin < ApplicationRecord
 
   # Authentication field helpers
   def authentication_fields
-    authentication_schema['fields'] || []
+    authentication_schema["fields"] || []
   end
 
   def required_authentication_fields
-    authentication_fields.select { |f| f['required'] }
+    authentication_fields.select { |f| f["required"] }
   end
 end

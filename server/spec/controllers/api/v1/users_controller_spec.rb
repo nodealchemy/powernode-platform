@@ -7,7 +7,7 @@ RSpec.describe Api::V1::UsersController, type: :controller do
   let(:user) { create(:user, account: account) }
   let(:subscription) { create(:subscription, account: account) }
   let(:plan) { create(:plan, :with_limits) }
-  
+
   before do
     subscription.update!(plan: plan)
     sign_in_as_user(user)

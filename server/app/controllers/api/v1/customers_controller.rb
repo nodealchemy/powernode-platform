@@ -5,11 +5,11 @@ class Api::V1::CustomersController < ApplicationController
 
   def index
     page = params[:page]&.to_i || 1
-    per_page = [params[:per_page]&.to_i || 20, 100].min
-    
+    per_page = [ params[:per_page]&.to_i || 20, 100 ].min
+
     # Build query based on filters
     accounts_query = build_accounts_query
-    
+
     total_count = accounts_query.count
     accounts = accounts_query.includes(:users, :subscription, subscription: :plan)
                               .limit(per_page)
@@ -46,38 +46,38 @@ class Api::V1::CustomersController < ApplicationController
 
     Account.transaction do
       # Create account
-      @account = Account.create!(account_data.merge(status: 'active'))
-      
+      @account = Account.create!(account_data.merge(status: "active"))
+
       # Create subscription if plan provided
       if plan_id.present?
         plan = Plan.find(plan_id)
         @subscription = Subscription.create!(
           account: @account,
           plan: plan,
-          status: 'active',
+          status: "active",
           current_period_start: Time.current,
           current_period_end: 1.month.from_now
         )
       end
-      
+
       # Create primary user
       @user = User.create!(
         user_data.merge(
           account: @account,
           password: SecureRandom.alphanumeric(16),
-          status: 'active',
+          status: "active",
           email_verified: false
         )
       )
-      
+
       # Assign default role
-      default_role = plan&.default_roles&.first || 'Member'
+      default_role = plan&.default_roles&.first || "Member"
       role = Role.find_by(name: default_role)
       @user.assign_role(role) if role
     end
 
     # Broadcast customer creation
-    broadcast_customer_change('created', @account)
+    broadcast_customer_change("created", @account)
 
     render_success(
       data: {
@@ -92,7 +92,7 @@ class Api::V1::CustomersController < ApplicationController
 
   def update
     account = Account.find(params[:id])
-    
+
     Account.transaction do
       if customer_params[:subscription_attributes].present?
         subscription_data = customer_params[:subscription_attributes]
@@ -102,9 +102,9 @@ class Api::V1::CustomersController < ApplicationController
           account.create_subscription!(subscription_data)
         end
       end
-      
+
       account.update!(customer_params.except(:subscription_attributes, :name, :email, :plan_id))
-      
+
       # Update primary user if user data provided
       if customer_params.slice(:name, :email).any?
         primary_user = account.users.owners.first || account.users.first
@@ -113,7 +113,7 @@ class Api::V1::CustomersController < ApplicationController
     end
 
     # Broadcast customer update
-    broadcast_customer_change('updated', account)
+    broadcast_customer_change("updated", account)
 
     render_success(
       data: {
@@ -127,11 +127,11 @@ class Api::V1::CustomersController < ApplicationController
 
   def destroy
     account = Account.find(params[:id])
-    account.update!(status: 'inactive')
-    
+    account.update!(status: "inactive")
+
     # Broadcast customer deletion/deactivation
-    broadcast_customer_change('deactivated', account)
-    
+    broadcast_customer_change("deactivated", account)
+
     render_success
   end
 
@@ -146,10 +146,10 @@ class Api::V1::CustomersController < ApplicationController
   def build_accounts_query
     # Start with Account query
     accounts = Account.all
-    
+
     # Build subquery for account IDs that match criteria
     account_ids_query = Account.joins(:users)
-    
+
     # Filter by search query
     if params[:search].present?
       search = "%#{params[:search]}%"
@@ -158,28 +158,28 @@ class Api::V1::CustomersController < ApplicationController
         search, search, search
       )
     end
-    
+
     # Filter by status
-    if params[:status].present? && params[:status] != 'all'
+    if params[:status].present? && params[:status] != "all"
       account_ids_query = account_ids_query.where(accounts: { status: params[:status] })
     end
-    
+
     # Filter by plan
-    if params[:plan].present? && params[:plan] != 'all'
+    if params[:plan].present? && params[:plan] != "all"
       account_ids_query = account_ids_query.joins(:subscription).where(subscriptions: { plan_id: params[:plan] })
     end
-    
+
     # Get distinct account IDs and apply to main query
     matching_account_ids = account_ids_query.select("accounts.id").distinct.pluck(:id)
     accounts = accounts.where(id: matching_account_ids) if matching_account_ids.any?
-    
+
     accounts.order(created_at: :desc)
   end
 
   def serialize_customer(account)
     primary_user = account.users.owners.first || account.users.first
     subscription = account.subscription
-    
+
     {
       id: account.id,
       name: account.name,
@@ -217,58 +217,58 @@ class Api::V1::CustomersController < ApplicationController
       payment_methods: account.payment_methods.count,
       total_invoices: account.invoices.count,
       total_payments: account.payments.count,
-      lifetime_value: account.payments.where(status: 'succeeded').sum(:amount_cents),
+      lifetime_value: account.payments.where(status: "succeeded").sum(:amount_cents),
       recent_activity: recent_activity(account)
     })
   end
 
   def calculate_mrr(account)
     return 0 unless account.subscription&.active?
-    
+
     monthly_amount = case account.subscription.plan.billing_cycle
-    when 'monthly'
+    when "monthly"
       account.subscription.plan.price_cents
-    when 'yearly'
+    when "yearly"
       account.subscription.plan.price_cents / 12
     else
       0
     end
-    
+
     monthly_amount
   end
 
   def recent_activity(account)
     activities = []
-    
+
     # Recent payments
     account.payments.order(created_at: :desc).limit(5).each do |payment|
       activities << {
-        type: 'payment',
+        type: "payment",
         description: "Payment #{payment.status}",
         amount: payment.amount_cents,
         timestamp: payment.created_at
       }
     end
-    
+
     # Recent logins
     account.users.where.not(last_login_at: nil).order(last_login_at: :desc).limit(3).each do |user|
       activities << {
-        type: 'login',
+        type: "login",
         description: "#{user.full_name} logged in",
         timestamp: user.last_login_at
       }
     end
-    
+
     activities.sort_by { |a| a[:timestamp] }.reverse.first(10)
   end
 
   def customer_stats
     current_time = Time.current
-    
+
     {
       total_customers: Account.count,
-      active_customers: Account.where(status: 'active').count,
-      active_subscriptions: Subscription.where(status: ['active', 'trialing']).count,
+      active_customers: Account.where(status: "active").count,
+      active_subscriptions: Subscription.where(status: [ "active", "trialing" ]).count,
       new_this_month: Account.where(created_at: current_time.beginning_of_month..current_time.end_of_month).count,
       total_mrr: calculate_total_mrr,
       churn_rate: calculate_churn_rate
@@ -276,11 +276,11 @@ class Api::V1::CustomersController < ApplicationController
   end
 
   def calculate_total_mrr
-    Subscription.joins(:plan).where(status: ['active', 'trialing']).sum do |subscription|
+    Subscription.joins(:plan).where(status: [ "active", "trialing" ]).sum do |subscription|
       case subscription.plan.billing_cycle
-      when 'monthly'
+      when "monthly"
         subscription.plan.price_cents
-      when 'yearly'
+      when "yearly"
         subscription.plan.price_cents / 12
       else
         0
@@ -291,9 +291,9 @@ class Api::V1::CustomersController < ApplicationController
   def calculate_churn_rate
     # Simple churn rate calculation for last 30 days
     start_of_month = 30.days.ago
-    customers_at_start = Account.where('created_at < ?', start_of_month).count
-    churned_customers = Account.where(status: 'inactive', updated_at: start_of_month..Time.current).count
-    
+    customers_at_start = Account.where("created_at < ?", start_of_month).count
+    churned_customers = Account.where(status: "inactive", updated_at: start_of_month..Time.current).count
+
     return 0 if customers_at_start == 0
     (churned_customers.to_f / customers_at_start * 100).round(2)
   end
@@ -301,16 +301,16 @@ class Api::V1::CustomersController < ApplicationController
   def broadcast_customer_change(event_type, account)
     # Broadcast to all admin users
     data = {
-      type: 'customer_updated',
+      type: "customer_updated",
       event: event_type,
       customer: serialize_customer(account),
       stats: customer_stats,
       timestamp: Time.current.iso8601
     }
-    
+
     # Find all admin accounts that should receive this update
-    admin_accounts = Account.joins(users: :roles).where(roles: { name: ['Owner', 'Admin'] }).distinct
-    
+    admin_accounts = Account.joins(users: :roles).where(roles: { name: [ "Owner", "Admin" ] }).distinct
+
     admin_accounts.each do |admin_account|
       ActionCable.server.broadcast("customer_updates_#{admin_account.id}", data)
     end
@@ -319,7 +319,7 @@ class Api::V1::CustomersController < ApplicationController
   def customer_params
     params.require(:customer).permit(
       :name, :subdomain, :status, :email, :plan_id,
-      subscription_attributes: [:plan_id, :status]
+      subscription_attributes: [ :plan_id, :status ]
     )
   end
 end

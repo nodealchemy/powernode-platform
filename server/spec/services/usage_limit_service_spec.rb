@@ -63,7 +63,6 @@ RSpec.describe UsageLimitService, type: :service do
         expect(UsageLimitService.can_add_user?(account_without_subscription)).to be false
       end
     end
-
   end
 
   describe '.can_create_api_key?' do
@@ -225,7 +224,7 @@ RSpec.describe UsageLimitService, type: :service do
         'max_webhooks' => 8,
         'max_workers' => 3
       })
-      
+
       create_list(:user, 2, account: account) # 3 total with existing user
       create_list(:api_key, 1, :active, account: account)
       create_list(:webhook_endpoint, 4, :active, account: account)
@@ -256,11 +255,11 @@ RSpec.describe UsageLimitService, type: :service do
   describe '.has_reached_limits?' do
     context 'when no limits are reached' do
       before do
-        plan.update!(limits: { 
-          'max_users' => 10, 
+        plan.update!(limits: {
+          'max_users' => 10,
           'max_api_keys' => 5,
           'max_webhooks' => 8,
-          'max_workers' => 5 
+          'max_workers' => 5
         })
         create_list(:user, 2, account: account)
         create_list(:api_key, 1, :active, account: account)
@@ -273,11 +272,11 @@ RSpec.describe UsageLimitService, type: :service do
 
     context 'when any limit is reached' do
       before do
-        plan.update!(limits: { 
-          'max_users' => 3, 
+        plan.update!(limits: {
+          'max_users' => 3,
           'max_api_keys' => 5,
           'max_webhooks' => 8,
-          'max_workers' => 5 
+          'max_workers' => 5
         })
         create_list(:user, 3, account: account)
         create_list(:api_key, 1, :active, account: account)

@@ -90,7 +90,7 @@ if admin_account && admin_user && provider
       'monitoring_metrics' => {
         'avg_collection_interval_ms' => 1000,
         'alert_response_time_ms' => 500,
-        'supported_metrics' => ['execution_time', 'resource_usage', 'error_rates', 'throughput']
+        'supported_metrics' => [ 'execution_time', 'resource_usage', 'error_rates', 'throughput' ]
       },
       'model_config' => {
         'model' => 'claude-sonnet-4-5-20250514',
@@ -183,7 +183,7 @@ if admin_account && admin_user && provider
       'analytical_metrics' => {
         'avg_analysis_time_ms' => 2000,
         'insight_accuracy_rate' => 94.5,
-        'supported_models' => ['time_series', 'clustering', 'classification', 'regression']
+        'supported_models' => [ 'time_series', 'clustering', 'classification', 'regression' ]
       },
       'model_config' => {
         'model' => 'claude-sonnet-4-5-20250514',
@@ -285,7 +285,7 @@ if admin_account && admin_user && provider
       'health_metrics' => {
         'monitoring_interval_ms' => 30000,
         'alert_escalation_time_ms' => 300000,
-        'supported_protocols' => ['http', 'tcp', 'icmp', 'database']
+        'supported_protocols' => [ 'http', 'tcp', 'icmp', 'database' ]
       },
       'model_config' => {
         'model' => 'claude-sonnet-4-5-20250514',
@@ -387,7 +387,7 @@ if admin_account && admin_user && provider
       'quality_metrics' => {
         'avg_validation_time_ms' => 800,
         'quality_detection_rate' => 96.2,
-        'supported_standards' => ['iso_9001', 'security_standards', 'accessibility_guidelines']
+        'supported_standards' => [ 'iso_9001', 'security_standards', 'accessibility_guidelines' ]
       },
       'model_config' => {
         'model' => 'claude-sonnet-4-5-20250514',
@@ -406,7 +406,7 @@ if admin_account && admin_user && provider
   puts "\n📊 Monitoring and Analytics Agents Summary:"
   puts "   Monitor Agents: #{AiAgent.where(agent_type: 'monitor').count}"
   puts "   Data Analyst Agents: #{AiAgent.where(agent_type: 'data_analyst').count}"
-  puts "   Total Analytics Agents: #{AiAgent.where(agent_type: ['monitor', 'data_analyst']).count}"
+  puts "   Total Analytics Agents: #{AiAgent.where(agent_type: [ 'monitor', 'data_analyst' ]).count}"
 
 else
   puts "❌ Missing required data (account, user, or provider)"

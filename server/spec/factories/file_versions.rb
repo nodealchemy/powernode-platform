@@ -12,7 +12,7 @@ FactoryBot.define do
     checksum_sha256 { Digest::SHA256.hexdigest(SecureRandom.random_bytes(1024)) }
 
     change_description { "Version #{version_number} changes" }
-    change_metadata { { 'reason' => 'update', 'changes' => ['content'] } }
+    change_metadata { { 'reason' => 'update', 'changes' => [ 'content' ] } }
     metadata { {} }
   end
 end

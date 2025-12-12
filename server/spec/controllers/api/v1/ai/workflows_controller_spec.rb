@@ -4,9 +4,9 @@ require 'rails_helper'
 
 RSpec.describe Api::V1::Ai::WorkflowsController, type: :controller do
   let(:account) { create(:account) }
-  let(:user) { create(:user, account: account, permissions: ['ai.workflows.read', 'ai.workflows.create', 'ai.workflows.update', 'ai.workflows.delete', 'ai.workflows.execute', 'ai.workflows.export']) }
+  let(:user) { create(:user, account: account, permissions: [ 'ai.workflows.read', 'ai.workflows.create', 'ai.workflows.update', 'ai.workflows.delete', 'ai.workflows.execute', 'ai.workflows.export' ]) }
   let(:admin_user) { create(:user, :system_admin, account: account) }
-  let(:read_only_user) { create(:user, account: account, permissions: ['ai.workflows.read']) }
+  let(:read_only_user) { create(:user, account: account, permissions: [ 'ai.workflows.read' ]) }
   let(:user_without_permissions) { create(:user, account: account, permissions: []) }
   let(:other_account_user) { create(:user) }
 
@@ -332,8 +332,8 @@ RSpec.describe Api::V1::Ai::WorkflowsController, type: :controller do
       allow_any_instance_of(AiWorkflow).to receive(:validate_structure)
         .and_return({
           valid: false,
-          errors: ['Missing start node'],
-          warnings: ['No end node defined']
+          errors: [ 'Missing start node' ],
+          warnings: [ 'No end node defined' ]
         })
 
       get :validate, params: { id: workflow.id }
