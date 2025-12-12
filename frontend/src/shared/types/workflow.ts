@@ -10,16 +10,16 @@ export interface AiWorkflow {
   tags: string[];
   trigger_types?: string[];
   execution_mode?: 'sequential' | 'parallel' | 'conditional';
-  retry_policy?: Record<string, any>;
+  retry_policy?: Record<string, unknown>;
   timeout_seconds?: number;
   max_execution_time?: number;
   cost_limit?: number;
-  configuration: Record<string, any> & {
+  configuration: Record<string, unknown> & {
     operations_agent_id?: string;
   };
-  metadata: Record<string, any>;
-  input_schema?: Record<string, any>;
-  output_schema?: Record<string, any>;
+  metadata: Record<string, unknown>;
+  input_schema?: Record<string, unknown>;
+  output_schema?: Record<string, unknown>;
   created_at: string;
   updated_at: string;
   created_by: {
@@ -77,9 +77,12 @@ export type NodeExecutionStatus = 'pending' | 'running' | 'success' | 'error' | 
 export interface BaseWorkflowNodeData extends Record<string, unknown> {
   name?: string;
   description?: string;
+  node_type?: string;
   handlePositions?: HandlePositions;
   isStartNode?: boolean;
   isEndNode?: boolean;
+  is_start_node?: boolean;
+  is_end_node?: boolean;
   metadata?: Record<string, unknown>;
   // Execution tracking fields
   executionStatus?: NodeExecutionStatus;
@@ -507,8 +510,8 @@ export interface AiWorkflowNode {
   description: string;
   position_x: number;
   position_y: number;
-  configuration: Record<string, any>;
-  metadata: Record<string, any>;
+  configuration: Record<string, unknown>;
+  metadata: Record<string, unknown>;
   handlePositions?: HandlePositions;
   is_start_node?: boolean;
   is_end_node?: boolean;
@@ -527,8 +530,8 @@ export interface AiWorkflowEdge {
   source_handle?: string;
   target_handle?: string;
   condition_type?: string;
-  condition_value?: any;
-  metadata: Record<string, any>;
+  condition_value?: unknown;
+  metadata: Record<string, unknown>;
   is_conditional?: boolean;
   edge_type?: 'default' | 'success' | 'error' | 'conditional';
 }
@@ -538,7 +541,7 @@ export interface AiWorkflowTrigger {
   trigger_type: string;
   name: string;
   is_active: boolean;
-  configuration: Record<string, any>;
+  configuration: Record<string, unknown>;
   created_at: string;
 }
 
@@ -546,7 +549,7 @@ export interface AiWorkflowVariable {
   id: string;
   name: string;
   variable_type: 'string' | 'number' | 'boolean' | 'object' | 'array';
-  default_value?: any;
+  default_value?: unknown;
   is_required: boolean;
   is_input?: boolean;
   is_output?: boolean;
@@ -564,14 +567,18 @@ export interface AiWorkflowRun {
   created_at: string;
   started_at?: string;
   completed_at?: string;
-  input_variables: Record<string, any>;
-  output_variables?: Record<string, any>;
+  input_variables: Record<string, unknown>;
+  output_variables?: Record<string, unknown>;
   total_cost: number;
   cost_usd?: number;
   execution_time_ms?: number;
   duration_seconds?: number;
   error_message?: string;
-  error_details?: Record<string, any>;
+  error_details?: {
+    error_message?: string;
+    stack_trace?: string;
+    [key: string]: unknown;
+  };
   triggered_by?: {
     id?: string;
     name: string;
@@ -586,7 +593,7 @@ export interface AiWorkflowRun {
     version: number;
   };
   last_node_update?: string;
-  output?: any;
+  output?: unknown;
 }
 
 export interface AiWorkflowNodeExecution {
@@ -605,14 +612,15 @@ export interface AiWorkflowNodeExecution {
     node_type: string;
     name: string;
   };
-  input_data?: any;
-  output_data?: any;
+  input_data?: unknown;
+  output_data?: unknown;
   error_details?: {
     message?: string;
     stack?: string;
-    [key: string]: any;
+    code?: string;
+    details?: string;
   };
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   tokens_used?: number;
   execution_order?: number;
 }
@@ -795,7 +803,7 @@ export interface ValidationIssue {
   description?: string;
   suggestion?: string;
   auto_fixable: boolean;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface WorkflowValidationResult {

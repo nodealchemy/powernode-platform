@@ -98,7 +98,7 @@ export interface AiAgent {
     type: string;
     version: string;
     configuration?: AgentConfiguration;
-    [key: string]: any;
+    [key: string]: unknown;
   };
   mcp_capabilities: string[];
   mcp_input_schema: Record<string, any>;
@@ -127,7 +127,7 @@ export interface AgentConfiguration {
   presence_penalty?: number;
   system_prompt?: string;
   tools?: string[];
-  [key: string]: any;
+  [key: string]: string | number | boolean | string[] | undefined;
 }
 
 export interface AiConversation {
@@ -145,7 +145,7 @@ export interface AiConversation {
     total_tokens: number;
     total_cost: number;
     last_activity: string;
-    [key: string]: any;
+    [key: string]: string | number | boolean | undefined;
   };
   created_at: string;
   updated_at: string;
@@ -168,7 +168,12 @@ export interface AiMessage {
     response_time_ms?: number;
     cost_estimate?: number;
     processing_complete?: boolean;
-    [key: string]: any;
+    user_rating?: {
+      rating: string;
+      rated_at: string;
+      rated_by: string;
+    };
+    [key: string]: unknown;
   };
   created_at: string;
   sender_info?: {
@@ -205,18 +210,18 @@ export interface AiAgentExecution {
       type: string;
       size: number;
       url: string;
-      metadata: Record<string, any>;
+      metadata: Record<string, unknown>;
     }>;
     error?: boolean;
     error_message?: string;
     cancelled?: boolean;
-    [key: string]: any;
+    [key: string]: unknown;
   };
   metadata: {
     priority: 'low' | 'normal' | 'high';
     retry_count: number;
     created_by: string;
-    [key: string]: any;
+    [key: string]: string | number | boolean | undefined;
   };
   progress_percentage?: number;
   duration_seconds?: number;
@@ -269,6 +274,7 @@ export interface ExecuteAgentRequest {
     };
     metadata?: {
       priority?: 'low' | 'normal' | 'high';
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       [key: string]: any;
     };
   };

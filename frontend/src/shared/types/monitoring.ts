@@ -220,7 +220,7 @@ export interface Alert {
   component: string;
   title: string;
   message: string;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
   acknowledged: boolean;
   acknowledged_at: string | null;
   acknowledged_by: string | null;
@@ -407,16 +407,16 @@ export interface ResourcesSummary {
 // WebSocket event types
 export interface MonitoringWebSocketMessage {
   type: string;
-  data?: any;
+  data?: unknown;
   timestamp: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface ComponentTestResult {
   success: boolean;
   response_time: number;
   error?: string;
-  details: Record<string, any>;
+  details: Record<string, unknown>;
 }
 
 // Filter types
@@ -455,10 +455,10 @@ export type ComponentStatus = 'healthy' | 'degraded' | 'unhealthy' | 'critical' 
 export interface MonitoringCallbacks {
   onConnect?: () => void;
   onDisconnect?: () => void;
-  onError?: (error: any) => void;
+  onError?: (error: unknown) => void;
   onDashboardUpdate?: (data: MonitoringDashboardData) => void;
   onSystemHealthUpdate?: (data: SystemHealthData) => void;
-  onComponentUpdate?: (component: MonitoringComponent, data: any) => void;
+  onComponentUpdate?: (component: MonitoringComponent, data: unknown) => void;
   onAlertUpdate?: (alerts: Alert[]) => void;
   onAlertTriggered?: (alert: Alert) => void;
   onAlertAcknowledged?: (alertId: string, acknowledgedBy: string) => void;
