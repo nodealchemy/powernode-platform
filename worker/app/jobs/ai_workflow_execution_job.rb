@@ -166,7 +166,7 @@ class AiWorkflowExecutionJob < BaseJob
 
     http = Net::HTTP.new(uri.host, uri.port)
     http.use_ssl = uri.scheme == 'https'
-    http.read_timeout = 300  # 5 minutes for workflow execution
+    http.read_timeout = 600  # 10 minutes for workflow execution (matches circuit breaker)
     http.open_timeout = 30   # 30 seconds to establish connection
 
     request = case method.upcase

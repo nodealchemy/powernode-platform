@@ -1,17 +1,31 @@
 # frozen_string_literal: true
 
 require_relative '../base_job'
+require_relative '../../services/concerns/distributed_lock'
 
 # Converted from BillingSchedulerJob to use API-only connectivity
 # Schedules daily billing and lifecycle events
+# Uses distributed locking to prevent concurrent execution
 class Billing::BillingSchedulerJob < BaseJob
+  include DistributedLock
+
   sidekiq_options queue: 'billing_scheduler',
                   retry: 1
 
   def execute(date = Date.current)
     date = Date.parse(date) if date.is_a?(String)
-    log_info("Running billing scheduler for #{date}")
-    
+
+    # Use distributed lock to prevent duplicate processing
+    # Lock key includes date to allow different days to run concurrently
+    with_lock("billing:scheduler:#{date}", ttl: 3600) do
+      log_info("Running billing scheduler for #{date} (lock acquired)")
+      process_billing_schedule(date)
+    end || log_warn("Billing scheduler for #{date} skipped - another instance is running")
+  end
+
+  private
+
+  def process_billing_schedule(date)
     begin
       # Schedule billing automation for subscriptions ending today
       schedule_billing_automation(date)
@@ -29,14 +43,12 @@ class Billing::BillingSchedulerJob < BaseJob
       schedule_lifecycle_maintenance(date)
       
       log_info("Billing scheduler completed successfully for #{date}")
-      
+
     rescue StandardError => e
       log_error("Billing scheduler failed: #{e.message}")
       raise
     end
   end
-
-  private
 
   def schedule_billing_automation(date)
     # Get subscriptions due for renewal via API

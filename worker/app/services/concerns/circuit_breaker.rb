@@ -254,9 +254,9 @@ module CircuitBreaker
   def with_workflow_execution_circuit_breaker(&block)
     breaker = CircuitBreakerRegistry.instance.get_breaker(
       'workflow_execution',
-      failure_threshold: 3,
-      recovery_timeout: 30,
-      timeout: 300  # 5 minutes for complex workflows
+      failure_threshold: 5,     # Allow more failures before opening (was 3)
+      recovery_timeout: 120,    # Longer recovery for complex workflows (was 30)
+      timeout: 600              # 10 minutes for complex workflows (was 300)
     )
 
     breaker.call(&block)
