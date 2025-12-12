@@ -72,6 +72,52 @@ interface QuickAction {
   permission?: string;
 }
 
+// API response item interfaces for type safety
+interface ProviderItem {
+  id: string;
+  name: string;
+  is_active: boolean;
+  health_status: 'healthy' | 'degraded' | 'critical' | 'unknown';
+}
+
+interface AgentItem {
+  id: string;
+  name: string;
+  status: 'active' | 'inactive' | 'error';
+  type?: string;
+  success_rate?: number;
+  execution_count?: number;
+}
+
+interface WorkflowItem {
+  id: string;
+  name: string;
+  status: 'draft' | 'published' | 'archived' | 'active';
+  last_run?: string;
+}
+
+interface ConversationItem {
+  id: string;
+  title: string;
+  status: 'active' | 'completed' | 'archived';
+  created_at: string;
+  messages_count: number;
+}
+
+// API response wrapper interfaces
+interface ApiListResponse<T> {
+  items?: T[];
+  providers?: T[];
+  agents?: T[];
+  workflows?: T[];
+  data?: {
+    items?: T[];
+    providers?: T[];
+    agents?: T[];
+    workflows?: T[];
+  };
+}
+
 export const EnhancedAIOverview = forwardRef<EnhancedAIOverviewHandle>((_, ref) => {
   const navigate = useNavigate();
   // Notifications hook available for future use
@@ -177,9 +223,9 @@ export const EnhancedAIOverview = forwardRef<EnhancedAIOverviewHandle>((_, ref) 
       ]);
 
       // Process providers data with fallback
-      let providers = [];
+      let providers: ProviderItem[] = [];
       if (providersRes.status === 'fulfilled') {
-        const response = providersRes.value as any;
+        const response = providersRes.value as ApiListResponse<ProviderItem>;
         // New consolidated API returns {items: [...], pagination: {...}}
         if (response?.items) {
           providers = response.items;
@@ -198,8 +244,8 @@ export const EnhancedAIOverview = forwardRef<EnhancedAIOverviewHandle>((_, ref) 
           { id: '3', name: 'Local Ollama', is_active: false, health_status: 'degraded' }
         ];
       }
-      const activeProviders = providers.filter((p: any) => p.is_active);
-      const healthyProviders = providers.filter((p: any) => p.health_status === 'healthy');
+      const activeProviders = providers.filter((p) => p.is_active);
+      const healthyProviders = providers.filter((p) => p.health_status === 'healthy');
       
       let providerHealthStatus: 'healthy' | 'degraded' | 'critical' = 'healthy';
       if (healthyProviders.length === 0) {
@@ -209,9 +255,9 @@ export const EnhancedAIOverview = forwardRef<EnhancedAIOverviewHandle>((_, ref) 
       }
 
       // Process agents data with fallback
-      let agents = [];
+      let agents: AgentItem[] = [];
       if (agentsRes.status === 'fulfilled') {
-        const response = agentsRes.value as any;
+        const response = agentsRes.value as ApiListResponse<AgentItem>;
         // New consolidated API returns {items: [...], pagination: {...}}
         if (response?.items) {
           agents = response.items;
@@ -230,15 +276,15 @@ export const EnhancedAIOverview = forwardRef<EnhancedAIOverviewHandle>((_, ref) 
           { id: '4', name: 'Customer Support', status: 'active', type: 'conversation', success_rate: 98, execution_count: 340 }
         ];
       }
-      const activeAgents = agents.filter((a: any) => a.status === 'active');
+      const activeAgents = agents.filter((a) => a.status === 'active');
       const agentSuccessRate = agents.length > 0
-        ? agents.reduce((acc: number, agent: any) => acc + (agent.success_rate || 95), 0) / agents.length
+        ? agents.reduce((acc, agent) => acc + (agent.success_rate || 95), 0) / agents.length
         : 0;
 
       // Process workflows with fallback
-      let workflows: any[] = [];
+      let workflows: WorkflowItem[] = [];
       if (workflowsRes.status === 'fulfilled') {
-        const response = workflowsRes.value as any;
+        const response = workflowsRes.value as ApiListResponse<WorkflowItem>;
         // New consolidated API returns {items: [...], pagination: {...}}
         if (response?.items) {
           workflows = response.items;
@@ -257,26 +303,26 @@ export const EnhancedAIOverview = forwardRef<EnhancedAIOverviewHandle>((_, ref) 
           { id: '4', name: 'Data Processing', status: 'published', last_run: new Date(Date.now() - 3600000).toISOString() }
         ];
       }
-      const activeWorkflows = workflows.filter((w: any) => w.status === 'active' || w.status === 'published');
+      const activeWorkflows = workflows.filter((w) => w.status === 'active' || w.status === 'published');
       const executingWorkflows = Math.floor(activeWorkflows.length * 0.1); // Simulate 10% executing
 
       // Process conversations - Note: No global conversations endpoint available
       // Using mock data for conversations display
-      const conversations = [
+      const conversations: ConversationItem[] = [
         { id: '1', title: 'Customer Support Chat', status: 'active', created_at: new Date().toISOString(), messages_count: 15 },
         { id: '2', title: 'Product Inquiry', status: 'completed', created_at: new Date(Date.now() - 1800000).toISOString(), messages_count: 8 },
         { id: '3', title: 'Technical Support', status: 'active', created_at: new Date(Date.now() - 3600000).toISOString(), messages_count: 23 },
         { id: '4', title: 'Billing Question', status: 'completed', created_at: new Date(Date.now() - 7200000).toISOString(), messages_count: 5 },
         { id: '5', title: 'Feature Request', status: 'active', created_at: new Date(Date.now() - 900000).toISOString(), messages_count: 12 }
       ];
-      const activeConversations = conversations.filter((c: any) => c.status === 'active');
-      const todayConversations = conversations.filter((c: any) => {
+      const activeConversations = conversations.filter((c) => c.status === 'active');
+      const todayConversations = conversations.filter((c) => {
         const today = new Date().toDateString();
         return new Date(c.created_at).toDateString() === today;
       });
 
       // Calculate execution stats (simulated for comprehensive demo)
-      const totalExecutionsMonth = agents.reduce((acc: number, agent: any) => acc + (agent.execution_count || 0), 0);
+      const totalExecutionsMonth = agents.reduce((acc, agent) => acc + (agent.execution_count || 0), 0);
       const totalExecutionsToday = Math.floor(totalExecutionsMonth * 0.05); // ~5% today
       const overallSuccessRate = (agentSuccessRate + (workflows.length > 0 ? 92 : 0)) / 2;
 

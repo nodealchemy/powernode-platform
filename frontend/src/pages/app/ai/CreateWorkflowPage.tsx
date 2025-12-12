@@ -33,6 +33,7 @@ interface WorkflowFormData {
   execution_mode: 'sequential' | 'parallel' | 'conditional';
   timeout_seconds: number;
   tags: string[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   configuration: Record<string, any>;
   nodes: AiWorkflowNode[];
   edges: AiWorkflowEdge[];
@@ -143,6 +144,7 @@ export const CreateWorkflowPage: React.FC = () => {
   }, [formData]);
 
   // Handle form field changes
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleInputChange = useCallback((field: keyof WorkflowFormData, value: any) => {
     setFormData(prev => ({
       ...prev,
@@ -160,6 +162,7 @@ export const CreateWorkflowPage: React.FC = () => {
   }, [errors]);
 
   // Handle configuration changes
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleConfigChange = useCallback((key: string, value: any) => {
     setFormData(prev => ({
       ...prev,
@@ -171,6 +174,7 @@ export const CreateWorkflowPage: React.FC = () => {
   }, []);
 
   // Handle workflow builder data
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleWorkflowData = useCallback((workflowData: {
     nodes: AiWorkflowNode[];
     edges: AiWorkflowEdge[];

@@ -17,7 +17,7 @@ interface WorkflowImportData {
     visibility: string;
     tags?: string[];
     execution_mode?: string;
-    configuration?: Record<string, any>;
+    configuration?: Record<string, unknown>;
   };
   nodes: Array<{
     node_id: string;
@@ -25,7 +25,7 @@ interface WorkflowImportData {
     name: string;
     position_x: number;
     position_y: number;
-    configuration?: Record<string, any>;
+    configuration?: Record<string, unknown>;
   }>;
   edges: Array<{
     edge_id: string;
@@ -38,6 +38,27 @@ interface WorkflowImportData {
     exported_by: string;
     platform_version: string;
   };
+}
+
+// Type for raw import data that needs validation
+interface RawImportData {
+  workflow?: {
+    name?: string;
+    [key: string]: unknown;
+  };
+  nodes?: Array<{
+    node_id?: string;
+    node_type?: string;
+    name?: string;
+    [key: string]: unknown;
+  }>;
+  edges?: Array<{
+    source_node_id?: string;
+    target_node_id?: string;
+    [key: string]: unknown;
+  }>;
+  export_data?: RawImportData;
+  [key: string]: unknown;
 }
 
 interface ValidationError {
@@ -60,7 +81,7 @@ export const WorkflowImportPage: React.FC = () => {
 
   const canImportWorkflows = hasPermission('ai.workflows.create');
 
-  const validateImportData = useCallback((data: any): ValidationError[] => {
+  const validateImportData = useCallback((data: RawImportData): ValidationError[] => {
     const errors: ValidationError[] = [];
 
     // Check if data has the expected structure
@@ -84,7 +105,7 @@ export const WorkflowImportPage: React.FC = () => {
 
     // Validate node structure
     if (data.nodes && Array.isArray(data.nodes)) {
-      data.nodes.forEach((node: any, index: number) => {
+      data.nodes.forEach((node, index: number) => {
         if (!node.node_id) {
           errors.push({ field: `nodes[${index}].node_id`, message: 'Node ID is required' });
         }
@@ -99,7 +120,7 @@ export const WorkflowImportPage: React.FC = () => {
 
     // Validate edge structure
     if (data.edges && Array.isArray(data.edges)) {
-      data.edges.forEach((edge: any, index: number) => {
+      data.edges.forEach((edge, index: number) => {
         if (!edge.source_node_id) {
           errors.push({ field: `edges[${index}].source_node_id`, message: 'Source node ID is required' });
         }
@@ -123,25 +144,25 @@ export const WorkflowImportPage: React.FC = () => {
     reader.onload = (e) => {
       try {
         const content = e.target?.result as string;
-        let parsedData: any;
+        let parsedData: RawImportData;
 
         // Try JSON first
         if (file.name.endsWith('.json')) {
-          parsedData = JSON.parse(content);
+          parsedData = JSON.parse(content) as RawImportData;
         }
         // Try YAML if json-like doesn't work
         else if (file.name.endsWith('.yaml') || file.name.endsWith('.yml')) {
           // For now, we'll just try JSON parsing
           // In production, you'd want to add a YAML parser library
           try {
-            parsedData = JSON.parse(content);
+            parsedData = JSON.parse(content) as RawImportData;
           } catch {
             setValidationErrors([{ field: 'file', message: 'YAML support requires additional library. Please convert to JSON.' }]);
             return;
           }
         } else {
           // Try JSON anyway
-          parsedData = JSON.parse(content);
+          parsedData = JSON.parse(content) as RawImportData;
         }
 
         // Handle both direct export format and wrapped format
@@ -151,8 +172,9 @@ export const WorkflowImportPage: React.FC = () => {
         setValidationErrors(errors);
 
         if (errors.length === 0) {
-          setImportData(dataToValidate);
-          setWorkflowName(dataToValidate.workflow.name);
+          // After validation passes, we can safely cast to WorkflowImportData
+          setImportData(dataToValidate as unknown as WorkflowImportData);
+          setWorkflowName(dataToValidate.workflow?.name || '');
           addNotification({
             type: 'success',
             title: 'File Loaded',
@@ -250,10 +272,10 @@ export const WorkflowImportPage: React.FC = () => {
   }, [importData, workflowName, canImportWorkflows, addNotification, navigate]);
 
   const getBreadcrumbs = () => [
-    { label: 'Dashboard', href: '/app', icon: '<à' },
+    { label: 'Dashboard', href: '/app', icon: '<ï¿½' },
     { label: 'AI Orchestration', href: '/app/ai', icon: '>' },
-    { label: 'Workflows', href: '/app/ai', icon: '¡' },
-    { label: 'Import', icon: '=å' }
+    { label: 'Workflows', href: '/app/ai', icon: 'ï¿½' },
+    { label: 'Import', icon: '=ï¿½' }
   ];
 
   const getPageActions = () => [

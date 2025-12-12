@@ -133,6 +133,7 @@ class AIOrchestrationMonitor {
     }
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private handleMessage(data: any) {
     if (data.type === 'ping') {
       // Respond to ping with pong
@@ -161,6 +162,7 @@ class AIOrchestrationMonitor {
     }
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private send(message: any) {
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(message));

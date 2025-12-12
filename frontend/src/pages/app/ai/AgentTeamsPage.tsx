@@ -15,6 +15,35 @@ import { useDispatch } from 'react-redux';
 import { addNotification } from '@/shared/services/slices/uiSlice';
 import { AppDispatch } from '@/shared/services';
 
+// Type guard for API errors
+interface ApiErrorResponse {
+  response?: {
+    data?: {
+      error?: string;
+    };
+  };
+}
+
+function isApiError(error: unknown): error is ApiErrorResponse {
+  return typeof error === 'object' && error !== null && 'response' in error;
+}
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (isApiError(error)) {
+    return error.response?.data?.error || fallback;
+  }
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return fallback;
+}
+
+// Filter interface for type safety
+interface TeamFilters {
+  status?: string;
+  team_type?: string;
+}
+
 const AgentTeamsPage: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const [teams, setTeams] = useState<AgentTeam[]>([]);
@@ -32,17 +61,17 @@ const AgentTeamsPage: React.FC = () => {
   const loadTeams = async () => {
     try {
       setLoading(true);
-      const filters: any = {};
+      const filters: TeamFilters = {};
       if (statusFilter !== 'all') filters.status = statusFilter;
       if (typeFilter !== 'all') filters.team_type = typeFilter;
 
       const data = await agentTeamsApi.getTeams(filters);
       setTeams(data);
-    } catch (error: any) {
+    } catch (error: unknown) {
       dispatch(addNotification({
         type: 'error',
         // title: 'Error',
-        message: error.response?.data?.error || 'Failed to load teams'
+        message: getErrorMessage(error, 'Failed to load teams')
       }));
     } finally {
       setLoading(false);
@@ -58,11 +87,11 @@ const AgentTeamsPage: React.FC = () => {
         message: 'Team created successfully'
       }));
       await loadTeams();
-    } catch (error: any) {
+    } catch (error: unknown) {
       dispatch(addNotification({
         type: 'error',
         // title: 'Error',
-        message: error.response?.data?.error || 'Failed to create team'
+        message: getErrorMessage(error, 'Failed to create team')
       }));
       throw error;
     }
@@ -80,11 +109,11 @@ const AgentTeamsPage: React.FC = () => {
       }));
       await loadTeams();
       setEditingTeam(null);
-    } catch (error: any) {
+    } catch (error: unknown) {
       dispatch(addNotification({
         type: 'error',
         // title: 'Error',
-        message: error.response?.data?.error || 'Failed to update team'
+        message: getErrorMessage(error, 'Failed to update team')
       }));
       throw error;
     }
@@ -101,11 +130,11 @@ const AgentTeamsPage: React.FC = () => {
         message: 'Team deleted successfully'
       }));
       await loadTeams();
-    } catch (error: any) {
+    } catch (error: unknown) {
       dispatch(addNotification({
         type: 'error',
         // title: 'Error',
-        message: error.response?.data?.error || 'Failed to delete team'
+        message: getErrorMessage(error, 'Failed to delete team')
       }));
     }
   };
@@ -119,11 +148,11 @@ const AgentTeamsPage: React.FC = () => {
         // title: 'Team Execution Started',
         message: `Team "${team.name}" is now executing. Job ID: ${result.job_id}`
       }));
-    } catch (error: any) {
+    } catch (error: unknown) {
       dispatch(addNotification({
         type: 'error',
         // title: 'Error',
-        message: error.response?.data?.error || 'Failed to execute team'
+        message: getErrorMessage(error, 'Failed to execute team')
       }));
     }
   };

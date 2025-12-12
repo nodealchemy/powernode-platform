@@ -142,6 +142,7 @@ export const WorkflowsPage: React.FC = () => {
   }, [searchQuery, perPage, hasSearched]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Handle filter changes
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleFilterChange = useCallback((key: keyof WorkflowFilters, value: any) => {
     setFilters(prev => ({
       ...prev,

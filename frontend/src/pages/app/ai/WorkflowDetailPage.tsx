@@ -92,6 +92,7 @@ export const WorkflowDetailPage: React.FC = () => {
   useEffect(() => {
     if (!id || !isConnected) return;
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const handleWorkflowUpdate = (message: any) => {
       // Extract event type (AiOrchestrationChannel uses 'event' field)
       const eventType = message.event || message.type;
