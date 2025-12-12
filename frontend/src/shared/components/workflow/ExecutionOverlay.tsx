@@ -11,7 +11,7 @@ export interface NodeExecutionState {
   endTime?: number;
   duration?: number;
   error?: string;
-  output?: any;
+  output?: unknown;
 }
 
 export interface ExecutionOverlayProps {

@@ -70,6 +70,7 @@ export const PluginsPage: React.FC = () => {
     setSearchQuery(query);
   }, []);
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleFilterChange = useCallback((newFilters: any) => {
     setFilters(prev => ({ ...prev, ...newFilters }));
   }, []);

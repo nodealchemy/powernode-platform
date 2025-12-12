@@ -39,6 +39,7 @@ export const DelegationsManagement: React.FC = () => {
     }
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleCreateDelegation = async (data: any) => {
     try {
       await delegationApi.createDelegation(data);

@@ -9,6 +9,7 @@ export interface CircuitBreakerMessage {
     breaker_id?: string;
     state?: 'closed' | 'open' | 'half_open';
     previous_state?: 'closed' | 'open' | 'half_open';
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     metadata?: any;
   };
 }
@@ -21,6 +22,7 @@ export interface UseCircuitBreakerOptions {
   onBreakerOpen?: (breaker: CircuitBreakerState) => void;
   onBreakerClosed?: (breaker: CircuitBreakerState) => void;
   onBreakerHalfOpen?: (breaker: CircuitBreakerState) => void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onFailure?: (breakerId: string, error: any) => void;
 }
 
@@ -41,7 +43,6 @@ export interface UseCircuitBreakerReturn {
  * const { breakers, isConnected } = useCircuitBreaker({
  *   autoConnect: true,
  *   onBreakerStateChange: (breaker) => {
- *     console.log(`Breaker ${breaker.name} changed to ${breaker.state}`);
  *   },
  *   onBreakerOpen: (breaker) => {
  *     showNotification(`Circuit breaker ${breaker.name} opened!`);
@@ -218,7 +219,6 @@ export const useCircuitBreaker = (options: UseCircuitBreakerOptions = {}): UseCi
 
       default:
         if (process.env.NODE_ENV === 'development') {
-          console.info('Unknown circuit breaker event:', event);
         }
     }
   }, []);
@@ -232,7 +232,8 @@ export const useCircuitBreaker = (options: UseCircuitBreakerOptions = {}): UseCi
   // Subscribe to circuit breakers on mount
   useEffect(() => {
     if (autoConnect && isConnected) {
-      let subscriptionParams: Record<string, any> = {};
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let subscriptionParams: Record<string, any> = {};
 
       if (breakerId) {
         // Subscribe to specific breaker
@@ -284,6 +285,7 @@ export const useCircuitBreaker = (options: UseCircuitBreakerOptions = {}): UseCi
   const subscribe = useCallback((targetBreakerId?: string) => {
     if (!isConnected) return;
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const subscriptionParams: Record<string, any> = targetBreakerId
       ? { type: 'circuit_breaker', resource_id: targetBreakerId }
       : { type: 'circuit_breaker', resource_id: 'all' };

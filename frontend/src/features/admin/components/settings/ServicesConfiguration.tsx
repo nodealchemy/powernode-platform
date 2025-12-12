@@ -644,7 +644,7 @@ const ServicesListComponent: React.FC<{
     }
   ];
 
-  const updateServiceConfig = (serviceName: string, updates: any) => {
+  const updateServiceConfig = (serviceName: string, updates: Partial<{ host: string; port: number; protocol: string; health_check_path: string }>) => {
     const newEnvironments = {
       ...config.environments,
       [selectedEnvironment]: {
@@ -659,7 +659,7 @@ const ServicesListComponent: React.FC<{
     updateConfig({ environments: newEnvironments });
   };
 
-  const addService = (name: string, serviceConfig: any) => {
+  const addService = (name: string, serviceConfig: { host: string; port: number; protocol: string; health_check_path: string; base_url?: string }) => {
     if (currentEnvServices[name]) {
       showNotification('Service with this name already exists', 'error');
       return;
@@ -1583,11 +1583,20 @@ const AdvancedConfiguration: React.FC<{
   );
 };
 
+// Service configuration type for new services
+interface NewServiceConfig {
+  host: string;
+  port: number;
+  protocol: string;
+  health_check_path: string;
+  base_url?: string;
+}
+
 // Add Service Modal Component
 interface AddServiceModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAddService: (name: string, config: any) => void;
+  onAddService: (name: string, config: NewServiceConfig) => void;
   existingServices: string[];
   templates: Array<{
     name: string;

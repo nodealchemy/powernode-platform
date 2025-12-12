@@ -154,6 +154,7 @@ export const AuditLogExport: React.FC<AuditLogExportProps> = ({ filters, onClose
     }
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const updateExportOptions = (key: keyof ExportOptions, value: any) => {
     setExportOptions(prev => ({ ...prev, [key]: value }));
   };

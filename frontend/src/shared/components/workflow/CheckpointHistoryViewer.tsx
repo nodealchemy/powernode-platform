@@ -25,8 +25,10 @@ export interface Checkpoint {
   };
   state_keys?: string[];
   state_snapshot?: {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     variables?: Record<string, any>;
     completed_nodes?: string[];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     [key: string]: any;
   };
 }

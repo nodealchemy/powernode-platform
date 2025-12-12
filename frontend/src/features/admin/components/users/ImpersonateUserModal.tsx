@@ -36,8 +36,9 @@ export const ImpersonateUserModal: React.FC<ImpersonateUserModalProps> = ({
       } else {
         throw new Error(response.error || 'Failed to load users');
       }
-    } catch (error: any) {
-      setError(error.message || 'Failed to load impersonatable users');
+    } catch (error: unknown) {
+      const err = error as { message?: string };
+      setError(err.message || 'Failed to load impersonatable users');
     } finally {
       setIsLoading(false);
     }
@@ -72,13 +73,14 @@ export const ImpersonateUserModal: React.FC<ImpersonateUserModalProps> = ({
         user_id: selectedUser.id,
         reason: reason.trim() || undefined
       })).unwrap();
-      
+
       onClose();
       resetForm();
       // Refresh the page after successful impersonation start to ensure clean state
       window.location.reload();
-    } catch (error: any) {
-      setError(error.message || 'Failed to start impersonation');
+    } catch (error: unknown) {
+      const err = error as { message?: string };
+      setError(err.message || 'Failed to start impersonation');
     } finally {
       setIsSubmitting(false);
     }

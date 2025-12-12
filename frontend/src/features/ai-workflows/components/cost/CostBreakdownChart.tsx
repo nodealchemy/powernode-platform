@@ -179,10 +179,12 @@ export const CostBreakdownChart: React.FC<CostBreakdownChartProps> = ({
             <Legend
               verticalAlign="bottom"
               height={36}
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               formatter={((value: any, _entry: any) => (
                 <span className="text-theme-primary text-sm">
                   {value} - ${(_entry?.payload?.value ?? 0).toFixed(2)}
                 </span>
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               )) as any}
             />
           </PieChart>

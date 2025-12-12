@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 
 interface SecurityOverviewProps {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   metrics: any;
   timeRange: { label: string; value: string; days: number };
 }

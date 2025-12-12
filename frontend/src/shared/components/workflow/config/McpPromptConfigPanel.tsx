@@ -8,7 +8,9 @@ import { McpPromptSelector } from './McpPromptSelector';
 import type { McpPromptForWorkflowBuilder } from '@/shared/types/workflow';
 
 interface McpPromptConfigPanelProps {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   configuration: Record<string, any>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onConfigChange: (key: string, value: any) => void;
   errors?: Record<string, string>;
   disabled?: boolean;

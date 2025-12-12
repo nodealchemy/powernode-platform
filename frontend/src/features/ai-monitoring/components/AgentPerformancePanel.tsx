@@ -17,7 +17,7 @@ interface AgentPerformancePanelProps {
   isLoading: boolean;
   timeRange: string;
   onRefresh: () => void;
-  onTestAgent?: (agentId: string, params: any) => void;
+  onTestAgent?: (agentId: string, params: Record<string, unknown>) => void;
 }
 
 export const AgentPerformancePanel: React.FC<AgentPerformancePanelProps> = ({

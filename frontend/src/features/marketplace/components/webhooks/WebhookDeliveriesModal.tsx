@@ -76,6 +76,7 @@ export const WebhookDeliveriesModal: React.FC<WebhookDeliveriesModalProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters]); // Only depend on filters
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleFilterChange = (key: keyof DeliveryFilters, value: any) => {
     setFilters({ ...filters, [key]: value, page: 1 }); // Reset to first page
   };

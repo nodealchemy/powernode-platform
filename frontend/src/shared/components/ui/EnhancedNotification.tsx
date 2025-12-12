@@ -76,7 +76,7 @@ export const EnhancedNotification: React.FC<NotificationProps> = ({
     }
   };
 
-  const formatDetailValue = (value: any): string => {
+  const formatDetailValue = (value: unknown): string => {
     if (typeof value === 'object') {
       return JSON.stringify(value, null, 2);
     }

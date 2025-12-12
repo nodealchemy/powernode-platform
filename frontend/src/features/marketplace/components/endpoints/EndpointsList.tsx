@@ -93,6 +93,7 @@ export const EndpointsList: React.FC<EndpointsListProps> = ({
   };
 
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleCreateEndpoint = async (data: any) => {
     const endpoint = await createEndpoint(data);
     if (endpoint) {
@@ -103,6 +104,7 @@ export const EndpointsList: React.FC<EndpointsListProps> = ({
     return null;
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleUpdateEndpoint = async (data: any) => {
     if (!selectedEndpoint) return null;
     

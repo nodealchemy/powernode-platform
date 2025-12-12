@@ -86,8 +86,9 @@ export const ServiceDiscoveryModal: React.FC<ServiceDiscoveryModalProps> = ({
     }
   };
 
-  const handleJobComplete = (result: unknown) => {
-    const discoveryResult = result as { services?: any[]; services_count?: number };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const handleJobComplete = (result: any) => {
+    const discoveryResult = result as { services?: DiscoveredService[]; services_count?: number };
     if (discoveryResult && discoveryResult.services) {
       setDiscoveredServices(discoveryResult.services);
       setActiveTab('discovered');
@@ -116,11 +117,12 @@ export const ServiceDiscoveryModal: React.FC<ServiceDiscoveryModalProps> = ({
     setFormConfig(prev => ({ ...prev, [field]: value }));
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const updateNestedConfig = (section: keyof ServiceDiscoveryConfig, field: string, value: any) => {
     setFormConfig(prev => ({
       ...prev,
       [section]: {
-        ...(prev[section] as any),
+        ...(prev[section] as Record<string, unknown>),
         [field]: value
       }
     }));

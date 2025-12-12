@@ -123,7 +123,7 @@ const UsersPage: React.FC = () => {
 
     // Apply sorting
     filtered.sort((a, b) => {
-      let aVal: any, bVal: any;
+      let aVal: string | Date, bVal: string | Date;
 
       switch (sortBy) {
         case 'name':
@@ -276,7 +276,7 @@ const UsersPage: React.FC = () => {
 
       // The Redux action automatically handles token storage
       window.location.href = '/app';
-    } catch (_error: any) {
+    } catch (_error: unknown) {
       setError('Failed to impersonate user. Please try again.');
     } finally {
       setActionLoading(false);

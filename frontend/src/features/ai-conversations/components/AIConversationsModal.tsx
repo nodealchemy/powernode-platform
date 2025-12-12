@@ -129,6 +129,7 @@ export const AIConversationsModal: React.FC<AIConversationsModalProps> = ({
   }, [searchQuery]);
 
   // Handle filter changes
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleFilterChange = useCallback((key: keyof ConversationsFilters, value: any) => {
     setFilters(prev => ({
       ...prev,

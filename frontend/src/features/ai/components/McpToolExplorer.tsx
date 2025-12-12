@@ -12,6 +12,7 @@ export interface McpToolExplorerProps {
   tool: McpTool;
   isOpen: boolean;
   onClose: () => void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onExecuteTool?: (toolId: string, params: Record<string, any>) => Promise<any>;
 }
 
@@ -21,11 +22,13 @@ interface ToolParameter {
   description?: string;
   required: boolean;
   enum?: string[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   default?: any;
 }
 
 interface ExecutionResult {
   success: boolean;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   result?: any;
   error?: string;
   execution_time_ms?: number;
@@ -37,6 +40,7 @@ export const McpToolExplorer: React.FC<McpToolExplorerProps> = ({
   onClose,
   onExecuteTool
 }) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [parameters, setParameters] = useState<Record<string, any>>({});
   const [executing, setExecuting] = useState(false);
   const [executionResult, setExecutionResult] = useState<ExecutionResult | null>(null);
@@ -53,6 +57,7 @@ export const McpToolExplorer: React.FC<McpToolExplorerProps> = ({
     const props = tool.input_schema.properties;
     const required = tool.input_schema.required || [];
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return Object.entries(props).map(([name, schema]: [string, any]) => ({
       name,
       type: schema.type || 'string',
@@ -65,6 +70,7 @@ export const McpToolExplorer: React.FC<McpToolExplorerProps> = ({
 
   // Initialize default values
   React.useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const defaults: Record<string, any> = {};
     extractedParameters.forEach(param => {
       if (param.default !== undefined) {
@@ -75,6 +81,7 @@ export const McpToolExplorer: React.FC<McpToolExplorerProps> = ({
     setExecutionResult(null);
   }, [extractedParameters]);
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleParameterChange = (name: string, value: any) => {
     setParameters(prev => ({
       ...prev,

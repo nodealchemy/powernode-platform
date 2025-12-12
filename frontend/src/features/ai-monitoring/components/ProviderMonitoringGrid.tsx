@@ -20,7 +20,7 @@ interface ProviderMonitoringGridProps {
   isLoading: boolean;
   timeRange: string;
   onRefresh: () => void;
-  onTestProvider?: (providerId: string, params: any) => void;
+  onTestProvider?: (providerId: string, params: Record<string, unknown>) => void;
 }
 
 export const ProviderMonitoringGrid: React.FC<ProviderMonitoringGridProps> = ({

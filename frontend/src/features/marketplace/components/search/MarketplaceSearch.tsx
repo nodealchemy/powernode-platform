@@ -40,6 +40,7 @@ export const MarketplaceSearch: React.FC<MarketplaceSearchProps> = ({
     onFiltersChange({ ...filters, query: searchQuery, page: 1 });
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleFilterChange = (key: keyof MarketplaceFilters, value: any) => {
     const newFilters = { ...filters, [key]: value, page: 1 };
     onFiltersChange(newFilters);

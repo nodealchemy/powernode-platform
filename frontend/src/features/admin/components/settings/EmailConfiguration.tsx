@@ -105,15 +105,14 @@ export const EmailConfiguration: React.FC = () => {
       setTesting(true);
       const response = await emailSettingsApi.testEmail(testEmail);
       showNotification(response.message || `Test email sent to ${testEmail}`, 'success');
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const apiError = error as { response?: { data?: { error?: string; message?: string } } };
       let errorMessage = 'Failed to send test email';
-      
-      if (error?.response?.data?.error) {
-        errorMessage = error.response.data.error;
-      } else if (error?.response?.data?.message) {
-        errorMessage = error.response.data.message;
-      } else if (error?.message) {
-        errorMessage = error.message;
+
+      if (apiError?.response?.data?.error) {
+        errorMessage = apiError.response.data.error;
+      } else if (apiError?.response?.data?.message) {
+        errorMessage = apiError.response.data.message;
       }
       
       showNotification(errorMessage, 'error');

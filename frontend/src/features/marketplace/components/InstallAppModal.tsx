@@ -61,6 +61,7 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({
     }
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleConfigurationChange = (key: string, value: any) => {
     setConfiguration(prev => ({
       ...prev,

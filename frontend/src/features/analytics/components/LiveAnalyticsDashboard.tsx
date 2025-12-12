@@ -193,7 +193,7 @@ export const LiveAnalyticsDashboard: React.FC<LiveAnalyticsDashboardProps> = ({
       }
 
       setLastUpdated(new Date());
-    } catch (error: any) {
+    } catch (_error: unknown) {
       setError('Failed to load analytics data');
       showNotification('Failed to load analytics data', 'error');
     } finally {

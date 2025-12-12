@@ -5,7 +5,7 @@ import { Input } from '@/shared/components/ui/Input';
 
 export interface WorkflowVariable {
   name: string;
-  value: any;
+  value: unknown;
   type: string;
   source: 'input' | 'output' | 'computed' | 'system';
   nodeId?: string;
@@ -17,7 +17,7 @@ export interface WorkflowVariable {
 
 export interface VariableInspectorPanelProps {
   variables: WorkflowVariable[];
-  executionState?: Record<string, any>;
+  executionState?: Record<string, unknown>;
   onVariableClick?: (variable: WorkflowVariable) => void;
   onClose: () => void;
   className?: string;
@@ -79,7 +79,7 @@ export const VariableInspectorPanel: React.FC<VariableInspectorPanelProps> = ({
     }
   };
 
-  const formatValue = (value: any, isSecret: boolean) => {
+  const formatValue = (value: unknown, isSecret: boolean) => {
     if (isSecret && !showSecrets) {
       return '••••••••';
     }

@@ -68,7 +68,7 @@ import { WorkflowToolbar } from './WorkflowToolbar';
 import { NodeOperationsChat } from './NodeOperationsChat';
 import { WorkflowProvider } from './WorkflowContext';
 
-import { AiWorkflow, AiWorkflowNode } from '@/shared/types/workflow';
+import { AiWorkflow, AiWorkflowNode, BaseWorkflowNodeData } from '@/shared/types/workflow';
 import { AiAgent } from '@/shared/types/ai';
 import { agentsApi } from '@/shared/services/ai';
 
@@ -105,11 +105,8 @@ const migrateHandleId = (handleId: string | null | undefined, isSource: boolean)
 
 export interface WorkflowBuilderProps {
   workflow?: AiWorkflow;
-  onSave: (workflowData: {
-    nodes: any[];
-    edges: any[];
-    configuration: Record<string, any>;
-  }) => void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  onSave: (workflowData: { nodes: any[]; edges: any[]; configuration: Record<string, any> }) => void;
   onValidate?: (nodes: Node[], edges: Edge[]) => Promise<{
     valid: boolean;
     errors: string[];
@@ -803,6 +800,7 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
     }
 
     // Convert React Flow nodes/edges back to workflow format (using snake_case for backend)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const workflowNodes: any[] = nodes.map(node => {
       const isStartNode = Boolean(node.data.is_start_node || node.data.node_type === 'trigger' || node.data.node_type === 'start');
       const isEndNode = Boolean(node.data.is_end_node || node.data.node_type === 'end');
@@ -837,6 +835,7 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
       return savedNode;
     });
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const workflowEdges: any[] = edges.map(edge => ({
       id: edge.id,
       edge_id: edge.id,
@@ -934,8 +933,8 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
         };
 
         // Build handle positions for each node based on its connections
-        const calculateNodeHandlePositions = (nodeId: string, nodeData: any): HandlePositions => {
-          const nodeType = nodeData.node_type;
+        const calculateNodeHandlePositions = (nodeId: string, nodeData: BaseWorkflowNodeData): HandlePositions => {
+          const nodeType = nodeData.node_type || 'default';
           const isStart = nodeData.is_start_node || nodeType === 'start' || nodeType === 'trigger';
           const isEnd = nodeData.is_end_node || nodeType === 'end';
 

@@ -451,6 +451,7 @@ export const WorkflowExecutionDetails: React.FC<WorkflowExecutionDetailsProps> =
     const unsubscribe = subscribe({
       channel: 'AiOrchestrationChannel',
       params: { type: 'workflow_run', id: runId },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       onMessage: (data: any) => {
         // Handle node execution updates from unified orchestration channel
         // Backend sends events with 'event' field, not 'type'
@@ -1758,7 +1759,8 @@ export const WorkflowExecutionDetails: React.FC<WorkflowExecutionDetailsProps> =
                               </div>
 
                               {/* Expanded Node Details */}
-                              {isExpanded && (
+                              {isExpanded ? (
+                                // @ts-expect-error React 19 types strict children check - multiple conditional children
                                 <div className="border-t border-theme px-2 pb-1 space-y-1">
                                   {/* Input */}
                                   {node.input_data && (
@@ -1828,7 +1830,7 @@ export const WorkflowExecutionDetails: React.FC<WorkflowExecutionDetailsProps> =
                                     </div>
                                   )}
                                 </div>
-                              )}
+                              ) : null}
                             </div>
                           </div>
                         </div>

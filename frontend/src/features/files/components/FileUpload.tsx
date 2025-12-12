@@ -120,9 +120,10 @@ export const FileUpload: React.FC<FileUploadProps> = ({
       setTimeout(() => {
         setUploadingFiles(prev => prev.filter(f => f.file !== file));
       }, 2000);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error as { message?: string; response?: { data?: { error?: string } } };
       // Check if it was cancelled
-      if (error.message === 'Upload cancelled') {
+      if (err.message === 'Upload cancelled') {
         setUploadingFiles(prev =>
           prev.map(f =>
             f.file === file ? { ...f, status: 'cancelled', error: 'Upload cancelled' } : f
@@ -132,7 +133,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
         return;
       }
 
-      const errorMessage = error.response?.data?.error || error.message || 'Upload failed';
+      const errorMessage = err.response?.data?.error || err.message || 'Upload failed';
 
       setUploadingFiles(prev =>
         prev.map(f =>

@@ -10,6 +10,7 @@ export interface TeamExecutionUpdate {
   status?: string;
   progress?: number;
   current_member?: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   result?: any;
   error?: string;
   timestamp: string;

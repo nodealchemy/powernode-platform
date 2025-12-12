@@ -140,6 +140,7 @@ export const CreateWorkflowModal: React.FC<CreateWorkflowModalProps> = ({
   };
 
   // Handle form field changes
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleInputChange = (field: keyof WorkflowFormData, value: any) => {
     setFormData(prev => ({
       ...prev,

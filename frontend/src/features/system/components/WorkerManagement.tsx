@@ -6,6 +6,7 @@ export const WorkerManagement: React.FC = () => {
   const [workers, setWorkers] = useState<WorkerListResponse | null>(null);
   const [stats, setStats] = useState<WorkerStats | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const user = useSelector((state: any) => state.auth.user);
 
   useEffect(() => {

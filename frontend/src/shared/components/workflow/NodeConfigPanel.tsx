@@ -35,10 +35,13 @@ export interface WorkflowNodeData {
   timeoutSeconds?: number;
   retryCount?: number;
   handlePositions?: HandlePositions;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   configuration?: Record<string, any>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   metadata?: Record<string, any>;
   _handleUpdateTimestamp?: number;
-  [key: string]: any; // Allow additional properties
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  [key: string]: any; // Allow additional properties for dynamic node types
 }
 
 export interface NodeConfigPanelProps {
@@ -58,7 +61,9 @@ interface NodeConfiguration {
   timeoutSeconds: number;
   retryCount: number;
   handlePositions?: HandlePositions;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   configuration: Record<string, any>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   metadata: Record<string, any>;
 }
 
@@ -96,21 +101,37 @@ export const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
   const [hasChanges, setHasChanges] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  // Response structure for agent list API - handles various response formats
+  interface AgentListResponse {
+    items?: AiAgent[];
+    agents?: AiAgent[];
+    data?: {
+      agents?: AiAgent[];
+      data?: { agents?: AiAgent[] };
+    };
+  }
+
   // Helper function to extract agent list from various response structures
-  const extractAgentList = (response: any): AiAgent[] => {
-    // Handle paginated response format (items array)
-    if (response?.items && Array.isArray(response.items)) {
-      return response.items;
+  const extractAgentList = (response: AgentListResponse | AiAgent[] | unknown): AiAgent[] => {
+    // Handle direct array
+    if (Array.isArray(response)) {
+      return response as AiAgent[];
     }
-    // Handle nested response structures
-    if (response?.data?.data?.agents && Array.isArray(response.data.data.agents)) {
-      return response.data.data.agents;
-    } else if (response?.data?.agents && Array.isArray(response.data.agents)) {
-      return response.data.agents;
-    } else if (response?.agents && Array.isArray(response.agents)) {
-      return response.agents;
-    } else if (Array.isArray(response)) {
-      return response;
+    // Handle object responses
+    if (response && typeof response === 'object') {
+      const resp = response as AgentListResponse;
+      // Handle paginated response format (items array)
+      if (resp.items && Array.isArray(resp.items)) {
+        return resp.items;
+      }
+      // Handle nested response structures
+      if (resp.data?.data?.agents && Array.isArray(resp.data.data.agents)) {
+        return resp.data.data.agents;
+      } else if (resp.data?.agents && Array.isArray(resp.data.agents)) {
+        return resp.data.agents;
+      } else if (resp.agents && Array.isArray(resp.agents)) {
+        return resp.agents;
+      }
     }
     // Return empty array if no valid structure found
     return [];
@@ -139,7 +160,7 @@ export const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
 
       setAgents(agentList);
       agentsLoadedRef.current = true;
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (process.env.NODE_ENV === 'development') {
         console.error('Failed to load available agents:', error);
       }
@@ -148,7 +169,15 @@ export const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
       setAgents([]);
 
       // If authentication error, don't mark as loaded so it can retry when user logs in
-      if (error.response?.status !== 401 && error.response?.status !== 403) {
+      const isAuthError = (
+        error !== null &&
+        typeof error === 'object' &&
+        'response' in error &&
+        typeof (error as { response?: { status?: number } }).response?.status === 'number' &&
+        ((error as { response: { status: number } }).response.status === 401 ||
+         (error as { response: { status: number } }).response.status === 403)
+      );
+      if (!isAuthError) {
         agentsLoadedRef.current = true;
       }
     } finally {
@@ -302,6 +331,7 @@ export const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
   };
 
   // Handle field changes
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleFieldChange = (field: keyof NodeConfiguration, value: any) => {
     setConfig(prev => ({
       ...prev,
@@ -320,6 +350,7 @@ export const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
   };
 
   // Handle configuration changes
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleConfigChange = (key: string, value: any) => {
     setConfig(prev => ({
       ...prev,

@@ -167,8 +167,9 @@ export const MarketplacePageEnhanced: React.FC = () => {
       }
 
       return Promise.resolve();
-    } catch (error: any) {
-      throw new Error(error.response?.data?.error || 'Failed to create subscription');
+    } catch (error: unknown) {
+      const apiError = error as { response?: { data?: { error?: string } } };
+      throw new Error(apiError.response?.data?.error || 'Failed to create subscription');
     }
   };
 

@@ -84,9 +84,10 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
       
       onSuccess();
       onClose();
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.error || error.message || 'Failed to create user';
-      const validationErrors = error.response?.data?.validation_errors || [];
+    } catch (error: unknown) {
+      const apiError = error as { response?: { data?: { error?: string; validation_errors?: string[] } }; message?: string };
+      const errorMessage = apiError.response?.data?.error || apiError.message || 'Failed to create user';
+      const validationErrors = apiError.response?.data?.validation_errors || [];
       setErrors([errorMessage, ...validationErrors]);
     } finally {
       setLoading(false);

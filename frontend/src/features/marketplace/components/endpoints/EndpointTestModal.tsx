@@ -12,6 +12,7 @@ interface EndpointTestModalProps {
   isOpen: boolean;
   onClose: () => void;
   endpoint: AppEndpoint | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onTest: (endpointId: string, testData?: any, testHeaders?: Record<string, string>) => Promise<any>;
 }
 
@@ -19,6 +20,7 @@ interface TestResult {
   call_id: string;
   status_code: number;
   response_time_ms: number;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   test_result: any;
   error?: string;
 }
@@ -102,7 +104,7 @@ export const EndpointTestModal: React.FC<EndpointTestModalProps> = ({
     }
   };
 
-  const formatJson = (obj: any): string => {
+  const formatJson = (obj: unknown): string => {
     try {
       return JSON.stringify(obj, null, 2);
     } catch {

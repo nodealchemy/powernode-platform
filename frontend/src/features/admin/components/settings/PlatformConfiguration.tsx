@@ -98,9 +98,10 @@ export const PlatformConfiguration: React.FC = () => {
           window.location.reload();
         }, 1000);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const apiError = error as { response?: { data?: { error?: string } } };
       showNotification(
-        error.response?.data?.error || 'Failed to update configuration',
+        apiError.response?.data?.error || 'Failed to update configuration',
         'error'
       );
     } finally {

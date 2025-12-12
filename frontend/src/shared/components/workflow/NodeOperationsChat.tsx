@@ -249,12 +249,13 @@ Position: (${node.position_x}, ${node.position_y})`;
         });
         return null;
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const apiError = error as { response?: { status?: number } };
       setInitializationFailed(true);
       addNotification({
         type: 'error',
         title: 'Chat Error',
-        message: error?.response?.status === 500
+        message: apiError?.response?.status === 500
           ? 'Server error creating conversation. Please try again or contact support.'
           : 'Failed to initialize chat. Please check your connection and try again.'
       });

@@ -101,11 +101,8 @@ export const WorkflowBuilderModal: React.FC<WorkflowBuilderModalProps> = ({
   const [saveCount, setSaveCount] = useState(0);
 
   // Handle save from toolbar (combines data update + API save)
-  const handleToolbarSave = async (workflowData: {
-    nodes: any[];
-    edges: any[];
-    configuration: Record<string, any>;
-  }) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const handleToolbarSave = async (workflowData: { nodes: any[]; edges: any[]; configuration: Record<string, any> }) => {
     if (!workflow) return;
 
     try {
@@ -158,10 +155,11 @@ export const WorkflowBuilderModal: React.FC<WorkflowBuilderModalProps> = ({
       // Use the consolidated API for validation
       if (workflowId) {
         const result = await workflowsApi.validateWorkflow(workflowId);
+        type ValidationItem = string | { message: string };
         return {
           valid: result.valid,
-          errors: (result.errors || []).map((e: any) => typeof e === 'string' ? e : e.message),
-          warnings: (result.warnings || []).map((w: any) => typeof w === 'string' ? w : w.message)
+          errors: (result.errors || []).map((e: ValidationItem) => typeof e === 'string' ? e : e.message),
+          warnings: (result.warnings || []).map((w: ValidationItem) => typeof w === 'string' ? w : w.message)
         };
       }
 

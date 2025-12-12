@@ -4,6 +4,7 @@ import { PermissionSelector } from '@/features/account/components/PermissionSele
 
 interface CreateDelegationModalProps {
   onClose: () => void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onCreate: (data: any) => void;
 }
 

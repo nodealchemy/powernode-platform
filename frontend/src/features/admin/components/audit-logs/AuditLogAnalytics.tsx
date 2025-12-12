@@ -19,6 +19,7 @@ import { ActivityHeatmap } from './ActivityHeatmap';
 import { TopThreats } from './TopThreats';
 
 interface AuditLogAnalyticsProps {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   metrics: any;
   filters: FilterType;
   onFiltersChange: (filters: FilterType) => void;

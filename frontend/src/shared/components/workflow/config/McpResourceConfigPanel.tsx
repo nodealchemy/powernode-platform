@@ -5,7 +5,9 @@ import { McpServerSelector } from './McpServerSelector';
 import { McpResourceSelector } from './McpResourceSelector';
 
 interface McpResourceConfigPanelProps {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   configuration: Record<string, any>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onConfigChange: (key: string, value: any) => void;
   errors?: Record<string, string>;
   disabled?: boolean;

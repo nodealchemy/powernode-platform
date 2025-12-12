@@ -18,7 +18,7 @@ interface TestResult {
   delivery_id: string;
   event_id: string;
   status: string;
-  payload: any;
+  payload: Record<string, unknown>;
   response_code?: number;
   response_body?: string;
   response_time?: number;

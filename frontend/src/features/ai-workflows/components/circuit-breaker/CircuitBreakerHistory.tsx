@@ -27,7 +27,7 @@ export interface CircuitBreakerHistoryProps {
   breaker: CircuitBreakerState;
   isOpen: boolean;
   onClose: () => void;
-  onLoadHistory?: (breakerId: string, filters?: any) => Promise<CircuitBreakerEvent[]>;
+  onLoadHistory?: (breakerId: string, filters?: Record<string, unknown>) => Promise<CircuitBreakerEvent[]>;
 }
 
 export const CircuitBreakerHistory: React.FC<CircuitBreakerHistoryProps> = ({

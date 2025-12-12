@@ -73,6 +73,7 @@ export const EndpointFormModal: React.FC<EndpointFormModalProps> = ({
     }
   }, [endpoint, isOpen]);
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleChange = (field: keyof AppEndpointFormData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };

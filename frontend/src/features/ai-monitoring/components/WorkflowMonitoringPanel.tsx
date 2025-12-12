@@ -124,7 +124,7 @@ export const WorkflowMonitoringPanel: React.FC<WorkflowMonitoringPanelProps> = (
         trigger_type: (data?.trigger_type as 'manual' | 'scheduled' | 'api' | 'event') || 'manual',
         created_at: new Date().toISOString(),
         started_at: new Date().toISOString(),
-        input_variables: data?.input_variables || {},
+        input_variables: (data?.input_variables || {}) as Record<string, unknown>,
         total_cost: 0
       };
       setActiveExecutions(prev => [...prev, newExecution]);
