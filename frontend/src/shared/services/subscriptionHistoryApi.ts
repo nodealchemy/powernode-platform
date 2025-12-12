@@ -20,6 +20,7 @@ export interface SubscriptionHistoryEvent {
 }
 
 export interface SubscriptionHistoryResponse {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   current_subscription: any | null;
   history: SubscriptionHistoryEvent[];
   total_events: number;

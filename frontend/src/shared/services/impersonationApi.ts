@@ -54,7 +54,7 @@ export const impersonationApi = {
     try {
       const response = await api.post('/impersonations', request);
       return response.data;
-    } catch (error: any) {
+    } catch (error) {
       throw error;
     }
   },
@@ -66,7 +66,7 @@ export const impersonationApi = {
         data: { session_token: sessionToken }
       });
       return response.data;
-    } catch (error: any) {
+    } catch (error) {
       throw error;
     }
   },
@@ -76,7 +76,7 @@ export const impersonationApi = {
     try {
       const response = await api.get('/impersonations');
       return response.data;
-    } catch (error: any) {
+    } catch (error) {
       throw error;
     }
   },
@@ -88,7 +88,7 @@ export const impersonationApi = {
         params: { limit } 
       });
       return response.data;
-    } catch (error: any) {
+    } catch (error) {
       throw error;
     }
   },
@@ -98,7 +98,7 @@ export const impersonationApi = {
     try {
       const response = await api.get('/impersonations/users');
       return response.data;
-    } catch (error: any) {
+    } catch (error) {
       throw error;
     }
   },
@@ -113,7 +113,7 @@ export const impersonationApi = {
     try {
       const response = await api.post('/impersonations/validate', { token });
       return response.data;
-    } catch (error: any) {
+    } catch (error) {
       throw error;
     }
   }

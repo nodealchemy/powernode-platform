@@ -134,6 +134,7 @@ export const apiKeysApi = {
     try {
       const response = await api.get(`/api_keys?page=${page}&per_page=${perPage}`);
       return response.data;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       // Log error without sensitive information
       if (process.env.NODE_ENV === 'development') {
@@ -144,10 +145,10 @@ export const apiKeysApi = {
           method: error.config?.method
         });
       }
-      
+
       // Handle different types of errors more specifically
       let errorMessage = 'Failed to fetch API keys';
-      
+
       if (error.response) {
         // Server responded with error status
         const status = error.response.status;

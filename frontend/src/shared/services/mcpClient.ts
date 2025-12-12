@@ -5,19 +5,49 @@
 // MCP CLIENT TYPES
 // =============================================================================
 
+// JSON Schema type for tool schemas
+export interface JsonSchema {
+  type?: string;
+  properties?: Record<string, JsonSchema>;
+  required?: string[];
+  items?: JsonSchema;
+  enum?: string[];
+  description?: string;
+  default?: unknown;
+  [key: string]: unknown;
+}
+
+// MCP Server capabilities
+export interface McpServerCapabilities {
+  protocolVersion?: string;
+  tools?: { listChanged?: boolean };
+  resources?: { subscribe?: boolean };
+  prompts?: { listChanged?: boolean };
+  [key: string]: unknown;
+}
+
+// MCP tool metadata
+export interface McpToolMetadata {
+  agent_id?: string;
+  workflow_id?: string;
+  provider?: string;
+  category?: string;
+  [key: string]: unknown;
+}
+
 export interface McpMessage {
   jsonrpc: '2.0';
   id?: string | number;
   method?: string;
-  params?: any;
-  result?: any;
+  params?: Record<string, unknown>;
+  result?: unknown;
   error?: McpError;
 }
 
 export interface McpError {
   code: number;
   message: string;
-  data?: any;
+  data?: Record<string, unknown>;
 }
 
 export interface McpTool {
@@ -25,20 +55,20 @@ export interface McpTool {
   description: string;
   version: string;
   capabilities: string[];
-  inputSchema: any;
-  outputSchema: any;
-  metadata?: any;
+  inputSchema: JsonSchema;
+  outputSchema: JsonSchema;
+  metadata?: McpToolMetadata;
 }
 
 export interface McpToolInvocation {
   name: string;
-  arguments: Record<string, any>;
+  arguments: Record<string, unknown>;
 }
 
 export interface McpConnectionInfo {
   connectionId: string;
   protocolVersion: string;
-  serverCapabilities: any;
+  serverCapabilities: McpServerCapabilities;
   availableTools: number;
   userPermissions: string[];
 }
@@ -46,7 +76,7 @@ export interface McpConnectionInfo {
 export interface McpSubscription {
   resourceType: string;
   resourceId: string;
-  filters?: Record<string, any>;
+  filters?: Record<string, unknown>;
 }
 
 // =============================================================================
@@ -64,16 +94,24 @@ export interface McpErrorEvent {
 
 export type McpErrorHandler = (error: McpErrorEvent) => void;
 
+// Event data type for MCP events
+export interface McpEventData {
+  type?: string;
+  [key: string]: unknown;
+}
+
+export type McpEventHandler = (data: McpEventData) => void;
+
 export class McpClient {
   private ws: WebSocket | null = null;
   private messageId = 0;
   private pendingRequests = new Map<string | number, {
-    resolve: (value: any) => void;
-    reject: (error: any) => void;
+    resolve: (value: unknown) => void;
+    reject: (error: Error) => void;
     timestamp: number;
   }>();
   private subscriptions = new Map<string, McpSubscription>();
-  private eventHandlers = new Map<string, ((data: any) => void)[]>();
+  private eventHandlers = new Map<string, McpEventHandler[]>();
   private errorHandlers: McpErrorHandler[] = [];
   private connectionInfo: McpConnectionInfo | null = null;
   private reconnectAttempts = 0;
@@ -201,7 +239,12 @@ export class McpClient {
       }
     };
 
-    const response = await this.sendRequest('initialize_protocol', clientInfo);
+    const response = await this.sendRequest('initialize_protocol', clientInfo) as {
+      connection_id: string;
+      server_capabilities: McpServerCapabilities;
+      available_tools: number;
+      user_permissions: string[];
+    };
 
     this.connectionInfo = {
       connectionId: response.connection_id,
@@ -218,15 +261,15 @@ export class McpClient {
   // TOOL MANAGEMENT
   // =============================================================================
 
-  async listTools(filters?: Record<string, any>): Promise<{ tools: McpTool[] }> {
-    return this.sendRequest('list_tools', filters);
+  async listTools(filters?: Record<string, unknown>): Promise<{ tools: McpTool[] }> {
+    return this.sendRequest('list_tools', filters) as Promise<{ tools: McpTool[] }>;
   }
 
   async describeTool(toolName: string): Promise<McpTool> {
-    return this.sendRequest('describe_tool', { name: toolName });
+    return this.sendRequest('describe_tool', { name: toolName }) as Promise<McpTool>;
   }
 
-  async callTool(invocation: McpToolInvocation): Promise<any> {
+  async callTool(invocation: McpToolInvocation): Promise<unknown> {
     return this.sendRequest('call_tool', {
       name: invocation.name,
       arguments: invocation.arguments
@@ -237,7 +280,7 @@ export class McpClient {
   // AI AGENT OPERATIONS (MCP-ONLY)
   // =============================================================================
 
-  async executeAgent(agentId: string, inputParameters: Record<string, any>, options?: Record<string, any>): Promise<any> {
+  async executeAgent(agentId: string, inputParameters: Record<string, unknown>, options?: Record<string, unknown>): Promise<unknown> {
     return this.sendRequest('execute_agent', {
       agent_id: agentId,
       input_parameters: inputParameters,
@@ -245,7 +288,7 @@ export class McpClient {
     });
   }
 
-  async getAgents(filters?: Record<string, any>): Promise<{ tools: McpTool[] }> {
+  async getAgents(filters?: Record<string, unknown>): Promise<{ tools: McpTool[] }> {
     // Agents are now MCP tools, so we list tools with agent filter
     const agentFilters = { ...filters, type: 'ai_agent' };
     return this.listTools(agentFilters);
@@ -267,7 +310,7 @@ export class McpClient {
   // WORKFLOW OPERATIONS (MCP-ONLY)
   // =============================================================================
 
-  async executeWorkflow(workflowId: string, inputVariables?: Record<string, any>, options?: Record<string, any>): Promise<any> {
+  async executeWorkflow(workflowId: string, inputVariables?: Record<string, unknown>, options?: Record<string, unknown>): Promise<unknown> {
     return this.sendRequest('execute_workflow', {
       workflow_id: workflowId,
       input_variables: inputVariables || {},
@@ -275,7 +318,7 @@ export class McpClient {
     });
   }
 
-  async getWorkflows(filters?: Record<string, any>): Promise<{ tools: McpTool[] }> {
+  async getWorkflows(filters?: Record<string, unknown>): Promise<{ tools: McpTool[] }> {
     // Workflows are now MCP tools
     const workflowFilters = { ...filters, type: 'workflow' };
     return this.listTools(workflowFilters);
@@ -303,7 +346,8 @@ export class McpClient {
       filters: subscription.filters
     });
 
-    if (response.subscribed) {
+    const result = response as { subscribed?: boolean };
+    if (result.subscribed) {
       const key = `${subscription.resourceType}:${subscription.resourceId}`;
       this.subscriptions.set(key, subscription);
     }
@@ -319,14 +363,14 @@ export class McpClient {
   // EVENT HANDLING
   // =============================================================================
 
-  on(eventType: string, handler: (data: any) => void): void {
+  on(eventType: string, handler: McpEventHandler): void {
     if (!this.eventHandlers.has(eventType)) {
       this.eventHandlers.set(eventType, []);
     }
     this.eventHandlers.get(eventType)!.push(handler);
   }
 
-  off(eventType: string, handler: (data: any) => void): void {
+  off(eventType: string, handler: McpEventHandler): void {
     const handlers = this.eventHandlers.get(eventType);
     if (handlers) {
       const index = handlers.indexOf(handler);
@@ -341,7 +385,7 @@ export class McpClient {
   // =============================================================================
 
   async ping(): Promise<{ pong: boolean; timestamp: string }> {
-    return this.sendRequest('ping', {});
+    return this.sendRequest('ping', {}) as Promise<{ pong: boolean; timestamp: string }>;
   }
 
   getConnectionInfo(): McpConnectionInfo | null {
@@ -362,7 +406,7 @@ export class McpClient {
     return `${protocol}//${host}/cable`;
   }
 
-  private async sendRequest(method: string, params: any = {}): Promise<any> {
+  private async sendRequest(method: string, params: Record<string, unknown> = {}): Promise<unknown> {
     if (!this.isConnected()) {
       throw new Error('MCP client not connected');
     }
@@ -411,11 +455,11 @@ export class McpClient {
 
     // Handle notification/event
     if (message.method === 'notification' && message.params) {
-      this.handleNotification(message.params);
+      this.handleNotification(message.params as McpEventData);
     }
   }
 
-  private handleNotification(params: any): void {
+  private handleNotification(params: McpEventData): void {
     const eventType = params.type || 'unknown';
     const handlers = this.eventHandlers.get(eventType) || [];
 
@@ -466,7 +510,7 @@ export class McpClient {
     }
   }
 
-  private emit(eventType: string, data: any): void {
+  private emit(eventType: string, data: McpEventData): void {
     const handlers = this.eventHandlers.get(eventType) || [];
     handlers.forEach(handler => handler(data));
   }
@@ -506,11 +550,11 @@ if (typeof window !== 'undefined') {
 
 export const mcpApi = {
   // Agent operations
-  async executeAgent(agentId: string, input: string, context?: Record<string, any>) {
+  async executeAgent(agentId: string, input: string, context?: Record<string, unknown>) {
     return mcpClient.executeAgent(agentId, { input, context });
   },
 
-  async listAgents(filters?: Record<string, any>) {
+  async listAgents(filters?: Record<string, unknown>) {
     const result = await mcpClient.getAgents(filters);
     return {
       success: true,
@@ -527,11 +571,11 @@ export const mcpApi = {
   },
 
   // Workflow operations
-  async executeWorkflow(workflowId: string, inputVariables?: Record<string, any>) {
+  async executeWorkflow(workflowId: string, inputVariables?: Record<string, unknown>) {
     return mcpClient.executeWorkflow(workflowId, inputVariables);
   },
 
-  async listWorkflows(filters?: Record<string, any>) {
+  async listWorkflows(filters?: Record<string, unknown>) {
     const result = await mcpClient.getWorkflows(filters);
     return {
       success: true,
@@ -548,7 +592,7 @@ export const mcpApi = {
   },
 
   // Tool operations
-  async listTools(filters?: Record<string, any>) {
+  async listTools(filters?: Record<string, unknown>) {
     const result = await mcpClient.listTools(filters);
     return {
       success: true,
@@ -556,7 +600,7 @@ export const mcpApi = {
     };
   },
 
-  async callTool(toolName: string, arguments_: Record<string, any>) {
+  async callTool(toolName: string, arguments_: Record<string, unknown>) {
     return mcpClient.callTool({ name: toolName, arguments: arguments_ });
   },
 
@@ -593,7 +637,7 @@ export const legacyCompatApi = {
     }
   },
 
-  async post(url: string, data: any) {
+  async post(url: string, data: Record<string, unknown>) {
     if (process.env.NODE_ENV === 'development') {
       console.warn('[MCP_CLIENT] DEPRECATED: Using legacy API compatibility layer for POST', url);
     }
@@ -601,12 +645,17 @@ export const legacyCompatApi = {
     if (url.includes('/ai/agents') && url.includes('/execute')) {
       const agentId = url.match(/\/ai\/agents\/([^/]+)/)?.[1];
       if (agentId) {
-        return mcpApi.executeAgent(agentId, data.input_parameters?.input || '', data.input_parameters?.context);
+        const inputParams = data.input_parameters as Record<string, unknown> | undefined;
+        return mcpApi.executeAgent(
+          agentId,
+          (inputParams?.input as string) || '',
+          inputParams?.context as Record<string, unknown> | undefined
+        );
       }
     } else if (url.includes('/ai/workflows') && url.includes('/execute')) {
       const workflowId = url.match(/\/ai\/workflows\/([^/]+)/)?.[1];
       if (workflowId) {
-        return mcpApi.executeWorkflow(workflowId, data.input_variables);
+        return mcpApi.executeWorkflow(workflowId, data.input_variables as Record<string, unknown> | undefined);
       }
     }
 

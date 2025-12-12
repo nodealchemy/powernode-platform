@@ -92,6 +92,7 @@ export interface HealthStatus {
   redis?: HealthComponentStatus;
   providers?: HealthComponentStatus;
   workers?: HealthComponentStatus;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   circuit_breakers?: any;
   // Legacy field for backwards compatibility
   services?: Record<string, {

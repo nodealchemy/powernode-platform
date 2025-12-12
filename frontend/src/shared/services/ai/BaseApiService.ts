@@ -41,7 +41,7 @@ export interface QueryFilters {
   status?: string;
   sort_by?: string;
   sort_order?: 'asc' | 'desc';
-  [key: string]: any;
+  [key: string]: string | number | boolean | string[] | Record<string, unknown> | undefined;
 }
 
 /**
@@ -207,7 +207,7 @@ export abstract class BaseApiService {
    */
   protected async post<T>(
     url: string,
-    data?: any,
+    data?: unknown,
     config?: AxiosRequestConfig
   ): Promise<T> {
     const response = await this.client.post<ApiResponse<T> | T>(url, data, config);
@@ -219,7 +219,7 @@ export abstract class BaseApiService {
    */
   protected async put<T>(
     url: string,
-    data?: any,
+    data?: unknown,
     config?: AxiosRequestConfig
   ): Promise<T> {
     const response = await this.client.put<ApiResponse<T> | T>(url, data, config);
@@ -231,7 +231,7 @@ export abstract class BaseApiService {
    */
   protected async patch<T>(
     url: string,
-    data?: any,
+    data?: unknown,
     config?: AxiosRequestConfig
   ): Promise<T> {
     const response = await this.client.patch<ApiResponse<T> | T>(url, data, config);
@@ -281,7 +281,7 @@ export abstract class BaseApiService {
    * @param data - Resource data
    * @returns Created resource
    */
-  protected async create<T>(resource: string, data: any): Promise<T> {
+  protected async create<T>(resource: string, data: unknown): Promise<T> {
     const path = this.buildPath(resource);
     return this.post<T>(path, data);
   }
@@ -294,7 +294,7 @@ export abstract class BaseApiService {
    * @param data - Update data
    * @returns Updated resource
    */
-  protected async update<T>(resource: string, id: string, data: any): Promise<T> {
+  protected async update<T>(resource: string, id: string, data: unknown): Promise<T> {
     const path = this.buildPath(resource, id);
     return this.patch<T>(path, data);
   }
@@ -324,7 +324,7 @@ export abstract class BaseApiService {
     resource: string,
     id: string,
     action: string,
-    data?: any
+    data?: unknown
   ): Promise<T> {
     const path = this.buildPath(resource, id, undefined, undefined, action);
     return this.post<T>(path, data);
@@ -382,7 +382,7 @@ export abstract class BaseApiService {
     parentResource: string,
     parentId: string,
     nestedResource: string,
-    data: any
+    data: unknown
   ): Promise<T> {
     const path = this.buildPath(parentResource, parentId, nestedResource);
     return this.post<T>(path, data);
@@ -405,7 +405,7 @@ export abstract class BaseApiService {
     nestedResource: string,
     nestedId: string,
     action: string,
-    data?: any
+    data?: unknown
   ): Promise<T> {
     const path = this.buildPath(parentResource, parentId, nestedResource, nestedId, action);
     return this.post<T>(path, data);

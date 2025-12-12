@@ -1,4 +1,5 @@
 import { api } from '@/shared/services/api';
+import { isErrorWithResponse } from '@/shared/utils/errorHandling';
 
 export interface EmailSettings {
   email_provider: 'smtp' | 'sendgrid' | 'ses' | 'mailgun';
@@ -58,9 +59,9 @@ export const emailSettingsApi = {
       
       // Fallback for backward compatibility
       return response.data.data || response.data || { message: 'Test email queued successfully', status: 'success' };
-    } catch (error: any) {
+    } catch (error) {
       // Re-throw with structured error information
-      if (error.response?.data) {
+      if (isErrorWithResponse(error) && error.response?.data) {
         const errorData = error.response.data;
         throw new Error(errorData.error || errorData.message || 'Failed to send test email');
       }

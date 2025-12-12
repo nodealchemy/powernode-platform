@@ -47,13 +47,13 @@ class ValidationApiService extends BaseApiService {
     workflowId: string,
     issueIds: string[]
   ): Promise<{
-    workflow: any;
+    workflow: Record<string, unknown>;
     fixed_issues: string[];
     remaining_issues: ValidationIssue[];
   }> {
     const path = this.buildPath(this.resource);
     return this.post<{
-      workflow: any;
+      workflow: Record<string, unknown>;
       fixed_issues: string[];
       remaining_issues: ValidationIssue[];
     }>(`${path}/${workflowId}/auto_fix`, {

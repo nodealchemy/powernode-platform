@@ -195,22 +195,27 @@ class APIClient {
   }
 
   // HTTP Methods
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async get<T = any>(url: string, config?: AxiosRequestConfig & { silentAuth?: boolean }): Promise<AxiosResponse<T>> {
     return this.client.get(url, config);
   }
 
-  async post<T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  async post<T = any>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
     return this.client.post(url, data, config);
   }
 
-  async put<T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  async put<T = any>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
     return this.client.put(url, data, config);
   }
 
-  async patch<T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  async patch<T = any>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
     return this.client.patch(url, data, config);
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async delete<T = any>(url: string, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
     return this.client.delete(url, config);
   }

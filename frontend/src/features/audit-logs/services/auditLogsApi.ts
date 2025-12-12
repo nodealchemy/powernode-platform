@@ -298,6 +298,7 @@ export const auditLogsApi = {
   },
 
   // Cleanup old audit logs
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async cleanup(cutoffDate: Date): Promise<{ success: boolean; message?: string; error?: string; data?: any }> {
     try {
       const response = await api.delete('/audit_logs/cleanup', {

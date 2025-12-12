@@ -1,5 +1,67 @@
 import { BaseApiService } from './BaseApiService';
 
+// JSON Schema type for tool input schemas
+export interface JsonSchema {
+  type?: string;
+  properties?: Record<string, JsonSchema>;
+  required?: string[];
+  items?: JsonSchema;
+  description?: string;
+  default?: unknown;
+  enum?: unknown[];
+  [key: string]: unknown;
+}
+
+// Prompt argument type
+export interface McpPromptArgument {
+  name: string;
+  description?: string;
+  required?: boolean;
+  type?: string;
+  default?: unknown;
+}
+
+// Raw backend response types for MCP servers
+interface McpServerRawResponse {
+  id: string;
+  name: string;
+  description?: string;
+  status: 'connected' | 'disconnected' | 'connecting' | 'error';
+  connection_type: 'stdio' | 'sse' | 'websocket' | 'http';
+  auth_type?: 'none' | 'api_key' | 'oauth2';
+  tools_count?: number;
+  last_connected_at?: string;
+  last_error?: string;
+  config?: {
+    version?: string;
+    protocol_version?: string;
+    capabilities?: {
+      tools?: boolean;
+      resources?: boolean;
+      prompts?: boolean;
+      logging?: boolean;
+    };
+    resources_count?: number;
+    prompts_count?: number;
+    metadata?: {
+      author?: string;
+      url?: string;
+      icon?: string;
+    };
+  };
+  tools?: McpToolRawResponse[];
+  oauth_status?: McpServerOAuthStatus;
+}
+
+interface McpToolRawResponse {
+  id: string;
+  name: string;
+  description?: string;
+  input_schema?: JsonSchema;
+  category?: string;
+  tags?: string[];
+}
+
 export interface McpServerOAuthStatus {
   auth_type: 'none' | 'api_key' | 'oauth2';
   oauth_configured: boolean;
@@ -56,7 +118,7 @@ export interface McpTool {
   server_name: string;
   name: string;
   description?: string;
-  input_schema: any;
+  input_schema: JsonSchema;
   category?: string;
   tags?: string[];
 }
@@ -77,12 +139,12 @@ export interface McpPrompt {
   server_name: string;
   name: string;
   description?: string;
-  arguments?: any[];
+  arguments?: McpPromptArgument[];
 }
 
 export interface McpToolExecutionResult {
   success: boolean;
-  result?: any;
+  result?: unknown;
   error?: string;
   execution_time_ms: number;
   tool_id: string;
@@ -94,8 +156,8 @@ export interface McpToolExecution {
   status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
   user_id: string;
   user_name?: string;
-  parameters?: Record<string, any>;
-  result?: Record<string, any>;
+  parameters?: Record<string, unknown>;
+  result?: Record<string, unknown>;
   error_message?: string;
   duration_ms?: number;
   created_at: string;
@@ -149,7 +211,7 @@ class McpApiService extends BaseApiService {
 
     // Fetch servers
     const response = await this.get<{
-      mcp_servers: any[];
+      mcp_servers: McpServerRawResponse[];
       meta: {
         total: number;
         connected_count: number;
@@ -159,7 +221,7 @@ class McpApiService extends BaseApiService {
     }>(url);
 
     // Map backend response to frontend types
-    const servers: McpServer[] = response.mcp_servers.map((s: any) => ({
+    const servers: McpServer[] = response.mcp_servers.map((s) => ({
       id: s.id,
       name: s.name,
       description: s.description,
@@ -213,7 +275,7 @@ class McpApiService extends BaseApiService {
     prompts: McpPrompt[];
   }> {
     const response = await this.get<{
-      mcp_server: any;
+      mcp_server: McpServerRawResponse;
     }>(`/mcp_servers/${serverId}`);
 
     const s = response.mcp_server;
@@ -239,7 +301,7 @@ class McpApiService extends BaseApiService {
       metadata: s.config?.metadata
     };
 
-    const tools: McpTool[] = (s.tools || []).map((t: any) => ({
+    const tools: McpTool[] = (s.tools || []).map((t) => ({
       id: t.id,
       server_id: s.id,
       server_name: s.name,
@@ -258,7 +320,7 @@ class McpApiService extends BaseApiService {
    */
   async connectServer(serverId: string): Promise<{ server: McpServer }> {
     const response = await this.post<{
-      mcp_server: any;
+      mcp_server: McpServerRawResponse;
       message: string;
     }>(`/mcp_servers/${serverId}/connect`, {});
 
@@ -288,7 +350,7 @@ class McpApiService extends BaseApiService {
    */
   async disconnectServer(serverId: string): Promise<{ server: McpServer }> {
     const response = await this.post<{
-      mcp_server: any;
+      mcp_server: McpServerRawResponse;
       message: string;
     }>(`/mcp_servers/${serverId}/disconnect`, {});
 
@@ -333,7 +395,7 @@ class McpApiService extends BaseApiService {
     env?: Record<string, string>;
   }): Promise<{ server: McpServer }> {
     const response = await this.post<{
-      mcp_server: any;
+      mcp_server: McpServerRawResponse;
     }>('/mcp_servers', { mcp_server: data });
 
     const s = response.mcp_server;
@@ -369,7 +431,7 @@ class McpApiService extends BaseApiService {
     env?: Record<string, string>;
   }): Promise<{ server: McpServer }> {
     const response = await this.patch<{
-      mcp_server: any;
+      mcp_server: McpServerRawResponse;
     }>(`/mcp_servers/${serverId}`, { mcp_server: data });
 
     const s = response.mcp_server;
@@ -426,11 +488,11 @@ class McpApiService extends BaseApiService {
     const url = `/mcp_servers/${filters.server_id}/mcp_tools${query ? `?${query}` : ''}`;
 
     const response = await this.get<{
-      mcp_tools: any[];
+      mcp_tools: McpToolRawResponse[];
       mcp_server: { id: string; name: string };
     }>(url);
 
-    const tools: McpTool[] = response.mcp_tools.map((t: any) => ({
+    const tools: McpTool[] = response.mcp_tools.map((t) => ({
       id: t.id,
       server_id: response.mcp_server.id,
       server_name: response.mcp_server.name,
@@ -449,7 +511,7 @@ class McpApiService extends BaseApiService {
    */
   async getTool(serverId: string, toolId: string): Promise<{ tool: McpTool }> {
     const response = await this.get<{
-      mcp_tool: any;
+      mcp_tool: McpToolRawResponse;
       mcp_server: { id: string; name: string };
     }>(`/mcp_servers/${serverId}/mcp_tools/${toolId}`);
 
@@ -473,13 +535,13 @@ class McpApiService extends BaseApiService {
   async executeTool(
     serverId: string,
     toolId: string,
-    parameters: Record<string, any>
+    parameters: Record<string, unknown>
   ): Promise<McpToolExecutionResult> {
     const response = await this.post<{
       execution: {
         id: string;
         status: string;
-        result?: any;
+        result?: unknown;
         error_message?: string;
         duration_ms?: number;
       };
@@ -515,7 +577,7 @@ class McpApiService extends BaseApiService {
    */
   async getResource(_resourceId: string): Promise<{
     resource: McpResource;
-    content: any;
+    content: unknown;
   }> {
     throw new Error('Resources endpoint not yet implemented');
   }
@@ -525,7 +587,7 @@ class McpApiService extends BaseApiService {
    */
   async readResource(_uri: string): Promise<{
     uri: string;
-    content: any;
+    content: unknown;
     mime_type?: string;
   }> {
     throw new Error('Resources endpoint not yet implemented');
@@ -554,7 +616,7 @@ class McpApiService extends BaseApiService {
    */
   async executePrompt(
     _promptId: string,
-    _arguments: Record<string, any>
+    _arguments: Record<string, unknown>
   ): Promise<{
     prompt_id: string;
     messages: Array<{
@@ -690,7 +752,7 @@ class McpApiService extends BaseApiService {
     const response = await this.post<{
       mcp_server_id: string;
       tools_discovered: number;
-      tools: any[];
+      tools: McpToolRawResponse[];
       message: string;
     }>(`/mcp_servers/${serverId}/discover_tools`, {});
 
@@ -816,7 +878,7 @@ class McpApiService extends BaseApiService {
     config: McpServerOAuthConfig
   ): Promise<{ server: McpServer }> {
     const response = await this.patch<{
-      mcp_server: any;
+      mcp_server: McpServerRawResponse;
     }>(`/mcp_servers/${serverId}`, {
       mcp_server: {
         auth_type: config.auth_type,

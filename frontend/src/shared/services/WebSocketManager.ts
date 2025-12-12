@@ -380,6 +380,7 @@ export class WebSocketManager {
   /**
    * Send a message to a channel
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   public sendMessage(channel: string, action: string, data?: any, params?: Record<string, any>): boolean {
     if (!this.ws) {
       return false;

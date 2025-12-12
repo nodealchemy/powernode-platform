@@ -28,9 +28,10 @@ const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
     }
     
     return response.data;
-  } catch (error: any) {
-    if (error.response?.data) {
-      throw new Error(error.response.data.message || error.response.data.error || 'API request failed');
+  } catch (error: unknown) {
+    const apiError = error as { response?: { data?: { message?: string; error?: string } } };
+    if (apiError.response?.data) {
+      throw new Error(apiError.response.data.message || apiError.response.data.error || 'API request failed');
     }
     throw error;
   }
@@ -275,6 +276,7 @@ export const delegationApi = {
 
 
   // Create delegation request (placeholder - implement based on backend)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async createDelegationRequest(data: any): Promise<{ request: DelegationRequest }> {
     return apiRequest('/api/v1/delegation-requests', {
       method: 'POST',

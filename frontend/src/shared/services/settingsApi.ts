@@ -1,4 +1,5 @@
 import { api } from '@/shared/services/api';
+import { isErrorWithResponse } from '@/shared/utils/errorHandling';
 
 export interface PublicSettings {
   system_name: string;
@@ -89,11 +90,11 @@ export const settingsApi = {
     try {
       const response = await api.get('/settings/public');
       return response.data;
-    } catch (error: any) {
+    } catch (error) {
       return {
         success: false,
         data: {} as PublicSettings,
-        error: error.response?.data?.error || 'Failed to fetch public settings'
+        error: isErrorWithResponse(error) ? (error.response?.data?.error || 'Failed to fetch public settings') : 'Failed to fetch public settings'
       };
     }
   },
@@ -103,11 +104,11 @@ export const settingsApi = {
     try {
       const response = await api.get('/settings');
       return response.data;
-    } catch (error: any) {
+    } catch (error) {
       return {
         success: false,
         data: {} as UserSettingsData,
-        error: error.response?.data?.error || 'Failed to fetch user settings'
+        error: isErrorWithResponse(error) ? (error.response?.data?.error || 'Failed to fetch user settings') : 'Failed to fetch user settings'
       };
     }
   },
@@ -117,12 +118,12 @@ export const settingsApi = {
     try {
       const response = await api.put('/settings', { settings });
       return response.data;
-    } catch (error: any) {
+    } catch (error) {
       return {
         success: false,
         data: {} as UserSettingsData,
-        error: error.response?.data?.error || 'Failed to update user settings',
-        message: error.response?.data?.details?.join(', ')
+        error: isErrorWithResponse(error) ? (error.response?.data?.error || 'Failed to update user settings') : 'Failed to update user settings',
+        message: isErrorWithResponse(error) ? error.response?.data?.errors?.join(', ') : undefined
       };
     }
   },
@@ -188,11 +189,11 @@ export const settingsApi = {
       
       const response = await api.put('/auth/change-password', backendParams);
       return response.data;
-    } catch (error: any) {
+    } catch (error) {
       return {
         success: false,
-        error: error.response?.data?.error || 'Failed to change password',
-        message: error.response?.data?.details?.join(', ')
+        error: isErrorWithResponse(error) ? (error.response?.data?.error || 'Failed to change password') : 'Failed to change password',
+        message: isErrorWithResponse(error) ? error.response?.data?.errors?.join(', ') : undefined
       };
     }
   },
@@ -202,11 +203,11 @@ export const settingsApi = {
     try {
       const response = await api.put('/users/profile', profileData);
       return response.data;
-    } catch (error: any) {
+    } catch (error) {
       return {
         success: false,
-        error: error.response?.data?.error || 'Failed to update profile',
-        message: error.response?.data?.details?.join(', ')
+        error: isErrorWithResponse(error) ? (error.response?.data?.error || 'Failed to update profile') : 'Failed to update profile',
+        message: isErrorWithResponse(error) ? error.response?.data?.errors?.join(', ') : undefined
       };
     }
   }

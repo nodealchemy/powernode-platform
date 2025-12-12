@@ -1,4 +1,5 @@
 import { api } from '@/shared/services/api';
+import { isErrorWithResponse } from '@/shared/utils/errorHandling';
 
 // Types
 export interface SystemMetrics {
@@ -114,10 +115,10 @@ export const performanceApi = {
     try {
       const response = await api.get('/admin/performance/metrics');
       return response.data;
-    } catch (error: any) {
+    } catch (error) {
       return {
         success: false,
-        error: error.response?.data?.error || 'Failed to fetch system metrics'
+        error: isErrorWithResponse(error) ? (error.response?.data?.error || 'Failed to fetch system metrics') : 'Failed to fetch system metrics'
       };
     }
   },
@@ -127,10 +128,10 @@ export const performanceApi = {
     try {
       const response = await api.get(`/admin/performance/stats?time_range=${timeRange}`);
       return response.data;
-    } catch (error: any) {
+    } catch (error) {
       return {
         success: false,
-        error: error.response?.data?.error || 'Failed to fetch performance stats'
+        error: isErrorWithResponse(error) ? (error.response?.data?.error || 'Failed to fetch performance stats') : 'Failed to fetch performance stats'
       };
     }
   },
@@ -140,10 +141,10 @@ export const performanceApi = {
     try {
       const response = await api.get('/admin/performance/settings');
       return response.data;
-    } catch (error: any) {
+    } catch (error) {
       return {
         success: false,
-        error: error.response?.data?.error || 'Failed to fetch performance settings'
+        error: isErrorWithResponse(error) ? (error.response?.data?.error || 'Failed to fetch performance settings') : 'Failed to fetch performance settings'
       };
     }
   },
@@ -153,10 +154,10 @@ export const performanceApi = {
     try {
       const response = await api.put('/admin/performance/settings', { settings });
       return response.data;
-    } catch (error: any) {
+    } catch (error) {
       return {
         success: false,
-        error: error.response?.data?.error || 'Failed to update performance settings'
+        error: isErrorWithResponse(error) ? (error.response?.data?.error || 'Failed to update performance settings') : 'Failed to update performance settings'
       };
     }
   },
@@ -166,10 +167,10 @@ export const performanceApi = {
     try {
       const response = await api.get('/admin/performance/cache');
       return response.data;
-    } catch (error: any) {
+    } catch (error) {
       return {
         success: false,
-        error: error.response?.data?.error || 'Failed to fetch cache stats'
+        error: isErrorWithResponse(error) ? (error.response?.data?.error || 'Failed to fetch cache stats') : 'Failed to fetch cache stats'
       };
     }
   },
@@ -179,10 +180,10 @@ export const performanceApi = {
     try {
       const response = await api.get('/admin/performance/database');
       return response.data;
-    } catch (error: any) {
+    } catch (error) {
       return {
         success: false,
-        error: error.response?.data?.error || 'Failed to fetch database stats'
+        error: isErrorWithResponse(error) ? (error.response?.data?.error || 'Failed to fetch database stats') : 'Failed to fetch database stats'
       };
     }
   },
@@ -192,10 +193,10 @@ export const performanceApi = {
     try {
       const response = await api.get('/admin/performance/queue');
       return response.data;
-    } catch (error: any) {
+    } catch (error) {
       return {
         success: false,
-        error: error.response?.data?.error || 'Failed to fetch queue stats'
+        error: isErrorWithResponse(error) ? (error.response?.data?.error || 'Failed to fetch queue stats') : 'Failed to fetch queue stats'
       };
     }
   },
@@ -205,10 +206,10 @@ export const performanceApi = {
     try {
       const response = await api.get('/admin/performance/alerts');
       return response.data;
-    } catch (error: any) {
+    } catch (error) {
       return {
         success: false,
-        error: error.response?.data?.error || 'Failed to fetch performance alerts'
+        error: isErrorWithResponse(error) ? (error.response?.data?.error || 'Failed to fetch performance alerts') : 'Failed to fetch performance alerts'
       };
     }
   },
@@ -218,10 +219,10 @@ export const performanceApi = {
     try {
       const response = await api.post(`/admin/performance/alerts/${alertId}/dismiss`);
       return response.data;
-    } catch (error: any) {
+    } catch (error) {
       return {
         success: false,
-        error: error.response?.data?.error || 'Failed to dismiss alert'
+        error: isErrorWithResponse(error) ? (error.response?.data?.error || 'Failed to dismiss alert') : 'Failed to dismiss alert'
       };
     }
   },
@@ -231,10 +232,10 @@ export const performanceApi = {
     try {
       const response = await api.get('/admin/performance/optimizations');
       return response.data;
-    } catch (error: any) {
+    } catch (error) {
       return {
         success: false,
-        error: error.response?.data?.error || 'Failed to fetch optimization actions'
+        error: isErrorWithResponse(error) ? (error.response?.data?.error || 'Failed to fetch optimization actions') : 'Failed to fetch optimization actions'
       };
     }
   },
@@ -244,10 +245,10 @@ export const performanceApi = {
     try {
       const response = await api.post(`/admin/performance/optimizations/${actionId}/execute`);
       return response.data;
-    } catch (error: any) {
+    } catch (error) {
       return {
         success: false,
-        error: error.response?.data?.error || 'Failed to execute optimization'
+        error: isErrorWithResponse(error) ? (error.response?.data?.error || 'Failed to execute optimization') : 'Failed to execute optimization'
       };
     }
   },
@@ -257,10 +258,10 @@ export const performanceApi = {
     try {
       const response = await api.post('/admin/performance/cache/clear', { cache_type: cacheType });
       return response.data;
-    } catch (error: any) {
+    } catch (error) {
       return {
         success: false,
-        error: error.response?.data?.error || 'Failed to clear cache'
+        error: isErrorWithResponse(error) ? (error.response?.data?.error || 'Failed to clear cache') : 'Failed to clear cache'
       };
     }
   },
@@ -270,10 +271,10 @@ export const performanceApi = {
     try {
       const response = await api.post('/admin/performance/workers/restart');
       return response.data;
-    } catch (error: any) {
+    } catch (error) {
       return {
         success: false,
-        error: error.response?.data?.error || 'Failed to restart workers'
+        error: isErrorWithResponse(error) ? (error.response?.data?.error || 'Failed to restart workers') : 'Failed to restart workers'
       };
     }
   },
@@ -286,10 +287,10 @@ export const performanceApi = {
         format: format
       });
       return response.data;
-    } catch (error: any) {
+    } catch (error) {
       return {
         success: false,
-        error: error.response?.data?.error || 'Failed to generate performance report'
+        error: isErrorWithResponse(error) ? (error.response?.data?.error || 'Failed to generate performance report') : 'Failed to generate performance report'
       };
     }
   },

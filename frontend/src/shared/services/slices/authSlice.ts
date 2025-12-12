@@ -2,6 +2,7 @@ import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { authApi } from '@/features/auth/services/authAPI';
 import { impersonationApi } from '../impersonationApi';
 import { setAuthDomain, clearAuthDomain } from '@/shared/utils/domainUtils';
+import { getErrorMessage, isErrorWithResponse } from '@/shared/utils/errorHandling';
 
 export interface User {
   id: string;
@@ -93,12 +94,12 @@ export const register = createAsyncThunk(
       const response = await authApi.register(userData);
       // Backend returns {success: true, data: {...}}, we need to unwrap the nested data
       return response.data.data || response.data;
-    } catch (error: any) {
+    } catch (error) {
       // Handle HTTP errors properly
-      if (error.response?.data) {
+      if (isErrorWithResponse(error) && error.response?.data) {
         return rejectWithValue(error.response.data);
       }
-      return rejectWithValue({ error: error.message || 'Registration failed' });
+      return rejectWithValue({ error: getErrorMessage(error) || 'Registration failed' });
     }
   }
 );
@@ -121,8 +122,10 @@ export const refreshAccessToken = createAsyncThunk(
       const response = await authApi.refreshToken(refresh_token);
       // Backend returns {success: true, data: {...}}, we need to unwrap the nested data
       return response.data.data || response.data;
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.error || error.response?.data?.message || 'Token refresh failed';
+    } catch (error) {
+      const errorMessage = isErrorWithResponse(error)
+        ? (error.response?.data?.error || error.response?.data?.message || 'Token refresh failed')
+        : getErrorMessage(error);
 
       // Check for signature verification failure or other token invalidity issues
       if (errorMessage.includes('Signature verification failed') ||
@@ -145,11 +148,13 @@ export const getCurrentUser = createAsyncThunk(
       const response = await authApi.getCurrentUser(silentAuth);
       // Backend returns {success: true, data: {...}}, we need to unwrap the nested data
       return response.data.data || response.data;
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.error || error.response?.data?.message || 'Failed to get current user';
+    } catch (error) {
+      const errorMessage = isErrorWithResponse(error)
+        ? (error.response?.data?.error || error.response?.data?.message || 'Failed to get current user')
+        : getErrorMessage(error);
 
       // Check for token invalidity issues that require immediate token clearance
-      if (error.response?.status === 401 &&
+      if (isErrorWithResponse(error) && error.response?.status === 401 &&
           (errorMessage.includes('Invalid token') ||
            errorMessage.includes('Signature verification failed') ||
            errorMessage.includes('Token has been blacklisted'))) {
@@ -168,8 +173,12 @@ export const resendVerificationEmail = createAsyncThunk(
       const response = await authApi.resendVerification();
       // Backend returns {success: true, data: {...}}, we need to unwrap the nested data
       return response.data.data || response.data;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.error || 'Failed to resend verification email');
+    } catch (error) {
+      return rejectWithValue(
+        isErrorWithResponse(error) && error.response?.data?.error
+          ? error.response.data.error
+          : 'Failed to resend verification email'
+      );
     }
   }
 );
@@ -192,8 +201,8 @@ export const startImpersonation = createAsyncThunk(
         ...response.data,
         originalUser,
       };
-    } catch (error: any) {
-      return rejectWithValue(error.message || 'Failed to start impersonation');
+    } catch (error) {
+      return rejectWithValue(getErrorMessage(error) || 'Failed to start impersonation');
     }
   }
 );
@@ -215,8 +224,8 @@ export const stopImpersonation = createAsyncThunk(
       }
 
       return response.data;
-    } catch (error: any) {
-      return rejectWithValue(error.message || 'Failed to stop impersonation');
+    } catch (error) {
+      return rejectWithValue(getErrorMessage(error) || 'Failed to stop impersonation');
     }
   }
 );
@@ -243,8 +252,12 @@ export const checkImpersonationStatus = createAsyncThunk(
         session: response.data?.session || null,
         expires_at: response.data?.expires_at || null
       };
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.error || 'Failed to get impersonation session');
+    } catch (error) {
+      return rejectWithValue(
+        isErrorWithResponse(error) && error.response?.data?.error
+          ? error.response.data.error
+          : 'Failed to get impersonation session'
+      );
     }
   }
 );
@@ -256,8 +269,12 @@ export const verify2FA = createAsyncThunk(
       const response = await authApi.verify2FA(verificationToken, code);
       // Backend returns {success: true, data: {...}}, we need to unwrap the nested data
       return response.data.data || response.data;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.error || error.response?.data?.message || '2FA verification failed');
+    } catch (error) {
+      return rejectWithValue(
+        isErrorWithResponse(error)
+          ? (error.response?.data?.error || error.response?.data?.message || '2FA verification failed')
+          : getErrorMessage(error)
+      );
     }
   }
 );
@@ -367,7 +384,7 @@ const authSlice = createSlice({
         let errorMessage = 'Registration failed';
         
         if (action.payload && typeof action.payload === 'object') {
-          const payload = action.payload as any;
+          const payload = action.payload as { error?: string; message?: string };
           if (payload.error) {
             errorMessage = payload.error;
           } else if (payload.message) {

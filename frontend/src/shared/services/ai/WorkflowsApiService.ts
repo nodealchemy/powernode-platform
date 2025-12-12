@@ -7,11 +7,111 @@ import type {
   WorkflowTemplate
 } from '../../types/workflow';
 
-// TODO: These types need to be properly defined in workflow.ts
-// Using Record<string, any> as placeholder until backend types are finalized
-type WorkflowSchedule = Record<string, any>;
+// Workflow schedule type (pending full backend type definition)
+export interface WorkflowSchedule {
+  id: string;
+  workflow_id: string;
+  cron_expression?: string;
+  timezone?: string;
+  is_active: boolean;
+  next_run_at?: string;
+  last_run_at?: string;
+  created_at: string;
+  updated_at: string;
+  [key: string]: unknown;
+}
+
 type WorkflowTrigger = AiWorkflowTrigger;
-type WorkflowVersion = Record<string, any>;
+
+// Workflow version type (pending full backend type definition)
+export interface WorkflowVersion {
+  id: string;
+  workflow_id: string;
+  version_number: number;
+  description?: string;
+  nodes?: unknown[];
+  edges?: unknown[];
+  created_at: string;
+  [key: string]: unknown;
+}
+
+// Export workflow response structure
+export interface WorkflowExportData {
+  exportData: {
+    workflow: AiWorkflow;
+    nodes?: unknown[];
+    edges?: unknown[];
+    metadata?: Record<string, unknown>;
+    exported_at?: string;
+    version?: string;
+  };
+  filename: string;
+}
+
+// Import workflow data structure (flexible interface for various import sources)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type WorkflowImportData = Record<string, any>;
+
+// Dry run result structure
+export interface DryRunResult {
+  success: boolean;
+  simulated_outputs: Record<string, unknown>;
+  node_results: Array<{
+    node_id: string;
+    status: string;
+    output?: unknown;
+    error?: string;
+  }>;
+  estimated_duration_ms?: number;
+  warnings?: string[];
+}
+
+// Workflow run log entry
+export interface WorkflowRunLog {
+  id: string;
+  run_id: string;
+  node_id?: string;
+  level: 'debug' | 'info' | 'warn' | 'error';
+  message: string;
+  timestamp: string;
+  metadata?: Record<string, unknown>;
+}
+
+// Trigger test result
+export interface TriggerTestResult {
+  success: boolean;
+  trigger_id: string;
+  matched: boolean;
+  match_details?: Record<string, unknown>;
+  error?: string;
+}
+
+// Version comparison result
+export interface VersionComparison {
+  version_a: string;
+  version_b: string;
+  differences: Array<{
+    path: string;
+    type: 'added' | 'removed' | 'modified';
+    old_value?: unknown;
+    new_value?: unknown;
+  }>;
+  summary: {
+    nodes_added: number;
+    nodes_removed: number;
+    nodes_modified: number;
+    edges_added: number;
+    edges_removed: number;
+  };
+}
+
+// Pagination metadata type
+export interface PaginationMeta {
+  current_page: number;
+  total_pages: number;
+  total_count: number;
+  per_page: number;
+}
 
 /**
  * WorkflowsApiService - Workflows Controller API Client
@@ -81,10 +181,10 @@ export interface CreateWorkflowRequest {
   tags?: string[];
   execution_mode?: 'sequential' | 'parallel' | 'conditional';
   timeout_seconds?: number;
-  configuration?: Record<string, any>;
-  metadata?: Record<string, any>;
-  input_schema?: Record<string, any>;
-  output_schema?: Record<string, any>;
+  configuration?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+  input_schema?: Record<string, unknown>;
+  output_schema?: Record<string, unknown>;
   nodes?: Array<{
     node_id: string;
     node_type: string;
@@ -92,8 +192,8 @@ export interface CreateWorkflowRequest {
     description?: string;
     position_x: number;
     position_y: number;
-    configuration?: Record<string, any>;
-    metadata?: Record<string, any>;
+    configuration?: Record<string, unknown>;
+    metadata?: Record<string, unknown>;
   }>;
   edges?: Array<{
     edge_id: string;
@@ -102,16 +202,16 @@ export interface CreateWorkflowRequest {
     source_handle?: string;
     target_handle?: string;
     condition_type?: string;
-    condition_value?: any;
-    metadata?: Record<string, any>;
+    condition_value?: unknown;
+    metadata?: Record<string, unknown>;
   }>;
 }
 
 export interface ExecuteWorkflowRequest {
-  input_variables?: Record<string, any>;
+  input_variables?: Record<string, unknown>;
   trigger_type?: string;
-  trigger_context?: Record<string, any>;
-  execution_options?: Record<string, any>;
+  trigger_context?: Record<string, unknown>;
+  execution_options?: Record<string, unknown>;
 }
 
 export interface WorkflowStatistics {
@@ -159,10 +259,10 @@ export interface BatchExecutionConfig {
   workflow_ids: string[];
   concurrency: number;
   stop_on_error: boolean;
-  input_variables?: Record<string, any>;
+  input_variables?: Record<string, unknown>;
   execution_mode: 'parallel' | 'sequential';
   timeout_seconds?: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface BatchWorkflowStatus {
@@ -280,17 +380,17 @@ class WorkflowsApiService extends BaseApiService {
    * Export workflow
    * GET /api/v1/ai/workflows/:id/export
    */
-  async exportWorkflow(id: string): Promise<any> {
+  async exportWorkflow(id: string): Promise<WorkflowExportData> {
     const path = this.buildPath(this.resource, id, undefined, undefined, 'export');
-    return this.get<any>(path);
+    return this.get<WorkflowExportData>(path);
   }
 
   /**
    * Dry run workflow (test execution without side effects)
    * POST /api/v1/ai/workflows/:id/dry_run
    */
-  async dryRunWorkflow(id: string, request: ExecuteWorkflowRequest): Promise<any> {
-    return this.performAction<any>(this.resource, id, 'dry_run', request);
+  async dryRunWorkflow(id: string, request: ExecuteWorkflowRequest): Promise<DryRunResult> {
+    return this.performAction<DryRunResult>(this.resource, id, 'dry_run', request);
   }
 
   // ===================================================================
@@ -301,7 +401,7 @@ class WorkflowsApiService extends BaseApiService {
    * Import workflow from JSON
    * POST /api/v1/ai/workflows/import
    */
-  async importWorkflow(importData: any, name?: string): Promise<AiWorkflow> {
+  async importWorkflow(importData: WorkflowImportData | WorkflowExportData | Record<string, unknown>, name?: string): Promise<AiWorkflow> {
     const path = this.buildPath(this.resource);
     return this.post<AiWorkflow>(`${path}/import`, { import_data: importData, name });
   }
@@ -502,9 +602,9 @@ class WorkflowsApiService extends BaseApiService {
    * Get workflow run logs
    * GET /api/v1/ai/workflows/:workflow_id/runs/:id/logs
    */
-  async getRunLogs(workflowId: string, runId: string): Promise<any[]> {
+  async getRunLogs(workflowId: string, runId: string): Promise<WorkflowRunLog[]> {
     const path = this.buildPath(this.resource, workflowId, 'runs', runId, 'logs');
-    return this.get<any[]>(path);
+    return this.get<WorkflowRunLog[]>(path);
   }
 
   /**
@@ -515,7 +615,7 @@ class WorkflowsApiService extends BaseApiService {
     const path = this.buildPath(this.resource, workflowId, 'runs', runId, 'node_executions');
     // Backend returns {node_executions: [...], pagination: {...}, total_count: 3}
     // Extract just the node_executions array
-    const response = await this.get<{node_executions: AiWorkflowNodeExecution[]; pagination?: any; total_count?: number}>(path);
+    const response = await this.get<{node_executions: AiWorkflowNodeExecution[]; pagination?: PaginationMeta; total_count?: number}>(path);
     return response.node_executions || [];
   }
 
@@ -532,9 +632,9 @@ class WorkflowsApiService extends BaseApiService {
    * Download workflow run results
    * GET /api/v1/ai/workflows/:workflow_id/runs/:id/download
    */
-  async downloadRunResults(workflowId: string, runId: string): Promise<any> {
+  async downloadRunResults(workflowId: string, runId: string): Promise<Blob> {
     const path = this.buildPath(this.resource, workflowId, 'runs', runId, 'download');
-    return this.get<any>(path);
+    return this.get<Blob>(path);
   }
 
   /**
@@ -720,8 +820,8 @@ class WorkflowsApiService extends BaseApiService {
    * Test workflow trigger
    * POST /api/v1/ai/workflows/:workflow_id/triggers/:id/test
    */
-  async testTrigger(workflowId: string, triggerId: string, testData?: any): Promise<any> {
-    return this.performNestedAction<any>(
+  async testTrigger(workflowId: string, triggerId: string, testData?: Record<string, unknown>): Promise<TriggerTestResult> {
+    return this.performNestedAction<TriggerTestResult>(
       this.resource,
       workflowId,
       'triggers',
@@ -770,10 +870,10 @@ class WorkflowsApiService extends BaseApiService {
    * Compare workflow versions
    * GET /api/v1/ai/workflows/:workflow_id/versions/:version_id/compare
    */
-  async compareVersions(workflowId: string, versionId: string, compareToVersionId?: string): Promise<any> {
+  async compareVersions(workflowId: string, versionId: string, compareToVersionId?: string): Promise<VersionComparison> {
     const path = this.buildPath(this.resource, workflowId, 'versions', versionId, 'compare');
     const queryString = compareToVersionId ? `?compare_to=${compareToVersionId}` : '';
-    return this.get<any>(`${path}${queryString}`);
+    return this.get<VersionComparison>(`${path}${queryString}`);
   }
 
   // ===================================================================
