@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { HardDrive, Cloud, Database } from 'lucide-react';
+import { HardDrive, Cloud, Database, Network, Server } from 'lucide-react';
 import Modal from '@/shared/components/ui/Modal';
 import { Input } from '@/shared/components/ui/Input';
 import { Select } from '@/shared/components/ui/Select';
@@ -11,6 +11,10 @@ import {
   S3StorageConfig,
   AzureBlobStorageConfig,
   GCSStorageConfig,
+  NFSStorageConfig,
+  SMBStorageConfig,
+  PROVIDER_INFO,
+  S3_COMPATIBLE_PROVIDERS,
 } from '@/shared/types/storage';
 
 interface StorageProviderModalProps {
@@ -75,39 +79,90 @@ export const StorageProviderModal: React.FC<StorageProviderModalProps> = ({
     }
   }, [provider, isOpen]);
 
+  const getDefaultS3Config = (type: StorageProviderType): S3StorageConfig => {
+    const baseConfig = {
+      bucket: '',
+      region: 'us-east-1',
+      access_key_id: '',
+      secret_access_key: '',
+      path_prefix: '',
+      endpoint: '',
+    };
+
+    // Set default endpoints for S3-compatible providers
+    switch (type) {
+      case 'backblaze_b2':
+        return { ...baseConfig, endpoint: 'https://s3.us-west-000.backblazeb2.com' };
+      case 'digitalocean_spaces':
+        return { ...baseConfig, endpoint: 'https://nyc3.digitaloceanspaces.com', region: 'nyc3' };
+      case 'cloudflare_r2':
+        return { ...baseConfig, endpoint: 'https://<account_id>.r2.cloudflarestorage.com', region: 'auto' };
+      case 'minio':
+        return { ...baseConfig, endpoint: 'http://localhost:9000' };
+      case 'wasabi':
+        return { ...baseConfig, endpoint: 'https://s3.wasabisys.com', region: 'us-east-1' };
+      default:
+        return baseConfig;
+    }
+  };
+
   const handleProviderTypeChange = (type: StorageProviderType) => {
     let defaultConfiguration;
-    switch (type) {
-      case 'local':
-        defaultConfiguration = {
-          base_path: '/var/storage',
-          create_directories: true,
-        };
-        break;
-      case 's3':
-        defaultConfiguration = {
-          bucket: '',
-          region: 'us-east-1',
-          access_key_id: '',
-          secret_access_key: '',
-          path_prefix: '',
-        };
-        break;
-      case 'azure_blob':
-        defaultConfiguration = {
-          account_name: '',
-          account_key: '',
-          container: '',
-        };
-        break;
-      case 'gcs':
-        defaultConfiguration = {
-          project_id: '',
-          bucket: '',
-          credentials_json: '',
-          path_prefix: '',
-        };
-        break;
+
+    // S3-compatible providers use S3 config
+    if (S3_COMPATIBLE_PROVIDERS.includes(type) || type === 's3') {
+      defaultConfiguration = getDefaultS3Config(type);
+    } else {
+      switch (type) {
+        case 'local':
+          defaultConfiguration = {
+            base_path: '/var/storage',
+            create_directories: true,
+          };
+          break;
+        case 'azure_blob':
+          defaultConfiguration = {
+            account_name: '',
+            account_key: '',
+            container: '',
+            endpoint: '',
+          };
+          break;
+        case 'gcs':
+          defaultConfiguration = {
+            project_id: '',
+            bucket: '',
+            credentials_json: '',
+            path_prefix: '',
+          };
+          break;
+        case 'nfs':
+          defaultConfiguration = {
+            server: '',
+            export_path: '/exports/data',
+            mount_point: '/mnt/nfs',
+            mount_options: 'rw,sync',
+            version: '4' as const,
+          };
+          break;
+        case 'smb':
+          defaultConfiguration = {
+            server: '',
+            share: '',
+            mount_point: '/mnt/smb',
+            username: '',
+            password: '',
+            domain: '',
+            mount_options: '',
+          };
+          break;
+        default:
+          // Fallback to local storage config for any unknown types
+          defaultConfiguration = {
+            base_path: '/var/storage',
+            create_directories: true,
+          };
+      }
     }
 
     setFormData({
@@ -141,7 +196,69 @@ export const StorageProviderModal: React.FC<StorageProviderModalProps> = ({
     });
   };
 
+  const renderS3ConfigFields = (isS3Compatible: boolean = false) => {
+    const s3Config = formData.configuration as S3StorageConfig;
+    const providerName = PROVIDER_INFO[formData.provider_type]?.name || 'S3';
+
+    return (
+      <>
+        <Input
+          label="Bucket Name"
+          type="text"
+          value={s3Config.bucket}
+          onChange={(e) => handleConfigChange('bucket', e.target.value)}
+          required
+          placeholder="my-bucket"
+        />
+        <Input
+          label="Region"
+          type="text"
+          value={s3Config.region}
+          onChange={(e) => handleConfigChange('region', e.target.value)}
+          required
+          placeholder="us-east-1"
+        />
+        <Input
+          label="Access Key ID"
+          type="text"
+          value={s3Config.access_key_id}
+          onChange={(e) => handleConfigChange('access_key_id', e.target.value)}
+          required
+          placeholder="AKIAIOSFODNN7EXAMPLE"
+        />
+        <Input
+          label="Secret Access Key"
+          type="password"
+          value={s3Config.secret_access_key}
+          onChange={(e) => handleConfigChange('secret_access_key', e.target.value)}
+          required
+          placeholder="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+        />
+        <Input
+          label={isS3Compatible ? `${providerName} Endpoint` : 'Custom Endpoint (Optional)'}
+          type="text"
+          value={s3Config.endpoint || ''}
+          onChange={(e) => handleConfigChange('endpoint', e.target.value)}
+          required={isS3Compatible}
+          placeholder="https://s3-compatible.example.com"
+        />
+        <Input
+          label="Path Prefix (Optional)"
+          type="text"
+          value={s3Config.path_prefix || ''}
+          onChange={(e) => handleConfigChange('path_prefix', e.target.value)}
+          placeholder="uploads/"
+        />
+      </>
+    );
+  };
+
   const renderConfigFields = () => {
+    // S3-compatible providers
+    if (S3_COMPATIBLE_PROVIDERS.includes(formData.provider_type)) {
+      return renderS3ConfigFields(true);
+    }
+
     switch (formData.provider_type) {
       case 'local':
         const localConfig = formData.configuration as LocalStorageConfig;
@@ -171,57 +288,7 @@ export const StorageProviderModal: React.FC<StorageProviderModalProps> = ({
         );
 
       case 's3':
-        const s3Config = formData.configuration as S3StorageConfig;
-        return (
-          <>
-            <Input
-              label="Bucket Name"
-              type="text"
-              value={s3Config.bucket}
-              onChange={(e) => handleConfigChange('bucket', e.target.value)}
-              required
-              placeholder="my-bucket"
-            />
-            <Input
-              label="Region"
-              type="text"
-              value={s3Config.region}
-              onChange={(e) => handleConfigChange('region', e.target.value)}
-              required
-              placeholder="us-east-1"
-            />
-            <Input
-              label="Access Key ID"
-              type="text"
-              value={s3Config.access_key_id}
-              onChange={(e) => handleConfigChange('access_key_id', e.target.value)}
-              required
-              placeholder="AKIAIOSFODNN7EXAMPLE"
-            />
-            <Input
-              label="Secret Access Key"
-              type="password"
-              value={s3Config.secret_access_key}
-              onChange={(e) => handleConfigChange('secret_access_key', e.target.value)}
-              required
-              placeholder="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
-            />
-            <Input
-              label="Custom Endpoint (Optional)"
-              type="text"
-              value={s3Config.endpoint || ''}
-              onChange={(e) => handleConfigChange('endpoint', e.target.value)}
-              placeholder="https://s3-compatible.example.com"
-            />
-            <Input
-              label="Path Prefix (Optional)"
-              type="text"
-              value={s3Config.path_prefix || ''}
-              onChange={(e) => handleConfigChange('path_prefix', e.target.value)}
-              placeholder="uploads/"
-            />
-          </>
-        );
+        return renderS3ConfigFields(false);
 
       case 'azure_blob':
         const azureConfig = formData.configuration as AzureBlobStorageConfig;
@@ -303,19 +370,139 @@ export const StorageProviderModal: React.FC<StorageProviderModalProps> = ({
             />
           </>
         );
+
+      case 'nfs':
+        const nfsConfig = formData.configuration as NFSStorageConfig;
+        return (
+          <>
+            <Input
+              label="NFS Server"
+              type="text"
+              value={nfsConfig.server}
+              onChange={(e) => handleConfigChange('server', e.target.value)}
+              required
+              placeholder="nfs.example.com or 192.168.1.100"
+            />
+            <Input
+              label="Export Path"
+              type="text"
+              value={nfsConfig.export_path}
+              onChange={(e) => handleConfigChange('export_path', e.target.value)}
+              required
+              placeholder="/exports/data"
+            />
+            <Input
+              label="Local Mount Point"
+              type="text"
+              value={nfsConfig.mount_point}
+              onChange={(e) => handleConfigChange('mount_point', e.target.value)}
+              required
+              placeholder="/mnt/nfs"
+            />
+            <Select
+              label="NFS Version"
+              value={nfsConfig.version || '4'}
+              onChange={(value) => handleConfigChange('version', value)}
+            >
+              <option value="3">NFSv3</option>
+              <option value="4">NFSv4</option>
+              <option value="4.1">NFSv4.1</option>
+              <option value="4.2">NFSv4.2</option>
+            </Select>
+            <Input
+              label="Mount Options (Optional)"
+              type="text"
+              value={nfsConfig.mount_options || ''}
+              onChange={(e) => handleConfigChange('mount_options', e.target.value)}
+              placeholder="rw,sync,hard,intr"
+            />
+          </>
+        );
+
+      case 'smb':
+        const smbConfig = formData.configuration as SMBStorageConfig;
+        return (
+          <>
+            <Input
+              label="SMB Server"
+              type="text"
+              value={smbConfig.server}
+              onChange={(e) => handleConfigChange('server', e.target.value)}
+              required
+              placeholder="fileserver.example.com or 192.168.1.100"
+            />
+            <Input
+              label="Share Name"
+              type="text"
+              value={smbConfig.share}
+              onChange={(e) => handleConfigChange('share', e.target.value)}
+              required
+              placeholder="shared_files"
+            />
+            <Input
+              label="Local Mount Point"
+              type="text"
+              value={smbConfig.mount_point}
+              onChange={(e) => handleConfigChange('mount_point', e.target.value)}
+              required
+              placeholder="/mnt/smb"
+            />
+            <Input
+              label="Username (Optional)"
+              type="text"
+              value={smbConfig.username || ''}
+              onChange={(e) => handleConfigChange('username', e.target.value)}
+              placeholder="domain\\username or username"
+            />
+            <Input
+              label="Password (Optional)"
+              type="password"
+              value={smbConfig.password || ''}
+              onChange={(e) => handleConfigChange('password', e.target.value)}
+              placeholder="••••••••••••••••"
+            />
+            <Input
+              label="Domain (Optional)"
+              type="text"
+              value={smbConfig.domain || ''}
+              onChange={(e) => handleConfigChange('domain', e.target.value)}
+              placeholder="WORKGROUP"
+            />
+            <Input
+              label="Mount Options (Optional)"
+              type="text"
+              value={smbConfig.mount_options || ''}
+              onChange={(e) => handleConfigChange('mount_options', e.target.value)}
+              placeholder="vers=3.0,sec=ntlmssp"
+            />
+          </>
+        );
+
+      default:
+        return null;
     }
   };
 
   const getProviderIcon = () => {
-    switch (formData.provider_type) {
+    const type = formData.provider_type;
+
+    // Network filesystem providers
+    if (type === 'nfs' || type === 'smb') {
+      return <Network className="h-5 w-5" />;
+    }
+
+    // Cloud/S3-compatible providers
+    if (S3_COMPATIBLE_PROVIDERS.includes(type) || type === 's3' || type === 'azure_blob') {
+      return <Cloud className="h-5 w-5" />;
+    }
+
+    switch (type) {
       case 'local':
         return <HardDrive className="h-5 w-5" />;
-      case 's3':
-        return <Cloud className="h-5 w-5" />;
-      case 'azure_blob':
-        return <Cloud className="h-5 w-5" />;
       case 'gcs':
         return <Database className="h-5 w-5" />;
+      default:
+        return <Server className="h-5 w-5" />;
     }
   };
 
@@ -349,10 +536,25 @@ export const StorageProviderModal: React.FC<StorageProviderModalProps> = ({
             onChange={(value) => handleProviderTypeChange(value as StorageProviderType)}
             disabled={isEditMode}
           >
-            <option value="local">Local Storage</option>
-            <option value="s3">Amazon S3</option>
-            <option value="azure_blob">Azure Blob Storage</option>
-            <option value="gcs">Google Cloud Storage</option>
+            <optgroup label="Local">
+              <option value="local">Local Storage</option>
+            </optgroup>
+            <optgroup label="Cloud Providers">
+              <option value="s3">Amazon S3</option>
+              <option value="gcs">Google Cloud Storage</option>
+              <option value="azure_blob">Azure Blob Storage</option>
+            </optgroup>
+            <optgroup label="S3-Compatible">
+              <option value="backblaze_b2">Backblaze B2</option>
+              <option value="cloudflare_r2">Cloudflare R2</option>
+              <option value="digitalocean_spaces">DigitalOcean Spaces</option>
+              <option value="minio">MinIO</option>
+              <option value="wasabi">Wasabi</option>
+            </optgroup>
+            <optgroup label="Network Filesystems">
+              <option value="nfs">NFS</option>
+              <option value="smb">SMB/CIFS</option>
+            </optgroup>
           </Select>
 
           <Select
