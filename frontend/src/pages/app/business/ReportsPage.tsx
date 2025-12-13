@@ -89,7 +89,7 @@ export const ReportsPage: React.FC = () => {
   // Load initial data
   const loadData = useCallback(async (force = false) => {
     // Prevent double-loading in React.StrictMode during initial mount
-    if (isInitialLoad.current && !force && (templates.length > 0 || requests.length > 0)) {
+    if (isInitialLoad.current && !force && ((templates?.length ?? 0) > 0 || (requests?.length ?? 0) > 0)) {
       return;
     }
 
@@ -102,15 +102,15 @@ export const ReportsPage: React.FC = () => {
         reportsService.getRequests()
       ]);
       
-      setTemplates(templatesResponse.data);
-      setRequests(requestsResponse.data);
+      setTemplates(templatesResponse.data || []);
+      setRequests(requestsResponse.data || []);
       isInitialLoad.current = false;
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Failed to load reports data');
     } finally {
       setLoading(false);
     }
-  }, [templates.length, requests.length]);
+  }, [templates?.length, requests?.length]);
 
   // Load data on mount with StrictMode protection
   useEffect(() => {
@@ -143,7 +143,7 @@ export const ReportsPage: React.FC = () => {
         refreshInterval.current = null;
       }
     };
-  }, [templates.length, requests.length]);
+  }, [templates?.length, requests?.length]);
 
 
   const handleSubmitRequest = async () => {
@@ -201,7 +201,7 @@ export const ReportsPage: React.FC = () => {
     }
   };
 
-  const categorizedTemplates = templates.reduce((acc, template) => {
+  const categorizedTemplates = (templates || []).reduce((acc, template) => {
     if (!acc[template.category]) {
       acc[template.category] = [];
     }
@@ -614,14 +614,14 @@ export const ReportsPage: React.FC = () => {
 
             <TabPanel tabId="queue" activeTab={activeTab}>
               <div className="space-y-6">
-                {requests.length === 0 ? (
+                {(requests?.length ?? 0) === 0 ? (
                   <div className="text-center py-12">
                     <span className="text-6xl">📋</span>
                     <h3 className="text-lg font-medium text-theme-primary mt-2">No reports in queue</h3>
                     <p className="text-theme-secondary">Start by creating a report from the Builder or Library.</p>
                   </div>
                 ) : (
-                  requests.map((request) => (
+                  (requests || []).map((request) => (
                 <div key={request.id} className="card-theme p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
@@ -770,7 +770,7 @@ export const ReportsPage: React.FC = () => {
                 <div className="card-theme p-6">
               <h3 className="text-lg font-semibold text-theme-primary mb-4">Most Popular Templates</h3>
               <div className="space-y-3">
-                {templates.slice(0, 5).map((template, index) => (
+                {(templates || []).slice(0, 5).map((template, index) => (
                   <div key={template.id} className="flex items-center justify-between py-2">
                     <div className="flex items-center space-x-3">
                       <span className="text-theme-secondary font-medium">{index + 1}</span>
