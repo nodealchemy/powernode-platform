@@ -819,6 +819,7 @@ Rails.application.routes.draw do
       resources :audit_logs, only: [ :index, :show, :create ] do
         collection do
           get :stats
+          get :security_summary
           post :export
           delete :cleanup
         end
@@ -964,7 +965,7 @@ Rails.application.routes.draw do
           post :test_worker
           post :test_results
           post :health_check
-          get :config
+          get :config, action: :show_config
           put :config, action: :update_config
           post "config/reset", action: :reset_config
         end

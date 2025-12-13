@@ -491,7 +491,7 @@ const DashboardPage: React.FC = () => {
         <Route path="/system/services" element={<ServicesPage />} />
         <Route path="/system/storage" element={<StorageProvidersPage />} />
         <Route path="/system/webhooks" element={<WebhookManagementPage />} />
-        <Route path="/system/audit-logs" element={<AuditLogsPage />} />
+        <Route path="/system/audit-logs/*" element={<AuditLogsPage />} />
         <Route path="/system/api-keys" element={<ApiKeysPage />} />
         
         {/* Business Analytics Pages */}

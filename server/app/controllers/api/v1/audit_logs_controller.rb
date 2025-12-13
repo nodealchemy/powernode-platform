@@ -10,9 +10,10 @@ class Api::V1::AuditLogsController < ApplicationController
     SELECT 'info' as level, unnest(array['user_login', 'user_logout', 'subscription_created']) as action
   SQL
   skip_before_action :authenticate_request, only: [ :create ]
-  before_action -> { require_permission("audit_logs.read") }, only: [ :index, :show, :stats ]
+  before_action -> { require_permission("audit_logs.read") }, only: [ :index, :show, :stats, :security_summary ]
   before_action -> { require_permission("audit_logs.export") }, only: [ :export ]
-  before_action -> { require_permission("audit_logs.delete") }, only: [ :destroy, :bulk_delete ]
+  # NOTE: destroy and bulk_delete actions not yet implemented
+  # before_action -> { require_permission("audit_logs.delete") }, only: [ :destroy, :bulk_delete ]
   before_action :authenticate_worker_or_admin, only: [ :create ]
 
   # GET /api/v1/audit_logs
@@ -31,13 +32,13 @@ class Api::V1::AuditLogsController < ApplicationController
 
     render_success(
       data: logs.map { |log| audit_log_data(log) },
-      pagination: {
+      meta: {
         current_page: logs.current_page,
         per_page: logs.limit_value,
         total_pages: logs.total_pages,
-        total_count: logs.total_count
-      },
-      stats: audit_log_stats
+        total: logs.total_count,
+        stats: audit_log_stats
+      }
     )
   end
 
@@ -57,6 +58,33 @@ class Api::V1::AuditLogsController < ApplicationController
     render_success(
       data: detailed_audit_log_stats
     )
+  end
+
+  # GET /api/v1/audit_logs/security_summary
+  def security_summary
+    time_range = params[:time_range] || "24h"
+    start_time = parse_time_range(time_range)
+
+    logs = AuditLog.where("created_at >= ?", start_time)
+
+    # Security-related actions
+    security_actions = %w[login_failed unauthorized_access permission_denied password_change
+                          account_locked suspicious_activity ip_blocked token_revoked]
+    failed_actions = %w[login_failed payment_failed operation_failed validation_failed]
+    high_risk_actions = %w[account_locked ip_blocked unauthorized_access suspicious_activity]
+
+    render_success({
+      totalEvents: logs.count,
+      securityEvents: logs.where(action: security_actions).count,
+      failedEvents: logs.where(action: failed_actions).count,
+      highRiskEvents: logs.where(action: high_risk_actions).count,
+      suspiciousEvents: logs.where(action: "suspicious_activity").count,
+      uniqueUsers: logs.distinct.count(:user_id),
+      uniqueIps: logs.where.not(ip_address: nil).distinct.count(:ip_address),
+      bySeverity: logs.group(:severity).count,
+      byRiskLevel: logs.group(:risk_level).count,
+      hourlyDistribution: logs.group_by_hour(:created_at, range: start_time..Time.current).count
+    })
   end
 
   # POST /api/v1/audit_logs/export
@@ -546,5 +574,30 @@ class Api::V1::AuditLogsController < ApplicationController
 
   def render_bad_request(message)
     render_error(message, status: :bad_request)
+  end
+
+  def parse_time_range(time_range)
+    case time_range
+    when "1h" then 1.hour.ago
+    when "6h" then 6.hours.ago
+    when "24h" then 24.hours.ago
+    when "7d" then 7.days.ago
+    when "30d" then 30.days.ago
+    when "90d" then 90.days.ago
+    else 24.hours.ago
+    end
+  end
+
+  def calculate_risk_distribution(logs)
+    high_risk_actions = %w[account_locked ip_blocked unauthorized_access suspicious_activity]
+    medium_risk_actions = %w[login_failed permission_denied password_change token_revoked]
+    low_risk_actions = %w[user_login user_logout settings_changed profile_updated]
+
+    {
+      high: logs.where(action: high_risk_actions).count,
+      medium: logs.where(action: medium_risk_actions).count,
+      low: logs.where(action: low_risk_actions).count,
+      info: logs.where.not(action: high_risk_actions + medium_risk_actions + low_risk_actions).count
+    }
   end
 end

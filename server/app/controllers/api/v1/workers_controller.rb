@@ -3,11 +3,11 @@
 # Workers Controller
 # Manages worker authentication tokens and permissions
 class Api::V1::WorkersController < ApplicationController
-  before_action -> { require_permission("system.workers.read") }, only: [ :index, :show, :test_worker, :health_check, :stats, :config ]
+  before_action -> { require_permission("system.workers.read") }, only: [ :index, :show, :test_worker, :health_check, :stats, :show_config ]
   before_action -> { require_permission("system.workers.create") }, only: [ :create ]
   before_action -> { require_permission("system.workers.edit") }, only: [ :update, :regenerate_token, :suspend, :activate, :revoke, :update_config, :reset_config ]
   before_action -> { require_permission("system.workers.delete") }, only: [ :destroy ]
-  before_action :set_worker, only: [ :show, :update, :destroy, :regenerate_token, :suspend, :activate, :revoke, :test_worker, :health_check, :config, :update_config, :reset_config ]
+  before_action :set_worker, only: [ :show, :update, :destroy, :regenerate_token, :suspend, :activate, :revoke, :test_worker, :health_check, :show_config, :update_config, :reset_config ]
 
   # GET /api/v1/workers/stats
   # Returns aggregated statistics about worker jobs
@@ -423,7 +423,7 @@ class Api::V1::WorkersController < ApplicationController
 
   # GET /api/v1/workers/:id/config
   # Returns the worker's configuration settings
-  def config
+  def show_config
     render_success(@worker.effective_config)
   end
 
@@ -481,6 +481,7 @@ class Api::V1::WorkersController < ApplicationController
     end
   rescue ActiveRecord::RecordNotFound
     render_error("Worker not found", status: :not_found)
+    throw :abort
   end
 
   def worker_params

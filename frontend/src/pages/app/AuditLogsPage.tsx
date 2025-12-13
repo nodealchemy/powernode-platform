@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { 
   Shield, 
   Eye, 
@@ -42,15 +43,38 @@ interface SecurityMetrics {
 
 export const AuditLogsPage: React.FC = () => {
   const { user } = useSelector((state: RootState) => state.auth);
-  const [activeTab, setActiveTab] = useState<'table' | 'analytics'>('table');
-  
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // Determine active tab from URL path
+  const getTabFromPath = (): 'table' | 'analytics' => {
+    if (location.pathname.endsWith('/analytics')) {
+      return 'analytics';
+    }
+    return 'table';
+  };
+
+  const [activeTab, setActiveTab] = useState<'table' | 'analytics'>(getTabFromPath());
+
+  // Sync tab state with URL
+  useEffect(() => {
+    setActiveTab(getTabFromPath());
+  }, [location.pathname]);
+
   // Check if user has audit log permissions
   const canReadAuditLogs = hasPermissions(user, ['audit_logs.read']);
   const canExportAuditLogs = hasPermissions(user, ['audit_logs.export']);
-  
-  // Handle tab changes with proper type casting
+
+  // Handle tab changes with proper type casting and URL update
   const handleTabChange = (tabId: string) => {
-    setActiveTab(tabId as 'table' | 'analytics');
+    const newTab = tabId as 'table' | 'analytics';
+    setActiveTab(newTab);
+    // Update URL when tab changes
+    if (newTab === 'analytics') {
+      navigate('/app/system/audit-logs/analytics');
+    } else {
+      navigate('/app/system/audit-logs');
+    }
   };
   const [showFilters, setShowFilters] = useState(false);
   const [showExport, setShowExport] = useState(false);
