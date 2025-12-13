@@ -4,6 +4,7 @@ import viteTsconfigPaths from 'vite-tsconfig-paths';
 import svgr from 'vite-plugin-svgr';
 import path from 'path';
 import fs from 'fs';
+import packageJson from './package.json';
 
 // Cached proxy configuration to prevent automatic page refreshes
 function getAllowedHosts(): string[] {
@@ -278,7 +279,7 @@ export default defineConfig(({ mode }: { mode: string }) => {
     define: {
       // Only expose specific env vars for security (not the entire process.env)
       'process.env.NODE_ENV': JSON.stringify(mode),
-      'process.env.REACT_APP_VERSION': JSON.stringify(env.REACT_APP_VERSION || env.npm_package_version || '0.0.1-dev'),
+      'process.env.REACT_APP_VERSION': JSON.stringify(packageJson.version),
       // Force cache invalidation for proxy config changes
       __PROXY_CONFIG_VERSION__: JSON.stringify('v1.1.0-proxy-fix'),
     },
