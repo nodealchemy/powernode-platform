@@ -19,9 +19,8 @@ export interface SystemMetrics {
 
 export interface AdminUser {
   id: string;
-  first_name: string;
-  last_name: string;
-  full_name: string;
+  name: string;
+  full_name?: string;
   email: string;
   email_verified: boolean;
   last_login_at: string | null;
@@ -53,8 +52,7 @@ export interface AdminAccount {
   };
   owner: {
     id: string;
-    first_name: string;
-    last_name: string;
+    name: string;
     email: string;
   };
 }
@@ -70,14 +68,14 @@ export interface SystemLog {
 
 export interface RateLimitingSettings {
   enabled?: boolean;
-  api_requests_per_minute: number;
-  impersonation_attempts_per_hour: number;
-  login_attempts_per_hour: number;
-  password_reset_attempts_per_hour: number;
-  registration_attempts_per_hour: number;
-  webhook_requests_per_minute: number;
-  email_verification_attempts_per_hour: number;
-  authenticated_requests_per_hour: number;
+  api_requests_per_minute?: number;
+  impersonation_attempts_per_hour?: number;
+  login_attempts_per_hour?: number;
+  password_reset_attempts_per_hour?: number;
+  registration_attempts_per_hour?: number;
+  webhook_requests_per_minute?: number;
+  email_verification_attempts_per_hour?: number;
+  authenticated_requests_per_hour?: number;
 }
 
 export interface AdminSettings {
@@ -95,9 +93,13 @@ export interface AdminSettings {
   session_timeout_minutes: number;
   password_min_length: number;
   require_email_verification: boolean;
+  email_verification_required: boolean;
   allow_account_deletion: boolean;
   backup_retention_days: number;
   log_retention_days: number;
+  password_complexity_level: 'low' | 'medium' | 'high';
+  max_failed_login_attempts: number;
+  account_lockout_duration: number;
   rate_limiting: RateLimitingSettings;
   feature_flags: Record<string, boolean>;
   smtp_settings: {
@@ -116,13 +118,13 @@ export interface PaymentGatewayStatus {
     connected: boolean;
     environment: 'live' | 'test';
     last_webhook: string | null;
-    webhook_status: 'healthy' | 'delayed' | 'failed';
+    webhook_status: 'healthy' | 'warning' | 'unhealthy' | 'no_data';
   };
   paypal: {
     connected: boolean;
     environment: 'live' | 'sandbox';
     last_webhook: string | null;
-    webhook_status: 'healthy' | 'delayed' | 'failed';
+    webhook_status: 'healthy' | 'warning' | 'unhealthy' | 'no_data';
   };
 }
 
@@ -135,11 +137,36 @@ export interface AdminOverviewData {
   settings_summary: Partial<AdminSettings>;
 }
 
+/**
+ * @module AdminSettingsApi
+ * @description Platform configuration and system settings service.
+ *
+ * RESPONSIBILITY: System settings, health monitoring, rate limiting, security configuration,
+ *                 admin dashboard data (user/account/log lists)
+ * NOT RESPONSIBLE FOR: Analytics export, user CRUD operations
+ *
+ * This is the primary owner of /admin_settings/* endpoints.
+ */
 class AdminSettingsApi {
   // Get admin overview data
-  async getOverview(): Promise<AdminOverviewData> {
-    const response = await api.get('/admin_settings');
-    return response.data;
+  async getOverview(): Promise<{ success: boolean; data?: AdminOverviewData; error?: string }> {
+    try {
+      const response = await api.get('/admin_settings');
+      // Backend returns data in the response directly or wrapped in success/data
+      const responseData = response.data;
+      if (responseData.success !== undefined) {
+        return responseData;
+      }
+      // Handle case where data is returned directly
+      return { success: true, data: responseData };
+    } catch (error: unknown) {
+      const errorMessage =
+        error && typeof error === 'object' && 'response' in error
+          ? (error as { response?: { data?: { error?: string } } }).response?.data?.error ||
+            'Failed to fetch admin overview'
+          : 'Failed to fetch admin overview';
+      return { success: false, error: errorMessage };
+    }
   }
 
   // Get detailed system metrics
@@ -278,18 +305,14 @@ class AdminSettingsApi {
   // Utility methods
   formatBytes(bytes: number, decimals = 2): string {
     if (bytes === 0) return '0 Bytes';
-    
+
     const k = 1024;
     const dm = decimals < 0 ? 0 : decimals;
-    // const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB']; // TODO: Use for dynamic size unit selection
-    
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    
-    const sizeUnit = i === 0 ? 'Bytes' : 
-                     i === 1 ? 'KB' : 
-                     i === 2 ? 'MB' : 
-                     i === 3 ? 'GB' : 
-                     i === 4 ? 'TB' : 'Bytes';
+    const sizeUnit = sizes[i] || 'Bytes';
+
     return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizeUnit;
   }
 
@@ -316,6 +339,115 @@ class AdminSettingsApi {
 
   formatNumber(num: number): string {
     return new Intl.NumberFormat().format(num);
+  }
+
+  // Rate Limiting Management
+  async getRateLimitingStatistics() {
+    const response = await api.get('/admin/rate_limiting/statistics');
+    return response.data;
+  }
+
+  async getRateLimitingViolations() {
+    const response = await api.get('/admin/rate_limiting/violations');
+    return response.data;
+  }
+
+  async getRateLimitingStatus() {
+    const response = await api.get('/admin/rate_limiting/status');
+    return response.data;
+  }
+
+  async getUserRateLimits(identifier: string) {
+    const response = await api.get(`/admin/rate_limiting/limits/${encodeURIComponent(identifier)}`);
+    return response.data;
+  }
+
+  async clearUserRateLimits(identifier: string) {
+    const response = await api.delete(`/admin/rate_limiting/limits/${encodeURIComponent(identifier)}`);
+    return response.data;
+  }
+
+  async disableRateLimitingTemporarily(durationMinutes: number = 60) {
+    const response = await api.post('/admin/rate_limiting/disable', {
+      duration_minutes: durationMinutes
+    });
+    return response.data;
+  }
+
+  async enableRateLimiting() {
+    const response = await api.post('/admin/rate_limiting/enable');
+    return response.data;
+  }
+
+  // Security Configuration Management
+  async getSecurityConfig(): Promise<{
+    csrf: {
+      enabled: boolean;
+      token_name: string;
+      protection_method: string;
+      require_ssl: boolean;
+    };
+    jwt: {
+      access_token_ttl: number;
+      refresh_token_ttl: number;
+      algorithm: string;
+      blacklist_enabled: boolean;
+      require_fresh_tokens_for_sensitive_operations: boolean;
+    };
+    authentication: {
+      max_failed_attempts: number;
+      lockout_duration: number;
+      require_2fa_for_admin: boolean;
+      session_timeout: number;
+    };
+    api_security: {
+      rate_limiting_enabled: boolean;
+      cors_enabled: boolean;
+      allowed_origins: string[];
+      require_api_key_for_write_operations: boolean;
+    };
+  }> {
+    const response = await api.get('/admin_settings/security');
+    return response.data;
+  }
+
+  async updateSecurityConfig(config: unknown): Promise<{
+    success: boolean;
+    message: string;
+    config: Record<string, unknown>;
+  }> {
+    const response = await api.put('/admin_settings/security', { security_config: config });
+    return response.data;
+  }
+
+  async testSecurityConfiguration(): Promise<{
+    csrf_protection: 'working' | 'error';
+    jwt_validation: 'working' | 'error';
+    authentication_flow: 'working' | 'error';
+    api_security: 'working' | 'error';
+    overall_status: 'healthy' | 'warning' | 'error';
+    details: string[];
+  }> {
+    const response = await api.post('/admin_settings/security/test');
+    return response.data;
+  }
+
+  async regenerateJwtSecret(): Promise<{
+    success: boolean;
+    message: string;
+    warning: string;
+  }> {
+    const response = await api.post('/admin_settings/security/regenerate_jwt_secret');
+    return response.data;
+  }
+
+  async clearBlacklistedTokens(): Promise<{
+    success: boolean;
+    message: string;
+    cleared_count: number;
+  }> {
+    const response = await api.delete('/admin_settings/security/blacklisted_tokens');
+    return response.data;
   }
 
   getStatusColor(status: string): 'green' | 'yellow' | 'red' | 'blue' | 'gray' {

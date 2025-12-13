@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require_relative 'base_webhook_job'
 
 class Webhooks::PaypalWebhookProcessorJob < Webhooks::BaseWebhookJob
@@ -48,18 +50,21 @@ class Webhooks::PaypalWebhookProcessorJob < Webhooks::BaseWebhookJob
   def process_subscription_event(payload, event_type)
     resource = payload['resource']
     agreement_id = resource['id']
-    
+
     log_info("Processing subscription event", event_type: event_type, agreement_id: agreement_id)
 
-    # Find subscription by PayPal agreement ID
-    subscription_response = api_client.get("/api/v1/subscriptions", params: { paypal_agreement_id: agreement_id })
-    
+    # Find subscription by PayPal agreement ID with retry logic
+    subscription_response = with_api_retry(max_attempts: 3) do
+      api_client.get("/api/v1/subscriptions", params: { paypal_agreement_id: agreement_id })
+    end
+
     unless subscription_response[:success]
       log_error("Failed to find subscription", nil, agreement_id: agreement_id)
       return { success: false, error: "Subscription not found" }
     end
 
-    subscription_data = subscription_response[:data].first
+    subscription_data = subscription_response[:data]
+    subscription_data = subscription_data.first if subscription_data.is_a?(Array)
     return { success: true, message: "No matching subscription found" } unless subscription_data
 
     case event_type
@@ -101,18 +106,21 @@ class Webhooks::PaypalWebhookProcessorJob < Webhooks::BaseWebhookJob
   def process_payment_event(payload, event_type)
     resource = payload['resource']
     payment_id = resource['parent_payment'] || resource['id']
-    
+
     log_info("Processing payment event", event_type: event_type, payment_id: payment_id)
 
-    # Find payment by PayPal payment ID
-    payment_response = api_client.get("/api/v1/payments", params: { paypal_payment_id: payment_id })
-    
+    # Find payment by PayPal payment ID with retry logic
+    payment_response = with_api_retry(max_attempts: 3) do
+      api_client.get("/api/v1/payments", params: { paypal_payment_id: payment_id })
+    end
+
     unless payment_response[:success]
       log_error("Failed to find payment", nil, payment_id: payment_id)
       return { success: false, error: "Payment not found" }
     end
 
-    payment_data = payment_response[:data].first
+    payment_data = payment_response[:data]
+    payment_data = payment_data.first if payment_data.is_a?(Array)
     return { success: true, message: "No matching payment found" } unless payment_data
 
     case event_type
@@ -156,8 +164,10 @@ class Webhooks::PaypalWebhookProcessorJob < Webhooks::BaseWebhookJob
       }
     }
 
-    payment_response = api_client.post("/api/v1/payments", payment_data)
-    
+    payment_response = with_api_retry(max_attempts: 3) do
+      api_client.post("/api/v1/payments", payment_data)
+    end
+
     if payment_response[:success]
       # Update subscription billing period
       next_billing_time = resource.dig('billing_info', 'next_billing_time')
@@ -209,7 +219,9 @@ class Webhooks::PaypalWebhookProcessorJob < Webhooks::BaseWebhookJob
       }
     }
 
-    api_client.post("/api/v1/payments", payment_data)
+    with_api_retry(max_attempts: 3) do
+      api_client.post("/api/v1/payments", payment_data)
+    end
 
     # Trigger dunning process
     trigger_dunning_process(subscription_data['id'], resource['reason_code'])
@@ -243,11 +255,13 @@ class Webhooks::PaypalWebhookProcessorJob < Webhooks::BaseWebhookJob
 
   def update_subscription_status(subscription_id, status, metadata = {})
     update_data = { status: status }.merge(metadata)
-    
-    response = api_client.patch("/api/v1/subscriptions/#{subscription_id}", update_data)
-    
+
+    response = with_api_retry(max_attempts: 3) do
+      api_client.patch("/api/v1/subscriptions/#{subscription_id}", update_data)
+    end
+
     unless response[:success]
-      log_error("Failed to update subscription status", nil, 
+      log_error("Failed to update subscription status", nil,
         subscription_id: subscription_id,
         status: status,
         error: response[:error]
@@ -268,11 +282,13 @@ class Webhooks::PaypalWebhookProcessorJob < Webhooks::BaseWebhookJob
 
   def update_payment_status(payment_id, status, metadata = {})
     update_data = { status: status }.merge(metadata)
-    
-    response = api_client.patch("/api/v1/payments/#{payment_id}", update_data)
-    
+
+    response = with_api_retry(max_attempts: 3) do
+      api_client.patch("/api/v1/payments/#{payment_id}", update_data)
+    end
+
     unless response[:success]
-      log_error("Failed to update payment status", nil, 
+      log_error("Failed to update payment status", nil,
         payment_id: payment_id,
         status: status,
         error: response[:error]
@@ -305,10 +321,12 @@ class Webhooks::PaypalWebhookProcessorJob < Webhooks::BaseWebhookJob
       due_date: Date.current.iso8601
     }
 
-    response = api_client.post("/api/v1/invoices", invoice_data)
-    
+    response = with_api_retry(max_attempts: 3) do
+      api_client.post("/api/v1/invoices", invoice_data)
+    end
+
     unless response[:success]
-      log_error("Failed to create subscription invoice", nil, 
+      log_error("Failed to create subscription invoice", nil,
         subscription_id: subscription_data['id'],
         payment_id: payment_data['id'],
         error: response[:error]

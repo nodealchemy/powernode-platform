@@ -1,12 +1,13 @@
 import { api } from '@/shared/services/api';
+import { getErrorMessage } from '@/shared/utils/errorHandling';
 
 export interface BillingOverview {
-  outstanding: number;
-  this_month: number;
-  collected: number;
-  success_rate: number;
-  recent_invoices: Invoice[];
-  payment_methods: PaymentMethod[];
+  outstanding?: number;
+  this_month?: number;
+  collected?: number;
+  success_rate?: number;
+  recent_invoices?: Invoice[];
+  payment_methods?: PaymentMethod[];
 }
 
 export interface Invoice {
@@ -90,28 +91,52 @@ export interface PaginatedResponse<T> {
   };
 }
 
+/**
+ * @module BillingApi
+ * @description Billing operations, invoices, and payment processing service.
+ *
+ * RESPONSIBILITY: Billing overview, invoices, payment methods, payment processing
+ * NOT RESPONSIBLE FOR: Subscription CRUD operations
+ *
+ * @see Use subscriptionService for subscription lifecycle management
+ */
 class BillingApi {
   // Get billing overview with summary statistics
   async getOverview(): Promise<BillingOverview> {
-    const response = await api.get('/billing');
-    return response.data;
+    try {
+      const response = await api.get('/billing');
+      return response.data;
+    } catch (error: unknown) {
+      const message = getErrorMessage(error);
+      throw new Error(message);
+    }
   }
 
   // Get subscription billing information
   async getSubscriptionBilling(): Promise<SubscriptionBilling> {
-    const response = await api.get('/billing/subscription');
-    return response.data;
+    try {
+      const response = await api.get('/billing/subscription');
+      return response.data;
+    } catch (error: unknown) {
+      const message = getErrorMessage(error);
+      throw new Error(message);
+    }
   }
 
   // Get invoices with pagination
   async getInvoices(page = 1, perPage = 20): Promise<PaginatedResponse<Invoice>> {
-    const response = await api.get('/billing/invoices', {
-      params: { page, per_page: perPage }
-    });
-    return {
-      data: response.data.invoices,
-      pagination: response.data.pagination
-    };
+    try {
+      const response = await api.get('/billing/invoices', {
+        params: { page, per_page: perPage }
+      });
+      return {
+        data: response.data.invoices,
+        pagination: response.data.pagination
+      };
+    } catch (error: unknown) {
+      const message = getErrorMessage(error);
+      throw new Error(message);
+    }
   }
 
   // Create new invoice
@@ -124,22 +149,33 @@ class BillingApi {
       status: string;
     };
     errors?: string[];
+    error?: string;
   }> {
-    const response = await api.post('/billing/invoices', {
-      invoice: {
-        currency: invoiceData.currency,
-        due_date: invoiceData.due_date,
-        notes: invoiceData.notes
-      },
-      line_items: invoiceData.line_items
-    });
-    return response.data;
+    try {
+      const response = await api.post('/billing/invoices', {
+        invoice: {
+          currency: invoiceData.currency,
+          due_date: invoiceData.due_date,
+          notes: invoiceData.notes
+        },
+        line_items: invoiceData.line_items
+      });
+      return response.data;
+    } catch (error: unknown) {
+      const message = getErrorMessage(error);
+      return { success: false, error: message, errors: [message] };
+    }
   }
 
   // Get payment methods
-  async getPaymentMethods(): Promise<{ payment_methods: PaymentMethod[] }> {
-    const response = await api.get('/billing/payment-methods');
-    return response.data;
+  async getPaymentMethods(): Promise<{ data: PaymentMethod[]; error?: string }> {
+    try {
+      const response = await api.get('/billing/payment-methods');
+      return { data: response.data.payment_methods || response.data };
+    } catch (error: unknown) {
+      const message = getErrorMessage(error);
+      return { data: [], error: message };
+    }
   }
 
   // Add payment method
@@ -148,11 +184,16 @@ class BillingApi {
     payment_method?: PaymentMethod;
     error?: string;
   }> {
-    const response = await api.post('/billing/payment-methods', {
-      payment_method_id: paymentMethodId,
-      provider
-    });
-    return response.data;
+    try {
+      const response = await api.post('/billing/payment-methods', {
+        payment_method_id: paymentMethodId,
+        provider
+      });
+      return response.data;
+    } catch (error: unknown) {
+      const message = getErrorMessage(error);
+      return { success: false, error: message };
+    }
   }
 
   // Create payment intent for one-time payments
@@ -162,68 +203,114 @@ class BillingApi {
     payment_intent_id?: string;
     error?: string;
   }> {
-    const response = await api.post('/billing/payment-intent', request);
-    return response.data;
-  }
-
-  // Utility methods
-  formatCurrency(amountCents: number | string, currency = 'USD'): string {
-    const amount = typeof amountCents === 'string' ? parseInt(amountCents) : amountCents;
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: currency.toUpperCase(),
-    }).format(amount / 100);
-  }
-
-  getStatusColor(status: string): 'green' | 'yellow' | 'red' | 'blue' | 'gray' {
-    switch (status) {
-      case 'paid':
-      case 'succeeded':
-        return 'green';
-      case 'sent':
-      case 'processing':
-        return 'blue';
-      case 'draft':
-        return 'yellow';
-      case 'overdue':
-      case 'failed':
-        return 'red';
-      default:
-        return 'gray';
+    try {
+      const response = await api.post('/billing/payment-intent', request);
+      return response.data;
+    } catch (error: unknown) {
+      const message = getErrorMessage(error);
+      return { success: false, error: message };
     }
   }
 
-  getStatusText(status: string): string {
-    switch (status) {
-      case 'draft':
-        return 'Draft';
-      case 'sent':
-        return 'Sent';
-      case 'paid':
-        return 'Paid';
-      case 'overdue':
-        return 'Overdue';
-      case 'canceled':
-        return 'Canceled';
-      case 'succeeded':
-        return 'Succeeded';
-      case 'failed':
-        return 'Failed';
-      case 'processing':
-        return 'Processing';
-      default:
-        return status.charAt(0).toUpperCase() + status.slice(1);
+  // Additional payment method methods for test compatibility
+  async addPaymentMethod(paymentMethodData: {
+    payment_method_id?: string;
+    type?: string;
+    token?: string;
+    is_default?: boolean;
+    provider?: string;
+  }): Promise<{
+    success: boolean;
+    data?: PaymentMethod | { payment_methods: PaymentMethod[] };
+    payment_method?: PaymentMethod;
+    error?: string;
+  }> {
+    try {
+      const response = await api.post('/billing/payment-methods', paymentMethodData);
+      return { success: true, data: response.data };
+    } catch (error: unknown) {
+      const message = getErrorMessage(error);
+      return { success: false, error: message };
     }
   }
 
-  getPaymentMethodDisplay(method: PaymentMethod): string {
-    if (method.card_brand && method.card_last_four) {
-      return `${method.card_brand.toUpperCase()} •••• ${method.card_last_four}`;
+  async removePaymentMethod(paymentMethodId: string): Promise<{
+    success: boolean;
+    error?: string;
+  }> {
+    try {
+      const response = await api.delete(`/billing/payment-methods/${paymentMethodId}`);
+      return { success: true, ...response.data };
+    } catch (error: unknown) {
+      const message = getErrorMessage(error);
+      return { success: false, error: message };
     }
-    if (method.bank_account_last_four) {
-      return `Bank •••• ${method.bank_account_last_four}`;
+  }
+
+  async setDefaultPaymentMethod(paymentMethodId: string): Promise<{
+    success: boolean;
+    error?: string;
+  }> {
+    try {
+      const response = await api.put(`/billing/payment-methods/${paymentMethodId}/default`);
+      return { success: true, ...response.data };
+    } catch (error: unknown) {
+      const message = getErrorMessage(error);
+      return { success: false, error: message };
     }
-    return `${method.provider} ${method.payment_method_type}`;
+  }
+
+  // Billing history
+  async getBillingHistory(filters?: {
+    start_date?: string;
+    end_date?: string;
+    page?: number;
+    per_page?: number;
+  }): Promise<{
+    data: Array<{
+      id: string;
+      invoice_number: string;
+      amount: string;
+      status: string;
+      created_at: string;
+    }>;
+    pagination?: {
+      current_page: number;
+      per_page: number;
+      total_count: number;
+      total_pages: number;
+    };
+    error?: string;
+  }> {
+    try {
+      const response = filters && Object.keys(filters).length > 0 ?
+        await api.get('/billing/history', { params: filters }) :
+        await api.get('/billing/history');
+      return { data: response.data.data || response.data, pagination: response.data.pagination };
+    } catch (error: unknown) {
+      const message = getErrorMessage(error);
+      return { data: [], error: message };
+    }
+  }
+
+  // Process payment method for test compatibility
+  async processPayment(paymentData: {
+    invoice_id: string;
+    payment_method_id: string;
+    amount_cents: number;
+    currency?: string;
+  }): Promise<{
+    success: boolean;
+    payment_id?: string;
+    error?: string;
+  }> {
+    try {
+      const response = await api.post('/billing/payments/process', paymentData);
+      return response.data;
+    } catch (error: unknown) {
+      const message = getErrorMessage(error);
+      return { success: false, error: message };
+    }
   }
 }
 

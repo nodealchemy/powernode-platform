@@ -15,8 +15,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
   accounts
 }) => {
   const [formData, setFormData] = useState<UserFormData & { account_id: string }>({
-    first_name: '',
-    last_name: '',
+    name: '',
     email: '',
     phone: '',
     roles: ['account.member'],
@@ -37,7 +36,6 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
           const roles = await usersApi.getAvailableRoles();
           setAvailableRoles(roles);
         } catch (error) {
-          console.error('Failed to load roles:', error);
           setAvailableRoles([]);
         } finally {
           setRolesLoading(false);
@@ -77,8 +75,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
       
       // Reset form
       setFormData({
-        first_name: '',
-        last_name: '',
+        name: '',
         email: '',
         phone: '',
         roles: ['account.member'],
@@ -87,10 +84,10 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
       
       onSuccess();
       onClose();
-    } catch (error: any) {
-      console.error('Failed to create user:', error);
-      const errorMessage = error.response?.data?.error || error.message || 'Failed to create user';
-      const validationErrors = error.response?.data?.validation_errors || [];
+    } catch (error: unknown) {
+      const apiError = error as { response?: { data?: { error?: string; validation_errors?: string[] } }; message?: string };
+      const errorMessage = apiError.response?.data?.error || apiError.message || 'Failed to create user';
+      const validationErrors = apiError.response?.data?.validation_errors || [];
       setErrors([errorMessage, ...validationErrors]);
     } finally {
       setLoading(false);
@@ -99,8 +96,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
 
   const handleCancel = () => {
     setFormData({
-      first_name: '',
-      last_name: '',
+      name: '',
       email: '',
       phone: '',
       roles: ['account.member'],
@@ -162,33 +158,19 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
           </div>
 
           {/* Personal Information */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-theme-primary mb-2">
-                First Name <span className="text-theme-error">*</span>
-              </label>
-              <input
-                type="text"
-                value={formData.first_name}
-                onChange={(e) => handleInputChange('first_name', e.target.value)}
-                className="w-full px-3 py-2 border border-theme rounded-lg bg-theme-background text-theme-primary focus:ring-2 focus:ring-theme-interactive-primary focus:border-transparent"
-                required
-                disabled={loading}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-theme-primary mb-2">
-                Last Name <span className="text-theme-error">*</span>
-              </label>
-              <input
-                type="text"
-                value={formData.last_name}
-                onChange={(e) => handleInputChange('last_name', e.target.value)}
-                className="w-full px-3 py-2 border border-theme rounded-lg bg-theme-background text-theme-primary focus:ring-2 focus:ring-theme-interactive-primary focus:border-transparent"
-                required
-                disabled={loading}
-              />
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-theme-primary mb-2">
+              Full Name <span className="text-theme-error">*</span>
+            </label>
+            <input
+              type="text"
+              value={formData.name}
+              onChange={(e) => handleInputChange('name', e.target.value)}
+              placeholder="Enter full name"
+              className="w-full px-3 py-2 border border-theme rounded-lg bg-theme-background text-theme-primary focus:ring-2 focus:ring-theme-interactive-primary focus:border-transparent"
+              required
+              disabled={loading}
+            />
           </div>
 
           {/* Email */}
@@ -297,4 +279,3 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
   );
 };
 
-export default CreateUserModal;

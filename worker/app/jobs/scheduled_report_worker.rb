@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require_relative 'base_job'
 
 # Job for processing scheduled reports
@@ -34,16 +36,22 @@ class ScheduledReportWorker < BaseJob
           next_run_at: calculate_next_run_time(report_data[:frequency])
         })
 
-        # TODO: Send email with PDF attachment
-        # This would typically involve:
-        # 1. Decode base64 PDF data
-        # 2. Send email via email service API
-        # 3. Include recipients from report_data[:recipients]
-        
-        log_info("Scheduled report processed successfully", 
+        # Send email with PDF attachment to all recipients
+        recipients = report_data[:recipients] || []
+        if recipients.any? && result[:data]
+          send_report_emails(
+            recipients: recipients,
+            report_type: report_data[:report_type],
+            pdf_data: result[:data][:pdf_data] || result[:data]['pdf_data'],
+            account_id: report_data[:account_id],
+            user_id: report_data[:user_id]
+          )
+        end
+
+        log_info("Scheduled report processed successfully",
           report_id: scheduled_report_id,
           report_type: report_data[:report_type],
-          recipients_count: report_data[:recipients]&.length || 0
+          recipients_count: recipients.length
         )
 
         # Create audit log
@@ -75,6 +83,80 @@ class ScheduledReportWorker < BaseJob
   end
 
   private
+
+  def send_report_emails(recipients:, report_type:, pdf_data:, account_id:, user_id:)
+    return if recipients.empty? || pdf_data.blank?
+
+    email_service = EmailDeliveryWorkerService.new
+    formatted_type = report_type.to_s.titleize.gsub('_', ' ')
+    filename = "#{report_type}_report_#{Date.today.iso8601}.pdf"
+
+    # Decode base64 PDF data if encoded
+    decoded_pdf = pdf_data.is_a?(String) && pdf_data.start_with?('JVBERi') ? Base64.decode64(pdf_data) : pdf_data
+
+    recipients.each do |recipient|
+      begin
+        email_service.send_email(
+          to: recipient[:email] || recipient,
+          subject: "Your #{formatted_type} Report - #{Date.today.strftime('%B %d, %Y')}",
+          body: build_report_email_body(formatted_type, recipient),
+          email_type: 'report_generated',
+          account_id: account_id,
+          user_id: user_id,
+          attachments: [{
+            data: decoded_pdf,
+            filename: filename,
+            content_type: 'application/pdf'
+          }]
+        )
+
+        log_info("Report email sent",
+          recipient: recipient[:email] || recipient,
+          report_type: report_type
+        )
+      rescue StandardError => e
+        log_error("Failed to send report email", e,
+          recipient: recipient[:email] || recipient,
+          report_type: report_type
+        )
+      end
+    end
+  end
+
+  def build_report_email_body(report_type, recipient)
+    recipient_name = recipient.is_a?(Hash) ? recipient[:name] : 'User'
+    <<~HTML
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: #4F46E5; color: white; padding: 20px; text-align: center; }
+          .content { padding: 20px; background: #f9f9f9; }
+          .footer { padding: 20px; text-align: center; color: #666; font-size: 12px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>#{report_type} Report</h1>
+          </div>
+          <div class="content">
+            <p>Hello #{recipient_name},</p>
+            <p>Your scheduled #{report_type.downcase} report has been generated and is attached to this email.</p>
+            <p>This report covers the period ending #{Date.today.strftime('%B %d, %Y')}.</p>
+            <p>If you have any questions about this report, please contact your account administrator.</p>
+          </div>
+          <div class="footer">
+            <p>This is an automated report from Powernode.</p>
+            <p>&copy; #{Date.today.year} Powernode. All rights reserved.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    HTML
+  end
 
   def calculate_next_run_time(frequency)
     base_time = Time.now

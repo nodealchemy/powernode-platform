@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class RevenueSnapshot < ApplicationRecord
   belongs_to :account, optional: true
 
@@ -7,7 +9,7 @@ class RevenueSnapshot < ApplicationRecord
 
   # Ensure uniqueness of snapshot per account/date
   validates :snapshot_date, uniqueness: { scope: [ :account_id ] }
-  
+
   # Alias for backwards compatibility
   alias_attribute :date, :snapshot_date
 
@@ -72,7 +74,7 @@ class RevenueSnapshot < ApplicationRecord
   end
 
   def ltv
-    Money.new(ltv_cents, "USD")  
+    Money.new(ltv_cents, "USD")
   end
 
   def ltv_cents
@@ -80,15 +82,15 @@ class RevenueSnapshot < ApplicationRecord
   end
 
   def growth_rate_percentage
-    get_metadata('growth_rate') || 0.0
+    get_metadata("growth_rate") || 0.0
   end
 
   def customer_churn_rate_percentage
-    get_metadata('customer_churn_rate') || 0.0
+    get_metadata("customer_churn_rate") || 0.0
   end
 
   def revenue_churn_rate_percentage
-    get_metadata('revenue_churn_rate') || 0.0
+    get_metadata("revenue_churn_rate") || 0.0
   end
 
   def net_new_subscriptions
@@ -101,7 +103,7 @@ class RevenueSnapshot < ApplicationRecord
   end
 
   def total_customers_count
-    get_metadata('total_customers_count') || active_subscriptions # Simplified - assuming 1 customer per subscription
+    get_metadata("total_customers_count") || active_subscriptions # Simplified - assuming 1 customer per subscription
   end
 
   def new_subscriptions_count
@@ -117,11 +119,11 @@ class RevenueSnapshot < ApplicationRecord
   end
 
   def churned_customers_count
-    get_metadata('churned_customers_count') || churned_subscriptions # Simplified - assuming 1 customer per subscription
+    get_metadata("churned_customers_count") || churned_subscriptions # Simplified - assuming 1 customer per subscription
   end
 
   def new_customers_count
-    get_metadata('new_customers_count') || new_subscriptions # Simplified - assuming 1 customer per subscription
+    get_metadata("new_customers_count") || new_subscriptions # Simplified - assuming 1 customer per subscription
   end
 
   def add_metadata(key, value)

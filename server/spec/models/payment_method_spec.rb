@@ -5,56 +5,55 @@ RSpec.describe PaymentMethod, type: :model do
 
   describe "associations" do
     it { should belong_to(:account) }
-    it { should belong_to(:user) }
   end
 
   describe "validations" do
-    it { should validate_presence_of(:provider) }
-    it { should validate_inclusion_of(:provider).in_array(%w[stripe paypal]) }
+    it { should validate_presence_of(:gateway) }
+    it { should validate_inclusion_of(:gateway).in_array(%w[stripe paypal]) }
     it { should validate_presence_of(:external_id) }
     it { should validate_presence_of(:payment_type) }
     it { should validate_inclusion_of(:payment_type).in_array(%w[card bank paypal apple_pay google_pay]) }
   end
 
   describe "scopes" do
-    let!(:stripe_payment_method) { create(:payment_method, provider: "stripe") }
-    let!(:paypal_payment_method) { create(:payment_method, provider: "paypal") }
+    let!(:stripe_payment_method) { create(:payment_method, gateway: "stripe") }
+    let!(:paypal_payment_method) { create(:payment_method, gateway: "paypal") }
 
-    describe ".for_provider" do
+    describe ".for_gateway" do
       it "returns payment methods for stripe" do
-        expect(PaymentMethod.for_provider("stripe")).to include(stripe_payment_method)
-        expect(PaymentMethod.for_provider("stripe")).not_to include(paypal_payment_method)
+        expect(PaymentMethod.for_gateway("stripe")).to include(stripe_payment_method)
+        expect(PaymentMethod.for_gateway("stripe")).not_to include(paypal_payment_method)
       end
 
       it "returns payment methods for paypal" do
-        expect(PaymentMethod.for_provider("paypal")).to include(paypal_payment_method)
-        expect(PaymentMethod.for_provider("paypal")).not_to include(stripe_payment_method)
+        expect(PaymentMethod.for_gateway("paypal")).to include(paypal_payment_method)
+        expect(PaymentMethod.for_gateway("paypal")).not_to include(stripe_payment_method)
       end
     end
   end
 
 
-  describe "provider methods" do
+  describe "gateway methods" do
     describe "#stripe?" do
-      it "returns true when provider is stripe" do
-        payment_method = build(:payment_method, provider: "stripe")
+      it "returns true when gateway is stripe" do
+        payment_method = build(:payment_method, gateway: "stripe")
         expect(payment_method.stripe?).to be true
       end
 
-      it "returns false when provider is not stripe" do
-        payment_method = build(:payment_method, provider: "paypal")
+      it "returns false when gateway is not stripe" do
+        payment_method = build(:payment_method, gateway: "paypal")
         expect(payment_method.stripe?).to be false
       end
     end
 
     describe "#paypal?" do
-      it "returns true when provider is paypal" do
-        payment_method = build(:payment_method, provider: "paypal")
+      it "returns true when gateway is paypal" do
+        payment_method = build(:payment_method, gateway: "paypal")
         expect(payment_method.paypal?).to be true
       end
 
-      it "returns false when provider is not paypal" do
-        payment_method = build(:payment_method, provider: "stripe")
+      it "returns false when gateway is not paypal" do
+        payment_method = build(:payment_method, gateway: "stripe")
         expect(payment_method.paypal?).to be false
       end
     end
@@ -150,10 +149,10 @@ RSpec.describe PaymentMethod, type: :model do
   end
 
   describe "#can_be_used_for_recurring?" do
-    context "with stripe provider" do
+    context "with stripe gateway" do
       it "returns true for card payment method" do
         payment_method = build(:payment_method,
-          provider: "stripe",
+          gateway: "stripe",
           payment_type: "card"
         )
 
@@ -162,7 +161,7 @@ RSpec.describe PaymentMethod, type: :model do
 
       it "returns true for bank account payment method" do
         payment_method = build(:payment_method,
-          provider: "stripe",
+          gateway: "stripe",
           payment_type: "bank"
         )
 
@@ -171,7 +170,7 @@ RSpec.describe PaymentMethod, type: :model do
 
       it "returns false for paypal account payment method with stripe" do
         payment_method = build(:payment_method,
-          provider: "stripe",
+          gateway: "stripe",
           payment_type: "paypal"
         )
 
@@ -179,10 +178,10 @@ RSpec.describe PaymentMethod, type: :model do
       end
     end
 
-    context "with paypal provider" do
+    context "with paypal gateway" do
       it "returns true for paypal account payment method" do
         payment_method = build(:payment_method,
-          provider: "paypal",
+          gateway: "paypal",
           payment_type: "paypal"
         )
 
@@ -191,7 +190,7 @@ RSpec.describe PaymentMethod, type: :model do
 
       it "returns false for card payment method with paypal" do
         payment_method = build(:payment_method,
-          provider: "paypal",
+          gateway: "paypal",
           payment_type: "card"
         )
 
@@ -200,7 +199,7 @@ RSpec.describe PaymentMethod, type: :model do
 
       it "returns false for bank account payment method with paypal" do
         payment_method = build(:payment_method,
-          provider: "paypal",
+          gateway: "paypal",
           payment_type: "bank"
         )
 
@@ -208,9 +207,9 @@ RSpec.describe PaymentMethod, type: :model do
       end
     end
 
-    context "with unknown provider" do
+    context "with unknown gateway" do
       it "returns false" do
-        payment_method = build(:payment_method, provider: "unknown")
+        payment_method = build(:payment_method, gateway: "unknown")
 
         expect(payment_method.can_be_used_for_recurring?).to be false
       end
@@ -240,7 +239,7 @@ RSpec.describe PaymentMethod, type: :model do
     describe "stripe card" do
       it "creates valid stripe card payment method" do
         payment_method = create(:payment_method,
-          provider: "stripe",
+          gateway: "stripe",
           payment_type: "card",
           last_four: "4242"
         )
@@ -256,7 +255,7 @@ RSpec.describe PaymentMethod, type: :model do
     describe "stripe bank account" do
       it "creates valid stripe bank account payment method" do
         payment_method = create(:payment_method,
-          provider: "stripe",
+          gateway: "stripe",
           payment_type: "bank",
           last_four: "6789"
         )
@@ -272,7 +271,7 @@ RSpec.describe PaymentMethod, type: :model do
     describe "paypal account" do
       it "creates valid paypal account payment method" do
         payment_method = create(:payment_method,
-          provider: "paypal",
+          gateway: "paypal",
           payment_type: "paypal"
         )
 

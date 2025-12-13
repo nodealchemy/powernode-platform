@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useSelector } from 'react-redux';
 import { useLocation } from 'react-router-dom';
 import { RootState } from '@/shared/services';
 import { analyticsService } from '@/features/analytics/services/analyticsService';
 import { useAnalyticsWebSocket } from '@/shared/hooks/useAnalyticsWebSocket';
+import { hasPermissions } from '@/shared/utils/permissionUtils';
 
 // Chart Components
 import { RevenueChart } from '@/features/analytics/components/RevenueChart';
@@ -17,14 +18,129 @@ import { DateRangeFilter } from '@/features/analytics/components/DateRangeFilter
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
 import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
-import { RefreshCw, Download } from 'lucide-react';
+import { RefreshCw, Download, Lock } from 'lucide-react';
+
+interface RevenueData {
+  current_metrics: {
+    mrr: number;
+    arr: number;
+    active_subscriptions: number;
+    total_customers: number;
+    arpu: number;
+    growth_rate: number;
+  };
+  historical_data: Array<{
+    date: string;
+    mrr: number;
+    arr: number;
+    active_subscriptions: number;
+    new_subscriptions: number;
+    churned_subscriptions: number;
+  }>;
+  period: {
+    start_date: string;
+    end_date: string;
+  };
+}
+
+interface GrowthData {
+  compound_monthly_growth_rate: number;
+  monthly_growth_data: Array<{
+    date: string;
+    mrr: number;
+    growth_rate: number;
+    new_revenue: number;
+    churned_revenue: number;
+  }>;
+  forecasting: {
+    next_month_projection: number;
+    confidence_interval: string;
+  };
+  period: {
+    start_date: string;
+    end_date: string;
+  };
+}
+
+interface ChurnData {
+  current_metrics: {
+    customer_churn_rate: number;
+    average_customer_churn_rate: number;
+    average_revenue_churn_rate: number;
+    customer_retention_rate: number;
+  };
+  churn_trend: Array<{
+    date: string;
+    customer_churn_rate: number;
+    revenue_churn_rate: number;
+    churned_customers: number;
+    churned_subscriptions: number;
+  }>;
+  insights: {
+    churn_risk_level: 'low' | 'medium' | 'high';
+    recommended_actions: string[];
+  };
+  period: {
+    start_date: string;
+    end_date: string;
+  };
+}
+
+interface CustomerData {
+  current_metrics: {
+    total_customers: number;
+    arpu: number;
+    ltv: number;
+    ltv_to_cac_ratio: number;
+  };
+  customer_growth_trend: Array<{
+    date: string;
+    total_customers: number;
+    new_customers: number;
+    churned_customers: number;
+    net_growth: number;
+    arpu: number;
+    ltv: number;
+  }>;
+  segmentation: {
+    by_plan: Array<{
+      plan: string;
+      customers: number;
+    }>;
+    by_tenure: Array<{
+      segment: string;
+      customers: number;
+    }>;
+  };
+  period: {
+    start_date: string;
+    end_date: string;
+  };
+}
+
+interface CohortData {
+  cohorts: Array<{
+    cohort_date: string;
+    cohort_size: number;
+    retention_rates: Array<{
+      month: number;
+      retention_rate: number;
+      retained_customers: number;
+    }>;
+  }>;
+  summary: {
+    total_cohorts: number;
+    average_first_month_retention: number;
+    average_six_month_retention: number;
+  };
+}
 
 export interface AnalyticsData {
-  revenue: any;
-  growth: any;
-  churn: any;
-  customers: any;
-  cohorts: any;
+  revenue: RevenueData;
+  growth: GrowthData;
+  churn: ChurnData;
+  customers: CustomerData;
+  cohorts: CohortData;
 }
 
 interface AnalyticsPageProps {}
@@ -248,10 +364,15 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
     return 'overview';
   }, [location.pathname]);
   
+  // Type guard for analytics update data
+  const isAnalyticsUpdateData = (data: unknown): data is { current_metrics?: Record<string, any> } => {
+    return typeof data === 'object' && data !== null;
+  };
+
   // Stable callbacks to prevent WebSocket reconnections
-  const handleAnalyticsUpdate = useCallback((updateData: any) => {
+  const handleAnalyticsUpdate = useCallback((updateData: unknown) => {
     // Update specific metrics without full reload
-    if (data && updateData.current_metrics) {
+    if (isAnalyticsUpdateData(updateData) && updateData.current_metrics) {
       setData(prevData => prevData ? {
         ...prevData,
         revenue: {
@@ -266,8 +387,8 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
     }
   }, []);
 
-  const handleWebSocketError = useCallback((errorMessage: string) => {
-    console.error('Analytics WebSocket error:', errorMessage);
+  const handleWebSocketError = useCallback((_errorMessage: string) => {
+    // Error handling could be added here
   }, []);
 
   // Analytics WebSocket for real-time updates
@@ -276,12 +397,20 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
     onError: handleWebSocketError
   });
   
+  // Refs to track loading state and prevent double-loading in StrictMode
+  const isInitialLoad = useRef(true);
+  const refreshInterval = useRef<NodeJS.Timeout | null>(null);
+
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [usingFallbackData, setUsingFallbackData] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
   // const [lastUpdated, setLastUpdated] = useState<Date | null>(null); // TODO: Display last updated timestamp
+  
+  // Check permissions before loading analytics
+  const canViewAnalytics = hasPermissions(user, ['ai.analytics.read', 'admin.access']);
+  const canExportAnalytics = hasPermissions(user, ['ai.analytics.export', 'admin.access']);
   
   // Date range state
   const [dateRange, setDateRange] = useState<{
@@ -295,38 +424,47 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
   // Active tab state
   const [activeTab, setActiveTab] = useState(() => getActiveTabFromPath());
   
-  // Update active tab when URL changes
+  // Update active tab when URL changes (with debouncing)
   useEffect(() => {
-    const newActiveTab = getActiveTabFromPath();
-    if (newActiveTab !== activeTab) {
-      setActiveTab(newActiveTab);
-    }
-  }, [location.pathname, getActiveTabFromPath, activeTab]);
-
-  // Load analytics data
-  const loadAnalyticsData = useCallback(async (showLoading = true) => {
-    try {
-      if (showLoading) {
-        setLoading(true);
+    const timeoutId = setTimeout(() => {
+      const newActiveTab = getActiveTabFromPath();
+      if (newActiveTab !== activeTab) {
+        setActiveTab(newActiveTab);
       }
+    }, 50);
+
+    return () => clearTimeout(timeoutId);
+  }, [location.pathname]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Load analytics data with StrictMode protection
+  const loadAnalyticsData = useCallback(async (force = false) => {
+    // Prevent double-loading in React.StrictMode during initial mount
+    if (isInitialLoad.current && !force && data && !usingFallbackData) {
+      return;
+    }
+
+    // Don't load if user doesn't have permission
+    if (!canViewAnalytics) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
       setError(null);
       setUsingFallbackData(false);
 
       const startDate = dateRange.startDate.toISOString().split('T')[0];
       const endDate = dateRange.endDate.toISOString().split('T')[0];
 
-      console.log('Loading analytics data for date range:', { startDate, endDate });
 
       // Try to fetch each analytics endpoint individually to identify issues
-      let analyticsData: any = {};
+      let analyticsData: Partial<AnalyticsData> = {};
       
       try {
-        console.log('Fetching revenue analytics...');
         const revenue = await analyticsService.getRevenueAnalytics(startDate, endDate);
-        console.log('Revenue response:', revenue);
         analyticsData.revenue = revenue.data;
       } catch (revenueError) {
-        console.error('Revenue analytics failed:', revenueError);
         // Provide realistic fallback data for demonstration
         const fallbackData = generateFallbackRevenueData(startDate, endDate);
         analyticsData.revenue = fallbackData;
@@ -334,85 +472,81 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
       }
 
       try {
-        console.log('Fetching growth analytics...');
         const growth = await analyticsService.getGrowthAnalytics(startDate, endDate);
-        console.log('Growth response:', growth);
         analyticsData.growth = growth.data;
       } catch (growthError) {
-        console.error('Growth analytics failed:', growthError);
         const fallbackData = generateFallbackGrowthData(startDate, endDate);
         analyticsData.growth = fallbackData;
         setUsingFallbackData(true);
       }
 
       try {
-        console.log('Fetching churn analytics...');
         const churn = await analyticsService.getChurnAnalytics(startDate, endDate);
-        console.log('Churn response:', churn);
         analyticsData.churn = churn.data;
       } catch (churnError) {
-        console.error('Churn analytics failed:', churnError);
         const fallbackData = generateFallbackChurnData(startDate, endDate);
         analyticsData.churn = fallbackData;
         setUsingFallbackData(true);
       }
 
       try {
-        console.log('Fetching customer analytics...');
         const customers = await analyticsService.getCustomerAnalytics(startDate, endDate);
-        console.log('Customer response:', customers);
         analyticsData.customers = customers.data;
       } catch (customerError) {
-        console.error('Customer analytics failed:', customerError);
         const fallbackData = generateFallbackCustomerData(startDate, endDate);
         analyticsData.customers = fallbackData;
         setUsingFallbackData(true);
       }
 
       try {
-        console.log('Fetching cohort analytics...');
         const cohorts = await analyticsService.getCohortAnalytics();
-        console.log('Cohort response:', cohorts);
         analyticsData.cohorts = cohorts.data;
       } catch (cohortError) {
-        console.error('Cohort analytics failed:', cohortError);
         const fallbackData = generateFallbackCohortData();
         analyticsData.cohorts = fallbackData;
         setUsingFallbackData(true);
       }
 
-      setData(analyticsData);
+      // Type assertion is safe here since we've populated all required fields
+      setData(analyticsData as AnalyticsData);
+      isInitialLoad.current = false;
       // setLastUpdated(new Date()); // TODO: Display last updated timestamp
-      console.log('Analytics data loaded successfully:', analyticsData);
     } catch (err) {
-      console.error('Failed to load analytics data:', err);
       setError(err instanceof Error ? err.message : 'Failed to load analytics data');
     } finally {
       setLoading(false);
     }
-  }, [dateRange]);
+  }, [dateRange.startDate.getTime(), dateRange.endDate.getTime(), canViewAnalytics]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Initial data load
+  // Initial data load with StrictMode protection
   useEffect(() => {
-    loadAnalyticsData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dateRange]); // Only depend on dateRange, not loadAnalyticsData to avoid circular dependency
+    const timeoutId = setTimeout(() => {
+      loadAnalyticsData();
+    }, 0);
+    return () => clearTimeout(timeoutId);
+  }, [dateRange.startDate, dateRange.endDate]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Auto-refresh analytics data when WebSocket is connected
+  // Auto-refresh analytics data when WebSocket is connected - but only for overview tab
   useEffect(() => {
-    if (isConnected && data) {
-      console.log('Starting auto-refresh interval for analytics data');
-      const interval = setInterval(() => {
-        // Request real-time analytics update via WebSocket
-        requestAnalyticsUpdate();
-      }, 30000); // Request update every 30 seconds
-
-      return () => {
-        console.log('Clearing auto-refresh interval');
-        clearInterval(interval);
-      };
+    // Don't start auto-refresh until initial load is complete
+    if (isInitialLoad.current || !isConnected || !data || activeTab !== 'overview') {
+      return;
     }
-  }, [isConnected, data, requestAnalyticsUpdate]);
+
+    // Only enable WebSocket auto-refresh for overview tab, let LiveMetricsOverview handle live tab
+    // TEMPORARILY DISABLED - Causing automatic page refreshes
+    // refreshInterval.current = setInterval(() => {
+    //   // Request real-time analytics update via WebSocket
+    //   requestAnalyticsUpdate();
+    // }, 30000); // Request update every 30 seconds
+
+    return () => {
+      if (refreshInterval.current) {
+        clearInterval(refreshInterval.current);
+        refreshInterval.current = null;
+      }
+    };
+  }, [isConnected, requestAnalyticsUpdate, activeTab]); // Removed 'data' dependency to prevent restart when data changes
 
   const handleDateRangeChange = (newDateRange: { startDate: Date; endDate: Date }) => {
     setDateRange(newDateRange);
@@ -420,11 +554,15 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
 
   // Export functionality
   const handleExport = async (format: 'csv' | 'pdf', reportType: string) => {
+    if (!canExportAnalytics) {
+      return; // Don't export if user doesn't have permission
+    }
+
     try {
       await analyticsService.exportAnalytics(format, reportType, dateRange);
       setShowExportModal(false);
-    } catch (error) {
-      console.error('Export failed:', error);
+    } catch (_error) {
+      // Error handling could be added here
     }
   };
 
@@ -433,19 +571,20 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
     {
       id: 'refresh',
       label: 'Refresh',
-      onClick: () => loadAnalyticsData(),
+      onClick: () => loadAnalyticsData(true), // Force refresh when manually triggered
       variant: 'secondary',
       icon: RefreshCw,
       disabled: loading
     },
-    {
+    // Only show export if user has permission
+    ...(canExportAnalytics ? [{
       id: 'export',
       label: 'Export',
       onClick: () => setShowExportModal(true),
-      variant: 'secondary',
+      variant: 'secondary' as const,
       icon: Download,
       disabled: loading || !data
-    }
+    }] : [])
   ];
 
   const tabs = [
@@ -475,7 +614,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
                 <h3 className="text-sm font-medium text-theme-error">Error Loading Analytics</h3>
                 <p className="mt-1 text-sm text-theme-error">{error}</p>
                 <button
-                  onClick={() => loadAnalyticsData()}
+                  onClick={() => loadAnalyticsData(true)}
                   className="mt-2 px-3 py-1 bg-theme-error text-theme-error-contrast rounded text-sm hover:opacity-80"
                 >
                   Try Again
@@ -512,6 +651,24 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
     return baseBreadcrumbs;
   };
 
+  // Show access denied if user doesn't have permission
+  if (!canViewAnalytics) {
+    return (
+      <PageContainer
+        title="Analytics Dashboard"
+        description="Analytics insights and reporting"
+        breadcrumbs={getBreadcrumbs()}
+        actions={[]}
+      >
+        <div className="text-center py-12">
+          <Lock className="w-12 h-12 text-theme-secondary mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-theme-primary mb-2">Analytics Access Restricted</h3>
+          <p className="text-theme-secondary">You need analytics.read permission to access this dashboard</p>
+        </div>
+      </PageContainer>
+    );
+  }
+
   return (
     <PageContainer
       title="Analytics Dashboard"
@@ -541,7 +698,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
             </div>
             <div className="ml-auto pl-3">
               <button
-                onClick={() => loadAnalyticsData()}
+                onClick={() => loadAnalyticsData(true)}
                 className="text-sm font-medium text-theme-warning underline hover:no-underline"
               >
                 Retry
@@ -595,7 +752,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
               accountId={user?.account?.id}
               showTodayActivity={true}
               showWeeklyTrend={true}
-              updateInterval={15000}
+              updateInterval={30000}
             />
           </div>
         </TabPanel>

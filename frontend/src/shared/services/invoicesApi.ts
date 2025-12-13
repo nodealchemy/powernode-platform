@@ -37,7 +37,7 @@ export interface Invoice {
   last_payment_attempt?: PaymentAttempt;
   
   // Metadata
-  metadata?: { [key: string]: any };
+  metadata?: Record<string, unknown>;
   
   // URLs
   hosted_invoice_url?: string;
@@ -54,7 +54,7 @@ export interface InvoiceLineItem {
   period_start?: string;
   period_end?: string;
   proration?: boolean;
-  metadata?: { [key: string]: any };
+  metadata?: Record<string, unknown>;
 }
 
 export interface PaymentAttempt {
@@ -131,7 +131,7 @@ export interface CreateInvoiceRequest {
     unit_amount: number;
     tax_rate?: number;
   }[];
-  metadata?: { [key: string]: any };
+  metadata?: Record<string, unknown>;
   auto_send?: boolean;
 }
 
@@ -242,51 +242,6 @@ export const invoicesApi = {
       sort_by: 'due_date',
       sort_order: 'asc'
     });
-  },
-
-  // Utility methods
-  formatAmount(amountCents: number, currency = 'USD'): string {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: currency.toUpperCase(),
-    }).format(amountCents / 100);
-  },
-
-  getStatusColor(status: string): 'green' | 'yellow' | 'red' | 'gray' | 'blue' {
-    switch (status) {
-      case 'paid':
-        return 'green';
-      case 'open':
-        return 'blue';
-      case 'overdue':
-        return 'red';
-      case 'draft':
-        return 'gray';
-      case 'void':
-      case 'uncollectible':
-        return 'gray';
-      default:
-        return 'yellow';
-    }
-  },
-
-  getStatusText(status: string): string {
-    switch (status) {
-      case 'draft':
-        return 'Draft';
-      case 'open':
-        return 'Open';
-      case 'paid':
-        return 'Paid';
-      case 'void':
-        return 'Void';
-      case 'uncollectible':
-        return 'Uncollectible';
-      case 'overdue':
-        return 'Overdue';
-      default:
-        return status.charAt(0).toUpperCase() + status.slice(1);
-    }
   },
 
   isOverdue(invoice: Invoice): boolean {

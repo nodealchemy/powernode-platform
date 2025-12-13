@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { Plan } from '@/features/plans/services/plansApi';
 import { Button } from '@/shared/components/ui/Button';
 
@@ -11,9 +11,22 @@ interface SubscriptionPlanCardProps {
   billingCycle?: 'monthly' | 'yearly' | 'quarterly';
   isBestValue?: boolean;
   isPopular?: boolean;
+  // Comparison functionality
+  showComparison?: boolean;
+  isSelectedForComparison?: boolean;
+  onComparisonToggle?: (planId: string) => void;
 }
 
-const formatPrice = (price: {cents: number; currency_iso: string} | number | null | undefined, currency?: string, interval?: string, plan?: any, billingCycle?: string) => {
+interface PlanWithDiscounts {
+  billing_cycle?: string;
+  has_annual_discount?: boolean;
+  annual_discount_percent?: number | string;
+  has_promotional_discount?: boolean;
+  promotional_discount_percent?: number | string;
+  promotional_discount_code?: string;
+}
+
+const formatPrice = (price: {cents: number; currency_iso: string} | number | null | undefined, currency?: string, interval?: string, plan?: PlanWithDiscounts, billingCycle?: string) => {
   let priceCents: number;
   let actualCurrency = currency;
   
@@ -59,7 +72,7 @@ const formatPrice = (price: {cents: number; currency_iso: string} | number | nul
 };
 
 
-const getFeatureList = (features: Record<string, any>, limits?: Record<string, any>) => {
+const getFeatureList = (features: Record<string, boolean | string | number>, limits?: Record<string, number>) => {
   const featureList = [];
   
   if (limits) {
@@ -92,6 +105,9 @@ export const SubscriptionPlanCard: React.FC<SubscriptionPlanCardProps> = ({
   billingCycle = 'monthly',
   isBestValue = false,
   isPopular = false,
+  showComparison = false,
+  isSelectedForComparison = false,
+  onComparisonToggle,
 }) => {
   const featureList = getFeatureList(plan.features || {}, plan.limits || {});
 
@@ -164,7 +180,7 @@ export const SubscriptionPlanCard: React.FC<SubscriptionPlanCardProps> = ({
   };
   
   return (
-    <div className={`relative border-2 rounded-lg p-6 overflow-visible transition-all ${
+    <div className={`relative border-2 rounded-lg p-6 overflow-visible transition-all h-[520px] flex flex-col ${
       isActive 
         ? 'border-theme-info bg-theme-info ring-2 ring-theme-info ring-opacity-20' 
         : isBestValue
@@ -191,16 +207,39 @@ export const SubscriptionPlanCard: React.FC<SubscriptionPlanCardProps> = ({
 
       <div className="flex justify-between items-start mb-2 mt-2">
         <h4 className="text-lg font-semibold text-theme-primary">{plan.name}</h4>
-        {isActive && (
-          <span className="badge-theme badge-theme-info badge-theme-sm">
-            Current Plan
-          </span>
-        )}
+        <div className="flex items-center space-x-2">
+          {/* Plan Comparison Checkbox */}
+          {showComparison && onComparisonToggle && (
+            <div className="flex flex-col items-center">
+              <label 
+                htmlFor={`compare-subscription-${plan.id}`}
+                className="flex flex-col items-center cursor-pointer group/compare hover:bg-theme-surface p-1.5 rounded transition-colors"
+                title="Add to comparison"
+              >
+                <input
+                  id={`compare-subscription-${plan.id}`}
+                  type="checkbox"
+                  checked={isSelectedForComparison}
+                  onChange={() => onComparisonToggle(plan.id)}
+                  className="w-3.5 h-3.5 text-theme-interactive-primary border-theme-border rounded focus:ring-theme-interactive-primary focus:ring-1 transition-colors"
+                />
+                <span className="text-xs text-theme-secondary mt-0.5 group-hover/compare:text-theme-primary transition-colors">
+                  Compare
+                </span>
+              </label>
+            </div>
+          )}
+          {isActive && (
+            <span className="badge-theme badge-theme-info badge-theme-sm">
+              Current Plan
+            </span>
+          )}
+        </div>
       </div>
       
       <div className="mt-2">
         <p className="text-3xl font-bold text-theme-primary">
-          {formatPrice((plan as any).price_cents || (plan as any).price, plan.currency, billingCycle === 'yearly' ? 'yearly' : (plan as any).billing_cycle || (plan as any).interval, plan, billingCycle)}
+          {formatPrice((plan as any).price_cents || (plan as any).price, plan.currency, billingCycle === 'yearly' ? 'yearly' : (plan as any).billing_cycle || (plan as any).interval, plan as PlanWithDiscounts, billingCycle)}
         </p>
         {/* Show original price with strikethrough if discounted */}
         {((billingCycle === 'yearly' && plan.has_annual_discount && plan.annual_discount_percent) ||
@@ -254,7 +293,7 @@ export const SubscriptionPlanCard: React.FC<SubscriptionPlanCardProps> = ({
         </ul>
       </div>
       
-      <div className="mt-6">
+      <div className="mt-auto pt-6">
         {isActive ? (
           <Button
             onClick={() => onManage?.(plan.id)}

@@ -34,12 +34,13 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
   // Get authentication state with null checking
   const authState = useSelector((state: RootState) => state?.auth);
   const isAuthenticated = authState?.isAuthenticated || false;
+  const hasValidTokens = authState?.access_token && authState?.user;
 
   // Load theme from user preferences on mount (only if authenticated)
   useEffect(() => {
     const loadTheme = async () => {
       try {
-        if (isAuthenticated) {
+        if (isAuthenticated && hasValidTokens) {
           const response = await settingsApi.getUserSettings();
           if (response.success) {
             const userTheme = response.data.user_preferences.theme || 'light';
@@ -48,20 +49,25 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
             applyThemeToDocument(userTheme);
           }
         } else {
-          // Force light theme when logged out
+          // Force light theme when logged out or tokens not available
           setThemeState('light');
           applyThemeToDocument('light');
         }
-      } catch (error) {
-        console.error('Failed to load theme preference:', error);
-        if (isAuthenticated) {
-          // Fall back to system preference or default for authenticated users
+      } catch (error: unknown) {
+        // Check if this is an authentication error
+        const apiError = error as { response?: { status?: number } };
+        if (apiError?.response?.status === 401) {
+          // Authentication failed, use light theme
+          setThemeState('light');
+          applyThemeToDocument('light');
+        } else if (isAuthenticated && hasValidTokens) {
+          // Other error for authenticated user, fall back to system preference
           const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
           setUserTheme(systemTheme);
           setThemeState(systemTheme);
           applyThemeToDocument(systemTheme);
         } else {
-          // Always use light theme when logged out
+          // Always use light theme when not authenticated
           setThemeState('light');
           applyThemeToDocument('light');
         }
@@ -71,19 +77,19 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
     };
 
     loadTheme();
-  }, [isAuthenticated]);
+  }, [isAuthenticated, hasValidTokens]);
 
-  // Force light theme when user logs out
+  // Force light theme when user logs out or tokens become invalid
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!isAuthenticated || !hasValidTokens) {
       setThemeState('light');
       applyThemeToDocument('light');
     } else if (userTheme) {
-      // Restore user's preferred theme when logging in
+      // Restore user's preferred theme when logging in with valid tokens
       setThemeState(userTheme);
       applyThemeToDocument(userTheme);
     }
-  }, [isAuthenticated, userTheme]);
+  }, [isAuthenticated, hasValidTokens, userTheme]);
 
   // Apply theme to document
   const applyThemeToDocument = (newTheme: Theme) => {
@@ -102,9 +108,8 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
   };
 
   const setTheme = async (newTheme: Theme) => {
-    // Prevent theme changes when logged out
-    if (!isAuthenticated) {
-      console.warn('Cannot change theme when logged out - forced to light theme');
+    // Prevent theme changes when logged out or tokens invalid
+    if (!isAuthenticated || !hasValidTokens) {
       return;
     }
 
@@ -115,9 +120,14 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
       
       // Update user preferences
       await settingsApi.updateUserSettings({ user_preferences: { theme: newTheme } });
-    } catch (error) {
-      console.error('Failed to update theme preference:', error);
-      // Revert on error
+    } catch (error: unknown) {
+      // Check if authentication error
+      const apiError = error as { response?: { status?: number } };
+      if (apiError?.response?.status === 401) {
+        // Authentication failed, keep the local theme change but don't try to save
+        return;
+      }
+      // Revert on other errors
       setThemeState(theme);
       applyThemeToDocument(theme);
     }

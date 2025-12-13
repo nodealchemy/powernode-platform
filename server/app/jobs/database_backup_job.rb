@@ -9,17 +9,17 @@ class DatabaseBackupJob < ApplicationJob
     DatabaseBackupService.perform_backup(backup_id)
   rescue => e
     Rails.logger.error "Database backup job failed for backup #{backup_id}: #{e.message}"
-    
+
     # Update backup status to failed
     backup = DatabaseBackup.find_by(id: backup_id)
     if backup
       backup.update!(
-        status: 'failed',
+        status: "failed",
         error_message: e.message,
         completed_at: Time.current
       )
     end
-    
+
     raise e
   end
 end

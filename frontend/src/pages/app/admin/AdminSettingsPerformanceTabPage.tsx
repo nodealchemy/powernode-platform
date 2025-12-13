@@ -2,12 +2,10 @@ import React from 'react';
 
 export const AdminSettingsPerformanceTabPage: React.FC = () => {
   return (
-    <div className="bg-theme-surface rounded-lg border border-theme">
-      <div className="p-6">
-        <p className="text-theme-secondary">
-          System performance monitoring and optimization settings will be available here.
-        </p>
-      </div>
+    <div className="text-center py-12">
+      <p className="text-theme-secondary">
+        System performance monitoring and optimization settings will be available here.
+      </p>
     </div>
   );
 };

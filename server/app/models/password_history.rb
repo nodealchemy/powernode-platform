@@ -1,9 +1,10 @@
+# frozen_string_literal: true
+
 class PasswordHistory < ApplicationRecord
   belongs_to :user
 
   # Validations
   validates :password_digest, presence: true
-  validates :created_at, presence: true
 
   # Scopes
   scope :recent, -> { order(created_at: :desc) }

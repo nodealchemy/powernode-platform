@@ -1,37 +1,45 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
-import { adminApi } from '../services/adminApi';
 
-const UserManagement: React.FC = () => {
+import { adminSettingsApi, AdminUser } from '../services/adminSettingsApi';
+import type { RootState } from '@/shared/services';
+
+export const UserManagement: React.FC = () => {
   const [usersData, setUsersData] = useState<{
-    users: any[];
-    total_count: number;
-    active_count: number;
-    inactive_count: number;
-    suspended_count: number;
+    users: AdminUser[];
+    pagination: {
+      current_page: number;
+      per_page: number;
+      total_count: number;
+      total_pages: number;
+    };
   } | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const user = useSelector((state: any) => state.auth.user);
+  const [statusFilter, setStatusFilter] = useState<string>('');
+  const user = useSelector((state: RootState) => state.auth.user);
 
   useEffect(() => {
     loadUsers();
-  }, [currentPage]);
+  }, [currentPage, statusFilter]);
 
-  const loadUsers = async (statusFilter?: string) => {
+  const loadUsers = async () => {
     try {
-      const data = await adminApi.getUsers(statusFilter ? { status: statusFilter } : undefined);
+      const data = await adminSettingsApi.getUsers({
+        page: currentPage,
+        per_page: 20,
+        status: statusFilter || undefined
+      });
       setUsersData(data);
     } catch (error) {
-      console.error('Failed to load users', error);
+      // Error handling
     }
   };
 
   const handleStatusFilter = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const status = e.target.value;
-    if (status) {
-      loadUsers(status);
-    }
+    setStatusFilter(status);
+    setCurrentPage(1); // Reset to first page on filter change
   };
 
   const hasPermission = (permission: string) => {
@@ -41,33 +49,44 @@ const UserManagement: React.FC = () => {
   return (
     <div>
       <h1>User Management</h1>
-      
+
       {hasPermission('users.create') && (
         <button onClick={() => setShowCreateModal(true)}>Create User</button>
       )}
 
       <label htmlFor="status-filter">Filter by Status</label>
-      <select id="status-filter" onChange={handleStatusFilter}>
+      <select id="status-filter" value={statusFilter} onChange={handleStatusFilter}>
         <option value="">All</option>
         <option value="active">Active</option>
         <option value="inactive">Inactive</option>
       </select>
 
       {/* Users List */}
-      {usersData?.users.map((user: any) => (
-        <div key={user.id}>
-          <div>{user.email}</div>
-          <div>{user.first_name} {user.last_name}</div>
-          <div>{user.status === 'active' ? 'Active' : 'Suspended'}</div>
-          {user.roles?.map((role: string) => (
+      {usersData?.users.map((userData: AdminUser) => (
+        <div key={userData.id}>
+          <div>{userData.email}</div>
+          <div>{userData.full_name || userData.name}</div>
+          <div>{userData.account.status === 'active' ? 'Active' : 'Suspended'}</div>
+          {userData.roles?.map((role: string) => (
             <span key={role}>{role}</span>
           ))}
         </div>
       ))}
 
       {/* Pagination */}
-      <button onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}>Previous</button>
-      <button onClick={() => setCurrentPage(prev => prev + 1)}>Next</button>
+      <button
+        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+        disabled={currentPage <= 1}
+      >
+        Previous
+      </button>
+      <span>Page {currentPage} of {usersData?.pagination.total_pages || 1}</span>
+      <button
+        onClick={() => setCurrentPage(prev => prev + 1)}
+        disabled={!usersData || currentPage >= usersData.pagination.total_pages}
+      >
+        Next
+      </button>
 
       {/* Create Modal */}
       {showCreateModal && (
@@ -85,5 +104,3 @@ const UserManagement: React.FC = () => {
     </div>
   );
 };
-
-export default UserManagement;

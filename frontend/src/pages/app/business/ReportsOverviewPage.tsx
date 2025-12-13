@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
-import { 
-  BarChart3, 
-  FileText, 
-  Clock, 
-  CheckCircle, 
+import {
+  BarChart3,
+  FileText,
+  Clock,
+  CheckCircle,
   AlertTriangle,
   Download,
   Calendar
@@ -99,9 +100,8 @@ export const ReportsOverviewPage: React.FC = () => {
 
       setStats(statsResponse.data);
       setRecentReports(recentResponse.data);
-    } catch (err) {
-      console.error('Failed to load overview data:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load overview data');
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Failed to load overview data');
     } finally {
       setLoading(false);
     }
@@ -164,22 +164,18 @@ export const ReportsOverviewPage: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Welcome Section */}
-      <div className="bg-theme-surface rounded-lg p-6">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="p-2 bg-theme-interactive-primary bg-opacity-10 rounded-lg">
-            <BarChart3 className="w-6 h-6 text-theme-interactive-primary" />
-          </div>
-          <div>
-            <h2 className="text-xl font-semibold text-theme-primary">Reports Overview</h2>
-            <p className="text-theme-secondary">Monitor your reporting activity and performance</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Stats Grid */}
-      {stats && (
+    <PageContainer
+      title="Reports Overview"
+      description="Monitor your reporting activity and performance"
+      breadcrumbs={[
+        { label: 'Dashboard', href: '/app' },
+        { label: 'Business', href: '/app/business' },
+        { label: 'Reports Overview' }
+      ]}
+    >
+      <div className="space-y-6">
+        {/* Stats Grid */}
+        {stats && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <div className="bg-theme-surface rounded-lg p-6">
             <div className="flex items-center gap-3">
@@ -221,10 +217,10 @@ export const ReportsOverviewPage: React.FC = () => {
             </div>
           </div>
         </div>
-      )}
+        )}
 
-      {/* Performance Metrics */}
-      {stats && (
+        {/* Performance Metrics */}
+        {stats && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="bg-theme-surface rounded-lg p-6">
             <h3 className="text-lg font-semibold text-theme-primary mb-4">Performance Metrics</h3>
@@ -328,8 +324,9 @@ export const ReportsOverviewPage: React.FC = () => {
             ))}
           </div>
         )}
+        </div>
       </div>
-    </div>
+    </PageContainer>
   );
 };
 

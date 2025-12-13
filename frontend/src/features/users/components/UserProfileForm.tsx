@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { DatePicker } from '@/shared/components/ui/DatePicker';
 import { useForm, FormValidationRules } from '@/shared/hooks/useForm';
 import { Button } from '@/shared/components/ui/Button';
@@ -71,8 +71,9 @@ export const UserProfileForm: React.FC<UserProfileFormProps> = ({
       maxLength: 500,
     },
     birthDate: {
-      custom: (value: Date | null) => {
-        if (value && value > new Date()) {
+      custom: (value: unknown) => {
+        const date = value as Date | null;
+        if (date && date > new Date()) {
           return 'Birth date cannot be in the future';
         }
         return null;
@@ -298,5 +299,3 @@ export const UserProfileForm: React.FC<UserProfileFormProps> = ({
     </div>
   );
 };
-
-export default UserProfileForm;

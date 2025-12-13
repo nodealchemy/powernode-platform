@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require_relative '../base_job'
 
 # Comprehensive Stripe webhook event processor
@@ -20,7 +22,7 @@ class Webhooks::StripeWebhookProcessorJob < BaseJob
     payload = webhook_data['payload']
     account_id = webhook_data['account_id']
     
-    logger.info "Processing Stripe webhook: #{event_type} for account: #{account_id}"
+    log_info("Processing Stripe webhook: #{event_type} for account: #{account_id}")
     
     # Mark webhook as processing
     mark_webhook_processing(webhook_data['webhook_event_id'])
@@ -56,15 +58,15 @@ class Webhooks::StripeWebhookProcessorJob < BaseJob
     
     if result[:success]
       mark_webhook_processed(webhook_data['webhook_event_id'])
-      logger.info "Successfully processed Stripe webhook: #{event_type}"
+      log_info("Successfully processed Stripe webhook: #{event_type}")
     else
       mark_webhook_failed(webhook_data['webhook_event_id'], result[:error])
-      logger.error "Failed to process Stripe webhook: #{event_type} - #{result[:error]}"
+      log_error("Failed to process Stripe webhook: #{event_type} - #{result[:error]}")
     end
     
     result
   rescue => e
-    logger.error "Stripe webhook processing error: #{e.message}"
+    log_error("Stripe webhook processing error: #{e.message}")
     mark_webhook_failed(webhook_data['webhook_event_id'], e.message)
     { success: false, error: e.message }
   end
@@ -120,7 +122,7 @@ class Webhooks::StripeWebhookProcessorJob < BaseJob
       
       if subscription_id
         Billing::PaymentRetryJob.perform_async(subscription_id, 'invoice_payment_failure', 1)
-        logger.info "Queued payment retry for subscription: #{subscription_id}"
+        log_info("Queued payment retry for subscription: #{subscription_id}")
       end
     end
     
@@ -272,7 +274,7 @@ class Webhooks::StripeWebhookProcessorJob < BaseJob
   end
 
   def process_unhandled_event(event_type, payload, account_id)
-    logger.info "Unhandled Stripe webhook event: #{event_type}"
+    log_info("Unhandled Stripe webhook event: #{event_type}")
     
     # Log unhandled events for future implementation
     with_api_retry do
@@ -297,7 +299,7 @@ class Webhooks::StripeWebhookProcessorJob < BaseJob
       })
     end
   rescue => e
-    logger.error "Failed to activate subscription: #{e.message}"
+    log_error("Failed to activate subscription: #{e.message}")
   end
 
   def get_local_subscription_id(stripe_subscription_id, account_id)
@@ -307,7 +309,7 @@ class Webhooks::StripeWebhookProcessorJob < BaseJob
     
     subscription_data&.dig('subscription', 'id')
   rescue => e
-    logger.error "Failed to get local subscription ID: #{e.message}"
+    log_error("Failed to get local subscription ID: #{e.message}")
     nil
   end
 

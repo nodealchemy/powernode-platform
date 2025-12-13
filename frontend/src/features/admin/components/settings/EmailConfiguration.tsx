@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Mail, Send, CheckCircle, AlertCircle, Settings, Eye, EyeOff } from 'lucide-react';
+import { Send, CheckCircle, AlertCircle, Settings, Eye, EyeOff } from 'lucide-react';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
-import { useNotification } from '@/shared/hooks/useNotification';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import { emailSettingsApi, EmailSettings } from '@/shared/services/emailSettingsApi';
 
 export const EmailConfiguration: React.FC = () => {
@@ -37,7 +37,8 @@ export const EmailConfiguration: React.FC = () => {
   const [testEmail, setTestEmail] = useState('');
   const [testing, setTesting] = useState(false);
   
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
+
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const loadSettings = useCallback(async () => {
@@ -53,7 +54,6 @@ export const EmailConfiguration: React.FC = () => {
       setOriginalSettings({ ...normalizedSettings });
       setHasChanges(false);
     } catch (error) {
-      console.error('Failed to load email settings:', error);
       showNotification('Failed to load email settings', 'error');
     } finally {
       setLoading(false);
@@ -80,12 +80,9 @@ export const EmailConfiguration: React.FC = () => {
       setOriginalSettings({ ...emailSettings });
       setHasChanges(false);
       showNotification('Email settings updated successfully', 'success');
-    } catch (error: any) {
-      console.error('Failed to update email settings:', error);
-      showNotification(
-        error.response?.data?.error || 'Failed to update email settings',
-        'error'
-      );
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to update email settings';
+      showNotification(message, 'error');
     } finally {
       setSaving(false);
     }
@@ -104,15 +101,21 @@ export const EmailConfiguration: React.FC = () => {
       return;
     }
     
-    setTesting(true);
     try {
+      setTesting(true);
       const response = await emailSettingsApi.testEmail(testEmail);
       showNotification(response.message || `Test email sent to ${testEmail}`, 'success');
-    } catch (error: any) {
-      showNotification(
-        error.response?.data?.error || 'Failed to send test email',
-        'error'
-      );
+    } catch (error: unknown) {
+      const apiError = error as { response?: { data?: { error?: string; message?: string } } };
+      let errorMessage = 'Failed to send test email';
+
+      if (apiError?.response?.data?.error) {
+        errorMessage = apiError.response.data.error;
+      } else if (apiError?.response?.data?.message) {
+        errorMessage = apiError.response.data.message;
+      }
+      
+      showNotification(errorMessage, 'error');
     } finally {
       setTesting(false);
     }
@@ -121,18 +124,6 @@ export const EmailConfiguration: React.FC = () => {
   if (loading) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-theme-interactive-primary bg-opacity-10 rounded-lg">
-              <Mail className="w-5 h-5 text-theme-interactive-primary" />
-            </div>
-            <div>
-              <h2 className="text-xl font-semibold text-theme-primary">Email Server Configuration</h2>
-              <p className="text-sm text-theme-secondary">Configure SMTP and email provider settings</p>
-            </div>
-          </div>
-        </div>
-
         <div className="bg-theme-surface rounded-lg border border-theme p-6 space-y-6">
           {/* Email Provider Selection - Show during loading */}
           <div>
@@ -175,8 +166,9 @@ export const EmailConfiguration: React.FC = () => {
             )}
           </div>
 
-          <div className="flex items-center justify-center py-8">
+          <div className="flex flex-col items-center justify-center py-8">
             <LoadingSpinner size="lg" />
+            <p className="text-theme-secondary mt-2">Loading...</p>
           </div>
         </div>
       </div>
@@ -185,50 +177,39 @@ export const EmailConfiguration: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-theme-interactive-primary bg-opacity-10 rounded-lg">
-            <Mail className="w-5 h-5 text-theme-interactive-primary" />
-          </div>
-          <div>
-            <h2 className="text-xl font-semibold text-theme-primary">Email Server Configuration</h2>
-            <p className="text-sm text-theme-secondary">Configure SMTP and email provider settings</p>
-          </div>
-        </div>
-        
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleReset}
-            disabled={!hasChanges || saving}
-            className="px-3 py-2 text-sm bg-theme-background text-theme-primary rounded-md hover:bg-theme-surface transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Settings className="w-4 h-4 mr-1 inline" />
-            Reset
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={!hasChanges || saving}
-            className="px-4 py-2 bg-theme-interactive-primary text-white rounded-md hover:bg-theme-interactive-primary-hover disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors duration-200"
-          >
-            {saving ? (
-              <>
-                <LoadingSpinner size="sm" />
-                Saving...
-              </>
-            ) : (
-              <>
-                <CheckCircle className="w-4 h-4" />
-                Save Changes
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-
       <div className="bg-theme-surface rounded-lg border border-theme p-6 space-y-6">
         {/* Email Provider Selection */}
         <div>
-          <h3 className="text-lg font-medium text-theme-primary mb-4">Provider Settings</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-medium text-theme-primary">Provider Settings</h3>
+            <div className="flex gap-2">
+              <button
+                onClick={handleReset}
+                disabled={!hasChanges || saving}
+                className="px-3 py-2 text-sm bg-theme-background text-theme-primary rounded-md hover:bg-theme-surface-hover transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Settings className="w-4 h-4 mr-1 inline" />
+                Reset
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={!hasChanges || saving}
+                className="px-4 py-2 text-sm bg-theme-interactive-primary text-white rounded-md hover:bg-theme-interactive-primary-hover disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors duration-200"
+              >
+                {saving ? (
+                  <>
+                    <LoadingSpinner size="sm" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="w-4 h-4" />
+                    Save Changes
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
           <div className="mb-6">
             <label htmlFor="email_provider" className="block text-sm font-medium text-theme-primary mb-2">
               Email Provider
@@ -675,4 +656,3 @@ export const EmailConfiguration: React.FC = () => {
   );
 };
 
-export default EmailConfiguration;

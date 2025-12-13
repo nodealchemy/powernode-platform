@@ -28,9 +28,10 @@ const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
     }
     
     return response.data;
-  } catch (error: any) {
-    if (error.response?.data) {
-      throw new Error(error.response.data.message || error.response.data.error || 'API request failed');
+  } catch (error: unknown) {
+    const apiError = error as { response?: { data?: { message?: string; error?: string } } };
+    if (apiError.response?.data) {
+      throw new Error(apiError.response.data.message || apiError.response.data.error || 'API request failed');
     }
     throw error;
   }
@@ -77,12 +78,10 @@ export interface Delegation {
   targetAccountId?: string;
   targetAccountName?: string;
   users?: Array<{ 
-    userId?: string; 
-    id?: string; 
-    email: string; 
-    name?: string; 
-    first_name?: string;
-    last_name?: string;
+    userId?: string;
+    id?: string;
+    email: string;
+    name?: string;
     role?: string;
     addedAt?: string;
   }>;
@@ -154,12 +153,10 @@ export interface DelegationRequest {
     sourceAccountName?: string;
     expiresAt?: string;
     permissions: string[];
-    users?: Array<{ 
-      id?: string; 
-      name?: string; 
-      first_name?: string;
-      last_name?: string;
-      email: string; 
+    users?: Array<{
+      id?: string;
+      name?: string;
+      email: string;
       roles?: string[];
     }>;
   };
@@ -168,8 +165,7 @@ export interface DelegationRequest {
 export interface User {
   id: string;
   email: string;
-  first_name: string;
-  last_name: string;
+  name: string;
   roles: string[];
 }
 
@@ -269,7 +265,7 @@ export const delegationApi = {
   },
 
   // Search accounts (placeholder - implement based on backend)
-  async searchAccounts(query: string): Promise<{ accounts: any[] }> {
+  async searchAccounts(query: string): Promise<{ accounts: unknown[] }> {
     return apiRequest(`/api/v1/accounts/search?q=${encodeURIComponent(query)}`);
   },
 
@@ -280,6 +276,7 @@ export const delegationApi = {
 
 
   // Create delegation request (placeholder - implement based on backend)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async createDelegationRequest(data: any): Promise<{ request: DelegationRequest }> {
     return apiRequest('/api/v1/delegation-requests', {
       method: 'POST',
@@ -449,5 +446,3 @@ export const DELEGATION_PERMISSIONS = [
     description: 'Access all analytics across the platform',
   },
 ];
-
-export default delegationApi;

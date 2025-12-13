@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
 import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
-import { useNotification } from '@/shared/hooks/useNotification';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import { useAppWebhooks } from '../../hooks/useWebhooks';
 import { AppWebhook, AppWebhookFormData, WebhookMethod } from '../../types';
 import { Save, X, TestTube, Shield } from 'lucide-react';
@@ -42,7 +42,7 @@ export const WebhookFormModal: React.FC<WebhookFormModalProps> = ({
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
   const { createWebhook, updateWebhook, testWebhook } = useAppWebhooks(appId, {});
 
   const eventTypes = [
@@ -164,11 +164,12 @@ export const WebhookFormModal: React.FC<WebhookFormModalProps> = ({
       if (result) {
         onSuccess(result);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       showNotification(
         webhook 
-          ? `Failed to update webhook: ${error.message}`
-          : `Failed to create webhook: ${error.message}`,
+          ? `Failed to update webhook: ${errorMessage}`
+          : `Failed to create webhook: ${errorMessage}`,
         'error'
       );
     } finally {
@@ -187,8 +188,9 @@ export const WebhookFormModal: React.FC<WebhookFormModalProps> = ({
       if (result) {
         showNotification(`Test webhook sent successfully. Event ID: ${result.event_id}`, 'success');
       }
-    } catch (error: any) {
-      showNotification(`Failed to test webhook: ${error.message}`, 'error');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      showNotification(`Failed to test webhook: ${errorMessage}`, 'error');
     }
   };
 

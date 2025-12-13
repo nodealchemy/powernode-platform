@@ -24,9 +24,134 @@
 # Ignore assets.
 /public/assets/
 
-# Ignore .env files
+# === SECURITY: Environment and Secret Files ===
+# Environment files (comprehensive protection)
 .env
 .env.*
+!.env.example
+!.env.sample
+!.env.template
+
+# Rails secrets and encryption keys
+config/master.key
+config/credentials.yml.enc
+config/credentials/
+*.key
+*.pem
+*.p12
+*.p7b
+*.pfx
+*.jks
+*.keystore
+
+# Session and encryption keys
+.session.key
+session.key
+encryption.key
+*session*.key
+
+# API keys and tokens
+*secret*
+*private*
+*.token
+*.tokens
+api_keys.yml
+api_keys.json
+credentials.json
+auth.json
+
+# Kamal deployment secrets
+.kamal/secrets
+.kamal/.env
+kamal.env
+
+# Docker secrets and configs
+docker/secrets/
+.docker/config.json
+.docker/daemon.json
+
+# Temporary secret files
+tmp/*secret*
+tmp/*key*
+tmp/*credential*
+tmp/*token*
+tmp/.env*
+
+# Database dumps with potential secrets
+*.sql
+*.dump
+*.db
+*.sqlite*
+backup/
+backups/
+dumps/
+database_backups/
+
+# Development database files (specific SQLite files)
+development.sqlite3
+test.sqlite3
+*.sqlite3-journal
+
+# SSL/TLS certificates and security files
+*.crt
+*.cert
+*.cer
+*.ca-bundle
+*.ca
+*.ca-cert
+*.chain
+ssl/
+certificates/
+certs/
+tls/
+
+# Cloud provider credentials
+.aws/
+.gcp/
+.gcloud/
+.azure/
+*-credentials.json
+service-account.json
+service-account-key.json
+gcp-*.json
+aws-*.json
+
+# GitHub and CI/CD secrets
+.github/secrets/
+.secrets/
+secrets/
+secrets.yml
+secrets.json
+
+# Kubernetes secrets
+k8s/secrets/
+kubernetes/secrets/
+*-secret.yaml
+*-secret.yml
+
+# Terraform sensitive files
+*.tfvars
+terraform.tfstate*
+.terraform/
+
+# HashiCorp Vault
+.vault-token
+vault-*
+
+# SSH keys and certificates
+id_rsa*
+id_dsa*
+id_ecdsa*
+id_ed25519*
+*.pub
+known_hosts
+authorized_keys
+
+# Payment gateway specific
+stripe_*
+paypal_*
+*_stripe_*
+*_paypal_*
 
 # Ignore node_modules
 node_modules/
@@ -37,47 +162,59 @@ node_modules/
 /public/packs-test
 /public/assets
 
-# Ignore yarn files
-yarn-error.log
+# Logs and operational files (consolidated)
+*.log
+*.log.*
+logs/
+log/
+npm-debug.log*
 yarn-debug.log*
+yarn-error.log*
+*.pid
+*.pid.lock
+
+# Ignore yarn files
 .pnp
 .pnp.js
 
-# Ignore coverage directory used by NYC
+# Coverage directories and test reports (consolidated)
+coverage/
+.coverage/
 /coverage/
-
-# Ignore nyc test coverage
 .nyc_output
+.nyc_output/
+test-results/
+cypress/screenshots/
+cypress/videos/
+cypress/downloads/
+spec/reports/
+junit.xml
 
-# Ignore Dependency directories
+# Dependency directories
 jspm_packages/
 
-# Ignore Optional npm cache directory
+# Optional npm cache directory
 .npm
 
-# Ignore Optional eslint cache
+# Optional eslint cache
 .eslintcache
 
-# Ignore Microbundle cache
+# Microbundle cache
 .rpt2_cache/
 .rts2_cache_cjs/
 .rts2_cache_es/
 .rts2_cache_umd/
 
-# Ignore Optional REPL history
+# Optional REPL history
 .node_repl_history
 
-# Ignore Output of 'npm pack'
+# Output of 'npm pack'
 *.tgz
 
-# Ignore Yarn Integrity file
+# Yarn Integrity file
 .yarn-integrity
 
-# Ignore dotenv environment variables file
-.env
-.env.test
-
-# Ignore parcel-bundler cache (https://parceljs.org/)
+# Ignore parcel-bundler cache
 .cache
 .parcel-cache
 
@@ -90,7 +227,7 @@ dist
 
 # Ignore Gatsby files
 .cache/
-public
+/public
 
 # Ignore Vuepress build output
 .vuepress/dist
@@ -107,20 +244,18 @@ public
 # Ignore TernJS port file
 .tern-port
 
-# Ignore master key for decrypting credentials and more.
-/config/master.key
-
-# Ignore development logs
-*.log
-
 # Claude Flow system metrics and cache
 .claude-flow/
 
-# IDE and editor files
+# IDE and editor files (consolidated)
 .vscode/
 .idea/
-*.swp
-*.swo
+*.iml
+*.ipr
+*.iws
+.idea/dataSources.xml
+.idea/dataSources.ids
+.idea/sqlDataSources.xml
 
 # OS generated files
 .DS_Store
@@ -131,9 +266,32 @@ public
 ehthumbs.db
 Thumbs.db
 
-# Frontend cache files
-frontend/.proxy-config-cache.json
+# Backup and temporary files (consolidated)
+*.bak
+*.backup
+*.old
+*.orig
+*.rej
+*.swp
+*.swo
+.*.swp
+.*.swo
+*.tmp
+*.temp
+*.un~
+*~
+.#*
+\#*\#
+\#*#
 
-# Worker sensitive files
-worker/.session.key
+# Archive files that might contain sensitive data
+*.tar.gz
+*.zip
+*.7z
+*.rar
+exports/
+export.json
+export.csv
+
+# RSpec auto-generated example files
 worker/spec/examples.txt

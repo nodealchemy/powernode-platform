@@ -1,0 +1,19 @@
+{
+  "name": "mcp-calculator-server",
+  "version": "1.0.0",
+  "description": "MCP server providing arithmetic calculator tools",
+  "main": "index.js",
+  "bin": {
+    "mcp-calculator": "./index.js"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "test": "echo '{\"jsonrpc\":\"2.0\",\"method\":\"tools/list\",\"params\":{},\"id\":1}' | node index.js"
+  },
+  "keywords": ["mcp", "calculator", "ai-tools"],
+  "author": "Powernode",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

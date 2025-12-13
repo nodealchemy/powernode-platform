@@ -1,4 +1,4 @@
-import React, { useState, forwardRef, useImperativeHandle } from 'react';
+import { useState, forwardRef, useImperativeHandle } from 'react';
 import { Search, Filter, RefreshCw } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { Badge } from '@/shared/components/ui/Badge';
@@ -248,4 +248,3 @@ export const SubscriptionsList = forwardRef<SubscriptionsListRef, SubscriptionsL
 });
 
 // Add display name for debugging
-SubscriptionsList.displayName = 'SubscriptionsList';

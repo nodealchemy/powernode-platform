@@ -1,4 +1,5 @@
 import { api } from '@/shared/services/api';
+import { isErrorWithResponse, getErrorMessage } from '@/shared/utils/errorHandling';
 
 export interface VersionInfo {
   version: string;
@@ -53,13 +54,12 @@ export const versionApi = {
     try {
       const response = await api.get('/version');
       return response.data;
-    } catch (error: any) {
+    } catch (error) {
       // Log network errors as warnings, not errors
-      console.warn('Version API unavailable:', error.message || error);
       return {
         success: false,
         data: {} as VersionInfo,
-        error: error.response?.data?.error || error.message || 'Version service unavailable'
+        error: isErrorWithResponse(error) ? (error.response?.data?.error || 'Version service unavailable') : getErrorMessage(error)
       };
     }
   },
@@ -69,12 +69,11 @@ export const versionApi = {
     try {
       const response = await api.get('/version/full');
       return response.data;
-    } catch (error: any) {
-      console.warn('Full version API unavailable:', error.message || error);
+    } catch (error) {
       return {
         success: false,
         data: {} as FullVersionInfo,
-        error: error.response?.data?.error || error.message || 'Full version service unavailable'
+        error: isErrorWithResponse(error) ? (error.response?.data?.error || 'Full version service unavailable') : getErrorMessage(error)
       };
     }
   },
@@ -84,12 +83,11 @@ export const versionApi = {
     try {
       const response = await api.get('/version/health');
       return response.data;
-    } catch (error: any) {
-      console.warn('Health API unavailable:', error.message || error);
+    } catch (error) {
       return {
         success: false,
         data: {} as HealthInfo,
-        error: error.response?.data?.error || error.message || 'Health service unavailable'
+        error: isErrorWithResponse(error) ? (error.response?.data?.error || 'Health service unavailable') : getErrorMessage(error)
       };
     }
   },

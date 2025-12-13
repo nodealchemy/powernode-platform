@@ -29,19 +29,8 @@ export interface Plan {
   annual_savings_amount?: string;
   annual_savings_percentage?: number;
   // Features and limits for plan comparison
-  features?: {
-    api_access?: boolean;
-    advanced_analytics?: boolean;
-    basic_analytics?: boolean;
-    dedicated_support?: boolean;
-    priority_support?: boolean;
-    basic_support?: boolean;
-  };
-  limits?: {
-    users?: number;
-    projects?: number;
-    storage?: number;
-  };
+  features?: Record<string, any>;
+  limits?: Record<string, any>;
   created_at: string;
   updated_at: string;
 }
@@ -145,8 +134,8 @@ class PlansApiService {
   }
 
   // Get a specific plan
-  async getPlan(planId: string): Promise<PlanResponse> {
-    const response = await api.get(`/plans/${planId}`);
+  async getPlan(plan_id: string): Promise<PlanResponse> {
+    const response = await api.get(`/plans/${plan_id}`);
     return response.data;
   }
 
@@ -159,28 +148,28 @@ class PlansApiService {
   }
 
   // Update an existing plan
-  async updatePlan(planId: string, planData: Partial<PlanFormData>): Promise<PlanUpdateResponse> {
-    const response = await api.put(`/plans/${planId}`, {
+  async updatePlan(plan_id: string, planData: Partial<PlanFormData>): Promise<PlanUpdateResponse> {
+    const response = await api.put(`/plans/${plan_id}`, {
       plan: planData
     });
     return response.data;
   }
 
   // Delete a plan
-  async deletePlan(planId: string): Promise<{ success: boolean; message: string }> {
-    const response = await api.delete(`/plans/${planId}`);
+  async deletePlan(plan_id: string): Promise<{ success: boolean; message: string }> {
+    const response = await api.delete(`/plans/${plan_id}`);
     return response.data;
   }
 
   // Duplicate a plan
-  async duplicatePlan(planId: string): Promise<PlanCreateResponse> {
-    const response = await api.post(`/plans/${planId}/duplicate`);
+  async duplicatePlan(plan_id: string): Promise<PlanCreateResponse> {
+    const response = await api.post(`/plans/${plan_id}/duplicate`);
     return response.data;
   }
 
   // Toggle plan status (active/inactive)
-  async togglePlanStatus(planId: string): Promise<PlanUpdateResponse> {
-    const response = await api.put(`/plans/${planId}/toggle_status`);
+  async togglePlanStatus(plan_id: string): Promise<PlanUpdateResponse> {
+    const response = await api.put(`/plans/${plan_id}/toggle_status`);
     return response.data;
   }
 

@@ -17,10 +17,9 @@ interface ExampleFormProps {
  * Example form demonstrating the useForm hook usage
  * This serves as a reference implementation for other forms in the application
  */
-export const ExampleForm: React.FC<ExampleFormProps> = ({ 
-  onSubmit = async (data) => {
+export const ExampleForm: React.FC<ExampleFormProps> = ({
+  onSubmit = async (_data) => {
     // Simulate API call
-    console.log('Form submitted:', data);
     await new Promise(resolve => setTimeout(resolve, 1000));
   },
   className = ''
@@ -36,8 +35,8 @@ export const ExampleForm: React.FC<ExampleFormProps> = ({
       email: {
         required: true,
         pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-        custom: (value) => {
-          if (value && value.includes('test@')) {
+        custom: (value: unknown) => {
+          if (typeof value === 'string' && value.includes('test@')) {
             return 'Test emails are not allowed';
           }
           return null;

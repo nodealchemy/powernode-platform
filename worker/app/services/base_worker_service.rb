@@ -1,7 +1,10 @@
-require_relative '../clients/backend_api_client'
+# frozen_string_literal: true
+
+require_relative 'backend_api_client'
 
 class BaseWorkerService
-  include Sidekiq::Logging
+  # Include Sidekiq::Logging if available (for runtime) but skip in tests
+  include Sidekiq::Logging if defined?(Sidekiq::Logging)
 
   def initialize
     @api_client = BackendApiClient.new

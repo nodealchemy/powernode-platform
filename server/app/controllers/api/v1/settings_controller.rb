@@ -1,28 +1,27 @@
 # frozen_string_literal: true
 
 class Api::V1::SettingsController < ApplicationController
-  skip_before_action :authenticate_request, only: [:public]
+  skip_before_action :authenticate_request, only: [ :public ]
   # GET /api/v1/settings/public
   def public
-    render json: {
-      success: true,
-      data: {
-        copyright_text: formatted_copyright_text
-      }
-    }, status: :ok
+    render_success({
+      copyright_text: formatted_copyright_text
+    })
   end
 
   # GET /api/v1/settings
   def show
-    render json: {
-      success: true,
-      data: {
-        user_preferences: current_user_preferences,
-        account_settings: current_account_settings,
-        notification_preferences: current_notification_preferences,
-        security_settings: current_security_settings
-      }
-    }, status: :ok
+    # Check if user is authenticated
+    unless current_user
+      return render_error("Authentication required", status: :unauthorized)
+    end
+
+    render_success({
+      user_preferences: current_user_preferences,
+      account_settings: current_account_settings,
+      notification_preferences: current_notification_preferences,
+      security_settings: current_security_settings
+    })
   end
 
   # PUT /api/v1/settings
@@ -34,73 +33,49 @@ class Api::V1::SettingsController < ApplicationController
     ).call
 
     if result[:success]
-      render json: {
-        success: true,
-        data: result[:data],
+      render_success(result[:data].merge({
         message: "Settings updated successfully"
-      }, status: :ok
+      }))
     else
-      render json: {
-        success: false,
-        error: "Settings update failed",
-        details: result[:errors]
-      }, status: :unprocessable_content
+      render_error("Settings update failed", :unprocessable_content, details: result[:errors])
     end
   end
 
   # GET /api/v1/settings/notifications
   def notifications
-    render json: {
-      success: true,
-      data: current_notification_preferences
-    }, status: :ok
+    render_success(current_notification_preferences)
   end
 
   # PUT /api/v1/settings/notifications
   def update_notifications
     if update_user_preferences("notifications", notification_params)
       # Broadcast the notification preferences update to all user's sessions
-      broadcast_settings_update('notifications_updated', current_notification_preferences)
-      
-      render json: {
-        success: true,
-        data: current_notification_preferences,
+      broadcast_settings_update("notifications_updated", current_notification_preferences)
+
+      render_success(current_notification_preferences.merge({
         message: "Notification preferences updated"
-      }, status: :ok
+      }))
     else
-      render json: {
-        success: false,
-        error: "Failed to update notification preferences",
-        details: current_user.errors.full_messages
-      }, status: :unprocessable_content
+      render_error("Failed to update notification preferences", :unprocessable_content, details: { errors: current_user.errors.full_messages })
     end
   end
 
   # GET /api/v1/settings/preferences
   def preferences
-    render json: {
-      success: true,
-      data: current_user_preferences
-    }, status: :ok
+    render_success(current_user_preferences)
   end
 
   # PUT /api/v1/settings/preferences
   def update_preferences
     if update_user_preferences("preferences", preference_params)
       # Broadcast the preferences update to all user's sessions
-      broadcast_settings_update('preferences_updated', current_user_preferences)
-      
-      render json: {
-        success: true,
-        data: current_user_preferences,
+      broadcast_settings_update("preferences_updated", current_user_preferences)
+
+      render_success(current_user_preferences.merge({
         message: "User preferences updated"
-      }, status: :ok
+      }))
     else
-      render json: {
-        success: false,
-        error: "Failed to update preferences",
-        details: current_user.errors.full_messages
-      }, status: :unprocessable_content
+      render_error("Failed to update preferences", :unprocessable_content, details: { errors: current_user.errors.full_messages })
     end
   end
 
@@ -146,7 +121,7 @@ class Api::V1::SettingsController < ApplicationController
 
   def current_user_preferences
     preferences = current_user.preferences || {}
-    
+
     # Merge with defaults
     {
       theme: preferences["theme"] || "light",
@@ -164,7 +139,7 @@ class Api::V1::SettingsController < ApplicationController
 
   def current_account_settings
     settings = current_account.settings || {}
-    
+
     {
       name: current_account.name,
       subdomain: current_account.subdomain,
@@ -181,7 +156,7 @@ class Api::V1::SettingsController < ApplicationController
 
   def current_notification_preferences
     notifications = current_user.notification_preferences || {}
-    
+
     # Merge with defaults
     {
       email_notifications: notifications["email_notifications"] != false,
@@ -200,7 +175,9 @@ class Api::V1::SettingsController < ApplicationController
     {
       email_verified: current_user.email_verified?,
       password_last_changed: current_user.password_changed_at,
-      two_factor_enabled: false, # TODO: Implement 2FA
+      two_factor_enabled: current_user.two_factor_enabled?,
+      two_factor_enabled_at: current_user.two_factor_enabled_at,
+      backup_codes_generated_at: current_user.two_factor_backup_codes_generated_at,
       login_history: recent_login_history,
       failed_attempts: current_user.failed_login_attempts,
       account_locked: current_user.locked?
@@ -226,7 +203,7 @@ class Api::V1::SettingsController < ApplicationController
   def update_user_preferences(key, new_preferences)
     current_preferences = current_user.send(key) || {}
     updated_preferences = current_preferences.merge(new_preferences.to_h)
-    
+
     current_user.update(key.to_sym => updated_preferences)
   end
 
@@ -237,7 +214,7 @@ class Api::V1::SettingsController < ApplicationController
       {
         type: message_type,
         data: data,
-        userId: current_user.id,
+        user_id: current_user.id,
         timestamp: Time.current.iso8601
       }
     )
@@ -246,7 +223,7 @@ class Api::V1::SettingsController < ApplicationController
   end
 
   def formatted_copyright_text
-    copyright_template = SystemSettingsService.get_setting(:copyright_text) || '© {year} Powernode Platform. All rights reserved.'
-    copyright_template.gsub('{year}', Date.current.year.to_s)
+    copyright_template = SystemSettingsService.get_setting(:copyright_text) || "© {year} Powernode Platform. All rights reserved."
+    copyright_template.gsub("{year}", Date.current.year.to_s)
   end
 end

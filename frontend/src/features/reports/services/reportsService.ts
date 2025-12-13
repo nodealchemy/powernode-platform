@@ -187,7 +187,7 @@ class ReportsService {
           clearInterval(intervalId);
         }
       } catch (error) {
-        console.error('Failed to poll request status:', error);
+        // Polling error - stop polling
         clearInterval(intervalId);
       }
     }, 2000); // Poll every 2 seconds
@@ -203,24 +203,7 @@ class ReportsService {
     dateRange: { startDate: Date; endDate: Date },
     accountId?: string
   ): Promise<void> {
-    // Convert to new report request format
-    // const templateId = this.mapLegacyReportTypeToTemplate(reportType);
-    
-    // TODO: Use new report request format when ready
-    // const params: ReportRequestParams = {
-    //   template_id: templateId,
-    //   name: `${reportType} Analytics Export - ${new Date().toLocaleDateString()}`,
-    //   format,
-    //   parameters: {
-    //     date_range: {
-    //       start_date: dateRange.startDate.toISOString().split('T')[0],
-    //       end_date: dateRange.endDate.toISOString().split('T')[0]
-    //     },
-    //     filters: accountId ? { account_id: accountId } : {}
-    //   }
-    // };
-
-    // For immediate exports, we can use the legacy endpoint or create a request and wait
+    // For immediate exports, we use the legacy endpoint
     const response = await api.get('/analytics/export', {
       params: {
         format,
@@ -242,20 +225,6 @@ class ReportsService {
     link.click();
     document.body.removeChild(link);
     window.URL.revokeObjectURL(url);
-  }
-
-  private mapLegacyReportTypeToTemplate(reportType: string): string {
-    const mapping: Record<string, string> = {
-      'revenue': 'revenue_analytics',
-      'growth': 'growth_analytics',
-      'churn': 'churn_analysis',
-      'customers': 'customer_analytics',
-      'cohorts': 'cohort_analysis',
-      'all': 'comprehensive_report'
-    };
-    
-    // eslint-disable-next-line security/detect-object-injection
-    return mapping[reportType] || 'comprehensive_report';
   }
 }
 

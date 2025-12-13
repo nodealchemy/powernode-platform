@@ -1,12 +1,14 @@
+/* All @import statements must come first */
+@import './assets/styles/themes.css';
+@import './assets/styles/global-enhancements.css';
+@import './assets/styles/ms-high-contrast-fix.css';
+@import 'highlight.js/styles/github.css';
+@import './assets/styles/markdown-preview.css';
+
+/* Tailwind directives come after imports */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-/* Import theme system */
-@import './assets/styles/themes.css';
-
-/* Import global styling enhancements */
-@import './assets/styles/global-enhancements.css';
 
 body {
   margin: 0;
@@ -30,6 +32,36 @@ code {
 
 .scrollbar-hide::-webkit-scrollbar {
   display: none;             /* Safari and Chrome */
+}
+
+/* Custom visible scrollbar for content previews */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(var(--color-primary-rgb), 0.3) transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 5px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(var(--color-primary-rgb), 0.3);
+  border-radius: 5px;
+  transition: background 0.2s ease;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(var(--color-primary-rgb), 0.5);
+}
+
+.custom-scrollbar::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 /* Modern Animation Utilities */
@@ -72,6 +104,12 @@ code {
   }
   to {
     opacity: 1;
+  }
+}
+
+@keyframes dash {
+  to {
+    stroke-dashoffset: -10;
   }
 }
 

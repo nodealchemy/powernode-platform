@@ -9,7 +9,13 @@ import { WebSocketStatusIndicator } from '@/shared/components/ui/WebSocketStatus
 import { useTheme } from '@/shared/hooks/ThemeContext';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
 import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
+import { ProfileSubscriptionTab } from '@/features/subscriptions/components/ProfileSubscriptionTab';
 import { Save, RefreshCw } from 'lucide-react';
+
+// Type guard for settings update data
+const isSettingsUpdateData = (data: unknown): data is Partial<UserSettings> => {
+  return typeof data === 'object' && data !== null;
+};
 
 export const SettingsPage: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -23,11 +29,11 @@ export const SettingsPage: React.FC = () => {
   // Get active tab from URL path
   const getActiveTabFromPath = useCallback(() => {
     const path = location.pathname;
-    console.log('🔍 getActiveTabFromPath - current path:', path);
     
     // Check for exact matches first to avoid conflicts
     if (path === '/app/profile') return 'profile';
     if (path === '/app/profile/account') return 'account';
+    if (path === '/app/profile/subscription') return 'subscription';
     if (path === '/app/profile/preferences') return 'preferences';
     if (path === '/app/profile/notifications') return 'notifications';
     if (path === '/app/profile/security') return 'security';
@@ -41,6 +47,7 @@ export const SettingsPage: React.FC = () => {
     // Use exact matches like in getActiveTabFromPath
     if (path === '/app/profile') return 'profile';
     if (path === '/app/profile/account') return 'account';
+    if (path === '/app/profile/subscription') return 'subscription';
     if (path === '/app/profile/preferences') return 'preferences';
     if (path === '/app/profile/notifications') return 'notifications';
     if (path === '/app/profile/security') return 'security';
@@ -49,8 +56,7 @@ export const SettingsPage: React.FC = () => {
 
   // Form states
   const [profileForm, setProfileForm] = useState({
-    firstName: '',
-    lastName: '',
+    name: '',
     email: ''
   });
 
@@ -66,7 +72,9 @@ export const SettingsPage: React.FC = () => {
   const [isReceivingUpdate, setIsReceivingUpdate] = useState(false);
 
   // Real-time settings update handlers
-  const handleSettingsUpdate = useCallback((updatedData: Partial<UserSettings>) => {
+  const handleSettingsUpdate = useCallback((updatedData: unknown) => {
+    if (!isSettingsUpdateData(updatedData)) return;
+    
     setIsReceivingUpdate(true);
     
     if (updatedData.user_preferences) {
@@ -92,7 +100,8 @@ export const SettingsPage: React.FC = () => {
     }
     
     if (updatedData.account_settings) {
-      setSettings(prev => prev ? { ...prev, account_settings: updatedData.account_settings! } : null);
+      const accountSettings = updatedData.account_settings;
+      setSettings(prev => prev ? { ...prev, account_settings: accountSettings } : null);
       dispatch(addNotification({
         type: 'success',
         message: 'Account settings updated from another session'
@@ -103,7 +112,9 @@ export const SettingsPage: React.FC = () => {
     setIsReceivingUpdate(false);
   }, [theme, setTheme, dispatch]);
 
-  const handlePreferencesUpdate = useCallback((updatedPreferences: Partial<UserSettings>) => {
+  const handlePreferencesUpdate = useCallback((updatedPreferences: unknown) => {
+    if (!isSettingsUpdateData(updatedPreferences)) return;
+    
     setPreferences(prev => ({ ...prev, ...updatedPreferences }));
     
     // If theme was updated from another session, apply it locally
@@ -118,7 +129,9 @@ export const SettingsPage: React.FC = () => {
     }));
   }, [theme, setTheme, dispatch]);
 
-  const handleNotificationsUpdate = useCallback((updatedNotifications: Partial<UserSettings>) => {
+  const handleNotificationsUpdate = useCallback((updatedNotifications: unknown) => {
+    if (!isSettingsUpdateData(updatedNotifications)) return;
+    
     setNotifications(prev => ({ ...prev, ...updatedNotifications }));
     setLastUpdated(new Date());
     dispatch(addNotification({
@@ -128,16 +141,14 @@ export const SettingsPage: React.FC = () => {
   }, [dispatch]);
 
   // Initialize WebSocket for real-time updates
-  const { isConnected, requestSettingsSync } = useSettingsWebSocket({
+  const { requestSettingsSync } = useSettingsWebSocket({
     onSettingsUpdate: handleSettingsUpdate,
     onPreferencesUpdate: handlePreferencesUpdate,
     onNotificationsUpdate: handleNotificationsUpdate,
-    onProfileUpdate: (data) => {
-      console.log('Profile updated:', data);
+    onProfileUpdate: (_data) => {
       // Handle profile updates if needed
     },
-    onError: (error) => {
-      console.error('Settings WebSocket error:', error);
+    onError: (_error) => {
     }
   });
 
@@ -153,15 +164,13 @@ export const SettingsPage: React.FC = () => {
       
       // Initialize form states
       setProfileForm({
-        firstName: user?.first_name || '',
-        lastName: user?.last_name || '',
+        name: user?.name || '',
         email: user?.email || ''
       });
 
       setPreferences({ user_preferences: settingsData.user_preferences || {} });
       setNotifications({ notification_preferences: settingsData.notification_preferences || {} });
-    } catch (error) {
-      console.error('Failed to load settings:', error);
+    } catch (_error) {
       dispatch(addNotification({
         type: 'error',
         message: 'Failed to load settings'
@@ -199,7 +208,7 @@ export const SettingsPage: React.FC = () => {
       requestSettingsSync();
       
       showSuccess('Preferences updated successfully');
-    } catch (error) {
+    } catch (_error) {
       showError('Failed to update preferences');
     } finally {
       setSaving(false);
@@ -217,7 +226,7 @@ export const SettingsPage: React.FC = () => {
       requestSettingsSync();
       
       showSuccess('Theme updated successfully');
-    } catch (error) {
+    } catch (_error) {
       showError('Failed to update theme');
     } finally {
       setSaving(false);
@@ -234,7 +243,7 @@ export const SettingsPage: React.FC = () => {
       requestSettingsSync();
       
       showSuccess('Notification preferences updated');
-    } catch (error) {
+    } catch (_error) {
       showError('Failed to update notifications');
     } finally {
       setSaving(false);
@@ -245,8 +254,8 @@ export const SettingsPage: React.FC = () => {
     e.preventDefault();
     
     // Basic validation
-    if (!profileForm.firstName.trim() || !profileForm.lastName.trim()) {
-      showError('First name and last name are required');
+    if (!profileForm.name.trim()) {
+      showError('Name is required');
       return;
     }
     
@@ -258,13 +267,12 @@ export const SettingsPage: React.FC = () => {
     try {
       setSaving(true);
       await settingsApi.updateProfile({
-        first_name: profileForm.firstName,
-        last_name: profileForm.lastName,
+        name: profileForm.name,
         email: profileForm.email
       });
       showSuccess('Profile updated successfully');
-    } catch (error: any) {
-      const errorMsg = error?.response?.data?.error || error?.message || 'Failed to update profile';
+    } catch (error: unknown) {
+      const errorMsg = error instanceof Error ? error.message : 'Failed to update profile';
       showError(errorMsg);
     } finally {
       setSaving(false);
@@ -300,13 +308,21 @@ export const SettingsPage: React.FC = () => {
       return;
     }
 
+    setSaving(true);
     try {
-      setSaving(true);
-      await settingsApi.changePassword(passwordForm);
-      setPasswordForm({ current_password: '', password: '', password_confirmation: '' });
-      showSuccess('Password changed successfully');
-    } catch (error: any) {
-      const errorMsg = error?.response?.data?.error || error?.message || 'Failed to change password';
+      const response = await settingsApi.changePassword(passwordForm);
+      
+      if (response.success) {
+        setPasswordForm({ current_password: '', password: '', password_confirmation: '' });
+        showSuccess('Password changed successfully');
+      } else {
+        // Show specific error message, prioritizing detailed validation errors
+        const errorMessage = response.message || response.error || 'Failed to change password';
+        showError(errorMessage);
+      }
+    } catch (error: unknown) {
+      // Handle network errors or other exceptions
+      const errorMsg = error instanceof Error ? error.message : 'Failed to change password';
       showError(errorMsg);
     } finally {
       setSaving(false);
@@ -351,13 +367,28 @@ export const SettingsPage: React.FC = () => {
     }
   ];
 
-  const tabs = useMemo(() => [
-    { id: 'profile', label: 'Profile', icon: '👤', path: '/' },
-    { id: 'account', label: 'Account', icon: '🏢', path: '/account' },
-    { id: 'preferences', label: 'Preferences', icon: '⚙️', path: '/preferences' },
-    { id: 'notifications', label: 'Notifications', icon: '🔔', path: '/notifications' },
-    { id: 'security', label: 'Security', icon: '🔒', path: '/security' }
-  ], []);
+  const tabs = useMemo(() => {
+    const baseTabs = [
+      { id: 'profile', label: 'Profile', icon: '👤', path: '/' },
+      { id: 'account', label: 'Account', icon: '🏢', path: '/account' }
+    ];
+
+    // Add subscription tab if user has billing permissions
+    const canManageBilling = user?.permissions?.includes('billing.manage') || 
+                            user?.permissions?.includes('billing.read');
+    
+    if (canManageBilling) {
+      baseTabs.push({ id: 'subscription', label: 'Subscription', icon: '💳', path: '/subscription' });
+    }
+
+    baseTabs.push(
+      { id: 'preferences', label: 'Preferences', icon: '⚙️', path: '/preferences' },
+      { id: 'notifications', label: 'Notifications', icon: '🔔', path: '/notifications' },
+      { id: 'security', label: 'Security', icon: '🔒', path: '/security' }
+    );
+
+    return baseTabs;
+  }, [user?.permissions]);
 
   const breadcrumbs = useMemo(() => {
     const baseBreadcrumbs = [
@@ -382,9 +413,7 @@ export const SettingsPage: React.FC = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     const newActiveTab = getActiveTabFromPath();
-    console.log('🔄 useEffect - pathname changed:', location.pathname, 'newTab:', newActiveTab, 'currentTab:', activeTab);
     if (newActiveTab !== activeTab) {
-      console.log('📍 Setting active tab to:', newActiveTab);
       setActiveTab(newActiveTab);
     }
   }, [location.pathname]); // Remove getActiveTabFromPath and activeTab dependencies
@@ -407,19 +436,13 @@ export const SettingsPage: React.FC = () => {
         </div>
       ) : (
         <div>
-          {/* Real-time status indicator */}
+          {/* Real-time status indicator - simplified without badges */}
           <div className="flex justify-end items-center space-x-3 mb-6">
             <WebSocketStatusIndicator showDetails={false} />
             {isReceivingUpdate && (
               <div className="flex items-center space-x-2 px-3 py-1 bg-theme-info text-theme-info rounded-md">
                 <div className="animate-pulse w-2 h-2 bg-theme-info rounded-full"></div>
                 <span className="text-sm">Syncing...</span>
-              </div>
-            )}
-            {isConnected && (
-              <div className="flex items-center space-x-2 px-3 py-1 bg-theme-success text-theme-success rounded-md">
-                <div className="w-2 h-2 bg-theme-success rounded-full"></div>
-                <span className="text-sm">Live</span>
               </div>
             )}
           </div>
@@ -444,40 +467,22 @@ export const SettingsPage: React.FC = () => {
                 <div className="p-6">
                   <form id="profile-form" onSubmit={handleProfileUpdate}>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div>
+                      <div className="md:col-span-2">
                         <label className="label-theme">
-                          First Name *
+                          Name *
                         </label>
                         <input
                           type="text"
-                          value={profileForm.firstName}
-                          onChange={(e) => setProfileForm({ ...profileForm, firstName: e.target.value })}
+                          value={profileForm.name}
+                          onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
                           className={`input-theme w-full ${
-                            !profileForm.firstName.trim() ? 'border-theme-error' : ''
+                            !profileForm.name.trim() ? 'border-theme-error' : ''
                           }`}
-                          placeholder="Enter your first name"
+                          placeholder="Enter your full name"
                           required
                         />
-                        {!profileForm.firstName.trim() && (
-                          <p className="form-error">First name is required</p>
-                        )}
-                      </div>
-                      <div>
-                        <label className="label-theme">
-                          Last Name *
-                        </label>
-                        <input
-                          type="text"
-                          value={profileForm.lastName}
-                          onChange={(e) => setProfileForm({ ...profileForm, lastName: e.target.value })}
-                          className={`input-theme w-full ${
-                            !profileForm.lastName.trim() ? 'border-theme-error' : ''
-                          }`}
-                          placeholder="Enter your last name"
-                          required
-                        />
-                        {!profileForm.lastName.trim() && (
-                          <p className="form-error">Last name is required</p>
+                        {!profileForm.name.trim() && (
+                          <p className="form-error">Name is required</p>
                         )}
                       </div>
                       <div className="md:col-span-2">
@@ -503,7 +508,7 @@ export const SettingsPage: React.FC = () => {
                       <div className="flex items-center space-x-4">
                         <button
                           type="submit"
-                          disabled={saving || !profileForm.firstName.trim() || !profileForm.lastName.trim() || !isValidEmail(profileForm.email)}
+                          disabled={saving || !profileForm.name.trim() || !isValidEmail(profileForm.email)}
                           className="btn-theme btn-theme-primary"
                         >
 {saving ? 'Saving...' : 'Save Changes'}
@@ -551,6 +556,10 @@ export const SettingsPage: React.FC = () => {
                   </div>
                 </div>
               </div>
+            </TabPanel>
+
+            <TabPanel tabId="subscription" activeTab={activeTab}>
+              <ProfileSubscriptionTab loading={loading} />
             </TabPanel>
 
             <TabPanel tabId="preferences" activeTab={activeTab}>

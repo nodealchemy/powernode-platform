@@ -1,11 +1,10 @@
 # frozen_string_literal: true
 
 class Api::V1::Auth::RegistrationsController < ApplicationController
-  include RateLimiting
+  # Rate limiting is now included in ApplicationController
   include UserSerialization
-  
-  skip_before_action :authenticate_request, only: [:create]
-  after_action :increment_rate_limit_count, only: [:create], if: -> { response.status >= 400 }
+
+  skip_before_action :authenticate_request, only: [ :create ]
 
   # POST /api/v1/registrations
   def create
@@ -31,26 +30,28 @@ class Api::V1::Auth::RegistrationsController < ApplicationController
 
       @user = @account.users.build(user_params)
       # First user in account gets owner role (this is handled by User model callback)
-      
-      # Auto-verify email in test mode
-      if ENV['DISABLE_RATE_LIMITING'] == 'true'
-        @user.email_verified = true
+
+      # Handle email verification based on system settings
+      if SystemSettingsService.email_verification_required?
+        # Generate verification token for production/development
+        @user.generate_email_verification_token
+      else
         @user.email_verified_at = Time.current
       end
-      
+
       unless @user.save
         raise ActiveRecord::RecordInvalid.new(@user)
       end
 
       # Create subscription if plan is selected
-      plan_id = params[:planId] || params.dig(:user, :planId)
+      plan_id = params[:plan_id] || params.dig(:user, :plan_id)
       if plan_id.present?
-        plan = Plan.find_by(id: plan_id, status: 'active', is_public: true)
+        plan = Plan.find_by(id: plan_id, status: "active", is_public: true)
         if plan
           # Create subscription with trial period
           @subscription = @account.build_subscription(
             plan: plan,
-            status: 'trialing',
+            status: "trialing",
             quantity: 1,
             trial_start: Time.current,
             trial_end: Time.current + plan.trial_days.days,
@@ -58,38 +59,59 @@ class Api::V1::Auth::RegistrationsController < ApplicationController
             current_period_end: Time.current + plan.trial_days.days
           )
           @subscription.save!
-          
+
           # Note: Plan-based role assignment not implemented in single-role system
         end
       end
 
-      tokens = JwtService.generate_tokens(@user)
+      tokens = JwtService.generate_user_tokens(@user)
       @user.record_login!
 
-      render json: {
-        success: true,
+      # Send verification email if not auto-verified
+      unless @user.verified?
+        begin
+          WorkerJobService.enqueue_notification_email(
+            "email_verification",
+            {
+              user_id: @user.id,
+              email: @user.email,
+              verification_token: @user.email_verification_token,
+              user_name: @user.full_name,
+              smtp_settings: SystemSettingsService.get_setting("smtp_settings")
+            }
+          )
+        rescue StandardError => e
+          Rails.logger.error "Failed to send verification email during registration: #{e.message}"
+          # Don't fail registration if email fails
+        end
+      end
+
+      response_data = {
         user: user_data(@user),
         account: account_data(@account),
         subscription: @subscription ? subscription_data(@subscription) : nil,
         access_token: tokens[:access_token],
         refresh_token: tokens[:refresh_token],
-        expires_at: tokens[:expires_at],
-        message: "Account created successfully"
-      }, status: :created
+        expires_at: tokens[:expires_at]
+      }
+
+      # Add verification reminder if email is not verified
+      unless @user.verified?
+        response_data[:warning] = "Please check your email and verify your account to secure access"
+      end
+
+      render_success(
+        message: "Account created successfully",
+        data: response_data,
+        status: :created
+      )
     end
   rescue ActiveRecord::RecordInvalid => e
     # Use the first validation error as the main error message
     error_message = e.record.errors.full_messages.first || "Registration failed"
-    render json: {
-      success: false,
-      error: error_message,
-      details: e.record.errors.full_messages
-    }, status: :unprocessable_content
+    render_error(error_message, :unprocessable_content, details: e.record.errors.full_messages)
   rescue StandardError => e
-    render json: {
-      success: false,
-      error: e.message.presence || "Registration failed"
-    }, status: :unprocessable_content
+    render_error(e.message.presence || "Registration failed", status: :unprocessable_content)
   end
 
   private
@@ -98,24 +120,30 @@ class Api::V1::Auth::RegistrationsController < ApplicationController
     true # Always rate limit registration attempts
   end
 
-  def rate_limit_max_attempts
-    3 # Allow only 3 registration attempts per IP per hour
-  end
-
-  def rate_limit_window_seconds
-    3600 # 1 hour
-  end
 
   def account_params
+    # Support both snake_case and camelCase param names
+    account_name = params[:account_name] || params[:accountName] ||
+                   params.dig(:user, :account_name) || params.dig(:user, :accountName)
     {
-      name: params[:accountName] || params.dig(:user, :accountName)
+      name: account_name
     }
   end
 
   def user_params
+    # Support both single 'name' field and firstName/lastName combination
+    # Also check for snake_case variants (first_name, last_name)
+    name = params[:name] || params.dig(:user, :name)
+    if name.blank?
+      first = params[:firstName] || params[:first_name] ||
+              params.dig(:user, :firstName) || params.dig(:user, :first_name)
+      last = params[:lastName] || params[:last_name] ||
+             params.dig(:user, :lastName) || params.dig(:user, :last_name)
+      name = [ first, last ].compact.join(" ").presence
+    end
+
     {
-      first_name: params[:firstName] || params.dig(:user, :firstName),
-      last_name: params[:lastName] || params.dig(:user, :lastName),
+      name: name,
       email: params[:email] || params.dig(:user, :email),
       password: params[:password] || params.dig(:user, :password)
     }

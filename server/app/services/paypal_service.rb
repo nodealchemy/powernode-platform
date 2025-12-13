@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require 'paypal-sdk-rest'
+require "paypal-sdk-rest"
 
 class PaypalService
   include PayPal::SDK::REST
@@ -16,7 +16,7 @@ class PaypalService
   # Create PayPal payment order
   def create_payment_order(amount_cents:, currency: "USD", return_url: nil, cancel_url: nil, **options)
     amount = Money.new(amount_cents, currency)
-    
+
     payment = Payment.new({
       intent: "sale",
       payer: {
@@ -26,15 +26,15 @@ class PaypalService
         return_url: return_url || "#{ENV['FRONTEND_URL']}/payments/paypal/return",
         cancel_url: cancel_url || "#{ENV['FRONTEND_URL']}/payments/paypal/cancel"
       },
-      transactions: [{
+      transactions: [ {
         item_list: {
-          items: options[:items] || [{
+          items: options[:items] || [ {
             name: options[:description] || "Payment",
             sku: "payment",
             price: amount.to_f.to_s,
             currency: currency,
             quantity: 1
-          }]
+          } ]
         },
         amount: {
           currency: currency,
@@ -43,14 +43,14 @@ class PaypalService
         description: options[:description] || "Payment for account #{account.name}",
         custom: account.id, # Store account ID for webhook processing
         invoice_number: options[:invoice_number]
-      }]
+      } ]
     })
 
     if payment.create
       Rails.logger.info "PayPal payment created successfully: #{payment.id}"
-      
+
       approval_url = payment.links.find { |link| link.rel == "approval_url" }&.href
-      
+
       {
         success: true,
         payment_id: payment.id,
@@ -66,18 +66,22 @@ class PaypalService
         details: payment.error_details
       }
     end
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "PayPal payment creation error: #{e.message}"
-    { success: false, error: e.message }
+    raise BillingExceptions::PaymentError.new(
+      "PayPal payment creation failed: #{e.message}",
+      provider: "paypal",
+      details: { original_error: e.class.name }
+    )
   end
 
   # Execute approved PayPal payment
   def execute_payment(payment_id:, payer_id:)
     payment = Payment.find(payment_id)
-    
+
     if payment.execute(payer_id: payer_id)
       Rails.logger.info "PayPal payment executed successfully: #{payment.id}"
-      
+
       {
         success: true,
         payment: payment,
@@ -92,9 +96,14 @@ class PaypalService
         details: payment.error_details
       }
     end
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "PayPal payment execution error: #{e.message}"
-    { success: false, error: e.message }
+    raise BillingExceptions::PaymentError.new(
+      "PayPal payment execution failed: #{e.message}",
+      provider: "paypal",
+      payment_id: payment_id,
+      details: { original_error: e.class.name }
+    )
   end
 
   # Create PayPal subscription plan
@@ -103,7 +112,7 @@ class PaypalService
       name: plan.name,
       description: plan.description || "Subscription plan for #{plan.name}",
       type: "INFINITE", # Ongoing subscription
-      payment_definitions: [{
+      payment_definitions: [ {
         name: "Regular payment definition",
         type: "REGULAR",
         frequency: map_frequency_to_paypal(plan.billing_cycle),
@@ -114,7 +123,7 @@ class PaypalService
         },
         cycles: "0", # Infinite cycles
         charge_models: []
-      }],
+      } ],
       merchant_preferences: {
         auto_bill_amount: "YES",
         cancel_url: "#{ENV['FRONTEND_URL']}/subscriptions/cancel",
@@ -130,17 +139,17 @@ class PaypalService
 
     if billing_plan.create
       Rails.logger.info "PayPal billing plan created: #{billing_plan.id}"
-      
+
       # Activate the plan
-      patch = Patch.new([{
+      patch = Patch.new([ {
         op: "replace",
         path: "/",
         value: { state: "ACTIVE" }
-      }])
-      
+      } ])
+
       if billing_plan.update(patch)
         Rails.logger.info "PayPal billing plan activated: #{billing_plan.id}"
-        
+
         {
           success: true,
           plan_id: billing_plan.id,
@@ -163,15 +172,19 @@ class PaypalService
         details: billing_plan.error_details
       }
     end
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "PayPal subscription plan creation error: #{e.message}"
-    { success: false, error: e.message }
+    raise BillingExceptions::SubscriptionError.new(
+      "PayPal subscription plan creation failed: #{e.message}",
+      action: "create_plan",
+      details: { provider: "paypal", original_error: e.class.name }
+    )
   end
 
   # Create PayPal subscription agreement
   def create_subscription_agreement(plan_id:, start_date: nil, **options)
     start_date ||= (Time.current + 1.minute).iso8601
-    
+
     agreement = Agreement.new({
       name: options[:name] || "Subscription Agreement for #{account.name}",
       description: options[:description] || "Subscription agreement",
@@ -186,9 +199,9 @@ class PaypalService
 
     if agreement.create
       Rails.logger.info "PayPal agreement created: #{agreement.id}"
-      
+
       approval_url = agreement.links.find { |link| link.rel == "approval_url" }&.href
-      
+
       {
         success: true,
         agreement_id: agreement.id,
@@ -204,18 +217,22 @@ class PaypalService
         details: agreement.error_details
       }
     end
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "PayPal subscription agreement creation error: #{e.message}"
-    { success: false, error: e.message }
+    raise BillingExceptions::SubscriptionError.new(
+      "PayPal subscription agreement creation failed: #{e.message}",
+      action: "create_agreement",
+      details: { provider: "paypal", plan_id: plan_id, original_error: e.class.name }
+    )
   end
 
   # Execute approved subscription agreement
   def execute_subscription_agreement(agreement_id:)
     agreement = Agreement.new(id: agreement_id)
-    
+
     if agreement.execute
       Rails.logger.info "PayPal agreement executed: #{agreement_id}"
-      
+
       {
         success: true,
         agreement: agreement,
@@ -229,22 +246,26 @@ class PaypalService
         details: agreement.error_details
       }
     end
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "PayPal agreement execution error: #{e.message}"
-    { success: false, error: e.message }
+    raise BillingExceptions::SubscriptionError.new(
+      "PayPal agreement execution failed: #{e.message}",
+      action: "execute_agreement",
+      details: { provider: "paypal", agreement_id: agreement_id, original_error: e.class.name }
+    )
   end
 
   # Cancel PayPal subscription
   def cancel_subscription(agreement_id:, reason: nil)
     agreement = Agreement.find(agreement_id)
-    
+
     cancel_note = AgreementStateDescriptor.new({
       note: reason || "Subscription cancelled by user"
     })
-    
+
     if agreement.cancel(cancel_note)
       Rails.logger.info "PayPal subscription cancelled: #{agreement_id}"
-      
+
       {
         success: true,
         agreement: agreement,
@@ -258,15 +279,19 @@ class PaypalService
         details: agreement.error_details
       }
     end
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "PayPal subscription cancellation error: #{e.message}"
-    { success: false, error: e.message }
+    raise BillingExceptions::SubscriptionError.new(
+      "PayPal subscription cancellation failed: #{e.message}",
+      action: "cancel",
+      details: { provider: "paypal", agreement_id: agreement_id, original_error: e.class.name }
+    )
   end
 
   # Create refund for PayPal payment
   def create_refund(transaction_id:, amount_cents: nil, currency: "USD", reason: nil)
     sale = Sale.find(transaction_id)
-    
+
     refund_request = if amount_cents
       amount = Money.new(amount_cents, currency)
       {
@@ -279,12 +304,12 @@ class PaypalService
     else
       { reason: reason || "Full refund requested" }
     end
-    
+
     refund = sale.refund(refund_request)
-    
+
     if refund.success?
       Rails.logger.info "PayPal refund created: #{refund.id}"
-      
+
       {
         success: true,
         refund: refund,
@@ -300,15 +325,18 @@ class PaypalService
         details: refund.error_details
       }
     end
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "PayPal refund creation error: #{e.message}"
-    { success: false, error: e.message }
+    raise BillingExceptions::RefundError.new(
+      "PayPal refund creation failed: #{e.message}",
+      details: { provider: "paypal", transaction_id: transaction_id, original_error: e.class.name }
+    )
   end
 
   # Get payment details
   def get_payment_details(payment_id:)
     payment = Payment.find(payment_id)
-    
+
     {
       success: true,
       payment: payment,
@@ -316,15 +344,20 @@ class PaypalService
       amount: payment.transactions.first&.amount,
       payer_info: payment.payer&.payer_info
     }
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "PayPal payment details error: #{e.message}"
-    { success: false, error: e.message }
+    raise BillingExceptions::PaymentError.new(
+      "PayPal payment details retrieval failed: #{e.message}",
+      provider: "paypal",
+      payment_id: payment_id,
+      details: { original_error: e.class.name }
+    )
   end
 
   # Get subscription details
   def get_subscription_details(agreement_id:)
     agreement = Agreement.find(agreement_id)
-    
+
     {
       success: true,
       agreement: agreement,
@@ -332,9 +365,13 @@ class PaypalService
       next_billing_date: agreement.agreement_details&.next_billing_date,
       last_payment_date: agreement.agreement_details&.last_payment_date
     }
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "PayPal subscription details error: #{e.message}"
-    { success: false, error: e.message }
+    raise BillingExceptions::SubscriptionError.new(
+      "PayPal subscription details retrieval failed: #{e.message}",
+      action: "get_details",
+      details: { provider: "paypal", agreement_id: agreement_id, original_error: e.class.name }
+    )
   end
 
   # Verify webhook signature
@@ -347,22 +384,30 @@ class PaypalService
         event_body: payload,
         headers: headers
       })
-      
+
       # In a real implementation, you'd verify against PayPal's API
       # For now, we'll do basic validation
       event_data = JSON.parse(payload)
-      
+
       {
         success: true,
-        valid: event_data.key?('id') && event_data.key?('event_type'),
+        valid: event_data.key?("id") && event_data.key?("event_type"),
         event_data: event_data
       }
     rescue JSON::ParserError => e
       Rails.logger.error "PayPal webhook signature verification error: #{e.message}"
-      { success: false, error: "Invalid JSON payload" }
-    rescue => e
+      raise BillingExceptions::WebhookError.new(
+        "PayPal webhook verification failed: Invalid JSON payload",
+        provider: "paypal",
+        details: { original_error: e.class.name }
+      )
+    rescue StandardError => e
       Rails.logger.error "PayPal webhook verification error: #{e.message}"
-      { success: false, error: e.message }
+      raise BillingExceptions::WebhookError.new(
+        "PayPal webhook verification failed: #{e.message}",
+        provider: "paypal",
+        details: { webhook_id: webhook_id, original_error: e.class.name }
+      )
     end
   end
 
@@ -370,18 +415,18 @@ class PaypalService
 
   def map_frequency_to_paypal(billing_cycle)
     case billing_cycle
-    when 'daily'
-      'DAY'
-    when 'weekly'
-      'WEEK'
-    when 'monthly'
-      'MONTH'
-    when 'yearly'
-      'YEAR'
-    when 'quarterly'
-      'MONTH' # PayPal doesn't support quarterly, map to monthly
+    when "daily"
+      "DAY"
+    when "weekly"
+      "WEEK"
+    when "monthly"
+      "MONTH"
+    when "yearly"
+      "YEAR"
+    when "quarterly"
+      "MONTH" # PayPal doesn't support quarterly, map to monthly
     else
-      'MONTH' # Default to monthly
+      "MONTH" # Default to monthly
     end
   end
 end

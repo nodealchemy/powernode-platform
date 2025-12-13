@@ -1,10 +1,14 @@
+# frozen_string_literal: true
+
 require 'faraday'
 require 'faraday/retry'
 require 'oj'
+require_relative 'concerns/circuit_breaker'
 
 # API client for worker-to-backend communication
 # Handles all HTTP requests to the Rails backend with service authentication
 class BackendApiClient
+  include CircuitBreaker
   class ApiError < StandardError
     attr_reader :status, :response_body
 
@@ -93,7 +97,7 @@ class BackendApiClient
 
   # User authentication for web interface access
   def authenticate_user(email, password)
-    post("/api/v1/service/authenticate_user", {
+    post("/api/v1/worker_auth/authenticate_user", {
       email: email,
       password: password
     })
@@ -101,7 +105,7 @@ class BackendApiClient
 
   # Session verification for authenticated users
   def verify_session(session_token)
-    post("/api/v1/service/verify_session", {
+    post("/api/v1/worker_auth/verify_session", {
       session_token: session_token
     })
   end
@@ -109,6 +113,165 @@ class BackendApiClient
   # Health check
   def health_check
     get("/api/v1/health")
+  end
+
+  # Subscription operations (for billing jobs)
+  def get_subscription_data(account_id: nil, status: nil)
+    params = {}
+    params[:account_id] = account_id if account_id
+    params[:status] = status if status
+    get('/api/v1/subscriptions', params)
+  end
+
+  def update_subscription_status(subscription_id, status, metadata = {})
+    patch("/api/v1/subscriptions/#{subscription_id}", {
+      status: status,
+      metadata: metadata
+    })
+  end
+
+  # Invoice operations
+  def get_invoice_data(account_id: nil, status: nil, **params)
+    query_params = params.dup
+    query_params[:account_id] = account_id if account_id
+    query_params[:status] = status if status
+    get('/api/v1/invoices', query_params)
+  end
+
+  def create_invoice(subscription_id, line_items)
+    post('/api/v1/invoices', {
+      subscription_id: subscription_id,
+      line_items: line_items
+    })
+  end
+
+  # Report generation
+  def generate_pdf_report(report_type, account_id: nil, start_date: nil, end_date: nil, user_id: nil)
+    post('/api/v1/reports/generate', {
+      reports: [{
+        type: report_type,
+        format: 'pdf'
+      }],
+      account_id: account_id,
+      start_date: start_date,
+      end_date: end_date,
+      user_id: user_id
+    })
+  end
+
+  # Webhook event updates
+  def update_webhook_event(event_id, status, error_message = nil)
+    patch("/api/v1/webhooks/events/#{event_id}", {
+      status: status,
+      error_message: error_message
+    })
+  end
+
+  # File processing operations
+  def get_file_processing_job(job_id)
+    get("/api/v1/worker/processing_jobs/#{job_id}")
+  end
+
+  def update_file_processing_job(job_id, data)
+    patch("/api/v1/worker/processing_jobs/#{job_id}", data)
+  end
+
+  def complete_file_processing_job(job_id, result_data = {})
+    patch("/api/v1/worker/processing_jobs/#{job_id}", {
+      status: 'completed',
+      result_data: result_data,
+      completed_at: Time.current.iso8601
+    })
+  end
+
+  def fail_file_processing_job(job_id, error_message, error_data = {})
+    patch("/api/v1/worker/processing_jobs/#{job_id}", {
+      status: 'failed',
+      error_details: {
+        error_message: error_message
+      }.merge(error_data),
+      completed_at: Time.current.iso8601
+    })
+  end
+
+  # File object operations
+  def get_file_object(file_id)
+    get("/api/v1/worker/files/#{file_id}")
+  end
+
+  def update_file_object(file_id, data)
+    patch("/api/v1/worker/files/#{file_id}", data)
+  end
+
+  def download_file_content(file_id)
+    # Returns binary file content
+    response = @connection.get do |req|
+      req.url "/api/v1/worker/files/#{file_id}/download"
+      req.headers['Authorization'] = "Bearer #{@config.worker_token}"
+    end
+
+    if response.status == 200
+      response.body
+    else
+      raise ApiError.new("Failed to download file #{file_id}", response.status, response.body)
+    end
+  end
+
+  def upload_processed_file(file_id, file_content, metadata = {})
+    # Upload binary file content with metadata
+    payload = {
+      file_content: Base64.strict_encode64(file_content),
+      metadata: metadata
+    }
+
+    post("/api/v1/worker/files/#{file_id}/processed", payload)
+  end
+
+  # Quarantine an infected file
+  def quarantine_file(file_id, quarantine_data = {})
+    post("/api/v1/worker/files/#{file_id}/quarantine", quarantine_data)
+  end
+
+  def make_request(method, path, data = {})
+    # Use circuit breaker for all backend API requests
+    with_backend_api_circuit_breaker do
+      start_time = Time.current
+
+      begin
+        response = @connection.send(method) do |req|
+          req.url path
+          req.headers['Authorization'] = "Bearer #{@config.worker_token}"
+          req.headers['Content-Type'] = 'application/json'
+          req.headers['Accept'] = 'application/json'
+          req.headers['User-Agent'] = 'PowernodeWorker/1.0'
+
+          case method
+          when :get, :delete
+            req.params = data if data.any?
+          else
+            req.body = data if data.any?
+          end
+        end
+
+        duration = Time.current - start_time
+        @logger.debug "[BackendAPI] #{method.upcase} #{path} completed in #{duration.round(3)}s"
+
+        handle_response(response)
+
+      rescue Faraday::TimeoutError => e
+        @logger.error "[BackendAPI] Request timeout for #{method.upcase} #{path}: #{e.message}"
+        raise ApiError.new("Request timeout: #{e.message}", 408)
+      rescue Faraday::ConnectionFailed => e
+        @logger.error "[BackendAPI] Connection failed for #{method.upcase} #{path}: #{e.message}"
+        raise ApiError.new("Connection failed: #{e.message}", 503)
+      rescue Faraday::Error => e
+        @logger.error "[BackendAPI] Request failed for #{method.upcase} #{path}: #{e.message}"
+        raise ApiError.new("Request failed: #{e.message}")
+      end
+    end
+  rescue CircuitOpenError => e
+    @logger.warn "[BackendAPI] Circuit breaker OPEN: #{e.message}"
+    raise ApiError.new("Service temporarily unavailable: #{e.message}", 503)
   end
 
   private
@@ -142,6 +305,9 @@ class BackendApiClient
     end
   end
 
+  # HTTP methods - made public for testing and API flexibility
+  public
+
   def get(path, params = {})
     make_request(:get, path, params)
   end
@@ -158,37 +324,11 @@ class BackendApiClient
     make_request(:patch, path, data)
   end
 
-  def delete(path)
-    make_request(:delete, path)
+  def delete(path, params = {})
+    make_request(:delete, path, params)
   end
 
-  def make_request(method, path, data = {})
-    response = @connection.send(method) do |req|
-      req.url path
-      req.headers['Authorization'] = "Bearer #{@config.service_token}"
-      req.headers['Content-Type'] = 'application/json'
-      req.headers['Accept'] = 'application/json'
-      req.headers['User-Agent'] = 'PowernodeWorker/1.0'
-      
-      case method
-      when :get, :delete
-        req.params = data if data.any?
-      else
-        req.body = data if data.any?
-      end
-    end
-
-    handle_response(response)
-  rescue Faraday::TimeoutError => e
-    @logger.error "API request timeout: #{e.message}"
-    raise ApiError.new("Request timeout: #{e.message}", 408)
-  rescue Faraday::ConnectionFailed => e
-    @logger.error "API connection failed: #{e.message}"
-    raise ApiError.new("Connection failed: #{e.message}", 503)
-  rescue Faraday::Error => e
-    @logger.error "API request failed: #{e.message}"
-    raise ApiError.new("Request failed: #{e.message}")
-  end
+  private
 
   def handle_response(response)
     case response.status
@@ -228,9 +368,18 @@ class BackendApiClient
   def extract_error_message(response_body)
     return nil unless response_body.is_a?(Hash)
     
-    response_body['message'] || 
-    response_body['error'] ||
-    response_body.dig('errors', 'message') ||
-    (response_body['errors'].is_a?(Array) ? response_body['errors'].first : nil)
+    # Try standard message fields first
+    return response_body['message'] if response_body['message']
+    return response_body['error'] if response_body['error']
+    
+    # Handle 'errors' field which can be a hash or array
+    errors = response_body['errors']
+    if errors.is_a?(Hash)
+      return errors['message'] if errors['message']
+    elsif errors.is_a?(Array) && errors.any?
+      return errors.first
+    end
+    
+    nil
   end
 end

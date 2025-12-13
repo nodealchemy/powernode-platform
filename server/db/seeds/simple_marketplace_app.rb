@@ -47,7 +47,7 @@ unless listing
     short_description: "Easy-to-use weather API with current conditions and forecasts for any location worldwide.",
     long_description: app.long_description,
     category: "weather",
-    tags: ["weather", "forecast", "api", "simple"],
+    tags: [ "weather", "forecast", "api", "simple" ],
     documentation_url: "https://docs.example.com",
     support_url: "https://support.example.com",
     homepage_url: "https://weather-api.example.com",

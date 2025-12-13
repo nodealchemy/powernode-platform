@@ -3,7 +3,7 @@ import { impersonationApi, ImpersonationSession } from '@/shared/services/impers
 import { Button } from '@/shared/components/ui/Button';
 import { FormField } from '@/shared/components/ui/FormField';
 
-const ImpersonationHistory: React.FC = () => {
+export const ImpersonationHistory: React.FC = () => {
   const [sessions, setSessions] = useState<ImpersonationSession[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -46,9 +46,9 @@ const ImpersonationHistory: React.FC = () => {
       } else {
         throw new Error(response.error || 'Failed to load history');
       }
-    } catch (error: any) {
-      console.error('Failed to load impersonation history:', error);
-      setError(error.message || 'Failed to load impersonation history');
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to load impersonation history';
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -129,7 +129,7 @@ const ImpersonationHistory: React.FC = () => {
           <div className="flex space-x-2">
             <select
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as any)}
+              onChange={(e) => setStatusFilter(e.target.value as 'all' | 'active' | 'expired' | 'terminated')}
               className="border-theme rounded-md shadow-sm focus:ring-theme-interactive-primary focus:border-theme-focus"
             >
               <option value="all">All Status</option>
@@ -249,4 +249,3 @@ const ImpersonationHistory: React.FC = () => {
   );
 };
 
-export default ImpersonationHistory;

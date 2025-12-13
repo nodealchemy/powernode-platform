@@ -6,7 +6,8 @@ import { Card } from '@/shared/components/ui/Card';
 import { App, AppPlan } from '../../types';
 import { formatPriceCents, formatBillingInterval, getPriorityBadgeClass } from '../../utils/themeHelpers';
 import { Check, X, Star, TrendingUp, Shield, Zap, Users, Crown } from 'lucide-react';
-import { useNotification } from '@/shared/hooks/useNotification';
+import { useNotifications } from '@/shared/hooks/useNotifications';
+import { getErrorMessage } from '@/shared/utils/errorHandling';
 
 interface PlanComparisonModalProps {
   isOpen: boolean;
@@ -50,7 +51,7 @@ export const PlanComparisonModal: React.FC<PlanComparisonModalProps> = ({
 }) => {
   const [selectedPlanId, setSelectedPlanId] = useState<string>('');
   const [subscribing, setSubscribing] = useState(false);
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
 
   const plans = useMemo(() => app?.plans || [], [app?.plans]);
   const activePlans = useMemo(() => plans.filter(plan => plan.is_active), [plans]);
@@ -76,7 +77,10 @@ export const PlanComparisonModal: React.FC<PlanComparisonModalProps> = ({
               planAvailability: {}
             });
           }
-          featureMap.get(key)!.planAvailability[plan.id] = true; // If feature is included in plan, it's available
+          const featureItem = featureMap.get(key);
+          if (featureItem) {
+            featureItem.planAvailability[plan.id] = true; // If feature is included in plan, it's available
+          }
         });
       }
 
@@ -92,7 +96,10 @@ export const PlanComparisonModal: React.FC<PlanComparisonModalProps> = ({
               planAvailability: {}
             });
           }
-          featureMap.get(key)!.planAvailability[plan.id] = limitValue;
+          const featureItem = featureMap.get(key);
+          if (featureItem) {
+            featureItem.planAvailability[plan.id] = limitValue;
+          }
         });
       }
     });
@@ -116,8 +123,8 @@ export const PlanComparisonModal: React.FC<PlanComparisonModalProps> = ({
       await onSelectPlan(selectedPlanId);
       showNotification('Successfully subscribed to plan!', 'success');
       onClose();
-    } catch (error: any) {
-      showNotification(error.message || 'Failed to subscribe to plan', 'error');
+    } catch (error: unknown) {
+      showNotification(getErrorMessage(error) || 'Failed to subscribe to plan', 'error');
     } finally {
       setSubscribing(false);
     }

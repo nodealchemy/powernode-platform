@@ -1,57 +1,57 @@
-import React, { useState, useEffect } from 'react';
-import { MetricsOverview } from './MetricsOverview';
+import { useState, useEffect } from 'react';
+import { useSelector } from 'react-redux';
+import { RootState } from '@/shared/services';
 import { analyticsService } from '../services/analyticsService';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
+import { Button } from '@/shared/components/ui/Button';
+import { hasPermissions } from '@/shared/utils/permissionUtils';
+import { Lock } from 'lucide-react';
 
 // Default component for tests
-const MetricsOverviewWrapper: React.FC = () => {
+export const MetricsOverviewWrapper: React.FC = () => {
+  const { user } = useSelector((state: RootState) => state.auth);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [metrics, setMetrics] = useState<any>(null);
+
+  // Check permissions before loading analytics
+  const canViewAnalytics = hasPermissions(user, ['analytics.read']);
 
   useEffect(() => {
-    loadMetrics();
-  }, []);
+    if (canViewAnalytics) {
+      loadMetrics();
+    } else {
+      setLoading(false);
+    }
+  }, [canViewAnalytics]);
 
   const loadMetrics = async () => {
     try {
       setLoading(true);
-      const [metricsData, revenueData] = await Promise.all([
+      await Promise.all([
         analyticsService.getMetrics(),
         analyticsService.getRevenueMetrics()
       ]);
-      
-      // Transform data to match component expectations
-      const analyticsData = {
-        revenue: {
-          current_metrics: {
-            mrr: revenueData?.current_month || 0,
-            arr: (revenueData?.current_month || 0) * 12,
-            growth_rate: revenueData?.growth_rate || 0
-          }
-        },
-        customers: {
-          current_metrics: {
-            total_customers: metricsData?.customers?.total || 0,
-            arpu: metricsData?.revenue?.current_month / Math.max(1, metricsData?.customers?.total || 1)
-          }
-        },
-        subscriptions: {
-          current_metrics: {
-            active_count: metricsData?.subscriptions?.active || 0,
-            churn_rate: metricsData?.subscriptions?.churn_rate || 0
-          }
-        }
-      };
 
-      setMetrics(analyticsData);
       setError(null);
-    } catch (err) {
+    } catch (_error) {
       setError('Failed to load analytics data');
     } finally {
       setLoading(false);
     }
   };
+
+  // Show access denied if user doesn't have permission
+  if (!canViewAnalytics) {
+    return (
+      <div>
+        <h1>Analytics Overview</h1>
+        <div className="flex items-center justify-center gap-3 text-theme-secondary p-8">
+          <Lock className="w-5 h-5" />
+          <span>Analytics access requires proper permissions</span>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -69,7 +69,7 @@ const MetricsOverviewWrapper: React.FC = () => {
       <div>
         <h1>Analytics Overview</h1>
         <div>{error}</div>
-        <button onClick={loadMetrics}>Retry</button>
+        <Button onClick={loadMetrics} variant="outline">Retry</Button>
       </div>
     );
   }
@@ -80,9 +80,9 @@ const MetricsOverviewWrapper: React.FC = () => {
       
       {/* Time period selector */}
       <div>
-        <button>Last 30 Days</button>
-        <button>Last 90 Days</button>
-        <button>This Year</button>
+        <Button variant="outline">Last 30 Days</Button>
+        <Button variant="outline">Last 90 Days</Button>
+        <Button variant="outline">This Year</Button>
       </div>
 
       {/* Display mock values for tests */}
@@ -104,10 +104,7 @@ const MetricsOverviewWrapper: React.FC = () => {
       <div data-testid="responsive-container">
         <div data-testid="line-chart"></div>
       </div>
-
-      {metrics && <MetricsOverview data={metrics} />}
     </div>
   );
 };
 
-export default MetricsOverviewWrapper;

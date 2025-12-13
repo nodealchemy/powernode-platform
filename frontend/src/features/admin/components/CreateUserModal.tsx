@@ -27,8 +27,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
   const [rolesLoading, setRolesLoading] = useState(true);
 
   const defaultValues: CreateUserFormData = {
-    first_name: '',
-    last_name: '',
+    name: '',
     email: '',
     phone: '',
     roles: ['account.member'],
@@ -36,15 +35,10 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
   };
 
   const validationRules: FormValidationRules = {
-    first_name: {
+    name: {
       required: true,
       minLength: 2,
-      maxLength: 50,
-    },
-    last_name: {
-      required: true,
-      minLength: 2,
-      maxLength: 50,
+      maxLength: 100,
     },
     email: {
       required: true,
@@ -57,8 +51,9 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
       required: true,
     },
     roles: {
-      custom: (value: string[]) => {
-        if (!value || value.length === 0) {
+      custom: (value: unknown) => {
+        const roles = value as string[];
+        if (!roles || roles.length === 0) {
           return 'At least one role must be selected';
         }
         return null;
@@ -91,7 +86,6 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
           const roles = await usersApi.getAvailableRoles();
           setAvailableRoles(roles);
         } catch (error) {
-          console.error('Failed to load roles:', error);
           setAvailableRoles([]);
         } finally {
           setRolesLoading(false);
@@ -172,25 +166,21 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
         </div>
 
         {/* Personal Information */}
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-theme-primary mb-2">
-              First Name <span className="text-theme-error">*</span>
-            </label>
-            <input type="text" {...form.getFieldProps('first_name')} required disabled={form.isSubmitting} className={`w-full px-3 py-2 border rounded-lg bg-theme-background text-theme-primary focus:ring-2 focus:ring-theme-interactive-primary focus:border-transparent ${form.errors.first_name ? 'border-theme-error' : 'border-theme'}`} />
-            {form.errors.first_name && (
-              <p className="text-theme-error text-sm mt-1">{form.errors.first_name}</p>
-            )}
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-theme-primary mb-2">
-              Last Name <span className="text-theme-error">*</span>
-            </label>
-            <input type="text" {...form.getFieldProps('last_name')} required disabled={form.isSubmitting} className={`w-full px-3 py-2 border rounded-lg bg-theme-background text-theme-primary focus:ring-2 focus:ring-theme-interactive-primary focus:border-transparent ${form.errors.last_name ? 'border-theme-error' : 'border-theme'}`} />
-            {form.errors.last_name && (
-              <p className="text-theme-error text-sm mt-1">{form.errors.last_name}</p>
-            )}
-          </div>
+        <div>
+          <label className="block text-sm font-medium text-theme-primary mb-2">
+            Full Name <span className="text-theme-error">*</span>
+          </label>
+          <input
+            type="text"
+            {...form.getFieldProps('name')}
+            required
+            disabled={form.isSubmitting}
+            placeholder="John Doe"
+            className={`w-full px-3 py-2 border rounded-lg bg-theme-background text-theme-primary focus:ring-2 focus:ring-theme-interactive-primary focus:border-transparent ${form.errors.name ? 'border-theme-error' : 'border-theme'}`}
+          />
+          {form.errors.name && (
+            <p className="text-theme-error text-sm mt-1">{form.errors.name}</p>
+          )}
         </div>
 
         {/* Email */}
@@ -270,4 +260,3 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
   );
 };
 
-export default CreateUserModal;

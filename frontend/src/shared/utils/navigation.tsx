@@ -1,8 +1,9 @@
 // Navigation Configuration
-import { 
-  Home, BarChart3, Users, User, Settings, CreditCard, 
+import {
+  Home, BarChart3, Users, User, Settings, CreditCard,
   FileText, Package, UserCheck, Store, Smartphone,
-  HelpCircle, LogOut
+  HelpCircle, LogOut, Bot, Brain, MessageSquare,
+  HardDrive, Workflow, Activity, Server, FileStack
 } from 'lucide-react';
 import { NavigationConfig } from '../types/navigation';
 
@@ -39,6 +40,97 @@ export const defaultNavigationConfig: NavigationConfig = {
   
   sections: [
     {
+      id: 'ai',
+      name: 'AI',
+      items: [
+        {
+          id: 'ai-overview',
+          name: 'Overview',
+          href: '/app/ai',
+          icon: Brain,
+          description: 'AI system dashboard and quick actions',
+          permissions: [],
+          order: 1
+        },
+        {
+          id: 'ai-providers',
+          name: 'Providers',
+          href: '/app/ai/providers',
+          icon: Settings,
+          description: 'Manage AI provider integrations',
+          permissions: ['ai.providers.read'],
+          order: 2
+        },
+        {
+          id: 'ai-agents',
+          name: 'Agents',
+          href: '/app/ai/agents',
+          icon: Bot,
+          description: 'Create and manage AI agents',
+          permissions: ['ai.agents.read'],
+          order: 3
+        },
+        {
+          id: 'ai-workflows',
+          name: 'Workflows',
+          href: '/app/ai/workflows',
+          icon: Workflow,
+          description: 'Design and execute AI workflows',
+          permissions: ['ai.workflows.read'],
+          order: 4
+        },
+        {
+          id: 'ai-templates',
+          name: 'Templates',
+          href: '/app/ai/workflows/templates',
+          icon: FileStack,
+          description: 'Pre-built workflow templates',
+          permissions: ['ai.workflows.read'],
+          order: 5
+        },
+        {
+          id: 'ai-conversations',
+          name: 'Conversations',
+          href: '/app/ai/conversations',
+          icon: MessageSquare,
+          description: 'AI-powered conversations',
+          permissions: ['ai.conversations.read'],
+          order: 6
+        },
+        {
+          id: 'ai-analytics',
+          name: 'Analytics',
+          href: '/app/ai/analytics',
+          icon: BarChart3,
+          description: 'AI performance insights',
+          permissions: ['ai.analytics.read'],
+          order: 7
+        },
+        {
+          id: 'ai-monitoring',
+          name: 'Monitoring',
+          href: '/app/ai/monitoring',
+          icon: Activity,
+          description: 'System health and alerts',
+          permissions: ['ai.monitoring.view', 'admin.access'],
+          order: 8
+        },
+        {
+          id: 'ai-mcp',
+          name: 'MCP Browser',
+          href: '/app/ai/mcp',
+          icon: Server,
+          description: 'Browse MCP servers and tools',
+          permissions: ['ai_orchestration.read', 'admin.access'],
+          order: 9
+        }
+      ],
+      permissions: ['ai.providers.read', 'ai.agents.read', 'ai.workflows.read', 'ai.conversations.read'],
+      collapsible: true,
+      defaultExpanded: true,
+      order: 5
+    },
+    {
       id: 'business',
       name: 'Business',
       items: [
@@ -61,15 +153,6 @@ export const defaultNavigationConfig: NavigationConfig = {
           order: 2
         },
         {
-          id: 'subscriptions',
-          name: 'Subscriptions',
-          href: '/app/business/subscriptions',
-          icon: CreditCard,
-          description: 'Subscription management and renewals',
-          permissions: [],
-          order: 3
-        },
-        {
           id: 'plans',
           name: 'Plans',
           href: '/app/business/plans',
@@ -84,7 +167,7 @@ export const defaultNavigationConfig: NavigationConfig = {
           href: '/app/business/billing',
           icon: CreditCard,
           description: 'Invoices and payment processing',
-          permissions: ['admin.billing.view'],
+          permissions: ['admin.billing.read'],
           order: 5
         },
         {
@@ -93,7 +176,7 @@ export const defaultNavigationConfig: NavigationConfig = {
           href: '/app/business/reports',
           icon: FileText,
           description: 'Financial and usage reports',
-          permissions: ['analytics.view'],
+          permissions: ['analytics.read'],
           order: 6
         }
       ],
@@ -111,11 +194,29 @@ export const defaultNavigationConfig: NavigationConfig = {
           href: '/app/content/pages',
           icon: FileText,
           description: 'Manage content pages and documentation',
-          permissions: ['page.view'],
+          permissions: ['page.read'],
           order: 1
+        },
+        {
+          id: 'knowledge-base',
+          name: 'Knowledge Base',
+          href: '/app/content/kb',
+          icon: HelpCircle,
+          description: 'Browse articles, guides, and documentation',
+          permissions: ['kb.read'],
+          order: 2
+        },
+        {
+          id: 'my-files',
+          name: 'My Files',
+          href: '/app/content/files',
+          icon: HardDrive,
+          description: 'Manage your personal files and uploads',
+          permissions: ['files.read'],
+          order: 3
         }
       ],
-      permissions: ['page.view'],
+      permissions: ['page.read', 'kb.read', 'files.read'],
       collapsible: true,
       defaultExpanded: true,
       order: 16
@@ -198,6 +299,22 @@ export const defaultNavigationConfig: NavigationConfig = {
       icon: CreditCard,
       description: 'Set up payment processing',
       permissions: ['admin.billing.manage_gateways']
+    },
+    {
+      id: 'create-ai-agent',
+      name: 'Create AI Agent',
+      href: '/app/ai/agents',
+      icon: Bot,
+      description: 'Create a new AI agent for automation',
+      permissions: ['ai.agents.create']
+    },
+    {
+      id: 'ai-chat',
+      name: 'Start AI Chat',
+      href: '/app/ai/conversations',
+      icon: MessageSquare,
+      description: 'Start a new AI conversation',
+      permissions: ['ai.conversations.create']
     }
   ]
 };
@@ -212,7 +329,7 @@ export const adminNavigationOverrides = {
         {
           id: 'api-keys',
           name: 'API Keys',
-          href: '/app/api-keys',
+          href: '/app/system/api-keys',
           icon: '🔑',
           description: 'Manage API keys and access tokens',
           permissions: ['api.manage_keys'],
@@ -224,7 +341,7 @@ export const adminNavigationOverrides = {
           href: '/app/system/audit-logs',
           icon: '📋',
           description: 'System audit and activity logs',
-          permissions: ['admin.audit.view'],
+          permissions: ['admin.audit.read'],
           order: 2
         },
         {
@@ -233,8 +350,17 @@ export const adminNavigationOverrides = {
           href: '/app/system/webhooks',
           icon: '🔗',
           description: 'Manage webhook endpoints and events',
-          permissions: ['webhook.view'],
+          permissions: ['webhook.read'],
           order: 3
+        },
+        {
+          id: 'services',
+          name: 'Services',
+          href: '/app/system/services',
+          icon: '🌐',
+          description: 'Configure service routing, load balancing, and proxy settings',
+          permissions: ['admin.settings.edit'],
+          order: 4
         },
         {
           id: 'workers',
@@ -242,11 +368,20 @@ export const adminNavigationOverrides = {
           href: '/app/system/workers',
           icon: '🤖',
           description: 'Manage background workers and job processing',
-          permissions: ['system.workers.view'],
-          order: 4
+          permissions: ['system.workers.read'],
+          order: 5
+        },
+        {
+          id: 'storage',
+          name: 'File Storage',
+          href: '/app/system/storage',
+          icon: HardDrive,
+          description: 'Configure storage providers for file management',
+          permissions: ['admin.storage.manage', 'admin.storage.read'],
+          order: 6
         }
       ],
-      permissions: ['webhook.view', 'admin.audit.view', 'api.manage_keys', 'system.workers.view'],
+      permissions: ['webhook.read', 'admin.audit.read', 'api.manage_keys', 'admin.settings.edit', 'system.workers.read', 'admin.storage.manage', 'admin.storage.read'],
       collapsible: true,
       defaultExpanded: false,
       order: 18
@@ -261,7 +396,7 @@ export const adminNavigationOverrides = {
           href: '/app/admin/users',
           icon: Users,
           description: 'Manage all system users',
-          permissions: ['admin.user.view'],
+          permissions: ['admin.user.read'],
           order: 1
         },
         {
@@ -279,7 +414,7 @@ export const adminNavigationOverrides = {
           href: '/app/admin/roles',
           icon: UserCheck,
           description: 'Manage roles and permission assignments',
-          permissions: ['admin.role.view'],
+          permissions: ['admin.role.read'],
           order: 3
         },
         {
@@ -288,7 +423,7 @@ export const adminNavigationOverrides = {
           href: '/app/admin/marketplace',
           icon: Store,
           description: 'Manage marketplace apps and listings',
-          permissions: ['admin.marketplace.view'],
+          permissions: ['admin.marketplace.read'],
           order: 4
         },
         {
@@ -297,7 +432,7 @@ export const adminNavigationOverrides = {
           href: '/app/admin/settings',
           icon: Settings,
           description: 'Platform configuration and settings',
-          permissions: ['admin.settings.view'],
+          permissions: ['admin.settings.read'],
           order: 5
         }
       ],
@@ -316,7 +451,7 @@ export const adminNavigationOverrides = {
           href: '/app/users',
           icon: Users,
           description: 'Manage your team members',
-          permissions: ['team.view'],
+          permissions: ['team.read'],
           order: 1
         }
       ],

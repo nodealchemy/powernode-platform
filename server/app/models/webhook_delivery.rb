@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class WebhookDelivery < ApplicationRecord
   # Associations
   belongs_to :webhook_endpoint
@@ -11,11 +13,11 @@ class WebhookDelivery < ApplicationRecord
   # They have native JSON serialization, no need for explicit serialize calls
 
   # Scopes
-  scope :pending, -> { where(status: 'pending') }
-  scope :successful, -> { where(status: 'successful') }
-  scope :failed, -> { where(status: 'failed') }
-  scope :max_retries_reached, -> { where(status: 'max_retries_reached') }
-  scope :pending_retry, -> { where(status: 'failed').where('next_retry_at <= ?', Time.current) }
+  scope :pending, -> { where(status: "pending") }
+  scope :successful, -> { where(status: "successful") }
+  scope :failed, -> { where(status: "failed") }
+  scope :max_retries_reached, -> { where(status: "max_retries_reached") }
+  scope :pending_retry, -> { where(status: "failed").where("next_retry_at <= ?", Time.current) }
   scope :recent, -> { order(created_at: :desc) }
 
   # Callbacks
@@ -24,19 +26,19 @@ class WebhookDelivery < ApplicationRecord
 
   # Instance methods
   def successful?
-    status == 'successful'
+    status == "successful"
   end
 
   def failed?
-    status == 'failed'
+    status == "failed"
   end
 
   def pending?
-    status == 'pending'
+    status == "pending"
   end
 
   def max_retries_reached?
-    status == 'max_retries_reached'
+    status == "max_retries_reached"
   end
 
   def can_retry?
@@ -45,7 +47,7 @@ class WebhookDelivery < ApplicationRecord
 
   def mark_as_successful!(response_data = {})
     update!(
-      status: 'successful',
+      status: "successful",
       completed_at: Time.current,
       http_status: response_data[:http_status],
       response_time_ms: response_data[:response_time_ms],
@@ -56,12 +58,12 @@ class WebhookDelivery < ApplicationRecord
 
   def mark_as_failed!(error_data = {})
     self.attempt_count += 1
-    
+
     if attempt_count >= webhook_endpoint.retry_limit
-      self.status = 'max_retries_reached'
+      self.status = "max_retries_reached"
       self.next_retry_at = nil
     else
-      self.status = 'failed'
+      self.status = "failed"
       self.next_retry_at = calculate_next_retry_time
     end
 
@@ -78,7 +80,7 @@ class WebhookDelivery < ApplicationRecord
   def retry!
     return false unless can_retry?
 
-    self.status = 'pending'
+    self.status = "pending"
     self.next_retry_at = nil
     self.completed_at = nil
     save!
@@ -97,7 +99,7 @@ class WebhookDelivery < ApplicationRecord
   private
 
   def set_defaults
-    self.status ||= 'pending'
+    self.status ||= "pending"
     self.attempt_count ||= 0
     self.payload ||= {}
     self.response_headers ||= {}
@@ -106,9 +108,9 @@ class WebhookDelivery < ApplicationRecord
 
   def calculate_next_retry_time
     case webhook_endpoint.retry_backoff
-    when 'linear'
+    when "linear"
       attempt_count * 5.minutes.from_now
-    when 'exponential'
+    when "exponential"
       (2 ** attempt_count).minutes.from_now
     else
       5.minutes.from_now
@@ -119,10 +121,10 @@ class WebhookDelivery < ApplicationRecord
     return unless saved_change_to_status?
 
     case status
-    when 'successful'
+    when "successful"
       webhook_endpoint.increment!(:success_count)
       webhook_endpoint.update!(last_delivery_at: completed_at)
-    when 'failed', 'max_retries_reached'
+    when "failed", "max_retries_reached"
       webhook_endpoint.increment!(:failure_count)
     end
   end

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
 
 RSpec.describe User, type: :model do
@@ -14,11 +16,8 @@ RSpec.describe User, type: :model do
     it { should allow_value('user@example.com').for(:email) }
     it { should_not allow_value('invalid_email').for(:email) }
 
-    it { should validate_presence_of(:first_name) }
-    it { should validate_length_of(:first_name).is_at_least(1).is_at_most(50) }
-
-    it { should validate_presence_of(:last_name) }
-    it { should validate_length_of(:last_name).is_at_least(1).is_at_most(50) }
+    it { should validate_presence_of(:name) }
+    it { should validate_length_of(:name).is_at_least(1).is_at_most(100) }
 
 
     it { should validate_presence_of(:status) }
@@ -97,7 +96,7 @@ RSpec.describe User, type: :model do
       it 'assigns member role to subsequent users' do
         # Create first user (will be owner)
         first_user = create(:user, account: account)
-        
+
         # Create second user (should be member)
         second_user = build(:user, account: account)
         second_user.save
@@ -108,10 +107,10 @@ RSpec.describe User, type: :model do
   end
 
   describe 'instance methods' do
-    let(:user) { create(:user, first_name: 'John', last_name: 'Doe') }
+    let(:user) { create(:user, name: 'John Doe') }
 
     describe '#full_name' do
-      it 'returns concatenated first and last name' do
+      it 'returns the name field' do
         expect(user.full_name).to eq('John Doe')
       end
     end
@@ -119,6 +118,22 @@ RSpec.describe User, type: :model do
     describe '#initials' do
       it 'returns capitalized first letters' do
         expect(user.initials).to eq('JD')
+      end
+
+      context 'with single name' do
+        let(:single_name_user) { create(:user, name: 'John') }
+
+        it 'returns single initial' do
+          expect(single_name_user.initials).to eq('J')
+        end
+      end
+
+      context 'with empty name' do
+        let(:empty_name_user) { build(:user, name: '') }
+
+        it 'returns empty string' do
+          expect(empty_name_user.initials).to eq('')
+        end
       end
     end
 
@@ -149,7 +164,7 @@ RSpec.describe User, type: :model do
       end
 
       it '#member? returns true for member role' do
-        # Create account with owner first, then create member user  
+        # Create account with owner first, then create member user
         account = create(:account)
         create(:user, :owner, account: account) # This will be the owner
         user_with_member_role = create(:user, :member, account: account)
@@ -215,15 +230,15 @@ RSpec.describe User, type: :model do
 
       describe 'analytics permissions' do
         it 'allows admins to view analytics' do
-          expect(user.can?('analytics.view')).to be true
+          expect(user.can?('ai.analytics.read')).to be true
         end
 
         it 'allows admins to export analytics' do
-          expect(user.can?('analytics.export')).to be true
+          expect(user.can?('ai.analytics.export')).to be true
         end
 
         it 'allows owners to view analytics' do
-          expect(owner.can?('analytics.view')).to be true
+          expect(owner.can?('ai.analytics.read')).to be true
         end
       end
     end

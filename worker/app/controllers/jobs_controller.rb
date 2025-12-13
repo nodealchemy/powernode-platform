@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # Jobs API controller for receiving job enqueue requests from the backend
 class JobsController
   def self.call(env)
@@ -6,10 +8,12 @@ class JobsController
 
   def call(env)
     request = Rack::Request.new(env)
-    
+
     case [request.request_method, request.path_info]
     when ['POST', '/'], ['POST', ''], ['POST', '/api/v1/jobs']
       enqueue_job(request)
+    when ['GET', '/api/sidekiq/stats']
+      sidekiq_stats(request)
     else
       not_found_response
     end
@@ -19,6 +23,43 @@ class JobsController
   end
 
   private
+
+  def sidekiq_stats(request)
+    # Verify authentication
+    unless authenticated?(request)
+      return error_response(401, 'Unauthorized')
+    end
+
+    begin
+      stats = Sidekiq::Stats.new
+      process_set = Sidekiq::ProcessSet.new
+
+      # Get queue information
+      queues = {}
+      Sidekiq::Queue.all.each do |queue|
+        queues[queue.name] = {
+          size: queue.size,
+          latency: queue.latency.round(2)
+        }
+      end
+
+      success_response({
+        processed: stats.processed,
+        failed: stats.failed,
+        enqueued: stats.enqueued,
+        scheduled_size: stats.scheduled_size,
+        retry_size: stats.retry_size,
+        dead_size: stats.dead_size,
+        default_queue_latency: stats.default_queue_latency&.round(2),
+        workers_size: process_set.size,
+        queues: queues,
+        timestamp: Time.current.iso8601
+      })
+    rescue StandardError => e
+      PowernodeWorker.application.logger.error "Failed to get Sidekiq stats: #{e.message}"
+      error_response(500, "Failed to retrieve stats: #{e.message}")
+    end
+  end
 
   def enqueue_job(request)
     # Verify authentication
@@ -53,21 +94,27 @@ class JobsController
     begin
       # Get the actual job class
       klass = Object.const_get(job_class)
-      
+
+      # Debug logging for argument issues
+      PowernodeWorker.application.logger.info "Enqueuing #{job_class} with args: #{args.inspect}"
+
       # Enqueue the job with proper queue handling
+      # Separate Sidekiq options (like retry) from job arguments
+      sidekiq_options = options.symbolize_keys
+
       if delay
         # Parse delay (seconds, time string, or duration)
         delay_time = parse_delay(delay)
         if queue
-          job = klass.set(queue: queue).perform_in(delay_time, *args, **options.symbolize_keys)
+          job = klass.set(queue: queue, **sidekiq_options).perform_in(delay_time, *args)
         else
-          job = klass.perform_in(delay_time, *args, **options.symbolize_keys)
+          job = klass.set(**sidekiq_options).perform_in(delay_time, *args)
         end
       else
         if queue
-          job = klass.set(queue: queue).perform_async(*args, **options.symbolize_keys)
+          job = klass.set(queue: queue, **sidekiq_options).perform_async(*args)
         else
-          job = klass.perform_async(*args, **options.symbolize_keys)
+          job = klass.set(**sidekiq_options).perform_async(*args)
         end
       end
 
@@ -99,13 +146,11 @@ class JobsController
     token = auth_header.sub(/^Bearer /, '')
     return false if token.empty?
 
-    begin
-      # Verify JWT token directly
-      payload = JWT.decode(token, jwt_secret_key, true, algorithm: 'HS256').first
-      payload['service'] == 'backend' && payload['type'] == 'service'
-    rescue JWT::DecodeError, JWT::ExpiredSignature
-      false
-    end
+    # Check if token matches the configured WORKER_TOKEN
+    expected_token = PowernodeWorker.application.config.worker_token
+    return false unless expected_token
+
+    token == expected_token
   end
 
   def valid_job_class?(job_class)
@@ -123,10 +168,29 @@ class JobsController
       'Analytics::UpdateRevenueSnapshotsJob',
       'SendNotificationEmailJob',
       'TestEmailJob',
+      'TestWorkerJob',
       'RefreshEmailSettingsJob',
       'Notifications::EmailDeliveryJob',
       'Notifications::BulkEmailJob',
-      'Notifications::TransactionalEmailJob'
+      'Notifications::TransactionalEmailJob',
+      'Services::TestPaymentGatewayConnectionJob',
+      'AiConversationProcessingJob',
+      'AiAgentExecutionJob',
+      'AiWorkflowExecutionJob',
+      'AiWorkflowNodeExecutionJob',
+      'WorkflowTimeoutJob',
+      'WorkflowCleanupJob',
+      # File processing jobs
+      'ThumbnailGenerationJob',
+      'MetadataExtractionJob',
+      'VideoProcessingJob',
+      'AudioProcessingJob',
+      # MCP (Model Context Protocol) jobs
+      'Mcp::McpServerConnectionJob',
+      'Mcp::McpServerHealthCheckJob',
+      'Mcp::McpToolDiscoveryJob',
+      'Mcp::McpToolExecutionJob',
+      'Mcp::McpToolCacheRefreshJob'
     ]
 
     allowed_jobs.include?(job_class)

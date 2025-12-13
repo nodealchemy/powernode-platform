@@ -9,8 +9,9 @@ import {
   Info,
   CheckCircle
 } from 'lucide-react';
-import webhooksApi, { 
-  WebhookEndpoint, 
+import {
+  webhooksApi,
+  WebhookEndpoint,
   WebhookFormData,
   WebhookEventCategories
 } from '@/features/webhooks/services/webhooksApi';
@@ -24,7 +25,7 @@ interface WebhookFormProps {
   onCancel: () => void;
 }
 
-const WebhookForm: React.FC<WebhookFormProps> = ({
+export const WebhookForm: React.FC<WebhookFormProps> = ({
   webhook,
   onSubmit,
   onCancel
@@ -46,24 +47,27 @@ const WebhookForm: React.FC<WebhookFormProps> = ({
       pattern: /^https?:\/\/.+/,
     },
     event_types: {
-      custom: (value: string[]) => {
-        if (!value || value.length === 0) {
+      custom: (value: unknown) => {
+        const events = value as string[];
+        if (!events || events.length === 0) {
           return 'At least one event type must be selected';
         }
         return null;
       }
     },
     timeout_seconds: {
-      custom: (value: number) => {
-        if (value < 1 || value > 300) {
+      custom: (value: unknown) => {
+        const timeout = value as number;
+        if (timeout < 1 || timeout > 300) {
           return 'Timeout must be between 1 and 300 seconds';
         }
         return null;
       }
     },
     retry_limit: {
-      custom: (value: number) => {
-        if (value < 0 || value > 10) {
+      custom: (value: unknown) => {
+        const limit = value as number;
+        if (limit < 0 || limit > 10) {
           return 'Retry limit must be between 0 and 10';
         }
         return null;
@@ -80,8 +84,7 @@ const WebhookForm: React.FC<WebhookFormProps> = ({
     successMessage: webhook ? 'Webhook updated successfully' : 'Webhook created successfully',
   });
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [availableEvents, setAvailableEvents] = useState<string[]>([]);
+  const [, setAvailableEvents] = useState<string[]>([]);
   const [eventCategories, setEventCategories] = useState<WebhookEventCategories>({});
   const [loadingEvents, setLoadingEvents] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -97,7 +100,7 @@ const WebhookForm: React.FC<WebhookFormProps> = ({
         } else {
           setError(response.error || 'Failed to load available events');
         }
-      } catch (err) {
+      } catch (error) {
         setError('Failed to load available events');
       } finally {
         setLoadingEvents(false);
@@ -442,4 +445,3 @@ const WebhookForm: React.FC<WebhookFormProps> = ({
   );
 };
 
-export default WebhookForm;

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'net/http'
 require 'json'
 require 'singleton'
@@ -21,8 +23,8 @@ class EmailConfigurationService
     end
     
     begin
-      # Get service token for authentication
-      service_token = ENV['SERVICE_TOKEN']
+      # Get worker token for authentication
+      worker_token = PowernodeWorker.application.config.worker_token
       backend_url = ENV['BACKEND_URL'] || 'http://localhost:3000'
       
       uri = URI("#{backend_url}/api/v1/email_settings")
@@ -32,7 +34,7 @@ class EmailConfigurationService
       http.open_timeout = 5
       
       request = Net::HTTP::Get.new(uri)
-      request['Authorization'] = "Bearer #{service_token}"
+      request['Authorization'] = "Bearer #{worker_token}"
       request['Content-Type'] = 'application/json'
       request['Accept'] = 'application/json'
       
@@ -43,17 +45,19 @@ class EmailConfigurationService
         @settings = symbolize_keys(data['data'])
         @last_fetched = Time.now
         
-        puts "[EmailConfigurationService] Email settings fetched successfully from backend"
+        logger.info "Email settings fetched successfully from backend API"
+        logger.info "Provider: #{@settings[:provider]}, SMTP Enabled: #{@settings[:smtp_enabled]}"
+        
         configure_action_mailer!
         
         @settings
       else
-        puts "[EmailConfigurationService] Failed to fetch email settings: HTTP #{response.code} - #{response.body}"
+        logger.warn "Failed to fetch email settings from backend API: #{response.code} #{response.message}"
         use_fallback_settings
       end
     rescue StandardError => e
-      puts "[EmailConfigurationService] Error fetching email settings: #{e.message}"
-      puts e.backtrace.join("\n") if ENV['DEBUG']
+      logger.error "Error fetching email settings from backend API: #{e.message}"
+      logger.error e.backtrace.join("\n") if e.backtrace
       use_fallback_settings
     end
   end
@@ -72,7 +76,6 @@ class EmailConfigurationService
     when 'mailgun'
       configure_mailgun!
     else
-      puts "[EmailConfigurationService] WARNING: Unknown email provider: #{@settings[:provider]}"
     end
     
     # Set default from address
@@ -82,6 +85,10 @@ class EmailConfigurationService
   end
   
   private
+  
+  def logger
+    @logger ||= PowernodeWorker.application.logger
+  end
   
   def configure_smtp!
     return unless @settings[:smtp_enabled]
@@ -101,7 +108,6 @@ class EmailConfigurationService
       read_timeout: 10
     }.compact
     
-    puts "[EmailConfigurationService] SMTP configuration applied: #{@settings[:smtp_host]}:#{@settings[:smtp_port]}"
   end
   
   def configure_sendgrid!
@@ -116,9 +122,7 @@ class EmailConfigurationService
         authentication: :plain,
         enable_starttls_auto: true
       }
-      puts "[EmailConfigurationService] SendGrid configuration applied"
     else
-      puts "[EmailConfigurationService] ERROR: SendGrid API key not configured"
       use_fallback_settings
     end
   end
@@ -137,9 +141,7 @@ class EmailConfigurationService
         authentication: :plain,
         enable_starttls_auto: true
       }
-      puts "[EmailConfigurationService] AWS SES configuration applied for region: #{@settings[:ses_region]}"
     else
-      puts "[EmailConfigurationService] ERROR: AWS SES credentials not configured"
       use_fallback_settings
     end
   end
@@ -156,9 +158,7 @@ class EmailConfigurationService
         authentication: :plain,
         enable_starttls_auto: true
       }
-      puts "[EmailConfigurationService] Mailgun configuration applied for domain: #{@settings[:mailgun_domain]}"
     else
-      puts "[EmailConfigurationService] ERROR: Mailgun API key or domain not configured"
       use_fallback_settings
     end
   end
@@ -192,7 +192,6 @@ class EmailConfigurationService
       smtp_domain: ENV['SMTP_DOMAIN'] || 'powernode.dev'
     }
     
-    puts "[EmailConfigurationService] Using fallback email settings"
     configure_action_mailer!
     
     @settings

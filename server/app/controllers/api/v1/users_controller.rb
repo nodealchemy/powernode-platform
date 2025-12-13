@@ -2,108 +2,98 @@
 
 class Api::V1::UsersController < ApplicationController
   include UserSerialization
-  
+
   before_action :set_user, only: [ :show, :update, :destroy ]
-  before_action -> { require_permission('admin.user.view') }, only: [:index, :stats]
-  before_action -> { require_permission('admin.user.create') }, only: [:create]
-  before_action -> { require_permission('admin.user.delete') }, only: [:destroy]
+  before_action -> { require_permission("admin.user.view") }, only: [ :index, :stats ]
+  before_action -> { require_permission("admin.user.create") }, only: [ :create ]
+  before_action -> { require_permission("admin.user.delete") }, only: [ :destroy ]
 
   # GET /api/v1/users
   def index
     users = current_account.users.includes(:roles)
 
-    render json: {
-      success: true,
-      data: users.map { |user| user_data(user) }
-    }, status: :ok
+    # Pagination using Kaminari
+    page = params[:page] || 1
+    per_page = [ params[:per_page]&.to_i || 25, 100 ].min # Default 25, max 100
+
+    paginated_users = users.page(page).per(per_page)
+
+    render_success(
+      paginated_users.map { |user| user_data(user) },
+      meta: {
+        pagination: {
+          current_page: paginated_users.current_page,
+          per_page: paginated_users.limit_value,
+          total_pages: paginated_users.total_pages,
+          total_count: paginated_users.total_count
+        }
+      }
+    )
   end
 
   # GET /api/v1/users/:id
   def show
-    render json: {
-      success: true,
-      data: user_data(@user)
-    }, status: :ok
+    render_success(user_data(@user))
   end
 
   # POST /api/v1/users
   def create
+    # Check usage limit before creating user
+    unless UsageLimitService.can_add_user?(current_account)
+      render_error("User limit reached for your current plan", status: :forbidden)
+      return
+    end
+
     @user = current_account.users.build(user_params)
 
     if @user.save
       # Assign default roles based on the current plan
       assign_default_roles(@user)
 
-      render json: {
-        success: true,
-        data: user_data(@user),
-        message: "User created successfully"
-      }, status: :created
+      render_success(user_data(@user), status: :created)
     else
-      render json: {
-        success: false,
-        error: "User creation failed",
-        details: @user.errors.full_messages
-      }, status: :unprocessable_content
+      render_validation_error(@user)
     end
   end
 
   # PATCH/PUT /api/v1/users/:id
   def update
     if @user.update(user_update_params)
-      render json: {
-        success: true,
-        data: user_data(@user),
-        message: "User updated successfully"
-      }, status: :ok
+      render_success(user_data(@user))
     else
-      render json: {
-        success: false,
-        error: "User update failed",
-        details: @user.errors.full_messages
-      }, status: :unprocessable_content
+      render_validation_error(@user)
     end
   end
 
   # DELETE /api/v1/users/:id
   def destroy
     if @user == current_user
-      return render json: {
-        success: false,
-        error: "Cannot delete your own user account"
-      }, status: :unprocessable_content
+      return render_error(
+        "Cannot delete your own user account",
+        :unprocessable_content
+      )
     end
 
     if @user.destroy
-      render json: {
-        success: true,
-        message: "User deleted successfully"
-      }, status: :ok
+      render_success(nil)
     else
-      render json: {
-        success: false,
-        error: "User deletion failed",
-        details: @user.errors.full_messages
-      }, status: :unprocessable_content
+      render_validation_error(@user)
     end
   end
 
   # GET /api/v1/users/stats
   def stats
     users = current_account.users
-    
+
     stats_data = {
       total_users: users.count,
-      active_users: users.where(status: 'active').count,
-      suspended_users: users.where(status: 'suspended').count,
+      active_users: users.where(status: "active").count,
+      suspended_users: users.where(status: "suspended").count,
       unverified_users: users.where(email_verified_at: nil).count,
-      recent_logins: users.where('last_login_at >= ?', 7.days.ago).count
+      recent_logins: users.where("last_login_at >= ?", 7.days.ago).count
     }
 
-    render json: {
-      success: true,
-      data: stats_data
-    }, status: :ok
+    render_success(stats_data)
   end
 
   private
@@ -113,33 +103,24 @@ class Api::V1::UsersController < ApplicationController
 
     # First check if user is in a different account (account isolation)
     if @user.account != current_account
-      return render json: {
-        success: false,
-        error: "Access denied"
-      }, status: :forbidden
+      return render_error("Access denied", status: :forbidden)
     end
 
     # Users can only access their own data unless they have users.read permission
     if @user != current_user && !current_user.has_permission?("users.read")
-      render json: {
-        success: false,
-        error: "Access denied"
-      }, status: :forbidden
+      render_error("Access denied", status: :forbidden)
     end
   rescue ActiveRecord::RecordNotFound
-    render json: {
-      success: false,
-      error: "User not found"
-    }, status: :not_found
+    render_error("User not found", status: :not_found)
   end
 
 
   def user_params
-    params.require(:user).permit(:email, :first_name, :last_name, :password, :password_confirmation)
+    params.require(:user).permit(:email, :name, :password, :password_confirmation)
   end
 
   def user_update_params
-    permitted_params = [ :first_name, :last_name ]
+    permitted_params = [ :name ]
 
     # Only allow email and password updates for self or if user has users.update permission
     if @user == current_user || current_user.has_permission?("users.update")
@@ -162,11 +143,11 @@ class Api::V1::UsersController < ApplicationController
   def assign_default_roles(user)
     return unless current_account.subscription&.plan
 
-    # For single role system, assign the first default role from the plan
-    default_role = current_account.subscription.plan.default_roles.first
-    if default_role
-      role_name = default_role.downcase
-      user.update!(role: role_name) if %w[admin owner member].include?(role_name)
+    # Assign all default roles from the plan using new permission-based system
+    plan = current_account.subscription.plan
+    plan.default_roles.each do |role_name|
+      role = Role.find_by(name: role_name)
+      user.add_role(role.name) if role
     end
   end
 end

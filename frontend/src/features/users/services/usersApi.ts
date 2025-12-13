@@ -2,9 +2,7 @@ import { api } from '@/shared/services/api';
 
 export interface User {
   id: string;
-  first_name: string | null;
-  last_name: string | null;
-  full_name: string;
+  name: string;
   email: string;
   email_verified: boolean;
   phone?: string;
@@ -25,8 +23,7 @@ export interface User {
 }
 
 export interface UserFormData {
-  first_name: string;
-  last_name: string;
+  name: string;
   email: string;
   phone?: string;
   roles: string[];  // Array of role names
@@ -35,8 +32,7 @@ export interface UserFormData {
 }
 
 export interface UserUpdateData {
-  first_name?: string;
-  last_name?: string;
+  name?: string;
   email?: string;
   phone?: string;
   roles?: string[];
@@ -95,6 +91,15 @@ export interface AdminAccountsResponse {
   };
 }
 
+/**
+ * @module UsersApi
+ * @description User management service.
+ *
+ * RESPONSIBILITY: All user CRUD operations, status changes, role management
+ * NOT RESPONSIBLE FOR: Admin settings dashboard (use adminSettingsApi for user listing)
+ *
+ * Handles /users/* and /admin/users/* endpoints.
+ */
 class UsersApiService {
   // Get all users in current account
   async getUsers(): Promise<UsersListResponse> {
@@ -103,8 +108,8 @@ class UsersApiService {
   }
 
   // Get specific user
-  async getUser(userId: string): Promise<UserResponse> {
-    const response = await api.get(`/users/${userId}`);
+  async getUser(user_id: string): Promise<UserResponse> {
+    const response = await api.get(`/users/${user_id}`);
     return response.data;
   }
 
@@ -117,55 +122,55 @@ class UsersApiService {
   }
 
   // Update existing user
-  async updateUser(userId: string, userData: UserUpdateData): Promise<UserResponse> {
-    const response = await api.put(`/users/${userId}`, {
+  async updateUser(user_id: string, userData: UserUpdateData): Promise<UserResponse> {
+    const response = await api.put(`/users/${user_id}`, {
       user: userData
     });
     return response.data;
   }
 
   // Delete user
-  async deleteUser(userId: string): Promise<{ success: boolean; message: string }> {
-    const response = await api.delete(`/users/${userId}`);
+  async deleteUser(user_id: string): Promise<{ success: boolean; message: string }> {
+    const response = await api.delete(`/users/${user_id}`);
     return response.data;
   }
 
   // Suspend user
-  async suspendUser(userId: string, reason?: string): Promise<UserResponse> {
-    const response = await api.put(`/users/${userId}/suspend`, {
+  async suspendUser(user_id: string, reason?: string): Promise<UserResponse> {
+    const response = await api.put(`/users/${user_id}/suspend`, {
       reason: reason
     });
     return response.data;
   }
 
   // Activate user
-  async activateUser(userId: string): Promise<UserResponse> {
-    const response = await api.put(`/users/${userId}/activate`);
+  async activateUser(user_id: string): Promise<UserResponse> {
+    const response = await api.put(`/users/${user_id}/activate`);
     return response.data;
   }
 
   // Reset user password
-  async resetUserPassword(userId: string): Promise<{ success: boolean; message: string }> {
-    const response = await api.post(`/users/${userId}/reset_password`);
+  async resetUserPassword(user_id: string): Promise<{ success: boolean; message: string }> {
+    const response = await api.post(`/users/${user_id}/reset_password`);
     return response.data;
   }
 
   // Unlock user account
-  async unlockUser(userId: string): Promise<UserResponse> {
-    const response = await api.put(`/users/${userId}/unlock`);
+  async unlockUser(user_id: string): Promise<UserResponse> {
+    const response = await api.put(`/users/${user_id}/unlock`);
     return response.data;
   }
 
   // Resend email verification
-  async resendVerification(userId: string): Promise<{ success: boolean; message: string }> {
-    const response = await api.post(`/users/${userId}/resend_verification`);
+  async resendVerification(user_id: string): Promise<{ success: boolean; message: string }> {
+    const response = await api.post(`/users/${user_id}/resend_verification`);
     return response.data;
   }
 
   // Get users for specific account only
-  async getAccountUsers(accountId?: string): Promise<UsersListResponse> {
+  async getAccountUsers(account_id?: string): Promise<UsersListResponse> {
     const response = await api.get('/users', {
-      params: { account_id: accountId }
+      params: { account_id: account_id }
     });
     return response.data;
   }
@@ -192,31 +197,31 @@ class UsersApiService {
   }
 
   // Update user via admin endpoint (admin only) - supports role updates
-  async updateAdminUser(userId: string, userData: UserUpdateData): Promise<UserResponse> {
-    const response = await api.put(`/admin/users/${userId}`, {
+  async updateAdminUser(user_id: string, userData: UserUpdateData): Promise<UserResponse> {
+    const response = await api.put(`/admin/users/${user_id}`, {
       user: userData
     });
     return response.data;
   }
 
   // Update user role within account
-  async updateUserRole(userId: string, role: string, accountId?: string): Promise<UserResponse> {
-    const response = await api.put(`/users/${userId}/role`, {
+  async updateUserRole(user_id: string, role: string, account_id?: string): Promise<UserResponse> {
+    const response = await api.put(`/users/${user_id}/role`, {
       role,
-      account_id: accountId
+      account_id: account_id
     });
     return response.data;
   }
 
   // Remove user from account
-  async removeFromAccount(userId: string, accountId?: string): Promise<{ success: boolean; message: string }> {
-    const response = await api.delete(`/accounts/${accountId}/users/${userId}`);
+  async removeFromAccount(user_id: string, account_id?: string): Promise<{ success: boolean; message: string }> {
+    const response = await api.delete(`/accounts/${account_id}/users/${user_id}`);
     return response.data;
   }
 
   // Impersonate user (admin only)
-  async impersonateUser(userId: string): Promise<{ success: boolean; message: string }> {
-    const response = await api.post(`/admin/users/${userId}/impersonate`);
+  async impersonateUser(user_id: string): Promise<{ success: boolean; message: string }> {
+    const response = await api.post(`/admin/users/${user_id}/impersonate`);
     return response.data;
   }
 
@@ -231,35 +236,43 @@ class UsersApiService {
     try {
       const response = await api.get('/roles/assignable');
       if (response.data.success) {
-        return response.data.data.map((role: any) => ({
-          value: role.name || role.value,
-          label: role.label || role.name.split('.').map((part: string) => 
-            part.charAt(0).toUpperCase() + part.slice(1)
-          ).join(' '),
-          description: role.description,
-          canAssign: true // All roles from assignable endpoint can be assigned
-        }));
+        return response.data.data.map((role: unknown) => {
+          const roleData = role as { name?: string; value?: string; label?: string; description?: string };
+          const roleName = roleData.name || roleData.value || '';
+          return {
+            value: roleName,
+            label: roleData.label || roleName.split('.').map((part: string) => 
+              part.charAt(0).toUpperCase() + part.slice(1)
+            ).join(' '),
+            description: roleData.description || '',
+            canAssign: true // All roles from assignable endpoint can be assigned
+          };
+        });
       }
       return this.getFallbackRoles();
     } catch (error) {
-      console.error('Failed to fetch assignable roles from API:', error);
       // Fallback to all roles but mark permission restrictions
       try {
         const allRolesResponse = await api.get('/roles');
         if (allRolesResponse.data.success) {
           return allRolesResponse.data.data
-            .filter((role: any) => !role.system_role)
-            .map((role: any) => ({
-              value: role.name,
-              label: role.name.split('.').map((part: string) => 
-                part.charAt(0).toUpperCase() + part.slice(1)
-              ).join(' '),
-              description: role.description,
-              canAssign: false // Mark as restricted since assignable endpoint failed
-            }));
+            .filter((role: unknown) => {
+              const roleData = role as { system_role?: boolean };
+              return !roleData.system_role;
+            })
+            .map((role: unknown) => {
+              const roleData = role as { name: string; description?: string };
+              return {
+                value: roleData.name,
+                label: roleData.name.split('.').map((part: string) => 
+                  part.charAt(0).toUpperCase() + part.slice(1)
+                ).join(' '),
+                description: roleData.description || '',
+                canAssign: false // Mark as restricted since assignable endpoint failed
+              };
+            });
         }
       } catch (fallbackError) {
-        console.error('Fallback role fetch also failed:', fallbackError);
       }
       return this.getFallbackRoles();
     }
@@ -284,7 +297,7 @@ class UsersApiService {
         description: 'Specialized role for billing and payment management' 
       },
       { 
-        value: 'content.manager', 
+        value: 'content_manager', 
         label: 'Content Manager', 
         description: 'Content management role for pages and documentation' 
       },
@@ -328,11 +341,11 @@ class UsersApiService {
       return 'bg-theme-interactive-primary bg-opacity-10 text-theme-interactive-primary border border-theme-interactive-primary border-opacity-20';
     }
     // Content and support roles - info
-    else if (primaryRole.includes('content.manager') || primaryRole.includes('support.agent')) {
+    else if (primaryRole.includes('content_manager') || primaryRole.includes('support.agent')) {
       return 'bg-theme-info bg-opacity-10 text-theme-info border border-theme-info border-opacity-20';
     }
     // Analytics and API roles - warning
-    else if (primaryRole.includes('analytics.viewer') || primaryRole.includes('api.developer')) {
+    else if (primaryRole.includes('analytics.reader') || primaryRole.includes('api.developer')) {
       return 'bg-theme-warning bg-opacity-10 text-theme-warning border border-theme-warning border-opacity-20';
     }
     // Worker roles - surface
@@ -355,20 +368,20 @@ class UsersApiService {
   }
 
   // Get users by role (for role management)
-  async getUsersByRole(roleId: string): Promise<UsersListResponse> {
-    const response = await api.get(`/roles/${roleId}/users`);
+  async getUsersByRole(role_id: string): Promise<UsersListResponse> {
+    const response = await api.get(`/roles/${role_id}/users`);
     return response.data;
   }
 
   // Add role to user
-  async addRoleToUser(userId: string, roleId: string): Promise<UserResponse> {
-    const response = await api.post(`/users/${userId}/roles/${roleId}`);
+  async addRoleToUser(user_id: string, role_id: string): Promise<UserResponse> {
+    const response = await api.post(`/users/${user_id}/roles/${role_id}`);
     return response.data;
   }
 
   // Remove role from user  
-  async removeRoleFromUser(userId: string, roleId: string): Promise<UserResponse> {
-    const response = await api.delete(`/users/${userId}/roles/${roleId}`);
+  async removeRoleFromUser(user_id: string, role_id: string): Promise<UserResponse> {
+    const response = await api.delete(`/users/${user_id}/roles/${role_id}`);
     return response.data;
   }
 
@@ -376,12 +389,8 @@ class UsersApiService {
   validateUserData(userData: UserFormData): string[] {
     const errors: string[] = [];
 
-    if (!userData.first_name || userData.first_name.trim().length < 1) {
-      errors.push('First name is required');
-    }
-
-    if (!userData.last_name || userData.last_name.trim().length < 1) {
-      errors.push('Last name is required');
+    if (!userData.name || userData.name.trim().length < 1) {
+      errors.push('Name is required');
     }
 
     if (!userData.email || userData.email.trim().length < 1) {

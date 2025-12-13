@@ -12,20 +12,22 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ 
-    variant = 'primary', 
-    size = 'md', 
+  ({
+    variant = 'primary',
+    size = 'md',
     loading = false,
     fullWidth = false,
     rounded = 'lg',
-    elevation = true,
+    elevation: _elevation = true,
     iconOnly = false,
     pulse = false,
-    className = '', 
-    children, 
+    className = '',
+    children,
     disabled,
-    ...props 
+    ...props
   }, ref) => {
+    // _elevation prop reserved for future elevation styles
+    void _elevation;
     // Base theme classes
     const baseClasses = 'btn-theme';
     
@@ -107,6 +109,5 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   }
 );
 
-Button.displayName = 'Button';
 
 export default Button;

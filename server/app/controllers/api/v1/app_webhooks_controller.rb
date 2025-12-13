@@ -2,228 +2,178 @@
 
 class Api::V1::AppWebhooksController < ApplicationController
   include AuditLogging
-  
+  include Paginatable
+  include SearchableController
+  include ActivatableResource
+  include AnalyticsQueryable
+
+  # Configure activate/deactivate actions
+  activatable_resource :app_webhook,
+                       permission: "apps.update",
+                       serializer: :webhook_data,
+                       resource_label: "Webhook"
+
   before_action :set_app
-  before_action :set_app_webhook, only: [:show, :update, :destroy, :activate, :deactivate, :test, :regenerate_secret]
-  
+  before_action :set_app_webhook, only: [ :show, :update, :destroy, :activate, :deactivate, :test, :regenerate_secret ]
+
   # GET /api/v1/apps/:app_id/webhooks
   def index
-    authorize_permission!('apps.read')
-    
+    authorize_permission!("apps.read")
+
     webhooks = @app.app_webhooks.includes(:app_webhook_deliveries)
-    webhooks = webhooks.where('name ILIKE ?', "%#{params[:search]}%") if params[:search].present?
+    webhooks = apply_search(webhooks)
     webhooks = webhooks.where(event_type: params[:event_type]) if params[:event_type].present?
     webhooks = webhooks.where(is_active: params[:active]) if params[:active].present?
 
-    page = (params[:page] || 1).to_i
-    per_page = [(params[:per_page] || 20).to_i, 100].min
-    offset = (page - 1) * per_page
+    webhooks = paginate(webhooks.order(:name))
 
-    total_count = webhooks.count
-    webhooks = webhooks.order(:name).limit(per_page).offset(offset)
-
-    render json: {
-      success: true,
+    render_success(
       data: webhooks.map { |webhook| webhook_data(webhook) },
-      pagination: {
-        current_page: page,
-        per_page: per_page,
-        total_count: total_count,
-        total_pages: (total_count / per_page.to_f).ceil
-      }
-    }
+      meta: { pagination: pagination_meta }
+    )
   end
 
   # GET /api/v1/apps/:app_id/webhooks/:id
   def show
-    authorize_permission!('apps.read')
-    
-    render json: {
-      success: true,
+    authorize_permission!("apps.read")
+
+    render_success(
       data: webhook_data(@app_webhook, include_analytics: true)
-    }
+    )
   end
 
   # POST /api/v1/apps/:app_id/webhooks
   def create
-    authorize_permission!('apps.update')
-    
+    authorize_permission!("apps.update")
+
     @app_webhook = @app.app_webhooks.build(webhook_params)
-    
+
     if @app_webhook.save
-      render json: {
-        success: true,
+      render_success(
+        message: "Webhook created successfully",
         data: webhook_data(@app_webhook),
-        message: 'Webhook created successfully'
-      }, status: :created
+        status: :created
+      )
     else
-      render json: {
-        success: false,
-        error: 'Failed to create webhook',
-        details: @app_webhook.errors.full_messages
-      }, status: :unprocessable_content
+      render_validation_error(@app_webhook)
     end
   end
 
   # PUT /api/v1/apps/:app_id/webhooks/:id
   def update
-    authorize_permission!('apps.update')
-    
+    authorize_permission!("apps.update")
+
     if @app_webhook.update(webhook_params)
-      render json: {
-        success: true,
-        data: webhook_data(@app_webhook),
-        message: 'Webhook updated successfully'
-      }, status: :ok
+      render_success(
+        message: "Webhook updated successfully",
+        data: webhook_data(@app_webhook)
+      )
     else
-      render json: {
-        success: false,
-        error: 'Failed to update webhook',
-        details: @app_webhook.errors.full_messages
-      }, status: :unprocessable_content
+      render_validation_error(@app_webhook)
     end
   end
 
   # DELETE /api/v1/apps/:app_id/webhooks/:id
   def destroy
-    authorize_permission!('apps.delete')
-    
+    authorize_permission!("apps.delete")
+
     @app_webhook.destroy!
-    
-    render json: {
-      success: true,
-      message: 'Webhook deleted successfully'
-    }, status: :ok
+
+    render_success(
+      message: "Webhook deleted successfully"
+    )
   end
 
-  # POST /api/v1/apps/:app_id/webhooks/:id/activate
-  def activate
-    authorize_permission!('apps.update')
-    
-    @app_webhook.update!(is_active: true)
-    
-    render json: {
-      success: true,
-      data: webhook_data(@app_webhook),
-      message: 'Webhook activated successfully'
-    }
-  end
-
-  # POST /api/v1/apps/:app_id/webhooks/:id/deactivate
-  def deactivate
-    authorize_permission!('apps.update')
-    
-    @app_webhook.update!(is_active: false)
-    
-    render json: {
-      success: true,
-      data: webhook_data(@app_webhook),
-      message: 'Webhook deactivated successfully'
-    }
-  end
+  # activate and deactivate actions are provided by ActivatableResource concern
 
   # POST /api/v1/apps/:app_id/webhooks/:id/test
   def test
-    authorize_permission!('apps.update')
-    
+    authorize_permission!("apps.update")
+
     test_event_data = params[:test_data] || { test: true, timestamp: Time.current.iso8601 }
     event_id = SecureRandom.uuid
-    
+
     begin
       delivery = @app_webhook.deliver(test_event_data, event_id)
-      
-      render json: {
-        success: true,
+
+      render_success(
+        message: "Test webhook delivery initiated",
         data: {
           delivery_id: delivery.delivery_id,
           event_id: delivery.event_id,
           status: delivery.status,
           payload: @app_webhook.build_payload(test_event_data)
-        },
-        message: 'Test webhook delivery initiated'
-      }
+        }
+      )
     rescue => e
-      render json: {
-        success: false,
-        error: 'Failed to test webhook',
-        details: [e.message]
-      }, status: :unprocessable_content
+      render_error(
+        "Failed to test webhook",
+        :unprocessable_content,
+        details: [ e.message ]
+      )
     end
   end
 
   # POST /api/v1/apps/:app_id/webhooks/:id/regenerate_secret
   def regenerate_secret
-    authorize_permission!('apps.update')
-    
-    old_secret = @app_webhook.secret_token[0..10] + '...'
+    authorize_permission!("apps.update")
+
+    old_secret = @app_webhook.secret_token[0..10] + "..."
     @app_webhook.update!(secret_token: SecureRandom.hex(32))
-    new_secret = @app_webhook.secret_token[0..10] + '...'
-    
-    render json: {
-      success: true,
+    new_secret = @app_webhook.secret_token[0..10] + "..."
+
+    render_success(
+      message: "Webhook secret token regenerated successfully",
       data: {
         secret_token: @app_webhook.secret_token,
         old_secret_preview: old_secret,
         new_secret_preview: new_secret
-      },
-      message: 'Webhook secret token regenerated successfully'
-    }
+      }
+    )
   end
 
   # GET /api/v1/apps/:app_id/webhooks/:id/deliveries
   def deliveries
-    authorize_permission!('apps.read')
-    
-    days = [(params[:days] || 7).to_i, 30].min
-    deliveries = @app_webhook.app_webhook_deliveries
-                            .where('created_at > ?', days.days.ago)
-                            .order(created_at: :desc)
+    authorize_permission!("apps.read")
+
+    days = analytics_days_param(default: 7, max: 30)
+    deliveries = in_analytics_period(@app_webhook.app_webhook_deliveries, days)
+                   .order(created_at: :desc)
 
     deliveries = deliveries.where(status: params[:status]) if params[:status].present?
     deliveries = deliveries.where(event_id: params[:event_id]) if params[:event_id].present?
 
-    page = (params[:page] || 1).to_i
-    per_page = [(params[:per_page] || 50).to_i, 100].min
-    offset = (page - 1) * per_page
+    deliveries = paginate(deliveries, default_per_page: 50)
 
-    total_count = deliveries.count
-    deliveries = deliveries.limit(per_page).offset(offset)
-
-    render json: {
-      success: true,
+    render_success(
       data: deliveries.map { |delivery| delivery_data(delivery) },
-      pagination: {
-        current_page: page,
-        per_page: per_page,
-        total_count: total_count,
-        total_pages: (total_count / per_page.to_f).ceil
-      }
-    }
+      meta: { pagination: pagination_meta }
+    )
   end
 
   # GET /api/v1/apps/:app_id/webhooks/:id/analytics
   def analytics
-    authorize_permission!('apps.read')
-    
-    days = [(params[:days] || 30).to_i, 90].min
-    deliveries = @app_webhook.app_webhook_deliveries.where('created_at > ?', days.days.ago)
-    
-    analytics_data = {
-      total_deliveries: deliveries.count,
-      deliveries_by_day: deliveries.group_by_day(:created_at, last: days).count,
-      deliveries_by_status: deliveries.group(:status).count,
+    authorize_permission!("apps.read")
+
+    days = analytics_days_param(default: 30, max: 90)
+    deliveries = in_analytics_period(@app_webhook.app_webhook_deliveries, days)
+
+    analytics_data = build_analytics_data(deliveries, days: days, group_columns: [ :status ])
+    analytics_data.merge!(
       success_rate: @app_webhook.success_rate,
       failure_rate: @app_webhook.failure_rate,
       average_response_time: @app_webhook.average_response_time,
       pending_deliveries: @app_webhook.pending_deliveries_count,
       failed_deliveries: @app_webhook.failed_deliveries_count,
       retry_stats: deliveries.retry_stats
-    }
-    
-    render json: {
-      success: true,
-      data: analytics_data
-    }
+    )
+
+    # Rename keys for backward compatibility
+    analytics_data[:total_deliveries] = analytics_data.delete(:total)
+    analytics_data[:deliveries_by_day] = analytics_data.delete(:by_day)
+    analytics_data[:deliveries_by_status] = analytics_data.delete(:by_status)
+
+    render_success(data: analytics_data)
   end
 
   private
@@ -231,19 +181,13 @@ class Api::V1::AppWebhooksController < ApplicationController
   def set_app
     @app = current_account.apps.find(params[:app_id])
   rescue ActiveRecord::RecordNotFound
-    render json: {
-      success: false,
-      error: 'App not found'
-    }, status: :not_found
+    render_error("App not found", status: :not_found)
   end
 
   def set_app_webhook
     @app_webhook = @app.app_webhooks.find(params[:id])
   rescue ActiveRecord::RecordNotFound
-    render json: {
-      success: false,
-      error: 'Webhook not found'
-    }, status: :not_found
+    render_error("Webhook not found", status: :not_found)
   end
 
   def webhook_params

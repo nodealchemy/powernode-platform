@@ -13,140 +13,326 @@ puts "✅ Created #{Permission.count} permissions"
 Role.sync_from_config!
 puts "✅ Created #{Role.count} roles"
 
+# Validate permission system integrity
+puts "\n🔍 Validating permission system integrity..."
+validation_issues = []
+
+# Check for super_admin role
+super_admin_role = Role.find_by(name: 'super_admin')
+if super_admin_role.nil?
+  validation_issues << "Critical: super_admin role not found!"
+else
+  # Verify super_admin has system.admin permission
+  unless super_admin_role.permissions.exists?(name: 'system.admin')
+    validation_issues << "Critical: super_admin role missing system.admin permission!"
+  end
+end
+
+# Check for system.admin permission
+system_admin_perm = Permission.find_by(name: 'system.admin')
+if system_admin_perm.nil?
+  validation_issues << "Critical: system.admin permission not found!"
+end
+
+# Check permission categories
+permission_categories = Permission.pluck(:name).map { |name| name.split('.').first }.uniq
+expected_categories = [ 'users', 'admin', 'billing', 'system', 'analytics', 'pages', 'storage' ]
+missing_categories = expected_categories - permission_categories
+
+if missing_categories.any?
+  validation_issues << "Warning: Missing permission categories: #{missing_categories.join(', ')}"
+end
+
+# Report validation results
+if validation_issues.empty?
+  puts "✅ Permission system validation passed"
+  puts "   Total Permissions: #{Permission.count}"
+  puts "   Total Roles: #{Role.count}"
+  puts "   Permission Categories: #{permission_categories.count} (#{permission_categories.join(', ')})"
+else
+  puts "⚠️  Permission system validation found #{validation_issues.count} issues:"
+  validation_issues.each { |issue| puts "   - #{issue}" }
+  if validation_issues.any? { |i| i.start_with?('Critical:') }
+    puts "\n❌ Critical validation errors found. Please check permissions.rb configuration!"
+  end
+end
+
 # Create default plans
 administrator_plan = Plan.find_or_create_by!(name: 'Administrator') do |plan|
   plan.description = 'Special plan for system administrators'
   plan.price_cents = 0
   plan.currency = 'USD'
-  plan.billing_cycle = 'monthly'
-  plan.trial_days = 0
+  plan.billing_interval = 'monthly'
+  plan.trial_period_days = 0
   plan.features = {
+    # Core Features (all included for admin)
+    'community_access' => true,
     'dashboard_access' => true,
+    'mobile_responsive' => true,
+    'email_notifications' => true,
+    'basic_reporting' => true,
+    'standard_support' => true,
     'basic_analytics' => true,
-    'advanced_analytics' => true,
+    # Advanced Features (all included for admin)
     'email_support' => true,
+    'advanced_analytics' => true,
     'priority_support' => true,
     'api_access' => true,
+    'custom_branding' => true,
+    'data_export' => true,
+    'team_collaboration' => true,
+    'webhook_integrations' => true,
+    # Enterprise Features (all included for admin)
+    'custom_fields' => true,
+    'advanced_filters' => true,
     'custom_integrations' => true,
     'dedicated_support' => true,
     'white_label' => true,
     'sso_integration' => true,
-    'max_users' => 9999,
-    'storage_gb' => 10000
+    'advanced_security' => true,
+    'audit_logs' => true,
+    'sla_guarantees' => true
   }
-  plan.status = 'active'
-  plan.stripe_price_id = nil # No Stripe for admin plan
+  plan.limits = {
+    'max_users' => 9999,
+    'max_api_keys' => 100,
+    'max_webhooks' => 100,
+    'max_workers' => 100
+  }
+  plan.is_public = false # Hidden from public view
+  plan.slug = 'administrator'
 end
 
-basic_plan = Plan.find_or_create_by!(name: 'Basic') do |plan|
-  plan.description = 'Essential features for small teams'
-  plan.price_cents = 999
+# Add Free plan
+free_plan = Plan.find_or_create_by!(name: 'Free') do |plan|
+  plan.description = 'Perfect for individuals and small teams getting started'
+  plan.price_cents = 0
   plan.currency = 'USD'
-  plan.billing_cycle = 'monthly'
-  plan.trial_days = 14
+  plan.billing_interval = 'monthly'
+  plan.trial_period_days = 0
   plan.features = {
+    # Core Features
+    'community_access' => true,
     'dashboard_access' => true,
+    'mobile_responsive' => true,
+    'email_notifications' => true,
+    'basic_reporting' => true,
+    'standard_support' => true,
     'basic_analytics' => true,
+    # Advanced Features (limited for free)
+    'email_support' => false,
     'advanced_analytics' => false,
-    'email_support' => true,
     'priority_support' => false,
     'api_access' => false,
+    'custom_branding' => false,
+    'data_export' => false,
+    'team_collaboration' => false,
+    'webhook_integrations' => false,
+    # Enterprise Features (none for free)
+    'custom_fields' => false,
+    'advanced_filters' => false,
     'custom_integrations' => false,
     'dedicated_support' => false,
     'white_label' => false,
     'sso_integration' => false,
-    'max_users' => 5,
-    'storage_gb' => 10
+    'advanced_security' => false,
+    'audit_logs' => false,
+    'sla_guarantees' => false
   }
-  plan.status = 'active'
-  plan.required_roles = ['member']
-  plan.stripe_price_id = 'price_basic_monthly' # Will be created via Stripe
+  plan.limits = {
+    'max_users' => 3,
+    'max_api_keys' => 2,
+    'max_webhooks' => 2,
+    'max_workers' => 1
+  }
+  plan.is_active = true
+  plan.slug = 'free'
+end
+
+basic_plan = Plan.find_or_create_by!(name: 'Basic') do |plan|
+  plan.description = 'Essential features for growing teams and small businesses'
+  plan.price_cents = 1500
+  plan.currency = 'USD'
+  plan.billing_cycle = 'monthly'
+  plan.trial_days = 14
+  plan.features = {
+    # Core Features
+    'community_access' => true,
+    'dashboard_access' => true,
+    'mobile_responsive' => true,
+    'email_notifications' => true,
+    'basic_reporting' => true,
+    'standard_support' => true,
+    'basic_analytics' => true,
+    # Advanced Features (some included)
+    'email_support' => true,
+    'advanced_analytics' => false,
+    'priority_support' => false,
+    'api_access' => true,
+    'custom_branding' => false,
+    'data_export' => true,
+    'team_collaboration' => true,
+    'webhook_integrations' => false,
+    # Enterprise Features (none for basic)
+    'custom_fields' => false,
+    'advanced_filters' => false,
+    'custom_integrations' => false,
+    'dedicated_support' => false,
+    'white_label' => false,
+    'sso_integration' => false,
+    'advanced_security' => false,
+    'audit_logs' => false,
+    'sla_guarantees' => false
+  }
+  plan.limits = {
+    'max_users' => 10,
+    'max_api_keys' => 10,
+    'max_webhooks' => 10,
+    'max_workers' => 5
+  }
+  plan.is_active = true
+  plan.slug = 'basic'
   # Add promotional discount
-  plan.has_promotional_discount = true
-  plan.promotional_discount_percent = 15.0
+  plan.promotional_discount_percent = 20.0
   plan.promotional_discount_start = Time.current
   plan.promotional_discount_end = 30.days.from_now
 end
 
 professional_plan = Plan.find_or_create_by!(name: 'Professional') do |plan|
-  plan.description = 'Advanced tools for growing businesses'
-  plan.price_cents = 2999
+  plan.description = 'Advanced tools and integrations for scaling businesses'
+  plan.price_cents = 4900
   plan.currency = 'USD'
   plan.billing_cycle = 'monthly'
   plan.trial_days = 14
   plan.features = {
+    # Core Features (all included)
+    'community_access' => true,
     'dashboard_access' => true,
+    'mobile_responsive' => true,
+    'email_notifications' => true,
+    'basic_reporting' => true,
+    'standard_support' => true,
     'basic_analytics' => true,
-    'advanced_analytics' => true,
+    # Advanced Features (most included)
     'email_support' => true,
+    'advanced_analytics' => true,
     'priority_support' => true,
     'api_access' => true,
+    'custom_branding' => true,
+    'data_export' => true,
+    'team_collaboration' => true,
+    'webhook_integrations' => true,
+    # Enterprise Features (some included)
+    'custom_fields' => true,
+    'advanced_filters' => true,
     'custom_integrations' => false,
     'dedicated_support' => false,
     'white_label' => false,
     'sso_integration' => false,
-    'max_users' => 25,
-    'storage_gb' => 100
+    'advanced_security' => false,
+    'audit_logs' => true,
+    'sla_guarantees' => false
   }
-  plan.status = 'active'
-  plan.required_roles = ['member']
-  plan.stripe_price_id = 'price_professional_monthly'
+  plan.limits = {
+    'max_users' => 50,
+    'max_api_keys' => 25,
+    'max_webhooks' => 25,
+    'max_workers' => 15
+  }
+  plan.is_active = true
+  plan.slug = 'professional'
   # Add annual discount
-  plan.has_annual_discount = true
-  plan.annual_discount_percent = 20.0
+  plan.annual_discount_percent = 25.0
 end
 
 enterprise_plan = Plan.find_or_create_by!(name: 'Enterprise') do |plan|
-  plan.description = 'Complete solution for large organizations'
-  plan.price_cents = 9999
+  plan.description = 'Complete solution with enterprise security and dedicated support'
+  plan.price_cents = 15000
   plan.currency = 'USD'
   plan.billing_cycle = 'monthly'
   plan.trial_days = 30
   plan.features = {
+    # Core Features (all included)
+    'community_access' => true,
     'dashboard_access' => true,
+    'mobile_responsive' => true,
+    'email_notifications' => true,
+    'basic_reporting' => true,
+    'standard_support' => true,
     'basic_analytics' => true,
-    'advanced_analytics' => true,
+    # Advanced Features (all included)
     'email_support' => true,
+    'advanced_analytics' => true,
     'priority_support' => true,
     'api_access' => true,
+    'custom_branding' => true,
+    'data_export' => true,
+    'team_collaboration' => true,
+    'webhook_integrations' => true,
+    # Enterprise Features (all included)
+    'custom_fields' => true,
+    'advanced_filters' => true,
     'custom_integrations' => true,
     'dedicated_support' => true,
     'white_label' => true,
     'sso_integration' => true,
-    'max_users' => 9999,
-    'storage_gb' => 1000
+    'advanced_security' => true,
+    'audit_logs' => true,
+    'sla_guarantees' => true
   }
-  plan.status = 'active'
-  plan.required_roles = ['member', 'manager']
-  plan.stripe_price_id = 'price_enterprise_monthly'
+  plan.limits = {
+    'max_users' => 9999,
+    'max_api_keys' => 100,
+    'max_webhooks' => 100,
+    'max_workers' => 50
+  }
+  plan.is_active = true
+  plan.slug = 'enterprise'
   # Add annual discount
-  plan.has_annual_discount = true
-  plan.annual_discount_percent = 25.0
+  plan.annual_discount_percent = 30.0
 end
 
 puts "✅ Created #{Plan.count} plans"
 
 # Create system worker (required for worker-backend communication)
-system_worker = Worker.find_or_create_by!(name: 'Powernode System Worker') do |worker|
-  worker.status = 'active'
-  worker.description = 'Primary system background job processor'
-  worker.last_seen_at = Time.current
-  # Token is generated automatically by before_create callback
-end
+puts "🔧 Creating system worker..."
 
-# Assign system_worker role to the system worker
-if system_worker.roles.empty?
-  system_worker_role = Role.find_by(name: 'system_worker')
-  system_worker.roles << system_worker_role if system_worker_role
-end
+begin
+  # Check if WORKER_TOKEN is set in environment
+  worker_token = ENV['WORKER_TOKEN']
+  if worker_token.blank?
+    puts "⚠️ WORKER_TOKEN not found in environment - generating new token"
+    worker_token = "swt_#{SecureRandom.urlsafe_base64(32)}"
+    puts "💡 Set this token in your environment: WORKER_TOKEN=#{worker_token}"
+  end
 
-puts "✅ System worker created with token: #{system_worker.token[0..10]}..."
-puts "   ⚠️  Make sure to update worker/.env with WORKER_TOKEN=#{system_worker.token}"
+  system_worker = Worker.find_by(name: 'System Worker')
+
+  if system_worker
+    puts "✅ System worker already exists"
+  else
+    system_worker = Worker.create_worker!(
+      name: 'System Worker',
+      description: 'System worker for background processing and API communication',
+      account: nil,
+      roles: [ 'system_worker' ],
+      token: worker_token
+    )
+  end
+
+  puts "✅ System worker created successfully"
+  puts "   Token: #{system_worker.masked_token}"
+  puts "   Roles: #{system_worker.role_names.join(', ')}"
+
+rescue => e
+  puts "❌ Failed to create system worker: #{e.message}"
+  puts "   This may cause worker authentication issues"
+end
 
 # Only create admin account in development/test environments
 if Rails.env.development? || Rails.env.test?
   puts "\n🏢 Creating development/test accounts..."
-  
+
   # Create admin account and user
   admin_account = Account.find_or_create_by!(
     name: 'Powernode Admin',
@@ -172,20 +358,33 @@ if Rails.env.development? || Rails.env.test?
     email: 'admin@powernode.org'
   ) do |user|
     user.account = admin_account
-    user.first_name = 'System'
-    user.last_name = 'Admin'
+    user.name = 'System Admin'
     user.password = 'P0w3rN0d3Admin!@&'
     user.password_confirmation = 'P0w3rN0d3Admin!@&'
     user.status = 'active'
     user.email_verified = true
     user.email_verified_at = Time.current
   end
-  
-  # Ensure admin user has super_admin role
+
+  # Ensure admin user has super_admin role with ALL permissions
   super_admin_role = Role.find_by(name: 'super_admin')
   if super_admin_role && !admin_user.roles.include?(super_admin_role)
     admin_user.roles.clear  # Remove any existing roles
     admin_user.roles << super_admin_role
+
+    # Enhanced permission feedback
+    has_system_admin = super_admin_role.permissions.exists?(name: 'system.admin')
+    total_system_permissions = Permission.count
+    permission_categories = Permission.pluck(:name).map { |name| name.split('.').first }.uniq.count
+
+    puts "✅ Assigned super_admin role to admin user"
+    puts "   Role Permissions: #{super_admin_role.permissions.count}"
+    if has_system_admin
+      puts "   🔑 Has system.admin permission (grants access to ALL #{total_system_permissions} permissions)"
+      puts "   📊 Permission Coverage: #{permission_categories} categories"
+    else
+      puts "   ⚠️  WARNING: super_admin role missing system.admin permission!"
+    end
   end
 
   # Create demo account
@@ -213,15 +412,14 @@ if Rails.env.development? || Rails.env.test?
     email: 'manager@powernode.org'
   ) do |user|
     user.account = demo_account
-    user.first_name = 'Demo'
-    user.last_name = 'Manager'
+    user.name = 'Demo Manager'
     user.password = 'D3m0U$er2024!@&'
     user.password_confirmation = 'D3m0U$er2024!@&'
     user.status = 'active'
     user.email_verified = true
     user.email_verified_at = Time.current
   end
-  
+
   # Assign manager role
   if demo_manager.roles.empty?
     manager_role = Role.find_by(name: 'manager')
@@ -232,15 +430,14 @@ if Rails.env.development? || Rails.env.test?
     email: 'member@powernode.org'
   ) do |user|
     user.account = demo_account
-    user.first_name = 'Demo'
-    user.last_name = 'Member'
+    user.name = 'Demo Member'
     user.password = 'D3m0U$er2024!@*'
     user.password_confirmation = 'D3m0U$er2024!@*'
     user.status = 'active'
     user.email_verified = true
     user.email_verified_at = Time.current
   end
-  
+
   # Assign member role
   if demo_member.roles.empty?
     member_role = Role.find_by(name: 'member')
@@ -358,7 +555,7 @@ Page.find_or_create_by!(slug: 'terms') do |page|
 
     ## Contact Information
 
-    Questions about these Terms of Service should be sent to: legal@powernode.com
+    Questions about these Terms of Service should be sent to: legal@powernode.org
   MARKDOWN
 end
 
@@ -446,10 +643,10 @@ Page.find_or_create_by!(slug: 'privacy') do |page|
     ## Contact Us
 
     Questions about this Privacy Policy should be directed to:
-    - Email: privacy@powernode.com
+    - Email: privacy@powernode.org
     - Address: [Your Company Address]
 
-    For EU residents: You may also contact our Data Protection Officer at dpo@powernode.com
+    For EU residents: You may also contact our Data Protection Officer at dpo@powernode.org
   MARKDOWN
 end
 
@@ -527,7 +724,7 @@ Page.find_or_create_by!(slug: 'help') do |page|
     Can't find what you're looking for? Our support team is here to help!
 
     ### Support Channels
-    - **Email Support**: support@powernode.com
+    - **Email Support**: support@powernode.org
     - **Live Chat**: Available 24/7 for paid plans
     - **Phone Support**: Available for Business and Enterprise plans
     - **Help Desk**: Submit a ticket through your dashboard
@@ -548,7 +745,7 @@ Page.find_or_create_by!(slug: 'help') do |page|
 
     ---
 
-    **Still need help?** [Contact our support team](mailto:support@powernode.com) - we're here to ensure your success!
+    **Still need help?** [Contact our support team](mailto:support@powernode.org) - we're here to ensure your success!
   MARKDOWN
 end
 
@@ -574,7 +771,7 @@ Page.find_or_create_by!(slug: 'about') do |page|
 
     ## Our Story
 
-    Powernode was born from the frustration of managing subscriptions across multiple platforms, dealing with complex billing scenarios, and lacking actionable insights into customer behavior. 
+    Powernode was born from the frustration of managing subscriptions across multiple platforms, dealing with complex billing scenarios, and lacking actionable insights into customer behavior.#{' '}
 
     We set out to build a platform that would:
     - Simplify subscription billing and management
@@ -624,14 +821,86 @@ end
 
 puts "✅ Created #{Page.count} public pages"
 
+# Load Knowledge Base data
+puts "\n📚 Loading Knowledge Base content..."
+load Rails.root.join('db', 'seeds', 'knowledge_base_permissions.rb')
+load Rails.root.join('db', 'seeds', 'knowledge_base_articles.rb')
+
+# Load AI Providers and Workflows (only in development/test)
+if Rails.env.development? || Rails.env.test?
+  puts "\n🤖 Loading Comprehensive AI Providers (OpenAI, Grok, Ollama, Claude)..."
+  load Rails.root.join('db', 'seeds', 'comprehensive_ai_providers_seed.rb')
+
+  puts "\n🧠 Loading Claude-Powered Workflow Agents..."
+  load Rails.root.join('db', 'seeds', 'claude_agents_seed.rb')
+
+  puts "\n📊 Loading Monitoring and Analytics Agents..."
+  load Rails.root.join('db', 'seeds', 'monitoring_analytics_agents_seed.rb')
+
+  puts "\n🔌 Loading MCP Servers..."
+  load Rails.root.join('db', 'seeds', 'mcp_servers_seeds.rb')
+
+  puts "\n🚀 Loading AI Workflow Showcase Examples..."
+  load Rails.root.join('db', 'seeds', 'ai_workflow_showcase_seeds.rb')
+
+  puts "\n🗄️  Loading File Storage configurations..."
+  load Rails.root.join('db', 'seeds', 'file_storage_seeds.rb')
+end
+
 puts "\n🎉 Seeding complete!"
 puts "   Permissions: #{Permission.count}"
 puts "   Roles: #{Role.count}"
 puts "   Plans: #{Plan.count}"
 puts "   Workers: #{Worker.count}"
+puts "   Public Pages: #{Page.count}"
+puts "   KB Categories: #{KnowledgeBaseCategory.count}"
+puts "   KB Articles: #{KnowledgeBaseArticle.count}"
+
+if Rails.env.development? || Rails.env.test?
+  puts "   AI Providers: #{AiProvider.count}"
+  puts "   AI Agents: #{AiAgent.count}"
+  puts "   AI Workflows: #{AiWorkflow.count}"
+  puts "   AI Workflow Templates: #{AiWorkflowTemplate.count}"
+  puts "   AI Workflow Runs: #{AiWorkflowRun.count}"
+end
+
+# 🔧 Create default site settings
+puts "\n🔧 Creating default site settings..."
+
+# Site information
+SiteSetting.set('site_name', 'Powernode', description: 'Name of the site', setting_type: 'string', is_public: true)
+SiteSetting.set('footer_description', 'Powerful subscription management platform designed to help businesses grow. Trusted by thousands of companies worldwide.', description: 'Footer description text', setting_type: 'text', is_public: true)
+
+# Copyright information
+SiteSetting.set('copyright_text', 'All rights reserved.', description: 'Copyright text displayed in footer', setting_type: 'string', is_public: true)
+SiteSetting.set('copyright_year', Date.current.year.to_s, description: 'Copyright year', setting_type: 'string', is_public: true)
+
+# Contact information
+SiteSetting.set('contact_email', 'hello@powernode.org', description: 'Main contact email', setting_type: 'string', is_public: true)
+SiteSetting.set('contact_phone', '+1 (555) 123-4567', description: 'Contact phone number', setting_type: 'string', is_public: true)
+SiteSetting.set('company_address', '123 Innovation Drive, Tech City, TC 12345', description: 'Company address', setting_type: 'string', is_public: true)
+
+# Social media links
+SiteSetting.set('social_twitter', '', description: 'Twitter/X profile URL', setting_type: 'string', is_public: true)
+SiteSetting.set('social_linkedin', '', description: 'LinkedIn profile URL', setting_type: 'string', is_public: true)
+SiteSetting.set('social_facebook', '', description: 'Facebook page URL', setting_type: 'string', is_public: true)
+SiteSetting.set('social_instagram', '', description: 'Instagram profile URL', setting_type: 'string', is_public: true)
+SiteSetting.set('social_youtube', '', description: 'YouTube channel URL', setting_type: 'string', is_public: true)
+
+# Admin-only settings
+SiteSetting.set('maintenance_mode', 'false', description: 'Enable maintenance mode', setting_type: 'boolean', is_public: false)
+SiteSetting.set('analytics_tracking_id', '', description: 'Google Analytics tracking ID', setting_type: 'string', is_public: false)
+SiteSetting.set('seo_default_title', 'Powernode - Subscription Management Platform', description: 'Default SEO title', setting_type: 'string', is_public: false)
+SiteSetting.set('seo_default_description', 'Streamline your subscription business with automated billing, analytics, and customer lifecycle management.', description: 'Default SEO description', setting_type: 'text', is_public: false)
+
+# Footer caching
+SiteSetting.set('footer_cache_enabled', 'true', description: 'Enable caching for footer data to improve performance', setting_type: 'boolean', is_public: false)
+
+puts "✅ Created #{SiteSetting.count} site settings"
 
 if Rails.env.development? || Rails.env.test?
   puts "   Accounts: #{Account.count}"
   puts "   Users: #{User.count}"
   puts "   Subscriptions: #{Subscription.count}"
+  puts "   Site Settings: #{SiteSetting.count}"
 end

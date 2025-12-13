@@ -1,10 +1,11 @@
-import React from 'react';
-import { Button } from '@/shared/components/ui/Button';
+
 import { useSelector, useDispatch } from 'react-redux';
-import { RootState, AppDispatch } from '@/shared/services';
+
+import { Button } from '@/shared/components/ui/Button';
+import type { RootState, AppDispatch } from '@/shared/services';
 import { stopImpersonation } from '@/shared/services/slices/authSlice';
 
-const ImpersonationBanner: React.FC = () => {
+export const ImpersonationBanner: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const { impersonation, isLoading } = useSelector((state: RootState) => state.auth);
 
@@ -20,8 +21,12 @@ const ImpersonationBanner: React.FC = () => {
     try {
       await dispatch(stopImpersonation()).unwrap();
       // Refresh the page after successful impersonation stop to ensure clean state
-      window.location.reload();
+      // Only reload if we're actually impersonating to prevent accidental reloads
+      if (impersonation.isImpersonating) {
+        window.location.reload();
+      }
     } catch (error) {
+      // Error already logged by the action
     }
   };
 
@@ -44,7 +49,7 @@ const ImpersonationBanner: React.FC = () => {
               <>
                 You are viewing as{' '}
                 <span className="font-semibold">
-                  {impersonation.impersonatedUser?.first_name} {impersonation.impersonatedUser?.last_name}
+                  {impersonation.impersonatedUser?.name}
                 </span>
                 {' '}({impersonation.impersonatedUser?.email})
               </>
@@ -57,12 +62,12 @@ const ImpersonationBanner: React.FC = () => {
           )}
         </div>
         
-        <Button onClick={handleStopImpersonation} disabled={isLoading || isLoadingImpersonation} variant="outline" size="sm">
+        <Button onClick={() => void handleStopImpersonation()} disabled={isLoading || isLoadingImpersonation} variant="outline" size="sm">
           {isLoading ? (
             <>
               <svg className="animate-spin -ml-1 mr-2 h-3 w-3 text-theme-warning" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
               </svg>
               Stopping...
             </>
@@ -80,4 +85,3 @@ const ImpersonationBanner: React.FC = () => {
   );
 };
 
-export default ImpersonationBanner;

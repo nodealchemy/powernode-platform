@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useSelector } from 'react-redux';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { RootState } from '@/shared/services';
@@ -82,8 +82,17 @@ export const ReportsPage: React.FC = () => {
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Ref to track if data is already loaded to prevent double-loading in StrictMode
+  const isInitialLoad = useRef(true);
+  const refreshInterval = useRef<NodeJS.Timeout | null>(null);
+
   // Load initial data
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (force = false) => {
+    // Prevent double-loading in React.StrictMode during initial mount
+    if (isInitialLoad.current && !force && (templates.length > 0 || requests.length > 0)) {
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
@@ -95,31 +104,46 @@ export const ReportsPage: React.FC = () => {
       
       setTemplates(templatesResponse.data);
       setRequests(requestsResponse.data);
-    } catch (err) {
-      console.error('Failed to load reports data:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load reports data');
+      isInitialLoad.current = false;
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Failed to load reports data');
     } finally {
       setLoading(false);
     }
+  }, [templates.length, requests.length]);
+
+  // Load data on mount with StrictMode protection
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      loadData();
+    }, 0);
+    return () => clearTimeout(timeoutId);
   }, []);
 
+  // Auto-refresh requests with cleanup
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    // Don't start auto-refresh until initial load is complete
+    if (isInitialLoad.current) return;
 
-  // Auto-refresh requests
-  useEffect(() => {
-    const interval = setInterval(async () => {
-      try {
-        const response = await reportsService.getRequests();
-        setRequests(response.data);
-      } catch (error) {
-        console.error('Failed to refresh requests:', error);
+    const startAutoRefresh = () => {
+      refreshInterval.current = setInterval(async () => {
+        try {
+          const response = await reportsService.getRequests();
+          setRequests(response.data);
+        } catch (error) {
+        }
+      }, 10000); // Refresh every 10 seconds
+    };
+
+    startAutoRefresh();
+
+    return () => {
+      if (refreshInterval.current) {
+        clearInterval(refreshInterval.current);
+        refreshInterval.current = null;
       }
-    }, 10000); // Refresh every 10 seconds
-
-    return () => clearInterval(interval);
-  }, []);
+    };
+  }, [templates.length, requests.length]);
 
 
   const handleSubmitRequest = async () => {
@@ -150,9 +174,8 @@ export const ReportsPage: React.FC = () => {
       setShowRequestModal(false);
       setSelectedTemplate(null);
       
-    } catch (err) {
-      console.error('Failed to submit report request:', err);
-      setError(err instanceof Error ? err.message : 'Failed to submit report request');
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Failed to submit report request');
     } finally {
       setIsSubmitting(false);
     }
@@ -163,8 +186,7 @@ export const ReportsPage: React.FC = () => {
     
     try {
       await reportsService.downloadReport(request.id);
-    } catch (err) {
-      console.error('Failed to download report:', err);
+    } catch (error) {
     }
   };
 
@@ -175,8 +197,7 @@ export const ReportsPage: React.FC = () => {
       // Refresh requests list
       const response = await reportsService.getRequests();
       setRequests(response.data);
-    } catch (err) {
-      console.error('Failed to cancel request:', err);
+    } catch (error) {
     }
   };
 
@@ -211,19 +232,23 @@ export const ReportsPage: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState(getActiveTab());
   
-  // Update active tab when URL changes
+  // Update active tab when URL changes (with debouncing to prevent excessive updates)
   useEffect(() => {
-    const newActiveTab = getActiveTab();
-    if (newActiveTab !== activeTab) {
-      setActiveTab(newActiveTab);
-    }
-  }, [location.pathname, activeTab]);
+    const timeoutId = setTimeout(() => {
+      const newActiveTab = getActiveTab();
+      if (newActiveTab !== activeTab) {
+        setActiveTab(newActiveTab);
+      }
+    }, 50); // Small delay to debounce rapid URL changes
+
+    return () => clearTimeout(timeoutId);
+  }, [location.pathname]);
 
   const pageActions: PageAction[] = [
     {
       id: 'refresh',
       label: 'Refresh',
-      onClick: loadData,
+      onClick: () => loadData(true), // Force refresh when manually triggered
       variant: 'secondary',
       icon: RefreshCw,
       disabled: loading
@@ -262,7 +287,7 @@ export const ReportsPage: React.FC = () => {
       return [{
         id: 'retry',
         label: 'Try Again',
-        onClick: loadData,
+        onClick: () => loadData(true), // Force retry when error occurs
         variant: 'primary' as const
       }];
     }
@@ -567,9 +592,10 @@ export const ReportsPage: React.FC = () => {
                                 <button
                                   onClick={() => {
                                     setSelectedTemplate(template);
-                                    navigate('/app/business/reports');
+                                    navigate('/app/business/reports/builder');
                                     setBuilderStep(2);
-                                  }}className="btn-theme btn-theme-primary text-xs px-3 py-1"
+                                  }}
+                                  className="btn-theme btn-theme-primary text-xs px-3 py-1"
                                 >
                                   Use Template
                                 </button>

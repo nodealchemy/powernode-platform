@@ -56,12 +56,12 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({
         onClose();
       }
     } catch (error) {
-      console.error('Failed to install app:', error);
     } finally {
       setInstalling(false);
     }
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleConfigurationChange = (key: string, value: any) => {
     setConfiguration(prev => ({
       ...prev,

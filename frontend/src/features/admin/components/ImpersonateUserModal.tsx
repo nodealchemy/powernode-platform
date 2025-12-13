@@ -12,7 +12,7 @@ interface ImpersonateUserModalProps {
   preselectedUserId?: string;
 }
 
-const ImpersonateUserModal: React.FC<ImpersonateUserModalProps> = ({
+export const ImpersonateUserModal: React.FC<ImpersonateUserModalProps> = ({
   isOpen,
   onClose,
   preselectedUserId
@@ -36,8 +36,9 @@ const ImpersonateUserModal: React.FC<ImpersonateUserModalProps> = ({
       } else {
         throw new Error(response.error || 'Failed to load users');
       }
-    } catch (error: any) {
-      setError(error.message || 'Failed to load impersonatable users');
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to load impersonatable users';
+      setError(message);
     } finally {
       setIsLoading(false);
     }
@@ -77,8 +78,9 @@ const ImpersonateUserModal: React.FC<ImpersonateUserModalProps> = ({
       resetForm();
       // Refresh the page after successful impersonation start to ensure clean state
       window.location.reload();
-    } catch (error: any) {
-      setError(error.message || 'Failed to start impersonation');
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to start impersonation';
+      setError(message);
     } finally {
       setIsSubmitting(false);
     }
@@ -248,4 +250,3 @@ const ImpersonateUserModal: React.FC<ImpersonateUserModalProps> = ({
   );
 };
 
-export default ImpersonateUserModal;

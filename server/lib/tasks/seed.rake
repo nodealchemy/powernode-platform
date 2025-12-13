@@ -7,8 +7,8 @@ namespace :db do
         exit 1
       end
 
-      test_data_file = Rails.root.join('db', 'seeds', 'test_data.rb')
-      
+      test_data_file = Rails.root.join("db", "seeds", "test_data.rb")
+
       if File.exist?(test_data_file)
         puts "📦 Loading test data for #{Rails.env} environment..."
         load test_data_file
@@ -28,19 +28,19 @@ namespace :db do
 
       puts "⚠️  This will DELETE all data and reload seeds!"
       print "Are you sure? (y/N): "
-      
+
       input = STDIN.gets.chomp
-      unless input.downcase == 'y'
+      unless input.downcase == "y"
         puts "Cancelled."
         exit 0
       end
 
       puts "\n🔄 Resetting database..."
-      Rake::Task['db:drop'].invoke
-      Rake::Task['db:create'].invoke
-      Rake::Task['db:migrate'].invoke
-      Rake::Task['db:seed'].invoke
-      
+      Rake::Task["db:drop"].invoke
+      Rake::Task["db:create"].invoke
+      Rake::Task["db:migrate"].invoke
+      Rake::Task["db:seed"].invoke
+
       puts "\n✨ Database reset and seeded successfully!"
     end
 
@@ -48,11 +48,11 @@ namespace :db do
     task minimal: :environment do
       # Temporarily set environment to production to skip test data loading
       original_env = Rails.env
-      Rails.env = 'production'
-      
+      Rails.env = "production"
+
       begin
         puts "🌱 Loading minimal seed data only..."
-        load Rails.root.join('db', 'seeds.rb')
+        load Rails.root.join("db", "seeds.rb")
         puts "✅ Minimal seed data loaded successfully!"
       ensure
         Rails.env = original_env

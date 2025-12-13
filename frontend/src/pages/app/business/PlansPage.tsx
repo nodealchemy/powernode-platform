@@ -12,12 +12,12 @@ import { hasPermissions } from '@/shared/utils/permissionUtils';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
 import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
-import { useNotification } from '@/shared/hooks/useNotification';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import { Plus, RefreshCw } from 'lucide-react';
 
 export const PlansPage: React.FC = () => {
   const { user } = useSelector((state: RootState) => state.auth);
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
   const notificationRef = useRef(showNotification);
   notificationRef.current = showNotification;
   
@@ -30,7 +30,7 @@ export const PlansPage: React.FC = () => {
   const [selectedPlan, setSelectedPlan] = useState<DetailedPlan | null>(null);
 
   // Check if user has plan management permissions for create/edit/delete actions
-  const canManagePlans = hasPermissions(user, ['plans.manage']) || hasPermissions(user, ['admin.billing.view']);
+  const canManagePlans = hasPermissions(user, ['plans.manage']) || hasPermissions(user, ['admin.billing.read']);
 
   const loadPlans = useCallback(async () => {
     try {
@@ -38,9 +38,8 @@ export const PlansPage: React.FC = () => {
       setError(null);
       const response = await plansApi.getPlans();
       setPlans(response.data?.plans || []);
-    } catch (err: any) {
-      console.error('Failed to load plans:', err);
-      const errorMsg = err?.response?.data?.error || err?.message || 'Failed to load plans';
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : 'Failed to load plans';
       setError(errorMsg);
       notificationRef.current(errorMsg, 'error');
     } finally {
@@ -67,25 +66,84 @@ export const PlansPage: React.FC = () => {
     setShowCreateModal(true);
   };
 
+
   const handleEditPlan = async (planId: string) => {
     try {
       const response = await plansApi.getPlan(planId);
       setSelectedPlan(response.data?.plan || null);
       setShowEditModal(true);
-    } catch (error) {
-      console.error('Failed to load plan details:', error);
+    } catch (_error) {
       showError('Failed to load plan details');
     }
   };
 
   const handleDuplicatePlan = async (planId: string) => {
     try {
-      await plansApi.duplicatePlan(planId);
-      showSuccess('Plan duplicated successfully');
-      loadPlans();
-    } catch (error) {
-      console.error('Failed to duplicate plan:', error);
-      showError('Failed to duplicate plan');
+      // Load the plan details to pre-fill the creation modal
+      const response = await plansApi.getPlan(planId);
+      if (response.data?.plan) {
+        const planToCopy = response.data.plan;
+
+        // Create a copy with modified name and cleared IDs for new plan creation
+        // Explicitly preserve all critical fields to ensure nothing is lost
+        const duplicatedPlan = {
+          ...planToCopy,
+          id: `copy-of-${planToCopy.id}`,
+          name: `Copy of ${planToCopy.name}`,
+
+          // Core plan data (preserved)
+          description: planToCopy.description,
+          price_cents: planToCopy.price_cents,
+          currency: planToCopy.currency,
+          billing_cycle: planToCopy.billing_cycle,
+          trial_days: planToCopy.trial_days,
+          is_public: planToCopy.is_public,
+          formatted_price: planToCopy.formatted_price,
+          monthly_price: planToCopy.monthly_price,
+
+          // Features and Limits (explicitly preserved)
+          features: planToCopy.features ? { ...planToCopy.features } : {},
+          limits: planToCopy.limits ? { ...planToCopy.limits } : {},
+          default_role: planToCopy.default_role,
+          metadata: planToCopy.metadata ? { ...planToCopy.metadata } : {},
+
+          // Discount settings (explicitly preserved)
+          has_annual_discount: planToCopy.has_annual_discount,
+          annual_discount_percent: planToCopy.annual_discount_percent,
+          has_volume_discount: planToCopy.has_volume_discount,
+          volume_discount_tiers: planToCopy.volume_discount_tiers ? [...planToCopy.volume_discount_tiers] : [],
+          has_promotional_discount: planToCopy.has_promotional_discount,
+          promotional_discount_percent: planToCopy.promotional_discount_percent,
+          promotional_discount_start: planToCopy.promotional_discount_start,
+          promotional_discount_end: planToCopy.promotional_discount_end,
+          promotional_discount_code: planToCopy.promotional_discount_code,
+          annual_savings_amount: planToCopy.annual_savings_amount,
+          annual_savings_percentage: planToCopy.annual_savings_percentage,
+
+          // Reset payment gateway IDs since this will be a new plan
+          stripe_price_id: null,
+          paypal_plan_id: null,
+
+          // Reset subscription counts
+          subscription_count: 0,
+          active_subscription_count: 0,
+          can_be_deleted: true,
+
+          // Set as inactive by default for review
+          status: 'inactive' as const,
+
+          // Update timestamps
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+
+        setSelectedPlan(duplicatedPlan);
+        setShowCreateModal(true);
+      } else {
+        showError('Failed to load plan details');
+      }
+    } catch (_error) {
+      showError('Failed to load plan for copying');
     }
   };
 
@@ -94,8 +152,7 @@ export const PlansPage: React.FC = () => {
       await plansApi.togglePlanStatus(planId);
       showSuccess('Plan status updated successfully');
       loadPlans();
-    } catch (error) {
-      console.error('Failed to update plan status:', error);
+    } catch (_error) {
       showError('Failed to update plan status');
     }
   };
@@ -109,8 +166,7 @@ export const PlansPage: React.FC = () => {
       await plansApi.deletePlan(planId);
       showSuccess('Plan deleted successfully');
       loadPlans();
-    } catch (error) {
-      console.error('Failed to delete plan:', error);
+    } catch (_error) {
       showError('Failed to delete plan');
     }
   };
@@ -122,9 +178,9 @@ export const PlansPage: React.FC = () => {
     loadPlans();
   };
 
+
   const tabs = [
     { id: 'overview', label: 'Overview', icon: '📊', path: '/' },
-    { id: 'templates', label: 'Plan Templates', icon: '📋', path: '/templates' },
     { id: 'active', label: 'Active Plans', icon: '✅', path: '/active' },
     { id: 'analytics', label: 'Analytics', icon: '📈', path: '/analytics' }
   ];
@@ -133,7 +189,6 @@ export const PlansPage: React.FC = () => {
   const getActiveTab = () => {
     const path = location.pathname;
     if (path === '/app/business/plans') return 'overview';
-    if (path.includes('/templates')) return 'templates';
     if (path.includes('/active')) return 'active';
     if (path.includes('/analytics')) return 'analytics';
     return 'overview';
@@ -316,94 +371,16 @@ export const PlansPage: React.FC = () => {
               </div>
             </TabPanel>
 
-            <TabPanel tabId="templates" activeTab={activeTab}>
-              <div className="space-y-6">
-            {/* Search and Filters */}
-            <div className="card-theme p-4">
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="flex-1 relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <span className="text-theme-secondary text-sm w-4 h-4 flex items-center justify-center">🔍</span>
-                  </div>
-                  <input
-                    type="text"
-                    className="input-theme w-full pl-11"
-                    placeholder="Search plan templates..."
-                  />
-                </div>
-                <select className="input-theme w-full sm:w-48">
-                  <option value="">All Categories</option>
-                  <option value="basic">Basic</option>
-                  <option value="business">Business</option>
-                  <option value="enterprise">Enterprise</option>
-                </select>
-              </div>
-            </div>
-            
-            {/* Template Grid */}
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-lg font-semibold text-theme-primary mb-4">Recommended Templates</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  <div className="card-theme p-4 hover:shadow-md transition-shadow">
-                    <div className="flex items-start space-x-3">
-                      <span className="text-2xl">🚀</span>
-                      <div className="flex-1">
-                        <h3 className="font-medium text-theme-primary">Starter Plan</h3>
-                        <p className="text-sm text-theme-secondary mt-1">Perfect for individuals and small projects</p>
-                        <div className="flex items-center justify-between mt-3">
-                          <div className="text-sm text-theme-secondary">$9.99/month</div>
-                          <button className="btn-theme btn-theme-primary text-xs px-3 py-1">
-                            Use Template
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="card-theme p-4 hover:shadow-md transition-shadow">
-                    <div className="flex items-start space-x-3">
-                      <span className="text-2xl">💼</span>
-                      <div className="flex-1">
-                        <h3 className="font-medium text-theme-primary">Business Plan</h3>
-                        <p className="text-sm text-theme-secondary mt-1">Ideal for growing businesses and teams</p>
-                        <div className="flex items-center justify-between mt-3">
-                          <div className="text-sm text-theme-secondary">$29.99/month</div>
-                          <button className="btn-theme btn-theme-primary text-xs px-3 py-1">
-                            Use Template
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="card-theme p-4 hover:shadow-md transition-shadow">
-                    <div className="flex items-start space-x-3">
-                      <span className="text-2xl">🏢</span>
-                      <div className="flex-1">
-                        <h3 className="font-medium text-theme-primary">Enterprise Plan</h3>
-                        <p className="text-sm text-theme-secondary mt-1">Advanced features for large organizations</p>
-                        <div className="flex items-center justify-between mt-3">
-                          <div className="text-sm text-theme-secondary">$99.99/month</div>
-                          <button className="btn-theme btn-theme-primary text-xs px-3 py-1">
-                            Use Template
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-              </div>
-            </TabPanel>
 
             <TabPanel tabId="active" activeTab={activeTab}>
-              <div className="space-y-6">{/* Plans Grid - Enhanced UX Design with Perfect Alignment */}
+              <div className="space-y-6">
+                {/* Plans Grid - Enhanced UX Design with Perfect Alignment */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         {plans.map((plan) => (
-          <div key={plan.id} className="group card-theme shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden border border-theme-light hover:border-theme-focus flex flex-col h-full">
+          <div key={plan.id} className="group card-theme shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden border border-theme-light hover:border-theme-focus flex flex-col h-[580px]">
             {/* Plan Header - Flexible Content */}
             <div className="p-8 relative flex-grow">
-              {/* Status Badge */}
+              {/* Header with Status Badge */}
               <div className="flex justify-between items-start mb-6">
                 <div className="flex-1">
                   <h3 className="text-xl font-bold text-theme-primary mb-2 group-hover:text-theme-link transition-colors">
@@ -417,9 +394,12 @@ export const PlansPage: React.FC = () => {
                     )}
                   </div>
                 </div>
-                <span className={`ml-4 px-3 py-1 text-xs font-semibold rounded-full border ${plansApi.getStatusColor(plan.status || 'inactive')} flex-shrink-0`}>
-                  {(plan.status || 'inactive').charAt(0).toUpperCase() + (plan.status || 'inactive').slice(1)}
-                </span>
+                <div className="flex items-start flex-shrink-0">
+                  {/* Status Badge */}
+                  <span className={`px-3 py-1 text-xs font-semibold rounded-full border ${plansApi.getStatusColor(plan.status || 'inactive')}`}>
+                    {(plan.status || 'inactive').charAt(0).toUpperCase() + (plan.status || 'inactive').slice(1)}
+                  </span>
+                </div>
               </div>
               
               {/* Pricing Section - Fixed Height */}
@@ -481,8 +461,8 @@ export const PlansPage: React.FC = () => {
             </div>
 
             {/* Plan Actions - Fixed to Bottom with Consistent Height */}
-            {canManagePlans && (
-              <div className="p-8 pt-0 mt-auto">
+            <div className="p-8 pt-0 mt-auto">
+              {canManagePlans ? (
                 <div className="space-y-3">
                   {/* Primary Actions */}
                   <div className="grid grid-cols-2 gap-3">
@@ -547,8 +527,15 @@ export const PlansPage: React.FC = () => {
                     )}
                   </div>
                 </div>
-              </div>
-            )}
+              ) : (
+                /* Placeholder space to maintain consistent card height for non-management users */
+                <div className="space-y-3">
+                  <div className="h-10"></div>
+                  <div className="h-10"></div>
+                  <div className="h-8"></div>
+                </div>
+              )}
+            </div>
           </div>
         ))}
       </div>
@@ -622,8 +609,12 @@ export const PlansPage: React.FC = () => {
       {/* Create Plan Modal */}
       <PlanFormModal
         isOpen={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
+        onClose={() => {
+          setShowCreateModal(false);
+          setSelectedPlan(null);
+        }}
         onSaved={handlePlanSaved}
+        plan={selectedPlan}
         showSuccess={showSuccess}
         showError={showError}
       />
@@ -631,7 +622,10 @@ export const PlansPage: React.FC = () => {
       {/* Edit Plan Modal */}
       <PlanFormModal
         isOpen={showEditModal}
-        onClose={() => setShowEditModal(false)}
+        onClose={() => {
+          setShowEditModal(false);
+          setSelectedPlan(null);
+        }}
         onSaved={handlePlanSaved}
         plan={selectedPlan}
         showSuccess={showSuccess}

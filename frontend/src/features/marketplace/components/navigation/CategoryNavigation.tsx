@@ -27,37 +27,37 @@ const CATEGORY_GROUPS: CategoryGroup[] = [
     name: 'Developer Tools',
     categories: [],
     icon: '🔧',
-    color: 'bg-blue-500'
+    color: 'bg-theme-primary'
   },
   {
     name: 'Business Apps',
     categories: [],
     icon: '💼', 
-    color: 'bg-green-500'
+    color: 'bg-theme-success'
   },
   {
     name: 'Marketing',
     categories: [],
     icon: '📈',
-    color: 'bg-purple-500'
+    color: 'bg-theme-interactive-primary'
   },
   {
     name: 'Communication',
     categories: [],
     icon: '💬',
-    color: 'bg-orange-500'
+    color: 'bg-theme-warning'
   },
   {
     name: 'Analytics',
     categories: [],
     icon: '📊',
-    color: 'bg-indigo-500'
+    color: 'bg-theme-info'
   },
   {
     name: 'Security',
     categories: [],
     icon: '🛡️',
-    color: 'bg-red-500'
+    color: 'bg-theme-error'
   }
 ];
 
@@ -93,7 +93,7 @@ export const CategoryNavigation: React.FC<CategoryNavigationProps> = ({
         name: 'Other',
         categories: ungroupedCategories,
         icon: '📦',
-        color: 'bg-gray-500'
+        color: 'bg-theme-secondary'
       });
     }
 

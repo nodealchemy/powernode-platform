@@ -1,5 +1,15 @@
+# frozen_string_literal: true
+
 class PaymentProcessingService
   include ActiveModel::Model
+
+  # Stripe error types for specific handling:
+  # - Stripe::CardError: Card was declined or has issues (user-facing)
+  # - Stripe::RateLimitError: Too many requests (retry with backoff)
+  # - Stripe::InvalidRequestError: Invalid parameters (validation issue)
+  # - Stripe::AuthenticationError: Invalid API key (config issue)
+  # - Stripe::APIConnectionError: Network/timeout issues (retry)
+  # - Stripe::StripeError: Base class for all Stripe errors
 
   attr_accessor :account, :user
 
@@ -18,9 +28,62 @@ class PaymentProcessingService
     else
       { success: false, error: "Unsupported payment provider" }
     end
-  rescue => e
+  rescue Stripe::CardError => e
+    # Card was declined - user-facing error with details
+    Rails.logger.warn "Payment intent failed - card error: #{e.message}"
+    raise BillingExceptions::PaymentError.new(
+      e.message,
+      provider: "stripe",
+      details: { error_code: e.code, decline_code: e.error&.decline_code, recoverable: false }
+    )
+  rescue Stripe::RateLimitError => e
+    # Too many requests - retry with backoff
+    Rails.logger.error "Payment intent rate limited: #{e.message}"
+    raise BillingExceptions::RateLimitError.new(
+      "Payment service temporarily unavailable. Please try again.",
+      provider: "stripe",
+      retry_after: 60
+    )
+  rescue Stripe::InvalidRequestError => e
+    # Invalid parameters - validation issue
+    Rails.logger.error "Payment intent invalid request: #{e.message}"
+    raise BillingExceptions::ValidationError.new(
+      "Invalid payment parameters: #{e.message}",
+      details: { param: e.param, error_code: e.code }
+    )
+  rescue Stripe::AuthenticationError => e
+    # Invalid API key - configuration issue
+    Rails.logger.error "Stripe authentication failed: #{e.message}"
+    raise BillingExceptions::GatewayError.new(
+      "Payment gateway configuration error",
+      gateway: "stripe",
+      operation: "create_payment_intent",
+      details: { requires_admin_attention: true }
+    )
+  rescue Stripe::APIConnectionError => e
+    # Network/timeout issues - retry
+    Rails.logger.error "Stripe API connection error: #{e.message}"
+    raise BillingExceptions::GatewayError.new(
+      "Unable to connect to payment service. Please try again.",
+      gateway: "stripe",
+      operation: "create_payment_intent",
+      details: { recoverable: true, original_error: e.class.name }
+    )
+  rescue Stripe::StripeError => e
+    # Other Stripe errors
+    Rails.logger.error "Stripe error during payment intent: #{e.message}"
+    raise BillingExceptions::PaymentError.new(
+      "Payment processing error: #{e.message}",
+      provider: "stripe",
+      details: { error_code: e.code, original_error: e.class.name }
+    )
+  rescue StandardError => e
     Rails.logger.error "Payment intent creation failed: #{e.message}"
-    { success: false, error: e.message }
+    raise BillingExceptions::PaymentError.new(
+      "Payment intent creation failed: #{e.message}",
+      provider: payment_method&.provider || options[:provider] || "stripe",
+      details: { original_error: e.class.name }
+    )
   end
 
   # Process payment with retry logic
@@ -35,9 +98,59 @@ class PaymentProcessingService
     else
       { success: false, error: "Unsupported payment method" }
     end
-  rescue => e
+  rescue Stripe::CardError => e
+    Rails.logger.warn "Payment processing failed - card error: #{e.message}"
+    raise BillingExceptions::PaymentError.new(
+      e.message,
+      payment_id: payment&.id,
+      provider: "stripe",
+      details: { error_code: e.code, decline_code: e.error&.decline_code, retry_attempt: retry_attempt, recoverable: false }
+    )
+  rescue Stripe::RateLimitError => e
+    Rails.logger.error "Payment processing rate limited: #{e.message}"
+    raise BillingExceptions::RateLimitError.new(
+      "Payment service temporarily unavailable",
+      provider: "stripe",
+      retry_after: 60,
+      details: { payment_id: payment&.id, retry_attempt: retry_attempt }
+    )
+  rescue Stripe::InvalidRequestError => e
+    Rails.logger.error "Payment processing invalid request: #{e.message}"
+    raise BillingExceptions::ValidationError.new(
+      "Invalid payment request: #{e.message}",
+      details: { payment_id: payment&.id, param: e.param, error_code: e.code }
+    )
+  rescue Stripe::AuthenticationError => e
+    Rails.logger.error "Stripe authentication failed during payment: #{e.message}"
+    raise BillingExceptions::GatewayError.new(
+      "Payment gateway configuration error",
+      gateway: "stripe",
+      operation: "process_payment",
+      details: { payment_id: payment&.id, requires_admin_attention: true }
+    )
+  rescue Stripe::APIConnectionError => e
+    Rails.logger.error "Stripe connection error during payment: #{e.message}"
+    raise BillingExceptions::GatewayError.new(
+      "Unable to connect to payment service",
+      gateway: "stripe",
+      operation: "process_payment",
+      details: { payment_id: payment&.id, retry_attempt: retry_attempt, recoverable: true }
+    )
+  rescue Stripe::StripeError => e
+    Rails.logger.error "Stripe error during payment processing: #{e.message}"
+    raise BillingExceptions::PaymentError.new(
+      "Payment processing error: #{e.message}",
+      payment_id: payment&.id,
+      provider: "stripe",
+      details: { error_code: e.code, retry_attempt: retry_attempt }
+    )
+  rescue StandardError => e
     Rails.logger.error "Payment processing failed: #{e.message}"
-    { success: false, error: e.message, retry_attempt: retry_attempt }
+    raise BillingExceptions::PaymentError.new(
+      "Payment processing failed: #{e.message}",
+      payment_id: payment&.id,
+      details: { retry_attempt: retry_attempt, original_error: e.class.name }
+    )
   end
 
   # Retry failed payment
@@ -66,9 +179,55 @@ class PaymentProcessingService
     else
       { success: false, error: "Refunds not supported for this payment method" }
     end
-  rescue => e
+  rescue Stripe::InvalidRequestError => e
+    # Common for refunds: charge already refunded, charge too old, etc.
+    Rails.logger.error "Refund invalid request: #{e.message}"
+    raise BillingExceptions::RefundError.new(
+      "Cannot process refund: #{e.message}",
+      payment_id: payment&.id,
+      refund_amount: amount_cents,
+      details: { param: e.param, error_code: e.code }
+    )
+  rescue Stripe::RateLimitError => e
+    Rails.logger.error "Refund rate limited: #{e.message}"
+    raise BillingExceptions::RateLimitError.new(
+      "Refund service temporarily unavailable",
+      provider: "stripe",
+      retry_after: 60,
+      details: { payment_id: payment&.id, refund_amount: amount_cents }
+    )
+  rescue Stripe::AuthenticationError => e
+    Rails.logger.error "Stripe authentication failed during refund: #{e.message}"
+    raise BillingExceptions::GatewayError.new(
+      "Payment gateway configuration error",
+      gateway: "stripe",
+      operation: "create_refund",
+      details: { payment_id: payment&.id, requires_admin_attention: true }
+    )
+  rescue Stripe::APIConnectionError => e
+    Rails.logger.error "Stripe connection error during refund: #{e.message}"
+    raise BillingExceptions::GatewayError.new(
+      "Unable to connect to payment service for refund",
+      gateway: "stripe",
+      operation: "create_refund",
+      details: { payment_id: payment&.id, refund_amount: amount_cents, recoverable: true }
+    )
+  rescue Stripe::StripeError => e
+    Rails.logger.error "Stripe error during refund: #{e.message}"
+    raise BillingExceptions::RefundError.new(
+      "Refund processing error: #{e.message}",
+      payment_id: payment&.id,
+      refund_amount: amount_cents,
+      details: { error_code: e.code }
+    )
+  rescue StandardError => e
     Rails.logger.error "Refund creation failed: #{e.message}"
-    { success: false, error: e.message }
+    raise BillingExceptions::RefundError.new(
+      "Refund creation failed: #{e.message}",
+      payment_id: payment&.id,
+      refund_amount: amount_cents,
+      details: { original_error: e.class.name }
+    )
   end
 
   # Attach payment method to customer with security validation
@@ -76,25 +235,25 @@ class PaymentProcessingService
     # First perform security validation
     if provider == "stripe"
       stripe_payment_method = Stripe::PaymentMethod.retrieve(payment_method_id)
-      
+
       security_validator = PaymentMethodSecurityValidator.new(
         account: account,
         user: user,
-        payment_method_data: stripe_payment_method.to_hash.merge('provider' => provider),
+        payment_method_data: stripe_payment_method.to_hash.merge("provider" => provider),
         request_metadata: request_metadata
       )
-      
+
       validation_result = security_validator.validate
-      
+
       # Block high-risk payment methods
-      if validation_result[:recommendation] == 'reject'
+      if validation_result[:recommendation] == "reject"
         return {
           success: false,
           error: "Payment method rejected due to security concerns",
           security_validation: validation_result
         }
       end
-      
+
       # Require additional verification for risky payment methods
       if validation_result[:requires_additional_verification]
         return {
@@ -105,7 +264,7 @@ class PaymentProcessingService
         }
       end
     end
-    
+
     case provider
     when "stripe"
       attach_stripe_payment_method(payment_method_id)
@@ -114,9 +273,59 @@ class PaymentProcessingService
     else
       { success: false, error: "Unsupported provider" }
     end
-  rescue => e
+  rescue Stripe::CardError => e
+    # Card validation failed during attachment
+    Rails.logger.warn "Payment method attachment failed - card error: #{e.message}"
+    raise BillingExceptions::PaymentError.new(
+      e.message,
+      provider: provider,
+      details: { error_code: e.code, decline_code: e.error&.decline_code }
+    )
+  rescue Stripe::InvalidRequestError => e
+    Rails.logger.error "Payment method attachment invalid request: #{e.message}"
+    raise BillingExceptions::ValidationError.new(
+      "Invalid payment method: #{e.message}",
+      details: { param: e.param, error_code: e.code }
+    )
+  rescue Stripe::RateLimitError => e
+    Rails.logger.error "Payment method attachment rate limited: #{e.message}"
+    raise BillingExceptions::RateLimitError.new(
+      "Payment service temporarily unavailable",
+      provider: provider,
+      retry_after: 60
+    )
+  rescue Stripe::AuthenticationError => e
+    Rails.logger.error "Stripe authentication failed during attachment: #{e.message}"
+    raise BillingExceptions::GatewayError.new(
+      "Payment gateway configuration error",
+      gateway: provider,
+      operation: "attach_payment_method",
+      details: { requires_admin_attention: true }
+    )
+  rescue Stripe::APIConnectionError => e
+    Rails.logger.error "Stripe connection error during attachment: #{e.message}"
+    raise BillingExceptions::GatewayError.new(
+      "Unable to connect to payment service",
+      gateway: provider,
+      operation: "attach_payment_method",
+      details: { recoverable: true }
+    )
+  rescue Stripe::StripeError => e
+    Rails.logger.error "Stripe error during payment method attachment: #{e.message}"
+    raise BillingExceptions::GatewayError.new(
+      "Payment method attachment error: #{e.message}",
+      gateway: provider,
+      operation: "attach_payment_method",
+      details: { error_code: e.code }
+    )
+  rescue StandardError => e
     Rails.logger.error "Payment method attachment failed: #{e.message}"
-    { success: false, error: e.message }
+    raise BillingExceptions::GatewayError.new(
+      "Payment method attachment failed: #{e.message}",
+      gateway: provider,
+      operation: "attach_payment_method",
+      details: { original_error: e.class.name }
+    )
   end
 
   private
@@ -239,7 +448,7 @@ class PaymentProcessingService
   # PayPal-specific methods
   def create_paypal_payment_intent(amount_cents, currency, payment_method, options)
     paypal_service = PaypalService.new(account: account, user: user)
-    
+
     result = paypal_service.create_payment_order(
       amount_cents: amount_cents,
       currency: currency,
@@ -249,7 +458,7 @@ class PaymentProcessingService
       invoice_number: options[:invoice_number],
       items: options[:items]
     )
-    
+
     if result[:success]
       {
         success: true,
@@ -266,25 +475,25 @@ class PaymentProcessingService
     return { success: false, error: "No PayPal payment ID found" } unless payment.paypal_payment_id
 
     paypal_service = PaypalService.new(account: account, user: user)
-    
+
     # For existing PayPal payments, we need the payer_id from the return flow
     # This method would typically be called after the user returns from PayPal
     payer_id = payment.metadata_parsed["payer_id"]
-    
+
     return { success: false, error: "PayPal payer ID required" } unless payer_id
-    
+
     result = paypal_service.execute_payment(
       payment_id: payment.paypal_payment_id,
       payer_id: payer_id
     )
-    
+
     if result[:success]
       payment.update!(
         status: result[:status] == "approved" ? "succeeded" : result[:status],
         processed_at: Time.current,
         paypal_transaction_id: result[:transaction_id]
       )
-      
+
       { success: true, payment: result[:payment] }
     else
       payment.update!(status: "failed", error_message: result[:error])
@@ -296,13 +505,13 @@ class PaymentProcessingService
     return { success: false, error: "No PayPal transaction ID found" } unless payment.paypal_transaction_id
 
     paypal_service = PaypalService.new(account: account, user: user)
-    
+
     result = paypal_service.create_refund(
       transaction_id: payment.paypal_transaction_id,
       amount_cents: amount_cents,
       reason: reason
     )
-    
+
     if result[:success]
       # Update payment status
       if result[:amount_refunded].try(:[], :total).to_f == payment.amount.to_f
@@ -310,7 +519,7 @@ class PaymentProcessingService
       else
         payment.update!(status: "partially_refunded")
       end
-      
+
       {
         success: true,
         refund: result[:refund],
@@ -326,7 +535,7 @@ class PaymentProcessingService
     # PayPal doesn't use the same "attach" model as Stripe
     # PayPal payment methods are typically handled through agreements for subscriptions
     # For one-time payments, the payment method is handled in the payment flow
-    
+
     # Create a local record for tracking
     local_payment_method = account.payment_methods.create!(
       user: user,

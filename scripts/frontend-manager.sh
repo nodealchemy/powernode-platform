@@ -199,8 +199,9 @@ start() {
     log "Starting React development server in screen session 'powernode-frontend'..."
     
     # Use screen with immediate detachment
+    # Source nvm to ensure correct Node.js version (Vite 7 requires Node 20+)
     cd "$FRONTEND_DIR"
-    screen -dmS powernode-frontend bash -c "PORT=$REACT_PORT HOST=$REACT_HOST NODE_OPTIONS='--no-deprecation' GENERATE_SOURCEMAP=true FAST_REFRESH=true exec npm start > '$LOG_FILE' 2>&1"
+    screen -dmS powernode-frontend bash -c "source ~/.nvm/nvm.sh 2>/dev/null || true; PORT=$REACT_PORT HOST=$REACT_HOST NODE_OPTIONS='--no-deprecation' GENERATE_SOURCEMAP=true FAST_REFRESH=true exec npm start > '$LOG_FILE' 2>&1"
     
     success "React development server started in screen session 'powernode-frontend'"
     log "View logs: screen -r powernode-frontend"

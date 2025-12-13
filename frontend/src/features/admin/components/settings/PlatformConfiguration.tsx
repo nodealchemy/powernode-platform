@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Save, Settings, RefreshCw, Info } from 'lucide-react';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
-import { useNotification } from '@/shared/hooks/useNotification';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import { adminSettingsApi } from '@/features/admin/services/adminSettingsApi';
 
 interface PlatformSettings {
@@ -19,7 +19,7 @@ interface PlatformSettings {
 export const PlatformConfiguration: React.FC = () => {
   const [settings, setSettings] = useState<PlatformSettings>({
     system_name: 'Powernode Platform',
-    copyright_text: '© {year} Powernode Platform. All rights reserved.',
+    copyright_text: '© {year} Everett C. Haimes III. All rights reserved.',
     system_email: '',
     support_email: '',
     maintenance_mode: false,
@@ -35,7 +35,7 @@ export const PlatformConfiguration: React.FC = () => {
   const [hasChanges, setHasChanges] = useState(false);
   const [originalSettings, setOriginalSettings] = useState<PlatformSettings | null>(null);
   
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
 
   const loadSettings = useCallback(async () => {
     try {
@@ -43,23 +43,23 @@ export const PlatformConfiguration: React.FC = () => {
       
       // Load platform settings
       const response = await adminSettingsApi.getOverview();
+      const settingsSummary = response.data?.settings_summary;
       const platformSettings: PlatformSettings = {
-        system_name: response.settings_summary?.system_name || 'Powernode Platform',
-        copyright_text: response.settings_summary?.copyright_text || '© {year} Powernode Platform. All rights reserved.',
-        system_email: response.settings_summary?.system_email || '',
-        support_email: response.settings_summary?.support_email || '',
-        maintenance_mode: response.settings_summary?.maintenance_mode || false,
-        registration_enabled: response.settings_summary?.registration_enabled ?? true,
-        require_email_verification: response.settings_summary?.require_email_verification ?? true,
-        trial_period_days: response.settings_summary?.trial_period_days || 14,
-        session_timeout_minutes: response.settings_summary?.session_timeout_minutes || 60,
+        system_name: settingsSummary?.system_name || 'Powernode Platform',
+        copyright_text: settingsSummary?.copyright_text || '© {year} Everett C. Haimes III. All rights reserved.',
+        system_email: settingsSummary?.system_email || '',
+        support_email: settingsSummary?.support_email || '',
+        maintenance_mode: settingsSummary?.maintenance_mode || false,
+        registration_enabled: settingsSummary?.registration_enabled ?? true,
+        require_email_verification: settingsSummary?.require_email_verification ?? true,
+        trial_period_days: settingsSummary?.trial_period_days || 14,
+        session_timeout_minutes: settingsSummary?.session_timeout_minutes || 60,
       };
       
       setSettings(platformSettings);
       setOriginalSettings({ ...platformSettings });
       setHasChanges(false);
     } catch (error) {
-      console.error('Failed to load settings:', error);
       showNotification('Failed to load settings', 'error');
     } finally {
       setLoading(false);
@@ -98,10 +98,10 @@ export const PlatformConfiguration: React.FC = () => {
           window.location.reload();
         }, 1000);
       }
-    } catch (error: any) {
-      console.error('Failed to update settings:', error);
+    } catch (error: unknown) {
+      const apiError = error as { response?: { data?: { error?: string } } };
       showNotification(
-        error.response?.data?.error || 'Failed to update configuration',
+        apiError.response?.data?.error || 'Failed to update configuration',
         'error'
       );
     } finally {
@@ -351,4 +351,3 @@ export const PlatformConfiguration: React.FC = () => {
   );
 };
 
-export default PlatformConfiguration;

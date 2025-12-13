@@ -273,6 +273,9 @@
 /* ===== TEXT UTILITIES ===== */
 
 .text-balance {
+  /* Fallback for browsers that don't support text-wrap */
+  word-wrap: break-word;
+  /* Modern text-wrap property (Safari 17.5+, Chrome 114+) */
   text-wrap: balance;
 }
 

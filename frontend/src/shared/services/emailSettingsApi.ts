@@ -1,4 +1,5 @@
 import { api } from '@/shared/services/api';
+import { isErrorWithResponse } from '@/shared/utils/errorHandling';
 
 export interface EmailSettings {
   email_provider: 'smtp' | 'sendgrid' | 'ses' | 'mailgun';
@@ -37,14 +38,34 @@ export const emailSettingsApi = {
     const response = await api.put('/email_settings', {
       email_settings: settings
     });
-    return response.data;
+    // Handle standardized API response format: {success: true, data: {...}}
+    return response.data.data || { message: 'Settings updated successfully', status: 'success' };
   },
 
   async testEmail(email: string): Promise<{
     message: string;
     status: string;
   }> {
-    const response = await api.post('/email_settings/test', { email });
-    return response.data;
+    try {
+      const response = await api.post('/email_settings/test', { email });
+      
+      // Handle standardized API response format: {success: true, data: {...}}
+      if (response.data.success && response.data.data) {
+        return {
+          message: response.data.data.message || 'Test email queued successfully',
+          status: 'success'
+        };
+      }
+      
+      // Fallback for backward compatibility
+      return response.data.data || response.data || { message: 'Test email queued successfully', status: 'success' };
+    } catch (error) {
+      // Re-throw with structured error information
+      if (isErrorWithResponse(error) && error.response?.data) {
+        const errorData = error.response.data;
+        throw new Error(errorData.error || errorData.message || 'Failed to send test email');
+      }
+      throw error;
+    }
   }
 };

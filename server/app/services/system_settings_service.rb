@@ -1,42 +1,50 @@
 # frozen_string_literal: true
 
 class SystemSettingsService
-  CACHE_KEY = 'system_settings'
+  CACHE_KEY = "system_settings"
   CACHE_EXPIRY = 1.hour
 
   class << self
     def get_setting(key, default_value = nil)
       settings = load_settings
-      settings.dig(*key.to_s.split('.').map(&:to_sym)) || default_value
+      settings.dig(*key.to_s.split(".").map(&:to_sym)) || default_value
     end
 
     def update_settings(new_settings)
       current_settings = load_settings
       merged_settings = deep_merge(current_settings, new_settings)
-      
+
       # Persist settings to database
       new_settings.each do |key, value|
         AdminSetting.set(key, value)
       end
-      
+
       # Clear cache to ensure fresh load on next request
       clear_cache
-      
+
       merged_settings
     end
 
     def rate_limit_setting(type)
       # Check if rate limiting is globally disabled first
       return 0 unless rate_limiting_enabled?
-      
+
       get_setting("rate_limiting.#{type}", default_rate_limits[type.to_sym])
     end
-    
+
     def rate_limiting_enabled?
       # Check both environment variable and admin settings
-      return false if ENV['DISABLE_RATE_LIMITING'] == 'true'
-      
-      get_setting('rate_limiting.enabled', true)
+      return false if ENV["DISABLE_RATE_LIMITING"] == "true"
+
+      get_setting("rate_limiting.enabled", true)
+    end
+
+    def email_verification_required?
+      # Check both environment variable and admin settings
+      return false if ENV["DISABLE_EMAIL_VERIFICATION"] == "true"
+      return false if Rails.env.test?
+
+      get_setting("require_email_verification", true)
     end
 
     def clear_cache
@@ -59,21 +67,21 @@ class SystemSettingsService
         registration_enabled: true,
         require_email_verification: true,
         allow_account_deletion: false,
-        system_name: 'Powernode Platform',
-        system_email: Rails.application.credentials.dig(:mail, :from) || 'system@powernode.local',
-        support_email: Rails.application.credentials.dig(:mail, :support) || 'support@powernode.local',
+        system_name: "Powernode Platform",
+        system_email: Rails.application.credentials.dig(:mail, :from) || "system@powernode.local",
+        support_email: Rails.application.credentials.dig(:mail, :support) || "support@powernode.local",
         trial_period_days: 14,
         max_trial_accounts: nil,
         payment_retry_attempts: 3,
         webhook_timeout_seconds: 30,
         session_timeout_minutes: 60,
-        password_complexity_level: 'medium',
+        password_complexity_level: "medium",
         password_min_length: 12,
         max_failed_login_attempts: 5,
         account_lockout_duration: 30,
         backup_retention_days: 30,
         log_retention_days: 90,
-        copyright_text: '© {year} Powernode Platform. All rights reserved.',
+        copyright_text: "© {year} Powernode Platform. All rights reserved.",
         rate_limiting: default_rate_limits,
         feature_flags: {},
         api_keys: {
@@ -91,7 +99,7 @@ class SystemSettingsService
 
     def default_rate_limits
       {
-        enabled: ENV['DISABLE_RATE_LIMITING'] != 'true', # Can be toggled via admin settings
+        enabled: ENV["DISABLE_RATE_LIMITING"] != "true", # Can be toggled via admin settings
         api_requests_per_minute: Rails.env.development? ? 1000 : 60,
         impersonation_attempts_per_hour: Rails.env.development? ? 50 : 5,
         login_attempts_per_hour: 10,

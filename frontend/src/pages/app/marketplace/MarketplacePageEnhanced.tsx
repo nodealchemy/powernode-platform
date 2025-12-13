@@ -18,7 +18,15 @@ import { RefreshCw, Plus, Sidebar, Filter } from 'lucide-react';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { Button } from '@/shared/components/ui/Button';
 
-export const MarketplacePageEnhanced: React.FC = () => {
+interface MarketplacePageEnhancedProps {
+  facets?: SearchFacets;
+  onLoadFacets?: () => Promise<SearchFacets>;
+}
+
+export const MarketplacePageEnhanced: React.FC<MarketplacePageEnhancedProps> = ({
+  facets: propFacets,
+  onLoadFacets
+}) => {
   const navigate = useNavigate();
   const location = useLocation();
   
@@ -42,9 +50,30 @@ export const MarketplacePageEnhanced: React.FC = () => {
   const [selectedAppForSubscription, setSelectedAppForSubscription] = useState<App | null>(null);
   const [selectedAppForComparison, setSelectedAppForComparison] = useState<App | null>(null);
   const [showSidebar, setShowSidebar] = useState(false);
+
+  // Facets state - use props if provided, otherwise initialize empty
+  const emptyFacets: SearchFacets = {
+    categories: [],
+    priceTypes: [],
+    features: [],
+    ratings: [],
+    tags: []
+  };
+  const [searchFacets, setSearchFacets] = useState<SearchFacets>(propFacets || emptyFacets);
   
   // Refs
   const subscriptionsRefreshRef = useRef<(() => void) | null>(null);
+
+  // Sync facets from props and load via callback if needed
+  React.useEffect(() => {
+    if (propFacets) {
+      setSearchFacets(propFacets);
+    } else if (onLoadFacets) {
+      onLoadFacets().then(setSearchFacets).catch(() => {
+        // Failed to load facets - keep empty state
+      });
+    }
+  }, [propFacets, onLoadFacets]);
   
   // Determine active tab from URL
   const getActiveTabFromPath = () => {
@@ -96,51 +125,13 @@ export const MarketplacePageEnhanced: React.FC = () => {
     plans: listing.app.app_plans || [] // Include app plans from the listing
   }));
 
-  // Mock search facets for demo
-  const searchFacets: SearchFacets = {
-    categories: [
-      { slug: 'developer-tools', name: 'Developer Tools', count: 45, icon: '🔧' },
-      { slug: 'business-apps', name: 'Business Apps', count: 32, icon: '💼' },
-      { slug: 'marketing', name: 'Marketing', count: 28, icon: '📈' },
-      { slug: 'analytics', name: 'Analytics', count: 23, icon: '📊' },
-      { slug: 'communication', name: 'Communication', count: 18, icon: '💬' },
-      { slug: 'security', name: 'Security', count: 15, icon: '🛡️' }
-    ],
-    priceTypes: [
-      { type: 'free', label: 'Free', count: 67 },
-      { type: 'freemium', label: 'Freemium', count: 43 },
-      { type: 'paid', label: 'Paid', count: 89 },
-      { type: 'subscription', label: 'Subscription', count: 112 }
-    ],
-    features: [
-      { slug: 'api-integration', name: 'API Integration', count: 78 },
-      { slug: 'webhooks', name: 'Webhooks', count: 56 },
-      { slug: 'real-time', name: 'Real-time Data', count: 34 },
-      { slug: 'automation', name: 'Automation', count: 67 },
-      { slug: 'reporting', name: 'Reporting', count: 45 }
-    ],
-    ratings: [
-      { rating: 5, count: 23, label: '5 stars' },
-      { rating: 4, count: 45, label: '4 stars & up' },
-      { rating: 3, count: 67, label: '3 stars & up' },
-      { rating: 2, count: 78, label: '2 stars & up' }
-    ],
-    tags: [
-      { slug: 'popular', name: 'Popular', count: 34 },
-      { slug: 'trending', name: 'Trending', count: 23 },
-      { slug: 'new', name: 'New', count: 12 }
-    ]
-  };
-
   // Enhanced handlers
-  const handleSearch = (query: string) => {
-    console.log('Searching for:', query);
+  const handleSearch = (_query: string) => {
     // In real implementation, trigger search API call
   };
 
   const handleFiltersChange = (filters: SearchFilters) => {
     setSearchFilters(filters);
-    console.log('Filters changed:', filters);
     // In real implementation, trigger filtered search API call
   };
 
@@ -156,23 +147,22 @@ export const MarketplacePageEnhanced: React.FC = () => {
 
   const handleSubscribeToApp = async (app: App, planId?: string) => {
     try {
-      const subscription = await appSubscriptionsApi.createSubscription(
-        app.id, 
+      await appSubscriptionsApi.createSubscription(
+        app.id,
         planId || 'default',
         {}
       );
-      
-      console.log('Subscription created successfully:', subscription);
-      
+
+
       // Refresh subscriptions list if on that tab
       if (subscriptionsRefreshRef.current) {
         subscriptionsRefreshRef.current();
       }
-      
+
       return Promise.resolve();
-    } catch (error: any) {
-      console.error('Subscription creation failed:', error);
-      throw new Error(error.response?.data?.error || 'Failed to create subscription');
+    } catch (error: unknown) {
+      const apiError = error as { response?: { data?: { error?: string } } };
+      throw new Error(apiError.response?.data?.error || 'Failed to create subscription');
     }
   };
 
@@ -278,8 +268,7 @@ export const MarketplacePageEnhanced: React.FC = () => {
     return baseActions;
   }, [activeTab, refresh, refreshApps, subscriptionsRefreshRef, showSidebar]);
 
-  const handleSubscriptionAction = (action: string, subscriptionId: string) => {
-    console.log(`Marketplace subscription action: ${action} for ${subscriptionId}`);
+  const handleSubscriptionAction = (_action: string, _subscriptionId: string) => {
   };
 
   // Commented out - functionality handled by pageActions
@@ -287,10 +276,12 @@ export const MarketplacePageEnhanced: React.FC = () => {
   //   setShowCreateModal(true);
   // };
 
-  const handleAppCreated = (app: App) => {
+  const handleAppCreated = (app: unknown) => {
     setShowCreateModal(false);
     refreshApps();
-    navigate(`/app/marketplace/apps/${app.id}`);
+    if (app && typeof app === 'object' && 'id' in app) {
+      navigate(`/app/marketplace/apps/${(app as any).id}`);
+    }
   };
 
   // Wrapper component for subscriptions with ref

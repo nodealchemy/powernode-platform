@@ -1,15 +1,31 @@
+# frozen_string_literal: true
+
 require_relative '../base_job'
+require_relative '../../services/concerns/distributed_lock'
 
 # Converted from BillingSchedulerJob to use API-only connectivity
 # Schedules daily billing and lifecycle events
+# Uses distributed locking to prevent concurrent execution
 class Billing::BillingSchedulerJob < BaseJob
+  include DistributedLock
+
   sidekiq_options queue: 'billing_scheduler',
                   retry: 1
 
   def execute(date = Date.current)
     date = Date.parse(date) if date.is_a?(String)
-    logger.info "Running billing scheduler for #{date}"
-    
+
+    # Use distributed lock to prevent duplicate processing
+    # Lock key includes date to allow different days to run concurrently
+    with_lock("billing:scheduler:#{date}", ttl: 3600) do
+      log_info("Running billing scheduler for #{date} (lock acquired)")
+      process_billing_schedule(date)
+    end || log_warn("Billing scheduler for #{date} skipped - another instance is running")
+  end
+
+  private
+
+  def process_billing_schedule(date)
     begin
       # Schedule billing automation for subscriptions ending today
       schedule_billing_automation(date)
@@ -26,15 +42,13 @@ class Billing::BillingSchedulerJob < BaseJob
       # Schedule subscription lifecycle maintenance
       schedule_lifecycle_maintenance(date)
       
-      logger.info "Billing scheduler completed successfully for #{date}"
-      
+      log_info("Billing scheduler completed successfully for #{date}")
+
     rescue StandardError => e
-      logger.error "Billing scheduler failed: #{e.message}"
+      log_error("Billing scheduler failed: #{e.message}")
       raise
     end
   end
-
-  private
 
   def schedule_billing_automation(date)
     # Get subscriptions due for renewal via API
@@ -48,7 +62,7 @@ class Billing::BillingSchedulerJob < BaseJob
       api_client.get('/api/v1/subscriptions', params)
     end
 
-    logger.info "Scheduling billing automation for #{subscriptions_due.size} subscriptions"
+    log_info("Scheduling billing automation for #{subscriptions_due.size} subscriptions")
 
     subscriptions_due.each do |subscription|
       # Schedule billing automation with slight delay to spread load
@@ -72,13 +86,13 @@ class Billing::BillingSchedulerJob < BaseJob
         api_client.get('/api/v1/subscriptions', params)
       end
 
-      logger.info "Scheduling #{trials_ending.size} trial ending reminders for #{days_ahead} days ahead"
+      log_info("Scheduling #{trials_ending.size} trial ending reminders for #{days_ahead} days ahead")
 
       trials_ending.each do |subscription|
         Billing::SubscriptionLifecycleJob.perform_async(
           'trial_ending_reminder',
           subscription['id'],
-          days_until_end: days_ahead
+          'days_until_end' => days_ahead
         )
       end
     end
@@ -99,13 +113,13 @@ class Billing::BillingSchedulerJob < BaseJob
         api_client.get('/api/v1/subscriptions', params)
       end
 
-      logger.info "Scheduling #{subscriptions_renewing.size} renewal reminders for #{days_ahead} days ahead"
+      log_info("Scheduling #{subscriptions_renewing.size} renewal reminders for #{days_ahead} days ahead")
 
       subscriptions_renewing.each do |subscription|
         Billing::SubscriptionLifecycleJob.perform_async(
           'renewal_reminder',
           subscription['id'],
-          days_until_renewal: days_ahead
+          'days_until_renewal' => days_ahead
         )
       end
     end
@@ -126,7 +140,7 @@ class Billing::BillingSchedulerJob < BaseJob
       api_client.get('/api/v1/payment_methods', params)
     end
 
-    logger.info "Found #{expiring_soon.size} payment methods expiring in next 30 days"
+    log_info("Found #{expiring_soon.size} payment methods expiring in next 30 days")
 
     expiring_soon.each do |payment_method|
       expires_at = Date.parse(payment_method['expires_at'])
@@ -148,8 +162,8 @@ class Billing::BillingSchedulerJob < BaseJob
           Billing::SubscriptionLifecycleJob.perform_async(
             'payment_method_update_required',
             subscription['id'],
-            reason: 'expiring_soon',
-            days_until_expiry: days_until_expiry
+            'reason' => 'expiring_soon',
+            'days_until_expiry' => days_until_expiry
           )
         end
       end
@@ -166,7 +180,7 @@ class Billing::BillingSchedulerJob < BaseJob
       api_client.get('/api/v1/payment_methods', expiring_today_params)
     end
 
-    logger.info "Found #{expired_today.size} payment methods expiring today"
+    log_info("Found #{expired_today.size} payment methods expiring today")
 
     expired_today.each do |payment_method|
       # Request API to mark as expired
@@ -191,7 +205,7 @@ class Billing::BillingSchedulerJob < BaseJob
         Billing::SubscriptionLifecycleJob.perform_async(
           'payment_method_update_required',
           subscription['id'],
-          reason: 'expired'
+          'reason' => 'expired'
         )
       end
     end
@@ -209,7 +223,7 @@ class Billing::BillingSchedulerJob < BaseJob
       api_client.get('/api/v1/subscriptions', grace_period_params)
     end
 
-    logger.info "Found #{grace_period_ending.size} subscriptions with grace period ending"
+    log_info("Found #{grace_period_ending.size} subscriptions with grace period ending")
 
     grace_period_ending.each do |subscription|
       Billing::SubscriptionLifecycleJob.perform_async('grace_period_ending', subscription['id'])
@@ -226,13 +240,13 @@ class Billing::BillingSchedulerJob < BaseJob
       api_client.get('/api/v1/subscriptions', overdue_params)
     end
 
-    logger.info "Found #{overdue_subscriptions.size} long-overdue subscriptions"
+    log_info("Found #{overdue_subscriptions.size} long-overdue subscriptions")
 
     overdue_subscriptions.each do |subscription|
       Billing::SubscriptionLifecycleJob.perform_async(
         'subscription_expired',
         subscription['id'],
-        reason: 'long_overdue'
+        'reason' => 'long_overdue'
       )
     end
 
@@ -246,7 +260,7 @@ class Billing::BillingSchedulerJob < BaseJob
       api_client.get('/api/v1/subscriptions', reactivation_params)
     end
 
-    logger.info "Found #{reactivation_candidates.size} subscriptions eligible for reactivation"
+    log_info("Found #{reactivation_candidates.size} subscriptions eligible for reactivation")
 
     reactivation_candidates.each do |subscription|
       delay = rand(0..3600) # Random delay up to 1 hour

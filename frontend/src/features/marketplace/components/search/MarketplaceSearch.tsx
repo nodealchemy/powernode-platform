@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Button } from '@/shared/components/ui/Button';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Card } from '@/shared/components/ui/Card';
@@ -40,6 +40,7 @@ export const MarketplaceSearch: React.FC<MarketplaceSearchProps> = ({
     onFiltersChange({ ...filters, query: searchQuery, page: 1 });
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleFilterChange = (key: keyof MarketplaceFilters, value: any) => {
     const newFilters = { ...filters, [key]: value, page: 1 };
     onFiltersChange(newFilters);
@@ -68,7 +69,8 @@ export const MarketplaceSearch: React.FC<MarketplaceSearchProps> = ({
     });
   };
 
-  const getActiveFilterCount = () => {
+  // Fixed: Memoized active filter count to prevent expensive array checks on every render
+  const activeFilterCount = useMemo(() => {
     let count = 0;
     if (filters.categories?.length) count += filters.categories.length;
     if (filters.priceTypes?.length) count += filters.priceTypes.length;
@@ -77,9 +79,7 @@ export const MarketplaceSearch: React.FC<MarketplaceSearchProps> = ({
     if (filters.tags?.length) count += filters.tags.length;
     if (filters.priceRange) count += 1;
     return count;
-  };
-
-  const activeFilterCount = getActiveFilterCount();
+  }, [filters.categories, filters.priceTypes, filters.features, filters.ratings, filters.tags, filters.priceRange]);
   const selectedSort = SORT_OPTIONS.find(option => option.value === filters.sortBy) || SORT_OPTIONS[0];
   // Removed unused selectedViewMode variable
 

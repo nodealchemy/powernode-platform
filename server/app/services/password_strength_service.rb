@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class PasswordStrengthService
   MINIMUM_SCORE = 70
   MINIMUM_LENGTH = 12

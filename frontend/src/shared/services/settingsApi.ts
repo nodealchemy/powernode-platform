@@ -1,4 +1,5 @@
 import { api } from '@/shared/services/api';
+import { isErrorWithResponse } from '@/shared/utils/errorHandling';
 
 export interface PublicSettings {
   system_name: string;
@@ -50,7 +51,7 @@ export interface SecuritySettings {
   email_verified?: boolean;
   password_last_changed?: string;
   two_factor_enabled?: boolean;
-  login_history?: any[];
+  login_history?: unknown[];
   failed_attempts?: number;
   account_locked?: boolean;
 }
@@ -89,11 +90,11 @@ export const settingsApi = {
     try {
       const response = await api.get('/settings/public');
       return response.data;
-    } catch (error: any) {
+    } catch (error) {
       return {
         success: false,
         data: {} as PublicSettings,
-        error: error.response?.data?.error || 'Failed to fetch public settings'
+        error: isErrorWithResponse(error) ? (error.response?.data?.error || 'Failed to fetch public settings') : 'Failed to fetch public settings'
       };
     }
   },
@@ -103,11 +104,11 @@ export const settingsApi = {
     try {
       const response = await api.get('/settings');
       return response.data;
-    } catch (error: any) {
+    } catch (error) {
       return {
         success: false,
         data: {} as UserSettingsData,
-        error: error.response?.data?.error || 'Failed to fetch user settings'
+        error: isErrorWithResponse(error) ? (error.response?.data?.error || 'Failed to fetch user settings') : 'Failed to fetch user settings'
       };
     }
   },
@@ -117,12 +118,12 @@ export const settingsApi = {
     try {
       const response = await api.put('/settings', { settings });
       return response.data;
-    } catch (error: any) {
+    } catch (error) {
       return {
         success: false,
         data: {} as UserSettingsData,
-        error: error.response?.data?.error || 'Failed to update user settings',
-        message: error.response?.data?.details?.join(', ')
+        error: isErrorWithResponse(error) ? (error.response?.data?.error || 'Failed to update user settings') : 'Failed to update user settings',
+        message: isErrorWithResponse(error) ? error.response?.data?.errors?.join(', ') : undefined
       };
     }
   },
@@ -142,7 +143,7 @@ export const settingsApi = {
         localStorage.removeItem('powernode_copyright');
       }
     }
-    return `© ${new Date().getFullYear()} Powernode Platform. All rights reserved.`;
+    return `© ${new Date().getFullYear()} Everett C. Haimes III. All rights reserved.`;
   },
 
   // Cache copyright text
@@ -163,7 +164,6 @@ export const settingsApi = {
         return response.data.copyright_text;
       }
     } catch (error) {
-      console.warn('Failed to fetch copyright from server, using cached version');
     }
     
     return this.getCachedCopyright();
@@ -178,27 +178,36 @@ export const settingsApi = {
   // Change user password (authentication required)
   async changePassword(passwordData: { current_password: string; password: string; password_confirmation: string }): Promise<{ success: boolean; error?: string; message?: string }> {
     try {
-      const response = await api.put('/auth/change-password', passwordData);
+      // Transform parameters to match backend expectations
+      const backendParams = {
+        password: {
+          current_password: passwordData.current_password,
+          new_password: passwordData.password,
+          password_confirmation: passwordData.password_confirmation
+        }
+      };
+      
+      const response = await api.put('/auth/change-password', backendParams);
       return response.data;
-    } catch (error: any) {
+    } catch (error) {
       return {
         success: false,
-        error: error.response?.data?.error || 'Failed to change password',
-        message: error.response?.data?.details?.join(', ')
+        error: isErrorWithResponse(error) ? (error.response?.data?.error || 'Failed to change password') : 'Failed to change password',
+        message: isErrorWithResponse(error) ? error.response?.data?.errors?.join(', ') : undefined
       };
     }
   },
 
   // Update user profile (authentication required)
-  async updateProfile(profileData: { first_name: string; last_name: string; email: string }): Promise<{ success: boolean; error?: string; message?: string }> {
+  async updateProfile(profileData: { name: string; email: string }): Promise<{ success: boolean; error?: string; message?: string }> {
     try {
       const response = await api.put('/users/profile', profileData);
       return response.data;
-    } catch (error: any) {
+    } catch (error) {
       return {
         success: false,
-        error: error.response?.data?.error || 'Failed to update profile',
-        message: error.response?.data?.details?.join(', ')
+        error: isErrorWithResponse(error) ? (error.response?.data?.error || 'Failed to update profile') : 'Failed to update profile',
+        message: isErrorWithResponse(error) ? error.response?.data?.errors?.join(', ') : undefined
       };
     }
   }

@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/shared/components/ui/Button';
 import { Modal } from '@/shared/components/ui/Modal';
 import { useForm, FormValidationRules } from '@/shared/hooks/useForm';
-import { useNotification } from '@/shared/hooks/useNotification';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import { paymentGatewaysApi, PaymentGatewayConfig } from '../services/paymentGatewaysApi';
 import { Settings, Save } from 'lucide-react';
 
@@ -41,67 +41,71 @@ export const GatewayConfigModal: React.FC<GatewayConfigModalProps> = ({
   currentConfig,
   onConfigured
 }) => {
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
   const [showSecrets, setShowSecrets] = useState(false);
 
-  // Default values based on gateway type
-  const getDefaultValues = (): GatewayConfig => {
+  // Memoize default values to prevent unnecessary re-renders
+  const defaultValues = useMemo((): GatewayConfig => {
     if (gateway === 'stripe') {
       return {
-        publishable_key: '',
+        publishable_key: '',  // Don't pre-fill sensitive keys for security
         secret_key: '',
         endpoint_secret: '',
         webhook_tolerance: 300,
-        enabled: currentConfig?.enabled || false,
-        test_mode: currentConfig?.test_mode || true
+        enabled: currentConfig?.enabled ?? false,
+        test_mode: currentConfig?.test_mode ?? true
       } as StripeConfig;
     } else {
       return {
-        client_id: '',
+        client_id: '',  // Don't pre-fill sensitive keys for security
         client_secret: '',
         webhook_id: '',
-        mode: 'sandbox',
-        enabled: currentConfig?.enabled || false,
-        test_mode: currentConfig?.test_mode || true
+        mode: (currentConfig as any)?.mode || 'sandbox',
+        enabled: currentConfig?.enabled ?? false,
+        test_mode: currentConfig?.test_mode ?? true
       } as PayPalConfig;
     }
-  };
+  }, [gateway, currentConfig]);
 
-  // Validation rules based on gateway type
-  const getValidationRules = (): FormValidationRules => {
+  // Memoize validation rules to prevent unnecessary re-creation
+  const validationRules = useMemo((): FormValidationRules => {
     if (gateway === 'stripe') {
       return {
         publishable_key: {
-          required: true,
-          pattern: /^pk_(test_|live_)[a-zA-Z0-9_]{20,}$/,
-          custom: (value: string) => {
-            if (value && !/^pk_(test_|live_)[a-zA-Z0-9_]{20,}$/.test(value)) {
+          required: false, // Optional - only validate format if provided
+          custom: (value: unknown) => {
+            const keyValue = value as string;
+            if (!keyValue || keyValue.trim() === '') return null; // Allow empty values
+            if (!/^pk_(test_|live_)[a-zA-Z0-9_]{20,}$/.test(keyValue)) {
               return 'Publishable key must start with pk_test_ or pk_live_ followed by at least 20 characters';
             }
             return null;
           }
         },
         secret_key: {
-          required: true,
-          pattern: /^sk_(test_|live_)[a-zA-Z0-9_]{20,}$/,
-          custom: (value: string) => {
-            if (value && !/^sk_(test_|live_)[a-zA-Z0-9_]{20,}$/.test(value)) {
+          required: false, // Optional - only validate format if provided
+          custom: (value: unknown) => {
+            const keyValue = value as string;
+            if (!keyValue || keyValue.trim() === '') return null; // Allow empty values
+            if (!/^sk_(test_|live_)[a-zA-Z0-9_]{20,}$/.test(keyValue)) {
               return 'Secret key must start with sk_test_ or sk_live_ followed by at least 20 characters';
             }
             return null;
           }
         },
         endpoint_secret: {
-          custom: (value: string) => {
-            if (value && !/^whsec_[a-zA-Z0-9]+$/.test(value)) {
+          custom: (value: unknown) => {
+            const secretValue = value as string;
+            if (secretValue && !/^whsec_[a-zA-Z0-9]+$/.test(secretValue)) {
               return 'Webhook endpoint secret must start with whsec_ if provided';
             }
             return null;
           }
         },
         webhook_tolerance: {
-          custom: (value: number) => {
-            if (value < 1 || value > 3600) {
+          custom: (value: unknown) => {
+            const numValue = value as number;
+            if (numValue < 1 || numValue > 3600) {
               return 'Webhook tolerance must be between 1 and 3600 seconds';
             }
             return null;
@@ -111,16 +115,17 @@ export const GatewayConfigModal: React.FC<GatewayConfigModalProps> = ({
     } else {
       return {
         client_id: {
-          required: true,
+          required: false, // Optional - only validate format if provided
           minLength: 10
         },
         client_secret: {
-          required: true,
+          required: false, // Optional - only validate format if provided
           minLength: 10
         },
         mode: {
-          custom: (value: string) => {
-            if (value && !['sandbox', 'live'].includes(value)) {
+          custom: (value: unknown) => {
+            const modeValue = value as string;
+            if (modeValue && !['sandbox', 'live'].includes(modeValue)) {
               return 'Mode must be either sandbox or live';
             }
             return null;
@@ -128,7 +133,7 @@ export const GatewayConfigModal: React.FC<GatewayConfigModalProps> = ({
         }
       };
     }
-  };
+  }, [gateway]);
 
   // Handle form submission
   const handleConfigSubmit = async (formData: GatewayConfig) => {
@@ -143,6 +148,10 @@ export const GatewayConfigModal: React.FC<GatewayConfigModalProps> = ({
       
       Object.entries(formData).forEach(([key, value]) => {
         if (allowedKeys.includes(key) && value !== '' && value !== null && value !== undefined) {
+          // For string values, also check if they're not just whitespace
+          if (typeof value === 'string' && value.trim() === '') {
+            return; // Skip empty strings
+          }
           configToSend[key as keyof typeof configToSend] = value;
         }
       });
@@ -152,11 +161,12 @@ export const GatewayConfigModal: React.FC<GatewayConfigModalProps> = ({
       showNotification(`${gateway.charAt(0).toUpperCase() + gateway.slice(1)} configuration updated successfully`, 'success');
       onConfigured();
       onClose();
-    } catch (error: any) {
+    } catch (error: unknown) {
       let errorMessage = `Failed to update ${gateway} configuration`;
       
-      if (error?.response?.data?.error) {
-        const backendError = error.response.data.error;
+      const httpError = error as { response?: { data?: { error?: string }; status?: number } };
+      if (httpError?.response?.data?.error) {
+        const backendError = httpError.response.data.error;
         if (typeof backendError === 'string') {
           errorMessage = backendError.split(', ').join('\n• ');
           if (backendError.includes(',')) {
@@ -165,14 +175,14 @@ export const GatewayConfigModal: React.FC<GatewayConfigModalProps> = ({
         } else {
           errorMessage = backendError;
         }
-      } else if (error?.response?.status === 401) {
+      } else if (httpError?.response?.status === 401) {
         errorMessage = 'Authentication required. Please refresh the page and try again.';
-      } else if (error?.response?.status === 403) {
+      } else if (httpError?.response?.status === 403) {
         errorMessage = 'You do not have permission to update payment gateway settings.';
-      } else if (error?.response?.status === 422) {
+      } else if (httpError?.response?.status === 422) {
         errorMessage = 'Invalid configuration data. Please check your input and try again.';
-      } else if (error?.message) {
-        errorMessage = error.message;
+      } else if ((error as Error)?.message) {
+        errorMessage = (error as Error).message;
       }
       
       throw new Error(errorMessage);
@@ -180,20 +190,36 @@ export const GatewayConfigModal: React.FC<GatewayConfigModalProps> = ({
   };
 
   const form = useForm({
-    initialValues: getDefaultValues(),
-    validationRules: getValidationRules(),
+    initialValues: defaultValues,
+    validationRules: validationRules,
     onSubmit: handleConfigSubmit,
-    enableRealTimeValidation: true,
+    enableRealTimeValidation: false, // Disable real-time validation to prevent premature errors
     showSuccessNotification: false, // We handle success notification manually
     resetAfterSubmit: true,
   }) as any; // Type assertion to handle union type complexity
 
-  // Reset form when modal opens
+  // Reset form when modal opens or closes
   useEffect(() => {
     if (isOpen) {
       form.reset();
     }
-  }, [isOpen, form]);
+  }, [isOpen]); // Remove 'form' from dependencies to prevent constant resets
+
+  // Update form when config changes
+  useEffect(() => {
+    if (currentConfig && isOpen) {
+      // Update the checkbox states based on current config
+      // Note: Don't set text field values to avoid triggering validation on empty fields
+      form.setValue('enabled', currentConfig.enabled ?? false);
+      form.setValue('test_mode', currentConfig.test_mode ?? true);
+      if (gateway === 'paypal' && (currentConfig as any).mode) {
+        form.setValue('mode', (currentConfig as any).mode);
+      }
+      if (gateway === 'stripe' && (currentConfig as any).webhook_tolerance && (currentConfig as any).webhook_tolerance !== 300) {
+        form.setValue('webhook_tolerance', (currentConfig as any).webhook_tolerance);
+      }
+    }
+  }, [currentConfig, isOpen, gateway]); // Remove form.setValue to prevent infinite loop
 
   const handleCancel = () => {
     form.reset();
@@ -207,37 +233,65 @@ export const GatewayConfigModal: React.FC<GatewayConfigModalProps> = ({
       <div className="space-y-6">
         <div className="grid grid-cols-1 gap-6">
           <div>
-            <label className="label-theme">
-              Publishable Key *
+            <label className="label-theme flex items-center gap-2">
+              Publishable Key
+              {(currentConfig as any)?.publishable_key_present && (
+                <span className="px-2 py-0.5 text-xs bg-theme-success-subtle text-theme-success-emphasis rounded">
+                  Configured
+                </span>
+              )}
+              {!(currentConfig as any)?.publishable_key_present && (
+                <span className="px-2 py-0.5 text-xs bg-theme-warning-subtle text-theme-warning-emphasis rounded">
+                  Not Configured
+                </span>
+              )}
             </label>
             <input
               {...form.getFieldProps('publishable_key')}
               type="text"
               className={`input-theme ${(form.errors as any).publishable_key ? 'border-theme-error' : ''}`}
-              placeholder="pk_test_51ABC...xyz123 (starts with pk_test_ or pk_live_)"
+              placeholder={
+                (currentConfig as any)?.publishable_key_present 
+                  ? "Leave blank to keep current key, or enter new key to update" 
+                  : "pk_test_51ABC...xyz123 (starts with pk_test_ or pk_live_)"
+              }
               disabled={form.isSubmitting}
-              required
             />
             {(form.errors as any).publishable_key && (
               <p className="text-theme-error text-sm mt-1">{(form.errors as any).publishable_key}</p>
             )}
             <p className="text-xs text-theme-secondary mt-1">
-              Your Stripe publishable key (starts with pk_)
+              {(currentConfig as any)?.publishable_key_present
+                ? "A publishable key is already configured. Leave blank to keep current key, or enter a new key to update it."
+                : "Your Stripe publishable key (starts with pk_). Leave blank if not updating."}
             </p>
           </div>
 
           <div>
-            <label className="label-theme">
-              Secret Key *
+            <label className="label-theme flex items-center gap-2">
+              Secret Key
+              {(currentConfig as any)?.secret_key_present && (
+                <span className="px-2 py-0.5 text-xs bg-theme-success-subtle text-theme-success-emphasis rounded">
+                  Configured
+                </span>
+              )}
+              {!(currentConfig as any)?.secret_key_present && (
+                <span className="px-2 py-0.5 text-xs bg-theme-warning-subtle text-theme-warning-emphasis rounded">
+                  Not Configured
+                </span>
+              )}
             </label>
             <div className="relative">
               <input
                 {...form.getFieldProps('secret_key')}
                 type={showSecrets ? "text" : "password"}
                 className={`input-theme pr-10 ${(form.errors as any).secret_key ? 'border-theme-error' : ''}`}
-                placeholder="sk_test_51ABC...xyz123 (starts with sk_test_ or sk_live_)"
+                placeholder={
+                  (currentConfig as any)?.secret_key_present
+                    ? "Leave blank to keep current key, or enter new key to update"
+                    : "sk_test_51ABC...xyz123 (starts with sk_test_ or sk_live_)"
+                }
                 disabled={form.isSubmitting}
-                required
               />
               <button
                 type="button"
@@ -251,26 +305,44 @@ export const GatewayConfigModal: React.FC<GatewayConfigModalProps> = ({
               <p className="text-theme-error text-sm mt-1">{(form.errors as any).secret_key}</p>
             )}
             <p className="text-xs text-theme-secondary mt-1">
-              Your Stripe secret key (starts with sk_)
+              {(currentConfig as any)?.secret_key_present
+                ? "A secret key is already configured. Leave blank to keep current key, or enter a new key to update it."
+                : "Your Stripe secret key (starts with sk_). Leave blank if not updating."}
             </p>
           </div>
 
           <div>
-            <label className="label-theme">
+            <label className="label-theme flex items-center gap-2">
               Webhook Endpoint Secret
+              {(currentConfig as any)?.endpoint_secret_present && (
+                <span className="px-2 py-0.5 text-xs bg-theme-success-subtle text-theme-success-emphasis rounded">
+                  Configured
+                </span>
+              )}
+              {!(currentConfig as any)?.endpoint_secret_present && (
+                <span className="px-2 py-0.5 text-xs bg-theme-info-subtle text-theme-info-emphasis rounded">
+                  Optional
+                </span>
+              )}
             </label>
             <input
               {...form.getFieldProps('endpoint_secret')}
               type={showSecrets ? "text" : "password"}
               className={`input-theme ${(form.errors as any).endpoint_secret ? 'border-theme-error' : ''}`}
-              placeholder="whsec_1234567890abcdef (starts with whsec_)"
+              placeholder={
+                (currentConfig as any)?.endpoint_secret_present
+                  ? "Enter new webhook secret to update"
+                  : "whsec_1234567890abcdef (starts with whsec_)"
+              }
               disabled={form.isSubmitting}
             />
             {(form.errors as any).endpoint_secret && (
               <p className="text-theme-error text-sm mt-1">{(form.errors as any).endpoint_secret}</p>
             )}
             <p className="text-xs text-theme-secondary mt-1">
-              Webhook endpoint secret from your Stripe dashboard
+              {(currentConfig as any)?.endpoint_secret_present
+                ? "A webhook secret is already configured. Enter a new secret to update it."
+                : "Webhook endpoint secret from your Stripe dashboard (optional)"}
             </p>
           </div>
 
@@ -331,37 +403,65 @@ export const GatewayConfigModal: React.FC<GatewayConfigModalProps> = ({
       <div className="space-y-6">
         <div className="grid grid-cols-1 gap-6">
           <div>
-            <label className="label-theme">
-              Client ID *
+            <label className="label-theme flex items-center gap-2">
+              Client ID
+              {(currentConfig as any)?.client_id_present && (
+                <span className="px-2 py-0.5 text-xs bg-theme-success-subtle text-theme-success-emphasis rounded">
+                  Configured
+                </span>
+              )}
+              {!(currentConfig as any)?.client_id_present && (
+                <span className="px-2 py-0.5 text-xs bg-theme-warning-subtle text-theme-warning-emphasis rounded">
+                  Not Configured
+                </span>
+              )}
             </label>
             <input
               {...form.getFieldProps('client_id')}
               type="text"
               className={`input-theme ${(form.errors as any).client_id ? 'border-theme-error' : ''}`}
-              placeholder="Your PayPal client ID"
+              placeholder={
+                (currentConfig as any)?.client_id_present
+                  ? "Leave blank to keep current ID, or enter new ID to update"
+                  : "Your PayPal client ID"
+              }
               disabled={form.isSubmitting}
-              required
             />
             {(form.errors as any).client_id && (
               <p className="text-theme-error text-sm mt-1">{(form.errors as any).client_id}</p>
             )}
             <p className="text-xs text-theme-secondary mt-1">
-              Your PayPal application client ID
+              {(currentConfig as any)?.client_id_present
+                ? "A client ID is already configured. Leave blank to keep current ID, or enter a new ID to update it."
+                : "Your PayPal application client ID. Leave blank if not updating."}
             </p>
           </div>
 
           <div>
-            <label className="label-theme">
-              Client Secret *
+            <label className="label-theme flex items-center gap-2">
+              Client Secret
+              {(currentConfig as any)?.client_secret_present && (
+                <span className="px-2 py-0.5 text-xs bg-theme-success-subtle text-theme-success-emphasis rounded">
+                  Configured
+                </span>
+              )}
+              {!(currentConfig as any)?.client_secret_present && (
+                <span className="px-2 py-0.5 text-xs bg-theme-warning-subtle text-theme-warning-emphasis rounded">
+                  Not Configured
+                </span>
+              )}
             </label>
             <div className="relative">
               <input
                 {...form.getFieldProps('client_secret')}
                 type={showSecrets ? "text" : "password"}
                 className={`input-theme pr-10 ${(form.errors as any).client_secret ? 'border-theme-error' : ''}`}
-                placeholder="Your PayPal client secret"
+                placeholder={
+                  (currentConfig as any)?.client_secret_present
+                    ? "Leave blank to keep current secret, or enter new secret to update"
+                    : "Your PayPal client secret"
+                }
                 disabled={form.isSubmitting}
-                required
               />
               <button
                 type="button"
@@ -375,26 +475,44 @@ export const GatewayConfigModal: React.FC<GatewayConfigModalProps> = ({
               <p className="text-theme-error text-sm mt-1">{(form.errors as any).client_secret}</p>
             )}
             <p className="text-xs text-theme-secondary mt-1">
-              Your PayPal application client secret
+              {(currentConfig as any)?.client_secret_present
+                ? "A client secret is already configured. Leave blank to keep current secret, or enter a new secret to update it."
+                : "Your PayPal application client secret. Leave blank if not updating."}
             </p>
           </div>
 
           <div>
-            <label className="label-theme">
+            <label className="label-theme flex items-center gap-2">
               Webhook ID
+              {(currentConfig as any)?.webhook_id_present && (
+                <span className="px-2 py-0.5 text-xs bg-theme-success-subtle text-theme-success-emphasis rounded">
+                  Configured
+                </span>
+              )}
+              {!(currentConfig as any)?.webhook_id_present && (
+                <span className="px-2 py-0.5 text-xs bg-theme-info-subtle text-theme-info-emphasis rounded">
+                  Optional
+                </span>
+              )}
             </label>
             <input
               {...form.getFieldProps('webhook_id')}
               type="text"
               className={`input-theme ${(form.errors as any).webhook_id ? 'border-theme-error' : ''}`}
-              placeholder="Your PayPal webhook ID"
+              placeholder={
+                (currentConfig as any)?.webhook_id_present
+                  ? "Enter new webhook ID to update"
+                  : "Your PayPal webhook ID"
+              }
               disabled={form.isSubmitting}
             />
             {(form.errors as any).webhook_id && (
               <p className="text-theme-error text-sm mt-1">{(form.errors as any).webhook_id}</p>
             )}
             <p className="text-xs text-theme-secondary mt-1">
-              PayPal webhook ID for event notifications
+              {(currentConfig as any)?.webhook_id_present
+                ? "A webhook ID is already configured. Enter a new ID to update it."
+                : "PayPal webhook ID for event notifications (optional)"}
             </p>
           </div>
 
@@ -482,7 +600,7 @@ export const GatewayConfigModal: React.FC<GatewayConfigModalProps> = ({
     <Modal 
       isOpen={isOpen} 
       onClose={handleCancel} 
-      title={`${info.name} Configuration`} 
+      title={`Configure ${info.name}`} 
       subtitle={info.description}
       icon={<Settings />}
       maxWidth="lg"
@@ -503,4 +621,3 @@ export const GatewayConfigModal: React.FC<GatewayConfigModalProps> = ({
   );
 };
 
-export default GatewayConfigModal;

@@ -1,4 +1,3 @@
-import React from 'react';
 import {
   LineChart,
   Line,
@@ -8,7 +7,6 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
-  // BarChart, // TODO: Use for bar chart visualization
   Bar,
   ComposedChart,
   Area,
@@ -68,15 +66,27 @@ export const GrowthChart: React.FC<GrowthChartProps> = ({
   // Use the built-in growth color function
   const getGrowthColor = colors.getGrowthColor;
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  interface TooltipPayload {
+    name: string;
+    value: number;
+    color: string;
+  }
+
+  interface CustomTooltipProps {
+    active?: boolean;
+    payload?: TooltipPayload[];
+    label?: string;
+  }
+
+  const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
     if (active && payload && payload.length) {
       return (
         <div className="card-theme p-4 border-theme rounded-lg shadow-lg">
-          <p className="font-semibold text-theme-primary">{formatDate(label)}</p>
-          {payload.map((entry: any, index: number) => (
+          <p className="font-semibold text-theme-primary">{formatDate(label || '')}</p>
+          {payload.map((entry, index: number) => (
             <p key={index} className="text-sm" style={{ color: entry.color }}>
               {entry.name}: {
-                entry.name.includes('Rate') || entry.name.includes('%') 
+                entry.name.includes('Rate') || entry.name.includes('%')
                   ? formatPercentage(entry.value)
                   : formatCurrency(entry.value)
               }
@@ -88,39 +98,24 @@ export const GrowthChart: React.FC<GrowthChartProps> = ({
     return null;
   };
 
-  // const GrowthRateCell = ({ data: cellData }: any) => {
-  //   const color = getGrowthColor(cellData.growth_rate);
-  //   return (
-  //     <g>
-  //       <rect
-  //         x={cellData.x - 15}
-  //         y={cellData.y - 10}
-  //         width={30}
-  //         height={20}
-  //         fill={color}
-  //         opacity={0.8}
-  //         rx={4}
-  //       />
-  //       <text
-  //         x={cellData.x}
-  //         y={cellData.y + 3}
-  //         textAnchor="middle"
-  //         fontSize={10}
-  //         fill="white"
-  //         fontWeight="bold"
-  //       >
-  //         {formatPercentage(cellData.growth_rate)}
-  //       </text>
-  //     </g>
-  //   );
-  // }; // TODO: Use for custom growth rate cell rendering
+  // Guard against empty data
+  if (!data || data.length === 0) {
+    return (
+      <div className="card-theme rounded-lg shadow-sm border-theme p-6">
+        <h3 className="text-lg font-semibold text-theme-primary mb-4">{title}</h3>
+        <div className="h-64 flex items-center justify-center">
+          <p className="text-theme-secondary">No growth data available</p>
+        </div>
+      </div>
+    );
+  }
 
   if (compact) {
     return (
       <div className="card-theme rounded-lg shadow-sm border-theme p-6">
         <h3 className="text-lg font-semibold text-theme-primary mb-4">{title}</h3>
-        <div className="h-64">
-          <ResponsiveContainer width="100%" height="100%">
+        <div className="h-64" style={{ minHeight: 256, minWidth: 0 }}>
+          <ResponsiveContainer width="100%" height={256} debounce={100}>
             <LineChart data={data}>
               <CartesianGrid strokeDasharray="3 3" stroke={colors.border} />
               <XAxis 
@@ -184,8 +179,8 @@ export const GrowthChart: React.FC<GrowthChartProps> = ({
       {/* Growth Rate Trend */}
       <div className="card-theme rounded-lg shadow-sm border-theme p-4 sm:p-6">
         <h3 className="text-lg font-semibold text-theme-primary mb-4">Monthly Growth Rate</h3>
-        <div className="h-64 sm:h-80 lg:h-96">
-          <ResponsiveContainer width="100%" height="100%">
+        <div className="h-64 sm:h-80 lg:h-96" style={{ minHeight: 256, minWidth: 0 }}>
+          <ResponsiveContainer width="100%" height={256} debounce={100}>
             <AreaChart data={data}>
               <defs>
                 <linearGradient id="growthGradient" x1="0" y1="0" x2="0" y2="1">
@@ -219,8 +214,8 @@ export const GrowthChart: React.FC<GrowthChartProps> = ({
       {/* Revenue Components */}
       <div className="card-theme rounded-lg shadow-sm border-theme p-4 sm:p-6">
         <h3 className="text-lg font-semibold text-theme-primary mb-4">Revenue Growth Components</h3>
-        <div className="h-64 sm:h-80 lg:h-96">
-          <ResponsiveContainer width="100%" height="100%">
+        <div className="h-64 sm:h-80 lg:h-96" style={{ minHeight: 256, minWidth: 0 }}>
+          <ResponsiveContainer width="100%" height={256} debounce={100}>
             <ComposedChart data={data}>
               <CartesianGrid strokeDasharray="3 3" stroke={colors.border} />
               <XAxis 

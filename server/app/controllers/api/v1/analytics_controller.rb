@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require "csv"
 
 class Api::V1::AnalyticsController < ApplicationController
@@ -11,10 +13,10 @@ class Api::V1::AnalyticsController < ApplicationController
     # Check cache first for performance
     cache_key = generate_live_cache_key(@account_scope&.id)
     cached_data = Rails.cache.read(cache_key)
-    
-    if cached_data && params[:force_refresh] != 'true'
+
+    if cached_data && params[:force_refresh] != "true"
       Rails.logger.debug "Returning cached live analytics for account: #{@account_scope&.id}"
-      render json: { success: true, data: cached_data }
+      render_success(cached_data)
       return
     end
 
@@ -55,18 +57,17 @@ class Api::V1::AnalyticsController < ApplicationController
     # Cache the results for 2 minutes for live data
     Rails.cache.write(cache_key, data, expires_in: 2.minutes)
 
-    render json: { success: true, data: data }
+    render_success(data)
 
     # Broadcast update to WebSocket channel if requested
-    if params[:broadcast] == 'true'
+    if params[:broadcast] == "true"
       broadcast_analytics_update(data)
     end
 
     # Trigger analytics notifications check in background
     schedule_analytics_notification_check(data)
   rescue => e
-    Rails.logger.error "Live analytics error: #{e.message}"
-    render json: { success: false, error: e.message }, status: 500
+    render_internal_error("Live analytics error", exception: e)
   end
 
   # GET /api/v1/analytics/revenue
@@ -97,14 +98,26 @@ class Api::V1::AnalyticsController < ApplicationController
         growth_rate: latest_snapshot&.growth_rate_percentage || 0
       },
       historical_data: mrr_trend.map do |snapshot|
-        {
-          date: snapshot.date,
-          mrr: snapshot.respond_to?(:mrr_cents) ? snapshot.mrr_cents / 100.0 : 0,
-          arr: snapshot.respond_to?(:arr_cents) ? snapshot.arr_cents / 100.0 : 0,
-          active_subscriptions: snapshot.respond_to?(:active_subscriptions) ? snapshot.active_subscriptions : 0,
-          new_subscriptions: snapshot.respond_to?(:new_subscriptions) ? snapshot.new_subscriptions : 0,
-          churned_subscriptions: snapshot.respond_to?(:churned_subscriptions) ? snapshot.churned_subscriptions : 0
-        }
+        # Handle both hash format (from service) and object format (from model)
+        if snapshot.is_a?(Hash)
+          {
+            date: snapshot[:date],
+            mrr: snapshot[:mrr] || 0,
+            arr: snapshot[:arr] || 0,
+            active_subscriptions: snapshot[:subscriber_count] || snapshot[:active_subscriptions] || 0,
+            new_subscriptions: snapshot[:new_subscriptions] || 0,
+            churned_subscriptions: snapshot[:churned_subscriptions] || 0
+          }
+        else
+          {
+            date: snapshot.date,
+            mrr: snapshot.respond_to?(:mrr_cents) ? snapshot.mrr_cents / 100.0 : 0,
+            arr: snapshot.respond_to?(:arr_cents) ? snapshot.arr_cents / 100.0 : 0,
+            active_subscriptions: snapshot.respond_to?(:active_subscriptions) ? snapshot.active_subscriptions : 0,
+            new_subscriptions: snapshot.respond_to?(:new_subscriptions) ? snapshot.new_subscriptions : 0,
+            churned_subscriptions: snapshot.respond_to?(:churned_subscriptions) ? snapshot.churned_subscriptions : 0
+          }
+        end
       end,
       period: {
         start_date: @start_date,
@@ -112,9 +125,9 @@ class Api::V1::AnalyticsController < ApplicationController
       }
     }
 
-    render json: { success: true, data: data }
+    render_success(data)
   rescue => e
-    render json: { success: false, error: e.message }, status: 500
+    render_error(e.message, status: :internal_server_error)
   end
 
   # GET /api/v1/analytics/growth
@@ -187,9 +200,9 @@ class Api::V1::AnalyticsController < ApplicationController
       }
     }
 
-    render json: { success: true, data: data }
+    render_success(data)
   rescue => e
-    render json: { success: false, error: e.message }, status: 500
+    render_error(e.message, status: :internal_server_error)
   end
 
   # GET /api/v1/analytics/churn
@@ -250,9 +263,9 @@ class Api::V1::AnalyticsController < ApplicationController
       }
     }
 
-    render json: { success: true, data: data }
+    render_success(data)
   rescue => e
-    render json: { success: false, error: e.message }, status: 500
+    render_error(e.message, status: :internal_server_error)
   end
 
   # GET /api/v1/analytics/cohorts
@@ -265,34 +278,81 @@ class Api::V1::AnalyticsController < ApplicationController
     cohort_data = analytics_service.cohort_analysis(cohort_months: 12)
 
     # Transform cohort data for frontend consumption
+    # Service returns: { cohort, cohort_date, size, retention (array of rates), current_mrr, churned, active }
     formatted_cohorts = cohort_data.map do |cohort|
+      # Get cohort date - handle both string and Date formats
+      cohort_date_str = if cohort[:cohort_date].is_a?(String)
+                          cohort[:cohort_date][0..6] # Already ISO format, take YYYY-MM
+      else
+                          cohort[:cohort_date].strftime("%Y-%m")
+      end
+
+      # Get cohort size - service uses :size, might also have :cohort_size
+      cohort_size = cohort[:size] || cohort[:cohort_size] || 0
+
+      # Get retention data - service returns array of rates, transform to expected format
+      retention_array = cohort[:retention] || cohort[:retention_by_month] || []
+      retention_rates = if retention_array.is_a?(Array) && retention_array.first.is_a?(Numeric)
+                          # Simple array of rates from service
+                          retention_array.map.with_index do |rate, index|
+                            {
+                              month: index,
+                              retention_rate: rate.round(2),
+                              retained_customers: (cohort_size * rate / 100.0).round
+                            }
+                          end
+      elsif retention_array.is_a?(Array) && retention_array.first.is_a?(Hash)
+                          # Already in expected format
+                          retention_array.map do |r|
+                            {
+                              month: r[:month],
+                              retention_rate: (r[:retention_rate].is_a?(Numeric) && r[:retention_rate] <= 1 ? r[:retention_rate] * 100 : r[:retention_rate]).round(2),
+                              retained_customers: r[:retained_customers] || 0
+                            }
+                          end
+      else
+                          []
+      end
+
       {
-        cohort_date: cohort[:cohort_date].strftime("%Y-%m"),
-        cohort_size: cohort[:cohort_size],
-        retention_rates: cohort[:retention_by_month].map do |retention|
-          {
-            month: retention[:month],
-            retention_rate: (retention[:retention_rate] * 100).round(2),
-            retained_customers: retention[:retained_customers]
-          }
-        end
+        cohort_date: cohort_date_str,
+        cohort_size: cohort_size,
+        retention_rates: retention_rates,
+        current_mrr: cohort[:current_mrr] || 0,
+        churned: cohort[:churned] || 0,
+        active: cohort[:active] || 0
       }
+    end
+
+    # Calculate summary safely
+    first_month_sum = 0
+    six_month_sum = 0
+    cohorts_with_first_month = 0
+    cohorts_with_six_month = 0
+
+    formatted_cohorts.each do |c|
+      if c[:retention_rates].any?
+        first_month_sum += c[:retention_rates][0][:retention_rate]
+        cohorts_with_first_month += 1
+      end
+      if c[:retention_rates].length > 5 && c[:retention_rates][5]
+        six_month_sum += c[:retention_rates][5][:retention_rate]
+        cohorts_with_six_month += 1
+      end
     end
 
     data = {
       cohorts: formatted_cohorts,
       summary: {
         total_cohorts: formatted_cohorts.length,
-        average_first_month_retention: formatted_cohorts.any? ?
-          (formatted_cohorts.sum { |c| c[:retention_rates][0][:retention_rate] } / formatted_cohorts.length).round(2) : 0,
-        average_six_month_retention: formatted_cohorts.any? ?
-          (formatted_cohorts.sum { |c| c[:retention_rates][5] ? c[:retention_rates][5][:retention_rate] : 0 } / formatted_cohorts.length).round(2) : 0
+        average_first_month_retention: cohorts_with_first_month > 0 ? (first_month_sum / cohorts_with_first_month).round(2) : 0,
+        average_six_month_retention: cohorts_with_six_month > 0 ? (six_month_sum / cohorts_with_six_month).round(2) : 0
       }
     }
 
-    render json: { success: true, data: data }
+    render_success(data)
   rescue => e
-    render json: { success: false, error: e.message }, status: 500
+    render_error(e.message, status: :internal_server_error)
   end
 
   # GET /api/v1/analytics/customers
@@ -348,9 +408,9 @@ class Api::V1::AnalyticsController < ApplicationController
       }
     }
 
-    render json: { success: true, data: data }
+    render_success(data)
   rescue => e
-    render json: { success: false, error: e.message }, status: 500
+    render_error(e.message, status: :internal_server_error)
   end
 
   # GET/POST /api/v1/analytics/export
@@ -360,7 +420,7 @@ class Api::V1::AnalyticsController < ApplicationController
     report_type = params[:report_type] || "revenue"
 
     unless can_export_analytics?
-      render json: { success: false, error: "Export permission required" }, status: 403
+      render_error("Export permission required", status: :forbidden)
       return
     end
 
@@ -381,11 +441,12 @@ class Api::V1::AnalyticsController < ApplicationController
           type: "text/csv"
         }
         format.json {
-          render json: {
-            success: true,
-            data: csv_data,
-            filename: "#{report_type}_analytics_#{Date.current.strftime('%Y%m%d')}.csv"
-          }
+          render_success(
+            data: {
+              csv_data: csv_data,
+              filename: "#{report_type}_analytics_#{Date.current.strftime('%Y%m%d')}.csv"
+            }
+          )
         }
       end
     when "pdf"
@@ -404,31 +465,32 @@ class Api::V1::AnalyticsController < ApplicationController
           type: "application/pdf"
         }
         format.json {
-          render json: {
-            success: true,
-            data: Base64.encode64(pdf_data),
-            filename: "#{report_type}_report_#{Date.current.strftime('%Y%m%d')}.pdf",
-            content_type: "application/pdf"
-          }
+          render_success(
+            data: {
+              pdf_data: Base64.encode64(pdf_data),
+              filename: "#{report_type}_report_#{Date.current.strftime('%Y%m%d')}.pdf",
+              content_type: "application/pdf"
+            }
+          )
         }
       end
     else
-      render json: { success: false, error: "Unsupported export format" }, status: 400
+      render_error("Unsupported export format", status: :bad_request)
     end
   rescue => e
-    render json: { success: false, error: e.message }, status: 500
+    render_error(e.message, status: :internal_server_error)
   end
 
   private
 
   def check_analytics_permission
-    unless current_user.has_permission?("analytics.view") || current_user.has_permission?("admin.access")
-      render json: { success: false, error: "Analytics permission required" }, status: 403
+    unless current_user.has_permission?("ai.analytics.read") || current_user.has_permission?("admin.access")
+      render_error("Analytics permission required", status: :forbidden)
     end
   end
 
   def can_export_analytics?
-    current_user.has_permission?("analytics.export") || current_user.has_permission?("admin.access")
+    current_user.has_permission?("ai.analytics.export") || current_user.has_permission?("admin.access")
   end
 
   def set_date_range
@@ -437,13 +499,13 @@ class Api::V1::AnalyticsController < ApplicationController
 
     # Validate date range
     if @start_date > @end_date
-      render json: { success: false, error: "Start date must be before end date" }, status: 400
+      render_error("Start date must be before end date", status: :bad_request)
       return
     end
 
     # Limit to reasonable range (2 years max)
     if @end_date - @start_date > 2.years
-      render json: { success: false, error: "Date range too large (max 2 years)" }, status: 400
+      render_error("Date range too large (max 2 years)", status: :bad_request)
       nil
     end
   end
@@ -561,7 +623,7 @@ class Api::V1::AnalyticsController < ApplicationController
     end
     successful_payments = base_query.where(status: :successful)
                                    .where(created_at: Date.current.beginning_of_day..Date.current.end_of_day)
-    
+
     total_cents = successful_payments.sum(:amount_cents)
     (total_cents / 100.0).round(2)
   end
@@ -569,14 +631,14 @@ class Api::V1::AnalyticsController < ApplicationController
   def calculate_weekly_trend
     # Get last 7 days of key metrics
     trend_data = []
-    
+
     (0..6).each do |days_ago|
       date = days_ago.days.ago.to_date
-      
+
       # Count subscriptions for this day
       base_subscriptions = @account_scope ? @account_scope.subscriptions : Subscription.all
       new_subs = base_subscriptions.where(created_at: date.beginning_of_day..date.end_of_day).count
-      
+
       # Count payments for this day
       base_payments = if @account_scope
                        Payment.joins(subscription: :account).where(subscriptions: { accounts: { id: @account_scope.id } })
@@ -585,9 +647,9 @@ class Api::V1::AnalyticsController < ApplicationController
       end
       payments = base_payments.where(status: :successful)
                              .where(created_at: date.beginning_of_day..date.end_of_day)
-      
+
       revenue = (payments.sum(:amount_cents) / 100.0).round(2)
-      
+
       trend_data.unshift({
         date: date.iso8601,
         new_subscriptions: new_subs,
@@ -595,7 +657,7 @@ class Api::V1::AnalyticsController < ApplicationController
         payments_count: payments.count
       })
     end
-    
+
     trend_data
   end
 
@@ -608,7 +670,7 @@ class Api::V1::AnalyticsController < ApplicationController
       }
     else
       ActionCable.server.broadcast "analytics_global", {
-        type: "analytics_update", 
+        type: "analytics_update",
         data: data
       }
     end
@@ -629,12 +691,12 @@ class Api::V1::AnalyticsController < ApplicationController
     # Schedule background job to check notifications
     # This uses the worker service pattern
     Rails.logger.debug "Scheduling analytics notification check for account: #{@account_scope&.id}"
-    
+
     # Queue the notification check job
     begin
       # This would be handled by the worker service
       WorkerJobService.enqueue_job(
-        'analytics_notification_check',
+        "analytics_notification_check",
         account_id: @account_scope&.id,
         metrics_data: data
       )

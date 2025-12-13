@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
 
 RSpec.describe Page, type: :model do
@@ -7,6 +9,46 @@ RSpec.describe Page, type: :model do
   describe 'associations' do
     it { should belong_to(:user).with_foreign_key('author_id') }
     it { should respond_to(:author) }
+    it { should have_many(:file_objects).dependent(:nullify) }
+    it { should have_many(:images) }
+  end
+
+  describe 'file_objects association' do
+    let(:page) { create(:page) }
+    let(:account) { create(:account) }
+    let(:file_storage) { create(:file_storage, account: account, is_default: true) }
+
+    it 'can have file_objects attached' do
+      file = create(:file_object, account: account, attachable: page, file_storage: file_storage)
+      expect(page.file_objects).to include(file)
+    end
+
+    it 'nullifies file_objects when page is deleted' do
+      file = create(:file_object, account: account, attachable: page, file_storage: file_storage)
+      page.destroy
+      file.reload
+      expect(file.attachable).to be_nil
+    end
+
+    it 'images scope returns only image file_objects' do
+      image_file = create(:file_object,
+                          account: account,
+                          attachable: page,
+                          file_type: 'image',
+                          content_type: 'image/png',
+                          file_storage: file_storage)
+      doc_file = create(:file_object,
+                        account: account,
+                        attachable: page,
+                        file_type: 'document',
+                        content_type: 'application/pdf',
+                        file_storage: file_storage)
+
+      expect(page.images).to include(image_file)
+      expect(page.images).not_to include(doc_file)
+      expect(page.file_objects).to include(image_file)
+      expect(page.file_objects).to include(doc_file)
+    end
   end
 
   # Validations
@@ -129,7 +171,7 @@ RSpec.describe Page, type: :model do
         first_page = create(:page)
         sleep(0.01)  # Ensure different timestamps
         second_page = create(:page)
-        
+
         recent_pages = Page.recent.limit(2)
         expect(recent_pages.first.id).to eq(second_page.id)
         expect(recent_pages.second.id).to eq(first_page.id)
@@ -170,7 +212,7 @@ RSpec.describe Page, type: :model do
       it 'sets published_at when status changes to published' do
         page = create(:page, :draft)
         expect(page.published_at).to be_nil
-        
+
         page.update!(status: 'published')
         expect(page.published_at).not_to be_nil
       end
@@ -178,7 +220,7 @@ RSpec.describe Page, type: :model do
       it 'clears published_at when status changes to draft' do
         page = create(:page, :published)
         expect(page.published_at).not_to be_nil
-        
+
         page.update!(status: 'draft')
         expect(page.published_at).to be_nil
       end
@@ -297,7 +339,7 @@ RSpec.describe Page, type: :model do
     describe '#seo_keywords_array' do
       it 'splits meta_keywords by comma' do
         page = create(:page, meta_keywords: 'keyword1, keyword2, keyword3')
-        expect(page.seo_keywords_array).to eq(['keyword1', 'keyword2', 'keyword3'])
+        expect(page.seo_keywords_array).to eq([ 'keyword1', 'keyword2', 'keyword3' ])
       end
 
       it 'returns empty array if no meta_keywords' do
@@ -307,7 +349,7 @@ RSpec.describe Page, type: :model do
 
       it 'filters out blank keywords' do
         page = create(:page, meta_keywords: 'keyword1, , keyword3')
-        expect(page.seo_keywords_array).to eq(['keyword1', 'keyword3'])
+        expect(page.seo_keywords_array).to eq([ 'keyword1', 'keyword3' ])
       end
     end
   end

@@ -1,4 +1,8 @@
+# frozen_string_literal: true
+
 class AdminSetting < ApplicationRecord
+  include ServiceConfiguration
+
   validates :key, presence: true, uniqueness: true
 
   # Get a setting value by key
@@ -17,11 +21,11 @@ class AdminSetting < ApplicationRecord
   # Set a setting value by key
   def self.set(key, value)
     serialized_value = value.is_a?(String) ? value : value.to_json
-    
+
     setting = find_or_initialize_by(key: key.to_s)
     setting.value = serialized_value
     setting.save!
-    
+
     setting
   end
 

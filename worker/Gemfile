@@ -39,6 +39,28 @@ gem 'rack-session', '~> 2.0'
 # Security for service authentication
 gem 'jwt', '~> 2.7'
 
+# File processing
+gem 'mini_magick', '~> 4.12'        # Image processing
+gem 'mini_exiftool', '~> 2.11'     # EXIF data extraction
+gem 'streamio-ffmpeg', '~> 3.0'    # Video/audio processing
+
+# Payment providers (for reconciliation)
+gem 'stripe', '~> 18.0'
+gem 'paypal-sdk-rest', '~> 1.7'
+
+# Document generation
+gem 'prawn', '~> 2.4'               # PDF generation
+gem 'prawn-table', '~> 0.2'         # PDF table support
+gem 'caxlsx', '~> 4.0'              # XLSX generation
+
+# Notification providers
+gem 'twilio-ruby', '~> 6.0'         # Twilio SMS
+gem 'googleauth', '~> 1.8'          # Firebase auth
+gem 'google-apis-fcm_v1', '~> 0.6'  # Firebase Cloud Messaging
+
+# WebSocket support for MCP
+gem 'websocket-client-simple', '~> 0.8'
+
 # Development and testing
 group :development, :test do
   gem 'pry', '~> 0.14'

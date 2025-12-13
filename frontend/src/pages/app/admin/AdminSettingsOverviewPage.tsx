@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
-// Removed unused Link import
-import { RefreshCw } from 'lucide-react';
-import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { adminSettingsApi, AdminOverviewData } from '@/features/admin/services/adminSettingsApi';
+import { servicesApi, HealthStatus } from '@/features/admin/services/servicesApi';
 import { ActionCard, MetricCard as StandardMetricCard } from '@/shared/components/ui/Card';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 
 
 interface SystemStatusCardProps {
@@ -91,91 +90,73 @@ export const AdminSettingsOverviewPage: React.FC = () => {
   const [data, setData] = useState<AdminOverviewData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
+  const [servicesHealth, setServicesHealth] = useState<HealthStatus | null>(null);
+  const { showNotification } = useNotifications();
 
   const loadOverviewData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
+      
+      // Load overview data first
       const overviewData = await adminSettingsApi.getOverview();
-      setData(overviewData);
-    } catch (error: any) {
-      console.error('Failed to load admin overview:', error);
-      setError(error.message || 'Failed to load admin overview data');
+      
+      // Try to load services health, but don't fail if unavailable
+      let healthStatus = null;
+      try {
+        healthStatus = await servicesApi.getDetailedHealthStatus();
+      } catch (_healthError) {
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('Services health check unavailable:', _healthError);
+        }
+        // Continue without health status - this is non-critical
+      }
+      
+      setData(overviewData.data || null);
+      setServicesHealth(healthStatus);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load admin overview data';
+      console.error('Admin overview load error:', error);
+      setError(errorMessage);
+      showNotification('Failed to load admin overview data', 'error');
     } finally {
       setLoading(false);
     }
   }, []);
 
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    await loadOverviewData();
-    setRefreshing(false);
-  };
-
   useEffect(() => {
     loadOverviewData();
   }, [loadOverviewData]);
 
-  const getBreadcrumbs = () => [
-    { label: 'Dashboard', href: '/app', icon: '🏠' },
-    { label: 'Admin Settings', href: '/app/admin/settings', icon: '⚙️' },
-    { label: 'Overview', icon: '📊' }
-  ];
-
-  const getPageActions = () => [
-    {
-      id: 'refresh',
-      label: refreshing ? 'Refreshing...' : 'Refresh',
-      onClick: handleRefresh,
-      variant: 'secondary' as const,
-      icon: RefreshCw,
-      disabled: refreshing
-    }
-  ];
 
   if (loading && !data) {
     return (
-      <PageContainer 
-        title="Admin Overview" 
-        description="System administration dashboard and monitoring"
-        breadcrumbs={getBreadcrumbs()}
-        actions={getPageActions()}
-      >
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-theme-interactive-primary mx-auto mb-4"></div>
-            <p className="text-theme-secondary">Loading system overview...</p>
-          </div>
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-theme-interactive-primary mx-auto mb-4"></div>
+          <p className="text-theme-secondary">Loading system overview...</p>
         </div>
-      </PageContainer>
+      </div>
     );
   }
 
   if (error) {
     return (
-      <PageContainer 
-        title="Admin Overview" 
-        description="System administration dashboard and monitoring"
-        breadcrumbs={getBreadcrumbs()}
-        actions={getPageActions()}
-      >
-        <div className="bg-theme-error-background border border-theme-error-border rounded-xl p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <span className="text-theme-error text-2xl">⚠️</span>
-            <div>
-              <h3 className="text-lg font-semibold text-theme-error">Unable to Load System Data</h3>
-              <p className="text-theme-error">{error}</p>
-            </div>
+      <div className="bg-theme-error-background border border-theme-error-border rounded-xl p-6">
+        <div className="flex items-center gap-3 mb-4">
+          <span className="text-theme-error text-2xl">⚠️</span>
+          <div>
+            <h3 className="text-lg font-semibold text-theme-error">Unable to Load System Data</h3>
+            <p className="text-theme-error">{error}</p>
           </div>
-          <button
-            onClick={loadOverviewData}
-            className="bg-theme-error text-white px-4 py-2 rounded-lg hover:bg-theme-error transition-colors"
-          >
-            Retry Loading
-          </button>
         </div>
-      </PageContainer>
+        <button
+          onClick={loadOverviewData}
+          className="bg-theme-error text-white px-4 py-2 rounded-lg hover:bg-theme-error transition-colors"
+        >
+          Retry Loading
+        </button>
+      </div>
     );
   }
 
@@ -183,25 +164,43 @@ export const AdminSettingsOverviewPage: React.FC = () => {
 
   const { metrics, recent_users, recent_accounts, recent_logs, payment_gateways, settings_summary } = data;
 
-  // Determine system status
+  // Determine service status from health data
+  const getServiceStatus = () => {
+    if (!servicesHealth) {
+      return { status: 'warning' as const, message: 'Services status unavailable' };
+    }
+    
+    const serviceStatuses = Object.values(servicesHealth.services || {});
+    const hasUnhealthyServices = serviceStatuses.some(service => service.status === 'unhealthy' || service.status === 'unreachable');
+    
+    if (hasUnhealthyServices) {
+      return { status: 'warning' as const, message: 'Some services are experiencing issues' };
+    }
+    
+    return { status: 'healthy' as const, message: 'All services operational' };
+  };
+
+  // Determine overall system status
   const getSystemStatus = () => {
     if (settings_summary?.maintenance_mode) return { status: 'maintenance' as const, message: 'System in maintenance mode' };
     if (metrics.system_health === 'error') return { status: 'error' as const, message: 'System experiencing errors' };
     if (metrics.system_health === 'warning') return { status: 'warning' as const, message: 'System has warnings' };
+    
+    // Check services health as well
+    const serviceStatus = getServiceStatus();
+    if (serviceStatus.status === 'warning') {
+      return { status: 'warning' as const, message: 'System has service warnings' };
+    }
+    
     return { status: 'healthy' as const, message: 'All systems operational' };
   };
 
   const systemStatus = getSystemStatus();
 
   return (
-    <PageContainer 
-      title="Admin Overview" 
-      description="System administration dashboard and monitoring"
-      breadcrumbs={getBreadcrumbs()}
-      actions={getPageActions()}
-    >
+    <div className="space-y-6">
       {/* System Status Indicator */}
-      <div className="flex items-center gap-4 mb-6 p-4 bg-theme-surface rounded-lg border border-theme">
+      <div className="flex items-center gap-4 p-4 bg-theme-surface rounded-lg border border-theme">
         <span className="text-theme-secondary">System Status:</span>
         <div className="flex items-center gap-2">
           <div className={`w-2 h-2 rounded-full ${
@@ -270,7 +269,15 @@ export const AdminSettingsOverviewPage: React.FC = () => {
           description={settings_summary?.maintenance_mode ? 'Users cannot access system' : 'System fully accessible'}
           action={settings_summary?.maintenance_mode ? {
             label: 'Disable Maintenance',
-            onClick: () => console.log('Toggle maintenance mode')
+            onClick: async () => {
+              try {
+                await adminSettingsApi.updateSettings({ maintenance_mode: false });
+                showNotification('Maintenance mode disabled successfully', 'success');
+                await loadOverviewData(); // Refresh the data
+              } catch (_error) {
+                showNotification('Failed to disable maintenance mode', 'error');
+              }
+            }
           } : undefined}
         />
 
@@ -282,10 +289,10 @@ export const AdminSettingsOverviewPage: React.FC = () => {
         />
 
         <SystemStatusCard
-          title="Security Level"
-          status="healthy"
-          value="High"
-          description={`Email verification ${settings_summary?.require_email_verification ? 'required' : 'optional'}`}
+          title="Services Health"
+          status={getServiceStatus().status}
+          value={servicesHealth ? `${Object.keys(servicesHealth.services || {}).length} Services` : 'Checking...'}
+          description={servicesHealth ? `Overall: ${servicesHealth.overall_status}` : 'Loading services status...'}
         />
       </div>
 
@@ -491,6 +498,90 @@ export const AdminSettingsOverviewPage: React.FC = () => {
         </div>
       </div>
 
+      {/* Services Health Status */}
+      {servicesHealth && (
+        <div>
+          <h2 className="text-xl font-semibold text-theme-primary mb-6 flex items-center gap-2">
+            <span>🔧</span>
+            <span>Services Health Status</span>
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {Object.entries(servicesHealth.services || {}).map(([serviceName, serviceData]) => (
+              <div key={serviceName} className="group bg-theme-surface rounded-xl p-4 border border-theme hover:bg-theme-surface-hover transition-all duration-200">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-3 h-3 rounded-full ${
+                      serviceData.status === 'healthy' ? 'bg-theme-success' :
+                      serviceData.status === 'unhealthy' ? 'bg-theme-warning' :
+                      'bg-theme-error'
+                    } shadow-sm`} />
+                    <h3 className="font-semibold text-theme-primary capitalize">{serviceName.replace('_', ' ')}</h3>
+                  </div>
+                  <span className={`px-2 py-1 rounded text-xs font-medium ${
+                    serviceData.status === 'healthy' 
+                      ? 'bg-theme-success-background text-theme-success' 
+                      : serviceData.status === 'unhealthy'
+                      ? 'bg-theme-warning-background text-theme-warning'
+                      : 'bg-theme-error-background text-theme-error'
+                  }`}>
+                    {serviceData.status}
+                  </span>
+                </div>
+                <div className="space-y-2 text-sm">
+                  {serviceData.url && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-theme-secondary">URL</span>
+                      <span className="text-theme-primary text-xs truncate max-w-32" title={serviceData.url}>
+                        {serviceData.url}
+                      </span>
+                    </div>
+                  )}
+                  {serviceData.response_time && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-theme-secondary">Response Time</span>
+                      <span className="text-theme-primary">{serviceData.response_time}ms</span>
+                    </div>
+                  )}
+                  {serviceData.response_code && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-theme-secondary">Status Code</span>
+                      <span className={`font-medium ${
+                        serviceData.response_code === '200' ? 'text-theme-success' : 'text-theme-warning'
+                      }`}>
+                        {serviceData.response_code}
+                      </span>
+                    </div>
+                  )}
+                  {serviceData.error && (
+                    <div className="mt-2 p-2 bg-theme-error-background rounded text-xs text-theme-error">
+                      {serviceData.error}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+          
+          {/* Services Summary */}
+          <div className="mt-4 p-4 bg-theme-background rounded-lg border border-theme">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-theme-secondary">Last checked:</span>
+                <span className="text-theme-primary">{servicesHealth.last_checked || 'Unknown'}</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-theme-secondary">Overall status:</span>
+                <span className={`font-medium ${
+                  servicesHealth.overall_status === 'healthy' ? 'text-theme-success' : 'text-theme-warning'
+                }`}>
+                  {servicesHealth.overall_status}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Payment Gateway Status */}
       <div>
         <h2 className="text-xl font-semibold text-theme-primary mb-6 flex items-center gap-2">
@@ -625,7 +716,7 @@ export const AdminSettingsOverviewPage: React.FC = () => {
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-theme-interactive-primary rounded-full flex items-center justify-center flex-shrink-0">
                           <span className="text-white font-medium text-sm">
-                            {(user.first_name?.[0] || '?')}{(user.last_name?.[0] || '?')}
+                            {user.name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || '??'}
                           </span>
                         </div>
                         <div className="flex-1 min-w-0">
@@ -757,6 +848,6 @@ export const AdminSettingsOverviewPage: React.FC = () => {
           </div>
         </div>
       </div>
-    </PageContainer>
+    </div>
   );
 };

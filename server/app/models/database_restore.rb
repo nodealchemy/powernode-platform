@@ -9,8 +9,8 @@ class DatabaseRestore < ApplicationRecord
   validates :status, presence: true, inclusion: { in: %w[pending in_progress completed failed] }
 
   # Scopes
-  scope :completed, -> { where(status: 'completed') }
-  scope :failed, -> { where(status: 'failed') }
+  scope :completed, -> { where(status: "completed") }
+  scope :failed, -> { where(status: "failed") }
   scope :recent, -> { order(created_at: :desc) }
 
   # Callbacks
@@ -18,19 +18,19 @@ class DatabaseRestore < ApplicationRecord
   after_update :log_restore_status_change, if: :saved_change_to_status?
 
   def completed?
-    status == 'completed'
+    status == "completed"
   end
 
   def failed?
-    status == 'failed'
+    status == "failed"
   end
 
   def in_progress?
-    status == 'in_progress'
+    status == "in_progress"
   end
 
   def pending?
-    status == 'pending'
+    status == "pending"
   end
 
   def duration
@@ -44,8 +44,8 @@ class DatabaseRestore < ApplicationRecord
     AuditLog.create!(
       user: user,
       account: user.account,
-      action: 'database_restore_created',
-      resource_type: 'DatabaseRestore',
+      action: "database_restore_created",
+      resource_type: "DatabaseRestore",
       resource_id: id,
       details: {
         backup_id: database_backup.id,
@@ -61,8 +61,8 @@ class DatabaseRestore < ApplicationRecord
     AuditLog.create!(
       user: user,
       account: user.account,
-      action: 'database_restore_status_changed',
-      resource_type: 'DatabaseRestore',
+      action: "database_restore_status_changed",
+      resource_type: "DatabaseRestore",
       resource_id: id,
       details: {
         previous_status: status_before_last_save,

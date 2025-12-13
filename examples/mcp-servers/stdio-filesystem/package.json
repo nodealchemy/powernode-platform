@@ -1,0 +1,20 @@
+{
+  "name": "mcp-filesystem-server",
+  "version": "1.0.0",
+  "description": "MCP server providing sandboxed filesystem operations",
+  "main": "index.js",
+  "bin": {
+    "mcp-filesystem": "./index.js"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "start:sandbox": "ALLOWED_PATHS=/tmp node index.js",
+    "test": "echo '{\"jsonrpc\":\"2.0\",\"method\":\"tools/list\",\"params\":{},\"id\":1}' | node index.js"
+  },
+  "keywords": ["mcp", "filesystem", "ai-tools"],
+  "author": "Powernode",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

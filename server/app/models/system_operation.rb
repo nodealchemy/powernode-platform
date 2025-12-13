@@ -9,10 +9,10 @@ class SystemOperation < ApplicationRecord
   validates :status, presence: true, inclusion: { in: %w[pending in_progress completed failed] }
 
   # Scopes
-  scope :completed, -> { where(status: 'completed') }
-  scope :failed, -> { where(status: 'failed') }
-  scope :running, -> { where(status: 'in_progress') }
-  scope :pending, -> { where(status: 'pending') }
+  scope :completed, -> { where(status: "completed") }
+  scope :failed, -> { where(status: "failed") }
+  scope :running, -> { where(status: "in_progress") }
+  scope :pending, -> { where(status: "pending") }
   scope :by_type, ->(type) { where(operation_type: type) }
   scope :recent, -> { order(started_at: :desc) }
   scope :last_24_hours, -> { where(started_at: 24.hours.ago..Time.current) }
@@ -22,19 +22,19 @@ class SystemOperation < ApplicationRecord
   after_update :log_operation_status_change, if: :saved_change_to_status?
 
   def completed?
-    status == 'completed'
+    status == "completed"
   end
 
   def failed?
-    status == 'failed'
+    status == "failed"
   end
 
   def running?
-    status == 'in_progress'
+    status == "in_progress"
   end
 
   def pending?
-    status == 'pending'
+    status == "pending"
   end
 
   def duration
@@ -43,8 +43,8 @@ class SystemOperation < ApplicationRecord
   end
 
   def duration_human
-    return 'N/A' unless duration
-    
+    return "N/A" unless duration
+
     if duration < 60
       "#{duration.to_i}s"
     elsif duration < 3600
@@ -62,18 +62,18 @@ class SystemOperation < ApplicationRecord
 
   def operation_description
     case operation_type
-    when 'restart_service'
+    when "restart_service"
       "Restart #{parameters&.dig('services')&.join(', ') || 'services'}"
-    when 'database_optimize'
-      'Database optimization'
-    when 'database_reindex'
-      'Database reindexing'
-    when 'clear_cache'
-      'Clear application cache'
-    when 'clear_logs'
-      'Clear system logs'
-    when 'reload_configuration'
-      'Reload system configuration'
+    when "database_optimize"
+      "Database optimization"
+    when "database_reindex"
+      "Database reindexing"
+    when "clear_cache"
+      "Clear application cache"
+    when "clear_logs"
+      "Clear system logs"
+    when "reload_configuration"
+      "Reload system configuration"
     else
       operation_type.humanize
     end
@@ -82,7 +82,7 @@ class SystemOperation < ApplicationRecord
   class << self
     def operation_statistics(days = 7)
       operations = where(started_at: days.days.ago..Time.current)
-      
+
       {
         total_operations: operations.count,
         completed: operations.completed.count,
@@ -110,10 +110,10 @@ class SystemOperation < ApplicationRecord
 
     def calculate_success_rate(operations)
       return 0 if operations.empty?
-      
+
       successful = operations.completed.count
       total = operations.count
-      
+
       (successful.to_f / total * 100).round(2)
     end
 
@@ -121,9 +121,9 @@ class SystemOperation < ApplicationRecord
       durations = completed_operations.where.not(completed_at: nil)
                                     .pluck(:started_at, :completed_at)
                                     .map { |start, finish| finish - start }
-      
+
       return 0 if durations.empty?
-      
+
       (durations.sum / durations.count).round(2)
     end
   end
@@ -134,8 +134,8 @@ class SystemOperation < ApplicationRecord
     AuditLog.create!(
       user: user,
       account: user.account,
-      action: 'system_operation_created',
-      resource_type: 'SystemOperation',
+      action: "system_operation_created",
+      resource_type: "SystemOperation",
       resource_id: id,
       details: {
         operation_type: operation_type,
@@ -151,8 +151,8 @@ class SystemOperation < ApplicationRecord
     AuditLog.create!(
       user: user,
       account: user.account,
-      action: 'system_operation_status_changed',
-      resource_type: 'SystemOperation',
+      action: "system_operation_status_changed",
+      resource_type: "SystemOperation",
       resource_id: id,
       details: {
         operation_type: operation_type,
@@ -160,7 +160,7 @@ class SystemOperation < ApplicationRecord
         new_status: status,
         duration_seconds: duration&.to_i,
         error_message: error_message,
-        result_summary: result&.dig('message') || result&.dig('success')
+        result_summary: result&.dig("message") || result&.dig("success")
       }
     )
   rescue => e

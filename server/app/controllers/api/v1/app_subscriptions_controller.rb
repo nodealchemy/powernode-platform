@@ -2,40 +2,39 @@
 
 class Api::V1::AppSubscriptionsController < ApplicationController
   include AuditLogging
-  
-  before_action :set_subscription, only: [:show, :update, :destroy, :pause, :resume, :cancel, :upgrade_plan, :downgrade_plan, :usage, :analytics]
-  before_action :set_app, only: [:create]
-  before_action :authorize_subscription_access, only: [:show, :update, :destroy, :pause, :resume, :cancel, :upgrade_plan, :downgrade_plan, :usage, :analytics]
-  
+
+  before_action :set_subscription, only: [ :show, :update, :destroy, :pause, :resume, :cancel, :upgrade_plan, :downgrade_plan, :usage, :analytics ]
+  before_action :set_app, only: [ :create ]
+  before_action :authorize_subscription_access, only: [ :show, :update, :destroy, :pause, :resume, :cancel, :upgrade_plan, :downgrade_plan, :usage, :analytics ]
+
   def index
     subscriptions = current_account.app_subscriptions.includes(:app, :app_plan)
-    
+
     # Apply status filters
     case params[:status]
-    when 'active'
+    when "active"
       subscriptions = subscriptions.active
-    when 'paused'
+    when "paused"
       subscriptions = subscriptions.paused
-    when 'cancelled'
+    when "cancelled"
       subscriptions = subscriptions.cancelled
-    when 'expired'
+    when "expired"
       subscriptions = subscriptions.expired
     end
-    
+
     # Apply pagination
     pagination = pagination_params
     page = pagination[:page]
     per_page = pagination[:per_page]
-    
+
     # Get total count before applying limit/offset
     total_count = subscriptions.count
     total_pages = (total_count.to_f / per_page).ceil
-    
+
     # Apply pagination
     subscriptions = subscriptions.limit(per_page).offset((page - 1) * per_page)
-    
-    render json: {
-      success: true,
+
+    render_success(
       data: subscriptions.map { |subscription| subscription_data(subscription) },
       pagination: {
         current_page: page,
@@ -43,209 +42,162 @@ class Api::V1::AppSubscriptionsController < ApplicationController
         total_count: total_count,
         per_page: per_page
       }
-    }, status: :ok
+    )
   end
-  
+
   def active
     subscriptions = current_account.app_subscriptions.active.includes(:app, :app_plan)
-    
-    render json: {
-      success: true,
-      data: subscriptions.map { |subscription| subscription_data(subscription) }
-    }, status: :ok
+
+    render_success(subscriptions.map { |subscription| subscription_data(subscription) })
   end
-  
+
   def cancelled
     subscriptions = current_account.app_subscriptions.cancelled.includes(:app, :app_plan)
-    
-    render json: {
-      success: true,
-      data: subscriptions.map { |subscription| subscription_data(subscription) }
-    }, status: :ok
+
+    render_success(subscriptions.map { |subscription| subscription_data(subscription) })
   end
-  
+
   def expired
     subscriptions = current_account.app_subscriptions.expired.includes(:app, :app_plan)
-    
-    render json: {
-      success: true,
-      data: subscriptions.map { |subscription| subscription_data(subscription) }
-    }, status: :ok
+
+    render_success(subscriptions.map { |subscription| subscription_data(subscription) })
   end
-  
+
   def show
-    render json: {
-      success: true,
-      data: subscription_data(@subscription, detailed: true)
-    }, status: :ok
+    render_success(subscription_data(@subscription, detailed: true))
   end
-  
+
   def create
     plan = @app.app_plans.find_by(id: params[:app_plan_id])
-    return render_error('App plan not found', :not_found) unless plan
-    
+    return render_error("App plan not found", status: :not_found) unless plan
+
     # Check if subscription already exists
     existing = current_account.app_subscriptions.find_by(app: @app)
     if existing&.active?
-      return render_error('Already subscribed to this app', :conflict)
+      return render_error("Already subscribed to this app", status: :conflict)
     end
-    
+
     @subscription = current_account.app_subscriptions.build(
       app: @app,
       app_plan: plan,
-      status: 'active',
+      status: "active",
       configuration: subscription_params[:configuration] || {},
       usage_metrics: {}
     )
-    
+
     if @subscription.save
-      # TODO: Add audit logging when available
+      log_resource_created(@subscription,
+                           metadata: { app_name: @app.name, plan_name: plan.name },
+                           severity: "medium")
       Rails.logger.info "App subscription created: Account #{current_account.id} subscribed to #{@app.name}"
-      
-      render json: {
-        success: true,
+
+      render_success(
         data: subscription_data(@subscription, detailed: true),
-        message: 'Successfully subscribed to app'
-      }, status: :created
+        message: "Successfully subscribed to app",
+        status: :created
+      )
     else
-      render json: {
-        success: false,
-        error: 'Failed to create subscription',
-        details: @subscription.errors.full_messages
-      }, status: :unprocessable_content
+      render_validation_error(@subscription)
     end
   end
-  
+
   def update
+    old_attributes = @subscription.attributes.slice("status", "configuration")
+
     if @subscription.update(subscription_update_params)
-      # TODO: Add audit logging when available
+      log_resource_updated(@subscription, old_attributes, severity: "medium")
       Rails.logger.info "App subscription updated: #{@subscription.id}"
-      
-      render json: {
-        success: true,
+
+      render_success(
         data: subscription_data(@subscription, detailed: true),
-        message: 'Subscription updated successfully'
-      }, status: :ok
+        message: "Subscription updated successfully"
+      )
     else
-      render json: {
-        success: false,
-        error: 'Failed to update subscription',
-        details: @subscription.errors.full_messages
-      }, status: :unprocessable_content
+      render_validation_error(@subscription)
     end
   end
-  
+
   def destroy
     subscription_id = @subscription.id
     app_name = @subscription.app.name
-    
+
     if @subscription.destroy
-      # TODO: Add audit logging when available
+      log_resource_deleted(@subscription,
+                           metadata: { app_name: app_name },
+                           severity: "high")
       Rails.logger.info "App subscription deleted: #{subscription_id} for app #{app_name}"
-      
-      render json: {
-        success: true,
-        message: 'Subscription deleted successfully'
-      }, status: :ok
+
+      render_success(message: "Subscription deleted successfully")
     else
-      render json: {
-        success: false,
-        error: 'Failed to delete subscription',
-        details: @subscription.errors.full_messages
-      }, status: :unprocessable_content
+      render_validation_error(@subscription)
     end
   end
-  
+
   def pause
     reason = params[:reason]
-    
+
     if @subscription.pause!(reason)
-      render json: {
-        success: true,
+      render_success(
         data: subscription_data(@subscription, detailed: true),
-        message: 'Subscription paused successfully'
-      }, status: :ok
+        message: "Subscription paused successfully"
+      )
     else
-      render json: {
-        success: false,
-        error: 'Failed to pause subscription',
-        details: @subscription.errors.full_messages
-      }, status: :unprocessable_content
+      render_validation_error(@subscription)
     end
   end
-  
+
   def resume
     if @subscription.resume!
-      render json: {
-        success: true,
+      render_success(
         data: subscription_data(@subscription, detailed: true),
-        message: 'Subscription resumed successfully'
-      }, status: :ok
+        message: "Subscription resumed successfully"
+      )
     else
-      render json: {
-        success: false,
-        error: 'Failed to resume subscription',
-        details: @subscription.errors.full_messages
-      }, status: :unprocessable_content
+      render_validation_error(@subscription)
     end
   end
-  
+
   def cancel
     reason = params[:reason]
-    
+
     if @subscription.cancel!(reason)
-      render json: {
-        success: true,
+      render_success(
         data: subscription_data(@subscription, detailed: true),
-        message: 'Subscription cancelled successfully'
-      }, status: :ok
+        message: "Subscription cancelled successfully"
+      )
     else
-      render json: {
-        success: false,
-        error: 'Failed to cancel subscription',
-        details: @subscription.errors.full_messages
-      }, status: :unprocessable_content
+      render_validation_error(@subscription)
     end
   end
-  
+
   def upgrade_plan
     new_plan = @subscription.app.app_plans.find_by(id: params[:app_plan_id])
-    return render_error('App plan not found', :not_found) unless new_plan
-    
+    return render_error("App plan not found", status: :not_found) unless new_plan
+
     if @subscription.upgrade_to_plan!(new_plan)
-      render json: {
-        success: true,
+      render_success(
         data: subscription_data(@subscription, detailed: true),
-        message: 'Plan upgraded successfully'
-      }, status: :ok
+        message: "Plan upgraded successfully"
+      )
     else
-      render json: {
-        success: false,
-        error: 'Failed to upgrade plan',
-        details: @subscription.errors.full_messages
-      }, status: :unprocessable_content
+      render_validation_error(@subscription)
     end
   end
-  
+
   def downgrade_plan
     new_plan = @subscription.app.app_plans.find_by(id: params[:app_plan_id])
-    return render_error('App plan not found', :not_found) unless new_plan
-    
+    return render_error("App plan not found", status: :not_found) unless new_plan
+
     if @subscription.downgrade_to_plan!(new_plan)
-      render json: {
-        success: true,
+      render_success(
         data: subscription_data(@subscription, detailed: true),
-        message: 'Plan downgraded successfully'
-      }, status: :ok
+        message: "Plan downgraded successfully"
+      )
     else
-      render json: {
-        success: false,
-        error: 'Failed to downgrade plan',
-        details: @subscription.errors.full_messages
-      }, status: :unprocessable_content
+      render_validation_error(@subscription)
     end
   end
-  
+
   def usage
     usage_data = {
       current_period_usage: @subscription.usage_metrics,
@@ -258,19 +210,16 @@ class Api::V1::AppSubscriptionsController < ApplicationController
         days_until_billing: @subscription.days_until_billing
       }
     }
-    
+
     # Calculate quota usage for each limit
     @subscription.app_plan.limits.each_key do |limit_name|
       usage_data[:quota_usage][limit_name] = @subscription.quota_percentage_used(limit_name)
       usage_data[:remaining_quotas][limit_name] = @subscription.remaining_quota(limit_name)
     end
-    
-    render json: {
-      success: true,
-      data: usage_data
-    }, status: :ok
+
+    render_success(usage_data)
   end
-  
+
   def analytics
     analytics_data = {
       subscription_age_days: @subscription.subscription_age_in_days,
@@ -281,57 +230,54 @@ class Api::V1::AppSubscriptionsController < ApplicationController
         {
           slug: feature.slug,
           name: feature.name,
-          usage_count: @subscription.get_usage_metric("#{feature.slug}_usage")&.dig('value') || 0
+          usage_count: @subscription.get_usage_metric("#{feature.slug}_usage")&.dig("value") || 0
         }
       },
       billing_history: extract_billing_history(@subscription),
       status_changes: extract_status_changes(@subscription)
     }
-    
+
     # Calculate average monthly usage for key metrics
     %w[api_requests storage_usage bandwidth_usage].each do |metric|
       analytics_data[:average_monthly_usage][metric] = @subscription.average_monthly_usage(metric)
     end
-    
-    render json: {
-      success: true,
-      data: analytics_data
-    }, status: :ok
+
+    render_success(analytics_data)
   end
-  
+
   private
-  
+
   def set_subscription
     @subscription = current_account.app_subscriptions.find_by(id: params[:id])
-    render_error('Subscription not found', :not_found) unless @subscription
+    render_error("Subscription not found", status: :not_found) unless @subscription
   end
-  
+
   def set_app
     @app = App.find_by(id: params[:app_id])
-    render_error('App not found', :not_found) unless @app
+    render_error("App not found", status: :not_found) unless @app
   end
-  
+
   def authorize_subscription_access
     return true if @subscription.account == current_account
-    return true if current_user.has_permission?('subscriptions.manage')
-    
-    render_error('Unauthorized to access this subscription', :forbidden)
+    return true if current_user.has_permission?("subscriptions.manage")
+
+    render_error("Unauthorized to access this subscription", status: :forbidden)
     false
   end
-  
+
   def subscription_params
     params.require(:app_subscription).permit(
       :app_plan_id,
       configuration: {}
     )
   end
-  
+
   def subscription_update_params
     params.require(:app_subscription).permit(
       configuration: {}
     )
   end
-  
+
   def subscription_data(subscription, detailed: false)
     data = {
       id: subscription.id,
@@ -357,7 +303,7 @@ class Api::V1::AppSubscriptionsController < ApplicationController
         formatted_price: subscription.app_plan.formatted_price
       }
     }
-    
+
     if detailed
       data.merge!(
         configuration: subscription.configuration,
@@ -378,38 +324,31 @@ class Api::V1::AppSubscriptionsController < ApplicationController
         total_amount_paid: subscription.total_amount_paid
       )
     end
-    
+
     data
   end
-  
+
   def extract_billing_history(subscription)
-    billing_metrics = subscription.usage_metrics.select { |k, v| k.include?('billing_processed') }
+    billing_metrics = subscription.usage_metrics.select { |k, v| k.include?("billing_processed") }
     billing_metrics.map do |key, data|
       {
-        date: data['recorded_at'],
-        amount: data['value'],
+        date: data["recorded_at"],
+        amount: data["value"],
         formatted_amount: "$#{data['value'] / 100.0}"
       }
     end.sort_by { |item| item[:date] }.reverse
   end
-  
+
   def extract_status_changes(subscription)
-    status_metrics = subscription.usage_metrics.select { |k, v| 
+    status_metrics = subscription.usage_metrics.select { |k, v|
       %w[paused resumed cancelled expired].any? { |status| k.include?(status) }
     }
     status_metrics.map do |key, data|
       {
-        status: key.split('_').first,
-        date: data['recorded_at'],
-        reason: data.dig('metadata', 'reason')
+        status: key.split("_").first,
+        date: data["recorded_at"],
+        reason: data.dig("metadata", "reason")
       }
     end.sort_by { |item| item[:date] }.reverse
-  end
-  
-  def render_error(message, status)
-    render json: {
-      success: false,
-      error: message
-    }, status: status
   end
 end

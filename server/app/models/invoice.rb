@@ -1,9 +1,11 @@
+# frozen_string_literal: true
+
 class Invoice < ApplicationRecord
   include AASM
 
   # Associations
+  belongs_to :account
   belongs_to :subscription
-  has_one :account, through: :subscription
   has_many :invoice_line_items, dependent: :destroy
   has_many :payments, dependent: :destroy
 
@@ -20,11 +22,12 @@ class Invoice < ApplicationRecord
   scope :draft, -> { where(status: "draft") }
   scope :open, -> { where(status: "open") }
   scope :paid, -> { where(status: "paid") }
-  scope :overdue, -> { where(status: "open").where("due_date < ?", Time.current) }
-  scope :due_soon, -> { where(status: "open").where(due_date: Time.current..7.days.from_now) }
+  scope :overdue, -> { where(status: "open").where("due_at < ?", Time.current) }
+  scope :due_soon, -> { where(status: "open").where(due_at: Time.current..7.days.from_now) }
 
   # Callbacks
   before_validation :generate_invoice_number, on: :create
+  before_validation :normalize_currency
   before_save :calculate_totals
   after_initialize :set_defaults
 
@@ -42,7 +45,7 @@ class Invoice < ApplicationRecord
     event :finalize do
       transitions from: :draft, to: :open
       after do
-        self.due_date ||= 30.days.from_now
+        self.due_at ||= 30.days.from_now
       end
     end
 
@@ -68,17 +71,17 @@ class Invoice < ApplicationRecord
   end
 
   def overdue?
-    status == "open" && due_date.present? && due_date < Time.current
+    status == "open" && due_at.present? && due_at < Time.current
   end
 
   def days_overdue
     return 0 unless overdue?
-    (Time.current.to_date - due_date.to_date).to_i
+    (Time.current.to_date - due_at.to_date).to_i
   end
 
   def days_until_due
-    return 0 unless due_date && status == "open"
-    (due_date.to_date - Time.current.to_date).to_i
+    return 0 unless due_at && status == "open"
+    (due_at.to_date - Time.current.to_date).to_i
   end
 
   def subtotal
@@ -99,12 +102,12 @@ class Invoice < ApplicationRecord
     "none"
   end
 
-  def add_line_item(description:, quantity: 1, unit_price_cents: 0, **options)
+  def add_line_item(description:, quantity: 1, unit_amount_cents: 0, **options)
     invoice_line_items.build(
       description: description,
       quantity: quantity,
-      unit_price_cents: unit_price_cents,
-      total_cents: quantity * unit_price_cents,
+      unit_amount_cents: unit_amount_cents,
+      total_amount_cents: quantity * unit_amount_cents,
       **options
     )
   end
@@ -113,7 +116,7 @@ class Invoice < ApplicationRecord
     add_line_item(
       description: "#{plan.name} (#{plan.billing_cycle})",
       quantity: quantity,
-      unit_price_cents: plan.price_cents,
+      unit_amount_cents: plan.price_cents,
       line_type: "subscription",
       period_start: period_start || subscription.current_period_start,
       period_end: period_end || subscription.current_period_end
@@ -148,5 +151,11 @@ class Invoice < ApplicationRecord
   def set_defaults
     self.metadata ||= {}
     self.currency ||= subscription&.plan&.currency || "USD"
+    # Always normalize currency to uppercase
+    self.currency = currency&.upcase if currency.present?
+  end
+
+  def normalize_currency
+    self.currency = currency&.upcase if currency.present?
   end
 end

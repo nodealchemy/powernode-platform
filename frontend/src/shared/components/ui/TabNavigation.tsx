@@ -12,11 +12,10 @@ interface Tab {
 
 interface TabNavigationProps {
   tabs: readonly Tab[];
-  basePath: string;
   className?: string;
 }
 
-export const TabNavigation: React.FC<TabNavigationProps> = ({ tabs, basePath, className = '' }) => {
+export const TabNavigation: React.FC<TabNavigationProps> = ({ tabs, className = '' }) => {
   const location = useLocation();
   const currentPath = location.pathname;
 
@@ -83,16 +82,12 @@ export const TabNavigation: React.FC<TabNavigationProps> = ({ tabs, basePath, cl
 
 interface MobileTabNavigationProps {
   tabs: readonly Tab[];
-  basePath: string;
   className?: string;
-  currentTabLabel?: string;
 }
 
-export const MobileTabNavigation: React.FC<MobileTabNavigationProps> = ({ 
-  tabs, 
-  basePath, 
-  currentTabLabel,
-  className = '' 
+export const MobileTabNavigation: React.FC<MobileTabNavigationProps> = ({
+  tabs,
+  className = ''
 }) => {
   const location = useLocation();
   const currentPath = location.pathname;

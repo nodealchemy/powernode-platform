@@ -73,6 +73,7 @@ export const EndpointFormModal: React.FC<EndpointFormModalProps> = ({
     }
   }, [endpoint, isOpen]);
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleChange = (field: keyof AppEndpointFormData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
@@ -85,7 +86,6 @@ export const EndpointFormModal: React.FC<EndpointFormModalProps> = ({
       await onSubmit(formData);
       onClose();
     } catch (error) {
-      console.error('Error submitting form:', error);
     } finally {
       setSubmitting(false);
     }
@@ -357,7 +357,7 @@ export const EndpointFormModal: React.FC<EndpointFormModalProps> = ({
                   />
                   <input
                     type="text"
-                    value={typeof param === 'object' ? param.default || '' : String(param)}
+                    value={typeof param === 'object' && param !== null ? (param as { default?: string }).default || '' : String(param)}
                     readOnly
                     className="flex-1 px-3 py-2 border border-theme rounded-lg bg-theme-surface text-theme-primary"
                   />
@@ -412,7 +412,7 @@ export const EndpointFormModal: React.FC<EndpointFormModalProps> = ({
                   </label>
                   <input
                     type="number"
-                    value={formData.rate_limits?.requests_per_minute || 100}
+                    value={(formData.rate_limits as { requests_per_minute?: number })?.requests_per_minute || 100}
                     onChange={(e) => handleChange('rate_limits', {
                       ...formData.rate_limits,
                       requests_per_minute: parseInt(e.target.value)
@@ -426,7 +426,7 @@ export const EndpointFormModal: React.FC<EndpointFormModalProps> = ({
                   </label>
                   <input
                     type="number"
-                    value={formData.rate_limits?.requests_per_hour || 1000}
+                    value={(formData.rate_limits as { requests_per_hour?: number })?.requests_per_hour || 1000}
                     onChange={(e) => handleChange('rate_limits', {
                       ...formData.rate_limits,
                       requests_per_hour: parseInt(e.target.value)

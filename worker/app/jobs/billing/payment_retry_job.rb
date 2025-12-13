@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require_relative '../base_job'
 
 # Job for retrying failed payments
@@ -10,21 +12,29 @@ class Billing::PaymentRetryJob < BaseJob
   RETRY_INTERVALS = [1.day, 3.days, 7.days, 14.days, 30.days].freeze
 
   def execute(subscription_id, failure_type = 'payment_failure', attempt_number = 1)
-    logger.info "Payment retry attempt #{attempt_number}/#{MAX_RETRY_ATTEMPTS} for subscription #{subscription_id}"
+    log_info("Payment retry attempt #{attempt_number}/#{MAX_RETRY_ATTEMPTS} for subscription #{subscription_id}")
     
     if attempt_number > MAX_RETRY_ATTEMPTS
-      logger.error "Maximum retry attempts reached for subscription #{subscription_id}"
+      log_error("Maximum retry attempts reached for subscription #{subscription_id}")
       handle_final_failure(subscription_id, failure_type)
       return
     end
     
     # Get subscription and account details
-    subscription_data = with_api_retry do
-      api_client.get("/api/v1/subscriptions/#{subscription_id}")
+    subscription_data = begin
+      with_api_retry do
+        api_client.get("/api/v1/subscriptions/#{subscription_id}")
+      end
+    rescue BackendApiClient::ApiError => e
+      if e.status == 404
+        log_error("Subscription #{subscription_id} not found during retry")
+        return
+      end
+      raise
     end
-    
+
     unless subscription_data
-      logger.error "Subscription #{subscription_id} not found during retry"
+      log_error("Subscription #{subscription_id} not found during retry")
       return
     end
     
@@ -32,16 +42,16 @@ class Billing::PaymentRetryJob < BaseJob
       api_client.get_account(subscription_data['account_id'])
     end
     
-    logger.info "Retrying payment for account '#{account_data['name']}' (attempt #{attempt_number})"
+    log_info("Retrying payment for account '#{account_data['name']}' (attempt #{attempt_number})")
     
     # Attempt payment retry
     retry_result = attempt_payment_retry(subscription_data, attempt_number)
     
     if retry_result['success']
-      logger.info "Payment retry successful for subscription #{subscription_id}"
+      log_info("Payment retry successful for subscription #{subscription_id}")
       handle_retry_success(subscription_data, retry_result, attempt_number)
     else
-      logger.warn "Payment retry failed for subscription #{subscription_id}: #{retry_result['error']}"
+      log_warn("Payment retry failed for subscription #{subscription_id}: #{retry_result['error']}")
       handle_retry_failure(subscription_id, failure_type, attempt_number, retry_result)
     end
     
@@ -69,7 +79,7 @@ class Billing::PaymentRetryJob < BaseJob
       api_client.post('/api/v1/billing/retry_payment', retry_params)
     end
   rescue BackendApiClient::ApiError => e
-    logger.error "Payment retry API call failed: #{e.message}"
+    log_error("Payment retry API call failed: #{e.message}")
     {
       'success' => false,
       'error' => e.message,
@@ -80,7 +90,7 @@ class Billing::PaymentRetryJob < BaseJob
   
   def handle_retry_success(subscription_data, retry_result, attempt_number)
     # Log successful recovery
-    logger.info "Subscription #{subscription_data['id']} recovered after #{attempt_number} attempts"
+    log_info("Subscription #{subscription_data['id']} recovered after #{attempt_number} attempts")
     
     # Send recovery notification
     send_recovery_notification(subscription_data, attempt_number)
@@ -92,9 +102,9 @@ class Billing::PaymentRetryJob < BaseJob
   end
   
   def handle_retry_failure(subscription_id, failure_type, attempt_number, retry_result)
-    # Check if error is retryable
-    unless retry_result['retryable'] != false
-      logger.info "Non-retryable error for subscription #{subscription_id}, stopping retries"
+    # Check if error is retryable (explicit false check - nil/missing means retryable)
+    if retry_result['retryable'] == false
+      log_info("Non-retryable error for subscription #{subscription_id}, stopping retries")
       handle_final_failure(subscription_id, failure_type)
       return
     end
@@ -113,7 +123,7 @@ class Billing::PaymentRetryJob < BaseJob
         next_attempt
       )
       
-      logger.info "Scheduled retry #{next_attempt} for subscription #{subscription_id} at #{next_retry_time}"
+      log_info("Scheduled retry #{next_attempt} for subscription #{subscription_id} at #{next_retry_time}")
       
       # Send dunning email for this attempt
       send_dunning_notification(subscription_id, next_attempt)
@@ -123,7 +133,7 @@ class Billing::PaymentRetryJob < BaseJob
   end
   
   def handle_final_failure(subscription_id, failure_type)
-    logger.error "Payment retry exhausted for subscription #{subscription_id}, suspending account"
+    log_error("Payment retry exhausted for subscription #{subscription_id}, suspending account")
     
     # Suspend the subscription
     suspension_params = {
@@ -142,13 +152,13 @@ class Billing::PaymentRetryJob < BaseJob
         api_client.post('/api/v1/billing/suspend_subscription', suspension_params)
       end
       
-      logger.info "Successfully suspended subscription #{subscription_id}"
+      log_info("Successfully suspended subscription #{subscription_id}")
       
       # Send final notice notification
       send_final_notice_notification(subscription_id)
       
     rescue StandardError => e
-      logger.error "Failed to suspend subscription #{subscription_id}: #{e.message}"
+      log_error("Failed to suspend subscription #{subscription_id}: #{e.message}")
       raise # Re-raise to trigger job retry
     end
   end
@@ -170,9 +180,9 @@ class Billing::PaymentRetryJob < BaseJob
       api_client.post('/api/v1/notifications', notification_params)
     end
     
-    logger.info "Sent payment recovery notification for subscription #{subscription_data['id']}"
+    log_info("Sent payment recovery notification for subscription #{subscription_data['id']}")
   rescue StandardError => e
-    logger.error "Failed to send recovery notification: #{e.message}"
+    log_error("Failed to send recovery notification: #{e.message}")
   end
   
   def send_dunning_notification(subscription_id, attempt_number)
@@ -192,9 +202,9 @@ class Billing::PaymentRetryJob < BaseJob
       api_client.post('/api/v1/notifications', notification_params)
     end
     
-    logger.info "Sent dunning notification #{attempt_number} for subscription #{subscription_id}"
+    log_info("Sent dunning notification #{attempt_number} for subscription #{subscription_id}")
   rescue StandardError => e
-    logger.error "Failed to send dunning notification: #{e.message}"
+    log_error("Failed to send dunning notification: #{e.message}")
   end
   
   def send_final_notice_notification(subscription_id)
@@ -213,9 +223,9 @@ class Billing::PaymentRetryJob < BaseJob
       api_client.post('/api/v1/notifications', notification_params)
     end
     
-    logger.info "Sent final suspension notice for subscription #{subscription_id}"
+    log_info("Sent final suspension notice for subscription #{subscription_id}")
   rescue StandardError => e
-    logger.error "Failed to send final notice: #{e.message}"
+    log_error("Failed to send final notice: #{e.message}")
   end
   
   def schedule_next_renewal(subscription_id, next_billing_date)
@@ -224,9 +234,9 @@ class Billing::PaymentRetryJob < BaseJob
     
     Billing::SubscriptionRenewalJob.perform_at(renewal_time, subscription_id)
     
-    logger.info "Scheduled next renewal for subscription #{subscription_id} at #{renewal_time}"
+    log_info("Scheduled next renewal for subscription #{subscription_id} at #{renewal_time}")
   rescue StandardError => e
-    logger.error "Failed to schedule next renewal: #{e.message}"
+    log_error("Failed to schedule next renewal: #{e.message}")
   end
   
   def retryable_payment_error?(api_error)

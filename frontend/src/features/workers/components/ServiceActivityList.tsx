@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Service, ServiceActivity, serviceAPI } from '@/shared/services/serviceApi';
+import { Service, ServiceActivity, service_api } from '@/shared/services/serviceApi';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 
 interface ServiceActivityListProps {
@@ -29,7 +29,14 @@ export const ServiceActivityList: React.FC<ServiceActivityListProps> = ({ servic
       setLoading(true);
       setError(null);
       
-      const params: any = {
+      const params: {
+        page: number;
+        per_page: number;
+        action?: string;
+        status?: 'success' | 'failed';
+        from?: string;
+        to?: string;
+      } = {
         page: pagination.page,
         per_page: pagination.per_page
       };
@@ -39,13 +46,14 @@ export const ServiceActivityList: React.FC<ServiceActivityListProps> = ({ servic
       if (filters.from) params.from = filters.from;
       if (filters.to) params.to = filters.to;
       
-      const response = await serviceAPI.getServiceActivities(service.id, params);
+      const response = await service_api.getServiceActivities(service.id, params);
       
       setActivities(response.activities);
       setPagination(response.pagination);
       setSummary(response.summary);
-    } catch (error: any) {
-      setError(error.response?.data?.error || 'Failed to load activities');
+    } catch (error: unknown) {
+      const apiError = error as { response?: { data?: { error?: string } } };
+      setError(apiError.response?.data?.error || 'Failed to load activities');
     } finally {
       setLoading(false);
     }
@@ -305,4 +313,3 @@ export const ServiceActivityList: React.FC<ServiceActivityListProps> = ({ servic
   );
 };
 
-export default ServiceActivityList;

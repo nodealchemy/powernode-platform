@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { TrendingUp, TrendingDown } from 'lucide-react';
 
 interface PerformanceMetricsCardProps {
@@ -83,4 +83,3 @@ export const PerformanceMetricsCard: React.FC<PerformanceMetricsCardProps> = ({
   );
 };
 
-export default PerformanceMetricsCard;

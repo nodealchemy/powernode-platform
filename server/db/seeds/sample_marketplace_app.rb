@@ -20,7 +20,7 @@ app = App.find_or_initialize_by(slug: "weather-insights-api") do |a|
   a.long_description = <<~DESC
     # Weather Insights API
 
-    Get access to comprehensive weather data for your applications with our professional Weather Insights API. 
+    Get access to comprehensive weather data for your applications with our professional Weather Insights API.#{' '}
     Perfect for businesses, developers, and researchers who need reliable weather information.
 
     ## Key Features
@@ -40,7 +40,7 @@ app = App.find_or_initialize_by(slug: "weather-insights-api") do |a|
     - **Construction**: Project scheduling and safety planning
 
     ## Data Quality
-    Our weather data is sourced from over 40,000 weather stations, satellites, and weather models worldwide. 
+    Our weather data is sourced from over 40,000 weather stations, satellites, and weather models worldwide.#{' '}
     We provide enterprise-grade reliability with 99.9% uptime SLA and data accuracy guarantees.
 
     ## Getting Started
@@ -63,7 +63,7 @@ app = App.find_or_initialize_by(slug: "weather-insights-api") do |a|
     "author" => "WeatherTech Solutions",
     "website" => "https://weathertech.example.com",
     "license" => "Commercial",
-    "supported_regions" => ["global"],
+    "supported_regions" => [ "global" ],
     "data_retention" => "5 years",
     "update_frequency" => "Every 15 minutes",
     "accuracy_sla" => "98.5%",
@@ -76,7 +76,7 @@ app = App.find_or_initialize_by(slug: "weather-insights-api") do |a|
       "default" => "1000 requests/hour",
       "burst" => "100 requests/minute"
     },
-    "supported_formats" => ["json", "xml", "csv"],
+    "supported_formats" => [ "json", "xml", "csv" ],
     "authentication" => {
       "type" => "api_key",
       "header" => "X-API-Key"
@@ -102,7 +102,7 @@ listing = MarketplaceListing.find_or_initialize_by(app_id: app.id) do |l|
   l.long_description = app.long_description
   l.category = "data-apis"
   l.tags = [
-    "weather", "forecast", "api", "data", "analytics", "alerts", "climate", 
+    "weather", "forecast", "api", "data", "analytics", "alerts", "climate",
     "meteorology", "real-time", "historical", "global", "professional"
   ]
   l.screenshots = [
@@ -137,10 +137,10 @@ endpoints_data = [
       type: "object",
       properties: {
         location: { type: "string", description: "City name, coordinates, or location ID" },
-        units: { type: "string", enum: ["metric", "imperial", "kelvin"], default: "metric" },
+        units: { type: "string", enum: [ "metric", "imperial", "kelvin" ], default: "metric" },
         lang: { type: "string", description: "Language for weather descriptions", default: "en" }
       },
-      required: ["location"]
+      required: [ "location" ]
     }.to_json,
     response_schema: {
       type: "object",
@@ -211,9 +211,9 @@ endpoints_data = [
         location: { type: "string", description: "Location identifier" },
         days: { type: "integer", minimum: 1, maximum: 7, default: 7 },
         hourly: { type: "boolean", default: false },
-        units: { type: "string", enum: ["metric", "imperial"], default: "metric" }
+        units: { type: "string", enum: [ "metric", "imperial" ], default: "metric" }
       },
-      required: ["location"]
+      required: [ "location" ]
     }.to_json,
     response_schema: {
       type: "object",
@@ -253,10 +253,10 @@ endpoints_data = [
       type: "object",
       properties: {
         location: { type: "string" },
-        severity: { type: "string", enum: ["minor", "moderate", "severe", "extreme"] },
+        severity: { type: "string", enum: [ "minor", "moderate", "severe", "extreme" ] },
         active_only: { type: "boolean", default: true }
       },
-      required: ["location"]
+      required: [ "location" ]
     }.to_json,
     response_schema: {
       type: "object",
@@ -293,9 +293,9 @@ endpoints_data = [
         location: { type: "string" },
         start_date: { type: "string", format: "date" },
         end_date: { type: "string", format: "date" },
-        aggregation: { type: "string", enum: ["daily", "monthly", "yearly"], default: "daily" }
+        aggregation: { type: "string", enum: [ "daily", "monthly", "yearly" ], default: "daily" }
       },
-      required: ["location", "start_date", "end_date"]
+      required: [ "location", "start_date", "end_date" ]
     }.to_json,
     response_schema: {
       type: "object",
@@ -339,7 +339,7 @@ endpoints_data.each do |endpoint_data|
     e.is_active = endpoint_data.fetch(:is_active, true)
     e.version = "v2"
   end
-  
+
   if endpoint.persisted?
     puts "🔌 Found existing endpoint: #{endpoint.name}"
   else
@@ -431,7 +431,7 @@ webhooks_data.each do |webhook_data|
       "timeout_seconds" => 30
     }
   end
-  
+
   if webhook.persisted?
     puts "📡 Found existing webhook: #{webhook.name}"
   else
@@ -451,7 +451,7 @@ plans_data = [
     is_active: true,
     features: [
       "current_weather",
-      "basic_forecasts", 
+      "basic_forecasts",
       "community_support"
     ],
     permissions: [
@@ -467,7 +467,7 @@ plans_data = [
     },
     metadata: {
       "popular" => false,
-      "recommended_for" => ["hobbyists", "students", "small projects"],
+      "recommended_for" => [ "hobbyists", "students", "small projects" ],
       "setup_time" => "5 minutes",
       "support_channel" => "community"
     }
@@ -504,7 +504,7 @@ plans_data = [
     },
     metadata: {
       "popular" => true,
-      "recommended_for" => ["small businesses", "developers", "SaaS applications"],
+      "recommended_for" => [ "small businesses", "developers", "SaaS applications" ],
       "setup_time" => "10 minutes",
       "support_channel" => "email"
     }
@@ -518,7 +518,7 @@ plans_data = [
     is_active: true,
     features: [
       "current_weather",
-      "extended_forecasts", 
+      "extended_forecasts",
       "advanced_forecasts",
       "historical_data",
       "weather_alerts",
@@ -551,7 +551,7 @@ plans_data = [
     },
     metadata: {
       "popular" => false,
-      "recommended_for" => ["enterprises", "high-traffic applications", "mission-critical systems"],
+      "recommended_for" => [ "enterprises", "high-traffic applications", "mission-critical systems" ],
       "setup_time" => "24 hours",
       "custom_onboarding" => true,
       "support_channel" => "priority"
@@ -574,7 +574,7 @@ plans_data.each do |plan_data|
     p.limits = plan_data[:limits]
     p.metadata = plan_data[:metadata]
   end
-  
+
   if plan.persisted?
     puts "💳 Found existing plan: #{plan.name}"
   else
@@ -593,22 +593,22 @@ features_data = [
     default_enabled: true,
     configuration: {
       "update_interval" => "15 minutes",
-      "data_sources" => ["weather_stations", "satellites"],
+      "data_sources" => [ "weather_stations", "satellites" ],
       "accuracy" => "high"
     }
   },
   {
     name: "Historical Analytics",
-    slug: "historical-analytics", 
+    slug: "historical-analytics",
     description: "Access to historical weather data and trend analysis",
     feature_type: "analytics",
     default_enabled: false,
     configuration: {
       "data_range" => "5 years",
-      "aggregation_levels" => ["daily", "monthly", "yearly"],
-      "analysis_types" => ["trends", "anomalies", "comparisons"]
+      "aggregation_levels" => [ "daily", "monthly", "yearly" ],
+      "analysis_types" => [ "trends", "anomalies", "comparisons" ]
     },
-    dependencies: ["historical_data_access"]
+    dependencies: [ "historical_data_access" ]
   },
   {
     name: "Alert System",
@@ -617,9 +617,9 @@ features_data = [
     feature_type: "notifications",
     default_enabled: false,
     configuration: {
-      "alert_types" => ["severe_weather", "temperature_threshold", "precipitation_threshold"],
-      "delivery_methods" => ["webhook", "email"],
-      "priority_levels" => ["low", "medium", "high", "critical"]
+      "alert_types" => [ "severe_weather", "temperature_threshold", "precipitation_threshold" ],
+      "delivery_methods" => [ "webhook", "email" ],
+      "priority_levels" => [ "low", "medium", "high", "critical" ]
     }
   },
   {
@@ -632,7 +632,7 @@ features_data = [
       "forecast_range" => "14 days",
       "hourly_detail" => true,
       "confidence_intervals" => true,
-      "model_ensemble" => ["gfs", "ecmwf", "nam"]
+      "model_ensemble" => [ "gfs", "ecmwf", "nam" ]
     }
   }
 ]
@@ -649,7 +649,7 @@ features_data.each do |feature_data|
     f.configuration = feature_data[:configuration]
     f.dependencies = feature_data[:dependencies] || []
   end
-  
+
   if feature.persisted?
     puts "⚡ Found existing feature: #{feature.name}"
   else

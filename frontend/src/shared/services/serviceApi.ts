@@ -190,5 +190,5 @@ class ServiceAPI {
   }
 }
 
-export const serviceAPI = new ServiceAPI();
-export default serviceAPI;
+export const service_api = new ServiceAPI();
+export default service_api;

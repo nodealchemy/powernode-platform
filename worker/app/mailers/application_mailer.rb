@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require_relative '../services/email_configuration_service'
 
 class ApplicationMailer < ActionMailer::Base

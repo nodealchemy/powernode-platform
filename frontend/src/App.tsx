@@ -1,15 +1,15 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { Provider } from 'react-redux';
+import { Provider, useDispatch, useSelector } from 'react-redux';
+import type { RootState, AppDispatch } from '@/shared/services';
 import { store } from '@/shared/services';
-import { useDispatch, useSelector } from 'react-redux';
-import { RootState, AppDispatch } from '@/shared/services';
 import { getCurrentUser, refreshAccessToken, clearAuth, forceTokenClear, checkImpersonationStatus } from '@/shared/services/slices/authSlice';
-import { isTokenInvalidError, isValidJWTFormat } from '@/shared/utils/tokenUtils';
+import { isTokenInvalidError, isValidTokenFormat } from '@/shared/utils/tokenUtils';
 
 // Theme Provider
 import { ThemeProvider } from '@/shared/hooks/ThemeContext';
 import { BreadcrumbProvider } from '@/shared/hooks/BreadcrumbContext';
+import { FooterProvider } from '@/shared/contexts/FooterContext';
 
 // Components
 import { ProtectedRoute } from '@/shared/components/ui/ProtectedRoute';
@@ -28,43 +28,64 @@ import { VerifyEmailPage } from '@/pages/public/VerifyEmailPage';
 import { UnauthorizedPage } from '@/pages/public/UnauthorizedPage';
 import { WelcomePage } from '@/pages/public/WelcomePage';
 import { AcceptInvitationPage } from '@/pages/public/AcceptInvitationPage';
+import { PageViewPage } from '@/pages/public/PageViewPage';
+import { McpOAuthCallbackPage } from '@/pages/public/oauth/McpOAuthCallbackPage';
+import { StatusPage } from '@/pages/public/StatusPage';
 
 import './App.css';
 import '@/assets/styles/themes.css';
+import '@/assets/styles/public-theme.css';
+import '@/assets/styles/deprecated-css-override.css';
 
 const AppContent: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
-  const { isAuthenticated, accessToken, refreshToken, user } = useSelector((state: RootState) => state.auth);
+  const { isAuthenticated, access_token, refresh_token, user } = useSelector((state: RootState) => state.auth);
   const [initializing, setInitializing] = React.useState(true);
   const [showAuthFallback, setShowAuthFallback] = React.useState(false);
+  const initializingRef = React.useRef(false); // Prevent double initialization
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // Auth initialization with proper dependencies to prevent double execution
   useEffect(() => {
+    // Prevent double initialization
+    if (initializingRef.current) {
+      return;
+    }
+
+    initializingRef.current = true;
+
     // Try to restore user session if we have a token
     const initializeAuth = async () => {
+      // CRITICAL: If user is already loaded (e.g., from login), skip initialization
+      if (user && access_token) {
+        // User already authenticated and loaded, complete initialization immediately
+        setInitializing(false);
+        initializingRef.current = false;
+        return;
+      }
+
+      // Starting auth initialization
       // Set a timeout to prevent infinite loading
       const timeoutId = setTimeout(() => {
         setShowAuthFallback(true);
       }, 5000); // 5 second timeout, then show fallback
 
       try {
+
         // First, validate token format before attempting API calls
-        if (accessToken && !isValidJWTFormat(accessToken)) {
+        if (access_token && !isValidTokenFormat(access_token)) {
           dispatch(forceTokenClear());
           // Continue to check impersonation token instead of returning early
         }
-        
-        if (refreshToken && !isValidJWTFormat(refreshToken)) {
+
+        if (refresh_token && !isValidTokenFormat(refresh_token)) {
           dispatch(forceTokenClear());
           // Continue to check impersonation token instead of returning early
         }
-        
+
         // Check for impersonation first, even if regular tokens are invalid
         const impersonationToken = localStorage.getItem('impersonationToken');
-        
-        if (impersonationToken || (accessToken && !user)) {
-          // Check if there's an active impersonation session first
-          
+
+        if (impersonationToken || (access_token && !user)) {
           
           // PRIORITY: If we have an impersonation token, validate it first
           if (impersonationToken) {
@@ -83,7 +104,7 @@ const AppContent: React.FC = () => {
           
           // If no valid impersonation session, proceed with regular authentication
           try {
-            await dispatch(getCurrentUser()).unwrap();
+            await dispatch(getCurrentUser(true)).unwrap(); // silentAuth = true during initialization
           } catch (error) {
             
             // Check if this error indicates invalid tokens that should be cleared immediately
@@ -93,7 +114,7 @@ const AppContent: React.FC = () => {
             }
             
             // If that fails, try to refresh the access token
-            if (refreshToken) {
+            if (refresh_token) {
               try {
                 await dispatch(refreshAccessToken()).unwrap();
                 
@@ -113,9 +134,8 @@ const AppContent: React.FC = () => {
                 }
                 
                 // If no valid impersonation, get regular user
-                await dispatch(getCurrentUser()).unwrap();
-              } catch (refreshError: any) {
-                
+                await dispatch(getCurrentUser(true)).unwrap(); // silentAuth = true during initialization
+              } catch (refreshError) {
                 // Check if this is a token invalidity error
                 if (isTokenInvalidError(refreshError)) {
                   dispatch(forceTokenClear());
@@ -135,16 +155,18 @@ const AppContent: React.FC = () => {
       } finally {
         clearTimeout(timeoutId);
         setInitializing(false);
+        initializingRef.current = false; // Reset initialization flag
       }
     };
 
-    initializeAuth();
+    void initializeAuth();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dispatch]); // Remove accessToken, refreshToken, user to prevent infinite loop
+  }, [dispatch]); // Remove access_token, refresh_token, user to prevent infinite loop
 
   const handleAuthFallback = () => {
     dispatch(clearAuth());
     setInitializing(false);
+    initializingRef.current = false; // Reset initialization flag
   };
 
   if (initializing) {
@@ -257,6 +279,24 @@ const AppContent: React.FC = () => {
             }
           />
 
+          {/* Public page viewing route */}
+          <Route
+            path="/pages/:slug"
+            element={<PageViewPage />}
+          />
+
+          {/* Public Status Page */}
+          <Route
+            path="/status"
+            element={<StatusPage />}
+          />
+
+          {/* OAuth callback routes */}
+          <Route
+            path="/oauth/mcp/callback"
+            element={<McpOAuthCallbackPage />}
+          />
+
           {/* Default redirects */}
           <Route
             path="/"
@@ -284,16 +324,18 @@ const AppContent: React.FC = () => {
   );
 };
 
-function App() {
+const App: React.FC = () => {
   return (
     <Provider store={store}>
       <ThemeProvider>
         <BreadcrumbProvider>
-          <AppContent />
+          <FooterProvider>
+            <AppContent />
+          </FooterProvider>
         </BreadcrumbProvider>
       </ThemeProvider>
     </Provider>
   );
-}
+};
 
 export default App;

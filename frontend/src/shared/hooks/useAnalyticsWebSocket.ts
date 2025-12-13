@@ -2,7 +2,7 @@ import { useCallback, useRef, useEffect } from 'react';
 import { useWebSocket } from './useWebSocket';
 
 interface AnalyticsWebSocketOptions {
-  onAnalyticsUpdate?: (data: any) => void;
+  onAnalyticsUpdate?: (data: unknown) => void;
   onError?: (error: string) => void;
   accountId?: string;
 }
@@ -22,8 +22,16 @@ export const useAnalyticsWebSocket = ({
   onAnalyticsUpdateRef.current = onAnalyticsUpdate;
   onErrorRef.current = onError;
 
+  // Type guard for WebSocket message data
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const isWebSocketMessage = (data: unknown): data is { type: string; data?: any; message?: string } => {
+    return typeof data === 'object' && data !== null && 'type' in data;
+  };
+
   // Handle incoming messages
-  const handleMessage = useCallback((data: any) => {
+  const handleMessage = useCallback((data: unknown) => {
+    if (!isWebSocketMessage(data)) return;
+    
     if (data.type === 'analytics_update' && data.data) {
       onAnalyticsUpdateRef.current?.(data.data);
     } else if (data.type === 'error') {
@@ -33,28 +41,35 @@ export const useAnalyticsWebSocket = ({
 
   // Handle channel errors
   const handleError = useCallback((errorMessage: string) => {
-    console.error('❌ Analytics channel error:', errorMessage);
     onErrorRef.current?.(errorMessage);
   }, []);
 
-  // Subscribe to analytics channel
+  // Subscribe to analytics channel - memoize to prevent recreations
   const subscribeToAnalytics = useCallback(() => {
     if (unsubscribeRef.current) {
       unsubscribeRef.current();
     }
-    
+
+    // Only subscribe if account_id is provided
+    if (!accountId) {
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('[AnalyticsWebSocket] Cannot subscribe: account_id not provided');
+      }
+      return;
+    }
+
     unsubscribeRef.current = subscribe({
       channel: 'AnalyticsChannel',
+      params: { account_id: accountId },
       onMessage: handleMessage,
       onError: handleError
     });
-    
-  }, [subscribe, handleMessage, handleError]);
+
+  }, [subscribe, accountId, handleMessage, handleError]);
 
   // Request analytics update
   const requestAnalyticsUpdate = useCallback(async () => {
     if (!isConnected) {
-      console.warn('Cannot request analytics: WebSocket not connected');
       return;
     }
     
@@ -63,17 +78,17 @@ export const useAnalyticsWebSocket = ({
 
   // Auto-subscribe when connected
   useEffect(() => {
-    if (isConnected) {
+    if (isConnected && accountId) {
       subscribeToAnalytics();
     }
-    
+
     return () => {
       if (unsubscribeRef.current) {
         unsubscribeRef.current();
         unsubscribeRef.current = null;
       }
     };
-  }, [isConnected, subscribeToAnalytics]);
+  }, [isConnected, accountId, subscribeToAnalytics]);
 
   // Handle connection errors
   useEffect(() => {

@@ -1,148 +1,323 @@
-# Service for enqueueing jobs in the standalone worker service
-# Communicates with worker via HTTP API
+# frozen_string_literal: true
+
+require "net/http"
+require "timeout"
+
+# API client service for delegating async operations to the external worker service
+# The Rails server contains NO worker functionality - all async ops handled by separate worker service
 class WorkerJobService
-  include HTTParty
-  
-  base_uri Rails.application.credentials.worker_api_url || 'http://localhost:4567'
-  
+  # Base URL for worker service API calls
+  def self.worker_api_base
+    Rails.application.config.worker_url
+  end
+
   class << self
-    # Billing jobs
-    def enqueue_billing_automation(subscription_id = nil, delay: nil)
-      enqueue_job('Billing::BillingAutomationJob', [subscription_id], delay: delay)
+    # Enqueue a notification email job
+    def enqueue_notification_email(template_type, data = {})
+      new.make_worker_request("POST", "/notifications/email", {
+        template_type: template_type,
+        data: data
+      })
     end
-    
-    def enqueue_payment_retry(subscription_id, failure_type = 'payment_failure', attempt_number = 1, delay: nil)
-      enqueue_job('Billing::PaymentRetryJob', [subscription_id, failure_type, attempt_number], delay: delay)
+
+    # Enqueue a billing job
+    def enqueue_billing_job(job_type, data = {})
+      new.make_worker_request("POST", "/billing/jobs", {
+        job_type: job_type,
+        data: data
+      })
     end
-    
-    def enqueue_subscription_lifecycle(action, subscription_id, **options)
-      enqueue_job('Billing::SubscriptionLifecycleJob', [action, subscription_id], options: options)
+
+    # Enqueue an analytics job
+    def enqueue_analytics_job(job_type, data = {})
+      new.make_worker_request("POST", "/analytics/jobs", {
+        job_type: job_type,
+        data: data
+      })
     end
-    
-    def enqueue_billing_scheduler(date = Date.current, delay: nil)
-      enqueue_job('Billing::BillingSchedulerJob', [date.iso8601], delay: delay)
+
+    # Enqueue a report generation job
+    def enqueue_report_job(report_type, data = {})
+      new.make_worker_request("POST", "/reports/generate", {
+        report_type: report_type,
+        data: data
+      })
     end
-    
-    def enqueue_billing_cleanup(delay: nil)
-      enqueue_job('Billing::BillingCleanupJob', [], delay: delay)
+
+    # Enqueue password reset email job
+    def enqueue_password_reset_email(user_id)
+      new.make_worker_request("POST", "/notifications/password_reset", {
+        user_id: user_id
+      })
     end
-    
-    # Report jobs  
-    def enqueue_report_generation(report_params, delay: nil)
-      enqueue_job('Reports::GenerateReportJob', [report_params], delay: delay)
+
+    # Enqueue email settings refresh job
+    def enqueue_refresh_email_settings
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        job_class: "RefreshEmailSettingsJob",
+        args: []
+      })
     end
-    
-    def enqueue_scheduled_report(scheduled_report_id, delay: nil)
-      enqueue_job('Reports::ScheduledReportJob', [scheduled_report_id], delay: delay)
+
+    # Enqueue test email job
+    def enqueue_test_email(email_address, account_id = nil)
+      args = account_id ? [ email_address, account_id ] : [ email_address ]
+
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        job_class: "TestEmailJob",
+        args: args
+      })
     end
-    
-    # Webhook jobs
-    def enqueue_webhook_processing(webhook_data, delay: nil)
-      enqueue_job('Webhooks::ProcessWebhookJob', [webhook_data], delay: delay)
+
+    # Enqueue test worker job
+    def enqueue_test_worker_job(worker_id, worker_name)
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "TestWorkerJob",
+        "args" => [ worker_id, worker_name, {
+          "test_type" => "worker_connectivity_test",
+          "worker_id" => worker_id,
+          "timestamp" => Time.current.to_i
+        } ]
+      })
     end
-    
-    # Analytics jobs
-    def enqueue_analytics_recalculation(start_date, end_date, account_id: nil, period_type: "daily", delay: nil)
-      args = [start_date.iso8601, end_date.iso8601]
-      options = { account_id: account_id, period_type: period_type }.compact
-      enqueue_job('Analytics::RecalculateAnalyticsJob', args, options: options, delay: delay)
+
+    # Enqueue AI workflow execution job
+    def enqueue_ai_workflow_execution(run_id, job_options = {})
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "AiWorkflowExecutionJob",
+        "args" => [ run_id, job_options ],
+        "queue" => "ai_workflows",
+        "options" => { "retry" => 3 }
+      })
     end
-    
-    def enqueue_revenue_snapshot_update(date = Date.current, period_type = "daily", delay: nil)
-      enqueue_job('Analytics::UpdateRevenueSnapshotsJob', [date.iso8601, period_type], delay: delay)
+
+    # Enqueue AI agent execution job
+    def enqueue_ai_agent_execution(agent_execution_id)
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "AiAgentExecutionJob",
+        "args" => [ agent_execution_id ],
+        "queue" => "ai_agents",
+        "options" => { "retry" => 3 }
+      })
     end
-    
-    # Email jobs
-    def enqueue_notification_email(email_type, params = {}, delay: nil)
-      enqueue_job('SendNotificationEmailJob', [{ type: email_type, params: params }], delay: delay, queue: 'email')
-    end
-    
-    def enqueue_password_reset_email(user_id, delay: nil)
-      enqueue_job('SendNotificationEmailJob', [{ 'type' => 'password_reset', 'params' => { 'user_id' => user_id } }], delay: delay, queue: 'email')
-    end
-    
-    def enqueue_refresh_email_settings(delay: nil)
-      enqueue_job('RefreshEmailSettingsJob', [], delay: delay, queue: 'email')
-    end
-    
-    def enqueue_test_email(email, delay: nil)
-      enqueue_job('TestEmailJob', [{ email: email }], delay: delay, queue: 'email')
-    end
-    
-    # Advanced email jobs for notification system
-    def enqueue_email_delivery(email_data, delay: nil)
-      enqueue_job('Notifications::EmailDeliveryJob', [email_data], delay: delay, queue: 'email')
-    end
-    
-    def enqueue_bulk_email(bulk_email_data, delay: nil)
-      enqueue_job('Notifications::BulkEmailJob', [bulk_email_data], delay: delay, queue: 'email')
-    end
-    
-    def enqueue_transactional_email(email_data, delay: nil)
-      enqueue_job('Notifications::TransactionalEmailJob', [email_data], delay: delay, queue: 'email')
-    end
-    
-    def enqueue_welcome_email(user_id, temp_password, delay: nil)
-      enqueue_job('SendNotificationEmailJob', [{ 'type' => 'welcome_user', 'params' => { 'user_id' => user_id, 'temp_password' => temp_password } }], delay: delay, queue: 'email')
-    end
-    
-    private
-    
-    def enqueue_job(job_class, args = [], options: {}, delay: nil, queue: nil)
-      job_data = {
-        job_class: job_class,
-        args: args,
-        options: options,
-        delay: delay,
-        queue: queue
-      }.compact
-      
-      begin
-        response = post('/api/v1/jobs', {
-          body: job_data.to_json,
-          headers: {
-            'Content-Type' => 'application/json',
-            'Authorization' => "Bearer #{service_token}",
-            'Accept' => 'application/json'
-          },
-          timeout: 10
-        })
-        
-        if response.success?
-          Rails.logger.info "Enqueued job #{job_class} in worker service: #{response.parsed_response['job_id']}"
-          response.parsed_response
-        else
-          Rails.logger.error "Failed to enqueue job #{job_class}: #{response.code} - #{response.message}"
-          raise WorkerServiceError, "Failed to enqueue job: #{response.message}"
-        end
-        
-      rescue Timeout::Error, Errno::ECONNREFUSED, Net::OpenTimeout, Net::ReadTimeout => e
-        Rails.logger.error "Worker service connection failed for #{job_class}: #{e.message}"
-        raise WorkerServiceError, "Worker service unavailable: #{e.message}"
-      rescue StandardError => e
-        Rails.logger.error "Unexpected error enqueueing #{job_class}: #{e.message}"
-        raise WorkerServiceError, "Job enqueueing failed: #{e.message}"
-      end
-    end
-    
-    def service_token
-      Rails.application.credentials.worker_service_token ||
-        ENV['WORKER_SERVICE_TOKEN'] ||
-        generate_service_token
-    end
-    
-    def generate_service_token
-      # Generate a service token for worker communication
+
+    # Enqueue billing automation job
+    def enqueue_billing_automation(subscription_id = nil, delay: 0)
       payload = {
-        service: 'backend',
-        type: 'service',
-        exp: 24.hours.from_now.to_i
+        "job_class" => "Billing::BillingAutomationJob",
+        "args" => subscription_id ? [ subscription_id ] : [],
+        "queue" => "billing"
       }
-      JWT.encode(payload, Rails.application.config.jwt_secret_key, 'HS256')
+      payload["at"] = (Time.current + delay).to_i if delay.positive?
+
+      new.make_worker_request("POST", "/api/v1/jobs", payload)
+    end
+
+    # Enqueue billing scheduler job
+    def enqueue_billing_scheduler(date, delay: 0)
+      payload = {
+        "job_class" => "Billing::BillingSchedulerJob",
+        "args" => [ date ],
+        "queue" => "billing"
+      }
+      payload["at"] = (Time.current + delay).to_i if delay.positive?
+
+      new.make_worker_request("POST", "/api/v1/jobs", payload)
+    end
+
+    # Enqueue billing cleanup job
+    def enqueue_billing_cleanup(delay: 0)
+      payload = {
+        "job_class" => "Billing::BillingCleanupJob",
+        "args" => [],
+        "queue" => "billing"
+      }
+      payload["at"] = (Time.current + delay).to_i if delay.positive?
+
+      new.make_worker_request("POST", "/api/v1/jobs", payload)
+    end
+
+    # Enqueue payment retry job
+    def enqueue_payment_retry(payment_id, reason, retry_attempt)
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "Billing::PaymentRetryJob",
+        "args" => [ payment_id, reason, retry_attempt ],
+        "queue" => "billing"
+      })
+    end
+
+    # Enqueue subscription lifecycle job
+    # @param action [String] The lifecycle action: 'trial_ending_reminder', 'trial_ended', 'renewal_reminder'
+    # @param subscription_id [String] The subscription UUID
+    # @param options [Hash] Additional options
+    # @option options [Integer] :delay Delay in seconds before job runs
+    # @option options [Time] :run_at Time to run the job
+    def enqueue_subscription_lifecycle(action, subscription_id, **options)
+      delay = options.delete(:delay) || 0
+      run_at = options.delete(:run_at)
+
+      payload = {
+        "job_class" => "Billing::SubscriptionLifecycleJob",
+        "args" => [ action, subscription_id, options ],
+        "queue" => "billing"
+      }
+
+      if run_at.present?
+        payload["at"] = run_at.to_i
+      elsif delay.positive?
+        payload["at"] = (Time.current + delay).to_i
+      end
+
+      new.make_worker_request("POST", "/api/v1/jobs", payload)
+    end
+
+    # Enqueue node execution retry job
+    def enqueue_node_execution_retry(node_execution_id, delay_ms: 0)
+      payload = {
+        "job_class" => "AiWorkflowNodeExecutionJob",
+        "args" => [ node_execution_id ],
+        "queue" => "ai_workflows"
+      }
+      payload["at"] = (Time.current + (delay_ms / 1000.0)).to_i if delay_ms.positive?
+
+      new.make_worker_request("POST", "/api/v1/jobs", payload)
+    end
+
+    # Generic enqueue job method
+    def enqueue_job(job_class, args = {})
+      queue = args.delete(:queue) || "default"
+      delay = args.delete(:delay) || 0
+
+      payload = {
+        "job_class" => job_class,
+        "args" => args.is_a?(Hash) ? [ args ] : [ args ].flatten,
+        "queue" => queue
+      }
+      payload["at"] = (Time.current + delay).to_i if delay.positive?
+
+      new.make_worker_request("POST", "/api/v1/jobs", payload)
+    end
+
+    # ==========================================
+    # MCP (Model Context Protocol) Jobs
+    # ==========================================
+
+    # Enqueue MCP server connection job
+    def enqueue_mcp_server_connection(server_id, action: "connect")
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "Mcp::McpServerConnectionJob",
+        "args" => [ server_id, { "action" => action } ],
+        "queue" => "mcp"
+      })
+    end
+
+    # Enqueue MCP tool execution job
+    def enqueue_mcp_tool_execution(execution_id)
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "Mcp::McpToolExecutionJob",
+        "args" => [ execution_id ],
+        "queue" => "mcp"
+      })
+    end
+
+    # Enqueue MCP tool discovery job
+    def enqueue_mcp_tool_discovery(server_id)
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "Mcp::McpToolDiscoveryJob",
+        "args" => [ server_id ],
+        "queue" => "mcp"
+      })
+    end
+
+    # Enqueue MCP server health check job
+    def enqueue_mcp_health_check(server_id = nil)
+      args = server_id ? [ server_id ] : []
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "Mcp::McpServerHealthCheckJob",
+        "args" => args,
+        "queue" => "mcp"
+      })
+    end
+
+    # Enqueue MCP tool cache refresh job
+    def enqueue_mcp_cache_refresh
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "Mcp::McpToolCacheRefreshJob",
+        "args" => [],
+        "queue" => "mcp"
+      })
     end
   end
-  
-  # Custom exceptions
+
+  # Instance methods for compatibility
+  def queue_ai_workflow_execution(run_id)
+    self.class.enqueue_ai_workflow_execution(run_id)
+  end
+
+  def make_worker_request(method, path, payload = {})
+      uri = URI("#{self.class.worker_api_base}#{path}")
+      http = Net::HTTP.new(uri.host, uri.port)
+      http.use_ssl = uri.scheme == "https"
+      http.read_timeout = 10
+      http.open_timeout = 5
+
+      request = case method.upcase
+      when "GET"
+                  Net::HTTP::Get.new(uri)
+      when "POST"
+                  Net::HTTP::Post.new(uri)
+      when "PUT"
+                  Net::HTTP::Put.new(uri)
+      when "DELETE"
+                  Net::HTTP::Delete.new(uri)
+      else
+                  raise ArgumentError, "Unsupported HTTP method: #{method}"
+      end
+
+      # Set headers
+      request["Content-Type"] = "application/json"
+      request["Accept"] = "application/json"
+
+      # Add worker service authentication
+      worker_token = Rails.application.config.worker_token
+      request["Authorization"] = "Bearer #{worker_token}" if worker_token
+
+      # Set body for requests that support it
+      if %w[POST PUT PATCH].include?(method.upcase) && payload.present?
+        request.body = payload.to_json
+      end
+
+      begin
+        response = http.request(request)
+
+        case response.code.to_i
+        when 200..299
+          Rails.logger.info "Worker job enqueued successfully: #{method} #{path}"
+          JSON.parse(response.body) if response.body.present?
+        when 400..499
+          error_body = JSON.parse(response.body) rescue { error: response.body }
+          Rails.logger.warn "Worker service client error (#{response.code}): #{error_body}"
+          raise WorkerServiceError, "Client error: #{error_body['error'] || response.body}"
+        when 500..599
+          error_body = JSON.parse(response.body) rescue { error: response.body }
+          Rails.logger.error "Worker service server error (#{response.code}): #{error_body}"
+          raise WorkerServiceError, "Server error: #{error_body['error'] || response.body}"
+        else
+          Rails.logger.warn "Unexpected response from worker service (#{response.code}): #{response.body}"
+          raise WorkerServiceError, "Unexpected response: #{response.code}"
+        end
+      rescue Net::ReadTimeout, Net::OpenTimeout, Timeout::Error => e
+        Rails.logger.error "Worker service timeout: #{e.message}"
+        raise WorkerServiceError, "Worker service timeout: #{e.message}"
+      rescue Errno::ECONNREFUSED, SocketError => e
+        Rails.logger.error "Worker service connection error: #{e.message}"
+        raise WorkerServiceError, "Worker service unavailable: #{e.message}"
+      rescue JSON::ParserError => e
+        Rails.logger.error "Invalid JSON response from worker service: #{e.message}"
+        raise WorkerServiceError, "Invalid response format from worker service"
+      end
+    end
+
+  # Custom exception for worker service errors
   class WorkerServiceError < StandardError; end
-  class ConfigurationError < StandardError; end
 end

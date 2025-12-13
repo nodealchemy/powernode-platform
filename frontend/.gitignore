@@ -18,6 +18,10 @@
 .env.test.local
 .env.production.local
 
+# proxy configuration cache
+.proxy-config-cache.json
+
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+.proxy-config-cache.json

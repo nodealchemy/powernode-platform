@@ -50,7 +50,7 @@ RSpec.describe Permission, type: :model do
     it { should allow_value(nil).for(:description) }
 
     describe "resource and action uniqueness" do
-      let!(:existing_permission) { 
+      let!(:existing_permission) {
         Permission.find_or_create_by!(resource: "test_unique", action: "test_create") do |p|
           p.name = "test_unique.test_create"
           p.category = "resource"
@@ -61,7 +61,7 @@ RSpec.describe Permission, type: :model do
         duplicate = build(:permission, resource: "test_unique", action: "test_create")
 
         expect(duplicate).not_to be_valid
-        expect(duplicate.errors[:resource]).to include("has already been taken")
+        expect(duplicate.errors[:resource]).to include("and action combination has already been taken for this category")
       end
 
       it "allows same resource with different action" do
@@ -79,19 +79,19 @@ RSpec.describe Permission, type: :model do
   end
 
   describe "scopes" do
-    let!(:user_create) { 
+    let!(:user_create) {
       Permission.find_or_create_by!(resource: "users", action: "create") do |p|
         p.name = "users.create"
         p.category = "resource"
       end
     }
-    let!(:user_read) { 
+    let!(:user_read) {
       Permission.find_or_create_by!(resource: "users", action: "read") do |p|
         p.name = "users.read"
         p.category = "resource"
       end
     }
-    let!(:role_create) { 
+    let!(:role_create) {
       Permission.find_or_create_by!(resource: "roles", action: "create") do |p|
         p.name = "roles.create"
         p.category = "resource"

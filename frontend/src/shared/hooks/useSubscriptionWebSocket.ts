@@ -1,11 +1,13 @@
 import { useCallback, useRef, useEffect } from 'react';
+import { useSelector } from 'react-redux';
+import { RootState } from '@/shared/services';
 import { useWebSocket } from './useWebSocket';
 
 interface SubscriptionWebSocketOptions {
-  onSubscriptionUpdate?: (data: any) => void;
-  onSubscriptionCancelled?: (data: any) => void;
-  onPaymentProcessed?: (data: any) => void;
-  onTrialEnding?: (data: any) => void;
+  onSubscriptionUpdate?: (data: unknown) => void;
+  onSubscriptionCancelled?: (data: unknown) => void;
+  onPaymentProcessed?: (data: unknown) => void;
+  onTrialEnding?: (data: unknown) => void;
   onError?: (error: string) => void;
 }
 
@@ -17,6 +19,7 @@ export const useSubscriptionWebSocket = ({
   onError
 }: SubscriptionWebSocketOptions) => {
   const { isConnected, subscribe, sendMessage, error: connectionError } = useWebSocket();
+  const user = useSelector((state: RootState) => state.auth.user);
   const unsubscribeRef = useRef<(() => void) | null>(null);
 
   // Store latest callback refs to avoid dependency issues
@@ -32,8 +35,16 @@ export const useSubscriptionWebSocket = ({
   onTrialEndingRef.current = onTrialEnding;
   onErrorRef.current = onError;
 
+  // Type guard for WebSocket message data
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const isWebSocketMessage = (data: unknown): data is { type: string; data?: any; message?: string } => {
+    return typeof data === 'object' && data !== null && 'type' in data;
+  };
+
   // Handle incoming messages
-  const handleMessage = useCallback((data: any) => {
+  const handleMessage = useCallback((data: unknown) => {
+    if (!isWebSocketMessage(data)) return;
+    
     switch (data.type) {
       case 'subscription_updated':
         onSubscriptionUpdateRef.current?.(data);
@@ -59,7 +70,6 @@ export const useSubscriptionWebSocket = ({
 
   // Handle channel errors
   const handleError = useCallback((errorMessage: string) => {
-    console.error('❌ Subscription channel error:', errorMessage);
     onErrorRef.current?.(errorMessage);
   }, []);
 
@@ -68,36 +78,43 @@ export const useSubscriptionWebSocket = ({
     if (unsubscribeRef.current) {
       unsubscribeRef.current();
     }
-    
+
+    // Only subscribe if user has an account
+    if (!user?.account?.id) {
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('[SubscriptionWebSocket] Cannot subscribe: user account not available');
+      }
+      return;
+    }
+
     unsubscribeRef.current = subscribe({
       channel: 'SubscriptionChannel',
+      params: { account_id: user.account.id },
       onMessage: handleMessage,
       onError: handleError
     });
-    
-  }, [subscribe, handleMessage, handleError]);
+
+  }, [subscribe, handleMessage, handleError, user?.account?.id]);
 
   // Request subscription updates
-  const requestSubscriptionUpdate = useCallback(async (subscriptionId?: string) => {
+  const requestSubscriptionUpdate = useCallback(async (subscription_id?: string) => {
     if (!isConnected) {
-      console.warn('Cannot request subscription update: WebSocket not connected');
       return;
     }
-    
-    await sendMessage('SubscriptionChannel', 'request_update', { 
-      subscription_id: subscriptionId 
+
+    await sendMessage('SubscriptionChannel', 'request_update', {
+      subscription_id: subscription_id
     });
   }, [isConnected, sendMessage]);
 
   // Monitor subscription status
-  const monitorSubscription = useCallback(async (subscriptionId: string) => {
+  const monitorSubscription = useCallback(async (subscription_id: string) => {
     if (!isConnected) {
-      console.warn('Cannot monitor subscription: WebSocket not connected');
       return;
     }
-    
-    await sendMessage('SubscriptionChannel', 'monitor', { 
-      subscription_id: subscriptionId 
+
+    await sendMessage('SubscriptionChannel', 'monitor', {
+      subscription_id: subscription_id
     });
   }, [isConnected, sendMessage]);
 

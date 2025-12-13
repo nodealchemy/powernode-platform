@@ -1,18 +1,36 @@
 # Sidekiq Configuration for Powernode Worker Service
+#
+# NOTE: Per-queue timeouts are not directly supported in sidekiq.yml.
+# For jobs requiring longer timeouts (e.g., AI workflows), set custom
+# timeouts in the job class using circuit breakers:
+#   - AI workflows use with_workflow_execution_circuit_breaker (600s timeout)
+#   - AI providers use with_ai_provider_circuit_breaker (600s timeout)
+#   - Backend API uses with_backend_api_circuit_breaker (120s timeout)
+#
+# The global :timeout setting (300s) applies to job execution time.
+# Jobs that may exceed this should use their own timeout handling.
 
 :environment: <%= ENV['WORKER_ENV'] || ENV['RAILS_ENV'] || 'development' %>
 :concurrency: <%= ENV.fetch('WORKER_CONCURRENCY', '5').to_i %>
-:timeout: 25
+:timeout: 300
 :verbose: <%= ENV['WORKER_ENV'] == 'development' %>
 
-# Queue configuration
+# Queue configuration (format: [queue_name, weight])
+# Higher weight = higher priority
 :queues:
-  - [critical, 3]
-  - [billing, 2]  
-  - [email, 2]
-  - [reports, 2]
-  - [webhooks, 1]
-  - [default, 1]
+  - [critical, 3]          # Critical system operations
+  - [high, 3]              # High priority tasks
+  - [ai_workflows, 2]      # AI workflow execution (uses 600s circuit breaker)
+  - [ai_agents, 2]         # AI agent operations (uses 600s circuit breaker)
+  - [ai_conversations, 2]  # AI conversation processing
+  - [file_processing, 2]   # File uploads/processing
+  - [services, 2]          # Service health checks
+  - [billing, 2]           # Billing operations (uses distributed locking)
+  - [billing_scheduler, 2] # Billing scheduling (uses distributed locking)
+  - [email, 2]             # Email delivery
+  - [reports, 2]           # Report generation
+  - [webhooks, 1]          # Webhook delivery
+  - [default, 1]           # Default queue for misc tasks
 
 # Redis configuration
 :redis:
@@ -26,9 +44,8 @@
 # Dead job retention (in seconds)
 :dead_timeout_in_seconds: 1209600  # 2 weeks
 
-# Process configuration
-:pidfile: /var/tmp/powernode-worker.pid
-:logfile: /home/rett/Projects/powernode-platform/logs/worker.log
+# Process configuration - Note: Sidekiq 7+ doesn't support pidfile/logfile in config
+# These must be handled by the process manager (screen/systemd/etc)
 :daemonize: false
 
 # Development settings

@@ -1,405 +1,148 @@
-import React, { useState, useRef, useMemo } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
-import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
-import { AppCard } from '@/features/marketplace/components/apps/AppCard';
-import { AppsList } from '@/features/marketplace/components/apps/AppsList';
-import { CreateAppModal } from '@/features/marketplace/components/apps/CreateAppModal';
-import { AppSubscriptionModal } from '@/features/marketplace/components/apps/AppSubscriptionModal';
-import { SubscriptionsList } from '@/features/marketplace/components/SubscriptionsList';
-import { useMarketplaceListings } from '@/features/marketplace/hooks/useMarketplace';
-import { useApps } from '@/features/marketplace/hooks/useApps';
-import { appSubscriptionsApi } from '@/features/marketplace/services/appSubscriptionsApi';
-import { App, MarketplaceFilters, AppFilters } from '@/features/marketplace/types';
-import { RefreshCw, Plus } from 'lucide-react';
+/**
+ * Unified Marketplace Page
+ *
+ * Clean foundational marketplace implementation showing apps, plugins, and templates
+ * in a single unified interface. No backwards compatibility or legacy code.
+ */
+
+import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Package } from 'lucide-react';
+import { PageContainer } from '@/shared/components/layout/PageContainer';
+import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
+import { EmptyState } from '@/shared/components/ui/EmptyState';
+import { Button } from '@/shared/components/ui/Button';
+import { useNotifications } from '@/shared/hooks/useNotifications';
+import { unifiedMarketplaceApi } from '@/features/marketplace/services/unifiedMarketplaceApi';
+import { ItemCard, TypeFilter, SearchInput } from '@/features/marketplace/components';
+import type { MarketplaceItem, MarketplaceItemType, MarketplaceFilters } from '@/features/marketplace/types/unified';
+
+const ALL_TYPES: MarketplaceItemType[] = ['app', 'plugin', 'template'];
 
 export const MarketplacePage: React.FC = () => {
   const navigate = useNavigate();
-  const location = useLocation();
-  const [filters] = useState<MarketplaceFilters>({ 
-    page: 1, 
-    per_page: 20,
-    status: 'approved' 
-  });
-  
-  const [appFilters] = useState<AppFilters>({ 
-    page: 1, 
-    per_page: 20 
-  });
-  
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
-  const [selectedAppForSubscription, setSelectedAppForSubscription] = useState<App | null>(null);
-  const [expandedAppId, setExpandedAppId] = useState<string | null>(null);
-  
-  // Create ref to store subscriptions refresh function
-  const subscriptionsRefreshRef = useRef<(() => void) | null>(null);
-  
-  // Determine active tab from URL
-  const getActiveTabFromPath = () => {
-    const path = location.pathname;
-    if (path.includes('/subscriptions')) return 'subscriptions';
-    if (path.includes('/reviews')) return 'reviews';
-    if (path.includes('/my-apps')) return 'my-apps';
-    return 'browse';
-  };
-  
-  const activeTab = getActiveTabFromPath();
+  const { addNotification } = useNotifications();
 
-  const { 
-    listings, 
-    loading, 
-    error, 
-    refresh 
-  } = useMarketplaceListings(filters);
+  const [items, setItems] = useState<MarketplaceItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedTypes, setSelectedTypes] = useState<MarketplaceItemType[]>(ALL_TYPES);
 
-  const { 
-    refresh: refreshApps 
-  } = useApps(appFilters);
+  // Load marketplace items
+  useEffect(() => {
+    const loadItems = async () => {
+      try {
+        setLoading(true);
 
-  // Convert listings to apps for the AppsList component
-  const apps: App[] = listings.map(listing => ({
-    id: listing.app.id,
-    name: listing.title,
-    slug: listing.app.slug,
-    description: listing.long_description || listing.short_description,
-    short_description: listing.short_description,
-    category: listing.category,
-    icon: '📱', // Default icon since AppSummary doesn't have icon
-    status: listing.app.status,
-    version: '1.0.0', // Default version since AppSummary doesn't have version
-    tags: listing.tags,
-    created_at: listing.created_at,
-    updated_at: listing.updated_at,
-    published_at: listing.published_at,
-    configuration: {}, // Default empty configuration
-    metadata: {}, // Default empty metadata
-    plans: listing.app.app_plans || [] // Include app plans from the listing
-  }));
+        const filters: MarketplaceFilters = {
+          types: selectedTypes.length === ALL_TYPES.length ? undefined : selectedTypes,
+          search: searchQuery || undefined
+        };
 
-  const handleSubscribeApp = (app: App) => {
-    setSelectedAppForSubscription(app);
-    setShowSubscriptionModal(true);
-  };
-
-  const handleSubscribeToApp = async (app: App, planId?: string) => {
-    try {
-      // For now, we'll create a basic subscription since the modal uses mock plan IDs
-      // In a real implementation, you'd get actual app plan IDs from the app data
-      const subscription = await appSubscriptionsApi.createSubscription(
-        app.id, 
-        planId || 'default', // Use the selected plan ID or default
-        {} // Empty configuration for now
-      );
-      
-      console.log('Subscription created successfully:', subscription);
-      
-      // Refresh subscriptions list if on that tab
-      if (subscriptionsRefreshRef.current) {
-        subscriptionsRefreshRef.current();
+        const response = await unifiedMarketplaceApi.getItems(filters);
+        setItems(response.data || []);
+      } catch (error) {
+        console.error('Failed to load marketplace items:', error);
+        addNotification({
+          type: 'error',
+          title: 'Error',
+          message: 'Failed to load marketplace items. Please try again.'
+        });
+      } finally {
+        setLoading(false);
       }
-      
-      return Promise.resolve();
-    } catch (error: any) {
-      console.error('Subscription creation failed:', error);
-      // Re-throw the error so the modal can handle it
-      throw new Error(error.response?.data?.error || 'Failed to create subscription');
+    };
+
+    loadItems();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTypes, searchQuery]);
+
+  const handleViewDetails = useCallback((itemId: string) => {
+    const item = items.find((i) => i.id === itemId);
+    if (item) {
+      navigate(`/app/marketplace/${item.type}/${itemId}`);
     }
-  };
+  }, [items, navigate]);
 
-  const handleToggleExpansion = (app: App) => {
-    // Toggle expansion for the clicked app
-    setExpandedAppId(expandedAppId === app.id ? null : app.id);
-  };
+  const handleInstall = useCallback(async (itemId: string) => {
+    const item = items.find((i) => i.id === itemId);
+    if (!item) return;
 
-  const handleManageApp = (app: App) => {
-    // Navigate to app management page for owners
-    navigate(`/app/marketplace/apps/${app.id}`);
-  };
+    try {
+      await unifiedMarketplaceApi.install(item.type, itemId);
 
-
-  const getBreadcrumbs = () => {
-    const baseBreadcrumbs = [
-      { label: 'Dashboard', href: '/app', icon: '🏠' },
-      { label: 'Marketplace', href: '/app/marketplace', icon: '🏪' }
-    ];
-    
-    // Add tab-specific breadcrumb if not on main tab
-    const currentPath = location.pathname;
-    if (currentPath.includes('/subscriptions')) {
-      baseBreadcrumbs.push({ label: 'My Subscriptions', icon: '📱', href: '/app/marketplace/subscriptions' });
-    } else if (currentPath.includes('/reviews')) {
-      baseBreadcrumbs.push({ label: 'Reviews', icon: '⭐', href: '/app/marketplace/reviews' });
-    } else if (currentPath.includes('/my-apps')) {
-      baseBreadcrumbs.push({ label: 'My Apps', icon: '⚙️', href: '/app/marketplace/my-apps' });
-    }
-    
-    return baseBreadcrumbs;
-  };
-
-  const pageActions = useMemo(() => {
-    const baseActions: PageAction[] = [];
-
-    // Add tab-specific actions
-    if (activeTab === 'browse') {
-      baseActions.push({
-        id: 'refresh',
-        label: 'Refresh',
-        onClick: refresh,
-        variant: 'outline' as const,
-        icon: RefreshCw
+      addNotification({
+        type: 'success',
+        title: 'Installation Started',
+        message: `${item.name} is being installed.`
       });
-    } else if (activeTab === 'subscriptions') {
-      baseActions.push({
-        id: 'refresh-subscriptions',
-        label: 'Refresh',
-        onClick: () => {
-          if (subscriptionsRefreshRef.current) {
-            subscriptionsRefreshRef.current();
-          }
-        },
-        variant: 'outline' as const,
-        icon: RefreshCw
-      });
-    } else if (activeTab === 'my-apps') {
-      baseActions.push({
-        id: 'create-app',
-        label: 'Create App',
-        onClick: () => setShowCreateModal(true),
-        variant: 'primary' as const,
-        icon: Plus,
-        permission: 'apps.create'
-      });
-      baseActions.push({
-        id: 'refresh-apps',
-        label: 'Refresh',
-        onClick: refreshApps,
-        variant: 'outline' as const,
-        icon: RefreshCw
+
+      // Refresh items by updating search (triggers useEffect)
+      setSearchQuery(prev => prev); // Trigger re-fetch
+    } catch (error) {
+      console.error('Failed to install item:', error);
+      addNotification({
+        type: 'error',
+        title: 'Installation Failed',
+        message: 'Failed to install item. Please try again.'
       });
     }
+  }, [items, addNotification]);
 
-    return baseActions;
-  }, [activeTab, refresh, refreshApps, subscriptionsRefreshRef]);
-
-  const handleSubscriptionAction = (action: string, subscriptionId: string) => {
-    console.log(`Marketplace subscription action: ${action} for ${subscriptionId}`);
-    
-    switch (action) {
-      case 'view-usage':
-        console.log('View usage for subscription:', subscriptionId);
-        break;
-      case 'view-analytics':
-        console.log('View analytics for subscription:', subscriptionId);
-        break;
-      case 'configure':
-        console.log('Configure subscription:', subscriptionId);
-        break;
-      default:
-        break;
-    }
-  };
-
-  const handleCreateApp = () => {
-    setShowCreateModal(true);
-  };
-
-  const handleAppCreated = (app: App) => {
-    setShowCreateModal(false);
-    refreshApps();
-    // Navigate to the new app's management page
-    navigate(`/app/marketplace/apps/${app.id}`);
-  };
-
-  // Wrapper component to expose refresh function to parent
-  const SubscriptionsListWithRef: React.FC<{
-    onSubscriptionAction: (action: string, subscriptionId: string) => void;
-    refreshRef: React.MutableRefObject<(() => void) | null>;
-  }> = ({ onSubscriptionAction, refreshRef }) => {
-    // Create a ref to capture the refresh function from SubscriptionsList
-    const subscriptionsListRef = React.useRef<{ refresh: () => void } | null>(null);
-    
-    // Expose refresh function to parent via ref
-    React.useEffect(() => {
-      refreshRef.current = subscriptionsListRef.current?.refresh || null;
-    }, [refreshRef]);
-    
+  if (loading) {
     return (
-      <SubscriptionsList
-        ref={subscriptionsListRef}
-        onSubscriptionAction={onSubscriptionAction}
-        showRefreshButton={false}
-      />
+      <PageContainer
+        title="Marketplace"
+        description="Browse and install apps, plugins, and templates"
+      >
+        <LoadingSpinner className="py-12" />
+      </PageContainer>
     );
-  };
-
-  const tabs = [
-    { 
-      id: 'browse', 
-      label: 'Browse Apps', 
-      icon: '🏪',
-      path: '/'
-    },
-    { 
-      id: 'subscriptions', 
-      label: 'My Subscriptions', 
-      icon: '📱',
-      path: '/subscriptions'
-    },
-    { 
-      id: 'my-apps', 
-      label: 'My Apps', 
-      icon: '⚙️',
-      path: '/my-apps'
-    },
-    { 
-      id: 'reviews', 
-      label: 'Reviews', 
-      icon: '⭐',
-      path: '/reviews'
-    }
-  ];
+  }
 
   return (
     <PageContainer
-      title="App Marketplace"
-      breadcrumbs={getBreadcrumbs()}
-      actions={pageActions}
+      title="Marketplace"
+      description="Browse and install apps, plugins, and templates"
     >
-      <TabContainer
-        tabs={tabs}
-        basePath="/app/marketplace"
-        variant="underline"
-        className="space-y-6"
-      >
-        <TabPanel tabId="browse" activeTab={activeTab}>
-          <div className="space-y-6">
-            {/* Welcome Banner */}
-            <div className="bg-gradient-to-r from-theme-interactive-primary to-theme-interactive-secondary text-white rounded-lg p-4 sm:p-6">
-              <h2 className="text-xl sm:text-2xl font-bold mb-2">Welcome to the App Marketplace</h2>
-              <p className="text-white/90 mb-4 text-sm sm:text-base">
-                Discover powerful apps and integrations to extend your platform capabilities
-              </p>
-              <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-6 text-xs sm:text-sm">
-                <div className="flex items-center space-x-2">
-                  <span className="w-2 h-2 bg-white rounded-full"></span>
-                  <span>Verified Apps</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <span className="w-2 h-2 bg-white rounded-full"></span>
-                  <span>Easy Installation</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <span className="w-2 h-2 bg-white rounded-full"></span>
-                  <span>API Integration</span>
-                </div>
-              </div>
-            </div>
+      {/* Search and Filters */}
+      <div className="mb-6 space-y-4">
+        <SearchInput
+          value={searchQuery}
+          onChange={setSearchQuery}
+          placeholder="Search by name or description..."
+        />
 
-            {loading ? (
-              <div className="flex justify-center py-12">
-                <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-theme-interactive-primary"></div>
-              </div>
-            ) : error ? (
-              <div className="text-center py-12">
-                <div className="text-theme-error mb-4">⚠️ {error}</div>
-                <button onClick={refresh} className="btn-theme btn-theme-primary">
-                  Try Again
-                </button>
-              </div>
-            ) : apps.length === 0 ? (
-              <div className="text-center py-12">
-                <div className="text-6xl mb-4">📱</div>
-                <h3 className="text-xl font-semibold text-theme-primary mb-2">No apps available</h3>
-                <p className="text-theme-secondary">
-                  Check back later for new apps in the marketplace.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-6">
-                {/* Show expanded app first if any */}
-                {expandedAppId && apps.find(app => app.id === expandedAppId) && (
-                  <div className="w-full">
-                    <AppCard
-                      app={apps.find(app => app.id === expandedAppId)!}
-                      isOwner={false}
-                      showSubscription={true}
-                      onSubscribe={handleSubscribeApp}
-                      expanded={true}
-                      onToggleExpansion={handleToggleExpansion}
-                    />
-                  </div>
-                )}
+        <TypeFilter
+          selectedTypes={selectedTypes}
+          onChange={setSelectedTypes}
+        />
+      </div>
 
-                {/* Show other apps in grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-                  {apps.filter(app => app.id !== expandedAppId).map((app) => (
-                    <AppCard
-                      key={app.id}
-                      app={app}
-                      isOwner={false}
-                      showSubscription={true}
-                      onSubscribe={handleSubscribeApp}
-                      expanded={false}
-                      onToggleExpansion={handleToggleExpansion}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </TabPanel>
-
-        <TabPanel tabId="subscriptions" activeTab={activeTab}>
-          <SubscriptionsListWithRef
-            onSubscriptionAction={handleSubscriptionAction}
-            refreshRef={subscriptionsRefreshRef}
-          />
-        </TabPanel>
-
-        <TabPanel tabId="my-apps" activeTab={activeTab}>
-          <div className="space-y-6">
-            <AppsList
-              onCreateApp={handleCreateApp}
-              onViewApp={handleManageApp}
-              filters={appFilters}
-              showCreateButton={false}
+      {/* Items Grid */}
+      {items.length === 0 ? (
+        <EmptyState
+          icon={Package}
+          title="No items found"
+          description="Try adjusting your search or filters"
+          action={
+            <Button onClick={() => { setSearchQuery(''); setSelectedTypes(ALL_TYPES); }}>
+              Clear Filters
+            </Button>
+          }
+        />
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {items.map((item) => (
+            <ItemCard
+              key={item.id}
+              item={item}
+              showInstallButton={true}
+              onViewDetails={handleViewDetails}
+              onInstall={handleInstall}
             />
-          </div>
-        </TabPanel>
-
-        <TabPanel tabId="reviews" activeTab={activeTab}>
-          <div className="text-center py-12">
-            <div className="text-6xl mb-4">⭐</div>
-            <h3 className="text-xl font-semibold text-theme-primary mb-2">App Reviews</h3>
-            <p className="text-theme-secondary">
-              Review and rate marketplace apps you've used.
-            </p>
-            <p className="text-sm text-theme-tertiary mt-2">
-              Coming soon - Rate apps and share your experience with the community.
-            </p>
-          </div>
-        </TabPanel>
-      </TabContainer>
-
-      {showCreateModal && (
-        <CreateAppModal
-          isOpen={showCreateModal}
-          onClose={() => setShowCreateModal(false)}
-          onSuccess={handleAppCreated}
-        />
-      )}
-
-      {showSubscriptionModal && (
-        <AppSubscriptionModal
-          isOpen={showSubscriptionModal}
-          onClose={() => {
-            setShowSubscriptionModal(false);
-            setSelectedAppForSubscription(null);
-          }}
-          app={selectedAppForSubscription}
-          onSubscribe={handleSubscribeToApp}
-        />
+          ))}
+        </div>
       )}
     </PageContainer>
   );

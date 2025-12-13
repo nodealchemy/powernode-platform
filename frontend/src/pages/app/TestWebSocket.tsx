@@ -6,19 +6,11 @@ import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { RefreshCw } from 'lucide-react';
 
 export const TestWebSocket: React.FC = () => {
-  const { user, accessToken } = useSelector((state: RootState) => state.auth);
+  const { user, access_token } = useSelector((state: RootState) => state.auth);
   const { isConnected, error, lastConnected } = useWebSocket();
   
   useEffect(() => {
-    console.log('🧪 TestWebSocket Component Mounted');
-    console.log('Redux State:');
-    console.log('  - User:', user);
-    console.log('  - Access Token:', accessToken ? `${accessToken.substring(0, 30)}...` : 'Missing');
-    console.log('WebSocket State:');
-    console.log('  - Connected:', isConnected);
-    console.log('  - Error:', error);
-    console.log('  - Last Connected:', lastConnected);
-  }, [user, accessToken, isConnected, error, lastConnected]);
+  }, [user, access_token, isConnected, error, lastConnected]);
   
   const getBreadcrumbs = () => [
     { label: 'Dashboard', href: '/app', icon: '🏠' },
@@ -57,9 +49,9 @@ export const TestWebSocket: React.FC = () => {
               <label className="text-sm font-medium text-theme-secondary">Access Token</label>
               <p className="mt-1">
                 <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-                  accessToken ? 'bg-theme-success-background text-theme-success' : 'bg-theme-error-background text-theme-error'
+                  access_token ? 'bg-theme-success-background text-theme-success' : 'bg-theme-error-background text-theme-error'
                 }`}>
-                  {accessToken ? 'Present' : 'Missing'}
+                  {access_token ? 'Present' : 'Missing'}
                 </span>
               </p>
             </div>

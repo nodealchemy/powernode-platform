@@ -1,4 +1,4 @@
-import React from 'react';
+
 import {
   LineChart,
   Line,
@@ -78,12 +78,24 @@ export const CustomerChart: React.FC<CustomerChartProps> = ({
   // Use the chart palette from the theme hook
   const COLORS = colors.chartPalette;
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  interface TooltipPayload {
+    name: string;
+    value: number;
+    color: string;
+  }
+
+  interface CustomTooltipProps {
+    active?: boolean;
+    payload?: TooltipPayload[];
+    label?: string;
+  }
+
+  const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
     if (active && payload && payload.length) {
       return (
         <div className="card-theme p-4 border-theme rounded-lg shadow-lg">
           <p className="font-semibold text-theme-primary">{label ? formatDate(label) : ''}</p>
-          {payload.map((entry: any, index: number) => (
+          {payload.map((entry, index: number) => (
             <p key={index} className="text-sm" style={{ color: entry.color }}>
               {entry.name}: {
                 entry.name.includes('ARPU') || entry.name.includes('LTV') || entry.name.includes('$')
@@ -98,7 +110,20 @@ export const CustomerChart: React.FC<CustomerChartProps> = ({
     return null;
   };
 
-  const PieTooltip = ({ active, payload }: any) => {
+  interface PiePayloadItem {
+    name: string;
+    value: number;
+    payload: {
+      total: number;
+    };
+  }
+
+  interface PieTooltipProps {
+    active?: boolean;
+    payload?: PiePayloadItem[];
+  }
+
+  const PieTooltip = ({ active, payload }: PieTooltipProps) => {
     if (active && payload && payload.length) {
       const data = payload[0];
       return (
@@ -113,12 +138,24 @@ export const CustomerChart: React.FC<CustomerChartProps> = ({
     return null;
   };
 
+  // Guard against empty data
+  if (!data || data.length === 0) {
+    return (
+      <div className="card-theme rounded-lg shadow-sm border-theme p-6">
+        <h3 className="text-lg font-semibold text-theme-primary mb-4">{title}</h3>
+        <div className="h-64 flex items-center justify-center">
+          <p className="text-theme-secondary">No customer data available</p>
+        </div>
+      </div>
+    );
+  }
+
   if (compact) {
     return (
       <div className="card-theme rounded-lg shadow-sm border-theme p-6">
         <h3 className="text-lg font-semibold text-theme-primary mb-4">{title}</h3>
-        <div className="h-64">
-          <ResponsiveContainer width="100%" height="100%">
+        <div className="h-64" style={{ minHeight: 256, minWidth: 0 }}>
+          <ResponsiveContainer width="100%" height={256} debounce={100}>
             <LineChart data={data}>
               <CartesianGrid strokeDasharray="3 3" stroke={colors.border} />
               <XAxis 
@@ -181,12 +218,12 @@ export const CustomerChart: React.FC<CustomerChartProps> = ({
       {/* Customer Growth Trend */}
       <div className="card-theme rounded-lg shadow-sm border-theme p-6">
         <h3 className="text-lg font-semibold text-theme-primary mb-4">Customer Growth Trend</h3>
-        <div className="h-96">
-          <ResponsiveContainer width="100%" height="100%">
+        <div className="h-96" style={{ minHeight: 384, minWidth: 0 }}>
+          <ResponsiveContainer width="100%" height={384} debounce={100}>
             <ComposedChart data={data}>
               <CartesianGrid strokeDasharray="3 3" stroke={colors.border} />
-              <XAxis 
-                dataKey="date" 
+              <XAxis
+                dataKey="date"
                 tickFormatter={formatDate}
               />
               <YAxis yAxisId="left" />
@@ -233,12 +270,12 @@ export const CustomerChart: React.FC<CustomerChartProps> = ({
       {/* ARPU and LTV Trends */}
       <div className="card-theme rounded-lg shadow-sm border-theme p-6">
         <h3 className="text-lg font-semibold text-theme-primary mb-4">ARPU and LTV Trends</h3>
-        <div className="h-96">
-          <ResponsiveContainer width="100%" height="100%">
+        <div className="h-96" style={{ minHeight: 384, minWidth: 0 }}>
+          <ResponsiveContainer width="100%" height={384} debounce={100}>
             <ComposedChart data={data}>
               <CartesianGrid strokeDasharray="3 3" stroke={colors.border} />
-              <XAxis 
-                dataKey="date" 
+              <XAxis
+                dataKey="date"
                 tickFormatter={formatDate}
               />
               <YAxis yAxisId="arpu" tickFormatter={(value) => formatCurrency(value)} />
@@ -274,8 +311,8 @@ export const CustomerChart: React.FC<CustomerChartProps> = ({
           {/* By Plan */}
           <div className="card-theme rounded-lg shadow-sm border-theme p-6">
             <h3 className="text-lg font-semibold text-theme-primary mb-4">Customers by Plan</h3>
-            <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
+            <div className="h-80" style={{ minHeight: 320, minWidth: 0 }}>
+              <ResponsiveContainer width="100%" height={320} debounce={100}>
                 <PieChart>
                   <Pie
                     data={segmentation.by_plan.map(item => ({
@@ -291,7 +328,7 @@ export const CustomerChart: React.FC<CustomerChartProps> = ({
                     fill="#8884d8"
                     dataKey="value"
                   >
-                    {segmentation.by_plan.map((entry, index) => (
+                    {segmentation.by_plan.map((_entry, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
@@ -318,14 +355,14 @@ export const CustomerChart: React.FC<CustomerChartProps> = ({
           {/* By Tenure */}
           <div className="card-theme rounded-lg shadow-sm border-theme p-6">
             <h3 className="text-lg font-semibold text-theme-primary mb-4">Customers by Tenure</h3>
-            <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
+            <div className="h-80" style={{ minHeight: 320, minWidth: 0 }}>
+              <ResponsiveContainer width="100%" height={320} debounce={100}>
                 <BarChart data={segmentation.by_tenure}>
                   <CartesianGrid strokeDasharray="3 3" stroke={colors.border} />
                   <XAxis dataKey="segment" />
                   <YAxis />
                   <Tooltip 
-                    formatter={(value: any) => [value.toLocaleString(), 'Customers']}
+                    formatter={(value: unknown) => [(typeof value === 'number' ? value : 0).toLocaleString(), 'Customers']}
                     labelStyle={{ color: 'var(--theme-primary)' }}
                   />
                   <Bar dataKey="customers" fill={colors.info} opacity={0.8} />
@@ -347,12 +384,12 @@ export const CustomerChart: React.FC<CustomerChartProps> = ({
       {/* Net Growth Analysis */}
       <div className="card-theme rounded-lg shadow-sm border-theme p-6">
         <h3 className="text-lg font-semibold text-theme-primary mb-4">Net Customer Growth Analysis</h3>
-        <div className="h-64">
-          <ResponsiveContainer width="100%" height="100%">
+        <div className="h-64" style={{ minHeight: 256, minWidth: 0 }}>
+          <ResponsiveContainer width="100%" height={256} debounce={100}>
             <BarChart data={data}>
               <CartesianGrid strokeDasharray="3 3" stroke={colors.border} />
-              <XAxis 
-                dataKey="date" 
+              <XAxis
+                dataKey="date"
                 tickFormatter={formatDate}
               />
               <YAxis />

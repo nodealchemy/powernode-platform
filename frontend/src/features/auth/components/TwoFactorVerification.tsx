@@ -2,16 +2,17 @@ import React, { useState } from 'react';
 import { twoFactorApi } from '@/shared/services/twoFactorApi';
 import { Button } from '@/shared/components/ui/Button';
 import { FormField } from '@/shared/components/ui/FormField';
+import { AuthResponse } from '@/features/auth/services/authAPI';
 import { Lock } from 'lucide-react';
 
 interface TwoFactorVerificationProps {
   verificationToken: string;
-  onSuccess: (data: any) => void;
+  onSuccess: (data: AuthResponse) => void;
   onError: (error: string) => void;
   onCancel?: () => void;
 }
 
-const TwoFactorVerification: React.FC<TwoFactorVerificationProps> = ({ 
+export const TwoFactorVerification: React.FC<TwoFactorVerificationProps> = ({ 
   verificationToken, 
   onSuccess, 
   onError,
@@ -39,13 +40,13 @@ const TwoFactorVerification: React.FC<TwoFactorVerificationProps> = ({
 
     try {
       const response = await twoFactorApi.verifyLogin(verificationToken, code);
-      
+
       if (response.success) {
         onSuccess(response);
       } else {
         setError(response.error || 'Invalid verification code');
       }
-    } catch (err) {
+    } catch (error) {
       setError('Failed to verify code. Please try again.');
       onError('Failed to verify code. Please try again.');
     } finally {
@@ -131,4 +132,3 @@ const TwoFactorVerification: React.FC<TwoFactorVerificationProps> = ({
   );
 };
 
-export default TwoFactorVerification;

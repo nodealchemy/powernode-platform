@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class Analytics::MetricsAggregationJob < BaseJob
   sidekiq_options queue: 'analytics'
   
@@ -7,11 +9,10 @@ class Analytics::MetricsAggregationJob < BaseJob
     cron_expression = "*/5 * * * *"
     
     # This would be handled by a cron scheduler like sidekiq-scheduler
-    puts "Scheduling recurring metrics aggregation job with cron: #{cron_expression}"
   end
 
   def execute(time_period: 'current', account_ids: nil)
-    logger.info "Starting metrics aggregation for period: #{time_period}"
+    log_info("Starting metrics aggregation for period: #{time_period}")
     
     start_time = Time.current
     processed_accounts = 0
@@ -33,14 +34,14 @@ class Analytics::MetricsAggregationJob < BaseJob
       update_cache_timestamps
       
       execution_time = Time.current - start_time
-      logger.info "Metrics aggregation completed. Processed #{processed_accounts} accounts in #{execution_time.round(2)}s"
+      log_info("Metrics aggregation completed. Processed #{processed_accounts} accounts in #{execution_time.round(2)}s")
       
       # Schedule live metrics updates
       schedule_live_metrics_updates(account_list)
       
     rescue => e
-      logger.error "Metrics aggregation job failed: #{e.message}"
-      logger.error e.backtrace.join("\n")
+      log_error("Metrics aggregation job failed: #{e.message}")
+      log_error(e.backtrace.join("\n"))
       
       # Notify error handling service
       ErrorNotificationService.notify(
@@ -69,7 +70,7 @@ class Analytics::MetricsAggregationJob < BaseJob
       if response.success? && response.data.is_a?(Array)
         response.data.map { |account| account['id'] }
       else
-        logger.warn "Failed to fetch active accounts, processing global metrics only"
+        log_warn("Failed to fetch active accounts, processing global metrics only")
         []
       end
     end
@@ -91,7 +92,7 @@ class Analytics::MetricsAggregationJob < BaseJob
       end
       
     rescue => e
-      logger.error "Failed to process metrics for account #{account_id}: #{e.message}"
+      log_error("Failed to process metrics for account #{account_id}: #{e.message}")
       # Continue processing other accounts
     end
   end
@@ -112,7 +113,7 @@ class Analytics::MetricsAggregationJob < BaseJob
       end
       
     rescue => e
-      logger.error "Failed to process global metrics: #{e.message}"
+      log_error("Failed to process global metrics: #{e.message}")
     end
   end
 
@@ -130,10 +131,10 @@ class Analytics::MetricsAggregationJob < BaseJob
       })
       
       unless response.success?
-        logger.warn "Failed to update revenue snapshots for account #{account_id}: #{response.error}"
+        log_warn("Failed to update revenue snapshots for account #{account_id}: #{response.error}")
       end
     rescue => e
-      logger.error "Error updating revenue snapshots for account #{account_id}: #{e.message}"
+      log_error("Error updating revenue snapshots for account #{account_id}: #{e.message}")
     end
   end
 
@@ -148,7 +149,7 @@ class Analytics::MetricsAggregationJob < BaseJob
       Redis.current.setex('analytics:last_aggregation', 3600, timestamp)
       
     rescue Redis::BaseError => e
-      logger.warn "Failed to update cache timestamps: #{e.message}"
+      log_warn("Failed to update cache timestamps: #{e.message}")
     end
   end
 

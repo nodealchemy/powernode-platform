@@ -45,27 +45,38 @@ export const WebhookDeliveriesModal: React.FC<WebhookDeliveriesModalProps> = ({
 
   const { getDeliveries } = useAppWebhook(appId, webhook.id);
 
-  const loadDeliveries = useCallback(async () => {
+  // Fixed: Separate callback without filters dependency to prevent circular dependency
+  const loadDeliveries = useCallback(async (customFilters?: DeliveryFilters) => {
     setLoading(true);
     try {
-      const response = await getDeliveries(filters);
+      const response = await getDeliveries(customFilters || filters);
       if (response) {
         setDeliveries(response.data);
         setPagination(response.pagination);
       }
     } catch (error) {
-      console.error('Failed to load deliveries:', error);
     } finally {
       setLoading(false);
     }
   }, [getDeliveries, filters]);
 
+  // Fixed: Split useEffect to prevent circular dependencies  
   useEffect(() => {
     if (isOpen) {
       loadDeliveries();
     }
-  }, [isOpen, filters, loadDeliveries]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]); // Only run when modal opens
 
+  useEffect(() => {
+    // When filters change, reload deliveries with new filters
+    if (isOpen) {
+      loadDeliveries(filters);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters]); // Only depend on filters
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleFilterChange = (key: keyof DeliveryFilters, value: any) => {
     setFilters({ ...filters, [key]: value, page: 1 }); // Reset to first page
   };
@@ -105,10 +116,11 @@ export const WebhookDeliveriesModal: React.FC<WebhookDeliveriesModalProps> = ({
     return `${(ms / 1000).toFixed(2)}s`;
   };
 
-  const formatTimestamp = (timestamp: string) => {
+  // Fixed: Memoized timestamp formatting to prevent excessive Date object creation
+  const formatTimestamp = useCallback((timestamp: string) => {
     const date = new Date(timestamp);
-    const now = new Date();
-    const diff = now.getTime() - date.getTime();
+    const now = Date.now(); // More efficient than new Date()
+    const diff = now - date.getTime();
     const minutes = Math.floor(diff / 60000);
     const hours = Math.floor(minutes / 60);
     const days = Math.floor(hours / 24);
@@ -117,7 +129,7 @@ export const WebhookDeliveriesModal: React.FC<WebhookDeliveriesModalProps> = ({
     if (hours > 0) return `${hours}h ago`;
     if (minutes > 0) return `${minutes}m ago`;
     return 'Just now';
-  };
+  }, []);
 
   const toggleDeliveryExpansion = (deliveryId: string) => {
     setExpandedDelivery(expandedDelivery === deliveryId ? null : deliveryId);
@@ -134,7 +146,7 @@ export const WebhookDeliveriesModal: React.FC<WebhookDeliveriesModalProps> = ({
     >
       <div className="flex flex-col h-full max-h-[calc(90vh-120px)]">
         <div className="flex items-center justify-between p-4 border-b border-theme">
-          <Button variant="outline" size="sm" onClick={loadDeliveries}>
+          <Button variant="outline" size="sm" onClick={() => loadDeliveries()}>
             <RefreshCw className="w-4 h-4" />
           </Button>
           <Button variant="outline" size="sm" onClick={onClose}>

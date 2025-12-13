@@ -11,7 +11,7 @@ import authReducer, {
   clearResendVerificationSuccess,
   decrementResendCooldown,
 } from './authSlice';
-import { authAPI } from '@/features/auth/services/authAPI';
+import { authApi } from '@/features/auth/services/authAPI';
 import uiReducer from './uiSlice';
 import subscriptionReducer from './subscriptionSlice';
 
@@ -36,7 +36,7 @@ Object.defineProperty(window, 'localStorage', {
 // Mock the auth API
 jest.mock('@/features/auth/services/authAPI');
 
-const mockedAuthAPI = authAPI as jest.Mocked<typeof authAPI>;
+const mockedAuthAPI = authApi as jest.Mocked<typeof authApi>;
 
 // Define test store type
 type TestRootState = {
@@ -65,8 +65,8 @@ describe('authSlice', () => {
       const state = store.getState().auth;
       expect(state).toEqual({
         user: null,
-        accessToken: null,
-        refreshToken: null,
+        access_token: null,
+        refresh_token: null,
         isAuthenticated: false,
         isLoading: false,
         error: null,
@@ -124,11 +124,11 @@ describe('authSlice', () => {
       store.dispatch(clearAuth());
       const state = store.getState().auth;
       expect(state.user).toBeNull();
-      expect(state.accessToken).toBeNull();
-      expect(state.refreshToken).toBeNull();
+      expect(state.access_token).toBeNull();
+      expect(state.refresh_token).toBeNull();
       expect(state.isAuthenticated).toBe(false);
-      expect(localStorageMock.removeItem).toHaveBeenCalledWith('accessToken');
-      expect(localStorageMock.removeItem).toHaveBeenCalledWith('refreshToken');
+      expect(localStorageMock.removeItem).toHaveBeenCalledWith('access_token');
+      expect(localStorageMock.removeItem).toHaveBeenCalledWith('refresh_token');
     });
   });
 
@@ -139,8 +139,7 @@ describe('authSlice', () => {
         user: {
           id: '1',
           email: 'test@example.com',
-          first_name: 'John',
-          last_name: 'Doe',
+          name: 'John Doe',
           roles: ['system.admin'],
           permissions: ['users.create', 'users.read', 'users.update', 'users.delete', 'admin.access'],
           status: 'active',
@@ -153,15 +152,11 @@ describe('authSlice', () => {
         },
         access_token: 'mock-access-token',
         refresh_token: 'mock-refresh-token',
-      },
-      status: 200,
-      statusText: 'OK',
-      headers: {},
-      config: {} as any,
+      }
     };
 
     it('should handle successful login', async () => {
-      mockedAuthAPI.login.mockResolvedValueOnce(mockLoginResponse);
+      mockedAuthAPI.login.mockResolvedValueOnce(mockLoginResponse as any);
 
       const credentials = { email: 'test@example.com', password: 'password' };
       await store.dispatch(login(credentials));
@@ -170,12 +165,12 @@ describe('authSlice', () => {
       expect(state.isLoading).toBe(false);
       expect(state.isAuthenticated).toBe(true);
       expect(state.user).toEqual(mockLoginResponse.data.user);
-      expect(state.accessToken).toBe('mock-access-token');
-      expect(state.refreshToken).toBe('mock-refresh-token');
+      expect(state.access_token).toBe('mock-access-token');
+      expect(state.refresh_token).toBe('mock-refresh-token');
       expect(state.error).toBeNull();
 
-      expect(localStorageMock.setItem).toHaveBeenCalledWith('accessToken', 'mock-access-token');
-      expect(localStorageMock.setItem).toHaveBeenCalledWith('refreshToken', 'mock-refresh-token');
+      expect(localStorageMock.setItem).toHaveBeenCalledWith('access_token', 'mock-access-token');
+      expect(localStorageMock.setItem).toHaveBeenCalledWith('refresh_token', 'mock-refresh-token');
     });
 
     it('should handle login failure', async () => {
@@ -224,8 +219,7 @@ describe('authSlice', () => {
         user: {
           id: '1',
           email: 'newuser@example.com',
-          first_name: 'Jane',
-          last_name: 'Smith',
+          name: 'Jane Smith',
           roles: ['account.manager'],
           permissions: ['users.create', 'users.read', 'users.update', 'team.manage'],
           status: 'active',
@@ -251,8 +245,7 @@ describe('authSlice', () => {
       const userData = {
         email: 'newuser@example.com',
         password: 'password123',
-        first_name: 'Jane',
-        last_name: 'Smith',
+        name: 'Jane Smith',
         account_name: 'New Company',
       };
 
@@ -262,8 +255,8 @@ describe('authSlice', () => {
       expect(state.isLoading).toBe(false);
       expect(state.isAuthenticated).toBe(true);
       expect(state.user).toEqual(mockRegisterResponse.data.user);
-      expect(state.accessToken).toBe('new-access-token');
-      expect(state.refreshToken).toBe('new-refresh-token');
+      expect(state.access_token).toBe('new-access-token');
+      expect(state.refresh_token).toBe('new-refresh-token');
     });
 
     it('should handle registration failure', async () => {
@@ -273,8 +266,7 @@ describe('authSlice', () => {
       const userData = {
         email: 'newuser@example.com',
         password: 'password123',
-        first_name: 'Jane',
-        last_name: 'Smith',
+        name: 'Jane Smith',
         account_name: 'New Company',
       };
 
@@ -313,12 +305,12 @@ describe('authSlice', () => {
 
       const state = store.getState().auth;
       expect(state.user).toBeNull();
-      expect(state.accessToken).toBeNull();
-      expect(state.refreshToken).toBeNull();
+      expect(state.access_token).toBeNull();
+      expect(state.refresh_token).toBeNull();
       expect(state.isAuthenticated).toBe(false);
 
-      expect(localStorageMock.removeItem).toHaveBeenCalledWith('accessToken');
-      expect(localStorageMock.removeItem).toHaveBeenCalledWith('refreshToken');
+      expect(localStorageMock.removeItem).toHaveBeenCalledWith('access_token');
+      expect(localStorageMock.removeItem).toHaveBeenCalledWith('refresh_token');
     });
   });
 
@@ -330,9 +322,9 @@ describe('authSlice', () => {
           user: {
             id: '1',
             email: 'test@example.com',
-            first_name: 'John',
-            last_name: 'Doe',
+            name: 'John Doe',
             roles: ['admin'],
+            permissions: ['users.read'],
             status: 'active',
             email_verified: true,
             account: {
@@ -350,7 +342,7 @@ describe('authSlice', () => {
 
       mockedAuthAPI.getCurrentUser.mockResolvedValueOnce(mockUserResponse);
 
-      await store.dispatch(getCurrentUser());
+      await store.dispatch(getCurrentUser(false));
 
       const state = store.getState().auth;
       expect(state.user).toEqual(mockUserResponse.data.user);
@@ -360,7 +352,7 @@ describe('authSlice', () => {
     it('should handle user fetch failure', async () => {
       mockedAuthAPI.getCurrentUser.mockRejectedValueOnce(new Error('Unauthorized'));
 
-      await store.dispatch(getCurrentUser());
+      await store.dispatch(getCurrentUser(false));
 
       const state = store.getState().auth;
       expect(state.user).toBeNull();
@@ -376,13 +368,9 @@ describe('authSlice', () => {
           access_token: 'new-access-token',
           refresh_token: 'new-refresh-token',
         },
-        status: 200,
-        statusText: 'OK',
-        headers: {},
-        config: {} as any,
       };
 
-      mockedAuthAPI.refreshToken.mockResolvedValueOnce(mockRefreshResponse);
+      mockedAuthAPI.refreshToken.mockResolvedValueOnce(mockRefreshResponse as any);
 
       // Set initial state with refresh token
       store.dispatch({
@@ -397,11 +385,11 @@ describe('authSlice', () => {
       await store.dispatch(refreshAccessToken());
 
       const state = store.getState().auth;
-      expect(state.accessToken).toBe('new-access-token');
-      expect(state.refreshToken).toBe('new-refresh-token');
+      expect(state.access_token).toBe('new-access-token');
+      expect(state.refresh_token).toBe('new-refresh-token');
 
-      expect(localStorageMock.setItem).toHaveBeenCalledWith('accessToken', 'new-access-token');
-      expect(localStorageMock.setItem).toHaveBeenCalledWith('refreshToken', 'new-refresh-token');
+      expect(localStorageMock.setItem).toHaveBeenCalledWith('access_token', 'new-access-token');
+      expect(localStorageMock.setItem).toHaveBeenCalledWith('refresh_token', 'new-refresh-token');
     });
 
     it('should clear auth on refresh failure', async () => {
@@ -421,8 +409,8 @@ describe('authSlice', () => {
 
       const state = store.getState().auth;
       expect(state.user).toBeNull();
-      expect(state.accessToken).toBeNull();
-      expect(state.refreshToken).toBeNull();
+      expect(state.access_token).toBeNull();
+      expect(state.refresh_token).toBeNull();
       expect(state.isAuthenticated).toBe(false);
     });
   });

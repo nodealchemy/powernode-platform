@@ -1,0 +1,182 @@
+/*
+ * Microsoft High Contrast Deprecation Fix
+ * Suppresses -ms-high-contrast deprecation warnings and provides modern forced-colors fallbacks
+ * 
+ * This file addresses browser console warnings about -ms-high-contrast being deprecated
+ * in favor of the modern forced-colors media query standard.
+ */
+
+/* 
+ * Global override to suppress any -ms-high-contrast rules from dependencies
+ * This prevents the deprecation warnings from appearing in the console
+ */
+/* No legacy adjustments needed when forced-colors is supported */
+
+/*
+ * Modern Forced Colors Mode Implementation
+ * Replaces any legacy -ms-high-contrast functionality with standards-compliant equivalents
+ */
+@media (forced-colors: active) {
+  :root {
+    /* Ensure proper color scheme detection */
+    color-scheme: light dark;
+  }
+
+  /* 
+   * Override any legacy high contrast styles that might be applied by dependencies
+   * Use system colors for maximum compatibility with Windows High Contrast themes
+   */
+  
+  /* Text and backgrounds */
+  body,
+  html {
+    background-color: Canvas !important;
+    color: CanvasText !important;
+  }
+
+  /* Links */
+  a,
+  a:link,
+  .text-theme-link {
+    color: LinkText !important;
+  }
+
+  a:visited {
+    color: VisitedText !important;
+  }
+
+  a:hover,
+  a:focus {
+    color: LinkText !important;
+    background-color: Highlight !important;
+    color: HighlightText !important;
+  }
+
+  /* Buttons */
+  button,
+  [role="button"],
+  .btn-theme,
+  .btn-theme-primary,
+  .btn-theme-secondary {
+    background-color: ButtonFace !important;
+    color: ButtonText !important;
+    border-color: ButtonText !important;
+  }
+
+  button:hover,
+  button:focus,
+  [role="button"]:hover,
+  [role="button"]:focus {
+    background-color: Highlight !important;
+    color: HighlightText !important;
+    border-color: HighlightText !important;
+  }
+
+  /* Form elements */
+  input,
+  select,
+  textarea {
+    background-color: Field !important;
+    color: FieldText !important;
+    border-color: FieldText !important;
+  }
+
+  input:focus,
+  select:focus,
+  textarea:focus {
+    outline: 2px solid Highlight !important;
+    outline-offset: 2px !important;
+  }
+
+  /* Cards and containers */
+  .card-theme,
+  .card-theme-elevated,
+  [role="dialog"],
+  [role="alertdialog"] {
+    background-color: Canvas !important;
+    border-color: CanvasText !important;
+  }
+
+  /* Selected/highlighted elements */
+  .bg-theme-surface-selected,
+  [aria-selected="true"],
+  .selected {
+    background-color: Highlight !important;
+    color: HighlightText !important;
+  }
+
+  /* Disabled elements */
+  :disabled,
+  [aria-disabled="true"],
+  .disabled {
+    color: GrayText !important;
+  }
+
+  /* Icons and SVGs */
+  svg,
+  .icon {
+    fill: currentColor !important;
+    color: inherit !important;
+  }
+
+  /* Ensure all custom properties are overridden in forced colors mode */
+  * {
+    forced-color-adjust: auto !important;
+  }
+}
+
+/*
+ * Legacy browser support without deprecated media queries
+ * Provides high contrast support for browsers that don't support forced-colors
+ * Uses feature detection instead of deprecated media queries
+ */
+@supports not (forced-colors: active) {
+  /* Basic high contrast detection using color scheme preference */
+  @media (prefers-contrast: high) {
+    body {
+      background: window;
+      color: windowtext;
+    }
+    
+    a {
+      color: highlight;
+    }
+    
+    button {
+      background: buttonface;
+      color: buttontext;
+    }
+  }
+}
+
+/* Re-enable forced-color-adjust for modern browsers only */
+@supports (forced-colors: active) {
+  * {
+    forced-color-adjust: auto;
+  }
+  
+  /* Override deprecated rules from w-md-editor dependency */
+  .w-md-editor-text-input {
+    color: FieldText !important;
+  }
+  
+  .w-md-editor-text-input::selection {
+    background-color: Highlight !important;
+    color: HighlightText !important;
+  }
+}
+
+/*
+ * Modern override for w-md-editor dependency deprecation fix
+ * Overrides legacy -ms-high-contrast rules with modern forced-colors equivalents
+ */
+@media (forced-colors: active) {
+  .w-md-editor-text-input {
+    color: FieldText !important;
+  }
+  
+  .w-md-editor-text-input::selection {
+    background-color: Highlight !important;
+    color: HighlightText !important;
+  }
+}

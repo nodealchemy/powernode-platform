@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'faraday'
 require 'faraday/retry'
 require 'oj'
@@ -14,9 +16,9 @@ class ApiClient
     end
   end
 
-  def initialize(base_url: nil, service_token: nil)
+  def initialize(base_url: nil, worker_token: nil)
     @base_url = base_url || PowernodeWorker.application.config.backend_api_url
-    @service_token = service_token || PowernodeWorker.application.config.service_token
+    @worker_token = worker_token || PowernodeWorker.application.config.worker_token
     @client = build_client
   end
 
@@ -106,6 +108,10 @@ class ApiClient
     get("/api/v1/internal/accounts/#{account_id}")
   end
 
+  def get_invitation(invitation_id)
+    get("/api/v1/internal/invitations/#{invitation_id}")
+  end
+
   def generate_pdf_report(report_type, account_id: nil, start_date: nil, end_date: nil, user_id: nil)
     post('/api/v1/reports/generate', {
       reports: [{
@@ -151,7 +157,7 @@ class ApiClient
       f.request :retry, max: 3, interval: 0.5, backoff_factor: 2
       f.response :json, content_type: 'application/json', parser_options: { symbolize_names: true }
       
-      f.headers['Authorization'] = "Bearer #{@service_token}"
+      f.headers['Authorization'] = "Bearer #{@worker_token}"
       f.headers['User-Agent'] = 'PowernodeWorkerAgent/1.0'
       f.headers['Accept'] = 'application/json'
       

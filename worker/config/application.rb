@@ -1,9 +1,16 @@
+# frozen_string_literal: true
+
 require_relative 'boot'
 
 # Main application class for Powernode Worker Service
 class PowernodeWorker
   def self.application
     @application ||= new
+  end
+
+  # Convenience class method to access logger
+  def self.logger
+    application.logger
   end
 
   def initialize
@@ -77,18 +84,26 @@ class PowernodeWorker
     ActionMailer::Base.view_paths = [File.join(@root, 'app', 'views')]
     ActionMailer::Base.logger = @logger
     
-    # Set delivery method to test for now (no actual email sending in worker testing)
-    ActionMailer::Base.delivery_method = :test
-    ActionMailer::Base.perform_deliveries = true
-    ActionMailer::Base.raise_delivery_errors = true
-    
-    @logger.info "ActionMailer configured for worker service"
+    # Configure delivery method based on environment
+    if env == 'test'
+      # In test environment, use test delivery method (emails stored in memory, not sent)
+      ActionMailer::Base.delivery_method = :test
+      ActionMailer::Base.perform_deliveries = true
+      ActionMailer::Base.raise_delivery_errors = false
+      @logger.info "ActionMailer configured for test environment (delivery simulation)"
+    else
+      # In development/production, emails will be sent via configured provider
+      ActionMailer::Base.delivery_method = :smtp # This will be overridden by EmailConfigurationService
+      ActionMailer::Base.perform_deliveries = true
+      ActionMailer::Base.raise_delivery_errors = true
+      @logger.info "ActionMailer configured for #{env} environment (real email delivery)"
+    end
   end
 
   def setup_service_authentication
     # Ensure service token is available
-    unless config.service_token
-      @logger.error "SERVICE_TOKEN not configured - worker cannot authenticate with backend"
+    unless config.worker_token
+      @logger.error "WORKER_TOKEN not configured - worker cannot authenticate with backend"
       exit 1
     end
     
@@ -99,17 +114,17 @@ class PowernodeWorker
   class Configuration
     def initialize
       @backend_api_url = ENV.fetch('BACKEND_API_URL', 'http://localhost:3000')
-      @service_token = ENV['SERVICE_TOKEN']
+      @worker_token = ENV['WORKER_TOKEN']
       @sidekiq_web_port = ENV.fetch('SIDEKIQ_WEB_PORT', '4567')
       @worker_concurrency = ENV.fetch('WORKER_CONCURRENCY', '5').to_i
       @worker_queues = ENV.fetch('WORKER_QUEUES', 'default,reports,billing,webhooks').split(',')
     end
 
-    attr_reader :backend_api_url, :service_token, :sidekiq_web_port, 
+    attr_reader :backend_api_url, :worker_token, :sidekiq_web_port, 
                 :worker_concurrency, :worker_queues
 
     def api_timeout
-      ENV.fetch('API_TIMEOUT', '30').to_i
+      ENV.fetch('API_TIMEOUT', '120').to_i
     end
 
     def max_retry_attempts

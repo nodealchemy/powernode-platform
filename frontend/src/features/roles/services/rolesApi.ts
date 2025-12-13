@@ -28,8 +28,7 @@ export interface RoleFormData {
 export interface UserWithRoles {
   id: string;
   email: string;
-  first_name: string;
-  last_name: string;
+  name: string;
   roles: string[];
   permissions: string[];
 }
@@ -65,13 +64,13 @@ export const rolesApi = {
     return response.data;
   },
 
-  async assignRoleToUser(roleId: string, userId: string): Promise<{ success: boolean; data: UserWithRoles; message: string }> {
-    const response = await api.post(`/roles/${roleId}/assign_to_user/${userId}`);
+  async assignRoleToUser(role_id: string, user_id: string): Promise<{ success: boolean; data: UserWithRoles; message: string }> {
+    const response = await api.post(`/roles/${role_id}/assign_to_user/${user_id}`);
     return response.data;
   },
 
-  async removeRoleFromUser(roleId: string, userId: string): Promise<{ success: boolean; data: UserWithRoles; message: string }> {
-    const response = await api.delete(`/roles/${roleId}/remove_from_user/${userId}`);
+  async removeRoleFromUser(role_id: string, user_id: string): Promise<{ success: boolean; data: UserWithRoles; message: string }> {
+    const response = await api.delete(`/roles/${role_id}/remove_from_user/${user_id}`);
     return response.data;
   }
 };

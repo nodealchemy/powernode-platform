@@ -260,6 +260,5 @@ export const FormField = forwardRef<HTMLInputElement | HTMLSelectElement | HTMLT
   }
 );
 
-FormField.displayName = 'FormField';
 
 export default FormField;

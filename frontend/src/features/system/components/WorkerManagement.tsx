@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
-import { workerAPI, WorkerListResponse } from '@/features/workers/services/workerApi';
+import { workerApi, WorkerListResponse, WorkerStats } from '@/features/workers/services/workerApi';
 
-const WorkerManagement: React.FC = () => {
+export const WorkerManagement: React.FC = () => {
   const [workers, setWorkers] = useState<WorkerListResponse | null>(null);
-  const [stats, setStats] = useState<any>(null);
+  const [stats, setStats] = useState<WorkerStats | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const user = useSelector((state: any) => state.auth.user);
 
   useEffect(() => {
@@ -15,26 +16,30 @@ const WorkerManagement: React.FC = () => {
 
   const loadWorkers = async () => {
     try {
-      const data = await workerAPI.getWorkers();
+      const data = await workerApi.getWorkers();
       setWorkers(data);
-    } catch (error) {
-      console.error('Failed to load workers', error);
+    } catch {
+      // Handle error silently
     }
   };
 
   const loadStats = async () => {
     try {
-      // TODO: Implement worker stats endpoint or remove this functionality
+      const data = await workerApi.getStats();
+      setStats(data);
+    } catch {
+      // Set default stats on error
       setStats({
         total_jobs: 0,
         completed_jobs: 0,
         failed_jobs: 0,
         success_rate: 0,
         avg_processing_time: 0,
-        queue_depth: 0
+        queue_depth: 0,
+        queues: {},
+        workers_active: 0,
+        timestamp: new Date().toISOString()
       });
-    } catch (error) {
-      console.error('Failed to load stats', error);
     }
   };
 
@@ -71,7 +76,7 @@ const WorkerManagement: React.FC = () => {
           <div>{worker.status === 'active' ? 'Active' : worker.status}</div>
           <div>{worker.request_count.toLocaleString()}</div>
           <div>{worker.last_seen_at || 'Never'}</div>
-          <div>token{worker.token?.slice(0, 10) || worker.masked_token}...</div>
+          <div>{worker.masked_token}</div>
           <button>Show</button>
           <button>Copy</button>
           {worker.status === 'suspended' && <button>Activate</button>}
@@ -95,4 +100,3 @@ const WorkerManagement: React.FC = () => {
   );
 };
 
-export default WorkerManagement;

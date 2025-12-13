@@ -20,8 +20,8 @@ plans_data = [
     price_cents: 0,
     billing_interval: "monthly",
     description: "Basic weather data access with limited requests",
-    features: ["basic_weather"],
-    permissions: ["weather.read"],
+    features: [ "basic_weather" ],
+    permissions: [ "weather.read" ],
     limits: {
       "requests_per_day" => 100,
       "locations" => 5
@@ -37,10 +37,10 @@ plans_data = [
     name: "Standard Plan",
     slug: "standard",
     price_cents: 2900,
-    billing_interval: "monthly", 
+    billing_interval: "monthly",
     description: "Enhanced weather data with more requests and features",
-    features: ["basic_weather"],
-    permissions: ["weather.read"],
+    features: [ "basic_weather" ],
+    permissions: [ "weather.read" ],
     limits: {
       "requests_per_day" => 5000,
       "locations" => 50
@@ -56,16 +56,16 @@ plans_data = [
 created_count = 0
 plans_data.each do |plan_data|
   existing_plan = AppPlan.find_by(app_id: app.id, slug: plan_data[:slug])
-  
+
   if existing_plan
     puts "📋 Plan already exists: #{plan_data[:name]}"
   else
     # Direct creation bypassing some validations
     plan = AppPlan.new(plan_data)
-    
+
     # Skip feature validation for now
     plan.define_singleton_method(:validate_features_exist) { true }
-    
+
     if plan.save
       puts "✅ Created plan: #{plan.name} (#{plan.formatted_price})"
       created_count += 1

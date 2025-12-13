@@ -5,7 +5,7 @@ import {
   Clock, AlertTriangle, CheckCircle, Loader
 } from 'lucide-react';
 import { performanceApi, OptimizationAction } from '@/shared/services/performanceApi';
-import { useNotification } from '@/shared/hooks/useNotification';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 
 interface PerformanceOptimizationPanelProps {
   onOptimizationComplete?: () => void;
@@ -100,7 +100,7 @@ export const PerformanceOptimizationPanel: React.FC<PerformanceOptimizationPanel
   const [executingActions, setExecutingActions] = useState<Set<string>>(new Set());
   const [recentExecutions, setRecentExecutions] = useState<{[key: string]: Date}>({});
   
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
 
   const loadOptimizationActions = useCallback(async () => {
     try {
@@ -110,7 +110,6 @@ export const PerformanceOptimizationPanel: React.FC<PerformanceOptimizationPanel
         setActions(response.data);
       }
     } catch (error) {
-      console.error('Failed to load optimization actions:', error);
       showNotification('Failed to load optimization actions', 'error');
     } finally {
       setLoading(false);
@@ -150,7 +149,6 @@ export const PerformanceOptimizationPanel: React.FC<PerformanceOptimizationPanel
         showNotification(response.error || `Failed to execute ${action.name}`, 'error');
       }
     } catch (error) {
-      console.error('Failed to execute optimization:', error);
       showNotification(`Failed to execute ${action.name}`, 'error');
     } finally {
       setExecutingActions(prev => {
@@ -258,4 +256,3 @@ export const PerformanceOptimizationPanel: React.FC<PerformanceOptimizationPanel
   );
 };
 
-export default PerformanceOptimizationPanel;

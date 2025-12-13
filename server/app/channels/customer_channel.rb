@@ -65,8 +65,10 @@ class CustomerChannel < ApplicationCable::Channel
         timestamp: Time.current.iso8601
       }
 
-      # Broadcast to all admin accounts
-      admin_accounts = Account.joins(:users).where(users: { role: [ "owner", "admin" ] }).distinct
+      # Broadcast to accounts with users who have admin permissions
+      admin_accounts = Account.joins(users: :permissions)
+                              .where(permissions: { name: [ "admin.access", "users.manage", "accounts.manage" ] })
+                              .distinct
       admin_accounts.each do |admin_account|
         ActionCable.server.broadcast("customer_updates_#{admin_account.id}", broadcast_data)
       end
@@ -109,8 +111,8 @@ class CustomerChannel < ApplicationCable::Channel
     if search_query.present?
       search = "%#{search_query}%"
       accounts = accounts.where(
-        "accounts.name ILIKE ? OR users.email ILIKE ? OR users.first_name ILIKE ? OR users.last_name ILIKE ?",
-        search, search, search, search
+        "accounts.name ILIKE ? OR users.email ILIKE ? OR users.name ILIKE ?",
+        search, search, search
       )
     end
 
@@ -140,8 +142,7 @@ class CustomerChannel < ApplicationCable::Channel
       updated_at: account.updated_at,
       user: primary_user ? {
         id: primary_user.id,
-        first_name: primary_user.first_name,
-        last_name: primary_user.last_name,
+        name: primary_user.name,
         full_name: primary_user.full_name,
         email: primary_user.email,
         email_verified: primary_user.email_verified?,

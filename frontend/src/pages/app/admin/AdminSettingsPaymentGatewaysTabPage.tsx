@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
-import { Navigate } from 'react-router-dom';
-import { 
-  paymentGatewaysApi, 
-  PaymentGatewaysOverview, 
-  TestConnectionResult
+import {
+  paymentGatewaysApi,
+  PaymentGatewaysOverview,
+  TestConnectionResult,
+  PaymentGatewayConfig,
+  PaymentGatewayStatus,
+  GatewayStats
 } from '@/features/payment-gateways/services/paymentGatewaysApi';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import { GatewayConfigModal } from '@/features/payment-gateways/components/GatewayConfigModal';
 import Button from '@/shared/components/ui/Button';
 import { RootState } from '@/shared/services';
@@ -43,9 +46,9 @@ const StatusBadge: React.FC<StatusBadgeProps> = ({ status, text }) => {
 
 interface GatewayCardProps {
   gateway: 'stripe' | 'paypal';
-  config: any;
-  status: any;
-  stats: any;
+  config: PaymentGatewayConfig;
+  status: PaymentGatewayStatus;
+  stats?: GatewayStats;
   onTestConnection: (gateway: 'stripe' | 'paypal') => void;
   onViewDetails: (gateway: 'stripe' | 'paypal') => void;
   onConfigure: (gateway: 'stripe' | 'paypal') => void;
@@ -105,29 +108,29 @@ const GatewayCard: React.FC<GatewayCardProps> = ({
       </div>
 
       {/* Stats Grid */}
-      {isConfigured && (
+      {isConfigured && stats && (
         <div className="grid grid-cols-2 gap-4 mb-6 p-4 bg-theme-background-secondary rounded-lg">
           <div className="text-center">
             <div className="text-2xl font-bold text-theme-primary">
-              {stats.total_transactions.toLocaleString()}
+              {(stats.total_transactions || 0).toLocaleString()}
             </div>
             <div className="text-xs text-theme-secondary mt-1">Total Transactions</div>
           </div>
           <div className="text-center">
             <div className="text-2xl font-bold text-theme-success">
-              {paymentGatewaysApi.formatSuccessRate(stats.success_rate)}
+              {paymentGatewaysApi.formatSuccessRate(stats.success_rate || 0)}
             </div>
             <div className="text-xs text-theme-secondary mt-1">Success Rate</div>
           </div>
           <div className="text-center">
             <div className="text-lg font-semibold text-theme-primary">
-              {paymentGatewaysApi.formatCurrency(stats.last_30_days.volume)}
+              {paymentGatewaysApi.formatCurrency(stats.last_30_days?.volume || 0)}
             </div>
             <div className="text-xs text-theme-secondary mt-1">30-Day Volume</div>
           </div>
           <div className="text-center">
             <div className="text-lg font-semibold text-theme-primary">
-              {stats.last_30_days.transactions.toLocaleString()}
+              {(stats.last_30_days?.transactions || 0).toLocaleString()}
             </div>
             <div className="text-xs text-theme-secondary mt-1">30-Day Count</div>
           </div>
@@ -156,7 +159,6 @@ const GatewayCard: React.FC<GatewayCardProps> = ({
               disabled={testing || !isConfigured}
               variant="primary"
               size="sm"
-              loading={testing}
               className="flex items-center gap-2"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -187,6 +189,7 @@ const GatewayCard: React.FC<GatewayCardProps> = ({
 
 export const AdminSettingsPaymentGatewaysTabPage: React.FC = () => {
   const { user } = useSelector((state: RootState) => state.auth);
+  const { showNotification } = useNotifications();
   const [overview, setOverview] = useState<PaymentGatewaysOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [testing, setTesting] = useState<'stripe' | 'paypal' | null>(null);
@@ -197,7 +200,10 @@ export const AdminSettingsPaymentGatewaysTabPage: React.FC = () => {
   });
 
   // Check if user has payment gateway management permission
-  const canManagePaymentGateways = hasPermissions(user, ['admin.billing.manage_gateways']);
+  // Allow access with either payment-specific or general admin settings permissions
+  const canManagePaymentGateways = hasPermissions(user, ['admin.settings.payment']) || 
+                                   hasPermissions(user, ['admin.settings.read']) ||
+                                   hasPermissions(user, ['admin.billing.read']);
 
   useEffect(() => {
     if (canManagePaymentGateways) {
@@ -207,7 +213,18 @@ export const AdminSettingsPaymentGatewaysTabPage: React.FC = () => {
   
   // Redirect if user doesn't have permission
   if (!canManagePaymentGateways) {
-    return <Navigate to="/app/admin/settings" replace />;
+    return (
+      <div className="bg-theme-surface rounded-lg border border-theme p-6">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold text-theme-primary mb-4">Access Denied</h2>
+          <p className="text-theme-secondary mb-4">You don't have permission to access payment gateways settings.</p>
+          <p className="text-sm text-theme-tertiary">Required permissions: admin.settings.payment, admin.settings.read, or admin.billing.read</p>
+          <div className="mt-4 p-4 bg-theme-background-secondary rounded">
+            <p className="text-xs text-theme-tertiary">User permissions: {user?.permissions?.join(', ') || 'None'}</p>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   const loadOverview = async () => {
@@ -215,8 +232,9 @@ export const AdminSettingsPaymentGatewaysTabPage: React.FC = () => {
       setLoading(true);
       const data = await paymentGatewaysApi.getOverview();
       setOverview(data);
-    } catch (error) {
-      console.error('Error loading payment gateways overview:', error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load payment gateway overview';
+      showNotification(errorMessage, 'error');
     } finally {
       setLoading(false);
     }
@@ -225,13 +243,32 @@ export const AdminSettingsPaymentGatewaysTabPage: React.FC = () => {
   const handleTestConnection = async (gateway: 'stripe' | 'paypal') => {
     try {
       setTesting(gateway);
-      const result = await paymentGatewaysApi.testConnection(gateway);
+      showNotification(`Starting ${gateway} connection test...`, 'info');
+      
+      // Use the new async pattern with polling
+      const result = await paymentGatewaysApi.testConnectionAndWait(gateway);
       setTestResults(prev => ({ ...prev, [gateway]: result }));
+      
+      if (result.success) {
+        showNotification(`${gateway.charAt(0).toUpperCase() + gateway.slice(1)} connection test successful!`, 'success');
+      } else {
+        showNotification(`${gateway.charAt(0).toUpperCase() + gateway.slice(1)} connection test failed: ${result.error || 'Unknown error'}`, 'error');
+      }
       
       // Reload overview to get updated status
       await loadOverview();
-    } catch (error) {
-      console.error(`Error testing ${gateway} connection:`, error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : `Failed to test ${gateway} connection`;
+      setTestResults(prev => ({ 
+        ...prev, 
+        [gateway]: { 
+          success: false, 
+          gateway, 
+          error: errorMessage,
+          tested_at: new Date().toISOString()
+        } 
+      }));
+      showNotification(`${gateway.charAt(0).toUpperCase() + gateway.slice(1)} connection test failed: ${errorMessage}`, 'error');
     } finally {
       setTesting(null);
     }
@@ -240,7 +277,7 @@ export const AdminSettingsPaymentGatewaysTabPage: React.FC = () => {
   const handleViewDetails = async (gateway: 'stripe' | 'paypal') => {
     // For simplicity in admin settings, we'll just show a notification
     // In a full implementation, you could show a modal or redirect
-    alert(`View ${gateway} details - Feature can be expanded to show modal with gateway details`);
+    showNotification(`View ${gateway} details - Feature can be expanded to show modal with gateway details`, 'info');
   };
 
   const handleConfigureGateway = (gateway: 'stripe' | 'paypal') => {
@@ -268,12 +305,10 @@ export const AdminSettingsPaymentGatewaysTabPage: React.FC = () => {
   }
 
   return (
-    <div className="bg-theme-surface rounded-lg border border-theme">
-      <div className="p-6">
-        <div className="space-y-6">
+    <div className="space-y-6">
 
       {/* Overview Stats */}
-      {overview && (
+      {overview && overview.statistics?.overall && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="bg-theme-surface border border-theme rounded-xl p-6 text-center">
             <div className="w-12 h-12 bg-theme-info rounded-lg flex items-center justify-center mx-auto mb-4">
@@ -283,10 +318,10 @@ export const AdminSettingsPaymentGatewaysTabPage: React.FC = () => {
             </div>
             <h3 className="text-lg font-semibold text-theme-primary mb-2">Total Transactions</h3>
             <div className="text-3xl font-bold text-theme-interactive-primary mb-1">
-              {overview.statistics.overall.total_transactions.toLocaleString()}
+              {(overview.statistics?.overall?.total_transactions || 0).toLocaleString()}
             </div>
             <div className="text-sm text-theme-secondary">
-              {overview.statistics.overall.successful_transactions.toLocaleString()} successful
+              {(overview.statistics?.overall?.successful_transactions || 0).toLocaleString()} successful
             </div>
           </div>
           
@@ -298,7 +333,7 @@ export const AdminSettingsPaymentGatewaysTabPage: React.FC = () => {
             </div>
             <h3 className="text-lg font-semibold text-theme-primary mb-2">Success Rate</h3>
             <div className="text-3xl font-bold text-theme-success mb-1">
-              {paymentGatewaysApi.formatSuccessRate(overview.statistics.overall.success_rate)}
+              {paymentGatewaysApi.formatSuccessRate(overview.statistics?.overall?.success_rate || 0)}
             </div>
             <div className="text-sm text-theme-secondary">Overall performance</div>
           </div>
@@ -310,8 +345,8 @@ export const AdminSettingsPaymentGatewaysTabPage: React.FC = () => {
               </svg>
             </div>
             <h3 className="text-lg font-semibold text-theme-primary mb-2">Total Volume</h3>
-            <div className="text-3xl font-bold text-purple-600 mb-1">
-              {paymentGatewaysApi.formatCurrency(overview.statistics.overall.total_volume)}
+            <div className="text-3xl font-bold text-theme-interactive-primary mb-1">
+              {paymentGatewaysApi.formatCurrency(overview.statistics?.overall?.total_volume || 0)}
             </div>
             <div className="text-sm text-theme-secondary">All-time processed</div>
           </div>
@@ -319,13 +354,13 @@ export const AdminSettingsPaymentGatewaysTabPage: React.FC = () => {
       )}
 
       {/* Gateway Cards */}
-      {overview && (
+      {overview && overview.gateways && overview.status && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <GatewayCard
             gateway="stripe"
             config={overview.gateways.stripe}
             status={overview.status.stripe}
-            stats={overview.statistics.stripe}
+            stats={overview.statistics?.stripe}
             onTestConnection={handleTestConnection}
             onViewDetails={handleViewDetails}
             onConfigure={handleConfigureGateway}
@@ -335,7 +370,7 @@ export const AdminSettingsPaymentGatewaysTabPage: React.FC = () => {
             gateway="paypal"
             config={overview.gateways.paypal}
             status={overview.status.paypal}
-            stats={overview.statistics.paypal}
+            stats={overview.statistics?.paypal}
             onTestConnection={handleTestConnection}
             onViewDetails={handleViewDetails}
             onConfigure={handleConfigureGateway}
@@ -391,8 +426,6 @@ export const AdminSettingsPaymentGatewaysTabPage: React.FC = () => {
           </div>
         </div>
       )}
-        </div>
-      </div>
 
       {/* Configuration Modal */}
       {configModal.gateway && (

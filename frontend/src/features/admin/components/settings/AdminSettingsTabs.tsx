@@ -1,10 +1,11 @@
 // Admin Settings Tabbed Interface
-import React from 'react';
+
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { 
-  CreditCard, Mail, Shield, 
-  Zap, BarChart3 
+  CreditCard, Mail, Gauge, 
+  LayoutDashboard, ShieldAlert, 
+  Network, Lock
 } from 'lucide-react';
 import { RootState } from '@/shared/services';
 import { hasPermissions } from '@/shared/utils/permissionUtils';
@@ -23,9 +24,9 @@ const adminSettingsTabs: AdminSettingsTab[] = [
     id: 'overview',
     label: 'Overview',
     href: '/app/admin/settings',
-    icon: BarChart3,
+    icon: LayoutDashboard,
     description: 'System overview and quick admin actions'
-    // No specific permissions required - covered by parent admin.settings.view
+    // No specific permissions required - covered by parent admin.settings.read
   },
   {
     id: 'payment-gateways',
@@ -44,20 +45,36 @@ const adminSettingsTabs: AdminSettingsTab[] = [
     requiredPermissions: ['admin.settings.email']
   },
   {
+    id: 'proxy',
+    label: 'Reverse Proxy',
+    href: '/app/admin/settings/proxy',
+    icon: Network,
+    description: 'Configure reverse proxy URL handling and trusted hosts',
+    requiredPermissions: ['admin.settings.read'] // Using basic admin settings permission
+  },
+  {
     id: 'security',
     label: 'Security',
     href: '/app/admin/settings/security',
-    icon: Shield,
+    icon: Lock,
     description: 'Security policies and access controls',
+    requiredPermissions: ['admin.settings.security']
+  },
+  {
+    id: 'rate-limiting',
+    label: 'Rate Limiting',
+    href: '/app/admin/settings/rate-limiting',
+    icon: ShieldAlert,
+    description: 'Configure API rate limits and monitor usage patterns',
     requiredPermissions: ['admin.settings.security']
   },
   {
     id: 'performance',
     label: 'Performance',
     href: '/app/admin/settings/performance',
-    icon: Zap,
+    icon: Gauge,
     description: 'Monitor and optimize system performance',
-    requiredPermissions: ['admin.settings.view'] // Basic permission for now
+    requiredPermissions: ['admin.settings.read'] // Basic permission for now
   }
 ];
 
@@ -154,14 +171,18 @@ export const AdminSettingsTabs: React.FC<AdminSettingsTabsProps> = ({ className 
         {(() => {
           const activeTab = availableTabs.find(tab => tab.id === activeTabId);
           if (!activeTab) return null;
+          const IconComponent = activeTab.icon;
           
           return (
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-theme-interactive-primary bg-opacity-10 rounded-lg">
-                <activeTab.icon className="w-5 h-5 text-theme-interactive-primary" />
+              <div className="relative">
+                <div className="absolute inset-0 bg-gradient-to-br from-theme-interactive-primary/15 to-theme-interactive-primary/5 rounded-lg blur-md"></div>
+                <div className="relative p-2.5 bg-theme-surface/50 backdrop-blur-sm rounded-lg">
+                  <IconComponent className="w-6 h-6 text-theme-interactive-primary" strokeWidth={1.5} />
+                </div>
               </div>
               <div>
-                <p className="text-theme-secondary mt-1">{activeTab.description}</p>
+                <p className="text-theme-secondary">{activeTab.description}</p>
               </div>
             </div>
           );
@@ -171,4 +192,3 @@ export const AdminSettingsTabs: React.FC<AdminSettingsTabsProps> = ({ className 
   );
 };
 
-export default AdminSettingsTabs;

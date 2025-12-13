@@ -19,8 +19,8 @@ plans_data = [
     price_cents: 0,
     billing_interval: "monthly",
     description: "Basic weather data access with limited requests",
-    features: ["basic_weather"],
-    permissions: ["weather.read"],
+    features: [ "basic_weather" ],
+    permissions: [ "weather.read" ],
     limits: {
       "requests_per_day" => 100,
       "locations" => 5,
@@ -39,8 +39,8 @@ plans_data = [
     price_cents: 2900, # $29.00
     billing_interval: "monthly",
     description: "Enhanced weather data with more requests and features",
-    features: ["basic_weather", "extended_forecast", "weather_alerts"],
-    permissions: ["weather.read", "weather.forecast", "weather.alerts"],
+    features: [ "basic_weather", "extended_forecast", "weather_alerts" ],
+    permissions: [ "weather.read", "weather.forecast", "weather.alerts" ],
     limits: {
       "requests_per_day" => 5000,
       "locations" => 50,
@@ -60,8 +60,8 @@ plans_data = [
     price_cents: 9900, # $99.00
     billing_interval: "monthly",
     description: "Advanced weather data for professional applications",
-    features: ["basic_weather", "extended_forecast", "weather_alerts", "historical_data", "weather_analytics"],
-    permissions: ["weather.read", "weather.forecast", "weather.alerts", "weather.analytics"],
+    features: [ "basic_weather", "extended_forecast", "weather_alerts", "historical_data", "weather_analytics" ],
+    permissions: [ "weather.read", "weather.forecast", "weather.alerts", "weather.analytics" ],
     limits: {
       "requests_per_day" => 25000,
       "locations" => 500,
@@ -82,7 +82,7 @@ plans_data = [
 created_count = 0
 plans_data.each do |plan_data|
   existing_plan = app.app_plans.find_by(slug: plan_data[:slug])
-  
+
   if existing_plan
     puts "📋 Plan already exists: #{plan_data[:name]}"
   else

@@ -8,16 +8,16 @@ class AppEndpoint < ApplicationRecord
   # Validations
   validates :name, presence: true, length: { minimum: 1, maximum: 255 }
   validates :slug, presence: true, length: { minimum: 1, maximum: 255 }
-  validates :http_method, presence: true, inclusion: { 
+  validates :http_method, presence: true, inclusion: {
     in: %w[GET POST PUT PATCH DELETE HEAD OPTIONS],
     message: "must be a valid HTTP method"
   }
   validates :path, presence: true, length: { minimum: 1, maximum: 500 }
   validates :version, presence: true, length: { maximum: 20 }
   validates :slug, uniqueness: { scope: :app_id, message: "must be unique per app" }
-  validates :path, uniqueness: { 
-    scope: [:app_id, :http_method], 
-    message: "and HTTP method combination must be unique per app" 
+  validates :path, uniqueness: {
+    scope: [ :app_id, :http_method ],
+    message: "and HTTP method combination must be unique per app"
   }
 
   # Scopes
@@ -74,7 +74,7 @@ class AppEndpoint < ApplicationRecord
   end
 
   def calls_last_24h
-    app_endpoint_calls.where('called_at > ?', 24.hours.ago).count
+    app_endpoint_calls.where("called_at > ?", 24.hours.ago).count
   end
 
   def average_response_time
@@ -84,7 +84,7 @@ class AppEndpoint < ApplicationRecord
   def success_rate
     total = app_endpoint_calls.count
     return 0 if total.zero?
-    
+
     successful = app_endpoint_calls.where(status_code: 200..299).count
     ((successful.to_f / total) * 100).round(2)
   end
@@ -98,15 +98,15 @@ class AppEndpoint < ApplicationRecord
   def normalize_fields
     self.http_method = http_method&.upcase
     self.path = path&.strip
-    self.path = "/#{path}" unless path&.start_with?('/')
+    self.path = "/#{path}" unless path&.start_with?("/")
     self.slug = slug&.downcase&.strip
     self.name = name&.strip
   end
 
   def generate_slug
     return unless name.present?
-    
-    base_slug = name.downcase.gsub(/[^a-z0-9\s]/, '').gsub(/\s+/, '_')
+
+    base_slug = name.downcase.gsub(/[^a-z0-9\s]/, "").gsub(/\s+/, "_")
     counter = 0
     potential_slug = base_slug
 

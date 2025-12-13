@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { Card } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Button } from '@/shared/components/ui/Button';
@@ -6,6 +6,12 @@ import { App } from '../../types';
 import { ViewMode } from '../../types/search';
 import { getAppStatusBadgeVariant, formatPriceCents, formatBillingInterval } from '../../utils/themeHelpers';
 import { Star, Download, Eye, ShoppingCart, ExternalLink, Clock, Users, Tag } from 'lucide-react';
+
+export interface AppMetrics {
+  rating?: number;
+  totalRatings?: number;
+  installations?: number;
+}
 
 interface AppCardEnhancedProps {
   app: App;
@@ -18,6 +24,7 @@ interface AppCardEnhancedProps {
   onManage?: (app: App) => void;
   onComparePlans?: (app: App) => void;
   className?: string;
+  metrics?: AppMetrics;
 }
 
 export const AppCardEnhanced: React.FC<AppCardEnhancedProps> = ({
@@ -25,12 +32,13 @@ export const AppCardEnhanced: React.FC<AppCardEnhancedProps> = ({
   viewMode = 'grid',
   showSubscription = false,
   showManagement = false,
-  isOwner = false,
+  isOwner: _isOwner = false,
   onSubscribe,
   onViewDetails,
   onManage,
   onComparePlans,
-  className = ''
+  className = '',
+  metrics
 }) => {
 
   // Get the cheapest plan for pricing display
@@ -42,10 +50,10 @@ export const AppCardEnhanced: React.FC<AppCardEnhancedProps> = ({
   const freePlan = plans.find(plan => plan.price_cents === 0 && plan.is_active);
   const hasFreePlan = !!freePlan;
 
-  // Mock data for demo - in real implementation, these would come from the app data
-  const rating = 4.5;
-  const totalRatings = 127;
-  const installations = 1250;
+  // Use metrics from props with defaults
+  const rating = metrics?.rating ?? 0;
+  const totalRatings = metrics?.totalRatings ?? 0;
+  const installations = metrics?.installations ?? 0;
   const lastUpdated = app.updated_at || app.created_at;
 
   const renderPricing = () => {

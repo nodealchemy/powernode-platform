@@ -5,7 +5,7 @@ import { RootState, AppDispatch } from '@/shared/services';
 import { toggleSidebar } from '@/shared/services/slices/uiSlice';
 import { Sidebar, Header } from '../navigation';
 import { NavigationProvider } from '@/shared/hooks/NavigationContext';
-import ImpersonationBanner from '@/features/admin/components/ImpersonationBanner';
+import { ImpersonationBanner } from '@/features/admin/components/ImpersonationBanner';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;

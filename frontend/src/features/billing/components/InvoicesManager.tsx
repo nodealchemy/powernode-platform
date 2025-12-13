@@ -5,8 +5,10 @@ import {
   Check, Clock, X, Filter, Search
 } from 'lucide-react';
 import { invoicesApi, Invoice, InvoiceFilters, InvoiceStats } from '@/shared/services/invoicesApi';
-import { useNotification } from '@/shared/hooks/useNotification';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
+import { formatCurrency } from '@/shared/utils/formatters';
+import { getInvoiceStatusColor, getInvoiceStatusText } from '@/shared/utils/statusHelpers';
 
 interface InvoicesManagerProps {
   customerId?: string;
@@ -34,7 +36,7 @@ export const InvoicesManager: React.FC<InvoicesManagerProps> = ({
   });
   const [showFiltersPanel, setShowFiltersPanel] = useState(false);
   
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
   const perPage = 20;
 
   const loadInvoices = useCallback(async () => {
@@ -48,7 +50,7 @@ export const InvoicesManager: React.FC<InvoicesManagerProps> = ({
       } else {
         showNotification('Failed to load invoices', 'error');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       showNotification('Failed to load invoices', 'error');
     } finally {
       setLoading(false);
@@ -59,8 +61,10 @@ export const InvoicesManager: React.FC<InvoicesManagerProps> = ({
     try {
       const statsData = await invoicesApi.getInvoiceStats();
       setStats(statsData);
-    } catch (error: any) {
-      console.error('Failed to load invoice stats:', error);
+    } catch (error: unknown) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('[InvoicesManager] Failed to load invoice stats:', error);
+      }
     }
   };
 
@@ -71,7 +75,7 @@ export const InvoicesManager: React.FC<InvoicesManagerProps> = ({
     }
   }, [currentPage, filters, loadInvoices, showStats]);
 
-  const handleAction = async (action: string, invoiceId: string, data?: any) => {
+  const handleAction = async (action: string, invoiceId: string, data?: { reason?: string; amount?: number; payment_method?: string; notes?: string }) => {
     try {
       setActionLoading(prev => ({ ...prev, [invoiceId]: true }));
       let response;
@@ -87,7 +91,7 @@ export const InvoicesManager: React.FC<InvoicesManagerProps> = ({
           response = await invoicesApi.retryPayment(invoiceId);
           break;
         case 'mark_paid':
-          response = await invoicesApi.markAsPaid(invoiceId, data);
+          response = await invoicesApi.markAsPaid(invoiceId, data as { amount: number; payment_method: string; payment_date?: string; notes?: string });
           break;
         default:
           throw new Error('Unknown action');
@@ -102,7 +106,7 @@ export const InvoicesManager: React.FC<InvoicesManagerProps> = ({
       } else {
         showNotification(response.error || 'Action failed', 'error');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       showNotification('Action failed', 'error');
     } finally {
       setActionLoading(prev => ({ ...prev, [invoiceId]: false }));
@@ -125,22 +129,22 @@ export const InvoicesManager: React.FC<InvoicesManagerProps> = ({
       window.URL.revokeObjectURL(url);
       
       showNotification('Invoice PDF downloaded', 'success');
-    } catch (error: any) {
+    } catch (error: unknown) {
       showNotification('Failed to download invoice PDF', 'error');
     } finally {
       setActionLoading(prev => ({ ...prev, [invoiceId]: false }));
     }
   };
 
-  const getStatusColor = (status: string): string => {
-    const colorMap = {
+  const getStatusColorClass = (status: string): string => {
+    const colorMap: Record<string, string> = {
       green: 'bg-theme-success-background text-theme-success border-theme-success',
       yellow: 'bg-theme-warning-background text-theme-warning border-theme-warning',
       red: 'bg-theme-error-background text-theme-error border-theme-error',
       blue: 'bg-theme-info-background text-theme-info border-theme-info',
       gray: 'bg-theme-surface text-theme-secondary border-theme'
     };
-    return colorMap[invoicesApi.getStatusColor(status)] || colorMap.gray;
+    return colorMap[getInvoiceStatusColor(status)] || colorMap.gray;
   };
 
   const filteredInvoices = invoices.filter(invoice =>
@@ -170,19 +174,19 @@ export const InvoicesManager: React.FC<InvoicesManagerProps> = ({
               <div>
                 <p className="text-sm text-theme-secondary">Outstanding</p>
                 <p className="text-2xl font-semibold text-theme-primary">
-                  {invoicesApi.formatAmount(stats.outstanding_amount)}
+                  {formatCurrency(stats.outstanding_amount)}
                 </p>
               </div>
               <Clock className="w-8 h-8 text-theme-warning" />
             </div>
           </div>
-          
+
           <div className="bg-theme-surface rounded-lg border border-theme p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-theme-secondary">Overdue</p>
                 <p className="text-2xl font-semibold text-theme-error">
-                  {invoicesApi.formatAmount(stats.overdue_amount)}
+                  {formatCurrency(stats.overdue_amount)}
                 </p>
               </div>
               <AlertTriangle className="w-8 h-8 text-theme-error" />
@@ -304,7 +308,7 @@ export const InvoicesManager: React.FC<InvoicesManagerProps> = ({
                 value={filters.sort_by || 'created_at'}
                 onChange={(e) => setFilters(prev => ({
                   ...prev,
-                  sort_by: e.target.value as any
+                  sort_by: e.target.value as 'created_at' | 'due_date' | 'amount_due' | 'status'
                 }))}
                 className="w-full px-3 py-2 border border-theme rounded-md bg-theme-background text-theme-primary focus:outline-none focus:border-theme-focus"
               >
@@ -384,18 +388,18 @@ export const InvoicesManager: React.FC<InvoicesManagerProps> = ({
                     
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-theme-primary">
-                        {invoicesApi.formatAmount(invoice.total, invoice.currency)}
+                        {formatCurrency(invoice.total, invoice.currency)}
                       </div>
                       {invoice.amount_remaining > 0 && (
                         <div className="text-sm text-theme-secondary">
-                          {invoicesApi.formatAmount(invoice.amount_remaining, invoice.currency)} remaining
+                          {formatCurrency(invoice.amount_remaining, invoice.currency)} remaining
                         </div>
                       )}
                     </td>
-                    
+
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full border ${getStatusColor(invoice.status)}`}>
-                        {invoicesApi.getStatusText(invoice.status)}
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full border ${getStatusColorClass(invoice.status)}`}>
+                        {getInvoiceStatusText(invoice.status)}
                       </span>
                       {invoicesApi.isOverdue(invoice) && (
                         <div className="text-xs text-theme-error mt-1">
@@ -504,4 +508,3 @@ export const InvoicesManager: React.FC<InvoicesManagerProps> = ({
   );
 };
 
-export default InvoicesManager;

@@ -18,7 +18,7 @@ import { Button } from '@/shared/components/ui/Button';
 import { Card } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Modal } from '@/shared/components/ui/Modal';
-import { useNotification } from '@/shared/hooks/useNotification';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import { appsApi, marketplaceListingsApi } from '@/features/marketplace/services/marketplaceApi';
 import type { App, MarketplaceListing } from '@/features/marketplace/types';
 
@@ -35,7 +35,7 @@ export const AdminMarketplacePage: React.FC<AdminMarketplacePageProps> = ({ clas
   const [selectedApp, setSelectedApp] = useState<App | null>(null);
   const [showDetails, setShowDetails] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
 
   // Prevent duplicate API calls in StrictMode by tracking initial load
   const hasLoadedRef = useRef(false);
@@ -91,16 +91,83 @@ export const AdminMarketplacePage: React.FC<AdminMarketplacePageProps> = ({ clas
         const response = await marketplaceListingsApi.getMarketplaceListings({ page: 1, per_page: 50 });
         setListings(response.data || []);
       }
-    } catch (error: any) {
-      showNotification(error.response?.data?.error || 'Failed to load data', 'error');
+    } catch (error: unknown) {
+      showNotification(error instanceof Error ? error.message : 'Failed to load data', 'error');
     } finally {
       setLoading(false);
     }
   };
 
   const handleExportReport = () => {
-    // TODO: Implement export functionality
-    showNotification('Export functionality coming soon', 'info');
+    try {
+      let data: Record<string, unknown>[];
+      let filename: string;
+
+      if (activeTab === 'apps') {
+        data = apps.map(app => ({
+          id: app.id,
+          name: app.name,
+          description: app.description,
+          status: app.status,
+          category: app.category,
+          author: (app.metadata as Record<string, unknown>)?.author || 'Unknown',
+          version: app.version,
+          created_at: app.created_at,
+          updated_at: app.updated_at
+        }));
+        filename = `marketplace-apps-${new Date().toISOString().split('T')[0]}.csv`;
+      } else if (activeTab === 'listings') {
+        data = listings.map(listing => ({
+          id: listing.id,
+          name: listing.title,
+          description: listing.short_description,
+          status: listing.review_status,
+          category: listing.category,
+          featured: listing.featured,
+          created_at: listing.created_at,
+          updated_at: listing.updated_at
+        }));
+        filename = `marketplace-listings-${new Date().toISOString().split('T')[0]}.csv`;
+      } else {
+        showNotification('Export not available for this tab', 'warning');
+        return;
+      }
+
+      if (data.length === 0) {
+        showNotification('No data to export', 'warning');
+        return;
+      }
+
+      // Generate CSV
+      const headers = Object.keys(data[0]);
+      const csvRows = [
+        headers.join(','),
+        ...data.map(row =>
+          headers.map(header => {
+            const value = row[header];
+            const stringValue = value === null || value === undefined ? '' : String(value);
+            // Escape quotes and wrap in quotes if contains comma or newline
+            if (stringValue.includes(',') || stringValue.includes('\n') || stringValue.includes('"')) {
+              return `"${stringValue.replace(/"/g, '""')}"`;
+            }
+            return stringValue;
+          }).join(',')
+        )
+      ];
+      const csvContent = csvRows.join('\n');
+
+      // Create and trigger download
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = filename;
+      link.click();
+      URL.revokeObjectURL(link.href);
+
+      showNotification(`Exported ${data.length} records to ${filename}`, 'success');
+    } catch (error) {
+      showNotification('Failed to export data', 'error');
+    }
   };
 
   const handleAppAction = async (appId: string, action: 'approve' | 'reject' | 'publish' | 'unpublish' | 'delete') => {
@@ -126,8 +193,8 @@ export const AdminMarketplacePage: React.FC<AdminMarketplacePageProps> = ({ clas
       }
       
       await loadData();
-    } catch (error: any) {
-      showNotification(error.response?.data?.error || `Failed to ${action} app`, 'error');
+    } catch (error: unknown) {
+      showNotification(error instanceof Error ? error.message : `Failed to ${action} app`, 'error');
     } finally {
       setLoading(false);
     }
@@ -157,8 +224,8 @@ export const AdminMarketplacePage: React.FC<AdminMarketplacePageProps> = ({ clas
       }
       
       await loadData();
-    } catch (error: any) {
-      showNotification(error.response?.data?.error || `Failed to ${action} listing`, 'error');
+    } catch (error: unknown) {
+      showNotification(error instanceof Error ? error.message : `Failed to ${action} listing`, 'error');
     } finally {
       setLoading(false);
     }

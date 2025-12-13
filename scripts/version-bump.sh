@@ -93,29 +93,29 @@ update_changelog() {
     echo "- " >> "$temp_file"
     echo "" >> "$temp_file"
     
-    # Insert at the top of CHANGELOG.md after the header
-    if [ -f "$PROJECT_ROOT/CHANGELOG.md" ]; then
+    # Insert at the top of docs/CHANGELOG.md after the header
+    if [ -f "$PROJECT_ROOT/docs/CHANGELOG.md" ]; then
         # Find line number after "## [Unreleased]" section
-        local insert_line=$(grep -n "^## \[Unreleased\]" "$PROJECT_ROOT/CHANGELOG.md" | cut -d: -f1)
+        local insert_line=$(grep -n "^## \[Unreleased\]" "$PROJECT_ROOT/docs/CHANGELOG.md" | cut -d: -f1)
         if [ -n "$insert_line" ]; then
             # Find the next ## section or end of unreleased section
-            local next_section=$(tail -n +$((insert_line + 1)) "$PROJECT_ROOT/CHANGELOG.md" | grep -n "^## " | head -1 | cut -d: -f1)
+            local next_section=$(tail -n +$((insert_line + 1)) "$PROJECT_ROOT/docs/CHANGELOG.md" | grep -n "^## " | head -1 | cut -d: -f1)
             if [ -n "$next_section" ]; then
                 insert_line=$((insert_line + next_section))
             else
-                insert_line=$(($(wc -l < "$PROJECT_ROOT/CHANGELOG.md") + 1))
+                insert_line=$(($(wc -l < "$PROJECT_ROOT/docs/CHANGELOG.md") + 1))
             fi
             
             # Insert the new version section
-            head -n $((insert_line - 1)) "$PROJECT_ROOT/CHANGELOG.md" > "${temp_file}.full"
+            head -n $((insert_line - 1)) "$PROJECT_ROOT/docs/CHANGELOG.md" > "${temp_file}.full"
             cat "$temp_file" >> "${temp_file}.full"
-            tail -n +$insert_line "$PROJECT_ROOT/CHANGELOG.md" >> "${temp_file}.full"
-            mv "${temp_file}.full" "$PROJECT_ROOT/CHANGELOG.md"
+            tail -n +$insert_line "$PROJECT_ROOT/docs/CHANGELOG.md" >> "${temp_file}.full"
+            mv "${temp_file}.full" "$PROJECT_ROOT/docs/CHANGELOG.md"
         fi
     fi
     
     rm "$temp_file"
-    echo "✓ Updated CHANGELOG.md"
+    echo "✓ Updated docs/CHANGELOG.md"
 }
 
 # Main version bump function
@@ -198,7 +198,7 @@ bump_version() {
     update_changelog "$new_version"
     
     # Stage changes
-    git add "$PROJECT_ROOT/CHANGELOG.md" "$PROJECT_ROOT/CLAUDE.md"
+    git add "$PROJECT_ROOT/docs/CHANGELOG.md" "$PROJECT_ROOT/CLAUDE.md"
     [ -f "$PROJECT_ROOT/package.json" ] && git add "$PROJECT_ROOT/package.json"
     [ -f "$PROJECT_ROOT/frontend/package.json" ] && git add "$PROJECT_ROOT/frontend/package.json"
     [ -f "$PROJECT_ROOT/server/Gemfile" ] && git add "$PROJECT_ROOT/server/Gemfile"
@@ -206,7 +206,7 @@ bump_version() {
     
     echo -e "${GREEN}✓ Version bumped to $new_version${NC}"
     echo -e "${YELLOW}Next steps:${NC}"
-    echo "1. Edit CHANGELOG.md to add release notes"
+    echo "1. Edit docs/CHANGELOG.md to add release notes"
     echo "2. Commit changes: git commit -m \"chore: bump version to $new_version\""
     echo "3. Create git tag: git tag -a v$new_version -m \"Release $new_version\""
     echo "4. Push changes: git push && git push --tags"

@@ -25,7 +25,7 @@ export interface Account {
     full_name: string;
     email: string;
   };
-  settings: Record<string, any>;
+  settings: Record<string, unknown>;
 }
 
 export interface AccountFormData {
@@ -34,7 +34,7 @@ export interface AccountFormData {
   billing_email?: string;
   phone?: string;
   timezone: string;
-  settings?: Record<string, any>;
+  settings?: Record<string, unknown>;
 }
 
 export interface AccountStats {
@@ -58,6 +58,15 @@ export interface AccountResponse {
   message?: string;
 }
 
+/**
+ * @module AccountsApi
+ * @description Account management service.
+ *
+ * RESPONSIBILITY: Account CRUD operations, account status management
+ * NOT RESPONSIBLE FOR: Admin settings dashboard (use adminSettingsApi for account listing)
+ *
+ * Handles /accounts/* and /admin/accounts/* endpoints.
+ */
 class AccountsApiService {
   // Get current account
   async getCurrentAccount(): Promise<AccountResponse> {
@@ -66,8 +75,8 @@ class AccountsApiService {
   }
 
   // Get specific account (admin only for other accounts)
-  async getAccount(accountId: string): Promise<AccountResponse> {
-    const response = await api.get(`/accounts/${accountId}`);
+  async getAccount(account_id: string): Promise<AccountResponse> {
+    const response = await api.get(`/accounts/${account_id}`);
     return response.data;
   }
 
@@ -80,8 +89,8 @@ class AccountsApiService {
   }
 
   // Update specific account (admin only)
-  async updateAccountById(accountId: string, accountData: AccountFormData): Promise<AccountResponse> {
-    const response = await api.put(`/accounts/${accountId}`, {
+  async updateAccountById(account_id: string, accountData: AccountFormData): Promise<AccountResponse> {
+    const response = await api.put(`/accounts/${account_id}`, {
       account: accountData
     });
     return response.data;
@@ -100,29 +109,29 @@ class AccountsApiService {
   }
 
   // Suspend account (admin only)
-  async suspendAccount(accountId: string, reason: string): Promise<AccountResponse> {
-    const response = await api.put(`/admin/accounts/${accountId}/suspend`, {
+  async suspendAccount(account_id: string, reason: string): Promise<AccountResponse> {
+    const response = await api.put(`/admin/accounts/${account_id}/suspend`, {
       reason: reason
     });
     return response.data;
   }
 
   // Activate account (admin only)
-  async activateAccount(accountId: string): Promise<AccountResponse> {
-    const response = await api.put(`/admin/accounts/${accountId}/activate`);
+  async activateAccount(account_id: string): Promise<AccountResponse> {
+    const response = await api.put(`/admin/accounts/${account_id}/activate`);
     return response.data;
   }
 
   // Cancel account (admin only)
-  async cancelAccount(accountId: string, reason: string): Promise<AccountResponse> {
-    const response = await api.put(`/admin/accounts/${accountId}/cancel`, {
+  async cancelAccount(account_id: string, reason: string): Promise<AccountResponse> {
+    const response = await api.put(`/admin/accounts/${account_id}/cancel`, {
       reason: reason
     });
     return response.data;
   }
 
   // Get account usage (for current account)
-  async getAccountUsage(): Promise<{ success: boolean; data: any }> {
+  async getAccountUsage(): Promise<{ success: boolean; data: Record<string, unknown> }> {
     const response = await api.get('/accounts/usage');
     return response.data;
   }

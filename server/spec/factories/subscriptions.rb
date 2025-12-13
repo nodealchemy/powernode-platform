@@ -2,11 +2,14 @@ FactoryBot.define do
   factory :subscription do
     association :account
     association :plan
-    status { 'active' }
     quantity { 1 }
     current_period_start { 1.month.ago }
     current_period_end { 1.month.from_now }
     metadata { {} }
+
+    trait :active do
+      status { 'active' }
+    end
 
     trait :trialing do
       status { 'trialing' }
@@ -41,6 +44,10 @@ FactoryBot.define do
     trait :ended do
       status { 'ended' }
       ended_at { 1.day.ago }
+    end
+
+    trait :without_plan do
+      plan { nil }
     end
 
     trait :with_stripe do

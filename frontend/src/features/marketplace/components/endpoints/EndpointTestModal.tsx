@@ -6,13 +6,13 @@ import { Badge } from '@/shared/components/ui/Badge';
 import { AppEndpoint } from '../../types';
 import { getHttpMethodThemeClass } from '../../utils/themeHelpers';
 import { X, Play, Copy, Plus, Minus, Clock, CheckCircle, XCircle } from 'lucide-react';
-import { useNotification } from '@/shared/hooks/useNotification';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 
 interface EndpointTestModalProps {
   isOpen: boolean;
   onClose: () => void;
   endpoint: AppEndpoint | null;
-  appId: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onTest: (endpointId: string, testData?: any, testHeaders?: Record<string, string>) => Promise<any>;
 }
 
@@ -20,6 +20,7 @@ interface TestResult {
   call_id: string;
   status_code: number;
   response_time_ms: number;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   test_result: any;
   error?: string;
 }
@@ -35,7 +36,6 @@ export const EndpointTestModal: React.FC<EndpointTestModalProps> = ({
   isOpen,
   onClose,
   endpoint,
-  appId,
   onTest
 }) => {
   const [testing, setTesting] = useState(false);
@@ -45,7 +45,7 @@ export const EndpointTestModal: React.FC<EndpointTestModalProps> = ({
   const [testHeaders, setTestHeaders] = useState<Record<string, string>>({});
   const [newHeader, setNewHeader] = useState({ key: '', value: '' });
   const responseRef = useRef<HTMLPreElement>(null);
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
 
   const handleTest = async () => {
     if (!endpoint) return;
@@ -70,7 +70,6 @@ export const EndpointTestModal: React.FC<EndpointTestModalProps> = ({
       setTestResult(result);
       showNotification('Test completed successfully', 'success');
     } catch (error) {
-      console.error('Test failed:', error);
       showNotification('Test failed', 'error');
     } finally {
       setTesting(false);
@@ -105,7 +104,7 @@ export const EndpointTestModal: React.FC<EndpointTestModalProps> = ({
     }
   };
 
-  const formatJson = (obj: any): string => {
+  const formatJson = (obj: unknown): string => {
     try {
       return JSON.stringify(obj, null, 2);
     } catch {

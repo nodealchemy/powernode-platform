@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { appsApi } from '../services/marketplaceApi';
-import { App, AppFilters } from '../types';
-import { useNotification } from '@/shared/hooks/useNotification';
+import { App, AppFilters, AppFormData } from '../types';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 
 export const useApps = (filters: AppFilters = {}) => {
   const [apps, setApps] = useState<App[]>([]);
@@ -14,7 +14,7 @@ export const useApps = (filters: AppFilters = {}) => {
     per_page: 20
   });
   
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
 
   const loadApps = useCallback(async (newFilters: AppFilters = {}) => {
     setLoading(true);
@@ -29,9 +29,9 @@ export const useApps = (filters: AppFilters = {}) => {
       } else {
         setError('Failed to load apps');
       }
-    } catch (err) {
+    } catch (error) {
       setError('Failed to load apps');
-      console.error('Error loading apps:', err);
+      // Error handled by state
     } finally {
       setLoading(false);
     }
@@ -52,9 +52,9 @@ export const useApps = (filters: AppFilters = {}) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters.status, filters.search, filters.sort, filters.page]);
 
-  const createApp = async (data: any) => {
+  const createApp = async (data: unknown) => {
     try {
-      const response = await appsApi.createApp(data);
+      const response = await appsApi.createApp(data as AppFormData);
       
       if (response.success) {
         showNotification(response.message || 'App created successfully', 'success');
@@ -64,14 +64,14 @@ export const useApps = (filters: AppFilters = {}) => {
         showNotification(response.error || 'Failed to create app', 'error');
         return null;
       }
-    } catch (err) {
+    } catch (error) {
       showNotification('Failed to create app', 'error');
-      console.error('Error creating app:', err);
+      // Error handled by notification
       return null;
     }
   };
 
-  const updateApp = async (id: string, data: any) => {
+  const updateApp = async (id: string, data: Partial<AppFormData>) => {
     try {
       const response = await appsApi.updateApp(id, data);
       
@@ -83,9 +83,9 @@ export const useApps = (filters: AppFilters = {}) => {
         showNotification(response.error || 'Failed to update app', 'error');
         return null;
       }
-    } catch (err) {
+    } catch (error) {
       showNotification('Failed to update app', 'error');
-      console.error('Error updating app:', err);
+      // Error handled by notification
       return null;
     }
   };
@@ -102,9 +102,9 @@ export const useApps = (filters: AppFilters = {}) => {
         showNotification(response.error || 'Failed to delete app', 'error');
         return false;
       }
-    } catch (err) {
+    } catch (error) {
       showNotification('Failed to delete app', 'error');
-      console.error('Error deleting app:', err);
+      // Error handled by notification
       return false;
     }
   };
@@ -121,9 +121,9 @@ export const useApps = (filters: AppFilters = {}) => {
         showNotification(response.error || 'Failed to publish app', 'error');
         return null;
       }
-    } catch (err) {
+    } catch (error) {
       showNotification('Failed to publish app', 'error');
-      console.error('Error publishing app:', err);
+      // Error handled by notification
       return null;
     }
   };
@@ -140,9 +140,9 @@ export const useApps = (filters: AppFilters = {}) => {
         showNotification(response.error || 'Failed to unpublish app', 'error');
         return null;
       }
-    } catch (err) {
+    } catch (error) {
       showNotification('Failed to unpublish app', 'error');
-      console.error('Error unpublishing app:', err);
+      // Error handled by notification
       return null;
     }
   };
@@ -159,9 +159,9 @@ export const useApps = (filters: AppFilters = {}) => {
         showNotification(response.error || 'Failed to submit app for review', 'error');
         return null;
       }
-    } catch (err) {
+    } catch (error) {
       showNotification('Failed to submit app for review', 'error');
-      console.error('Error submitting app for review:', err);
+      // Error handled by notification
       return null;
     }
   };
@@ -189,7 +189,7 @@ export const useApp = (id: string) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
   const hasLoadedAppRef = useRef<string | null>(null);
 
   const loadApp = useCallback(async () => {
@@ -204,9 +204,9 @@ export const useApp = (id: string) => {
       } else {
         setError(response.error || 'Failed to load app');
       }
-    } catch (err) {
+    } catch (error) {
       setError('Failed to load app');
-      console.error('Error loading app:', err);
+      // Error handled by state
     } finally {
       setLoading(false);
     }
@@ -222,9 +222,9 @@ export const useApp = (id: string) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  const updateApp = async (data: any) => {
+  const updateApp = async (data: unknown) => {
     try {
-      const response = await appsApi.updateApp(id, data);
+      const response = await appsApi.updateApp(id, data as Partial<AppFormData>);
       
       if (response.success) {
         showNotification(response.message || 'App updated successfully', 'success');
@@ -234,9 +234,9 @@ export const useApp = (id: string) => {
         showNotification(response.error || 'Failed to update app', 'error');
         return null;
       }
-    } catch (err) {
+    } catch (error) {
       showNotification('Failed to update app', 'error');
-      console.error('Error updating app:', err);
+      // Error handled by notification
       return null;
     }
   };

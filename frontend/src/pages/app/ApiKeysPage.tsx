@@ -2,12 +2,16 @@ import React, { useEffect, useState } from 'react';
 import { apiKeysApi } from '@/features/api-keys/services/apiKeysApi';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
+import { ApiKeyModal } from '@/features/api-keys/components/ApiKeyModal';
 import { Key, RefreshCw } from 'lucide-react';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 
 export const ApiKeysPage: React.FC = () => {
+  const { addNotification } = useNotifications();
   const [apiKeys, setApiKeys] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showModal, setShowModal] = useState(false);
   const [stats, setStats] = useState({
     requestsToday: 0,
     apiUptime: '99.9%',
@@ -34,33 +38,39 @@ export const ApiKeysPage: React.FC = () => {
       } else {
         setError(response.error || 'Failed to load API keys');
       }
-    } catch (err) {
+    } catch (_error) {
       setError('Failed to load API keys');
-      console.error('API keys error:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleGenerateKey = async () => {
-    // TODO: Implement create API key modal/functionality
-    alert('Generate new key functionality coming soon!');
+  const handleGenerateKey = () => {
+    setShowModal(true);
+  };
+
+  const handleModalClose = () => {
+    setShowModal(false);
+  };
+
+  const handleModalSuccess = () => {
+    setShowModal(false);
+    loadApiKeys(); // Refresh the API keys list
   };
 
   const handleRegenerateKey = async (id: string) => {
     if (!window.confirm('Are you sure you want to regenerate this API key? This will invalidate the current key.')) return;
-    
+
     try {
       const response = await apiKeysApi.regenerateApiKey(id);
       if (response.success) {
         loadApiKeys();
-        alert('API key regenerated successfully');
+        addNotification({ type: 'success', message: 'API key regenerated successfully' });
       } else {
-        alert(response.error || 'Failed to regenerate API key');
+        addNotification({ type: 'error', message: response.error || 'Failed to regenerate API key' });
       }
-    } catch (err) {
-      alert('Failed to regenerate API key');
-      console.error('Regenerate API key error:', err);
+    } catch (_error) {
+      addNotification({ type: 'error', message: 'Failed to regenerate API key' });
     }
   };
 
@@ -70,20 +80,19 @@ export const ApiKeysPage: React.FC = () => {
       if (response.success) {
         loadApiKeys();
       } else {
-        alert(response.error || 'Failed to update API key status');
+        addNotification({ type: 'error', message: response.error || 'Failed to update API key status' });
       }
-    } catch (err) {
-      alert('Failed to update API key status');
-      console.error('Toggle status error:', err);
+    } catch (_error) {
+      addNotification({ type: 'error', message: 'Failed to update API key status' });
     }
   };
 
   const handleCopyKey = (key: string) => {
     apiKeysApi.copyToClipboard(key).then(success => {
       if (success) {
-        alert('API key copied to clipboard');
+        addNotification({ type: 'success', message: 'API key copied to clipboard' });
       } else {
-        alert('Failed to copy API key');
+        addNotification({ type: 'error', message: 'Failed to copy API key' });
       }
     });
   };
@@ -108,6 +117,7 @@ export const ApiKeysPage: React.FC = () => {
 
   const breadcrumbs = [
     { label: 'Dashboard', href: '/app', icon: '🏠' },
+    { label: 'System', icon: '⚙️' },
     { label: 'API Keys', icon: '🔑' }
   ];
 
@@ -266,6 +276,12 @@ export const ApiKeysPage: React.FC = () => {
           </div>
         </>
       )}
+      
+      <ApiKeyModal
+        isOpen={showModal}
+        onClose={handleModalClose}
+        onSuccess={handleModalSuccess}
+      />
     </PageContainer>
   );
 };

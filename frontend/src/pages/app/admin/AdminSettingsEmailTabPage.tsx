@@ -16,13 +16,7 @@ export const AdminSettingsEmailTabPage: React.FC = () => {
     return <Navigate to="/app/admin/settings" replace />;
   }
 
-  return (
-    <div className="bg-theme-surface rounded-lg border border-theme">
-      <div className="p-6">
-        <EmailConfiguration />
-      </div>
-    </div>
-  );
+  return <EmailConfiguration />;
 };
 
 export default AdminSettingsEmailTabPage;

@@ -1,9 +1,12 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { CreateWorkerData } from '@/features/workers/services/workerApi';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
 import { useForm, FormValidationRules } from '@/shared/hooks/useForm';
 import { Wrench, Save } from 'lucide-react';
+import { rolesApi, Role } from '@/features/roles/services/rolesApi';
+import { useNotifications } from '@/shared/hooks/useNotifications';
+import { getErrorMessage } from '@/shared/services/errorHandler';
 
 interface CreateWorkerModalProps {
   isOpen: boolean;
@@ -12,11 +15,15 @@ interface CreateWorkerModalProps {
 }
 
 export const CreateWorkerModal: React.FC<CreateWorkerModalProps> = ({ isOpen, onClose, onCreate }) => {
+  const [allRoles, setAllRoles] = useState<Role[]>([]);
+  const [rolesLoading, setRolesLoading] = useState(true);
+  const [rolesError, setRolesError] = useState<string | null>(null);
+  const { showNotification } = useNotifications();
+
   const defaultValues: CreateWorkerData = {
     name: '',
     description: '',
-    permissions: 'standard',
-    role: 'account'
+    roles: []
   };
 
   const validationRules: FormValidationRules = {
@@ -27,8 +34,37 @@ export const CreateWorkerModal: React.FC<CreateWorkerModalProps> = ({ isOpen, on
     },
     description: {
       maxLength: 500,
+    },
+    roles: {
+      required: true,
     }
   };
+
+  // Load roles when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setRolesLoading(true);
+      setRolesError(null);
+      rolesApi.getRoles()
+        .then((response) => {
+          setAllRoles(response.data || []);
+        })
+        .catch((error: unknown) => {
+          const errorMessage = getErrorMessage(error);
+          setRolesError(errorMessage);
+          showNotification(`Failed to load roles: ${errorMessage}`, 'error');
+        })
+        .finally(() => {
+          setRolesLoading(false);
+        });
+    }
+  }, [isOpen, showNotification]);
+
+  // Account workers can only have specific user roles (matches backend Worker#assignable_roles)
+  // Filter by role name - these are the allowed user roles for account workers
+  const availableRoles = allRoles.filter(role => 
+    ['member', 'manager', 'billing_admin', 'developer', 'owner'].includes(role.name)
+  );
 
   const handleCreateWorker = async (formData: CreateWorkerData) => {
     await onCreate(formData);
@@ -123,41 +159,50 @@ export const CreateWorkerModal: React.FC<CreateWorkerModalProps> = ({ isOpen, on
 
         <div>
           <label className="block text-sm font-medium text-theme-primary mb-2">
-            Permissions
+            Roles * ({(form.values.roles || []).length} selected)
           </label>
-          <select
-            {...form.getFieldProps('permissions')}
-            className={`w-full px-3 py-2 border rounded-md bg-theme-background text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-interactive-primary focus:border-transparent ${
-              form.errors.permissions ? 'border-theme-error' : 'border-theme'
-            }`}
-            disabled={form.isSubmitting}
-          >
-            <option value="readonly">Read Only</option>
-            <option value="standard">Standard</option>
-            <option value="admin">Admin</option>
-            <option value="super_admin">Super Admin</option>
-          </select>
-          {form.errors.permissions && (
-            <p className="text-theme-error text-sm mt-1">{form.errors.permissions}</p>
+          {rolesLoading ? (
+            <div className="flex items-center justify-center p-4 border border-theme rounded bg-theme-background">
+              <span className="text-theme-secondary">Loading roles...</span>
+            </div>
+          ) : rolesError ? (
+            <div className="flex items-center justify-center p-4 border border-theme-error rounded bg-theme-error/10">
+              <span className="text-theme-error text-sm">{rolesError}</span>
+            </div>
+          ) : (
+            <div className="space-y-2 max-h-32 overflow-y-auto border border-theme rounded p-3 bg-theme-background">
+              {availableRoles.length === 0 ? (
+                <p className="text-theme-secondary text-sm">No roles available for account workers.</p>
+              ) : (
+                availableRoles.map((role) => (
+                  <label key={role.name} className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      checked={form.values.roles?.includes(role.name) || false}
+                      onChange={(e) => {
+                        const currentRoles = form.values.roles || [];
+                        const newRoles = e.target.checked
+                          ? [...currentRoles, role.name]
+                          : currentRoles.filter(r => r !== role.name);
+                        form.setValue('roles', newRoles);
+                      }}
+                      className="rounded border-theme text-theme-interactive-primary focus:ring-theme-interactive-primary"
+                      disabled={form.isSubmitting}
+                    />
+                    <span className="text-sm text-theme-primary flex items-center">
+                      {role.description}
+                      <span className="ml-2 px-1.5 py-0.5 text-xs rounded bg-theme-interactive-secondary text-white">User</span>
+                    </span>
+                  </label>
+                ))
+              )}
+            </div>
           )}
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-theme-primary mb-2">
-            Role
-          </label>
-          <select
-            {...form.getFieldProps('role')}
-            className={`w-full px-3 py-2 border rounded-md bg-theme-background text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-interactive-primary focus:border-transparent ${
-              form.errors.role ? 'border-theme-error' : 'border-theme'
-            }`}
-            disabled={form.isSubmitting}
-          >
-            <option value="account">Account Worker</option>
-            <option value="system">System Worker</option>
-          </select>
-          {form.errors.role && (
-            <p className="text-theme-error text-sm mt-1">{form.errors.role}</p>
+          <p className="text-xs text-theme-secondary mt-1">
+            Account workers can only be assigned user roles. Permissions are inherited from roles.
+          </p>
+          {form.errors.roles && (
+            <p className="text-theme-error text-sm mt-1">{form.errors.roles}</p>
           )}
         </div>
       </form>
@@ -165,4 +210,3 @@ export const CreateWorkerModal: React.FC<CreateWorkerModalProps> = ({ isOpen, on
   );
 };
 
-export default CreateWorkerModal;

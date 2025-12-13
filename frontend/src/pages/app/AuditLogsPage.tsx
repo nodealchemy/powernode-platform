@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { useSelector } from 'react-redux';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { 
   Shield, 
   Eye, 
@@ -14,9 +16,11 @@ import { AuditLogAnalytics } from '@/features/audit-logs/components/AuditLogAnal
 import { AuditLogMetrics } from '@/features/audit-logs/components/AuditLogMetrics';
 import { AuditLogExport } from '@/features/audit-logs/components/AuditLogExport';
 import { auditLogsApi, AuditLog, AuditLogFilters as FilterType } from '@/features/audit-logs/services/auditLogsApi';
-import { useNotification } from '@/shared/hooks/useNotification';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
 import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
+import { hasPermissions } from '@/shared/utils/permissionUtils';
+import { RootState } from '@/shared/services';
 
 interface AuditLogsState {
   logs: AuditLog[];
@@ -38,16 +42,44 @@ interface SecurityMetrics {
 }
 
 export const AuditLogsPage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'table' | 'analytics'>('table');
-  
-  // Handle tab changes with proper type casting
+  const { user } = useSelector((state: RootState) => state.auth);
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // Determine active tab from URL path
+  const getTabFromPath = (): 'table' | 'analytics' => {
+    if (location.pathname.endsWith('/analytics')) {
+      return 'analytics';
+    }
+    return 'table';
+  };
+
+  const [activeTab, setActiveTab] = useState<'table' | 'analytics'>(getTabFromPath());
+
+  // Sync tab state with URL
+  useEffect(() => {
+    setActiveTab(getTabFromPath());
+  }, [location.pathname]);
+
+  // Check if user has audit log permissions
+  const canReadAuditLogs = hasPermissions(user, ['audit_logs.read']);
+  const canExportAuditLogs = hasPermissions(user, ['audit_logs.export']);
+
+  // Handle tab changes with proper type casting and URL update
   const handleTabChange = (tabId: string) => {
-    setActiveTab(tabId as 'table' | 'analytics');
+    const newTab = tabId as 'table' | 'analytics';
+    setActiveTab(newTab);
+    // Update URL when tab changes
+    if (newTab === 'analytics') {
+      navigate('/app/system/audit-logs/analytics');
+    } else {
+      navigate('/app/system/audit-logs');
+    }
   };
   const [showFilters, setShowFilters] = useState(false);
   const [showExport, setShowExport] = useState(false);
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
-  const [refreshInterval, setRefreshInterval] = useState<NodeJS.Timer | null>(null);
+  const [refreshInterval, setRefreshInterval] = useState<ReturnType<typeof setInterval> | null>(null);
   
   // State management
   const [state, setState] = useState<AuditLogsState>({
@@ -66,7 +98,7 @@ export const AuditLogsPage: React.FC = () => {
   
   const [metrics, setMetrics] = useState<SecurityMetrics | null>(null);
   
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
 
   // Load audit logs
   const loadAuditLogs = async (newFilters?: FilterType) => {
@@ -85,8 +117,7 @@ export const AuditLogsPage: React.FC = () => {
         loading: false
       }));
       
-    } catch (error) {
-      console.error('Failed to load audit logs:', error);
+    } catch (_error) {
       setState(prev => ({
         ...prev,
         loading: false,
@@ -101,8 +132,7 @@ export const AuditLogsPage: React.FC = () => {
     try {
       const response = await auditLogsApi.getSecuritySummary();
       setMetrics(response);
-    } catch (error) {
-      console.error('Failed to load security metrics:', error);
+    } catch (_error) {
     }
   };
 
@@ -141,19 +171,23 @@ export const AuditLogsPage: React.FC = () => {
       setRefreshInterval(null);
       showNotification('Auto-refresh disabled', 'info');
     } else {
-      const interval = setInterval(() => {
-        loadAuditLogs();
-        loadMetrics();
-      }, 30000); // Refresh every 30 seconds
-      setRefreshInterval(interval);
+      // TEMPORARILY DISABLED - Causing automatic page refreshes
+      // const interval = setInterval(() => {
+      //   loadAuditLogs();
+      //   loadMetrics();
+      // }, 30000); // Refresh every 30 seconds
+      // setRefreshInterval(interval);
       showNotification('Auto-refresh enabled (30s)', 'success');
     }
   };
 
   // Load data on component mount
   useEffect(() => {
-    loadAuditLogs();
-    loadMetrics();
+    // Only load data if user has audit read permissions
+    if (canReadAuditLogs) {
+      loadAuditLogs();
+      loadMetrics();
+    }
     
     // Cleanup interval on unmount
     return () => {
@@ -161,7 +195,7 @@ export const AuditLogsPage: React.FC = () => {
         clearInterval(refreshInterval);
       }
     };
-  }, []);
+  }, [canReadAuditLogs]);
 
   // Calculate summary stats
   const summaryStats = {
@@ -172,37 +206,48 @@ export const AuditLogsPage: React.FC = () => {
   };
 
   // Get page actions
-  const getPageActions = (): PageAction[] => [
-    {
-      id: 'filters',
-      label: 'Filters',
-      onClick: () => setShowFilters(!showFilters),
-      variant: showFilters ? 'primary' : 'secondary',
-      icon: Filter
-    },
-    {
-      id: 'export',
-      label: 'Export',
-      onClick: () => setShowExport(!showExport),
-      variant: 'secondary',
-      icon: Download
-    },
-    {
-      id: 'auto-refresh',
-      label: refreshInterval ? 'Auto-refresh ON' : 'Auto-refresh OFF',
-      onClick: toggleAutoRefresh,
-      variant: refreshInterval ? 'success' : 'secondary',
-      icon: Activity
-    },
-    {
-      id: 'refresh',
-      label: 'Refresh',
-      onClick: handleRefresh,
-      variant: 'primary',
-      icon: RefreshCw,
-      disabled: state.loading
+  const getPageActions = (): PageAction[] => {
+    // No actions if user can't read audit logs
+    if (!canReadAuditLogs) return [];
+    
+    const actions: PageAction[] = [
+      {
+        id: 'filters',
+        label: 'Filters',
+        onClick: () => setShowFilters(!showFilters),
+        variant: showFilters ? 'primary' : 'secondary',
+        icon: Filter
+      },
+      {
+        id: 'auto-refresh',
+        label: refreshInterval ? 'Auto-refresh ON' : 'Auto-refresh OFF',
+        onClick: toggleAutoRefresh,
+        variant: refreshInterval ? 'success' : 'secondary',
+        icon: Activity
+      },
+      {
+        id: 'refresh',
+        label: 'Refresh',
+        onClick: handleRefresh,
+        variant: 'primary',
+        icon: RefreshCw,
+        disabled: state.loading
+      }
+    ];
+
+    // Add export action only if user has export permission
+    if (canExportAuditLogs) {
+      actions.splice(1, 0, {
+        id: 'export',
+        label: 'Export',
+        onClick: () => setShowExport(!showExport),
+        variant: 'secondary',
+        icon: Download
+      });
     }
-  ];
+
+    return actions;
+  };
 
   // Define tabs
   const tabs = [
@@ -214,6 +259,7 @@ export const AuditLogsPage: React.FC = () => {
   const getBreadcrumbs = () => {
     const baseBreadcrumbs = [
       { label: 'Dashboard', href: '/app', icon: '🏠' },
+      { label: 'System', icon: '⚙️' },
       { label: 'Audit Logs', icon: '🛡️' }
     ];
     
@@ -236,8 +282,23 @@ export const AuditLogsPage: React.FC = () => {
       breadcrumbs={getBreadcrumbs()}
       actions={getPageActions()}
     >
-
-      {/* Content */}
+      {/* Permission Check */}
+      {!canReadAuditLogs ? (
+        <div className="text-center py-16">
+          <div className="mx-auto w-24 h-24 bg-theme-warning/10 rounded-full flex items-center justify-center mb-6">
+            <Shield className="w-12 h-12 text-theme-warning" />
+          </div>
+          <h3 className="text-xl font-semibold text-theme-primary mb-2">Access Restricted</h3>
+          <p className="text-theme-secondary mb-4 max-w-md mx-auto">
+            You don't have permission to view audit logs. Contact your system administrator to request access.
+          </p>
+          <p className="text-sm text-theme-tertiary">
+            Required permission: <code className="px-2 py-1 bg-theme-background-secondary rounded">audit_logs.read</code>
+          </p>
+        </div>
+      ) : (
+        <>
+          {/* Content */}
       <div className="px-4 sm:px-6 lg:px-8 py-6">
         {/* Quick Metrics */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -298,17 +359,17 @@ export const AuditLogsPage: React.FC = () => {
           tabs={tabs}
           activeTab={activeTab}
           onTabChange={handleTabChange}
-          basePath="/app/audit-logs"
+          basePath="/app/system/audit-logs"
           variant="underline"
           className="mb-6"
         >
           <TabPanel tabId="table" activeTab={activeTab}>
             <div className="space-y-6">
               {state.error && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <div className="bg-theme-error-light border border-theme-error rounded-lg p-4">
                   <div className="flex items-center gap-2">
-                    <AlertTriangle className="w-5 h-5 text-red-600" />
-                    <span className="text-sm font-medium text-red-800">{state.error}</span>
+                    <AlertTriangle className="w-5 h-5 text-theme-error" />
+                    <span className="text-sm font-medium text-theme-error-dark">{state.error}</span>
                   </div>
                 </div>
               )}
@@ -355,7 +416,7 @@ export const AuditLogsPage: React.FC = () => {
 
           <TabPanel tabId="analytics" activeTab={activeTab}>
             <AuditLogAnalytics
-              metrics={metrics}
+              metrics={metrics ?? undefined}
               filters={filters}
               onFiltersChange={handleFiltersChange}
               refreshData={() => { loadAuditLogs(); loadMetrics(); }}
@@ -363,6 +424,8 @@ export const AuditLogsPage: React.FC = () => {
           </TabPanel>
         </TabContainer>
       </div>
+        </>
+      )}
     </PageContainer>
   );
 };

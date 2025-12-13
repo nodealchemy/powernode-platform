@@ -9,27 +9,27 @@ puts "🎯 Creating Feature Plans with Role-Based Access..."
 required_permissions = [
   # User Management
   'user.view', 'user.edit_self', 'user.delete_self',
-  
-  # Team Management  
+
+  # Team Management
   'team.view', 'team.invite', 'team.remove', 'team.assign_roles',
-  
+
   # Billing & Subscriptions
   'billing.view', 'billing.update', 'billing.cancel',
   'invoice.view', 'invoice.download',
-  
+
   # Content Management
   'page.create', 'page.view', 'page.edit', 'page.delete', 'page.publish',
-  
+
   # Analytics & Reports
   'analytics.view', 'analytics.export',
   'report.view', 'report.generate', 'report.export',
-  
+
   # API Access
   'api.read', 'api.write', 'api.manage_keys',
-  
+
   # Webhooks
   'webhook.view', 'webhook.create', 'webhook.edit', 'webhook.delete',
-  
+
   # Audit Logs
   'audit.view', 'audit.export'
 ]
@@ -54,12 +54,12 @@ def create_role_with_permissions(name, description, permission_names)
     r.role_type = 'user'
     r.is_system = false
   end
-  
+
   # Add permissions to role
   permissions = Permission.where(name: permission_names)
   role.permissions = permissions
   role.save!
-  
+
   puts "  ✅ Created role: #{name} with #{permissions.count} permissions"
   role
 end
@@ -70,13 +70,13 @@ puts "\n📦 Creating Starter Plan Roles..."
 starter_member = create_role_with_permissions(
   'starter.member',
   'Basic account access with limited content creation',
-  ['user.view', 'user.edit_self', 'page.view', 'page.create', 'page.edit', 'analytics.view', 'api.read']
+  [ 'user.view', 'user.edit_self', 'page.view', 'page.create', 'page.edit', 'analytics.view', 'api.read' ]
 )
 
 starter_creator = create_role_with_permissions(
-  'starter.creator', 
+  'starter.creator',
   'Enhanced content management for starter plan',
-  ['page.create', 'page.edit', 'page.delete', 'page.publish', 'webhook.view', 'analytics.view', 'analytics.export']
+  [ 'page.create', 'page.edit', 'page.delete', 'page.publish', 'webhook.view', 'analytics.view', 'analytics.export' ]
 )
 
 # 2. PROFESSIONAL PLAN ROLES
@@ -85,28 +85,28 @@ puts "\n💼 Creating Professional Plan Roles..."
 pro_member = create_role_with_permissions(
   'pro.member',
   'Standard professional account member access',
-  ['user.view', 'user.edit_self', 'page.view', 'analytics.view', 'api.read']
+  [ 'user.view', 'user.edit_self', 'page.view', 'analytics.view', 'api.read' ]
 )
 
 pro_collaborator = create_role_with_permissions(
   'pro.collaborator',
   'Team collaboration and enhanced content management',
-  ['team.view', 'team.invite', 'page.create', 'page.edit', 'page.publish', 
-   'webhook.view', 'webhook.create', 'api.read', 'api.write']
+  [ 'team.view', 'team.invite', 'page.create', 'page.edit', 'page.publish',
+   'webhook.view', 'webhook.create', 'api.read', 'api.write' ]
 )
 
 pro_content_manager = create_role_with_permissions(
   'pro.content_manager',
   'Full content and webhook management for professional plan',
-  ['page.create', 'page.edit', 'page.delete', 'page.publish', 
+  [ 'page.create', 'page.edit', 'page.delete', 'page.publish',
    'webhook.view', 'webhook.create', 'webhook.edit',
-   'analytics.view', 'analytics.export', 'report.view', 'report.generate']
+   'analytics.view', 'analytics.export', 'report.view', 'report.generate' ]
 )
 
 pro_analyst = create_role_with_permissions(
   'pro.analyst',
   'Advanced analytics and reporting access',
-  ['analytics.view', 'analytics.export', 'report.view', 'report.generate', 'report.export', 'audit.view']
+  [ 'analytics.view', 'analytics.export', 'report.view', 'report.generate', 'report.export', 'audit.view' ]
 )
 
 # 3. BUSINESS PLAN ROLES
@@ -115,43 +115,43 @@ puts "\n🏢 Creating Business Plan Roles..."
 biz_member = create_role_with_permissions(
   'business.member',
   'Standard business account access',
-  ['user.view', 'user.edit_self', 'page.view', 'analytics.view', 'api.read']
+  [ 'user.view', 'user.edit_self', 'page.view', 'analytics.view', 'api.read' ]
 )
 
 biz_team_manager = create_role_with_permissions(
   'business.team_manager',
   'Comprehensive team management and content oversight',
-  ['team.view', 'team.invite', 'team.remove', 'team.assign_roles', 'user.view',
+  [ 'team.view', 'team.invite', 'team.remove', 'team.assign_roles', 'user.view',
    'page.create', 'page.edit', 'page.publish', 'webhook.view', 'webhook.create', 'webhook.edit',
-   'analytics.view', 'analytics.export']
+   'analytics.view', 'analytics.export' ]
 )
 
 biz_billing_manager = create_role_with_permissions(
   'business.billing_manager',
   'Billing and subscription management',
-  ['billing.view', 'billing.update', 'invoice.view', 'invoice.download', 'team.view', 'user.view']
+  [ 'billing.view', 'billing.update', 'invoice.view', 'invoice.download', 'team.view', 'user.view' ]
 )
 
 biz_content_manager = create_role_with_permissions(
   'business.content_manager',
   'Complete content and webhook management',
-  ['page.create', 'page.edit', 'page.delete', 'page.publish',
+  [ 'page.create', 'page.edit', 'page.delete', 'page.publish',
    'webhook.view', 'webhook.create', 'webhook.edit', 'webhook.delete',
-   'analytics.view', 'analytics.export', 'report.view', 'report.generate', 'report.export', 'audit.view']
+   'analytics.view', 'analytics.export', 'report.view', 'report.generate', 'report.export', 'audit.view' ]
 )
 
 biz_api_developer = create_role_with_permissions(
   'business.api_developer',
   'Full API access and development tools',
-  ['api.read', 'api.write', 'api.manage_keys',
+  [ 'api.read', 'api.write', 'api.manage_keys',
    'webhook.view', 'webhook.create', 'webhook.edit', 'webhook.delete',
-   'page.view', 'page.edit', 'analytics.view']
+   'page.view', 'page.edit', 'analytics.view' ]
 )
 
 biz_support_agent = create_role_with_permissions(
   'business.support_agent',
   'Customer support and assistance access',
-  ['user.view', 'team.view', 'page.view', 'analytics.view', 'report.view', 'audit.view']
+  [ 'user.view', 'team.view', 'page.view', 'analytics.view', 'report.view', 'audit.view' ]
 )
 
 # 4. ENTERPRISE PLAN ROLES
@@ -160,24 +160,24 @@ puts "\n🏛️ Creating Enterprise Plan Roles..."
 ent_member = create_role_with_permissions(
   'enterprise.member',
   'Standard enterprise account access',
-  ['user.view', 'user.edit_self', 'page.view', 'analytics.view', 'api.read']
+  [ 'user.view', 'user.edit_self', 'page.view', 'analytics.view', 'api.read' ]
 )
 
 ent_account_manager = create_role_with_permissions(
   'enterprise.account_manager',
   'Full account management capabilities',
-  ['team.view', 'team.invite', 'team.remove', 'team.assign_roles', 'user.view',
+  [ 'team.view', 'team.invite', 'team.remove', 'team.assign_roles', 'user.view',
    'billing.view', 'billing.update', 'page.create', 'page.edit', 'page.delete', 'page.publish',
    'webhook.view', 'webhook.create', 'webhook.edit', 'webhook.delete',
    'analytics.view', 'analytics.export', 'report.view', 'report.generate', 'report.export',
-   'audit.view', 'audit.export', 'api.read', 'api.write', 'api.manage_keys']
+   'audit.view', 'audit.export', 'api.read', 'api.write', 'api.manage_keys' ]
 )
 
 ent_security_officer = create_role_with_permissions(
   'enterprise.security_officer',
   'Security monitoring and compliance oversight',
-  ['user.view', 'team.view', 'billing.view', 'audit.view', 'audit.export',
-   'analytics.view', 'report.view', 'report.generate', 'report.export']
+  [ 'user.view', 'team.view', 'billing.view', 'audit.view', 'audit.export',
+   'analytics.view', 'report.view', 'report.generate', 'report.export' ]
 )
 
 # Create sample plans
@@ -197,9 +197,9 @@ starter_plan = Plan.find_or_create_by(name: 'Starter') do |plan|
   }
   plan.status = 'active'
   plan.metadata = {
-    'available_roles' => [starter_member.name, starter_creator.name]
+    'available_roles' => [ starter_member.name, starter_creator.name ]
   }
-  plan.default_roles = [starter_member.name]
+  plan.default_roles = [ starter_member.name ]
 end
 
 puts "✅ Created Starter plan: $#{starter_plan.price_cents / 100.0}/month"
@@ -218,9 +218,9 @@ professional_plan = Plan.find_or_create_by(name: 'Professional') do |plan|
   }
   plan.status = 'active'
   plan.metadata = {
-    'available_roles' => [pro_member.name, pro_collaborator.name, pro_content_manager.name, pro_analyst.name]
+    'available_roles' => [ pro_member.name, pro_collaborator.name, pro_content_manager.name, pro_analyst.name ]
   }
-  plan.default_roles = [pro_member.name]
+  plan.default_roles = [ pro_member.name ]
 end
 
 puts "✅ Created Professional plan: $#{professional_plan.price_cents / 100.0}/month"
@@ -239,10 +239,10 @@ business_plan = Plan.find_or_create_by(name: 'Business') do |plan|
   }
   plan.status = 'active'
   plan.metadata = {
-    'available_roles' => [biz_member.name, biz_team_manager.name, biz_billing_manager.name, 
-                         biz_content_manager.name, biz_api_developer.name, biz_support_agent.name]
+    'available_roles' => [ biz_member.name, biz_team_manager.name, biz_billing_manager.name,
+                         biz_content_manager.name, biz_api_developer.name, biz_support_agent.name ]
   }
-  plan.default_roles = [biz_member.name]
+  plan.default_roles = [ biz_member.name ]
 end
 
 puts "✅ Created Business plan: $#{business_plan.price_cents / 100.0}/month"
@@ -263,12 +263,12 @@ enterprise_plan = Plan.find_or_create_by(name: 'Enterprise') do |plan|
   }
   plan.status = 'active'
   plan.metadata = {
-    'available_roles' => [ent_member.name, ent_account_manager.name, ent_security_officer.name,
+    'available_roles' => [ ent_member.name, ent_account_manager.name, ent_security_officer.name,
                          # Also includes all business plan roles
                          biz_team_manager.name, biz_billing_manager.name, biz_content_manager.name,
-                         biz_api_developer.name, biz_support_agent.name]
+                         biz_api_developer.name, biz_support_agent.name ]
   }
-  plan.default_roles = [ent_member.name]
+  plan.default_roles = [ ent_member.name ]
 end
 
 puts "✅ Created Enterprise plan: $#{enterprise_plan.price_cents / 100.0}/month"

@@ -1,12 +1,18 @@
+# frozen_string_literal: true
+
 class Page < ApplicationRecord
   # Associations
-  belongs_to :user, foreign_key: 'author_id'
-  
+  belongs_to :user, foreign_key: "author_id"
+
+  # Polymorphic association to file objects (images attached to this page)
+  has_many :file_objects, as: :attachable, dependent: :nullify
+  has_many :images, -> { where(file_type: "image") }, as: :attachable, class_name: "FileObject"
+
   # Alias method for better readability
   def author
     user
   end
-  
+
   def author=(user_obj)
     self.user = user_obj
   end
@@ -26,27 +32,27 @@ class Page < ApplicationRecord
   before_save :set_published_at
 
   # Scopes
-  scope :published, -> { where(status: 'published') }
-  scope :draft, -> { where(status: 'draft') }
+  scope :published, -> { where(status: "published") }
+  scope :draft, -> { where(status: "draft") }
   scope :by_slug, ->(slug) { where(slug: slug) }
   scope :recent, -> { order(created_at: :desc) }
   scope :by_author, ->(author) { where(author_id: author.id) }
 
   # Instance methods
   def published?
-    status == 'published'
+    status == "published"
   end
 
   def draft?
-    status == 'draft'
+    status == "draft"
   end
 
   def publish!
-    update!(status: 'published', published_at: Time.current)
+    update!(status: "published", published_at: Time.current)
   end
 
   def unpublish!
-    update!(status: 'draft', published_at: nil)
+    update!(status: "draft", published_at: nil)
   end
 
   def to_param
@@ -76,7 +82,7 @@ class Page < ApplicationRecord
 
   def seo_keywords_array
     return [] if meta_keywords.blank?
-    meta_keywords.split(',').map(&:strip).reject(&:blank?)
+    meta_keywords.split(",").map(&:strip).reject(&:blank?)
   end
 
   private
@@ -98,28 +104,28 @@ class Page < ApplicationRecord
 
   def slug_format
     return if slug.blank?
-    
+
     @validating_slug = true
-    
+
     unless slug.match?(/\A[a-z0-9\-]+\z/)
-      errors.add(:slug, 'can only contain lowercase letters, numbers, and hyphens')
+      errors.add(:slug, "can only contain lowercase letters, numbers, and hyphens")
     end
 
-    if slug.starts_with?('-') || slug.ends_with?('-')
-      errors.add(:slug, 'cannot start or end with a hyphen')
+    if slug.starts_with?("-") || slug.ends_with?("-")
+      errors.add(:slug, "cannot start or end with a hyphen")
     end
 
-    if slug.include?('--')
-      errors.add(:slug, 'cannot contain consecutive hyphens')
+    if slug.include?("--")
+      errors.add(:slug, "cannot contain consecutive hyphens")
     end
-    
+
     @validating_slug = false
   end
 
   def set_published_at
-    if status_changed? && status == 'published' && published_at.blank?
+    if status_changed? && status == "published" && published_at.blank?
       self.published_at = Time.current
-    elsif status_changed? && status == 'draft'
+    elsif status_changed? && status == "draft"
       self.published_at = nil
     end
   end

@@ -7,28 +7,28 @@ class Api::V1::InvoicesController < ApplicationController
   def index
     invoices = current_account.invoices.includes(:subscription, :payment).order(created_at: :desc)
 
-    # Apply pagination
+    # Pagination using Kaminari
     page = params[:page] || 1
-    per_page = [ params[:per_page]&.to_i || 25, 100 ].min
-    invoices = invoices.offset((page.to_i - 1) * per_page).limit(per_page)
+    per_page = [ params[:per_page]&.to_i || 25, 100 ].min # Default 25, max 100
 
-    render json: {
-      success: true,
-      data: invoices.map { |invoice| invoice_data(invoice) },
+    paginated_invoices = invoices.page(page).per(per_page)
+
+    render_success(
+      data: paginated_invoices.map { |invoice| invoice_data(invoice) },
       pagination: {
-        page: page.to_i,
-        per_page: per_page,
-        total: current_account.invoices.count
+        current_page: paginated_invoices.current_page,
+        per_page: paginated_invoices.limit_value,
+        total_pages: paginated_invoices.total_pages,
+        total_count: paginated_invoices.total_count
       }
-    }, status: :ok
+    )
   end
 
   # GET /api/v1/invoices/:id
   def show
-    render json: {
-      success: true,
+    render_success(
       data: invoice_data(@invoice, include_line_items: true)
-    }, status: :ok
+    )
   end
 
   private
@@ -36,10 +36,7 @@ class Api::V1::InvoicesController < ApplicationController
   def set_invoice
     @invoice = current_account.invoices.find(params[:id])
   rescue ActiveRecord::RecordNotFound
-    render json: {
-      success: false,
-      error: "Invoice not found"
-    }, status: :not_found
+    render_error("Invoice not found", status: :not_found)
   end
 
   def invoice_data(invoice, include_line_items: false)

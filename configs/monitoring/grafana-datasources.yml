@@ -1,0 +1,46 @@
+# Grafana datasource configuration
+apiVersion: 1
+
+# List of datasources to configure
+datasources:
+  # Prometheus datasource
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    version: 1
+    editable: true
+    jsonData:
+      httpMethod: POST
+      queryTimeout: 60s
+      timeInterval: 30s
+      # Custom query parameters
+      customQueryParameters: ''
+      # HTTP headers
+      httpHeaderName1: 'Authorization'
+    secureJsonData:
+      httpHeaderValue1: 'Bearer ${PROMETHEUS_TOKEN:-}'
+    
+  # Optional: Long-term storage datasource
+  # - name: Prometheus-LTS
+  #   type: prometheus  
+  #   access: proxy
+  #   url: ${PROMETHEUS_LTS_URL:-http://prometheus-lts:9090}
+  #   isDefault: false
+  #   version: 1
+  #   editable: true
+  #   jsonData:
+  #     timeInterval: 60s
+  #     queryTimeout: 120s
+  
+  # Optional: Loki for logs
+  # - name: Loki
+  #   type: loki
+  #   access: proxy
+  #   url: ${LOKI_URL:-http://loki:3100}
+  #   isDefault: false
+  #   version: 1
+  #   editable: true
+  #   jsonData:
+  #     maxLines: 1000

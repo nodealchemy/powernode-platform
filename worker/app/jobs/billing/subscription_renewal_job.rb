@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require_relative '../base_job'
 
 # Job for processing subscription renewals
@@ -7,21 +9,36 @@ class Billing::SubscriptionRenewalJob < BaseJob
                   retry: 3
 
   def execute(subscription_id)
-    logger.info "Processing renewal for subscription #{subscription_id}"
+    # Idempotency check - prevent duplicate renewals on same day
+    idempotency_key = "renewal:#{subscription_id}:#{Date.current}"
+    if already_processed?(idempotency_key)
+      log_info("Renewal already processed for subscription #{subscription_id} today, skipping")
+      return { success: true, skipped: true, reason: 'already_processed' }
+    end
+
+    log_info("Processing renewal for subscription #{subscription_id}")
     
     # Get subscription details from backend
-    subscription_data = with_api_retry do
-      api_client.get("/api/v1/subscriptions/#{subscription_id}")
+    subscription_data = begin
+      with_api_retry do
+        api_client.get("/api/v1/subscriptions/#{subscription_id}")
+      end
+    rescue BackendApiClient::ApiError => e
+      if e.status == 404
+        log_error("Subscription #{subscription_id} not found")
+        raise ArgumentError, "Subscription not found: #{subscription_id}"
+      end
+      raise
     end
-    
+
     unless subscription_data
-      logger.error "Subscription #{subscription_id} not found"
+      log_error("Subscription #{subscription_id} not found")
       raise ArgumentError, "Subscription not found: #{subscription_id}"
     end
     
     # Verify subscription is eligible for renewal
     unless eligible_for_renewal?(subscription_data)
-      logger.info "Subscription #{subscription_id} not eligible for renewal, skipping"
+      log_info("Subscription #{subscription_id} not eligible for renewal, skipping")
       return
     end
     
@@ -29,19 +46,21 @@ class Billing::SubscriptionRenewalJob < BaseJob
       api_client.get_account(subscription_data['account_id'])
     end
     
-    logger.info "Processing renewal for account '#{account_data['name']}' (#{subscription_data['plan_name']})"
+    log_info("Processing renewal for account '#{account_data['name']}' (#{subscription_data['plan_name']})")
     
     # Process the renewal
     renewal_result = process_renewal(subscription_data, account_data)
     
     if renewal_result['success']
-      logger.info "Successfully renewed subscription #{subscription_id}"
+      log_info("Successfully renewed subscription #{subscription_id}")
+      # Mark as processed to prevent duplicate renewals
+      mark_processed(idempotency_key)
       schedule_next_renewal(subscription_id, renewal_result)
     else
-      logger.error "Failed to renew subscription #{subscription_id}: #{renewal_result['error']}"
+      log_error("Failed to renew subscription #{subscription_id}: #{renewal_result['error']}")
       handle_renewal_failure(subscription_data, renewal_result)
     end
-    
+
     renewal_result
   end
   
@@ -75,7 +94,7 @@ class Billing::SubscriptionRenewalJob < BaseJob
       api_client.post('/api/v1/billing/process_renewal', renewal_params)
     end
   rescue BackendApiClient::ApiError => e
-    logger.error "Renewal processing failed: #{e.message}"
+    log_error("Renewal processing failed: #{e.message}")
     {
       'success' => false,
       'error' => e.message,
@@ -93,9 +112,9 @@ class Billing::SubscriptionRenewalJob < BaseJob
     
     Billing::SubscriptionRenewalJob.perform_at(renewal_time, subscription_id)
     
-    logger.info "Scheduled next renewal for subscription #{subscription_id} at #{renewal_time}"
+    log_info("Scheduled next renewal for subscription #{subscription_id} at #{renewal_time}")
   rescue StandardError => e
-    logger.error "Failed to schedule next renewal for subscription #{subscription_id}: #{e.message}"
+    log_error("Failed to schedule next renewal for subscription #{subscription_id}: #{e.message}")
     # Don't fail the current renewal for scheduling errors
   end
   
@@ -107,7 +126,7 @@ class Billing::SubscriptionRenewalJob < BaseJob
     when 404 # Payment method not found
       notify_payment_method_required(subscription_data)
     when 422 # Validation error
-      logger.error "Subscription renewal validation failed: #{renewal_result['error']}"
+      log_error("Subscription renewal validation failed: #{renewal_result['error']}")
       # Don't retry validation errors
     else
       # Generic failure - schedule retry
@@ -121,7 +140,7 @@ class Billing::SubscriptionRenewalJob < BaseJob
     
     Billing::PaymentRetryJob.perform_at(retry_time, subscription_data['id'], 'renewal_failure')
     
-    logger.info "Scheduled payment retry for subscription #{subscription_data['id']} at #{retry_time}"
+    log_info("Scheduled payment retry for subscription #{subscription_data['id']} at #{retry_time}")
   end
   
   def notify_payment_method_required(subscription_data)
@@ -138,9 +157,9 @@ class Billing::SubscriptionRenewalJob < BaseJob
       api_client.post('/api/v1/notifications', notification_params)
     end
     
-    logger.info "Sent payment method required notification for subscription #{subscription_data['id']}"
+    log_info("Sent payment method required notification for subscription #{subscription_data['id']}")
   rescue StandardError => e
-    logger.error "Failed to send payment method notification: #{e.message}"
+    log_error("Failed to send payment method notification: #{e.message}")
   end
   
   def schedule_renewal_retry(subscription_data)
@@ -149,6 +168,6 @@ class Billing::SubscriptionRenewalJob < BaseJob
     
     Billing::SubscriptionRenewalJob.perform_at(retry_time, subscription_data['id'])
     
-    logger.info "Scheduled renewal retry for subscription #{subscription_data['id']} at #{retry_time}"
+    log_info("Scheduled renewal retry for subscription #{subscription_data['id']} at #{retry_time}")
   end
 end

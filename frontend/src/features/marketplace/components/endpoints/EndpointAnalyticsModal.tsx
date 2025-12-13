@@ -11,10 +11,12 @@ interface EndpointAnalyticsModalProps {
   isOpen: boolean;
   onClose: () => void;
   endpoint: AppEndpoint | null;
-  appId: string;
+  analytics?: AnalyticsData | null;
+  loading?: boolean;
+  onLoadAnalytics?: (endpointId: string, timeRange: number) => Promise<AnalyticsData>;
 }
 
-interface AnalyticsData {
+export interface EndpointAnalyticsData {
   total_calls: number;
   calls_by_day: Record<string, number>;
   calls_by_status: Record<string, number>;
@@ -23,6 +25,9 @@ interface AnalyticsData {
   error_rate: number;
   top_errors: Record<string, number>;
 }
+
+// Type alias for backward compatibility
+type AnalyticsData = EndpointAnalyticsData;
 
 
 const formatNumber = (num: number): string => {
@@ -40,61 +45,45 @@ export const EndpointAnalyticsModal: React.FC<EndpointAnalyticsModalProps> = ({
   isOpen,
   onClose,
   endpoint,
-  appId
+  analytics: propAnalytics,
+  loading: propLoading = false,
+  onLoadAnalytics
 }) => {
-  const [loading, setLoading] = useState(true);
-  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
+  const [internalLoading, setInternalLoading] = useState(false);
+  const [internalAnalytics, setInternalAnalytics] = useState<AnalyticsData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [timeRange, setTimeRange] = useState<7 | 30 | 90>(30);
   const [activeTab, setActiveTab] = useState<'overview' | 'performance' | 'errors'>('overview');
 
-  // Mock analytics data for demo
-  useEffect(() => {
-    if (isOpen && endpoint) {
-      setLoading(true);
+  // Use prop analytics if provided, otherwise use internal state
+  const analytics = propAnalytics !== undefined ? propAnalytics : internalAnalytics;
+  const loading = propAnalytics !== undefined ? propLoading : internalLoading;
+
+  // Load analytics function
+  const loadAnalytics = () => {
+    if (endpoint && onLoadAnalytics) {
+      setInternalLoading(true);
       setError(null);
-      
-      // Simulate API call delay
-      setTimeout(() => {
-        // Generate mock data
-        const mockAnalytics: AnalyticsData = {
-          total_calls: Math.floor(Math.random() * 10000) + 1000,
-          calls_by_day: generateDailyData(timeRange),
-          calls_by_status: {
-            '200': Math.floor(Math.random() * 800) + 200,
-            '201': Math.floor(Math.random() * 100) + 50,
-            '400': Math.floor(Math.random() * 50) + 10,
-            '401': Math.floor(Math.random() * 20) + 5,
-            '404': Math.floor(Math.random() * 30) + 10,
-            '500': Math.floor(Math.random() * 15) + 2
-          },
-          average_response_time: Math.floor(Math.random() * 200) + 50,
-          success_rate: 95 + Math.random() * 4,
-          error_rate: Math.random() * 5,
-          top_errors: {
-            'Invalid request parameter': Math.floor(Math.random() * 20) + 5,
-            'Authentication failed': Math.floor(Math.random() * 15) + 3,
-            'Resource not found': Math.floor(Math.random() * 10) + 2,
-            'Rate limit exceeded': Math.floor(Math.random() * 8) + 1
-          }
-        };
 
-        setAnalytics(mockAnalytics);
-        setLoading(false);
-      }, 1000);
+      onLoadAnalytics(endpoint.id, timeRange)
+        .then((data) => {
+          setInternalAnalytics(data);
+          setInternalLoading(false);
+        })
+        .catch((err) => {
+          setError(err.message || 'Failed to load analytics');
+          setInternalLoading(false);
+        });
     }
-  }, [isOpen, endpoint, timeRange]);
-
-  const generateDailyData = (days: number): Record<string, number> => {
-    const data: Record<string, number> = {};
-    for (let i = days - 1; i >= 0; i--) {
-      const date = new Date();
-      date.setDate(date.getDate() - i);
-      const dateStr = date.toISOString().split('T')[0];
-      data[dateStr as keyof typeof data] = Math.floor(Math.random() * 100) + 10;
-    }
-    return data;
   };
+
+  // Load analytics when modal opens (only if onLoadAnalytics is provided)
+  useEffect(() => {
+    if (isOpen && endpoint && propAnalytics === undefined && onLoadAnalytics) {
+      loadAnalytics();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, endpoint, timeRange, propAnalytics, onLoadAnalytics]);
 
   const tabs = [
     { id: 'overview', label: 'Overview', icon: '📊' },
@@ -162,7 +151,7 @@ export const EndpointAnalyticsModal: React.FC<EndpointAnalyticsModalProps> = ({
           <div className="bg-theme-error-background border border-theme-error-border rounded-lg p-6 text-center">
             <AlertCircle className="w-8 h-8 text-theme-error mx-auto mb-4" />
             <p className="text-theme-error mb-4">{error}</p>
-            <Button variant="outline" onClick={() => setLoading(true)}>
+            <Button variant="outline" onClick={loadAnalytics}>
               Retry
             </Button>
           </div>

@@ -56,14 +56,12 @@ export const VersionDisplay: React.FC<VersionDisplayProps> = ({
             if (healthResponse.status === 'fulfilled' && healthResponse.value.success) {
               setHealth(healthResponse.value.data);
             }
-          } catch (err) {
+          } catch (error) {
             // Silently fail version fetching - it's not critical to app functionality
-            console.warn('Version fetch failed (non-critical):', err);
           }
         }
-      } catch (err) {
+      } catch (error) {
         // Only log warnings for version fetching failures
-        console.warn('Version information unavailable:', err);
       } finally {
         setLoading(false);
       }
@@ -82,7 +80,7 @@ export const VersionDisplay: React.FC<VersionDisplayProps> = ({
 
   if (error && showBackend) {
     return (
-      <div className={`text-xs text-red-600 ${className}`}>
+      <div className={`text-xs text-theme-error ${className}`}>
         Version unavailable
       </div>
     );
@@ -219,7 +217,7 @@ export const VersionDisplay: React.FC<VersionDisplayProps> = ({
             <div className="grid grid-cols-2 gap-4 text-xs">
               <div className="flex justify-between">
                 <span className="text-theme-secondary">Status:</span>
-                <span className={`${health.status === 'healthy' ? 'text-green-600' : 'text-red-600'}`}>
+                <span className={`${health.status === 'healthy' ? 'text-theme-success' : 'text-theme-error'}`}>
                   {health.status}
                 </span>
               </div>

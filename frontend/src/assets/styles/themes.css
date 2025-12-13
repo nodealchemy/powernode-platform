@@ -138,6 +138,76 @@
   --easing-ease-in: cubic-bezier(0.4, 0, 1, 1);
   --easing-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
   --easing-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+
+  /* ===== WORKFLOW NODE TYPE COLORS ===== */
+  /* Visual distinction for different workflow node categories */
+  --node-trigger-bg: #4ade80;        /* emerald-400 */
+  --node-ai-agent-bg: #60a5fa;       /* blue-400 */
+  --node-data-processor-bg: #a78bfa; /* purple-400 */
+  --node-condition-bg: #fbbf24;      /* yellow-400 */
+  --node-loop-bg: #fb923c;           /* orange-400 */
+  --node-api-call-bg: #14b8a6;       /* teal-500 */
+  --node-webhook-bg: #ec4899;        /* pink-500 */
+  --node-database-bg: #06b6d4;       /* cyan-500 */
+  --node-email-bg: #6366f1;          /* indigo-500 */
+  --node-scheduler-bg: #f59e0b;      /* amber-500 */
+  --node-file-bg: #8b5cf6;           /* violet-500 */
+  --node-transformer-bg: #64748b;    /* slate-500 */
+  --node-validator-bg: #f43f5e;      /* rose-500 */
+  --node-notification-bg: #84cc16;   /* lime-500 */
+  --node-delay-bg: #9ca3af;          /* gray-400 */
+  --node-merge-bg: #d946ef;          /* fuchsia-500 */
+  --node-split-bg: #0ea5e9;          /* sky-500 */
+  --node-end-bg: #f87171;            /* red-400 */
+  --node-start-bg: #22c55e;          /* green-500 */
+  --node-prompt-template-bg: #a855f7; /* purple-500 */
+  --node-human-approval-bg: #f97316; /* orange-500 */
+  --node-sub-workflow-bg: #6366f1;   /* indigo-500 */
+
+  /* Consolidated Node Type Colors (24 total node types) */
+  /* KB Article - unified node for create/read/update/search/publish actions */
+  --node-kb-article-bg: #10b981;     /* emerald-500 */
+  --node-kb-article-text: #ffffff;
+  --node-kb-article-border: #059669; /* emerald-600 */
+
+  /* Page - unified node for create/read/update/publish actions */
+  --node-page-bg: #14b8a6;           /* teal-500 */
+  --node-page-text: #ffffff;
+  --node-page-border: #0d9488;       /* teal-600 */
+
+  /* MCP Operation - unified node for tool/resource/prompt operations */
+  --node-mcp-operation-bg: #8b5cf6;  /* violet-500 */
+  --node-mcp-operation-text: #ffffff;
+  --node-mcp-operation-border: #7c3aed; /* violet-600 */
+
+  /* Legacy colors (deprecated - kept for backwards compatibility during migration) */
+  --node-mcp-tool-bg: #8b5cf6;       /* violet-500 */
+  --node-mcp-resource-bg: #06b6d4;   /* cyan-500 */
+  --node-mcp-prompt-bg: #f59e0b;     /* amber-500 */
+
+  /* ===== WORKFLOW HANDLE COLORS ===== */
+  /* Semantic colors for workflow node connection handles */
+  --handle-default: #000000;         /* black - standard input/output handles */
+  --handle-input: #000000;           /* black - input/entry point */
+  --handle-output: #000000;          /* black - default output */
+  --handle-true: #000000;            /* black - conditional true path */
+  --handle-false: #ef4444;           /* red-500 - conditional false/error path */
+  --handle-loop-back: #f59e0b;       /* amber-500 - loop continuation */
+  --handle-loop-exit: #f59e0b;       /* amber-500 - loop exit */
+
+  /* ===== WORKFLOW EDGE COLORS ===== */
+  /* Colors for workflow edges based on their semantic meaning */
+  --edge-default: var(--color-neutral-400);        /* #94a3b8 - default/fallback */
+  --edge-flow: var(--color-neutral-500);           /* #64748b - standard flow */
+  --edge-true: var(--color-success-500);           /* #22c55e - condition true path */
+  --edge-false: var(--color-error-500);            /* #ef4444 - condition false path */
+  --edge-success: var(--color-success-500);        /* #22c55e - success outcome */
+  --edge-error: var(--color-error-500);            /* #ef4444 - error outcome */
+  --edge-loop: #8b5cf6;                            /* violet-500 - loop body/continue */
+  --edge-exit: var(--color-warning-500);           /* #f59e0b - loop exit */
+  --edge-branch-1: var(--color-primary-500);       /* #3b82f6 - first branch */
+  --edge-branch-2: #06b6d4;                        /* cyan-500 - second branch */
+  --edge-branch-3: #ec4899;                        /* pink-500 - third branch */
 }
 
 /* ===== LIGHT THEME ===== */
@@ -371,10 +441,34 @@
 .text-theme-error { color: var(--color-error); }
 .text-theme-info { color: var(--color-info); }
 
+/* Light background variants (for subtle backgrounds) */
 .bg-theme-success { background-color: var(--color-success-background); }
 .bg-theme-warning { background-color: var(--color-warning-background); }
 .bg-theme-error { background-color: var(--color-error-background); }
 .bg-theme-info { background-color: var(--color-info-background); }
+
+/* Solid color variants (for buttons, badges, prominent UI) */
+.bg-theme-success-solid { background-color: var(--color-success); }
+.bg-theme-warning-solid { background-color: var(--color-warning); }
+.bg-theme-error-solid { background-color: var(--color-error); }
+.bg-theme-info-solid { background-color: var(--color-info); }
+
+/* Interactive primary background (solid blue for buttons) */
+.bg-theme-interactive-primary { background-color: var(--color-interactive-primary); }
+.bg-theme-interactive-primary-hover { background-color: var(--color-interactive-primary-hover); }
+
+/* Workflow Edge Background Utilities (solid colors for edge labels) */
+.bg-theme-edge-default { background-color: var(--edge-default); }
+.bg-theme-edge-flow { background-color: var(--edge-flow); }
+.bg-theme-edge-true { background-color: var(--edge-true); }
+.bg-theme-edge-false { background-color: var(--edge-false); }
+.bg-theme-edge-success { background-color: var(--edge-success); }
+.bg-theme-edge-error { background-color: var(--edge-error); }
+.bg-theme-edge-loop { background-color: var(--edge-loop); }
+.bg-theme-edge-exit { background-color: var(--edge-exit); }
+.bg-theme-edge-branch-1 { background-color: var(--edge-branch-1); }
+.bg-theme-edge-branch-2 { background-color: var(--edge-branch-2); }
+.bg-theme-edge-branch-3 { background-color: var(--edge-branch-3); }
 
 /* Card Theme */
 .card-theme {
@@ -1170,6 +1264,7 @@
   left: var(--spacing-3);
   top: 50%;
   transform: translateY(-50%);
+  z-index: 10;
   color: var(--color-text-tertiary);
   width: 1rem;
   height: 1rem;
@@ -1222,6 +1317,84 @@
   background-color: var(--color-info-background);
   border-color: var(--color-info-border);
   color: var(--color-info);
+}
+
+/* Toast Notification Theme - Solid backgrounds for better readability */
+.toast-theme-success {
+  background-color: var(--color-success-100);
+  border-left: 4px solid var(--color-success);
+  color: var(--color-success-800);
+}
+
+.toast-theme-success .toast-icon {
+  color: var(--color-success-600);
+}
+
+.toast-theme-error {
+  background-color: var(--color-error-100);
+  border-left: 4px solid var(--color-error);
+  color: var(--color-error-800);
+}
+
+.toast-theme-error .toast-icon {
+  color: var(--color-error-600);
+}
+
+.toast-theme-warning {
+  background-color: var(--color-warning-100);
+  border-left: 4px solid var(--color-warning);
+  color: var(--color-warning-800);
+}
+
+.toast-theme-warning .toast-icon {
+  color: var(--color-warning-600);
+}
+
+.toast-theme-info {
+  background-color: var(--color-info-100);
+  border-left: 4px solid var(--color-info);
+  color: var(--color-info-800);
+}
+
+.toast-theme-info .toast-icon {
+  color: var(--color-info-600);
+}
+
+/* Dark mode toast overrides */
+[data-theme="dark"] .toast-theme-success {
+  background-color: var(--color-success-900);
+  color: var(--color-success-100);
+}
+
+[data-theme="dark"] .toast-theme-success .toast-icon {
+  color: var(--color-success-400);
+}
+
+[data-theme="dark"] .toast-theme-error {
+  background-color: var(--color-error-900);
+  color: var(--color-error-100);
+}
+
+[data-theme="dark"] .toast-theme-error .toast-icon {
+  color: var(--color-error-400);
+}
+
+[data-theme="dark"] .toast-theme-warning {
+  background-color: var(--color-warning-900);
+  color: var(--color-warning-100);
+}
+
+[data-theme="dark"] .toast-theme-warning .toast-icon {
+  color: var(--color-warning-400);
+}
+
+[data-theme="dark"] .toast-theme-info {
+  background-color: var(--color-info-900);
+  color: var(--color-info-100);
+}
+
+[data-theme="dark"] .toast-theme-info .toast-icon {
+  color: var(--color-info-400);
 }
 
 /* Elevation Utilities */
@@ -2044,15 +2217,124 @@
   transition: box-shadow 0.2s ease-out;
 }
 
+/* ===== KNOWLEDGE BASE ARTICLE STYLING ===== */
+/* Professional business-like styling for KB content */
+
+.kb-article-content {
+  line-height: 1.7;
+  font-size: 1.125rem; /* 18px for better readability */
+}
+
+.kb-article-content h1,
+.kb-article-content h2,
+.kb-article-content h3,
+.kb-article-content h4,
+.kb-article-content h5,
+.kb-article-content h6 {
+  scroll-margin-top: 2rem;
+}
+
+.kb-article-content h1:hover,
+.kb-article-content h2:hover,
+.kb-article-content h3:hover,
+.kb-article-content h4:hover,
+.kb-article-content h5:hover,
+.kb-article-content h6:hover {
+  position: relative;
+}
+
+.kb-article-content h1:hover::before,
+.kb-article-content h2:hover::before,
+.kb-article-content h3:hover::before,
+.kb-article-content h4:hover::before,
+.kb-article-content h5:hover::before,
+.kb-article-content h6:hover::before {
+  content: "🔗";
+  position: absolute;
+  left: -1.5rem;
+  opacity: 0.6;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+/* Professional table styling */
+.kb-article-content table {
+  font-size: 0.875rem;
+}
+
+.kb-article-content table th {
+  letter-spacing: 0.025em;
+}
+
+.kb-article-content table tbody tr:nth-child(even) {
+  background-color: rgba(var(--color-surface), 0.3);
+}
+
+/* Enhanced code blocks */
+.kb-article-content pre {
+  position: relative;
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+.kb-article-content pre code {
+  background: none !important;
+  border: none !important;
+  padding: 0 !important;
+}
+
+/* List improvements */
+.kb-article-content ul,
+.kb-article-content ol {
+  padding-left: 1.5rem;
+}
+
+.kb-article-content ol {
+  counter-reset: list-item;
+}
+
+.kb-article-content ol li {
+  counter-increment: list-item;
+}
+
+/* Image styling for professional appearance */
+.kb-article-content img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  margin: 2rem 0;
+}
+
+/* Dark mode specific enhancements */
+.dark .kb-article-content img {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+}
+
+.dark .kb-article-content table tbody tr:nth-child(even) {
+  background-color: rgba(255, 255, 255, 0.02);
+}
+
+/* Professional spacing for content sections */
+.kb-article-content > * + * {
+  margin-top: 1.5rem;
+}
+
+.kb-article-content > h1 + *,
+.kb-article-content > h2 + *,
+.kb-article-content > h3 + * {
+  margin-top: 1rem;
+}
+
 /* ===== LEGACY HIGH CONTRAST COMPATIBILITY LAYER ===== */
 /* Suppress -ms-high-contrast deprecation warnings by providing modern equivalents */
 
-/* Override any legacy -ms-high-contrast rules that may exist in dependencies */
+/* Modern forced colors mode support without deprecated properties */
 @supports (forced-colors: active) {
-  /* Modern forced colors mode takes precedence over legacy -ms-high-contrast */
+  /* Use modern forced-color-adjust instead of deprecated -ms-high-contrast-adjust */
   * {
-    /* Reset any legacy high contrast styles that might be applied */
-    -ms-high-contrast-adjust: none;
+    /* Allow forced-color-adjust to work naturally */
+    forced-color-adjust: auto;
   }
 }
 

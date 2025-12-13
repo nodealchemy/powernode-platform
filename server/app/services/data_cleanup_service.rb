@@ -8,7 +8,7 @@ class DataCleanupService
       {
         audit_logs: {
           total_count: AuditLog.count,
-          old_count: AuditLog.where('created_at < ?', 90.days.ago).count,
+          old_count: AuditLog.where("created_at < ?", 90.days.ago).count,
           estimated_size: estimate_audit_logs_size,
           oldest_record: AuditLog.minimum(:created_at)&.iso8601
         },
@@ -37,10 +37,10 @@ class DataCleanupService
 
     def cleanup_audit_logs(days_old = 90)
       cutoff_date = days_old.days.ago
-      
-      old_logs = AuditLog.where('created_at < ?', cutoff_date)
+
+      old_logs = AuditLog.where("created_at < ?", cutoff_date)
       count = old_logs.count
-      
+
       if count > 0
         old_logs.delete_all
         Rails.logger.info "Cleaned up #{count} audit logs older than #{days_old} days"
@@ -58,17 +58,17 @@ class DataCleanupService
 
     def cleanup_expired_sessions
       cleaned_count = 0
-      
+
       begin
         # Clean up ActionCable connections
         cleaned_count += cleanup_action_cable_sessions
-        
+
         # Clean up Sidekiq sessions if applicable
         cleaned_count += cleanup_sidekiq_sessions
-        
+
         # Clean up any custom session stores
         cleaned_count += cleanup_custom_sessions
-        
+
         Rails.logger.info "Cleaned up #{cleaned_count} expired sessions"
       rescue => e
         Rails.logger.error "Failed to cleanup sessions: #{e.message}"
@@ -83,9 +83,9 @@ class DataCleanupService
 
     def cleanup_temp_files
       temp_dirs = [
-        Rails.root.join('tmp'),
-        Rails.root.join('storage', 'tmp'),
-        Rails.root.join('public', 'uploads', 'tmp')
+        Rails.root.join("tmp"),
+        Rails.root.join("storage", "tmp"),
+        Rails.root.join("public", "uploads", "tmp")
       ]
 
       cleaned_count = 0
@@ -94,7 +94,7 @@ class DataCleanupService
       temp_dirs.each do |dir|
         next unless Dir.exist?(dir)
 
-        Dir.glob(File.join(dir, '**', '*')).each do |file|
+        Dir.glob(File.join(dir, "**", "*")).each do |file|
           next unless File.file?(file)
           next unless temp_file?(file)
 
@@ -123,7 +123,7 @@ class DataCleanupService
 
     def clear_application_cache
       cleared_entries = 0
-      
+
       begin
         # Clear Rails cache
         if Rails.cache.respond_to?(:clear)
@@ -148,7 +148,7 @@ class DataCleanupService
 
     def vacuum_database
       begin
-        ActiveRecord::Base.connection.execute('VACUUM ANALYZE')
+        ActiveRecord::Base.connection.execute("VACUUM ANALYZE")
         Rails.logger.info "Database vacuum completed"
         { success: true, message: "Database vacuum completed" }
       rescue => e
@@ -159,7 +159,7 @@ class DataCleanupService
 
     def reindex_database
       begin
-        ActiveRecord::Base.connection.execute('REINDEX DATABASE powernode_development')
+        ActiveRecord::Base.connection.execute("REINDEX DATABASE powernode_development")
         Rails.logger.info "Database reindex completed"
         { success: true, message: "Database reindex completed" }
       rescue => e
@@ -192,15 +192,15 @@ class DataCleanupService
 
     def count_temp_files
       temp_dirs = [
-        Rails.root.join('tmp'),
-        Rails.root.join('storage', 'tmp'),
-        Rails.root.join('public', 'uploads', 'tmp')
+        Rails.root.join("tmp"),
+        Rails.root.join("storage", "tmp"),
+        Rails.root.join("public", "uploads", "tmp")
       ]
 
       count = 0
       temp_dirs.each do |dir|
         next unless Dir.exist?(dir)
-        count += Dir.glob(File.join(dir, '**', '*')).count { |f| File.file?(f) && temp_file?(f) }
+        count += Dir.glob(File.join(dir, "**", "*")).count { |f| File.file?(f) && temp_file?(f) }
       end
       count
     rescue
@@ -209,16 +209,16 @@ class DataCleanupService
 
     def temp_files_size
       temp_dirs = [
-        Rails.root.join('tmp'),
-        Rails.root.join('storage', 'tmp'),
-        Rails.root.join('public', 'uploads', 'tmp')
+        Rails.root.join("tmp"),
+        Rails.root.join("storage", "tmp"),
+        Rails.root.join("public", "uploads", "tmp")
       ]
 
       size = 0
       temp_dirs.each do |dir|
         next unless Dir.exist?(dir)
-        
-        Dir.glob(File.join(dir, '**', '*')).each do |file|
+
+        Dir.glob(File.join(dir, "**", "*")).each do |file|
           next unless File.file?(file) && temp_file?(file)
           size += File.size(file) rescue 0
         end
@@ -237,10 +237,10 @@ class DataCleanupService
 
     def get_cache_size
       # This would need to be implemented based on your cache store
-      cache_dir = Rails.root.join('tmp', 'cache')
+      cache_dir = Rails.root.join("tmp", "cache")
       return 0 unless Dir.exist?(cache_dir)
 
-      Dir.glob(File.join(cache_dir, '**', '*')).sum do |file|
+      Dir.glob(File.join(cache_dir, "**", "*")).sum do |file|
         File.file?(file) ? File.size(file) : 0
       end
     rescue
@@ -249,10 +249,10 @@ class DataCleanupService
 
     def get_cache_keys_count
       # This would need to be implemented based on your cache store
-      cache_dir = Rails.root.join('tmp', 'cache')
+      cache_dir = Rails.root.join("tmp", "cache")
       return 0 unless Dir.exist?(cache_dir)
 
-      Dir.glob(File.join(cache_dir, '**', '*')).count { |f| File.file?(f) }
+      Dir.glob(File.join(cache_dir, "**", "*")).count { |f| File.file?(f) }
     rescue
       0
     end
@@ -262,7 +262,7 @@ class DataCleanupService
         result = ActiveRecord::Base.connection.execute(
           "SELECT pg_database_size(current_database())"
         )
-        result.first['pg_database_size'].to_i
+        result.first["pg_database_size"].to_i
       rescue
         0
       end
@@ -273,17 +273,17 @@ class DataCleanupService
         # Check if any tables have significant dead tuples
         result = ActiveRecord::Base.connection.execute(<<~SQL)
           SELECT schemaname, tablename, n_dead_tup, n_live_tup,
-                 CASE WHEN n_live_tup > 0 
-                      THEN (n_dead_tup::float / n_live_tup::float) 
-                      ELSE 0 
+                 CASE WHEN n_live_tup > 0#{' '}
+                      THEN (n_dead_tup::float / n_live_tup::float)#{' '}
+                      ELSE 0#{' '}
                  END as dead_ratio
-          FROM pg_stat_user_tables 
-          WHERE n_dead_tup > 1000 
-          ORDER BY dead_ratio DESC 
+          FROM pg_stat_user_tables#{' '}
+          WHERE n_dead_tup > 1000#{' '}
+          ORDER BY dead_ratio DESC#{' '}
           LIMIT 1
         SQL
-        
-        result.any? { |row| row['dead_ratio'].to_f > 0.1 }
+
+        result.any? { |row| row["dead_ratio"].to_f > 0.1 }
       rescue
         false
       end
@@ -310,13 +310,13 @@ class DataCleanupService
     end
 
     def format_file_size(bytes)
-      return '0 B' if bytes.nil? || bytes.zero?
+      return "0 B" if bytes.nil? || bytes.zero?
 
-      units = ['B', 'KB', 'MB', 'GB', 'TB']
+      units = [ "B", "KB", "MB", "GB", "TB" ]
       base = 1024
       exp = (Math.log(bytes) / Math.log(base)).floor
       exp = units.length - 1 if exp >= units.length
-      
+
       formatted = (bytes.to_f / (base ** exp)).round(2)
       "#{formatted} #{units[exp]}"
     end

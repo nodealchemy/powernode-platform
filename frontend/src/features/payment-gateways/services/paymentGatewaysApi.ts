@@ -13,7 +13,11 @@ export interface PaymentGatewayConfig {
   enabled: boolean;
   test_mode: boolean;
   supported_methods: string[];
-  [key: string]: any; // Additional provider-specific fields
+  publishable_key?: string;
+  webhook_secret?: string;
+  client_id?: string;
+  client_secret?: string;
+  environment?: 'sandbox' | 'production';
 }
 
 export interface PaymentGatewaysOverview {
@@ -89,6 +93,23 @@ export interface TestConnectionResult {
   tested_at: string;
 }
 
+export interface AsyncTestResponse {
+  job_id: string;
+  status: 'pending';
+  message: string;
+  poll_url: string;
+}
+
+export interface GatewayConnectionJob {
+  id: string;
+  gateway: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  result?: TestConnectionResult;
+  created_at: string;
+  updated_at: string;
+  completed_at?: string;
+}
+
 export interface PaginatedResponse<T> {
   data: T[];
   pagination: {
@@ -112,13 +133,13 @@ class PaymentGatewaysApi {
   // Get overview of all payment gateways
   async getOverview(): Promise<PaymentGatewaysOverview> {
     const response = await api.get('/payment_gateways');
-    return response.data;
+    return response.data.data;
   }
 
   // Get detailed information for a specific gateway
   async getGatewayDetails(gateway: 'stripe' | 'paypal'): Promise<GatewayDetails> {
     const response = await api.get(`/payment_gateways/${gateway}`);
-    return response.data;
+    return response.data.data;
   }
 
   // Update gateway configuration
@@ -132,10 +153,47 @@ class PaymentGatewaysApi {
     return response.data;
   }
 
-  // Test gateway connection
-  async testConnection(gateway: 'stripe' | 'paypal'): Promise<TestConnectionResult> {
+  // Test gateway connection (now async)
+  async testConnection(gateway: 'stripe' | 'paypal'): Promise<AsyncTestResponse> {
     const response = await api.post(`/payment_gateways/${gateway}/test_connection`);
-    return response.data;
+    return response.data.data;
+  }
+
+  // Get gateway connection job status
+  async getConnectionJob(jobId: string): Promise<GatewayConnectionJob> {
+    const response = await api.get(`/gateway_connection_jobs/${jobId}`);
+    return response.data.data;
+  }
+
+  // Poll for test connection results with timeout
+  async pollTestConnection(jobId: string, maxAttempts = 30, intervalMs = 2000): Promise<TestConnectionResult> {
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const job = await this.getConnectionJob(jobId);
+      
+      if (job.status === 'completed') {
+        if (job.result) {
+          return job.result;
+        } else {
+          throw new Error('Job completed but no result available');
+        }
+      } else if (job.status === 'failed') {
+        const errorMessage = job.result?.error || 'Gateway connection test failed';
+        throw new Error(errorMessage);
+      }
+      
+      // Wait before next poll (unless it's the last attempt)
+      if (attempt < maxAttempts - 1) {
+        await new Promise(resolve => setTimeout(resolve, intervalMs));
+      }
+    }
+    
+    throw new Error('Gateway connection test timed out');
+  }
+
+  // Convenient method that starts test and polls for results
+  async testConnectionAndWait(gateway: 'stripe' | 'paypal'): Promise<TestConnectionResult> {
+    const asyncResponse = await this.testConnection(gateway);
+    return this.pollTestConnection(asyncResponse.job_id);
   }
 
   // Get webhook events for a gateway

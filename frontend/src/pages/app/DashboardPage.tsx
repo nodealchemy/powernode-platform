@@ -3,22 +3,29 @@ import { Routes, Route, useNavigate, Navigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/shared/services';
 import { plansApi } from '@/features/plans/services/plansApi';
+import { paymentGatewaysApi } from '@/features/payment-gateways/services/paymentGatewaysApi';
 import { DashboardLayout } from '@/shared/components/layout/DashboardLayout';
 import { MetricCard } from '@/shared/components/ui/Card';
 
 // Import all dashboard pages
-import { SubscriptionsPage } from './business/SubscriptionsPage';
 import { ReportsPage } from './business/ReportsPage';
 import { PlansPage } from './business/PlansPage';
 import { SettingsPage } from './SettingsPage';
 import { PagesPage } from './content/PagesPage';
+import KnowledgeBasePage from './content/KnowledgeBasePage';
+import KnowledgeBaseArticlePage from './content/KnowledgeBaseArticlePage';
+import KnowledgeBaseAdminPage from './content/KnowledgeBaseAdminPage';
+import { KnowledgeBaseArticleEditor } from '@/features/knowledge-base/components/KnowledgeBaseArticleEditor';
+import MyFilesPage from './content/MyFilesPage';
 import { UsersPage } from './UsersPage';
 import { AuditLogsPage } from './AuditLogsPage';
 import { ApiKeysPage } from './ApiKeysPage';
+import { NotificationsPage } from './NotificationsPage';
 import { MetricsPage } from './MetricsPage';
 import { AnalyticsPage } from './business/AnalyticsPage';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
-import { BarChart3, Users, CreditCard, Settings } from 'lucide-react';
+import { BarChart3, Users, CreditCard } from 'lucide-react';
+import { Button } from '@/shared/components/ui/Button';
 
 // Import individual pages directly (no more management page groupings)
 import { CustomersPage } from './business/CustomersPage';
@@ -26,21 +33,41 @@ import { BillingPage } from './business/BillingPage';
 
 // Import system pages
 import WebhookManagementPage from '@/pages/app/WebhookManagementPage';
-import { AuditLogsPage as SystemAuditLogsPage } from '@/pages/app/AuditLogsPage';
 
 // Import marketplace pages
-import { MarketplacePage, AppDetailPage } from '@/pages/app/marketplace';
+import { MarketplacePage } from '@/pages/app/marketplace/MarketplacePage';
+import { ItemDetailPage } from '@/pages/app/marketplace/ItemDetailPage';
 
 // Import admin pages
 import { AdminSettingsPage } from '@/pages/app/admin/AdminSettingsPage';
 import { AdminUsersPage } from '@/pages/app/admin/AdminUsersPage';
 import { AdminRolesPage } from '@/pages/app/admin/AdminRolesPage';
 import { WorkersPage as SystemWorkersPage } from '@/pages/app/system/WorkersPage';
+import { ServicesPage } from '@/pages/app/system/ServicesPage';
+import StorageProvidersPage from '@/pages/app/system/StorageProvidersPage';
 import { AdminMaintenancePage } from '@/pages/app/admin/AdminMaintenancePage';
 import { AdminMarketplacePage } from '@/pages/app/admin/AdminMarketplacePage';
 
 // Test page
 import { TestWebSocket } from '@/pages/app/TestWebSocket';
+
+// AI Pages - Standalone navigation (no longer using AIOrchestrationPage wrapper)
+import { AIOverviewPage } from './ai/AIOverviewPage';
+import { AIProvidersPage } from './ai/AIProvidersPage';
+import { AIAgentsPage } from './ai/AIAgentsPage';
+import { WorkflowsPage } from './ai/WorkflowsPage';
+import { AIConversationsPage } from './ai/AIConversationsPage';
+import { WorkflowAnalyticsPage } from './ai/WorkflowAnalyticsPage';
+import { AIMonitoringPage } from './ai/AIMonitoringPage';
+import { McpBrowserPage } from './ai/McpBrowserPage';
+// AI Sub-pages
+import { CreateWorkflowPage, WorkflowTemplatesPage, AIDebugPage } from './ai';
+import AgentTeamsPage from './ai/AgentTeamsPage';
+import { WorkflowDetailPage } from './ai/WorkflowDetailPage';
+import { WorkflowImportPage } from './ai/WorkflowImportPage';
+import { WorkflowMonitoringPage } from './ai/WorkflowMonitoringPage';
+import { WorkflowValidationStatisticsPage } from './ai/WorkflowValidationStatisticsPage';
+import { AIAnalyticsPage } from './ai/AIAnalyticsPage';
 
 // Dashboard overview page
 const DashboardOverview: React.FC = () => {
@@ -61,17 +88,28 @@ const DashboardOverview: React.FC = () => {
         // Check plans using public endpoint (no auth required)
         const plansResponse = await plansApi.getPublicPlans();
         
+        // Check payment gateway status (requires admin.settings.payment permission)
+        let hasConfiguredGateways = false;
+        try {
+          const gatewaysOverview = await paymentGatewaysApi.getOverview();
+          // Consider gateways configured if either Stripe or PayPal is connected/configured
+          const stripeConfigured = gatewaysOverview.gateways.stripe.enabled && 
+            ['connected', 'configured'].includes(gatewaysOverview.status.stripe.status);
+          const paypalConfigured = gatewaysOverview.gateways.paypal.enabled && 
+            ['connected', 'configured'].includes(gatewaysOverview.status.paypal.status);
+          hasConfiguredGateways = stripeConfigured || paypalConfigured;
+        } catch (_gatewayError) {
+          // If user doesn't have permission or API fails, assume no gateways configured
+          hasConfiguredGateways = false;
+        }
+        
         // Only update state if component is still mounted
         if (mounted) {
           setHasPlans(plansResponse.data.plans.length > 0);
-          
-          // Skip payment gateway check for now due to API issues
-          // TODO: Re-enable when payment gateway API is fixed
-          setHasPaymentGateways(false);
+          setHasPaymentGateways(hasConfiguredGateways);
         }
-      } catch (error) {
+      } catch (_error) {
         if (mounted) {
-          console.error('Failed to check setup status:', error);
           // Assume no setup on error
           setHasPlans(false);
           setHasPaymentGateways(false);
@@ -87,6 +125,9 @@ const DashboardOverview: React.FC = () => {
     if (!hasCheckedStatusRef.current) {
       hasCheckedStatusRef.current = true;
       checkSetupStatus();
+    } else {
+      // If we've already checked status, immediately set loading to false
+      setLoading(false);
     }
     
     // Cleanup function to prevent state updates on unmounted component
@@ -122,20 +163,14 @@ const DashboardOverview: React.FC = () => {
       variant: 'secondary',
       icon: Users
     },
-    {
+    // Only show Payment Setup button if payment setup is required
+    ...((!hasPaymentGateways && !loading) ? [{
       id: 'payment-gateways',
       label: 'Payment Setup',
-      onClick: () => navigate('/admin/settings/payment-gateways'),
-      variant: 'secondary',
+      onClick: () => navigate('/app/admin/settings/payment-gateways'),
+      variant: 'secondary' as const,
       icon: CreditCard
-    },
-    {
-      id: 'settings',
-      label: 'Settings',
-      onClick: () => navigate('/app/profile'),
-      variant: 'primary',
-      icon: Settings
-    }
+    }] : [])
   ];
 
   const breadcrumbs = [
@@ -144,7 +179,7 @@ const DashboardOverview: React.FC = () => {
   
   return (
     <PageContainer
-      title={`Welcome back, ${user?.first_name}! 👋`}
+      title={`Welcome back, ${user?.name || 'User'}! 👋`}
       description="Here's an overview of your account activity and system status."
       breadcrumbs={breadcrumbs}
       actions={pageActions}
@@ -227,12 +262,14 @@ const DashboardOverview: React.FC = () => {
                   {user?.email_verified ? 'Your email address has been verified' : 'Please verify your email address'}
                 </p>
                 {!user?.email_verified && (
-                  <button 
+                  <Button 
                     onClick={() => navigate('/verify-email')}
-                    className="btn-theme btn-theme-primary mt-2 text-xs px-3 py-1"
+                    variant="primary"
+                    size="xs"
+                    className="mt-2"
                   >
                     Verify Email
-                  </button>
+                  </Button>
                 )}
               </div>
             </div>
@@ -255,12 +292,14 @@ const DashboardOverview: React.FC = () => {
                   {hasPlans ? 'You have plans ready for customers' : 'Create plans to start accepting payments'}
                 </p>
                 {!hasPlans && (
-                  <button 
+                  <Button 
                     onClick={() => navigate('/app/business/plans')}
-                    className="btn-theme btn-theme-primary mt-2 text-xs px-3 py-1"
+                    variant="primary"
+                    size="xs"
+                    className="mt-2"
                   >
                     Create Plan
-                  </button>
+                  </Button>
                 )}
               </div>
             </div>
@@ -283,12 +322,14 @@ const DashboardOverview: React.FC = () => {
                   {hasPaymentGateways ? 'Stripe or PayPal is ready for payments' : 'Set up Stripe or PayPal integration'}
                 </p>
                 {!hasPaymentGateways && (
-                  <button 
+                  <Button 
                     onClick={() => navigate('/app/admin/settings/payment-gateways')}
-                    className="btn-theme btn-theme-primary mt-2 text-xs px-3 py-1"
+                    variant="primary"
+                    size="xs"
+                    className="mt-2"
                   >
                     Configure Payments
-                  </button>
+                  </Button>
                 )}
               </div>
             </div>
@@ -302,61 +343,68 @@ const DashboardOverview: React.FC = () => {
           </h3>
           
           <div className="grid grid-cols-1 gap-3">
-            <button 
+            <Button 
               onClick={() => navigate('/app/business/customers')}
-              className="btn-theme btn-theme-secondary flex items-center justify-between p-4 text-left hover:bg-theme-surface-hover"
+              variant="secondary"
+              className="flex items-center justify-between p-4 text-left hover:bg-theme-surface-hover w-full"
             >
               <div className="flex items-center space-x-3">
                 <span className="text-2xl">👥</span>
-                <div>
+                <div className="text-left">
                   <p className="font-medium text-theme-primary">Manage Customers</p>
                   <p className="text-xs text-theme-tertiary">View and organize your customer base</p>
                 </div>
               </div>
               <span className="text-theme-tertiary">→</span>
-            </button>
+            </Button>
 
-            <button 
+            <Button 
               onClick={() => navigate('/app/business/analytics')}
-              className="btn-theme btn-theme-secondary flex items-center justify-between p-4 text-left hover:bg-theme-surface-hover"
+              variant="secondary"
+              className="flex items-center justify-between p-4 text-left hover:bg-theme-surface-hover w-full"
             >
               <div className="flex items-center space-x-3">
                 <span className="text-2xl">📊</span>
-                <div>
+                <div className="text-left">
                   <p className="font-medium text-theme-primary">View Analytics</p>
                   <p className="text-xs text-theme-tertiary">Track revenue and growth metrics</p>
                 </div>
               </div>
               <span className="text-theme-tertiary">→</span>
-            </button>
+            </Button>
 
-            <button 
-              onClick={() => navigate('/app/admin/settings/payment-gateways')}
-              className="btn-theme btn-theme-secondary flex items-center justify-between p-4 text-left hover:bg-theme-surface-hover"
-            >
-              <div className="flex items-center space-x-3">
-                <span className="text-2xl">💳</span>
-                <div>
-                  <p className="font-medium text-theme-primary">Payment Gateways</p>
-                  <p className="text-xs text-theme-tertiary">Configure Stripe and PayPal</p>
+            {/* Only show Payment Gateways button in Quick Actions if setup is needed */}
+            {!hasPaymentGateways && !loading && (
+              <Button 
+                onClick={() => navigate('/app/admin/settings/payment-gateways')}
+                variant="secondary"
+                className="flex items-center justify-between p-4 text-left hover:bg-theme-surface-hover w-full"
+              >
+                <div className="flex items-center space-x-3">
+                  <span className="text-2xl">💳</span>
+                  <div className="text-left">
+                    <p className="font-medium text-theme-primary">Payment Gateways</p>
+                    <p className="text-xs text-theme-tertiary">Configure Stripe and PayPal</p>
+                  </div>
                 </div>
-              </div>
-              <span className="text-theme-tertiary">→</span>
-            </button>
+                <span className="text-theme-tertiary">→</span>
+              </Button>
+            )}
 
-            <button 
+            <Button 
               onClick={() => navigate('/app/profile')}
-              className="btn-theme btn-theme-secondary flex items-center justify-between p-4 text-left hover:bg-theme-surface-hover"
+              variant="secondary"
+              className="flex items-center justify-between p-4 text-left hover:bg-theme-surface-hover w-full"
             >
               <div className="flex items-center space-x-3">
                 <span className="text-2xl">⚙️</span>
-                <div>
+                <div className="text-left">
                   <p className="font-medium text-theme-primary">Account Settings</p>
                   <p className="text-xs text-theme-tertiary">Customize your account preferences</p>
                 </div>
               </div>
               <span className="text-theme-tertiary">→</span>
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -385,16 +433,50 @@ const DashboardPage: React.FC = () => {
       <Routes>
         {/* Dashboard Overview */}
         <Route path="/" element={<DashboardOverview />} />
-        
+
+        {/* Notifications Page */}
+        <Route path="/notifications" element={<NotificationsPage />} />
+
         {/* Individual Pages - No More Management Page Groupings */}
         
         {/* Business Pages */}
         <Route path="/business/customers" element={<CustomersPage />} />
-        <Route path="/business/subscriptions" element={<SubscriptionsPage />} />
         <Route path="/business/billing/*" element={<BillingPage />} />
+        
+        {/* AI Pages - Standalone navigation */}
+        <Route path="/ai" element={<AIOverviewPage />} />
+        <Route path="/ai/providers" element={<AIProvidersPage />} />
+        <Route path="/ai/agents" element={<AIAgentsPage />} />
+        <Route path="/ai/workflows" element={<WorkflowsPage />} />
+        <Route path="/ai/conversations" element={<AIConversationsPage />} />
+        <Route path="/ai/analytics" element={<WorkflowAnalyticsPage />} />
+        <Route path="/ai/monitoring" element={<AIMonitoringPage />} />
+        <Route path="/ai/mcp" element={<McpBrowserPage />} />
+
+        {/* AI Sub-pages (detail/utility routes) */}
+        <Route path="/ai/workflows/new" element={<CreateWorkflowPage />} />
+        <Route path="/ai/workflows/templates" element={<WorkflowTemplatesPage />} />
+        <Route path="/ai/workflows/import" element={<WorkflowImportPage />} />
+        <Route path="/ai/workflows/monitoring" element={<WorkflowMonitoringPage />} />
+        <Route path="/ai/workflows/validation-stats" element={<WorkflowValidationStatisticsPage />} />
+        <Route path="/ai/workflows/:id" element={<WorkflowDetailPage />} />
+        <Route path="/ai/analytics/system" element={<AIAnalyticsPage />} />
+        <Route path="/ai/debug" element={<AIDebugPage />} />
+        <Route path="/ai/agent-teams" element={<AgentTeamsPage />} />
         
         {/* Core Pages */}
         <Route path="/content/pages" element={<PagesPage />} />
+
+        {/* My Files Page */}
+        <Route path="/content/files" element={<MyFilesPage />} />
+
+        {/* Knowledge Base Pages */}
+        <Route path="/content/kb" element={<KnowledgeBasePage />} />
+        <Route path="/content/kb/articles/:id" element={<KnowledgeBaseArticlePage />} />
+        <Route path="/content/kb/articles/new" element={<KnowledgeBaseArticleEditor />} />
+        <Route path="/content/kb/articles/:id/edit" element={<KnowledgeBaseArticleEditor />} />
+        <Route path="/content/kb/admin" element={<KnowledgeBaseAdminPage />} />
+        <Route path="/content/kb/manage" element={<KnowledgeBaseAdminPage />} />
         <Route path="/business/plans/*" element={<PlansPage />} />
         
         
@@ -404,23 +486,21 @@ const DashboardPage: React.FC = () => {
         {/* System Pages */}
         <Route path="/profile/*" element={<SettingsPage />} />
         {/* Workers moved to admin routes */}
-        <Route path="/audit-logs" element={<AuditLogsPage />} />
-        <Route path="/api-keys" element={<ApiKeysPage />} />
         
         {/* System Management Pages */}
+        <Route path="/system/services" element={<ServicesPage />} />
+        <Route path="/system/storage" element={<StorageProvidersPage />} />
         <Route path="/system/webhooks" element={<WebhookManagementPage />} />
-        <Route path="/system/audit-logs" element={<SystemAuditLogsPage />} />
+        <Route path="/system/audit-logs/*" element={<AuditLogsPage />} />
+        <Route path="/system/api-keys" element={<ApiKeysPage />} />
         
         {/* Business Analytics Pages */}
         <Route path="/business/analytics/*" element={<AnalyticsPage />} />
         <Route path="/metrics" element={<MetricsPage />} />
         
-        {/* Marketplace Pages */}
+        {/* Marketplace Pages - Unified Interface */}
         <Route path="/marketplace" element={<MarketplacePage />} />
-        <Route path="/marketplace/subscriptions" element={<MarketplacePage />} />
-        <Route path="/marketplace/my-apps" element={<MarketplacePage />} />
-        <Route path="/marketplace/reviews" element={<MarketplacePage />} />
-        <Route path="/marketplace/apps/:appId" element={<AppDetailPage />} />
+        <Route path="/marketplace/:type/:id" element={<ItemDetailPage />} />
         
         {/* Admin routes - consistent with navigation */}
         <Route path="/users" element={<UsersPage />} />
@@ -430,9 +510,12 @@ const DashboardPage: React.FC = () => {
         <Route path="/admin/users" element={<AdminUsersPage />} />
         <Route path="/admin/roles" element={<AdminRolesPage />} />
         <Route path="/admin/marketplace" element={<AdminMarketplacePage />} />
-        <Route path="/system/workers" element={<SystemWorkersPage />} />
+        <Route path="/system/workers/*" element={<SystemWorkersPage />} />
         <Route path="/admin/maintenance/*" element={<AdminMaintenancePage />} />
         <Route path="/admin" element={<Navigate to="/app/admin/settings" replace />} />
+        
+        {/* Redirect old admin settings to new services page */}
+        <Route path="/admin/settings/reverse-proxy" element={<Navigate to="/app/system/services" replace />} />
         
         {/* Test route */}
         <Route path="/test-websocket" element={<TestWebSocket />} />

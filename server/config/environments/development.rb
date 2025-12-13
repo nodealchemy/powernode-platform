@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require "active_support/core_ext/integer/time"
 
 Rails.application.configure do
@@ -27,7 +29,7 @@ Rails.application.configure do
   config.cache_store = :memory_store
 
   # Store uploaded files on the local file system (see config/storage.yml for options).
-  config.active_storage.service = :local
+  # ActiveStorage not loaded in API-only configuration
 
   # Don't care if the mailer can't send.
   config.action_mailer.raise_delivery_errors = false
@@ -65,7 +67,7 @@ Rails.application.configure do
   config.action_cable.allowed_request_origins = [
     # Local development (http and ws/wss) - Frontend on 3000, Backend on 3001
     "http://localhost:3000",
-    "http://127.0.0.1:3000", 
+    "http://127.0.0.1:3000",
     "http://powernode.dev:3000",
     "http://localhost:3001",
     "http://127.0.0.1:3001",
@@ -83,20 +85,11 @@ Rails.application.configure do
     /ws:\/\/192\.168\.\d{1,3}\.\d{1,3}:300[0-9]/,
     /ws:\/\/10\.\d{1,3}\.\d{1,3}\.\d{1,3}:300[0-9]/,
     /ws:\/\/172\.(1[6-9]|2[0-9]|3[0-1])\.\d{1,3}\.\d{1,3}:300[0-9]/,
-    # Development domains
+    # Development domains - generic patterns only
     /http:\/\/[^\/]+\.local:300[0-9]/,
-    /http:\/\/[^\/]+\.dev:300[0-9]/,
     /http:\/\/[^\/]+\.test:300[0-9]/,
-    /http:\/\/[^\/]+\.ipnode\.net:300[0-9]/,
     /ws:\/\/[^\/]+\.local:300[0-9]/,
-    /ws:\/\/[^\/]+\.dev:300[0-9]/,
-    /ws:\/\/[^\/]+\.test:300[0-9]/,
-    /ws:\/\/[^\/]+\.ipnode\.net:300[0-9]/,
-    # Specific ipnode.net domain support
-    "http://dev-1.ipnode.net:3000",
-    "http://dev-1.ipnode.net:3001",
-    "ws://dev-1.ipnode.net:3000",
-    "ws://dev-1.ipnode.net:3001"
+    /ws:\/\/[^\/]+\.test:300[0-9]/
   ]
 
   # Raise error when a before_action's only/except options reference missing actions.
@@ -106,5 +99,42 @@ Rails.application.configure do
   # config.generators.apply_rubocop_autocorrect_after_generate!
 
   # Allow external access to development server
-  config.hosts.clear
+  # Additional hosts can be added through the admin interface
+  config.hosts << "localhost"
+  config.hosts << "127.0.0.1"
+
+  # Dynamic host authorization using proc - checks trusted hosts from AdminSetting
+  # This allows requests from hosts configured via the admin interface
+  config.hosts << ->(host) {
+    # Strip port from host for matching
+    host_without_port = host.to_s.split(":").first
+
+    # Always allow localhost variants
+    return true if host_without_port == "localhost" || host_without_port == "127.0.0.1"
+
+    begin
+      # Check against trusted hosts from admin settings
+      return false unless defined?(AdminSetting) && ActiveRecord::Base.connection.table_exists?("admin_settings")
+
+      proxy_config = AdminSetting.reverse_proxy_url_config
+      return false unless proxy_config.is_a?(Hash) && proxy_config[:trusted_hosts].is_a?(Array)
+
+      proxy_config[:trusted_hosts].any? do |pattern|
+        next false if pattern.blank?
+
+        pattern_host = pattern.split(":").first
+
+        if pattern_host.start_with?("*.")
+          # Wildcard match: *.example.com matches sub.example.com
+          domain = pattern_host[2..] # Remove "*."
+          host_without_port.end_with?(".#{domain}") || host_without_port == domain
+        else
+          # Exact match (case insensitive)
+          host_without_port.downcase == pattern_host.downcase
+        end
+      end
+    rescue StandardError
+      false
+    end
+  }
 end

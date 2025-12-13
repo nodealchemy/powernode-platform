@@ -4,22 +4,23 @@ require 'rails_helper'
 
 RSpec.describe ImpersonationSession, type: :model do
   include ActiveSupport::Testing::TimeHelpers
-  
+
   subject { build(:impersonation_session) }
 
   # Associations
   describe 'associations' do
     subject { create(:impersonation_session) }
-    
+
     it { should belong_to(:impersonator).class_name('User') }
     it { should belong_to(:impersonated_user).class_name('User') }
-    it { should belong_to(:account).required }
+    # Account is delegated through impersonated_user
+    it { should delegate_method(:account).to(:impersonated_user) }
   end
 
   # Validations
   describe 'validations' do
     subject { create(:impersonation_session) }
-    
+
     it { should validate_presence_of(:session_token) }
     it { should validate_uniqueness_of(:session_token) }
     it { should validate_length_of(:reason).is_at_most(500) }
@@ -47,8 +48,8 @@ RSpec.describe ImpersonationSession, type: :model do
 
     it 'prevents self-impersonation' do
       user = create(:user)
-      session = build(:impersonation_session, 
-                     impersonator: user, 
+      session = build(:impersonation_session,
+                     impersonator: user,
                      impersonated_user: user)
 
       expect(session).not_to be_valid
@@ -58,8 +59,8 @@ RSpec.describe ImpersonationSession, type: :model do
 
   # Scopes
   describe 'scopes' do
-    let!(:active_session) { create(:impersonation_session, active: true, started_at: 30.minutes.ago) }
-    let!(:ended_session) { create(:impersonation_session, active: false, started_at: 45.minutes.ago) }
+    let!(:active_session) { create(:impersonation_session, ended_at: nil, started_at: 30.minutes.ago) }
+    let!(:ended_session) { create(:impersonation_session, :ended, started_at: 45.minutes.ago) }
 
     it '.active returns only active sessions' do
       expect(ImpersonationSession.active).to include(active_session)
@@ -75,25 +76,25 @@ RSpec.describe ImpersonationSession, type: :model do
       old_session = create(:impersonation_session, started_at: 2.days.ago)
       new_session = create(:impersonation_session, started_at: 1.hour.ago)
 
-      expect(ImpersonationSession.recent).to eq([active_session, ended_session, new_session, old_session])
+      expect(ImpersonationSession.recent).to eq([ active_session, ended_session, new_session, old_session ])
     end
   end
 
   # Instance methods
   describe '#active?' do
     it 'returns true when active and not expired' do
-      session = create(:impersonation_session, active: true, started_at: 1.hour.ago)
+      session = create(:impersonation_session, ended_at: nil, started_at: 1.hour.ago)
       expect(session.active?).to be true
     end
 
     it 'returns false when not active' do
-      session = create(:impersonation_session, active: false)
+      session = create(:impersonation_session, :ended)
       expect(session.active?).to be false
     end
 
     it 'returns false when expired' do
-      session = create(:impersonation_session, 
-                      active: true, 
+      session = create(:impersonation_session,
+                      ended_at: nil,
                       started_at: ImpersonationSession::MAX_SESSION_DURATION.ago - 1.hour)
       expect(session.active?).to be false
     end
@@ -106,7 +107,7 @@ RSpec.describe ImpersonationSession, type: :model do
     end
 
     it 'returns true for old session' do
-      session = create(:impersonation_session, 
+      session = create(:impersonation_session,
                       started_at: ImpersonationSession::MAX_SESSION_DURATION.ago - 1.hour)
       expect(session.expired?).to be true
     end
@@ -139,13 +140,13 @@ RSpec.describe ImpersonationSession, type: :model do
   end
 
   describe '#end_session!' do
-    it 'sets active to false and ended_at to current time' do
+    it 'sets ended_at to current time' do
       travel_to Time.current do
-        session = create(:impersonation_session, active: true, ended_at: nil)
+        session = create(:impersonation_session, ended_at: nil)
         session.end_session!
 
-        expect(session.active).to be false
         expect(session.ended_at).to eq(Time.current)
+        expect(session.active?).to be false
       end
     end
   end
@@ -154,25 +155,25 @@ RSpec.describe ImpersonationSession, type: :model do
   describe '.cleanup_expired_sessions' do
     it 'marks expired active sessions as ended' do
       expired_session = create(:impersonation_session,
-                              active: true,
+                              ended_at: nil,
                               started_at: ImpersonationSession::MAX_SESSION_DURATION.ago - 1.hour)
       active_session = create(:impersonation_session,
-                             active: true,
+                             ended_at: nil,
                              started_at: 1.hour.ago)
 
       travel_to Time.current do
         count = ImpersonationSession.cleanup_expired_sessions
 
         expect(count).to eq(1)
-        expect(expired_session.reload.active).to be false
+        expect(expired_session.reload.active?).to be false
         expect(expired_session.ended_at).to eq(Time.current)
-        expect(active_session.reload.active).to be true
+        expect(active_session.reload.active?).to be true
       end
     end
 
     it 'returns count of cleaned up sessions' do
       create_list(:impersonation_session, 3,
-                 active: true,
+                 ended_at: nil,
                  started_at: ImpersonationSession::MAX_SESSION_DURATION.ago - 1.hour)
 
       count = ImpersonationSession.cleanup_expired_sessions
@@ -183,15 +184,15 @@ RSpec.describe ImpersonationSession, type: :model do
   describe '.active_session_for_user' do
     it 'returns active session for user' do
       user = create(:user)
-      session = create(:impersonation_session, impersonated_user: user, active: true)
-      ended_session = create(:impersonation_session, impersonated_user: user, active: false)
+      session = create(:impersonation_session, impersonated_user: user, ended_at: nil)
+      ended_session = create(:impersonation_session, impersonated_user: user, ended_at: 1.hour.ago)
 
       expect(ImpersonationSession.active_session_for_user(user.id)).to eq(session)
     end
 
     it 'returns nil when no active session exists' do
       user = create(:user)
-      create(:impersonation_session, impersonated_user: user, active: false)
+      create(:impersonation_session, impersonated_user: user, ended_at: 1.hour.ago)
 
       expect(ImpersonationSession.active_session_for_user(user.id)).to be_nil
     end
@@ -220,17 +221,16 @@ RSpec.describe ImpersonationSession, type: :model do
       expect(session.reason).to eq('Testing purposes')
       expect(session.ip_address).to eq('127.0.0.1')
       expect(session.user_agent).to eq('Test Agent')
-      expect(session.active).to be true
+      expect(session.active?).to be true
     end
 
     it 'ends existing active sessions for the target user' do
       # Create existing session with same account users
       existing_impersonator = create(:user, account: account)
-      existing_session = create(:impersonation_session, 
+      existing_session = create(:impersonation_session,
                                impersonator: existing_impersonator,
-                               impersonated_user: target_user, 
-                               account: account,
-                               active: true)
+                               impersonated_user: target_user,
+                               ended_at: nil)
 
       travel_to Time.current do
         ImpersonationSession.create_session!(
@@ -238,7 +238,7 @@ RSpec.describe ImpersonationSession, type: :model do
           impersonated_user: target_user
         )
 
-        expect(existing_session.reload.active).to be false
+        expect(existing_session.reload.active?).to be false
         expect(existing_session.ended_at).to eq(Time.current)
       end
     end
@@ -261,7 +261,7 @@ RSpec.describe ImpersonationSession, type: :model do
       expect(session.session_token.length).to eq(64) # 32 bytes hex = 64 characters
     end
 
-    it 'sets account from impersonated user on creation' do
+    it 'delegates account from impersonated user' do
       account = create(:account)
       target_user = create(:user, account: account)
       impersonator = create(:user, account: account)
@@ -270,8 +270,7 @@ RSpec.describe ImpersonationSession, type: :model do
         impersonator: impersonator,
         impersonated_user: target_user,
         session_token: SecureRandom.hex(32),
-        started_at: Time.current,
-        account: nil
+        started_at: Time.current
       )
       session.save!
       expect(session.account).to eq(account)

@@ -24,14 +24,14 @@ class SystemHealthService
           memory: check_memory_health,
           services: check_services_health
         },
-        last_check: Rails.cache.read('system_health_last_check'),
+        last_check: Rails.cache.read("system_health_last_check"),
         uptime: calculate_uptime
       }
     end
 
     def check_detailed_health
       basic_health = check_basic_health
-      
+
       basic_health.merge({
         detailed_metrics: {
           database: get_database_metrics,
@@ -47,10 +47,10 @@ class SystemHealthService
 
     def trigger_comprehensive_check
       # Run comprehensive health check in background
-      HealthCheckJob.perform_async('comprehensive')
-      
+      HealthCheckJob.perform_async("comprehensive")
+
       # Update last check timestamp
-      Rails.cache.write('system_health_last_check', Time.current.iso8601, expires_in: 1.hour)
+      Rails.cache.write("system_health_last_check", Time.current.iso8601, expires_in: 1.hour)
     end
 
     private
@@ -64,38 +64,38 @@ class SystemHealthService
         check_services_health[:status]
       ]
 
-      if components.any? { |status| status == 'critical' }
-        'critical'
-      elsif components.any? { |status| status == 'warning' }
-        'warning'
+      if components.any? { |status| status == "critical" }
+        "critical"
+      elsif components.any? { |status| status == "warning" }
+        "warning"
       else
-        'healthy'
+        "healthy"
       end
     end
 
     def check_database_health
       start_time = Time.current
-      
+
       begin
         # Test basic connectivity
-        ActiveRecord::Base.connection.execute('SELECT 1')
-        
+        ActiveRecord::Base.connection.execute("SELECT 1")
+
         # Check connection pool
         pool_size = ActiveRecord::Base.connection_pool.size
         active_connections = ActiveRecord::Base.connection_pool.connections.count(&:in_use?)
-        
+
         # Check for long-running queries
         long_queries = get_long_running_queries
-        
+
         response_time = ((Time.current - start_time) * 1000).round(2)
-        
+
         status = if response_time > 1000
-                   'critical'
-                 elsif response_time > 500 || active_connections > (pool_size * 0.8)
-                   'warning'
-                 else
-                   'healthy'
-                 end
+                   "critical"
+        elsif response_time > 500 || active_connections > (pool_size * 0.8)
+                   "warning"
+        else
+                   "healthy"
+        end
 
         {
           status: status,
@@ -108,7 +108,7 @@ class SystemHealthService
       rescue => e
         Rails.logger.error "Database health check failed: #{e.message}"
         {
-          status: 'critical',
+          status: "critical",
           error: e.message,
           last_check: Time.current.iso8601
         }
@@ -117,21 +117,21 @@ class SystemHealthService
 
     def check_redis_health
       start_time = Time.current
-      
+
       begin
         # Test Redis connectivity
-        Rails.cache.write('health_check', 'test', expires_in: 1.minute)
-        test_value = Rails.cache.read('health_check')
-        
+        Rails.cache.write("health_check", "test", expires_in: 1.minute)
+        test_value = Rails.cache.read("health_check")
+
         response_time = ((Time.current - start_time) * 1000).round(2)
-        
-        status = if test_value != 'test'
-                   'critical'
-                 elsif response_time > 100
-                   'warning'
-                 else
-                   'healthy'
-                 end
+
+        status = if test_value != "test"
+                   "critical"
+        elsif response_time > 100
+                   "warning"
+        else
+                   "healthy"
+        end
 
         {
           status: status,
@@ -141,7 +141,7 @@ class SystemHealthService
       rescue => e
         Rails.logger.error "Redis health check failed: #{e.message}"
         {
-          status: 'critical',
+          status: "critical",
           error: e.message,
           last_check: Time.current.iso8601
         }
@@ -151,14 +151,14 @@ class SystemHealthService
     def check_storage_health
       begin
         disk_usage = get_disk_usage
-        
+
         status = if disk_usage > HEALTH_THRESHOLDS[:disk_critical]
-                   'critical'
-                 elsif disk_usage > HEALTH_THRESHOLDS[:disk_warning]
-                   'warning'
-                 else
-                   'healthy'
-                 end
+                   "critical"
+        elsif disk_usage > HEALTH_THRESHOLDS[:disk_warning]
+                   "warning"
+        else
+                   "healthy"
+        end
 
         {
           status: status,
@@ -169,7 +169,7 @@ class SystemHealthService
       rescue => e
         Rails.logger.error "Storage health check failed: #{e.message}"
         {
-          status: 'critical',
+          status: "critical",
           error: e.message,
           last_check: Time.current.iso8601
         }
@@ -179,14 +179,14 @@ class SystemHealthService
     def check_memory_health
       begin
         memory_usage = get_memory_usage
-        
+
         status = if memory_usage > HEALTH_THRESHOLDS[:memory_critical]
-                   'critical'
-                 elsif memory_usage > HEALTH_THRESHOLDS[:memory_warning]
-                   'warning'
-                 else
-                   'healthy'
-                 end
+                   "critical"
+        elsif memory_usage > HEALTH_THRESHOLDS[:memory_warning]
+                   "warning"
+        else
+                   "healthy"
+        end
 
         {
           status: status,
@@ -197,7 +197,7 @@ class SystemHealthService
       rescue => e
         Rails.logger.error "Memory health check failed: #{e.message}"
         {
-          status: 'critical',
+          status: "critical",
           error: e.message,
           last_check: Time.current.iso8601
         }
@@ -212,14 +212,14 @@ class SystemHealthService
       }
 
       statuses = services.values.map { |service| service[:status] }
-      
-      overall_status = if statuses.any? { |status| status == 'critical' }
-                         'critical'
-                       elsif statuses.any? { |status| status == 'warning' }
-                         'warning'
-                       else
-                         'healthy'
-                       end
+
+      overall_status = if statuses.any? { |status| status == "critical" }
+                         "critical"
+      elsif statuses.any? { |status| status == "warning" }
+                         "warning"
+      else
+                         "healthy"
+      end
 
       {
         status: overall_status,
@@ -249,8 +249,8 @@ class SystemHealthService
 
     def get_network_metrics
       {
-        inbound_traffic: get_network_stats('inbound'),
-        outbound_traffic: get_network_stats('outbound'),
+        inbound_traffic: get_network_stats("inbound"),
+        outbound_traffic: get_network_stats("outbound"),
         connection_count: get_active_connections,
         latency: measure_network_latency
       }
@@ -268,7 +268,7 @@ class SystemHealthService
     def get_background_job_metrics
       begin
         sidekiq_stats = Sidekiq::Stats.new
-        
+
         {
           processed: sidekiq_stats.processed,
           failed: sidekiq_stats.failed,
@@ -287,14 +287,14 @@ class SystemHealthService
     def get_recent_incidents
       # Get recent audit logs for incidents
       AuditLog.where(
-        action: ['system_error', 'security_incident', 'performance_issue'],
+        action: [ "system_error", "security_incident", "performance_issue" ],
         created_at: 24.hours.ago..Time.current
       ).order(created_at: :desc).limit(10).map do |log|
         {
           id: log.id,
           type: log.action,
-          severity: log.details['severity'] || 'medium',
-          message: log.details['message'],
+          severity: log.details["severity"] || "medium",
+          message: log.details["message"],
           timestamp: log.created_at.iso8601
         }
       end
@@ -317,7 +317,7 @@ class SystemHealthService
       total_space = stat.blocks * stat.fragment_size
       free_space = stat.bavail * stat.fragment_size
       used_space = total_space - free_space
-      
+
       (used_space.to_f / total_space * 100).round(2)
     rescue
       0
@@ -332,8 +332,8 @@ class SystemHealthService
 
     def get_memory_usage
       # Basic memory usage estimation
-      if File.exist?('/proc/meminfo')
-        meminfo = File.read('/proc/meminfo')
+      if File.exist?("/proc/meminfo")
+        meminfo = File.read("/proc/meminfo")
         total = meminfo.match(/MemTotal:\s+(\d+)/)[1].to_i
         available = meminfo.match(/MemAvailable:\s+(\d+)/)[1].to_i
         used = total - available
@@ -346,8 +346,8 @@ class SystemHealthService
     end
 
     def get_available_memory
-      if File.exist?('/proc/meminfo')
-        meminfo = File.read('/proc/meminfo')
+      if File.exist?("/proc/meminfo")
+        meminfo = File.read("/proc/meminfo")
         meminfo.match(/MemAvailable:\s+(\d+)/)[1].to_i / 1024 # MB
       else
         0
@@ -358,8 +358,8 @@ class SystemHealthService
 
     def get_cpu_usage
       # Simplified CPU usage check
-      if File.exist?('/proc/loadavg')
-        load_avg = File.read('/proc/loadavg').split.first.to_f
+      if File.exist?("/proc/loadavg")
+        load_avg = File.read("/proc/loadavg").split.first.to_f
         # Convert load average to percentage (approximate)
         (load_avg * 100 / `nproc`.to_i).round(2)
       else
@@ -370,36 +370,36 @@ class SystemHealthService
     end
 
     def get_load_average
-      File.read('/proc/loadavg').split[0..2].map(&:to_f) if File.exist?('/proc/loadavg')
+      File.read("/proc/loadavg").split[0..2].map(&:to_f) if File.exist?("/proc/loadavg")
     rescue
-      [0, 0, 0]
+      [ 0, 0, 0 ]
     end
 
     def get_process_count
-      Dir['/proc/[0-9]*'].count
+      Dir["/proc/[0-9]*"].count
     rescue
       0
     end
 
     def calculate_uptime
-      if File.exist?('/proc/uptime')
-        uptime_seconds = File.read('/proc/uptime').split.first.to_f
+      if File.exist?("/proc/uptime")
+        uptime_seconds = File.read("/proc/uptime").split.first.to_f
         {
           seconds: uptime_seconds.to_i,
           human: format_uptime(uptime_seconds)
         }
       else
-        { seconds: 0, human: 'Unknown' }
+        { seconds: 0, human: "Unknown" }
       end
     rescue
-      { seconds: 0, human: 'Unknown' }
+      { seconds: 0, human: "Unknown" }
     end
 
     def format_uptime(seconds)
       days = seconds / 86400
       hours = (seconds % 86400) / 3600
       minutes = (seconds % 3600) / 60
-      
+
       "#{days.to_i}d #{hours.to_i}h #{minutes.to_i}m"
     end
 
@@ -452,7 +452,7 @@ class SystemHealthService
 
     def get_failed_login_count
       AuditLog.where(
-        action: 'login_failed',
+        action: "login_failed",
         created_at: 1.hour.ago..Time.current
       ).count
     rescue
@@ -461,7 +461,7 @@ class SystemHealthService
 
     def get_suspicious_activity_count
       AuditLog.where(
-        action: ['suspicious_activity', 'security_violation'],
+        action: [ "suspicious_activity", "security_violation" ],
         created_at: 1.hour.ago..Time.current
       ).count
     rescue
@@ -469,7 +469,7 @@ class SystemHealthService
     end
 
     def check_ssl_certificate
-      'valid'
+      "valid"
     end
 
     def get_latest_security_scan
@@ -490,7 +490,7 @@ class SystemHealthService
 
     def check_web_server
       {
-        status: 'healthy',
+        status: "healthy",
         pid: Process.pid,
         memory_usage: get_process_memory_usage
       }
@@ -500,14 +500,14 @@ class SystemHealthService
       begin
         stats = Sidekiq::Stats.new
         failed_jobs = stats.failed
-        
+
         status = if failed_jobs > 100
-                   'critical'
-                 elsif failed_jobs > 50
-                   'warning'
-                 else
-                   'healthy'
-                 end
+                   "critical"
+        elsif failed_jobs > 50
+                   "warning"
+        else
+                   "healthy"
+        end
 
         {
           status: status,
@@ -517,7 +517,7 @@ class SystemHealthService
         }
       rescue => e
         {
-          status: 'critical',
+          status: "critical",
           error: e.message
         }
       end
@@ -528,12 +528,12 @@ class SystemHealthService
       begin
         # This would normally make an HTTP request to worker service
         {
-          status: 'healthy',
+          status: "healthy",
           last_heartbeat: Time.current.iso8601
         }
       rescue => e
         {
-          status: 'critical',
+          status: "critical",
           error: e.message
         }
       end

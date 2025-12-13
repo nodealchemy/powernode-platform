@@ -1,4 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useSelector } from 'react-redux';
+import { RootState } from '@/shared/services';
 import { Button } from '@/shared/components/ui/Button';
 import { 
   DollarSign, 
@@ -9,11 +11,13 @@ import {
   Clock,
   AlertCircle,
   Wifi,
-  WifiOff
+  WifiOff,
+  Lock
 } from 'lucide-react';
 import { useAnalyticsWebSocket } from '@/shared/hooks/useAnalyticsWebSocket';
 import { analyticsService } from '@/features/analytics/services/analyticsService';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
+import { hasPermissions } from '@/shared/utils/permissionUtils';
 
 interface LiveMetrics {
   current_metrics: {
@@ -56,17 +60,53 @@ export const LiveMetricsOverview: React.FC<LiveMetricsOverviewProps> = ({
   showWeeklyTrend = false,
   updateInterval = 30000
 }) => {
+  const { user } = useSelector((state: RootState) => state.auth);
   const [metrics, setMetrics] = useState<LiveMetrics | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [isLive, setIsLive] = useState(false);
   const [isReconnecting, setIsReconnecting] = useState(false);
+  const lastUpdateTimeRef = useRef<number>(0);
+  
+  // Check permissions before loading analytics
+  const canViewAnalytics = hasPermissions(user, ['analytics.read']);
 
   // Stable callbacks to prevent WebSocket reconnections
-  const handleAnalyticsUpdate = useCallback((data: any) => {
-    console.log('Live metrics update received:', data);
-    if (data.current_metrics) {
+  const handleAnalyticsUpdate = useCallback((data: unknown) => {
+    const analyticsData = data as {
+      current_metrics?: {
+        mrr: number;
+        arr: number;
+        active_customers: number;
+        churn_rate: number;
+        arpu: number;
+        growth_rate: number;
+      };
+      today_activity?: {
+        new_subscriptions: number;
+        cancelled_subscriptions: number;
+        payments_processed: number;
+        failed_payments: number;
+        revenue_today: number;
+      };
+      weekly_trend?: Array<{
+        date: string;
+        new_subscriptions: number;
+        revenue: number;
+        payments_count: number;
+      }>;
+      timestamp?: string;
+      account_id?: string
+    };
+    if (analyticsData.current_metrics) {
+      // Throttle updates to prevent excessive re-renders
+      const now = Date.now();
+      if (now - lastUpdateTimeRef.current < 5000) { // Minimum 5 second gap between updates
+        return;
+      }
+      lastUpdateTimeRef.current = now;
+      
       // Always clear errors when we receive valid data
       setError(null);
       setLastUpdated(new Date());
@@ -77,17 +117,17 @@ export const LiveMetricsOverview: React.FC<LiveMetricsOverviewProps> = ({
         // If we don't have initial metrics, create them from the WebSocket data
         if (!prevMetrics) {
           return {
-            current_metrics: data.current_metrics,
-            today_activity: data.today_activity || {
+            current_metrics: analyticsData.current_metrics || { mrr: 0, arr: 0, active_customers: 0, churn_rate: 0, arpu: 0, growth_rate: 0 },
+            today_activity: analyticsData.today_activity || {
               new_subscriptions: 0,
               cancelled_subscriptions: 0,
               payments_processed: 0,
               failed_payments: 0,
               revenue_today: 0
             },
-            weekly_trend: data.weekly_trend || [],
-            last_updated: data.timestamp || new Date().toISOString(),
-            account_id: data.account_id
+            weekly_trend: analyticsData.weekly_trend || [],
+            last_updated: analyticsData.timestamp || new Date().toISOString(),
+            account_id: analyticsData.account_id
           };
         }
         
@@ -96,20 +136,18 @@ export const LiveMetricsOverview: React.FC<LiveMetricsOverviewProps> = ({
           ...prevMetrics,
           current_metrics: {
             ...prevMetrics.current_metrics,
-            ...data.current_metrics
+            ...analyticsData.current_metrics
           },
-          today_activity: data.today_activity || prevMetrics.today_activity,
-          weekly_trend: data.weekly_trend || prevMetrics.weekly_trend,
-          last_updated: data.timestamp || new Date().toISOString(),
-          account_id: data.account_id || prevMetrics.account_id
+          today_activity: analyticsData.today_activity || prevMetrics.today_activity,
+          weekly_trend: analyticsData.weekly_trend || prevMetrics.weekly_trend,
+          last_updated: analyticsData.timestamp || new Date().toISOString(),
+          account_id: analyticsData.account_id || prevMetrics.account_id
         };
       });
     }
   }, []);
 
   const handleWebSocketError = useCallback((errorMessage: string) => {
-    console.error('Live metrics WebSocket error:', errorMessage);
-    
     // Provide more user-friendly error messages
     let userFriendlyError = errorMessage;
     if (errorMessage.includes('unauthorized') || errorMessage.includes('Unauthorized')) {
@@ -145,24 +183,27 @@ export const LiveMetricsOverview: React.FC<LiveMetricsOverviewProps> = ({
 
   // Monitor WebSocket connection status
   useEffect(() => {
-    console.log('WebSocket connection status changed:', isConnected ? 'Connected' : 'Disconnected');
     if (!isConnected) {
       setIsLive(false);
     }
   }, [isConnected]);
 
-  // Auto-request analytics updates when connected
+  // Auto-request analytics updates when connected - but only if we have metrics already
   useEffect(() => {
-    if (!isConnected) return;
-    
-    const interval = setInterval(() => {
-      requestAnalyticsUpdate();
-    }, updateInterval);
-    
-    return () => clearInterval(interval);
-  }, [isConnected, requestAnalyticsUpdate, updateInterval]);
+    if (!isConnected || !metrics) return;
 
-  // Initial data load
+    // Temporarily disable auto-refresh to debug page refresh issues
+    // const interval = setInterval(() => {
+    //   requestAnalyticsUpdate();
+    // }, updateInterval);
+
+    // Auto-refresh disabled for debugging
+    // const interval = null; // Placeholder to avoid breaking the cleanup
+
+    // return () => clearInterval(interval); // Commented out with the interval
+  }, [isConnected, requestAnalyticsUpdate, updateInterval, metrics]); // Removed 'metrics' dependency to prevent restart when data changes
+
+  // Initial data load - only run once on mount and only if user has permission
   useEffect(() => {
     const loadInitialData = async () => {
       try {
@@ -176,14 +217,10 @@ export const LiveMetricsOverview: React.FC<LiveMetricsOverviewProps> = ({
           setIsLive(true);
         } else {
           const errorMsg = response.error || 'Failed to load live metrics';
-          console.error('Live metrics API error:', errorMsg);
           setError(errorMsg);
         }
       } catch (err) {
-        console.error('Failed to load live metrics:', err);
-        
         // Provide more specific error messages for API failures
-        // But don't show the error immediately - wait to see if WebSocket provides data
         let userError = 'Failed to load live metrics';
         if (err instanceof Error) {
           if (err.message.includes('401') || err.message.includes('unauthorized')) {
@@ -198,20 +235,22 @@ export const LiveMetricsOverview: React.FC<LiveMetricsOverviewProps> = ({
             userError = 'Network error. Please check your connection and try again.';
           }
         }
-        
-        // Set error but give WebSocket a chance to provide data
-        setTimeout(() => {
-          if (!metrics) {
-            setError(userError);
-          }
-        }, 2000); // Wait 2 seconds for WebSocket data before showing error
+
+        setError(userError);
       } finally {
         setLoading(false);
       }
     };
 
-    loadInitialData();
-  }, [accountId, metrics]);
+    // Only load if user has permission and we don't have metrics data
+    if (canViewAnalytics && !metrics) {
+      loadInitialData();
+    } else if (!canViewAnalytics) {
+      // If no permission, set loading to false immediately
+      setLoading(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accountId, canViewAnalytics]); // Add permission dependency
 
   // Connection status indicator
   useEffect(() => {
@@ -231,8 +270,7 @@ export const LiveMetricsOverview: React.FC<LiveMetricsOverviewProps> = ({
             setLastUpdated(new Date());
           }
         })
-        .catch(err => {
-          console.error('Manual refresh failed:', err);
+        .catch(_err => {
           setError('Failed to refresh metrics');
         });
     }
@@ -250,6 +288,18 @@ export const LiveMetricsOverview: React.FC<LiveMetricsOverviewProps> = ({
   const formatPercentage = (percentage: number) => {
     return `${percentage >= 0 ? '+' : ''}${percentage.toFixed(1)}%`;
   };
+
+  // Show access denied if user doesn't have permission
+  if (!canViewAnalytics) {
+    return (
+      <div className={`bg-theme-surface rounded-lg border border-theme p-6 ${className}`}>
+        <div className="flex items-center justify-center gap-3 text-theme-secondary">
+          <Lock className="w-5 h-5" />
+          <span>Analytics access requires proper permissions</span>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -277,8 +327,8 @@ export const LiveMetricsOverview: React.FC<LiveMetricsOverviewProps> = ({
               </div>
             )}
             <Button onClick={handleRefresh} disabled={isReconnecting} variant="primary">
-            </Button>
               {isReconnecting ? 'Connecting...' : 'Retry'}
+            </Button>
           </div>
         </div>
       );

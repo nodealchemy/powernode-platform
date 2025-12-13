@@ -1,0 +1,39 @@
+<h2>You've Been Invited!</h2>
+
+<p>Hi <%= @invitee_name %>,</p>
+
+<p><strong><%= @inviter_name %></strong> has invited you to join <strong><%= @account_name %></strong> on <%= app_name %>.</p>
+
+<p style="margin: 30px 0; text-align: center;">
+  <a href="<%= @invitation_url %>" class="button" style="background-color: #4F46E5; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block;">Accept Invitation</a>
+</p>
+
+<h3>Invitation Details:</h3>
+<ul>
+  <li><strong>Account:</strong> <%= @account_name %></li>
+  <li><strong>Role(s):</strong> <%= @role_names %></li>
+  <li><strong>Invited by:</strong> <%= @inviter_name %></li>
+  <li><strong>Expires:</strong> <%= Time.parse(@expires_at.to_s).strftime("%B %d, %Y at %I:%M %p") rescue @expires_at %></li>
+</ul>
+
+<h3>What Happens Next:</h3>
+<ol>
+  <li>Click the "Accept Invitation" button above</li>
+  <li>Complete your account registration</li>
+  <li>Set your password</li>
+  <li>Start collaborating with your team!</li>
+</ol>
+
+<p><strong>Note:</strong> This invitation will expire on <%= Time.parse(@expires_at.to_s).strftime("%B %d, %Y") rescue @expires_at %>. Please accept it before then.</p>
+
+<p>If you believe you received this email in error, you can safely ignore it.</p>
+
+<p>Best regards,<br>
+The <%= app_name %> Team</p>
+
+<hr style="margin: 30px 0; border: none; border-top: 1px solid #e5e7eb;">
+
+<p style="font-size: 12px; color: #6b7280;">
+  If the button above doesn't work, copy and paste this link into your browser:<br>
+  <%= @invitation_url %>
+</p>

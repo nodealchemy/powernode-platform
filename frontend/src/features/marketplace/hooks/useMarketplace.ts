@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { marketplaceListingsApi } from '../services/marketplaceApi';
 import { MarketplaceListing, MarketplaceFilters, MarketplaceCategory } from '../types';
-import { useNotification } from '@/shared/hooks/useNotification';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 
 export const useMarketplaceListings = (filters: MarketplaceFilters = {}) => {
   const [listings, setListings] = useState<MarketplaceListing[]>([]);
@@ -29,9 +29,9 @@ export const useMarketplaceListings = (filters: MarketplaceFilters = {}) => {
       } else {
         setError('Failed to load marketplace listings');
       }
-    } catch (err) {
+    } catch (error) {
       setError('Failed to load marketplace listings');
-      console.error('Error loading marketplace listings:', err);
+      // Error handled by state
     } finally {
       setLoading(false);
     }
@@ -67,7 +67,7 @@ export const useMarketplaceListing = (id: string) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
 
   const loadListing = useCallback(async () => {
     setLoading(true);
@@ -81,9 +81,9 @@ export const useMarketplaceListing = (id: string) => {
       } else {
         setError(response.error || 'Failed to load marketplace listing');
       }
-    } catch (err) {
+    } catch (error) {
       setError('Failed to load marketplace listing');
-      console.error('Error loading marketplace listing:', err);
+      // Error handled by state
     } finally {
       setLoading(false);
     }
@@ -107,9 +107,9 @@ export const useMarketplaceListing = (id: string) => {
         showNotification(response.error || 'Failed to submit listing for review', 'error');
         return null;
       }
-    } catch (err) {
+    } catch (error) {
       showNotification('Failed to submit listing for review', 'error');
-      console.error('Error submitting listing for review:', err);
+      // Error handled by notification
       return null;
     }
   };
@@ -126,9 +126,9 @@ export const useMarketplaceListing = (id: string) => {
         showNotification(response.error || 'Failed to approve listing', 'error');
         return null;
       }
-    } catch (err) {
+    } catch (error) {
       showNotification('Failed to approve listing', 'error');
-      console.error('Error approving listing:', err);
+      // Error handled by notification
       return null;
     }
   };
@@ -145,9 +145,9 @@ export const useMarketplaceListing = (id: string) => {
         showNotification(response.error || 'Failed to reject listing', 'error');
         return null;
       }
-    } catch (err) {
+    } catch (error) {
       showNotification('Failed to reject listing', 'error');
-      console.error('Error rejecting listing:', err);
+      // Error handled by notification
       return null;
     }
   };
@@ -164,9 +164,9 @@ export const useMarketplaceListing = (id: string) => {
         showNotification(response.error || 'Failed to feature listing', 'error');
         return null;
       }
-    } catch (err) {
+    } catch (error) {
       showNotification('Failed to feature listing', 'error');
-      console.error('Error featuring listing:', err);
+      // Error handled by notification
       return null;
     }
   };
@@ -183,9 +183,9 @@ export const useMarketplaceListing = (id: string) => {
         showNotification(response.error || 'Failed to unfeature listing', 'error');
         return null;
       }
-    } catch (err) {
+    } catch (error) {
       showNotification('Failed to unfeature listing', 'error');
-      console.error('Error unfeaturing listing:', err);
+      // Error handled by notification
       return null;
     }
   };
@@ -222,9 +222,9 @@ export const useMarketplaceCategories = () => {
       } else {
         setError(response.error || 'Failed to load categories');
       }
-    } catch (err) {
+    } catch (error) {
       setError('Failed to load categories');
-      console.error('Error loading categories:', err);
+      // Error handled by state
     } finally {
       setLoading(false);
     }

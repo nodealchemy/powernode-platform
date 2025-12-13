@@ -6,20 +6,20 @@ class AppEndpointCall < ApplicationRecord
   belongs_to :account, optional: true
 
   # Validations
-  validates :status_code, presence: true, 
+  validates :status_code, presence: true,
             numericality: { greater_than_or_equal_to: 100, less_than_or_equal_to: 599 }
-  validates :response_time_ms, presence: true, 
+  validates :response_time_ms, presence: true,
             numericality: { greater_than_or_equal_to: 0 }
 
   # Scopes
   scope :successful, -> { where(status_code: 200..299) }
   scope :client_errors, -> { where(status_code: 400..499) }
   scope :server_errors, -> { where(status_code: 500..599) }
-  scope :with_errors, -> { where.not(error_message: [nil, '']) }
+  scope :with_errors, -> { where.not(error_message: [ nil, "" ]) }
   scope :recent, -> { order(called_at: :desc) }
-  scope :last_24h, -> { where('called_at > ?', 24.hours.ago) }
-  scope :last_7d, -> { where('called_at > ?', 7.days.ago) }
-  scope :last_30d, -> { where('called_at > ?', 30.days.ago) }
+  scope :last_24h, -> { where("called_at > ?", 24.hours.ago) }
+  scope :last_7d, -> { where("called_at > ?", 7.days.ago) }
+  scope :last_30d, -> { where("called_at > ?", 30.days.ago) }
 
   # Callbacks
   before_save :set_called_at, if: -> { called_at.blank? }
@@ -57,11 +57,11 @@ class AppEndpointCall < ApplicationRecord
 
   def status_category
     case status_code
-    when 200..299 then 'success'
-    when 300..399 then 'redirect'
-    when 400..499 then 'client_error'
-    when 500..599 then 'server_error'
-    else 'unknown'
+    when 200..299 then "success"
+    when 300..399 then "redirect"
+    when 400..499 then "client_error"
+    when 500..599 then "server_error"
+    else "unknown"
     end
   end
 
@@ -75,7 +75,7 @@ class AppEndpointCall < ApplicationRecord
   end
 
   def self.grouped_by_hour(hours = 24)
-    where('called_at > ?', hours.hours.ago)
+    where("called_at > ?", hours.hours.ago)
       .group_by_hour(:called_at, last: hours)
       .count
   end
@@ -87,7 +87,7 @@ class AppEndpointCall < ApplicationRecord
   def self.success_rate
     total = count
     return 0 if total.zero?
-    
+
     successful_count = successful.count
     ((successful_count.to_f / total) * 100).round(2)
   end

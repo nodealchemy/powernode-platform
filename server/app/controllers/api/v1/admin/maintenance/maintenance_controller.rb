@@ -7,16 +7,15 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
 
   # Maintenance Mode endpoints
   def show_mode
-    render json: {
-      success: true,
-      data: {
+    render_success({
+
         enabled: maintenance_mode_enabled?,
         message: Rails.application.config.maintenance_message || "System is under maintenance",
         enabled_at: Rails.application.config.maintenance_enabled_at,
         estimated_completion: Rails.application.config.maintenance_estimated_completion,
         bypass_ips: Rails.application.config.maintenance_bypass_ips || []
       }
-    }
+    )
   end
 
   def update_mode
@@ -33,53 +32,40 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
       Rails.logger.info "Maintenance mode DISABLED by #{current_user.email}"
     end
 
-    render json: {
-      success: true,
-      data: {
+    render_success({
+
         enabled: enabled,
         message: message,
         estimated_completion: estimated_completion
       },
       message: enabled ? "Maintenance mode enabled" : "Maintenance mode disabled"
-    }
+    )
   end
 
   # System Health endpoints
   def system_health
     health_data = SystemHealthService.check_basic_health
 
-    render json: {
-      success: true,
-      data: health_data
-    }
+    render_success(health_data)
   end
 
   def detailed_health
     detailed_data = SystemHealthService.check_detailed_health
 
-    render json: {
-      success: true,
-      data: detailed_data
-    }
+    render_success(detailed_data)
   end
 
   def trigger_health_check
     SystemHealthService.trigger_comprehensive_check
 
-    render json: {
-      success: true,
-      message: "Comprehensive health check triggered"
-    }
+    render_success(message: "Comprehensive health check triggered")
   end
 
   # Database Backup endpoints
   def list_backups
     backups = DatabaseBackupService.list_backups
 
-    render json: {
-      success: true,
-      data: backups
-    }
+    render_success(backups)
   end
 
   def create_backup
@@ -88,11 +74,10 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
 
     backup_job = DatabaseBackupService.create_backup(backup_type, description, current_user)
 
-    render json: {
-      success: true,
+    render_success(
       data: backup_job,
       message: "Database backup initiated"
-    }
+    )
   end
 
   def delete_backup
@@ -100,15 +85,9 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
     result = DatabaseBackupService.delete_backup(backup_id)
 
     if result[:success]
-      render json: {
-        success: true,
-        message: "Backup deleted successfully"
-      }
+      render_success(message: "Backup deleted successfully")
     else
-      render json: {
-        success: false,
-        error: result[:error]
-      }, status: :unprocessable_content
+      render_error(result[:error], status: :unprocessable_content)
     end
   end
 
@@ -117,15 +96,9 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
     result = DatabaseBackupService.restore_backup(backup_id, current_user)
 
     if result[:success]
-      render json: {
-        success: true,
-        message: "Database restore initiated"
-      }
+      render_success(message: "Database restore initiated")
     else
-      render json: {
-        success: false,
-        error: result[:error]
-      }, status: :unprocessable_content
+      render_error(result[:error], status: :unprocessable_content)
     end
   end
 
@@ -133,102 +106,86 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
   def cleanup_stats
     stats = DataCleanupService.get_cleanup_stats
 
-    render json: {
-      success: true,
-      data: stats
-    }
+    render_success(stats)
   end
 
   def cleanup_audit_logs
     days_old = params[:days_old] || 90
     result = DataCleanupService.cleanup_audit_logs(days_old.to_i)
 
-    render json: {
-      success: true,
+    render_success(
       data: result,
       message: "Audit logs cleanup completed"
-    }
+    )
   end
 
   def cleanup_sessions
     result = DataCleanupService.cleanup_expired_sessions
 
-    render json: {
-      success: true,
+    render_success(
       data: result,
       message: "Expired sessions cleanup completed"
-    }
+    )
   end
 
   def cleanup_temp_files
     result = DataCleanupService.cleanup_temp_files
 
-    render json: {
-      success: true,
+    render_success(
       data: result,
       message: "Temporary files cleanup completed"
-    }
+    )
   end
 
   def clear_cache
     result = DataCleanupService.clear_application_cache
 
-    render json: {
-      success: true,
+    render_success(
       data: result,
       message: "Application cache cleared"
-    }
+    )
   end
 
   # System Operations endpoints
   def system_operations
     operations = SystemOperationsService.get_available_operations
 
-    render json: {
-      success: true,
-      data: operations
-    }
+    render_success(operations)
   end
 
   def restart_services
     services = params[:services] || [ "all" ]
     result = SystemOperationsService.restart_services(services)
 
-    render json: {
-      success: true,
+    render_success(
       data: result,
       message: "Service restart initiated"
-    }
+    )
   end
 
   def reindex_database
     result = SystemOperationsService.reindex_database
 
-    render json: {
-      success: true,
+    render_success(
       data: result,
       message: "Database reindexing initiated"
-    }
+    )
   end
 
   def optimize_database
     result = SystemOperationsService.optimize_database
 
-    render json: {
-      success: true,
+    render_success(
       data: result,
       message: "Database optimization initiated"
-    }
+    )
   end
 
   # Scheduled Tasks endpoints
   def list_tasks
     tasks = ScheduledTaskService.list_tasks
 
-    render json: {
-      success: true,
-      data: tasks
-    }
+    render_success(tasks)
   end
 
   def create_task
@@ -236,17 +193,16 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
     result = ScheduledTaskService.create_task(task_params, current_user)
 
     if result[:success]
-      render json: {
-        success: true,
+      render_success(
         data: result[:task],
         message: "Scheduled task created"
-      }
+      )
     else
-      render json: {
-        success: false,
-        error: result[:error],
+      render_error(
+        result[:error],
+        :unprocessable_content,
         details: result[:details]
-      }, status: :unprocessable_content
+      )
     end
   end
 
@@ -256,17 +212,16 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
     result = ScheduledTaskService.update_task(task_id, task_params, current_user)
 
     if result[:success]
-      render json: {
-        success: true,
+      render_success(
         data: result[:task],
         message: "Scheduled task updated"
-      }
+      )
     else
-      render json: {
-        success: false,
-        error: result[:error],
+      render_error(
+        result[:error],
+        :unprocessable_content,
         details: result[:details]
-      }, status: :unprocessable_content
+      )
     end
   end
 
@@ -275,15 +230,9 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
     result = ScheduledTaskService.delete_task(task_id)
 
     if result[:success]
-      render json: {
-        success: true,
-        message: "Scheduled task deleted"
-      }
+      render_success(message: "Scheduled task deleted")
     else
-      render json: {
-        success: false,
-        error: result[:error]
-      }, status: :unprocessable_content
+      render_error(result[:error], status: :unprocessable_content)
     end
   end
 
@@ -292,24 +241,19 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
     result = ScheduledTaskService.execute_task(task_id, current_user)
 
     if result[:success]
-      render json: {
-        success: true,
+      render_success(
         data: result[:execution],
         message: "Task execution initiated"
-      }
+      )
     else
-      render json: {
-        success: false,
-        error: result[:error]
-      }, status: :unprocessable_content
+      render_error(result[:error], status: :unprocessable_content)
     end
   end
 
   # Status endpoint
   def status
-    render json: {
-      success: true,
-      data: {
+    render_success({
+
         maintenance_mode: maintenance_mode_enabled?,
         database_status: check_database_status,
         redis_status: check_redis_status,
@@ -317,7 +261,7 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
         last_backup: get_last_backup_info,
         system_uptime: get_system_uptime
       }
-    }
+    )
   end
 
   # Health endpoint
@@ -333,21 +277,19 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
 
     overall_status = health_check.values.all? { |v| v[:status] == "healthy" } ? "healthy" : "degraded"
 
-    render json: {
-      success: true,
-      data: {
+    render_success({
+
         overall_status: overall_status,
         checks: health_check,
         timestamp: Time.current
       }
-    }
+    )
   end
 
   # Metrics endpoint
   def metrics
-    render json: {
-      success: true,
-      data: {
+    render_success({
+
         database: {
           total_records: get_total_records_count,
           connections: ActiveRecord::Base.connection_pool.stat
@@ -370,15 +312,14 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
           cache_size: calculate_cache_size
         }
       }
-    }
+    )
   end
 
   # Backups endpoint
   def backups
     backups = DatabaseBackup.order(created_at: :desc).limit(20)
 
-    render json: {
-      success: true,
+    render_success(
       data: backups.map { |backup|
         {
           id: backup.id,
@@ -390,13 +331,10 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
           location: backup.location
         }
       }
-    }
+    )
   rescue => e
     # If DatabaseBackup model doesn't exist, return empty array
-    render json: {
-      success: true,
-      data: []
-    }
+    render_success([])
   end
 
   # Create backup endpoint
@@ -406,24 +344,19 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
       backup_type: params[:type] || "manual"
     )
 
-    render json: {
-      success: true,
-      data: { job_id: backup_job.job_id },
+    render_success({
+ job_id: backup_job.job_id },
       message: "Backup initiated"
-    }
+    )
   rescue => e
-    render json: {
-      success: false,
-      error: "Backup service unavailable"
-    }
+    render_error("Backup service unavailable")
   end
 
   # Schedules endpoint
   def schedules
     schedules = ScheduledTask.where(category: "maintenance").order(:name)
 
-    render json: {
-      success: true,
+    render_success(
       data: schedules.map { |schedule|
         {
           id: schedule.id,
@@ -435,23 +368,17 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
           description: schedule.description
         }
       }
-    }
+    )
   rescue => e
     # If ScheduledTask model doesn't exist, return empty array
-    render json: {
-      success: true,
-      data: []
-    }
+    render_success([])
   end
 
   private
 
   def require_admin_maintenance_permission
     unless current_user&.has_any_permission?("admin.maintenance.mode", "admin.maintenance.backup", "admin.maintenance.restore", "admin.maintenance.cleanup", "admin.maintenance.tasks", "system.admin")
-      render json: {
-        success: false,
-        error: "Permission denied: requires admin maintenance permissions"
-      }, status: :forbidden
+      render_error("Permission denied: requires admin maintenance permissions", status: :forbidden)
     end
   end
 
@@ -535,7 +462,6 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
           body { font-family: Arial, sans-serif; margin: 0; padding: 40px; background: #f5f5f5; color: #333; }
           .container { max-width: 600px; margin: 0 auto; background: white; padding: 40px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; }
           h1 { color: #e74c3c; margin-bottom: 20px; }
-          p { line-height: 1.6; margin-bottom: 20px; }
           .icon { font-size: 48px; margin-bottom: 20px; }
         </style>
       </head>

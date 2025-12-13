@@ -8,7 +8,7 @@ class Api::V1::Auth::PasswordsController < ApplicationController
 
   # POST /api/v1/passwords/forgot
   def forgot
-    return render json: { success: false, error: "Email is required" }, status: :bad_request if params[:email].blank?
+    return render_error("Email is required", status: :bad_request) if params[:email].blank?
 
     user = User.find_by(email: params[:email]&.downcase)
 
@@ -21,72 +21,35 @@ class Api::V1::Auth::PasswordsController < ApplicationController
     end
 
     # Always return success to prevent email enumeration
-    render json: {
-      success: true,
-      message: "If an account with that email exists, password reset instructions have been sent."
-    }, status: :ok
+    render_success(message: "If an account with that email exists, password reset instructions have been sent.")
   rescue => e
     Rails.logger.error "Password reset error: #{e.message}"
-    render json: {
-      success: false,
-      error: "An error occurred. Please try again later."
-    }, status: :internal_server_error
+    render_error("An error occurred. Please try again later.", status: :internal_server_error)
   end
 
   # POST /api/v1/passwords/reset
   def reset
-    return render json: { success: false, error: "Reset token is required" }, status: :bad_request if params[:token].blank?
-    return render json: { success: false, error: "New password is required" }, status: :bad_request if params[:password].blank?
+    return render_error("Reset token is required", status: :bad_request) if params[:token].blank?
+    return render_error("New password is required", status: :bad_request) if params[:password].blank?
 
-    begin
-      payload = JWT.decode(params[:token], Rails.application.config.jwt_secret_key, true, algorithm: "HS256").first
-      user_id = payload["user_id"]
-      token_type = payload["type"]
-
-      unless token_type == "password_reset"
-        return render json: {
-          success: false,
-          error: "Invalid reset token"
-        }, status: :unauthorized
-      end
-
-      user = User.find_by(id: user_id)
-      unless user
-        return render json: {
-          success: false,
-          error: "Invalid reset token"
-        }, status: :unauthorized
-      end
-
-      if user.reset_password!(params[:password], params[:token])
-        render json: {
-          success: true,
-          message: "Password has been reset successfully"
-        }, status: :ok
-      else
-        render json: {
-          success: false,
-          error: "Failed to reset password",
-          details: user.errors.full_messages
-        }, status: :unprocessable_content
-      end
-    rescue JWT::ExpiredSignature
-      render json: {
-        success: false,
-        error: "Reset token has expired"
-      }, status: :unauthorized
-    rescue JWT::DecodeError
-      render json: {
-        success: false,
-        error: "Invalid reset token"
-      }, status: :unauthorized
-    rescue => e
-      Rails.logger.error "Password reset error: #{e.message}"
-      render json: {
-        success: false,
-        error: "An error occurred. Please try again later."
-      }, status: :internal_server_error
+    # Find user by token hash, checking all candidates
+    token = params[:token]
+    user = User.joins(:account).where.not(reset_token_digest: nil).find do |u|
+      u.reset_token_digest.present? && BCrypt::Password.new(u.reset_token_digest) == token
     end
+
+    unless user
+      return render_error("Invalid reset token", status: :unauthorized)
+    end
+
+    if user.reset_password!(params[:password], params[:token])
+      render_success(message: "Password has been reset successfully")
+    else
+      render_validation_error(user)
+    end
+  rescue => e
+    Rails.logger.error "Password reset error: #{e.message}"
+    render_error("An error occurred. Please try again later.", status: :internal_server_error)
   end
 
   # PUT /api/v1/passwords/change
@@ -97,22 +60,12 @@ class Api::V1::Auth::PasswordsController < ApplicationController
         password_confirmation: change_params[:password_confirmation]
       )
 
-      render json: {
-        success: true,
-        message: "Password changed successfully"
-      }, status: :ok
+      render_success(message: "Password changed successfully")
     else
-      render json: {
-        success: false,
-        error: "Current password is incorrect"
-      }, status: :unauthorized
+      render_error("Current password is incorrect", status: :unauthorized)
     end
   rescue ActiveRecord::RecordInvalid => e
-    render json: {
-      success: false,
-      error: "Password change failed",
-      details: e.record.errors.full_messages
-    }, status: :unprocessable_content
+    render_error("Password change failed", :unprocessable_content, details: e.record.errors.full_messages)
   end
 
   private

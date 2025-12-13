@@ -2,13 +2,7 @@ import React from 'react';
 import { AdminSettingsOverviewPage } from './AdminSettingsOverviewPage';
 
 export const AdminSettingsOverviewTabPage: React.FC = () => {
-  return (
-    <div className="bg-theme-surface rounded-lg border border-theme">
-      <div className="p-6">
-        <AdminSettingsOverviewPage />
-      </div>
-    </div>
-  );
+  return <AdminSettingsOverviewPage />;
 };
 
 export default AdminSettingsOverviewTabPage;

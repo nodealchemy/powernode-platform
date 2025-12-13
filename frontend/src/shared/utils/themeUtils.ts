@@ -3,47 +3,49 @@
  */
 
 export const validateThemeClasses = () => {
-  const root = document.documentElement;
-  const currentTheme = root.classList.contains('dark') ? 'dark' : 'light';
-  
-  console.log('Current theme:', currentTheme);
-  
-  // Test CSS custom properties
-  const style = getComputedStyle(root);
-  const themeProperties = [
-    '--color-background',
-    '--color-surface',
-    '--color-text-primary',
-    '--color-text-secondary',
-    '--color-border'
-  ];
-  
-  console.log('Theme CSS Properties:');
-  themeProperties.forEach(prop => {
-    const value = style.getPropertyValue(prop);
-    console.log(`${prop}: ${value}`);
-  });
-  
-  return {
-    theme: currentTheme,
-    properties: themeProperties.reduce((acc, prop) => {
-      return { ...acc, [prop]: style.getPropertyValue(prop) };
-    }, {} as Record<string, string>)
-  };
+  try {
+    const root = document.documentElement;
+    const currentTheme = root.classList.contains('dark') ? 'dark' : 'light';
+    
+
+    // Test CSS custom properties
+    const style = getComputedStyle(root);
+    const themeProperties = [
+      '--color-background',
+      '--color-surface',
+      '--color-text-primary',
+      '--color-text-secondary',
+      '--color-border'
+    ];
+    
+    return {
+      theme: currentTheme,
+      properties: themeProperties.reduce((acc, prop) => {
+        return { ...acc, [prop]: style.getPropertyValue(prop) };
+      }, {} as Record<string, string>)
+    };
+  } catch (error) {
+    // Handle DOM manipulation errors gracefully
+    return {
+      theme: 'light' as const,
+      properties: {} as Record<string, string>
+    };
+  }
 };
 
 export const testThemeToggle = () => {
   const root = document.documentElement;
-  const wasLight = root.classList.contains('light');
+  
+  // Determine current theme state (defaults to light if no class)
+  const currentTheme = root.classList.contains('dark') ? 'dark' : 'light';
+  const newTheme = currentTheme === 'light' ? 'dark' : 'light';
   
   // Toggle theme classes
   root.classList.remove('light', 'dark');
-  root.classList.add(wasLight ? 'dark' : 'light');
+  root.classList.add(newTheme);
   
   // Update data attribute
-  root.setAttribute('data-theme', wasLight ? 'dark' : 'light');
-  
-  console.log('Theme toggled to:', wasLight ? 'dark' : 'light');
+  root.setAttribute('data-theme', newTheme);
   
   return validateThemeClasses();
 };
@@ -67,63 +69,86 @@ export const getThemeTestResults = () => {
 export const validateThemeConsistency = () => {
   const issues: string[] = [];
   
-  // Check for hardcoded gray colors that should use theme classes
-  const hardcodedSelectors = [
-    '[class*="bg-gray-"]',
-    '[class*="text-gray-"]',
-    '[class*="border-gray-"]'
-  ];
-  
-  hardcodedSelectors.forEach(selector => {
-    const elements = document.querySelectorAll(selector);
-    if (elements.length > 0) {
-      issues.push(`Found ${elements.length} elements with hardcoded gray colors: ${selector}`);
+  try {
+    // Check for hardcoded gray colors that should use theme classes
+    const hardcodedSelectors = [
+      '[class*="bg-gray-"]',
+      '[class*="text-gray-"]',
+      '[class*="border-gray-"]'
+    ];
+    
+    hardcodedSelectors.forEach(selector => {
+      const elements = document.querySelectorAll(selector);
+      if (elements.length > 0) {
+        issues.push(`Found ${elements.length} elements with hardcoded gray colors: ${selector}`);
+      }
+    });
+    
+    // Check for proper theme class usage
+    const themeElements = {
+      'bg-theme-background': document.querySelectorAll('[class*="bg-theme-background"]').length,
+      'bg-theme-surface': document.querySelectorAll('[class*="bg-theme-surface"]').length,
+      'text-theme-primary': document.querySelectorAll('[class*="text-theme-primary"]').length,
+      'input-theme': document.querySelectorAll('.input-theme').length,
+      'btn-theme': document.querySelectorAll('[class*="btn-theme"]').length,
+      'card-theme': document.querySelectorAll('[class*="card-theme"]').length
+    };
+    
+    
+    if (issues.length > 0) {
+    } else {
     }
-  });
-  
-  // Check for proper theme class usage
-  const themeElements = {
-    'bg-theme-background': document.querySelectorAll('[class*="bg-theme-background"]').length,
-    'bg-theme-surface': document.querySelectorAll('[class*="bg-theme-surface"]').length,
-    'text-theme-primary': document.querySelectorAll('[class*="text-theme-primary"]').length,
-    'input-theme': document.querySelectorAll('.input-theme').length,
-    'btn-theme': document.querySelectorAll('[class*="btn-theme"]').length,
-    'card-theme': document.querySelectorAll('[class*="card-theme"]').length
-  };
-  
-  console.log('Theme class usage statistics:', themeElements);
-  
-  if (issues.length > 0) {
-    console.warn('Theme consistency issues found:', issues);
-  } else {
-    console.log('✅ Theme consistency validation passed!');
+    
+    return {
+      issues,
+      themeElements,
+      consistent: issues.length === 0
+    };
+  } catch (error) {
+    // Handle querySelector errors gracefully
+    return {
+      issues: ['DOM query error occurred'],
+      themeElements: {
+        'bg-theme-background': 0,
+        'bg-theme-surface': 0,
+        'text-theme-primary': 0,
+        'input-theme': 0,
+        'btn-theme': 0,
+        'card-theme': 0
+      },
+      consistent: false
+    };
   }
-  
-  return {
-    issues,
-    themeElements,
-    consistent: issues.length === 0
-  };
 };
 
 /**
  * Test form element theming by checking if they respond to theme changes
  */
 export const testFormTheming = () => {
-  const forms = document.querySelectorAll('form');
-  const inputs = document.querySelectorAll('.input-theme');
-  const buttons = document.querySelectorAll('[class*="btn-theme"]');
-  const cards = document.querySelectorAll('[class*="card-theme"]');
-  
-  const results = {
-    forms: forms.length,
-    inputs: inputs.length,
-    buttons: buttons.length,
-    cards: cards.length,
-    totalThemeElements: inputs.length + buttons.length + cards.length
-  };
-  
-  console.log('Form theming test results:', results);
-  
-  return results;
+  try {
+    const forms = document.querySelectorAll('form');
+    const inputs = document.querySelectorAll('.input-theme');
+    const buttons = document.querySelectorAll('[class*="btn-theme"]');
+    const cards = document.querySelectorAll('[class*="card-theme"]');
+    
+    const results = {
+      forms: forms.length,
+      inputs: inputs.length,
+      buttons: buttons.length,
+      cards: cards.length,
+      totalThemeElements: inputs.length + buttons.length + cards.length
+    };
+    
+    
+    return results;
+  } catch (error) {
+    // Handle querySelector errors gracefully
+    return {
+      forms: 0,
+      inputs: 0,
+      buttons: 0,
+      cards: 0,
+      totalThemeElements: 0
+    };
+  }
 };

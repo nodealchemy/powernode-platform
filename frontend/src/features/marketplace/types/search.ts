@@ -65,6 +65,7 @@ export interface TagFacet {
   color?: string;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export interface SearchResult<T = any> {
   data: T[];
   facets: SearchFacets;
@@ -78,6 +79,7 @@ export interface SearchResult<T = any> {
 export interface SearchContextType {
   filters: MarketplaceFilters;
   setFilters: (filters: MarketplaceFilters) => void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   updateFilter: (key: keyof MarketplaceFilters, value: any) => void;
   clearFilters: () => void;
   isLoading: boolean;

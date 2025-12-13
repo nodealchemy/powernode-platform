@@ -215,7 +215,12 @@ RSpec.describe Plan, type: :model do
       it "initializes default values" do
         plan = Plan.new
         expect(plan.features).to eq({})
-        expect(plan.limits).to eq({})
+        expect(plan.limits).to eq({
+          'max_api_keys' => 5,
+          'max_users' => 2,
+          'max_webhooks' => 5,
+          'max_workers' => 3
+        })
         expect(plan.default_roles).to eq([])
       end
     end

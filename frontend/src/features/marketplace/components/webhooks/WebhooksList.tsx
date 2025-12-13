@@ -8,7 +8,7 @@ import { WebhookTestModal } from './WebhookTestModal';
 import { WebhookAnalyticsModal } from './WebhookAnalyticsModal';
 import { WebhookDeliveriesModal } from './WebhookDeliveriesModal';
 import { useAppWebhooks } from '../../hooks/useWebhooks';
-import { useNotification } from '@/shared/hooks/useNotification';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import { AppWebhook, AppWebhookFilters } from '../../types';
 import { Plus, Search, Filter, RefreshCw } from 'lucide-react';
 
@@ -28,11 +28,12 @@ export const WebhooksList: React.FC<WebhooksListProps> = ({
   const [searchTerm, setSearchTerm] = useState(filters.search || '');
   const [eventTypeFilter, setEventTypeFilter] = useState(filters.event_type || '');
   const [activeFilter, setActiveFilter] = useState<boolean | undefined>(filters.active);
+  const [currentPage, setCurrentPage] = useState(filters.page || 1);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedWebhook, setSelectedWebhook] = useState<AppWebhook | null>(null);
   const [modalType, setModalType] = useState<'edit' | 'test' | 'analytics' | 'deliveries' | null>(null);
 
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
   
   // Combine local filters with prop filters
   const combinedFilters: AppWebhookFilters = {
@@ -40,7 +41,7 @@ export const WebhooksList: React.FC<WebhooksListProps> = ({
     search: searchTerm || filters.search,
     event_type: eventTypeFilter || filters.event_type,
     active: activeFilter !== undefined ? activeFilter : filters.active,
-    page: 1,
+    page: currentPage,
     per_page: 20
   };
 
@@ -115,8 +116,9 @@ export const WebhooksList: React.FC<WebhooksListProps> = ({
         showNotification(`Webhook "${webhook.name}" activated`, 'success');
       }
       onWebhookAction?.('toggle-status', webhook.id);
-    } catch (error: any) {
-      showNotification(`Failed to toggle webhook status: ${error.message}`, 'error');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      showNotification(`Failed to toggle webhook status: ${errorMessage}`, 'error');
     }
   };
 
@@ -129,8 +131,9 @@ export const WebhooksList: React.FC<WebhooksListProps> = ({
       await regenerateSecret(webhook.id);
       showNotification(`Secret regenerated for "${webhook.name}". Update your endpoint with the new secret.`, 'warning');
       onWebhookAction?.('regenerate-secret', webhook.id);
-    } catch (error: any) {
-      showNotification(`Failed to regenerate secret: ${error.message}`, 'error');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      showNotification(`Failed to regenerate secret: ${errorMessage}`, 'error');
     }
   };
 
@@ -155,6 +158,7 @@ export const WebhooksList: React.FC<WebhooksListProps> = ({
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
+    setCurrentPage(1); // Reset to first page when searching
     refresh();
   };
 
@@ -162,6 +166,19 @@ export const WebhooksList: React.FC<WebhooksListProps> = ({
     setSearchTerm('');
     setEventTypeFilter('');
     setActiveFilter(undefined);
+    setCurrentPage(1);
+  };
+
+  const handlePreviousPage = () => {
+    if (pagination && pagination.current_page > 1) {
+      setCurrentPage(pagination.current_page - 1);
+    }
+  };
+
+  const handleNextPage = () => {
+    if (pagination && pagination.current_page < pagination.total_pages) {
+      setCurrentPage(pagination.current_page + 1);
+    }
   };
 
   const eventTypes = [
@@ -329,17 +346,22 @@ export const WebhooksList: React.FC<WebhooksListProps> = ({
             <Button
               variant="outline"
               disabled={pagination.current_page === 1}
-              onClick={() => {/* TODO: Handle previous page */}}
+              onClick={handlePreviousPage}
             >
               Previous
             </Button>
             <span className="text-theme-secondary text-sm px-4">
               Page {pagination.current_page} of {pagination.total_pages}
+              {pagination.total_count > 0 && (
+                <span className="text-theme-tertiary ml-2">
+                  ({pagination.total_count} total)
+                </span>
+              )}
             </span>
             <Button
               variant="outline"
               disabled={pagination.current_page === pagination.total_pages}
-              onClick={() => {/* TODO: Handle next page */}}
+              onClick={handleNextPage}
             >
               Next
             </Button>

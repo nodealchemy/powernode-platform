@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
 import { Badge } from '@/shared/components/ui/Badge';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { usersApi, User } from '../services/usersApi';
-import { useNotification } from '@/shared/hooks/useNotification';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import { Shield, Users, UserCheck, UserX, Plus, Minus, Lock } from 'lucide-react';
 
 interface UserRolesModalProps {
@@ -20,7 +20,7 @@ export const UserRolesModal: React.FC<UserRolesModalProps> = ({
   onClose,
   onUserUpdated
 }) => {
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
   const [userRoles, setUserRoles] = useState<string[]>([]);
   const [availableRoles, setAvailableRoles] = useState<Array<{ value: string; label: string; description: string; canAssign?: boolean }>>([]);
   const [loading, setLoading] = useState(true);
@@ -30,32 +30,30 @@ export const UserRolesModal: React.FC<UserRolesModalProps> = ({
     toRemove: string[];
   }>({ toAdd: [], toRemove: [] });
 
-  const loadUserRoles = useCallback(() => {
-    if (user) {
-      setUserRoles([...user.roles]);
-    }
-  }, [user]);
-
-  const loadAvailableRoles = useCallback(async () => {
-    try {
-      setLoading(true);
-      const roles = await usersApi.getAvailableRoles();
-      setAvailableRoles(roles);
-    } catch (error) {
-      console.error('Failed to load available roles:', error);
-      showNotification('Failed to load available roles', 'error');
-    } finally {
-      setLoading(false);
-    }
-  }, [showNotification]);
-
   // Load user roles and available roles
   useEffect(() => {
-    if (user && isOpen) {
-      loadUserRoles();
-      loadAvailableRoles();
-    }
-  }, [user, isOpen, loadUserRoles, loadAvailableRoles]);
+    if (!user || !isOpen) return;
+
+    // Reset state when opening the modal
+    setUserRoles([...user.roles]);
+    setPendingChanges({ toAdd: [], toRemove: [] });
+    setLoading(true);
+
+    // Load available roles
+    const loadAvailableRoles = async () => {
+      try {
+        const roles = await usersApi.getAvailableRoles();
+        setAvailableRoles(roles || []);
+      } catch (error) {
+        showNotification('Failed to load available roles', 'error');
+        setAvailableRoles([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadAvailableRoles();
+  }, [user, isOpen]); // Removed showNotification as it should be stable
 
   const toggleRole = (roleValue: string) => {
     const role = availableRoles.find(r => r.value === roleValue);
@@ -143,7 +141,6 @@ export const UserRolesModal: React.FC<UserRolesModalProps> = ({
         showNotification(response.message || 'Failed to update user roles', 'error');
       }
     } catch (error) {
-      console.error('Failed to update user roles:', error);
       showNotification('Failed to update user roles', 'error');
     } finally {
       setSaving(false);
@@ -232,7 +229,7 @@ export const UserRolesModal: React.FC<UserRolesModalProps> = ({
         resetChanges();
         onClose();
       }}
-      title={`Manage Roles - ${user.full_name}`}
+      title={`Manage Roles - ${user.name}`}
       maxWidth="3xl"
     >
       <div className="space-y-6">
@@ -243,7 +240,7 @@ export const UserRolesModal: React.FC<UserRolesModalProps> = ({
               <Users className="w-6 h-6 text-theme-interactive-primary" />
             </div>
             <div className="flex-1">
-              <h3 className="font-semibold text-theme-primary">{user.full_name}</h3>
+              <h3 className="font-semibold text-theme-primary">{user.name}</h3>
               <p className="text-sm text-theme-secondary">{user.email}</p>
             </div>
             <div className="text-right">
@@ -433,4 +430,3 @@ export const UserRolesModal: React.FC<UserRolesModalProps> = ({
   );
 };
 
-export default UserRolesModal;

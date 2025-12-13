@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require_relative '../base_job'
 
 # Converted from UpdateRevenueSnapshotsJob to use API-only connectivity
@@ -8,7 +10,7 @@ class Analytics::UpdateRevenueSnapshotsJob < BaseJob
 
   def execute(date = Date.current, period_type = "daily")
     date = Date.parse(date.to_s) if date.is_a?(String)
-    logger.info "Starting revenue snapshot update for #{date} (#{period_type})"
+    log_info("Starting revenue snapshot update for #{date} (#{period_type})")
 
     start_time = Time.current
     
@@ -25,11 +27,11 @@ class Analytics::UpdateRevenueSnapshotsJob < BaseJob
 
       duration = Time.current - start_time
       
-      logger.info "Revenue snapshot update completed: #{result['snapshots_created']} snapshots created in #{duration.round(2)}s"
+      log_info("Revenue snapshot update completed: #{result['snapshots_created']} snapshots created in #{duration.round(2)}s")
 
       if result['errors_count'] > 0
-        logger.warn "Revenue snapshot update had #{result['errors_count']} errors"
-        result['errors']&.each { |error| logger.warn "  - #{error}" }
+        log_warn("Revenue snapshot update had #{result['errors_count']} errors")
+        result['errors']&.each { |error| log_warn("  - #{error}") }
       end
 
       # Schedule additional period calculations if needed
@@ -44,7 +46,7 @@ class Analytics::UpdateRevenueSnapshotsJob < BaseJob
       }
 
     rescue StandardError => e
-      logger.error "Revenue snapshot job failed: #{e.message}"
+      log_error("Revenue snapshot job failed: #{e.message}")
       raise e
     end
   end
@@ -55,13 +57,13 @@ class Analytics::UpdateRevenueSnapshotsJob < BaseJob
     # Schedule monthly snapshot on first day of month
     if period_type == "daily" && date == Date.current.beginning_of_month
       Analytics::UpdateRevenueSnapshotsJob.perform_async(date.iso8601, "monthly")
-      logger.info "Scheduled monthly snapshot for #{date}"
+      log_info("Scheduled monthly snapshot for #{date}")
     end
 
     # Schedule yearly snapshot on first day of year
     if period_type == "daily" && date == Date.current.beginning_of_year
       Analytics::UpdateRevenueSnapshotsJob.perform_async(date.iso8601, "yearly")
-      logger.info "Scheduled yearly snapshot for #{date}"
+      log_info("Scheduled yearly snapshot for #{date}")
     end
   end
 end

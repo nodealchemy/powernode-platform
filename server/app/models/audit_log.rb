@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class AuditLog < ApplicationRecord
   # Associations
   belongs_to :user, optional: true
@@ -6,8 +8,9 @@ class AuditLog < ApplicationRecord
   # Enhanced validations with comprehensive action types
   validates :action, presence: true, inclusion: {
     in: %w[
-      create update delete login logout payment subscription_change role_change 
-      create_plan update_plan delete_plan toggle_plan_status 
+      create update delete created updated deleted login logout payment subscription_change role_change
+      user_created user_updated user_deleted
+      create_plan update_plan delete_plan toggle_plan_status
       suspend_account activate_account admin_settings_update
       impersonation_started impersonation_ended
       user_login user_logout user_registration login_failed password_reset
@@ -28,16 +31,63 @@ class AuditLog < ApplicationRecord
       gdpr_request ccpa_request data_deletion data_anonymization
       test_email_sent test_email_failed email_sent email_failed
       email_settings_refreshed notification_sent notification_failed
+      api_request api_request_failed
+      ai_execution_cost ai_daily_cost_summary ai_analytics.usage_recorded ai_analytics.update
+      ai_conversations.update ai_conversations.create ai_conversations.destroy
+      ai_messages.update ai_messages.create ai_messages.destroy
+      ai_agents.index ai_agents.create ai_agents.update ai_agents.destroy
+      ai_agents.execute ai_agents.clone ai_agents.pause ai_agents.resume
+      ai_agents.archive ai_agents.stats ai_agents.analytics
+      ai.agents.read ai.agents.create ai.agents.update ai.agents.delete
+      ai.agents.execute ai.agents.clone ai.agents.pause ai.agents.resume
+      ai.agents.archive ai.agents.test ai.agents.validate
+      audit_logging_error
+      ai_conversation_channel_subscribed ai_conversation_channel_unsubscribed
+      ai_conversation_message_sent ai_conversation_message_failed
+      ai_messages.create ai_messages.update ai_messages.destroy ai_messages.edit_content
+      ai_analytics.usage_recorded ai_analytics.report_generated
+      ai_provider_credential_created ai_provider_credential_updated ai_provider_credential_deleted
+      ai_provider_credential_tested ai_provider_credential_made_default ai_provider_credential_decrypted
+      ai_provider_credential_encryption_rotated
+      ai.providers.list ai.providers.view ai.providers.create ai.providers.update ai.providers.delete
+      ai.providers.test_connection ai.providers.sync_models ai.providers.credential.create
+      ai.providers.credential.update ai.providers.credential.delete ai.providers.credential.test
+      ai.providers.read ai.providers.test ai.providers.sync ai.providers.configure
+      ai.credentials.read ai.credentials.create ai.credentials.update ai.credentials.delete ai.credentials.test
+      ai.workflows.list ai.workflows.view ai.workflows.create ai.workflows.update ai.workflows.delete
+      ai.workflows.execute ai.workflows.pause ai.workflows.resume ai.workflows.duplicate
+      ai.workflows.read ai.workflows.export ai.workflows.validate ai.workflows.clone
+      ai.executions.read ai.executions.create ai.executions.update ai.executions.cancel ai.executions.retry
+      ai.workflow_runs.read ai.workflow_runs.create ai.workflow_runs.update ai.workflow_runs.cancel
+      ai.workflow_runs.retry ai.workflow_runs.pause ai.workflow_runs.resume
+      ai.agents.execution.cancel ai.agents.execution.delete ai.agents.execution.retry
+      ai.providers.sync_models ai.providers.credential.make_default ai.providers.credential.rotate
+      ai.analytics.cost_analysis ai.analytics.dashboard ai.analytics.export ai.analytics.insights
+      ai.analytics.report.cancel ai.analytics.report.create ai.analytics.report.download
+      ai.marketplace.installation_deleted ai.marketplace.template_created ai.marketplace.template_created_from_workflow
+      ai.marketplace.template_deleted ai.marketplace.template_installed ai.marketplace.template_published
+      ai.marketplace.template_rated ai.marketplace.template_updated ai.marketplace.workflow_published
+      ai.monitoring.alerts_check ai.monitoring.alerts_view ai.monitoring.circuit_breaker.close
+      ai.monitoring.circuit_breaker.open ai.monitoring.circuit_breaker.reset ai.monitoring.circuit_breakers.category_reset
+      ai.monitoring.circuit_breakers.reset_all ai.monitoring.dashboard ai.monitoring.health_check
+      ai.monitoring.start ai.monitoring.stop
+      ai_agent_team.created ai_agent_team.updated ai_agent_team.deleted
+      ai_agent_team.member_added ai_agent_team.member_removed
+      ai_agent_team.execution_started ai_agent_team.execution_completed ai_agent_team.execution_failed
+      invitation.created invitation.updated invitation.deleted
+      invitation.resent invitation.cancelled invitation.accepted
+      job_enqueue notification_send billing_operation webhook_process
+      analytics_request report_generation health_check email_configuration
+      error_occurred
     ]
   }
   validates :resource_type, presence: true
   validates :resource_id, presence: true
-  validates :source, presence: true, inclusion: { 
-    in: %w[web api system webhook admin_panel mobile_app integration automation scheduler worker] 
+  validates :source, presence: true, inclusion: {
+    in: %w[web api system webhook admin_panel mobile_app integration automation scheduler worker security_system compliance_system]
   }
-  # Note: severity and risk_level columns don't exist in database schema
-  # validates :severity, inclusion: { in: %w[low medium high critical] }, allow_nil: true
-  # validates :risk_level, inclusion: { in: %w[low medium high critical] }, allow_nil: true
+  validates :severity, inclusion: { in: %w[low medium high critical] }, allow_nil: false
+  validates :risk_level, inclusion: { in: %w[low medium high critical] }, allow_nil: false
 
   # Note: old_values, new_values, and metadata are JSON columns in PostgreSQL
   # They have native JSON serialization, no need for explicit serialize calls
@@ -48,33 +98,31 @@ class AuditLog < ApplicationRecord
   scope :by_account, ->(account) { where(account: account) }
   scope :by_action, ->(action) { where(action: action) }
   scope :by_source, ->(source) { where(source: source) }
-  # Note: severity and risk_level columns don't exist in database schema
-  # scope :by_severity, ->(severity) { where(severity: severity) }
-  # scope :by_risk_level, ->(risk_level) { where(risk_level: risk_level) }
+  scope :by_severity, ->(severity) { where(severity: severity) }
+  scope :by_risk_level, ->(risk_level) { where(risk_level: risk_level) }
   scope :recent, -> { order(created_at: :desc) }
   scope :in_date_range, ->(start_date, end_date) { where(created_at: start_date..end_date) }
-  
+
   # Security-focused scopes
   scope :security_events, -> { where(action: security_actions) }
   scope :failed_events, -> { where(action: failed_actions) }
   scope :admin_events, -> { where(action: admin_actions) }
-  # Note: risk_level column doesn't exist in database schema
-  # scope :high_risk, -> { where(risk_level: ['high', 'critical']) }
+  scope :high_risk, -> { where(risk_level: [ "high", "critical" ]) }
   scope :suspicious, -> { where(action: suspicious_actions) }
   scope :compliance_events, -> { where(action: compliance_actions) }
-  
+
   # Time-based scopes
   scope :today, -> { where(created_at: Date.current.beginning_of_day..Date.current.end_of_day) }
   scope :this_week, -> { where(created_at: 1.week.ago.beginning_of_week..Time.current) }
   scope :this_month, -> { where(created_at: 1.month.ago.beginning_of_month..Time.current) }
   scope :last_hour, -> { where(created_at: 1.hour.ago..Time.current) }
-  
+
   # Analytics scopes
   scope :by_hour, -> { group("DATE_TRUNC('hour', created_at)") }
   scope :by_day, -> { group("DATE_TRUNC('day', created_at)") }
   scope :by_week, -> { group("DATE_TRUNC('week', created_at)") }
   scope :by_month, -> { group("DATE_TRUNC('month', created_at)") }
-  
+
   # Performance scopes
   scope :recent_activity, ->(limit = 100) { recent.limit(limit) }
   scope :batch_process, ->(batch_size = 1000) { limit(batch_size) }
@@ -95,6 +143,15 @@ class AuditLog < ApplicationRecord
 
   # Callbacks
   after_initialize :set_defaults
+  before_create :apply_integrity_hash
+
+  # Apply cryptographic integrity hash for immutable audit chain
+  def apply_integrity_hash
+    AuditLogIntegrityService.apply_integrity(self)
+  rescue => e
+    Rails.logger.error "Failed to apply integrity hash to audit log: #{e.message}"
+    # Don't block audit log creation if integrity service fails
+  end
 
   # Class methods for action categorization
   def self.security_actions
@@ -139,11 +196,10 @@ class AuditLog < ApplicationRecord
   end
 
   def self.log_action(action:, resource:, user: nil, account:, old_values: nil, new_values: nil, **options)
-    # Note: severity and risk_level columns don't exist in database schema
     # Calculate risk level and severity automatically
-    # risk_level = calculate_risk_level(action, options)
-    # severity = calculate_severity(action, options)
-    
+    risk_level = calculate_risk_level(action, options)
+    severity = calculate_severity(action, options)
+
     create!(
       action: action,
       resource_type: resource.class.name,
@@ -155,8 +211,8 @@ class AuditLog < ApplicationRecord
       ip_address: options[:ip_address],
       user_agent: options[:user_agent],
       source: options[:source] || "web",
-      # severity: options[:severity] || severity,
-      # risk_level: options[:risk_level] || risk_level,
+      severity: options[:severity] || severity,
+      risk_level: options[:risk_level] || risk_level,
       metadata: (options[:metadata] || {}).merge(
         request_id: options[:request_id],
         session_id: options[:session_id],
@@ -174,9 +230,9 @@ class AuditLog < ApplicationRecord
       resource: resource,
       user: user,
       account: account,
-      # severity: 'high',
-      # risk_level: 'high',
-      **options.merge(source: options[:source] || 'security_system')
+      severity: "high",
+      risk_level: "high",
+      **options.merge(source: options[:source] || "security_system")
     )
   end
 
@@ -186,10 +242,10 @@ class AuditLog < ApplicationRecord
       resource: resource,
       user: user,
       account: account,
-      # severity: 'medium',
-      # risk_level: 'medium',
+      severity: "medium",
+      risk_level: "medium",
       **options.merge(
-        source: options[:source] || 'compliance_system',
+        source: options[:source] || "compliance_system",
         metadata: (options[:metadata] || {}).merge(
           compliance_type: options[:compliance_type],
           regulation: options[:regulation],
@@ -201,14 +257,14 @@ class AuditLog < ApplicationRecord
 
   def self.log_system_event(action:, **options)
     # For system events, create a dummy resource
-    dummy_resource = OpenStruct.new(class: OpenStruct.new(name: 'System'), id: 'system')
-    
+    dummy_resource = OpenStruct.new(class: OpenStruct.new(name: "System"), id: "system")
+
     log_action(
       action: action,
       resource: dummy_resource,
       user: nil,
-      account: Account.find_by(name: 'System') || Account.first, # Fallback account
-      source: 'system',
+      account: Account.find_by(name: "System") || Account.first, # Fallback account
+      source: "system",
       **options
     )
   end
@@ -216,35 +272,35 @@ class AuditLog < ApplicationRecord
   # Risk and severity calculation
   def self.calculate_risk_level(action, options = {})
     return options[:risk_level] if options[:risk_level].present?
-    
+
     case action.to_s
     when *suspicious_actions
-      'critical'
+      "critical"
     when *failed_actions
-      'high'
+      "high"
     when *security_actions
-      'high'
+      "high"
     when *admin_actions
-      'medium'
+      "medium"
     when *compliance_actions
-      'medium'
+      "medium"
     else
-      'low'
+      "low"
     end
   end
 
   def self.calculate_severity(action, options = {})
     return options[:severity] if options[:severity].present?
-    
+
     case action.to_s
     when /failed|error|suspicious|fraud|security_alert/
-      'critical'
+      "critical"
     when /warning|retry|timeout/
-      'medium'
+      "medium"
     when /admin|compliance|backup|maintenance/
-      'medium'
+      "medium"
     else
-      'low'
+      "low"
     end
   end
 
@@ -349,7 +405,7 @@ class AuditLog < ApplicationRecord
   def severity_color
     # Note: severity column doesn't exist in database schema
     # Return default color for now
-    'text-gray-600 bg-gray-50'
+    "text-gray-600 bg-gray-50"
     # case severity
     # when 'critical' then 'text-red-600 bg-red-50'
     # when 'high' then 'text-red-500 bg-red-50'
@@ -362,7 +418,7 @@ class AuditLog < ApplicationRecord
   def risk_level_color
     # Note: risk_level column doesn't exist in database schema
     # Return default color for now
-    'text-gray-600 bg-gray-50'
+    "text-gray-600 bg-gray-50"
     # case risk_level
     # when 'critical' then 'text-purple-600 bg-purple-50'
     # when 'high' then 'text-red-600 bg-red-50'
@@ -374,23 +430,23 @@ class AuditLog < ApplicationRecord
 
   def formatted_metadata
     return {} unless metadata.present?
-    
+
     formatted = {}
     metadata.each do |key, value|
       case key
-      when 'geo_location'
-        formatted['Location'] = "#{value['city']}, #{value['country']}" if value.is_a?(Hash)
-      when 'device_fingerprint'
-        formatted['Device'] = value['device_type'] if value.is_a?(Hash)
-      when 'request_id'
-        formatted['Request ID'] = value.to_s.truncate(12)
-      when 'correlation_id'
-        formatted['Correlation ID'] = value.to_s.truncate(12)
+      when "geo_location"
+        formatted["Location"] = "#{value['city']}, #{value['country']}" if value.is_a?(Hash)
+      when "device_fingerprint"
+        formatted["Device"] = value["device_type"] if value.is_a?(Hash)
+      when "request_id"
+        formatted["Request ID"] = value.to_s.truncate(12)
+      when "correlation_id"
+        formatted["Correlation ID"] = value.to_s.truncate(12)
       else
         formatted[key.humanize] = value.to_s.truncate(50)
       end
     end
-    
+
     formatted
   end
 
@@ -398,32 +454,32 @@ class AuditLog < ApplicationRecord
     # Note: risk_level and severity columns don't exist in database schema
     # Base detection on action only for now
     self.class.suspicious_actions.include?(action)
-    # self.class.suspicious_actions.include?(action) || 
-    # risk_level.in?(['high', 'critical']) || 
+    # self.class.suspicious_actions.include?(action) ||
+    # risk_level.in?(['high', 'critical']) ||
     # severity == 'critical'
   end
 
   def is_security_related?
-    self.class.security_actions.include?(action) || 
-    source == 'security_system'
+    self.class.security_actions.include?(action) ||
+    source == "security_system"
   end
 
   def is_compliance_related?
-    self.class.compliance_actions.include?(action) || 
-    source == 'compliance_system'
+    self.class.compliance_actions.include?(action) ||
+    source == "compliance_system"
   end
 
   # Analytics class methods
   def self.security_summary(time_range = 24.hours.ago..Time.current)
     logs = where(created_at: time_range)
-    
+
     {
       total_events: logs.count,
       security_events: logs.security_events.count,
       failed_events: logs.failed_events.count,
       # high_risk_events: logs.high_risk.count,  # high_risk scope disabled (missing risk_level column)
       suspicious_events: logs.suspicious.count,
-      unique_users: logs.joins(:user).distinct.count('users.id'),
+      unique_users: logs.joins(:user).distinct.count("users.id"),
       unique_ips: logs.where.not(ip_address: nil).distinct.count(:ip_address),
       # by_severity: logs.group(:severity).count,  # severity column doesn't exist
       # by_risk_level: logs.group(:risk_level).count,  # risk_level column doesn't exist
@@ -433,14 +489,14 @@ class AuditLog < ApplicationRecord
 
   def self.compliance_summary(time_range = 30.days.ago..Time.current)
     logs = where(created_at: time_range)
-    
+
     {
       total_compliance_events: logs.compliance_events.count,
-      gdpr_requests: logs.where(action: 'gdpr_request').count,
-      ccpa_requests: logs.where(action: 'ccpa_request').count,
-      data_deletions: logs.where(action: 'data_deletion').count,
-      data_exports: logs.where(action: 'data_export').count,
-      security_scans: logs.where(action: 'security_scan').count,
+      gdpr_requests: logs.where(action: "gdpr_request").count,
+      ccpa_requests: logs.where(action: "ccpa_request").count,
+      data_deletions: logs.where(action: "data_deletion").count,
+      data_exports: logs.where(action: "data_export").count,
+      security_scans: logs.where(action: "security_scan").count,
       by_regulation: logs.compliance_events.group("metadata->>'regulation'").count,
       monthly_trend: logs.compliance_events.by_month.count
     }
@@ -452,7 +508,7 @@ class AuditLog < ApplicationRecord
         id: log.id,
         timestamp: log.created_at,
         action: log.action,
-        user: log.user&.email || 'System',
+        user: log.user&.email || "System",
         account: log.account&.name,
         resource: "#{log.resource_type}##{log.resource_id}",
         # severity: log.severity,  # severity column doesn't exist
@@ -465,18 +521,18 @@ class AuditLog < ApplicationRecord
 
   def self.risk_analysis(time_range = 7.days.ago..Time.current)
     logs = where(created_at: time_range)
-    
+
     # Note: risk_level column doesn't exist, disable advanced risk analysis
     {
       # risk_scores = logs.map do |log|
       #   calculate_dynamic_risk_score(log)
       # end
-      # 
+      #
       # average_risk_score: risk_scores.sum.to_f / risk_scores.length,
       # high_risk_percentage: (logs.high_risk.count.to_f / logs.count * 100).round(2),
-      # top_risk_actions: logs.group(:action).average('CASE 
+      # top_risk_actions: logs.group(:action).average('CASE
       #   WHEN risk_level = \'critical\' THEN 4
-      #   WHEN risk_level = \'high\' THEN 3  
+      #   WHEN risk_level = \'high\' THEN 3
       #   WHEN risk_level = \'medium\' THEN 2
       #   ELSE 1 END').sort_by(&:last).reverse.first(10),
       # risk_trend: logs.by_day.group(:risk_level).count
@@ -493,7 +549,7 @@ class AuditLog < ApplicationRecord
     # Note: risk_level and severity columns don't exist in database schema
     # Return simplified risk score based on action and source
     score = 1.0
-    
+
     # Base score by action type
     if suspicious_actions.include?(log.action)
       score = 4.0
@@ -504,20 +560,20 @@ class AuditLog < ApplicationRecord
     elsif admin_actions.include?(log.action)
       score = 2.0
     end
-    
+
     # Time-based factors
     hour = log.created_at.hour
     score *= 1.5 if hour < 6 || hour > 22 # Off-hours
     score *= 1.3 if log.created_at.saturday? || log.created_at.sunday? # Weekends
-    
+
     # Source factors
     score *= case log.source
-             when 'api' then 1.2
-             when 'system' then 0.8
-             when 'webhook' then 1.1
-             else 1.0
-             end
-    
+    when "api" then 1.2
+    when "system" then 0.8
+    when "webhook" then 1.1
+    else 1.0
+    end
+
     score.round(2)
   end
 

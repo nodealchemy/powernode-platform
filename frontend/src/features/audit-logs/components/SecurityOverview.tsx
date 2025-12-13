@@ -1,4 +1,4 @@
-import React from 'react';
+
 import {
   Shield,
   AlertTriangle,
@@ -12,11 +12,11 @@ import {
 } from 'lucide-react';
 
 interface SecurityOverviewProps {
-  metrics: any;
+  metrics: Record<string, unknown>;
   timeRange: { label: string; value: string; days: number };
 }
 
-export const SecurityOverview: React.FC<SecurityOverviewProps> = ({ metrics, timeRange }) => {
+export const SecurityOverview: React.FC<SecurityOverviewProps> = ({ metrics: _metrics, timeRange }) => {
   const securityMetrics = [
     {
       label: 'Failed Login Attempts',

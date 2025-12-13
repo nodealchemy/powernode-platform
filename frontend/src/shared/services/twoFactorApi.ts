@@ -1,4 +1,8 @@
 import { api } from '@/shared/services/api';
+import type { AuthUser } from '@/features/auth/services/authAPI';
+
+// Account type extracted from AuthUser's nested account property
+type AccountInfo = AuthUser['account'];
 
 export interface TwoFactorSetupResponse {
   success: boolean;
@@ -35,8 +39,8 @@ export interface LoginWith2FAResponse {
   requires_2fa?: boolean;
   verification_token?: string;
   message?: string;
-  user?: any;
-  account?: any;
+  user?: AuthUser;
+  account?: AccountInfo;
   access_token?: string;
   refresh_token?: string;
   expires_at?: string;
@@ -46,8 +50,8 @@ export interface LoginWith2FAResponse {
 
 export interface Verify2FAResponse {
   success: boolean;
-  user?: any;
-  account?: any;
+  user?: AuthUser;
+  account?: AccountInfo;
   access_token?: string;
   refresh_token?: string;
   expires_at?: string;

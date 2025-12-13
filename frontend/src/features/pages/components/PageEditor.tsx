@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import MDEditor from '@uiw/react-md-editor';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import MDEditor, { commands, ICommand } from '@uiw/react-md-editor';
 import '@uiw/react-md-editor/markdown-editor.css';
 import '@uiw/react-markdown-preview/markdown.css';
 import { Page, PageFormData, pagesApi } from '@/features/pages/services/pagesApi';
 import { useTheme } from '@/shared/hooks/ThemeContext';
+import { MarkdownRenderer } from '@/shared/components/ui/MarkdownRenderer';
+import { ImageGalleryModal } from './ImageGalleryModal';
 
 interface PageEditorProps {
   page?: Page | null;
@@ -30,7 +32,105 @@ export const PageEditor: React.FC<PageEditorProps> = ({
   });
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<'editor' | 'preview' | 'seo'>('editor');
-  // const [previewContent, setPreviewContent] = useState('');
+  const [isImageGalleryOpen, setIsImageGalleryOpen] = useState(false);
+
+  // Track cursor position for image insertion
+  const cursorPositionRef = useRef<number | null>(null);
+  const editorContainerRef = useRef<HTMLDivElement>(null);
+
+  // Get cursor position from textarea inside MDEditor
+  const getCursorPosition = useCallback((): number | null => {
+    const textarea = editorContainerRef.current?.querySelector('textarea');
+    if (textarea) {
+      return textarea.selectionStart;
+    }
+    return null;
+  }, []);
+
+  // Open image gallery and capture cursor position
+  const handleOpenImageGallery = useCallback(() => {
+    cursorPositionRef.current = getCursorPosition();
+    setIsImageGalleryOpen(true);
+  }, [getCursorPosition]);
+
+  // Custom image command that opens our gallery modal
+  const customImageCommand: ICommand = useMemo(() => ({
+    name: 'image',
+    keyCommand: 'image',
+    buttonProps: { 'aria-label': 'Add image', title: 'Add image' },
+    icon: (
+      <svg width="13" height="13" viewBox="0 0 20 20">
+        <path
+          fill="currentColor"
+          d="M15 9c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm4-7H1c-.55 0-1 .45-1 1v14c0 .55.45 1 1 1h18c.55 0 1-.45 1-1V3c0-.55-.45-1-1-1zm-1 13l-6-5-2 2-4-5-4 8V4h16v11z"
+        />
+      </svg>
+    ),
+    execute: () => {
+      handleOpenImageGallery();
+    },
+  }), [handleOpenImageGallery]);
+
+  // Custom toolbar commands - replace default image command with our custom one
+  const editorCommands = useMemo(() => [
+    commands.bold,
+    commands.italic,
+    commands.strikethrough,
+    commands.hr,
+    commands.group([commands.title1, commands.title2, commands.title3, commands.title4, commands.title5, commands.title6], {
+      name: 'title',
+      groupName: 'title',
+      buttonProps: { 'aria-label': 'Insert title' }
+    }),
+    commands.divider,
+    commands.link,
+    commands.quote,
+    commands.code,
+    commands.codeBlock,
+    customImageCommand,
+    commands.divider,
+    commands.unorderedListCommand,
+    commands.orderedListCommand,
+    commands.checkedListCommand,
+  ], [customImageCommand]);
+
+  // Handle image insertion from gallery
+  const handleImageSelect = useCallback((imageUrl: string, altText: string) => {
+    const imageMarkdown = `![${altText}](${imageUrl})`;
+    const content = formData.content || '';
+    const cursorPos = cursorPositionRef.current;
+
+    let newContent: string;
+
+    if (cursorPos !== null && cursorPos >= 0 && cursorPos <= content.length) {
+      // Insert at cursor position with proper spacing
+      const before = content.slice(0, cursorPos);
+      const after = content.slice(cursorPos);
+
+      // Add newlines for spacing if needed
+      const needsNewlineBefore = before.length > 0 && !before.endsWith('\n\n');
+      const needsNewlineAfter = after.length > 0 && !after.startsWith('\n');
+
+      newContent = before
+        + (needsNewlineBefore && before.length > 0 ? '\n\n' : '')
+        + imageMarkdown
+        + (needsNewlineAfter && after.length > 0 ? '\n\n' : '')
+        + after;
+    } else {
+      // Fallback: append at end
+      newContent = content
+        ? `${content}\n\n${imageMarkdown}`
+        : imageMarkdown;
+    }
+
+    setFormData(prev => ({
+      ...prev,
+      content: newContent
+    }));
+
+    // Reset cursor position
+    cursorPositionRef.current = null;
+  }, [formData.content]);
 
   useEffect(() => {
     if (page) {
@@ -39,7 +139,7 @@ export const PageEditor: React.FC<PageEditorProps> = ({
         content: page.content,
         meta_description: page.meta_description || '',
         meta_keywords: page.meta_keywords || '',
-        status: page.status
+        status: page.status === 'published' ? 'published' : 'draft'
       });
     }
   }, [page]);
@@ -77,9 +177,9 @@ export const PageEditor: React.FC<PageEditorProps> = ({
       }
       
       onClose();
-    } catch (error: any) {
-      console.error('Failed to save page:', error);
-      onError(error.response?.data?.error || 'Failed to save page');
+    } catch (error: unknown) {
+      const httpError = error as { response?: { data?: { error?: string } } };
+      onError(httpError.response?.data?.error || 'Failed to save page');
     } finally {
       setSaving(false);
     }
@@ -202,7 +302,7 @@ export const PageEditor: React.FC<PageEditorProps> = ({
                 </p>
               </div>
               <div className="p-6">
-                <div data-color-mode={theme} className="w-full">
+                <div ref={editorContainerRef} data-color-mode={theme} className="w-full">
                   <MDEditor
                     value={formData.content}
                     onChange={(value) => setFormData({ ...formData, content: value || '' })}
@@ -210,6 +310,7 @@ export const PageEditor: React.FC<PageEditorProps> = ({
                     preview="edit"
                     hideToolbar={false}
                     data-color-mode={theme}
+                    commands={editorCommands}
                   />
                 </div>
                 <div className="mt-4 text-sm text-theme-secondary">
@@ -218,6 +319,7 @@ export const PageEditor: React.FC<PageEditorProps> = ({
                     <li>• Use # for headings (# H1, ## H2, ### H3)</li>
                     <li>• Use **bold** and *italic* for emphasis</li>
                     <li>• Use [link text](URL) for links</li>
+                    <li>• Use ![alt text](image-url) for images</li>
                     <li>• Use - or * for bullet lists</li>
                     <li>• Use ``` for code blocks</li>
                   </ul>
@@ -237,16 +339,11 @@ export const PageEditor: React.FC<PageEditorProps> = ({
             </div>
             <div className="p-6">
               {formData.content ? (
-                <div data-color-mode={theme} className="w-full markdown-preview">
-                  <MDEditor.Markdown 
-                    source={formData.content} 
-                    data-color-mode={theme}
-                    style={{ 
-                      backgroundColor: 'transparent',
-                      color: 'var(--color-text-primary)'
-                    }}
-                  />
-                </div>
+                <MarkdownRenderer
+                  content={formData.content}
+                  variant="preview"
+                  className="w-full"
+                />
               ) : (
                 <div className="text-center py-12">
                   <p className="text-theme-secondary">No content to preview. Add some content in the editor tab.</p>
@@ -313,6 +410,14 @@ export const PageEditor: React.FC<PageEditorProps> = ({
           </div>
         )}
       </div>
+
+      {/* Image Gallery Modal */}
+      <ImageGalleryModal
+        isOpen={isImageGalleryOpen}
+        onClose={() => setIsImageGalleryOpen(false)}
+        onImageSelect={handleImageSelect}
+        pageId={page?.id}
+      />
     </div>
   );
 };

@@ -1,35 +1,34 @@
 import React, { useState } from 'react';
 import { Service } from '@/shared/services/serviceApi';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 
 interface ServiceListProps {
   services: Service[];
   selectedService: Service | null;
   onServiceSelect: (service: Service) => void;
-  onServiceUpdate: (serviceId: string, data: any) => Promise<any>;
   onServiceDelete: (serviceId: string) => Promise<void>;
   onTokenRegenerate: (serviceId: string) => Promise<string>;
-  onStatusChange: (serviceId: string, action: 'suspend' | 'activate' | 'revoke') => Promise<any>;
+  onStatusChange: (serviceId: string, action: 'suspend' | 'activate' | 'revoke') => Promise<void>;
 }
 
 interface ServiceItemProps {
   service: Service;
   isSelected: boolean;
   onSelect: () => void;
-  onUpdate: (data: any) => Promise<any>;
   onDelete: () => Promise<void>;
   onTokenRegenerate: () => Promise<string>;
-  onStatusChange: (action: 'suspend' | 'activate' | 'revoke') => Promise<any>;
+  onStatusChange: (action: 'suspend' | 'activate' | 'revoke') => Promise<void>;
 }
 
 const ServiceItem: React.FC<ServiceItemProps> = ({
   service,
   isSelected,
   onSelect,
-  onUpdate,
   onDelete,
   onTokenRegenerate,
   onStatusChange
 }) => {
+  const { addNotification } = useNotifications();
   const [showActions, setShowActions] = useState(false);
   const [loading, setLoading] = useState<string | null>(null);
 
@@ -61,13 +60,14 @@ const ServiceItem: React.FC<ServiceItemProps> = ({
     }
   };
 
-  const handleAction = async (action: () => Promise<any>, loadingKey: string) => {
+  const handleAction = async (action: () => Promise<void | string>, loadingKey: string) => {
     try {
       setLoading(loadingKey);
       await action();
       setShowActions(false);
-    } catch (error: any) {
-      alert(error.message);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Operation failed';
+      addNotification({ type: 'error', message: errorMessage });
     } finally {
       setLoading(null);
     }
@@ -218,7 +218,6 @@ export const ServiceList: React.FC<ServiceListProps> = ({
   services,
   selectedService,
   onServiceSelect,
-  onServiceUpdate,
   onServiceDelete,
   onTokenRegenerate,
   onStatusChange
@@ -248,7 +247,6 @@ export const ServiceList: React.FC<ServiceListProps> = ({
             service={service}
             isSelected={selectedService?.id === service.id}
             onSelect={() => onServiceSelect(service)}
-            onUpdate={(data) => onServiceUpdate(service.id, data)}
             onDelete={() => onServiceDelete(service.id)}
             onTokenRegenerate={() => onTokenRegenerate(service.id)}
             onStatusChange={(action) => onStatusChange(service.id, action)}
@@ -259,4 +257,3 @@ export const ServiceList: React.FC<ServiceListProps> = ({
   );
 };
 
-export default ServiceList;

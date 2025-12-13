@@ -20,9 +20,9 @@ export interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
 }
 
 export const Card = forwardRef<HTMLDivElement, CardProps>(
-  ({ 
+  ({
     variant = 'default',
-    size = 'md',
+    size: _size = 'md',
     padding = 'md',
     hoverable = false,
     clickable = false,
@@ -36,6 +36,8 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(
     onClick,
     ...props
   }, ref) => {
+    // _size prop reserved for future size-based content scaling
+    void _size;
     // Enhanced base classes with modern styling
     const baseClasses = `
       relative overflow-hidden
@@ -175,7 +177,6 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(
   }
 );
 
-Card.displayName = 'Card';
 
 // Card Header Component
 export interface CardHeaderProps {
@@ -435,6 +436,55 @@ export const ActionCard: React.FC<ActionCardProps> = ({
   }
 
   return cardContent;
+};
+
+// Standard Card Sub-components for consistency with shadcn/ui pattern
+export interface CardTitleProps {
+  children: React.ReactNode;
+  className?: string;
+}
+
+export const CardTitle: React.FC<CardTitleProps> = ({
+  children,
+  className = ''
+}) => {
+  return (
+    <h3 className={`text-lg font-semibold text-theme-primary ${className}`}>
+      {children}
+    </h3>
+  );
+};
+
+export interface CardDescriptionProps {
+  children: React.ReactNode;
+  className?: string;
+}
+
+export const CardDescription: React.FC<CardDescriptionProps> = ({
+  children,
+  className = ''
+}) => {
+  return (
+    <p className={`text-sm text-theme-secondary ${className}`}>
+      {children}
+    </p>
+  );
+};
+
+export interface CardContentProps {
+  children: React.ReactNode;
+  className?: string;
+}
+
+export const CardContent: React.FC<CardContentProps> = ({
+  children,
+  className = ''
+}) => {
+  return (
+    <div className={`text-theme-secondary ${className}`}>
+      {children}
+    </div>
+  );
 };
 
 export default Card;

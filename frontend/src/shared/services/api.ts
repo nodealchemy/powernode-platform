@@ -2,23 +2,67 @@ import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 import { store } from './index';
 import { refreshAccessToken, clearAuth, stopImpersonation } from './slices/authSlice';
 
+// Get environment variable with Vite/CRA/Jest compatibility
+const getEnvVar = (viteKey: string, craKey: string, defaultValue: string = ''): string => {
+  // Check if we're in Jest testing environment first
+  if (typeof process !== 'undefined' && process.env.NODE_ENV === 'test') {
+    return (process.env as any)[craKey] || defaultValue;
+  }
+  
+  // Check if we're in Vite environment (using dynamic access to avoid Jest parsing errors)
+  const importMeta = (globalThis as any).import?.meta || (typeof window !== 'undefined' && (window as any).import?.meta);
+  if (importMeta && importMeta.env) {
+    return importMeta.env[viteKey] || importMeta.env[craKey] || defaultValue;
+  }
+  
+  // Fallback to process.env for CRA and other environments
+  return (process.env as any)[craKey] || defaultValue;
+};
+
 // Dynamic API base URL detection for remote access
 const getAPIBaseURL = (): string => {
-  const envBaseURL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:3000/api/v1';
-  const autoDetect = process.env.REACT_APP_AUTO_DETECT_BACKEND === 'true';
+  const envBaseURL = getEnvVar('VITE_API_BASE_URL', 'REACT_APP_API_BASE_URL', '/api/v1');
+  const autoDetect = getEnvVar('VITE_AUTO_DETECT_BACKEND', 'REACT_APP_AUTO_DETECT_BACKEND', 'true') === 'true';
+  const behindProxy = getEnvVar('VITE_BEHIND_PROXY', 'REACT_APP_BEHIND_PROXY', 'false') === 'true';
   
   if (autoDetect && typeof window !== 'undefined') {
     const currentHostname = window.location.hostname;
     const currentProtocol = window.location.protocol;
+    const currentPort = window.location.port;
     
-    // Use current hostname with port 3000 for backend
+    // Use current hostname for backend API
     if (currentHostname !== 'localhost' && currentHostname !== '127.0.0.1') {
       // Parse the env base URL to extract the path
       try {
-        const envUrl = new URL(envBaseURL);
-        const apiPath = envUrl.pathname || '/api/v1';
-        const result = `${currentProtocol}//${currentHostname}:3000${apiPath}`;
-        return result;
+        // If envBaseURL is a relative path, use it directly
+        const apiPath = envBaseURL.startsWith('/') ? envBaseURL : 
+                       (new URL(envBaseURL).pathname || '/api/v1');
+        
+        // Detect if we're behind a reverse proxy
+        // Check explicit env variable first, then auto-detect based on connection patterns
+        
+        // Direct development connections typically use non-standard ports (3001, 4000, 5000, etc.)
+        const isDirectDevConnection = currentPort && !['80', '443'].includes(currentPort);
+        
+        // Standard proxy ports indicate we're behind a reverse proxy
+        const isStandardPort = 
+          (currentProtocol === 'https:' && (!currentPort || currentPort === '443')) ||
+          (currentProtocol === 'http:' && (!currentPort || currentPort === '80'));
+        
+        // Determine if we're behind a proxy:
+        // 1. Explicit env variable override
+        // 2. Standard ports (80/443) indicate proxy
+        // 3. Direct dev connections (non-standard ports) are NOT proxied
+        const isProxied = behindProxy || (isStandardPort && !isDirectDevConnection);
+        
+        if (isProxied) {
+          // Behind reverse proxy - use same host and port as frontend
+          const portPart = currentPort ? `:${currentPort}` : '';
+          return `${currentProtocol}//${currentHostname}${portPart}${apiPath}`;
+        } else {
+          // Direct access - use port 3000 for backend
+          return `${currentProtocol}//${currentHostname}:3000${apiPath}`;
+        }
       } catch (e) {
         // Fallback if URL parsing fails
         const fallback = `${currentProtocol}//${currentHostname}:3000/api/v1`;
@@ -29,17 +73,13 @@ const getAPIBaseURL = (): string => {
   return envBaseURL;
 };
 
-// Log the API base URL in development
-if (process.env.NODE_ENV === 'development') {
-  console.log('API Base URL:', getAPIBaseURL());
-}
 
 class APIClient {
   private client: AxiosInstance;
   private isRefreshing = false;
   private failedQueue: Array<{
-    resolve: (value: any) => void;
-    reject: (error: any) => void;
+    resolve: (value: unknown) => void;
+    reject: (error: unknown) => void;
   }> = [];
 
   constructor(baseURL: string) {
@@ -58,16 +98,15 @@ class APIClient {
     // Request interceptor to add auth token
     this.client.interceptors.request.use(
       (config) => {
-        
         const state = store.getState();
         
-        
         // Use impersonation token if active, otherwise use regular access token
-        let token = state.auth.accessToken;
-        if (state.auth.impersonation.isImpersonating && state.auth.impersonation.sessionId) {
-          token = state.auth.impersonation.sessionId;
-        } else {
+        let token = state.auth.access_token;
+        const impersonationToken = localStorage.getItem('impersonationToken');
+        if (state.auth.impersonation.isImpersonating && impersonationToken) {
+          token = impersonationToken;
         }
+        
         
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
@@ -83,6 +122,14 @@ class APIClient {
       (response) => response,
       async (error) => {
         const originalRequest = error.config;
+
+        // Suppress console logging for silent auth requests
+        const isSilentAuth = originalRequest?.silentAuth === true;
+
+        // Only log non-silent auth errors during development
+        if (!isSilentAuth && process.env.NODE_ENV === 'development' && error.response?.status !== 401) {
+          console.error('[API Error]', error);
+        }
 
         if (error.response?.status === 401 && !originalRequest._retry) {
           const state = store.getState();
@@ -148,28 +195,35 @@ class APIClient {
   }
 
   // HTTP Methods
-  async get<T = any>(url: string, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  async get<T = any>(url: string, config?: AxiosRequestConfig & { silentAuth?: boolean }): Promise<AxiosResponse<T>> {
     return this.client.get(url, config);
   }
 
-  async post<T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  async post<T = any>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
     return this.client.post(url, data, config);
   }
 
-  async put<T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  async put<T = any>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
     return this.client.put(url, data, config);
   }
 
-  async patch<T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  async patch<T = any>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
     return this.client.patch(url, data, config);
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async delete<T = any>(url: string, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
     return this.client.delete(url, config);
   }
 }
 
 const API_BASE_URL = getAPIBaseURL();
+
+// API Client Configuration initialized (debug logs removed for production)
 
 export const api = new APIClient(API_BASE_URL);
 export default api;

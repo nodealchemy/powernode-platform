@@ -7,7 +7,7 @@ import { PageContainer, PageAction } from '@/shared/components/layout/PageContai
 import { Button } from '@/shared/components/ui/Button';
 import { Badge } from '@/shared/components/ui/Badge';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
-import { useNotification } from '@/shared/hooks/useNotification';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import { Plus, RefreshCw, Edit2, Trash2, Users, Shield } from 'lucide-react';
 import { rolesApi, Role, Permission } from '@/features/roles/services/rolesApi';
 import { RoleFormModal } from '@/features/roles/components/RoleFormModal';
@@ -15,7 +15,7 @@ import { RoleUsersModal } from '@/features/roles/components/RoleUsersModal';
 
 export const AdminRolesPage: React.FC = () => {
   const { user } = useSelector((state: RootState) => state.auth);
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
   const [roles, setRoles] = useState<Role[]>([]);
   const [permissions, setPermissions] = useState<Permission[]>([]);
   const [loading, setLoading] = useState(true);
@@ -39,8 +39,7 @@ export const AdminRolesPage: React.FC = () => {
       ]);
       setRoles(rolesResponse.data || []);
       setPermissions(permissionsResponse.data || []);
-    } catch (error: any) {
-      console.error('Failed to load roles:', error);
+    } catch (error: unknown) {
       showNotificationRef.current('Failed to load roles', 'error');
     } finally {
       setLoading(false);
@@ -53,7 +52,7 @@ export const AdminRolesPage: React.FC = () => {
 
   // Check if user has role management permissions
   const canManageRoles = hasPermissions(user, ['admin.role.create', 'admin.role.edit', 'admin.role.delete']);
-  const canReadRoles = hasPermissions(user, ['admin.role.view']);
+  const canReadRoles = hasPermissions(user, ['admin.role.read']);
 
   // Redirect if user doesn't have permission to view roles
   if (!canReadRoles) {
@@ -104,9 +103,8 @@ export const AdminRolesPage: React.FC = () => {
       await rolesApi.deleteRole(role.id);
       showNotification('Role deleted successfully', 'success');
       loadRoles();
-    } catch (error: any) {
-      console.error('Failed to delete role:', error);
-      showNotification(error?.response?.data?.error || 'Failed to delete role', 'error');
+    } catch (error: unknown) {
+      showNotification(error instanceof Error ? error.message : 'Failed to delete role', 'error');
     }
   };
 
@@ -207,8 +205,11 @@ export const AdminRolesPage: React.FC = () => {
               <div key={role.id} className="bg-gradient-to-br from-theme-surface to-theme-surface-hover border border-theme rounded-lg p-5 hover:shadow-lg transition-shadow">
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center space-x-2">
-                    <div className="w-8 h-8 bg-theme-interactive-primary bg-opacity-10 rounded-lg flex items-center justify-center">
-                      <Shield className="w-4 h-4 text-theme-interactive-primary" />
+                    <div className="relative">
+                      <div className="absolute inset-0 bg-gradient-to-br from-theme-interactive-primary/15 to-theme-interactive-primary/5 rounded-lg blur-md"></div>
+                      <div className="relative w-8 h-8 bg-theme-surface/50 backdrop-blur-sm rounded-lg flex items-center justify-center">
+                        <Shield className="w-4 h-4 text-theme-interactive-primary" />
+                      </div>
                     </div>
                     <h3 className="font-semibold text-theme-primary capitalize">{role.name.replace(/_/g, ' ')}</h3>
                   </div>
@@ -278,8 +279,11 @@ export const AdminRolesPage: React.FC = () => {
                 <div key={role.id} className="bg-theme-surface border border-theme rounded-lg p-5 hover:shadow-md transition-shadow">
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center space-x-2">
-                      <div className="w-8 h-8 bg-theme-secondary bg-opacity-10 rounded-lg flex items-center justify-center">
-                        <Shield className="w-4 h-4 text-theme-secondary" />
+                      <div className="relative">
+                        <div className="absolute inset-0 bg-gradient-to-br from-theme-secondary/15 to-theme-secondary/5 rounded-lg blur-md"></div>
+                        <div className="relative w-8 h-8 bg-theme-surface/50 backdrop-blur-sm rounded-lg flex items-center justify-center">
+                          <Shield className="w-4 h-4 text-theme-secondary" />
+                        </div>
                       </div>
                       <h3 className="font-semibold text-theme-primary">{role.name}</h3>
                     </div>
@@ -343,8 +347,11 @@ export const AdminRolesPage: React.FC = () => {
               {Object.entries(groupPermissionsByResource(permissions)).map(([resource, perms]) => (
                 <div key={resource} className="space-y-3">
                   <div className="flex items-center space-x-2 pb-2 border-b border-theme">
-                    <div className="w-6 h-6 bg-theme-interactive-primary bg-opacity-10 rounded flex items-center justify-center">
-                      <Shield className="w-3 h-3 text-theme-interactive-primary" />
+                    <div className="relative">
+                      <div className="absolute inset-0 bg-gradient-to-br from-theme-interactive-primary/15 to-theme-interactive-primary/5 rounded blur-md"></div>
+                      <div className="relative w-6 h-6 bg-theme-surface/50 backdrop-blur-sm rounded flex items-center justify-center">
+                        <Shield className="w-3 h-3 text-theme-interactive-primary" />
+                      </div>
                     </div>
                     <h4 className="font-semibold text-theme-primary capitalize text-sm">
                       {resource.replace(/_/g, ' ')}

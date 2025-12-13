@@ -174,7 +174,6 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({
           }});
         }
       } catch (error) {
-        console.warn('Failed to parse saved menu state:', error);
         localStorage.removeItem(storageKey);
         dispatch({ type: 'UPDATE_STATE', payload: {
           expandedSections: ['business', 'content']

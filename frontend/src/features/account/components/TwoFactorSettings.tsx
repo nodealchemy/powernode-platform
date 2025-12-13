@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { twoFactorApi } from '@/shared/services/twoFactorApi';
-import TwoFactorSetup from '@/features/auth/components/TwoFactorSetup';
+import { TwoFactorSetup } from '@/features/auth/components/TwoFactorSetup';
 import Modal from '@/shared/components/ui/Modal';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 
-const TwoFactorSettings: React.FC = () => {
+export const TwoFactorSettings: React.FC = () => {
   const [status, setStatus] = useState<{
     enabled: boolean;
     backupCodesCount: number;
@@ -39,7 +39,7 @@ const TwoFactorSettings: React.FC = () => {
       } else {
         setError('Failed to load two-factor authentication status');
       }
-    } catch (err) {
+    } catch (error) {
       setError('Failed to load two-factor authentication status');
     } finally {
       setLoading(false);
@@ -62,7 +62,7 @@ const TwoFactorSettings: React.FC = () => {
       } else {
         setError(response.error || 'Failed to disable two-factor authentication');
       }
-    } catch (err) {
+    } catch (error) {
       setError('Failed to disable two-factor authentication');
     } finally {
       setIsDisabling(false);
@@ -79,7 +79,7 @@ const TwoFactorSettings: React.FC = () => {
       } else {
         setError(response.error || 'Failed to load backup codes');
       }
-    } catch (err) {
+    } catch (error) {
       setError('Failed to load backup codes');
     }
   };
@@ -97,7 +97,7 @@ const TwoFactorSettings: React.FC = () => {
       } else {
         setError(response.error || 'Failed to regenerate backup codes');
       }
-    } catch (err) {
+    } catch (error) {
       setError('Failed to regenerate backup codes');
     } finally {
       setIsRegenerating(false);
@@ -306,4 +306,3 @@ const TwoFactorSettings: React.FC = () => {
   );
 };
 
-export default TwoFactorSettings;

@@ -3,20 +3,20 @@
 module RoleHelpers
   def ensure_test_roles_exist
     # Create basic roles if they don't exist
-    ['owner', 'admin', 'member', 'manager', 'super_admin', 'billing_admin'].each do |role_name|
+    [ 'owner', 'admin', 'member', 'manager', 'super_admin', 'billing_admin' ].each do |role_name|
       Role.find_or_create_by!(name: role_name) do |role|
         role.display_name = role_name.humanize
         role.role_type = case role_name
-                        when 'admin', 'super_admin'
+        when 'admin', 'super_admin'
                           'admin'
-                        else
+        else
                           'user'
-                        end
+        end
         role.is_system = false
       end
     end
   end
-  
+
   def ensure_dotted_roles_exist
     # Create dotted notation roles
     {
@@ -33,11 +33,11 @@ module RoleHelpers
       end
     end
   end
-  
+
   def setup_test_permissions
     # Create basic test permissions
-    ['users', 'accounts', 'billing', 'analytics'].each do |resource|
-      ['create', 'read', 'update', 'delete', 'manage'].each do |action|
+    [ 'users', 'accounts', 'billing', 'analytics' ].each do |resource|
+      [ 'create', 'read', 'update', 'delete', 'manage' ].each do |action|
         Permission.find_or_create_by!(resource: resource, action: action) do |p|
           p.name = "#{resource}.#{action}"
           p.category = 'resource'

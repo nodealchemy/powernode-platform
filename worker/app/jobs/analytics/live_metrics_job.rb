@@ -1,8 +1,10 @@
+# frozen_string_literal: true
+
 class Analytics::LiveMetricsJob < BaseJob
   sidekiq_options queue: 'analytics'
 
   def execute(account_id: nil, broadcast: true)
-    logger.info "Processing live metrics for account: #{account_id || 'global'}"
+    log_info("Processing live metrics for account: #{account_id || 'global'}")
 
     begin
       # Calculate live metrics
@@ -16,11 +18,11 @@ class Analytics::LiveMetricsJob < BaseJob
         broadcast_live_metrics(metrics_data, account_id)
       end
       
-      logger.info "Live metrics processed successfully for account: #{account_id || 'global'}"
+      log_info("Live metrics processed successfully for account: #{account_id || 'global'}")
       metrics_data
     rescue => e
-      logger.error "Live metrics job failed for account #{account_id}: #{e.message}"
-      logger.error e.backtrace.join("\n")
+      log_error("Live metrics job failed for account #{account_id}: #{e.message}")
+      log_error(e.backtrace.join("\n"))
       
       # Send error notification
       ErrorNotificationService.notify(
@@ -87,7 +89,7 @@ class Analytics::LiveMetricsJob < BaseJob
     begin
       Redis.current.setex(redis_key, 300, metrics_data.to_json) # 5 minutes expiry
     rescue Redis::BaseError => e
-      logger.warn "Failed to cache live metrics in Redis: #{e.message}"
+      log_warn("Failed to cache live metrics in Redis: #{e.message}")
     end
   end
 
@@ -103,9 +105,9 @@ class Analytics::LiveMetricsJob < BaseJob
         broadcast: true
       })
       
-      logger.info "Live metrics broadcasted to channel: #{channel_name}"
+      log_info("Live metrics broadcasted to channel: #{channel_name}")
     rescue => e
-      logger.error "Failed to broadcast live metrics: #{e.message}"
+      log_error("Failed to broadcast live metrics: #{e.message}")
       # Don't re-raise - broadcasting failure shouldn't fail the entire job
     end
   end

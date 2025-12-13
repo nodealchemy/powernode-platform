@@ -1,4 +1,4 @@
-import React from 'react';
+
 import {
   Shield,
   AlertTriangle,
@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 
 interface SecurityOverviewProps {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   metrics: any;
   timeRange: { label: string; value: string; days: number };
 }
@@ -20,32 +21,32 @@ export const SecurityOverview: React.FC<SecurityOverviewProps> = ({ metrics, tim
   const securityMetrics = [
     {
       label: 'Failed Login Attempts',
-      value: 23,
-      change: -15,
+      value: metrics?.failed_logins || 0,
+      change: metrics?.failed_logins_change || 0,
       icon: <Lock className="w-5 h-5" />,
       color: 'red',
       description: 'Login failures in the last period'
     },
     {
       label: 'Security Alerts',
-      value: 8,
-      change: +12,
+      value: metrics?.security_alerts || 0,
+      change: metrics?.security_alerts_change || 0,
       icon: <AlertTriangle className="w-5 h-5" />,
       color: 'yellow',
       description: 'Automated security alerts triggered'
     },
     {
       label: 'Suspicious Activities',
-      value: 5,
-      change: -8,
+      value: metrics?.suspicious_activities || 0,
+      change: metrics?.suspicious_activities_change || 0,
       icon: <Eye className="w-5 h-5" />,
       color: 'orange',
       description: 'Activities flagged as suspicious'
     },
     {
       label: 'Account Lockouts',
-      value: 2,
-      change: -50,
+      value: metrics?.account_lockouts || 0,
+      change: metrics?.account_lockouts_change || 0,
       icon: <Unlock className="w-5 h-5" />,
       color: 'purple',
       description: 'Accounts locked due to security violations'

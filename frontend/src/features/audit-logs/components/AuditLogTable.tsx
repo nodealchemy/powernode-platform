@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { 
   ChevronDown, 
   ChevronRight, 
@@ -69,19 +69,21 @@ export const AuditLogTable: React.FC<AuditLogTableProps> = ({
     }
   };
 
-  const formatDate = (dateString: string) => {
+  // Fixed: Memoized date formatting to prevent excessive Date object creation
+  const formatDate = useCallback((dateString: string) => {
     const date = new Date(dateString);
     return {
       date: date.toLocaleDateString(),
       time: date.toLocaleTimeString()
     };
-  };
+  }, []);
 
-  const formatAction = (action: string) => {
+  // Fixed: Memoized action formatting to prevent expensive string operations on every render
+  const formatAction = useCallback((action: string) => {
     return action.split('_').map(word => 
       word.charAt(0).toUpperCase() + word.slice(1)
     ).join(' ');
-  };
+  }, []);
 
   const getDeviceIcon = (userAgent?: string) => {
     if (!userAgent) return <Monitor className="w-4 h-4" />;

@@ -3,6 +3,8 @@ import React from 'react';
 import { UserMenu } from './UserMenu';
 import { WebSocketStatusIndicator } from '../ui/WebSocketStatusIndicator';
 import { ThemeToggle } from '../ui/ThemeToggle';
+import { AccountSwitcher } from '@/features/account-switcher';
+import { NotificationBell } from '@/features/notifications';
 
 interface HeaderProps {
   onToggleSidebar: () => void;
@@ -11,10 +13,9 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
   return (
     <header className="bg-theme-surface h-16 border-b border-theme">
-      <div className="grid grid-cols-3 items-center px-4 sm:px-6 lg:px-8 h-full">
-        {/* Left side */}
-        <div className="flex items-center space-x-3">
-          {/* Mobile sidebar toggle */}
+      <div className="flex items-center justify-between px-4 sm:px-6 lg:px-8 h-full gap-2 sm:gap-4">
+        {/* Left side - Sidebar toggle */}
+        <div className="flex items-center shrink-0">
           <button
             onClick={onToggleSidebar}
             className="md:hidden p-2 rounded-md text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover"
@@ -26,15 +27,19 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
           </button>
         </div>
 
-        {/* Center - empty space for balance */}
-        <div className="flex justify-center">
+        {/* Center - Account Switcher */}
+        <div className="flex justify-center flex-1 min-w-0">
+          <AccountSwitcher />
         </div>
 
         {/* Right side */}
-        <div className="flex items-center justify-end space-x-4">
+        <div className="flex items-center shrink-0 space-x-2 sm:space-x-4">
           {/* WebSocket Connection Status */}
           <WebSocketStatusIndicator />
-          
+
+          {/* Notifications */}
+          <NotificationBell />
+
           {/* Theme Toggle */}
           <ThemeToggle />
 

@@ -1,6 +1,9 @@
 FactoryBot.define do
   factory :reconciliation_report do
-    reconciliation_date { Date.current }
+    report_type { 'daily' }
+    gateway { 'stripe' }
+    sequence(:report_date) { |n| Date.current - n.days }
+    sequence(:reconciliation_date) { |n| Date.current - n.days }
     reconciliation_type { 'daily' }
     date_range_start { 1.day.ago.beginning_of_day }
     date_range_end { 1.day.ago.end_of_day }

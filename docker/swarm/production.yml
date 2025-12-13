@@ -1,0 +1,260 @@
+# Docker Swarm stack configuration for Powernode Platform - Production
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB_FILE=/run/secrets/db_name
+      - POSTGRES_USER_FILE=/run/secrets/db_user
+      - POSTGRES_PASSWORD_FILE=/run/secrets/db_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    secrets:
+      - db_name
+      - db_user
+      - db_password
+    networks:
+      - backend
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+        reservations:
+          memory: 512M
+          cpus: '0.25'
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$(cat /run/secrets/db_user) -d $$(cat /run/secrets/db_name)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    command: redis-server --requirepass $$(cat /run/secrets/redis_password)
+    secrets:
+      - redis_password
+    volumes:
+      - redis_data:/data
+    networks:
+      - backend
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.25'
+        reservations:
+          memory: 256M
+          cpus: '0.1'
+      restart_policy:
+        condition: on-failure
+    healthcheck:
+      test: ["CMD", "redis-cli", "--no-auth-warning", "-a", "$$(cat /run/secrets/redis_password)", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # Rails Backend API
+  backend:
+    image: ${REGISTRY_URL}/powernode-backend:${VERSION:-latest}
+    environment:
+      - RAILS_ENV=production
+      - DATABASE_URL=postgresql://$$(cat /run/secrets/db_user):$$(cat /run/secrets/db_password)@postgres:5432/$$(cat /run/secrets/db_name)
+      - REDIS_URL=redis://:$$(cat /run/secrets/redis_password)@redis:6379/0
+      - RAILS_MASTER_KEY_FILE=/run/secrets/rails_master_key
+      - JWT_SECRET_KEY_FILE=/run/secrets/jwt_secret
+      - RAILS_LOG_LEVEL=info
+      - WEB_CONCURRENCY=2
+      - RAILS_MAX_THREADS=5
+    secrets:
+      - db_name
+      - db_user
+      - db_password
+      - redis_password
+      - rails_master_key
+      - jwt_secret
+    networks:
+      - backend
+      - frontend
+    depends_on:
+      - postgres
+      - redis
+    deploy:
+      replicas: 2
+      update_config:
+        parallelism: 1
+        delay: 30s
+        failure_action: rollback
+        order: start-first
+      rollback_config:
+        parallelism: 1
+        delay: 30s
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+        reservations:
+          memory: 512M
+          cpus: '0.25'
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Sidekiq Worker
+  worker:
+    image: ${REGISTRY_URL}/powernode-worker:${VERSION:-latest}
+    environment:
+      - RAILS_ENV=production
+      - DATABASE_URL=postgresql://$$(cat /run/secrets/db_user):$$(cat /run/secrets/db_password)@postgres:5432/$$(cat /run/secrets/db_name)
+      - REDIS_URL=redis://:$$(cat /run/secrets/redis_password)@redis:6379/0
+      - BACKEND_API_URL=http://backend:3000
+      - SIDEKIQ_CONCURRENCY=10
+    secrets:
+      - db_name
+      - db_user
+      - db_password
+      - redis_password
+    networks:
+      - backend
+    depends_on:
+      - postgres
+      - redis
+      - backend
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+        reservations:
+          memory: 512M
+          cpus: '0.25'
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4567/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # React Frontend
+  frontend:
+    image: ${REGISTRY_URL}/powernode-frontend:${VERSION:-latest}
+    networks:
+      - frontend
+    depends_on:
+      - backend
+    deploy:
+      replicas: 2
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+        reservations:
+          memory: 128M
+          cpus: '0.1'
+      restart_policy:
+        condition: on-failure
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # Reverse Proxy / Load Balancer
+  proxy:
+    image: traefik:v3.0
+    command:
+      - --api.dashboard=true
+      - --api.insecure=false
+      - --providers.docker.swarmMode=true
+      - --providers.docker.exposedbydefault=false
+      - --providers.docker.network=frontend
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      - --certificatesresolvers.letsencrypt.acme.httpchallenge=true
+      - --certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web
+      - --certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL}
+      - --certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - letsencrypt:/letsencrypt
+    networks:
+      - frontend
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+      restart_policy:
+        condition: on-failure
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.frontend.rule=Host(`${DOMAIN}`)
+        - traefik.http.routers.frontend.entrypoints=websecure
+        - traefik.http.routers.frontend.tls.certresolver=letsencrypt
+        - traefik.http.services.frontend.loadbalancer.server.port=80
+
+networks:
+  frontend:
+    driver: overlay
+    attachable: true
+  backend:
+    driver: overlay
+    internal: true
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  letsencrypt:
+    driver: local
+
+secrets:
+  db_name:
+    external: true
+  db_user:
+    external: true
+  db_password:
+    external: true
+  redis_password:
+    external: true
+  rails_master_key:
+    external: true
+  jwt_secret:
+    external: true

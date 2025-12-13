@@ -18,6 +18,26 @@ import {
   Clock
 } from 'lucide-react';
 
+export interface AppFeature {
+  name: string;
+  description: string;
+  icon: string;
+}
+
+export interface AppReview {
+  id: string;
+  user: string;
+  rating: number;
+  comment: string;
+  date: string;
+}
+
+export interface AppStats {
+  apiEndpointCount?: number;
+  webhookCount?: number;
+  userCount?: number | string;
+}
+
 interface AppCardProps {
   app: App;
   isOwner?: boolean;
@@ -27,6 +47,9 @@ interface AppCardProps {
   onCardClick?: (app: App) => void;
   expanded?: boolean;
   onToggleExpansion?: (app: App) => void;
+  features?: AppFeature[];
+  reviews?: AppReview[];
+  stats?: AppStats;
 }
 
 export const AppCard: React.FC<AppCardProps> = ({
@@ -37,10 +60,24 @@ export const AppCard: React.FC<AppCardProps> = ({
   onManage,
   onCardClick,
   expanded = false,
-  onToggleExpansion
+  onToggleExpansion,
+  features = [],
+  reviews = [],
+  stats
 }) => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'overview' | 'features' | 'reviews'>('overview');
+
+  // Calculate average rating from reviews
+  const averageRating = reviews.length > 0
+    ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length
+    : 0;
+
+  // Use stats with defaults
+  const apiEndpointCount = stats?.apiEndpointCount ?? 0;
+  const webhookCount = stats?.webhookCount ?? 0;
+  const userCount = stats?.userCount ?? 0;
+
   const getStatusBadgeVariant = (status: AppStatus): 'success' | 'warning' | 'danger' | 'secondary' => {
     switch (status) {
       case 'published': return 'success';
@@ -71,21 +108,6 @@ export const AppCard: React.FC<AppCardProps> = ({
       navigate(`/app/marketplace/apps/${app.id}`);
     }
   };
-
-  // Mock data for expanded view
-  const mockFeatures = [
-    { name: 'API Integration', description: 'Connect with external services', icon: '🔌' },
-    { name: 'Real-time Updates', description: 'Live data synchronization', icon: '⚡' },
-    { name: 'Custom Webhooks', description: 'Event-driven notifications', icon: '🔔' },
-    { name: 'Analytics Dashboard', description: 'Comprehensive reporting', icon: '📊' }
-  ];
-
-  const mockReviews = [
-    { id: '1', user: 'John Smith', rating: 5, comment: 'Excellent app! Easy to integrate and very reliable.', date: '2024-01-15' },
-    { id: '2', user: 'Sarah Johnson', rating: 4, comment: 'Great functionality, could use better documentation.', date: '2024-01-10' }
-  ];
-
-  const averageRating = mockReviews.reduce((sum, review) => sum + review.rating, 0) / mockReviews.length;
 
   const renderExpandedContent = () => {
     const tabs = [
@@ -123,15 +145,15 @@ export const AppCard: React.FC<AppCardProps> = ({
           <div className="space-y-2">
             <div className="flex items-center space-x-2">
               <Code className="w-4 h-4 text-theme-secondary" />
-              <span className="text-sm text-theme-secondary">12 API endpoints</span>
+              <span className="text-sm text-theme-secondary">{apiEndpointCount} API endpoints</span>
             </div>
             <div className="flex items-center space-x-2">
               <Webhook className="w-4 h-4 text-theme-secondary" />
-              <span className="text-sm text-theme-secondary">5 webhook events</span>
+              <span className="text-sm text-theme-secondary">{webhookCount} webhook events</span>
             </div>
             <div className="flex items-center space-x-2">
-              <Star className="w-4 h-4 text-yellow-400 fill-current" />
-              <span className="text-sm text-theme-secondary">{averageRating.toFixed(1)} rating ({mockReviews.length} reviews)</span>
+              <Star className="w-4 h-4 text-theme-warning fill-current" />
+              <span className="text-sm text-theme-secondary">{averageRating.toFixed(1)} rating ({reviews.length} reviews)</span>
             </div>
           </div>
         </Card>
@@ -140,50 +162,62 @@ export const AppCard: React.FC<AppCardProps> = ({
 
     const renderFeaturesTab = () => (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {mockFeatures.map((feature, index) => (
-          <Card key={index} className="p-4">
-            <div className="flex items-start space-x-3">
-              <div className="text-xl">{feature.icon}</div>
-              <div>
-                <h6 className="font-medium text-theme-primary mb-1">{feature.name}</h6>
-                <p className="text-sm text-theme-secondary">{feature.description}</p>
+        {features.length > 0 ? (
+          features.map((feature, index) => (
+            <Card key={index} className="p-4">
+              <div className="flex items-start space-x-3">
+                <div className="text-xl">{feature.icon}</div>
+                <div>
+                  <h6 className="font-medium text-theme-primary mb-1">{feature.name}</h6>
+                  <p className="text-sm text-theme-secondary">{feature.description}</p>
+                </div>
               </div>
-            </div>
-          </Card>
-        ))}
+            </Card>
+          ))
+        ) : (
+          <div className="col-span-2 text-center py-8 text-theme-tertiary">
+            No features available
+          </div>
+        )}
       </div>
     );
 
     const renderReviewsTab = () => (
       <div className="space-y-3">
-        {mockReviews.map((review) => (
-          <Card key={review.id} className="p-4">
-            <div className="flex items-start justify-between mb-2">
-              <div className="flex items-center space-x-2">
-                <div className="w-8 h-8 bg-theme-interactive-primary rounded-full flex items-center justify-center text-white text-sm font-semibold">
-                  {review.user.charAt(0)}
-                </div>
-                <div>
-                  <div className="font-medium text-theme-primary text-sm">{review.user}</div>
-                  <div className="flex items-center space-x-1">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <Star
-                        key={star}
-                        className={`w-3 h-3 ${
-                          star <= review.rating ? 'text-yellow-400 fill-current' : 'text-gray-300'
-                        }`}
-                      />
-                    ))}
+        {reviews.length > 0 ? (
+          reviews.map((review) => (
+            <Card key={review.id} className="p-4">
+              <div className="flex items-start justify-between mb-2">
+                <div className="flex items-center space-x-2">
+                  <div className="w-8 h-8 bg-theme-interactive-primary rounded-full flex items-center justify-center text-white text-sm font-semibold">
+                    {review.user.charAt(0)}
+                  </div>
+                  <div>
+                    <div className="font-medium text-theme-primary text-sm">{review.user}</div>
+                    <div className="flex items-center space-x-1">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <Star
+                          key={star}
+                          className={`w-3 h-3 ${
+                            star <= review.rating ? 'text-theme-warning fill-current' : 'text-theme-muted'
+                          }`}
+                        />
+                      ))}
+                    </div>
                   </div>
                 </div>
+                <div className="text-xs text-theme-tertiary">
+                  {new Date(review.date).toLocaleDateString()}
+                </div>
               </div>
-              <div className="text-xs text-theme-tertiary">
-                {new Date(review.date).toLocaleDateString()}
-              </div>
-            </div>
-            <p className="text-sm text-theme-secondary">{review.comment}</p>
-          </Card>
-        ))}
+              <p className="text-sm text-theme-secondary">{review.comment}</p>
+            </Card>
+          ))
+        ) : (
+          <div className="text-center py-8 text-theme-tertiary">
+            No reviews yet
+          </div>
+        )}
       </div>
     );
 
@@ -302,10 +336,10 @@ export const AppCard: React.FC<AppCardProps> = ({
           </div>
           <div className="flex items-center space-x-1">
             <Users className="w-4 h-4" />
-            <span>1.2k</span>
+            <span>{userCount}</span>
           </div>
           <div className="flex items-center space-x-1">
-            <Star className="w-4 h-4 text-yellow-400 fill-current" />
+            <Star className="w-4 h-4 text-theme-warning fill-current" />
             <span>{averageRating.toFixed(1)}</span>
           </div>
         </div>
@@ -350,8 +384,8 @@ export const AppCard: React.FC<AppCardProps> = ({
 
       <div className="mt-4 pt-4 border-t border-theme">
         <div className="flex items-center justify-between text-sm text-theme-secondary">
-          <span>📡 12 API endpoints</span>
-          <span>🔗 5 webhooks</span>
+          <span>📡 {apiEndpointCount} API endpoints</span>
+          <span>🔗 {webhookCount} webhooks</span>
         </div>
       </div>
 

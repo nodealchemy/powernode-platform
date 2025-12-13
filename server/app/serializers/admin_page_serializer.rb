@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class AdminPageSerializer < PageSerializer
   def as_json
     base_data = super

@@ -12,23 +12,23 @@ class Api::V1::PaymentsController < ApplicationController
     per_page = [ params[:per_page]&.to_i || 25, 100 ].min
     payments = payments.offset((page.to_i - 1) * per_page).limit(per_page)
 
-    render json: {
-      success: true,
-      data: payments.map { |payment| payment_data(payment) },
-      pagination: {
-        page: page.to_i,
-        per_page: per_page,
-        total: current_account.payments.count
+    render_success(
+      data: {
+        payments: payments.map { |payment| payment_data(payment) },
+        pagination: {
+          page: page.to_i,
+          per_page: per_page,
+          total: current_account.payments.count
+        }
       }
-    }, status: :ok
+    )
   end
 
   # GET /api/v1/payments/:id
   def show
-    render json: {
-      success: true,
+    render_success(
       data: payment_data(@payment)
-    }, status: :ok
+    )
   end
 
   private
@@ -36,10 +36,7 @@ class Api::V1::PaymentsController < ApplicationController
   def set_payment
     @payment = current_account.payments.find(params[:id])
   rescue ActiveRecord::RecordNotFound
-    render json: {
-      success: false,
-      error: "Payment not found"
-    }, status: :not_found
+    render_error("Payment not found", status: :not_found)
   end
 
   def payment_data(payment)

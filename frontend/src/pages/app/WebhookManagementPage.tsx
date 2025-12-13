@@ -12,28 +12,29 @@ import {
 } from 'lucide-react';
 import { RootState } from '@/shared/services';
 import { hasPermissions } from '@/shared/utils/permissionUtils';
-import webhooksApi, { 
-  WebhookEndpoint, 
-  WebhookStats as WebhookStatsType, 
+import {
+  webhooksApi,
+  WebhookEndpoint,
+  WebhookStats as WebhookStatsType,
   WebhookFormData,
   DetailedWebhookStats
 } from '@/features/webhooks/services/webhooksApi';
-import WebhookForm from '@/features/webhooks/components/WebhookForm';
-import WebhookList from '@/features/webhooks/components/WebhookList';
-import WebhookDetails from '@/features/webhooks/components/WebhookDetails';
-import WebhookStats from '@/features/webhooks/components/WebhookStats';
+import { WebhookModal } from '@/features/webhooks/components/WebhookModal';
+import { WebhookList } from '@/features/webhooks/components/WebhookList';
+import { WebhookDetails } from '@/features/webhooks/components/WebhookDetails';
+import { WebhookStats } from '@/features/webhooks/components/WebhookStats';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
 import ErrorAlert from '@/shared/components/ui/ErrorAlert';
 import SuccessAlert from '@/shared/components/ui/SuccessAlert';
 
-type ViewMode = 'list' | 'create' | 'edit' | 'details' | 'stats';
+type ViewMode = 'list' | 'details' | 'stats';
 
 const WebhookManagementPage: React.FC = () => {
   const { user } = useSelector((state: RootState) => state.auth);
   
   // Check webhook permissions (matching backend controller)
-  const canReadWebhooks = hasPermissions(user, ['webhook.view']) || hasPermissions(user, ['webhook.create', 'webhook.edit', 'webhook.delete']);
+  const canReadWebhooks = hasPermissions(user, ['webhook.read']) || hasPermissions(user, ['webhook.create', 'webhook.edit', 'webhook.delete']);
   const canCreateWebhooks = hasPermissions(user, ['webhook.create']);
   const canEditWebhooks = hasPermissions(user, ['webhook.edit']);
   const canDeleteWebhooks = hasPermissions(user, ['webhook.delete']);
@@ -47,6 +48,8 @@ const WebhookManagementPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [pagination, setPagination] = useState({
     current_page: 1,
     per_page: 20,
@@ -73,7 +76,7 @@ const WebhookManagementPage: React.FC = () => {
 
     try {
       const response = await webhooksApi.getWebhooks(page, pagination.per_page);
-      
+
       if (response.success && response.data) {
         setWebhooks(response.data.webhooks);
         setPagination(response.data.pagination);
@@ -81,7 +84,7 @@ const WebhookManagementPage: React.FC = () => {
       } else {
         setError(response.error || 'Failed to load webhooks');
       }
-    } catch (err) {
+    } catch (_error) {
       setError('An unexpected error occurred while loading webhooks');
     } finally {
       setLoading(false);
@@ -99,8 +102,7 @@ const WebhookManagementPage: React.FC = () => {
       if (response.success && response.data) {
         setDetailedStats(response.data);
       }
-    } catch (err) {
-      console.error('Failed to load detailed stats:', err);
+    } catch (_error) {
     }
   }, [canReadWebhooks]);
 
@@ -128,14 +130,19 @@ const WebhookManagementPage: React.FC = () => {
       
       if (response.success) {
         setSuccess(response.message || 'Webhook created successfully');
-        setViewMode('list');
+        setShowCreateModal(false);
         loadWebhooks(pagination.current_page);
       } else {
         setError(response.error || 'Failed to create webhook');
       }
-    } catch (err) {
+    } catch (_error) {
       setError('An unexpected error occurred while creating the webhook');
     }
+  };
+
+  const handleCreateModalSuccess = () => {
+    setShowCreateModal(false);
+    loadWebhooks(pagination.current_page);
   };
 
   // Handle webhook update
@@ -152,15 +159,21 @@ const WebhookManagementPage: React.FC = () => {
       
       if (response.success) {
         setSuccess(response.message || 'Webhook updated successfully');
-        setViewMode('list');
+        setShowEditModal(false);
         loadWebhooks(pagination.current_page);
         setSelectedWebhook(null);
       } else {
         setError(response.error || 'Failed to update webhook');
       }
-    } catch (err) {
+    } catch (_error) {
       setError('An unexpected error occurred while updating the webhook');
     }
+  };
+
+  const handleEditModalSuccess = () => {
+    setShowEditModal(false);
+    setSelectedWebhook(null);
+    loadWebhooks(pagination.current_page);
   };
 
   // Handle webhook deletion
@@ -183,7 +196,7 @@ const WebhookManagementPage: React.FC = () => {
       } else {
         setError(response.error || 'Failed to delete webhook');
       }
-    } catch (err) {
+    } catch (_error) {
       setError('An unexpected error occurred while deleting the webhook');
     }
   };
@@ -204,7 +217,7 @@ const WebhookManagementPage: React.FC = () => {
       } else {
         setError(response.error || 'Failed to update webhook status');
       }
-    } catch (err) {
+    } catch (_error) {
       setError('An unexpected error occurred while updating webhook status');
     }
   };
@@ -224,7 +237,7 @@ const WebhookManagementPage: React.FC = () => {
       } else {
         setError(response.error || 'Failed to retry failed deliveries');
       }
-    } catch (err) {
+    } catch (_error) {
       setError('An unexpected error occurred while retrying failed deliveries');
     }
   };
@@ -242,7 +255,7 @@ const WebhookManagementPage: React.FC = () => {
 
   const handleEditWebhook = (webhook: WebhookEndpoint) => {
     setSelectedWebhook(webhook);
-    setViewMode('edit');
+    setShowEditModal(true);
   };
 
   // Clear messages
@@ -361,7 +374,7 @@ const WebhookManagementPage: React.FC = () => {
         actions.push({
           id: 'add-webhook',
           label: 'Add Webhook',
-          onClick: () => setViewMode('create'),
+          onClick: () => setShowCreateModal(true),
           variant: 'primary',
           icon: Plus
         });
@@ -396,8 +409,6 @@ const WebhookManagementPage: React.FC = () => {
 
   // Get page description
   const getPageDescription = () => {
-    if (viewMode === 'create') return 'Create a new webhook endpoint';
-    if (viewMode === 'edit') return 'Edit webhook configuration';
     if (viewMode === 'details') return 'View webhook details and activity';
     if (viewMode === 'stats') return 'Webhook delivery statistics and analytics';
     return 'Configure and monitor webhook endpoints for real-time notifications';
@@ -405,8 +416,6 @@ const WebhookManagementPage: React.FC = () => {
 
   // Get page title
   const getPageTitle = () => {
-    if (viewMode === 'create') return 'Create Webhook';
-    if (viewMode === 'edit') return 'Edit Webhook';
     if (viewMode === 'details') return 'Webhook Details';
     if (viewMode === 'stats') return 'Webhook Statistics';
     return 'Webhook Management';
@@ -455,24 +464,6 @@ const WebhookManagementPage: React.FC = () => {
             />
           )}
 
-          {viewMode === 'create' && canCreateWebhooks && (
-            <div className="bg-theme-surface rounded-lg p-6">
-              <WebhookForm
-                onSubmit={handleCreateWebhook}
-                onCancel={() => setViewMode('list')}
-              />
-            </div>
-          )}
-
-          {viewMode === 'edit' && selectedWebhook && canEditWebhooks && (
-            <div className="bg-theme-surface rounded-lg p-6">
-              <WebhookForm
-                webhook={selectedWebhook}
-                onSubmit={handleUpdateWebhook}
-                onCancel={() => setViewMode('list')}
-              />
-            </div>
-          )}
 
           {viewMode === 'details' && selectedWebhook && (
             <div className="bg-theme-surface rounded-lg p-6">
@@ -496,6 +487,28 @@ const WebhookManagementPage: React.FC = () => {
           )}
         </>
       )}
+
+      {/* Webhook Creation Modal */}
+      <WebhookModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSuccess={handleCreateModalSuccess}
+        onSubmit={handleCreateWebhook}
+        mode="create"
+      />
+
+      {/* Webhook Edit Modal */}
+      <WebhookModal
+        isOpen={showEditModal}
+        onClose={() => {
+          setShowEditModal(false);
+          setSelectedWebhook(null);
+        }}
+        onSuccess={handleEditModalSuccess}
+        onSubmit={(data) => handleUpdateWebhook(data)}
+        webhook={selectedWebhook || undefined}
+        mode="edit"
+      />
     </PageContainer>
   );
 };

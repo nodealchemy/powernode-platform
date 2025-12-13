@@ -1,21 +1,22 @@
+# frozen_string_literal: true
+
 class PaymentMethod < ApplicationRecord
   belongs_to :account
-  belongs_to :user
 
-  validates :provider, presence: true, inclusion: { in: %w[stripe paypal] }
+  validates :gateway, presence: true, inclusion: { in: %w[stripe paypal] }
   validates :external_id, presence: true
   validates :payment_type, presence: true, inclusion: {
     in: %w[card bank paypal apple_pay google_pay]
   }
 
-  scope :for_provider, ->(provider) { where(provider: provider) }
+  scope :for_gateway, ->(gateway) { where(gateway: gateway) }
 
   def stripe?
-    provider == "stripe"
+    gateway == "stripe"
   end
 
   def paypal?
-    provider == "paypal"
+    gateway == "paypal"
   end
 
   def card?
@@ -30,6 +31,14 @@ class PaymentMethod < ApplicationRecord
     payment_type == "paypal"
   end
 
+  def apple_pay?
+    payment_type == "apple_pay"
+  end
+
+  def google_pay?
+    payment_type == "google_pay"
+  end
+
   def display_name
     case payment_type
     when "card"
@@ -38,15 +47,19 @@ class PaymentMethod < ApplicationRecord
       "Bank Account •••• #{last_four}"
     when "paypal"
       "PayPal"
+    when "apple_pay"
+      "Apple Pay"
+    when "google_pay"
+      "Google Pay"
     else
       "Payment Method"
     end
   end
 
   def can_be_used_for_recurring?
-    case provider
+    case gateway
     when "stripe"
-      %w[card bank].include?(payment_type)
+      %w[card bank apple_pay google_pay].include?(payment_type)
     when "paypal"
       paypal_account?
     else

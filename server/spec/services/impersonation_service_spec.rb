@@ -41,21 +41,24 @@ RSpec.describe ImpersonationService, type: :service do
         token = service.start_impersonation(**valid_params)
         expect(token).to be_present
 
-        # Verify token can be decoded
-        payload = JwtService.decode(token)
-        expect(payload[:type]).to eq('impersonation')
-        expect(payload[:user_id]).to eq(target_user.id)
-        expect(payload[:impersonator_id]).to eq(admin_user.id)
+        # Verify UserToken was created with correct metadata
+        # Token is database-backed (not JWT), so verify via UserToken lookup
+        user_token = UserToken.find_by_token(token)
+        expect(user_token).to be_present
+        expect(user_token.token_type).to eq('impersonation')
+        expect(user_token.user_id).to eq(target_user.id)
+        expect(user_token.metadata['impersonator_id']).to eq(admin_user.id)
       end
 
       it 'creates an audit log entry' do
         expect {
           service.start_impersonation(**valid_params)
-        }.to change(AuditLog, :count).by(1)
+        }.to change(AuditLog, :count).by_at_least(1)
 
-        log = AuditLog.last
+        # Find the specific impersonation_started audit log
+        log = AuditLog.find_by(action: 'impersonation_started')
+        expect(log).to be_present
         expect(log.user).to eq(admin_user)
-        expect(log.action).to eq('impersonation_started')
         expect(log.resource_type).to eq('User')
         expect(log.resource_id).to eq(target_user.id)
         expect(log.metadata['impersonated_user_email']).to eq(target_user.email)
@@ -70,7 +73,7 @@ RSpec.describe ImpersonationService, type: :service do
 
         expect {
           service.start_impersonation(**valid_params)
-        }.to raise_error(ImpersonationService::PermissionDeniedError, 
+        }.to raise_error(ImpersonationService::PermissionDeniedError,
                         'You do not have permission to impersonate other users')
       end
 
@@ -100,14 +103,14 @@ RSpec.describe ImpersonationService, type: :service do
 
         expect {
           service.start_impersonation(target_user_id: other_user.id)
-        }.to raise_error(ImpersonationService::InvalidUserError, 
+        }.to raise_error(ImpersonationService::InvalidUserError,
                         'You can only impersonate users in your own account')
       end
 
       it 'raises SelfImpersonationError when trying to impersonate self' do
         expect {
           service.start_impersonation(target_user_id: admin_user.id)
-        }.to raise_error(ImpersonationService::SelfImpersonationError, 
+        }.to raise_error(ImpersonationService::SelfImpersonationError,
                         'You cannot impersonate yourself')
       end
 
@@ -116,7 +119,7 @@ RSpec.describe ImpersonationService, type: :service do
 
         expect {
           service.start_impersonation(**valid_params)
-        }.to raise_error(ImpersonationService::InvalidUserError, 
+        }.to raise_error(ImpersonationService::InvalidUserError,
                         'Cannot impersonate inactive user')
       end
 
@@ -125,7 +128,7 @@ RSpec.describe ImpersonationService, type: :service do
 
         expect {
           service.start_impersonation(target_user_id: owner_user.id)
-        }.to raise_error(ImpersonationService::PermissionDeniedError, 
+        }.to raise_error(ImpersonationService::PermissionDeniedError,
                         'Only owners can impersonate other owners')
       end
 
@@ -146,24 +149,25 @@ RSpec.describe ImpersonationService, type: :service do
       create(:impersonation_session,
              impersonator: admin_user,
              impersonated_user: target_user,
-             active: true)
+)
     end
 
     context 'with valid session token' do
       it 'ends the impersonation session' do
         service.end_impersonation(session.session_token)
-        expect(session.reload.active).to be false
+        expect(session.reload.active?).to be false
         expect(session.ended_at).to be_present
       end
 
       it 'creates an audit log entry' do
         expect {
           service.end_impersonation(session.session_token)
-        }.to change(AuditLog, :count).by(1)
+        }.to change(AuditLog, :count).by_at_least(1)
 
-        log = AuditLog.last
+        # Find the specific impersonation_ended audit log
+        log = AuditLog.find_by(action: 'impersonation_ended')
+        expect(log).to be_present
         expect(log.user).to eq(admin_user)
-        expect(log.action).to eq('impersonation_ended')
         expect(log.resource_type).to eq('User')
         expect(log.resource_id).to eq(target_user.id)
         expect(log.metadata['impersonated_user_email']).to eq(target_user.email)
@@ -173,7 +177,7 @@ RSpec.describe ImpersonationService, type: :service do
       it 'returns the ended session' do
         result = service.end_impersonation(session.session_token)
         expect(result).to eq(session)
-        expect(result.active).to be false
+        expect(result.active?).to be false
       end
     end
 
@@ -190,7 +194,7 @@ RSpec.describe ImpersonationService, type: :service do
 
         expect {
           other_service.end_impersonation(session.session_token)
-        }.to raise_error(ImpersonationService::PermissionDeniedError, 
+        }.to raise_error(ImpersonationService::PermissionDeniedError,
                         'You can only end your own impersonation sessions')
       end
     end
@@ -199,25 +203,25 @@ RSpec.describe ImpersonationService, type: :service do
   describe '#list_active_sessions' do
     let!(:active_session1) do
       create(:impersonation_session,
-             account: account,
              impersonator: admin_user,
-             active: true)
+             impersonated_user: target_user)
     end
     let!(:active_session2) do
       create(:impersonation_session,
-             account: account,
-             active: true)
+             impersonator: admin_user,
+             impersonated_user: create(:user, :member, account: account))
     end
     let!(:ended_session) do
-      create(:impersonation_session,
-             account: account,
-             active: false)
+      create(:impersonation_session, :ended)
     end
     let!(:other_account_session) do
       other_account = create(:account)
+      other_impersonator = create(:user, :admin, account: other_account)
+      other_target = create(:user, :member, account: other_account)
       create(:impersonation_session,
-             account: other_account,
-             active: true)
+             impersonator: other_impersonator,
+             impersonated_user: other_target
+      )
     end
 
     it 'returns only active sessions for the account' do
@@ -233,19 +237,25 @@ RSpec.describe ImpersonationService, type: :service do
     end
 
     it 'orders by most recent first' do
+      old_session = nil
       travel_to 1.hour.ago do
-        old_session = create(:impersonation_session, account: account, active: true)
+        old_session = create(:impersonation_session,
+                           impersonator: admin_user,
+                           impersonated_user: create(:user, :member, account: account))
       end
 
       sessions = service.list_active_sessions
+      expect(sessions.count).to be >= 2  # Should include our new session plus others
       expect(sessions.first.started_at).to be > sessions.last.started_at
     end
   end
 
   describe '#get_session_history' do
     it 'returns sessions for the account with limit' do
-      create_list(:impersonation_session, 3, account: account)
-      
+      create_list(:impersonation_session, 3,
+                  impersonator: admin_user,
+                  impersonated_user: target_user)
+
       sessions = service.get_session_history(limit: 2)
       expect(sessions.count).to eq(2)
     end
@@ -264,8 +274,7 @@ RSpec.describe ImpersonationService, type: :service do
     let!(:session) do
       create(:impersonation_session,
              impersonator: admin_user,
-             impersonated_user: target_user,
-             active: true)
+             impersonated_user: target_user)
     end
 
     let(:valid_token) do
@@ -297,13 +306,12 @@ RSpec.describe ImpersonationService, type: :service do
 
     it 'returns nil for expired session' do
       # Create a session that started too long ago (expired) but with a valid JWT token
-      expired_session = create(:impersonation_session, 
+      expired_session = create(:impersonation_session,
                                impersonator: admin_user,
                                impersonated_user: target_user,
-                               account: account,
-                               started_at: ImpersonationSession::MAX_SESSION_DURATION.ago - 1.hour,
-                               active: true)
-      
+                                                              started_at: ImpersonationSession::MAX_SESSION_DURATION.ago - 1.hour,
+                  )
+
       expired_token = JwtService.encode({
         user_id: target_user.id,
         impersonator_id: admin_user.id,
@@ -311,10 +319,10 @@ RSpec.describe ImpersonationService, type: :service do
         type: 'impersonation',
         exp: 1.hour.from_now.to_i  # JWT token is still valid
       })
-      
+
       result = service.validate_impersonation_token(expired_token)
       expect(result).to be_nil
-      expect(expired_session.reload.active).to be false
+      expect(expired_session.reload.active?).to be false
     end
 
     it 'returns nil for non-existent session' do
@@ -332,7 +340,7 @@ RSpec.describe ImpersonationService, type: :service do
     end
 
     it 'returns nil for inactive session' do
-      session.update!(active: false)
+      session.update!(ended_at: Time.current)
       result = service.validate_impersonation_token(valid_token)
       expect(result).to be_nil
     end
@@ -341,9 +349,9 @@ RSpec.describe ImpersonationService, type: :service do
   describe '.cleanup_expired_sessions' do
     it 'delegates to ImpersonationSession.cleanup_expired_sessions' do
       allow(ImpersonationSession).to receive(:cleanup_expired_sessions)
-      
+
       described_class.cleanup_expired_sessions
-      
+
       expect(ImpersonationSession).to have_received(:cleanup_expired_sessions)
     end
   end

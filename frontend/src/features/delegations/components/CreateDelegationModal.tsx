@@ -4,6 +4,7 @@ import { PermissionSelector } from '@/features/account/components/PermissionSele
 
 interface CreateDelegationModalProps {
   onClose: () => void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onCreate: (data: any) => void;
 }
 
@@ -48,7 +49,6 @@ export const CreateDelegationModal: React.FC<CreateDelegationModalProps> = ({ on
       setAvailableRoles(rolesData);
       setAvailablePermissions(permissionsData);
     } catch (error) {
-      console.error('Failed to load initial data:', error);
     } finally {
       setLoading(false);
     }

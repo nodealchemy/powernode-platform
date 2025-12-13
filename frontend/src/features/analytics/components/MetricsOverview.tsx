@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { AnalyticsData } from '@/pages/app/business/AnalyticsPage';
 import { MetricCard } from '@/shared/components/ui/Card';
 

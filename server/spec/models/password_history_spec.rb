@@ -10,7 +10,6 @@ RSpec.describe PasswordHistory, type: :model do
 
   describe 'validations' do
     it { should validate_presence_of(:password_digest) }
-    it { should validate_presence_of(:created_at) }
   end
 
   describe 'scopes' do
@@ -144,12 +143,6 @@ RSpec.describe PasswordHistory, type: :model do
       history = build(:password_history, password_digest: nil)
       expect(history).not_to be_valid
       expect(history.errors[:password_digest]).to include("can't be blank")
-    end
-
-    it 'requires created_at' do
-      history = build(:password_history, created_at: nil)
-      expect(history).not_to be_valid
-      expect(history.errors[:created_at]).to include("can't be blank")
     end
   end
 end

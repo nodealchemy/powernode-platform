@@ -4,26 +4,30 @@ import { PERMISSIONS, Permission } from '../constants/permissions';
 /**
  * Check if a user has specific permissions using the new permission-based system
  * Supports wildcard permissions (e.g., 'users.*' matches 'users.create', 'users.read', etc.)
+ * Also supports system.admin permission which grants all permissions
  */
 export const hasPermissions = (user: User | null, requiredPermissions?: string[]): boolean => {
   if (!user) return false;
   if (!requiredPermissions || requiredPermissions.length === 0) return true;
-  
+
+  // system.admin permission grants access to all permissions
+  if (user.permissions?.includes('system.admin')) return true;
+
   // Check if user has the required permissions
   return requiredPermissions.some(required => {
     // Direct permission check
     if (user.permissions?.includes(required)) return true;
-    
+
     // Check for wildcard permissions
     const requiredParts = required.split('.');
     if (requiredParts.length === 2) {
       const wildcardPermission = `${requiredParts[0]}.*`;
       if (user.permissions?.includes(wildcardPermission)) return true;
-      
+
       // Check for all permissions wildcard
       if (user.permissions?.includes('*')) return true;
     }
-    
+
     return false;
   });
 };
@@ -93,6 +97,34 @@ export const hasAnalyticsAccess = (user: User | null): boolean => {
 };
 
 /**
+ * Check if user can view knowledge base
+ */
+export const hasKnowledgeBaseAccess = (user: User | null): boolean => {
+  return hasPermissions(user, ['kb.read']);
+};
+
+/**
+ * Check if user can create knowledge base content
+ */
+export const canCreateKnowledgeBase = (user: User | null): boolean => {
+  return hasPermissions(user, ['kb.create']);
+};
+
+/**
+ * Check if user can manage knowledge base
+ */
+export const canManageKnowledgeBase = (user: User | null): boolean => {
+  return hasPermissions(user, ['kb.create', 'kb.edit', 'kb.publish']);
+};
+
+/**
+ * Check if user can moderate knowledge base
+ */
+export const canModerateKnowledgeBase = (user: User | null): boolean => {
+  return hasPermissions(user, ['kb.moderate']) || hasPermissions(user, ['admin.kb.moderate']);
+};
+
+/**
  * Check if user can access advanced analytics features
  */
 export const hasAdvancedAnalyticsAccess = (user: User | null): boolean => {
@@ -114,7 +146,9 @@ export const getUserRolesInfo = (user: User | null) => {
     isManager: isAccountManager(user),
     canManageTeam: hasTeamManagementAccess(user),
     canAccessBilling: hasBillingAccess(user),
-    canAccessAnalytics: hasAnalyticsAccess(user)
+    canAccessAnalytics: hasAnalyticsAccess(user),
+    canAccessKnowledgeBase: hasKnowledgeBaseAccess(user),
+    canManageKnowledgeBase: canManageKnowledgeBase(user)
   };
 };
 
@@ -167,43 +201,43 @@ export const hasResourceAccess = (
  * Check if user can manage users (create, update, delete)
  */
 export const canManageUsers = (user: User | null): boolean => {
-  return hasPermissions(user, [PERMISSIONS.USERS.MANAGE]);
+  return hasPermissions(user, [PERMISSIONS.ADMIN_USER.CREATE]);
 };
 
 /**
  * Check if user can manage team (invite, remove, manage roles)
  */
 export const canManageTeam = (user: User | null): boolean => {
-  return hasPermissions(user, [PERMISSIONS.TEAM.MANAGE]);
+  return hasPermissions(user, [PERMISSIONS.TEAM.INVITE]);
 };
 
 /**
  * Check if user can access system administration
  */
 export const canAccessSystemAdmin = (user: User | null): boolean => {
-  return hasPermissions(user, [PERMISSIONS.SYSTEM.ADMIN]);
+  return hasPermissions(user, [PERMISSIONS.ADMIN.ACCESS]);
 };
 
 /**
  * Check if user can manage content (pages, content)
  */
 export const canManageContent = (user: User | null): boolean => {
-  return hasPermissions(user, [PERMISSIONS.CONTENT.CONTENT_MANAGE]);
+  return hasPermissions(user, [PERMISSIONS.PAGE.CREATE]);
 };
 
 /**
  * Check if user can manage billing
  */
 export const canManageBilling = (user: User | null): boolean => {
-  return hasPermissions(user, [PERMISSIONS.BILLING.MANAGE]);
+  return hasPermissions(user, [PERMISSIONS.BILLING.UPDATE]);
 };
 
 /**
  * Check if user can manage infrastructure (workers, volumes)
  */
 export const canManageInfrastructure = (user: User | null): boolean => {
-  return hasPermissions(user, [PERMISSIONS.INFRASTRUCTURE.WORKERS_MANAGE]) ||
-         hasPermissions(user, [PERMISSIONS.INFRASTRUCTURE.VOLUMES_MANAGE]);
+  return hasPermissions(user, [PERMISSIONS.SYSTEM_WORKERS.CREATE]) ||
+         hasPermissions(user, [PERMISSIONS.SYSTEM_WORKERS.EDIT]);
 };
 
 /**
@@ -217,7 +251,7 @@ export const canExportAnalytics = (user: User | null): boolean => {
  * Check if user can access audit logs
  */
 export const canAccessAuditLogs = (user: User | null): boolean => {
-  return hasPermissions(user, [PERMISSIONS.SECURITY.AUDIT_READ]);
+  return hasPermissions(user, [PERMISSIONS.AUDIT.VIEW]);
 };
 
 /**
@@ -235,27 +269,27 @@ export const getResourcePermissionLevel = (
   switch (resource) {
     case 'users':
       return {
-        read: permissions.includes(PERMISSIONS.USERS.READ),
-        create: permissions.includes(PERMISSIONS.USERS.CREATE),
-        update: permissions.includes(PERMISSIONS.USERS.UPDATE),
-        delete: permissions.includes(PERMISSIONS.USERS.DELETE),
-        manage: permissions.includes(PERMISSIONS.USERS.MANAGE)
+        read: permissions.includes(PERMISSIONS.USER.VIEW),
+        create: permissions.includes('user.create'),
+        update: permissions.includes('user.update'),
+        delete: permissions.includes('user.delete'),
+        manage: permissions.includes('user.manage')
       };
     case 'team':
       return {
-        read: permissions.includes(PERMISSIONS.USERS.READ),
+        read: permissions.includes(PERMISSIONS.TEAM.VIEW),
         invite: permissions.includes(PERMISSIONS.TEAM.INVITE),
         remove: permissions.includes(PERMISSIONS.TEAM.REMOVE),
-        manage: permissions.includes(PERMISSIONS.TEAM.MANAGE),
-        roles: permissions.includes(PERMISSIONS.TEAM.ROLES)
+        manage: permissions.includes('team.manage'),
+        roles: permissions.includes('team.assign_roles')
       };
     case 'billing':
       return {
-        read: permissions.includes(PERMISSIONS.BILLING.READ),
+        read: permissions.includes(PERMISSIONS.BILLING.VIEW),
         update: permissions.includes(PERMISSIONS.BILLING.UPDATE),
-        manage: permissions.includes(PERMISSIONS.BILLING.MANAGE),
-        invoices: permissions.includes(PERMISSIONS.BILLING.INVOICES),
-        payments: permissions.includes(PERMISSIONS.BILLING.PAYMENTS)
+        manage: permissions.includes('billing.manage'),
+        invoices: permissions.includes(PERMISSIONS.INVOICE.VIEW),
+        payments: permissions.includes('billing.payments')
       };
     default:
       return { read: false, create: false, update: false, delete: false, manage: false };

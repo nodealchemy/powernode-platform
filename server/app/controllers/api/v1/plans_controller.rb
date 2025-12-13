@@ -1,50 +1,41 @@
 # frozen_string_literal: true
 
 class Api::V1::PlansController < ApplicationController
-  before_action :authenticate_request, except: [:public_index]
-  before_action :require_plan_management_permission, except: [:index, :show, :public_index]
-  before_action :set_plan, only: [:show, :update, :destroy]
+  before_action :authenticate_request, except: [ :public_index ]
+  before_action :require_plan_management_permission, except: [ :index, :show, :public_index ]
+  before_action :set_plan, only: [ :show, :update, :destroy ]
 
   # GET /api/v1/public/plans (public endpoint for registration)
   def public_index
     @plans = Plan.active.public_plans.order(:price_cents)
 
-    render json: {
-      success: true,
-      data: {
-        plans: @plans.map { |plan| public_plan_data(plan) },
-        total_count: @plans.count
-      }
-    }, status: :ok
+    render_success({
+      plans: @plans.map { |plan| public_plan_data(plan) },
+      total_count: @plans.count
+    })
   end
 
   # GET /api/v1/plans
   def index
-    @plans = if can?('plans.manage') || can?('admin.billing.view')
+    @plans = if can?("plans.manage") || can?("admin.billing.view")
                # Users with manage permission can see all plans
                Plan.includes(:subscriptions).order(:created_at)
-             else
+    else
                # Regular users only see public, active plans
                Plan.active.public_plans.order(:price_cents)
-             end
+    end
 
-    render json: {
-      success: true,
-      data: {
-        plans: @plans.map { |plan| plan_data(plan) },
-        total_count: @plans.count
-      }
-    }, status: :ok
+    render_success({
+      plans: @plans.map { |plan| plan_data(plan) },
+      total_count: @plans.count
+    })
   end
 
   # GET /api/v1/plans/:id
   def show
-    render json: {
-      success: true,
-      data: {
-        plan: detailed_plan_data(@plan)
-      }
-    }, status: :ok
+    render_success({
+      plan: detailed_plan_data(@plan)
+    })
   end
 
   # POST /api/v1/plans
@@ -56,10 +47,10 @@ class Api::V1::PlansController < ApplicationController
       AuditLog.create!(
         user: current_user,
         account: current_user.account,
-        action: 'create_plan',
-        resource_type: 'Plan',
+        action: "create_plan",
+        resource_type: "Plan",
         resource_id: @plan.id,
-        source: 'admin_panel',
+        source: "admin_panel",
         ip_address: request.remote_ip,
         user_agent: request.user_agent,
         metadata: {
@@ -69,78 +60,67 @@ class Api::V1::PlansController < ApplicationController
         }
       )
 
-      render json: {
-        success: true,
-        data: {
+      render_success(
+        {
           plan: detailed_plan_data(@plan),
           message: "Plan created successfully"
-        }
-      }, status: :created
+        },
+        status: :created
+      )
     else
-      render json: {
-        success: false,
-        error: "Failed to create plan",
-        details: @plan.errors.full_messages
-      }, status: :unprocessable_content
+      render_validation_error(@plan)
     end
   end
 
   # PUT /api/v1/plans/:id
   def update
-    old_values = @plan.attributes.slice('name', 'price_cents', 'billing_cycle', 'status')
-    
+    old_values = @plan.attributes.slice("name", "price_cents", "billing_cycle", "status")
+
     if @plan.update(plan_params)
       # Log plan update
       AuditLog.create!(
         user: current_user,
         account: current_user.account,
-        action: 'update_plan',
-        resource_type: 'Plan',
+        action: "update_plan",
+        resource_type: "Plan",
         resource_id: @plan.id,
-        source: 'admin_panel',
+        source: "admin_panel",
         ip_address: request.remote_ip,
         user_agent: request.user_agent,
         old_values: old_values,
-        new_values: @plan.attributes.slice('name', 'price_cents', 'billing_cycle', 'status'),
+        new_values: @plan.attributes.slice("name", "price_cents", "billing_cycle", "status"),
         metadata: {
           plan_name: @plan.name,
           changes: @plan.previous_changes.keys
         }
       )
 
-      render json: {
-        success: true,
-        data: {
-          plan: detailed_plan_data(@plan),
-          message: "Plan updated successfully"
-        }
-      }, status: :ok
+      render_success({
+        plan: detailed_plan_data(@plan),
+        message: "Plan updated successfully"
+      })
     else
-      render json: {
-        success: false,
-        error: "Failed to update plan",
-        details: @plan.errors.full_messages
-      }, status: :unprocessable_content
+      render_validation_error(@plan)
     end
   end
 
   # DELETE /api/v1/plans/:id
   def destroy
     unless @plan.can_be_deleted?
-      return render json: {
-        success: false,
-        error: "Cannot delete plan with active subscriptions"
-      }, status: :unprocessable_content
+      return render_error(
+        "Cannot delete plan with active subscriptions",
+        :unprocessable_content
+      )
     end
 
     # Log plan deletion before destroying
     AuditLog.create!(
       user: current_user,
       account: current_user.account,
-      action: 'delete_plan',
-      resource_type: 'Plan',
+      action: "delete_plan",
+      resource_type: "Plan",
       resource_id: @plan.id,
-      source: 'admin_panel',
+      source: "admin_panel",
       ip_address: request.remote_ip,
       user_agent: request.user_agent,
       old_values: @plan.attributes,
@@ -151,61 +131,52 @@ class Api::V1::PlansController < ApplicationController
     )
 
     if @plan.destroy
-      render json: {
-        success: true,
+      render_success({
         message: "Plan deleted successfully"
-      }, status: :ok
+      })
     else
-      render json: {
-        success: false,
-        error: "Failed to delete plan",
-        details: @plan.errors.full_messages
-      }, status: :unprocessable_content
+      render_validation_error(@plan)
     end
   end
 
   # POST /api/v1/plans/:id/duplicate
   def duplicate
     set_plan
-    
+
     new_plan = @plan.dup
     new_plan.name = "#{@plan.name} (Copy)"
-    new_plan.status = 'inactive'
+    new_plan.status = "inactive"
     new_plan.stripe_price_id = nil
     new_plan.paypal_plan_id = nil
 
     if new_plan.save
-      render json: {
-        success: true,
-        data: {
+      render_success(
+        {
           plan: detailed_plan_data(new_plan),
           message: "Plan duplicated successfully"
-        }
-      }, status: :created
+        },
+        status: :created
+      )
     else
-      render json: {
-        success: false,
-        error: "Failed to duplicate plan",
-        details: new_plan.errors.full_messages
-      }, status: :unprocessable_content
+      render_validation_error(new_plan)
     end
   end
 
   # PUT /api/v1/plans/:id/toggle_status
   def toggle_status
     set_plan
-    
-    new_status = @plan.status == 'active' ? 'inactive' : 'active'
-    
+
+    new_status = @plan.status == "active" ? "inactive" : "active"
+
     if @plan.update(status: new_status)
       # Log status change
       AuditLog.create!(
         user: current_user,
         account: current_user.account,
-        action: 'toggle_plan_status',
-        resource_type: 'Plan',
+        action: "toggle_plan_status",
+        resource_type: "Plan",
         resource_id: @plan.id,
-        source: 'admin_panel',
+        source: "admin_panel",
         ip_address: request.remote_ip,
         user_agent: request.user_agent,
         metadata: {
@@ -215,19 +186,12 @@ class Api::V1::PlansController < ApplicationController
         }
       )
 
-      render json: {
-        success: true,
-        data: {
-          plan: detailed_plan_data(@plan),
-          message: "Plan status updated successfully"
-        }
-      }, status: :ok
+      render_success({
+        plan: detailed_plan_data(@plan),
+        message: "Plan status updated successfully"
+      })
     else
-      render json: {
-        success: false,
-        error: "Failed to update plan status",
-        details: @plan.errors.full_messages
-      }, status: :unprocessable_content
+      render_validation_error(@plan)
     end
   end
 
@@ -236,18 +200,15 @@ class Api::V1::PlansController < ApplicationController
   def set_plan
     @plan = Plan.find(params[:id])
   rescue ActiveRecord::RecordNotFound
-    render json: {
-      success: false,
-      error: "Plan not found"
-    }, status: :not_found
+    render_error("Plan not found", status: :not_found)
   end
 
   def require_plan_management_permission
-    unless current_user.has_permission?('plans.manage') || current_user.has_permission?('admin.billing.view')
-      render json: {
-        success: false,
-        error: "Permission denied: requires plans.manage or admin.billing.view"
-      }, status: :forbidden
+    unless current_user.has_permission?("plans.manage") || current_user.has_permission?("admin.billing.view")
+      render_error(
+        "Permission denied: requires plans.manage or admin.billing.view",
+        :forbidden
+      )
     end
   end
 
@@ -294,7 +255,7 @@ class Api::V1::PlansController < ApplicationController
       formatted_price: plan.price.format,
       monthly_price: plan.monthly_price.format,
       subscription_count: plan.subscriptions.count,
-      active_subscription_count: plan.subscriptions.where(status: ['active', 'trialing']).count,
+      active_subscription_count: plan.subscriptions.where(status: [ "active", "trialing" ]).count,
       can_be_deleted: plan.can_be_deleted?,
       created_at: plan.created_at,
       updated_at: plan.updated_at
@@ -306,7 +267,7 @@ class Api::V1::PlansController < ApplicationController
       features: plan.features,
       limits: plan.limits,
       default_roles: plan.default_roles,
-      required_roles: plan.required_roles || ['account.member'],
+      required_roles: plan.required_roles || [ "account.member" ],
       metadata: plan.metadata || {},
       stripe_price_id: plan.stripe_price_id,
       paypal_plan_id: plan.paypal_plan_id,
@@ -337,6 +298,9 @@ class Api::V1::PlansController < ApplicationController
       trial_days: plan.trial_days,
       formatted_price: plan.price.format,
       monthly_price: plan.monthly_price.format,
+      # Include features and limits for plan cards
+      features: plan.features || {},
+      limits: plan.limits || {},
       # Include discount information for frontend badges
       has_annual_discount: plan.has_annual_discount?,
       annual_discount_percent: plan.annual_discount_percent || 0,

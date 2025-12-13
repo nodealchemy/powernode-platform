@@ -4,13 +4,14 @@ import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { Button } from '@/shared/components/ui/Button';
 import { FormField } from '@/shared/components/ui/FormField';
 import { Copy, Check } from 'lucide-react';
+import { sanitizeQrCode } from '@/shared/utils/sanitizeHtml';
 
 interface TwoFactorSetupProps {
   onComplete?: () => void;
   onCancel?: () => void;
 }
 
-const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ onComplete, onCancel }) => {
+export const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ onComplete, onCancel }) => {
   const [step, setStep] = useState<'enabling' | 'setup' | 'verify' | 'complete'>('enabling');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -30,7 +31,7 @@ const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ onComplete, onCancel })
     
     try {
       const response = await twoFactorApi.enable();
-      
+
       if (response.success) {
         setQrCode(response.qr_code || null);
         setManualKey(response.manual_entry_key || null);
@@ -39,7 +40,7 @@ const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ onComplete, onCancel })
       } else {
         setError(response.error || 'Failed to enable two-factor authentication');
       }
-    } catch (err) {
+    } catch (error) {
       setError('Failed to enable two-factor authentication');
     } finally {
       setLoading(false);
@@ -63,7 +64,7 @@ const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ onComplete, onCancel })
       } else {
         setError(response.error || 'Invalid verification code');
       }
-    } catch (err) {
+    } catch (error) {
       setError('Failed to verify the code. Please try again.');
     } finally {
       setIsVerifying(false);
@@ -104,7 +105,7 @@ const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ onComplete, onCancel })
             <div className="flex flex-col items-center space-y-4">
               <div 
                 className="p-4 bg-theme-surface border border-theme rounded-lg"
-                dangerouslySetInnerHTML={{ __html: qrCode }}
+                dangerouslySetInnerHTML={{ __html: sanitizeQrCode(qrCode) }}
               />
               <p className="text-sm text-theme-secondary text-center">
                 Scan this QR code with Google Authenticator, Authy, or another TOTP app
@@ -252,4 +253,3 @@ const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ onComplete, onCancel })
   );
 };
 
-export default TwoFactorSetup;

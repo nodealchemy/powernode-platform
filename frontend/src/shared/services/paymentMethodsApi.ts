@@ -1,4 +1,5 @@
 import { api } from '@/shared/services/api';
+import { getErrorMessage } from '@/shared/utils/errorHandling';
 
 export interface PaymentMethod {
   id: string;
@@ -68,43 +69,73 @@ export interface PaymentMethodSetupResponse {
 export const paymentMethodsApi = {
   // Get all payment methods for current account
   async getPaymentMethods(): Promise<PaymentMethodsListResponse> {
-    const response = await api.get('/api/v1/payment_methods');
-    return response.data;
+    try {
+      const response = await api.get('/api/v1/payment_methods');
+      return response.data;
+    } catch (error: unknown) {
+      const message = getErrorMessage(error);
+      return { success: false, payment_methods: [], error: message };
+    }
   },
 
   // Get a specific payment method
   async getPaymentMethod(id: string): Promise<PaymentMethodResponse> {
-    const response = await api.get(`/api/v1/payment_methods/${id}`);
-    return response.data;
+    try {
+      const response = await api.get(`/api/v1/payment_methods/${id}`);
+      return response.data;
+    } catch (error: unknown) {
+      const message = getErrorMessage(error);
+      return { success: false, error: message };
+    }
   },
 
   // Create setup intent for adding new payment method
   async createSetupIntent(type: 'card' | 'bank_account' = 'card'): Promise<PaymentMethodSetupResponse> {
-    const response = await api.post('/api/v1/payment_methods/setup_intent', {
-      payment_method_type: type
-    });
-    return response.data;
+    try {
+      const response = await api.post('/api/v1/payment_methods/setup_intent', {
+        payment_method_type: type
+      });
+      return response.data;
+    } catch (error: unknown) {
+      const message = getErrorMessage(error);
+      return { success: false, setup_intent: { id: '', client_secret: '', status: 'error', usage: '', payment_method_types: [] }, error: message };
+    }
   },
 
   // Confirm payment method after client-side setup
   async confirmPaymentMethod(paymentMethodId: string, setupIntentId: string): Promise<PaymentMethodResponse> {
-    const response = await api.post('/api/v1/payment_methods/confirm', {
-      payment_method_id: paymentMethodId,
-      setup_intent_id: setupIntentId
-    });
-    return response.data;
+    try {
+      const response = await api.post('/api/v1/payment_methods/confirm', {
+        payment_method_id: paymentMethodId,
+        setup_intent_id: setupIntentId
+      });
+      return response.data;
+    } catch (error: unknown) {
+      const message = getErrorMessage(error);
+      return { success: false, error: message };
+    }
   },
 
   // Set default payment method
   async setDefaultPaymentMethod(id: string): Promise<PaymentMethodResponse> {
-    const response = await api.put(`/api/v1/payment_methods/${id}/set_default`);
-    return response.data;
+    try {
+      const response = await api.put(`/api/v1/payment_methods/${id}/set_default`);
+      return response.data;
+    } catch (error: unknown) {
+      const message = getErrorMessage(error);
+      return { success: false, error: message };
+    }
   },
 
   // Delete a payment method
   async deletePaymentMethod(id: string): Promise<{ success: boolean; message?: string; error?: string }> {
-    const response = await api.delete(`/api/v1/payment_methods/${id}`);
-    return response.data;
+    try {
+      const response = await api.delete(`/api/v1/payment_methods/${id}`);
+      return response.data;
+    } catch (error: unknown) {
+      const message = getErrorMessage(error);
+      return { success: false, error: message };
+    }
   },
 
   // Utility methods

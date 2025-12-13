@@ -2,7 +2,7 @@ import { useEffect, useCallback } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '@/shared/services';
 import { fetchSubscriptions, setCurrentSubscription } from '../services/slices/subscriptionSlice';
-import { Subscription } from '@/features/subscriptions/services/subscriptionService';
+import { Subscription } from '@/shared/types';
 
 export interface SubscriptionLifecycleHook {
   refreshSubscriptions: () => Promise<void>;
@@ -19,11 +19,12 @@ export const useSubscriptionLifecycle = (): SubscriptionLifecycleHook => {
 
   // Auto-refresh subscriptions every 5 minutes when component is active
   useEffect(() => {
-    const interval = setInterval(() => {
-      dispatch(fetchSubscriptions());
-    }, 5 * 60 * 1000); // 5 minutes
+    // TEMPORARILY DISABLED - Causing automatic page refreshes
+    // const interval = setInterval(() => {
+    //   dispatch(fetchSubscriptions());
+    // }, 5 * 60 * 1000); // 5 minutes
 
-    return () => clearInterval(interval);
+    // return () => clearInterval(interval);
   }, [dispatch]);
 
   // Update current subscription when subscriptions change
@@ -41,7 +42,7 @@ export const useSubscriptionLifecycle = (): SubscriptionLifecycleHook => {
   }, [dispatch]);
 
   const getDaysUntilExpiry = useCallback((subscription: Subscription): number => {
-    const expiryDate = new Date(subscription.currentPeriodEnd);
+    const expiryDate = new Date(subscription.current_period_end);
     const now = new Date();
     const diffTime = expiryDate.getTime() - now.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -49,11 +50,11 @@ export const useSubscriptionLifecycle = (): SubscriptionLifecycleHook => {
   }, []);
 
   const isTrialEnding = useCallback((subscription: Subscription): boolean => {
-    if (subscription.status !== 'trialing' || !subscription.trialEndsAt) {
+    if (subscription.status !== 'trialing' || !subscription.trial_end) {
       return false;
     }
-    
-    const trialEndDate = new Date(subscription.trialEndsAt);
+
+    const trialEndDate = new Date(subscription.trial_end);
     const now = new Date();
     const diffTime = trialEndDate.getTime() - now.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -84,7 +85,7 @@ export const useSubscriptionLifecycle = (): SubscriptionLifecycleHook => {
         return 'expiring';
       }
       
-      const expiryDate = new Date(subscription.currentPeriodEnd);
+      const expiryDate = new Date(subscription.current_period_end);
       if (now > expiryDate) {
         return 'expired';
       }

@@ -1,10 +1,19 @@
 // Common types used across the application
 
-export interface APIResponse<T = any> {
+// Import for use in Subscription interface
+import type { Plan } from '@/features/plans/services/plansApi';
+
+export interface APIResponse<T = unknown> {
   success: boolean;
   data?: T;
   error?: string;
   message?: string;
+}
+
+export interface APIError {
+  message: string;
+  status?: number;
+  code?: string;
 }
 
 export interface PaginatedResponse<T> {
@@ -39,18 +48,9 @@ export interface ChurnMetrics {
   churned_subscriptions: number;
 }
 
-export interface SubscriptionPlan {
-  id: string;
-  name: string;
-  description: string;
-  price_cents: number;
-  currency: string;
-  billing_cycle: 'monthly' | 'quarterly' | 'yearly';
-  trial_days: number;
-  features: Record<string, any>;
-  limits: Record<string, number>;
-  status: 'active' | 'inactive' | 'archived';
-}
+// Re-export Plan types from canonical source (plansApi)
+// Using alias to maintain backward compatibility with SubscriptionPlan name
+export type { Plan as SubscriptionPlan, DetailedPlan, VolumeDiscountTier } from '@/features/plans/services/plansApi';
 
 export interface Subscription {
   id: string;
@@ -59,7 +59,9 @@ export interface Subscription {
   current_period_end: string;
   trial_start?: string;
   trial_end?: string;
-  plan: SubscriptionPlan;
+  canceled_at?: string;
+  ends_at?: string;
+  plan: Plan;
   created_at: string;
   updated_at: string;
 }
@@ -84,4 +86,43 @@ export interface PaymentMethod {
   exp_year?: number;
   is_default: boolean;
   created_at: string;
+}
+
+// Additional shared interfaces for common patterns
+export interface PaymentGatewayConfig {
+  id: string;
+  gateway_type: 'stripe' | 'paypal';
+  is_enabled: boolean;
+  is_default: boolean;
+  configuration: {
+    publishable_key?: string;
+    webhook_secret?: string;
+    client_id?: string;
+    client_secret?: string;
+    environment?: 'sandbox' | 'production';
+  };
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SiteSetting {
+  id: string;
+  key: string;
+  value: string;
+  parsed_value: string | number | boolean | object;
+  setting_type: 'string' | 'number' | 'boolean' | 'json';
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WorkerJobData {
+  job_id?: string;
+  action: string;
+  parameters: Record<string, unknown>;
+  priority?: 'low' | 'normal' | 'high' | 'critical';
+}
+
+export interface FormErrorState {
+  message: string;
+  field?: string;
 }

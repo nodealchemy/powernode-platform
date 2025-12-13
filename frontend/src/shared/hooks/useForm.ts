@@ -1,11 +1,12 @@
 import { useState, useCallback, ChangeEvent, FormEvent } from 'react';
-import { useNotification } from './useNotification';
+import { useNotifications } from './useNotifications';
 
 export interface FormValidationRule {
   required?: boolean;
   minLength?: number;
   maxLength?: number;
   pattern?: RegExp;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   custom?: (value: any) => string | null;
 }
 
@@ -14,6 +15,7 @@ export interface FormValidationRules {
 }
 
 export interface FormField {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   value: any;
   error?: string;
   touched?: boolean;
@@ -42,11 +44,12 @@ export interface UseFormReturn<T> {
   isDirty: boolean;
   
   // Field methods
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   setValue: (field: keyof T, value: any) => void;
   setError: (field: keyof T, error: string) => void;
   clearError: (field: keyof T) => void;
   setTouched: (field: keyof T, touched?: boolean) => void;
-  
+
   // Form methods
   handleChange: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => void;
   handleBlur: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => void;
@@ -54,10 +57,11 @@ export interface UseFormReturn<T> {
   reset: () => void;
   validateField: (field: keyof T) => string | null;
   validateForm: () => boolean;
-  
+
   // Utility methods
   getFieldProps: (field: keyof T) => {
     name: string;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     value: any;
     onChange: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => void;
     onBlur: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => void;
@@ -67,10 +71,11 @@ export interface UseFormReturn<T> {
   };
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function useForm<T extends Record<string, any>>(
   options: UseFormOptions<T>
 ): UseFormReturn<T> {
-  const { showNotification } = useNotification();
+  const { addNotification } = useNotifications();
   const {
     initialValues,
     validationRules = {},
@@ -106,7 +111,7 @@ export function useForm<T extends Record<string, any>>(
   // Extract values, errors, touched from form state
   const values = Object.keys(formState).reduce((acc, key) => {
     // eslint-disable-next-line security/detect-object-injection
-    acc[key as keyof T] = formState[key].value;
+    acc[key as keyof T] = formState[key].value as T[keyof T];
     return acc;
   }, {} as T);
 
@@ -192,17 +197,53 @@ export function useForm<T extends Record<string, any>>(
 
   // Set field value
   const setValue = useCallback(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (field: keyof T, value: any) => {
-      setFormState(prev => ({
-        ...prev,
-        [field]: {
-          ...prev[field as string],
-          value,
-          error: enableRealTimeValidation ? validateField(field) || undefined : prev[field as string]?.error
+      setFormState(prev => {
+        // For real-time validation, we need to validate with the new value
+        let error = prev[field as string]?.error;
+        if (enableRealTimeValidation) {
+          const rules = validationRules[field as string];
+          if (rules) {
+            // Required validation
+            if (rules.required && (value === undefined || value === null || value === '')) {
+              error = `${String(field)} is required`;
+            }
+            // Skip other validations if value is empty and not required
+            else if (!value && !rules.required) {
+              error = undefined;
+            }
+            // String-based validations
+            else if (typeof value === 'string') {
+              if (rules.minLength && value.length < rules.minLength) {
+                error = `${String(field)} must be at least ${rules.minLength} characters`;
+              } else if (rules.maxLength && value.length > rules.maxLength) {
+                error = `${String(field)} must be no more than ${rules.maxLength} characters`;
+              } else if (rules.pattern && !rules.pattern.test(value)) {
+                error = `${String(field)} format is invalid`;
+              } else {
+                error = undefined;
+              }
+            }
+            // Custom validation
+            if (!error && rules.custom) {
+              const customError = rules.custom(value);
+              error = customError || undefined;
+            }
+          }
         }
-      }));
+        
+        return {
+          ...prev,
+          [field]: {
+            ...prev[field as string],
+            value,
+            error
+          }
+        };
+      });
     },
-    [enableRealTimeValidation, validateField]
+    [enableRealTimeValidation, validationRules]
   );
 
   // Set field error
@@ -252,7 +293,7 @@ export function useForm<T extends Record<string, any>>(
     (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
       const { name, value, type } = e.target;
       
-      let processedValue: any = value;
+      let processedValue: unknown = value;
       
       // Handle different input types
       if (type === 'checkbox') {
@@ -304,7 +345,10 @@ export function useForm<T extends Record<string, any>>(
       // Validate all fields
       const isFormValid = validateForm();
       if (!isFormValid) {
-        showNotification('Please correct the errors in the form', 'error');
+        addNotification({
+          type: 'error',
+          message: 'Please correct the errors in the form'
+        });
         return;
       }
 
@@ -314,22 +358,26 @@ export function useForm<T extends Record<string, any>>(
         await onSubmit(values);
         
         if (showSuccessNotification) {
-          showNotification(successMessage, 'success');
+          addNotification({
+            type: 'success',
+            message: successMessage
+          });
         }
         
         if (resetAfterSubmit) {
           reset();
         }
-      } catch (error: any) {
-        showNotification(
-          error?.message || 'An error occurred while submitting the form',
-          'error'
-        );
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'An error occurred while submitting the form';
+        addNotification({
+          type: 'error',
+          message: errorMessage
+        });
       } finally {
         setIsSubmitting(false);
       }
     },
-    [validateForm, onSubmit, values, showNotification, showSuccessNotification, successMessage, resetAfterSubmit, reset]
+    [validateForm, onSubmit, values, addNotification, showSuccessNotification, successMessage, resetAfterSubmit, reset]
   );
 
   // Get props for a field (convenience method)

@@ -45,9 +45,11 @@ export const AppsPage: React.FC = () => {
     navigate(`/app/marketplace/apps/${app.id}`);
   };
 
-  const handleCreateSuccess = (app: App) => {
+  const handleCreateSuccess = (app: unknown) => {
     setRefreshKey(prev => prev + 1);
-    navigate(`/app/marketplace/apps/${app.id}`);
+    if (app && typeof app === 'object' && 'id' in app) {
+      navigate(`/app/marketplace/apps/${(app as any).id}`);
+    }
   };
 
   return (
@@ -81,7 +83,7 @@ export const AppsPage: React.FC = () => {
                     Draft apps can be edited and configured
                   </span>
                   <span className="flex items-center gap-1">
-                    <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+                    <span className="w-2 h-2 bg-theme-info rounded-full"></span>
                     Apps under review are being evaluated
                   </span>
                 </div>

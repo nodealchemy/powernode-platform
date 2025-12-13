@@ -4,8 +4,8 @@ import { useSelector } from 'react-redux';
 import { RootState } from '@/shared/services';
 import { usersApi, User, AdminAccount } from '@/features/users/services/usersApi';
 import { hasAdminAccess } from '@/shared/utils/permissionUtils';
-import ImpersonateUserModal from './ImpersonateUserModal';
-import CreateUserModal from './CreateUserModal';
+import { ImpersonateUserModal } from './ImpersonateUserModal';
+import { CreateUserModal } from './CreateUserModal';
 
 export const SystemUserManagement: React.FC = () => {
   const { user: currentUser } = useSelector((state: RootState) => state.auth);
@@ -29,7 +29,6 @@ export const SystemUserManagement: React.FC = () => {
 
   useEffect(() => {
     if (!isAdmin) {
-      console.error('Unauthorized access to system user management');
       return;
     }
     loadSystemData();
@@ -51,7 +50,6 @@ export const SystemUserManagement: React.FC = () => {
         setAccounts(accountsResponse.data?.accounts || []);
       }
     } catch (error) {
-      console.error('Failed to load system data:', error);
     } finally {
       setLoading(false);
     }
@@ -64,7 +62,6 @@ export const SystemUserManagement: React.FC = () => {
       await usersApi.suspendUser(userId);
       loadSystemData();
     } catch (error) {
-      console.error('Failed to suspend user:', error);
     }
   };
 
@@ -73,7 +70,6 @@ export const SystemUserManagement: React.FC = () => {
       await usersApi.activateUser(userId);
       loadSystemData();
     } catch (error) {
-      console.error('Failed to activate user:', error);
     }
   };
 
@@ -84,7 +80,6 @@ export const SystemUserManagement: React.FC = () => {
       await usersApi.deleteUser(userId);
       loadSystemData();
     } catch (error) {
-      console.error('Failed to delete user:', error);
     }
   };
 
@@ -145,7 +140,7 @@ export const SystemUserManagement: React.FC = () => {
 
   const filteredUsers = users.filter(user => {
     if (filters.search && !user.email.toLowerCase().includes(filters.search.toLowerCase()) &&
-        !`${user.first_name} ${user.last_name}`.toLowerCase().includes(filters.search.toLowerCase())) {
+        !user.name.toLowerCase().includes(filters.search.toLowerCase())) {
       return false;
     }
     if (filters.accountId && user.account?.id !== filters.accountId) return false;
@@ -301,12 +296,12 @@ export const SystemUserManagement: React.FC = () => {
                     <div className="flex items-center space-x-3">
                       <div className="h-8 w-8 rounded-full bg-gradient-to-br from-theme-interactive-primary to-theme-interactive-secondary flex items-center justify-center">
                         <span className="text-white text-xs font-bold">
-                          {user.first_name?.[0]}{user.last_name?.[0]}
+                          {user.name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
                         </span>
                       </div>
                       <div>
                         <p className="font-medium text-theme-primary">
-                          {user.first_name} {user.last_name}
+                          {user.name}
                         </p>
                         <p className="text-sm text-theme-secondary">{user.email}</p>
                       </div>
@@ -403,7 +398,7 @@ export const SystemUserManagement: React.FC = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm text-theme-secondary">Name</label>
-                    <p className="text-theme-primary">{selectedUser.first_name} {selectedUser.last_name}</p>
+                    <p className="text-theme-primary">{selectedUser.name}</p>
                   </div>
                   <div>
                     <label className="block text-sm text-theme-secondary">Email</label>
@@ -514,4 +509,3 @@ export const SystemUserManagement: React.FC = () => {
   );
 };
 
-export default SystemUserManagement;

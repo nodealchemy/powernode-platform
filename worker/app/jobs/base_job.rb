@@ -1,4 +1,8 @@
+# frozen_string_literal: true
+
 require 'sidekiq'
+require 'digest'
+require 'json'
 
 # Base job class for all Powernode worker jobs
 # Provides common functionality, error handling, and API client access
@@ -24,18 +28,31 @@ class BaseJob
 
   def perform(*args)
     @started_at = Time.current
+
+    # Check for runaway loops before executing
+    check_runaway_loop(*args)
+
     logger.info "Starting #{self.class.name} with args: #{args.inspect}"
-    
-    execute(*args)
-    
+
+    result = execute(*args)
+
     @finished_at = Time.current
     duration = @finished_at - @started_at
     logger.info "Completed #{self.class.name} in #{duration.round(2)}s"
+
+    # Record successful execution
+    record_execution_success(*args)
+
+    result
   rescue StandardError => e
     @finished_at = Time.current
     duration = @finished_at - @started_at
     logger.error "Failed #{self.class.name} after #{duration.round(2)}s: #{e.message}"
     logger.error e.backtrace.join("\n") if logger.level <= Logger::DEBUG
+
+    # Record execution failure
+    record_execution_failure(*args, e)
+
     raise
   end
 
@@ -50,6 +67,9 @@ class BaseJob
   def api_client
     @api_client ||= BackendApiClient.new
   end
+
+  # Alias for backward compatibility with reports job
+  alias_method :backend_api_client, :api_client
 
   # Logger instance
   def logger
@@ -83,6 +103,102 @@ class BaseJob
     end
   end
 
+  # Standardized logging methods (consistent with BaseWorkerService)
+  def log_info(message, **metadata)
+    logger.info format_log_message(message, **metadata)
+  end
+
+  def log_error(message, exception = nil, **metadata)
+    error_details = {
+      message: message,
+      exception: exception&.class&.name,
+      exception_message: exception&.message,
+      backtrace: exception&.backtrace&.first(5)
+    }.merge(metadata).compact
+
+    logger.error format_log_message(message, **error_details)
+  end
+
+  def log_warn(message, **metadata)
+    logger.warn format_log_message(message, **metadata)
+  end
+
+  # Metrics tracking methods (for monitoring and analytics)
+  def increment_counter(metric_name, tags = {})
+    # Track counter metric - can be enhanced with actual metrics service
+    log_info("[METRIC] increment: #{metric_name}", **tags)
+    record_metric(:counter, metric_name, 1, tags)
+  end
+
+  def track_performance_metric(metric_name, value, tags = {})
+    # Track performance/timing metric
+    log_info("[METRIC] performance: #{metric_name}=#{value}", **tags)
+    record_metric(:gauge, metric_name, value, tags)
+  end
+
+  def track_cleanup_metrics(metrics = {})
+    # Track cleanup-related metrics
+    log_info("[METRIC] cleanup: #{metrics.to_json}")
+    metrics.each do |key, value|
+      record_metric(:gauge, "cleanup_#{key}", value, {})
+    end
+  end
+
+  def track_error_metric(error_type, context = {})
+    # Track error occurrences
+    log_info("[METRIC] error: #{error_type}", **context)
+    record_metric(:counter, "error_#{error_type}", 1, context)
+  end
+
+  private
+
+  def record_metric(type, name, value, tags)
+    # Store metrics in Redis for later aggregation
+    # This provides a foundation for metrics collection
+    begin
+      metric_data = {
+        type: type,
+        name: name,
+        value: value,
+        tags: tags,
+        job_class: self.class.name,
+        timestamp: Time.current.to_f
+      }
+
+      redis = Sidekiq.redis_pool.with { |conn| conn }
+      redis.lpush("job_metrics:#{name}", metric_data.to_json)
+      redis.ltrim("job_metrics:#{name}", 0, 999) # Keep last 1000 entries
+      redis.expire("job_metrics:#{name}", 86400) # Expire after 24 hours
+    rescue StandardError => e
+      # Don't fail the job if metrics recording fails
+      logger.debug "Failed to record metric #{name}: #{e.message}"
+    end
+  end
+
+  public
+
+  # Format log messages with consistent structure
+  def format_log_message(message, **metadata)
+    if metadata.any?
+      "#{message} | #{metadata.map { |k, v| "#{k}=#{v}" }.join(' ')}"
+    else
+      message
+    end
+  end
+
+  # Idempotency helpers for preventing duplicate processing
+  # Check if a job with the given idempotency key has already been processed
+  def already_processed?(idempotency_key, ttl: 86400)
+    redis = Sidekiq.redis_pool.with { |conn| conn }
+    redis.exists?("idempotency:#{idempotency_key}")
+  end
+
+  # Mark a job as processed with the given idempotency key
+  def mark_processed(idempotency_key, ttl: 86400)
+    redis = Sidekiq.redis_pool.with { |conn| conn }
+    redis.setex("idempotency:#{idempotency_key}", ttl, Time.current.to_f)
+  end
+
   # Helper to handle API errors with retry logic
   def with_api_retry(max_attempts: 3, &block)
     attempts = 0
@@ -103,6 +219,95 @@ class BaseJob
   end
 
   private
+
+  # Loop detection and prevention methods
+  def check_runaway_loop(*args)
+    job_key = generate_job_key(*args)
+    execution_key = "job_executions:#{job_key}"
+
+    # Get recent execution timestamps
+    redis = Sidekiq.redis_pool.with { |conn| conn }
+    recent_executions = redis.lrange(execution_key, 0, -1).map(&:to_f)
+
+    # Check if we have too many executions in a short time window
+    now = Time.current.to_f
+    recent_window = 60 # 1 minute
+    failure_window = 300 # 5 minutes
+
+    # Count executions in the last minute
+    recent_count = recent_executions.count { |timestamp| (now - timestamp) <= recent_window }
+
+    # Count total executions in the last 5 minutes
+    total_count = recent_executions.count { |timestamp| (now - timestamp) <= failure_window }
+
+    # Detect runaway loop conditions
+    if recent_count >= 5 # More than 5 executions in 1 minute
+      logger.error "RUNAWAY LOOP DETECTED: #{recent_count} executions of #{self.class.name} in last #{recent_window}s"
+      logger.error "Job args: #{args.inspect}"
+      logger.error "Recent timestamps: #{recent_executions.last(10).inspect}"
+
+      # Disable this specific job combination for 5 minutes
+      redis.setex("job_disabled:#{job_key}", 300, "runaway_loop_detected")
+
+      raise StandardError, "Runaway loop detected: #{recent_count} executions in #{recent_window}s. Job disabled for 5 minutes."
+    elsif total_count >= 15 # More than 15 executions in 5 minutes
+      logger.warn "HIGH FREQUENCY EXECUTION: #{total_count} executions of #{self.class.name} in last #{failure_window}s"
+      logger.warn "Job args: #{args.inspect}"
+
+      # Add a delay to slow down execution
+      sleep(5)
+    end
+
+    # Check if this job is currently disabled
+    disabled_key = "job_disabled:#{job_key}"
+    reason = redis.get(disabled_key)
+    if reason && !reason.empty?
+      raise StandardError, "Job execution disabled: #{reason}"
+    end
+
+    # Record this execution attempt
+    redis.lpush(execution_key, now)
+    redis.ltrim(execution_key, 0, 20) # Keep only last 20 executions
+    redis.expire(execution_key, failure_window + 60) # Auto-expire after 6 minutes
+  end
+
+  def record_execution_success(*args)
+    job_key = generate_job_key(*args)
+    success_key = "job_success:#{job_key}"
+
+    redis = Sidekiq.redis_pool.with { |conn| conn }
+    redis.setex(success_key, 300, Time.current.to_f) # Record success for 5 minutes
+  end
+
+  def record_execution_failure(*args, exception)
+    job_key = generate_job_key(*args)
+    failure_key = "job_failures:#{job_key}"
+
+    failure_data = {
+      timestamp: Time.current.to_f,
+      error_class: exception.class.name,
+      error_message: exception.message,
+      job_class: self.class.name
+    }
+
+    redis = Sidekiq.redis_pool.with { |conn| conn }
+    redis.lpush(failure_key, failure_data.to_json)
+    redis.ltrim(failure_key, 0, 9) # Keep only last 10 failures
+    redis.expire(failure_key, 3600) # Auto-expire after 1 hour
+  end
+
+  def generate_job_key(*args)
+    # Create a consistent key for the same job + arguments combination
+    # For workflow jobs, use the workflow run ID as the key component
+    if args.first.is_a?(String) && args.first.match?(/^[0-9a-f-]+$/)
+      # Assume first argument is a UUID (workflow run ID, etc.)
+      "#{self.class.name}:#{args.first}"
+    else
+      # For other jobs, create a hash of the arguments
+      args_hash = Digest::SHA256.hexdigest(args.to_json)[0..15]
+      "#{self.class.name}:#{args_hash}"
+    end
+  end
 
   def retryable_error?(error)
     case error.status

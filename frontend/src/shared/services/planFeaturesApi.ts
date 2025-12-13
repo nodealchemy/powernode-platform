@@ -1,4 +1,8 @@
 import { api } from '@/shared/services/api';
+import { isErrorWithResponse } from '@/shared/utils/errorHandling';
+
+// Feature value types
+export type FeatureValue = boolean | number | string | null;
 
 // Types
 export interface PlanFeature {
@@ -7,7 +11,7 @@ export interface PlanFeature {
   description: string;
   type: 'boolean' | 'numeric' | 'text' | 'enum';
   category: 'core' | 'advanced' | 'integrations' | 'support' | 'analytics';
-  default_value: any;
+  default_value: FeatureValue;
   validation_rules?: {
     min?: number;
     max?: number;
@@ -24,7 +28,7 @@ export interface PlanLimit {
   id: string;
   plan_id: string;
   feature_id: string;
-  value: any;
+  value: FeatureValue;
   is_unlimited: boolean;
   is_enabled: boolean;
   custom_message?: string;
@@ -52,7 +56,7 @@ export interface PlanTemplate {
   id: string;
   name: string;
   description: string;
-  features: Record<string, any>;
+  features: Record<string, FeatureValue>;
   is_default: boolean;
 }
 
@@ -70,7 +74,7 @@ export interface PlanComparison {
   features: PlanFeature[];
   plans: Array<{
     plan: Plan;
-    feature_values: Record<string, any>;
+    feature_values: Record<string, FeatureValue>;
   }>;
 }
 
@@ -79,7 +83,7 @@ export interface FeatureFormData {
   description: string;
   type: 'boolean' | 'numeric' | 'text' | 'enum';
   category: 'core' | 'advanced' | 'integrations' | 'support' | 'analytics';
-  default_value: any;
+  default_value: FeatureValue;
   validation_rules?: {
     min?: number;
     max?: number;
@@ -90,7 +94,7 @@ export interface FeatureFormData {
 }
 
 export interface LimitFormData {
-  value: any;
+  value: FeatureValue;
   is_unlimited: boolean;
   is_enabled: boolean;
   custom_message?: string;
@@ -103,11 +107,10 @@ export const planFeaturesApi = {
     try {
       const response = await api.get('/admin/plan_features');
       return response.data;
-    } catch (error: any) {
-      console.error('Failed to fetch plan features:', error);
+    } catch (error) {
       return {
         success: false,
-        error: error.response?.data?.error || 'Failed to fetch plan features'
+        error: isErrorWithResponse(error) ? (error.response?.data?.error || 'Failed to fetch plan features') : 'Failed to fetch plan features'
       };
     }
   },
@@ -116,11 +119,10 @@ export const planFeaturesApi = {
     try {
       const response = await api.post('/admin/plan_features', { feature: featureData });
       return response.data;
-    } catch (error: any) {
-      console.error('Failed to create plan feature:', error);
+    } catch (error) {
       return {
         success: false,
-        error: error.response?.data?.error || 'Failed to create plan feature'
+        error: isErrorWithResponse(error) ? (error.response?.data?.error || 'Failed to create plan feature') : 'Failed to create plan feature'
       };
     }
   },
@@ -129,11 +131,10 @@ export const planFeaturesApi = {
     try {
       const response = await api.put(`/admin/plan_features/${featureId}`, { feature: featureData });
       return response.data;
-    } catch (error: any) {
-      console.error('Failed to update plan feature:', error);
+    } catch (error) {
       return {
         success: false,
-        error: error.response?.data?.error || 'Failed to update plan feature'
+        error: isErrorWithResponse(error) ? (error.response?.data?.error || 'Failed to update plan feature') : 'Failed to update plan feature'
       };
     }
   },
@@ -142,11 +143,10 @@ export const planFeaturesApi = {
     try {
       const response = await api.delete(`/admin/plan_features/${featureId}`);
       return response.data;
-    } catch (error: any) {
-      console.error('Failed to delete plan feature:', error);
+    } catch (error) {
       return {
         success: false,
-        error: error.response?.data?.error || 'Failed to delete plan feature'
+        error: isErrorWithResponse(error) ? (error.response?.data?.error || 'Failed to delete plan feature') : 'Failed to delete plan feature'
       };
     }
   },
@@ -156,11 +156,10 @@ export const planFeaturesApi = {
     try {
       const response = await api.get('/admin/plans');
       return response.data;
-    } catch (error: any) {
-      console.error('Failed to fetch plans:', error);
+    } catch (error) {
       return {
         success: false,
-        error: error.response?.data?.error || 'Failed to fetch plans'
+        error: isErrorWithResponse(error) ? (error.response?.data?.error || 'Failed to fetch plans') : 'Failed to fetch plans'
       };
     }
   },
@@ -169,11 +168,10 @@ export const planFeaturesApi = {
     try {
       const response = await api.get(`/admin/plans/${planId}`);
       return response.data;
-    } catch (error: any) {
-      console.error('Failed to fetch plan:', error);
+    } catch (error) {
       return {
         success: false,
-        error: error.response?.data?.error || 'Failed to fetch plan'
+        error: isErrorWithResponse(error) ? (error.response?.data?.error || 'Failed to fetch plan') : 'Failed to fetch plan'
       };
     }
   },
@@ -183,11 +181,10 @@ export const planFeaturesApi = {
     try {
       const response = await api.put(`/admin/plans/${planId}/limits/${featureId}`, { limit: limitData });
       return response.data;
-    } catch (error: any) {
-      console.error('Failed to update plan limit:', error);
+    } catch (error) {
       return {
         success: false,
-        error: error.response?.data?.error || 'Failed to update plan limit'
+        error: isErrorWithResponse(error) ? (error.response?.data?.error || 'Failed to update plan limit') : 'Failed to update plan limit'
       };
     }
   },
@@ -196,11 +193,10 @@ export const planFeaturesApi = {
     try {
       const response = await api.put(`/admin/plans/${planId}/limits`, { limits });
       return response.data;
-    } catch (error: any) {
-      console.error('Failed to bulk update plan limits:', error);
+    } catch (error) {
       return {
         success: false,
-        error: error.response?.data?.error || 'Failed to bulk update plan limits'
+        error: isErrorWithResponse(error) ? (error.response?.data?.error || 'Failed to bulk update plan limits') : 'Failed to bulk update plan limits'
       };
     }
   },
@@ -210,11 +206,10 @@ export const planFeaturesApi = {
     try {
       const response = await api.get('/admin/plan_templates');
       return response.data;
-    } catch (error: any) {
-      console.error('Failed to fetch plan templates:', error);
+    } catch (error) {
       return {
         success: false,
-        error: error.response?.data?.error || 'Failed to fetch plan templates'
+        error: isErrorWithResponse(error) ? (error.response?.data?.error || 'Failed to fetch plan templates') : 'Failed to fetch plan templates'
       };
     }
   },
@@ -223,11 +218,10 @@ export const planFeaturesApi = {
     try {
       const response = await api.post(`/admin/plans/${planId}/apply_template`, { template_id: templateId });
       return response.data;
-    } catch (error: any) {
-      console.error('Failed to apply plan template:', error);
+    } catch (error) {
       return {
         success: false,
-        error: error.response?.data?.error || 'Failed to apply plan template'
+        error: isErrorWithResponse(error) ? (error.response?.data?.error || 'Failed to apply plan template') : 'Failed to apply plan template'
       };
     }
   },
@@ -237,11 +231,10 @@ export const planFeaturesApi = {
     try {
       const response = await api.get('/admin/plans/comparison');
       return response.data;
-    } catch (error: any) {
-      console.error('Failed to fetch plan comparison:', error);
+    } catch (error) {
       return {
         success: false,
-        error: error.response?.data?.error || 'Failed to fetch plan comparison'
+        error: isErrorWithResponse(error) ? (error.response?.data?.error || 'Failed to fetch plan comparison') : 'Failed to fetch plan comparison'
       };
     }
   },
@@ -252,25 +245,23 @@ export const planFeaturesApi = {
       const params = accountId ? `?account_id=${accountId}` : '';
       const response = await api.get(`/admin/feature_usage${params}`);
       return response.data;
-    } catch (error: any) {
-      console.error('Failed to fetch feature usage:', error);
+    } catch (error) {
       return {
         success: false,
-        error: error.response?.data?.error || 'Failed to fetch feature usage'
+        error: isErrorWithResponse(error) ? (error.response?.data?.error || 'Failed to fetch feature usage') : 'Failed to fetch feature usage'
       };
     }
   },
 
   // Validation
-  async validateFeatureValue(featureId: string, value: any): Promise<{ success: boolean; valid?: boolean; errors?: string[]; error?: string }> {
+  async validateFeatureValue(featureId: string, value: FeatureValue): Promise<{ success: boolean; valid?: boolean; errors?: string[]; error?: string }> {
     try {
       const response = await api.post(`/admin/plan_features/${featureId}/validate`, { value });
       return response.data;
-    } catch (error: any) {
-      console.error('Failed to validate feature value:', error);
+    } catch (error) {
       return {
         success: false,
-        error: error.response?.data?.error || 'Failed to validate feature value'
+        error: isErrorWithResponse(error) ? (error.response?.data?.error || 'Failed to validate feature value') : 'Failed to validate feature value'
       };
     }
   },
@@ -293,7 +284,7 @@ export const planFeaturesApi = {
       case 'advanced': return 'bg-theme-success bg-opacity-10 text-theme-success';
       case 'integrations': return 'bg-theme-info bg-opacity-10 text-theme-info';
       case 'support': return 'bg-theme-warning bg-opacity-10 text-theme-warning';
-      case 'analytics': return 'bg-purple-100 text-purple-800';
+      case 'analytics': return 'bg-theme-interactive-primary/10 text-theme-interactive-primary';
       default: return 'bg-theme-surface text-theme-secondary';
     }
   },
@@ -308,7 +299,7 @@ export const planFeaturesApi = {
     }
   },
 
-  formatFeatureValue(feature: PlanFeature, value: any): string {
+  formatFeatureValue(feature: PlanFeature, value: FeatureValue): string {
     if (value === null || value === undefined) return 'Not set';
     
     switch (feature.type) {
@@ -397,7 +388,7 @@ export const planFeaturesApi = {
       }
 
       if (feature.type === 'enum' && feature.validation_rules?.enum_values) {
-        if (!feature.validation_rules.enum_values.includes(data.value)) {
+        if (!feature.validation_rules.enum_values.includes(String(data.value))) {
           errors.push('Value must be one of the allowed options');
         }
       }

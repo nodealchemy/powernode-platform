@@ -178,5 +178,3 @@ export const InviteTeamMemberModal: React.FC<InviteTeamMemberModalProps> = ({
     </Modal>
   );
 };
-
-export default InviteTeamMemberModal;

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { appEndpointsApi } from '../services/endpointsApi';
 import { AppEndpoint, AppEndpointFilters, AppEndpointFormData } from '../types';
-import { useNotification } from '@/shared/hooks/useNotification';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 
 export const useAppEndpoints = (appId: string, filters: AppEndpointFilters = {}) => {
   const [endpoints, setEndpoints] = useState<AppEndpoint[]>([]);
@@ -15,7 +15,7 @@ export const useAppEndpoints = (appId: string, filters: AppEndpointFilters = {})
     per_page: 20
   });
   
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
 
   const loadEndpoints = useCallback(async (newFilters: AppEndpointFilters = {}) => {
     if (!appId) return;
@@ -27,9 +27,8 @@ export const useAppEndpoints = (appId: string, filters: AppEndpointFilters = {})
       const response = await appEndpointsApi.getEndpoints(appId, { ...filters, ...newFilters });
       setEndpoints(response.data);
       setPagination(response.pagination);
-    } catch (err) {
+    } catch (error) {
       setError('Failed to load API endpoints');
-      console.error('Error loading endpoints:', err);
     } finally {
       setLoading(false);
     }
@@ -52,9 +51,8 @@ export const useAppEndpoints = (appId: string, filters: AppEndpointFilters = {})
       showNotification('API endpoint created successfully', 'success');
       await loadEndpoints();
       return endpoint;
-    } catch (err) {
+    } catch (error) {
       showNotification('Failed to create API endpoint', 'error');
-      console.error('Error creating endpoint:', err);
       return null;
     }
   };
@@ -65,9 +63,8 @@ export const useAppEndpoints = (appId: string, filters: AppEndpointFilters = {})
       showNotification('API endpoint updated successfully', 'success');
       await loadEndpoints();
       return endpoint;
-    } catch (err) {
+    } catch (error) {
       showNotification('Failed to update API endpoint', 'error');
-      console.error('Error updating endpoint:', err);
       return null;
     }
   };
@@ -78,9 +75,8 @@ export const useAppEndpoints = (appId: string, filters: AppEndpointFilters = {})
       showNotification('API endpoint deleted successfully', 'success');
       await loadEndpoints();
       return true;
-    } catch (err) {
+    } catch (error) {
       showNotification('Failed to delete API endpoint', 'error');
-      console.error('Error deleting endpoint:', err);
       return false;
     }
   };
@@ -91,9 +87,8 @@ export const useAppEndpoints = (appId: string, filters: AppEndpointFilters = {})
       showNotification('API endpoint activated successfully', 'success');
       await loadEndpoints();
       return true;
-    } catch (err) {
+    } catch (error) {
       showNotification('Failed to activate API endpoint', 'error');
-      console.error('Error activating endpoint:', err);
       return false;
     }
   };
@@ -104,21 +99,19 @@ export const useAppEndpoints = (appId: string, filters: AppEndpointFilters = {})
       showNotification('API endpoint deactivated successfully', 'success');
       await loadEndpoints();
       return true;
-    } catch (err) {
+    } catch (error) {
       showNotification('Failed to deactivate API endpoint', 'error');
-      console.error('Error deactivating endpoint:', err);
       return false;
     }
   };
 
-  const testEndpoint = async (endpointId: string, testData?: any, testHeaders?: Record<string, string>) => {
+  const testEndpoint = async (endpointId: string, testData?: Record<string, unknown>, testHeaders?: Record<string, string>) => {
     try {
       const result = await appEndpointsApi.testEndpoint(appId, endpointId, testData, testHeaders);
       showNotification('API endpoint test completed successfully', 'success');
       return result;
-    } catch (err) {
+    } catch (error) {
       showNotification('Failed to test API endpoint', 'error');
-      console.error('Error testing endpoint:', err);
       return null;
     }
   };
@@ -146,7 +139,7 @@ export const useAppEndpoint = (appId: string, endpointId: string) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotifications();
 
   const loadEndpoint = useCallback(async () => {
     if (!appId || !endpointId) return;
@@ -157,9 +150,8 @@ export const useAppEndpoint = (appId: string, endpointId: string) => {
     try {
       const data = await appEndpointsApi.getEndpoint(appId, endpointId);
       setEndpoint(data);
-    } catch (err) {
+    } catch (error) {
       setError('Failed to load API endpoint');
-      console.error('Error loading endpoint:', err);
     } finally {
       setLoading(false);
     }
@@ -175,9 +167,8 @@ export const useAppEndpoint = (appId: string, endpointId: string) => {
       showNotification('API endpoint updated successfully', 'success');
       setEndpoint(updatedEndpoint);
       return updatedEndpoint;
-    } catch (err) {
+    } catch (error) {
       showNotification('Failed to update API endpoint', 'error');
-      console.error('Error updating endpoint:', err);
       return null;
     }
   };
@@ -185,9 +176,8 @@ export const useAppEndpoint = (appId: string, endpointId: string) => {
   const getAnalytics = async (days: number = 30) => {
     try {
       return await appEndpointsApi.getEndpointAnalytics(appId, endpointId, days);
-    } catch (err) {
+    } catch (error) {
       showNotification('Failed to load endpoint analytics', 'error');
-      console.error('Error loading analytics:', err);
       return null;
     }
   };
