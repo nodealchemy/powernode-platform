@@ -93,22 +93,16 @@ export const WelcomePage: React.FC<WelcomePageProps> = ({ pageSlug = 'welcome' }
             {/* Trust Indicators */}
             <div className="flex justify-center flex-wrap gap-4 mb-12">
               <div className="inline-flex items-center space-x-2 bg-white/10 backdrop-blur-sm px-4 py-2 rounded-full border border-white/20">
-                <svg className="w-5 h-5 text-theme-success" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                </svg>
-                <span className="text-sm font-medium text-white">SOC 2 Compliant</span>
+                <span className="text-lg">🤖</span>
+                <span className="text-sm font-medium text-white">AI-Powered</span>
               </div>
               <div className="inline-flex items-center space-x-2 bg-white/10 backdrop-blur-sm px-4 py-2 rounded-full border border-white/20">
-                <svg className="w-5 h-5 text-theme-info" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                </svg>
-                <span className="text-sm font-medium text-white">PCI Compliant</span>
+                <span className="text-lg">🔒</span>
+                <span className="text-sm font-medium text-white">Enterprise Security</span>
               </div>
               <div className="inline-flex items-center space-x-2 bg-white/10 backdrop-blur-sm px-4 py-2 rounded-full border border-white/20">
-                <svg className="w-5 h-5 text-theme-interactive-primary" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                </svg>
-                <span className="text-sm font-medium text-white">99.9% Uptime</span>
+                <span className="text-lg">⚡</span>
+                <span className="text-sm font-medium text-white">Real-time</span>
               </div>
             </div>
 
@@ -132,41 +126,33 @@ export const WelcomePage: React.FC<WelcomePageProps> = ({ pageSlug = 'welcome' }
       <section className="py-20 bg-white/10 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">Why Choose Powernode?</h2>
-            <p className="text-xl text-white/80 max-w-2xl mx-auto">Everything you need to manage, grow, and scale your subscription business.</p>
+            <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">AI-Powered Platform</h2>
+            <p className="text-xl text-white/80 max-w-2xl mx-auto">Intelligent automation and insights to transform your business.</p>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
             <div className="bg-white/10 backdrop-blur-sm p-8 rounded-2xl shadow-lg border border-white/20 transform hover:scale-105 transition-all duration-300">
-              <div className="w-12 h-12 bg-theme-info/20 rounded-xl flex items-center justify-center mb-6">
-                <span className="text-2xl">💳</span>
+              <div className="w-12 h-12 bg-gradient-to-br from-purple-500/30 to-pink-500/30 rounded-xl flex items-center justify-center mb-6">
+                <span className="text-2xl">🤖</span>
               </div>
-              <h3 className="text-xl font-semibold text-white mb-4">Automated Billing</h3>
-              <p className="text-white/70">Handle subscriptions, invoicing, and recurring payments seamlessly with our intelligent billing system.</p>
+              <h3 className="text-xl font-semibold text-white mb-4">AI Agents</h3>
+              <p className="text-white/70">Deploy intelligent agents that automate workflows, analyze data, and make smart decisions in real-time.</p>
             </div>
 
             <div className="bg-white/10 backdrop-blur-sm p-8 rounded-2xl shadow-lg border border-white/20 transform hover:scale-105 transition-all duration-300">
-              <div className="w-12 h-12 bg-theme-success/20 rounded-xl flex items-center justify-center mb-6">
-                <span className="text-2xl">📊</span>
+              <div className="w-12 h-12 bg-gradient-to-br from-blue-500/30 to-cyan-500/30 rounded-xl flex items-center justify-center mb-6">
+                <span className="text-2xl">🧠</span>
               </div>
-              <h3 className="text-xl font-semibold text-white mb-4">Real-time Analytics</h3>
-              <p className="text-white/70">Track revenue, monitor customer lifecycle, and get actionable insights to grow your business.</p>
+              <h3 className="text-xl font-semibold text-white mb-4">Predictive Analytics</h3>
+              <p className="text-white/70">AI-driven insights that forecast trends, identify opportunities, and optimize your operations.</p>
             </div>
 
             <div className="bg-white/10 backdrop-blur-sm p-8 rounded-2xl shadow-lg border border-white/20 transform hover:scale-105 transition-all duration-300">
-              <div className="w-12 h-12 bg-purple-600/20 rounded-xl flex items-center justify-center mb-6">
-                <span className="text-2xl">🔒</span>
+              <div className="w-12 h-12 bg-gradient-to-br from-green-500/30 to-emerald-500/30 rounded-xl flex items-center justify-center mb-6">
+                <span className="text-2xl">⚡</span>
               </div>
-              <h3 className="text-xl font-semibold text-white mb-4">Enterprise Security</h3>
-              <p className="text-white/70">PCI-compliant infrastructure with advanced encryption and security measures to protect your data.</p>
-            </div>
-
-            <div className="bg-white/10 backdrop-blur-sm p-8 rounded-2xl shadow-lg border border-white/20 transform hover:scale-105 transition-all duration-300">
-              <div className="w-12 h-12 bg-amber-500/20 rounded-xl flex items-center justify-center mb-6">
-                <span className="text-2xl">🚀</span>
-              </div>
-              <h3 className="text-xl font-semibold text-white mb-4">API-First Platform</h3>
-              <p className="text-white/70">Integrate seamlessly with your existing tools using our comprehensive REST API and webhooks.</p>
+              <h3 className="text-xl font-semibold text-white mb-4">Smart Automation</h3>
+              <p className="text-white/70">Automate billing, notifications, and customer workflows with intelligent orchestration.</p>
             </div>
           </div>
         </div>
@@ -175,14 +161,14 @@ export const WelcomePage: React.FC<WelcomePageProps> = ({ pageSlug = 'welcome' }
       {/* CTA Section */}
       <section className="py-20">
         <div className="max-w-4xl mx-auto text-center px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">Ready to Transform Your Subscription Business?</h2>
-          <p className="text-xl text-white/80 mb-8">Join thousands of businesses already using Powernode to manage their subscriptions.</p>
+          <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">Get Started Today</h2>
+          <p className="text-xl text-white/80 mb-8">Experience the power of AI-driven automation.</p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link to="/plans" className="inline-flex items-center justify-center px-8 py-4 bg-white hover:bg-theme-surface text-slate-800 font-semibold rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl">
-              Start Free Trial
+            <Link to="/register" className="inline-flex items-center justify-center px-8 py-4 bg-white hover:bg-theme-surface text-slate-800 font-semibold rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl">
+              Create Account
             </Link>
-            <Link to="/contact" className="inline-flex items-center justify-center px-8 py-4 border-2 border-white/30 hover:border-white/60 text-white hover:text-white font-semibold rounded-xl transition-all duration-200 transform hover:scale-105">
-              Schedule Demo
+            <Link to="/login" className="inline-flex items-center justify-center px-8 py-4 border-2 border-white/30 hover:border-white/60 text-white hover:text-white font-semibold rounded-xl transition-all duration-200 transform hover:scale-105">
+              Sign In
             </Link>
           </div>
         </div>
