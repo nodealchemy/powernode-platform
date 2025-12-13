@@ -29,7 +29,7 @@ export interface CheckpointEvent {
   sequence_number: number;
   progress_percentage: number;
   timestamp: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface CircuitBreakerEvent {
@@ -40,7 +40,7 @@ export interface CircuitBreakerEvent {
   severity?: 'high' | 'medium' | 'low';
   message?: string;
   timestamp: string;
-  stats?: Record<string, any>;
+  stats?: Record<string, unknown>;
 }
 
 export interface UseRetryStatusUpdatesOptions {

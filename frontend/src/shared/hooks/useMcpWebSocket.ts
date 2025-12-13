@@ -149,7 +149,7 @@ export const useMcpWebSocket = ({
       pendingRequests.current.set(requestId, { resolve, reject, timeout });
 
       // Send via WebSocket
-      sendMessage('McpChannel', 'json_rpc_request', request)
+      sendMessage('McpChannel', 'json_rpc_request', request as unknown as Record<string, unknown>)
         .catch((error) => {
           clearTimeout(timeout);
           pendingRequests.current.delete(requestId);

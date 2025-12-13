@@ -1,8 +1,12 @@
 /**
+ * WebSocket message type - can be any JSON-serializable value
+ */
+export type WebSocketMessage = Record<string, unknown> | string | number | boolean | null | unknown[];
+
+/**
  * Safely sends a message through WebSocket with proper state checking
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const safeWebSocketSend = (ws: WebSocket | null, message: any, maxRetries = 3, retryDelay = 100): Promise<boolean> => {
+export const safeWebSocketSend = (ws: WebSocket | null, message: WebSocketMessage, maxRetries = 3, retryDelay = 100): Promise<boolean> => {
   return new Promise((resolve) => {
     if (!ws) {
       resolve(false);

@@ -24,7 +24,7 @@ interface UseWebSocketReturn {
   error: string | null;
   lastConnected: Date | null;
   subscribe: (subscription: ChannelSubscription) => () => void;
-  sendMessage: (channel: string, action: string, data?: unknown, params?: Record<string, unknown>) => Promise<boolean>;
+  sendMessage: (channel: string, action: string, data?: Record<string, unknown>, params?: Record<string, unknown>) => Promise<boolean>;
 }
 
 /**
@@ -98,7 +98,7 @@ export const useWebSocket = (): UseWebSocketReturn => {
   const sendMessage = useCallback(async (
     channel: string,
     action: string,
-    data?: unknown,
+    data?: Record<string, unknown>,
     params?: Record<string, unknown>
   ): Promise<boolean> => {
     return wsManager.sendMessage(channel, action, data, params);

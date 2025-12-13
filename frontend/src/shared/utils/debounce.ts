@@ -1,6 +1,10 @@
-// Debounce utility for form validation and search
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function debounce<T extends (...args: unknown[]) => unknown>(
+/**
+ * Debounce utility for form validation and search
+ *
+ * Creates a debounced version of a function that delays execution
+ * until after the specified wait time has elapsed since the last call.
+ */
+export function debounce<T extends (...args: Parameters<T>) => ReturnType<T>>(
   func: T,
   wait: number
 ): (...args: Parameters<T>) => void {
@@ -12,19 +16,22 @@ export function debounce<T extends (...args: unknown[]) => unknown>(
   };
 }
 
-// Async debounce for form validation
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function debounceAsync<T extends (...args: any[]) => Promise<any>>(
-  func: T,
+/**
+ * Async debounce for form validation
+ *
+ * Creates a debounced version of an async function. Each call returns a promise
+ * that resolves with the result of the function after the wait period.
+ * Previous pending calls are rejected with an Error('Debounced').
+ */
+export function debounceAsync<TArgs extends unknown[], TReturn>(
+  func: (...args: TArgs) => Promise<TReturn>,
   wait: number
-): (...args: Parameters<T>) => Promise<ReturnType<T>> {
+): (...args: TArgs) => Promise<TReturn> {
   let timeout: NodeJS.Timeout;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let resolvePromise: ((value: any) => void) | null = null;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let rejectPromise: ((reason?: any) => void) | null = null;
+  let resolvePromise: ((value: TReturn) => void) | null = null;
+  let rejectPromise: ((reason?: Error) => void) | null = null;
 
-  return (...args: Parameters<T>): Promise<ReturnType<T>> => {
+  return (...args: TArgs): Promise<TReturn> => {
     return new Promise((resolve, reject) => {
       // Clear existing timeout and reject previous promise
       if (timeout) {
@@ -45,7 +52,7 @@ export function debounceAsync<T extends (...args: any[]) => Promise<any>>(
           }
         } catch (error) {
           if (rejectPromise) {
-            rejectPromise(error);
+            rejectPromise(error instanceof Error ? error : new Error(String(error)));
           }
         }
       }, wait);

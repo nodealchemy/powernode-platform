@@ -24,42 +24,17 @@ import { useWorkflowExecution } from '@/shared/hooks/useWorkflowExecution';
 import { HistoryControls } from './HistoryControls';
 import { ExecutionStats } from './ExecutionOverlay';
 
-// Custom Node Components
-import { StartNode } from './nodes/StartNode';
-import { EndNode } from './nodes/EndNode';
+// Import extracted constants and utilities
+import {
+  NODE_TYPES,
+  EDGE_TYPES,
+  DEFAULT_EDGE_OPTIONS,
+  generateUniqueEdgeId,
+  migrateHandleId,
+  calculateOptimalSide,
+  snapToGridPosition as snapToGridUtil
+} from './workflow-builder';
 import { getDefaultHandlePositions, type HandlePositions } from './nodes/DynamicNodeHandles';
-import { AiAgentNode } from './nodes/AiAgentNode';
-import { ApiCallNode } from './nodes/ApiCallNode';
-import { ConditionNode } from './nodes/ConditionNode';
-import { TriggerNode } from './nodes/TriggerNode';
-import { TransformNode } from './nodes/TransformNode';
-import { LoopNode } from './nodes/LoopNode';
-import { DelayNode } from './nodes/DelayNode';
-import { HumanApprovalNode } from './nodes/HumanApprovalNode';
-import { SubWorkflowNode } from './nodes/SubWorkflowNode';
-import { MergeNode } from './nodes/MergeNode';
-import { SplitNode } from './nodes/SplitNode';
-import { WebhookNode } from './nodes/WebhookNode';
-// Data Manipulation Nodes
-import { DatabaseNode } from './nodes/DatabaseNode';
-import { EmailNode } from './nodes/EmailNode';
-import { FileNode } from './nodes/FileNode';
-import { ValidatorNode } from './nodes/ValidatorNode';
-// AI-Specific Nodes
-import { PromptTemplateNode } from './nodes/PromptTemplateNode';
-import { DataProcessorNode } from './nodes/DataProcessorNode';
-// Integration Nodes
-import { SchedulerNode } from './nodes/SchedulerNode';
-import { NotificationNode } from './nodes/NotificationNode';
-// Consolidated Node Components (Phase 1A)
-import { KbArticleNode } from './nodes/KbArticleNode';
-import { PageNode } from './nodes/PageNode';
-import { McpOperationNode } from './nodes/McpOperationNode';
-
-// Custom Edge Components
-import { ConditionalEdge } from './edges/ConditionalEdge';
-import { CurvedEdge } from './edges/CurvedEdge';
-import { ColoredEdge } from './edges/ColoredEdge';
 
 // Components
 import { NodePalette } from './NodePalette';
@@ -71,36 +46,6 @@ import { WorkflowProvider } from './WorkflowContext';
 import { AiWorkflow, AiWorkflowNode, BaseWorkflowNodeData } from '@/shared/types/workflow';
 import { AiAgent } from '@/shared/types/ai';
 import { agentsApi } from '@/shared/services/ai';
-
-// Helper function to generate absolutely unique edge IDs
-const generateUniqueEdgeId = (baseId: string = 'edge'): string => {
-  return `${baseId}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}-${performance.now().toString(36)}`;
-};
-
-// Migrate obsolete handle IDs to new utilitarian IDs
-const migrateHandleId = (handleId: string | null | undefined, isSource: boolean): string => {
-  // Map obsolete IDs to new IDs
-  const sourceMap: Record<string, string> = {
-    'default': 'output',
-    'out1': 'branch-1',
-    'out2': 'branch-2',
-    'out3': 'branch-3',
-    'loop-continue': 'exit',
-  };
-  const targetMap: Record<string, string> = {
-    'default': 'input',
-    'in1': 'merge-1',
-    'in2': 'merge-2',
-    'in3': 'merge-3',
-  };
-
-  if (!handleId) {
-    return isSource ? 'output' : 'input';
-  }
-
-  const map = isSource ? sourceMap : targetMap;
-  return map[handleId] || handleId;
-};
 
 
 export interface WorkflowBuilderProps {
@@ -216,12 +161,7 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
 
   // Snap to grid utility function - snaps nodes by their top-left corner
   const snapToGridPosition = useCallback((position: { x: number; y: number }) => {
-    if (!snapToGrid) return position;
-
-    return {
-      x: Math.round(position.x / gridSize) * gridSize,
-      y: Math.round(position.y / gridSize) * gridSize
-    };
+    return snapToGridUtil(position, snapToGrid, gridSize);
   }, [snapToGrid, gridSize]);
 
   // Custom node change handler that applies snap-to-grid
@@ -247,64 +187,14 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
     setHasChanges(true);
   }, [onNodesChangeOriginal, snapToGrid, snapToGridPosition]);
 
-  // Memoized node types to prevent Handle component errors
-  const nodeTypes = useMemo(() => ({
-    // Core Flow Nodes
-    start: StartNode,
-    end: EndNode,
-    trigger: TriggerNode,
-    condition: ConditionNode,
-    loop: LoopNode,
-    delay: DelayNode,
-    merge: MergeNode,
-    split: SplitNode,
-    // AI & Processing Nodes
-    ai_agent: AiAgentNode,
-    prompt_template: PromptTemplateNode,
-    data_processor: DataProcessorNode,
-    transform: TransformNode,
-    // Data Operations Nodes
-    database: DatabaseNode,
-    file: FileNode,
-    validator: ValidatorNode,
-    // Communication Nodes
-    email: EmailNode,
-    notification: NotificationNode,
-    // Integration Nodes
-    api_call: ApiCallNode,
-    webhook: WebhookNode,
-    scheduler: SchedulerNode,
-    // Process Nodes
-    human_approval: HumanApprovalNode,
-    sub_workflow: SubWorkflowNode,
-    // Consolidated Node Types (Phase 1A)
-    // KB Article: unified node with action parameter (create, read, update, search, publish)
-    kb_article: KbArticleNode,
-    // Page: unified node with action parameter (create, read, update, publish)
-    page: PageNode,
-    // MCP Operation: unified node with operation_type parameter (tool, resource, prompt)
-    mcp_operation: McpOperationNode,
-  }), []);
+  // Use extracted node types (memoized to prevent Handle component errors)
+  const nodeTypes = useMemo(() => NODE_TYPES, []);
 
-  // Memoized edge types for custom edge components
-  const edgeTypes = useMemo(() => ({
-    default: ColoredEdge, // Color-coded edges based on handle type
-    colored: ColoredEdge, // Explicit colored edge
-    conditional: ConditionalEdge, // Dashed conditional edge with label
-    bezier: CurvedEdge,
-    curved: CurvedEdge,
-  }), []);
+  // Use extracted edge types
+  const edgeTypes = useMemo(() => EDGE_TYPES, []);
 
-  // Default edge options - ColoredEdge handles styling based on handle type
-  const defaultEdgeOptions = useMemo(() => ({
-    type: 'default', // Uses ColoredEdge component for color-coded edges
-    animated: false,
-    markerEnd: {
-      type: 'arrowclosed' as const,
-      width: 8,
-      height: 8,
-    },
-  }), []);
+  // Use extracted default edge options
+  const defaultEdgeOptions = useMemo(() => DEFAULT_EDGE_OPTIONS, []);
 
   // React Flow instance for coordinate transformations
   const reactFlowInstance = useRef<ReactFlowInstance | null>(null);
@@ -900,37 +790,6 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
             nodePositions.set(node.id, node.position);
           }
         });
-
-        // Calculate optimal handle position based on relative node positions
-        const calculateOptimalSide = (
-          sourcePos: { x: number; y: number },
-          targetPos: { x: number; y: number },
-          isSource: boolean
-        ): 'top' | 'bottom' | 'left' | 'right' => {
-          const dx = targetPos.x - sourcePos.x;
-          const dy = targetPos.y - sourcePos.y;
-
-          // Determine the dominant direction
-          if (Math.abs(dx) > Math.abs(dy)) {
-            // Horizontal relationship is stronger
-            if (dx > 0) {
-              // Target is to the right of source
-              return isSource ? 'right' : 'left';
-            } else {
-              // Target is to the left of source
-              return isSource ? 'left' : 'right';
-            }
-          } else {
-            // Vertical relationship is stronger
-            if (dy > 0) {
-              // Target is below source
-              return isSource ? 'bottom' : 'top';
-            } else {
-              // Target is above source
-              return isSource ? 'top' : 'bottom';
-            }
-          }
-        };
 
         // Build handle positions for each node based on its connections
         const calculateNodeHandlePositions = (nodeId: string, nodeData: BaseWorkflowNodeData): HandlePositions => {

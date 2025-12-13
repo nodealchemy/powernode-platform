@@ -53,7 +53,8 @@ FactoryBot.define do
         {
           'bucket' => 'test-bucket',
           'project_id' => 'test-project',
-          'credentials' => 'encrypted:test_credentials'
+          'location' => 'US',
+          'service_account_json' => '{"type": "service_account", "project_id": "test-project"}'
         }
       end
     end
@@ -63,8 +64,33 @@ FactoryBot.define do
       configuration do
         {
           'container' => 'test-container',
-          'account_name' => 'testaccount',
-          'access_key' => 'encrypted:test_key'
+          'storage_account_name' => 'teststorageaccount',
+          'account_name' => 'teststorageaccount', # alias for provider compatibility
+          'account_key' => 'dGVzdGtleQ==' # base64 encoded 'testkey'
+        }
+      end
+    end
+
+    trait :nfs do
+      provider_type { 'nfs' }
+      configuration do
+        {
+          'mount_path' => Rails.root.join('tmp', 'test_nfs_storage').to_s,
+          'server_address' => '192.168.1.100',
+          'share_path' => '/exports/storage'
+        }
+      end
+    end
+
+    trait :smb do
+      provider_type { 'smb' }
+      configuration do
+        {
+          'mount_path' => Rails.root.join('tmp', 'test_smb_storage').to_s,
+          'server_address' => '192.168.1.200',
+          'share_name' => 'storage',
+          'username' => 'testuser',
+          'domain' => 'WORKGROUP'
         }
       end
     end

@@ -229,7 +229,8 @@ RSpec.describe AiProvider, type: :model do
         provider = create(:ai_provider)
 
         expect(provider).to receive(:invalidate_provider_cache)
-        provider.update!(configuration: { updated: true })
+        # Use a configuration with models to avoid being overwritten by set_default_configuration_from_type
+        provider.update!(configuration: { models: %w[new-model-1 new-model-2], default_model: "new-model-1" })
       end
 
       it 'triggers health check when endpoint changes' do
@@ -614,10 +615,24 @@ RSpec.describe AiProvider, type: :model do
       end
 
       it 'configures providers with appropriate defaults' do
-        described_class.setup_default_providers(account)
+        providers = described_class.setup_default_providers(account)
 
-        openai_provider = account.ai_providers.find_by(provider_type: 'openai')
-        expect(openai_provider.configuration['models']).to be_present
+        # Verify providers were created
+        expect(providers).to be_present
+        openai_provider = providers.find { |p| p.provider_type == 'openai' }
+        expect(openai_provider).to be_present
+
+        # Debug: show validation errors if not persisted
+        unless openai_provider.persisted?
+          Rails.logger.info "Validation errors: #{openai_provider.errors.full_messages}"
+        end
+        expect(openai_provider).to be_persisted
+
+        # Configuration should have models (works with both string and symbol keys via indifferent access)
+        config = openai_provider.configuration
+        expect(config).to be_a(Hash)
+        models = config[:models] || config['models']
+        expect(models).to be_present
         expect(openai_provider.rate_limit).to be_present
       end
     end

@@ -3,18 +3,24 @@ import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '@/shared/services';
 import { startImpersonation } from '@/shared/services/slices/authSlice';
 import { usersApi, User, UserFormData, UserStats } from '@/features/users/services/usersApi';
-import { getUserInitials } from '@/shared/utils/userUtils';
-import { Button } from '@/shared/components/ui/Button';
-import { Modal } from '@/shared/components/ui/Modal';
-import { Badge } from '@/shared/components/ui/Badge';
-import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
-import { UserPlus, RefreshCw, Search, Filter, Download, UserCheck, Shield, Users, MoreHorizontal, Unlock, Mail, Ban, CheckCircle, Key } from 'lucide-react';
+import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
+import { UserPlus, RefreshCw, Filter, Download } from 'lucide-react';
 import { UserRolesModal } from '@/features/users/components/UserRolesModal';
+import {
+  UserStatsCards,
+  UserFiltersPanel,
+  BulkActionsBar,
+  UsersTable,
+  CreateUserModal,
+  EditUserModal,
+  DeleteUserModal,
+  StatusFilter,
+  SortBy,
+  SortOrder
+} from './admin-users';
 
-interface AdminUsersPageProps {}
-
-const AdminUsersPage: React.FC<AdminUsersPageProps> = () => {
+const AdminUsersPage: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const { user: currentUser } = useSelector((state: RootState) => state.auth);
   const [users, setUsers] = useState<User[]>([]);
@@ -29,16 +35,14 @@ const AdminUsersPage: React.FC<AdminUsersPageProps> = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showRolesModal, setShowRolesModal] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
-  // Roles state for Create Modal (Edit roles moved to separate modal)
   const [availableRoles, setAvailableRoles] = useState<Array<{ value: string; label: string; description: string }>>([]);
   const [rolesLoading, setRolesLoading] = useState(true);
 
   // Filtering and search state
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'suspended' | 'inactive'>('all');
-  // roleFilter removed - role management in separate modal
-  const [sortBy, setSortBy] = useState<'name' | 'email' | 'created_at' | 'last_login_at'>('name');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [sortBy, setSortBy] = useState<SortBy>('name');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
   const [showFilters, setShowFilters] = useState(false);
   const [openDropdownUserId, setOpenDropdownUserId] = useState<string | null>(null);
 
@@ -53,13 +57,13 @@ const AdminUsersPage: React.FC<AdminUsersPageProps> = () => {
   });
   const [formErrors, setFormErrors] = useState<string[]>([]);
 
-  // Load available roles for Create Modal
+  // Load available roles
   const loadAvailableRoles = useCallback(async () => {
     try {
       setRolesLoading(true);
       const roles = await usersApi.getAvailableRoles();
       setAvailableRoles(roles);
-    } catch (error) {
+    } catch {
       setAvailableRoles([]);
     } finally {
       setRolesLoading(false);
@@ -71,7 +75,7 @@ const AdminUsersPage: React.FC<AdminUsersPageProps> = () => {
     try {
       setLoading(true);
       setError(null);
-      
+
       const [usersResponse, statsResponse] = await Promise.all([
         usersApi.getAllUsers(),
         usersApi.getUserStats()
@@ -88,7 +92,7 @@ const AdminUsersPage: React.FC<AdminUsersPageProps> = () => {
       } else {
         setUserStats(null);
       }
-    } catch (error) {
+    } catch {
       setError('Failed to load users. Please check your connection and try again.');
     } finally {
       setLoading(false);
@@ -104,23 +108,18 @@ const AdminUsersPage: React.FC<AdminUsersPageProps> = () => {
   useEffect(() => {
     let filtered = [...users];
 
-    // Apply search filter
     if (searchTerm) {
-      filtered = filtered.filter(user => 
+      filtered = filtered.filter(user =>
         user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
         user.phone?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
-    // Apply status filter
     if (statusFilter !== 'all') {
       filtered = filtered.filter(user => user.status === statusFilter);
     }
 
-    // Role filtering removed - managed in separate modal
-
-    // Apply sorting
     filtered.sort((a, b) => {
       let aVal: string | Date;
       let bVal: string | Date;
@@ -154,16 +153,12 @@ const AdminUsersPage: React.FC<AdminUsersPageProps> = () => {
     setFilteredUsers(filtered);
   }, [users, searchTerm, statusFilter, sortBy, sortOrder]);
 
-  // Handle form changes
+  // Form handlers
   const handleFormChange = (field: keyof UserFormData, value: string | string[]) => {
     setFormData(prev => ({ ...prev, [field]: value }));
-    // Clear form errors when user starts typing
-    if (formErrors.length > 0) {
-      setFormErrors([]);
-    }
+    if (formErrors.length > 0) setFormErrors([]);
   };
 
-  // Reset form
   const resetForm = () => {
     setFormData({
       name: '',
@@ -177,7 +172,7 @@ const AdminUsersPage: React.FC<AdminUsersPageProps> = () => {
     setSelectedUser(null);
   };
 
-  // Handle bulk selection
+  // Selection handlers
   const toggleUserSelection = (userId: string) => {
     const newSelected = new Set(selectedUsers);
     if (newSelected.has(userId)) {
@@ -193,43 +188,6 @@ const AdminUsersPage: React.FC<AdminUsersPageProps> = () => {
       setSelectedUsers(new Set());
     } else {
       setSelectedUsers(new Set(filteredUsers.map(u => u.id)));
-    }
-  };
-
-  // Handle bulk actions
-  const handleBulkAction = async (action: 'suspend' | 'activate' | 'delete' | 'export') => {
-    if (selectedUsers.size === 0) return;
-
-    try {
-      setActionLoading(true);
-      const userIds = Array.from(selectedUsers);
-
-      switch (action) {
-        case 'suspend':
-          await Promise.all(userIds.map(id => usersApi.suspendUser(id, 'Bulk suspended by administrator')));
-          break;
-        case 'activate':
-          await Promise.all(userIds.map(id => usersApi.activateUser(id)));
-          break;
-        case 'delete':
-          if (window.confirm(`Are you sure you want to delete ${selectedUsers.size} users? This action cannot be undone.`)) {
-            await Promise.all(userIds.map(id => usersApi.deleteUser(id)));
-          } else {
-            return;
-          }
-          break;
-        case 'export':
-          const selectedUserData = filteredUsers.filter(u => selectedUsers.has(u.id));
-          exportUsers(selectedUserData);
-          return;
-      }
-
-      await loadData();
-      setSelectedUsers(new Set());
-    } catch (error) {
-      setError(`Failed to ${action} selected users. Please try again.`);
-    } finally {
-      setActionLoading(false);
     }
   };
 
@@ -260,7 +218,44 @@ const AdminUsersPage: React.FC<AdminUsersPageProps> = () => {
     window.URL.revokeObjectURL(url);
   };
 
-  // Handle user impersonation
+  // Bulk actions
+  const handleBulkAction = async (action: 'suspend' | 'activate' | 'delete' | 'export') => {
+    if (selectedUsers.size === 0) return;
+
+    try {
+      setActionLoading(true);
+      const userIds = Array.from(selectedUsers);
+
+      switch (action) {
+        case 'suspend':
+          await Promise.all(userIds.map(id => usersApi.suspendUser(id, 'Bulk suspended by administrator')));
+          break;
+        case 'activate':
+          await Promise.all(userIds.map(id => usersApi.activateUser(id)));
+          break;
+        case 'delete':
+          if (window.confirm(`Are you sure you want to delete ${selectedUsers.size} users? This action cannot be undone.`)) {
+            await Promise.all(userIds.map(id => usersApi.deleteUser(id)));
+          } else {
+            return;
+          }
+          break;
+        case 'export':
+          const selectedUserData = filteredUsers.filter(u => selectedUsers.has(u.id));
+          exportUsers(selectedUserData);
+          return;
+      }
+
+      await loadData();
+      setSelectedUsers(new Set());
+    } catch {
+      setError(`Failed to ${action} selected users. Please try again.`);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Impersonation
   const handleImpersonateUser = async (user: User) => {
     if (user.id === currentUser?.id) {
       setError('Cannot impersonate yourself');
@@ -273,8 +268,6 @@ const AdminUsersPage: React.FC<AdminUsersPageProps> = () => {
         user_id: user.id,
         reason: 'Admin impersonation'
       })).unwrap();
-
-      // The Redux action automatically handles token storage
       window.location.href = '/app';
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to impersonate user. Please try again.';
@@ -284,7 +277,7 @@ const AdminUsersPage: React.FC<AdminUsersPageProps> = () => {
     }
   };
 
-  // Handle create user
+  // Create user
   const handleCreateUser = async () => {
     const errors = usersApi.validateUserData(formData);
     if (errors.length > 0) {
@@ -295,7 +288,7 @@ const AdminUsersPage: React.FC<AdminUsersPageProps> = () => {
     try {
       setActionLoading(true);
       const response = await usersApi.createUser(formData);
-      
+
       if (response.success) {
         await loadData();
         setShowCreateModal(false);
@@ -304,14 +297,8 @@ const AdminUsersPage: React.FC<AdminUsersPageProps> = () => {
         setFormErrors([response.message || 'Failed to create user']);
       }
     } catch (error: unknown) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error('User creation error:', error);
-      }
-
-      // Type-safe error handling
       const axiosError = error as { code?: string; response?: { status?: number; data?: { errors?: unknown; message?: string } }; message?: string };
 
-      // Handle different error types
       if (axiosError.code === 'ERR_NETWORK' || axiosError.code === 'ERR_FAILED') {
         setFormErrors(['Network error: Unable to connect to the server. Please check your connection.']);
       } else if (axiosError.response?.status === 401) {
@@ -319,7 +306,6 @@ const AdminUsersPage: React.FC<AdminUsersPageProps> = () => {
       } else if (axiosError.response?.status === 403) {
         setFormErrors(['Permission denied: You do not have permission to create users.']);
       } else if (axiosError.response?.status === 422) {
-        // Validation errors from backend
         const validationErrors = axiosError.response?.data?.errors || axiosError.response?.data?.message;
         if (typeof validationErrors === 'object' && validationErrors !== null) {
           setFormErrors(Object.values(validationErrors as Record<string, string[]>).flat());
@@ -340,10 +326,9 @@ const AdminUsersPage: React.FC<AdminUsersPageProps> = () => {
     }
   };
 
-  // Handle edit user
+  // Edit user
   const handleEditUser = async () => {
     if (!selectedUser) return;
-
 
     const updateData = {
       name: formData.name,
@@ -355,7 +340,7 @@ const AdminUsersPage: React.FC<AdminUsersPageProps> = () => {
       setActionLoading(true);
       setFormErrors([]);
       const response = await usersApi.updateUser(selectedUser.id, updateData);
-      
+
       if (response.success) {
         await loadData();
         setShowEditModal(false);
@@ -363,21 +348,21 @@ const AdminUsersPage: React.FC<AdminUsersPageProps> = () => {
       } else {
         setFormErrors([response.message || 'Failed to update user']);
       }
-    } catch (error) {
+    } catch {
       setFormErrors(['Failed to update user. Please try again.']);
     } finally {
       setActionLoading(false);
     }
   };
 
-  // Handle delete user
+  // Delete user
   const handleDeleteUser = async () => {
     if (!selectedUser) return;
 
     try {
       setActionLoading(true);
       const response = await usersApi.deleteUser(selectedUser.id);
-      
+
       if (response.success) {
         await loadData();
         setShowDeleteModal(false);
@@ -385,17 +370,18 @@ const AdminUsersPage: React.FC<AdminUsersPageProps> = () => {
       } else {
         setError(response.message || 'Failed to delete user');
       }
-    } catch (error) {
+    } catch {
       setError('Failed to delete user. Please try again.');
     } finally {
       setActionLoading(false);
     }
   };
 
-  // Handle user action (suspend/activate/unlock)
+  // User actions
   const handleUserAction = async (user: User, action: 'suspend' | 'activate' | 'unlock' | 'reset_password' | 'resend_verification') => {
     try {
       setActionLoading(true);
+      setOpenDropdownUserId(null);
       let response;
 
       switch (action) {
@@ -421,28 +407,27 @@ const AdminUsersPage: React.FC<AdminUsersPageProps> = () => {
       } else {
         setError(response.message || `Failed to ${action} user`);
       }
-    } catch (error) {
+    } catch {
       setError(`Failed to ${action} user. Please try again.`);
     } finally {
       setActionLoading(false);
     }
   };
 
-  // Open edit modal
+  // Modal openers
   const openEditModal = (user: User) => {
     setSelectedUser(user);
     setFormData({
       name: user.name || '',
       email: user.email,
       phone: user.phone || '',
-      roles: ['account.member'], // Not used in edit form anymore
+      roles: ['account.member'],
       password: '',
       password_confirmation: ''
     });
     setShowEditModal(true);
   };
 
-  // Open delete modal
   const openDeleteModal = (user: User) => {
     setSelectedUser(user);
     setShowDeleteModal(true);
@@ -453,80 +438,7 @@ const AdminUsersPage: React.FC<AdminUsersPageProps> = () => {
     setShowRolesModal(true);
   };
 
-  // Handle suspend user
-  const handleSuspendUser = async (user: User) => {
-    try {
-      setActionLoading(true);
-      setOpenDropdownUserId(null);
-      await usersApi.suspendUser(user.id, 'Suspended by administrator');
-      await loadData();
-    } catch (error) {
-      setError('Failed to suspend user');
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  // Handle activate user
-  const handleActivateUser = async (user: User) => {
-    try {
-      setActionLoading(true);
-      setOpenDropdownUserId(null);
-      await usersApi.activateUser(user.id);
-      await loadData();
-    } catch (error) {
-      setError('Failed to activate user');
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  // Handle unlock user
-  const handleUnlockUser = async (user: User) => {
-    try {
-      setActionLoading(true);
-      setOpenDropdownUserId(null);
-      await usersApi.unlockUser(user.id);
-      await loadData();
-    } catch (error) {
-      setError('Failed to unlock user');
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  // Handle resend verification
-  const handleResendVerification = async (user: User) => {
-    try {
-      setActionLoading(true);
-      setOpenDropdownUserId(null);
-      await usersApi.resendVerification(user.id);
-    } catch (error) {
-      setError('Failed to resend verification email');
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  // Handle reset password
-  const handleResetPassword = async (user: User) => {
-    try {
-      setActionLoading(true);
-      setOpenDropdownUserId(null);
-      await usersApi.resetUserPassword(user.id);
-    } catch (error) {
-      setError('Failed to send password reset email');
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  // Toggle dropdown
-  const toggleDropdown = (userId: string) => {
-    setOpenDropdownUserId(openDropdownUserId === userId ? null : userId);
-  };
-
-  // Close dropdown when clicking outside
+  // Dropdown click outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (openDropdownUserId && !(event.target as Element).closest('.user-dropdown')) {
@@ -538,56 +450,12 @@ const AdminUsersPage: React.FC<AdminUsersPageProps> = () => {
   }, [openDropdownUserId]);
 
   const pageActions: PageAction[] = [
-    {
-      id: 'refresh',
-      label: 'Refresh',
-      onClick: loadData,
-      variant: 'secondary',
-      icon: RefreshCw,
-      disabled: loading
-    },
-    {
-      id: 'export',
-      label: 'Export All',
-      onClick: () => exportUsers(),
-      variant: 'secondary',
-      icon: Download,
-      disabled: loading || filteredUsers.length === 0
-    },
-    {
-      id: 'filters',
-      label: showFilters ? 'Hide Filters' : 'Show Filters',
-      onClick: () => setShowFilters(!showFilters),
-      variant: 'secondary',
-      icon: Filter
-    },
-    {
-      id: 'clear-filters',
-      label: 'Clear Filters',
-      onClick: () => {
-        setSearchTerm('');
-        setStatusFilter('all');
-        // roleFilter removed
-        setSortBy('name');
-        setSortOrder('asc');
-      },
-      variant: 'secondary',
-      disabled: searchTerm === '' && statusFilter === 'all' && sortBy === 'name' && sortOrder === 'asc'
-    },
-    {
-      id: 'sort-toggle',
-      label: sortOrder === 'asc' ? 'Sort Desc' : 'Sort Asc',
-      onClick: () => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc'),
-      variant: 'secondary',
-      disabled: loading
-    },
-    {
-      id: 'add-user',
-      label: 'Add New User',
-      onClick: () => setShowCreateModal(true),
-      variant: 'primary',
-      icon: UserPlus
-    }
+    { id: 'refresh', label: 'Refresh', onClick: loadData, variant: 'secondary', icon: RefreshCw, disabled: loading },
+    { id: 'export', label: 'Export All', onClick: () => exportUsers(), variant: 'secondary', icon: Download, disabled: loading || filteredUsers.length === 0 },
+    { id: 'filters', label: showFilters ? 'Hide Filters' : 'Show Filters', onClick: () => setShowFilters(!showFilters), variant: 'secondary', icon: Filter },
+    { id: 'clear-filters', label: 'Clear Filters', onClick: () => { setSearchTerm(''); setStatusFilter('all'); setSortBy('name'); setSortOrder('asc'); }, variant: 'secondary', disabled: searchTerm === '' && statusFilter === 'all' && sortBy === 'name' && sortOrder === 'asc' },
+    { id: 'sort-toggle', label: sortOrder === 'asc' ? 'Sort Desc' : 'Sort Asc', onClick: () => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc'), variant: 'secondary', disabled: loading },
+    { id: 'add-user', label: 'Add New User', onClick: () => setShowCreateModal(true), variant: 'primary', icon: UserPlus }
   ];
 
   const breadcrumbs = [
@@ -600,11 +468,11 @@ const AdminUsersPage: React.FC<AdminUsersPageProps> = () => {
     if (loading) return "Loading user management dashboard...";
     const totalUsers = filteredUsers.length;
     const selectedCount = selectedUsers.size;
-    
+
     if (selectedCount > 0) {
       return `${selectedCount} of ${totalUsers} users selected • Full administrative user management`;
     }
-    
+
     return `${totalUsers} users • Full administrative user management with bulk operations, filtering, and impersonation`;
   };
 
@@ -621,765 +489,103 @@ const AdminUsersPage: React.FC<AdminUsersPageProps> = () => {
         </div>
       ) : (
         <>
-          {/* Enhanced Filtering Interface */}
+          {/* Filters */}
           {showFilters && (
-            <div className="bg-theme-surface rounded-xl p-6 shadow-sm mb-6">
-              <h3 className="text-lg font-semibold text-theme-primary mb-4 flex items-center">
-                <Filter className="h-5 w-5 mr-2" />
-                Advanced Filters
-              </h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {/* Search */}
-                <div>
-                  <label className="block text-sm font-medium text-theme-primary mb-2">Search</label>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-theme-tertiary" />
-                    <input
-                      type="text"
-                      placeholder="Search users..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="input-theme pl-10"
-                    />
-                  </div>
+            <UserFiltersPanel
+              filters={{ searchTerm, statusFilter, sortBy, sortOrder }}
+              totalUsers={users.length}
+              filteredCount={filteredUsers.length}
+              onSearchChange={setSearchTerm}
+              onStatusFilterChange={setStatusFilter}
+              onSortByChange={setSortBy}
+            />
+          )}
+
+          {/* Stats */}
+          {userStats && <UserStatsCards userStats={userStats} />}
+
+          {/* Error Display */}
+          {error && (
+            <div className="bg-theme-warning/10 border border-theme-warning/30 text-theme-warning px-4 py-3 rounded mb-4">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <span className="text-theme-warning">⚠️</span>
                 </div>
-
-                {/* Status Filter */}
-                <div>
-                  <label className="block text-sm font-medium text-theme-primary mb-2">Status</label>
-                  <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value as 'all' | 'active' | 'suspended' | 'inactive')}
-                    className="select-theme"
-                  >
-                    <option value="all">All Statuses</option>
-                    <option value="active">Active</option>
-                    <option value="suspended">Suspended</option>
-                    <option value="inactive">Inactive</option>
-                  </select>
+                <div className="ml-3">
+                  <p className="text-sm">{error}</p>
                 </div>
-
-                {/* Role Filter removed - managed via dedicated roles modal */}
-
-                {/* Sort Options */}
-                <div>
-                  <label className="block text-sm font-medium text-theme-primary mb-2">Sort By</label>
-                  <div className="flex gap-2">
-                    <select
-                      value={sortBy}
-                      onChange={(e) => setSortBy(e.target.value as 'name' | 'email' | 'created_at' | 'last_login_at')}
-                      className="select-theme w-full"
-                    >
-                      <option value="name">Name</option>
-                      <option value="email">Email</option>
-                      <option value="created_at">Created Date</option>
-                      <option value="last_login_at">Last Login</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex justify-center items-center mt-4">
-                <span className="text-sm text-theme-secondary">
-                  Showing {filteredUsers.length} of {users.length} users
-                </span>
               </div>
             </div>
           )}
 
-          {/* Stats Cards */}
-          {userStats && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
-              <div className="bg-theme-surface rounded-lg p-4 shadow-sm">
-            <div className="text-2xl font-semibold text-theme-primary">{userStats.total_users}</div>
-            <div className="text-theme-secondary text-sm">Total Users</div>
-          </div>
-          <div className="bg-theme-surface rounded-lg p-4 shadow-sm">
-            <div className="text-2xl font-semibold text-theme-success">{userStats.active_users}</div>
-            <div className="text-theme-secondary text-sm">Active Users</div>
-          </div>
-          <div className="bg-theme-surface rounded-lg p-4 shadow-sm">
-            <div className="text-2xl font-semibold text-theme-error">{userStats.suspended_users}</div>
-            <div className="text-theme-secondary text-sm">Suspended Users</div>
-          </div>
-          <div className="bg-theme-surface rounded-lg p-4 shadow-sm">
-            <div className="text-2xl font-semibold text-theme-warning">{userStats.unverified_users}</div>
-            <div className="text-theme-secondary text-sm">Unverified Users</div>
-          </div>
-          <div className="bg-theme-surface rounded-lg p-4 shadow-sm">
-            <div className="text-2xl font-semibold text-theme-info">{userStats.recent_logins}</div>
-            <div className="text-theme-secondary text-sm">Recent Logins</div>
-          </div>
-        </div>
-      )}
-
-      {/* Error Display */}
-      {error && (
-        <div className="bg-theme-warning/10 border border-theme-warning/30 text-theme-warning px-4 py-3 rounded mb-4">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <span className="text-theme-warning">⚠️</span>
-            </div>
-            <div className="ml-3">
-              <p className="text-sm">
-                {error}
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-          {/* Bulk Operations Bar */}
+          {/* Bulk Actions */}
           {selectedUsers.size > 0 && (
-            <div className="bg-theme-info-background border border-theme-info-border rounded-lg p-4 mb-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4">
-                  <span className="text-theme-info font-medium">
-                    {selectedUsers.size} user{selectedUsers.size > 1 ? 's' : ''} selected
-                  </span>
-                  <button
-                    onClick={() => setSelectedUsers(new Set())}
-                    className="text-theme-tertiary hover:text-theme-secondary text-sm"
-                  >
-                    Clear selection
-                  </button>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => handleBulkAction('export')}
-                    disabled={actionLoading}
-                  >
-                    <Download className="h-4 w-4 mr-1" />
-                    Export Selected
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => handleBulkAction('activate')}
-                    disabled={actionLoading}
-                  >
-                    <UserCheck className="h-4 w-4 mr-1" />
-                    Activate
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => handleBulkAction('suspend')}
-                    disabled={actionLoading}
-                  >
-                    <Shield className="h-4 w-4 mr-1" />
-                    Suspend
-                  </Button>
-                  <Button
-                    variant="danger"
-                    size="sm"
-                    onClick={() => handleBulkAction('delete')}
-                    disabled={actionLoading}
-                  >
-                    Delete Selected
-                  </Button>
-                </div>
-              </div>
-            </div>
+            <BulkActionsBar
+              selectedCount={selectedUsers.size}
+              onClearSelection={() => setSelectedUsers(new Set())}
+              onExport={() => handleBulkAction('export')}
+              onActivate={() => handleBulkAction('activate')}
+              onSuspend={() => handleBulkAction('suspend')}
+              onDelete={() => handleBulkAction('delete')}
+              actionLoading={actionLoading}
+            />
           )}
 
-      {/* Users Table */}
-      <div className="bg-theme-surface rounded-lg shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-theme">
-            <thead className="bg-theme-background">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-theme-secondary uppercase tracking-wider">
-                  <input
-                    type="checkbox"
-                    checked={selectedUsers.size === filteredUsers.length && filteredUsers.length > 0}
-                    onChange={toggleSelectAll}
-                    className="rounded border-theme focus:ring-theme-focus"
-                  />
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-theme-secondary uppercase tracking-wider">
-                  User
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-theme-secondary uppercase tracking-wider">
-                  Role
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-theme-secondary uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-theme-secondary uppercase tracking-wider">
-                  Last Login
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-theme-secondary uppercase tracking-wider">
-                  Created
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-theme-secondary uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-theme">
-              {filteredUsers.map((user) => (
-                <tr key={user.id} className="hover:bg-theme-surface-hover">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <input
-                      type="checkbox"
-                      checked={selectedUsers.has(user.id)}
-                      onChange={() => toggleUserSelection(user.id)}
-                      className="rounded border-theme focus:ring-theme-focus"
-                    />
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0 h-10 w-10">
-                        <div className="h-10 w-10 rounded-full bg-theme-interactive-primary flex items-center justify-center">
-                          <span className="text-white text-sm font-medium">
-                            {getUserInitials(user)}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="ml-4">
-                        <div className="text-sm font-medium text-theme-primary">
-                          {user.name}
-                        </div>
-                        <div className="text-sm text-theme-secondary">{user.email}</div>
-                        {!user.email_verified && (
-                          <Badge variant="warning" className="mt-1">Unverified</Badge>
-                        )}
-                        {user.locked && (
-                          <Badge variant="danger" className="mt-1 ml-2">Locked</Badge>
-                        )}
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex flex-wrap gap-1">
-                      {(user.roles || []).length === 0 ? (
-                        <Badge className="bg-theme-surface border-theme text-theme-tertiary">
-                          No roles
-                        </Badge>
-                      ) : (
-                        user.roles.map((role, index) => (
-                          <Badge key={index} className={usersApi.getRoleColor([role])}>
-                            {role.replace('.', ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                          </Badge>
-                        ))
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <Badge className={usersApi.getStatusColor(user.status)}>
-                      {user.status}
-                    </Badge>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-theme-secondary">
-                    {user.last_login_at 
-                      ? new Date(user.last_login_at).toLocaleDateString()
-                      : 'Never'
-                    }
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-theme-secondary">
-                    {new Date(user.created_at).toLocaleDateString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <div className="flex items-center justify-end space-x-1">
-                      {/* Primary Actions */}
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => openEditModal(user)}
-                        title="Edit User"
-                      >
-                        Edit
-                      </Button>
+          {/* Users Table */}
+          <UsersTable
+            users={filteredUsers}
+            selectedUsers={selectedUsers}
+            currentUserId={currentUser?.id}
+            openDropdownUserId={openDropdownUserId}
+            actionLoading={actionLoading}
+            onToggleSelectAll={toggleSelectAll}
+            onToggleUserSelection={toggleUserSelection}
+            onEditUser={openEditModal}
+            onRolesModal={openRolesModal}
+            onImpersonateUser={handleImpersonateUser}
+            onUserAction={handleUserAction}
+            onDeleteUser={openDeleteModal}
+            onToggleDropdown={(userId) => setOpenDropdownUserId(openDropdownUserId === userId ? null : userId)}
+          />
 
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => openRolesModal(user)}
-                        title="Manage User Roles"
-                      >
-                        <Users className="h-4 w-4" />
-                      </Button>
+          {/* Modals */}
+          <CreateUserModal
+            isOpen={showCreateModal}
+            formData={formData}
+            formErrors={formErrors}
+            actionLoading={actionLoading}
+            availableRoles={availableRoles}
+            rolesLoading={rolesLoading}
+            onClose={() => { setShowCreateModal(false); resetForm(); }}
+            onFormChange={handleFormChange}
+            onRolesChange={(roles) => setFormData(prev => ({ ...prev, roles }))}
+            onSubmit={handleCreateUser}
+          />
 
-                      {/* Impersonate Button (admin only, not for self) */}
-                      {user.id !== currentUser?.id && (
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => handleImpersonateUser(user)}
-                          disabled={actionLoading}
-                          title="Impersonate User"
-                        >
-                          <UserCheck className="h-4 w-4" />
-                        </Button>
-                      )}
-                      
-                      {/* Status Actions */}
-                      {user.status === 'suspended' ? (
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => handleUserAction(user, 'activate')}
-                          disabled={actionLoading}
-                          title="Activate User"
-                        >
-                          <Shield className="h-4 w-4" />
-                        </Button>
-                      ) : (
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => handleUserAction(user, 'suspend')}
-                          disabled={actionLoading}
-                          title="Suspend User"
-                        >
-                          <Shield className="h-4 w-4" />
-                        </Button>
-                      )}
+          <EditUserModal
+            isOpen={showEditModal}
+            formData={formData}
+            formErrors={formErrors}
+            actionLoading={actionLoading}
+            onClose={() => { setShowEditModal(false); resetForm(); }}
+            onFormChange={handleFormChange}
+            onSubmit={handleEditUser}
+          />
 
-                      {/* Additional Actions Dropdown */}
-                      <div className="relative inline-block text-left user-dropdown">
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          title="More Actions"
-                          onClick={() => toggleDropdown(user.id)}
-                        >
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
+          <DeleteUserModal
+            isOpen={showDeleteModal}
+            userName={selectedUser?.name}
+            actionLoading={actionLoading}
+            onClose={() => { setShowDeleteModal(false); resetForm(); }}
+            onConfirm={handleDeleteUser}
+          />
 
-                        {openDropdownUserId === user.id && (
-                          <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-theme-surface ring-1 ring-black ring-opacity-5 z-50">
-                            <div className="py-1" role="menu">
-                              {/* Status Actions */}
-                              {user.status === 'active' && user.id !== currentUser?.id && (
-                                <button
-                                  onClick={() => handleSuspendUser(user)}
-                                  className="flex items-center w-full px-4 py-2 text-sm text-theme-primary hover:bg-theme-surface-hover"
-                                  role="menuitem"
-                                  disabled={actionLoading}
-                                >
-                                  <Ban className="h-4 w-4 mr-2 text-theme-error" />
-                                  Suspend User
-                                </button>
-                              )}
-
-                              {user.status === 'suspended' && (
-                                <button
-                                  onClick={() => handleActivateUser(user)}
-                                  className="flex items-center w-full px-4 py-2 text-sm text-theme-primary hover:bg-theme-surface-hover"
-                                  role="menuitem"
-                                  disabled={actionLoading}
-                                >
-                                  <CheckCircle className="h-4 w-4 mr-2 text-theme-success" />
-                                  Activate User
-                                </button>
-                              )}
-
-                              {/* Unlock Account */}
-                              {user.locked && (
-                                <button
-                                  onClick={() => handleUnlockUser(user)}
-                                  className="flex items-center w-full px-4 py-2 text-sm text-theme-primary hover:bg-theme-surface-hover"
-                                  role="menuitem"
-                                  disabled={actionLoading}
-                                >
-                                  <Unlock className="h-4 w-4 mr-2 text-theme-warning" />
-                                  Unlock Account
-                                </button>
-                              )}
-
-                              {/* Email Actions */}
-                              {!user.email_verified && (
-                                <button
-                                  onClick={() => handleResendVerification(user)}
-                                  className="flex items-center w-full px-4 py-2 text-sm text-theme-primary hover:bg-theme-surface-hover"
-                                  role="menuitem"
-                                  disabled={actionLoading}
-                                >
-                                  <Mail className="h-4 w-4 mr-2 text-theme-info" />
-                                  Resend Verification
-                                </button>
-                              )}
-
-                              <button
-                                onClick={() => handleResetPassword(user)}
-                                className="flex items-center w-full px-4 py-2 text-sm text-theme-primary hover:bg-theme-surface-hover"
-                                role="menuitem"
-                                disabled={actionLoading}
-                              >
-                                <Key className="h-4 w-4 mr-2 text-theme-interactive-primary" />
-                                Reset Password
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      <Button
-                        variant="danger"
-                        size="sm"
-                        onClick={() => openDeleteModal(user)}
-                        title="Delete User"
-                      >
-                        Delete
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          {filteredUsers.length === 0 && (
-            <div className="text-center py-12">
-              <div className="text-theme-secondary">No users found.</div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Create User Modal */}
-      <Modal
-        isOpen={showCreateModal}
-        onClose={() => {
-          setShowCreateModal(false);
-          resetForm();
-        }}
-        title="Create New User"
-        maxWidth="md"
-      >
-        <div className="space-y-6 p-1">
-          {formErrors.length > 0 && (
-            <div className="bg-theme-error-background border border-theme-error-border text-theme-error px-4 py-3 rounded">
-              <ul className="list-disc list-inside">
-                {formErrors.map((error, index) => (
-                  <li key={index}>{error}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          <div className="bg-theme-background border border-theme rounded-xl p-6 space-y-5">
-            <div className="space-y-2">
-              <label className="block text-sm font-semibold text-theme-primary">
-                Full Name <span className="text-theme-error">*</span>
-              </label>
-              <input
-                type="text"
-                value={formData.name}
-                onChange={(e) => handleFormChange('name', e.target.value)}
-                className="w-full px-4 py-3 bg-theme-surface border-2 border-theme rounded-lg text-theme-primary placeholder-theme-tertiary focus:outline-none focus:border-theme-interactive-primary focus:bg-theme-background transition-all duration-200"
-                placeholder="Enter full name"
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="block text-sm font-semibold text-theme-primary">
-                Email Address <span className="text-theme-error">*</span>
-              </label>
-              <input
-                type="email"
-                value={formData.email}
-                onChange={(e) => handleFormChange('email', e.target.value)}
-                className="w-full px-4 py-3 bg-theme-surface border-2 border-theme rounded-lg text-theme-primary placeholder-theme-tertiary focus:outline-none focus:border-theme-interactive-primary focus:bg-theme-background transition-all duration-200"
-                placeholder="Enter email address"
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="block text-sm font-semibold text-theme-primary">
-                Phone Number
-              </label>
-              <input
-                type="tel"
-                value={formData.phone || ''}
-                onChange={(e) => handleFormChange('phone', e.target.value)}
-                className="w-full px-4 py-3 bg-theme-surface border-2 border-theme rounded-lg text-theme-primary placeholder-theme-tertiary focus:outline-none focus:border-theme-interactive-primary focus:bg-theme-background transition-all duration-200"
-                placeholder="Enter phone number (optional)"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="block text-sm font-semibold text-theme-primary">
-                Roles <span className="text-theme-error">*</span>
-                {rolesLoading && <span className="text-xs text-theme-secondary ml-2">(Loading...)</span>}
-              </label>
-              {rolesLoading ? (
-                <div className="w-full px-4 py-3 bg-theme-surface border-2 border-theme rounded-lg flex items-center justify-center text-theme-secondary">
-                  <svg className="animate-spin h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Loading roles...
-                </div>
-              ) : (
-                <select
-                  value={formData.roles?.[0] || (availableRoles[0]?.value || 'account.member')}
-                  onChange={(e) => setFormData(prev => ({ ...prev, roles: [e.target.value] }))}
-                  className="w-full px-4 py-3 bg-theme-surface border-2 border-theme rounded-lg text-theme-primary focus:outline-none focus:border-theme-interactive-primary focus:bg-theme-background transition-all duration-200 appearance-none cursor-pointer"
-                  required
-                  disabled={availableRoles.length === 0}
-                >
-                  {availableRoles.length === 0 ? (
-                    <option value="">No roles available</option>
-                  ) : (
-                    availableRoles.map(role => (
-                      <option key={role.value} value={role.value}>
-                        {role.label}
-                      </option>
-                    ))
-                  )}
-                </select>
-              )}
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="block text-sm font-semibold text-theme-primary">
-                  Password <span className="text-theme-error">*</span>
-                </label>
-                <input
-                  type="password"
-                  value={formData.password}
-                  onChange={(e) => handleFormChange('password', e.target.value)}
-                  className="w-full px-4 py-3 bg-theme-surface border-2 border-theme rounded-lg text-theme-primary placeholder-theme-tertiary focus:outline-none focus:border-theme-interactive-primary focus:bg-theme-background transition-all duration-200"
-                  placeholder="Enter password"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="block text-sm font-semibold text-theme-primary">
-                  Confirm Password <span className="text-theme-error">*</span>
-                </label>
-                <input
-                  type="password"
-                  value={formData.password_confirmation}
-                  onChange={(e) => handleFormChange('password_confirmation', e.target.value)}
-                  className="w-full px-4 py-3 bg-theme-surface border-2 border-theme rounded-lg text-theme-primary placeholder-theme-tertiary focus:outline-none focus:border-theme-interactive-primary focus:bg-theme-background transition-all duration-200"
-                  placeholder="Confirm password"
-                  required
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="flex justify-end space-x-3 mt-6">
-            <Button
-              variant="secondary"
-              onClick={() => {
-                setShowCreateModal(false);
-                resetForm();
-              }}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleCreateUser}
-              disabled={actionLoading}
-            >
-              {actionLoading ? 'Creating...' : 'Create User'}
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Edit User Modal */}
-      <Modal
-        isOpen={showEditModal}
-        onClose={() => {
-          setShowEditModal(false);
-          resetForm();
-        }}
-        title="Edit User Profile"
-        maxWidth="4xl"
-        variant="centered"
-      >
-        <div className="space-y-8 p-2">
-          {formErrors.length > 0 && (
-            <div className="bg-theme-error-background border border-theme-error-border text-theme-error px-4 py-3 rounded">
-              <ul className="list-disc list-inside">
-                {formErrors.map((error, index) => (
-                  <li key={index}>{error}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          <div className="space-y-8">
-            {/* Personal Information Section */}
-            <div className="space-y-8">
-              {/* Personal Information Section */}
-              <div className="bg-theme-background border-2 border-theme rounded-2xl p-8">
-                <div className="flex items-center space-x-3 mb-6">
-                  <div className="relative">
-                    <div className="absolute inset-0 bg-gradient-to-br from-theme-interactive-primary/15 to-theme-interactive-primary/5 rounded-xl blur-md"></div>
-                    <div className="relative w-10 h-10 bg-theme-surface/50 backdrop-blur-sm rounded-xl flex items-center justify-center">
-                      <svg className="w-5 h-5 text-theme-interactive-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                      </svg>
-                    </div>
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-theme-primary">Personal Information</h3>
-                    <p className="text-sm text-theme-secondary">Update the user's basic profile information</p>
-                  </div>
-                </div>
-
-                <div className="space-y-6">
-                  <div className="space-y-3">
-                    <label className="block text-sm font-semibold text-theme-primary">
-                      Full Name <span className="text-theme-error">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.name}
-                      onChange={(e) => handleFormChange('name', e.target.value)}
-                      className="w-full px-4 py-4 bg-theme-surface border-2 border-theme rounded-xl text-theme-primary placeholder-theme-tertiary focus:outline-none focus:border-theme-interactive-primary focus:bg-theme-background focus:shadow-lg transition-all duration-300"
-                      placeholder="Enter full name"
-                      required
-                    />
-                  </div>
-
-                  <div className="space-y-3">
-                    <label className="block text-sm font-semibold text-theme-primary">
-                      Email Address <span className="text-theme-error">*</span>
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="email"
-                        value={formData.email}
-                        onChange={(e) => handleFormChange('email', e.target.value)}
-                        className="w-full pl-12 pr-4 py-4 bg-theme-surface border-2 border-theme rounded-xl text-theme-primary placeholder-theme-tertiary focus:outline-none focus:border-theme-interactive-primary focus:bg-theme-background focus:shadow-lg transition-all duration-300"
-                        placeholder="Enter email address"
-                        required
-                      />
-                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                        <svg className="h-5 w-5 text-theme-tertiary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
-                        </svg>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    <label className="block text-sm font-semibold text-theme-primary">
-                      Phone Number
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="tel"
-                        value={formData.phone || ''}
-                        onChange={(e) => handleFormChange('phone', e.target.value)}
-                        className="w-full pl-12 pr-4 py-4 bg-theme-surface border-2 border-theme rounded-xl text-theme-primary placeholder-theme-tertiary focus:outline-none focus:border-theme-interactive-primary focus:bg-theme-background focus:shadow-lg transition-all duration-300"
-                        placeholder="Enter phone number (optional)"
-                      />
-                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                        <svg className="h-5 w-5 text-theme-tertiary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                        </svg>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Footer Actions */}
-          <div className="flex items-center justify-between pt-8 mt-8 border-t-2 border-theme">
-            <div className="text-sm text-theme-secondary">
-              Make sure all information is accurate before updating the user profile.
-            </div>
-            <div className="flex space-x-4">
-              <Button
-                variant="secondary"
-                size="lg"
-                onClick={() => {
-                  setShowEditModal(false);
-                  resetForm();
-                }}className="px-8"
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="primary"
-                size="lg"
-                onClick={handleEditUser}
-                disabled={actionLoading}
-                className="px-8"
-              >
-                {actionLoading ? (
-                  <div className="flex items-center space-x-2">
-                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    <span>Updating...</span>
-                  </div>
-                ) : (
-                  <div className="flex items-center space-x-2">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    <span>Update User</span>
-                  </div>
-                )}
-              </Button>
-            </div>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Delete Confirmation Modal */}
-      <Modal
-        isOpen={showDeleteModal}
-        onClose={() => {
-          setShowDeleteModal(false);
-          resetForm();
-        }}
-        title="Delete User"
-        maxWidth="sm"
-      >
-        <div className="text-theme-primary">
-          Are you sure you want to delete <strong>{selectedUser?.name}</strong>? 
-          This action cannot be undone.
-        </div>
-        <div className="flex justify-end space-x-3 mt-6">
-          <Button
-            variant="secondary"
-            onClick={() => {
-              setShowDeleteModal(false);
-              resetForm();
-            }}>
-            Cancel
-          </Button>
-          <Button
-            variant="danger"
-            onClick={handleDeleteUser}
-            disabled={actionLoading}
-          >
-            {actionLoading ? 'Deleting...' : 'Delete User'}
-          </Button>
-        </div>
-      </Modal>
-
-      {/* User Roles Management Modal */}
-      <UserRolesModal
-        user={selectedUser}
-        isOpen={showRolesModal}
-        onClose={() => {
-          setShowRolesModal(false);
-          setSelectedUser(null);
-        }}
-        onUserUpdated={() => {
-          loadData();
-        }}
-      />
+          <UserRolesModal
+            user={selectedUser}
+            isOpen={showRolesModal}
+            onClose={() => { setShowRolesModal(false); setSelectedUser(null); }}
+            onUserUpdated={() => { loadData(); }}
+          />
         </>
       )}
     </PageContainer>

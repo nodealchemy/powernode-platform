@@ -8,7 +8,7 @@ export interface AISystemEvent {
     name?: string;
     status?: string;
     message?: string;
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>;
   };
 }
 
@@ -133,8 +133,7 @@ class AIOrchestrationMonitor {
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private handleMessage(data: any) {
+  private handleMessage(data: { type?: string; message?: { type?: string; event_type?: AISystemEvent['type']; timestamp?: string; data?: AISystemEvent['data'] | AISystemMetrics } }) {
     if (data.type === 'ping') {
       // Respond to ping with pong
       this.send({ type: 'pong' });
@@ -143,27 +142,26 @@ class AIOrchestrationMonitor {
 
     if (data.message) {
       const message = data.message;
-      
+
       // Handle system events
-      if (message.type === 'event') {
+      if (message.type === 'event' && message.event_type && message.timestamp && message.data) {
         const event: AISystemEvent = {
           type: message.event_type,
           timestamp: message.timestamp,
-          data: message.data
+          data: message.data as AISystemEvent['data']
         };
         this.notifyEventHandlers(event);
       }
-      
+
       // Handle metrics updates
-      if (message.type === 'metrics') {
-        const metrics: AISystemMetrics = message.data;
+      if (message.type === 'metrics' && message.data) {
+        const metrics = message.data as AISystemMetrics;
         this.notifyMetricsHandlers(metrics);
       }
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private send(message: any) {
+  private send(message: Record<string, unknown>) {
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(message));
     }

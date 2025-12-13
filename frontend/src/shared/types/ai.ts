@@ -9,11 +9,11 @@ export interface AiProvider {
   api_base_url: string;
   capabilities: string[];
   supported_models: ModelInfo[];
-  configuration_schema: Record<string, any>;
-  default_parameters: Record<string, any>;
-  rate_limits: Record<string, any>;
-  pricing_info: Record<string, any>;
-  metadata: Record<string, any>;
+  configuration_schema: Record<string, unknown>;
+  default_parameters: Record<string, unknown>;
+  rate_limits: Record<string, unknown>;
+  pricing_info: Record<string, unknown>;
+  metadata: Record<string, unknown>;
   is_active: boolean;
   requires_auth: boolean;
   supports_streaming: boolean;
@@ -65,8 +65,8 @@ export interface AiProviderCredential {
   consecutive_failures: number;
   health_status: 'healthy' | 'unhealthy';
   access_scopes: string[];
-  rate_limits: Record<string, any>;
-  usage_stats: Record<string, any>;
+  rate_limits: Record<string, unknown>;
+  usage_stats: Record<string, unknown>;
   last_error?: string;
   encryption_key_id: string;
   expires_soon: boolean;
@@ -234,9 +234,9 @@ export interface CreateProviderCredentialRequest {
   credential: {
     ai_provider_id: string;
     name: string;
-    credentials: Record<string, any>;
+    credentials: Record<string, unknown>;
     access_scopes?: string[];
-    rate_limits?: Record<string, any>;
+    rate_limits?: Record<string, unknown>;
     expires_at?: string;
   };
 }
@@ -248,7 +248,7 @@ export interface CreateAiAgentRequest {
     description?: string;
     agent_type: string;
     configuration: AgentConfiguration;
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>;
   };
 }
 
@@ -256,13 +256,13 @@ export interface CreateConversationRequest {
   conversation: {
     ai_agent_id: string;
     title: string;
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>;
   };
 }
 
 export interface SendMessageRequest {
   content: string;
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
 }
 
 export interface ExecuteAgentRequest {
@@ -270,12 +270,11 @@ export interface ExecuteAgentRequest {
     ai_agent_id: string;
     input_data: {
       prompt: string;
-      parameters?: Record<string, any>;
+      parameters?: Record<string, unknown>;
     };
     metadata?: {
       priority?: 'low' | 'normal' | 'high';
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      [key: string]: any;
+      [key: string]: unknown;
     };
   };
 }
@@ -287,7 +286,7 @@ export interface ProviderTestResult {
   provider?: string;
   model?: string;
   error?: string;
-  error_details?: Record<string, any>;
+  error_details?: Record<string, unknown>;
 }
 
 export interface BulkTestResult {
@@ -335,7 +334,7 @@ export interface ConversationChannelMessage {
   status?: string;
   message?: AiMessage;
   streaming?: boolean;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   user_id?: string;
   user_name?: string;
   typing?: boolean;
@@ -376,14 +375,14 @@ export interface ExecutionChannelMessage {
     level: 'debug' | 'info' | 'warn' | 'error';
     message: string;
     timestamp: string;
-    metadata: Record<string, any>;
+    metadata: Record<string, unknown>;
   };
   logs?: Array<{
     id: string;
     level: string;
     message: string;
     timestamp: string;
-    metadata: Record<string, any>;
+    metadata: Record<string, unknown>;
   }>;
   pagination?: {
     page: number;
@@ -409,7 +408,7 @@ export interface ExecutionChannelMessage {
     type: string;
     size: number;
     url: string;
-    metadata: Record<string, any>;
+    metadata: Record<string, unknown>;
     created_at: string;
   }>;
   result_summary?: {
@@ -430,10 +429,10 @@ export interface ExecutionChannelMessage {
   };
   updated_at?: string;
   timestamp?: string;
-  system_stats?: Record<string, any>;
+  system_stats?: Record<string, unknown>;
   health_status?: string;
   error_message?: string;
-  error_details?: Record<string, any>;
+  error_details?: Record<string, unknown>;
 }
 
 export interface MonitoringChannelMessage {
@@ -470,17 +469,17 @@ export interface MonitoringChannelMessage {
   components?: string[];
   timestamp?: string;
   data?: {
-    system_health?: Record<string, any>;
-    account_metrics?: Record<string, any>;
-    provider_health?: Record<string, any>;
+    system_health?: Record<string, unknown>;
+    account_metrics?: Record<string, unknown>;
+    provider_health?: Record<string, unknown>;
   };
-  alert?: Record<string, any>;
+  alert?: Record<string, unknown>;
   provider_id?: string;
   provider_name?: string;
   account_id?: string;
-  metrics?: Record<string, any>;
+  metrics?: Record<string, unknown>;
   execution_id?: string;
-  anomaly?: Record<string, any>;
+  anomaly?: Record<string, unknown>;
   component?: string;
   alerts?: Array<{
     id: string;
@@ -488,7 +487,7 @@ export interface MonitoringChannelMessage {
     component: string;
     title: string;
     message: string;
-    metadata: Record<string, any>;
+    metadata: Record<string, unknown>;
     acknowledged: boolean;
     acknowledged_at?: string;
     acknowledged_by?: string;

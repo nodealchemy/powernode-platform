@@ -16,7 +16,7 @@ class FileStorage < ApplicationRecord
   validates :name, presence: true, length: { maximum: 255 }
   validates :name, uniqueness: { scope: :account_id, case_sensitive: false }
   validates :provider_type, presence: true, inclusion: {
-    in: %w[local s3 gcs azure ftp webdav custom],
+    in: %w[local s3 gcs azure nfs smb ftp webdav custom],
     message: "must be a valid provider type"
   }
   validates :status, presence: true, inclusion: {
@@ -106,8 +106,20 @@ class FileStorage < ApplicationRecord
     provider_type == "azure"
   end
 
+  def nfs?
+    provider_type == "nfs"
+  end
+
+  def smb?
+    provider_type == "smb"
+  end
+
   def cloud?
     %w[s3 gcs azure].include?(provider_type)
+  end
+
+  def network_filesystem?
+    %w[nfs smb].include?(provider_type)
   end
 
   # Quota and storage methods
@@ -315,6 +327,10 @@ class FileStorage < ApplicationRecord
       validate_gcs_configuration
     when "azure"
       validate_azure_configuration
+    when "nfs"
+      validate_nfs_configuration
+    when "smb"
+      validate_smb_configuration
     end
   end
 
@@ -345,6 +361,24 @@ class FileStorage < ApplicationRecord
 
     if missing_keys.any?
       errors.add(:configuration, "missing required keys for Azure: #{missing_keys.join(', ')}")
+    end
+  end
+
+  def validate_nfs_configuration
+    required_keys = %w[mount_path]
+    missing_keys = required_keys - configuration.keys
+
+    if missing_keys.any?
+      errors.add(:configuration, "missing required keys for NFS: #{missing_keys.join(', ')}")
+    end
+  end
+
+  def validate_smb_configuration
+    required_keys = %w[mount_path]
+    missing_keys = required_keys - configuration.keys
+
+    if missing_keys.any?
+      errors.add(:configuration, "missing required keys for SMB: #{missing_keys.join(', ')}")
     end
   end
 

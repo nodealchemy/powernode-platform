@@ -21,7 +21,7 @@ interface WebSocketConfig {
 
 interface ChannelSubscription {
   channel: string;
-  params?: Record<string, any>;
+  params?: Record<string, unknown>;
   onMessage?: (data: unknown) => void;
   onError?: (error: string) => void;
 }
@@ -358,7 +358,7 @@ export class WebSocketManager {
     channelKey: string,
     subscription: ChannelSubscription,
     channel: string,
-    params?: Record<string, any>
+    params?: Record<string, unknown>
   ): void {
     const subscriptions = this.subscriptions.get(channelKey);
     if (subscriptions) {
@@ -380,8 +380,7 @@ export class WebSocketManager {
   /**
    * Send a message to a channel
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  public sendMessage(channel: string, action: string, data?: any, params?: Record<string, any>): boolean {
+  public sendMessage(channel: string, action: string, data?: Record<string, unknown>, params?: Record<string, unknown>): boolean {
     if (!this.ws) {
       return false;
     }
@@ -421,7 +420,7 @@ export class WebSocketManager {
   /**
    * Send subscription message to server
    */
-  private sendSubscriptionMessage(channel: string, params?: Record<string, any>): void {
+  private sendSubscriptionMessage(channel: string, params?: Record<string, unknown>): void {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
 
     const subscribeMessage = {
@@ -442,7 +441,7 @@ export class WebSocketManager {
   /**
    * Send unsubscription message to server
    */
-  private sendUnsubscriptionMessage(channel: string, params?: Record<string, any>): void {
+  private sendUnsubscriptionMessage(channel: string, params?: Record<string, unknown>): void {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
 
     const unsubscribeMessage = {
@@ -464,7 +463,7 @@ export class WebSocketManager {
    * Generate unique key for channel + params combination
    * Normalizes params by sorting keys to ensure consistent key generation
    */
-  private getChannelKey(channel: string, params?: Record<string, any>): string {
+  private getChannelKey(channel: string, params?: Record<string, unknown>): string {
     if (!params || Object.keys(params).length === 0) {
       return channel;
     }
@@ -475,7 +474,7 @@ export class WebSocketManager {
       .reduce((acc, key) => {
         acc[key] = params[key];
         return acc;
-      }, {} as Record<string, any>);
+      }, {} as Record<string, unknown>);
 
     return `${channel}::${JSON.stringify(sortedParams)}`;
   }

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_12_11_080651) do
+ActiveRecord::Schema[8.0].define(version: 2025_12_12_221001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -1633,7 +1633,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_11_080651) do
     t.index ["configuration"], name: "index_file_storages_on_configuration", using: :gin
     t.index ["health_status"], name: "index_file_storages_on_health_status"
     t.index ["priority"], name: "index_file_storages_on_priority"
-    t.check_constraint "provider_type::text = ANY (ARRAY['local'::character varying::text, 's3'::character varying::text, 'gcs'::character varying::text, 'azure'::character varying::text, 'ftp'::character varying::text, 'webdav'::character varying::text, 'custom'::character varying::text])", name: "file_storages_provider_type_check"
+    t.check_constraint "provider_type::text = ANY (ARRAY['local'::character varying, 's3'::character varying, 'gcs'::character varying, 'azure'::character varying, 'nfs'::character varying, 'smb'::character varying, 'ftp'::character varying, 'webdav'::character varying, 'custom'::character varying]::text[])", name: "file_storages_provider_type_check"
     t.check_constraint "status::text = ANY (ARRAY['active'::character varying::text, 'inactive'::character varying::text, 'maintenance'::character varying::text, 'failed'::character varying::text])", name: "file_storages_status_check"
   end
 

@@ -9,8 +9,7 @@ export interface CircuitBreakerMessage {
     breaker_id?: string;
     state?: 'closed' | 'open' | 'half_open';
     previous_state?: 'closed' | 'open' | 'half_open';
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    metadata?: any;
+    metadata?: Record<string, unknown>;
   };
 }
 
@@ -22,8 +21,7 @@ export interface UseCircuitBreakerOptions {
   onBreakerOpen?: (breaker: CircuitBreakerState) => void;
   onBreakerClosed?: (breaker: CircuitBreakerState) => void;
   onBreakerHalfOpen?: (breaker: CircuitBreakerState) => void;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  onFailure?: (breakerId: string, error: any) => void;
+  onFailure?: (breakerId: string, error: unknown) => void;
 }
 
 export interface UseCircuitBreakerReturn {
@@ -232,8 +230,7 @@ export const useCircuitBreaker = (options: UseCircuitBreakerOptions = {}): UseCi
   // Subscribe to circuit breakers on mount
   useEffect(() => {
     if (autoConnect && isConnected) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let subscriptionParams: Record<string, any> = {};
+    let subscriptionParams: Record<string, string> = {};
 
       if (breakerId) {
         // Subscribe to specific breaker
@@ -285,8 +282,7 @@ export const useCircuitBreaker = (options: UseCircuitBreakerOptions = {}): UseCi
   const subscribe = useCallback((targetBreakerId?: string) => {
     if (!isConnected) return;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const subscriptionParams: Record<string, any> = targetBreakerId
+    const subscriptionParams: Record<string, string> = targetBreakerId
       ? { type: 'circuit_breaker', resource_id: targetBreakerId }
       : { type: 'circuit_breaker', resource_id: 'all' };
 

@@ -104,7 +104,7 @@ export const useCustomerWebSocket = ({
   }, [isConnected, sendMessage]);
 
   // Load customers list
-  const loadCustomers = useCallback(async (filters: unknown = {}) => {
+  const loadCustomers = useCallback(async (filters: Record<string, unknown> = {}) => {
     if (!isConnected) {
       return;
     }
