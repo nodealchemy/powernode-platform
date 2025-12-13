@@ -15,8 +15,8 @@ interface UIState {
 }
 
 const initialState: UIState = {
-  sidebarOpen: true,
-  sidebarCollapsed: false, // On mobile, always show collapsed when open
+  sidebarOpen: false, // Collapsed by default on mobile (desktop always visible via CSS)
+  sidebarCollapsed: false,
   theme: 'light',
   loading: false,
   notifications: [],
