@@ -49,6 +49,8 @@ export interface CircuitBreakerMetrics {
 }
 
 export interface CircuitBreakerDashboardProps {
+  metrics?: CircuitBreakerMetrics | null;
+  loading?: boolean;
   onLoadMetrics?: () => Promise<CircuitBreakerMetrics>;
   onResetBreaker?: (breakerId: string) => Promise<void>;
   autoRefresh?: boolean;
@@ -56,14 +58,20 @@ export interface CircuitBreakerDashboardProps {
 }
 
 export const CircuitBreakerDashboard: React.FC<CircuitBreakerDashboardProps> = ({
+  metrics: propMetrics,
+  loading: propLoading = false,
   onLoadMetrics,
   onResetBreaker,
   autoRefresh = true,
   refreshInterval = 30000
 }) => {
-  const [metrics, setMetrics] = useState<CircuitBreakerMetrics | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [internalMetrics, setInternalMetrics] = useState<CircuitBreakerMetrics | null>(null);
+  const [internalLoading, setInternalLoading] = useState(!propMetrics);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Use prop metrics if provided, otherwise use internal state
+  const metrics = propMetrics !== undefined ? propMetrics : internalMetrics;
+  const loading = propMetrics !== undefined ? propLoading : internalLoading;
   const [selectedBreaker, setSelectedBreaker] = useState<CircuitBreakerState | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [filterState, setFilterState] = useState<'all' | 'closed' | 'open' | 'half_open'>('all');
@@ -80,187 +88,22 @@ export const CircuitBreakerDashboard: React.FC<CircuitBreakerDashboardProps> = (
     }
   });
 
-  // Load metrics from API or use mock data
+  // Load metrics from API (only when onLoadMetrics is provided)
   const loadMetrics = useCallback(async (showSpinner = true) => {
+    // Skip if metrics are provided as props
+    if (propMetrics !== undefined) return;
+    // Skip if no loading function provided
+    if (!onLoadMetrics) return;
+
     try {
       if (showSpinner) {
-        setLoading(true);
+        setInternalLoading(true);
       } else {
         setRefreshing(true);
       }
 
-      if (onLoadMetrics) {
-        const data = await onLoadMetrics();
-        setMetrics(data);
-      } else {
-        // Mock data for development
-        const mockMetrics: CircuitBreakerMetrics = {
-          total_breakers: 6,
-          open_breakers: 1,
-          closed_breakers: 4,
-          half_open_breakers: 1,
-          total_failures: 42,
-          total_requests: 1250,
-          overall_failure_rate: 3.36,
-          breakers: [
-            {
-              id: 'cb-openai-1',
-              name: 'OpenAI GPT-4',
-              service: 'ai_provider',
-              provider: 'openai',
-              state: 'closed',
-              failure_count: 0,
-              failure_threshold: 5,
-              success_count: 234,
-              success_threshold: 2,
-              last_success_at: new Date(Date.now() - 2 * 60 * 1000).toISOString(),
-              closed_at: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(),
-              timeout_duration_ms: 30000,
-              total_requests: 234,
-              total_failures: 0,
-              total_successes: 234,
-              failure_rate: 0,
-              avg_response_time_ms: 1250,
-              configuration: {
-                failure_threshold: 5,
-                success_threshold: 2,
-                timeout_ms: 30000,
-                reset_timeout_ms: 60000
-              }
-            },
-            {
-              id: 'cb-anthropic-1',
-              name: 'Anthropic Claude',
-              service: 'ai_provider',
-              provider: 'anthropic',
-              state: 'closed',
-              failure_count: 1,
-              failure_threshold: 5,
-              success_count: 456,
-              success_threshold: 2,
-              last_success_at: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
-              last_failure_at: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
-              closed_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-              timeout_duration_ms: 30000,
-              total_requests: 460,
-              total_failures: 4,
-              total_successes: 456,
-              failure_rate: 0.87,
-              avg_response_time_ms: 2100,
-              configuration: {
-                failure_threshold: 5,
-                success_threshold: 2,
-                timeout_ms: 30000,
-                reset_timeout_ms: 60000
-              }
-            },
-            {
-              id: 'cb-ollama-1',
-              name: 'Ollama Llama3',
-              service: 'ai_provider',
-              provider: 'ollama',
-              state: 'open',
-              failure_count: 12,
-              failure_threshold: 5,
-              success_count: 0,
-              success_threshold: 2,
-              last_failure_at: new Date(Date.now() - 30 * 1000).toISOString(),
-              opened_at: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
-              next_attempt_at: new Date(Date.now() + 55 * 1000).toISOString(),
-              timeout_duration_ms: 30000,
-              total_requests: 145,
-              total_failures: 38,
-              total_successes: 107,
-              failure_rate: 26.21,
-              avg_response_time_ms: 3500,
-              configuration: {
-                failure_threshold: 5,
-                success_threshold: 2,
-                timeout_ms: 30000,
-                reset_timeout_ms: 60000
-              }
-            },
-            {
-              id: 'cb-stripe-1',
-              name: 'Stripe Payments',
-              service: 'payment_gateway',
-              provider: 'stripe',
-              state: 'half_open',
-              failure_count: 0,
-              failure_threshold: 3,
-              success_count: 1,
-              success_threshold: 2,
-              last_success_at: new Date(Date.now() - 10 * 1000).toISOString(),
-              last_failure_at: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
-              opened_at: new Date(Date.now() - 11 * 60 * 1000).toISOString(),
-              timeout_duration_ms: 15000,
-              total_requests: 189,
-              total_failures: 0,
-              total_successes: 189,
-              failure_rate: 0,
-              avg_response_time_ms: 450,
-              configuration: {
-                failure_threshold: 3,
-                success_threshold: 2,
-                timeout_ms: 15000,
-                reset_timeout_ms: 60000
-              }
-            },
-            {
-              id: 'cb-paypal-1',
-              name: 'PayPal Payments',
-              service: 'payment_gateway',
-              provider: 'paypal',
-              state: 'closed',
-              failure_count: 0,
-              failure_threshold: 3,
-              success_count: 123,
-              success_threshold: 2,
-              last_success_at: new Date(Date.now() - 1 * 60 * 1000).toISOString(),
-              closed_at: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
-              timeout_duration_ms: 15000,
-              total_requests: 123,
-              total_failures: 0,
-              total_successes: 123,
-              failure_rate: 0,
-              avg_response_time_ms: 680,
-              configuration: {
-                failure_threshold: 3,
-                success_threshold: 2,
-                timeout_ms: 15000,
-                reset_timeout_ms: 60000
-              }
-            },
-            {
-              id: 'cb-email-1',
-              name: 'Email Service',
-              service: 'notification',
-              provider: 'smtp',
-              state: 'closed',
-              failure_count: 0,
-              failure_threshold: 5,
-              success_count: 89,
-              success_threshold: 2,
-              last_success_at: new Date(Date.now() - 3 * 60 * 1000).toISOString(),
-              closed_at: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
-              timeout_duration_ms: 10000,
-              total_requests: 89,
-              total_failures: 0,
-              total_successes: 89,
-              failure_rate: 0,
-              avg_response_time_ms: 320,
-              configuration: {
-                failure_threshold: 5,
-                success_threshold: 2,
-                timeout_ms: 10000,
-                reset_timeout_ms: 30000
-              }
-            }
-          ]
-        };
-
-        setMetrics(mockMetrics);
-      }
+      const data = await onLoadMetrics();
+      setInternalMetrics(data);
     } catch (error) {
       if (process.env.NODE_ENV === 'development') {
         console.error('Failed to load circuit breaker metrics:', error);
@@ -271,26 +114,28 @@ export const CircuitBreakerDashboard: React.FC<CircuitBreakerDashboardProps> = (
         message: 'Failed to load circuit breaker metrics. Please try again.'
       });
     } finally {
-      setLoading(false);
+      setInternalLoading(false);
       setRefreshing(false);
     }
-  }, [onLoadMetrics, addNotification]);
+  }, [propMetrics, onLoadMetrics, addNotification]);
 
-  // Initial load
+  // Initial load (only if using internal state)
   useEffect(() => {
-    loadMetrics(true);
-  }, [loadMetrics]);
+    if (propMetrics === undefined && onLoadMetrics) {
+      loadMetrics(true);
+    }
+  }, [loadMetrics, propMetrics, onLoadMetrics]);
 
-  // Auto-refresh
+  // Auto-refresh (only if using onLoadMetrics callback)
   useEffect(() => {
-    if (!autoRefresh) return;
+    if (!autoRefresh || propMetrics !== undefined || !onLoadMetrics) return;
 
     const interval = setInterval(() => {
       loadMetrics(false);
     }, refreshInterval);
 
     return () => clearInterval(interval);
-  }, [autoRefresh, refreshInterval, loadMetrics]);
+  }, [autoRefresh, refreshInterval, loadMetrics, propMetrics, onLoadMetrics]);
 
   // Merge real-time data with loaded metrics
   const mergedBreakers = useMemo(() => {

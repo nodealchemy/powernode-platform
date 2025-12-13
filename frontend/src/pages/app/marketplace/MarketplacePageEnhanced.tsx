@@ -18,7 +18,15 @@ import { RefreshCw, Plus, Sidebar, Filter } from 'lucide-react';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { Button } from '@/shared/components/ui/Button';
 
-export const MarketplacePageEnhanced: React.FC = () => {
+interface MarketplacePageEnhancedProps {
+  facets?: SearchFacets;
+  onLoadFacets?: () => Promise<SearchFacets>;
+}
+
+export const MarketplacePageEnhanced: React.FC<MarketplacePageEnhancedProps> = ({
+  facets: propFacets,
+  onLoadFacets
+}) => {
   const navigate = useNavigate();
   const location = useLocation();
   
@@ -42,9 +50,30 @@ export const MarketplacePageEnhanced: React.FC = () => {
   const [selectedAppForSubscription, setSelectedAppForSubscription] = useState<App | null>(null);
   const [selectedAppForComparison, setSelectedAppForComparison] = useState<App | null>(null);
   const [showSidebar, setShowSidebar] = useState(false);
+
+  // Facets state - use props if provided, otherwise initialize empty
+  const emptyFacets: SearchFacets = {
+    categories: [],
+    priceTypes: [],
+    features: [],
+    ratings: [],
+    tags: []
+  };
+  const [searchFacets, setSearchFacets] = useState<SearchFacets>(propFacets || emptyFacets);
   
   // Refs
   const subscriptionsRefreshRef = useRef<(() => void) | null>(null);
+
+  // Sync facets from props and load via callback if needed
+  React.useEffect(() => {
+    if (propFacets) {
+      setSearchFacets(propFacets);
+    } else if (onLoadFacets) {
+      onLoadFacets().then(setSearchFacets).catch(() => {
+        // Failed to load facets - keep empty state
+      });
+    }
+  }, [propFacets, onLoadFacets]);
   
   // Determine active tab from URL
   const getActiveTabFromPath = () => {
@@ -95,42 +124,6 @@ export const MarketplacePageEnhanced: React.FC = () => {
     metadata: {}, // Default empty metadata
     plans: listing.app.app_plans || [] // Include app plans from the listing
   }));
-
-  // Mock search facets for demo
-  const searchFacets: SearchFacets = {
-    categories: [
-      { slug: 'developer-tools', name: 'Developer Tools', count: 45, icon: '🔧' },
-      { slug: 'business-apps', name: 'Business Apps', count: 32, icon: '💼' },
-      { slug: 'marketing', name: 'Marketing', count: 28, icon: '📈' },
-      { slug: 'analytics', name: 'Analytics', count: 23, icon: '📊' },
-      { slug: 'communication', name: 'Communication', count: 18, icon: '💬' },
-      { slug: 'security', name: 'Security', count: 15, icon: '🛡️' }
-    ],
-    priceTypes: [
-      { type: 'free', label: 'Free', count: 67 },
-      { type: 'freemium', label: 'Freemium', count: 43 },
-      { type: 'paid', label: 'Paid', count: 89 },
-      { type: 'subscription', label: 'Subscription', count: 112 }
-    ],
-    features: [
-      { slug: 'api-integration', name: 'API Integration', count: 78 },
-      { slug: 'webhooks', name: 'Webhooks', count: 56 },
-      { slug: 'real-time', name: 'Real-time Data', count: 34 },
-      { slug: 'automation', name: 'Automation', count: 67 },
-      { slug: 'reporting', name: 'Reporting', count: 45 }
-    ],
-    ratings: [
-      { rating: 5, count: 23, label: '5 stars' },
-      { rating: 4, count: 45, label: '4 stars & up' },
-      { rating: 3, count: 67, label: '3 stars & up' },
-      { rating: 2, count: 78, label: '2 stars & up' }
-    ],
-    tags: [
-      { slug: 'popular', name: 'Popular', count: 34 },
-      { slug: 'trending', name: 'Trending', count: 23 },
-      { slug: 'new', name: 'New', count: 12 }
-    ]
-  };
 
   // Enhanced handlers
   const handleSearch = (_query: string) => {

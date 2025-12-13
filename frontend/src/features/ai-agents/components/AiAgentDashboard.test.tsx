@@ -417,17 +417,18 @@ describe('AiAgentDashboard', () => {
   });
 
   describe('Error Handling', () => {
-    it('shows fallback data when API fails', async () => {
+    it('shows empty state when API fails', async () => {
       (agentsApi.getAgents as jest.Mock).mockRejectedValue({
         message: 'Failed to load agents'
       });
 
       renderComponent();
 
-      // Component falls back to mock data on error
+      // Component clears data and shows empty state on error
       await waitFor(() => {
-        expect(screen.getByText('Content Generator')).toBeInTheDocument();
-        expect(screen.getByText('Code Reviewer')).toBeInTheDocument();
+        expect(screen.getByTestId('empty-state')).toBeInTheDocument();
+        // Multiple stats show 0 (Total Agents, Active Agents, etc.)
+        expect(screen.getAllByText('0').length).toBeGreaterThan(0);
       });
     });
 
@@ -439,7 +440,7 @@ describe('AiAgentDashboard', () => {
 
       renderComponent();
 
-      // Component falls back to mock data on auth error
+      // Component clears data on auth error and shows empty state
       await waitFor(() => {
         expect(screen.queryByTestId('loading-spinner')).not.toBeInTheDocument();
       });

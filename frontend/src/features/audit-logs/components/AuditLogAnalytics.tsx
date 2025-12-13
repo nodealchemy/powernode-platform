@@ -1,7 +1,5 @@
 import React, { useState } from 'react';
 import {
-  TrendingUp,
-  TrendingDown,
   Shield,
   AlertTriangle,
   Users,
@@ -18,9 +16,32 @@ import { RiskAssessment } from './RiskAssessment';
 import { ActivityHeatmap } from './ActivityHeatmap';
 import { TopThreats } from './TopThreats';
 
+import type { ChartData } from './AuditLogChart';
+import type { HeatmapDataPoint } from './ActivityHeatmap';
+
+export interface AuditLogMetrics {
+  totalEvents: number;
+  securityEvents: number;
+  failedEvents: number;
+  highRiskEvents: number;
+  suspiciousEvents: number;
+  uniqueUsers: number;
+  uniqueIps: number;
+}
+
+export interface AuditLogChartDataSet {
+  activityTimeline?: ChartData;
+  eventDistribution?: ChartData;
+  securityEvents?: ChartData;
+  complianceEvents?: ChartData;
+  riskDistribution?: ChartData;
+}
+
 interface AuditLogAnalyticsProps {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  metrics: any;
+  metrics?: Partial<AuditLogMetrics>;
+  chartData?: AuditLogChartDataSet;
+  heatmapData?: HeatmapDataPoint[];
+  loading?: boolean;
   filters: FilterType;
   onFiltersChange: (filters: FilterType) => void;
   refreshData: () => void;
@@ -41,20 +62,22 @@ const timeRanges: TimeRange[] = [
 
 export const AuditLogAnalytics: React.FC<AuditLogAnalyticsProps> = ({
   metrics,
+  chartData,
+  heatmapData,
+  loading: propLoading = false,
   filters,
   onFiltersChange,
   refreshData
 }) => {
   const [selectedTimeRange, setSelectedTimeRange] = useState<TimeRange>(timeRanges[1]);
   const [activeTab, setActiveTab] = useState<'overview' | 'security' | 'compliance' | 'risk'>('overview');
-  const [loading] = useState(false);
 
   // Handle time range changes
   const handleTimeRangeChange = (timeRange: TimeRange) => {
     setSelectedTimeRange(timeRange);
     const endDate = new Date();
     const startDate = new Date(endDate.getTime() - (timeRange.days * 24 * 60 * 60 * 1000));
-    
+
     onFiltersChange({
       ...filters,
       date_from: startDate.toISOString().split('T')[0],
@@ -62,16 +85,15 @@ export const AuditLogAnalytics: React.FC<AuditLogAnalyticsProps> = ({
     });
   };
 
-  // Mock data for development
-  const mockMetrics = {
-    totalEvents: 1250,
-    securityEvents: 95,
-    failedEvents: 23,
-    highRiskEvents: 12,
-    suspiciousEvents: 8,
-    uniqueUsers: 45,
-    uniqueIps: 78,
-    ...metrics
+  // Use metrics from props with defaults for display
+  const displayMetrics: AuditLogMetrics = {
+    totalEvents: metrics?.totalEvents ?? 0,
+    securityEvents: metrics?.securityEvents ?? 0,
+    failedEvents: metrics?.failedEvents ?? 0,
+    highRiskEvents: metrics?.highRiskEvents ?? 0,
+    suspiciousEvents: metrics?.suspiciousEvents ?? 0,
+    uniqueUsers: metrics?.uniqueUsers ?? 0,
+    uniqueIps: metrics?.uniqueIps ?? 0
   };
 
   const tabs = [
@@ -113,10 +135,10 @@ export const AuditLogAnalytics: React.FC<AuditLogAnalyticsProps> = ({
             
             <button
               onClick={refreshData}
-              disabled={loading}
+              disabled={propLoading}
               className="flex items-center gap-2 px-3 py-2 text-sm bg-theme-interactive-primary text-white rounded-md hover:bg-theme-interactive-primary-hover transition-colors duration-200 disabled:opacity-50"
             >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`w-4 h-4 ${propLoading ? 'animate-spin' : ''}`} />
               Refresh
             </button>
           </div>
@@ -155,47 +177,31 @@ export const AuditLogAnalytics: React.FC<AuditLogAnalyticsProps> = ({
                     <div className="text-sm font-medium text-theme-secondary">Total Events</div>
                     <Activity className="w-4 h-4 text-theme-link" />
                   </div>
-                  <div className="text-2xl font-bold text-theme-primary">{mockMetrics.totalEvents.toLocaleString()}</div>
-                  <div className="flex items-center gap-1 mt-1">
-                    <TrendingUp className="w-3 h-3 text-theme-status-success" />
-                    <span className="text-xs text-theme-status-success">+12% from last period</span>
-                  </div>
+                  <div className="text-2xl font-bold text-theme-primary">{displayMetrics.totalEvents.toLocaleString()}</div>
                 </div>
-                
+
                 <div className="bg-theme-background rounded-lg p-4 border border-theme">
                   <div className="flex items-center justify-between mb-2">
                     <div className="text-sm font-medium text-theme-secondary">Security Events</div>
                     <Shield className="w-4 h-4 text-theme-status-success" />
                   </div>
-                  <div className="text-2xl font-bold text-theme-primary">{mockMetrics.securityEvents}</div>
-                  <div className="flex items-center gap-1 mt-1">
-                    <TrendingDown className="w-3 h-3 text-theme-status-success" />
-                    <span className="text-xs text-theme-status-success">-5% from last period</span>
-                  </div>
+                  <div className="text-2xl font-bold text-theme-primary">{displayMetrics.securityEvents}</div>
                 </div>
-                
+
                 <div className="bg-theme-background rounded-lg p-4 border border-theme">
                   <div className="flex items-center justify-between mb-2">
                     <div className="text-sm font-medium text-theme-secondary">High Risk</div>
                     <AlertTriangle className="w-4 h-4 text-theme-status-error" />
                   </div>
-                  <div className="text-2xl font-bold text-theme-primary">{mockMetrics.highRiskEvents}</div>
-                  <div className="flex items-center gap-1 mt-1">
-                    <TrendingUp className="w-3 h-3 text-theme-status-error" />
-                    <span className="text-xs text-theme-status-error">+8% from last period</span>
-                  </div>
+                  <div className="text-2xl font-bold text-theme-primary">{displayMetrics.highRiskEvents}</div>
                 </div>
-                
+
                 <div className="bg-theme-background rounded-lg p-4 border border-theme">
                   <div className="flex items-center justify-between mb-2">
                     <div className="text-sm font-medium text-theme-secondary">Unique Users</div>
                     <Users className="w-4 h-4 text-theme-link" />
                   </div>
-                  <div className="text-2xl font-bold text-theme-primary">{mockMetrics.uniqueUsers}</div>
-                  <div className="flex items-center gap-1 mt-1">
-                    <TrendingUp className="w-3 h-3 text-theme-link" />
-                    <span className="text-xs text-theme-link">+3% from last period</span>
-                  </div>
+                  <div className="text-2xl font-bold text-theme-primary">{displayMetrics.uniqueUsers}</div>
                 </div>
               </div>
 
@@ -204,29 +210,34 @@ export const AuditLogAnalytics: React.FC<AuditLogAnalyticsProps> = ({
                 <AuditLogChart
                   title="Activity Timeline"
                   type="line"
+                  data={chartData?.activityTimeline || []}
                   timeRange={selectedTimeRange}
+                  loading={propLoading}
                 />
                 <AuditLogChart
                   title="Event Distribution"
                   type="pie"
+                  data={chartData?.eventDistribution || []}
                   timeRange={selectedTimeRange}
+                  loading={propLoading}
                 />
               </div>
-              
+
               {/* Activity Heatmap */}
-              <ActivityHeatmap timeRange={selectedTimeRange} />
+              <ActivityHeatmap data={heatmapData || []} loading={propLoading} />
             </div>
           )}
 
           {activeTab === 'security' && (
             <div className="space-y-6">
-              <SecurityOverview metrics={mockMetrics} timeRange={selectedTimeRange} />
+              <SecurityOverview metrics={displayMetrics as unknown as Record<string, unknown>} timeRange={selectedTimeRange} />
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <AuditLogChart
                   title="Security Events Over Time"
                   type="line"
+                  data={chartData?.securityEvents || []}
                   timeRange={selectedTimeRange}
-                  focus="security"
+                  loading={propLoading}
                 />
                 <TopThreats timeRange={selectedTimeRange} />
               </div>
@@ -240,8 +251,9 @@ export const AuditLogAnalytics: React.FC<AuditLogAnalyticsProps> = ({
                 <AuditLogChart
                   title="Compliance Events"
                   type="bar"
+                  data={chartData?.complianceEvents || []}
                   timeRange={selectedTimeRange}
-                  focus="compliance"
+                  loading={propLoading}
                 />
                 <div className="bg-theme-background rounded-lg border border-theme p-6">
                   <h3 className="text-lg font-semibold text-theme-primary mb-4">Regulation Coverage</h3>
@@ -281,13 +293,14 @@ export const AuditLogAnalytics: React.FC<AuditLogAnalyticsProps> = ({
 
           {activeTab === 'risk' && (
             <div className="space-y-6">
-              <RiskAssessment metrics={mockMetrics} timeRange={selectedTimeRange} />
+              <RiskAssessment metrics={displayMetrics} timeRange={selectedTimeRange} />
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <AuditLogChart
                   title="Risk Level Distribution"
                   type="doughnut"
+                  data={chartData?.riskDistribution || []}
                   timeRange={selectedTimeRange}
-                  focus="risk"
+                  loading={propLoading}
                 />
                 <div className="bg-theme-background rounded-lg border border-theme p-6">
                   <h3 className="text-lg font-semibold text-theme-primary mb-4">Risk Recommendations</h3>

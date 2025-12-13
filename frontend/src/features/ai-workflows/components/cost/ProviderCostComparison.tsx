@@ -17,13 +17,22 @@ interface ProviderComparison {
   performance_score: number; // 0-100
 }
 
+export interface ProviderScores {
+  [provider: string]: {
+    reliability_score: number;
+    performance_score: number;
+  };
+}
+
 interface ProviderCostComparisonProps {
   metrics: CostMetrics;
+  providerScores?: ProviderScores;
   onProviderSelect?: (provider: string) => void;
 }
 
 export const ProviderCostComparison: React.FC<ProviderCostComparisonProps> = ({
   metrics,
+  providerScores,
   onProviderSelect
 }) => {
   const providerComparisons = useMemo(() => {
@@ -44,9 +53,10 @@ export const ProviderCostComparison: React.FC<ProviderCostComparisonProps> = ({
         .filter(model => model.toLowerCase().includes(provider.toLowerCase()))
         .length;
 
-      // Mock reliability and performance scores (would come from actual metrics)
-      const reliability_score = provider === 'openai' ? 98 : provider === 'anthropic' ? 95 : 92;
-      const performance_score = provider === 'openai' ? 94 : provider === 'anthropic' ? 96 : 88;
+      // Use provider scores if provided, otherwise use defaults
+      const scores = providerScores?.[provider] || { reliability_score: 90, performance_score: 90 };
+      const reliability_score = scores.reliability_score;
+      const performance_score = scores.performance_score;
 
       comparisons.push({
         provider,
@@ -63,7 +73,7 @@ export const ProviderCostComparison: React.FC<ProviderCostComparisonProps> = ({
     });
 
     return comparisons.sort((a, b) => b.cost - a.cost);
-  }, [metrics]);
+  }, [metrics, providerScores]);
 
   const getTrendIcon = (trend: 'up' | 'down' | 'stable') => {
     if (trend === 'up') {

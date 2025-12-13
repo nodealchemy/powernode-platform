@@ -27,6 +27,8 @@ export interface CircuitBreakerHistoryProps {
   breaker: CircuitBreakerState;
   isOpen: boolean;
   onClose: () => void;
+  history?: CircuitBreakerEvent[];
+  loading?: boolean;
   onLoadHistory?: (breakerId: string, filters?: Record<string, unknown>) => Promise<CircuitBreakerEvent[]>;
 }
 
@@ -34,122 +36,35 @@ export const CircuitBreakerHistory: React.FC<CircuitBreakerHistoryProps> = ({
   breaker,
   isOpen,
   onClose,
+  history: propHistory,
+  loading: propLoading = false,
   onLoadHistory
 }) => {
-  const [history, setHistory] = useState<CircuitBreakerEvent[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [internalHistory, setInternalHistory] = useState<CircuitBreakerEvent[]>([]);
+  const [internalLoading, setInternalLoading] = useState(!propHistory);
   const [filterType, setFilterType] = useState<'all' | 'state_change' | 'failure' | 'success'>('all');
   const [timeRange, setTimeRange] = useState<'1h' | '6h' | '24h' | '7d' | '30d'>('24h');
+
+  // Use prop history if provided, otherwise use internal state
+  const history = propHistory !== undefined ? propHistory : internalHistory;
+  const loading = propHistory !== undefined ? propLoading : internalLoading;
 
   const { addNotification } = useNotifications();
 
   const loadHistory = useCallback(async () => {
+    // Skip if history is provided as props
+    if (propHistory !== undefined) return;
+    // Skip if no loading function provided
+    if (!onLoadHistory) return;
+
     try {
-      setLoading(true);
+      setInternalLoading(true);
 
-      if (onLoadHistory) {
-        const events = await onLoadHistory(breaker.id, {
-          event_type: filterType !== 'all' ? filterType : undefined,
-          time_range: timeRange
-        });
-        setHistory(events);
-      } else {
-        // Mock history data for development
-        const mockHistory: CircuitBreakerEvent[] = [];
-        const now = Date.now();
-        const timeRangeMs = {
-          '1h': 60 * 60 * 1000,
-          '6h': 6 * 60 * 60 * 1000,
-          '24h': 24 * 60 * 60 * 1000,
-          '7d': 7 * 24 * 60 * 60 * 1000,
-          '30d': 30 * 24 * 60 * 60 * 1000
-        }[timeRange];
-
-        // Generate mock events based on breaker state
-        if (breaker.state === 'open') {
-          // Recent failures leading to circuit opening
-          for (let i = 0; i < 8; i++) {
-            mockHistory.push({
-              id: `evt-${Date.now()}-${i}`,
-              breaker_id: breaker.id,
-              event_type: 'failure',
-              timestamp: new Date(now - (i * 2 * 60 * 1000)).toISOString(),
-              metadata: {
-                error_message: 'Connection timeout',
-                failure_count: 8 - i,
-                latency_ms: 30000 + Math.random() * 5000
-              }
-            });
-          }
-
-          mockHistory.push({
-            id: `evt-state-open`,
-            breaker_id: breaker.id,
-            event_type: 'state_change',
-            previous_state: 'closed',
-            new_state: 'open',
-            timestamp: new Date(now - 5 * 60 * 1000).toISOString(),
-            metadata: {
-              failure_count: breaker.failure_threshold,
-              triggered_by: 'auto'
-            }
-          });
-        } else if (breaker.state === 'half_open') {
-          // Transitioning from open to half_open
-          mockHistory.push({
-            id: `evt-state-halfopen`,
-            breaker_id: breaker.id,
-            event_type: 'state_change',
-            previous_state: 'open',
-            new_state: 'half_open',
-            timestamp: new Date(now - 2 * 60 * 1000).toISOString(),
-            metadata: {
-              triggered_by: 'auto'
-            }
-          });
-
-          // Some test successes
-          for (let i = 0; i < breaker.success_count; i++) {
-            mockHistory.push({
-              id: `evt-success-${i}`,
-              breaker_id: breaker.id,
-              event_type: 'success',
-              timestamp: new Date(now - (i * 30 * 1000)).toISOString(),
-              metadata: {
-                success_count: i + 1,
-                latency_ms: 1000 + Math.random() * 500
-              }
-            });
-          }
-        } else {
-          // Closed state - mostly successes with occasional failures
-          const eventCount = 20;
-          for (let i = 0; i < eventCount; i++) {
-            const isFailure = Math.random() < 0.1;
-            mockHistory.push({
-              id: `evt-${Date.now()}-${i}`,
-              breaker_id: breaker.id,
-              event_type: isFailure ? 'failure' : 'success',
-              timestamp: new Date(now - (i * (timeRangeMs / eventCount))).toISOString(),
-              metadata: {
-                error_message: isFailure ? 'Temporary error' : undefined,
-                failure_count: isFailure ? Math.floor(Math.random() * 2) + 1 : undefined,
-                success_count: !isFailure ? Math.floor(Math.random() * 10) + 1 : undefined,
-                latency_ms: breaker.avg_response_time_ms + (Math.random() - 0.5) * 200
-              }
-            });
-          }
-        }
-
-        // Filter by type
-        const filtered = filterType === 'all'
-          ? mockHistory
-          : mockHistory.filter(e => e.event_type === filterType);
-
-        setHistory(filtered.sort((a, b) =>
-          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-        ));
-      }
+      const events = await onLoadHistory(breaker.id, {
+        event_type: filterType !== 'all' ? filterType : undefined,
+        time_range: timeRange
+      });
+      setInternalHistory(events);
     } catch (error) {
       if (process.env.NODE_ENV === 'development') {
         console.error('Failed to load circuit breaker history:', error);
@@ -160,15 +75,15 @@ export const CircuitBreakerHistory: React.FC<CircuitBreakerHistoryProps> = ({
         message: 'Failed to load circuit breaker history. Please try again.'
       });
     } finally {
-      setLoading(false);
+      setInternalLoading(false);
     }
-  }, [breaker.id, filterType, timeRange, onLoadHistory, addNotification, breaker.state, breaker.failure_threshold, breaker.success_count, breaker.avg_response_time_ms]);
+  }, [propHistory, breaker.id, filterType, timeRange, onLoadHistory, addNotification]);
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && propHistory === undefined && onLoadHistory) {
       loadHistory();
     }
-  }, [isOpen, loadHistory]);
+  }, [isOpen, loadHistory, propHistory, onLoadHistory]);
 
   const getEventIcon = (event: CircuitBreakerEvent) => {
     switch (event.event_type) {

@@ -42,7 +42,10 @@ jest.mock('@/shared/hooks/useAuth', () => ({
 // Mock useWebSocket hook
 jest.mock('@/shared/hooks/useWebSocket', () => ({
   useWebSocket: () => ({
-    isConnected: true
+    isConnected: true,
+    subscribe: jest.fn(() => jest.fn()), // Returns unsubscribe function
+    unsubscribe: jest.fn(),
+    send: jest.fn()
   })
 }));
 
@@ -263,10 +266,12 @@ describe('WorkflowDetailModal', () => {
   };
 
   describe('Component Rendering', () => {
-    it('renders modal when open', () => {
+    it('renders modal when open', async () => {
       renderComponent();
-      // Modal shows immediately while workflow loads
-      expect(screen.getByTestId('modal')).toBeInTheDocument();
+      // Modal renders after workflow loads
+      await waitFor(() => {
+        expect(screen.getByTestId('modal')).toBeInTheDocument();
+      });
     });
 
     it('does not render when closed', () => {
@@ -318,8 +323,13 @@ describe('WorkflowDetailModal', () => {
 
       renderComponent();
 
-      // Should still render modal
-      expect(screen.getByTestId('modal')).toBeInTheDocument();
+      // Wait for API call to complete
+      await waitFor(() => {
+        expect(workflowsApi.getWorkflow).toHaveBeenCalled();
+      });
+
+      // Component returns null when workflow fails to load (no crash)
+      expect(screen.queryByTestId('modal')).not.toBeInTheDocument();
     });
   });
 
@@ -349,9 +359,13 @@ describe('WorkflowDetailModal', () => {
   });
 
   describe('Modal Controls', () => {
-    it('closes modal when close button is clicked', () => {
+    it('closes modal when close button is clicked', async () => {
       const onClose = jest.fn();
       renderComponent({ onClose });
+
+      await waitFor(() => {
+        expect(screen.getByTestId('close-button')).toBeInTheDocument();
+      });
 
       const closeButton = screen.getByTestId('close-button');
       fireEvent.click(closeButton);
@@ -378,8 +392,13 @@ describe('WorkflowDetailModal', () => {
       // Should not throw
       renderComponent();
 
-      // Modal should still be rendered
-      expect(screen.getByTestId('modal')).toBeInTheDocument();
+      // Wait for API call to complete
+      await waitFor(() => {
+        expect(workflowsApi.getWorkflow).toHaveBeenCalled();
+      });
+
+      // Component gracefully handles error by not rendering (no crash)
+      expect(screen.queryByTestId('modal')).not.toBeInTheDocument();
     });
 
     it('updateWorkflow API is called with correct workflow ID', async () => {
@@ -433,7 +452,9 @@ describe('WorkflowDetailModal', () => {
       renderComponent();
 
       // Modal should have header, content, and footer sections
-      expect(screen.getByTestId('modal-header')).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByTestId('modal-header')).toBeInTheDocument();
+      });
       expect(screen.getByTestId('modal-content')).toBeInTheDocument();
       expect(screen.getByTestId('modal-footer')).toBeInTheDocument();
     });
@@ -441,14 +462,17 @@ describe('WorkflowDetailModal', () => {
     it('has close button for keyboard accessibility', async () => {
       renderComponent();
 
-      const closeButton = screen.getByTestId('close-button');
-      expect(closeButton).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByTestId('close-button')).toBeInTheDocument();
+      });
     });
 
     it('modal title is rendered', async () => {
       renderComponent();
 
-      expect(screen.getByTestId('modal-title')).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByTestId('modal-title')).toBeInTheDocument();
+      });
     });
   });
 });

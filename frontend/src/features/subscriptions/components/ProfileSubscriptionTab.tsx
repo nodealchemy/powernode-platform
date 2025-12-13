@@ -11,89 +11,29 @@ import { SubscriptionPlan, Subscription } from '@/shared/types';
 import { CreditCard, ExternalLink, HelpCircle, Mail, RefreshCw, TrendingUp } from 'lucide-react';
 
 interface ProfileSubscriptionTabProps {
+  plans?: SubscriptionPlan[];
   loading?: boolean;
   className?: string;
+  onLoadPlans?: () => Promise<SubscriptionPlan[]>;
 }
 
-// Mock plans data (in real app, this would come from API)
-const mockPlans: SubscriptionPlan[] = [
-  {
-    id: '1',
-    name: 'Starter',
-    description: 'Perfect for individuals and small teams getting started',
-    price_cents: 999,
-    currency: 'USD',
-    billing_cycle: 'monthly',
-    status: 'active',
-    trial_days: 14,
-    is_public: true,
-    formatted_price: '$9.99',
-    monthly_price: '$9.99',
-    features: {
-      basic_support: true,
-      api_access: true,
-      storage_gb: 5
-    },
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString()
-  },
-  {
-    id: '2',
-    name: 'Professional',
-    description: 'Advanced features for growing businesses',
-    price_cents: 2999,
-    currency: 'USD',
-    billing_cycle: 'monthly',
-    status: 'active',
-    trial_days: 14,
-    is_public: true,
-    formatted_price: '$29.99',
-    monthly_price: '$29.99',
-    features: {
-      priority_support: true,
-      api_access: true,
-      advanced_analytics: true,
-      storage_gb: 50
-    },
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString()
-  },
-  {
-    id: '3',
-    name: 'Enterprise',
-    description: 'Full-featured solution for large organizations',
-    price_cents: 9999,
-    currency: 'USD',
-    billing_cycle: 'monthly',
-    status: 'active',
-    trial_days: 30,
-    is_public: true,
-    formatted_price: '$99.99',
-    monthly_price: '$99.99',
-    features: {
-      dedicated_support: true,
-      api_access: true,
-      advanced_analytics: true,
-      unlimited_storage: true
-    },
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString()
-  }
-];
-
 export const ProfileSubscriptionTab: React.FC<ProfileSubscriptionTabProps> = ({
+  plans: propPlans,
   loading: propLoading = false,
-  className = ''
+  className = '',
+  onLoadPlans
 }) => {
   const dispatch = useDispatch<AppDispatch>();
   const { showNotification } = useNotifications();
   const { user } = useSelector((state: RootState) => state.auth);
-  const { currentSubscription, availablePlans, loading: subscriptionLoading, error } = useSelector((state: RootState) => state.subscription);
+  const { currentSubscription, availablePlans: reduxPlans, loading: subscriptionLoading, error } = useSelector((state: RootState) => state.subscription);
 
   const [selectedSubscription, setSelectedSubscription] = useState<Subscription | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
 
+  // Use prop plans if provided, otherwise use Redux plans
+  const availablePlans = propPlans && propPlans.length > 0 ? propPlans : reduxPlans;
   const loading = propLoading || subscriptionLoading;
 
   // WebSocket integration for real-time updates
@@ -117,12 +57,18 @@ export const ProfileSubscriptionTab: React.FC<ProfileSubscriptionTabProps> = ({
 
   // Load subscription data
   useEffect(() => {
-    // Set mock plans (in real app, this would be an API call)
-    dispatch(setAvailablePlans(mockPlans));
+    // Load plans via callback if provided and no prop plans
+    if (!propPlans?.length && onLoadPlans) {
+      onLoadPlans().then(loadedPlans => {
+        dispatch(setAvailablePlans(loadedPlans));
+      }).catch(() => {
+        // Plans loading failed - will show empty state
+      });
+    }
 
     // Fetch real subscriptions
     dispatch(fetchSubscriptions());
-  }, [dispatch]);
+  }, [dispatch, propPlans, onLoadPlans]);
 
   const handlePlanSelect = async (planId: string) => {
     try {

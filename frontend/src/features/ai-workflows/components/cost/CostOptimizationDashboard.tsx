@@ -59,39 +59,67 @@ export interface CostOptimizationSuggestion {
 }
 
 interface CostOptimizationDashboardProps {
+  metrics?: CostMetrics | null;
+  budget?: CostBudget | null;
+  suggestions?: CostOptimizationSuggestion[];
+  loading?: boolean;
   onLoadMetrics?: (timeRange: string) => Promise<CostMetrics>;
   onLoadBudget?: () => Promise<CostBudget>;
   onLoadSuggestions?: () => Promise<CostOptimizationSuggestion[]>;
 }
 
 export const CostOptimizationDashboard: React.FC<CostOptimizationDashboardProps> = ({
+  metrics: propMetrics,
+  budget: propBudget,
+  suggestions: propSuggestions,
+  loading: propLoading,
   onLoadMetrics,
   onLoadBudget,
   onLoadSuggestions
 }) => {
   const [timeRange, setTimeRange] = useState<'24h' | '7d' | '30d' | '90d'>('30d');
-  const [metrics, setMetrics] = useState<CostMetrics | null>(null);
-  const [budget, setBudget] = useState<CostBudget | null>(null);
-  const [suggestions, setSuggestions] = useState<CostOptimizationSuggestion[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [metrics, setMetrics] = useState<CostMetrics | null>(propMetrics || null);
+  const [budget, setBudget] = useState<CostBudget | null>(propBudget || null);
+  const [suggestions, setSuggestions] = useState<CostOptimizationSuggestion[]>(propSuggestions || []);
+  const [loading, setLoading] = useState(!propMetrics && !propLoading);
   const [refreshing, setRefreshing] = useState(false);
 
   const { addNotification } = useNotifications();
 
+  // Sync props to state when they change
+  useEffect(() => {
+    if (propMetrics !== undefined) setMetrics(propMetrics);
+  }, [propMetrics]);
+
+  useEffect(() => {
+    if (propBudget !== undefined) setBudget(propBudget);
+  }, [propBudget]);
+
+  useEffect(() => {
+    if (propSuggestions !== undefined) setSuggestions(propSuggestions);
+  }, [propSuggestions]);
+
   const loadData = useCallback(async (showSpinner = true) => {
+    // Skip loading if all data is provided via props
+    if (propMetrics && propBudget && propSuggestions) return;
+
     try {
       if (showSpinner) setLoading(true);
       else setRefreshing(true);
 
-      const [metricsData, budgetData, suggestionsData] = await Promise.all([
-        onLoadMetrics?.(timeRange) || Promise.resolve(generateMockMetrics()),
-        onLoadBudget?.() || Promise.resolve(generateMockBudget()),
-        onLoadSuggestions?.() || Promise.resolve(generateMockSuggestions())
-      ]);
+      const promises: Promise<unknown>[] = [];
 
-      setMetrics(metricsData);
-      setBudget(budgetData);
-      setSuggestions(suggestionsData);
+      if (!propMetrics && onLoadMetrics) {
+        promises.push(onLoadMetrics(timeRange).then(setMetrics));
+      }
+      if (!propBudget && onLoadBudget) {
+        promises.push(onLoadBudget().then(setBudget));
+      }
+      if (!propSuggestions && onLoadSuggestions) {
+        promises.push(onLoadSuggestions().then(setSuggestions));
+      }
+
+      await Promise.all(promises);
     } catch (error) {
       if (process.env.NODE_ENV === 'development') {
         console.error('Failed to load cost data:', error);
@@ -105,11 +133,17 @@ export const CostOptimizationDashboard: React.FC<CostOptimizationDashboardProps>
       setLoading(false);
       setRefreshing(false);
     }
-  }, [timeRange, onLoadMetrics, onLoadBudget, onLoadSuggestions, addNotification]);
+  }, [timeRange, propMetrics, propBudget, propSuggestions, onLoadMetrics, onLoadBudget, onLoadSuggestions, addNotification]);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    // Only load data if not provided via props and callbacks exist
+    if ((!propMetrics && onLoadMetrics) || (!propBudget && onLoadBudget) || (!propSuggestions && onLoadSuggestions)) {
+      loadData();
+    } else if (!propMetrics && !onLoadMetrics) {
+      // No data and no way to load it - stop loading
+      setLoading(false);
+    }
+  }, [loadData, propMetrics, propBudget, propSuggestions, onLoadMetrics, onLoadBudget, onLoadSuggestions]);
 
   const handleExport = () => {
     if (!metrics) return;
@@ -218,7 +252,9 @@ export const CostOptimizationDashboard: React.FC<CostOptimizationDashboardProps>
     }
   };
 
-  if (loading) {
+  const isLoading = propLoading !== undefined ? propLoading : loading;
+
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
         <Loader2 className="h-8 w-8 animate-spin text-theme-interactive-primary" />
@@ -458,94 +494,3 @@ export const CostOptimizationDashboard: React.FC<CostOptimizationDashboardProps>
     </div>
   );
 };
-
-// Mock data generators for development
-function generateMockMetrics(): CostMetrics {
-  return {
-    total_cost: 127.45,
-    cost_by_provider: {
-      openai: 78.30,
-      anthropic: 32.15,
-      ollama: 17.00
-    },
-    cost_by_model: {
-      'gpt-4': 52.30,
-      'gpt-3.5-turbo': 26.00,
-      'claude-3-opus': 25.15,
-      'claude-3-sonnet': 7.00,
-      'llama2': 17.00
-    },
-    cost_by_workflow: {
-      'content-generation': { cost: 45.20, executions: 234 },
-      'data-analysis': { cost: 38.50, executions: 156 },
-      'code-review': { cost: 28.75, executions: 89 },
-      'customer-support': { cost: 15.00, executions: 421 }
-    },
-    total_tokens: 42500000,
-    tokens_by_provider: {
-      openai: 26000000,
-      anthropic: 10500000,
-      ollama: 6000000
-    },
-    period_start: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
-    period_end: new Date().toISOString(),
-    daily_costs: {},
-    cost_trends: {
-      daily_average: 4.25,
-      weekly_average: 29.75,
-      monthly_average: 127.45,
-      trend_direction: 'down',
-      trend_percentage: 12.3
-    }
-  };
-}
-
-function generateMockBudget(): CostBudget {
-  return {
-    daily_limit: 10.00,
-    weekly_limit: 50.00,
-    monthly_limit: 200.00,
-    alerts_enabled: true,
-    alert_threshold_percentage: 80
-  };
-}
-
-function generateMockSuggestions(): CostOptimizationSuggestion[] {
-  return [
-    {
-      id: '1',
-      type: 'model_switch',
-      title: 'Switch to GPT-3.5-turbo for simple tasks',
-      description: 'Many of your workflows could use GPT-3.5-turbo instead of GPT-4, reducing costs by 90% with minimal quality impact.',
-      estimated_savings: 38.50,
-      estimated_savings_percentage: 30.2,
-      impact: 'high',
-      effort: 'easy',
-      actionable: true,
-      action_url: '/app/ai/workflows'
-    },
-    {
-      id: '2',
-      type: 'batch_optimization',
-      title: 'Enable batch processing for recurring tasks',
-      description: 'Batch similar requests together to reduce overhead and improve cost efficiency.',
-      estimated_savings: 15.20,
-      estimated_savings_percentage: 11.9,
-      impact: 'medium',
-      effort: 'moderate',
-      actionable: true,
-      action_url: '/app/ai/workflows'
-    },
-    {
-      id: '3',
-      type: 'caching',
-      title: 'Implement response caching',
-      description: 'Cache responses for frequently asked questions to avoid redundant API calls.',
-      estimated_savings: 22.80,
-      estimated_savings_percentage: 17.9,
-      impact: 'high',
-      effort: 'moderate',
-      actionable: false
-    }
-  ];
-}

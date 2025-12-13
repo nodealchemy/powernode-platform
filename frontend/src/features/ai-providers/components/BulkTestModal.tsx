@@ -4,85 +4,98 @@ import { Button } from '@/shared/components/ui/Button';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Progress } from '@/shared/components/ui/Progress';
 
-interface BulkTestModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onConfirm: () => void;
-}
-
-interface TestResult {
+export interface TestResult {
   provider: string;
   status: 'pending' | 'testing' | 'success' | 'error';
   responseTime?: number;
   error?: string;
 }
 
+export interface ProviderToTest {
+  id: string;
+  name: string;
+}
+
+interface BulkTestModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  providers?: ProviderToTest[];
+  onTestProvider?: (providerId: string) => Promise<{ success: boolean; responseTime?: number; error?: string }>;
+}
+
 export const BulkTestModal: React.FC<BulkTestModalProps> = ({
   isOpen,
   onClose,
-  onConfirm
+  onConfirm,
+  providers = [],
+  onTestProvider
 }) => {
   const [testing, setTesting] = useState(false);
   const [results, setResults] = useState<TestResult[]>([]);
   const [progress, setProgress] = useState(0);
 
-  // Mock test results for demonstration
-  const mockProviders = [
-    'Ollama (Local)',
-    'OpenAI GPT-4',
-    'Anthropic Claude',
-    'Hugging Face',
-    'Cohere'
-  ];
-
   const handleStartTest = async () => {
+    if (providers.length === 0 || !onTestProvider) {
+      return;
+    }
+
     setTesting(true);
     setProgress(0);
-    
+
     // Initialize results
-    const initialResults = mockProviders.map(provider => ({
-      provider,
+    const initialResults = providers.map(provider => ({
+      provider: provider.name,
       status: 'pending' as const
     }));
     setResults(initialResults);
 
-    // Simulate testing each provider
-    for (let i = 0; i < mockProviders.length; i++) {
-      const provider = mockProviders[i];
-      
+    // Test each provider
+    for (let i = 0; i < providers.length; i++) {
+      const provider = providers[i];
+
       // Update to testing status
-      setResults(prev => prev.map(r => 
-        r.provider === provider 
+      setResults(prev => prev.map(r =>
+        r.provider === provider.name
           ? { ...r, status: 'testing' as const }
           : r
       ));
 
-      // Simulate test delay
-      await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000));
+      try {
+        const result = await onTestProvider(provider.id);
 
-      // Simulate random results (mostly success)
-      const success = Math.random() > 0.2; // 80% success rate
-      const responseTime = Math.floor(Math.random() * 3000) + 500;
+        setResults(prev => prev.map(r =>
+          r.provider === provider.name
+            ? {
+                ...r,
+                status: result.success ? 'success' as const : 'error' as const,
+                responseTime: result.success ? result.responseTime : undefined,
+                error: result.success ? undefined : (result.error || 'Connection failed')
+              }
+            : r
+        ));
+      } catch (error) {
+        setResults(prev => prev.map(r =>
+          r.provider === provider.name
+            ? {
+                ...r,
+                status: 'error' as const,
+                error: error instanceof Error ? error.message : 'Test failed'
+              }
+            : r
+        ));
+      }
 
-      setResults(prev => prev.map(r => 
-        r.provider === provider 
-          ? { 
-              ...r, 
-              status: success ? 'success' as const : 'error' as const,
-              responseTime: success ? responseTime : undefined,
-              error: success ? undefined : 'Connection timeout or invalid credentials'
-            }
-          : r
-      ));
-
-      setProgress(((i + 1) / mockProviders.length) * 100);
+      setProgress(((i + 1) / providers.length) * 100);
     }
 
     setTesting(false);
   };
 
+  const canStartTest = providers.length > 0 && onTestProvider;
+
   const handleConfirm = () => {
-    if (!testing && results.length === 0) {
+    if (!testing && results.length === 0 && canStartTest) {
       handleStartTest();
     } else {
       onConfirm();
@@ -229,11 +242,11 @@ export const BulkTestModal: React.FC<BulkTestModalProps> = ({
         </Button>
         <Button
           onClick={handleConfirm}
-          disabled={testing}
+          disabled={testing || (results.length === 0 && !canStartTest)}
           className="flex items-center gap-2"
         >
           <Zap className="h-4 w-4" />
-          {results.length === 0 ? 'Start Testing' : 'Done'}
+          {results.length === 0 ? (canStartTest ? 'Start Testing' : 'No Providers') : 'Done'}
         </Button>
       </div>
     </Modal>

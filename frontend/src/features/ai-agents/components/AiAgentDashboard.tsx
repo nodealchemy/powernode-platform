@@ -94,102 +94,23 @@ export const AiAgentDashboard: React.FC<AiAgentDashboardProps> = ({
         success_rate: Math.round(avgSuccessRate)
       });
     } catch (error) {
-      console.error('Failed to load dashboard data:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to load dashboard data:', error);
+      }
 
       // Check if it's an authentication error
       const isAuthError = (error as any)?.response?.status === 401;
       const errorMessage = isAuthError
         ? 'Please log in to view AI agents data'
-        : 'Failed to load AI agents from server, showing sample data';
+        : 'Failed to load AI agents from server';
 
-      // Fallback to mock data on error
-      setAgents([
-        {
-          id: '1',
-          name: 'Content Generator',
-          description: 'Generates marketing content automatically',
-          agent_type: 'content_generator',
-          ai_provider: {
-            id: 'openai-1',
-            name: 'OpenAI',
-            slug: 'openai',
-            provider_type: 'text_generation'
-          },
-          mcp_tool_manifest: {
-            name: 'content_generator',
-            description: 'Content generation agent',
-            type: 'ai_agent',
-            version: '1.0.0'
-          },
-          mcp_capabilities: ['text_generation', 'content_writing'],
-          mcp_input_schema: {},
-          mcp_output_schema: {},
-          mcp_metadata: {
-            model_config: {
-              model: 'gpt-4',
-              temperature: 0.7,
-              max_tokens: 2048
-            }
-          },
-          status: 'active',
-          metadata: {},
-          is_active: true,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          execution_stats: {
-            total_executions: 45,
-            successful_executions: 43,
-            failed_executions: 2,
-            success_rate: 95.6,
-            avg_execution_time: 2500
-          }
-        },
-        {
-          id: '2',
-          name: 'Code Reviewer',
-          description: 'Reviews pull requests for code quality',
-          agent_type: 'code_assistant',
-          ai_provider: {
-            id: 'anthropic-1',
-            name: 'Anthropic',
-            slug: 'anthropic',
-            provider_type: 'text_generation'
-          },
-          mcp_tool_manifest: {
-            name: 'code_reviewer',
-            description: 'Code review agent',
-            type: 'ai_agent',
-            version: '1.0.0'
-          },
-          mcp_capabilities: ['code_review', 'code_analysis'],
-          mcp_input_schema: {},
-          mcp_output_schema: {},
-          mcp_metadata: {
-            model_config: {
-              model: 'claude-3-sonnet',
-              temperature: 0.3,
-              max_tokens: 4096
-            }
-          },
-          status: 'inactive',
-          metadata: {},
-          is_active: false,
-          created_at: new Date(Date.now() - 86400000).toISOString(),
-          updated_at: new Date(Date.now() - 86400000).toISOString(),
-          execution_stats: {
-            total_executions: 23,
-            successful_executions: 22,
-            failed_executions: 1,
-            success_rate: 95.7,
-            avg_execution_time: 3200
-          }
-        }
-      ]);
+      // Clear data on error - don't show fake data
+      setAgents([]);
       setStats({
-        total_agents: 2,
-        active_agents: 1,
-        total_executions: 68,
-        success_rate: 94
+        total_agents: 0,
+        active_agents: 0,
+        total_executions: 0,
+        success_rate: 0
       });
 
       addNotification({

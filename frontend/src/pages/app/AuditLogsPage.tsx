@@ -392,7 +392,7 @@ export const AuditLogsPage: React.FC = () => {
 
           <TabPanel tabId="analytics" activeTab={activeTab}>
             <AuditLogAnalytics
-              metrics={metrics}
+              metrics={metrics ?? undefined}
               filters={filters}
               onFiltersChange={handleFiltersChange}
               refreshData={() => { loadAuditLogs(); loadMetrics(); }}

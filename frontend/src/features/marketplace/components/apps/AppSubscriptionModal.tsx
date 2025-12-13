@@ -7,15 +7,7 @@ import { useNotifications } from '@/shared/hooks/useNotifications';
 import { App } from '../../types';
 import { Plus, CreditCard, AlertCircle, Check, Star, CheckCircle } from 'lucide-react';
 
-interface AppSubscriptionModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  app: App | null;
-  onSubscribe?: (app: App, planId?: string) => Promise<void>;
-  loading?: boolean;
-}
-
-interface ModalPlan {
+export interface SubscriptionPlan {
   id: string;
   name: string;
   price: string;
@@ -26,60 +18,17 @@ interface ModalPlan {
   disabled: boolean;
 }
 
-// Mock plans data as fallback
-const mockPlans: ModalPlan[] = [
-  {
-    id: 'free',
-    name: 'Free',
-    price: '$0',
-    billing: 'forever',
-    description: 'Perfect for getting started',
-    features: [
-      'Up to 1,000 API calls/month',
-      'Basic webhooks',
-      'Community support',
-      'Standard features'
-    ],
-    popular: false,
-    disabled: false
-  },
-  {
-    id: 'pro',
-    name: 'Professional',
-    price: '$29',
-    billing: 'per month',
-    description: 'For growing businesses',
-    features: [
-      'Up to 50,000 API calls/month',
-      'Advanced webhooks',
-      'Priority support',
-      'Premium features',
-      'Analytics dashboard',
-      'Custom integrations'
-    ],
-    popular: true,
-    disabled: false
-  },
-  {
-    id: 'enterprise',
-    name: 'Enterprise',
-    price: '$99',
-    billing: 'per month',
-    description: 'For large organizations',
-    features: [
-      'Unlimited API calls',
-      'Advanced webhooks',
-      'White-label support',
-      'All premium features',
-      'Advanced analytics',
-      'Custom integrations',
-      'Dedicated account manager',
-      'SLA guarantee'
-    ],
-    popular: false,
-    disabled: false
-  }
-];
+interface AppSubscriptionModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  app: App | null;
+  plans?: SubscriptionPlan[];
+  onSubscribe?: (app: App, planId?: string) => Promise<void>;
+  loading?: boolean;
+}
+
+// Type alias for backward compatibility
+type ModalPlan = SubscriptionPlan;
 
 // Helper function to format app plan data for the modal
 const formatAppPlanForModal = (plan: unknown): ModalPlan => {
@@ -111,13 +60,16 @@ export const AppSubscriptionModal: React.FC<AppSubscriptionModalProps> = ({
   isOpen,
   onClose,
   app,
+  plans: propPlans,
   onSubscribe,
   loading = false
 }) => {
-  // Use real app plans if available, otherwise fall back to mock plans
-  const availablePlans = app?.plans && app.plans.length > 0 
-    ? app.plans.filter(plan => plan.is_active).map(formatAppPlanForModal)
-    : mockPlans;
+  // Use prop plans if provided, otherwise derive from app.plans
+  const availablePlans: ModalPlan[] = propPlans && propPlans.length > 0
+    ? propPlans
+    : (app?.plans && app.plans.length > 0
+        ? app.plans.filter(plan => plan.is_active).map(formatAppPlanForModal)
+        : []);
     
   const [selectedPlanId, setSelectedPlanId] = useState<string>(availablePlans[0]?.id || 'free');
   const [subscribing, setSubscribing] = useState(false);
