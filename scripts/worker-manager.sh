@@ -52,6 +52,31 @@ warn() {
 
 # Check if worker is running
 is_worker_running() {
+    # Primary check: Look for actual sidekiq process (the binary, not screen command)
+    if pgrep -f "^sidekiq [0-9]" > /dev/null 2>&1; then
+        return 0
+    fi
+
+    # Alternative: sidekiq with version number pattern
+    if pgrep -f "sidekiq [0-9]+\.[0-9]+" > /dev/null 2>&1; then
+        return 0
+    fi
+
+    # Secondary check: Screen session exists with sidekiq child process
+    if screen_session_exists; then
+        # Check if screen session has a running sidekiq child
+        local screen_pid=$(screen -list 2>/dev/null | grep "$SCREEN_SESSION" | awk '{print $1}' | cut -d. -f1)
+        if [[ -n "$screen_pid" ]]; then
+            # Check for sidekiq processes that are children of this screen session or its bash
+            if pgrep -P "$screen_pid" > /dev/null 2>&1 || pgrep -f "sidekiq" > /dev/null 2>&1; then
+                # Update PID file if missing
+                [[ ! -f "$PID_FILE" ]] && echo "$screen_pid" > "$PID_FILE"
+                return 0
+            fi
+        fi
+    fi
+
+    # Fallback: PID file check (legacy)
     if [[ -f "$PID_FILE" ]]; then
         local pid=$(cat "$PID_FILE")
         if ps -p "$pid" > /dev/null 2>&1; then
@@ -59,14 +84,37 @@ is_worker_running() {
         else
             # Clean up stale PID file
             rm -f "$PID_FILE"
-            return 1
         fi
     fi
+
     return 1
 }
 
 # Check if web interface is running
 is_web_running() {
+    # Primary check: Look for puma process on port 4567 or rackup process
+    if pgrep -f "puma.*4567" > /dev/null 2>&1 || pgrep -f "rackup.*4567" > /dev/null 2>&1; then
+        return 0
+    fi
+
+    # Secondary check: Port 4567 is listening
+    if lsof -i :4567 > /dev/null 2>&1 || netstat -tln 2>/dev/null | grep -q ":4567 "; then
+        return 0
+    fi
+
+    # Tertiary check: Screen session exists with puma child process
+    if web_screen_session_exists; then
+        local screen_pid=$(screen -list 2>/dev/null | grep "$WEB_SCREEN_SESSION" | awk '{print $1}' | cut -d. -f1)
+        if [[ -n "$screen_pid" ]]; then
+            if pgrep -P "$screen_pid" > /dev/null 2>&1 || pgrep -f "puma.*worker" > /dev/null 2>&1; then
+                # Update PID file if missing
+                [[ ! -f "$WEB_PID_FILE" ]] && echo "$screen_pid" > "$WEB_PID_FILE"
+                return 0
+            fi
+        fi
+    fi
+
+    # Fallback: PID file check (legacy)
     if [[ -f "$WEB_PID_FILE" ]]; then
         local pid=$(cat "$WEB_PID_FILE")
         if ps -p "$pid" > /dev/null 2>&1; then
@@ -74,9 +122,9 @@ is_web_running() {
         else
             # Clean up stale PID file
             rm -f "$WEB_PID_FILE"
-            return 1
         fi
     fi
+
     return 1
 }
 
@@ -366,7 +414,10 @@ status_worker() {
     
     # Worker process status
     if is_worker_running; then
-        local pid=$(cat "$PID_FILE")
+        # Get actual sidekiq PID (the binary process, not screen)
+        local pid=$(pgrep -f "^sidekiq [0-9]" | head -1)
+        [[ -z "$pid" ]] && pid=$(pgrep -f "sidekiq [0-9]+\.[0-9]+" | head -1)
+        [[ -z "$pid" ]] && pid=$(cat "$PID_FILE" 2>/dev/null || echo "unknown")
         case $health in
             "healthy")
                 success "Worker: RUNNING (PID: $pid) ✓"
@@ -384,7 +435,11 @@ status_worker() {
     
     # Web interface status
     if is_web_running; then
-        local web_pid=$(cat "$WEB_PID_FILE")
+        # Get actual puma PID (prefer actual process over screen PID)
+        local web_pid=$(pgrep -f "puma.*4567" | head -1)
+        [[ -z "$web_pid" ]] && web_pid=$(pgrep -f "puma.*worker" | head -1)
+        [[ -z "$web_pid" ]] && web_pid=$(lsof -t -i :4567 2>/dev/null | head -1)
+        [[ -z "$web_pid" ]] && web_pid=$(cat "$WEB_PID_FILE" 2>/dev/null || echo "unknown")
         local web_host="${SIDEKIQ_WEB_HOST:-0.0.0.0}"
         local web_port="${SIDEKIQ_WEB_PORT:-4567}"
         success "Web Interface: RUNNING (PID: $web_pid, Host: $web_host, Port: $web_port) ✓"
