@@ -130,3 +130,10 @@ public
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# Frontend cache files
+frontend/.proxy-config-cache.json
+
+# Worker sensitive files
+worker/.session.key
+worker/spec/examples.txt
