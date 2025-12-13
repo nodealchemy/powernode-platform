@@ -39,7 +39,6 @@ import { AiWorkflow } from '@/shared/types/workflow';
 import { WorkflowFilters } from '@/shared/services/ai/WorkflowsApiService';
 import { WorkflowCreateModal } from '@/features/ai-workflows/components/WorkflowCreateModal';
 import { WorkflowDetailModal } from '@/features/ai-workflows/components/WorkflowDetailModal';
-import { WorkflowExecutionForm } from '@/features/ai-workflows/components/WorkflowExecutionForm';
 import { WorkflowBuilderModal } from '@/shared/components/workflow/WorkflowBuilderModal';
 import { AiErrorBoundary } from '@/shared/components/error/AiErrorBoundary';
 
@@ -65,8 +64,8 @@ export const WorkflowsPage: React.FC = () => {
   });
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedWorkflowId, setSelectedWorkflowId] = useState<string | null>(null);
+  const [selectedWorkflowInitialTab, setSelectedWorkflowInitialTab] = useState<'overview' | 'execute'>('overview');
   const [builderWorkflowId, setBuilderWorkflowId] = useState<string | null>(null);
-  const [executingWorkflow, setExecutingWorkflow] = useState<AiWorkflow | null>(null);
 
   // Check permissions
   const canCreateWorkflows = currentUser?.permissions?.includes('ai.workflows.create') || false;
@@ -228,8 +227,9 @@ export const WorkflowsPage: React.FC = () => {
       return;
     }
 
-    // Open the execution modal
-    setExecutingWorkflow(workflow);
+    // Open the workflow detail modal with Execute tab active
+    setSelectedWorkflowInitialTab('execute');
+    setSelectedWorkflowId(workflow.id);
   };
 
 
@@ -302,11 +302,13 @@ export const WorkflowsPage: React.FC = () => {
     // Refresh the workflow list to show the new workflow
     loadWorkflows(1, perPage);
     // Open the workflow detail modal to view the new workflow
+    setSelectedWorkflowInitialTab('overview');
     setSelectedWorkflowId(workflowId);
   };
 
   // Handle workflow detail view
   const handleViewWorkflow = (workflow: AiWorkflow) => {
+    setSelectedWorkflowInitialTab('overview');
     setSelectedWorkflowId(workflow.id);
   };
 
@@ -679,21 +681,13 @@ export const WorkflowsPage: React.FC = () => {
         onWorkflowCreated={handleWorkflowCreated}
       />
 
-      {/* Workflow Execution Modal */}
-      {executingWorkflow && (
-        <WorkflowExecutionForm
-          workflow={executingWorkflow}
-          isOpen={!!executingWorkflow}
-          onClose={() => setExecutingWorkflow(null)}
-        />
-      )}
-
-      {/* Workflow Detail Modal */}
+      {/* Workflow Detail Modal (includes Execute and Execution History tabs) */}
       {selectedWorkflowId && (
         <WorkflowDetailModal
           isOpen={!!selectedWorkflowId}
           onClose={() => setSelectedWorkflowId(null)}
           workflowId={selectedWorkflowId}
+          initialTab={selectedWorkflowInitialTab}
         />
       )}
 

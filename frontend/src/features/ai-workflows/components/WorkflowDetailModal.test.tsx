@@ -128,12 +128,23 @@ jest.mock('@/shared/components/ui/Button', () => ({
   )
 }));
 
-// Mock WorkflowExecutionForm
-jest.mock('./WorkflowExecutionForm', () => ({
-  WorkflowExecutionForm: ({ isOpen, onClose }: any) => (
+// Mock WorkflowExecutionDetails
+jest.mock('./WorkflowExecutionDetails', () => ({
+  WorkflowExecutionDetails: ({ run, onToggle, onDelete }: any) => (
+    <div data-testid={`workflow-execution-details-${run.id}`}>
+      <span>{run.status}</span>
+      <button onClick={onToggle}>Toggle</button>
+      {onDelete && <button onClick={onDelete}>Delete</button>}
+    </div>
+  )
+}));
+
+// Mock WorkflowExecutionSummaryModal
+jest.mock('./WorkflowExecutionSummaryModal', () => ({
+  WorkflowExecutionSummaryModal: ({ isOpen, onClose }: any) => (
     isOpen ? (
-      <div data-testid="workflow-execution-form">
-        <button onClick={onClose}>Close Execution Form</button>
+      <div data-testid="workflow-execution-summary-modal">
+        <button onClick={onClose}>Close Summary</button>
       </div>
     ) : null
   )

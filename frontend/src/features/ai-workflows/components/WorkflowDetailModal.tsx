@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Play,
   Eye,
@@ -13,7 +13,13 @@ import {
   GitBranch,
   CheckCircle,
   BarChart3,
-  Edit
+  Edit,
+  Send,
+  Sparkles,
+  History,
+  TrendingUp,
+  Trash2,
+  AlertCircle
 } from 'lucide-react';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
@@ -27,30 +33,33 @@ import { workflowsApi } from '@/shared/services/ai';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { useWebSocket } from '@/shared/hooks/useWebSocket';
-import { AiWorkflow } from '@/shared/types/workflow';
-import { WorkflowExecutionForm } from './WorkflowExecutionForm';
+import { AiWorkflow, AiWorkflowRun, AIOrchestrationMessage } from '@/shared/types/workflow';
 import { sortNodesInExecutionOrder, formatNodeType, getNodeExecutionLevels } from '@/shared/utils/workflowUtils';
+import { getErrorMessage } from '@/shared/utils/typeGuards';
+import { WorkflowExecutionDetails } from './WorkflowExecutionDetails';
+import { WorkflowExecutionSummaryModal } from './WorkflowExecutionSummaryModal';
 
 export interface WorkflowDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   workflowId: string;
+  initialTab?: 'overview' | 'configuration' | 'nodes' | 'execute' | 'history';
 }
 
 export const WorkflowDetailModal: React.FC<WorkflowDetailModalProps> = ({
   isOpen,
   onClose,
-  workflowId
+  workflowId,
+  initialTab = 'overview'
 }) => {
   const { currentUser } = useAuth();
-  const { addNotification } = useNotifications();
-  const { isConnected } = useWebSocket();
+  const { addNotification, showNotification } = useNotifications();
+  const { isConnected, subscribe } = useWebSocket();
 
   const [workflow, setWorkflow] = useState<AiWorkflow | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true); // Start as true to prevent flash
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>('overview');
-  const [showExecutionForm, setShowExecutionForm] = useState(false);
   const [isExecutionInProgress] = useState(false);
   const [lastUpdateTime, setLastUpdateTime] = useState(new Date());
 
@@ -59,9 +68,32 @@ export const WorkflowDetailModal: React.FC<WorkflowDetailModalProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [editedWorkflow, setEditedWorkflow] = useState<Partial<AiWorkflow>>({});
 
+  // Execution state (moved from WorkflowExecutionForm)
+  const [chatInput, setChatInput] = useState('');
+  const [additionalParams, setAdditionalParams] = useState<Record<string, unknown>>({});
+  const [isExecuting, setIsExecuting] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+
+  // Workflow runs state (moved from WorkflowExecutionForm)
+  const [workflowRuns, setWorkflowRuns] = useState<AiWorkflowRun[]>([]);
+  const [runsLoading, setRunsLoading] = useState(false);
+  const [runsError, setRunsError] = useState<string | null>(null);
+  const [expandedRuns, setExpandedRuns] = useState<Set<string>>(new Set());
+  const [showSummaryModal, setShowSummaryModal] = useState(false);
+  const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false);
+  const [isDeletingAll, setIsDeletingAll] = useState(false);
+  const previousActiveTabRef = useRef<string>('overview');
+  const expandedRunsRef = useRef<Set<string>>(new Set());
+  const reloadCallbacksRef = useRef<Map<string, () => void>>(new Map());
+  const lastReloadTimeRef = useRef<number>(Date.now());
+
   // Check permissions
   const canExecuteWorkflows = currentUser?.permissions?.includes('ai.workflows.execute') || false;
   const canUpdateWorkflows = currentUser?.permissions?.includes('ai.workflows.update') || false;
+  const canDeleteWorkflowRuns = currentUser?.permissions?.includes('ai.workflows.delete') || false;
+
+  // Request deduplication ref to prevent parallel calls
+  const loadingRef = useRef(false);
 
   // Load workflow details
   const loadWorkflow = async () => {
@@ -73,7 +105,7 @@ export const WorkflowDetailModal: React.FC<WorkflowDetailModalProps> = ({
       const response = await workflowsApi.getWorkflow(workflowId);
       setWorkflow(response);
       setLastUpdateTime(new Date());
-    } catch (error) {
+    } catch (err) {
       setError('Failed to load workflow details. Please try again.');
       addNotification({
         type: 'error',
@@ -85,25 +117,341 @@ export const WorkflowDetailModal: React.FC<WorkflowDetailModalProps> = ({
     }
   };
 
+  // Load workflow runs for execution history
+  const loadWorkflowRuns = useCallback(async () => {
+    if (!workflowId || !isOpen) return;
+
+    // Prevent duplicate requests
+    if (loadingRef.current) {
+      return;
+    }
+
+    try {
+      loadingRef.current = true;
+      setRunsLoading(true);
+      setRunsError(null);
+      const response = await workflowsApi.getRuns(workflowId, {
+        page: 1,
+        per_page: 10,
+        sort_by: 'created_at',
+        sort_order: 'desc'
+      });
+      setWorkflowRuns(response.items || []);
+    } catch (err) {
+      setRunsError('Failed to load execution history. Please try again.');
+    } finally {
+      setRunsLoading(false);
+      loadingRef.current = false;
+    }
+  }, [workflowId, isOpen]);
+
   // eslint-disable-next-line react-hooks/exhaustive-deps -- Load when modal opens
   useEffect(() => {
     if (isOpen && workflowId) {
+      // Reset loading state first to prevent flash
+      setLoading(true);
+      setWorkflow(null);
+      setError(null);
       loadWorkflow();
-      // Reset to overview tab and edit mode when opening modal
-      setActiveTab('overview');
+      // Set to initial tab (from prop) and reset edit mode when opening modal
+      setActiveTab(initialTab);
       setIsEditMode(false);
       setEditedWorkflow({});
+      // Reset execution state
+      setChatInput('');
+      setAdditionalParams({});
+      setShowAdvanced(false);
+      // Reset runs state
+      setExpandedRuns(new Set());
+      loadWorkflowRuns();
     }
-  }, [isOpen, workflowId]);
+  }, [isOpen, workflowId, initialTab]);
+
+  // Automatic state reconciliation - sync with backend every 30 seconds when modal is open
+  useEffect(() => {
+    if (!isOpen || !workflowId) return;
+
+    const reconciliationInterval = setInterval(() => {
+      setWorkflowRuns(currentRuns => {
+        const hasActiveRuns = currentRuns.some(run =>
+          run.status === 'running' || run.status === 'initializing'
+        );
+
+        if (activeTab === 'history' && hasActiveRuns && !loadingRef.current) {
+          loadWorkflowRuns();
+        }
+        return currentRuns;
+      });
+    }, 30000);
+
+    return () => clearInterval(reconciliationInterval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, workflowId, activeTab]);
+
+  // Stale data detection
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const STALE_THRESHOLD = 30 * 60 * 1000;
+    const CHECK_INTERVAL = 60 * 1000;
+
+    const staleCheckInterval = setInterval(() => {
+      const now = Date.now();
+
+      setWorkflowRuns(currentRuns => {
+        if (currentRuns.length === 0) return currentRuns;
+
+        const staleRuns = currentRuns.filter(run => {
+          if (run.status !== 'running' && run.status !== 'initializing') return false;
+          const createdAt = new Date(run.created_at || run.started_at || Date.now()).getTime();
+          return (now - createdAt) > STALE_THRESHOLD;
+        });
+
+        if (staleRuns.length > 0) {
+          showNotification(
+            `Detected ${staleRuns.length} stale workflow run${staleRuns.length > 1 ? 's' : ''}. Refreshing from server...`,
+            'warning'
+          );
+
+          setTimeout(() => {
+            if (!loadingRef.current) {
+              loadWorkflowRuns();
+            }
+          }, 1000);
+
+          return currentRuns.map(run => {
+            if (staleRuns.find(stale => stale.id === run.id)) {
+              return {
+                ...run,
+                status: 'failed',
+                error_details: {
+                  error_message: 'Workflow execution timed out or connection lost. Please refresh to see actual status.',
+                  stale_detection: true
+                }
+              };
+            }
+            return run;
+          });
+        }
+
+        return currentRuns;
+      });
+    }, CHECK_INTERVAL);
+
+    return () => clearInterval(staleCheckInterval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, showNotification]);
+
+  // Handle real-time workflow run updates
+  const handleWorkflowRunUpdate = useCallback((message: AIOrchestrationMessage) => {
+    let shouldUpdateTime = false;
+    const eventType = message.event;
+    const payload = message.payload;
+
+    if (eventType === 'workflow_run_status_changed' ||
+        eventType === 'workflow_run_update' ||
+        eventType === 'metrics_update') {
+      const workflowRun = payload as AiWorkflowRun;
+
+      if (!workflowRun || !(workflowRun.id || workflowRun.run_id)) {
+        return;
+      }
+
+      setWorkflowRuns(prevRuns => {
+        const runIndex = prevRuns.findIndex(run =>
+          run.id === (workflowRun.id || workflowRun.run_id) || run.run_id === workflowRun.run_id
+        );
+
+        if (runIndex >= 0) {
+          const existingRun = prevRuns[runIndex];
+          const hasChanges = existingRun.status !== workflowRun.status ||
+                           existingRun.completed_nodes !== (workflowRun.completed_nodes || existingRun.completed_nodes) ||
+                           existingRun.total_nodes !== (workflowRun.total_nodes || existingRun.total_nodes) ||
+                           existingRun.cost_usd !== (workflowRun.cost_usd || existingRun.cost_usd);
+
+          if (hasChanges) {
+            const newRuns = [...prevRuns];
+            newRuns[runIndex] = { ...existingRun, ...workflowRun };
+            shouldUpdateTime = true;
+            return newRuns;
+          }
+          return prevRuns;
+        } else if (eventType === 'workflow_run_update') {
+          shouldUpdateTime = true;
+          return [workflowRun, ...prevRuns];
+        }
+        return prevRuns;
+      });
+    }
+
+    if (eventType === 'node_execution_update') {
+      const nodeExecution = payload as Record<string, unknown>;
+      if (!nodeExecution) return;
+
+      const runId = nodeExecution.workflow_run_id || nodeExecution.ai_workflow_run_id || nodeExecution.run_id;
+      if (!runId) return;
+
+      setWorkflowRuns(prevRuns => {
+        const newRuns = prevRuns.map(run => {
+          if (run.id === runId || run.run_id === runId) {
+            const updatedRun = { ...run };
+
+            if (nodeExecution.status === 'completed' || nodeExecution.status === 'failed') {
+              updatedRun.last_node_update = new Date().toISOString();
+              shouldUpdateTime = true;
+            }
+
+            return updatedRun;
+          }
+          return run;
+        });
+
+        return shouldUpdateTime ? newRuns : prevRuns;
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Subscribe to AiOrchestrationChannel for real-time updates
+  useEffect(() => {
+    if (!isOpen || !workflowId || !isConnected) return;
+
+    const unsubscribe = subscribe({
+      channel: 'AiOrchestrationChannel',
+      params: { type: 'workflow', id: workflowId },
+      onMessage: (message: unknown) => {
+        handleWorkflowRunUpdate(message as AIOrchestrationMessage);
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, workflowId, isConnected, subscribe, handleWorkflowRunUpdate]);
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    expandedRunsRef.current = expandedRuns;
+  }, [expandedRuns]);
+
+  // Register a reload callback for each expanded run item
+  const registerReloadCallback = useCallback((runId: string, callback: () => void) => {
+    reloadCallbacksRef.current.set(runId, callback);
+    return () => {
+      reloadCallbacksRef.current.delete(runId);
+    };
+  }, []);
+
+  // Handle tab switching
+  useEffect(() => {
+    const now = Date.now();
+
+    if (activeTab === 'history' && previousActiveTabRef.current !== 'history') {
+      if (expandedRunsRef.current.size > 0) {
+        setExpandedRuns(new Set());
+      }
+      lastReloadTimeRef.current = now;
+    }
+
+    previousActiveTabRef.current = activeTab;
+  }, [activeTab]);
+
+  // Toggle run expansion
+  const toggleRunExpansion = useCallback((runId: string) => {
+    setExpandedRuns(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(runId)) {
+        newSet.delete(runId);
+      } else {
+        newSet.add(runId);
+      }
+      return newSet;
+    });
+  }, []);
+
+  // Handle run deletion
+  const handleRunDeletion = useCallback((runId: string) => {
+    setWorkflowRuns(prev => prev.filter(r => {
+      const currentRunId = r.id || r.run_id;
+      return currentRunId !== runId;
+    }));
+
+    setExpandedRuns(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(runId);
+      return newSet;
+    });
+
+    setTimeout(() => {
+      loadWorkflowRuns();
+    }, 100);
+  }, [loadWorkflowRuns]);
+
+  // Handle delete all workflow runs
+  const handleDeleteAllRuns = useCallback(async () => {
+    const runningRuns = workflowRuns.filter(run => ['running', 'initializing'].includes(run.status));
+    if (runningRuns.length > 0) {
+      showNotification(
+        `Cannot delete ${runningRuns.length} workflow run${runningRuns.length > 1 ? 's' : ''} that are currently running`,
+        'error'
+      );
+      return;
+    }
+
+    if (workflowRuns.length === 0) {
+      showNotification('No workflow runs to delete', 'warning');
+      return;
+    }
+
+    setIsDeletingAll(true);
+    try {
+      await workflowsApi.deleteAllRuns(workflowId);
+
+      showNotification('All workflow runs have been deleted successfully', 'success');
+
+      setWorkflowRuns([]);
+      setExpandedRuns(new Set());
+      setShowDeleteAllConfirm(false);
+
+      await loadWorkflowRuns();
+    } catch (err: unknown) {
+      showNotification(getErrorMessage(err), 'error');
+    } finally {
+      setIsDeletingAll(false);
+    }
+  }, [workflowRuns, workflowId, showNotification, loadWorkflowRuns]);
+
+  // Use ref to store handlers to prevent recreation
+  const handlersRef = useRef<{
+    toggle: Map<string, () => void>;
+    delete: Map<string, () => void>;
+  }>({
+    toggle: new Map(),
+    delete: new Map()
+  });
+
+  // Get or create stable handlers
+  const getToggleHandler = useCallback((runId: string) => {
+    if (!handlersRef.current.toggle.has(runId)) {
+      handlersRef.current.toggle.set(runId, () => toggleRunExpansion(runId));
+    }
+    return handlersRef.current.toggle.get(runId)!;
+  }, [toggleRunExpansion]);
+
+  const getDeleteHandler = useCallback((runId: string) => {
+    if (!handlersRef.current.delete.has(runId)) {
+      handlersRef.current.delete.set(runId, () => handleRunDeletion(runId));
+    }
+    return handlersRef.current.delete.get(runId)!;
+  }, [handleRunDeletion]);
 
   // Toggle edit mode
   const handleToggleEditMode = () => {
     if (isEditMode) {
-      // Canceling edit - reset changes
       setEditedWorkflow({});
       setIsEditMode(false);
     } else {
-      // Entering edit mode - initialize with current workflow values
       setEditedWorkflow({
         name: workflow?.name,
         description: workflow?.description,
@@ -125,15 +473,13 @@ export const WorkflowDetailModal: React.FC<WorkflowDetailModalProps> = ({
     try {
       setIsSaving(true);
 
-      // Restructure data to match backend expectations
-      const updateData: Record<string, any> = {
+      const updateData: Record<string, unknown> = {
         name: editedWorkflow.name,
         description: editedWorkflow.description,
         status: editedWorkflow.status,
         visibility: editedWorkflow.visibility
       };
 
-      // Tags go in metadata
       if (editedWorkflow.tags !== undefined) {
         updateData.metadata = {
           ...workflow.metadata,
@@ -141,7 +487,6 @@ export const WorkflowDetailModal: React.FC<WorkflowDetailModalProps> = ({
         };
       }
 
-      // execution_mode and timeout_seconds go in configuration
       if (editedWorkflow.execution_mode || editedWorkflow.timeout_seconds || editedWorkflow.configuration) {
         updateData.configuration = {
           ...workflow.configuration,
@@ -163,7 +508,7 @@ export const WorkflowDetailModal: React.FC<WorkflowDetailModalProps> = ({
         title: 'Workflow Updated',
         message: 'Workflow has been updated successfully.'
       });
-    } catch (error) {
+    } catch (err) {
       addNotification({
         type: 'error',
         title: 'Update Failed',
@@ -174,16 +519,75 @@ export const WorkflowDetailModal: React.FC<WorkflowDetailModalProps> = ({
     }
   };
 
+  // Parse chat input to extract parameters
+  const parseInputToParameters = (input: string): Record<string, unknown> => {
+    const params: Record<string, unknown> = {};
 
+    if (workflow?.name.toLowerCase().includes('blog')) {
+      params.topic = input;
 
-  // Handle showing execution form instead of direct execution
-  const handleShowExecutionForm = () => {
-    if (!workflow || !canExecuteWorkflows) return;
-    setShowExecutionForm(true);
+      if (input.toLowerCase().includes('developer') || input.toLowerCase().includes('technical')) {
+        params.target_audience = 'technical team';
+      } else if (input.toLowerCase().includes('business') || input.toLowerCase().includes('executive')) {
+        params.target_audience = 'business audience';
+      } else {
+        params.target_audience = 'general audience';
+      }
+
+      if (input.toLowerCase().includes('short') || input.toLowerCase().includes('brief')) {
+        params.post_length = 'short';
+      } else if (input.toLowerCase().includes('long') || input.toLowerCase().includes('detailed')) {
+        params.post_length = 'long';
+      } else {
+        params.post_length = 'medium';
+      }
+    } else {
+      params.input = input;
+      params.prompt = input;
+    }
+
+    return params;
   };
 
+  // Handle workflow execution
+  const handleExecute = async () => {
+    if (!workflow) return;
 
-  // Protected close handler - prevent accidental closes during execution
+    if (!chatInput.trim() && Object.keys(additionalParams).length === 0) {
+      showNotification('Please provide input for the workflow', 'warning');
+      return;
+    }
+
+    setIsExecuting(true);
+
+    try {
+      const parsedParams = parseInputToParameters(chatInput);
+      setChatInput('');
+
+      const inputVariables = {
+        ...parsedParams,
+        ...additionalParams
+      };
+
+      await workflowsApi.executeWorkflow(workflow.id, {
+        input_variables: inputVariables,
+        trigger_type: 'manual',
+        trigger_context: {
+          triggered_by: 'user',
+          user_input: chatInput
+        }
+      });
+
+      setActiveTab('history');
+      await loadWorkflowRuns();
+    } catch (err: unknown) {
+      showNotification(getErrorMessage(err), 'error');
+    } finally {
+      setIsExecuting(false);
+    }
+  };
+
+  // Protected close handler
   const handleProtectedClose = () => {
     if (isExecutionInProgress) {
       addNotification({
@@ -195,8 +599,6 @@ export const WorkflowDetailModal: React.FC<WorkflowDetailModalProps> = ({
     }
     onClose();
   };
-
-
 
   // Status badge rendering
   const renderStatusBadge = (status: string) => {
@@ -236,6 +638,13 @@ export const WorkflowDetailModal: React.FC<WorkflowDetailModalProps> = ({
     );
   };
 
+  const suggestedPrompts = [
+    "Write a blog post about the future of AI",
+    "Create content about sustainable technology",
+    "Explain cloud computing for beginners",
+    "Discuss cybersecurity best practices"
+  ];
+
   // Modal footer with actions
   const footer = (
     <div className="flex justify-between items-center w-full">
@@ -243,7 +652,7 @@ export const WorkflowDetailModal: React.FC<WorkflowDetailModalProps> = ({
         <Button
           variant="outline"
           onClick={handleProtectedClose}
-          disabled={isSaving}
+          disabled={isSaving || isExecuting}
         >
           Close
         </Button>
@@ -269,7 +678,7 @@ export const WorkflowDetailModal: React.FC<WorkflowDetailModalProps> = ({
           </>
         ) : (
           <>
-            {canUpdateWorkflows && workflow && (
+            {canUpdateWorkflows && workflow && activeTab === 'overview' && (
               <Button
                 variant="outline"
                 onClick={handleToggleEditMode}
@@ -278,41 +687,15 @@ export const WorkflowDetailModal: React.FC<WorkflowDetailModalProps> = ({
                 Edit
               </Button>
             )}
-            {canExecuteWorkflows && workflow?.status === 'active' && (
-              <Button
-                onClick={handleShowExecutionForm}
-                className="bg-theme-success hover:bg-theme-success/80"
-              >
-                <Play className="h-4 w-4 mr-2" />
-                Execute
-              </Button>
-            )}
           </>
         )}
       </div>
     </div>
   );
 
-  // Loading state
+  // Don't render modal until workflow data is loaded
   if (loading || !workflow) {
-    return (
-      <Modal
-        isOpen={isOpen}
-        onClose={handleProtectedClose}
-        title="Loading Workflow..."
-        maxWidth="5xl"
-        icon={<Workflow />}
-        footer={
-          <Button variant="outline" onClick={handleProtectedClose}>
-            Close
-          </Button>
-        }
-      >
-        <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-theme-interactive-primary"></div>
-        </div>
-      </Modal>
-    );
+    return null;
   }
 
   // Error state
@@ -332,8 +715,8 @@ export const WorkflowDetailModal: React.FC<WorkflowDetailModalProps> = ({
       >
         <div className="text-center py-8">
           <p className="text-theme-error">{error}</p>
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={loadWorkflow}
             className="mt-4"
           >
@@ -437,6 +820,25 @@ export const WorkflowDetailModal: React.FC<WorkflowDetailModalProps> = ({
             <TabsTrigger value="overview">Basic Information</TabsTrigger>
             <TabsTrigger value="configuration">Configuration</TabsTrigger>
             <TabsTrigger value="nodes">Nodes ({workflow.stats?.nodes_count || 0})</TabsTrigger>
+            {canExecuteWorkflows && workflow.status === 'active' && (
+              <TabsTrigger value="execute" className="flex items-center whitespace-nowrap">
+                <Sparkles className="h-4 w-4 mr-2 flex-shrink-0" />
+                <span>Execute</span>
+              </TabsTrigger>
+            )}
+            <TabsTrigger value="history" className="flex items-center whitespace-nowrap relative">
+              <History className="h-4 w-4 mr-2 flex-shrink-0" />
+              <span>Execution History</span>
+              {workflowRuns.filter(run => ['running', 'initializing'].includes(run.status)).length > 0 && (
+                <Badge
+                  variant="info"
+                  size="sm"
+                  className="ml-2 px-1.5 py-0 text-xs animate-pulse flex-shrink-0"
+                >
+                  {workflowRuns.filter(run => ['running', 'initializing'].includes(run.status)).length}
+                </Badge>
+              )}
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
@@ -478,7 +880,7 @@ export const WorkflowDetailModal: React.FC<WorkflowDetailModalProps> = ({
                     {isEditMode ? (
                       <Select
                         value={editedWorkflow.status || workflow.status}
-                        onChange={(value) => setEditedWorkflow({ ...editedWorkflow, status: value as any })}
+                        onChange={(value) => setEditedWorkflow({ ...editedWorkflow, status: value as AiWorkflow['status'] })}
                       >
                         <option value="draft">Draft</option>
                         <option value="active">Active</option>
@@ -496,7 +898,7 @@ export const WorkflowDetailModal: React.FC<WorkflowDetailModalProps> = ({
                     {isEditMode ? (
                       <Select
                         value={editedWorkflow.visibility || workflow.visibility}
-                        onChange={(value) => setEditedWorkflow({ ...editedWorkflow, visibility: value as any })}
+                        onChange={(value) => setEditedWorkflow({ ...editedWorkflow, visibility: value as AiWorkflow['visibility'] })}
                       >
                         <option value="private">Private</option>
                         <option value="account">Account</option>
@@ -588,7 +990,6 @@ export const WorkflowDetailModal: React.FC<WorkflowDetailModalProps> = ({
                 {workflow.nodes && workflow.nodes.length > 0 ? (
                   <div className="space-y-3">
                     {(() => {
-                      // Sort nodes in execution order
                       const sortedNodes = sortNodesInExecutionOrder(workflow.nodes, workflow.edges);
                       const executionLevels = getNodeExecutionLevels(workflow.nodes, workflow.edges);
 
@@ -598,13 +999,11 @@ export const WorkflowDetailModal: React.FC<WorkflowDetailModalProps> = ({
 
                         return (
                           <div key={node.id} className="relative">
-                            {/* Connection line to next node */}
                             {!isLast && (
                               <div className="absolute left-6 top-12 bottom-0 w-0.5 bg-theme-border" />
                             )}
 
                             <div className="flex items-start gap-3">
-                              {/* Execution order indicator */}
                               <div className="flex flex-col items-center">
                                 <div className={`
                                   flex items-center justify-center w-12 h-12 rounded-full font-semibold text-sm
@@ -622,7 +1021,6 @@ export const WorkflowDetailModal: React.FC<WorkflowDetailModalProps> = ({
                                 </div>
                               </div>
 
-                              {/* Node details */}
                               <div className="flex-1 p-4 border border-theme rounded-lg bg-theme-surface">
                                 <div className="flex items-start justify-between gap-4">
                                   <div className="flex-1">
@@ -655,7 +1053,6 @@ export const WorkflowDetailModal: React.FC<WorkflowDetailModalProps> = ({
                                       <p className="text-sm text-theme-secondary mt-2">{node.description}</p>
                                     )}
 
-                                    {/* Show connections */}
                                     {workflow.edges && (() => {
                                       const outgoingEdges = workflow.edges.filter(e => e.source_node_id === node.node_id);
                                       const incomingEdges = workflow.edges.filter(e => e.target_node_id === node.node_id);
@@ -672,7 +1069,6 @@ export const WorkflowDetailModal: React.FC<WorkflowDetailModalProps> = ({
                                       );
                                     })()}
 
-                                    {/* Node configuration details */}
                                     {node.timeout_seconds && (
                                       <div className="mt-2 text-xs text-theme-muted">
                                         <Clock className="inline h-3 w-3 mr-1" />
@@ -686,7 +1082,6 @@ export const WorkflowDetailModal: React.FC<WorkflowDetailModalProps> = ({
                                     )}
                                   </div>
 
-                                  {/* Node type badge */}
                                   <div className="flex flex-col items-end gap-2">
                                     <Badge
                                       variant={
@@ -700,7 +1095,6 @@ export const WorkflowDetailModal: React.FC<WorkflowDetailModalProps> = ({
                                       {node.node_type || 'unknown'}
                                     </Badge>
 
-                                    {/* Execution position */}
                                     <span className="text-xs text-theme-muted">
                                       #{index + 1} of {sortedNodes.length}
                                     </span>
@@ -732,7 +1126,7 @@ export const WorkflowDetailModal: React.FC<WorkflowDetailModalProps> = ({
                   {isEditMode ? (
                     <Select
                       value={editedWorkflow.execution_mode || workflow.execution_mode || 'sequential'}
-                      onChange={(value) => setEditedWorkflow({ ...editedWorkflow, execution_mode: value as any })}
+                      onChange={(value) => setEditedWorkflow({ ...editedWorkflow, execution_mode: value as AiWorkflow['execution_mode'] })}
                     >
                       <option value="sequential">Sequential</option>
                       <option value="parallel">Parallel</option>
@@ -773,9 +1167,8 @@ export const WorkflowDetailModal: React.FC<WorkflowDetailModalProps> = ({
                         try {
                           const parsed = JSON.parse(e.target.value);
                           setEditedWorkflow({ ...editedWorkflow, configuration: parsed });
-                        } catch (error) {
-                          // Keep invalid JSON in state for user to fix
-                          setEditedWorkflow({ ...editedWorkflow, configuration: e.target.value as any });
+                        } catch (err) {
+                          setEditedWorkflow({ ...editedWorkflow, configuration: e.target.value as unknown as Record<string, unknown> });
                         }
                       }}
                       rows={10}
@@ -796,18 +1189,341 @@ export const WorkflowDetailModal: React.FC<WorkflowDetailModalProps> = ({
               </CardContent>
             </Card>
           </TabsContent>
+
+          {/* Execute Tab */}
+          <TabsContent value="execute" className="space-y-4 animate-in fade-in-50 slide-in-from-bottom-2 duration-300">
+            <Card>
+              <CardContent className="space-y-4">
+                {/* Main chat input */}
+                <div>
+                  <label className="block text-sm font-medium text-theme-text-primary mb-1">
+                    What would you like to create?
+                  </label>
+                  <div className="relative">
+                    <Textarea
+                      value={chatInput}
+                      onChange={(e) => setChatInput(e.target.value)}
+                      placeholder="Describe what you want the workflow to do..."
+                      className="min-h-[100px] pr-12"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && e.ctrlKey) {
+                          handleExecute();
+                        }
+                      }}
+                    />
+                    <div className="absolute bottom-3 right-3">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={handleExecute}
+                        disabled={isExecuting || !chatInput.trim()}
+                        title="Execute (Ctrl+Enter)"
+                      >
+                        <Send className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="text-xs text-theme-text-secondary mt-1">
+                    Press Ctrl+Enter to execute
+                  </div>
+                </div>
+
+                {/* Suggested prompts */}
+                {suggestedPrompts.length > 0 && !chatInput && (
+                  <div>
+                    <label className="block text-xs font-medium text-theme-text-secondary mb-1">
+                      Suggestions:
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {suggestedPrompts.map((prompt, index) => (
+                        <button
+                          key={index}
+                          onClick={() => setChatInput(prompt)}
+                          className="px-3 py-1.5 text-xs bg-theme-surface-secondary rounded-lg
+                                   text-theme-text-secondary hover:text-theme-text-primary
+                                   hover:bg-theme-surface-elevated transition-colors"
+                        >
+                          {prompt}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Advanced parameters */}
+                <div>
+                  <button
+                    onClick={() => setShowAdvanced(!showAdvanced)}
+                    className="text-sm text-theme-primary hover:text-theme-primary-dark transition-colors"
+                  >
+                    {showAdvanced ? '− Hide' : '+ Show'} Advanced Options
+                  </button>
+
+                  {showAdvanced && (
+                    <div className="mt-2 p-3 bg-theme-surface-secondary rounded-lg space-y-2">
+                      <div className="text-sm text-theme-text-secondary mb-1">
+                        Add specific parameters for the workflow:
+                      </div>
+
+                      {workflow.input_schema && Object.keys(workflow.input_schema).length > 0 ? (
+                        Object.entries(workflow.input_schema).map(([key, _schema]: [string, unknown]) => (
+                          <div key={key}>
+                            <label className="block text-sm font-medium text-theme-text-primary mb-1">
+                              {key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, ' ')}
+                            </label>
+                            <Input
+                              value={(additionalParams[key] as string) || ''}
+                              onChange={(e) => setAdditionalParams({
+                                ...additionalParams,
+                                [key]: e.target.value
+                              })}
+                              placeholder={`Enter ${key}`}
+                            />
+                          </div>
+                        ))
+                      ) : (
+                        <>
+                          <div>
+                            <label className="block text-sm font-medium text-theme-text-primary mb-1">
+                              Max Tokens
+                            </label>
+                            <Input
+                              type="number"
+                              value={(additionalParams.max_tokens as number) || ''}
+                              onChange={(e) => setAdditionalParams({
+                                ...additionalParams,
+                                max_tokens: parseInt(e.target.value) || undefined
+                              })}
+                              placeholder="1500"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-theme-text-primary mb-1">
+                              Temperature
+                            </label>
+                            <Input
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              max="2"
+                              value={(additionalParams.temperature as number) || ''}
+                              onChange={(e) => setAdditionalParams({
+                                ...additionalParams,
+                                temperature: parseFloat(e.target.value) || undefined
+                              })}
+                              placeholder="0.7"
+                            />
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Workflow info */}
+                <div className="p-3 bg-theme-info/10 rounded-lg flex items-start gap-2">
+                  <AlertCircle className="h-4 w-4 text-theme-info mt-0.5" />
+                  <div className="text-sm text-theme-text-secondary">
+                    This workflow will process your input through {workflow.stats?.nodes_count || workflow.nodes?.length || 0} nodes
+                    {workflow.execution_mode && ` in ${workflow.execution_mode} mode`}.
+                  </div>
+                </div>
+
+                {/* Action buttons */}
+                <div className="flex justify-end gap-3">
+                  <Button
+                    variant="primary"
+                    onClick={handleExecute}
+                    disabled={isExecuting || (!chatInput.trim() && Object.keys(additionalParams).length === 0)}
+                    className="transition-all duration-200 hover:scale-105 active:scale-95"
+                  >
+                    <div className="flex items-center">
+                      {isExecuting ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                          <span className="animate-in fade-in duration-200">Executing...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Play className="h-4 w-4 mr-2 transition-transform duration-200 group-hover:scale-110" />
+                          <span>Execute Workflow</span>
+                        </>
+                      )}
+                    </div>
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Execution History Tab */}
+          <TabsContent value="history" className="space-y-4 animate-in fade-in-50 slide-in-from-bottom-2 duration-300">
+            <Card>
+              <div className="flex items-center justify-between mb-4">
+                <CardTitle>Recent Executions</CardTitle>
+                <div className="flex items-center gap-3">
+                  {process.env.NODE_ENV === 'development' && (
+                    <span className="text-xs text-theme-muted">
+                      Runs: {workflowRuns?.length || 0} | Auth: {canDeleteWorkflowRuns ? 'Yes' : 'No'}
+                    </span>
+                  )}
+                  {workflowRuns && workflowRuns.length > 0 && (
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowSummaryModal(true)}
+                        className="gap-2"
+                      >
+                        <TrendingUp className="h-4 w-4" />
+                        View Summary
+                      </Button>
+                      {canDeleteWorkflowRuns && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setShowDeleteAllConfirm(true)}
+                          className="gap-2 text-theme-danger hover:text-theme-danger hover:border-theme-danger/30"
+                          disabled={isDeletingAll}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Delete All
+                        </Button>
+                      )}
+                    </>
+                  )}
+                  {runsLoading && (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-theme-interactive-primary"></div>
+                  )}
+                </div>
+              </div>
+              <CardContent className="relative">
+                {/* Loading overlay */}
+                {runsLoading && (
+                  <div className="absolute inset-0 bg-theme-surface/80 backdrop-blur-sm flex items-center justify-center z-10 rounded-lg transition-all duration-200 ease-in-out">
+                    <div className="flex items-center gap-3">
+                      <div className="animate-spin rounded-full h-6 w-6 border-2 border-theme-interactive-primary border-t-transparent"></div>
+                      <span className="text-sm text-theme-muted">Loading execution history...</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Content */}
+                <div className={`transition-all duration-300 ease-in-out ${runsLoading ? 'opacity-50' : 'opacity-100'}`}>
+                  {runsError ? (
+                    <div className="text-center py-8 animate-in fade-in-50 duration-300">
+                      <AlertCircle className="h-12 w-12 text-theme-error mx-auto mb-3 opacity-60" />
+                      <p className="text-theme-error mb-4">{runsError}</p>
+                      <Button
+                        variant="outline"
+                        onClick={loadWorkflowRuns}
+                        className="transition-all duration-200"
+                        disabled={runsLoading}
+                      >
+                        Try Again
+                      </Button>
+                    </div>
+                  ) : workflowRuns && workflowRuns.length > 0 ? (
+                    <div className="space-y-1 animate-in fade-in-50 slide-in-from-top-2 duration-500">
+                      {workflowRuns.map((run, index) => (
+                        <div
+                          key={run.id || run.run_id}
+                          className="animate-in fade-in-50 slide-in-from-left-1 duration-300"
+                          style={{ animationDelay: `${index * 50}ms` }}
+                        >
+                          <WorkflowExecutionDetails
+                            run={run}
+                            workflowId={workflow.id}
+                            isExpanded={expandedRuns.has(run.id || run.run_id || '')}
+                            onToggle={getToggleHandler(run.id || run.run_id || '')}
+                            onDelete={getDeleteHandler(run.id || run.run_id || '')}
+                            onRegisterReloadCallback={registerReloadCallback}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-12 animate-in fade-in-50 duration-500">
+                      <BarChart3 className="h-16 w-16 text-theme-muted mx-auto mb-4 opacity-40" />
+                      <p className="text-theme-muted text-lg mb-2">No execution history found</p>
+                      <p className="text-theme-muted/70 text-sm">
+                        Execute the workflow to see results here
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
         </Tabs>
       </div>
 
-
-      {/* Workflow Execution Form Modal */}
+      {/* Execution Summary Modal */}
       {workflow && (
-        <WorkflowExecutionForm
-          workflow={workflow}
-          isOpen={showExecutionForm}
-          onClose={() => setShowExecutionForm(false)}
+        <WorkflowExecutionSummaryModal
+          isOpen={showSummaryModal}
+          onClose={() => setShowSummaryModal(false)}
+          workflowId={workflow.id}
+          workflowName={workflow.name}
         />
       )}
+
+      {/* Delete All Confirmation Modal */}
+      <Modal
+        isOpen={showDeleteAllConfirm}
+        onClose={() => setShowDeleteAllConfirm(false)}
+        title="Delete All Workflow Runs"
+        maxWidth="md"
+        variant="centered"
+      >
+        <div className="space-y-4">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="h-5 w-5 text-theme-warning mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm text-theme-primary font-medium">
+                Are you sure you want to delete all workflow runs for "{workflow.name}"?
+              </p>
+              <p className="text-xs text-theme-muted mt-1">
+                This will permanently delete all {workflowRuns.length} execution run{workflowRuns.length !== 1 ? 's' : ''} and their associated logs.
+                This action cannot be undone.
+              </p>
+              {workflowRuns.some(run => ['running', 'initializing'].includes(run.status)) && (
+                <p className="text-xs text-theme-warning mt-2 p-2 bg-theme-warning/10 rounded">
+                  <strong>Note:</strong> Running executions cannot be deleted and will be skipped.
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowDeleteAllConfirm(false)}
+              disabled={isDeletingAll}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              onClick={handleDeleteAllRuns}
+              disabled={isDeletingAll}
+            >
+              {isDeletingAll ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete All Runs
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </Modal>
   );
 };
