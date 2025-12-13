@@ -117,9 +117,11 @@ class ProvidersApiService extends BaseApiService {
   /**
    * Get single provider by ID
    * GET /api/v1/ai/providers/:id
+   * Returns { provider: AiProvider } from API, unwrapped to just AiProvider
    */
   async getProvider(id: string): Promise<AiProvider> {
-    return this.getOne<AiProvider>(this.resource, id);
+    const response = await this.getOne<{ provider: AiProvider }>(this.resource, id);
+    return response.provider;
   }
 
   /**

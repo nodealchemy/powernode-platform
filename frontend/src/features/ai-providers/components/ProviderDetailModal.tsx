@@ -62,8 +62,8 @@ export const ProviderDetailModal: React.FC<ProviderDetailModalProps> = ({
       setLoading(true);
       setError(null);
       const response = await providersApi.getProvider(providerId);
-      // Response is already unwrapped by BaseApiService
-      setProvider(response as AiProvider);
+      // Response is the provider object after service unwraps the { provider: {...} } envelope
+      setProvider(response);
     } catch (error) {
       console.error('Failed to load provider:', error);
       setError('Failed to load provider details. Please try again.');

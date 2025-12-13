@@ -6,7 +6,7 @@ import { Select } from '@/shared/components/ui/Select';
 import { Modal } from '@/shared/components/ui/Modal';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { providersApi } from '@/shared/services/ai';
-import type { AiProvider, AiProviderCredential } from '@/shared/types/ai';
+import type { AiProviderCredential } from '@/shared/types/ai';
 import { getErrorMessage } from '@/shared/utils/typeGuards';
 
 interface EditProviderModalProps {
@@ -60,8 +60,8 @@ export const EditProviderModal: React.FC<EditProviderModalProps> = ({
     try {
       setInitialLoading(true);
       const response = await providersApi.getProvider(providerId);
-      // Response is already unwrapped by BaseApiService
-      const providerData = response as AiProvider;
+      // Response is the provider object after service unwraps the { provider: {...} } envelope
+      const providerData = response;
       
       // Populate form with provider data
       setFormData({
