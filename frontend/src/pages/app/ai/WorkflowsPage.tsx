@@ -522,7 +522,7 @@ export const WorkflowsPage: React.FC = () => {
         {
           id: 'monitoring',
           label: 'Monitoring',
-          onClick: () => navigate('/app/ai/monitoring?tab=workflows'),
+          onClick: () => navigate('/app/ai/monitoring/workflows'),
           icon: Activity,
           variant: 'outline'
         },

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import {
   Activity,
   AlertTriangle,
@@ -46,7 +46,8 @@ import { AiErrorBoundary } from '@/shared/components/error/AiErrorBoundary';
 export const AIMonitoringPage: React.FC = () => {
   const { currentUser } = useAuth();
   const { addNotification } = useNotifications();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const { tab: tabParam } = useParams<{ tab?: string }>();
+  const navigate = useNavigate();
 
   // Use ref to avoid infinite loop from addNotification dependency
   const addNotificationRef = useRef(addNotification);
@@ -68,22 +69,17 @@ export const AIMonitoringPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
 
-  // Monitoring configuration - read from URL params
+  // Monitoring configuration - read from URL route params
   const validTabs = ['overview', 'providers', 'agents', 'workflows', 'conversations', 'alerts'];
-  const tabFromUrl = searchParams.get('tab');
-  const activeTab = validTabs.includes(tabFromUrl || '') ? tabFromUrl! : 'overview';
+  const activeTab = validTabs.includes(tabParam || '') ? tabParam! : 'overview';
 
   const setActiveTab = useCallback((tab: string) => {
-    setSearchParams(prev => {
-      const newParams = new URLSearchParams(prev);
-      if (tab === 'overview') {
-        newParams.delete('tab');
-      } else {
-        newParams.set('tab', tab);
-      }
-      return newParams;
-    });
-  }, [setSearchParams]);
+    if (tab === 'overview') {
+      navigate('/app/ai/monitoring');
+    } else {
+      navigate(`/app/ai/monitoring/${tab}`);
+    }
+  }, [navigate]);
 
   const [monitoringInterval, setMonitoringInterval] = useState<MonitoringInterval>('normal');
   const [timeRange, setTimeRange] = useState('1h');

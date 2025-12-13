@@ -450,7 +450,7 @@ const DashboardPage: React.FC = () => {
         <Route path="/ai/workflows" element={<WorkflowsPage />} />
         <Route path="/ai/conversations" element={<AIConversationsPage />} />
         <Route path="/ai/analytics" element={<WorkflowAnalyticsPage />} />
-        <Route path="/ai/monitoring" element={<AIMonitoringPage />} />
+        <Route path="/ai/monitoring/:tab?" element={<AIMonitoringPage />} />
         <Route path="/ai/mcp" element={<McpBrowserPage />} />
 
         {/* AI Sub-pages (detail/utility routes) */}
