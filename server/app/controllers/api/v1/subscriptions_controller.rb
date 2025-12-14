@@ -46,6 +46,36 @@ class Api::V1::SubscriptionsController < ApplicationController
     end
   end
 
+  # GET /api/v1/subscriptions/by_stripe_id
+  def by_stripe_id
+    unless params[:stripe_id].present?
+      return render_error("stripe_id parameter is required", status: :bad_request)
+    end
+
+    subscription = Subscription.find_by(stripe_subscription_id: params[:stripe_id])
+
+    if subscription
+      render_success(data: subscription_data(subscription))
+    else
+      render_error("Subscription not found with Stripe ID: #{params[:stripe_id]}", status: :not_found)
+    end
+  end
+
+  # GET /api/v1/subscriptions/by_paypal_id
+  def by_paypal_id
+    unless params[:paypal_id].present?
+      return render_error("paypal_id parameter is required", status: :bad_request)
+    end
+
+    subscription = Subscription.find_by(paypal_subscription_id: params[:paypal_id])
+
+    if subscription
+      render_success(data: subscription_data(subscription))
+    else
+      render_error("Subscription not found with PayPal ID: #{params[:paypal_id]}", status: :not_found)
+    end
+  end
+
   # GET /api/v1/subscriptions/history
   def history
     subscription = current_account.subscription

@@ -96,6 +96,77 @@ Rails.application.routes.draw do
           post :health_check, to: "reverse_proxy#health_check"
           post :validate_services, to: "reverse_proxy#validate_services"
         end
+
+        # GDPR Compliance endpoints for worker service
+        resources :data_deletion_requests, only: [ :show, :create, :update ]
+        resources :data_export_requests, only: [ :show, :create, :update ]
+
+        # Account termination processing
+        resources :account_terminations, only: [ :index, :show, :update ]
+
+        # Data retention policies
+        resources :data_retention_policies, only: [ :index ]
+
+        # User data export endpoints
+        scope "users/:user_id" do
+          get "export/profile", to: "data_exports#user_profile"
+          get "export/activity", to: "data_exports#user_activity"
+          get "export/audit_logs", to: "data_exports#user_audit_logs"
+          get "export/consents", to: "data_exports#user_consents"
+          patch :anonymize, to: "users#anonymize"
+          patch :anonymize_audit_logs, to: "users#anonymize_audit_logs"
+          delete :consents, to: "users#delete_consents"
+          delete :terms_acceptances, to: "users#delete_terms_acceptances"
+          delete :password_histories, to: "users#delete_password_histories"
+          delete :roles, to: "users#delete_roles"
+        end
+
+        # Account data export endpoints
+        scope "accounts/:account_id" do
+          get "export/payments", to: "data_exports#account_payments"
+          get "export/invoices", to: "data_exports#account_invoices"
+          get "export/subscriptions", to: "data_exports#account_subscriptions"
+          get "export/files", to: "data_exports#account_files"
+          get :users, to: "accounts#users"
+          patch :anonymize_audit_logs, to: "accounts#anonymize_audit_logs"
+          patch :anonymize_payments, to: "accounts#anonymize_payments"
+          delete :files, to: "accounts#delete_files"
+          delete :api_keys, to: "accounts#delete_api_keys"
+          delete :webhooks, to: "accounts#delete_webhooks"
+          delete :data_export_requests, to: "accounts#delete_data_export_requests"
+          delete :data_deletion_requests, to: "accounts#delete_data_deletion_requests"
+        end
+
+        # Internal services namespace for worker service communication
+        namespace :services do
+          post :health_check
+          post :generate_config
+          post :service_discovery
+          post :validate
+          post :test_connectivity
+          post :validate_services
+        end
+
+        # Internal subscriptions for worker dunning
+        resources :subscriptions, only: [ :show ] do
+          member do
+            post :dunning
+          end
+        end
+
+        # Email sending for worker notifications
+        namespace :emails do
+          post :review_notification
+          post :security_alert
+        end
+
+        # Notifications for worker service
+        resources :notifications, only: [ :create ] do
+          collection do
+            post :send
+            post :security_alert
+          end
+        end
       end
 
       # Authentication and registration endpoints
@@ -541,13 +612,39 @@ Rails.application.routes.draw do
       end
 
       # Payment-related endpoints
-      resources :payment_methods, except: [ :show ]
+      resources :payment_methods, except: [ :show ] do
+        member do
+          post :set_default
+        end
+        collection do
+          post :setup_intent
+          post :confirm
+        end
+      end
       resources :subscriptions do
         collection do
           get :history
         end
+        member do
+          get :by_stripe_id
+        end
       end
-      resources :invoices, only: [ :index, :show ]
+      # Subscriptions lookup by external ID
+      get "subscriptions/by_stripe_id/:stripe_id", to: "subscriptions#by_stripe_id"
+      get "subscriptions/by_paypal_id/:paypal_id", to: "subscriptions#by_paypal_id"
+
+      resources :invoices, only: [ :index, :show ] do
+        member do
+          post :send_invoice, path: "send"
+          post :mark_paid
+          post :void
+          post :retry_payment
+          get :pdf
+        end
+        collection do
+          get :statistics
+        end
+      end
       resources :payments, only: [ :index, :show ]
 
       # PayPal integration endpoints
@@ -603,6 +700,34 @@ Rails.application.routes.draw do
           post :payment_method_detached
           post :unhandled_event
           post :activate_subscription
+        end
+
+        # Generic webhook event processing (for worker service)
+        resources :events, only: [ :show, :update ] do
+          member do
+            patch :processing
+            patch :processed
+            patch :failed
+          end
+        end
+
+        # Generic webhook processing endpoints (for worker service compatibility)
+        post :payment_succeeded
+        post :payment_failed
+        post :subscription_updated
+        post :subscription_cancelled
+        post :subscription_activated
+        post :payment_method_attached
+        post :payment_intent_succeeded
+        post :payment_intent_failed
+      end
+
+      # Webhook events resource (top-level for worker compatibility)
+      resources :webhook_events, only: [ :show, :update ] do
+        member do
+          patch :processing
+          patch :processed
+          patch :failed
         end
       end
 
@@ -823,6 +948,9 @@ Rails.application.routes.draw do
         collection do
           get :stats
           get :security_summary
+          get :compliance_summary
+          get :activity_timeline
+          get :risk_analysis
           post :export
           delete :cleanup
         end

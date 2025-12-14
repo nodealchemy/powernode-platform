@@ -10,7 +10,7 @@ class Api::V1::AuditLogsController < ApplicationController
     SELECT 'info' as level, unnest(array['user_login', 'user_logout', 'subscription_created']) as action
   SQL
   skip_before_action :authenticate_request, only: [ :create ]
-  before_action -> { require_permission("audit_logs.read") }, only: [ :index, :show, :stats, :security_summary ]
+  before_action -> { require_permission("audit_logs.read") }, only: [ :index, :show, :stats, :security_summary, :compliance_summary, :activity_timeline, :risk_analysis ]
   before_action -> { require_permission("audit_logs.export") }, only: [ :export ]
   # NOTE: destroy and bulk_delete actions not yet implemented
   # before_action -> { require_permission("audit_logs.delete") }, only: [ :destroy, :bulk_delete ]
@@ -84,6 +84,207 @@ class Api::V1::AuditLogsController < ApplicationController
       bySeverity: logs.group(:severity).count,
       byRiskLevel: logs.group(:risk_level).count,
       hourlyDistribution: logs.group_by_hour(:created_at, range: start_time..Time.current).count
+    })
+  end
+
+  # GET /api/v1/audit_logs/compliance_summary
+  def compliance_summary
+    time_range = params[:time_range] || "30d"
+    start_time = parse_time_range(time_range)
+
+    logs = AuditLog.where("created_at >= ?", start_time)
+
+    # GDPR-related actions
+    gdpr_actions = %w[data_export_requested data_deletion_requested consent_updated
+                      privacy_settings_changed data_access_logged]
+
+    # Data access patterns
+    data_access_actions = %w[data_export data_access user_data_viewed account_data_accessed
+                             report_generated bulk_export]
+
+    # Consent management
+    consent_actions = %w[consent_given consent_withdrawn consent_updated
+                         terms_accepted privacy_policy_accepted]
+
+    # Retention compliance
+    retention_actions = %w[data_retention_applied data_archived data_purged
+                           backup_created backup_restored]
+
+    render_success({
+      totalEvents: logs.count,
+      gdprEvents: logs.where(action: gdpr_actions).count,
+      dataAccessEvents: logs.where(action: data_access_actions).count,
+      consentEvents: logs.where(action: consent_actions).count,
+      retentionEvents: logs.where(action: retention_actions).count,
+      dataExportRequests: logs.where(action: "data_export_requested").count,
+      dataDeletionRequests: logs.where(action: "data_deletion_requested").count,
+      consentChanges: logs.where(action: consent_actions).count,
+      byComplianceType: {
+        gdpr: logs.where(action: gdpr_actions).count,
+        data_access: logs.where(action: data_access_actions).count,
+        consent: logs.where(action: consent_actions).count,
+        retention: logs.where(action: retention_actions).count
+      },
+      weeklyTrend: logs.where(action: gdpr_actions + data_access_actions)
+                       .group_by_day(:created_at, range: start_time..Time.current)
+                       .count,
+      uniqueDataSubjects: logs.where(action: gdpr_actions).distinct.count(:user_id),
+      pendingRequests: {
+        exports: DataExportRequest.where(status: "pending").count,
+        deletions: DataDeletionRequest.where(status: "pending").count
+      }
+    })
+  rescue NameError
+    # Handle case where compliance models don't exist
+    render_success({
+      totalEvents: logs.count,
+      gdprEvents: logs.where(action: gdpr_actions).count,
+      dataAccessEvents: logs.where(action: data_access_actions).count,
+      consentEvents: logs.where(action: consent_actions).count,
+      retentionEvents: logs.where(action: retention_actions).count,
+      pendingRequests: { exports: 0, deletions: 0 }
+    })
+  end
+
+  # GET /api/v1/audit_logs/activity_timeline
+  def activity_timeline
+    time_range = params[:time_range] || "24h"
+    start_time = parse_time_range(time_range)
+    granularity = params[:granularity] || "hour"
+
+    logs = AuditLog.where("created_at >= ?", start_time)
+
+    # Group by time based on granularity
+    timeline_data = case granularity
+    when "minute"
+      logs.group_by_minute(:created_at, range: start_time..Time.current).count
+    when "hour"
+      logs.group_by_hour(:created_at, range: start_time..Time.current).count
+    when "day"
+      logs.group_by_day(:created_at, range: start_time..Time.current).count
+    else
+      logs.group_by_hour(:created_at, range: start_time..Time.current).count
+    end
+
+    # Get action distribution over time
+    action_timeline = logs.group(:action)
+                          .group_by_hour(:created_at, range: start_time..Time.current)
+                          .count
+
+    # Get user activity over time
+    user_activity = logs.where.not(user_id: nil)
+                        .group_by_hour(:created_at, range: start_time..Time.current)
+                        .distinct
+                        .count(:user_id)
+
+    # Peak activity detection
+    peak_hour = timeline_data.max_by { |_, count| count }&.first
+    lowest_hour = timeline_data.min_by { |_, count| count }&.first
+
+    render_success({
+      timeline: timeline_data,
+      actionTimeline: action_timeline,
+      userActivity: user_activity,
+      summary: {
+        totalEvents: logs.count,
+        averagePerHour: (logs.count.to_f / [ (Time.current - start_time) / 1.hour, 1 ].max).round(2),
+        peakActivity: {
+          time: peak_hour&.iso8601,
+          count: timeline_data[peak_hour] || 0
+        },
+        lowestActivity: {
+          time: lowest_hour&.iso8601,
+          count: timeline_data[lowest_hour] || 0
+        },
+        uniqueUsers: logs.distinct.count(:user_id),
+        uniqueActions: logs.distinct.count(:action)
+      },
+      topActions: logs.group(:action).order("count_id DESC").limit(10).count(:id),
+      topUsers: logs.joins(:user).group("users.email").order("count_id DESC").limit(5).count(:id)
+    })
+  end
+
+  # GET /api/v1/audit_logs/risk_analysis
+  def risk_analysis
+    time_range = params[:time_range] || "7d"
+    start_time = parse_time_range(time_range)
+
+    logs = AuditLog.where("created_at >= ?", start_time)
+
+    # Define risk categories
+    high_risk_actions = %w[account_locked ip_blocked unauthorized_access suspicious_activity
+                           data_breach_detected admin_override privilege_escalation]
+    medium_risk_actions = %w[login_failed permission_denied password_change token_revoked
+                             multiple_failed_attempts unusual_activity rate_limited]
+    low_risk_actions = %w[password_reset settings_changed api_key_created webhook_created]
+
+    # Calculate risk scores
+    high_risk_count = logs.where(action: high_risk_actions).count
+    medium_risk_count = logs.where(action: medium_risk_actions).count
+    low_risk_count = logs.where(action: low_risk_actions).count
+
+    # IP-based risk analysis
+    suspicious_ips = logs.where(action: %w[login_failed unauthorized_access])
+                         .group(:ip_address)
+                         .having("count(*) > 5")
+                         .count
+
+    # User-based risk analysis
+    high_risk_users = logs.where(action: high_risk_actions + medium_risk_actions)
+                          .where.not(user_id: nil)
+                          .group(:user_id)
+                          .having("count(*) > 3")
+                          .count
+
+    # Time-based patterns (off-hours activity)
+    off_hours_activity = logs.where("EXTRACT(hour FROM created_at) < 6 OR EXTRACT(hour FROM created_at) > 22").count
+
+    # Geographic anomalies (if IP geolocation is available)
+    unique_ips_per_user = logs.where.not(user_id: nil, ip_address: nil)
+                              .group(:user_id)
+                              .distinct
+                              .count(:ip_address)
+    multi_ip_users = unique_ips_per_user.select { |_, count| count > 5 }.keys.count
+
+    # Calculate overall risk score (0-100)
+    risk_score = calculate_overall_risk_score(
+      high_risk_count: high_risk_count,
+      medium_risk_count: medium_risk_count,
+      suspicious_ips_count: suspicious_ips.count,
+      off_hours_percentage: logs.count > 0 ? (off_hours_activity.to_f / logs.count * 100) : 0
+    )
+
+    render_success({
+      overallRiskScore: risk_score,
+      riskLevel: risk_level_from_score(risk_score),
+      riskDistribution: {
+        high: high_risk_count,
+        medium: medium_risk_count,
+        low: low_risk_count,
+        info: logs.count - high_risk_count - medium_risk_count - low_risk_count
+      },
+      threatIndicators: {
+        suspiciousIps: suspicious_ips.count,
+        highRiskUsers: high_risk_users.count,
+        offHoursActivity: off_hours_activity,
+        multiIpUsers: multi_ip_users,
+        failedLogins: logs.where(action: "login_failed").count,
+        unauthorizedAccess: logs.where(action: "unauthorized_access").count
+      },
+      topThreats: logs.where(action: high_risk_actions)
+                      .group(:action)
+                      .order("count_id DESC")
+                      .limit(5)
+                      .count(:id),
+      suspiciousIpDetails: suspicious_ips.first(10).to_h,
+      riskTrend: logs.where(action: high_risk_actions + medium_risk_actions)
+                     .group_by_day(:created_at, range: start_time..Time.current)
+                     .count,
+      recommendations: generate_risk_recommendations(
+        high_risk_count: high_risk_count,
+        suspicious_ips_count: suspicious_ips.count,
+        off_hours_activity: off_hours_activity
+      )
     })
   end
 
@@ -574,6 +775,72 @@ class Api::V1::AuditLogsController < ApplicationController
 
   def render_bad_request(message)
     render_error(message, status: :bad_request)
+  end
+
+  def calculate_overall_risk_score(high_risk_count:, medium_risk_count:, suspicious_ips_count:, off_hours_percentage:)
+    score = 0
+
+    # High risk events contribution (0-40 points)
+    score += [ high_risk_count * 4, 40 ].min
+
+    # Medium risk events contribution (0-25 points)
+    score += [ medium_risk_count * 1, 25 ].min
+
+    # Suspicious IPs contribution (0-20 points)
+    score += [ suspicious_ips_count * 5, 20 ].min
+
+    # Off-hours activity contribution (0-15 points)
+    score += [ off_hours_percentage * 0.5, 15 ].min
+
+    [ score.round, 100 ].min
+  end
+
+  def risk_level_from_score(score)
+    case score
+    when 0..20 then "low"
+    when 21..40 then "moderate"
+    when 41..60 then "elevated"
+    when 61..80 then "high"
+    else "critical"
+    end
+  end
+
+  def generate_risk_recommendations(high_risk_count:, suspicious_ips_count:, off_hours_activity:)
+    recommendations = []
+
+    if high_risk_count > 10
+      recommendations << {
+        priority: "high",
+        category: "security",
+        message: "High volume of security events detected. Review account access patterns and consider enabling additional authentication measures."
+      }
+    end
+
+    if suspicious_ips_count > 3
+      recommendations << {
+        priority: "high",
+        category: "network",
+        message: "Multiple suspicious IP addresses detected. Consider implementing IP blocking or geo-restrictions."
+      }
+    end
+
+    if off_hours_activity > 50
+      recommendations << {
+        priority: "medium",
+        category: "monitoring",
+        message: "Significant off-hours activity detected. Review access policies and consider implementing time-based access controls."
+      }
+    end
+
+    if recommendations.empty?
+      recommendations << {
+        priority: "low",
+        category: "general",
+        message: "No immediate security concerns detected. Continue monitoring for anomalies."
+      }
+    end
+
+    recommendations
   end
 
   def parse_time_range(time_range)
