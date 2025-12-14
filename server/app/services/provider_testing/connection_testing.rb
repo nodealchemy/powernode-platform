@@ -68,6 +68,11 @@ module ProviderTesting
     end
 
     def test_with_details
+      # Return comprehensive test report with all metrics for detailed analysis
+      test_with_details_full
+    end
+
+    def test_with_details_simple
       # Return a flat structure that matches frontend ConnectionTestResult interface
       connection_test = test_connection
 
@@ -101,7 +106,8 @@ module ProviderTesting
 
     def test_basic
       result = test_with_details
-      result[:success] || false
+      # Access nested success from full format, or fall back to simple format
+      result.dig(:connection_test, :success) || result[:success] || false
     end
 
     def test_with_details_full
