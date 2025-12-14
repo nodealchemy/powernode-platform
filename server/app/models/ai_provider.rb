@@ -133,7 +133,7 @@ class AiProvider < ApplicationRecord
   def update_metadata(key, value)
     current_metadata = metadata || {}
     current_metadata[key] = value
-    self.metadata = current_metadata
+    update!(metadata: current_metadata)
   end
 
   def api_endpoint_must_be_valid_url

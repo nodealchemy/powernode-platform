@@ -230,8 +230,12 @@ module Api
           # Update credential status based on test result
           if test_result[:success]
             credential.record_success!
+            # Also update provider's health metrics so it's marked as healthy
+            @provider.update_health_metrics(true, test_result[:response_time_ms])
           else
             credential.record_failure!(test_result[:error])
+            # Update provider's health metrics with failure
+            @provider.update_health_metrics(false, test_result[:response_time_ms], test_result[:error])
           end
 
           render_success(test_result)
@@ -485,11 +489,17 @@ module Api
           test_service = AiProviderTestService.new(@credential)
           test_result = test_service.test_with_details
 
-          # Update credential status
+          provider = @credential.ai_provider
+
+          # Update credential and provider status
           if test_result[:success]
             @credential.record_success!
+            # Also update provider's health metrics so it's marked as healthy
+            provider.update_health_metrics(true, test_result[:response_time_ms])
           else
             @credential.record_failure!(test_result[:error])
+            # Update provider's health metrics with failure
+            provider.update_health_metrics(false, test_result[:response_time_ms], test_result[:error])
           end
 
           render_success(test_result)

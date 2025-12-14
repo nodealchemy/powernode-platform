@@ -13,10 +13,10 @@ import {
 import { BellIcon as BellIconSolid } from '@heroicons/react/24/solid';
 import { notificationApi, Notification } from '../services/notificationApi';
 import { RootState } from '@/shared/services';
+import { useNotificationWebSocket, WebSocketNotification } from '@/shared/hooks/useNotificationWebSocket';
 
 interface NotificationBellProps {
   className?: string;
-  pollInterval?: number; // in milliseconds, default 30 seconds
 }
 
 const SEVERITY_ICONS: Record<string, React.ElementType> = {
@@ -35,7 +35,6 @@ const SEVERITY_COLORS: Record<string, string> = {
 
 export const NotificationBell: React.FC<NotificationBellProps> = ({
   className = '',
-  pollInterval = 30000,
 }) => {
   const { isAuthenticated } = useSelector((state: RootState) => state.auth);
   const [isOpen, setIsOpen] = useState(false);
@@ -43,6 +42,43 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Transform WebSocket notification to local Notification type
+  const transformWsNotification = useCallback((wsNotif: WebSocketNotification): Notification => ({
+    id: wsNotif.id,
+    type: wsNotif.notification_type,
+    title: wsNotif.title,
+    message: wsNotif.message,
+    severity: wsNotif.severity,
+    action_url: wsNotif.action_url,
+    action_label: wsNotif.action_label,
+    icon: wsNotif.icon,
+    category: wsNotif.category || 'general',
+    metadata: {},
+    read: false,
+    created_at: wsNotif.created_at,
+  }), []);
+
+  // WebSocket hook for real-time notification updates
+  useNotificationWebSocket({
+    onNewNotification: (wsNotif: WebSocketNotification) => {
+      // Add new notification to the top of the list
+      setNotifications(prev => [transformWsNotification(wsNotif), ...prev.slice(0, 9)]);
+      setUnreadCount(prev => prev + 1);
+    },
+    onNotificationRead: (notificationId: string) => {
+      setNotifications(prev =>
+        prev.map(n => n.id === notificationId ? { ...n, read: true } : n)
+      );
+      setUnreadCount(prev => Math.max(0, prev - 1));
+    },
+    onError: (error: string) => {
+      // Silent fail for notifications - log in dev only
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('[NotificationBell] WebSocket error:', error);
+      }
+    }
+  });
 
   // Load notifications
   const loadNotifications = useCallback(async () => {
@@ -65,7 +101,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
     }
   }, []);
 
-  // Initial load and polling - only when authenticated
+  // Initial load - only when authenticated (WebSocket handles real-time updates)
   useEffect(() => {
     if (!isAuthenticated) {
       // Reset state when not authenticated
@@ -74,12 +110,9 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
       return;
     }
 
+    // Fetch initial notifications via REST API
     loadNotifications();
-
-    // Poll for unread count
-    const interval = setInterval(loadUnreadCount, pollInterval);
-    return () => clearInterval(interval);
-  }, [isAuthenticated, loadNotifications, loadUnreadCount, pollInterval]);
+  }, [isAuthenticated, loadNotifications]);
 
   // Load full notifications when dropdown opens
   useEffect(() => {

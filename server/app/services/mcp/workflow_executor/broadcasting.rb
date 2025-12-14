@@ -16,9 +16,10 @@ module Mcp
         if node_execution
           # Use the channel's class method which sets the correct 'event' field
           # and broadcasts to all appropriate streams (run, workflow, account)
+          # NOTE: Frontend expects "node.execution.updated" - do NOT use "workflow.node.execution.updated"
           AiOrchestrationChannel.broadcast_node_execution(
             node_execution,
-            "workflow.node.execution.updated"
+            "node.execution.updated"
           )
         else
           log_warn "Node execution not found for broadcast", {

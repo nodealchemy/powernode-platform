@@ -57,6 +57,9 @@ module Mcp
 
         @node_results[node.node_id] = result
 
+        # Update state machine to mark node as completed
+        @state_machine.complete_node(node.node_id, result)
+
         output_for_context = build_output_for_context(result)
         if output_for_context.present?
           update_execution_context(node, output_for_context)
@@ -107,6 +110,9 @@ module Mcp
 
       def handle_node_failure(node, node_execution, error, node_context)
         @logger.error "[MCP_ORCHESTRATOR] Node execution failed: #{node.node_id} - #{error.message}"
+
+        # Update state machine to mark node as failed
+        @state_machine.fail_node(node.node_id, error)
 
         node_execution.fail_execution!(
           error.message,
@@ -164,7 +170,7 @@ module Mcp
           Mcp::NodeExecutors::Start
         when "end"
           Mcp::NodeExecutors::End
-        when "kb_article_create"
+        when "kb_article", "kb_article_create"
           Mcp::NodeExecutors::KbArticleCreate
         when "kb_article_read"
           Mcp::NodeExecutors::KbArticleRead

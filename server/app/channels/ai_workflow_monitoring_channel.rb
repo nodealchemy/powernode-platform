@@ -104,6 +104,38 @@ class AiWorkflowMonitoringChannel < ApplicationCable::Channel
 
   # Class methods for broadcasting
   class << self
+    def broadcast_dashboard_update(account_id)
+      stats = calculate_dashboard_stats(account_id)
+
+      ActionCable.server.broadcast(
+        "ai_orchestration:monitoring:#{account_id}",
+        {
+          type: "dashboard_stats",
+          stats: stats,
+          timestamp: Time.current.iso8601
+        }
+      )
+
+      # Also broadcast active executions update
+      broadcast_active_executions_update(account_id)
+    end
+
+    def broadcast_active_executions_update(account_id)
+      executions = AiWorkflowRun.where(
+        account_id: account_id,
+        status: %w[initializing running paused]
+      ).order(started_at: :desc).limit(50)
+
+      ActionCable.server.broadcast(
+        "ai_orchestration:monitoring:#{account_id}",
+        {
+          type: "active_executions",
+          executions: executions.map { |run| serialize_workflow_run_for_broadcast(run) },
+          timestamp: Time.current.iso8601
+        }
+      )
+    end
+
     def broadcast_system_alert(account_id, alert_data)
       ActionCable.server.broadcast(
         "ai_orchestration:monitoring:#{account_id}",
@@ -126,6 +158,44 @@ class AiWorkflowMonitoringChannel < ApplicationCable::Channel
           )
         }
       )
+    end
+
+    private
+
+    def calculate_dashboard_stats(account_id)
+      today_range = Time.current.beginning_of_day..Time.current.end_of_day
+
+      {
+        total_workflows: AiWorkflow.where(account_id: account_id).count,
+        active_executions: AiWorkflowRun.where(
+          account_id: account_id,
+          status: %w[initializing running paused]
+        ).count,
+        completed_today: AiWorkflowRun.where(
+          account_id: account_id,
+          status: "completed",
+          completed_at: today_range
+        ).count,
+        failed_today: AiWorkflowRun.where(
+          account_id: account_id,
+          status: "failed",
+          completed_at: today_range
+        ).count
+      }
+    end
+
+    def serialize_workflow_run_for_broadcast(workflow_run)
+      {
+        id: workflow_run.id,
+        run_id: workflow_run.run_id,
+        workflow_id: workflow_run.ai_workflow_id,
+        workflow_name: workflow_run.ai_workflow&.name,
+        status: workflow_run.status,
+        started_at: workflow_run.started_at&.iso8601,
+        completed_at: workflow_run.completed_at&.iso8601,
+        execution_time_ms: workflow_run.duration_ms,
+        total_cost: workflow_run.total_cost
+      }
     end
   end
 

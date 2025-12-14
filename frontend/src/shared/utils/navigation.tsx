@@ -3,7 +3,7 @@ import {
   Home, BarChart3, Users, User, Settings, CreditCard,
   FileText, Package, UserCheck, Store, Smartphone,
   HelpCircle, LogOut, Bot, Brain, MessageSquare,
-  HardDrive, Workflow, Activity, Server, FileStack
+  HardDrive, Workflow, Activity, Server
 } from 'lucide-react';
 import { NavigationConfig } from '../types/navigation';
 
@@ -75,18 +75,9 @@ export const defaultNavigationConfig: NavigationConfig = {
           name: 'Workflows',
           href: '/app/ai/workflows',
           icon: Workflow,
-          description: 'Design and execute AI workflows',
+          description: 'Design and execute AI workflows and templates',
           permissions: ['ai.workflows.read'],
           order: 4
-        },
-        {
-          id: 'ai-templates',
-          name: 'Templates',
-          href: '/app/ai/workflows/templates',
-          icon: FileStack,
-          description: 'Pre-built workflow templates',
-          permissions: ['ai.workflows.read'],
-          order: 5
         },
         {
           id: 'ai-conversations',

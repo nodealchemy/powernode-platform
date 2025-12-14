@@ -15,11 +15,13 @@ class Api::V1::InvoicesController < ApplicationController
 
     render_success(
       data: paginated_invoices.map { |invoice| invoice_data(invoice) },
-      pagination: {
-        current_page: paginated_invoices.current_page,
-        per_page: paginated_invoices.limit_value,
-        total_pages: paginated_invoices.total_pages,
-        total_count: paginated_invoices.total_count
+      meta: {
+        pagination: {
+          current_page: paginated_invoices.current_page,
+          per_page: paginated_invoices.limit_value,
+          total_pages: paginated_invoices.total_pages,
+          total_count: paginated_invoices.total_count
+        }
       }
     )
   end

@@ -9,7 +9,6 @@ export { AIMonitoringPage } from './AIMonitoringPage';
 export { McpBrowserPage } from './McpBrowserPage';
 export { WorkflowsPage } from './WorkflowsPage';
 export { WorkflowMonitoringPage } from './WorkflowMonitoringPage';
-export { WorkflowTemplatesPage } from './WorkflowTemplatesPage';
 export { WorkflowDetailPage } from './WorkflowDetailPage';
 export { WorkflowImportPage } from './WorkflowImportPage';
 export { WorkflowValidationStatisticsPage } from './WorkflowValidationStatisticsPage';

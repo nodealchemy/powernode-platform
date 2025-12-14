@@ -152,7 +152,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         />
 
         {/* Active Alerts */}
-        <SystemAlertsPanel maxDisplayedAlerts={5} autoRefresh={false} />
+        <SystemAlertsPanel maxDisplayedAlerts={5} />
       </div>
 
       {/* Recent Activity */}

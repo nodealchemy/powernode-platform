@@ -997,12 +997,21 @@ Rails.application.routes.draw do
         # Lookup endpoint for worker service (finds workflow by run_id)
         get "workflows/runs/lookup/:run_id", to: "workflows#runs_lookup"
 
+        # Collection route for listing all workflow runs across all workflows
+        # Used by worker service for cleanup operations
+        get "workflow_runs", to: "workflows#runs_index"
+        # Direct update route for workflow runs (used by worker cleanup jobs)
+        patch "workflow_runs/:run_id", to: "workflows#run_update_direct"
+
         resources :workflows do
           member do
             post :execute
             post :duplicate
             get :validate
             get :export
+            post :convert_to_template
+            post :convert_to_workflow
+            post :create_from_template
           end
 
           collection do

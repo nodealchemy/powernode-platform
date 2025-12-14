@@ -3,6 +3,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '@/shared/services';
 import { fetchSubscriptions, setCurrentSubscription } from '../services/slices/subscriptionSlice';
 import { Subscription } from '@/shared/types';
+import { useSubscriptionWebSocket } from './useSubscriptionWebSocket';
 
 export interface SubscriptionLifecycleHook {
   refreshSubscriptions: () => Promise<void>;
@@ -11,21 +12,29 @@ export interface SubscriptionLifecycleHook {
   isTrialEnding: (subscription: Subscription) => boolean;
   isExpiringSoon: (subscription: Subscription) => boolean;
   getCurrentSubscription: () => Subscription | null;
+  isConnected: boolean;
 }
 
 export const useSubscriptionLifecycle = (): SubscriptionLifecycleHook => {
   const dispatch = useDispatch<AppDispatch>();
   const { subscriptions, currentSubscription } = useSelector((state: RootState) => state.subscription);
 
-  // Auto-refresh subscriptions every 5 minutes when component is active
-  useEffect(() => {
-    // TEMPORARILY DISABLED - Causing automatic page refreshes
-    // const interval = setInterval(() => {
-    //   dispatch(fetchSubscriptions());
-    // }, 5 * 60 * 1000); // 5 minutes
-
-    // return () => clearInterval(interval);
-  }, [dispatch]);
+  // WebSocket hook for real-time subscription updates (replaces polling)
+  const { isConnected } = useSubscriptionWebSocket({
+    onSubscriptionUpdate: () => {
+      // Refresh subscriptions when we receive an update via WebSocket
+      dispatch(fetchSubscriptions());
+    },
+    onSubscriptionCancelled: () => {
+      dispatch(fetchSubscriptions());
+    },
+    onPaymentProcessed: () => {
+      dispatch(fetchSubscriptions());
+    },
+    onTrialEnding: () => {
+      dispatch(fetchSubscriptions());
+    }
+  });
 
   // Update current subscription when subscriptions change
   useEffect(() => {
@@ -107,5 +116,6 @@ export const useSubscriptionLifecycle = (): SubscriptionLifecycleHook => {
     isTrialEnding,
     isExpiringSoon,
     getCurrentSubscription,
+    isConnected,
   };
 };

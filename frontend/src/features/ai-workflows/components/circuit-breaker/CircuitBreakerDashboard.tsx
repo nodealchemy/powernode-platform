@@ -53,17 +53,13 @@ export interface CircuitBreakerDashboardProps {
   loading?: boolean;
   onLoadMetrics?: () => Promise<CircuitBreakerMetrics>;
   onResetBreaker?: (breakerId: string) => Promise<void>;
-  autoRefresh?: boolean;
-  refreshInterval?: number;
 }
 
 export const CircuitBreakerDashboard: React.FC<CircuitBreakerDashboardProps> = ({
   metrics: propMetrics,
   loading: propLoading = false,
   onLoadMetrics,
-  onResetBreaker,
-  autoRefresh = false,
-  refreshInterval = 30000
+  onResetBreaker
 }) => {
   const [internalMetrics, setInternalMetrics] = useState<CircuitBreakerMetrics | null>(null);
   const [internalLoading, setInternalLoading] = useState(!propMetrics);
@@ -120,22 +116,12 @@ export const CircuitBreakerDashboard: React.FC<CircuitBreakerDashboardProps> = (
   }, [propMetrics, onLoadMetrics, addNotification]);
 
   // Initial load (only if using internal state)
+  // WebSocket via useCircuitBreaker hook handles real-time updates
   useEffect(() => {
     if (propMetrics === undefined && onLoadMetrics) {
       loadMetrics(true);
     }
   }, [loadMetrics, propMetrics, onLoadMetrics]);
-
-  // Auto-refresh (only if using onLoadMetrics callback)
-  useEffect(() => {
-    if (!autoRefresh || propMetrics !== undefined || !onLoadMetrics) return;
-
-    const interval = setInterval(() => {
-      loadMetrics(false);
-    }, refreshInterval);
-
-    return () => clearInterval(interval);
-  }, [autoRefresh, refreshInterval, loadMetrics, propMetrics, onLoadMetrics]);
 
   // Merge real-time data with loaded metrics
   const mergedBreakers = useMemo(() => {

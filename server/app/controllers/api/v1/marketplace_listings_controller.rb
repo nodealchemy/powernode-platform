@@ -59,11 +59,13 @@ class Api::V1::MarketplaceListingsController < ApplicationController
 
     render_success(
       data: listings.map { |listing| listing_data(listing) },
-      pagination: {
-        current_page: page,
-        total_pages: total_pages,
-        total_count: total_count,
-        per_page: per_page
+      meta: {
+        pagination: {
+          current_page: page,
+          total_pages: total_pages,
+          total_count: total_count,
+          per_page: per_page
+        }
       }
     )
   end

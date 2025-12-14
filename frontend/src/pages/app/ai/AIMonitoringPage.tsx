@@ -21,11 +21,11 @@ import { Select } from '@/shared/components/ui/Select';
 import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { useNotifications } from '@/shared/hooks/useNotifications';
+import { useAiMonitoringWebSocket, DashboardStats, SystemAlert } from '@/shared/hooks/useAiMonitoringWebSocket';
 import { monitoringApi, MonitoringDashboard, HealthStatus, Alert as ApiAlert } from '@/shared/services/ai/MonitoringApiService';
 import {
   MonitoringDashboardData,
   SystemHealthData,
-  MonitoringInterval,
   Alert,
   ResourceUtilization,
   ProviderMetrics,
@@ -81,9 +81,60 @@ export const AIMonitoringPage: React.FC = () => {
     }
   }, [navigate]);
 
-  const [monitoringInterval, setMonitoringInterval] = useState<MonitoringInterval>('normal');
   const [timeRange, setTimeRange] = useState('1h');
   const [isRealTimeEnabled, setIsRealTimeEnabled] = useState(false);
+
+  // WebSocket hook for real-time updates
+  const {
+    isConnected: wsConnected,
+    requestDashboardStats,
+    startRealTimeMonitoring,
+    stopRealTimeMonitoring,
+    error: wsError
+  } = useAiMonitoringWebSocket({
+    onDashboardStats: (stats: DashboardStats) => {
+      // Update dashboard with real-time stats from WebSocket
+      setDashboardData(prev => prev ? {
+        ...prev,
+        overview: {
+          ...prev.overview,
+          total_workflows: stats.total_workflows,
+          active_conversations: stats.active_executions
+        }
+      } : prev);
+      setLastUpdate(new Date());
+    },
+    onSystemAlert: (alert: SystemAlert) => {
+      // Add new alert to the list
+      setAlerts(prev => [{
+        id: alert.id,
+        severity: alert.severity === 'critical' ? 'critical' : alert.severity === 'warning' ? 'high' : 'medium',
+        component: alert.source,
+        title: alert.message.split(':')[0] || 'Alert',
+        message: alert.message,
+        metadata: {},
+        acknowledged: false,
+        acknowledged_at: null,
+        acknowledged_by: null,
+        resolved: false,
+        resolved_at: null,
+        resolved_by: null,
+        created_at: alert.timestamp
+      }, ...prev]);
+
+      addNotificationRef.current({
+        type: alert.severity === 'critical' ? 'error' : 'warning',
+        title: 'System Alert',
+        message: alert.message
+      });
+    },
+    onRealTimeModeChanged: (enabled: boolean) => {
+      setIsRealTimeEnabled(enabled);
+    },
+    onError: (error: string) => {
+      setError(error);
+    }
+  });
 
   // Permission checks
   const canViewMonitoring = useMemo(() =>
@@ -326,42 +377,22 @@ export const AIMonitoringPage: React.FC = () => {
     }
   }, [canViewMonitoring, transformDashboardData, transformHealthData, transformAlerts]);
 
-  // Initialize monitoring connection
+  // Initialize monitoring - fetch initial data only (WebSocket handles real-time updates)
   useEffect(() => {
     if (!canViewMonitoring) return;
 
-    // Fetch initial data
+    // Fetch initial data via REST API
     fetchMonitoringData();
+  }, [canViewMonitoring, fetchMonitoringData]);
 
-    // Set up polling interval based on monitoring interval setting
-    let pollInterval: NodeJS.Timeout | null = null;
-
-    const getIntervalMs = (interval: MonitoringInterval): number => {
-      switch (interval) {
-        case 'real-time': return 1000;
-        case 'fast': return 5000;
-        case 'normal': return 30000;
-        case 'slow': return 120000;
-        default: return 30000;
-      }
-    };
-
-    if (isRealTimeEnabled || monitoringInterval !== 'slow') {
-      pollInterval = setInterval(fetchMonitoringData, getIntervalMs(monitoringInterval));
+  // Update connection state based on WebSocket and initial fetch
+  useEffect(() => {
+    if (wsConnected && !isConnected) {
+      setIsConnected(true);
+    } else if (!wsConnected && wsError) {
+      setIsConnected(false);
     }
-
-    return () => {
-      if (pollInterval) {
-        clearInterval(pollInterval);
-      }
-    };
-  }, [canViewMonitoring, fetchMonitoringData, monitoringInterval, isRealTimeEnabled]);
-
-  // Handle interval changes
-  const handleIntervalChange = useCallback((newInterval: MonitoringInterval) => {
-    setMonitoringInterval(newInterval);
-    // Polling interval will be updated by the useEffect watching monitoringInterval
-  }, []);
+  }, [wsConnected, wsError, isConnected]);
 
   // Handle time range changes
   const handleTimeRangeChange = useCallback((newTimeRange: string) => {
@@ -370,32 +401,36 @@ export const AIMonitoringPage: React.FC = () => {
     fetchMonitoringData();
   }, [fetchMonitoringData]);
 
-  // Toggle real-time monitoring
-  const toggleRealTimeMonitoring = useCallback(() => {
-    const newRealTimeEnabled = !isRealTimeEnabled;
-    setIsRealTimeEnabled(newRealTimeEnabled);
-
-    if (newRealTimeEnabled) {
-      handleIntervalChange('real-time');
-      addNotification({
-        type: 'info',
-        title: 'Real-time Monitoring Enabled',
-        message: 'Now receiving live updates every second'
-      });
-    } else {
-      handleIntervalChange('normal');
+  // Toggle real-time monitoring via WebSocket
+  const toggleRealTimeMonitoring = useCallback(async () => {
+    if (isRealTimeEnabled) {
+      await stopRealTimeMonitoring();
+      setIsRealTimeEnabled(false);
       addNotification({
         type: 'info',
         title: 'Real-time Monitoring Disabled',
-        message: 'Switched to normal update interval'
+        message: 'Switched to manual refresh mode'
+      });
+    } else {
+      await startRealTimeMonitoring();
+      setIsRealTimeEnabled(true);
+      addNotification({
+        type: 'info',
+        title: 'Real-time Monitoring Enabled',
+        message: 'Now receiving live WebSocket updates'
       });
     }
-  }, [isRealTimeEnabled, handleIntervalChange, addNotification]);
+  }, [isRealTimeEnabled, startRealTimeMonitoring, stopRealTimeMonitoring, addNotification]);
 
   // Refresh all data
-  const refreshAllData = useCallback(() => {
-    fetchMonitoringData();
-  }, [fetchMonitoringData]);
+  const refreshAllData = useCallback(async () => {
+    // Fetch via REST API for full data
+    await fetchMonitoringData();
+    // Also request WebSocket update for real-time sync
+    if (wsConnected) {
+      requestDashboardStats();
+    }
+  }, [fetchMonitoringData, wsConnected, requestDashboardStats]);
 
   // Format health score color
   const getHealthScoreColor = (score: number) => {
@@ -548,16 +583,11 @@ export const AIMonitoringPage: React.FC = () => {
               <option value="7d">Last 7 days</option>
             </Select>
 
-            <Select
-              value={monitoringInterval}
-              onValueChange={(value) => handleIntervalChange(value as MonitoringInterval)}
-              disabled={!isConnected}
-            >
-              <option value="real-time">Real-time (1s)</option>
-              <option value="fast">Fast (5s)</option>
-              <option value="normal">Normal (30s)</option>
-              <option value="slow">Slow (2m)</option>
-            </Select>
+            {wsConnected && (
+              <Badge variant={isRealTimeEnabled ? 'success' : 'secondary'} className="ml-2">
+                {isRealTimeEnabled ? 'Live' : 'Manual'}
+              </Badge>
+            )}
           </div>
         </div>
 

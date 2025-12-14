@@ -61,7 +61,7 @@ import { WorkflowAnalyticsPage } from './ai/WorkflowAnalyticsPage';
 import { AIMonitoringPage } from './ai/AIMonitoringPage';
 import { McpBrowserPage } from './ai/McpBrowserPage';
 // AI Sub-pages
-import { CreateWorkflowPage, WorkflowTemplatesPage, AIDebugPage } from './ai';
+import { CreateWorkflowPage, AIDebugPage } from './ai';
 import AgentTeamsPage from './ai/AgentTeamsPage';
 import { WorkflowDetailPage } from './ai/WorkflowDetailPage';
 import { WorkflowImportPage } from './ai/WorkflowImportPage';
@@ -456,7 +456,6 @@ const DashboardPage: React.FC = () => {
 
         {/* AI Sub-pages (detail/utility routes) */}
         <Route path="/ai/workflows/new" element={<CreateWorkflowPage />} />
-        <Route path="/ai/workflows/templates" element={<WorkflowTemplatesPage />} />
         <Route path="/ai/workflows/import" element={<WorkflowImportPage />} />
         <Route path="/ai/workflows/monitoring" element={<WorkflowMonitoringPage />} />
         <Route path="/ai/workflows/validation-stats" element={<WorkflowValidationStatisticsPage />} />

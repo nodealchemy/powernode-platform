@@ -7,8 +7,7 @@ import {
   Clock,
   DollarSign,
   Zap,
-  RefreshCw,
-  Radio
+  RefreshCw
 } from 'lucide-react';
 import { Card, CardTitle, CardContent } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
@@ -39,11 +38,8 @@ export const WorkflowMonitoringPanel: React.FC<WorkflowMonitoringPanelProps> = (
   const [health, setHealth] = useState<WorkflowHealthData['health'] | null>(null);
   const [costs, setCosts] = useState<WorkflowCostData['costs'] | null>(null);
   const [activeExecutions, setActiveExecutions] = useState<AiWorkflowRun[]>([]);
-  const [isConnected, setIsConnected] = useState(false);
-  const [realTimeMode, setRealTimeMode] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null);
 
   // Transform API dashboard data to stats format
   const transformDashboardToStats = useCallback((dashboard: MonitoringDashboard): WorkflowMonitoringData['stats'] => {
@@ -102,13 +98,11 @@ export const WorkflowMonitoringPanel: React.FC<WorkflowMonitoringPanelProps> = (
       });
 
       setLastUpdate(new Date());
-      setIsConnected(true);
       setIsLoading(false);
     } catch (error) {
       if (process.env.NODE_ENV === 'development') {
         console.error('Failed to fetch monitoring data:', error);
       }
-      setIsConnected(false);
       setIsLoading(false);
     }
   }, [transformDashboardToStats, transformMetricsToHealth]);
@@ -186,49 +180,10 @@ export const WorkflowMonitoringPanel: React.FC<WorkflowMonitoringPanelProps> = (
     onError: handleWebSocketError
   });
 
-  // Initial data fetch and polling setup
+  // Initial data fetch only - WebSocket handles real-time updates
   useEffect(() => {
     fetchMonitoringData();
-
-    if (!realTimeMode) {
-      const interval = setInterval(fetchMonitoringData, 30000);
-      setPollingInterval(interval);
-      return () => {
-        clearInterval(interval);
-        setPollingInterval(null);
-      };
-    }
-  }, [realTimeMode, fetchMonitoringData]);
-
-  // Update connection status based on WebSocket
-  useEffect(() => {
-    if (realTimeMode && wsConnected) {
-      setIsConnected(true);
-    }
-  }, [realTimeMode, wsConnected]);
-
-  // Toggle real-time monitoring mode
-  const toggleRealTimeMode = useCallback(async () => {
-    if (realTimeMode) {
-      setRealTimeMode(false);
-      try {
-        await monitoringApi.stopMonitoring();
-      } catch {
-        // Ignore errors when stopping
-      }
-    } else {
-      setRealTimeMode(true);
-      if (pollingInterval) {
-        clearInterval(pollingInterval);
-        setPollingInterval(null);
-      }
-      try {
-        await monitoringApi.startMonitoring();
-      } catch {
-        // Ignore errors when starting
-      }
-    }
-  }, [realTimeMode, pollingInterval]);
+  }, [fetchMonitoringData]);
 
   // Manual refresh
   const refreshData = useCallback(() => {
@@ -266,10 +221,9 @@ export const WorkflowMonitoringPanel: React.FC<WorkflowMonitoringPanelProps> = (
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
-            <div className={`h-2 w-2 rounded-full ${isConnected ? 'bg-theme-success' : 'bg-theme-danger'}`} />
+            <div className={`h-2 w-2 rounded-full ${wsConnected ? 'bg-theme-success' : 'bg-theme-danger'}`} />
             <span className="text-sm text-theme-muted">
-              {isConnected ? 'Connected' : 'Disconnected'}
-              {realTimeMode && ' (Real-time)'}
+              {wsConnected ? 'Connected (Real-time)' : 'Disconnected'}
             </span>
           </div>
           {lastUpdate && (
@@ -278,25 +232,15 @@ export const WorkflowMonitoringPanel: React.FC<WorkflowMonitoringPanelProps> = (
             </span>
           )}
         </div>
-        <div className="flex items-center gap-2">
-          <Button
-            onClick={refreshData}
-            variant="outline"
-            size="sm"
-            disabled={loading}
-          >
-            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
-          <Button
-            onClick={toggleRealTimeMode}
-            variant={realTimeMode ? 'primary' : 'outline'}
-            size="sm"
-          >
-            <Radio className="h-4 w-4 mr-2" />
-            {realTimeMode ? 'Real-time Active' : 'Enable Real-time'}
-          </Button>
-        </div>
+        <Button
+          onClick={refreshData}
+          variant="outline"
+          size="sm"
+          disabled={loading}
+        >
+          <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+          Refresh
+        </Button>
       </div>
 
       {/* Overview Stats */}

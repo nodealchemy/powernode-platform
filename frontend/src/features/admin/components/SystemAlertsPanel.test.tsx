@@ -358,24 +358,6 @@ describe('SystemAlertsPanel', () => {
       expect(screen.getByText('Memory usage exceeds threshold')).toBeInTheDocument();
       expect(screen.queryByText('Error rate has increased')).not.toBeInTheDocument();
     });
-
-    it('shows auto-refresh indicator when autoRefresh is true', async () => {
-      render(<SystemAlertsPanel autoRefresh={true} refreshInterval={60000} />);
-
-      await waitFor(() => {
-        expect(screen.getByText('Auto-refreshing every 60 seconds')).toBeInTheDocument();
-      });
-    });
-
-    it('hides auto-refresh indicator when autoRefresh is false', async () => {
-      render(<SystemAlertsPanel autoRefresh={false} />);
-
-      await waitFor(() => {
-        expect(screen.getByText('System Alerts')).toBeInTheDocument();
-      });
-
-      expect(screen.queryByText(/Auto-refreshing/)).not.toBeInTheDocument();
-    });
   });
 
   describe('refresh functionality', () => {

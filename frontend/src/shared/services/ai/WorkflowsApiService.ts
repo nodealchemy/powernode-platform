@@ -158,6 +158,7 @@ export interface WorkflowFilters extends QueryFilters {
   visibility?: 'private' | 'account' | 'public';
   created_by?: string;
   tags?: string[];
+  is_template?: boolean;
   date_range?: {
     start?: string;
     end?: string;
@@ -179,6 +180,8 @@ export interface CreateWorkflowRequest {
   status?: 'draft' | 'published';
   visibility?: 'private' | 'account' | 'public';
   tags?: string[];
+  is_template?: boolean;
+  template_category?: string;
   execution_mode?: 'sequential' | 'parallel' | 'conditional';
   timeout_seconds?: number;
   configuration?: Record<string, unknown>;
@@ -394,6 +397,43 @@ class WorkflowsApiService extends BaseApiService {
   }
 
   // ===================================================================
+  // Template Conversion Actions
+  // ===================================================================
+
+  /**
+   * Convert workflow to template
+   * POST /api/v1/ai/workflows/:id/convert_to_template
+   */
+  async convertToTemplate(id: string, options: { category?: string; visibility?: string } = {}): Promise<WorkflowTemplate> {
+    const response = await this.performAction<{ template: WorkflowTemplate }>(
+      this.resource, id, 'convert_to_template', options
+    );
+    return response.template;
+  }
+
+  /**
+   * Convert template back to workflow
+   * POST /api/v1/ai/workflows/:id/convert_to_workflow
+   */
+  async convertToWorkflow(id: string): Promise<AiWorkflow> {
+    const response = await this.performAction<{ workflow: AiWorkflow }>(
+      this.resource, id, 'convert_to_workflow', {}
+    );
+    return response.workflow;
+  }
+
+  /**
+   * Create workflow from template (duplicate template as workflow)
+   * POST /api/v1/ai/workflows/:id/create_from_template
+   */
+  async createFromTemplate(templateId: string, name?: string): Promise<AiWorkflow> {
+    const response = await this.performAction<{ workflow: AiWorkflow }>(
+      this.resource, templateId, 'create_from_template', { name }
+    );
+    return response.workflow;
+  }
+
+  // ===================================================================
   // Workflow Collection Actions
   // ===================================================================
 
@@ -499,22 +539,6 @@ class WorkflowsApiService extends BaseApiService {
     const path = this.buildPath(this.resource);
     const response = await this.get<{ templates: WorkflowTemplate[] }>(`${path}/templates`);
     return response.templates || [];
-  }
-
-  /**
-   * Create a workflow from a template
-   * Uses the createWorkflow method with template defaults
-   */
-  async createFromTemplate(template: WorkflowTemplate, name?: string): Promise<AiWorkflow> {
-    const workflowName = name || `${template.name} Workflow`;
-
-    // Create workflow with template-based defaults
-    return this.createWorkflow({
-      name: workflowName,
-      description: template.description,
-      status: 'draft',
-      tags: template.tags
-    });
   }
 
   // ===================================================================

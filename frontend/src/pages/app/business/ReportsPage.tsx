@@ -84,7 +84,6 @@ export const ReportsPage: React.FC = () => {
 
   // Ref to track if data is already loaded to prevent double-loading in StrictMode
   const isInitialLoad = useRef(true);
-  const refreshInterval = useRef<NodeJS.Timeout | null>(null);
 
   // Load initial data
   const loadData = useCallback(async (force = false) => {
@@ -96,12 +95,12 @@ export const ReportsPage: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      
+
       const [templatesResponse, requestsResponse] = await Promise.all([
         reportsService.getTemplates(),
         reportsService.getRequests()
       ]);
-      
+
       setTemplates(templatesResponse.data || []);
       setRequests(requestsResponse.data || []);
       isInitialLoad.current = false;
@@ -119,31 +118,6 @@ export const ReportsPage: React.FC = () => {
     }, 0);
     return () => clearTimeout(timeoutId);
   }, []);
-
-  // Auto-refresh requests with cleanup
-  useEffect(() => {
-    // Don't start auto-refresh until initial load is complete
-    if (isInitialLoad.current) return;
-
-    const startAutoRefresh = () => {
-      refreshInterval.current = setInterval(async () => {
-        try {
-          const response = await reportsService.getRequests();
-          setRequests(response.data);
-        } catch (error) {
-        }
-      }, 10000); // Refresh every 10 seconds
-    };
-
-    startAutoRefresh();
-
-    return () => {
-      if (refreshInterval.current) {
-        clearInterval(refreshInterval.current);
-        refreshInterval.current = null;
-      }
-    };
-  }, [templates?.length, requests?.length]);
 
 
   const handleSubmitRequest = async () => {

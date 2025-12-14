@@ -32,7 +32,7 @@ import { Modal } from '@/shared/components/ui/Modal';
 import { workflowsApi } from '@/shared/services/ai';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { useWebSocket } from '@/shared/hooks/useWebSocket';
-import { AiWorkflowRun, AiWorkflowNodeExecution, AiWorkflowNode, AiWorkflowEdge } from '@/shared/types/workflow';
+import { AiWorkflow, AiWorkflowRun, AiWorkflowNodeExecution, AiWorkflowNode, AiWorkflowEdge } from '@/shared/types/workflow';
 import { formatNodeType, sortNodesInExecutionOrder } from '@/shared/utils/workflowUtils';
 import { getErrorMessage } from '@/shared/utils/typeGuards';
 
@@ -80,10 +80,24 @@ export const WorkflowExecutionDetails: React.FC<WorkflowExecutionDetailsProps> =
   const runStatusRef = useRef(runStatus);
   runStatusRef.current = runStatus;
 
-  // Update run status when the run prop changes - only if actually different
+  // Track if we've received a WebSocket status update for this run
+  // This prevents stale prop data from overriding real-time WebSocket updates
+  const hasReceivedWebSocketStatusRef = useRef(false);
+
+  // Update run status when the run prop changes - but only if:
+  // 1. We haven't received a WebSocket update yet, OR
+  // 2. The prop status is a "final" status (completed, failed, cancelled) which should be trusted
   useEffect(() => {
-    if (run.status !== runStatus) {
+    const finalStatuses = ['completed', 'failed', 'cancelled'];
+    const isPropFinalStatus = finalStatuses.includes(run.status);
+    const shouldSyncFromProp = !hasReceivedWebSocketStatusRef.current || isPropFinalStatus;
+
+    if (run.status !== runStatus && shouldSyncFromProp) {
       setRunStatus(run.status);
+      // Reset the WebSocket flag if we're syncing a final status
+      if (isPropFinalStatus) {
+        hasReceivedWebSocketStatusRef.current = false;
+      }
     }
   }, [run.status, runStatus]);
 
@@ -95,11 +109,19 @@ export const WorkflowExecutionDetails: React.FC<WorkflowExecutionDetailsProps> =
   const loadExecutionDetails = useCallback(async () => {
     // Prevent multiple simultaneous loads using both state and ref
     if (loading || isLoadingRef.current) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[WorkflowExecutionDetails] Skipping load - already loading');
+      }
       return;
     }
 
     // Set loading state in both places for comprehensive tracking
     isLoadingRef.current = true;
+
+    const runId = run.run_id || run.id;
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[WorkflowExecutionDetails] Loading execution details for run:', runId);
+    }
 
     try {
       // Only show loading state if we don't already have data to prevent flickering
@@ -108,7 +130,6 @@ export const WorkflowExecutionDetails: React.FC<WorkflowExecutionDetailsProps> =
       }
       setError(null);
 
-      const runId = run.run_id || run.id;
       if (!runId) {
         throw new Error('No run ID available');
       }
@@ -129,13 +150,21 @@ export const WorkflowExecutionDetails: React.FC<WorkflowExecutionDetailsProps> =
         Promise.race([loadPromises[1], timeoutPromise])
       ]);
 
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[WorkflowExecutionDetails] API responses:', {
+          workflow: workflowResponse.status,
+          execution: executionResponse.status
+        });
+      }
+
       // Extract workflow nodes and edges if workflow loaded successfully
       if (workflowResponse.status === 'fulfilled') {
-        const workflow = (workflowResponse.value as any).workflow;
-        if (workflow.nodes) {
+        // getWorkflow already returns the workflow directly (not wrapped in {workflow: ...})
+        const workflow = workflowResponse.value as AiWorkflow;
+        if (workflow?.nodes) {
           setWorkflowNodes(workflow.nodes);
         }
-        if (workflow.edges) {
+        if (workflow?.edges) {
           setWorkflowEdges(workflow.edges);
         }
       }
@@ -143,10 +172,16 @@ export const WorkflowExecutionDetails: React.FC<WorkflowExecutionDetailsProps> =
       // Extract execution details if loaded successfully
       if (executionResponse.status === 'fulfilled') {
         const nodeExecs = (executionResponse.value as any).node_executions || [];
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[WorkflowExecutionDetails] Loaded node executions:', nodeExecs.length);
+        }
         setNodeExecutions(nodeExecs);
       } else if (executionResponse.status === 'rejected') {
         // If execution details fail to load but it's a 404, that's okay (no executions yet)
         const executionError = executionResponse.reason;
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[WorkflowExecutionDetails] Execution response rejected:', executionError);
+        }
         if (executionError?.response?.status !== 404) {
           throw executionError;
         }
@@ -156,6 +191,9 @@ export const WorkflowExecutionDetails: React.FC<WorkflowExecutionDetailsProps> =
     } catch (error: unknown) {
       // Failed to load execution details
       const errorMessage = getErrorMessage(error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('[WorkflowExecutionDetails] Error loading execution details:', error);
+      }
       setError(errorMessage);
 
       // Only show notification for real errors, not 404s (which might mean no executions yet)
@@ -370,20 +408,25 @@ export const WorkflowExecutionDetails: React.FC<WorkflowExecutionDetailsProps> =
     const safeNodeExecutions = Array.isArray(nodeExecutions) ? nodeExecutions : [];
 
     if (workflowNodes.length === 0) {
-      // If we don't have workflow nodes yet, return existing executions
-      return safeNodeExecutions;
+      // If we don't have workflow nodes yet, return existing executions sorted by started_at
+      return [...safeNodeExecutions].sort((a, b) => {
+        if (!a.started_at && !b.started_at) return 0;
+        if (!a.started_at) return 1;
+        if (!b.started_at) return -1;
+        return new Date(a.started_at).getTime() - new Date(b.started_at).getTime();
+      });
     }
 
     // Create a map of executions by node ID for quick lookup
     const executionMap = new Map<string, AiWorkflowNodeExecution>();
     safeNodeExecutions.forEach(execution => {
-      const nodeId = execution.node?.node_id;
+      const nodeId = execution.node?.node_id || execution.node_id;
       if (nodeId) {
         executionMap.set(nodeId, execution);
       }
     });
 
-    // Sort workflow nodes by actual execution order using workflow edges
+    // Get workflow nodes sorted by theoretical execution order (for placeholders)
     const sortedNodes = sortNodesInExecutionOrder(workflowNodes, workflowEdges);
 
     // Map each workflow node to either its execution or a placeholder
@@ -425,7 +468,19 @@ export const WorkflowExecutionDetails: React.FC<WorkflowExecutionDetailsProps> =
       }
     });
 
-    return merged;
+    // Sort by actual execution order: executed nodes by started_at, then pending nodes at the end
+    return merged.sort((a, b) => {
+      // Both have started_at - sort by actual execution time
+      if (a.started_at && b.started_at) {
+        return new Date(a.started_at).getTime() - new Date(b.started_at).getTime();
+      }
+      // Only a has started - a comes first
+      if (a.started_at && !b.started_at) return -1;
+      // Only b has started - b comes first
+      if (!a.started_at && b.started_at) return 1;
+      // Neither has started - maintain topological order (original index)
+      return 0;
+    });
   }, [workflowNodes, workflowEdges, nodeExecutions]);
 
   // REMOVED: Auto-expand running executions
@@ -560,6 +615,8 @@ export const WorkflowExecutionDetails: React.FC<WorkflowExecutionDetailsProps> =
             eventType === 'workflow.run.progress.changed') {
           const workflowRun = data.payload?.workflow_run || data.workflow_run;
           if (workflowRun?.status && workflowRun.status !== runStatus) {
+            // Mark that we've received a WebSocket update to prevent prop override
+            hasReceivedWebSocketStatusRef.current = true;
             setRunStatus(workflowRun.status);
 
             // Update currentRun with completion data if available
@@ -588,6 +645,8 @@ export const WorkflowExecutionDetails: React.FC<WorkflowExecutionDetailsProps> =
           if (workflowRun) {
             // Update run status if changed
             if (workflowRun.status && workflowRun.status !== runStatus) {
+              // Mark that we've received a WebSocket update to prevent prop override
+              hasReceivedWebSocketStatusRef.current = true;
               setRunStatus(workflowRun.status);
             }
 
@@ -607,6 +666,8 @@ export const WorkflowExecutionDetails: React.FC<WorkflowExecutionDetailsProps> =
             }));
           } else if (data.status) {
             // Handle simple status update without workflow_run data
+            // Mark that we've received a WebSocket update to prevent prop override
+            hasReceivedWebSocketStatusRef.current = true;
             setRunStatus(data.status);
           }
         }

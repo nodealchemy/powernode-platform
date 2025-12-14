@@ -20,6 +20,11 @@ every 5.minutes do
   runner "WorkflowCleanupJob.perform_async"
 end
 
+# AI Execution Timeout Cleanup (secondary cleanup with longer thresholds)
+every 10.minutes do
+  runner "AiExecutionTimeoutCleanupJob.perform_async"
+end
+
 every 6.hours do
   runner "AiWorkflowAnalyticsService.instance.cleanup_expired_cache"
 end

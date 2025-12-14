@@ -68,12 +68,40 @@ module ProviderTesting
     end
 
     def test_with_details
+      # Return a flat structure that matches frontend ConnectionTestResult interface
+      connection_test = test_connection
+
+      {
+        success: connection_test[:success],
+        error: connection_test[:error_details] || connection_test[:error_type],
+        error_code: connection_test[:error_type],
+        response_time_ms: connection_test[:response_time_ms],
+        message: connection_test[:success] ? "Connection successful" : nil,
+        provider_info: {
+          provider_type: connection_test[:provider_type],
+          connection_quality: connection_test[:connection_quality],
+          connection_type: connection_test[:connection_type]
+        },
+        model_info: connection_test[:provider_response].present? ? { response: connection_test[:provider_response] } : nil,
+        # Include full details for debugging
+        details: {
+          test_message_sent: connection_test[:test_message_sent],
+          test_message_received: connection_test[:test_message_received],
+          test_timestamp: connection_test[:test_timestamp],
+          status_code: connection_test[:status_code],
+          retry_after_seconds: connection_test[:retry_after_seconds]
+        }
+      }
+    end
+
+    def test_with_details_full_report
+      # Original full report for bulk testing scenarios
       test_with_details_full
     end
 
     def test_basic
       result = test_with_details
-      result[:connection_test]&.dig(:success) || false
+      result[:success] || false
     end
 
     def test_with_details_full

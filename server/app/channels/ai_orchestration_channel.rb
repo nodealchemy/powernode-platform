@@ -763,7 +763,52 @@ class AiOrchestrationChannel < ApplicationCable::Channel
       timestamp: Time.current.iso8601
     })
 
+    # CRITICAL FIX: Send current status on subscription to prevent race conditions
+    # Client may subscribe after status has already changed from initial value
+    send_current_status(subscription_type, resource_id)
+
     Rails.logger.debug "[AiOrchestrationChannel] Subscription confirmed and transmitted"
+  end
+
+  # Send current status of resource when client subscribes
+  # This prevents race conditions where broadcasts are missed during connection setup
+  def send_current_status(subscription_type, resource_id)
+    case subscription_type
+    when "workflow_run"
+      workflow_run = AiWorkflowRun.find_by(run_id: resource_id)
+      return unless workflow_run
+
+      workflow_run_data = {
+        id: workflow_run.id,
+        run_id: workflow_run.run_id,
+        ai_workflow_id: workflow_run.ai_workflow_id,
+        status: workflow_run.status,
+        trigger_type: workflow_run.trigger_type,
+        started_at: workflow_run.started_at,
+        completed_at: workflow_run.completed_at,
+        created_at: workflow_run.created_at,
+        duration_seconds: workflow_run.execution_duration_seconds,
+        total_nodes: workflow_run.total_nodes,
+        completed_nodes: workflow_run.completed_nodes,
+        failed_nodes: workflow_run.failed_nodes,
+        cost_usd: workflow_run.total_cost,
+        error_details: workflow_run.error_details,
+        progress_percentage: workflow_run.progress_percentage
+      }
+
+      transmit({
+        event: "workflow.run.status.changed",
+        type: "workflow_run",
+        resource_id: resource_id,
+        payload: {
+          workflow_run: workflow_run_data
+        },
+        timestamp: Time.current.iso8601,
+        is_initial_status: true
+      })
+
+      Rails.logger.debug "[AiOrchestrationChannel] Sent initial status for workflow_run #{resource_id}: #{workflow_run.status}"
+    end
   end
 
   def valid_subscription_type?(type)

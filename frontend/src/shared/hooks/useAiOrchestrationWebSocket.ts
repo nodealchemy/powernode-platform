@@ -185,8 +185,39 @@ export const useAiOrchestrationWebSocket = ({
   onErrorRef.current = onError;
 
   // Type guard for WebSocket message data
-  const isWebSocketMessage = (data: unknown): data is { type: string; data?: unknown; message?: string } => {
-    return typeof data === 'object' && data !== null && 'type' in data;
+  interface WebSocketMessage {
+    type?: string;
+    event?: string;
+    data?: unknown;
+    message?: string;
+    payload?: Record<string, unknown>;
+    resource_type?: string;
+    resource_id?: string;
+    timestamp?: string;
+  }
+  const isWebSocketMessage = (data: unknown): data is WebSocketMessage => {
+    return typeof data === 'object' && data !== null && ('type' in data || 'event' in data);
+  };
+
+  // Map backend event types to frontend event types
+  const mapBackendEventType = (backendEvent: string): string => {
+    const eventMap: Record<string, string> = {
+      'node.execution.started': 'node_started',
+      'node.execution.running': 'node_started',
+      'node.execution.completed': 'node_completed',
+      'node.execution.failed': 'node_failed',
+      'node.execution.updated': 'node_completed', // Generic update
+      'node.duration.updated': 'node_completed',
+      'workflow.run.status.changed': 'run_started',
+      'workflow.execution.started': 'run_started',
+      'workflow.execution.completed': 'run_completed',
+      'workflow.execution.failed': 'run_failed',
+      'circuit_breaker.state_changed': 'circuit_state_changed',
+      'circuit_breaker.opened': 'circuit_opened',
+      'circuit_breaker.closed': 'circuit_closed',
+      'circuit_breaker.half_opened': 'circuit_half_open',
+    };
+    return eventMap[backendEvent] || backendEvent;
   };
 
   // Route events to appropriate handlers
@@ -284,12 +315,58 @@ export const useAiOrchestrationWebSocket = ({
   const handleMessage = useCallback((data: unknown) => {
     if (!isWebSocketMessage(data)) return;
 
+    // Handle legacy format: { type: 'ai_orchestration_event', data: {...} }
     if (data.type === 'ai_orchestration_event' && data.data) {
       routeEvent(data.data as AiOrchestrationEvent);
-    } else if (data.type === 'error') {
-      onErrorRef.current?.(data.message || 'AI orchestration error');
+      return;
     }
-  }, [routeEvent]);
+
+    // Handle error messages
+    if (data.type === 'error') {
+      onErrorRef.current?.(data.message || 'AI orchestration error');
+      return;
+    }
+
+    // Handle subscription confirmations (skip routing)
+    if (data.type === 'subscription.confirmed') {
+      if (process.env.NODE_ENV === 'development') {
+        console.debug('[AiOrchestrationWebSocket] Subscription confirmed:', data);
+      }
+      return;
+    }
+
+    // Handle new backend format: { event: 'node.execution.updated', payload: {...}, ... }
+    if (data.event) {
+      const frontendEventType = mapBackendEventType(data.event);
+      const payload = data.payload || {};
+
+      // Extract node execution data from payload
+      const nodeExecution = payload.node_execution as Record<string, unknown> | undefined;
+      const workflowRun = payload.workflow_run as Record<string, unknown> | undefined;
+      const nodeInfo = nodeExecution?.node as Record<string, unknown> | undefined;
+
+      // Build frontend-compatible event
+      const event: AiOrchestrationEvent = {
+        type: frontendEventType as AiOrchestrationEventType,
+        workflow_id: (payload.workflow_id || payload.ai_workflow_id || workflowRun?.ai_workflow_id || '') as string,
+        run_id: (payload.run_id || workflowRun?.run_id || data.resource_id || '') as string,
+        node_id: (nodeInfo?.node_id as string) || undefined,
+        data: {
+          ...payload,
+          node_execution: nodeExecution,
+          workflow_run: workflowRun,
+          status: (nodeExecution?.status || workflowRun?.status) as string,
+        },
+        timestamp: data.timestamp || new Date().toISOString(),
+      } as WorkflowRunEvent;
+
+      if (process.env.NODE_ENV === 'development') {
+        console.debug('[AiOrchestrationWebSocket] Routing event:', data.event, '->', frontendEventType, event);
+      }
+
+      routeEvent(event);
+    }
+  }, [routeEvent, mapBackendEventType]);
 
   // Handle channel errors
   const handleError = useCallback((errorMessage: string) => {

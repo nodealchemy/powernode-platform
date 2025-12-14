@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, Key, Plus, Trash2, TestTube } from 'lucide-react';
+import { X, Save, Key, Plus, Trash2, TestTube, Edit, Star, Check, XCircle } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { Input } from '@/shared/components/ui/Input';
 import { Select } from '@/shared/components/ui/Select';
@@ -45,6 +45,15 @@ export const EditProviderModal: React.FC<EditProviderModalProps> = ({
     expires_at: ''
   });
   const [credentialLoading, setCredentialLoading] = useState(false);
+
+  // Edit credential state
+  const [editingCredentialId, setEditingCredentialId] = useState<string | null>(null);
+  const [editCredentialData, setEditCredentialData] = useState({
+    name: '',
+    api_key: '',
+    org_id: '',
+    is_active: true
+  });
 
   const { addNotification } = useNotifications();
 
@@ -93,8 +102,15 @@ export const EditProviderModal: React.FC<EditProviderModalProps> = ({
   const loadCredentials = async () => {
     try {
       const response = await providersApi.getCredentials(providerId);
-      // Response is already unwrapped by BaseApiService - could be array or object with credentials property
-      const credentialsData = Array.isArray(response) ? response : [];
+      // Response could be:
+      // - Array directly: [...]
+      // - Object with credentials property: { credentials: [...], pagination: {...} }
+      let credentialsData: AiProviderCredential[] = [];
+      if (Array.isArray(response)) {
+        credentialsData = response;
+      } else if (response && typeof response === 'object' && 'credentials' in response) {
+        credentialsData = (response as { credentials: AiProviderCredential[] }).credentials || [];
+      }
       setCredentials(credentialsData);
     } catch (error) {
       console.error('Failed to load credentials:', error);
@@ -306,6 +322,9 @@ export const EditProviderModal: React.FC<EditProviderModalProps> = ({
           ? `Connection successful${response.response_time_ms ? ` (${response.response_time_ms}ms)` : ''}`
           : `Connection failed: ${response.error || 'Unknown error'}`
       });
+
+      // Reload credentials to update test status
+      await loadCredentials();
     } catch (error) {
       console.error('Failed to test credential:', error);
       addNotification({
@@ -316,6 +335,103 @@ export const EditProviderModal: React.FC<EditProviderModalProps> = ({
     } finally {
       setCredentialLoading(false);
     }
+  };
+
+  const handleStartEditCredential = (credential: AiProviderCredential) => {
+    setEditingCredentialId(credential.id);
+    setEditCredentialData({
+      name: credential.name,
+      api_key: '', // Don't show existing API key for security
+      org_id: '', // Don't show existing org_id for security
+      is_active: credential.is_active
+    });
+  };
+
+  const handleCancelEditCredential = () => {
+    setEditingCredentialId(null);
+    setEditCredentialData({
+      name: '',
+      api_key: '',
+      org_id: '',
+      is_active: true
+    });
+  };
+
+  const handleSaveEditCredential = async () => {
+    if (!editingCredentialId) return;
+
+    try {
+      setCredentialLoading(true);
+
+      const updateData: Record<string, unknown> = {
+        name: editCredentialData.name,
+        is_active: editCredentialData.is_active
+      };
+
+      // Only include credentials if API key is provided (user wants to update it)
+      if (editCredentialData.api_key.trim()) {
+        const credentialsToUpdate: Record<string, string> = {
+          api_key: editCredentialData.api_key.trim()
+        };
+        if (editCredentialData.org_id.trim()) {
+          credentialsToUpdate.org_id = editCredentialData.org_id.trim();
+        }
+        updateData.credentials = credentialsToUpdate;
+      }
+
+      await providersApi.updateCredential(providerId, editingCredentialId, updateData);
+      await loadCredentials();
+
+      addNotification({
+        type: 'success',
+        title: 'Credential Updated',
+        message: 'Credential has been updated successfully'
+      });
+
+      handleCancelEditCredential();
+    } catch (error) {
+      console.error('Failed to update credential:', error);
+      addNotification({
+        type: 'error',
+        title: 'Update Failed',
+        message: getErrorMessage(error)
+      });
+    } finally {
+      setCredentialLoading(false);
+    }
+  };
+
+  const handleMakeDefault = async (credentialId: string) => {
+    try {
+      setCredentialLoading(true);
+      await providersApi.makeCredentialDefault(providerId, credentialId);
+      await loadCredentials();
+
+      addNotification({
+        type: 'success',
+        title: 'Default Updated',
+        message: 'Credential is now the default for this provider'
+      });
+    } catch (error) {
+      console.error('Failed to make credential default:', error);
+      addNotification({
+        type: 'error',
+        title: 'Update Failed',
+        message: getErrorMessage(error)
+      });
+    } finally {
+      setCredentialLoading(false);
+    }
+  };
+
+  const getTestStatusBadge = (credential: AiProviderCredential) => {
+    if (!credential.last_test_at) {
+      return <span className="text-xs px-2 py-0.5 rounded bg-theme-secondary/20 text-theme-muted">Not tested</span>;
+    }
+    if (credential.last_test_status === 'success') {
+      return <span className="text-xs px-2 py-0.5 rounded bg-theme-success/20 text-theme-success flex items-center gap-1"><Check className="h-3 w-3" />Passed</span>;
+    }
+    return <span className="text-xs px-2 py-0.5 rounded bg-theme-danger/20 text-theme-danger flex items-center gap-1"><XCircle className="h-3 w-3" />Failed</span>;
   };
 
   const availableCapabilities = [
@@ -543,41 +659,148 @@ export const EditProviderModal: React.FC<EditProviderModalProps> = ({
           {/* Existing Credentials */}
           {credentials.length > 0 && (
             <div className="space-y-2">
-              <h5 className="text-sm font-medium text-theme-secondary">Existing Credentials</h5>
+              <h5 className="text-sm font-medium text-theme-secondary">Existing Credentials ({credentials.length})</h5>
               <div className="space-y-2">
                 {credentials.map((credential) => (
-                  <div key={credential.id} className="flex items-center justify-between p-3 bg-theme-secondary/10 rounded-lg border border-theme">
-                    <div>
-                      <p className="text-sm font-medium text-theme-primary">{credential.name}</p>
-                      <p className="text-xs text-theme-muted">
-                        Status: {credential.is_active ? 'Active' : 'Inactive'} • 
-                        {credential.is_default && ' Default • '}
-                        Last used: {credential.last_used_at ? new Date(credential.last_used_at).toLocaleDateString() : 'Never'}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleTestCredential(credential.id)}
-                        disabled={credentialLoading}
-                        className="flex items-center gap-1"
-                      >
-                        <TestTube className="h-3 w-3" />
-                        Test
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDeleteCredential(credential.id)}
-                        disabled={credentialLoading}
-                        className="text-theme-danger hover:text-theme-danger/80"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
+                  <div key={credential.id} className="p-3 bg-theme-secondary/10 rounded-lg border border-theme">
+                    {editingCredentialId === credential.id ? (
+                      /* Edit mode */
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs font-medium text-theme-secondary mb-1">Name</label>
+                            <Input
+                              value={editCredentialData.name}
+                              onChange={(e) => setEditCredentialData(prev => ({ ...prev, name: e.target.value }))}
+                              placeholder="Credential name"
+                              className="text-sm"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-theme-secondary mb-1">Status</label>
+                            <Select
+                              value={editCredentialData.is_active ? 'active' : 'inactive'}
+                              onChange={(value) => setEditCredentialData(prev => ({ ...prev, is_active: value === 'active' }))}
+                              className="text-sm"
+                            >
+                              <option value="active">Active</option>
+                              <option value="inactive">Inactive</option>
+                            </Select>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs font-medium text-theme-secondary mb-1">New API Key (optional)</label>
+                            <Input
+                              type="password"
+                              value={editCredentialData.api_key}
+                              onChange={(e) => setEditCredentialData(prev => ({ ...prev, api_key: e.target.value }))}
+                              placeholder="Leave blank to keep existing"
+                              className="text-sm"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-theme-secondary mb-1">Organization ID (optional)</label>
+                            <Input
+                              value={editCredentialData.org_id}
+                              onChange={(e) => setEditCredentialData(prev => ({ ...prev, org_id: e.target.value }))}
+                              placeholder="Leave blank to keep existing"
+                              className="text-sm"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-end gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={handleCancelEditCredential}
+                            disabled={credentialLoading}
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="primary"
+                            size="sm"
+                            onClick={handleSaveEditCredential}
+                            disabled={credentialLoading || !editCredentialData.name.trim()}
+                            className="flex items-center gap-1"
+                          >
+                            <Save className="h-3 w-3" />
+                            Save
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      /* View mode */
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-medium text-theme-primary">{credential.name}</p>
+                            {credential.is_default && (
+                              <span className="text-xs px-2 py-0.5 rounded bg-theme-warning/20 text-theme-warning flex items-center gap-1">
+                                <Star className="h-3 w-3" />Default
+                              </span>
+                            )}
+                            {getTestStatusBadge(credential)}
+                          </div>
+                          <p className="text-xs text-theme-muted mt-1">
+                            {credential.is_active ? 'Active' : 'Inactive'} •
+                            Last used: {credential.last_used_at ? new Date(credential.last_used_at).toLocaleDateString() : 'Never'}
+                            {credential.last_test_at && ` • Last tested: ${new Date(credential.last_test_at).toLocaleDateString()}`}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          {!credential.is_default && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleMakeDefault(credential.id)}
+                              disabled={credentialLoading}
+                              title="Make default"
+                              className="h-8 w-8 p-0"
+                            >
+                              <Star className="h-3 w-3" />
+                            </Button>
+                          )}
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleStartEditCredential(credential)}
+                            disabled={credentialLoading}
+                            title="Edit credential"
+                            className="h-8 w-8 p-0"
+                          >
+                            <Edit className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleTestCredential(credential.id)}
+                            disabled={credentialLoading}
+                            className="flex items-center gap-1"
+                          >
+                            <TestTube className="h-3 w-3" />
+                            Test
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteCredential(credential.id)}
+                            disabled={credentialLoading}
+                            title="Delete credential"
+                            className="h-8 w-8 p-0 text-theme-danger hover:text-theme-danger/80"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

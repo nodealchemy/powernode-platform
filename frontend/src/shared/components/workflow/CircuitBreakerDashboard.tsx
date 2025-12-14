@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Shield, AlertCircle, CheckCircle, Activity, RefreshCw, Zap, TrendingDown, Clock } from 'lucide-react';
 import { Card } from '@/shared/components/ui/Card';
 import { api } from '@/shared/services/api';
 import { useNotifications } from '@/shared/hooks/useNotifications';
+import { useAiOrchestrationWebSocket, CircuitBreakerEvent } from '@/shared/hooks/useAiOrchestrationWebSocket';
 
 export interface CircuitBreakerState {
   service_name: string;
@@ -31,14 +32,10 @@ export interface CircuitBreakerHealthSummary {
 }
 
 export interface CircuitBreakerDashboardProps {
-  autoRefresh?: boolean;
-  refreshInterval?: number;
   className?: string;
 }
 
 export const CircuitBreakerDashboard: React.FC<CircuitBreakerDashboardProps> = ({
-  autoRefresh = false,
-  refreshInterval = 10000,
   className = ''
 }) => {
   const { addNotification } = useNotifications();
@@ -48,14 +45,63 @@ export const CircuitBreakerDashboard: React.FC<CircuitBreakerDashboardProps> = (
   const [selectedService, setSelectedService] = useState<string | null>(null);
   const [resetting, setResetting] = useState<string | null>(null);
 
+  // Update health summary based on current circuit breakers
+  const updateHealthSummary = useCallback((breakers: CircuitBreakerState[]) => {
+    const healthy = breakers.filter(b => b.state === 'closed').length;
+    const degraded = breakers.filter(b => b.state === 'half_open').length;
+    const unhealthy = breakers.filter(b => b.state === 'open').length;
+
+    setHealthSummary({
+      total_services: breakers.length,
+      healthy,
+      degraded,
+      unhealthy,
+      last_updated: new Date().toISOString()
+    });
+  }, []);
+
+  // WebSocket hook for real-time circuit breaker updates
+  useAiOrchestrationWebSocket({
+    onCircuitBreakerEvent: (event: CircuitBreakerEvent) => {
+      setCircuitBreakers(prev => {
+        const updated = prev.map(breaker => {
+          if (breaker.service_name === event.circuit_breaker_id) {
+            // Map event types to state
+            let newState: CircuitBreakerState['state'] = breaker.state;
+            if (event.type === 'circuit_opened') newState = 'open';
+            else if (event.type === 'circuit_closed') newState = 'closed';
+            else if (event.type === 'circuit_half_open') newState = 'half_open';
+            else if (event.type === 'circuit_state_changed' && event.data.state) {
+              newState = event.data.state as CircuitBreakerState['state'];
+            }
+
+            return {
+              ...breaker,
+              state: newState,
+              failure_count: (event.data.failure_count as number) ?? breaker.failure_count,
+              success_count: (event.data.success_count as number) ?? breaker.success_count,
+              state_changed_at: event.timestamp || breaker.state_changed_at
+            };
+          }
+          return breaker;
+        });
+
+        // Update health summary with new breakers
+        updateHealthSummary(updated);
+        return updated;
+      });
+    },
+    onError: (error: string) => {
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('[CircuitBreakerDashboard] WebSocket error:', error);
+      }
+    }
+  });
+
+  // Initial load only (WebSocket handles real-time updates)
   useEffect(() => {
     loadCircuitBreakers();
-
-    if (autoRefresh) {
-      const interval = setInterval(loadCircuitBreakers, refreshInterval);
-      return () => clearInterval(interval);
-    }
-  }, [autoRefresh, refreshInterval]);
+  }, []);
 
   const loadCircuitBreakers = async () => {
     try {

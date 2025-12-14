@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useCustomerWebSocket } from '@/shared/hooks/useCustomerWebSocket';
 import { customersApi, CreateCustomerRequest } from '@/shared/services/customersApi';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
-import { Users } from 'lucide-react';
+import { Users, RefreshCw } from 'lucide-react';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
@@ -233,7 +233,41 @@ export const CustomersPage: React.FC = () => {
     }
   };
 
+  // Manual refresh handler
+  const handleRefresh = useCallback(async () => {
+    setLoading(true);
+    try {
+      await loadCustomers({
+        page: 1,
+        per_page: 50,
+        status: statusFilter !== 'all' ? statusFilter : undefined,
+        plan: planFilter !== 'all' ? planFilter : undefined
+      });
+      addNotification({
+        type: 'success',
+        title: 'Refreshed',
+        message: 'Customer data refreshed'
+      });
+    } catch {
+      addNotification({
+        type: 'error',
+        title: 'Refresh Failed',
+        message: 'Failed to refresh customer data'
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [loadCustomers, statusFilter, planFilter, addNotification]);
+
   const pageActions: PageAction[] = [
+    {
+      id: 'refresh',
+      label: 'Refresh',
+      onClick: handleRefresh,
+      variant: 'secondary',
+      icon: RefreshCw,
+      disabled: loading
+    },
     {
       id: 'add-customer',
       label: 'Add Customer',

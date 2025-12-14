@@ -232,36 +232,6 @@ class AnalyticsService {
     return response.data;
   }
 
-  // Real-time analytics updates via WebSocket (fallback to polling)
-  subscribeToAnalyticsUpdates(callback: (data: unknown) => void, useWebSocket = true) {
-    if (useWebSocket) {
-      // WebSocket integration handled by unified WebSocket connection
-      return null;
-    }
-    
-    // Fallback to polling for live analytics data
-    return setInterval(async () => {
-      try {
-        // Only poll if page is visible to prevent excessive API calls
-        if (!document.hidden) {
-          const liveData = await this.getLiveAnalytics();
-          callback({
-            type: 'live_analytics_update',
-            data: liveData.data
-          });
-        }
-      } catch (error) {
-        // Silently handle errors to prevent console spam
-      }
-    }, 30000); // Update every 30 seconds
-  }
-
-  unsubscribeFromAnalyticsUpdates(intervalId: number | null) {
-    if (intervalId) {
-      clearInterval(intervalId);
-    }
-  }
-
   // Additional methods for MetricsOverviewWrapper compatibility
   async getMetrics(): Promise<any> {
     const response = await api.get('/analytics/metrics');

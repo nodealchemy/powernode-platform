@@ -11,6 +11,9 @@ module AiWorkflowRun::Broadcasting
     after_create :broadcast_execution_started
     after_update :broadcast_execution_completed, if: -> { saved_change_to_status? && status == "completed" }
     after_update :broadcast_execution_failed, if: -> { saved_change_to_status? && status == "failed" }
+
+    # Account-level monitoring broadcasts (for dashboard real-time updates)
+    after_commit :broadcast_monitoring_dashboard_update, if: :saved_change_to_status?
   end
 
   # Public method to manually trigger duration updates (can be called from external services)
@@ -233,5 +236,13 @@ module AiWorkflowRun::Broadcasting
       error_details: error_details,
       progress_percentage: progress_percentage
     }
+  end
+
+  def broadcast_monitoring_dashboard_update
+    # Broadcast dashboard stats to account-level monitoring channel
+    # This enables real-time dashboard updates without polling
+    AiWorkflowMonitoringChannel.broadcast_dashboard_update(account_id)
+  rescue StandardError => e
+    Rails.logger.warn "[AI_WORKFLOW_RUN] Failed to broadcast monitoring update for account #{account_id}: #{e.message}"
   end
 end

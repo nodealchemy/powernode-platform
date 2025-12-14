@@ -8,6 +8,8 @@ export interface AiWorkflow {
   visibility: 'private' | 'account' | 'public';
   version: number;
   tags: string[];
+  is_template?: boolean;
+  template_category?: string;
   trigger_types?: string[];
   execution_mode?: 'sequential' | 'parallel' | 'conditional';
   retry_policy?: Record<string, unknown>;
@@ -643,8 +645,10 @@ export interface WorkflowTemplate {
   name: string;
   description: string;
   category: string;
-  executionOrder: 'sequential' | 'parallel' | 'conditional';
-  agents: Array<{
+  // Support both naming conventions
+  executionOrder?: 'sequential' | 'parallel' | 'conditional';
+  execution_mode?: 'sequential' | 'parallel' | 'conditional';
+  agents?: Array<{
     role: string;
     description: string;
     conditions?: {
@@ -657,7 +661,18 @@ export interface WorkflowTemplate {
   tags?: string[];
   difficulty?: 'beginner' | 'intermediate' | 'advanced';
   estimatedDuration?: string;
+  estimated_duration?: string;
   cost?: 'free' | 'premium';
+  // Database template fields
+  is_database_template?: boolean;
+  visibility?: 'private' | 'account' | 'public';
+  nodes_count?: number;
+  created_at?: string;
+  updated_at?: string;
+  created_by?: {
+    id: string;
+    name: string;
+  } | null;
 }
 
 export interface WorkflowFilters {

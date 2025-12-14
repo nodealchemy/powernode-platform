@@ -174,28 +174,6 @@ class ReportsService {
     return response.data;
   }
 
-  // Report status polling for real-time updates
-  pollRequestStatus(requestId: string, callback: (request: ReportRequest) => void): () => void {
-    const intervalId = setInterval(async () => {
-      try {
-        const response = await this.getRequest(requestId);
-        const request = response.data;
-        callback(request);
-        
-        // Stop polling if request is completed or failed
-        if (request.status === 'completed' || request.status === 'failed') {
-          clearInterval(intervalId);
-        }
-      } catch (error) {
-        // Polling error - stop polling
-        clearInterval(intervalId);
-      }
-    }, 2000); // Poll every 2 seconds
-
-    // Return cleanup function
-    return () => clearInterval(intervalId);
-  }
-
   // Legacy analytics export for backward compatibility
   async exportAnalytics(
     format: 'csv' | 'pdf',

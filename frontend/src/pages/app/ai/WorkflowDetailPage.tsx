@@ -13,13 +13,16 @@ import {
   Users,
   Calendar,
   DollarSign,
-  BarChart3
+  BarChart3,
+  FileText,
+  Workflow
 } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { Card, CardTitle, CardContent } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/shared/components/ui/Tabs';
+import { WorkflowBuilderModal } from '@/shared/components/workflow/WorkflowBuilderModal';
 import { workflowsApi } from '@/shared/services/ai';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { useNotifications } from '@/shared/hooks/useNotifications';
@@ -39,6 +42,7 @@ export const WorkflowDetailPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [workflowRuns, setWorkflowRuns] = useState<AiWorkflowRun[]>([]);
   const [runsLoading, setRunsLoading] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   // Check permissions
   const canExecuteWorkflows = currentUser?.permissions?.includes('ai.workflows.execute') || false;
@@ -264,6 +268,72 @@ export const WorkflowDetailPage: React.FC = () => {
     }
   };
 
+  // Handle convert to template
+  const handleConvertToTemplate = async () => {
+    if (!workflow || !canUpdateWorkflows) return;
+
+    const category = window.prompt(
+      'Enter a category for this template (e.g., automation, content, analytics):',
+      'custom'
+    );
+
+    if (category === null) return; // User cancelled
+
+    try {
+      await workflowsApi.convertToTemplate(workflow.id, {
+        category: category || 'custom',
+        visibility: 'account'
+      });
+
+      addNotification({
+        type: 'success',
+        title: 'Converted to Template',
+        message: `"${workflow.name}" has been saved as a template.`
+      });
+
+      // Reload the workflow to reflect the updated state
+      const response = await workflowsApi.getWorkflow(workflow.id);
+      setWorkflow(response);
+    } catch (error) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to convert to template:', error);
+      }
+      addNotification({
+        type: 'error',
+        title: 'Conversion Failed',
+        message: 'Failed to convert workflow to template. Please try again.'
+      });
+    }
+  };
+
+  // Handle convert template to workflow
+  const handleConvertToWorkflow = async () => {
+    if (!workflow || !canUpdateWorkflows) return;
+
+    try {
+      await workflowsApi.convertToWorkflow(workflow.id);
+
+      addNotification({
+        type: 'success',
+        title: 'Converted to Workflow',
+        message: `"${workflow.name}" is now a regular workflow.`
+      });
+
+      // Reload to show updated state
+      const response = await workflowsApi.getWorkflow(workflow.id);
+      setWorkflow(response);
+    } catch (error) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to convert to workflow:', error);
+      }
+      addNotification({
+        type: 'error',
+        title: 'Conversion Failed',
+        message: 'Failed to convert template to workflow. Please try again.'
+      });
+    }
+  };
+
   // Status badge rendering
   const renderStatusBadge = (status: string) => {
     const statusConfig = {
@@ -343,9 +413,23 @@ export const WorkflowDetailPage: React.FC = () => {
           icon: Download,
           variant: 'outline'
         },
+        // Show "Save as Template" only for non-templates
+        ...(canUpdateWorkflows && !workflow.is_template ? [{
+          label: 'Save as Template',
+          onClick: handleConvertToTemplate,
+          icon: FileText,
+          variant: 'outline' as const
+        }] : []),
+        // Show "Convert to Workflow" only for templates
+        ...(canUpdateWorkflows && workflow.is_template ? [{
+          label: 'Convert to Workflow',
+          onClick: handleConvertToWorkflow,
+          icon: Workflow,
+          variant: 'outline' as const
+        }] : []),
         ...(canUpdateWorkflows ? [{
           label: 'Edit',
-          onClick: () => navigate(`/app/ai/workflows/${workflow.id}/edit`),
+          onClick: () => setIsEditModalOpen(true),
           icon: Edit,
           variant: 'outline' as const
         }] : []),
@@ -730,9 +814,9 @@ export const WorkflowDetailPage: React.FC = () => {
                   </div>
 
                   {canUpdateWorkflows && (
-                    <Button 
+                    <Button
                       variant="outline"
-                      onClick={() => navigate(`/app/ai/workflows/${workflow.id}/edit`)}
+                      onClick={() => setIsEditModalOpen(true)}
                     >
                       <Edit className="h-4 w-4 mr-2" />
                       Edit Settings
@@ -744,6 +828,18 @@ export const WorkflowDetailPage: React.FC = () => {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Workflow Edit Modal */}
+      {id && (
+        <WorkflowBuilderModal
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          workflowId={id}
+          onSuccess={(updatedWorkflow) => {
+            setWorkflow(updatedWorkflow);
+          }}
+        />
+      )}
     </PageContainer>
   );
 };

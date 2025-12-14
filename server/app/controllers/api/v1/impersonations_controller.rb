@@ -130,9 +130,11 @@ class Api::V1::ImpersonationsController < ApplicationController
 
     render_success(
       data: sessions.map { |session| session_summary(session) },
-      pagination: {
-        limit: limit,
-        total: sessions.length
+      meta: {
+        pagination: {
+          limit: limit,
+          total: sessions.length
+        }
       }
     )
   end

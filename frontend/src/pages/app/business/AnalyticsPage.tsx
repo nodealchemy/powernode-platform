@@ -392,14 +392,14 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
   }, []);
 
   // Analytics WebSocket for real-time updates
-  const { requestAnalyticsUpdate, isConnected } = useAnalyticsWebSocket({
+  // WebSocket receives pushed updates via handleAnalyticsUpdate callback
+  useAnalyticsWebSocket({
     onAnalyticsUpdate: handleAnalyticsUpdate,
     onError: handleWebSocketError
   });
   
   // Refs to track loading state and prevent double-loading in StrictMode
   const isInitialLoad = useRef(true);
-  const refreshInterval = useRef<NodeJS.Timeout | null>(null);
 
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -519,34 +519,13 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = () => {
   }, [dateRange.startDate.getTime(), dateRange.endDate.getTime(), canViewAnalytics]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Initial data load with StrictMode protection
+  // WebSocket via useAnalyticsWebSocket handles real-time updates
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       loadAnalyticsData();
     }, 0);
     return () => clearTimeout(timeoutId);
   }, [dateRange.startDate, dateRange.endDate]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Auto-refresh analytics data when WebSocket is connected - but only for overview tab
-  useEffect(() => {
-    // Don't start auto-refresh until initial load is complete
-    if (isInitialLoad.current || !isConnected || !data || activeTab !== 'overview') {
-      return;
-    }
-
-    // Only enable WebSocket auto-refresh for overview tab, let LiveMetricsOverview handle live tab
-    // TEMPORARILY DISABLED - Causing automatic page refreshes
-    // refreshInterval.current = setInterval(() => {
-    //   // Request real-time analytics update via WebSocket
-    //   requestAnalyticsUpdate();
-    // }, 30000); // Request update every 30 seconds
-
-    return () => {
-      if (refreshInterval.current) {
-        clearInterval(refreshInterval.current);
-        refreshInterval.current = null;
-      }
-    };
-  }, [isConnected, requestAnalyticsUpdate, activeTab]); // Removed 'data' dependency to prevent restart when data changes
 
   const handleDateRangeChange = (newDateRange: { startDate: Date; endDate: Date }) => {
     setDateRange(newDateRange);
