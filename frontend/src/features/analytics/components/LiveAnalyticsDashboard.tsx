@@ -104,7 +104,7 @@ const MetricCard: React.FC<MetricCardProps> = ({
 
 export const LiveAnalyticsDashboard: React.FC<LiveAnalyticsDashboardProps> = ({
   accountId,
-  autoRefresh = true,
+  autoRefresh = false,
   refreshInterval = 30
 }) => {
   const { user } = useSelector((state: RootState) => state.auth);

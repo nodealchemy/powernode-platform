@@ -62,7 +62,7 @@ export const CircuitBreakerDashboard: React.FC<CircuitBreakerDashboardProps> = (
   loading: propLoading = false,
   onLoadMetrics,
   onResetBreaker,
-  autoRefresh = true,
+  autoRefresh = false,
   refreshInterval = 30000
 }) => {
   const [internalMetrics, setInternalMetrics] = useState<CircuitBreakerMetrics | null>(null);

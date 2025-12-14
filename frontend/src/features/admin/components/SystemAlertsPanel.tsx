@@ -20,7 +20,7 @@ interface AlertFilters {
 }
 
 export const SystemAlertsPanel: React.FC<SystemAlertsPanelProps> = ({
-  autoRefresh = true,
+  autoRefresh = false,
   refreshInterval = 30000,
   maxDisplayedAlerts = 10
 }) => {

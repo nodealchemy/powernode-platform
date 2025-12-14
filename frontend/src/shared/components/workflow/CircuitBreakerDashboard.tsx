@@ -37,7 +37,7 @@ export interface CircuitBreakerDashboardProps {
 }
 
 export const CircuitBreakerDashboard: React.FC<CircuitBreakerDashboardProps> = ({
-  autoRefresh = true,
+  autoRefresh = false,
   refreshInterval = 10000,
   className = ''
 }) => {

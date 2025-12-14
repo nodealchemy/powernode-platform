@@ -2,8 +2,22 @@
 
 class Api::V1::PlansController < ApplicationController
   before_action :authenticate_request, except: [ :public_index ]
-  before_action :require_plan_management_permission, except: [ :index, :show, :public_index ]
+  before_action :require_plan_management_permission, except: [ :index, :show, :public_index, :status ]
   before_action :set_plan, only: [ :show, :update, :destroy ]
+
+  # GET /api/v1/plans/status (dashboard setup check - any authenticated user)
+  def status
+    total_count = Plan.count
+    active_count = Plan.active.count
+    public_count = Plan.active.public_plans.count
+
+    render_success({
+      has_plans: total_count > 0,
+      total_count: total_count,
+      active_count: active_count,
+      public_count: public_count
+    })
+  end
 
   # GET /api/v1/public/plans (public endpoint for registration)
   def public_index

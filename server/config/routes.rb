@@ -294,6 +294,9 @@ Rails.application.routes.draw do
 
       # Plans management (admin only for create/update/delete)
       resources :plans do
+        collection do
+          get :status
+        end
         member do
           post :duplicate
           put :toggle_status
