@@ -11,6 +11,8 @@ module AiWorkflowNodeExecution::Broadcasting
     after_commit :check_workflow_failure_on_node_failure, on: [ :update ]
     after_commit :broadcast_node_status_change_if_needed, on: [ :update ]
     after_commit :clear_pending_status_change, on: [ :update ]
+    # CRITICAL: Also broadcast on create so frontend sees new node executions immediately
+    after_commit :broadcast_node_creation, on: [ :create ]
   end
 
   # Capture status change before save so it's available in after_commit
@@ -24,6 +26,13 @@ module AiWorkflowNodeExecution::Broadcasting
   # Public method to force broadcast status update (useful for fixing sync issues)
   def force_status_broadcast!
     Rails.logger.info "Force broadcasting status for node: #{ai_workflow_node.name} (#{status})"
+    broadcast_node_status_change
+  end
+
+  # Broadcast when node execution is first created
+  # This ensures the frontend timeline shows the node immediately
+  def broadcast_node_creation
+    Rails.logger.info "[NodeExecution] Broadcasting node creation: #{execution_id} -> #{status} (#{ai_workflow_node.name})"
     broadcast_node_status_change
   end
 

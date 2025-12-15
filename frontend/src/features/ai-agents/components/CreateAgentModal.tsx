@@ -8,7 +8,7 @@ import { TextAreaField } from '@/shared/components/forms/TextAreaField';
 import { useForm } from '@/shared/hooks/useForm';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { agentsApi, providersApi } from '@/shared/services/ai';
-import type { CreateAgentRequest } from '@/shared/services/ai/AgentsApiService';
+import type { CreateAgentRequest } from '@/shared/services/ai/types/agent-api-types';
 import type { AiProvider, AiAgent } from '@/shared/types/ai';
 
 interface CreateAgentModalProps {

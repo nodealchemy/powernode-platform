@@ -22,11 +22,32 @@ export { NotificationNodeConfig } from './NotificationNodeConfig';
 export { SchedulerNodeConfig } from './SchedulerNodeConfig';
 export { DefaultNodeConfig } from './DefaultNodeConfig';
 
+// KB Article node configs
+export { KbArticleCreateConfig } from './KbArticleCreateConfig';
+export { KbArticleReadConfig } from './KbArticleReadConfig';
+export { KbArticleUpdateConfig } from './KbArticleUpdateConfig';
+export { KbArticleSearchConfig } from './KbArticleSearchConfig';
+export { KbArticlePublishConfig } from './KbArticlePublishConfig';
+export { KbArticleUnifiedConfig } from './KbArticleUnifiedConfig';
+
+// Page node configs
+export { PageCreateConfig } from './PageCreateConfig';
+export { PageReadConfig } from './PageReadConfig';
+export { PageUpdateConfig } from './PageUpdateConfig';
+export { PagePublishConfig } from './PagePublishConfig';
+export { PageUnifiedConfig } from './PageUnifiedConfig';
+
+// MCP node configs
+export { McpToolNodeConfig } from './McpToolNodeConfig';
+export { McpResourceNodeConfig } from './McpResourceNodeConfig';
+export { McpPromptNodeConfig } from './McpPromptNodeConfig';
+export { McpOperationConfig } from './McpOperationConfig';
+
 // Types
 export type { NodeTypeConfigProps, NodeConfiguration, NodeTypeConfigComponent } from './types';
 export { positionOptions } from './types';
 
-// Registry mapping node types to their config components
+// Registry imports
 import { StartNodeConfig } from './StartNodeConfig';
 import { EndNodeConfig } from './EndNodeConfig';
 import { AiAgentNodeConfig } from './AiAgentNodeConfig';
@@ -49,30 +70,79 @@ import { DataProcessorNodeConfig } from './DataProcessorNodeConfig';
 import { NotificationNodeConfig } from './NotificationNodeConfig';
 import { SchedulerNodeConfig } from './SchedulerNodeConfig';
 import { DefaultNodeConfig } from './DefaultNodeConfig';
+import { KbArticleCreateConfig } from './KbArticleCreateConfig';
+import { KbArticleReadConfig } from './KbArticleReadConfig';
+import { KbArticleUpdateConfig } from './KbArticleUpdateConfig';
+import { KbArticleSearchConfig } from './KbArticleSearchConfig';
+import { KbArticlePublishConfig } from './KbArticlePublishConfig';
+import { KbArticleUnifiedConfig } from './KbArticleUnifiedConfig';
+import { PageCreateConfig } from './PageCreateConfig';
+import { PageReadConfig } from './PageReadConfig';
+import { PageUpdateConfig } from './PageUpdateConfig';
+import { PagePublishConfig } from './PagePublishConfig';
+import { PageUnifiedConfig } from './PageUnifiedConfig';
+import { McpToolNodeConfig } from './McpToolNodeConfig';
+import { McpResourceNodeConfig } from './McpResourceNodeConfig';
+import { McpPromptNodeConfig } from './McpPromptNodeConfig';
+import { McpOperationConfig } from './McpOperationConfig';
 import type { NodeTypeConfigComponent } from './types';
 
 export const nodeTypeConfigRegistry: Record<string, NodeTypeConfigComponent> = {
+  // Core workflow nodes
   start: StartNodeConfig,
   end: EndNodeConfig,
+  trigger: TriggerNodeConfig,
+
+  // AI nodes
   ai_agent: AiAgentNodeConfig as NodeTypeConfigComponent,
-  api_call: ApiCallNodeConfig,
+
+  // Logic nodes
   condition: ConditionNodeConfig,
   transform: TransformNodeConfig,
   loop: LoopNodeConfig,
   merge: MergeNodeConfig,
   split: SplitNodeConfig,
-  trigger: TriggerNodeConfig,
-  human_approval: HumanApprovalNodeConfig,
-  sub_workflow: SubWorkflowNodeConfig,
+
+  // Integration nodes
+  api_call: ApiCallNodeConfig,
   webhook: WebhookNodeConfig,
   database: DatabaseNodeConfig,
   email: EmailNodeConfig,
   file: FileNodeConfig,
+  notification: NotificationNodeConfig,
+
+  // Workflow control nodes
+  human_approval: HumanApprovalNodeConfig,
+  sub_workflow: SubWorkflowNodeConfig,
+  scheduler: SchedulerNodeConfig,
+
+  // Processing nodes
   validator: ValidatorNodeConfig,
   prompt_template: PromptTemplateNodeConfig,
   data_processor: DataProcessorNodeConfig,
-  notification: NotificationNodeConfig,
-  scheduler: SchedulerNodeConfig,
+
+  // KB Article nodes
+  kb_article_create: KbArticleCreateConfig,
+  kb_article_read: KbArticleReadConfig,
+  kb_article_update: KbArticleUpdateConfig,
+  kb_article_search: KbArticleSearchConfig,
+  kb_article_publish: KbArticlePublishConfig,
+  kb_article: KbArticleUnifiedConfig,
+
+  // Page nodes
+  page_create: PageCreateConfig,
+  page_read: PageReadConfig,
+  page_update: PageUpdateConfig,
+  page_publish: PagePublishConfig,
+  page: PageUnifiedConfig,
+
+  // MCP nodes
+  mcp_tool: McpToolNodeConfig,
+  mcp_resource: McpResourceNodeConfig,
+  mcp_prompt: McpPromptNodeConfig,
+  mcp_operation: McpOperationConfig,
+
+  // Default fallback
   default: DefaultNodeConfig,
 };
 

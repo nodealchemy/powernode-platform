@@ -3,88 +3,12 @@ import { adminSettingsApi, AdminOverviewData } from '@/features/admin/services/a
 import { servicesApi, HealthStatus } from '@/features/admin/services/servicesApi';
 import { ActionCard, MetricCard as StandardMetricCard } from '@/shared/components/ui/Card';
 import { useNotifications } from '@/shared/hooks/useNotifications';
-
-
-interface SystemStatusCardProps {
-  title: string;
-  status: 'healthy' | 'warning' | 'error' | 'maintenance';
-  value: string;
-  description: string;
-  action?: {
-    label: string;
-    onClick: () => void;
-  };
-}
-
-const SystemStatusCard: React.FC<SystemStatusCardProps> = ({ 
-  title, 
-  status, 
-  value, 
-  description, 
-  action 
-}) => {
-  const statusConfig = {
-    healthy: {
-      color: 'text-theme-success',
-      bgColor: 'bg-theme-success-background',
-      borderColor: 'border-theme-success-border',
-      icon: '✅'
-    },
-    warning: {
-      color: 'text-theme-warning',
-      bgColor: 'bg-theme-warning-background',
-      borderColor: 'border-theme-warning-border',
-      icon: '⚠️'
-    },
-    error: {
-      color: 'text-theme-error',
-      bgColor: 'bg-theme-error-background',
-      borderColor: 'border-theme-error-border',
-      icon: '❌'
-    },
-    maintenance: {
-      color: 'text-theme-warning',
-      bgColor: 'bg-theme-warning-background',
-      borderColor: 'border-theme-warning-border',
-      icon: '🔧'
-    }
-  };
-
-  // eslint-disable-next-line security/detect-object-injection
-  const config = statusConfig[status];
-
-  return (
-    <div className="group p-6 rounded-xl border border-theme bg-theme-surface hover:bg-theme-surface-hover transition-all duration-200 cursor-default">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 bg-theme-background rounded-lg flex items-center justify-center flex-shrink-0">
-            <span className="text-xl">{config.icon}</span>
-          </div>
-          <h3 className="font-semibold text-theme-primary">{title}</h3>
-        </div>
-        <div className={`w-3 h-3 rounded-full ${
-          status === 'healthy' ? 'bg-theme-success' :
-          status === 'warning' ? 'bg-theme-warning' :
-          status === 'error' ? 'bg-theme-error' :
-          'bg-theme-warning'
-        } shadow-sm`} />
-      </div>
-      <div className={`text-2xl font-bold ${config.color} mb-2`}>
-        {value}
-      </div>
-      <p className="text-sm text-theme-secondary mb-4">{description}</p>
-      {action && (
-        <button
-          onClick={action.onClick}
-          className={`text-sm font-medium ${config.color} hover:underline transition-colors duration-200`}
-        >
-          {action.label}
-        </button>
-      )}
-    </div>
-  );
-};
-
+import {
+  SystemStatusCard,
+  SecurityConfigCard,
+  BusinessConfigCard,
+  CommunicationConfigCard
+} from '@/features/admin/components/admin-settings';
 
 export const AdminSettingsOverviewPage: React.FC = () => {
   const [data, setData] = useState<AdminOverviewData | null>(null);
@@ -388,113 +312,9 @@ export const AdminSettingsOverviewPage: React.FC = () => {
           <span>Configuration Overview</span>
         </h2>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Security Configuration */}
-          <div className="bg-theme-surface rounded-xl p-6 border border-theme">
-            <h3 className="text-lg font-semibold text-theme-primary mb-4 flex items-center gap-2">
-              <span>🔒</span>
-              <span>Security</span>
-            </h3>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-theme-secondary">Password Min Length</span>
-                <span className="text-sm font-medium text-theme-primary">{settings_summary?.password_min_length || 12} chars</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-theme-secondary">Session Timeout</span>
-                <span className="text-sm font-medium text-theme-primary">{settings_summary?.session_timeout_minutes || 60} min</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-theme-secondary">Email Verification</span>
-                <span className={`text-xs px-2 py-1 rounded font-medium ${
-                  settings_summary?.require_email_verification 
-                    ? 'bg-theme-success-background text-theme-success' 
-                    : 'bg-theme-warning-background text-theme-warning'
-                }`}>
-                  {settings_summary?.require_email_verification ? 'Required' : 'Optional'}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-theme-secondary">Rate Limiting</span>
-                <span className={`text-xs px-2 py-1 rounded font-medium ${
-                  settings_summary?.rate_limiting?.enabled !== false
-                    ? 'bg-theme-success-background text-theme-success' 
-                    : 'bg-theme-error-background text-theme-error'
-                }`}>
-                  {settings_summary?.rate_limiting?.enabled !== false ? 'Active' : 'Disabled'}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Business Configuration */}
-          <div className="bg-theme-surface rounded-xl p-6 border border-theme">
-            <h3 className="text-lg font-semibold text-theme-primary mb-4 flex items-center gap-2">
-              <span>💼</span>
-              <span>Business</span>
-            </h3>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-theme-secondary">Trial Period</span>
-                <span className="text-sm font-medium text-theme-primary">{settings_summary?.trial_period_days || 14} days</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-theme-secondary">Payment Retries</span>
-                <span className="text-sm font-medium text-theme-primary">{settings_summary?.payment_retry_attempts || 3} attempts</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-theme-secondary">Webhook Timeout</span>
-                <span className="text-sm font-medium text-theme-primary">{settings_summary?.webhook_timeout_seconds || 30}s</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-theme-secondary">Account Deletion</span>
-                <span className={`text-xs px-2 py-1 rounded font-medium ${
-                  settings_summary?.allow_account_deletion 
-                    ? 'bg-theme-warning-background text-theme-warning' 
-                    : 'bg-theme-success-background text-theme-success'
-                }`}>
-                  {settings_summary?.allow_account_deletion ? 'Allowed' : 'Protected'}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Communication Configuration */}
-          <div className="bg-theme-surface rounded-xl p-6 border border-theme">
-            <h3 className="text-lg font-semibold text-theme-primary mb-4 flex items-center gap-2">
-              <span>📧</span>
-              <span>Communication</span>
-            </h3>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-theme-secondary">System Email</span>
-                <span className="text-xs font-medium text-theme-primary truncate max-w-24" title={settings_summary?.system_email || 'Not set'}>
-                  {settings_summary?.system_email ? '✓ Set' : '⚠ Not set'}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-theme-secondary">Support Email</span>
-                <span className="text-xs font-medium text-theme-primary truncate max-w-24" title={settings_summary?.support_email || 'Not set'}>
-                  {settings_summary?.support_email ? '✓ Set' : '⚠ Not set'}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-theme-secondary">SMTP Host</span>
-                <span className={`text-xs px-2 py-1 rounded font-medium ${
-                  settings_summary?.smtp_settings?.host 
-                    ? 'bg-theme-success-background text-theme-success' 
-                    : 'bg-theme-error-background text-theme-error'
-                }`}>
-                  {settings_summary?.smtp_settings?.host ? 'Configured' : 'Missing'}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-theme-secondary">System Name</span>
-                <span className="text-sm font-medium text-theme-primary truncate max-w-24" title={settings_summary?.system_name || 'Powernode'}>
-                  {settings_summary?.system_name || 'Powernode'}
-                </span>
-              </div>
-            </div>
-          </div>
+          <SecurityConfigCard settingsSummary={settings_summary} />
+          <BusinessConfigCard settingsSummary={settings_summary} />
+          <CommunicationConfigCard settingsSummary={settings_summary} />
         </div>
       </div>
 

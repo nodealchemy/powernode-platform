@@ -1,20 +1,25 @@
 import React, { useState, useEffect } from 'react';
-
 import { Link, useNavigate } from 'react-router-dom';
-
 import { plansApi, Plan } from '@/features/plans/services/plansApi';
-
-import { 
-  CheckIcon, 
-  ArrowRightIcon,
+import {
+  CheckIcon,
   ShieldCheckIcon,
   ClockIcon,
   ScaleIcon,
-  XMarkIcon
+  ArrowRightIcon
 } from '@heroicons/react/24/outline';
 import { PlanCard } from '@/features/plans/components/PlanCard';
-
 import { AnnualSavingsCalculator } from '@/features/plans/components/AnnualSavingsCalculator';
+import {
+  PlanComparisonModal,
+  PublicFooter,
+  PlanStickyCta,
+  calculatePlanPrice,
+  getMonthlyPrice,
+  isPlanPopular,
+  getAllPlanFeatures,
+  planHasFeature
+} from '@/features/plans/components/plan-selection';
 
 
 export const PlanSelectionPage: React.FC = () => {
@@ -53,51 +58,6 @@ export const PlanSelectionPage: React.FC = () => {
     }
   };
 
-  const calculatePlanPrice = (plan: Plan, cycle: 'monthly' | 'yearly'): string => {
-    if (plan.price_cents === 0) return 'Free';
-    
-    let priceCents = plan.price_cents;
-    
-    // Apply discounts based on what badge is being shown (matches badge logic)
-    if (cycle === 'yearly' && plan.billing_cycle === 'monthly' && plan.has_annual_discount) {
-      // When viewing yearly, apply annual discount
-      const discountPercent = plan.annual_discount_percent ? parseFloat(plan.annual_discount_percent.toString()) : 0;
-      priceCents = priceCents * 12 * (1 - discountPercent / 100);
-    } else if (cycle === 'monthly' && plan.billing_cycle === 'yearly') {
-      priceCents = priceCents / 12;
-    }
-    // Note: Removed promotional discount application for sticky bottom display
-    
-    const amount = priceCents / 100;
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: plan.currency
-    }).format(amount);
-  };
-
-  const getMonthlyPrice = (plan: Plan): string => {
-    if (plan.price_cents === 0) return 'Free';
-    
-    let monthlyCents = plan.price_cents;
-    
-    // Apply same discount logic as main price calculation for consistency
-    if (billingCycle === 'yearly' && plan.billing_cycle === 'monthly' && plan.has_annual_discount) {
-      // When viewing yearly billing, show monthly equivalent of discounted annual price
-      const discountPercent = plan.annual_discount_percent ? parseFloat(plan.annual_discount_percent.toString()) : 0;
-      const discountedAnnualPrice = monthlyCents * 12 * (1 - discountPercent / 100);
-      monthlyCents = discountedAnnualPrice / 12;
-    } else if (plan.billing_cycle === 'yearly') {
-      monthlyCents = monthlyCents / 12;
-    }
-    // Note: Removed promotional discount application for consistency
-    
-    const amount = monthlyCents / 100;
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: plan.currency
-    }).format(amount);
-  };
-
   const handlePlanSelection = (plan: Plan) => {
     setSelectedPlanId(plan.id);
   };
@@ -116,96 +76,6 @@ export const PlanSelectionPage: React.FC = () => {
     return availablePlans.find(plan => plan.id === selectedPlanId) || null;
   };
 
-  const isPlanPopular = (plan: Plan): boolean => {
-    return plan.name.toLowerCase().includes('pro') || plan.name.toLowerCase().includes('standard');
-  };
-
-  const getPlanFeatures = (plan: Plan): string[] => {
-    // Use actual plan features if available, fallback to tier-based features
-    if (plan.features && typeof plan.features === 'object' && Object.keys(plan.features).length > 0) {
-      // Feature display mapping for better readability
-      const featureLabels: { [key: string]: string } = {
-        'community_access': 'Community Access',
-        'core_features': 'Core Features',
-        'dashboard_access': 'Dashboard Access',
-        'mobile_responsive': 'Mobile Responsive',
-        'email_notifications': 'Email Notifications',
-        'basic_reporting': 'Basic Reporting',
-        'standard_support': 'Standard Support',
-        'basic_analytics': 'Basic Analytics',
-        'email_support': 'Email Support',
-        'advanced_analytics': 'Advanced Analytics',
-        'priority_support': 'Priority Support',
-        'api_access': 'API Access',
-        'custom_branding': 'Custom Branding',
-        'data_export': 'Data Export',
-        'team_collaboration': 'Team Collaboration',
-        'webhook_integrations': 'Webhook Integrations',
-        'custom_fields': 'Custom Fields',
-        'advanced_filters': 'Advanced Filters',
-        'custom_integrations': 'Custom Integrations',
-        'dedicated_support': 'Dedicated Support',
-        'white_label': 'White Label Solution',
-        'sso_integration': 'Single Sign-On (SSO)',
-        'advanced_security': 'Advanced Security',
-        'audit_logs': 'Audit Logs',
-        'sla_guarantees': 'SLA Guarantees'
-      };
-
-      const enabledFeatures = Object.entries(plan.features)
-        .filter(([key, enabled]) => enabled === true && !key.startsWith('max_') && !key.endsWith('_gb'))
-        .map(([feature, _]) => featureLabels[feature] || feature.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()))
-        .sort();
-      
-      return enabledFeatures;
-    }
-    
-    // Fallback to tier-based features if no features data
-    const baseName = plan.name.toLowerCase();
-    if (baseName.includes('free') || plan.price_cents === 0) {
-      return [
-        'Up to 5 projects',
-        'Basic analytics',
-        'Email support',
-        'Community access'
-      ];
-    } else if (baseName.includes('pro') || baseName.includes('standard')) {
-      return [
-        'Unlimited projects',
-        'Advanced analytics',
-        'Priority support',
-        'API access',
-        'Custom integrations',
-        'Team collaboration'
-      ];
-    } else if (baseName.includes('enterprise') || baseName.includes('business')) {
-      return [
-        'Everything in Pro',
-        'Advanced security',
-        'Custom SLA',
-        'Dedicated support',
-        'On-premise option',
-        'Custom training'
-      ];
-    }
-    return [
-      'Core features',
-      'Standard support',
-      'Basic analytics'
-    ];
-  };
-
-  const getAllPlanFeatures = (): string[] => {
-    // Get all unique features across all plans for comparison
-    const allFeatures = new Set<string>();
-    availablePlans.forEach(plan => {
-      getPlanFeatures(plan).forEach(feature => {
-        allFeatures.add(feature);
-      });
-    });
-    return Array.from(allFeatures).sort();
-  };
-
   const togglePlanComparison = (planId: string) => {
     setPlansToCompare(prev => {
       if (prev.includes(planId)) {
@@ -222,12 +92,6 @@ export const PlanSelectionPage: React.FC = () => {
       setShowComparison(true);
     }
   };
-
-  const planHasFeature = (plan: Plan, feature: string): boolean => {
-    return getPlanFeatures(plan).includes(feature);
-  };
-
-
 
   if (plansLoading) {
     return (
@@ -468,73 +332,13 @@ export const PlanSelectionPage: React.FC = () => {
         </div>
       </section>
 
-      {/* Modern Sticky CTA Section */}
-      {selectedPlanId && (
-        <div className="sticky bottom-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-lg border-t border-slate-200/50 dark:border-slate-700/50 mt-20">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-            <div className="flex flex-col lg:flex-row items-center justify-between gap-6">
-              {/* Plan Summary */}
-              <div className="flex items-center space-x-6">
-                <div className="flex items-center space-x-4">
-                  <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #22c55e, #16a34a)' }}>
-                    <CheckIcon className="h-6 w-6 text-white" />
-                  </div>
-                  <div>
-                    <div className="font-semibold text-slate-800 dark:text-white">
-                      {getSelectedPlan()?.name} Plan Selected
-                    </div>
-                    <div className="text-sm text-slate-600 dark:text-slate-400">
-                      Billed {billingCycle}
-                      {getSelectedPlan()?.trial_days && getSelectedPlan()!.trial_days > 0 && (
-                        <span className="ml-2 px-2 py-0.5 bg-gradient-to-r from-emerald-500 to-green-500 text-white rounded-full text-xs font-bold shadow-sm">
-                          {getSelectedPlan()!.trial_days} day trial
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="hidden sm:block w-px h-12 bg-slate-200 dark:bg-slate-600"></div>
-                
-                <div className="text-center sm:text-left">
-                  <div className="text-2xl font-bold text-slate-800 dark:text-white">
-                    {calculatePlanPrice(getSelectedPlan()!, billingCycle)}
-                  </div>
-                  <div className="text-sm text-slate-500 dark:text-slate-400">
-                    per {billingCycle === 'yearly' ? 'year' : 'month'}
-                  </div>
-                </div>
-              </div>
-
-              {/* CTA Button */}
-              <div className="flex flex-col items-center space-y-3">
-                <button
-                  onClick={() => handleContinue?.()}
-                  className="inline-flex items-center justify-center space-x-3 text-white font-semibold px-8 py-4 rounded-xl transition-all duration-200 transform hover:scale-105 min-w-[200px]"
-                  style={{
-                    background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
-                    boxShadow: '0 10px 25px -5px rgba(59, 130, 246, 0.5)',
-                  }}
-                >
-                  <span>Get Started</span>
-                  <ArrowRightIcon className="h-5 w-5" />
-                </button>
-                
-                <div className="flex items-center space-x-4 text-xs text-slate-500 dark:text-slate-400">
-                  <span className="flex items-center space-x-1">
-                    <CheckIcon className="h-3 w-3" />
-                    <span>No credit card required</span>
-                  </span>
-                  <span className="flex items-center space-x-1">
-                    <CheckIcon className="h-3 w-3" />
-                    <span>Cancel anytime</span>
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Sticky CTA Section */}
+      <PlanStickyCta
+        selectedPlan={getSelectedPlan()}
+        billingCycle={billingCycle}
+        calculatePlanPrice={calculatePlanPrice}
+        onContinue={handleContinue}
+      />
 
       {/* Additional Selected Plan Details */}
       {selectedPlanId && (
@@ -649,321 +453,21 @@ export const PlanSelectionPage: React.FC = () => {
         </div>
       </section>
 
-      {/* Modern Footer */}
-      <footer className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Main Footer Content */}
-          <div className="py-16 border-b border-slate-700/50">
-            <div className="grid lg:grid-cols-4 md:grid-cols-2 gap-8">
-              {/* Company Info */}
-              <div className="lg:col-span-1">
-                <div className="flex items-center space-x-3 mb-6">
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)' }}>
-                    <span className="text-white font-bold text-lg">P</span>
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold bg-gradient-to-r from-white to-slate-200 bg-clip-text text-transparent">
-                      Powernode
-                    </h3>
-                    <p className="text-xs text-slate-400 font-medium">Subscription Platform</p>
-                  </div>
-                </div>
-                <p className="text-slate-300 text-sm leading-relaxed mb-6">
-                  Powerful subscription management platform designed to help businesses grow. 
-                  Trusted by thousands of companies worldwide.
-                </p>
-                <div className="flex space-x-4">
-                  <button className="w-10 h-10 bg-slate-800 hover:bg-slate-700 rounded-xl flex items-center justify-center transition-colors duration-200" title="Social Media" disabled>
-                    <span className="text-lg">🐦</span>
-                  </button>
-                  <button className="w-10 h-10 bg-slate-800 hover:bg-slate-700 rounded-xl flex items-center justify-center transition-colors duration-200" title="LinkedIn" disabled>
-                    <span className="text-lg">💼</span>
-                  </button>
-                  <button className="w-10 h-10 bg-slate-800 hover:bg-slate-700 rounded-xl flex items-center justify-center transition-colors duration-200" title="Contact" disabled>
-                    <span className="text-lg">📧</span>
-                  </button>
-                </div>
-              </div>
+      {/* Footer */}
+      <PublicFooter />
 
-              {/* Product Links */}
-              <div>
-                <h4 className="text-white font-semibold mb-6">Product</h4>
-                <ul className="space-y-4">
-                  <li>
-                    <Link to="/plans" className="text-slate-300 hover:text-white transition-colors duration-200 text-sm">
-                      Features
-                    </Link>
-                  </li>
-                  <li>
-                    <Link to="/plans" className="text-slate-300 hover:text-white transition-colors duration-200 text-sm">
-                      Pricing
-                    </Link>
-                  </li>
-                  <li>
-                    <button className="text-slate-300 hover:text-white transition-colors duration-200 text-sm" disabled>
-                      Integrations
-                    </button>
-                  </li>
-                  <li>
-                    <button className="text-slate-300 hover:text-white transition-colors duration-200 text-sm" disabled>
-                      API Documentation
-                    </button>
-                  </li>
-                  <li>
-                    <button className="text-slate-300 hover:text-white transition-colors duration-200 text-sm" disabled>
-                      Security
-                    </button>
-                  </li>
-                </ul>
-              </div>
-
-              {/* Support Links */}
-              <div>
-                <h4 className="text-white font-semibold mb-6">Support</h4>
-                <ul className="space-y-4">
-                  <li>
-                    <button className="text-slate-300 hover:text-white transition-colors duration-200 text-sm" disabled>
-                      Help Center
-                    </button>
-                  </li>
-                  <li>
-                    <button className="text-slate-300 hover:text-white transition-colors duration-200 text-sm" disabled>
-                      Contact Us
-                    </button>
-                  </li>
-                  <li>
-                    <button className="text-slate-300 hover:text-white transition-colors duration-200 text-sm" disabled>
-                      System Status
-                    </button>
-                  </li>
-                  <li>
-                    <button className="text-slate-300 hover:text-white transition-colors duration-200 text-sm" disabled>
-                      Community
-                    </button>
-                  </li>
-                  <li>
-                    <button className="text-slate-300 hover:text-white transition-colors duration-200 text-sm" disabled>
-                      Changelog
-                    </button>
-                  </li>
-                </ul>
-              </div>
-
-              {/* Company Links */}
-              <div>
-                <h4 className="text-white font-semibold mb-6">Company</h4>
-                <ul className="space-y-4">
-                  <li>
-                    <button className="text-slate-300 hover:text-white transition-colors duration-200 text-sm" disabled>
-                      About Us
-                    </button>
-                  </li>
-                  <li>
-                    <button className="text-slate-300 hover:text-white transition-colors duration-200 text-sm" disabled>
-                      Careers
-                    </button>
-                  </li>
-                  <li>
-                    <button className="text-slate-300 hover:text-white transition-colors duration-200 text-sm" disabled>
-                      Press
-                    </button>
-                  </li>
-                  <li>
-                    <button className="text-slate-300 hover:text-white transition-colors duration-200 text-sm" disabled>
-                      Partners
-                    </button>
-                  </li>
-                  <li>
-                    <button className="text-slate-300 hover:text-white transition-colors duration-200 text-sm" disabled>
-                      Blog
-                    </button>
-                  </li>
-                </ul>
-              </div>
-            </div>
-          </div>
-
-          {/* Footer Bottom */}
-          <div className="py-8">
-            <div className="flex flex-col lg:flex-row items-center justify-between gap-6">
-              <div className="flex flex-wrap items-center gap-6 text-sm text-slate-400">
-                <span>© 2024 Powernode. All rights reserved.</span>
-                <div className="flex items-center space-x-6">
-                  <button className="hover:text-slate-300 transition-colors duration-200" disabled>
-                    Privacy Policy
-                  </button>
-                  <button className="hover:text-slate-300 transition-colors duration-200" disabled>
-                    Terms of Service
-                  </button>
-                  <button className="hover:text-slate-300 transition-colors duration-200" disabled>
-                    Cookie Policy
-                  </button>
-                </div>
-              </div>
-              
-              <div className="flex items-center space-x-6">
-                <div className="flex items-center space-x-2 bg-slate-800/50 px-3 py-2 rounded-full">
-                  <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                  <span className="text-xs text-slate-300 font-medium">All systems operational</span>
-                </div>
-                <div className="flex items-center space-x-2 text-xs text-slate-400">
-                  <ShieldCheckIcon className="h-4 w-4" />
-                  <span>SOC 2 Compliant</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </footer>
-
-      {/* Modern Comparison Modal */}
-      {showComparison && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-300">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden border border-slate-200/50 dark:border-slate-600/50 animate-in slide-in-from-bottom-4 duration-300">
-            {/* Modern Modal Header */}
-            <div className="px-8 py-6 border-b border-slate-200/50 dark:border-slate-600/50 bg-gradient-to-r from-slate-50 to-blue-50/30 dark:from-slate-700/50 dark:to-slate-600/50">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-2xl font-bold text-slate-800 dark:text-white">Compare Plans</h3>
-                  <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">Side-by-side feature comparison</p>
-                </div>
-                <button
-                  onClick={() => setShowComparison(false)}
-                  className="w-10 h-10 rounded-xl bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 flex items-center justify-center text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-all duration-200 hover:shadow-md"
-                >
-                  <XMarkIcon className="h-5 w-5" />
-                </button>
-              </div>
-            </div>
-
-            {/* Comparison Content */}
-            <div className="overflow-auto max-h-[calc(90vh-80px)]">
-              <div className="p-6">
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr>
-                        <th className="text-left py-3 px-4 font-medium text-slate-800 dark:text-white w-1/4">Features</th>
-                        {plansToCompare.map(planId => {
-                          const plan = availablePlans.find(p => p.id === planId);
-                          if (!plan) return null;
-                          return (
-                            <th key={planId} className="text-center py-3 px-4 w-1/4">
-                              <div className="space-y-2">
-                                <div className="font-semibold text-slate-800 dark:text-white">{plan.name}</div>
-                                <div className="text-2xl font-bold text-theme-info dark:text-blue-400">
-                                  {calculatePlanPrice(plan, billingCycle)}
-                                </div>
-                                <div className="text-sm text-slate-600 dark:text-slate-400">
-                                  per {billingCycle === 'yearly' ? 'year' : 'month'}
-                                </div>
-                                <button
-                                  onClick={() => {
-                                    setShowComparison(false);
-                                    navigate(`/register?plan=${planId}&billing=${billingCycle}`);
-                                  }}
-                                  className="w-full bg-theme-info-solid hover:bg-theme-interactive-primary-hover text-white font-semibold px-4 py-2 rounded-lg transition-colors duration-200 text-sm"
-                                >
-                                  Select Plan
-                                </button>
-                              </div>
-                            </th>
-                          );
-                        })}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-200 dark:divide-slate-600">
-                      {/* Pricing Row */}
-                      <tr className="bg-slate-50 dark:bg-slate-700">
-                        <td className="py-3 px-4 font-medium text-slate-800 dark:text-white">Pricing</td>
-                        {plansToCompare.map(planId => {
-                          const plan = availablePlans.find(p => p.id === planId);
-                          if (!plan) return null;
-                          return (
-                            <td key={planId} className="text-center py-3 px-4">
-                              <div className="text-lg font-semibold text-slate-800 dark:text-white">
-                                {calculatePlanPrice(plan, billingCycle)}
-                              </div>
-                              {billingCycle === 'yearly' && plan.price_cents > 0 && (
-                                <div className="text-xs text-slate-600 dark:text-slate-400">
-                                  {getMonthlyPrice(plan)}/month
-                                </div>
-                              )}
-                            </td>
-                          );
-                        })}
-                      </tr>
-
-                      {/* Trial Period Row */}
-                      <tr className="bg-white dark:bg-slate-800">
-                        <td className="py-4 px-4 font-bold text-slate-800 dark:text-white">Free Trial</td>
-                        {plansToCompare.map(planId => {
-                          const plan = availablePlans.find(p => p.id === planId);
-                          if (!plan) return null;
-                          return (
-                            <td key={planId} className="text-center py-4 px-4">
-                              {(plan.trial_days && plan.trial_days > 0) ? (
-                                <div className="inline-flex items-center justify-center px-3 py-1.5 bg-green-100 text-green-800 rounded-full border border-green-200 font-semibold text-sm">
-                                  🎁 {plan.trial_days} days free
-                                </div>
-                              ) : (
-                                <div className="inline-flex items-center justify-center px-3 py-1.5 bg-theme-surface text-theme-muted rounded-full border border-theme font-medium text-sm">
-                                  No trial
-                                </div>
-                              )}
-                            </td>
-                          );
-                        })}
-                      </tr>
-
-                      {/* Features Rows */}
-                      {getAllPlanFeatures().map((feature, index) => (
-                        <tr key={index} className={`${index % 2 === 0 ? 'bg-slate-50 dark:bg-slate-700' : 'bg-white dark:bg-slate-800'} hover:bg-slate-100 dark:hover:bg-slate-600`}>
-                          <td className="py-3 px-4 font-medium text-slate-800 dark:text-white">{feature}</td>
-                          {plansToCompare.map(planId => {
-                            const plan = availablePlans.find(p => p.id === planId);
-                            if (!plan) return null;
-                            const hasFeature = planHasFeature(plan, feature);
-                            return (
-                              <td key={planId} className="text-center py-3 px-4">
-                                {hasFeature ? (
-                                  <CheckIcon className="h-5 w-5 text-theme-success mx-auto" />
-                                ) : (
-                                  <span className="text-slate-400 dark:text-slate-500">—</span>
-                                )}
-                              </td>
-                            );
-                          })}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-
-            {/* Modern Modal Footer */}
-            <div className="px-8 py-6 border-t border-slate-200/50 dark:border-slate-600/50 bg-gradient-to-r from-slate-50 to-blue-50/30 dark:from-slate-700/50 dark:to-slate-600/50">
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                <div className="text-center sm:text-left">
-                  <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                    Select a plan to continue with your registration
-                  </p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Compare features and pricing across different plans
-                  </p>
-                </div>
-                <button
-                  onClick={() => setShowComparison(false)}
-                  className="inline-flex items-center space-x-2 px-6 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-600 dark:hover:bg-slate-500 text-slate-700 dark:text-slate-200 font-medium rounded-xl transition-all duration-200 transform hover:scale-105"
-                >
-                  <span>Close Comparison</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Comparison Modal */}
+      <PlanComparisonModal
+        isOpen={showComparison}
+        onClose={() => setShowComparison(false)}
+        plansToCompare={plansToCompare}
+        availablePlans={availablePlans}
+        billingCycle={billingCycle}
+        calculatePlanPrice={calculatePlanPrice}
+        getMonthlyPrice={(plan) => getMonthlyPrice(plan, billingCycle)}
+        getAllPlanFeatures={() => getAllPlanFeatures(availablePlans)}
+        planHasFeature={planHasFeature}
+      />
     </div>
   );
 };

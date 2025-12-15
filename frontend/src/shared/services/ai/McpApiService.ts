@@ -1,188 +1,22 @@
 import { BaseApiService } from './BaseApiService';
-
-// JSON Schema type for tool input schemas
-export interface JsonSchema {
-  type?: string;
-  properties?: Record<string, JsonSchema>;
-  required?: string[];
-  items?: JsonSchema;
-  description?: string;
-  default?: unknown;
-  enum?: unknown[];
-  [key: string]: unknown;
-}
-
-// Prompt argument type
-export interface McpPromptArgument {
-  name: string;
-  description?: string;
-  required?: boolean;
-  type?: string;
-  default?: unknown;
-}
-
-// Raw backend response types for MCP servers
-interface McpServerRawResponse {
-  id: string;
-  name: string;
-  description?: string;
-  status: 'connected' | 'disconnected' | 'connecting' | 'error';
-  connection_type: 'stdio' | 'sse' | 'websocket' | 'http';
-  auth_type?: 'none' | 'api_key' | 'oauth2';
-  tools_count?: number;
-  last_connected_at?: string;
-  last_error?: string;
-  config?: {
-    version?: string;
-    protocol_version?: string;
-    capabilities?: {
-      tools?: boolean;
-      resources?: boolean;
-      prompts?: boolean;
-      logging?: boolean;
-    };
-    resources_count?: number;
-    prompts_count?: number;
-    metadata?: {
-      author?: string;
-      url?: string;
-      icon?: string;
-    };
-  };
-  tools?: McpToolRawResponse[];
-  oauth_status?: McpServerOAuthStatus;
-}
-
-interface McpToolRawResponse {
-  id: string;
-  name: string;
-  description?: string;
-  input_schema?: JsonSchema;
-  category?: string;
-  tags?: string[];
-}
-
-export interface McpServerOAuthStatus {
-  auth_type: 'none' | 'api_key' | 'oauth2';
-  oauth_configured: boolean;
-  oauth_connected: boolean;
-  oauth_token_expires_at?: string;
-  oauth_token_expired?: boolean;
-  oauth_last_refreshed_at?: string;
-  oauth_error?: string;
-  oauth_provider?: string;
-  oauth_scopes?: string;
-}
-
-export interface McpServerOAuthConfig {
-  auth_type: 'none' | 'api_key' | 'oauth2';
-  oauth_provider?: string;
-  oauth_client_id?: string;
-  oauth_client_secret?: string;
-  oauth_authorization_url?: string;
-  oauth_token_url?: string;
-  oauth_scopes?: string;
-}
-
-export interface McpServer {
-  id: string;
-  name: string;
-  description?: string;
-  version: string;
-  protocol_version: string;
-  status: 'connected' | 'disconnected' | 'connecting' | 'error';
-  connection_type: 'stdio' | 'sse' | 'websocket' | 'http';
-  auth_type?: 'none' | 'api_key' | 'oauth2';
-  capabilities: {
-    tools?: boolean;
-    resources?: boolean;
-    prompts?: boolean;
-    logging?: boolean;
-  };
-  tools_count: number;
-  resources_count: number;
-  prompts_count: number;
-  last_connected_at?: string;
-  error_message?: string;
-  metadata?: {
-    author?: string;
-    url?: string;
-    icon?: string;
-  };
-  oauth_status?: McpServerOAuthStatus;
-}
-
-export interface McpTool {
-  id: string;
-  server_id: string;
-  server_name: string;
-  name: string;
-  description?: string;
-  input_schema: JsonSchema;
-  category?: string;
-  tags?: string[];
-}
-
-export interface McpResource {
-  id: string;
-  server_id: string;
-  server_name: string;
-  uri: string;
-  name: string;
-  description?: string;
-  mime_type?: string;
-}
-
-export interface McpPrompt {
-  id: string;
-  server_id: string;
-  server_name: string;
-  name: string;
-  description?: string;
-  arguments?: McpPromptArgument[];
-}
-
-export interface McpToolExecutionResult {
-  success: boolean;
-  result?: unknown;
-  error?: string;
-  execution_time_ms: number;
-  tool_id: string;
-  tool_name: string;
-}
-
-export interface McpToolExecution {
-  id: string;
-  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
-  user_id: string;
-  user_name?: string;
-  parameters?: Record<string, unknown>;
-  result?: Record<string, unknown>;
-  error_message?: string;
-  duration_ms?: number;
-  created_at: string;
-  started_at?: string;
-  completed_at?: string;
-}
-
-export interface McpExecutionHistoryResponse {
-  executions: McpToolExecution[];
-  mcp_tool: { id: string; name: string };
-  mcp_server: { id: string; name: string };
-  pagination: {
-    current_page: number;
-    per_page: number;
-    total_pages: number;
-    total_count: number;
-  };
-  meta: {
-    pending_count: number;
-    running_count: number;
-    success_count: number;
-    failed_count: number;
-    cancelled_count: number;
-  };
-}
+import type {
+  McpServerRawResponse,
+  McpToolRawResponse,
+  McpServerOAuthStatus,
+  McpServerOAuthConfig,
+  McpServer,
+  McpTool,
+  McpResource,
+  McpPrompt,
+  McpToolExecutionResult,
+  McpToolExecution,
+  McpExecutionHistoryResponse,
+  McpServerFilters,
+  McpToolFilters,
+  CreateMcpServerRequest,
+  UpdateMcpServerRequest,
+  ExecutionHistoryOptions
+} from './types/mcp-api-types';
 
 /**
  * API service for MCP (Model Context Protocol) operations
@@ -193,10 +27,7 @@ class McpApiService extends BaseApiService {
   /**
    * Get all MCP servers with their tools
    */
-  async getServers(filters?: {
-    status?: 'connected' | 'disconnected' | 'error';
-    connection_type?: 'stdio' | 'sse' | 'websocket';
-  }): Promise<{ servers: McpServer[]; tools: McpTool[] }> {
+  async getServers(filters?: McpServerFilters): Promise<{ servers: McpServer[]; tools: McpTool[] }> {
     const queryParams = new URLSearchParams();
 
     if (filters?.status) {
@@ -386,14 +217,7 @@ class McpApiService extends BaseApiService {
   /**
    * Create a new MCP server
    */
-  async createServer(data: {
-    name: string;
-    description?: string;
-    connection_type: 'stdio' | 'websocket' | 'http';
-    command?: string;
-    args?: string[];
-    env?: Record<string, string>;
-  }): Promise<{ server: McpServer }> {
+  async createServer(data: CreateMcpServerRequest): Promise<{ server: McpServer }> {
     const response = await this.post<{
       mcp_server: McpServerRawResponse;
     }>('/mcp_servers', { mcp_server: data });
@@ -422,14 +246,7 @@ class McpApiService extends BaseApiService {
   /**
    * Update an MCP server
    */
-  async updateServer(serverId: string, data: {
-    name?: string;
-    description?: string;
-    connection_type?: 'stdio' | 'websocket' | 'http';
-    command?: string;
-    args?: string[];
-    env?: Record<string, string>;
-  }): Promise<{ server: McpServer }> {
+  async updateServer(serverId: string, data: UpdateMcpServerRequest): Promise<{ server: McpServer }> {
     const response = await this.patch<{
       mcp_server: McpServerRawResponse;
     }>(`/mcp_servers/${serverId}`, { mcp_server: data });
@@ -465,11 +282,7 @@ class McpApiService extends BaseApiService {
   /**
    * Get MCP tools for a specific server
    */
-  async getTools(filters?: {
-    server_id?: string;
-    category?: string;
-    search?: string;
-  }): Promise<{ tools: McpTool[] }> {
+  async getTools(filters?: McpToolFilters): Promise<{ tools: McpTool[] }> {
     if (!filters?.server_id) {
       // If no server_id, fetch all servers and collect tools
       const { tools } = await this.getServers();
@@ -633,12 +446,7 @@ class McpApiService extends BaseApiService {
   async getExecutionHistory(
     serverId: string,
     toolId: string,
-    options?: {
-      status?: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
-      since?: string;
-      page?: number;
-      per_page?: number;
-    }
+    options?: ExecutionHistoryOptions
   ): Promise<McpExecutionHistoryResponse> {
     const queryParams = new URLSearchParams();
     if (options?.status) queryParams.append('status', options.status);

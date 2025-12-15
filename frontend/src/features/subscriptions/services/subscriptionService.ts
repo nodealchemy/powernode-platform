@@ -1,4 +1,5 @@
 import { api } from '@/shared/services/api';
+import type { Subscription } from '@/shared/types';
 
 /**
  * HTTP Error Response Structure
@@ -10,45 +11,6 @@ interface HttpErrorResponse {
       details?: string[];
     };
   };
-}
-
-/**
- * @deprecated Use Plan from '@/features/plans/services/plansApi' instead
- * Kept for backward compatibility with subscription service responses
- */
-export interface Plan {
-  id: string;
-  name: string;
-  price: {
-    cents: number;
-    currency_iso: string;
-  } | number;
-  interval?: string;
-  billing_cycle?: string;
-  billingCycle?: string;
-  features: Record<string, boolean | string | number>;
-  limits?: Record<string, number>;
-  status: string;
-  isPublic?: boolean;
-  currency?: string;
-  trialDays?: number;
-}
-
-/**
- * @deprecated Use Subscription from '@/shared/types' instead
- * This interface uses camelCase - modern code should use snake_case version from shared/types
- */
-export interface Subscription {
-  id: string;
-  status: string;
-  currentPeriodStart: string;
-  currentPeriodEnd: string;
-  trialEndsAt?: string;
-  canceledAt?: string;
-  endsAt?: string;
-  createdAt: string;
-  updatedAt: string;
-  plan: Plan;
 }
 
 export interface SubscriptionResponse {
