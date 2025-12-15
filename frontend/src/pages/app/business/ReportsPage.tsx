@@ -9,6 +9,7 @@ import { PageContainer, PageAction } from '@/shared/components/layout/PageContai
 import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
 import { RefreshCw } from 'lucide-react';
 import { ReportsOverviewPage } from './ReportsOverviewPage';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 
 export interface ReportRequest {
   id: string;
@@ -49,10 +50,10 @@ interface ReportTemplate {
 
 export const ReportsPage: React.FC = () => {
   const { user } = useSelector((state: RootState) => state.auth);
+  const { showNotification } = useNotifications();
   const location = useLocation();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [builderStep, setBuilderStep] = useState<1 | 2 | 3 | 4>(1);
   
   // Report data
@@ -94,7 +95,6 @@ export const ReportsPage: React.FC = () => {
 
     try {
       setLoading(true);
-      setError(null);
 
       const [templatesResponse, requestsResponse] = await Promise.all([
         reportsService.getTemplates(),
@@ -104,11 +104,12 @@ export const ReportsPage: React.FC = () => {
       setTemplates(templatesResponse.data || []);
       setRequests(requestsResponse.data || []);
       isInitialLoad.current = false;
-    } catch (error) {
-      setError(error instanceof Error ? error.message : 'Failed to load reports data');
+    } catch (err) {
+      showNotification(err instanceof Error ? err.message : 'Failed to load reports data', 'error');
     } finally {
       setLoading(false);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [templates?.length, requests?.length]);
 
   // Load data on mount with StrictMode protection
@@ -147,9 +148,9 @@ export const ReportsPage: React.FC = () => {
       
       setShowRequestModal(false);
       setSelectedTemplate(null);
-      
-    } catch (error) {
-      setError(error instanceof Error ? error.message : 'Failed to submit report request');
+
+    } catch (err) {
+      showNotification(err instanceof Error ? err.message : 'Failed to submit report request', 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -252,19 +253,10 @@ export const ReportsPage: React.FC = () => {
 
   const getPageDescription = () => {
     if (loading) return "Loading reports...";
-    if (error) return "Error loading reports";
     return `Generate and manage business reports for ${user?.account?.name || 'your account'}`;
   };
 
   const getPageActions = () => {
-    if (error) {
-      return [{
-        id: 'retry',
-        label: 'Try Again',
-        onClick: () => loadData(true), // Force retry when error occurs
-        variant: 'primary' as const
-      }];
-    }
     return pageActions;
   };
 
@@ -278,22 +270,8 @@ export const ReportsPage: React.FC = () => {
       {loading && (
         <LoadingSpinner size="lg" message="Loading reports..." />
       )}
-      
-      {error && (
-        <div className="alert-theme alert-theme-error">
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <span className="text-xl">⚠️</span>
-            </div>
-            <div className="ml-3">
-              <h3 className="text-sm font-medium">Error Loading Reports</h3>
-              <p className="mt-1 text-sm">{error}</p>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {!loading && !error && (
+
+      {!loading && (
         <>
           <TabContainer
             tabs={tabs}

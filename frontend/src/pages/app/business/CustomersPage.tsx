@@ -59,8 +59,7 @@ export const CustomersPage: React.FC = () => {
   const {
     searchCustomers,
     updateCustomerStatus,
-    loadCustomers,
-    error
+    loadCustomers
   } = useCustomerWebSocket({
     onCustomerUpdate: (data) => {
       if (!isCustomerUpdateData(data)) return;
@@ -84,8 +83,12 @@ export const CustomersPage: React.FC = () => {
         setShowSearchResults(true);
       }
     },
-    onError: (_errorMessage) => {
-      // Error handling could be added here
+    onError: (errorMessage) => {
+      addNotification({
+        type: 'error',
+        title: 'Connection Error',
+        message: errorMessage
+      });
     }
   });
 
@@ -291,12 +294,6 @@ export const CustomersPage: React.FC = () => {
       actions={pageActions}
     >
       <div className="space-y-6">
-        {error && (
-          <div className="alert-theme alert-theme-error">
-            <p className="text-sm">{error}</p>
-          </div>
-        )}
-
         {/* Customer Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-6">
         <div className="card-theme p-6">

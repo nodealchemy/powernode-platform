@@ -8,7 +8,6 @@ import {
 } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { Card, CardContent } from '@/shared/components/ui/Card';
-import { Button } from '@/shared/components/ui/Button';
 import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { useNotifications } from '@/shared/hooks/useNotifications';
@@ -69,7 +68,6 @@ export const AIMonitoringPage: React.FC = () => {
 
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
 
   // Monitoring configuration - read from URL route params
@@ -133,8 +131,12 @@ export const AIMonitoringPage: React.FC = () => {
     onRealTimeModeChanged: (enabled: boolean) => {
       setIsRealTimeEnabled(enabled);
     },
-    onError: (error: string) => {
-      setError(error);
+    onError: (errorMessage: string) => {
+      addNotificationRef.current({
+        type: 'error',
+        title: 'WebSocket Error',
+        message: errorMessage
+      });
     }
   });
 
@@ -164,7 +166,6 @@ export const AIMonitoringPage: React.FC = () => {
     if (!canViewMonitoring) return;
 
     setIsLoading(true);
-    setError(null);
 
     try {
       // Fetch all data in parallel
@@ -301,7 +302,6 @@ export const AIMonitoringPage: React.FC = () => {
 
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch monitoring data';
-      setError(errorMessage);
       setIsConnected(false);
       addNotificationRef.current({
         type: 'error',
@@ -422,27 +422,6 @@ export const AIMonitoringPage: React.FC = () => {
           timeRange={timeRange}
           onTimeRangeChange={handleTimeRangeChange}
         />
-
-        {/* Error State */}
-        {error && (
-          <Card className="border-theme-error">
-            <CardContent className="flex items-center gap-3 py-4">
-              <AlertTriangle className="h-5 w-5 text-theme-error flex-shrink-0" />
-              <div>
-                <h4 className="font-medium text-theme-error">Monitoring Error</h4>
-                <p className="text-sm text-theme-muted mt-1">{error}</p>
-              </div>
-              <Button
-                onClick={refreshAllData}
-                variant="outline"
-                size="sm"
-                className="ml-auto"
-              >
-                Retry
-              </Button>
-            </CardContent>
-          </Card>
-        )}
 
         {/* Overview Cards */}
         <MonitoringOverviewCards dashboardData={dashboardData} alerts={alerts} />

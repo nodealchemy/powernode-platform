@@ -12,6 +12,7 @@ import { Badge } from '@/shared/components/ui/Badge';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { FlexBetween, FlexItemsCenter } from '@/shared/components/ui/FlexContainer';
 import { CreateWorkerModal } from '@/features/workers/components/CreateWorkerModal';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import {
   WorkerOverviewTab,
   WorkerManagementTab,
@@ -30,7 +31,6 @@ import {
   Plus,
   RefreshCw,
   Download,
-  AlertTriangle,
   CheckCircle,
   UserCheck,
   Eye
@@ -71,6 +71,7 @@ const initialState: WorkersPageState = {
 export const WorkersPage: React.FC = () => {
   const { user } = useSelector((state: RootState) => state.auth);
   const location = useLocation();
+  const { showNotification } = useNotifications();
   const [state, setState] = useState<WorkersPageState>(initialState);
 
   // Initialize active tab from URL
@@ -142,14 +143,15 @@ export const WorkersPage: React.FC = () => {
       setStats(workerStats);
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to load workers';
+      showNotification(errorMessage, 'error');
       setState(prev => ({
         ...prev,
-        error: errorMessage,
         workers: [],
         loading: false
       }));
       setStats({ total: 0, active: 0, suspended: 0, revoked: 0, systemWorkers: 0, accountWorkers: 0, recentlyActive: 0 });
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [calculateStats]);
 
   // Filter and sort workers
@@ -318,8 +320,9 @@ export const WorkersPage: React.FC = () => {
       setState(prev => ({ ...prev, selectedWorkers: new Set() }));
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to perform bulk action';
-      setState(prev => ({ ...prev, error: errorMessage }));
+      showNotification(errorMessage, 'error');
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadWorkers]);
 
   // Redirect if no permission
@@ -394,25 +397,6 @@ export const WorkersPage: React.FC = () => {
             )}
           </FlexItemsCenter>
         </FlexBetween>
-
-        {/* Error Message */}
-        {state.error && (
-          <Card className="p-4 bg-theme-error-background border-theme-error">
-            <FlexBetween>
-              <FlexItemsCenter>
-                <AlertTriangle className="w-5 h-5 text-theme-error mr-3" />
-                <p className="text-theme-error font-medium">{state.error}</p>
-              </FlexItemsCenter>
-              <Button
-                onClick={() => setState(prev => ({ ...prev, error: null }))}
-                variant="secondary"
-                size="sm"
-              >
-                ✕
-              </Button>
-            </FlexBetween>
-          </Card>
-        )}
 
         {/* Stats Overview */}
         <Card className="p-4">

@@ -28,13 +28,22 @@ export const defaultNavigationConfig: NavigationConfig = {
       order: 2
     },
     {
+      id: 'team-members',
+      name: 'Team Members',
+      href: '/app/users',
+      icon: Users,
+      description: 'Manage your team members',
+      permissions: ['team.read'],
+      order: 3
+    },
+    {
       id: 'marketplace',
       name: 'Marketplace',
       href: '/app/marketplace',
       icon: Store,
       description: 'Browse apps, manage subscriptions, and create your own',
       permissions: [],
-      order: 3
+      order: 4
     }
   ],
   
@@ -431,25 +440,6 @@ export const adminNavigationOverrides = {
       collapsible: true,
       defaultExpanded: false,
       order: 20
-    },
-    {
-      id: 'account',
-      name: 'Account',
-      items: [
-        {
-          id: 'account-users',
-          name: 'Team Members',
-          href: '/app/users',
-          icon: Users,
-          description: 'Manage your team members',
-          permissions: ['team.read'],
-          order: 1
-        }
-      ],
-      permissions: [],
-      collapsible: true,
-      defaultExpanded: false,
-      order: 5
     }
   ]
 };

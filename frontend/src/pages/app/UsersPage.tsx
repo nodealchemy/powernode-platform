@@ -6,6 +6,7 @@ import { usersApi, User, UserFormData, UserStats } from '@/features/users/servic
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
 import { UserRolesModal } from '@/features/users/components/UserRolesModal';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import { UserPlus, RefreshCw, Filter, Download } from 'lucide-react';
 
 import {
@@ -24,11 +25,11 @@ import {
 const UsersPage: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const { user: currentUser } = useSelector((state: RootState) => state.auth);
+  const { showNotification } = useNotifications();
   const [users, setUsers] = useState<User[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   const [userStats, setUserStats] = useState<UserStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -65,7 +66,6 @@ const UsersPage: React.FC = () => {
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      setError(null);
 
       const [usersResponse, statsResponse] = await Promise.all([
         usersApi.getUsers(),
@@ -84,10 +84,11 @@ const UsersPage: React.FC = () => {
         setUserStats(null);
       }
     } catch (_error) {
-      setError('Failed to load users. Please check your connection and try again.');
+      showNotification('Failed to load users. Please check your connection and try again.', 'error');
     } finally {
       setLoading(false);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Load available roles
@@ -263,7 +264,7 @@ const UsersPage: React.FC = () => {
       await loadData();
       setSelectedUsers(new Set());
     } catch (_error) {
-      setError(`Failed to ${action} selected users. Please try again.`);
+      showNotification(`Failed to ${action} selected users. Please try again.`, 'error');
     } finally {
       setActionLoading(false);
     }
@@ -272,7 +273,7 @@ const UsersPage: React.FC = () => {
   // Handle user impersonation
   const handleImpersonateUser = async (user: User) => {
     if (user.id === currentUser?.id) {
-      setError('Cannot impersonate yourself');
+      showNotification('Cannot impersonate yourself', 'error');
       return;
     }
 
@@ -285,7 +286,7 @@ const UsersPage: React.FC = () => {
 
       window.location.href = '/app';
     } catch (_error: unknown) {
-      setError('Failed to impersonate user. Please try again.');
+      showNotification('Failed to impersonate user. Please try again.', 'error');
     } finally {
       setActionLoading(false);
     }
@@ -358,10 +359,10 @@ const UsersPage: React.FC = () => {
         setShowDeleteModal(false);
         resetForm();
       } else {
-        setError(response.message || 'Failed to delete user');
+        showNotification(response.message || 'Failed to delete user', 'error');
       }
     } catch (_error) {
-      setError('Failed to delete user. Please try again.');
+      showNotification('Failed to delete user. Please try again.', 'error');
     } finally {
       setActionLoading(false);
     }
@@ -394,10 +395,10 @@ const UsersPage: React.FC = () => {
       if (response.success) {
         await loadData();
       } else {
-        setError(response.message || `Failed to ${action} user`);
+        showNotification(response.message || `Failed to ${action} user`, 'error');
       }
     } catch (_error) {
-      setError(`Failed to ${action} user. Please try again.`);
+      showNotification(`Failed to ${action} user. Please try again.`, 'error');
     } finally {
       setActionLoading(false);
     }
@@ -551,20 +552,6 @@ const UsersPage: React.FC = () => {
 
           {/* Stats Cards */}
           {userStats && <TeamStatsCards userStats={userStats} />}
-
-          {/* Error Display */}
-          {error && (
-            <div className="bg-theme-warning/10 border border-theme-warning/30 text-theme-warning px-4 py-3 rounded mb-4">
-              <div className="flex">
-                <div className="flex-shrink-0">
-                  <span className="text-theme-warning">⚠️</span>
-                </div>
-                <div className="ml-3">
-                  <p className="text-sm">{error}</p>
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* Bulk Operations Bar */}
           {selectedUsers.size > 0 && (

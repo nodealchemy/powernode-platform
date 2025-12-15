@@ -7,6 +7,7 @@ import { PageContainer, PageAction } from '@/shared/components/layout/PageContai
 import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
 import { RefreshCw } from 'lucide-react';
 import { useAuth } from '@/shared/hooks/useAuth';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 
 // Import individual AI pages
 import { AIProvidersPage } from './AIProvidersPage';
@@ -22,9 +23,9 @@ import { AuthenticationCheck } from '@/shared/components/ai/AuthenticationCheck'
 export const AIOrchestrationPage: React.FC = () => {
   const { user } = useSelector((state: RootState) => state.auth);
   const { currentUser } = useAuth();
+  const { showNotification } = useNotifications();
   const location = useLocation();
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   // Check permissions for tab visibility
   const canViewProviders = currentUser?.permissions?.includes('ai.providers.read') || false;
@@ -41,19 +42,19 @@ export const AIOrchestrationPage: React.FC = () => {
   const loadData = useCallback(async (force = false) => {
     try {
       if (!force && !loading) return; // Don't reload unless forced or initial load
-      
+
       setLoading(true);
-      setError(null);
-      
+
       // Load AI system overview data here
       // For now, just simulate loading
       await new Promise(resolve => setTimeout(resolve, 500));
-      
+
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load AI system data');
+      showNotification(err instanceof Error ? err.message : 'Failed to load AI system data', 'error');
     } finally {
       setLoading(false);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading]);
 
   // Load data on mount
@@ -131,20 +132,7 @@ export const AIOrchestrationPage: React.FC = () => {
 
   const getPageDescription = () => {
     if (loading) return "Loading AI system...";
-    if (error) return "Error loading AI system";
     return `Manage AI providers, agents, and workflows for ${user?.account?.name || 'your account'}`;
-  };
-
-  const getPageActions = () => {
-    if (error) {
-      return [{
-        id: 'retry',
-        label: 'Try Again',
-        onClick: () => loadData(true),
-        variant: 'primary' as const
-      }];
-    }
-    return pageActions;
   };
 
   return (
@@ -155,27 +143,13 @@ export const AIOrchestrationPage: React.FC = () => {
         title="AI Orchestration"
         description={getPageDescription()}
         breadcrumbs={getBreadcrumbs()}
-        actions={getPageActions()}
+        actions={pageActions}
       >
         {loading && (
           <LoadingSpinner size="lg" message="Loading AI system..." />
         )}
-        
-        {error && (
-          <div className="alert-theme alert-theme-error">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <span className="text-xl">⚠️</span>
-              </div>
-              <div className="ml-3">
-                <h3 className="text-sm font-medium">Error Loading AI System</h3>
-                <p className="mt-1 text-sm">{error}</p>
-              </div>
-            </div>
-          </div>
-        )}
-        
-        {!loading && !error && (
+
+        {!loading && (
           <TabContainer
             tabs={tabs}
             activeTab={activeTab}
