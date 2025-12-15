@@ -14,8 +14,9 @@ class ProviderAvailabilityService
 
   # Check if a single provider is available for use
   # @param provider [AiProvider] The provider to check
+  # @param auto_refresh_health [Boolean] Whether to auto-refresh stale health checks
   # @return [Hash] { available: Boolean, reason: String }
-  def self.check_provider(provider)
+  def self.check_provider(provider, auto_refresh_health: true)
     return { available: false, reason: "Provider not found" } if provider.nil?
 
     # Check if provider is active
@@ -30,9 +31,18 @@ class ProviderAvailabilityService
     end
 
     # Check if provider is healthy (passed recent health check)
+    # Auto-refresh stale health checks before validation
     unless provider.healthy?
-      health_error = provider.health_error || "Unknown health issue"
-      return { available: false, reason: "Provider is unhealthy: #{health_error}" }
+      if auto_refresh_health && health_check_stale?(provider)
+        Rails.logger.info "Auto-refreshing stale health check for provider: #{provider.name}"
+        provider.perform_health_check
+      end
+
+      # Re-check after potential refresh
+      unless provider.healthy?
+        health_error = provider.health_error || "Unknown health issue"
+        return { available: false, reason: "Provider is unhealthy: #{health_error}" }
+      end
     end
 
     # Check if provider has available models
@@ -41,6 +51,21 @@ class ProviderAvailabilityService
     end
 
     { available: true, reason: "Provider is available" }
+  end
+
+  # Check if a provider's health check is stale (older than 1 hour)
+  # @param provider [AiProvider] The provider to check
+  # @return [Boolean]
+  def self.health_check_stale?(provider)
+    health_metrics = provider.metadata&.dig("health_metrics") || {}
+    last_check_timestamp = health_metrics["last_check_timestamp"]
+
+    return true unless last_check_timestamp
+
+    last_check = Time.parse(last_check_timestamp) rescue nil
+    return true unless last_check
+
+    last_check < 1.hour.ago
   end
 
   # Check if a provider is available and raise an error if not
