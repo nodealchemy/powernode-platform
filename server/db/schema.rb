@@ -1544,7 +1544,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_12_221001) do
     t.index ["parent_file_id"], name: "index_file_objects_on_parent_file_id"
     t.index ["processing_status"], name: "index_file_objects_on_processing_status"
     t.index ["uploaded_by_id"], name: "index_file_objects_on_uploaded_by_id"
-    t.check_constraint "category::text = ANY (ARRAY['user_upload'::character varying, 'workflow_output'::character varying, 'ai_generated'::character varying, 'temp'::character varying, 'system'::character varying, 'import'::character varying, 'page_content'::character varying]::text[])", name: "file_objects_category_check"
+    t.check_constraint "category::text = ANY (ARRAY['user_upload'::character varying::text, 'workflow_output'::character varying::text, 'ai_generated'::character varying::text, 'temp'::character varying::text, 'system'::character varying::text, 'import'::character varying::text, 'page_content'::character varying::text])", name: "file_objects_category_check"
     t.check_constraint "file_type::text = ANY (ARRAY['image'::character varying::text, 'document'::character varying::text, 'video'::character varying::text, 'audio'::character varying::text, 'archive'::character varying::text, 'code'::character varying::text, 'data'::character varying::text, 'other'::character varying::text])", name: "file_objects_file_type_check"
     t.check_constraint "processing_status::text = ANY (ARRAY['pending'::character varying::text, 'processing'::character varying::text, 'completed'::character varying::text, 'failed'::character varying::text])", name: "file_objects_processing_status_check"
     t.check_constraint "visibility::text = ANY (ARRAY['private'::character varying::text, 'public'::character varying::text, 'shared'::character varying::text, 'internal'::character varying::text])", name: "file_objects_visibility_check"
@@ -1633,7 +1633,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_12_221001) do
     t.index ["configuration"], name: "index_file_storages_on_configuration", using: :gin
     t.index ["health_status"], name: "index_file_storages_on_health_status"
     t.index ["priority"], name: "index_file_storages_on_priority"
-    t.check_constraint "provider_type::text = ANY (ARRAY['local'::character varying, 's3'::character varying, 'gcs'::character varying, 'azure'::character varying, 'nfs'::character varying, 'smb'::character varying, 'ftp'::character varying, 'webdav'::character varying, 'custom'::character varying]::text[])", name: "file_storages_provider_type_check"
+    t.check_constraint "provider_type::text = ANY (ARRAY['local'::character varying::text, 's3'::character varying::text, 'gcs'::character varying::text, 'azure'::character varying::text, 'nfs'::character varying::text, 'smb'::character varying::text, 'ftp'::character varying::text, 'webdav'::character varying::text, 'custom'::character varying::text])", name: "file_storages_provider_type_check"
     t.check_constraint "status::text = ANY (ARRAY['active'::character varying::text, 'inactive'::character varying::text, 'maintenance'::character varying::text, 'failed'::character varying::text])", name: "file_storages_status_check"
   end
 

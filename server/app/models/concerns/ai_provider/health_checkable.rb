@@ -148,13 +148,9 @@ module AiProvider::HealthCheckable
     # In production, this would make an actual API call
     return true if Rails.env.test?
 
-    # Mock different responses based on provider type
-    case slug
-    when "openai", "anthropic", "ollama"
-      true
-    else
-      false
-    end
+    # Check based on provider_type rather than exact slug
+    supported_provider_types = %w[openai anthropic ollama google azure huggingface]
+    supported_provider_types.include?(provider_type)
   end
 
   def perform_initial_health_check

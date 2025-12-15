@@ -6,7 +6,7 @@ import { RefreshCw, Radio } from 'lucide-react';
 export const AIOverviewPage: React.FC = () => {
   const overviewRef = useRef<EnhancedAIOverviewHandle>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isLiveUpdates, setIsLiveUpdates] = useState(true);
+  const [isLiveUpdates, setIsLiveUpdates] = useState(false);
 
   const handleRefresh = useCallback(async () => {
     if (overviewRef.current) {

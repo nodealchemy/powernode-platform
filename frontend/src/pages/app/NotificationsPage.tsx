@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { notificationApi, Notification } from '@/features/notifications/services/notificationApi';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import {
   BellIcon,
   CheckIcon,
@@ -28,9 +29,9 @@ const SEVERITY_COLORS: Record<string, string> = {
 };
 
 export const NotificationsPage: React.FC = () => {
+  const { showNotification } = useNotifications();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -39,7 +40,6 @@ export const NotificationsPage: React.FC = () => {
   const loadNotifications = useCallback(async () => {
     try {
       setLoading(true);
-      setError(null);
       const response = await notificationApi.getNotifications({
         page,
         per_page: 20,
@@ -49,10 +49,11 @@ export const NotificationsPage: React.FC = () => {
       setUnreadCount(response.unread_count);
       setTotalPages(response.pagination.total_pages);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load notifications');
+      showNotification(err instanceof Error ? err.message : 'Failed to load notifications', 'error');
     } finally {
       setLoading(false);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, filter]);
 
   useEffect(() => {
@@ -172,13 +173,6 @@ export const NotificationsPage: React.FC = () => {
             </div>
           </div>
         </div>
-
-        {/* Error State */}
-        {error && (
-          <div className="alert-theme alert-theme-error">
-            <p>{error}</p>
-          </div>
-        )}
 
         {/* Notifications List */}
         <div className="card-theme overflow-hidden">

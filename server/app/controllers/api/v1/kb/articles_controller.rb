@@ -2,6 +2,8 @@
 
 class Api::V1::Kb::ArticlesController < ApplicationController
   skip_before_action :authenticate_request, only: [ :index, :show, :search ]
+  # Try to authenticate if token provided (allows viewing drafts for editors)
+  before_action :authenticate_optional, only: [ :index, :show, :search ]
   before_action :set_article, only: [ :show, :update, :destroy, :publish, :unpublish ]
   before_action :authorize_kb_edit, only: [ :create, :update, :destroy, :bulk_update, :bulk_delete ]
   before_action :authorize_kb_publish, only: [ :publish, :unpublish ]

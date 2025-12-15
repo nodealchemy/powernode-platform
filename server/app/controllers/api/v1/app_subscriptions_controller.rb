@@ -36,11 +36,13 @@ class Api::V1::AppSubscriptionsController < ApplicationController
 
     render_success(
       data: subscriptions.map { |subscription| subscription_data(subscription) },
-      pagination: {
-        current_page: page,
-        total_pages: total_pages,
-        total_count: total_count,
-        per_page: per_page
+      meta: {
+        pagination: {
+          current_page: page,
+          total_pages: total_pages,
+          total_count: total_count,
+          per_page: per_page
+        }
       }
     )
   end

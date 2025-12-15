@@ -15,7 +15,7 @@ describe('WorkflowMonitoringPage', () => {
       <MemoryRouter initialEntries={['/app/ai/workflow-monitoring']}>
         <Routes>
           <Route path="/app/ai/workflow-monitoring" element={<WorkflowMonitoringPage />} />
-          <Route path="/app/ai/monitoring" element={<NavigationCapture />} />
+          <Route path="/app/ai/monitoring/workflows" element={<NavigationCapture />} />
         </Routes>
       </MemoryRouter>
     );
@@ -31,7 +31,7 @@ describe('WorkflowMonitoringPage', () => {
       <MemoryRouter initialEntries={['/app/ai/workflow-monitoring']}>
         <Routes>
           <Route path="/app/ai/workflow-monitoring" element={<WorkflowMonitoringPage />} />
-          <Route path="/app/ai/monitoring" element={<div>Target Page</div>} />
+          <Route path="/app/ai/monitoring/workflows" element={<div>Target Page</div>} />
         </Routes>
       </MemoryRouter>
     );

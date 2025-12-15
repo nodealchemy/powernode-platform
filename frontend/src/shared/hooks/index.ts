@@ -10,6 +10,8 @@ export { useSubscriptionLifecycle } from './useSubscriptionLifecycle';
 export { useSubscriptionWebSocket } from './useSubscriptionWebSocket';
 export { useMcpWebSocket } from './useMcpWebSocket';
 export { useAiOrchestrationWebSocket } from './useAiOrchestrationWebSocket';
+export { useAiMonitoringWebSocket } from './useAiMonitoringWebSocket';
+export { useNotificationWebSocket } from './useNotificationWebSocket';
 export { useTabBreadcrumb } from './useTabBreadcrumb';
 
 // MCP Workflow Builder hooks
@@ -54,3 +56,14 @@ export type {
   ProviderEventType,
   AiOrchestrationEventType
 } from './useAiOrchestrationWebSocket';
+
+// AI Monitoring WebSocket types
+export type {
+  DashboardStats,
+  WorkflowExecution,
+  SystemAlert,
+  CostAlert
+} from './useAiMonitoringWebSocket';
+
+// Notification WebSocket types
+export type { WebSocketNotification } from './useNotificationWebSocket';

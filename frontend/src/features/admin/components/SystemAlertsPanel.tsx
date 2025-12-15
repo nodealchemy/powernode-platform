@@ -8,8 +8,6 @@ import { performanceApi, PerformanceAlert } from '@/shared/services/performanceA
 import { useNotifications } from '@/shared/hooks/useNotifications';
 
 interface SystemAlertsPanelProps {
-  autoRefresh?: boolean;
-  refreshInterval?: number;
   maxDisplayedAlerts?: number;
 }
 
@@ -20,8 +18,6 @@ interface AlertFilters {
 }
 
 export const SystemAlertsPanel: React.FC<SystemAlertsPanelProps> = ({
-  autoRefresh = true,
-  refreshInterval = 30000,
   maxDisplayedAlerts = 10
 }) => {
   const [alerts, setAlerts] = useState<PerformanceAlert[]>([]);
@@ -36,15 +32,10 @@ export const SystemAlertsPanel: React.FC<SystemAlertsPanelProps> = ({
 
   const { showNotification } = useNotifications();
 
+  // Load alerts on mount - manual refresh only (no polling)
   useEffect(() => {
     loadAlerts();
-
-    // Temporarily disable auto-refresh to debug page refresh issues
-    // if (autoRefresh) {
-    //   const interval = setInterval(loadAlerts, refreshInterval);
-    //   return () => clearInterval(interval);
-    // }
-  }, [autoRefresh, refreshInterval]);
+  }, []);
 
   const loadAlerts = async () => {
     try {
@@ -318,15 +309,7 @@ export const SystemAlertsPanel: React.FC<SystemAlertsPanelProps> = ({
         )}
       </div>
 
-      {/* Auto-refresh indicator */}
-      {autoRefresh && alerts.length > 0 && (
-        <div className="px-6 py-3 border-t border-theme bg-theme-background">
-          <p className="text-xs text-theme-secondary text-center">
-            Auto-refreshing every {Math.floor(refreshInterval / 1000)} seconds
-          </p>
-        </div>
-      )}
-    </div>
+      </div>
   );
 };
 

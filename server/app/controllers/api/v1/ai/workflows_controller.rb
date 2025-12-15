@@ -310,10 +310,147 @@ module Api
 
         # GET /api/v1/ai/workflows/templates
         def templates
-          # Workflow templates for common use cases
-          templates = build_workflow_templates
+          # Return actual workflow templates from the database
+          templates_scope = AiWorkflow.templates
+                                      .where(visibility: [ "public", "account" ])
+                                      .or(AiWorkflow.templates.where(account_id: current_user.account_id))
+                                      .includes(:creator, :ai_workflow_nodes)
 
-          render_success({ templates: templates })
+          # Apply filters
+          templates_scope = templates_scope.where(template_category: params[:category]) if params[:category].present?
+          templates_scope = templates_scope.search_by_text(params[:search]) if params[:search].present?
+
+          # Include built-in templates if no database templates exist or explicitly requested
+          db_templates = templates_scope.order(created_at: :desc).map { |t| serialize_template(t) }
+
+          # Add built-in templates for bootstrapping
+          builtin_templates = build_workflow_templates
+
+          # Merge: database templates first, then built-in templates that don't overlap
+          db_template_ids = db_templates.map { |t| t[:id] }
+          all_templates = db_templates + builtin_templates.reject { |t| db_template_ids.include?(t[:id]) }
+
+          render_success({ templates: all_templates })
+        end
+
+        # POST /api/v1/ai/workflows/:id/convert_to_template
+        def convert_to_template
+          authorize_workflow_action!("ai.workflows.update")
+
+          ActiveRecord::Base.transaction do
+            @workflow.update!(
+              is_template: true,
+              template_category: params[:category] || "custom",
+              visibility: params[:visibility] || "account"
+            )
+
+            render_success({
+              template: serialize_template(@workflow),
+              message: "Workflow converted to template successfully"
+            })
+
+            log_audit_event("ai.workflows.convert_to_template", @workflow)
+          end
+        rescue ActiveRecord::RecordInvalid => e
+          render_validation_error(e.record.errors)
+        end
+
+        # POST /api/v1/ai/workflows/:id/create_from_template
+        def create_from_template
+          authorize_workflow_action!("ai.workflows.create")
+
+          source_workflow = AiWorkflow.find(params[:id])
+
+          # Verify user can access the template
+          unless source_workflow.is_template? &&
+                 (source_workflow.visibility == "public" ||
+                  source_workflow.account_id == current_user.account_id)
+            render_error("Template not found or not accessible", status: :not_found)
+            return
+          end
+
+          ActiveRecord::Base.transaction do
+            # Create new workflow as a copy of the template
+            new_workflow = source_workflow.dup
+            new_workflow.assign_attributes(
+              name: params[:name] || "#{source_workflow.name} (Copy)",
+              is_template: false,
+              template_category: nil,
+              account_id: current_user.account_id,
+              creator_id: current_user.id,
+              status: "draft",
+              visibility: "private",
+              version: "1.0.0",
+              execution_count: 0,
+              last_executed_at: nil,
+              published_at: nil,
+              metadata: (source_workflow.metadata || {}).merge(
+                source_template_id: source_workflow.id,
+                source_template_name: source_workflow.name
+              )
+            )
+            new_workflow.save!
+
+            # Duplicate nodes
+            node_id_mapping = {}
+            source_workflow.ai_workflow_nodes.each do |node|
+              new_node = node.dup
+              new_node.ai_workflow = new_workflow
+              new_node.save!
+              node_id_mapping[node.node_id] = new_node.node_id
+            end
+
+            # Duplicate edges with updated node references
+            source_workflow.ai_workflow_edges.each do |edge|
+              new_edge = edge.dup
+              new_edge.ai_workflow = new_workflow
+              new_edge.save!
+            end
+
+            # Duplicate variables
+            source_workflow.ai_workflow_variables.each do |variable|
+              new_variable = variable.dup
+              new_variable.ai_workflow = new_workflow
+              new_variable.save!
+            end
+
+            render_success({
+              workflow: serialize_workflow_detail(new_workflow),
+              message: "Workflow created from template successfully"
+            }, status: :created)
+
+            log_audit_event("ai.workflows.create_from_template", new_workflow, { source_template_id: source_workflow.id })
+          end
+        rescue ActiveRecord::RecordNotFound
+          render_error("Template not found", status: :not_found)
+        rescue ActiveRecord::RecordInvalid => e
+          render_validation_error(e.record.errors)
+        end
+
+        # POST /api/v1/ai/workflows/:id/convert_to_workflow
+        def convert_to_workflow
+          authorize_workflow_action!("ai.workflows.update")
+
+          unless @workflow.is_template?
+            render_error("This workflow is not a template", status: :unprocessable_entity)
+            return
+          end
+
+          ActiveRecord::Base.transaction do
+            @workflow.update!(
+              is_template: false,
+              template_category: nil
+            )
+
+            render_success({
+              workflow: serialize_workflow_detail(@workflow),
+              message: "Template converted to workflow successfully"
+            })
+
+            log_audit_event("ai.workflows.convert_to_workflow", @workflow)
+          end
+        rescue ActiveRecord::RecordInvalid => e
+          render_validation_error(e.record.errors)
         end
 
         # =============================================================================
@@ -321,14 +458,22 @@ module Api
         # =============================================================================
 
         # GET /api/v1/ai/workflows/:workflow_id/runs
+        # GET /api/v1/ai/workflow_runs (for worker service cleanup)
         def runs_index
-          # Determine scope based on route
+          # Determine scope based on route and authentication context
           runs = if params[:workflow_id].present?
                   # Nested under specific workflow
-                  workflow = current_user.account.ai_workflows.find(params[:workflow_id])
+                  if current_worker || current_service
+                    workflow = AiWorkflow.find(params[:workflow_id])
+                  else
+                    workflow = current_user.account.ai_workflows.find(params[:workflow_id])
+                  end
                   workflow.ai_workflow_runs
+          elsif current_worker || current_service
+                  # Worker/service context - access all runs across all accounts
+                  AiWorkflowRun.joins(:ai_workflow)
           else
-                  # All runs across all workflows
+                  # User context - All runs across user's account workflows
                   AiWorkflowRun.joins(:ai_workflow)
                               .where(ai_workflows: { account_id: current_user.account_id })
           end
@@ -338,6 +483,7 @@ module Api
           runs = apply_pagination(runs.order(created_at: :desc))
 
           render_success({
+            workflow_runs: runs.map { |run| serialize_run(run) },
             items: runs.map { |run| serialize_run(run) },
             pagination: pagination_data(runs)
           })
@@ -371,6 +517,42 @@ module Api
             render_validation_error(@workflow_run.errors)
           end
 
+        rescue ArgumentError => e
+          render_error("Invalid parameter format: #{e.message}", status: :bad_request)
+        rescue StandardError => e
+          render_error("Update failed: #{e.message}", status: :unprocessable_content)
+        end
+
+        # PATCH /api/v1/ai/workflow_runs/:run_id
+        # Direct update endpoint for worker service (doesn't require workflow_id)
+        def run_update_direct
+          # Only allow workers/services to use this endpoint
+          unless current_worker || current_service
+            return render_error("Unauthorized: this endpoint is for worker services only", status: :forbidden)
+          end
+
+          workflow_run = AiWorkflowRun.find_by!(run_id: params[:run_id])
+
+          update_params = run_update_params
+
+          # Convert datetime strings
+          %w[started_at completed_at cancelled_at].each do |field|
+            if update_params[field].present? && update_params[field].is_a?(String)
+              update_params[field] = Time.parse(update_params[field])
+            end
+          end
+
+          if workflow_run.update(update_params)
+            render_success({
+              workflow_run: serialize_run_detail(workflow_run),
+              message: "Workflow run updated successfully"
+            })
+          else
+            render_validation_error(workflow_run.errors)
+          end
+
+        rescue ActiveRecord::RecordNotFound
+          render_error("Workflow run not found", status: :not_found)
         rescue ArgumentError => e
           render_error("Invalid parameter format: #{e.message}", status: :bad_request)
         rescue StandardError => e
@@ -817,7 +999,7 @@ module Api
             require_permission("ai.workflows.create")
           when "update", "validate"
             require_permission("ai.workflows.update")
-          when "run_update", "run_check_timeout"
+          when "run_update", "run_update_direct", "run_check_timeout"
             require_permission("ai.workflows.update")
           when "destroy", "run_destroy", "runs_destroy_all"
             require_permission("ai.workflows.delete")
@@ -835,6 +1017,7 @@ module Api
         def workflow_params
           params.require(:workflow).permit(
             :name, :description, :status, :visibility, :version,
+            :is_template, :template_category,
             :tags, :trigger_types, :execution_mode, :retry_policy,
             :timeout_seconds, :max_execution_time, :cost_limit,
             configuration: {},
@@ -866,6 +1049,11 @@ module Api
           workflows = workflows.where(status: params[:status]) if params[:status].present?
           workflows = workflows.where(visibility: params[:visibility]) if params[:visibility].present?
           workflows = workflows.search_by_text(params[:search]) if params[:search].present?
+          # Filter by is_template - only apply if explicitly set (not nil/empty)
+          if params[:is_template].present?
+            is_template_value = ActiveModel::Type::Boolean.new.cast(params[:is_template])
+            workflows = workflows.where(is_template: is_template_value)
+          end
           workflows
         end
 
@@ -880,6 +1068,15 @@ module Api
 
           if params[:end_date].present?
             runs = runs.where("created_at <= ?", Date.parse(params[:end_date]))
+          end
+
+          # Support ISO8601 timestamp filtering (used by worker cleanup jobs)
+          if params[:before].present?
+            runs = runs.where("created_at < ?", Time.parse(params[:before]))
+          end
+
+          if params[:limit].present?
+            runs = runs.limit(params[:limit].to_i)
           end
 
           runs
@@ -1024,6 +1221,8 @@ module Api
             status: workflow.status,
             visibility: workflow.visibility,
             version: workflow.version,
+            is_template: workflow.is_template || false,
+            template_category: workflow.template_category,
             tags: workflow.metadata["tags"] || [],
             created_at: workflow.created_at.iso8601,
             updated_at: workflow.updated_at.iso8601,
@@ -1066,6 +1265,8 @@ module Api
             status: workflow.status,
             visibility: workflow.visibility,
             version: workflow.version,
+            is_template: workflow.is_template || false,
+            template_category: workflow.template_category,
             tags: workflow.metadata["tags"] || [],
             trigger_types: workflow.metadata["trigger_types"] || [],
             execution_mode: workflow.configuration["execution_mode"] || "sequential",
@@ -1424,6 +1625,28 @@ module Api
 
           # If no content found, return nil
           nil
+        end
+
+        def serialize_template(workflow)
+          {
+            id: workflow.id,
+            name: workflow.name,
+            description: workflow.description,
+            category: workflow.template_category || "custom",
+            execution_mode: workflow.configuration&.dig("execution_mode") || "sequential",
+            difficulty: workflow.metadata&.dig("difficulty") || "intermediate",
+            estimated_duration: workflow.metadata&.dig("estimated_duration") || "5-15 minutes",
+            tags: workflow.metadata&.dig("tags") || [],
+            is_database_template: true,
+            visibility: workflow.visibility,
+            nodes_count: workflow.ai_workflow_nodes.count,
+            created_at: workflow.created_at.iso8601,
+            updated_at: workflow.updated_at.iso8601,
+            created_by: workflow.creator ? {
+              id: workflow.creator.id,
+              name: workflow.creator.full_name
+            } : nil
+          }
         end
 
         def build_workflow_templates

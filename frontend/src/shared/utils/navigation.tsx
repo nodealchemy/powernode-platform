@@ -3,7 +3,7 @@ import {
   Home, BarChart3, Users, User, Settings, CreditCard,
   FileText, Package, UserCheck, Store, Smartphone,
   HelpCircle, LogOut, Bot, Brain, MessageSquare,
-  HardDrive, Workflow, Activity, Server, FileStack
+  HardDrive, Workflow, Activity, Server
 } from 'lucide-react';
 import { NavigationConfig } from '../types/navigation';
 
@@ -28,13 +28,22 @@ export const defaultNavigationConfig: NavigationConfig = {
       order: 2
     },
     {
+      id: 'team-members',
+      name: 'Team Members',
+      href: '/app/users',
+      icon: Users,
+      description: 'Manage your team members',
+      permissions: ['team.read'],
+      order: 3
+    },
+    {
       id: 'marketplace',
       name: 'Marketplace',
       href: '/app/marketplace',
       icon: Store,
       description: 'Browse apps, manage subscriptions, and create your own',
       permissions: [],
-      order: 3
+      order: 4
     }
   ],
   
@@ -75,18 +84,9 @@ export const defaultNavigationConfig: NavigationConfig = {
           name: 'Workflows',
           href: '/app/ai/workflows',
           icon: Workflow,
-          description: 'Design and execute AI workflows',
+          description: 'Design and execute AI workflows and templates',
           permissions: ['ai.workflows.read'],
           order: 4
-        },
-        {
-          id: 'ai-templates',
-          name: 'Templates',
-          href: '/app/ai/workflows/templates',
-          icon: FileStack,
-          description: 'Pre-built workflow templates',
-          permissions: ['ai.workflows.read'],
-          order: 5
         },
         {
           id: 'ai-conversations',
@@ -440,25 +440,6 @@ export const adminNavigationOverrides = {
       collapsible: true,
       defaultExpanded: false,
       order: 20
-    },
-    {
-      id: 'account',
-      name: 'Account',
-      items: [
-        {
-          id: 'account-users',
-          name: 'Team Members',
-          href: '/app/users',
-          icon: Users,
-          description: 'Manage your team members',
-          permissions: ['team.read'],
-          order: 1
-        }
-      ],
-      permissions: [],
-      collapsible: true,
-      defaultExpanded: false,
-      order: 5
     }
   ]
 };

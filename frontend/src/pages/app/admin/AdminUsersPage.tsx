@@ -5,6 +5,7 @@ import { startImpersonation } from '@/shared/services/slices/authSlice';
 import { usersApi, User, UserFormData, UserStats } from '@/features/users/services/usersApi';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import { UserPlus, RefreshCw, Filter, Download } from 'lucide-react';
 import { UserRolesModal } from '@/features/users/components/UserRolesModal';
 import {
@@ -23,11 +24,11 @@ import {
 const AdminUsersPage: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const { user: currentUser } = useSelector((state: RootState) => state.auth);
+  const { showNotification } = useNotifications();
   const [users, setUsers] = useState<User[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   const [userStats, setUserStats] = useState<UserStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -74,7 +75,6 @@ const AdminUsersPage: React.FC = () => {
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      setError(null);
 
       const [usersResponse, statsResponse] = await Promise.all([
         usersApi.getAllUsers(),
@@ -93,10 +93,11 @@ const AdminUsersPage: React.FC = () => {
         setUserStats(null);
       }
     } catch {
-      setError('Failed to load users. Please check your connection and try again.');
+      showNotification('Failed to load users. Please check your connection and try again.', 'error');
     } finally {
       setLoading(false);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -249,7 +250,7 @@ const AdminUsersPage: React.FC = () => {
       await loadData();
       setSelectedUsers(new Set());
     } catch {
-      setError(`Failed to ${action} selected users. Please try again.`);
+      showNotification(`Failed to ${action} selected users. Please try again.`, 'error');
     } finally {
       setActionLoading(false);
     }
@@ -258,7 +259,7 @@ const AdminUsersPage: React.FC = () => {
   // Impersonation
   const handleImpersonateUser = async (user: User) => {
     if (user.id === currentUser?.id) {
-      setError('Cannot impersonate yourself');
+      showNotification('Cannot impersonate yourself', 'error');
       return;
     }
 
@@ -271,7 +272,7 @@ const AdminUsersPage: React.FC = () => {
       window.location.href = '/app';
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to impersonate user. Please try again.';
-      setError(errorMessage);
+      showNotification(errorMessage, 'error');
     } finally {
       setActionLoading(false);
     }
@@ -368,10 +369,10 @@ const AdminUsersPage: React.FC = () => {
         setShowDeleteModal(false);
         resetForm();
       } else {
-        setError(response.message || 'Failed to delete user');
+        showNotification(response.message || 'Failed to delete user', 'error');
       }
     } catch {
-      setError('Failed to delete user. Please try again.');
+      showNotification('Failed to delete user. Please try again.', 'error');
     } finally {
       setActionLoading(false);
     }
@@ -379,6 +380,18 @@ const AdminUsersPage: React.FC = () => {
 
   // User actions
   const handleUserAction = async (user: User, action: 'suspend' | 'activate' | 'unlock' | 'reset_password' | 'resend_verification') => {
+    // Confirmation for sensitive actions
+    if (action === 'suspend') {
+      if (!window.confirm(`Are you sure you want to suspend ${user.name}? They will lose access to the platform.`)) {
+        return;
+      }
+    }
+    if (action === 'activate') {
+      if (!window.confirm(`Are you sure you want to activate ${user.name}?`)) {
+        return;
+      }
+    }
+
     try {
       setActionLoading(true);
       setOpenDropdownUserId(null);
@@ -405,10 +418,10 @@ const AdminUsersPage: React.FC = () => {
       if (response.success) {
         await loadData();
       } else {
-        setError(response.message || `Failed to ${action} user`);
+        showNotification(response.message || `Failed to ${action} user`, 'error');
       }
     } catch {
-      setError(`Failed to ${action} user. Please try again.`);
+      showNotification(`Failed to ${action} user. Please try again.`, 'error');
     } finally {
       setActionLoading(false);
     }
@@ -503,20 +516,6 @@ const AdminUsersPage: React.FC = () => {
 
           {/* Stats */}
           {userStats && <UserStatsCards userStats={userStats} />}
-
-          {/* Error Display */}
-          {error && (
-            <div className="bg-theme-warning/10 border border-theme-warning/30 text-theme-warning px-4 py-3 rounded mb-4">
-              <div className="flex">
-                <div className="flex-shrink-0">
-                  <span className="text-theme-warning">⚠️</span>
-                </div>
-                <div className="ml-3">
-                  <p className="text-sm">{error}</p>
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* Bulk Actions */}
           {selectedUsers.size > 0 && (

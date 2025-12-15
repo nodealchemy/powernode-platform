@@ -1,37 +1,39 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import {
-  Activity,
   AlertTriangle,
-  Bell,
-  Clock,
   Pause,
   Play,
-  RefreshCw,
-  Settings,
-  Users,
-  Zap,
-  BarChart3
+  RefreshCw
 } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { Card, CardContent } from '@/shared/components/ui/Card';
-import { Button } from '@/shared/components/ui/Button';
-import { Badge } from '@/shared/components/ui/Badge';
-import { Select } from '@/shared/components/ui/Select';
 import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { useNotifications } from '@/shared/hooks/useNotifications';
-import { monitoringApi, MonitoringDashboard, HealthStatus, Alert as ApiAlert } from '@/shared/services/ai/MonitoringApiService';
+import { useAiMonitoringWebSocket, DashboardStats, SystemAlert } from '@/shared/hooks/useAiMonitoringWebSocket';
+import { monitoringApi } from '@/shared/services/ai/MonitoringApiService';
 import {
   MonitoringDashboardData,
   SystemHealthData,
-  MonitoringInterval,
   Alert,
   ResourceUtilization,
   ProviderMetrics,
   AgentMetrics,
   ConversationMetrics
 } from '@/shared/types/monitoring';
+
+// Import monitoring utilities and components
+import {
+  transformDashboardData,
+  transformHealthData,
+  transformAlerts,
+  getMonitoringBreadcrumbs,
+  MONITORING_TABS,
+  VALID_TAB_IDS
+} from '@/features/ai-monitoring/utils';
+import { MonitoringOverviewCards } from '@/features/ai-monitoring/components/MonitoringOverviewCards';
+import { MonitoringStatusBar } from '@/features/ai-monitoring/components/MonitoringStatusBar';
 
 // Import monitoring components
 import { SystemHealthDashboard } from '@/features/ai-monitoring/components/SystemHealthDashboard';
@@ -46,7 +48,8 @@ import { AiErrorBoundary } from '@/shared/components/error/AiErrorBoundary';
 export const AIMonitoringPage: React.FC = () => {
   const { currentUser } = useAuth();
   const { addNotification } = useNotifications();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const { tab: tabParam } = useParams<{ tab?: string }>();
+  const navigate = useNavigate();
 
   // Use ref to avoid infinite loop from addNotification dependency
   const addNotificationRef = useRef(addNotification);
@@ -65,29 +68,77 @@ export const AIMonitoringPage: React.FC = () => {
 
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
 
-  // Monitoring configuration - read from URL params
-  const validTabs = ['overview', 'providers', 'agents', 'workflows', 'conversations', 'alerts'];
-  const tabFromUrl = searchParams.get('tab');
-  const activeTab = validTabs.includes(tabFromUrl || '') ? tabFromUrl! : 'overview';
+  // Monitoring configuration - read from URL route params
+  const activeTab = VALID_TAB_IDS.includes(tabParam as typeof VALID_TAB_IDS[number]) ? tabParam! : 'overview';
 
   const setActiveTab = useCallback((tab: string) => {
-    setSearchParams(prev => {
-      const newParams = new URLSearchParams(prev);
-      if (tab === 'overview') {
-        newParams.delete('tab');
-      } else {
-        newParams.set('tab', tab);
-      }
-      return newParams;
-    });
-  }, [setSearchParams]);
+    if (tab === 'overview') {
+      navigate('/app/ai/monitoring');
+    } else {
+      navigate(`/app/ai/monitoring/${tab}`);
+    }
+  }, [navigate]);
 
-  const [monitoringInterval, setMonitoringInterval] = useState<MonitoringInterval>('normal');
   const [timeRange, setTimeRange] = useState('1h');
   const [isRealTimeEnabled, setIsRealTimeEnabled] = useState(false);
+
+  // WebSocket hook for real-time updates
+  const {
+    isConnected: wsConnected,
+    requestDashboardStats,
+    startRealTimeMonitoring,
+    stopRealTimeMonitoring,
+    error: wsError
+  } = useAiMonitoringWebSocket({
+    onDashboardStats: (stats: DashboardStats) => {
+      // Update dashboard with real-time stats from WebSocket
+      setDashboardData(prev => prev ? {
+        ...prev,
+        overview: {
+          ...prev.overview,
+          total_workflows: stats.total_workflows,
+          active_conversations: stats.active_executions
+        }
+      } : prev);
+      setLastUpdate(new Date());
+    },
+    onSystemAlert: (alert: SystemAlert) => {
+      // Add new alert to the list
+      setAlerts(prev => [{
+        id: alert.id,
+        severity: alert.severity === 'critical' ? 'critical' : alert.severity === 'warning' ? 'high' : 'medium',
+        component: alert.source,
+        title: alert.message.split(':')[0] || 'Alert',
+        message: alert.message,
+        metadata: {},
+        acknowledged: false,
+        acknowledged_at: null,
+        acknowledged_by: null,
+        resolved: false,
+        resolved_at: null,
+        resolved_by: null,
+        created_at: alert.timestamp
+      }, ...prev]);
+
+      addNotificationRef.current({
+        type: alert.severity === 'critical' ? 'error' : 'warning',
+        title: 'System Alert',
+        message: alert.message
+      });
+    },
+    onRealTimeModeChanged: (enabled: boolean) => {
+      setIsRealTimeEnabled(enabled);
+    },
+    onError: (errorMessage: string) => {
+      addNotificationRef.current({
+        type: 'error',
+        title: 'WebSocket Error',
+        message: errorMessage
+      });
+    }
+  });
 
   // Permission checks
   const canViewMonitoring = useMemo(() =>
@@ -109,79 +160,12 @@ export const AIMonitoringPage: React.FC = () => {
     false
   , [currentUser]);
 
-  // Helper function to transform API response to internal types
-  const transformDashboardData = useCallback((dashboard: MonitoringDashboard): MonitoringDashboardData => {
-    return {
-      overview: {
-        total_providers: dashboard.providers?.length || 0,
-        total_agents: dashboard.agents?.total || 0,
-        total_workflows: dashboard.workflows?.total || 0,
-        active_conversations: dashboard.workflows?.running || 0,
-        system_uptime: 0,
-        last_updated: new Date().toISOString()
-      },
-      timestamp: new Date().toISOString(),
-      health_score: dashboard.system_health?.uptime_percentage || 100,
-      components: {}
-    };
-  }, []);
-
-  const transformHealthData = useCallback((health: HealthStatus): SystemHealthData => {
-    const statusScore = health.status === 'healthy' ? 95 : health.status === 'degraded' ? 70 : 40;
-    const defaultComponentHealth = {
-      health_score: statusScore,
-      status: health.status === 'healthy' ? 'healthy' as const : 'degraded' as const,
-      active_count: 0,
-      issues: []
-    };
-
-    return {
-      overall_health: statusScore,
-      status: health.status === 'healthy' ? 'excellent' : health.status === 'degraded' ? 'fair' : 'critical',
-      components: {
-        providers: defaultComponentHealth,
-        agents: defaultComponentHealth,
-        workflows: defaultComponentHealth,
-        conversations: defaultComponentHealth,
-        infrastructure: defaultComponentHealth
-      },
-      alerts: {
-        active: 0,
-        high_priority: 0,
-        medium_priority: 0,
-        low_priority: 0,
-        by_component: {},
-        recent_count: 0
-      },
-      recommendations: [],
-      last_updated: health.timestamp
-    };
-  }, []);
-
-  const transformAlerts = useCallback((apiAlerts: ApiAlert[]): Alert[] => {
-    return apiAlerts.map(alert => ({
-      id: alert.id,
-      severity: alert.severity === 'critical' ? 'critical' : alert.severity === 'warning' ? 'high' : 'medium',
-      component: alert.component,
-      title: alert.message.split(':')[0] || 'Alert',
-      message: alert.message,
-      metadata: {},
-      acknowledged: alert.acknowledged,
-      acknowledged_at: null,
-      acknowledged_by: null,
-      resolved: alert.resolved,
-      resolved_at: null,
-      resolved_by: null,
-      created_at: alert.timestamp
-    }));
-  }, []);
 
   // Fetch all monitoring data
   const fetchMonitoringData = useCallback(async () => {
     if (!canViewMonitoring) return;
 
     setIsLoading(true);
-    setError(null);
 
     try {
       // Fetch all data in parallel
@@ -318,7 +302,6 @@ export const AIMonitoringPage: React.FC = () => {
 
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch monitoring data';
-      setError(errorMessage);
       setIsConnected(false);
       addNotificationRef.current({
         type: 'error',
@@ -330,42 +313,22 @@ export const AIMonitoringPage: React.FC = () => {
     }
   }, [canViewMonitoring, transformDashboardData, transformHealthData, transformAlerts]);
 
-  // Initialize monitoring connection
+  // Initialize monitoring - fetch initial data only (WebSocket handles real-time updates)
   useEffect(() => {
     if (!canViewMonitoring) return;
 
-    // Fetch initial data
+    // Fetch initial data via REST API
     fetchMonitoringData();
+  }, [canViewMonitoring, fetchMonitoringData]);
 
-    // Set up polling interval based on monitoring interval setting
-    let pollInterval: NodeJS.Timeout | null = null;
-
-    const getIntervalMs = (interval: MonitoringInterval): number => {
-      switch (interval) {
-        case 'real-time': return 1000;
-        case 'fast': return 5000;
-        case 'normal': return 30000;
-        case 'slow': return 120000;
-        default: return 30000;
-      }
-    };
-
-    if (isRealTimeEnabled || monitoringInterval !== 'slow') {
-      pollInterval = setInterval(fetchMonitoringData, getIntervalMs(monitoringInterval));
+  // Update connection state based on WebSocket and initial fetch
+  useEffect(() => {
+    if (wsConnected && !isConnected) {
+      setIsConnected(true);
+    } else if (!wsConnected && wsError) {
+      setIsConnected(false);
     }
-
-    return () => {
-      if (pollInterval) {
-        clearInterval(pollInterval);
-      }
-    };
-  }, [canViewMonitoring, fetchMonitoringData, monitoringInterval, isRealTimeEnabled]);
-
-  // Handle interval changes
-  const handleIntervalChange = useCallback((newInterval: MonitoringInterval) => {
-    setMonitoringInterval(newInterval);
-    // Polling interval will be updated by the useEffect watching monitoringInterval
-  }, []);
+  }, [wsConnected, wsError, isConnected]);
 
   // Handle time range changes
   const handleTimeRangeChange = useCallback((newTimeRange: string) => {
@@ -374,90 +337,37 @@ export const AIMonitoringPage: React.FC = () => {
     fetchMonitoringData();
   }, [fetchMonitoringData]);
 
-  // Toggle real-time monitoring
-  const toggleRealTimeMonitoring = useCallback(() => {
-    const newRealTimeEnabled = !isRealTimeEnabled;
-    setIsRealTimeEnabled(newRealTimeEnabled);
-
-    if (newRealTimeEnabled) {
-      handleIntervalChange('real-time');
-      addNotification({
-        type: 'info',
-        title: 'Real-time Monitoring Enabled',
-        message: 'Now receiving live updates every second'
-      });
-    } else {
-      handleIntervalChange('normal');
+  // Toggle real-time monitoring via WebSocket
+  const toggleRealTimeMonitoring = useCallback(async () => {
+    if (isRealTimeEnabled) {
+      await stopRealTimeMonitoring();
+      setIsRealTimeEnabled(false);
       addNotification({
         type: 'info',
         title: 'Real-time Monitoring Disabled',
-        message: 'Switched to normal update interval'
+        message: 'Switched to manual refresh mode'
+      });
+    } else {
+      await startRealTimeMonitoring();
+      setIsRealTimeEnabled(true);
+      addNotification({
+        type: 'info',
+        title: 'Real-time Monitoring Enabled',
+        message: 'Now receiving live WebSocket updates'
       });
     }
-  }, [isRealTimeEnabled, handleIntervalChange, addNotification]);
+  }, [isRealTimeEnabled, startRealTimeMonitoring, stopRealTimeMonitoring, addNotification]);
 
   // Refresh all data
-  const refreshAllData = useCallback(() => {
-    fetchMonitoringData();
-  }, [fetchMonitoringData]);
-
-  // Format health score color
-  const getHealthScoreColor = (score: number) => {
-    if (score >= 90) return 'text-theme-success';
-    if (score >= 80) return 'text-theme-primary';
-    if (score >= 70) return 'text-theme-warning';
-    if (score >= 50) return 'text-theme-error';
-    return 'text-theme-error';
-  };
-
-  // Format connection status
-  const getConnectionStatusColor = () => {
-    return isConnected ? 'bg-theme-success' : 'bg-theme-error';
-  };
-
-  // Format last update time
-  const formatLastUpdate = (date: Date | null) => {
-    if (!date) return 'Never';
-    const now = new Date();
-    const diff = now.getTime() - date.getTime();
-    const seconds = Math.floor(diff / 1000);
-
-    if (seconds < 60) return `${seconds}s ago`;
-    const minutes = Math.floor(seconds / 60);
-    if (minutes < 60) return `${minutes}m ago`;
-    const hours = Math.floor(minutes / 60);
-    return `${hours}h ago`;
-  };
-
-  // Tab definitions for consistent reference
-  const tabs = [
-    { id: 'overview', label: 'System Health', icon: '🏥' },
-    { id: 'providers', label: 'Providers', icon: '🔌' },
-    { id: 'agents', label: 'Agents', icon: '🤖' },
-    { id: 'workflows', label: 'Workflows', icon: '⚡' },
-    { id: 'conversations', label: 'Conversations', icon: '💬' },
-    { id: 'alerts', label: 'Alerts', icon: '🔔' }
-  ];
-
-  // Dynamic breadcrumbs based on active tab
-  const getBreadcrumbs = () => {
-    const baseBreadcrumbs = [
-      { label: 'Dashboard', href: '/app', icon: '🏠' },
-      { label: 'AI', href: '/app/ai', icon: '🤖' },
-      { label: 'Monitoring', icon: '📊' }
-    ];
-
-    // Add active tab to breadcrumbs if not the default overview tab
-    const activeTabInfo = tabs.find(tab => tab.id === activeTab);
-    if (activeTabInfo && activeTab !== 'overview') {
-      baseBreadcrumbs.push({
-        label: activeTabInfo.label,
-        icon: activeTabInfo.icon
-      });
+  const refreshAllData = useCallback(async () => {
+    // Fetch via REST API for full data
+    await fetchMonitoringData();
+    // Also request WebSocket update for real-time sync
+    if (wsConnected) {
+      requestDashboardStats();
     }
+  }, [fetchMonitoringData, wsConnected, requestDashboardStats]);
 
-    return baseBreadcrumbs;
-  };
 
   if (!canViewMonitoring) {
     return (
@@ -483,7 +393,7 @@ export const AIMonitoringPage: React.FC = () => {
       <PageContainer
         title="AI System Monitoring"
         description="Comprehensive real-time monitoring of AI providers, agents, workflows, and system health"
-        breadcrumbs={getBreadcrumbs()}
+        breadcrumbs={getMonitoringBreadcrumbs(activeTab)}
         actions={[
           {
           label: isRealTimeEnabled ? 'Disable Real-time' : 'Enable Real-time',
@@ -503,167 +413,22 @@ export const AIMonitoringPage: React.FC = () => {
     >
       <div className="space-y-6">
         {/* Connection Status & Controls */}
-        <div className="flex items-center justify-between bg-theme-surface border border-theme-border rounded-lg p-4">
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <div className={`h-3 w-3 rounded-full ${getConnectionStatusColor()}`} />
-              <span className="text-sm font-medium text-theme-primary">
-                {isConnected ? 'Connected' : 'Disconnected'}
-                {isRealTimeEnabled && ' (Real-time)'}
-              </span>
-            </div>
-
-            {systemHealth && (
-              <div className="flex items-center gap-2">
-                <Activity className="h-4 w-4 text-theme-muted" />
-                <span className="text-sm text-theme-muted">System Health:</span>
-                <span className={`text-sm font-medium ${getHealthScoreColor(systemHealth.overall_health)}`}>
-                  {systemHealth.overall_health.toFixed(1)}%
-                </span>
-                <Badge variant={systemHealth.status === 'excellent' ? 'success' :
-                              systemHealth.status === 'good' ? 'info' :
-                              systemHealth.status === 'fair' ? 'warning' : 'danger'}>
-                  {systemHealth.status}
-                </Badge>
-              </div>
-            )}
-
-            {lastUpdate && (
-              <div className="flex items-center gap-2">
-                <Clock className="h-4 w-4 text-theme-muted" />
-                <span className="text-sm text-theme-muted">
-                  Updated {formatLastUpdate(lastUpdate)}
-                </span>
-              </div>
-            )}
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Select
-              value={timeRange}
-              onValueChange={handleTimeRangeChange}
-              disabled={!isConnected}
-            >
-              <option value="5m">Last 5 minutes</option>
-              <option value="15m">Last 15 minutes</option>
-              <option value="1h">Last hour</option>
-              <option value="6h">Last 6 hours</option>
-              <option value="24h">Last 24 hours</option>
-              <option value="7d">Last 7 days</option>
-            </Select>
-
-            <Select
-              value={monitoringInterval}
-              onValueChange={(value) => handleIntervalChange(value as MonitoringInterval)}
-              disabled={!isConnected}
-            >
-              <option value="real-time">Real-time (1s)</option>
-              <option value="fast">Fast (5s)</option>
-              <option value="normal">Normal (30s)</option>
-              <option value="slow">Slow (2m)</option>
-            </Select>
-          </div>
-        </div>
-
-        {/* Error State */}
-        {error && (
-          <Card className="border-theme-error">
-            <CardContent className="flex items-center gap-3 py-4">
-              <AlertTriangle className="h-5 w-5 text-theme-error flex-shrink-0" />
-              <div>
-                <h4 className="font-medium text-theme-error">Monitoring Error</h4>
-                <p className="text-sm text-theme-muted mt-1">{error}</p>
-              </div>
-              <Button
-                onClick={refreshAllData}
-                variant="outline"
-                size="sm"
-                className="ml-auto"
-              >
-                Retry
-              </Button>
-            </CardContent>
-          </Card>
-        )}
+        <MonitoringStatusBar
+          isConnected={isConnected}
+          isRealTimeEnabled={isRealTimeEnabled}
+          wsConnected={wsConnected}
+          systemHealth={systemHealth}
+          lastUpdate={lastUpdate}
+          timeRange={timeRange}
+          onTimeRangeChange={handleTimeRangeChange}
+        />
 
         {/* Overview Cards */}
-        {dashboardData && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-theme-muted">Active Providers</p>
-                    <p className="text-2xl font-bold text-theme-primary">
-                      {dashboardData.overview.total_providers}
-                    </p>
-                  </div>
-                  <Settings className="h-8 w-8 text-theme-info" />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-theme-muted">AI Agents</p>
-                    <p className="text-2xl font-bold text-theme-primary">
-                      {dashboardData.overview.total_agents}
-                    </p>
-                  </div>
-                  <Users className="h-8 w-8 text-theme-success" />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-theme-muted">Active Workflows</p>
-                    <p className="text-2xl font-bold text-theme-primary">
-                      {dashboardData.overview.total_workflows}
-                    </p>
-                  </div>
-                  <Zap className="h-8 w-8 text-theme-primary" />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-theme-muted">Conversations</p>
-                    <p className="text-2xl font-bold text-theme-primary">
-                      {dashboardData.overview.active_conversations}
-                    </p>
-                  </div>
-                  <BarChart3 className="h-8 w-8 text-theme-warning" />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-theme-muted">Active Alerts</p>
-                    <p className="text-2xl font-bold text-theme-primary">
-                      {alerts.filter(a => !a.resolved).length}
-                    </p>
-                  </div>
-                  <Bell className="h-8 w-8 text-theme-error" />
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
+        <MonitoringOverviewCards dashboardData={dashboardData} alerts={alerts} />
 
         {/* Main Monitoring Tabs */}
         <TabContainer
-          tabs={tabs.map(tab =>
+          tabs={MONITORING_TABS.map(tab =>
             tab.id === 'alerts'
               ? { ...tab, badge: { count: alerts.filter(a => !a.resolved).length, variant: 'warning' as const } }
               : tab

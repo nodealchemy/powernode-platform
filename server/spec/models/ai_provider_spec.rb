@@ -638,9 +638,17 @@ RSpec.describe AiProvider, type: :model do
     end
 
     describe '.cleanup_inactive_providers' do
-      before do
-        create_list(:ai_provider, 3, is_active: false, updated_at: 2.months.ago)
-        create_list(:ai_provider, 2, is_active: true, updated_at: 2.months.ago)
+      # Use update_column to bypass ActiveRecord's automatic timestamp update
+      let!(:old_inactive_providers) do
+        create_list(:ai_provider, 3, is_active: false).each do |p|
+          p.update_column(:updated_at, 2.months.ago)
+        end
+      end
+
+      let!(:old_active_providers) do
+        create_list(:ai_provider, 2, is_active: true).each do |p|
+          p.update_column(:updated_at, 2.months.ago)
+        end
       end
 
       it 'removes old inactive providers' do
@@ -653,7 +661,8 @@ RSpec.describe AiProvider, type: :model do
       end
 
       it 'preserves providers with recent activity' do
-        recent_inactive = create(:ai_provider, is_active: false, updated_at: 1.day.ago)
+        recent_inactive = create(:ai_provider, is_active: false)
+        # No update_column needed - the provider was just created so updated_at is recent
 
         described_class.cleanup_inactive_providers(30.days)
         expect(described_class.exists?(recent_inactive.id)).to be true

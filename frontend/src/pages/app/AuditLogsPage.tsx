@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { 
-  Shield, 
-  Eye, 
-  AlertTriangle, 
-  Activity,
+import {
+  Shield,
+  Eye,
+  AlertTriangle,
   Download,
   RefreshCw,
-  Filter
+  Filter,
+  Activity
 } from 'lucide-react';
 import { AuditLogFilters } from '@/features/audit-logs/components/AuditLogFilters';
 import { AuditLogTable } from '@/features/audit-logs/components/AuditLogTable';
@@ -79,7 +79,6 @@ export const AuditLogsPage: React.FC = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [showExport, setShowExport] = useState(false);
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
-  const [refreshInterval, setRefreshInterval] = useState<ReturnType<typeof setInterval> | null>(null);
   
   // State management
   const [state, setState] = useState<AuditLogsState>({
@@ -120,10 +119,9 @@ export const AuditLogsPage: React.FC = () => {
     } catch (_error) {
       setState(prev => ({
         ...prev,
-        loading: false,
-        error: 'Failed to load audit logs. Please try again.'
+        loading: false
       }));
-      showNotification('Failed to load audit logs', 'error');
+      showNotification('Failed to load audit logs. Please try again.', 'error');
     }
   };
 
@@ -164,23 +162,6 @@ export const AuditLogsPage: React.FC = () => {
     showNotification('Audit logs refreshed', 'success');
   };
 
-  // Toggle auto-refresh
-  const toggleAutoRefresh = () => {
-    if (refreshInterval) {
-      clearInterval(refreshInterval);
-      setRefreshInterval(null);
-      showNotification('Auto-refresh disabled', 'info');
-    } else {
-      // TEMPORARILY DISABLED - Causing automatic page refreshes
-      // const interval = setInterval(() => {
-      //   loadAuditLogs();
-      //   loadMetrics();
-      // }, 30000); // Refresh every 30 seconds
-      // setRefreshInterval(interval);
-      showNotification('Auto-refresh enabled (30s)', 'success');
-    }
-  };
-
   // Load data on component mount
   useEffect(() => {
     // Only load data if user has audit read permissions
@@ -188,13 +169,6 @@ export const AuditLogsPage: React.FC = () => {
       loadAuditLogs();
       loadMetrics();
     }
-    
-    // Cleanup interval on unmount
-    return () => {
-      if (refreshInterval) {
-        clearInterval(refreshInterval);
-      }
-    };
   }, [canReadAuditLogs]);
 
   // Calculate summary stats
@@ -209,7 +183,7 @@ export const AuditLogsPage: React.FC = () => {
   const getPageActions = (): PageAction[] => {
     // No actions if user can't read audit logs
     if (!canReadAuditLogs) return [];
-    
+
     const actions: PageAction[] = [
       {
         id: 'filters',
@@ -217,13 +191,6 @@ export const AuditLogsPage: React.FC = () => {
         onClick: () => setShowFilters(!showFilters),
         variant: showFilters ? 'primary' : 'secondary',
         icon: Filter
-      },
-      {
-        id: 'auto-refresh',
-        label: refreshInterval ? 'Auto-refresh ON' : 'Auto-refresh OFF',
-        onClick: toggleAutoRefresh,
-        variant: refreshInterval ? 'success' : 'secondary',
-        icon: Activity
       },
       {
         id: 'refresh',
@@ -365,15 +332,6 @@ export const AuditLogsPage: React.FC = () => {
         >
           <TabPanel tabId="table" activeTab={activeTab}>
             <div className="space-y-6">
-              {state.error && (
-                <div className="bg-theme-error-light border border-theme-error rounded-lg p-4">
-                  <div className="flex items-center gap-2">
-                    <AlertTriangle className="w-5 h-5 text-theme-error" />
-                    <span className="text-sm font-medium text-theme-error-dark">{state.error}</span>
-                  </div>
-                </div>
-              )}
-              
               <AuditLogTable
                 logs={state.logs}
                 loading={state.loading}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Routes, Route, useNavigate, Navigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/shared/services';
@@ -61,7 +61,7 @@ import { WorkflowAnalyticsPage } from './ai/WorkflowAnalyticsPage';
 import { AIMonitoringPage } from './ai/AIMonitoringPage';
 import { McpBrowserPage } from './ai/McpBrowserPage';
 // AI Sub-pages
-import { CreateWorkflowPage, WorkflowTemplatesPage, AIDebugPage } from './ai';
+import { CreateWorkflowPage, AIDebugPage } from './ai';
 import AgentTeamsPage from './ai/AgentTeamsPage';
 import { WorkflowDetailPage } from './ai/WorkflowDetailPage';
 import { WorkflowImportPage } from './ai/WorkflowImportPage';
@@ -77,35 +77,44 @@ const DashboardOverview: React.FC = () => {
   const [hasPaymentGateways, setHasPaymentGateways] = useState(false);
   const [loading, setLoading] = useState(true);
   
-  // StrictMode-safe: prevent duplicate API calls
-  const hasCheckedStatusRef = useRef(false);
-
   useEffect(() => {
     let mounted = true; // Track if component is still mounted
     
     const checkSetupStatus = async () => {
       try {
-        // Check plans using public endpoint (no auth required)
-        const plansResponse = await plansApi.getPublicPlans();
-        
+        // Check plans status using dedicated endpoint (counts all plans regardless of permissions)
+        let hasPlansConfigured = false;
+        try {
+          const statusResponse = await plansApi.getStatus();
+          hasPlansConfigured = statusResponse.data?.has_plans ?? statusResponse.data?.total_count > 0;
+        } catch {
+          // Fallback to checking public plans if status endpoint fails
+          try {
+            const publicPlansResponse = await plansApi.getPublicPlans();
+            hasPlansConfigured = (publicPlansResponse.data?.plans?.length ?? 0) > 0;
+          } catch {
+            hasPlansConfigured = false;
+          }
+        }
+
         // Check payment gateway status (requires admin.settings.payment permission)
         let hasConfiguredGateways = false;
         try {
           const gatewaysOverview = await paymentGatewaysApi.getOverview();
           // Consider gateways configured if either Stripe or PayPal is connected/configured
-          const stripeConfigured = gatewaysOverview.gateways.stripe.enabled && 
+          const stripeConfigured = gatewaysOverview.gateways.stripe.enabled &&
             ['connected', 'configured'].includes(gatewaysOverview.status.stripe.status);
-          const paypalConfigured = gatewaysOverview.gateways.paypal.enabled && 
+          const paypalConfigured = gatewaysOverview.gateways.paypal.enabled &&
             ['connected', 'configured'].includes(gatewaysOverview.status.paypal.status);
           hasConfiguredGateways = stripeConfigured || paypalConfigured;
         } catch (_gatewayError) {
           // If user doesn't have permission or API fails, assume no gateways configured
           hasConfiguredGateways = false;
         }
-        
+
         // Only update state if component is still mounted
         if (mounted) {
-          setHasPlans(plansResponse.data.plans.length > 0);
+          setHasPlans(hasPlansConfigured);
           setHasPaymentGateways(hasConfiguredGateways);
         }
       } catch (_error) {
@@ -121,21 +130,13 @@ const DashboardOverview: React.FC = () => {
       }
     };
     
-    // Only check status once to prevent duplicate API calls in StrictMode
-    if (!hasCheckedStatusRef.current) {
-      hasCheckedStatusRef.current = true;
-      checkSetupStatus();
-    } else {
-      // If we've already checked status, immediately set loading to false
-      setLoading(false);
-    }
-    
+    // Run check on mount
+    checkSetupStatus();
+
     // Cleanup function to prevent state updates on unmounted component
     return () => {
       mounted = false;
     };
-    // StrictMode-safe: removed user dependency to prevent double calls
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Calculate completion status
@@ -450,12 +451,11 @@ const DashboardPage: React.FC = () => {
         <Route path="/ai/workflows" element={<WorkflowsPage />} />
         <Route path="/ai/conversations" element={<AIConversationsPage />} />
         <Route path="/ai/analytics" element={<WorkflowAnalyticsPage />} />
-        <Route path="/ai/monitoring" element={<AIMonitoringPage />} />
+        <Route path="/ai/monitoring/:tab?" element={<AIMonitoringPage />} />
         <Route path="/ai/mcp" element={<McpBrowserPage />} />
 
         {/* AI Sub-pages (detail/utility routes) */}
         <Route path="/ai/workflows/new" element={<CreateWorkflowPage />} />
-        <Route path="/ai/workflows/templates" element={<WorkflowTemplatesPage />} />
         <Route path="/ai/workflows/import" element={<WorkflowImportPage />} />
         <Route path="/ai/workflows/monitoring" element={<WorkflowMonitoringPage />} />
         <Route path="/ai/workflows/validation-stats" element={<WorkflowValidationStatisticsPage />} />

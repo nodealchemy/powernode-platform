@@ -19,6 +19,10 @@ module Mcp
           update_execution_context(node, result[:output_data])
         end
 
+        # CRITICAL FIX: Update state machine to mark node as completed
+        # This allows downstream nodes to detect that their prerequisites are satisfied
+        @state_manager.complete_node(node.node_id, success: true)
+
         # Update execution record using state transition method to trigger broadcasts
         # CRITICAL FIX: Use complete_execution! instead of update! to trigger WebSocket broadcasts
         node_execution.complete_execution!(
@@ -54,6 +58,9 @@ module Mcp
           error: error.message,
           node_type: node.node_type
         }
+
+        # CRITICAL FIX: Update state machine to mark node as failed
+        @state_manager.complete_node(node.node_id, success: false)
 
         # Update execution record using state transition method to trigger broadcasts
         # CRITICAL FIX: Use fail_execution! instead of update! to trigger WebSocket broadcasts

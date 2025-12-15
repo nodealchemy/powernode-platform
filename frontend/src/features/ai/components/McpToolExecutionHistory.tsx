@@ -15,7 +15,8 @@ import {
 import { Card } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Button } from '@/shared/components/ui/Button';
-import { mcpApi, McpToolExecution, McpExecutionHistoryResponse } from '@/shared/services/ai/McpApiService';
+import { mcpApi } from '@/shared/services/ai/McpApiService';
+import type { McpToolExecution, McpExecutionHistoryResponse } from '@/shared/services/ai/types/mcp-api-types';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 
 interface McpToolExecutionHistoryProps {

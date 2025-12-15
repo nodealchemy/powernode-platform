@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useSelector } from 'react-redux';
-import { 
-  Plus, 
-  Activity, 
-  Globe, 
-  AlertTriangle, 
-  CheckCircle, 
-  Clock, 
+import {
+  Plus,
+  Activity,
+  Globe,
+  AlertTriangle,
+  CheckCircle,
+  Clock,
   RefreshCw,
   BarChart3
 } from 'lucide-react';
@@ -25,20 +25,20 @@ import { WebhookDetails } from '@/features/webhooks/components/WebhookDetails';
 import { WebhookStats } from '@/features/webhooks/components/WebhookStats';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
-import ErrorAlert from '@/shared/components/ui/ErrorAlert';
-import SuccessAlert from '@/shared/components/ui/SuccessAlert';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 
 type ViewMode = 'list' | 'details' | 'stats';
 
 const WebhookManagementPage: React.FC = () => {
   const { user } = useSelector((state: RootState) => state.auth);
-  
+  const { showNotification } = useNotifications();
+
   // Check webhook permissions (matching backend controller)
   const canReadWebhooks = hasPermissions(user, ['webhook.read']) || hasPermissions(user, ['webhook.create', 'webhook.edit', 'webhook.delete']);
   const canCreateWebhooks = hasPermissions(user, ['webhook.create']);
   const canEditWebhooks = hasPermissions(user, ['webhook.edit']);
   const canDeleteWebhooks = hasPermissions(user, ['webhook.delete']);
-  
+
   // State
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [webhooks, setWebhooks] = useState<WebhookEndpoint[]>([]);
@@ -46,8 +46,6 @@ const WebhookManagementPage: React.FC = () => {
   const [stats, setStats] = useState<WebhookStatsType | null>(null);
   const [detailedStats, setDetailedStats] = useState<DetailedWebhookStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [pagination, setPagination] = useState({
@@ -66,13 +64,12 @@ const WebhookManagementPage: React.FC = () => {
   // Load webhooks
   const loadWebhooks = useCallback(async (page = 1) => {
     if (!canReadWebhooks) {
-      setError('You do not have permission to view webhooks');
+      showNotification('You do not have permission to view webhooks', 'error');
       setLoading(false);
       return;
     }
 
     setLoading(true);
-    setError(null);
 
     try {
       const response = await webhooksApi.getWebhooks(page, pagination.per_page);
@@ -82,13 +79,14 @@ const WebhookManagementPage: React.FC = () => {
         setPagination(response.data.pagination);
         setStats(response.data.stats);
       } else {
-        setError(response.error || 'Failed to load webhooks');
+        showNotification(response.error || 'Failed to load webhooks', 'error');
       }
     } catch (_error) {
-      setError('An unexpected error occurred while loading webhooks');
+      showNotification('An unexpected error occurred while loading webhooks', 'error');
     } finally {
       setLoading(false);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pagination.per_page, canReadWebhooks]);
 
   // Load detailed stats
@@ -121,22 +119,22 @@ const WebhookManagementPage: React.FC = () => {
   // Handle webhook creation
   const handleCreateWebhook = async (webhookData: WebhookFormData) => {
     if (!canCreateWebhooks) {
-      setError('You do not have permission to create webhooks');
+      showNotification('You do not have permission to create webhooks', 'error');
       return;
     }
 
     try {
       const response = await webhooksApi.createWebhook(webhookData);
-      
+
       if (response.success) {
-        setSuccess(response.message || 'Webhook created successfully');
+        showNotification(response.message || 'Webhook created successfully', 'success');
         setShowCreateModal(false);
         loadWebhooks(pagination.current_page);
       } else {
-        setError(response.error || 'Failed to create webhook');
+        showNotification(response.error || 'Failed to create webhook', 'error');
       }
     } catch (_error) {
-      setError('An unexpected error occurred while creating the webhook');
+      showNotification('An unexpected error occurred while creating the webhook', 'error');
     }
   };
 
@@ -150,23 +148,23 @@ const WebhookManagementPage: React.FC = () => {
     if (!selectedWebhook) return;
 
     if (!canEditWebhooks) {
-      setError('You do not have permission to edit webhooks');
+      showNotification('You do not have permission to edit webhooks', 'error');
       return;
     }
 
     try {
       const response = await webhooksApi.updateWebhook(selectedWebhook.id, webhookData);
-      
+
       if (response.success) {
-        setSuccess(response.message || 'Webhook updated successfully');
+        showNotification(response.message || 'Webhook updated successfully', 'success');
         setShowEditModal(false);
         loadWebhooks(pagination.current_page);
         setSelectedWebhook(null);
       } else {
-        setError(response.error || 'Failed to update webhook');
+        showNotification(response.error || 'Failed to update webhook', 'error');
       }
     } catch (_error) {
-      setError('An unexpected error occurred while updating the webhook');
+      showNotification('An unexpected error occurred while updating the webhook', 'error');
     }
   };
 
@@ -179,7 +177,7 @@ const WebhookManagementPage: React.FC = () => {
   // Handle webhook deletion
   const handleDeleteWebhook = async (webhookId: string) => {
     if (!canDeleteWebhooks) {
-      setError('You do not have permission to delete webhooks');
+      showNotification('You do not have permission to delete webhooks', 'error');
       return;
     }
 
@@ -189,56 +187,56 @@ const WebhookManagementPage: React.FC = () => {
 
     try {
       const response = await webhooksApi.deleteWebhook(webhookId);
-      
+
       if (response.success) {
-        setSuccess(response.message || 'Webhook deleted successfully');
+        showNotification(response.message || 'Webhook deleted successfully', 'success');
         loadWebhooks(pagination.current_page);
       } else {
-        setError(response.error || 'Failed to delete webhook');
+        showNotification(response.error || 'Failed to delete webhook', 'error');
       }
     } catch (_error) {
-      setError('An unexpected error occurred while deleting the webhook');
+      showNotification('An unexpected error occurred while deleting the webhook', 'error');
     }
   };
 
   // Handle webhook status toggle
   const handleToggleStatus = async (webhookId: string) => {
     if (!canEditWebhooks) {
-      setError('You do not have permission to edit webhooks');
+      showNotification('You do not have permission to edit webhooks', 'error');
       return;
     }
 
     try {
       const response = await webhooksApi.toggleWebhookStatus(webhookId);
-      
+
       if (response.success) {
-        setSuccess(response.message || 'Webhook status updated successfully');
+        showNotification(response.message || 'Webhook status updated successfully', 'success');
         loadWebhooks(pagination.current_page);
       } else {
-        setError(response.error || 'Failed to update webhook status');
+        showNotification(response.error || 'Failed to update webhook status', 'error');
       }
     } catch (_error) {
-      setError('An unexpected error occurred while updating webhook status');
+      showNotification('An unexpected error occurred while updating webhook status', 'error');
     }
   };
 
   // Handle retry failed deliveries
   const handleRetryFailed = async () => {
     if (!canEditWebhooks) {
-      setError('You do not have permission to retry webhook deliveries');
+      showNotification('You do not have permission to retry webhook deliveries', 'error');
       return;
     }
 
     try {
       const response = await webhooksApi.retryFailed();
-      
+
       if (response.success && response.data) {
-        setSuccess(`Queued ${response.data.retry_count} failed deliveries for retry`);
+        showNotification(`Queued ${response.data.retry_count} failed deliveries for retry`, 'success');
       } else {
-        setError(response.error || 'Failed to retry failed deliveries');
+        showNotification(response.error || 'Failed to retry failed deliveries', 'error');
       }
     } catch (_error) {
-      setError('An unexpected error occurred while retrying failed deliveries');
+      showNotification('An unexpected error occurred while retrying failed deliveries', 'error');
     }
   };
 
@@ -257,22 +255,6 @@ const WebhookManagementPage: React.FC = () => {
     setSelectedWebhook(webhook);
     setShowEditModal(true);
   };
-
-  // Clear messages
-  useEffect(() => {
-    if (success) {
-      const timer = setTimeout(() => setSuccess(null), 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [success]);
-
-  useEffect(() => {
-    if (error) {
-      const timer = setTimeout(() => setError(null), 10000);
-      return () => clearTimeout(timer);
-    }
-  }, [error]);
-
 
   // Render stats overview
   const renderStatsOverview = () => {
@@ -429,10 +411,6 @@ const WebhookManagementPage: React.FC = () => {
       breadcrumbs={getBreadcrumbs()}
       actions={getPageActions()}
     >
-      {/* Success/Error Messages */}
-      {success && <SuccessAlert message={success} onClose={() => setSuccess(null)} />}
-      {error && <ErrorAlert message={error} onClose={() => setError(null)} />}
-
       {/* Stats overview when in list mode */}
       {viewMode === 'list' && (
         <div className="bg-theme-surface rounded-lg p-6 mb-6">

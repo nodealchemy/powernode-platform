@@ -184,14 +184,41 @@ module AiOrchestrationHelpers
     end
   end
 
+  # Setup performance monitoring for benchmarking tests
+  def setup_performance_monitoring
+    @performance_metrics = {
+      execution_times: [],
+      memory_samples: [],
+      query_counts: []
+    }
+
+    # Track memory usage
+    @initial_memory = get_memory_usage
+  end
+
+  # Get current memory usage in MB
+  def get_memory_usage
+    # Use /proc/self/statm on Linux or fallback
+    if File.exist?('/proc/self/statm')
+      File.read('/proc/self/statm').split[1].to_i * 4096 / 1024.0 / 1024.0 # Convert to MB
+    else
+      # Fallback for non-Linux systems
+      `ps -o rss= -p #{Process.pid}`.to_i / 1024.0 # KB to MB
+    end
+  rescue StandardError
+    0.0
+  end
+
   # Mock MCP orchestration services for testing
   def mock_mcp_orchestration_services
-    # Mock state machine
+    # Mock state machine with all required methods
     state_machine_double = instance_double(Mcp::WorkflowStateMachine)
     allow(Mcp::WorkflowStateMachine).to receive(:new).and_return(state_machine_double)
     allow(state_machine_double).to receive(:initialize_state)
     allow(state_machine_double).to receive(:transition!)
     allow(state_machine_double).to receive(:execute_node)
+    allow(state_machine_double).to receive(:complete_node)
+    allow(state_machine_double).to receive(:fail_node)
     allow(state_machine_double).to receive(:current_state).and_return(:running)
 
     # Mock event store

@@ -64,15 +64,25 @@ module Mcp
 
         return true if incoming_edges.empty?
 
+        # Check which source nodes have results
+        edges_with_results = incoming_edges.select { |e| @node_results.key?(e.source_node_id) }
+        edges_without_results = incoming_edges.reject { |e| @node_results.key?(e.source_node_id) }
+
+        # Detect feedback loops: edges from nodes that are downstream (no result yet)
+        # For feedback loops, we use ANY logic - allow execution if any forward path is complete
+        has_feedback_loop = edges_without_results.any? && edges_with_results.any?
+
+        # Check for conditional convergence
         source_nodes_with_conditional_incoming = incoming_edges.select do |edge|
           source_node_id = edge.source_node_id
           source_node_incoming = @workflow.ai_workflow_edges.where(target_node_id: source_node_id)
           source_node_incoming.any?(&:is_conditional?)
         end
-
         is_conditional_convergence = incoming_edges.count > 1 && source_nodes_with_conditional_incoming.any?
 
-        if is_conditional_convergence
+        # Use ANY logic for: conditional convergence OR feedback loops
+        # This allows a node to execute as soon as one valid path is complete
+        if is_conditional_convergence || has_feedback_loop
           incoming_edges.any? do |edge|
             source_node_id = edge.source_node_id
 
@@ -84,6 +94,7 @@ module Mcp
             end
           end
         else
+          # Standard case: all incoming edges must be satisfied
           incoming_edges.all? do |edge|
             source_node_id = edge.source_node_id
 

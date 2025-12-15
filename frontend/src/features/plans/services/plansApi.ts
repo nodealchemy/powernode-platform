@@ -120,7 +120,23 @@ export interface PlanUpdateResponse {
   };
 }
 
+export interface PlansStatusResponse {
+  success: boolean;
+  data: {
+    has_plans: boolean;
+    total_count: number;
+    active_count: number;
+    public_count: number;
+  };
+}
+
 class PlansApiService {
+  // Get plans status (for dashboard setup check)
+  async getStatus(): Promise<PlansStatusResponse> {
+    const response = await api.get('/plans/status');
+    return response.data;
+  }
+
   // Get all plans
   async getPlans(): Promise<PlansListResponse> {
     const response = await api.get('/plans');

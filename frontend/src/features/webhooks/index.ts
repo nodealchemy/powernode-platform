@@ -1,5 +1,4 @@
 // Components
-export { WebhookRetryDashboard } from './components/WebhookRetryDashboard';
 export { WebhookList } from './components/WebhookList';
 export { WebhookForm } from './components/WebhookForm';
 export { WebhookDetails } from './components/WebhookDetails';

@@ -4,7 +4,7 @@ import { PageContainer, BreadcrumbItem, PageAction } from '@/shared/components/l
 import { KbArticleContent } from '@/features/knowledge-base/components/KbArticleContent';
 import { KbArticleComments } from '@/features/knowledge-base/components/KbArticleComments';
 import { KbRelatedArticles } from '@/features/knowledge-base/components/KbRelatedArticles';
-import { knowledgeBaseApi, KbArticle } from '@/shared/services/knowledgeBaseApi';
+import { knowledgeBaseApi, knowledgeBaseAdminApi, KbArticle } from '@/shared/services/knowledgeBaseApi';
 import { Badge } from '@/shared/components/ui/Badge';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/shared/services';
@@ -30,11 +30,8 @@ export default function KnowledgeBaseArticlePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (id) {
-      loadArticle();
-    }
-  }, [id]);
+  // Check if user can edit KB (allows viewing draft articles)
+  const canEditKb = hasPermissions(currentUser, ['kb.edit']) || hasPermissions(currentUser, ['kb.manage']);
 
   const loadArticle = async () => {
     if (!id) return;
@@ -43,9 +40,12 @@ export default function KnowledgeBaseArticlePage() {
       setIsLoading(true);
       setError(null);
 
-      const response = await knowledgeBaseApi.getArticle(id);
+      // Use admin API for users with edit permissions (allows viewing drafts)
+      // Fall back to public API for regular users
+      const api = canEditKb ? knowledgeBaseAdminApi : knowledgeBaseApi;
+      const response = await api.getArticle(id);
       setArticle(response.data.data.article);
-      setRelatedArticles(response.data.data.related_articles);
+      setRelatedArticles(response.data.data.related_articles || []);
     } catch (error: unknown) {
       if (error && typeof error === 'object' && 'response' in error && error.response && typeof error.response === 'object' && 'status' in error.response) {
         const status = (error.response as any).status;
@@ -63,6 +63,14 @@ export default function KnowledgeBaseArticlePage() {
       setIsLoading(false);
     }
   };
+
+  // Load article when id or permissions change
+  useEffect(() => {
+    if (id) {
+      loadArticle();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, canEditKb]);
 
   // Generate breadcrumbs based on article data
   const getBreadcrumbs = (): BreadcrumbItem[] => {

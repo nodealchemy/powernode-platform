@@ -196,16 +196,17 @@ nodes_data.each do |n|
   )
 end
 
-# Create edges with proper handle IDs
+# Create edges with proper handle IDs and edge_type
 edges_data = [
-  { source: 'start', target: 'research', source_handle: 'output', target_handle: 'input' },
-  { source: 'research', target: 'write', source_handle: 'output', target_handle: 'input' },
-  { source: 'write', target: 'edit', source_handle: 'output', target_handle: 'input' },
-  { source: 'edit', target: 'seo', source_handle: 'output', target_handle: 'input' },
-  { source: 'seo', target: 'quality_check', source_handle: 'output', target_handle: 'input' },
-  { source: 'quality_check', target: 'kb_create', source_handle: 'true', target_handle: 'input', condition: { 'expression' => 'true' } },
-  { source: 'quality_check', target: 'edit', source_handle: 'false', target_handle: 'input', condition: { 'expression' => 'false' } },
-  { source: 'kb_create', target: 'end', source_handle: 'output', target_handle: 'input' }
+  { source: 'start', target: 'research', source_handle: 'output', target_handle: 'input', edge_type: 'default' },
+  { source: 'research', target: 'write', source_handle: 'output', target_handle: 'input', edge_type: 'default' },
+  { source: 'write', target: 'edit', source_handle: 'output', target_handle: 'input', edge_type: 'default' },
+  { source: 'edit', target: 'seo', source_handle: 'output', target_handle: 'input', edge_type: 'default' },
+  { source: 'seo', target: 'quality_check', source_handle: 'output', target_handle: 'input', edge_type: 'default' },
+  # Condition node outputs: path determined by source_handle ('true'/'false'), not by condition expression
+  { source: 'quality_check', target: 'kb_create', source_handle: 'true', target_handle: 'input', edge_type: 'default' },
+  { source: 'quality_check', target: 'edit', source_handle: 'false', target_handle: 'input', edge_type: 'default' },
+  { source: 'kb_create', target: 'end', source_handle: 'output', target_handle: 'input', edge_type: 'default' }
 ]
 
 edges_data.each_with_index do |e, i|
@@ -215,9 +216,10 @@ edges_data.each_with_index do |e, i|
     target_node_id: e[:target],
     source_handle: e[:source_handle],
     target_handle: e[:target_handle],
-    # is_conditional is false for True/False edges - they're determined by source_handle, not conditions
+    edge_type: e[:edge_type],
+    # is_conditional is false for condition node outputs - path is determined by source_handle
     is_conditional: false,
-    condition: e[:condition] || {}
+    condition: {}
   )
 end
 
@@ -296,19 +298,20 @@ onboarding_nodes.each do |n|
   )
 end
 
-# Create edges with proper handle IDs
-# Condition: is_enterprise? True (right, 70%) -> approval, False (left, 30%) -> auto_approve
+# Create edges with proper handle IDs and edge_type
+# Condition: is_enterprise? True (right) -> approval, False (left) -> auto_approve
 onboarding_edges = [
-  { source: 'trigger', target: 'validate', source_handle: 'output', target_handle: 'input' },
-  { source: 'validate', target: 'check_tier', source_handle: 'output', target_handle: 'input' },
-  { source: 'check_tier', target: 'auto_approve', source_handle: 'false', target_handle: 'input', condition: { 'expression' => 'false' } },
-  { source: 'check_tier', target: 'approval', source_handle: 'true', target_handle: 'input', condition: { 'expression' => 'true' } },
-  { source: 'auto_approve', target: 'create_account', source_handle: 'output', target_handle: 'input' },
-  { source: 'approval', target: 'create_account', source_handle: 'output', target_handle: 'input' },
-  { source: 'create_account', target: 'send_welcome', source_handle: 'output', target_handle: 'input' },
-  { source: 'send_welcome', target: 'schedule_call', source_handle: 'output', target_handle: 'input' },
-  { source: 'schedule_call', target: 'notify_team', source_handle: 'output', target_handle: 'input' },
-  { source: 'notify_team', target: 'end', source_handle: 'output', target_handle: 'input' }
+  { source: 'trigger', target: 'validate', source_handle: 'output', target_handle: 'input', edge_type: 'default' },
+  { source: 'validate', target: 'check_tier', source_handle: 'output', target_handle: 'input', edge_type: 'default' },
+  # Condition node outputs: path determined by source_handle ('true'/'false'), not by condition expression
+  { source: 'check_tier', target: 'auto_approve', source_handle: 'false', target_handle: 'input', edge_type: 'default' },
+  { source: 'check_tier', target: 'approval', source_handle: 'true', target_handle: 'input', edge_type: 'default' },
+  { source: 'auto_approve', target: 'create_account', source_handle: 'output', target_handle: 'input', edge_type: 'default' },
+  { source: 'approval', target: 'create_account', source_handle: 'output', target_handle: 'input', edge_type: 'default' },
+  { source: 'create_account', target: 'send_welcome', source_handle: 'output', target_handle: 'input', edge_type: 'default' },
+  { source: 'send_welcome', target: 'schedule_call', source_handle: 'output', target_handle: 'input', edge_type: 'default' },
+  { source: 'schedule_call', target: 'notify_team', source_handle: 'output', target_handle: 'input', edge_type: 'default' },
+  { source: 'notify_team', target: 'end', source_handle: 'output', target_handle: 'input', edge_type: 'default' }
 ]
 
 onboarding_edges.each_with_index do |e, i|
@@ -318,9 +321,10 @@ onboarding_edges.each_with_index do |e, i|
     target_node_id: e[:target],
     source_handle: e[:source_handle],
     target_handle: e[:target_handle],
-    # is_conditional is false for True/False edges - they're determined by source_handle, not conditions
+    edge_type: e[:edge_type],
+    # is_conditional is false for condition node outputs - path is determined by source_handle
     is_conditional: false,
-    condition: e[:condition] || {}
+    condition: {}
   )
 end
 
@@ -398,16 +402,21 @@ integration_nodes.each do |n|
 end
 
 # Create edges with proper handle IDs for loop/merge nodes
+# Loop node handles: input, loop-back (target), body, exit (source)
+# Merge node handles: merge-1, merge-2, merge-3 (target), output (source)
 integration_edges = [
-  { source: 'trigger', target: 'fetch_api', source_handle: 'output', target_handle: 'input' },
-  { source: 'fetch_api', target: 'validate', source_handle: 'output', target_handle: 'input' },
-  { source: 'validate', target: 'transform', source_handle: 'output', target_handle: 'input' },
-  { source: 'transform', target: 'loop', source_handle: 'output', target_handle: 'input' },
-  { source: 'loop', target: 'db_upsert', source_handle: 'body', target_handle: 'input' },
+  { source: 'trigger', target: 'fetch_api', source_handle: 'output', target_handle: 'input', edge_type: 'default' },
+  { source: 'fetch_api', target: 'validate', source_handle: 'output', target_handle: 'input', edge_type: 'default' },
+  { source: 'validate', target: 'transform', source_handle: 'output', target_handle: 'input', edge_type: 'default' },
+  { source: 'transform', target: 'loop', source_handle: 'output', target_handle: 'input', edge_type: 'default' },
+  # Loop body: from loop's 'body' handle to the processing node
+  { source: 'loop', target: 'db_upsert', source_handle: 'body', target_handle: 'input', edge_type: 'default' },
+  # Loop back: from processing node back to loop's 'loop-back' handle (edge_type: 'loop')
   { source: 'db_upsert', target: 'loop', source_handle: 'output', target_handle: 'loop-back', edge_type: 'loop' },
+  # Loop exit: from loop's 'exit' handle to next node
   { source: 'loop', target: 'merge', source_handle: 'exit', target_handle: 'merge-1', edge_type: 'default' },
-  { source: 'merge', target: 'webhook', source_handle: 'output', target_handle: 'input' },
-  { source: 'webhook', target: 'end', source_handle: 'output', target_handle: 'input' }
+  { source: 'merge', target: 'webhook', source_handle: 'output', target_handle: 'input', edge_type: 'default' },
+  { source: 'webhook', target: 'end', source_handle: 'output', target_handle: 'input', edge_type: 'default' }
 ]
 
 integration_edges.each_with_index do |e, i|
@@ -417,7 +426,7 @@ integration_edges.each_with_index do |e, i|
     target_node_id: e[:target],
     source_handle: e[:source_handle],
     target_handle: e[:target_handle],
-    edge_type: e[:edge_type] || 'default',
+    edge_type: e[:edge_type],
     is_conditional: false,
     condition: {}
   )
@@ -515,19 +524,20 @@ page_gen_nodes.each do |n|
   )
 end
 
-# Create edges with proper handle IDs
+# Create edges with proper handle IDs and edge_type
 page_gen_edges = [
-  { source: 'start', target: 'mcp_prompt', source_handle: 'output', target_handle: 'input' },
-  { source: 'mcp_prompt', target: 'generate', source_handle: 'output', target_handle: 'input' },
-  { source: 'generate', target: 'mcp_tool', source_handle: 'output', target_handle: 'input' },
-  { source: 'mcp_tool', target: 'mcp_resource', source_handle: 'output', target_handle: 'input' },
-  { source: 'mcp_resource', target: 'page_create', source_handle: 'output', target_handle: 'input' },
-  { source: 'page_create', target: 'page_update', source_handle: 'output', target_handle: 'input' },
-  { source: 'page_update', target: 'quality_gate', source_handle: 'output', target_handle: 'input' },
-  { source: 'quality_gate', target: 'page_publish', source_handle: 'true', target_handle: 'input', condition: { 'expression' => 'true' } },
-  { source: 'quality_gate', target: 'notify_review', source_handle: 'false', target_handle: 'input', condition: { 'expression' => 'false' } },
-  { source: 'page_publish', target: 'end', source_handle: 'output', target_handle: 'input' },
-  { source: 'notify_review', target: 'end', source_handle: 'output', target_handle: 'input' }
+  { source: 'start', target: 'mcp_prompt', source_handle: 'output', target_handle: 'input', edge_type: 'default' },
+  { source: 'mcp_prompt', target: 'generate', source_handle: 'output', target_handle: 'input', edge_type: 'default' },
+  { source: 'generate', target: 'mcp_tool', source_handle: 'output', target_handle: 'input', edge_type: 'default' },
+  { source: 'mcp_tool', target: 'mcp_resource', source_handle: 'output', target_handle: 'input', edge_type: 'default' },
+  { source: 'mcp_resource', target: 'page_create', source_handle: 'output', target_handle: 'input', edge_type: 'default' },
+  { source: 'page_create', target: 'page_update', source_handle: 'output', target_handle: 'input', edge_type: 'default' },
+  { source: 'page_update', target: 'quality_gate', source_handle: 'output', target_handle: 'input', edge_type: 'default' },
+  # Condition node outputs: path determined by source_handle ('true'/'false'), not by condition expression
+  { source: 'quality_gate', target: 'page_publish', source_handle: 'true', target_handle: 'input', edge_type: 'default' },
+  { source: 'quality_gate', target: 'notify_review', source_handle: 'false', target_handle: 'input', edge_type: 'default' },
+  { source: 'page_publish', target: 'end', source_handle: 'output', target_handle: 'input', edge_type: 'default' },
+  { source: 'notify_review', target: 'end', source_handle: 'output', target_handle: 'input', edge_type: 'default' }
 ]
 
 page_gen_edges.each_with_index do |e, i|
@@ -537,9 +547,10 @@ page_gen_edges.each_with_index do |e, i|
     target_node_id: e[:target],
     source_handle: e[:source_handle],
     target_handle: e[:target_handle],
-    # is_conditional is false for True/False edges - they're determined by source_handle, not conditions
+    edge_type: e[:edge_type],
+    # is_conditional is false for condition node outputs - path is determined by source_handle
     is_conditional: false,
-    condition: e[:condition] || {}
+    condition: {}
   )
 end
 

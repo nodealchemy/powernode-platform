@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Workflow, Save, X } from 'lucide-react';
+import { Plus, Workflow, Save, X, FileStack } from 'lucide-react';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
 import { Input } from '@/shared/components/ui/Input';
@@ -20,6 +20,8 @@ interface CreateWorkflowFormData {
   execution_mode?: 'sequential' | 'parallel' | 'conditional';
   timeout_seconds?: number;
   tags?: string[];
+  is_template?: boolean;
+  template_category?: string;
 }
 
 export interface WorkflowCreateModalProps {
@@ -45,14 +47,16 @@ export const WorkflowCreateModal: React.FC<WorkflowCreateModalProps> = ({
     visibility: 'private',
     execution_mode: 'sequential',
     timeout_seconds: 300,
-    tags: []
+    tags: [],
+    is_template: false,
+    template_category: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const handleInputChange = (
     field: keyof CreateWorkflowFormData,
-    value: string | number | string[]
+    value: string | number | string[] | boolean
   ) => {
     setFormData((prev: CreateWorkflowFormData) => ({
       ...prev,
@@ -129,14 +133,16 @@ export const WorkflowCreateModal: React.FC<WorkflowCreateModalProps> = ({
         execution_mode: formData.execution_mode || 'sequential',
         timeout_seconds: formData.timeout_seconds || 300,
         tags: formData.tags || [],
+        is_template: formData.is_template || false,
+        template_category: formData.is_template ? (formData.template_category || 'custom') : undefined,
         nodes: [],
         edges: []
       });
 
       addNotification({
         type: 'success',
-        title: 'Workflow Created',
-        message: `Workflow "${formData.name}" has been created successfully.`
+        title: formData.is_template ? 'Template Created' : 'Workflow Created',
+        message: `${formData.is_template ? 'Template' : 'Workflow'} "${formData.name}" has been created successfully.`
       });
 
       // Reset form
@@ -147,7 +153,9 @@ export const WorkflowCreateModal: React.FC<WorkflowCreateModalProps> = ({
         visibility: 'private',
         execution_mode: 'sequential',
         timeout_seconds: 300,
-        tags: []
+        tags: [],
+        is_template: false,
+        template_category: ''
       });
       setErrors({});
 
@@ -243,7 +251,9 @@ export const WorkflowCreateModal: React.FC<WorkflowCreateModalProps> = ({
         visibility: 'private',
         execution_mode: 'sequential',
         timeout_seconds: 300,
-        tags: []
+        tags: [],
+        is_template: false,
+        template_category: ''
       });
       setErrors({});
       onClose();
@@ -267,6 +277,14 @@ export const WorkflowCreateModal: React.FC<WorkflowCreateModalProps> = ({
     { value: 'conditional', label: 'Conditional', description: 'Execute nodes based on conditions' }
   ];
 
+  const templateCategoryOptions = [
+    { value: 'automation', label: 'Automation', description: 'Process automation workflows' },
+    { value: 'content', label: 'Content', description: 'Content generation workflows' },
+    { value: 'analytics', label: 'Analytics', description: 'Data analysis workflows' },
+    { value: 'integration', label: 'Integration', description: 'System integration workflows' },
+    { value: 'custom', label: 'Custom', description: 'Custom category' }
+  ];
+
   const modalFooter = (
     <div className="flex items-center gap-3">
       <Button
@@ -284,7 +302,7 @@ export const WorkflowCreateModal: React.FC<WorkflowCreateModalProps> = ({
         loading={isSubmitting}
       >
         <Save className="h-4 w-4 mr-2" />
-        {isSubmitting ? 'Creating...' : 'Create Workflow'}
+        {isSubmitting ? 'Creating...' : formData.is_template ? 'Create Template' : 'Create Workflow'}
       </Button>
     </div>
   );
@@ -302,13 +320,41 @@ export const WorkflowCreateModal: React.FC<WorkflowCreateModalProps> = ({
       closeOnEscape={!isSubmitting}
     >
       <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Type Toggle - Workflow vs Template */}
+        <div className="flex items-center gap-1 bg-theme-surface border border-theme rounded-lg p-1 w-fit">
+          <button
+            type="button"
+            onClick={() => handleInputChange('is_template', false)}
+            className={`px-4 py-2 text-sm font-medium rounded-md transition-colors flex items-center gap-2 ${
+              !formData.is_template
+                ? 'bg-theme-interactive-primary text-white'
+                : 'text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-elevated'
+            }`}
+          >
+            <Workflow className="h-4 w-4" />
+            Workflow
+          </button>
+          <button
+            type="button"
+            onClick={() => handleInputChange('is_template', true)}
+            className={`px-4 py-2 text-sm font-medium rounded-md transition-colors flex items-center gap-2 ${
+              formData.is_template
+                ? 'bg-theme-interactive-primary text-white'
+                : 'text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-elevated'
+            }`}
+          >
+            <FileStack className="h-4 w-4" />
+            Template
+          </button>
+        </div>
+
         {/* Basic Information */}
         <div className="space-y-4">
           <h4 className="text-sm font-semibold text-theme-primary">Basic Information</h4>
-          
+
           <Input
-            label="Workflow Name"
-            placeholder="Enter workflow name..."
+            label={formData.is_template ? "Template Name" : "Workflow Name"}
+            placeholder={formData.is_template ? "Enter template name..." : "Enter workflow name..."}
             value={formData.name || ''}
             onChange={(e) => handleInputChange('name', e.target.value)}
             error={errors.name}
@@ -350,6 +396,17 @@ export const WorkflowCreateModal: React.FC<WorkflowCreateModalProps> = ({
             />
           </div>
 
+          {/* Template Category - only shown when creating a template */}
+          {formData.is_template && (
+            <EnhancedSelect
+              label="Template Category"
+              value={formData.template_category || 'custom'}
+              onChange={(value) => handleInputChange('template_category', value)}
+              options={templateCategoryOptions}
+              disabled={isSubmitting}
+            />
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <EnhancedSelect
               label="Execution Mode"
@@ -376,12 +433,18 @@ export const WorkflowCreateModal: React.FC<WorkflowCreateModalProps> = ({
         {/* Info Note */}
         <div className="bg-theme-info/10 border border-theme-info/20 rounded-lg p-4">
           <div className="flex items-start gap-3">
-            <Workflow className="h-5 w-5 text-theme-info flex-shrink-0 mt-0.5" />
+            {formData.is_template ? (
+              <FileStack className="h-5 w-5 text-theme-info flex-shrink-0 mt-0.5" />
+            ) : (
+              <Workflow className="h-5 w-5 text-theme-info flex-shrink-0 mt-0.5" />
+            )}
             <div className="text-sm">
               <p className="text-theme-primary font-medium">What happens next?</p>
               <p className="text-theme-secondary mt-1">
-                After creating the workflow, you'll be taken to the workflow editor where you can add nodes, 
-                configure connections, and define the automation logic.
+                {formData.is_template
+                  ? "After creating the template, you'll be taken to the editor where you can design the template structure. Templates can be used to quickly create new workflows."
+                  : "After creating the workflow, you'll be taken to the workflow editor where you can add nodes, configure connections, and define the automation logic."
+                }
               </p>
             </div>
           </div>

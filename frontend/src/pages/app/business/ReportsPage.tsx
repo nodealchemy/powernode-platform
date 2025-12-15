@@ -9,6 +9,7 @@ import { PageContainer, PageAction } from '@/shared/components/layout/PageContai
 import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
 import { RefreshCw } from 'lucide-react';
 import { ReportsOverviewPage } from './ReportsOverviewPage';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 
 export interface ReportRequest {
   id: string;
@@ -49,10 +50,10 @@ interface ReportTemplate {
 
 export const ReportsPage: React.FC = () => {
   const { user } = useSelector((state: RootState) => state.auth);
+  const { showNotification } = useNotifications();
   const location = useLocation();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [builderStep, setBuilderStep] = useState<1 | 2 | 3 | 4>(1);
   
   // Report data
@@ -84,33 +85,32 @@ export const ReportsPage: React.FC = () => {
 
   // Ref to track if data is already loaded to prevent double-loading in StrictMode
   const isInitialLoad = useRef(true);
-  const refreshInterval = useRef<NodeJS.Timeout | null>(null);
 
   // Load initial data
   const loadData = useCallback(async (force = false) => {
     // Prevent double-loading in React.StrictMode during initial mount
-    if (isInitialLoad.current && !force && (templates.length > 0 || requests.length > 0)) {
+    if (isInitialLoad.current && !force && ((templates?.length ?? 0) > 0 || (requests?.length ?? 0) > 0)) {
       return;
     }
 
     try {
       setLoading(true);
-      setError(null);
-      
+
       const [templatesResponse, requestsResponse] = await Promise.all([
         reportsService.getTemplates(),
         reportsService.getRequests()
       ]);
-      
-      setTemplates(templatesResponse.data);
-      setRequests(requestsResponse.data);
+
+      setTemplates(templatesResponse.data || []);
+      setRequests(requestsResponse.data || []);
       isInitialLoad.current = false;
-    } catch (error) {
-      setError(error instanceof Error ? error.message : 'Failed to load reports data');
+    } catch (err) {
+      showNotification(err instanceof Error ? err.message : 'Failed to load reports data', 'error');
     } finally {
       setLoading(false);
     }
-  }, [templates.length, requests.length]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [templates?.length, requests?.length]);
 
   // Load data on mount with StrictMode protection
   useEffect(() => {
@@ -119,31 +119,6 @@ export const ReportsPage: React.FC = () => {
     }, 0);
     return () => clearTimeout(timeoutId);
   }, []);
-
-  // Auto-refresh requests with cleanup
-  useEffect(() => {
-    // Don't start auto-refresh until initial load is complete
-    if (isInitialLoad.current) return;
-
-    const startAutoRefresh = () => {
-      refreshInterval.current = setInterval(async () => {
-        try {
-          const response = await reportsService.getRequests();
-          setRequests(response.data);
-        } catch (error) {
-        }
-      }, 10000); // Refresh every 10 seconds
-    };
-
-    startAutoRefresh();
-
-    return () => {
-      if (refreshInterval.current) {
-        clearInterval(refreshInterval.current);
-        refreshInterval.current = null;
-      }
-    };
-  }, [templates.length, requests.length]);
 
 
   const handleSubmitRequest = async () => {
@@ -173,9 +148,9 @@ export const ReportsPage: React.FC = () => {
       
       setShowRequestModal(false);
       setSelectedTemplate(null);
-      
-    } catch (error) {
-      setError(error instanceof Error ? error.message : 'Failed to submit report request');
+
+    } catch (err) {
+      showNotification(err instanceof Error ? err.message : 'Failed to submit report request', 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -201,7 +176,7 @@ export const ReportsPage: React.FC = () => {
     }
   };
 
-  const categorizedTemplates = templates.reduce((acc, template) => {
+  const categorizedTemplates = (templates || []).reduce((acc, template) => {
     if (!acc[template.category]) {
       acc[template.category] = [];
     }
@@ -278,19 +253,10 @@ export const ReportsPage: React.FC = () => {
 
   const getPageDescription = () => {
     if (loading) return "Loading reports...";
-    if (error) return "Error loading reports";
     return `Generate and manage business reports for ${user?.account?.name || 'your account'}`;
   };
 
   const getPageActions = () => {
-    if (error) {
-      return [{
-        id: 'retry',
-        label: 'Try Again',
-        onClick: () => loadData(true), // Force retry when error occurs
-        variant: 'primary' as const
-      }];
-    }
     return pageActions;
   };
 
@@ -304,22 +270,8 @@ export const ReportsPage: React.FC = () => {
       {loading && (
         <LoadingSpinner size="lg" message="Loading reports..." />
       )}
-      
-      {error && (
-        <div className="alert-theme alert-theme-error">
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <span className="text-xl">⚠️</span>
-            </div>
-            <div className="ml-3">
-              <h3 className="text-sm font-medium">Error Loading Reports</h3>
-              <p className="mt-1 text-sm">{error}</p>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {!loading && !error && (
+
+      {!loading && (
         <>
           <TabContainer
             tabs={tabs}
@@ -614,14 +566,14 @@ export const ReportsPage: React.FC = () => {
 
             <TabPanel tabId="queue" activeTab={activeTab}>
               <div className="space-y-6">
-                {requests.length === 0 ? (
+                {(requests?.length ?? 0) === 0 ? (
                   <div className="text-center py-12">
                     <span className="text-6xl">📋</span>
                     <h3 className="text-lg font-medium text-theme-primary mt-2">No reports in queue</h3>
                     <p className="text-theme-secondary">Start by creating a report from the Builder or Library.</p>
                   </div>
                 ) : (
-                  requests.map((request) => (
+                  (requests || []).map((request) => (
                 <div key={request.id} className="card-theme p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
@@ -770,7 +722,7 @@ export const ReportsPage: React.FC = () => {
                 <div className="card-theme p-6">
               <h3 className="text-lg font-semibold text-theme-primary mb-4">Most Popular Templates</h3>
               <div className="space-y-3">
-                {templates.slice(0, 5).map((template, index) => (
+                {(templates || []).slice(0, 5).map((template, index) => (
                   <div key={template.id} className="flex items-center justify-between py-2">
                     <div className="flex items-center space-x-3">
                       <span className="text-theme-secondary font-medium">{index + 1}</span>

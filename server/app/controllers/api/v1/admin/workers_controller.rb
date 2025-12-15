@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # Admin Workers Controller
 # Manages worker authentication tokens and permissions
 class Api::V1::Admin::WorkersController < ApplicationController
@@ -13,23 +15,23 @@ class Api::V1::Admin::WorkersController < ApplicationController
                                .includes(:worker_activities)
                                .order(:name)
 
-    render json: {
+    render_success(
       workers: @workers.map { |worker| worker_summary(worker) },
       total: @workers.size,
       account_workers: @workers.size
-    }
+    )
   end
 
   # GET /api/v1/admin/workers/:id
   def show
-    render json: {
+    render_success(
       worker: worker_details(@worker),
       activity_summary: WorkerActivity.activity_summary(@worker, 24),
       recent_activities: @worker.worker_activities
                                  .order(performed_at: :desc)
                                  .limit(50)
                                  .map { |activity| activity_json(activity) }
-    }
+    )
   end
 
   # POST /api/v1/admin/workers
@@ -46,13 +48,13 @@ class Api::V1::Admin::WorkersController < ApplicationController
       status: "success"
     })
 
-    render json: {
-      worker: worker_details(@worker),
-      message: "Worker '#{@worker.name}' created successfully"
-    }, status: :created
+    render_success(
+      { worker: worker_details(@worker), message: "Worker '#{@worker.name}' created successfully" },
+      status: :created
+    )
 
   rescue ActiveRecord::RecordInvalid => e
-    render json: { error: e.record.errors.full_messages }, status: :unprocessable_entity
+    render_validation_error(e.record)
   end
 
   # PATCH/PUT /api/v1/admin/workers/:id
@@ -65,13 +67,13 @@ class Api::V1::Admin::WorkersController < ApplicationController
       status: "success"
     })
 
-    render json: {
+    render_success(
       worker: worker_details(@worker),
       message: "Worker '#{@worker.name}' updated successfully"
-    }
+    )
 
   rescue ActiveRecord::RecordInvalid => e
-    render json: { error: e.record.errors.full_messages }, status: :unprocessable_entity
+    render_validation_error(e.record)
   end
 
   # DELETE /api/v1/admin/workers/:id
@@ -85,9 +87,7 @@ class Api::V1::Admin::WorkersController < ApplicationController
 
     @worker.destroy!
 
-    render json: {
-      message: "Worker '#{worker_name}' deleted successfully"
-    }
+    render_success(message: "Worker '#{worker_name}' deleted successfully")
   end
 
   # POST /api/v1/admin/workers/:id/regenerate_token
@@ -101,11 +101,11 @@ class Api::V1::Admin::WorkersController < ApplicationController
       status: "success"
     })
 
-    render json: {
+    render_success(
       worker: worker_details(@worker),
       new_token: new_token,
       message: "Token regenerated for worker '#{@worker.name}'"
-    }
+    )
   end
 
   # POST /api/v1/admin/workers/:id/suspend
@@ -117,10 +117,10 @@ class Api::V1::Admin::WorkersController < ApplicationController
       status: "success"
     })
 
-    render json: {
+    render_success(
       worker: worker_details(@worker),
       message: "Worker '#{@worker.name}' suspended"
-    }
+    )
   end
 
   # POST /api/v1/admin/workers/:id/activate
@@ -132,10 +132,10 @@ class Api::V1::Admin::WorkersController < ApplicationController
       status: "success"
     })
 
-    render json: {
+    render_success(
       worker: worker_details(@worker),
       message: "Worker '#{@worker.name}' activated"
-    }
+    )
   end
 
   # POST /api/v1/admin/workers/:id/revoke
@@ -147,10 +147,10 @@ class Api::V1::Admin::WorkersController < ApplicationController
       status: "success"
     })
 
-    render json: {
+    render_success(
       worker: worker_details(@worker),
       message: "Worker '#{@worker.name}' revoked"
-    }
+    )
   end
 
 
@@ -160,7 +160,7 @@ class Api::V1::Admin::WorkersController < ApplicationController
     # All users can only access workers for their account
     @worker = current_account.workers.find(params[:id])
   rescue ActiveRecord::RecordNotFound
-    render json: { error: "Worker not found" }, status: :not_found
+    render_not_found("Worker")
   end
 
   def worker_params
@@ -173,7 +173,7 @@ class Api::V1::Admin::WorkersController < ApplicationController
 
   def ensure_admin_access
     unless current_user.has_permission?("admin") || current_user.has_permission?("super_admin")
-      render json: { error: "Admin access required" }, status: :forbidden
+      render_forbidden("Admin access required")
     end
   end
 

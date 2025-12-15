@@ -175,9 +175,30 @@ module Mcp
       variables.merge!(@input_data) if @input_data.present?
 
       # Previous node results accessible as variables
+      # IMPORTANT: Make ALL previous results accessible via multiple naming conventions
+      # This ensures templates can use {{node_id_output}} regardless of graph structure
       @previous_results.each do |node_id, result|
-        # Store with node_id prefix to avoid collisions
+        next unless result.present?
+
+        # Store full result with node_ prefix
         variables["node_#{node_id}_result"] = result
+
+        # Extract and store output with standard {node_id}_output naming
+        # This allows templates to reference any previous node's output directly
+        if result.is_a?(Hash)
+          output = result[:output] || result["output"]
+          if output.present?
+            variables["#{node_id}_output"] = output
+          end
+
+          # Also extract data fields with {node_id}_{field} naming
+          data = result[:data] || result["data"]
+          if data.is_a?(Hash)
+            data.each do |key, value|
+              variables["#{node_id}_#{key}"] = value
+            end
+          end
+        end
       end
 
       # Special context variables

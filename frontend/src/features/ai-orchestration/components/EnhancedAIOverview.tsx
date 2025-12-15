@@ -128,7 +128,7 @@ export const EnhancedAIOverview = forwardRef<EnhancedAIOverviewHandle>((_, ref) 
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isLiveUpdateActive, setIsLiveUpdateActive] = useState(true);
+  const [isLiveUpdateActive, setIsLiveUpdateActive] = useState(false);
   const [recentUpdates, setRecentUpdates] = useState<string[]>([]);
   const [, setHasConnectionAttempted] = useState(false);
 

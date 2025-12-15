@@ -253,18 +253,21 @@ const createEditingApi = () => ({
     api.get<{ data: KbCategory[]; message: string }>('/kb/categories/tree'),
 
   // Articles (Editing mode)
-  getArticles: (params?: { 
-    search?: string; 
-    status?: string; 
-    category_id?: string; 
-    author_id?: string; 
+  getArticles: (params?: {
+    search?: string;
+    status?: string;
+    category_id?: string;
+    author_id?: string;
     is_public?: boolean;
     is_featured?: boolean;
     sort?: string;
-    page?: number; 
+    page?: number;
     per_page?: number;
   }) => {
     const searchParams = new URLSearchParams();
+    // CRITICAL: Pass admin=true to enable editing mode on backend
+    // Without this, backend only returns published articles
+    searchParams.append('admin', 'true');
     if (params?.search) searchParams.append('search', params.search);
     if (params?.status) searchParams.append('status', params.status);
     if (params?.category_id) searchParams.append('category_id', params.category_id);
@@ -276,7 +279,7 @@ const createEditingApi = () => ({
     if (params?.per_page) searchParams.append('per_page', params.per_page.toString());
 
     const queryString = searchParams.toString();
-    const url = queryString ? `/kb/articles?${queryString}` : '/kb/articles';
+    const url = `/kb/articles?${queryString}`;
 
     return api.get<{ 
       data: { 
@@ -295,7 +298,8 @@ const createEditingApi = () => ({
   },
 
   getArticle: (id: string) =>
-    api.get<{ data: { article: KbArticle; related_articles: KbArticle[] }; message: string }>(`/kb/articles/${id}`),
+    // Pass admin=true to allow viewing draft articles for users with edit permissions
+    api.get<{ data: { article: KbArticle; related_articles: KbArticle[] }; message: string }>(`/kb/articles/${id}?admin=true`),
 
   createArticle: (params: KbArticleCreateParams) =>
     api.post<{ data: KbArticle; message: string }>('/kb/articles', { article: params }),

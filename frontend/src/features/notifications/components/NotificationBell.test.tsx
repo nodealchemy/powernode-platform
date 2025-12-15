@@ -339,32 +339,6 @@ describe('NotificationBell', () => {
     });
   });
 
-  describe('polling', () => {
-    it('polls for unread count at specified interval', async () => {
-      renderWithProviders(<NotificationBell pollInterval={5000} />);
-
-      await waitFor(() => {
-        expect(mockGetNotifications).toHaveBeenCalled();
-      });
-
-      // Initial call
-      expect(mockGetUnreadCount).toHaveBeenCalledTimes(0);
-
-      // Advance timer
-      await act(async () => {
-        jest.advanceTimersByTime(5000);
-      });
-
-      expect(mockGetUnreadCount).toHaveBeenCalledTimes(1);
-
-      await act(async () => {
-        jest.advanceTimersByTime(5000);
-      });
-
-      expect(mockGetUnreadCount).toHaveBeenCalledTimes(2);
-    });
-  });
-
   describe('time formatting', () => {
     it('shows Just now for recent notifications', async () => {
       const recentNotification = {

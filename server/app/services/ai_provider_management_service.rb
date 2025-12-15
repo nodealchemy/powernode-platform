@@ -16,15 +16,50 @@ class AiProviderManagementService
       return false unless provider.is_active?
 
       begin
-        case provider.slug
-        when "ollama", "remote-ollama-server"
+        # Use provider_type for reliable matching (slug can vary)
+        case provider.provider_type&.downcase
+        when "ollama"
           sync_ollama_models(provider)
         when "openai"
           sync_openai_models(provider)
         when "anthropic"
           sync_anthropic_models(provider)
+        when "google"
+          sync_google_models(provider)
+        when "azure", "azure_openai"
+          sync_azure_models(provider)
+        when "groq"
+          sync_groq_models(provider)
+        when "grok", "xai", "x.ai", "x-ai"
+          sync_grok_models(provider)
+        when "mistral"
+          sync_mistral_models(provider)
+        when "cohere"
+          sync_cohere_models(provider)
         else
-          sync_generic_models(provider)
+          # Also check slug for custom providers that might use standard slugs
+          case provider.slug&.downcase
+          when "ollama", "remote-ollama-server"
+            sync_ollama_models(provider)
+          when "openai"
+            sync_openai_models(provider)
+          when "anthropic"
+            sync_anthropic_models(provider)
+          when "grok", "grok-xai", "xai", "x-ai", "x.ai"
+            sync_grok_models(provider)
+          when "google", "gemini"
+            sync_google_models(provider)
+          when "groq"
+            sync_groq_models(provider)
+          when "mistral"
+            sync_mistral_models(provider)
+          when "cohere"
+            sync_cohere_models(provider)
+          when "azure", "azure-openai"
+            sync_azure_models(provider)
+          else
+            sync_generic_models(provider)
+          end
         end
 
         # Health status is now computed via the model's health_status method
@@ -306,7 +341,8 @@ class AiProviderManagementService
         # Test the credential to ensure it works
         begin
           test_service = AiProviderTestService.new(credential)
-          test_result = test_service.test_with_details
+          # Use simple format for flat response with :success and :error at top level
+          test_result = test_service.test_with_details_simple
 
           if test_result[:success]
             credential.record_success!
@@ -363,7 +399,8 @@ class AiProviderManagementService
       credentials.find_each do |credential|
         begin
           test_service = AiProviderTestService.new(credential)
-          test_result = test_service.test_with_details
+          # Use simple format for flat response with :success and :error at top level
+          test_result = test_service.test_with_details_simple
 
           # Update credential status based on test result
           if test_result[:success]
@@ -641,6 +678,297 @@ class AiProviderManagementService
 
       provider.update(supported_models: current_models)
       Rails.logger.info "Successfully synced #{current_models.length} models for Anthropic provider #{provider.id}"
+      true
+    end
+
+    def sync_google_models(provider)
+      # Google AI (Gemini) models as of December 2025
+      current_models = [
+        {
+          "name" => "Gemini 2.0 Flash",
+          "id" => "gemini-2.0-flash-exp",
+          "context_length" => 1048576,
+          "max_output_tokens" => 8192,
+          "description" => "Next generation features, speed, and multimodal generation",
+          "capabilities" => %w[text_generation chat vision audio code_execution],
+          "pricing" => { "input_per_mtok" => 0.0, "output_per_mtok" => 0.0 }
+        },
+        {
+          "name" => "Gemini 1.5 Pro",
+          "id" => "gemini-1.5-pro",
+          "context_length" => 2097152,
+          "max_output_tokens" => 8192,
+          "description" => "Best performing multimodal model with features for a wide variety of reasoning tasks",
+          "capabilities" => %w[text_generation chat vision audio],
+          "pricing" => { "input_per_mtok" => 1.25, "output_per_mtok" => 5.00 }
+        },
+        {
+          "name" => "Gemini 1.5 Flash",
+          "id" => "gemini-1.5-flash",
+          "context_length" => 1048576,
+          "max_output_tokens" => 8192,
+          "description" => "Fast and versatile performance across a diverse variety of tasks",
+          "capabilities" => %w[text_generation chat vision audio],
+          "pricing" => { "input_per_mtok" => 0.075, "output_per_mtok" => 0.30 }
+        },
+        {
+          "name" => "Gemini 1.5 Flash-8B",
+          "id" => "gemini-1.5-flash-8b",
+          "context_length" => 1048576,
+          "max_output_tokens" => 8192,
+          "description" => "High volume and lower intelligence tasks",
+          "capabilities" => %w[text_generation chat vision audio],
+          "pricing" => { "input_per_mtok" => 0.0375, "output_per_mtok" => 0.15 }
+        }
+      ]
+
+      provider.update(supported_models: current_models)
+      Rails.logger.info "Successfully synced #{current_models.length} models for Google provider #{provider.id}"
+      true
+    end
+
+    def sync_azure_models(provider)
+      # Azure OpenAI models - these depend on user's deployed models
+      # Using common deployment names as defaults
+      current_models = [
+        {
+          "name" => "GPT-4o",
+          "id" => "gpt-4o",
+          "context_length" => 128000,
+          "max_output_tokens" => 16384,
+          "description" => "Most advanced multimodal model on Azure",
+          "capabilities" => %w[text_generation chat vision function_calling]
+        },
+        {
+          "name" => "GPT-4o Mini",
+          "id" => "gpt-4o-mini",
+          "context_length" => 128000,
+          "max_output_tokens" => 16384,
+          "description" => "Affordable and intelligent small model on Azure",
+          "capabilities" => %w[text_generation chat vision function_calling]
+        },
+        {
+          "name" => "GPT-4 Turbo",
+          "id" => "gpt-4-turbo",
+          "context_length" => 128000,
+          "max_output_tokens" => 4096,
+          "description" => "GPT-4 Turbo with Vision on Azure",
+          "capabilities" => %w[text_generation chat vision function_calling]
+        }
+      ]
+
+      provider.update(supported_models: current_models)
+      Rails.logger.info "Successfully synced #{current_models.length} models for Azure provider #{provider.id}"
+      true
+    end
+
+    def sync_groq_models(provider)
+      # Groq models as of December 2025
+      current_models = [
+        {
+          "name" => "Llama 3.3 70B Versatile",
+          "id" => "llama-3.3-70b-versatile",
+          "context_length" => 128000,
+          "max_output_tokens" => 32768,
+          "description" => "Meta's latest Llama 3.3 model - versatile and powerful",
+          "capabilities" => %w[text_generation chat function_calling],
+          "pricing" => { "input_per_mtok" => 0.59, "output_per_mtok" => 0.79 }
+        },
+        {
+          "name" => "Llama 3.1 70B Versatile",
+          "id" => "llama-3.1-70b-versatile",
+          "context_length" => 128000,
+          "max_output_tokens" => 32768,
+          "description" => "Meta's Llama 3.1 70B model",
+          "capabilities" => %w[text_generation chat function_calling],
+          "pricing" => { "input_per_mtok" => 0.59, "output_per_mtok" => 0.79 }
+        },
+        {
+          "name" => "Llama 3.1 8B Instant",
+          "id" => "llama-3.1-8b-instant",
+          "context_length" => 128000,
+          "max_output_tokens" => 8192,
+          "description" => "Fast and efficient Llama 3.1 8B model",
+          "capabilities" => %w[text_generation chat],
+          "pricing" => { "input_per_mtok" => 0.05, "output_per_mtok" => 0.08 }
+        },
+        {
+          "name" => "Mixtral 8x7B",
+          "id" => "mixtral-8x7b-32768",
+          "context_length" => 32768,
+          "max_output_tokens" => 32768,
+          "description" => "Mistral's Mixture of Experts model",
+          "capabilities" => %w[text_generation chat],
+          "pricing" => { "input_per_mtok" => 0.24, "output_per_mtok" => 0.24 }
+        },
+        {
+          "name" => "Gemma 2 9B",
+          "id" => "gemma2-9b-it",
+          "context_length" => 8192,
+          "max_output_tokens" => 8192,
+          "description" => "Google's Gemma 2 instruction-tuned model",
+          "capabilities" => %w[text_generation chat],
+          "pricing" => { "input_per_mtok" => 0.20, "output_per_mtok" => 0.20 }
+        }
+      ]
+
+      provider.update(supported_models: current_models)
+      Rails.logger.info "Successfully synced #{current_models.length} models for Groq provider #{provider.id}"
+      true
+    end
+
+    def sync_mistral_models(provider)
+      # Mistral AI models as of December 2025
+      current_models = [
+        {
+          "name" => "Mistral Large",
+          "id" => "mistral-large-latest",
+          "context_length" => 128000,
+          "max_output_tokens" => 8192,
+          "description" => "Top-tier reasoning model for high-complexity tasks",
+          "capabilities" => %w[text_generation chat function_calling],
+          "pricing" => { "input_per_mtok" => 2.00, "output_per_mtok" => 6.00 }
+        },
+        {
+          "name" => "Mistral Small",
+          "id" => "mistral-small-latest",
+          "context_length" => 32000,
+          "max_output_tokens" => 8192,
+          "description" => "Cost-efficient model for simple tasks",
+          "capabilities" => %w[text_generation chat function_calling],
+          "pricing" => { "input_per_mtok" => 0.20, "output_per_mtok" => 0.60 }
+        },
+        {
+          "name" => "Codestral",
+          "id" => "codestral-latest",
+          "context_length" => 32000,
+          "max_output_tokens" => 8192,
+          "description" => "Specialized model for code generation",
+          "capabilities" => %w[text_generation chat code_generation],
+          "pricing" => { "input_per_mtok" => 0.20, "output_per_mtok" => 0.60 }
+        },
+        {
+          "name" => "Ministral 8B",
+          "id" => "ministral-8b-latest",
+          "context_length" => 128000,
+          "max_output_tokens" => 8192,
+          "description" => "Compact model optimized for edge computing",
+          "capabilities" => %w[text_generation chat],
+          "pricing" => { "input_per_mtok" => 0.10, "output_per_mtok" => 0.10 }
+        },
+        {
+          "name" => "Pixtral Large",
+          "id" => "pixtral-large-latest",
+          "context_length" => 128000,
+          "max_output_tokens" => 8192,
+          "description" => "Multimodal model with vision capabilities",
+          "capabilities" => %w[text_generation chat vision],
+          "pricing" => { "input_per_mtok" => 2.00, "output_per_mtok" => 6.00 }
+        }
+      ]
+
+      provider.update(supported_models: current_models)
+      Rails.logger.info "Successfully synced #{current_models.length} models for Mistral provider #{provider.id}"
+      true
+    end
+
+    def sync_cohere_models(provider)
+      # Cohere models as of December 2025
+      current_models = [
+        {
+          "name" => "Command R+",
+          "id" => "command-r-plus",
+          "context_length" => 128000,
+          "max_output_tokens" => 4096,
+          "description" => "Advanced model optimized for complex RAG and multi-step tool use",
+          "capabilities" => %w[text_generation chat function_calling],
+          "pricing" => { "input_per_mtok" => 2.50, "output_per_mtok" => 10.00 }
+        },
+        {
+          "name" => "Command R",
+          "id" => "command-r",
+          "context_length" => 128000,
+          "max_output_tokens" => 4096,
+          "description" => "Optimized for long context tasks and RAG",
+          "capabilities" => %w[text_generation chat function_calling],
+          "pricing" => { "input_per_mtok" => 0.15, "output_per_mtok" => 0.60 }
+        },
+        {
+          "name" => "Command Light",
+          "id" => "command-light",
+          "context_length" => 4096,
+          "max_output_tokens" => 4096,
+          "description" => "Smaller, faster version of Command for simple tasks",
+          "capabilities" => %w[text_generation chat],
+          "pricing" => { "input_per_mtok" => 0.30, "output_per_mtok" => 0.60 }
+        },
+        {
+          "name" => "Embed English v3",
+          "id" => "embed-english-v3.0",
+          "context_length" => 512,
+          "description" => "English text embeddings model",
+          "capabilities" => %w[embeddings],
+          "pricing" => { "input_per_mtok" => 0.10 }
+        },
+        {
+          "name" => "Embed Multilingual v3",
+          "id" => "embed-multilingual-v3.0",
+          "context_length" => 512,
+          "description" => "Multilingual text embeddings model",
+          "capabilities" => %w[embeddings],
+          "pricing" => { "input_per_mtok" => 0.10 }
+        }
+      ]
+
+      provider.update(supported_models: current_models)
+      Rails.logger.info "Successfully synced #{current_models.length} models for Cohere provider #{provider.id}"
+      true
+    end
+
+    def sync_grok_models(provider)
+      # Grok (X.AI) models as of December 2025
+      # Source: https://docs.x.ai/docs/models
+      current_models = [
+        {
+          "name" => "Grok 2",
+          "id" => "grok-2-1212",
+          "context_length" => 131072,
+          "max_output_tokens" => 8192,
+          "description" => "Latest and most capable Grok model with improved reasoning",
+          "capabilities" => %w[text_generation chat function_calling],
+          "pricing" => { "input_per_mtok" => 2.00, "output_per_mtok" => 10.00 }
+        },
+        {
+          "name" => "Grok 2 Vision",
+          "id" => "grok-2-vision-1212",
+          "context_length" => 32768,
+          "max_output_tokens" => 8192,
+          "description" => "Multimodal Grok model with image understanding",
+          "capabilities" => %w[text_generation chat vision function_calling],
+          "pricing" => { "input_per_mtok" => 2.00, "output_per_mtok" => 10.00 }
+        },
+        {
+          "name" => "Grok Beta",
+          "id" => "grok-beta",
+          "context_length" => 131072,
+          "max_output_tokens" => 8192,
+          "description" => "Beta version of Grok with experimental features",
+          "capabilities" => %w[text_generation chat function_calling],
+          "pricing" => { "input_per_mtok" => 5.00, "output_per_mtok" => 15.00 }
+        },
+        {
+          "name" => "Grok Vision Beta",
+          "id" => "grok-vision-beta",
+          "context_length" => 8192,
+          "max_output_tokens" => 8192,
+          "description" => "Beta multimodal Grok with vision capabilities",
+          "capabilities" => %w[text_generation chat vision],
+          "pricing" => { "input_per_mtok" => 5.00, "output_per_mtok" => 15.00 }
+        }
+      ]
+
+      provider.update(supported_models: current_models)
+      Rails.logger.info "Successfully synced #{current_models.length} models for Grok (X.AI) provider #{provider.id}"
       true
     end
 

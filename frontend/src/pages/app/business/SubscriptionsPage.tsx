@@ -9,7 +9,7 @@ import { useSubscriptionLifecycle } from '@/shared/hooks/useSubscriptionLifecycl
 import { useSubscriptionWebSocket } from '@/shared/hooks/useSubscriptionWebSocket';
 import { useNotification } from '@/shared/hooks/useNotification';
 import { Plan } from '@/features/plans/services/plansApi';
-import { Subscription } from '@/features/subscriptions/services/subscriptionService';
+import { Subscription } from '@/shared/types';
 import { subscriptionHistoryApi, SubscriptionHistoryResponse } from '@/shared/services/subscriptionHistoryApi';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
 import { RefreshCw, CreditCard } from 'lucide-react';
@@ -151,22 +151,22 @@ export const SubscriptionsPage: React.FC = () => {
   // Use lifecycle management and real-time updates
   const { checkSubscriptionStatus, getDaysUntilExpiry } = useSubscriptionLifecycle();
   useSubscriptionWebSocket({
-    onSubscriptionUpdate: (data) => {
-      console.log('Subscription updated:', data);
+    onSubscriptionUpdate: (_data) => {
       // Refresh subscriptions when updates are received
       dispatch(fetchSubscriptions());
     },
-    onSubscriptionCancelled: (data) => {
-      console.log('Subscription cancelled:', data);
+    onSubscriptionCancelled: (_data) => {
       dispatch(fetchSubscriptions());
     },
-    onPaymentProcessed: (data) => {
-      console.log('Payment processed:', data);
+    onPaymentProcessed: (_data) => {
       dispatch(fetchSubscriptions());
     },
     onTrialEnding: (data) => {
-      console.log('Trial ending:', data);
-      // Could show a notification here
+      const trialData = data as { plan_name?: string } | undefined;
+      showNotification(
+        `Your trial for ${trialData?.plan_name || 'your subscription'} is ending soon. Upgrade now to continue using all features.`,
+        'warning'
+      );
     },
     onError: (error) => {
       console.error('Subscription WebSocket error:', error);
@@ -198,7 +198,7 @@ export const SubscriptionsPage: React.FC = () => {
 
   const handleSubscribe = async (planId: string) => {
     try {
-      const result = await dispatch(createSubscription({ planId }));
+      const result = await dispatch(createSubscription({ plan_id: planId }));
       if (createSubscription.fulfilled.match(result)) {
         showNotification('Subscription created successfully!', 'success');
       } else {
@@ -222,7 +222,7 @@ export const SubscriptionsPage: React.FC = () => {
       try {
         const result = await dispatch(updateSubscription({
           id: selectedSubscription.id,
-          data: { planId }
+          data: { plan_id: planId }
         }));
         if (updateSubscription.fulfilled.match(result)) {
           showNotification('Subscription upgraded successfully!', 'success');
@@ -267,28 +267,6 @@ export const SubscriptionsPage: React.FC = () => {
     });
   };
 
-  const formatPrice = (price: {cents: number; currency_iso: string} | number | null | undefined, interval?: string) => {
-    let priceCents: number;
-    
-    if (price == null) {
-      return 'Free';
-    }
-    
-    if (typeof price === 'object' && 'cents' in price) {
-      priceCents = price.cents;
-    } else if (typeof price === 'number') {
-      priceCents = price;
-    } else {
-      return 'Free';
-    }
-    
-    if (priceCents === 0 || isNaN(priceCents)) {
-      return 'Free';
-    }
-    
-    const formattedPrice = (priceCents / 100).toFixed(2);
-    return interval ? `$${formattedPrice}/${interval}` : `$${formattedPrice}`;
-  };
 
 
   const pageActions: PageAction[] = [
@@ -337,7 +315,7 @@ export const SubscriptionsPage: React.FC = () => {
               <div>
                 <p className="text-sm text-theme-secondary">Plan</p>
                 <p className="text-lg font-medium text-theme-primary">{currentSubscription.plan.name}</p>
-                <p className="text-sm text-theme-secondary">{formatPrice(currentSubscription.plan.price, currentSubscription.plan.billing_cycle)}</p>
+                <p className="text-sm text-theme-secondary">{currentSubscription.plan.formatted_price}/{currentSubscription.plan.billing_cycle}</p>
               </div>
               <div>
                 <p className="text-sm text-theme-secondary mb-2">Status</p>
@@ -348,11 +326,11 @@ export const SubscriptionsPage: React.FC = () => {
               </div>
               <div>
                 <p className="text-sm text-theme-secondary">
-                  {currentSubscription.currentPeriodEnd ? 'Next Billing' : 'Billing'}
+                  {currentSubscription.current_period_end ? 'Next Billing' : 'Billing'}
                 </p>
-                <p className="text-lg font-medium text-theme-primary">{formatDate(currentSubscription.currentPeriodEnd)}</p>
+                <p className="text-lg font-medium text-theme-primary">{formatDate(currentSubscription.current_period_end)}</p>
                 <p className="text-sm text-theme-secondary">
-                  {currentSubscription.currentPeriodEnd ? (
+                  {currentSubscription.current_period_end ? (
                     `${getDaysUntilExpiry(currentSubscription)} days remaining`
                   ) : (
                     'Never expires'
@@ -422,7 +400,7 @@ export const SubscriptionsPage: React.FC = () => {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {(availablePlans as any[]).filter((plan: any) => plan.is_public).map((plan: any, index: number) => {
+                {(availablePlans as any[]).filter((plan: any) => plan.is_public).map((plan: any) => {
                   const subscription = getSubscriptionForPlan(plan.id);
                   const isActive = !!subscription;
                   

@@ -137,46 +137,41 @@ export const TeamMembersTable: React.FC<TeamMembersTableProps> = ({
                     </Button>
                   )}
 
-                  {user.status === 'suspended' ? (
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => onUserAction(user, 'activate')}
-                      disabled={actionLoading}
-                      title="Activate User"
-                    >
-                      <Shield className="h-4 w-4" />
-                    </Button>
-                  ) : (
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => onUserAction(user, 'suspend')}
-                      disabled={actionLoading}
-                      title="Suspend User"
-                    >
-                      <Shield className="h-4 w-4" />
-                    </Button>
+                  {user.id !== currentUserId && (
+                    user.status === 'suspended' ? (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => onUserAction(user, 'activate')}
+                        disabled={actionLoading}
+                        title="Activate User"
+                      >
+                        <Shield className="h-4 w-4" />
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => onUserAction(user, 'suspend')}
+                        disabled={actionLoading}
+                        title="Suspend User"
+                      >
+                        <Shield className="h-4 w-4" />
+                      </Button>
+                    )
                   )}
 
-                  <div className="relative inline-block text-left">
+                  {user.id !== currentUserId && (
                     <Button
-                      variant="secondary"
+                      variant="danger"
                       size="sm"
-                      title="More Actions"
+                      onClick={() => onDeleteUser(user)}
+                      disabled={actionLoading}
+                      title="Delete User"
                     >
-                      ⋯
+                      Delete
                     </Button>
-                  </div>
-
-                  <Button
-                    variant="danger"
-                    size="sm"
-                    onClick={() => onDeleteUser(user)}
-                    title="Delete User"
-                  >
-                    Delete
-                  </Button>
+                  )}
                 </div>
               </td>
             </tr>

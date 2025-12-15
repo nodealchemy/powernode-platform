@@ -27,7 +27,7 @@ interface TestUIState {
 
 describe('uiSlice', () => {
   const initialState: TestUIState = {
-    sidebarOpen: true,
+    sidebarOpen: false, // Collapsed by default on mobile
     sidebarCollapsed: false,
     theme: 'light' as const,
     loading: false,
@@ -40,12 +40,12 @@ describe('uiSlice', () => {
 
   describe('sidebar actions', () => {
     it('should toggle sidebar open state', () => {
-      const currentState = { ...initialState, sidebarOpen: true };
+      const currentState = { ...initialState, sidebarOpen: false };
       const actual = uiReducer(currentState, toggleSidebar());
-      expect(actual.sidebarOpen).toBe(false);
+      expect(actual.sidebarOpen).toBe(true);
 
       const nextState = uiReducer(actual, toggleSidebar());
-      expect(nextState.sidebarOpen).toBe(true);
+      expect(nextState.sidebarOpen).toBe(false);
     });
 
     it('should set sidebar open state explicitly', () => {

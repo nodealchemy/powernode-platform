@@ -225,13 +225,18 @@ module Api
           return if credential.nil? # Error already rendered
 
           test_service = AiProviderTestService.new(credential)
-          test_result = test_service.test_with_details
+          # Use test_with_details_simple for flat response format expected by controller
+          test_result = test_service.test_with_details_simple
 
           # Update credential status based on test result
           if test_result[:success]
             credential.record_success!
+            # Also update provider's health metrics so it's marked as healthy
+            @provider.update_health_metrics(true, test_result[:response_time_ms])
           else
             credential.record_failure!(test_result[:error])
+            # Update provider's health metrics with failure
+            @provider.update_health_metrics(false, test_result[:response_time_ms], test_result[:error])
           end
 
           render_success(test_result)
@@ -267,6 +272,14 @@ module Api
 
         # POST /api/v1/ai/providers/:id/sync_models
         def sync_models
+          # Check provider is active first for better error messages
+          unless @provider.is_active?
+            return render_error(
+              "Cannot sync models: Provider is not active. Please activate the provider first.",
+              status: :unprocessable_content
+            )
+          end
+
           success = AiProviderManagementService.sync_provider_models(@provider)
 
           if success
@@ -279,7 +292,13 @@ module Api
               models_count: @provider.supported_models&.length || 0
             )
           else
-            render_error("Failed to sync provider models", status: :unprocessable_content)
+            error_message = case @provider.slug
+                           when "ollama", "remote-ollama-server"
+                             "Failed to sync models: Could not connect to Ollama server at #{@provider.api_base_url}. Ensure the server is running."
+                           else
+                             "Failed to sync provider models. Please check the provider configuration."
+                           end
+            render_error(error_message, status: :unprocessable_content)
           end
         end
 
@@ -483,13 +502,20 @@ module Api
         # POST /api/v1/ai/providers/:provider_id/credentials/:credential_id/test
         def credential_test
           test_service = AiProviderTestService.new(@credential)
-          test_result = test_service.test_with_details
+          # Use test_with_details_simple for flat response format expected by controller
+          test_result = test_service.test_with_details_simple
 
-          # Update credential status
+          provider = @credential.ai_provider
+
+          # Update credential and provider status
           if test_result[:success]
             @credential.record_success!
+            # Also update provider's health metrics so it's marked as healthy
+            provider.update_health_metrics(true, test_result[:response_time_ms])
           else
             @credential.record_failure!(test_result[:error])
+            # Update provider's health metrics with failure
+            provider.update_health_metrics(false, test_result[:response_time_ms], test_result[:error])
           end
 
           render_success(test_result)

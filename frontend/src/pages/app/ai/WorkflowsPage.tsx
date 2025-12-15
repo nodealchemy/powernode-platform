@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Play,
   Plus,
@@ -23,8 +23,8 @@ import {
   Hash,
   FileText,
   Activity,
-  FileStack,
-  RefreshCw
+  RefreshCw,
+  FileStack
 } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { DataTable } from '@/shared/components/ui/DataTable';
@@ -36,7 +36,7 @@ import { workflowsApi } from '@/shared/services/ai';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { AiWorkflow } from '@/shared/types/workflow';
-import { WorkflowFilters } from '@/shared/services/ai/WorkflowsApiService';
+import type { WorkflowFilters } from '@/shared/services/ai/types/workflow-api-types';
 import { WorkflowCreateModal } from '@/features/ai-workflows/components/WorkflowCreateModal';
 import { WorkflowDetailModal } from '@/features/ai-workflows/components/WorkflowDetailModal';
 import { WorkflowBuilderModal } from '@/shared/components/workflow/WorkflowBuilderModal';
@@ -44,12 +44,22 @@ import { AiErrorBoundary } from '@/shared/components/error/AiErrorBoundary';
 
 export const WorkflowsPage: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { currentUser } = useAuth();
   const { addNotification } = useNotifications();
+
+  // Get initial type filter from URL query param
+  const getInitialTypeFilter = (): 'all' | 'workflows' | 'templates' => {
+    const typeParam = searchParams.get('type');
+    if (typeParam === 'templates') return 'templates';
+    if (typeParam === 'workflows') return 'workflows';
+    return 'all';
+  };
 
   const [workflows, setWorkflows] = useState<AiWorkflow[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'workflows' | 'templates'>(getInitialTypeFilter());
   const [filters, setFilters] = useState<WorkflowFilters>({});
   const [sortBy, setSortBy] = useState<string>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
@@ -83,7 +93,9 @@ export const WorkflowsPage: React.FC = () => {
         sort_by: sortBy,
         sort_order: sortOrder,
         page: page,
-        per_page: perPage
+        per_page: perPage,
+        // Add is_template filter based on typeFilter
+        is_template: typeFilter === 'templates' ? true : typeFilter === 'workflows' ? false : undefined
       };
 
       const response = await workflowsApi.getWorkflows(searchFilters);
@@ -111,7 +123,7 @@ export const WorkflowsPage: React.FC = () => {
     } finally {
       if (!skipLoading) setLoading(false);
     }
-  }, [filters, searchQuery, sortBy, sortOrder, addNotification]);
+  }, [filters, searchQuery, sortBy, sortOrder, typeFilter, addNotification]);
 
   // Initial load - only runs once on mount
   useEffect(() => {
@@ -156,6 +168,19 @@ export const WorkflowsPage: React.FC = () => {
       loadWorkflows(1, perPage);
     }
   }, [filters, perPage]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Effect to reload workflows when type filter changes
+  useEffect(() => {
+    if (isInitialMount) return;
+    loadWorkflows(1, perPage);
+    // Sync URL with type filter
+    if (typeFilter === 'all') {
+      searchParams.delete('type');
+    } else {
+      searchParams.set('type', typeFilter);
+    }
+    setSearchParams(searchParams, { replace: true });
+  }, [typeFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Debounced effect to reload workflows when sorting changes
   useEffect(() => {
@@ -360,13 +385,21 @@ export const WorkflowsPage: React.FC = () => {
       width: '40%',
       render: (workflow: AiWorkflow) => (
         <div className="min-w-0">
-          <button
-            onClick={() => navigate(`/app/ai/workflows/${workflow.id}`)}
-            className="font-semibold text-lg text-theme-primary hover:text-theme-interactive-primary hover:underline whitespace-normal text-left transition-colors"
-            title="View workflow details"
-          >
-            {workflow.name}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => navigate(`/app/ai/workflows/${workflow.id}`)}
+              className="font-semibold text-lg text-theme-primary hover:text-theme-interactive-primary hover:underline whitespace-normal text-left transition-colors"
+              title="View workflow details"
+            >
+              {workflow.name}
+            </button>
+            {workflow.is_template && (
+              <Badge variant="info" size="sm" className="flex-shrink-0">
+                <FileStack className="h-3 w-3 mr-1" />
+                Template
+              </Badge>
+            )}
+          </div>
           <div className="text-sm text-theme-muted leading-relaxed whitespace-normal">
             {workflow.description}
           </div>
@@ -498,51 +531,44 @@ export const WorkflowsPage: React.FC = () => {
     <AiErrorBoundary>
       <PageContainer
         title="AI Workflows"
-        description="Create, manage, and execute automated AI workflows"
+        description="Create, manage, and execute automated AI workflows and templates"
         breadcrumbs={[
           { label: 'Dashboard', href: '/app' },
           { label: 'AI', href: '/app/ai' },
-        { label: 'Workflows' }
-      ]}
-      actions={[
-        {
-          id: 'refresh',
-          label: 'Refresh',
-          onClick: () => loadWorkflows(pagination.current_page, perPage),
-          icon: RefreshCw,
-          variant: 'outline'
-        },
-        {
-          id: 'templates',
-          label: 'Templates',
-          onClick: () => navigate('/app/ai/workflows/templates'),
-          icon: FileStack,
-          variant: 'outline'
-        },
-        {
-          id: 'monitoring',
-          label: 'Monitoring',
-          onClick: () => navigate('/app/ai/monitoring?tab=workflows'),
-          icon: Activity,
-          variant: 'outline'
-        },
-        ...(canCreateWorkflows ? [
+          { label: 'Workflows' }
+        ]}
+        actions={[
           {
-            id: 'import-workflow',
-            label: 'Import',
-            onClick: () => navigate('/app/ai/workflows/import'),
-            icon: Upload,
-            variant: 'outline' as const
+            id: 'refresh',
+            label: 'Refresh',
+            onClick: () => loadWorkflows(pagination.current_page, perPage),
+            icon: RefreshCw,
+            variant: 'outline'
           },
           {
-            id: 'create-workflow',
-            label: 'Create Workflow',
-            onClick: () => setIsCreateModalOpen(true),
-            icon: Plus,
-            variant: 'primary' as const
-          }
-        ] : [])
-      ]}
+            id: 'monitoring',
+            label: 'Monitoring',
+            onClick: () => navigate('/app/ai/monitoring/workflows'),
+            icon: Activity,
+            variant: 'outline'
+          },
+          ...(canCreateWorkflows ? [
+            {
+              id: 'import-workflow',
+              label: 'Import',
+              onClick: () => navigate('/app/ai/workflows/import'),
+              icon: Upload,
+              variant: 'outline' as const
+            },
+            {
+              id: 'create-workflow',
+              label: 'Create Workflow',
+              onClick: () => setIsCreateModalOpen(true),
+              icon: Plus,
+              variant: 'primary' as const
+            }
+          ] : [])
+        ]}
     >
       <div className="space-y-4">
         {/* Search and Controls */}
@@ -592,6 +618,42 @@ export const WorkflowsPage: React.FC = () => {
                 <span className="hidden sm:inline text-theme-primary">
                   {sortOrder === 'asc' ? 'A→Z' : 'Z→A'}
                 </span>
+              </button>
+            </div>
+
+            {/* Type Filter - Workflows vs Templates */}
+            <div className="flex items-center gap-1 bg-theme-surface border border-theme rounded-lg p-1">
+              <button
+                onClick={() => setTypeFilter('all')}
+                className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                  typeFilter === 'all'
+                    ? 'bg-theme-interactive-primary text-white'
+                    : 'text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-elevated'
+                }`}
+              >
+                All
+              </button>
+              <button
+                onClick={() => setTypeFilter('workflows')}
+                className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors flex items-center gap-1.5 ${
+                  typeFilter === 'workflows'
+                    ? 'bg-theme-interactive-primary text-white'
+                    : 'text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-elevated'
+                }`}
+              >
+                <Workflow className="h-3.5 w-3.5" />
+                Workflows
+              </button>
+              <button
+                onClick={() => setTypeFilter('templates')}
+                className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors flex items-center gap-1.5 ${
+                  typeFilter === 'templates'
+                    ? 'bg-theme-interactive-primary text-white'
+                    : 'text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-elevated'
+                }`}
+              >
+                <FileStack className="h-3.5 w-3.5" />
+                Templates
               </button>
             </div>
 

@@ -59,7 +59,7 @@ export type {
   WorkflowStatistics,
   WorkflowValidationResult,
   WorkflowRunMetrics,
-} from './WorkflowsApiService';
+} from './types/workflow-api-types';
 
 // Re-export Agents service
 export { agentsApi };
@@ -73,7 +73,7 @@ export type {
   AgentAnalytics,
   AgentType,
   SendMessageRequest,
-} from './AgentsApiService';
+} from './types/agent-api-types';
 
 // Re-export Conversations service (global conversations)
 export { conversationsApi };

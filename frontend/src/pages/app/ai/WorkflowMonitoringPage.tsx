@@ -12,7 +12,7 @@ export const WorkflowMonitoringPage: React.FC = () => {
 
   useEffect(() => {
     // Redirect to the monitoring page with workflows tab
-    navigate('/app/ai/monitoring?tab=workflows', { replace: true });
+    navigate('/app/ai/monitoring/workflows', { replace: true });
   }, [navigate]);
 
   return null;

@@ -99,7 +99,8 @@ RSpec.describe AiProviderManagementService, type: :service do
     it 'tests credential after creation' do
       test_service = instance_double(AiProviderTestService)
       allow(AiProviderTestService).to receive(:new).and_return(test_service)
-      allow(test_service).to receive(:test_with_details).and_return({ success: true })
+      # Service now uses test_with_details_simple for flat response format
+      allow(test_service).to receive(:test_with_details_simple).and_return({ success: true })
 
       described_class.create_provider_credential(
         openai_provider,
@@ -107,7 +108,7 @@ RSpec.describe AiProviderManagementService, type: :service do
         credentials_data
       )
 
-      expect(test_service).to have_received(:test_with_details)
+      expect(test_service).to have_received(:test_with_details_simple)
     end
 
     it 'raises ValidationError for empty credentials' do
@@ -235,7 +236,8 @@ RSpec.describe AiProviderManagementService, type: :service do
     end
 
     it 'handles test failures gracefully' do
-      allow_any_instance_of(AiProviderTestService).to receive(:test_with_details)
+      # Service now uses test_with_details_simple for flat response format
+      allow_any_instance_of(AiProviderTestService).to receive(:test_with_details_simple)
         .and_return({ success: false, error: 'Connection timeout' })
 
       results = described_class.test_all_credentials(account)
@@ -246,7 +248,8 @@ RSpec.describe AiProviderManagementService, type: :service do
     end
 
     it 'does not test credentials from other accounts' do
-      allow_any_instance_of(AiProviderTestService).to receive(:test_with_details)
+      # Service now uses test_with_details_simple for flat response format
+      allow_any_instance_of(AiProviderTestService).to receive(:test_with_details_simple)
         .and_return({ success: true })
 
       results = described_class.test_all_credentials(account)

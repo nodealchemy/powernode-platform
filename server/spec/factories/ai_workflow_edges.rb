@@ -63,14 +63,11 @@ FactoryBot.define do
       end
     end
 
+    # Loop body edge - from loop node's 'body' handle to processing node
+    # Uses 'default' edge_type since routing is determined by handle, not type
     trait :loop_body do
-      edge_type { 'loop_body' }
-      condition do
-        {
-          expression: 'loop.continue == true',
-          loop_condition: true
-        }
-      end
+      edge_type { 'default' }
+      condition { {} }
       configuration do
         {
           label: 'Loop Body',
@@ -84,14 +81,11 @@ FactoryBot.define do
       end
     end
 
+    # Loop back edge - from processing node back to loop node's 'loop-back' handle
+    # Uses 'loop' edge_type to indicate loop iteration
     trait :loop_back do
-      edge_type { 'loop_back' }
-      condition do
-        {
-          expression: 'loop.iteration < loop.max_iterations',
-          loop_back: true
-        }
-      end
+      edge_type { 'loop' }
+      condition { {} }
       configuration do
         {
           label: 'Continue Loop',
@@ -105,14 +99,11 @@ FactoryBot.define do
       end
     end
 
+    # Loop exit edge - from loop node's 'exit' handle to next node
+    # Uses 'default' edge_type since routing is determined by handle
     trait :loop_exit do
-      edge_type { 'loop_exit' }
-      condition do
-        {
-          expression: 'loop.break_condition || loop.iteration >= loop.max_iterations',
-          loop_exit: true
-        }
-      end
+      edge_type { 'default' }
+      condition { {} }
       configuration do
         {
           label: 'Exit Loop',
@@ -125,8 +116,10 @@ FactoryBot.define do
       end
     end
 
+    # Parallel branch edge - for split node outputs
+    # Uses 'default' edge_type since parallel execution is determined by node type
     trait :parallel_branch do
-      edge_type { 'parallel' }
+      edge_type { 'default' }
       condition { {} }
       configuration do
         {
@@ -141,18 +134,17 @@ FactoryBot.define do
       end
     end
 
+    # Merge input edge - for merge node inputs
+    # Uses 'default' edge_type since merge behavior is determined by node
     trait :merge_input do
-      edge_type { 'merge' }
-      condition do
-        {
-          wait_for_all: true,
-          merge_strategy: 'combine_outputs'
-        }
-      end
+      edge_type { 'default' }
+      condition { {} }
       configuration do
         {
           label: 'Merge',
           animated: false,
+          wait_for_all: true,
+          merge_strategy: 'combine_outputs',
           style: {
             stroke: '#10b981',
             strokeWidth: 2,
@@ -183,12 +175,13 @@ FactoryBot.define do
       end
     end
 
+    # Approval granted edge - from human_approval node when approved
+    # Uses 'success' edge_type to indicate successful approval
     trait :approval_granted do
-      edge_type { 'approval' }
+      edge_type { 'success' }
       condition do
         {
-          expression: 'approval.status == "approved"',
-          approval_required: true
+          expression: 'approval.status == "approved"'
         }
       end
       configuration do
@@ -203,12 +196,13 @@ FactoryBot.define do
       end
     end
 
+    # Approval denied edge - from human_approval node when denied
+    # Uses 'error' edge_type to indicate rejection path
     trait :approval_denied do
-      edge_type { 'rejection' }
+      edge_type { 'error' }
       condition do
         {
-          expression: 'approval.status == "denied"',
-          approval_required: true
+          expression: 'approval.status == "denied"'
         }
       end
       configuration do
@@ -242,12 +236,14 @@ FactoryBot.define do
       end
     end
 
+    # Data dependency edge - edge with required input data validation
+    # Uses 'conditional' edge_type since it has validation conditions
     trait :data_dependency do
-      edge_type { 'data' }
+      edge_type { 'conditional' }
       condition do
         {
-          required_data: [ 'input.user_id', 'input.session_token' ],
-          data_validation: true
+          expression: 'input.user_id != null && input.session_token != null',
+          required_data: [ 'input.user_id', 'input.session_token' ]
         }
       end
       configuration do
@@ -263,14 +259,11 @@ FactoryBot.define do
       end
     end
 
+    # High priority edge - uses default type with priority in configuration
     trait :priority_high do
-      edge_type { 'priority' }
-      condition do
-        {
-          priority_level: 'high',
-          execution_order: 1
-        }
-      end
+      edge_type { 'default' }
+      priority { 1 }
+      condition { {} }
       configuration do
         {
           label: 'High Priority',
@@ -283,14 +276,11 @@ FactoryBot.define do
       end
     end
 
+    # Low priority edge - uses default type with priority in configuration
     trait :priority_low do
-      edge_type { 'priority' }
-      condition do
-        {
-          priority_level: 'low',
-          execution_order: 10
-        }
-      end
+      edge_type { 'default' }
+      priority { 10 }
+      condition { {} }
       configuration do
         {
           label: 'Low Priority',
