@@ -6,6 +6,8 @@ module Stripe
   class APIConnectionError < StripeError; end
   class APIError < StripeError; end
   class InvalidRequestError < StripeError; end
+  class RateLimitError < StripeError; end
+  class AuthenticationError < StripeError; end
 
   class Charge
     def self.list(_options = {})

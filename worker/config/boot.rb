@@ -26,6 +26,9 @@ require_relative '../app/services/clamav_service'
 require_relative '../app/services/firebase_service'
 require_relative '../app/services/twilio_service'
 
+# Require exceptions first (used by jobs)
+require_relative '../app/exceptions/billing_exceptions'
+
 # Require base job first
 require_relative '../app/jobs/base_job'
 

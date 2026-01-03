@@ -53,7 +53,7 @@ module DistributedLock
   # @return [Boolean]
   def lock_held?(key)
     full_key = "lock:#{key}"
-    Sidekiq.redis { |conn| conn.exists?(full_key) }
+    Sidekiq.redis { |conn| conn.exists(full_key) == 1 }
   rescue StandardError => e
     logger.error "[DistributedLock] Error checking lock status: #{e.message}"
     false
