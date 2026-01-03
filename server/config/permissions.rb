@@ -189,7 +189,35 @@ module Permissions
     "storage.create" => "Create storage configurations",
     "storage.update" => "Update storage configurations",
     "storage.delete" => "Delete storage configurations",
-    "storage.test" => "Test storage connections"
+    "storage.test" => "Test storage connections",
+
+    # Git Provider Management
+    "git.providers.read" => "View Git providers",
+    "git.providers.create" => "Create Git providers",
+    "git.providers.update" => "Update Git providers",
+    "git.providers.delete" => "Delete Git providers",
+
+    # Git Credentials
+    "git.credentials.read" => "View Git credentials",
+    "git.credentials.create" => "Create Git credentials",
+    "git.credentials.update" => "Update Git credentials",
+    "git.credentials.delete" => "Delete Git credentials",
+    "git.credentials.test" => "Test Git credentials",
+
+    # Git Repositories
+    "git.repositories.read" => "View Git repositories",
+    "git.repositories.delete" => "Delete Git repositories",
+    "git.repositories.sync" => "Sync Git repositories",
+    "git.repositories.webhooks.manage" => "Manage repository webhooks",
+
+    # Git CI/CD Pipelines
+    "git.pipelines.read" => "View CI/CD pipelines",
+    "git.pipelines.trigger" => "Trigger CI/CD pipelines",
+    "git.pipelines.cancel" => "Cancel CI/CD pipelines",
+    "git.pipelines.logs" => "View pipeline logs",
+
+    # Git Webhook Events
+    "git.webhooks.read" => "View Git webhook events"
   }.freeze
 
   # Admin Permissions - Administrative operations
@@ -325,7 +353,19 @@ module Permissions
     "admin.storage.delete" => "Delete storage configurations",
     "admin.storage.manage" => "Full storage provider management",
     "admin.storage.manage_quota" => "Manage storage quotas",
-    "admin.storage.health" => "Monitor storage health"
+    "admin.storage.health" => "Monitor storage health",
+
+    # Git Administration
+    "admin.git.providers.read" => "View all Git providers",
+    "admin.git.providers.manage" => "Manage all Git providers",
+    "admin.git.credentials.read" => "View all Git credentials",
+    "admin.git.credentials.manage" => "Manage all Git credentials",
+    "admin.git.repositories.read" => "View all Git repositories",
+    "admin.git.repositories.manage" => "Manage all Git repositories",
+    "admin.git.webhooks.read" => "View all Git webhook events",
+    "admin.git.webhooks.manage" => "Manage Git webhook events",
+    "admin.git.pipelines.read" => "View all CI/CD pipelines",
+    "admin.git.pipelines.manage" => "Manage all CI/CD pipelines"
   }.freeze
 
   # System Permissions - Worker & automation operations
@@ -399,7 +439,13 @@ module Permissions
     "system.ai.manage_connections" => "Manage AI provider connections",
     "system.ai.rotate_keys" => "Rotate AI encryption keys",
     "system.ai.backup" => "Backup AI data",
-    "system.ai.sync" => "Sync AI provider data"
+    "system.ai.sync" => "Sync AI provider data",
+
+    # Git System Operations
+    "system.git.process_webhooks" => "Process Git webhook events",
+    "system.git.sync_repositories" => "Sync Git repositories",
+    "system.git.sync_pipelines" => "Sync CI/CD pipelines",
+    "system.git.access_credentials" => "Access Git credentials for operations"
   }.freeze
 
   # All permissions combined
@@ -493,7 +539,15 @@ module Permissions
         # File management permissions
         "files.read", "files.create", "files.update", "files.delete", "files.download",
         "files.share", "files.version", "files.tag",
-        "storage.read", "storage.create", "storage.update", "storage.delete", "storage.test"
+        "storage.read", "storage.create", "storage.update", "storage.delete", "storage.test",
+        # Git provider permissions
+        "git.providers.read", "git.providers.create", "git.providers.update", "git.providers.delete",
+        "git.credentials.read", "git.credentials.create", "git.credentials.update",
+        "git.credentials.delete", "git.credentials.test",
+        "git.repositories.read", "git.repositories.delete", "git.repositories.sync",
+        "git.repositories.webhooks.manage",
+        "git.pipelines.read", "git.pipelines.trigger", "git.pipelines.cancel", "git.pipelines.logs",
+        "git.webhooks.read"
       ]
     },
 
@@ -623,7 +677,10 @@ module Permissions
         "ai.agents.read", "ai.agents.execute",
         "ai.providers.read", "ai.providers.test",
         "ai.conversations.read", "ai.conversations.create",
-        "ai.messages.read", "ai.messages.create"
+        "ai.messages.read", "ai.messages.create",
+        # Git system permissions
+        "system.git.process_webhooks", "system.git.sync_repositories",
+        "system.git.sync_pipelines", "system.git.access_credentials"
       ]
     },
 
@@ -679,7 +736,15 @@ module Permissions
         # File management permissions
         "files.read", "files.create", "files.update", "files.delete", "files.download",
         "files.share", "files.version", "files.tag",
-        "storage.read", "storage.create", "storage.update", "storage.delete", "storage.test"
+        "storage.read", "storage.create", "storage.update", "storage.delete", "storage.test",
+        # Git provider permissions
+        "git.providers.read", "git.providers.create", "git.providers.update", "git.providers.delete",
+        "git.credentials.read", "git.credentials.create", "git.credentials.update",
+        "git.credentials.delete", "git.credentials.test",
+        "git.repositories.read", "git.repositories.delete", "git.repositories.sync",
+        "git.repositories.webhooks.manage",
+        "git.pipelines.read", "git.pipelines.trigger", "git.pipelines.cancel", "git.pipelines.logs",
+        "git.webhooks.read"
       ]
     }
   }.freeze

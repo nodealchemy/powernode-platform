@@ -38,6 +38,13 @@ class Account < ApplicationRecord
   # MCP (Model Context Protocol) associations
   has_many :mcp_servers, dependent: :destroy
 
+  # Git Provider associations
+  has_many :git_provider_credentials, dependent: :destroy
+  has_many :git_repositories, dependent: :destroy
+  has_many :git_webhook_events, dependent: :destroy
+  has_many :git_pipelines, dependent: :destroy
+  has_many :git_pipeline_jobs, dependent: :destroy
+
   # File Storage associations
   has_many :file_storages, dependent: :destroy
   has_many :file_objects, dependent: :destroy

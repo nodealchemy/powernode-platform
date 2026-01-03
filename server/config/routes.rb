@@ -147,6 +147,46 @@ Rails.application.routes.draw do
           post :validate_services
         end
 
+        # Git provider internal endpoints (for worker service)
+        namespace :git do
+          resources :webhook_events, only: [ :show, :update ] do
+            member do
+              patch :processing
+              patch :processed
+              patch :failed
+            end
+          end
+
+          resources :repositories, only: [ :show, :create, :update ] do
+            member do
+              post :sync_branches
+              post :sync_commits
+              post :sync_pipelines
+            end
+          end
+
+          resources :credentials, only: [ :show ] do
+            member do
+              get :decrypted
+            end
+          end
+
+          resources :pipelines, only: [ :show, :update ] do
+            member do
+              post :sync_jobs
+            end
+          end
+
+          # Job logs broadcasting (for WebSocket streaming from worker)
+          resources :job_logs, only: [] do
+            member do
+              post :broadcast
+              post :error
+              post :status
+            end
+          end
+        end
+
         # Internal subscriptions for worker dunning
         resources :subscriptions, only: [ :show ] do
           member do
@@ -1111,6 +1151,88 @@ Rails.application.routes.draw do
       end
 
       # ===================================================================
+      # GIT PROVIDER MANAGEMENT SYSTEM
+      # ===================================================================
+      # Multi-provider Git integration with CI/CD support
+      # Supports GitHub, GitLab, and Gitea (with act runner)
+      # ===================================================================
+
+      namespace :git do
+        # Providers with nested credentials
+        resources :providers, only: [ :index, :show, :create, :update, :destroy ] do
+          member do
+            # OAuth flow
+            post "oauth/authorize", action: :oauth_authorize
+            post "oauth/callback", action: :oauth_callback
+
+            # Credentials management
+            get :credentials
+            post :credentials, action: :create_credential
+          end
+
+          # Collection routes
+          collection do
+            post :sync, action: :sync_all
+            get :available
+          end
+        end
+
+        # Credential actions with credential_id param
+        scope "providers/:id/credentials/:credential_id" do
+          delete "/", to: "providers#destroy_credential"
+          post :test, to: "providers#test_credential"
+          post :make_default, to: "providers#make_default"
+        end
+
+        # Repositories
+        resources :repositories, only: [ :index, :show, :destroy ] do
+          collection do
+            post :sync
+          end
+
+          member do
+            post :configure_webhook
+            delete :remove_webhook
+            get :branches
+            get :commits
+            get :pull_requests
+            get :issues
+            get :pipelines
+          end
+        end
+
+        # Pipelines (can be accessed directly or via repository)
+        resources :pipelines, only: [ :index, :show ] do
+          collection do
+            get :stats
+          end
+
+          member do
+            post :cancel
+            post :retry
+            get :jobs
+          end
+        end
+
+        # Pipeline trigger (requires repository context)
+        post "repositories/:repository_id/pipelines/trigger", to: "pipelines#trigger"
+
+        # Job logs
+        get "pipelines/:pipeline_id/jobs/:id/logs", to: "pipelines#job_logs"
+
+        # Webhook events (read-only history)
+        resources :webhook_events, only: [ :index, :show ] do
+          collection do
+            get :stats
+          end
+
+          member do
+            post :retry
+          end
+        end
+      end
+
+      # ===================================================================
       # AI ORCHESTRATION SYSTEM - CONSOLIDATED CONTROLLERS
       # ===================================================================
       # 6 RESTful resource controllers replacing 25+ old controllers
@@ -1560,6 +1682,7 @@ Rails.application.routes.draw do
   namespace :webhooks do
     post "stripe", to: "stripe#handle"
     post "paypal", to: "paypal#handle"
+    post "git/:provider_type", to: "git#handle"
   end
 
   # ActionCable WebSocket endpoint

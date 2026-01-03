@@ -717,7 +717,14 @@ RSpec.describe Api::V1::Ai::ProvidersController, type: :controller do
 
     context 'as worker' do
       before do
+        # Set WORKER_TOKEN environment variable for worker authentication
+        ENV['WORKER_TOKEN'] = worker.auth_token
         @request.headers['X-Worker-Token'] = worker.auth_token
+      end
+
+      after do
+        # Clean up environment variable
+        ENV.delete('WORKER_TOKEN')
       end
 
       it 'allows worker to access all credentials' do

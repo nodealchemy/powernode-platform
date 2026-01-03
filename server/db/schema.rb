@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_12_12_221001) do
+ActiveRecord::Schema[8.0].define(version: 2025_12_15_000006) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -1700,6 +1700,216 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_12_221001) do
     t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'processing'::character varying::text, 'completed'::character varying::text, 'failed'::character varying::text])", name: "valid_gateway_job_status"
   end
 
+  create_table "git_pipeline_jobs", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "git_pipeline_id", null: false
+    t.uuid "account_id", null: false
+    t.string "external_id", limit: 255, null: false
+    t.string "name", limit: 255, null: false
+    t.string "status", limit: 30, null: false
+    t.string "conclusion", limit: 30
+    t.integer "step_number"
+    t.string "runner_name", limit: 255
+    t.string "runner_id", limit: 255
+    t.string "runner_os", limit: 50
+    t.text "logs_url"
+    t.text "logs_content"
+    t.integer "duration_seconds"
+    t.jsonb "steps", default: []
+    t.jsonb "outputs", default: {}
+    t.jsonb "metadata", default: {}
+    t.datetime "started_at", precision: nil
+    t.datetime "completed_at", precision: nil
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "created_at"], name: "index_git_pipeline_jobs_on_account_id_and_created_at"
+    t.index ["account_id"], name: "index_git_pipeline_jobs_on_account_id"
+    t.index ["conclusion"], name: "index_git_pipeline_jobs_on_conclusion"
+    t.index ["git_pipeline_id", "external_id"], name: "index_git_pipeline_jobs_on_git_pipeline_id_and_external_id", unique: true
+    t.index ["git_pipeline_id"], name: "index_git_pipeline_jobs_on_git_pipeline_id"
+    t.index ["runner_name"], name: "index_git_pipeline_jobs_on_runner_name"
+    t.index ["status"], name: "index_git_pipeline_jobs_on_status"
+  end
+
+  create_table "git_pipelines", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "git_repository_id", null: false
+    t.uuid "account_id", null: false
+    t.string "external_id", limit: 255, null: false
+    t.string "name", limit: 255, null: false
+    t.string "status", limit: 30, null: false
+    t.string "conclusion", limit: 30
+    t.string "trigger_event", limit: 50
+    t.string "ref", limit: 500
+    t.string "sha", limit: 64
+    t.string "head_sha", limit: 64
+    t.string "actor_username", limit: 255
+    t.string "actor_id", limit: 255
+    t.string "web_url", limit: 500
+    t.string "logs_url", limit: 500
+    t.integer "run_number"
+    t.integer "run_attempt", default: 1
+    t.integer "total_jobs", default: 0
+    t.integer "completed_jobs", default: 0
+    t.integer "failed_jobs", default: 0
+    t.integer "duration_seconds"
+    t.jsonb "workflow_config", default: {}
+    t.jsonb "metadata", default: {}
+    t.datetime "started_at", precision: nil
+    t.datetime "completed_at", precision: nil
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "created_at"], name: "index_git_pipelines_on_account_id_and_created_at"
+    t.index ["account_id"], name: "index_git_pipelines_on_account_id"
+    t.index ["conclusion"], name: "index_git_pipelines_on_conclusion"
+    t.index ["created_at"], name: "index_git_pipelines_on_created_at"
+    t.index ["git_repository_id", "external_id"], name: "index_git_pipelines_on_git_repository_id_and_external_id", unique: true
+    t.index ["git_repository_id"], name: "index_git_pipelines_on_git_repository_id"
+    t.index ["sha"], name: "index_git_pipelines_on_sha"
+    t.index ["status"], name: "index_git_pipelines_on_status"
+    t.index ["trigger_event"], name: "index_git_pipelines_on_trigger_event"
+  end
+
+  create_table "git_provider_credentials", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "git_provider_id", null: false
+    t.uuid "account_id", null: false
+    t.uuid "user_id"
+    t.string "name", limit: 255, null: false
+    t.string "auth_type", limit: 30, null: false
+    t.text "encrypted_credentials", null: false
+    t.string "encryption_key_id", limit: 50
+    t.string "external_username", limit: 255
+    t.string "external_user_id", limit: 255
+    t.string "external_avatar_url", limit: 500
+    t.jsonb "scopes", default: []
+    t.boolean "is_active", default: true
+    t.boolean "is_default", default: false
+    t.datetime "expires_at", precision: nil
+    t.datetime "last_used_at", precision: nil
+    t.datetime "last_test_at", precision: nil
+    t.string "last_test_status", limit: 30
+    t.string "last_error", limit: 1000
+    t.integer "success_count", default: 0
+    t.integer "failure_count", default: 0
+    t.integer "consecutive_failures", default: 0
+    t.jsonb "metadata", default: {}
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "git_provider_id", "is_default"], name: "idx_git_creds_unique_default", unique: true, where: "(is_default = true)"
+    t.index ["account_id", "git_provider_id"], name: "idx_on_account_id_git_provider_id_d749eaa17b"
+    t.index ["account_id", "is_default"], name: "index_git_provider_credentials_on_account_id_and_is_default"
+    t.index ["account_id"], name: "index_git_provider_credentials_on_account_id"
+    t.index ["auth_type"], name: "index_git_provider_credentials_on_auth_type"
+    t.index ["consecutive_failures"], name: "index_git_provider_credentials_on_consecutive_failures"
+    t.index ["git_provider_id"], name: "index_git_provider_credentials_on_git_provider_id"
+    t.index ["is_active"], name: "index_git_provider_credentials_on_is_active"
+    t.index ["user_id"], name: "index_git_provider_credentials_on_user_id"
+  end
+
+  create_table "git_providers", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "name", limit: 100, null: false
+    t.string "slug", limit: 50, null: false
+    t.string "provider_type", limit: 30, null: false
+    t.text "description"
+    t.string "api_base_url", limit: 500
+    t.string "web_base_url", limit: 500
+    t.jsonb "capabilities", default: [], null: false
+    t.jsonb "oauth_config", default: {}
+    t.jsonb "webhook_config", default: {}
+    t.jsonb "ci_cd_config", default: {}
+    t.boolean "is_active", default: true
+    t.boolean "supports_oauth", default: true
+    t.boolean "supports_pat", default: true
+    t.boolean "supports_webhooks", default: true
+    t.boolean "supports_ci_cd", default: false
+    t.integer "priority_order", default: 1000
+    t.jsonb "metadata", default: {}
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["capabilities"], name: "index_git_providers_on_capabilities", using: :gin
+    t.index ["is_active"], name: "index_git_providers_on_is_active"
+    t.index ["priority_order"], name: "index_git_providers_on_priority_order"
+    t.index ["provider_type"], name: "index_git_providers_on_provider_type"
+    t.index ["slug"], name: "index_git_providers_on_slug", unique: true
+  end
+
+  create_table "git_repositories", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "git_provider_credential_id", null: false
+    t.uuid "account_id", null: false
+    t.string "external_id", limit: 255, null: false
+    t.string "name", limit: 255, null: false
+    t.string "full_name", limit: 500, null: false
+    t.string "owner", limit: 255, null: false
+    t.text "description"
+    t.string "default_branch", limit: 255, default: "main"
+    t.string "clone_url", limit: 500
+    t.string "ssh_url", limit: 500
+    t.string "web_url", limit: 500
+    t.boolean "is_private", default: false
+    t.boolean "is_fork", default: false
+    t.boolean "is_archived", default: false
+    t.boolean "has_issues", default: true
+    t.boolean "has_pull_requests", default: true
+    t.boolean "has_wiki", default: false
+    t.boolean "webhook_configured", default: false
+    t.string "webhook_id", limit: 255
+    t.string "webhook_secret", limit: 255
+    t.jsonb "languages", default: {}
+    t.jsonb "topics", default: []
+    t.jsonb "sync_settings", default: {}
+    t.integer "stars_count", default: 0
+    t.integer "forks_count", default: 0
+    t.integer "open_issues_count", default: 0
+    t.integer "open_prs_count", default: 0
+    t.datetime "last_synced_at", precision: nil
+    t.datetime "last_commit_at", precision: nil
+    t.datetime "provider_created_at", precision: nil
+    t.datetime "provider_updated_at", precision: nil
+    t.jsonb "metadata", default: {}
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "full_name"], name: "index_git_repositories_on_account_id_and_full_name", unique: true
+    t.index ["account_id"], name: "index_git_repositories_on_account_id"
+    t.index ["external_id"], name: "index_git_repositories_on_external_id"
+    t.index ["git_provider_credential_id"], name: "index_git_repositories_on_git_provider_credential_id"
+    t.index ["is_private"], name: "index_git_repositories_on_is_private"
+    t.index ["last_synced_at"], name: "index_git_repositories_on_last_synced_at"
+    t.index ["owner"], name: "index_git_repositories_on_owner"
+    t.index ["topics"], name: "index_git_repositories_on_topics", using: :gin
+    t.index ["webhook_configured"], name: "index_git_repositories_on_webhook_configured"
+  end
+
+  create_table "git_webhook_events", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "git_repository_id"
+    t.uuid "git_provider_id", null: false
+    t.uuid "account_id", null: false
+    t.string "event_type", limit: 100, null: false
+    t.string "action", limit: 50
+    t.string "delivery_id", limit: 255
+    t.string "status", limit: 30, default: "pending", null: false
+    t.jsonb "payload", null: false
+    t.jsonb "headers", default: {}
+    t.string "sender_username", limit: 255
+    t.string "sender_id", limit: 255
+    t.string "ref", limit: 500
+    t.string "sha", limit: 64
+    t.text "error_message"
+    t.integer "retry_count", default: 0
+    t.datetime "processed_at", precision: nil
+    t.jsonb "processing_result", default: {}
+    t.jsonb "metadata", default: {}
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "created_at"], name: "index_git_webhook_events_on_account_id_and_created_at"
+    t.index ["account_id"], name: "index_git_webhook_events_on_account_id"
+    t.index ["created_at"], name: "index_git_webhook_events_on_created_at"
+    t.index ["delivery_id"], name: "index_git_webhook_events_on_delivery_id"
+    t.index ["event_type"], name: "index_git_webhook_events_on_event_type"
+    t.index ["git_provider_id"], name: "index_git_webhook_events_on_git_provider_id"
+    t.index ["git_repository_id", "event_type"], name: "index_git_webhook_events_on_git_repository_id_and_event_type"
+    t.index ["git_repository_id"], name: "index_git_webhook_events_on_git_repository_id"
+    t.index ["status", "retry_count"], name: "index_git_webhook_events_on_status_and_retry_count"
+    t.index ["status"], name: "index_git_webhook_events_on_status"
+  end
+
   create_table "impersonation_sessions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "impersonator_id", null: false
     t.uuid "impersonated_user_id", null: false
@@ -3338,6 +3548,18 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_12_221001) do
   add_foreign_key "file_versions", "accounts"
   add_foreign_key "file_versions", "file_objects"
   add_foreign_key "file_versions", "users", column: "created_by_id"
+  add_foreign_key "git_pipeline_jobs", "accounts", on_delete: :cascade
+  add_foreign_key "git_pipeline_jobs", "git_pipelines", on_delete: :cascade
+  add_foreign_key "git_pipelines", "accounts", on_delete: :cascade
+  add_foreign_key "git_pipelines", "git_repositories", on_delete: :cascade
+  add_foreign_key "git_provider_credentials", "accounts", on_delete: :cascade
+  add_foreign_key "git_provider_credentials", "git_providers", on_delete: :cascade
+  add_foreign_key "git_provider_credentials", "users", on_delete: :nullify
+  add_foreign_key "git_repositories", "accounts", on_delete: :cascade
+  add_foreign_key "git_repositories", "git_provider_credentials", on_delete: :cascade
+  add_foreign_key "git_webhook_events", "accounts", on_delete: :cascade
+  add_foreign_key "git_webhook_events", "git_providers", on_delete: :cascade
+  add_foreign_key "git_webhook_events", "git_repositories", on_delete: :cascade
   add_foreign_key "impersonation_sessions", "users", column: "impersonated_user_id"
   add_foreign_key "impersonation_sessions", "users", column: "impersonator_id"
   add_foreign_key "invitations", "accounts"

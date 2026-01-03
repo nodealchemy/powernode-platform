@@ -153,13 +153,6 @@ jest.mock('./WorkflowExecutionSummaryModal', () => ({
   )
 }));
 
-// Mock workflow utility functions
-jest.mock('@/shared/utils/workflowUtils', () => ({
-  sortNodesInExecutionOrder: (nodes: any[]) => nodes,
-  formatNodeType: (type: string) => type,
-  getNodeExecutionLevels: () => new Map()
-}));
-
 describe('WorkflowDetailModal', () => {
   const mockWorkflow = {
     id: 'workflow-1',

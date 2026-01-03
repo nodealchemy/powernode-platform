@@ -38,6 +38,65 @@ class WorkerApiClient
     { status: "unavailable" }
   end
 
+  # Queue a Git credential setup job
+  # @param credential_id [String] GitProviderCredential ID
+  # @param options [Hash] Additional options (e.g., skip_repo_sync: true)
+  # @return [Hash] Response from worker
+  def queue_git_credential_setup(credential_id, options = {})
+    queue_job("Git::CredentialSetupJob", [credential_id, options], queue: "services")
+  end
+
+  # Queue a Git repository sync job
+  # @param credential_id [String] GitProviderCredential ID
+  # @return [Hash] Response from worker
+  def queue_git_repository_sync(credential_id)
+    queue_job("Git::RepositorySyncJob", [credential_id], queue: "services")
+  end
+
+  # Queue a Git pipeline sync job
+  # @param repository_id [String] GitRepository ID
+  # @param external_pipeline_id [String] Optional external pipeline ID to sync specific run
+  # @return [Hash] Response from worker
+  def queue_git_pipeline_sync(repository_id, external_pipeline_id = nil)
+    args = external_pipeline_id ? [repository_id, external_pipeline_id] : [repository_id]
+    queue_job("Git::PipelineSyncJob", args, queue: "services")
+  end
+
+  # Queue a Git webhook processing job
+  # @param event_id [String] GitWebhookEvent ID
+  # @return [Hash] Response from worker
+  def queue_git_webhook_processing(event_id)
+    queue_job("Git::WebhookProcessingJob", [event_id], queue: "webhooks")
+  end
+
+  # Queue a Git job logs sync job
+  # @param job_id [String] GitPipelineJob ID
+  # @param options [Hash] Options including repository_id, pipeline_id, streaming
+  # @return [Hash] Response from worker
+  def queue_git_job_logs_sync(job_id, options = {})
+    queue_job("Git::JobLogsSyncJob", [job_id, options], queue: "services")
+  end
+
+  # Generic job queueing method
+  # @param job_class [String] Full job class name
+  # @param args [Array] Job arguments
+  # @param queue [String] Target queue name
+  # @param options [Hash] Additional Sidekiq options
+  # @return [Hash] Response from worker
+  def queue_job(job_class, args = [], queue: nil, **options)
+    payload = {
+      job_class: job_class,
+      args: args
+    }
+    payload[:queue] = queue if queue
+    payload[:options] = options if options.any?
+
+    post("/api/v1/jobs", payload)
+  rescue StandardError => e
+    Rails.logger.error "[WorkerApiClient] Failed to queue #{job_class}: #{e.message}"
+    raise ApiError, "Failed to queue job: #{e.message}"
+  end
+
   private
 
   def job_class_for_type(job_type)
@@ -99,12 +158,14 @@ class WorkerApiClient
 
   def detect_base_url
     # Detect base URL from Rails configuration or environment
-    if Rails.env.production? || Rails.env.staging?
-      # Use configured production URL from environment
-      ENV.fetch("APP_BASE_URL") { raise "APP_BASE_URL environment variable must be set in production" }
-    else
-      # Development: use localhost
-      "http://localhost:#{ENV.fetch('PORT', 3000)}"
+    # Worker service runs on its own port (default 4567)
+    ENV.fetch("WORKER_API_URL") do
+      if Rails.env.production? || Rails.env.staging?
+        ENV.fetch("WORKER_SERVICE_URL") { raise "WORKER_SERVICE_URL environment variable must be set in production" }
+      else
+        # Development: worker service runs on port 4567
+        "http://localhost:#{ENV.fetch('WORKER_PORT', 4567)}"
+      end
     end
   end
 end

@@ -85,6 +85,25 @@ module AuthHelpers
 
   # Alias for convenience
   alias_method :sign_in, :sign_in_as_user
+
+  # Generate service token for internal API authentication (worker service)
+  def service_token
+    payload = {
+      service: 'worker',
+      type: 'service',
+      exp: 24.hours.from_now.to_i
+    }
+    JwtService.encode(payload)
+  end
+
+  # Set service auth headers for internal API requests
+  def set_service_auth_headers
+    if defined?(@request)
+      @request.headers['Authorization'] = "Bearer #{service_token}"
+    else
+      request.headers['Authorization'] = "Bearer #{service_token}"
+    end
+  end
 end
 
 RSpec.configure do |config|

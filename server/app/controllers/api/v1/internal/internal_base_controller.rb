@@ -20,8 +20,11 @@ class Api::V1::Internal::InternalBaseController < ApplicationController
 
       unless payload["service"] == "worker" && payload["type"] == "service"
         render_error("Invalid service token", status: :unauthorized)
-        nil
+        return
       end
+
+      # Mark request as internal for permission validation
+      request.env["powernode.internal_request"] = true
 
     rescue JWT::DecodeError, JWT::ExpiredSignature
       render_error("Invalid service token", status: :unauthorized)

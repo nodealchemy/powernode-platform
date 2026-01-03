@@ -190,7 +190,13 @@ class JobsController
       'Mcp::McpServerHealthCheckJob',
       'Mcp::McpToolDiscoveryJob',
       'Mcp::McpToolExecutionJob',
-      'Mcp::McpToolCacheRefreshJob'
+      'Mcp::McpToolCacheRefreshJob',
+      # Git integration jobs
+      'Git::CredentialSetupJob',
+      'Git::RepositorySyncJob',
+      'Git::PipelineSyncJob',
+      'Git::WebhookProcessingJob',
+      'Git::JobLogsSyncJob'
     ]
 
     allowed_jobs.include?(job_class)

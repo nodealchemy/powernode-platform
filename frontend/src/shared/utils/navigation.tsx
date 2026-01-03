@@ -3,7 +3,8 @@ import {
   Home, BarChart3, Users, User, Settings, CreditCard,
   FileText, Package, UserCheck, Store, Smartphone,
   HelpCircle, LogOut, Bot, Brain, MessageSquare,
-  HardDrive, Workflow, Activity, Server
+  HardDrive, Workflow, Activity, Server, GitBranch,
+  Play, Webhook
 } from 'lucide-react';
 import { NavigationConfig } from '../types/navigation';
 
@@ -323,6 +324,43 @@ export const defaultNavigationConfig: NavigationConfig = {
 export const adminNavigationOverrides = {
   sections: [
     {
+      id: 'ci-cd',
+      name: 'CI/CD',
+      items: [
+        {
+          id: 'ci-cd-dashboard',
+          name: 'Dashboard',
+          href: '/app/ci-cd',
+          icon: Play,
+          description: 'Pipeline overview and recent activity',
+          permissions: ['git.pipelines.read'],
+          order: 1
+        },
+        {
+          id: 'ci-cd-repositories',
+          name: 'Repositories',
+          href: '/app/ci-cd/repositories',
+          icon: GitBranch,
+          description: 'Repository pipelines and status',
+          permissions: ['git.repositories.read'],
+          order: 2
+        },
+        {
+          id: 'ci-cd-webhooks',
+          name: 'Webhook Events',
+          href: '/app/ci-cd/webhooks',
+          icon: Webhook,
+          description: 'View and retry webhook events',
+          permissions: ['git.webhooks.read'],
+          order: 3
+        }
+      ],
+      permissions: ['git.pipelines.read'],
+      collapsible: true,
+      defaultExpanded: true,
+      order: 17
+    },
+    {
       id: 'system',
       name: 'System',
       items: [
@@ -379,9 +417,18 @@ export const adminNavigationOverrides = {
           description: 'Configure storage providers for file management',
           permissions: ['admin.storage.manage', 'admin.storage.read'],
           order: 6
+        },
+        {
+          id: 'git-providers',
+          name: 'Git Providers',
+          href: '/app/system/git-providers',
+          icon: GitBranch,
+          description: 'Manage Git provider integrations and CI/CD pipelines',
+          permissions: ['git.providers.read'],
+          order: 7
         }
       ],
-      permissions: ['webhook.read', 'admin.audit.read', 'api.manage_keys', 'admin.settings.edit', 'system.workers.read', 'admin.storage.manage', 'admin.storage.read'],
+      permissions: ['webhook.read', 'admin.audit.read', 'api.manage_keys', 'admin.settings.edit', 'system.workers.read', 'admin.storage.manage', 'admin.storage.read', 'git.providers.read'],
       collapsible: true,
       defaultExpanded: false,
       order: 18

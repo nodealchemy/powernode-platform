@@ -45,6 +45,15 @@ import { AdminRolesPage } from '@/pages/app/admin/AdminRolesPage';
 import { WorkersPage as SystemWorkersPage } from '@/pages/app/system/WorkersPage';
 import { ServicesPage } from '@/pages/app/system/ServicesPage';
 import StorageProvidersPage from '@/pages/app/system/StorageProvidersPage';
+import { GitProvidersPage } from '@/features/git-providers';
+import {
+  CICDDashboardPage,
+  RepositoriesPage as CICDRepositoriesPage,
+  RepositoryPipelinesPage,
+  PipelineDetailPage,
+  WebhookEventsPage,
+  WebhookEventDetailPage,
+} from '@/features/ci-cd';
 import { AdminMaintenancePage } from '@/pages/app/admin/AdminMaintenancePage';
 import { AdminMarketplacePage } from '@/pages/app/admin/AdminMarketplacePage';
 
@@ -491,6 +500,15 @@ const DashboardPage: React.FC = () => {
         <Route path="/system/services" element={<ServicesPage />} />
         <Route path="/system/storage" element={<StorageProvidersPage />} />
         <Route path="/system/webhooks" element={<WebhookManagementPage />} />
+        <Route path="/system/git-providers" element={<GitProvidersPage />} />
+
+        {/* CI/CD Pages */}
+        <Route path="/ci-cd" element={<CICDDashboardPage />} />
+        <Route path="/ci-cd/repositories" element={<CICDRepositoriesPage />} />
+        <Route path="/ci-cd/repositories/:repositoryId" element={<RepositoryPipelinesPage />} />
+        <Route path="/ci-cd/repositories/:repositoryId/pipelines/:pipelineId" element={<PipelineDetailPage />} />
+        <Route path="/ci-cd/webhooks" element={<WebhookEventsPage />} />
+        <Route path="/ci-cd/webhooks/:eventId" element={<WebhookEventDetailPage />} />
         <Route path="/system/audit-logs/*" element={<AuditLogsPage />} />
         <Route path="/system/api-keys" element={<ApiKeysPage />} />
         
